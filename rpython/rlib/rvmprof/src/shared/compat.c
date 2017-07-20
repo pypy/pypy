@@ -87,7 +87,9 @@ int vmp_write_time_now(int marker) {
     }
     buf.tv_sec = tv.tv_sec;
     buf.tv_usec = tv.tv_usec;
-    strncpy(((char*)buffer)+__SIZE-8, tm.tm_zone, 8);
+    // IF we really support time zones:
+    // use a cross platform datetime library that outputs iso8601 strings
+    // strncpy(((char*)buffer)+__SIZE-8, tm.tm_zone, 8);
 
     buffer[0] = marker;
     (void)memcpy(buffer+1, &buf, sizeof(struct timezone_buf));
@@ -128,8 +130,9 @@ int vmp_write_time_now(int marker) {
     buf.tv_usec = (system_time.wMilliseconds * 1000);
 
     // time zone not implemented on windows
+    // IF we really support time zones:
+    // use a cross platform datetime library that outputs iso8601 strings
     memset(((char*)buffer)+__SIZE-8, 0, 8);
-    (void)memcpy(((char*)buffer)+__SIZE-8, "UTC", 3);
 
     buffer[0] = marker;
     (void)memcpy(buffer+1, &buf, sizeof(struct timezone_buf));

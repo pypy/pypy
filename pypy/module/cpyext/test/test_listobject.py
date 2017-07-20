@@ -1,6 +1,8 @@
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.pyobject import from_ref
+from pypy.module.cpyext.listobject import (
+    PyList_Check, PyList_CheckExact, PyList_Size)
 
 class TestListObject(BaseApiTest):
     def test_list(self, space, api):
@@ -11,15 +13,15 @@ class TestListObject(BaseApiTest):
         """)
 
         l = api.PyList_New(0)
-        assert api.PyList_Check(l)
-        assert api.PyList_CheckExact(l)
+        assert PyList_Check(space, l)
+        assert PyList_CheckExact(space, l)
 
         l = space.call_function(L)
-        assert api.PyList_Check(l)
-        assert not api.PyList_CheckExact(l)
+        assert PyList_Check(space, l)
+        assert not PyList_CheckExact(space, l)
 
-        assert not api.PyList_Check(space.newtuple([]))
-        assert not api.PyList_CheckExact(space.newtuple([]))
+        assert not PyList_Check(space, space.newtuple([]))
+        assert not PyList_CheckExact(space, space.newtuple([]))
 
     def test_get_size(self, space, api):
         l = api.PyList_New(0)
@@ -27,12 +29,11 @@ class TestListObject(BaseApiTest):
         api.PyList_Append(l, space.wrap(3))
         assert api.PyList_GET_SIZE(l) == 1
 
-    def test_size(self, space, api):
+    def test_size(self, space):
         l = space.newlist([space.w_None, space.w_None])
-        assert api.PyList_Size(l) == 2
-        assert api.PyList_Size(space.w_None) == -1
-        assert api.PyErr_Occurred() is space.w_TypeError
-        api.PyErr_Clear()
+        assert PyList_Size(space, l) == 2
+        with raises_w(space, TypeError):
+            PyList_Size(space, space.w_None)
 
     def test_insert(self, space, api):
         w_l = space.newlist([space.w_None, space.w_None])
@@ -149,6 +150,13 @@ class AppTestListObject(AppTestCpythonExtensionBase):
 
         # tp_as_sequence should be filled, but tp_as_number should be NULL
         assert module.test_tp_as_() == 3
+
+        l = module.newlist()
+        p = l.pop()
+        assert p == 1000
+        p = l.pop(0)
+        assert p == 3
+        assert l == [-5]
 
     def test_list_macros(self):
         """The PyList_* macros cast, and calls expecting that build."""

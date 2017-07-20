@@ -10,6 +10,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib import rstack, rstackovf
 from rpython.rlib import rwin32
+from rpython.rlib import runicode
 
 from pypy.interpreter import debug
 
@@ -468,6 +469,14 @@ def decompose_valuefmt(valuefmt):
     assert len(formats) > 0, "unsupported: no % command found"
     return tuple(parts), tuple(formats)
 
+def _decode_utf8(string):
+    # when building the error message, don't crash if the byte string
+    # provided is not valid UTF-8
+    assert isinstance(string, str)
+    result, consumed = runicode.str_decode_utf_8(
+        string, len(string), "replace", final=True)
+    return result
+
 def get_operrcls2(valuefmt):
     valuefmt = valuefmt.decode('ascii')
     strings, formats = decompose_valuefmt(valuefmt)
@@ -499,13 +508,16 @@ def get_operrcls2(valuefmt):
                     elif fmt == 'S':
                         result = space.unicode_w(space.str(value))
                     elif fmt == 'T':
-                        result = space.type(value).name.decode('utf-8')
+                        result = _decode_utf8(space.type(value).name)
                     elif fmt == 'N':
                         result = value.getname(space)
                     elif fmt == '8':
-                        result = value.decode('utf-8')
+                        result = _decode_utf8(value)
                     else:
-                        result = unicode(value)
+                        if isinstance(value, unicode):
+                            result = value
+                        else:
+                            result = _decode_utf8(str(value))
                     lst[i + i + 1] = result
                 lst[-1] = self.xstrings[-1]
                 return u''.join(lst)

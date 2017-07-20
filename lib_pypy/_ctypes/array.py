@@ -74,12 +74,16 @@ class ArrayMeta(_CDataMeta):
         return self._type_._alignmentofinstances()
 
     def _CData_output(self, resarray, base=None, index=-1):
-        # this seems to be a string if we're array of char, surprise!
-        from ctypes import c_char, c_wchar
-        if self._type_ is c_char:
-            return _rawffi.charp2string(resarray.buffer, self._length_)
-        if self._type_ is c_wchar:
-            return _rawffi.wcharp2unicode(resarray.buffer, self._length_)
+        from _rawffi.alt import types
+        # If a char_p or unichar_p is received, skip the string interpretation
+        if base._ffiargtype != types.Pointer(types.char_p) and \
+           base._ffiargtype != types.Pointer(types.unichar_p):
+            # this seems to be a string if we're array of char, surprise!
+            from ctypes import c_char, c_wchar
+            if self._type_ is c_char:
+                return _rawffi.charp2string(resarray.buffer, self._length_)
+            if self._type_ is c_wchar:
+                return _rawffi.wcharp2unicode(resarray.buffer, self._length_)
         res = self.__new__(self)
         ffiarray = self._ffiarray.fromaddress(resarray.buffer, self._length_)
         res._buffer = ffiarray

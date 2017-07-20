@@ -810,7 +810,10 @@ def descr_set__qualname__(space, w_type, w_value):
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newtuple(w_type.mro_w)
+    if w_type.hasmro:
+        return space.newtuple(w_type.mro_w)
+    else:
+        return space.w_None
 
 def descr_mro(space, w_type):
     """Return a type's method resolution order."""
@@ -1227,6 +1230,7 @@ def ensure_common_attributes(w_self):
         ensure_module_attr(w_self)
     ensure_hash(w_self)
     w_self.mro_w = []      # temporarily
+    w_self.hasmro = False
     compute_mro(w_self)
 
 def ensure_static_new(w_self):
@@ -1264,8 +1268,10 @@ def compute_mro(w_self):
             w_mro = space.call_function(w_mro_meth)
             mro_w = space.fixedview(w_mro)
             w_self.mro_w = validate_custom_mro(space, mro_w)
+            w_self.hasmro = True
             return    # done
     w_self.mro_w = w_self.compute_default_mro()[:]
+    w_self.hasmro = True
 
 def validate_custom_mro(space, mro_w):
     # do some checking here.  Note that unlike CPython, strange MROs

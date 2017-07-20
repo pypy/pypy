@@ -25,13 +25,14 @@ def check_type_table(input, expected_output, included=None):
     assert ''.join(map(str, recomp.cffi_types)) == expected_output
 
 def verify(ffi, module_name, source, *args, **kwds):
+    no_cpp = kwds.pop('no_cpp', False)
     kwds.setdefault('undef_macros', ['NDEBUG'])
     module_name = '_CFFI_' + module_name
     ffi.set_source(module_name, source)
-    if not os.environ.get('NO_CPP'):     # test the .cpp mode too
+    if not os.environ.get('NO_CPP') and not no_cpp:   # test the .cpp mode too
         kwds.setdefault('source_extension', '.cpp')
         source = 'extern "C" {\n%s\n}' % (source,)
-    else:
+    elif sys.platform != 'win32':
         # add '-Werror' to the existing 'extra_compile_args' flags
         kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
                                       ['-Werror'])
@@ -2010,7 +2011,7 @@ def test_function_returns_float_complex():
     lib = verify(ffi, "test_function_returns_float_complex", """
         #include <complex.h>
         static float _Complex f1(float a, float b) { return a + I*2.0*b; }
-    """)
+    """, no_cpp=True)    # <complex.h> fails on some systems with C++
     result = lib.f1(1.25, 5.1)
     assert type(result) == complex
     assert result.real == 1.25   # exact
@@ -2024,7 +2025,7 @@ def test_function_returns_double_complex():
     lib = verify(ffi, "test_function_returns_double_complex", """
         #include <complex.h>
         static double _Complex f1(double a, double b) { return a + I*2.0*b; }
-    """)
+    """, no_cpp=True)    # <complex.h> fails on some systems with C++
     result = lib.f1(1.25, 5.1)
     assert type(result) == complex
     assert result.real == 1.25   # exact
@@ -2038,7 +2039,7 @@ def test_function_argument_float_complex():
     lib = verify(ffi, "test_function_argument_float_complex", """
         #include <complex.h>
         static float f1(float _Complex x) { return cabsf(x); }
-    """)
+    """, no_cpp=True)    # <complex.h> fails on some systems with C++
     x = complex(12.34, 56.78)
     result = lib.f1(x)
     assert abs(result - abs(x)) < 1e-5
@@ -2051,7 +2052,7 @@ def test_function_argument_double_complex():
     lib = verify(ffi, "test_function_argument_double_complex", """
         #include <complex.h>
         static double f1(double _Complex x) { return cabs(x); }
-    """)
+    """, no_cpp=True)    # <complex.h> fails on some systems with C++
     x = complex(12.34, 56.78)
     result = lib.f1(x)
     assert abs(result - abs(x)) < 1e-11
@@ -2251,3 +2252,37 @@ def test_gcc_visibility_hidden():
     int f(int a) { return a + 40; }
     """, extra_compile_args=['-fvisibility=hidden'])
     assert lib.f(2) == 42
+
+def test_override_default_definition():
+    ffi = FFI()
+    ffi.cdef("typedef long int16_t, char16_t;")
+    lib = verify(ffi, "test_override_default_definition", "")
+    assert ffi.typeof("int16_t") is ffi.typeof("char16_t") is ffi.typeof("long")
+
+def test_char16_char32_type(no_cpp=False):
+    if no_cpp is False and sys.platform == "win32":
+        py.test.skip("aaaaaaa why do modern MSVC compilers still define "
+                     "a very old __cplusplus value")
+    ffi = FFI()
+    ffi.cdef("""
+        char16_t foo_2bytes(char16_t);
+        char32_t foo_4bytes(char32_t);
+    """)
+    lib = verify(ffi, "test_char16_char32_type" + no_cpp * "_nocpp", """
+    #if !defined(__cplusplus) || __cplusplus < 201103L
+    typedef uint_least16_t char16_t;
+    typedef uint_least32_t char32_t;
+    #endif
+
+    char16_t foo_2bytes(char16_t a) { return (char16_t)(a + 42); }
+    char32_t foo_4bytes(char32_t a) { return (char32_t)(a + 42); }
+    """, no_cpp=no_cpp)
+    assert lib.foo_2bytes(u+'\u1234') == u+'\u125e'
+    assert lib.foo_4bytes(u+'\u1234') == u+'\u125e'
+    assert lib.foo_4bytes(u+'\U00012345') == u+'\U0001236f'
+    py.test.raises(TypeError, lib.foo_2bytes, u+'\U00012345')
+    py.test.raises(TypeError, lib.foo_2bytes, 1234)
+    py.test.raises(TypeError, lib.foo_4bytes, 1234)
+
+def test_char16_char32_plain_c():
+    test_char16_char32_type(no_cpp=True)

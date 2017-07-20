@@ -93,7 +93,8 @@ sqlite3
     libsqlite3
 
 curses
-    libncurses
+    libncurses-dev   (for PyPy2)
+    libncursesw-dev  (for PyPy3)
 
 gdbm
     libgdbm-dev
@@ -106,12 +107,13 @@ lzma (PyPy3 only)
 
 To run untranslated tests, you need the Boehm garbage collector libgc.
 
-On Debian, this is the command to install all build-time dependencies::
+On Debian and Ubuntu, this is the command to install all build-time
+dependencies::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
     libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
     tk-dev libgc-dev python-cffi \
-    liblzma-dev  # For lzma on PyPy3.
+    liblzma-dev libncursesw-dev      # these two only needed on PyPy3
 
 On Fedora::
 
@@ -194,6 +196,29 @@ This creates a clean and prepared hierarchy, as well as a ``.tar.bz2``
 with the same content; both are found by default in
 ``/tmp/usession-YOURNAME/build/``.  You can then either move the file
 hierarchy or unpack the ``.tar.bz2`` at the correct place.
+
+It is recommended to use package.py because custom scripts will
+invariably become out-of-date.  If you want to write custom scripts
+anyway, note an easy-to-miss point: some modules are written with CFFI,
+and require some compilation.  If you install PyPy as root without
+pre-compiling them, normal users will get errors:
+
+* PyPy 2.5.1 or earlier: normal users would see permission errors.
+  Installers need to run ``pypy -c "import gdbm"`` and other similar
+  commands at install time; the exact list is in `package.py`_.  Users
+  seeing a broken installation of PyPy can fix it after-the-fact if they
+  have sudo rights, by running once e.g. ``sudo pypy -c "import gdbm``.
+
+* PyPy 2.6 and later: anyone would get ``ImportError: no module named
+  _gdbm_cffi``.  Installers need to run ``pypy _gdbm_build.py`` in the
+  ``lib_pypy`` directory during the installation process (plus others;
+  see the exact list in `package.py`_).  Users seeing a broken
+  installation of PyPy can fix it after-the-fact, by running ``pypy
+  /path/to/lib_pypy/_gdbm_build.py``.  This command produces a file
+  called ``_gdbm_cffi.pypy-41.so`` locally, which is a C extension
+  module for PyPy.  You can move it at any place where modules are
+  normally found: e.g. in your project's main directory, or in a
+  directory that you add to the env var ``PYTHONPATH``.
 
 
 Installation

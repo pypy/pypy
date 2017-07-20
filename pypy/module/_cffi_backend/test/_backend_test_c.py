@@ -50,6 +50,10 @@ def find_and_load_library(name, flags=RTLD_NOW):
         path = None
     else:
         path = ctypes.util.find_library(name)
+        if path is None and name == 'c':
+            assert sys.platform == 'win32'
+            assert sys.version_info >= (3,)
+            py.test.skip("dlopen(None) cannot work on Windows with Python 3")
     return load_library(path, flags)
 
 def test_load_library():
@@ -1925,7 +1929,11 @@ def test_string_byte():
         assert string(a, 8).startswith(b'ABC')  # may contain additional garbage
 
 def test_string_wchar():
-    BWChar = new_primitive_type("wchar_t")
+    for typename in ["wchar_t", "char16_t", "char32_t"]:
+        _test_string_wchar_variant(typename)
+
+def _test_string_wchar_variant(typename):
+    BWChar = new_primitive_type(typename)
     assert string(cast(BWChar, 42)) == u+'*'
     assert string(cast(BWChar, 0x4253)) == u+'\u4253'
     assert string(cast(BWChar, 0)) == u+'\x00'
@@ -2087,22 +2095,44 @@ def test_cast_with_functionptr():
     py.test.raises(TypeError, newp, BStructPtr, [cast(BFunc2, 0)])
 
 def test_wchar():
-    BWChar = new_primitive_type("wchar_t")
+    _test_wchar_variant("wchar_t")
+    if sys.platform.startswith("linux"):
+        BWChar = new_primitive_type("wchar_t")
+        assert sizeof(BWChar) == 4
+        assert int(cast(BWChar, -1)) == -1        # signed, on linux
+
+def test_char16():
+    BChar16 = new_primitive_type("char16_t")
+    assert sizeof(BChar16) == 2
+    _test_wchar_variant("char16_t")
+    assert int(cast(BChar16, -1)) == 0xffff       # always unsigned
+
+def test_char32():
+    BChar32 = new_primitive_type("char32_t")
+    assert sizeof(BChar32) == 4
+    _test_wchar_variant("char32_t")
+    assert int(cast(BChar32, -1)) == 0xffffffff   # always unsigned
+
+def _test_wchar_variant(typename):
+    BWChar = new_primitive_type(typename)
     BInt = new_primitive_type("int")
     pyuni4 = {1: True, 2: False}[len(u+'\U00012345')]
     wchar4 = {2: False, 4: True}[sizeof(BWChar)]
-    assert str(cast(BWChar, 0x45)) == "<cdata 'wchar_t' %s'E'>" % (
-        mandatory_u_prefix,)
-    assert str(cast(BWChar, 0x1234)) == "<cdata 'wchar_t' %s'\u1234'>" % (
-        mandatory_u_prefix,)
-    if wchar4:
-        if not _hacked_pypy_uni4():
+    assert str(cast(BWChar, 0x45)) == "<cdata '%s' %s'E'>" % (
+        typename, mandatory_u_prefix)
+    assert str(cast(BWChar, 0x1234)) == "<cdata '%s' %s'\u1234'>" % (
+        typename, mandatory_u_prefix)
+    if not _hacked_pypy_uni4():
+        if wchar4:
             x = cast(BWChar, 0x12345)
-            assert str(x) == "<cdata 'wchar_t' %s'\U00012345'>" % (
-                mandatory_u_prefix,)
+            assert str(x) == "<cdata '%s' %s'\U00012345'>" % (
+                typename, mandatory_u_prefix)
             assert int(x) == 0x12345
-    else:
-        assert not pyuni4
+        else:
+            x = cast(BWChar, 0x18345)
+            assert str(x) == "<cdata '%s' %s'\u8345'>" % (
+                typename, mandatory_u_prefix)
+            assert int(x) == 0x8345
     #
     BWCharP = new_pointer_type(BWChar)
     BStruct = new_struct_type("struct foo_s")
@@ -2117,9 +2147,9 @@ def test_wchar():
     s.a1 = u+'\u1234'
     assert s.a1 == u+'\u1234'
     if pyuni4:
-        assert wchar4
-        s.a1 = u+'\U00012345'
-        assert s.a1 == u+'\U00012345'
+        if wchar4:
+            s.a1 = u+'\U00012345'
+            assert s.a1 == u+'\U00012345'
     elif wchar4:
         if not _hacked_pypy_uni4():
             s.a1 = cast(BWChar, 0x12345)
@@ -2154,17 +2184,17 @@ def test_wchar():
         py.test.raises(IndexError, 'a[4]')
     #
     w = cast(BWChar, 'a')
-    assert repr(w) == "<cdata 'wchar_t' %s'a'>" % mandatory_u_prefix
+    assert repr(w) == "<cdata '%s' %s'a'>" % (typename, mandatory_u_prefix)
     assert str(w) == repr(w)
     assert string(w) == u+'a'
     assert int(w) == ord('a')
     w = cast(BWChar, 0x1234)
-    assert repr(w) == "<cdata 'wchar_t' %s'\u1234'>" % mandatory_u_prefix
+    assert repr(w) == "<cdata '%s' %s'\u1234'>" % (typename, mandatory_u_prefix)
     assert str(w) == repr(w)
     assert string(w) == u+'\u1234'
     assert int(w) == 0x1234
     w = cast(BWChar, u+'\u8234')
-    assert repr(w) == "<cdata 'wchar_t' %s'\u8234'>" % mandatory_u_prefix
+    assert repr(w) == "<cdata '%s' %s'\u8234'>" % (typename, mandatory_u_prefix)
     assert str(w) == repr(w)
     assert string(w) == u+'\u8234'
     assert int(w) == 0x8234
@@ -2172,8 +2202,8 @@ def test_wchar():
     assert repr(w) == "<cdata 'int' 4660>"
     if wchar4 and not _hacked_pypy_uni4():
         w = cast(BWChar, u+'\U00012345')
-        assert repr(w) == "<cdata 'wchar_t' %s'\U00012345'>" % (
-            mandatory_u_prefix,)
+        assert repr(w) == "<cdata '%s' %s'\U00012345'>" % (
+            typename, mandatory_u_prefix)
         assert str(w) == repr(w)
         assert string(w) == u+'\U00012345'
         assert int(w) == 0x12345
@@ -2200,7 +2230,7 @@ def test_wchar():
     py.test.raises(RuntimeError, string, q)
     #
     def cb(p):
-        assert repr(p).startswith("<cdata 'wchar_t *' 0x")
+        assert repr(p).startswith("<cdata '%s *' 0x" % typename)
         return len(string(p))
     BFunc = new_function_type((BWCharP,), BInt, False)
     f = callback(BFunc, cb, -42)
@@ -2212,6 +2242,27 @@ def test_wchar():
         py.test.raises(ValueError, string, x)
         x = cast(BWChar, -1)
         py.test.raises(ValueError, string, x)
+
+def test_wchar_variants_mix():
+    BWChar  = new_primitive_type("wchar_t")
+    BChar16 = new_primitive_type("char16_t")
+    BChar32 = new_primitive_type("char32_t")
+    assert int(cast(BChar32, cast(BChar16, -2))) == 0xfffe
+    assert int(cast(BWChar, cast(BChar16, -2))) == 0xfffe
+    assert int(cast(BChar16, cast(BChar32, 0x0001f345))) == 0xf345
+    assert int(cast(BChar16, cast(BWChar, 0x0001f345))) == 0xf345
+    #
+    BChar16A = new_array_type(new_pointer_type(BChar16), None)
+    BChar32A = new_array_type(new_pointer_type(BChar32), None)
+    x = cast(BChar32, 'A')
+    py.test.raises(TypeError, newp, BChar16A, [x])
+    x = cast(BChar16, 'A')
+    py.test.raises(TypeError, newp, BChar32A, [x])
+    #
+    a = newp(BChar16A, u+'\U00012345')
+    assert len(a) == 3
+    a = newp(BChar32A, u+'\U00012345')
+    assert len(a) == 2   # even if the Python unicode string above is 2 chars
 
 def test_keepalive_struct():
     # exception to the no-keepalive rule: p=newp(BStructPtr) returns a
@@ -3439,14 +3490,15 @@ def test_ass_slice():
     py.test.raises(TypeError, "p[1:5] = u+'XYZT'")
     py.test.raises(TypeError, "p[1:5] = [1, 2, 3, 4]")
     #
-    BUniChar = new_primitive_type("wchar_t")
-    BArray = new_array_type(new_pointer_type(BUniChar), None)
-    p = newp(BArray, u+"foobar")
-    p[2:5] = [u+"*", u+"Z", u+"T"]
-    p[1:3] = u+"XY"
-    assert list(p) == [u+"f", u+"X", u+"Y", u+"Z", u+"T", u+"r", u+"\x00"]
-    py.test.raises(TypeError, "p[1:5] = b'XYZT'")
-    py.test.raises(TypeError, "p[1:5] = [1, 2, 3, 4]")
+    for typename in ["wchar_t", "char16_t", "char32_t"]:
+        BUniChar = new_primitive_type(typename)
+        BArray = new_array_type(new_pointer_type(BUniChar), None)
+        p = newp(BArray, u+"foobar")
+        p[2:5] = [u+"*", u+"Z", u+"T"]
+        p[1:3] = u+"XY"
+        assert list(p) == [u+"f", u+"X", u+"Y", u+"Z", u+"T", u+"r", u+"\x00"]
+        py.test.raises(TypeError, "p[1:5] = b'XYZT'")
+        py.test.raises(TypeError, "p[1:5] = [1, 2, 3, 4]")
 
 def test_void_p_arithmetic():
     BVoid = new_void_type()
@@ -3759,10 +3811,12 @@ def test_unpack():
     p0 = p
     assert unpack(p, 10) == b"abc\x00def\x00\x00\x00"
     assert unpack(p+1, 5) == b"bc\x00de"
-    BWChar = new_primitive_type("wchar_t")
-    BArray = new_array_type(new_pointer_type(BWChar), 10)   # wchar_t[10]
-    p = newp(BArray, u"abc\x00def")
-    assert unpack(p, 10) == u"abc\x00def\x00\x00\x00"
+
+    for typename in ["wchar_t", "char16_t", "char32_t"]:
+        BWChar = new_primitive_type(typename)
+        BArray = new_array_type(new_pointer_type(BWChar), 10)   # wchar_t[10]
+        p = newp(BArray, u"abc\x00def")
+        assert unpack(p, 10) == u"abc\x00def\x00\x00\x00"
 
     for typename, samples in [
             ("uint8_t",  [0, 2**8-1]),

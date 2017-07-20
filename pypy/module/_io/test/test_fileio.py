@@ -5,7 +5,8 @@ import os
 
 
 class AppTestFileIO:
-    spaceconfig = dict(usemodules=['_io'] + (['fcntl'] if os.name != 'nt' else []))
+    spaceconfig = dict(usemodules=['_io', 'array'] +
+                                  (['fcntl'] if os.name != 'nt' else []))
 
     def setup_method(self, meth):
         tmpfile = udir.join('tmpfile')
@@ -187,6 +188,14 @@ class AppTestFileIO:
         f = _io.FileIO(self.bigfile, 'r+')
         assert f.readinto(a) == 1000
         assert a == b'a' * 1000 + b'x' * 24
+
+    def test_readinto_array(self):
+        import _io, array
+        buffer = array.array('i', [0]*10)
+        m = memoryview(buffer)
+        f = _io.FileIO(self.tmpfile, 'r+')
+        assert f.readinto(m[1:9]) == 5
+        assert buffer[1] in (0x610a620a, 0x0a620a61)
 
     def test_nonblocking_read(self):
         try:

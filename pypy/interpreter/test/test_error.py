@@ -92,6 +92,20 @@ def test_oefmt_utf8(space):
     operr = oefmt("w_type", "abc %8", arg)
     val = operr._compute_value(space)
     assert val == u"abc àèìòù"
+    #
+    # if the arg is a byte string and we specify '%s', then we
+    # also get utf-8 encoding.  This should be the common case
+    # nowadays with utf-8 byte strings being common in the RPython
+    # sources of PyPy.
+    operr = oefmt("w_type", "abc %s", arg)
+    val = operr._compute_value(space)
+    assert val == u"abc àèìòù"
+    #
+    # if the byte string is not valid utf-8, then don't crash
+    arg = '\xe9'
+    operr = oefmt("w_type", "abc %8", arg)
+    val = operr._compute_value(space)
+
 
 def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))

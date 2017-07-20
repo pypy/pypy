@@ -346,11 +346,11 @@ class CPyListStrategy(ListStrategy):
 
     def pop(self, w_list, index):
         w_list.switch_to_object_strategy()
-        w_list.strategy.pop(w_list, index)
+        return w_list.strategy.pop(w_list, index)
 
     def pop_end(self, w_list):
         w_list.switch_to_object_strategy()
-        w_list.strategy.pop_end(w_list)
+        return w_list.strategy.pop_end(w_list)
 
     def insert(self, w_list, index, w_item):
         w_list.switch_to_object_strategy()

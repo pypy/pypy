@@ -48,34 +48,21 @@
 #include "rss_darwin.h"
 #endif
 
+#if VMPROF_LINUX
+#include <syscall.h>
+#endif
 
 /************************************************************/
 
 static void *(*mainloop_get_virtual_ip)(char *) = 0;
-static int opened_profile(const char *interp_name, int memory, int proflines, int native);
+static int opened_profile(const char *interp_name, int memory, int proflines, int native, int real_time);
 static void flush_codes(void);
 
 /************************************************************/
 
-/* value: last bit is 1 if signals must be ignored; all other bits
-   are a counter for how many threads are currently in a signal handler */
-static long volatile signal_handler_value = 1;
-
-RPY_EXTERN
-void vmprof_ignore_signals(int ignored)
-{
-    if (!ignored) {
-        __sync_fetch_and_and(&signal_handler_value, ~1L);
-    }
-    else {
-        /* set the last bit, and wait until concurrently-running signal
-           handlers finish */
-        while (__sync_or_and_fetch(&signal_handler_value, 1L) != 1L) {
-            usleep(1);
-        }
-    }
-}
-
+RPY_EXTERN void vmprof_ignore_signals(int ignored);
+RPY_EXTERN long vmprof_enter_signal(void);
+RPY_EXTERN long vmprof_exit_signal(void);
 
 /* *************************************************************
  * functions to write a profile file compatible with gperftools
@@ -94,14 +81,19 @@ int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, i
 {
     PY_STACK_FRAME_T * frame;
 #ifdef RPYTHON_VMPROF
-    // do nothing here, 
+    // do nothing here,
     frame = (PY_STACK_FRAME_T*)current;
 #else
-    if (!current) {
+    if (current == NULL) {
+        fprintf(stderr, "WARNING: get_stack_trace, current is NULL\n");
         return 0;
     }
     frame = current->frame;
 #endif
+    if (frame == NULL) {
+        fprintf(stderr, "WARNING: get_stack_trace, frame is NULL\n");
+        return 0;
+    }
     return vmp_walk_and_record_stack(frame, result, max_depth, 1, pc);
 }
 
@@ -155,11 +147,12 @@ static PY_THREAD_STATE_T * _get_pystate_for_this_thread(void) {
     PyThreadState * state;
     long mythread_id;
 
+    mythread_id = PyThread_get_thread_ident();
     istate = PyInterpreterState_Head();
     if (istate == NULL) {
+        fprintf(stderr, "WARNING: interp state head is null (for thread id %ld)\n", mythread_id);
         return NULL;
     }
-    mythread_id = PyThread_get_thread_ident();
     // fish fish fish, it will NOT lock the keymutex in pythread
     do {
         state = PyInterpreterState_ThreadHead(istate);
@@ -171,7 +164,44 @@ static PY_THREAD_STATE_T * _get_pystate_for_this_thread(void) {
     } while ((istate = PyInterpreterState_Next(istate)) != NULL);
 
     // uh? not found?
+    fprintf(stderr, "WARNING: cannot find thread state (for thread id %ld), sample will be thrown away\n", mythread_id);
     return NULL;
+}
+#endif
+
+#ifdef VMPROF_UNIX
+static int broadcast_signal_for_threads(void)
+{
+    int done = 1;
+    size_t i = 0;
+    pthread_t self = pthread_self();
+    pthread_t tid;
+    while (i < thread_count) {
+        tid = threads[i];
+        if (pthread_equal(tid, self)) {
+            done = 0;
+        } else if (pthread_kill(tid, SIGALRM)) {
+            remove_thread(tid, i);
+        }
+        i++;
+    }
+    return done;
+}
+#endif
+
+#ifdef VMPROF_LINUX
+static inline int is_main_thread(void)
+{
+    pid_t pid = getpid();
+    pid_t tid = (pid_t) syscall(SYS_gettid);
+    return (pid == tid);
+}
+#endif
+
+#ifdef VMPROF_APPLE
+static inline int is_main_thread(void)
+{
+    return pthread_main_np();
 }
 #endif
 
@@ -180,7 +210,15 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
     int commit;
     PY_THREAD_STATE_T * tstate = NULL;
     void (*prevhandler)(int);
+
 #ifndef RPYTHON_VMPROF
+
+    // Even though the docs say that this function call is for 'esoteric use'
+    // it seems to be correctly set when the interpreter is teared down!
+    if (!Py_IsInitialized()) {
+        return;
+    }
+
     // TERRIBLE HACK AHEAD
     // on OS X, the thread local storage is sometimes uninitialized
     // when the signal handler runs - it means it's impossible to read errno
@@ -193,6 +231,21 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
     // get_current_thread_state returns a sane result
     while (__sync_lock_test_and_set(&spinlock, 1)) {
     }
+
+#ifdef VMPROF_UNIX
+    // SIGNAL ABUSE AHEAD
+    // On linux, the prof timer will deliver the signal to the thread which triggered the timer,
+    // because these timers are based on process and system time, and as such, are thread-aware.
+    // For the real timer, the signal gets delivered to the main thread, seemingly always.
+    // Consequently if we want to sample multiple threads, we need to forward this signal.
+    if (signal_type == SIGALRM) {
+        if (is_main_thread() && broadcast_signal_for_threads()) {
+            __sync_lock_release(&spinlock);
+            return;
+        }
+    }
+#endif
+
     prevhandler = signal(SIGSEGV, &segfault_handler);
     int fault_code = setjmp(restore_point);
     if (fault_code == 0) {
@@ -207,7 +260,7 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
     __sync_lock_release(&spinlock);
 #endif
 
-    long val = __sync_fetch_and_add(&signal_handler_value, 2L);
+    long val = vmprof_enter_signal();
 
     if ((val & 1) == 0) {
         int saved_errno = errno;
@@ -226,6 +279,11 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
             if (commit) {
                 commit_buffer(fd, p);
             } else {
+#ifndef RPYTHON_VMPROF
+                fprintf(stderr, "WARNING: canceled buffer, no stack trace was written %d\n", is_enabled);
+#else
+                fprintf(stderr, "WARNING: canceled buffer, no stack trace was written\n");
+#endif
                 cancel_buffer(p);
             }
         }
@@ -233,7 +291,7 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
         errno = saved_errno;
     }
 
-    __sync_sub_and_fetch(&signal_handler_value, 2L);
+    vmprof_exit_signal();
 }
 
 
@@ -250,7 +308,7 @@ static int install_sigprof_handler(void)
     sa.sa_sigaction = sigprof_handler;
     sa.sa_flags = SA_RESTART | SA_SIGINFO;
     if (sigemptyset(&sa.sa_mask) == -1 ||
-        sigaction(SIGPROF, &sa, NULL) == -1)
+        sigaction(signal_type, &sa, NULL) == -1)
         return -1;
     return 0;
 }
@@ -262,7 +320,7 @@ static int remove_sigprof_handler(void)
     ign_sigint.sa_flags = 0;
     sigemptyset(&ign_sigint.sa_mask);
 
-    if (sigaction(SIGPROF, &ign_sigint, NULL) < 0) {
+    if (sigaction(signal_type, &ign_sigint, NULL) < 0) {
         fprintf(stderr, "Could not remove the signal handler (for profiling)\n");
         return -1;
     }
@@ -273,9 +331,9 @@ static int install_sigprof_timer(void)
 {
     static struct itimerval timer;
     timer.it_interval.tv_sec = 0;
-    timer.it_interval.tv_usec = profile_interval_usec;
+    timer.it_interval.tv_usec = (int)profile_interval_usec;
     timer.it_value = timer.it_interval;
-    if (setitimer(ITIMER_PROF, &timer, NULL) != 0)
+    if (setitimer(itimer_type, &timer, NULL) != 0)
         return -1;
     return 0;
 }
@@ -284,7 +342,7 @@ static int remove_sigprof_timer(void) {
     static struct itimerval timer;
     timerclear(&(timer.it_interval));
     timerclear(&(timer.it_value));
-    if (setitimer(ITIMER_PROF, &timer, NULL) != 0) {
+    if (setitimer(itimer_type, &timer, NULL) != 0) {
         fprintf(stderr, "Could not disable the signal handler (for profiling)\n");
         return -1;
     }
@@ -354,7 +412,7 @@ static void disable_cpyprof(void)
 #endif
 
 RPY_EXTERN
-int vmprof_enable(int memory, int native)
+int vmprof_enable(int memory, int native, int real_time)
 {
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
     init_cpyprof(native);
@@ -364,6 +422,10 @@ int vmprof_enable(int memory, int native)
     profile_interval_usec = prepare_interval_usec;
     if (memory && setup_rss() == -1)
         goto error;
+#if VMPROF_UNIX
+    if (real_time && insert_thread(pthread_self(), -1) == -1)
+        goto error;
+#endif
     if (install_pthread_atfork_hooks() == -1)
         goto error;
     if (install_sigprof_handler() == -1)
@@ -384,12 +446,8 @@ int close_profile(void)
 {
     int fileno = vmp_profile_fileno();
     fsync(fileno);
-    dump_native_symbols(fileno);
-
     (void)vmp_write_time_now(MARKER_TRAILER);
-
     teardown_rss();
-
 
     /* don't close() the file descriptor from here */
     vmp_set_profile_fileno(-1);
@@ -405,10 +463,17 @@ int vmprof_disable(void)
     disable_cpyprof();
 #endif
 
-    if (remove_sigprof_timer() == -1)
+    if (remove_sigprof_timer() == -1) {
         return -1;
-    if (remove_sigprof_handler() == -1)
+    }
+    if (remove_sigprof_handler() == -1) {
         return -1;
+    }
+#ifdef VMPROF_UNIX
+    if ((signal_type == SIGALRM) && remove_threads() == -1) {
+        return -1;
+    }
+#endif
     flush_codes();
     if (shutdown_concurrent_bufs(vmp_profile_fileno()) < 0)
         return -1;

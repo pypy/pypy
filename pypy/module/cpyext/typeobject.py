@@ -340,13 +340,19 @@ def update_all_slots(space, w_type, pto):
                 setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
-    # XXX support PyObject_HashNotImplemented
+    from pypy.module.cpyext.object import PyObject_HashNotImplemented
+    hash_not_impl = PyObject_HashNotImplemented.api_func.get_llhelper(space)
     for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
         offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
+            if slot_names[0] == 'c_tp_hash':
+                if hash_not_impl == func:
+                    # special case for tp_hash == PyObject_HashNotImplemented
+                    dict_w[method_name] = space.w_None
+                    continue
         else:
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])

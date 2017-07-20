@@ -6,10 +6,15 @@
 
 #include <stddef.h>
 #include <time.h>
+#include <stdlib.h>
 
 #ifndef VMPROF_WINDOWS
 #include <sys/time.h>
 #include "vmprof_mt.h"
+#endif
+
+#ifdef VMPROF_LINUX
+#include <syscall.h>
 #endif
 
 #define MAX_FUNC_NAME 1024
@@ -17,10 +22,71 @@
 static long prepare_interval_usec = 0;
 static long profile_interval_usec = 0;
 
-static int opened_profile(const char *interp_name, int memory, int proflines, int native);
+static int opened_profile(const char *interp_name, int memory, int proflines, int native, int real_time);
 
 #ifdef VMPROF_UNIX
+static int signal_type = SIGPROF;
+static int itimer_type = ITIMER_PROF;
+static pthread_t *threads = NULL;
+static size_t threads_size = 0;
+static size_t thread_count = 0;
+static size_t threads_size_step = 8;
 static struct profbuf_s *volatile current_codes;
+#endif
+
+#ifdef VMPROF_UNIX
+
+static inline ssize_t search_thread(pthread_t tid, ssize_t i) {
+    if (i < 0)
+        i = 0;
+    while ((size_t)i < thread_count) {
+        if (pthread_equal(threads[i], tid))
+            return i;
+        i++;
+    }
+    return -1;
+}
+
+ssize_t insert_thread(pthread_t tid, ssize_t i) {
+    assert(signal_type == SIGALRM);
+    i = search_thread(tid, i);
+    if (i > 0)
+        return -1;
+    if (thread_count == threads_size) {
+        threads_size += threads_size_step;
+        threads = realloc(threads, sizeof(pid_t) * threads_size);
+        assert(threads != NULL);
+        memset(threads + thread_count, 0, sizeof(pid_t) * threads_size_step);
+    }
+    threads[thread_count++] = tid;
+    return thread_count;
+}
+
+ssize_t remove_thread(pthread_t tid, ssize_t i) {
+    assert(signal_type == SIGALRM);
+    if (thread_count == 0)
+        return -1;
+    if (threads == NULL)
+        return -1;
+    i = search_thread(tid, i);
+    if (i < 0)
+        return -1;
+    threads[i] = threads[--thread_count];
+    threads[thread_count] = 0;
+    return thread_count;
+}
+
+ssize_t remove_threads(void) {
+    assert(signal_type == SIGALRM);
+    if (threads != NULL) {
+        free(threads);
+        threads = NULL;
+    }
+    thread_count = 0;
+    threads_size = 0;
+    return 0;
+}
+
 #endif
 
 #define MAX_STACK_DEPTH   \
@@ -64,7 +130,7 @@ typedef struct prof_stacktrace_s {
 
 RPY_EXTERN
 char *vmprof_init(int fd, double interval, int memory,
-                  int proflines, const char *interp_name, int native)
+                  int proflines, const char *interp_name, int native, int real_time)
 {
     if (!(interval >= 1e-6 && interval < 1.0)) {   /* also if it is NaN */
         return "bad value for 'interval'";
@@ -74,6 +140,13 @@ char *vmprof_init(int fd, double interval, int memory,
     if (prepare_concurrent_bufs() < 0)
         return "out of memory";
 #if VMPROF_UNIX
+    if (real_time) {
+        signal_type = SIGALRM;
+        itimer_type = ITIMER_REAL;
+    } else {
+        signal_type = SIGPROF;
+        itimer_type = ITIMER_PROF;
+    }
     current_codes = NULL;
     assert(fd >= 0);
 #else
@@ -85,14 +158,14 @@ char *vmprof_init(int fd, double interval, int memory,
     }
 #endif
     vmp_set_profile_fileno(fd);
-    if (opened_profile(interp_name, memory, proflines, native) < 0) {
+    if (opened_profile(interp_name, memory, proflines, native, real_time) < 0) {
         vmp_set_profile_fileno(0);
         return strerror(errno);
     }
     return NULL;
 }
 
-static int opened_profile(const char *interp_name, int memory, int proflines, int native)
+static int opened_profile(const char *interp_name, int memory, int proflines, int native, int real_time)
 {
     int success;
     int bits;
@@ -119,7 +192,7 @@ static int opened_profile(const char *interp_name, int memory, int proflines, in
     header.interp_name[1] = '\x00';
     header.interp_name[2] = VERSION_TIMESTAMP;
     header.interp_name[3] = memory*PROFILE_MEMORY + proflines*PROFILE_LINES + \
-                            native*PROFILE_NATIVE;
+                            native*PROFILE_NATIVE + real_time*PROFILE_REAL_TIME;
 #ifdef RPYTHON_VMPROF
     header.interp_name[3] += PROFILE_RPYTHON;
 #endif

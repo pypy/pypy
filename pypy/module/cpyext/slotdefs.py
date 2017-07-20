@@ -4,7 +4,6 @@ import re
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib import rgc  # Force registration of gc.collect
 from pypy.module.cpyext.api import (
     slot_function, generic_cpy_call, PyObject, Py_ssize_t,
     Py_buffer, Py_bufferP, PyTypeObjectPtr, cts)
@@ -13,22 +12,20 @@ from pypy.module.cpyext.typeobjectdefs import (
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    getbufferproc, releasebufferproc, ssizessizeobjargproc)
-from pypy.module.cpyext.pyobject import make_ref, decref, as_pyobj, from_ref
+    getbufferproc, ssizessizeobjargproc)
+from pypy.module.cpyext.pyobject import make_ref, decref, from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import userslot
-from pypy.interpreter.buffer import BufferView
+from pypy.module.cpyext.buffer import CBuffer, CPyBuffer, fq
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
-from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.tool.sourcetools import func_renamer
 from rpython.flowspace.model import Constant
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.rtyper.annlowlevel import llhelper
 from pypy.module.sys.version import CPYTHON_VERSION
 
 PY3 = CPYTHON_VERSION[0] == 3
@@ -315,151 +312,6 @@ def wrap_hashfunc(space, w_self, w_args, func):
         space.fromcache(State).check_and_raise_exception(always=True)
     return space.newint(res)
 
-class CPyBuffer(BufferView):
-    # Similar to Py_buffer
-    _immutable_ = True
-
-    def __init__(self, space, ptr, size, w_obj, format='B', shape=None,
-                 strides=None, ndim=1, itemsize=1, readonly=True,
-                 needs_decref=False,
-                 releasebufferproc=rffi.cast(rffi.VOIDP, 0)):
-        self.space = space
-        self.ptr = ptr
-        self.size = size
-        self.w_obj = w_obj  # kept alive
-        self.pyobj = as_pyobj(space, w_obj)
-        self.format = format
-        self.ndim = ndim
-        self.itemsize = itemsize
-
-        # cf. Objects/memoryobject.c:init_shape_strides()
-        if ndim == 0:
-            self.shape = []
-            self.strides = []
-        elif ndim == 1:
-            if shape is None:
-                self.shape = [size // itemsize]
-            else:
-                self.shape = shape
-            if strides is None:
-                self.strides = [itemsize]
-            else:
-                self.strides = strides
-        else:
-            assert len(shape) == ndim
-            self.shape = shape
-            # XXX: missing init_strides_from_shape
-            self.strides = strides
-        self.readonly = readonly
-        self.needs_decref = needs_decref
-        self.releasebufferproc = releasebufferproc
-
-    def releasebuffer(self):
-        if self.pyobj:
-            if self.needs_decref:
-                if self.releasebufferproc:
-                    func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
-                    with lltype.scoped_alloc(Py_buffer) as pybuf:
-                        pybuf.c_buf = self.ptr
-                        pybuf.c_len = self.size
-                        pybuf.c_ndim = cts.cast('int', self.ndim)
-                        pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
-                        pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
-                        for i in range(self.ndim):
-                            pybuf.c_shape[i] = self.shape[i]
-                            pybuf.c_strides[i] = self.strides[i]
-                        if self.format:
-                            pybuf.c_format = rffi.str2charp(self.format)
-                        else:
-                            pybuf.c_format = rffi.str2charp("B")
-                        generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
-                decref(self.space, self.pyobj)
-            self.pyobj = lltype.nullptr(PyObject.TO)
-        else:
-            #do not call twice
-            return
-
-    def getlength(self):
-        return self.size
-
-    def getbytes(self, start, size):
-        return ''.join([self.ptr[i] for i in range(start, start + size)])
-
-    def setbytes(self, start, string):
-        # absolutely no safety checks, what could go wrong?
-        for i in range(len(string)):
-            self.ptr[start + i] = string[i]
-
-    def as_str(self):
-        return CBuffer(self).as_str()
-
-    def as_readbuf(self):
-        return CBuffer(self)
-
-    def as_writebuf(self):
-        assert not self.readonly
-        return CBuffer(self)
-
-    def get_raw_address(self):
-        return rffi.cast(rffi.CCHARP, self.ptr)
-
-    def getformat(self):
-        return self.format
-
-    def getshape(self):
-        return self.shape
-
-    def getstrides(self):
-        return self.strides
-
-    def getitemsize(self):
-        return self.itemsize
-
-    def getndim(self):
-        return self.ndim
-
-class FQ(rgc.FinalizerQueue):
-    Class = CPyBuffer
-    def finalizer_trigger(self):
-        while 1:
-            buf  = self.next_dead()
-            if not buf:
-                break
-            buf.releasebuffer()
-
-fq = FQ()
-
-
-class CBuffer(RawBuffer):
-    _immutable_ = True
-    def __init__(self, view):
-        self.view = view
-        self.readonly = view.readonly
-
-    def getlength(self):
-        return self.view.getlength()
-
-    def getitem(self, index):
-        return self.view.ptr[index]
-
-    def getslice(self, start, stop, step, size):
-        assert step == 1
-        assert stop - start == size
-        ptr = rffi.ptradd(cts.cast('char *', self.view.ptr), start)
-        return rffi.charpsize2str(ptr, size)
-
-    def setitem(self, index, char):
-        self.view.ptr[index] = char
-
-    def setslice(self, index, s):
-        assert s is not None
-        ptr = rffi.ptradd(cts.cast('char *', self.view.ptr), index)
-        rffi.str2chararray(s, ptr, len(s))
-
-    def get_raw_address(self):
-        return cts.cast('char *', self.view.ptr)
-
-
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     py_obj = make_ref(space, w_self)
@@ -603,7 +455,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_iter', '__iter__'),
                           ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
 
@@ -618,7 +470,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_mapping.c_mp_length', '__len__'),
                          ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
             @slot_function([PyObject], lltype.Signed, error=-1)
@@ -645,7 +497,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_mapping.c_mp_subscript', '__getitem__'),
                           ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
 
@@ -662,7 +514,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_sequence.c_sq_inplace_repeat', '__imul__'),
                           ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
 
@@ -676,7 +528,7 @@ def build_slot_tp_function(space, typedef, name):
     for tp_name, attr in [('tp_as_number.c_nb_power', '__pow__'),
                           ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
 
@@ -689,10 +541,10 @@ def build_slot_tp_function(space, typedef, name):
     for tp_name, attr in [('tp_as_mapping.c_mp_ass_subscript', '__setitem__'),
                          ]:
         if name == tp_name:
-            slot_ass = w_type.getdictvalue(space, attr)
+            slot_ass = w_type.lookup(attr)
             if slot_ass is None:
                 return
-            slot_del = w_type.getdictvalue(space, '__delitem__')
+            slot_del = w_type.lookup('__delitem__')
             if slot_del is None:
                 return
 
@@ -710,10 +562,10 @@ def build_slot_tp_function(space, typedef, name):
     for tp_name, attr in [('tp_as_sequence.c_sq_ass_item', '__setitem__'),
                          ]:
         if name == tp_name:
-            slot_ass = w_type.getdictvalue(space, attr)
+            slot_ass = w_type.lookup(attr)
             if slot_ass is None:
                 return
-            slot_del = w_type.getdictvalue(space, '__delitem__')
+            slot_del = w_type.lookup('__delitem__')
             if slot_del is None:
                 return
 
@@ -730,8 +582,8 @@ def build_slot_tp_function(space, typedef, name):
     if handled:
         pass
     elif name == 'tp_setattro':
-        setattr_fn = w_type.getdictvalue(space, '__setattr__')
-        delattr_fn = w_type.getdictvalue(space, '__delattr__')
+        setattr_fn = w_type.lookup('__setattr__')
+        delattr_fn = w_type.lookup('__delattr__')
         if setattr_fn is None:
             return
 
@@ -746,7 +598,7 @@ def build_slot_tp_function(space, typedef, name):
             return 0
         slot_func = slot_tp_setattro
     elif name == 'tp_getattro':
-        getattr_fn = w_type.getdictvalue(space, '__getattribute__')
+        getattr_fn = w_type.lookup('__getattribute__')
         if getattr_fn is None:
             return
 
@@ -757,7 +609,7 @@ def build_slot_tp_function(space, typedef, name):
         slot_func = slot_tp_getattro
 
     elif name == 'tp_call':
-        call_fn = w_type.getdictvalue(space, '__call__')
+        call_fn = w_type.lookup('__call__')
         if call_fn is None:
             return
 
@@ -770,7 +622,7 @@ def build_slot_tp_function(space, typedef, name):
         slot_func = slot_tp_call
 
     elif name == 'tp_iternext':
-        iternext_fn = w_type.getdictvalue(space, '__next__')
+        iternext_fn = w_type.lookup('__next__')
         if iternext_fn is None:
             return
 
@@ -786,7 +638,7 @@ def build_slot_tp_function(space, typedef, name):
         slot_func = slot_tp_iternext
 
     elif name == 'tp_init':
-        init_fn = w_type.getdictvalue(space, '__init__')
+        init_fn = w_type.lookup('__init__')
         if init_fn is None:
             return
 
@@ -799,7 +651,7 @@ def build_slot_tp_function(space, typedef, name):
             return 0
         slot_func = slot_tp_init
     elif name == 'tp_new':
-        new_fn = w_type.getdictvalue(space, '__new__')
+        new_fn = w_type.lookup('__new__')
         if new_fn is None:
             return
 
@@ -811,7 +663,7 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_args(space.get(new_fn, w_self), args)
         slot_func = slot_tp_new
     elif name == 'tp_as_buffer.c_bf_getbuffer':
-        buff_fn = w_type.getdictvalue(space, '__buffer__')
+        buff_fn = w_type.lookup('__buffer__')
         if buff_fn is not None:
             buff_w = slot_from___buffer__(space, typedef, buff_fn)
         elif typedef.buffer:
@@ -819,6 +671,39 @@ def build_slot_tp_function(space, typedef, name):
         else:
             return
         slot_func = buff_w
+    elif name == 'tp_descr_get':
+        get_fn = w_type.lookup('__get__')
+        if get_fn is None:
+            return
+
+        @slot_function([PyObject, PyObject, PyObject], PyObject)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_descr_get(space, w_self, w_obj, w_value):
+            if w_obj is None:
+                w_obj = space.w_None
+            return space.call_function(get_fn, w_self, w_obj, w_value)
+        slot_func = slot_tp_descr_get
+    elif name == 'tp_descr_set':
+        set_fn = w_type.lookup('__set__')
+        delete_fn = w_type.lookup('__delete__')
+        if set_fn is None and delete_fn is None:
+            return
+
+        @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_descr_set(space, w_self, w_obj, w_value):
+            if w_value is not None:
+                if set_fn is None:
+                    raise oefmt(space.w_TypeError,
+                                "%s object has no __set__", typedef.name)
+                space.call_function(set_fn, w_self, w_obj, w_value)
+            else:
+                if delete_fn is None:
+                    raise oefmt(space.w_TypeError,
+                                "%s object has no __delete__", typedef.name)
+                space.call_function(delete_fn, w_self, w_obj)
+            return 0
+        slot_func = slot_tp_descr_set
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length

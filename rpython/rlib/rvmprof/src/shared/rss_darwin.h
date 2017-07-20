@@ -24,7 +24,7 @@ static long get_current_proc_rss(void)
 
     kern_return_t error = task_info(mach_task, MACH_TASK_BASIC_INFO, (task_info_t)&taskinfo, &out_count);
     if (error == KERN_SUCCESS) {
-        return taskinfo.resident_size / 1024;
+        return (long)(taskinfo.resident_size / 1024);
     } else {
         return -1;
     }

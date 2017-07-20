@@ -26,3 +26,20 @@ class AppTestBoolMacros(AppTestCpythonExtensionBase):
             ])
         assert module.get_true() == True
         assert module.get_false() == False
+
+    def test_toint(self):
+        module = self.import_extension('foo', [
+            ("to_int", "METH_O",
+            '''
+                if (args->ob_type->tp_as_number && args->ob_type->tp_as_number->nb_int) {
+                    return args->ob_type->tp_as_number->nb_int(args);
+                }
+                else {
+                    PyErr_SetString(PyExc_TypeError,"cannot convert bool to int");
+                    return NULL;
+                }
+            '''), ])
+        assert module.to_int(False) == 0
+        assert module.to_int(True) == 1
+
+            

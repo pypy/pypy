@@ -1408,26 +1408,6 @@ def PySequence_Count(space, o, value):
     equivalent to the Python expression o.count(value)."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_Check(space, p):
-    """Return true if p is a frozenset object or an instance of a
-    subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_CheckExact(space, p):
-    """Return true if p is a frozenset object but not an instance of a
-    subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyFrozenSet_New(space, iterable):
-    """Return a new frozenset containing objects returned by the iterable.
-    The iterable may be NULL to create a new empty frozenset.  Return the new
-    set on success or NULL on failure.  Raise TypeError if iterable is
-    not actually iterable."""
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=-1)
 def Py_FdIsInteractive(space, fp, filename):
     """Return true (nonzero) if the standard I/O file fp with name filename is

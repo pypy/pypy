@@ -334,6 +334,14 @@ class AppTestPosix:
         expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
         assert expected in result
 
+    def test_listdir_memoryview_returns_unicode(self):
+        # XXX unknown why CPython has this behaviour
+        bytes_dir = self.bytes_dir
+        os, posix = self.os, self.posix
+        result1 = posix.listdir(bytes_dir)              # -> list of bytes
+        result2 = posix.listdir(memoryview(bytes_dir))  # -> list of unicodes
+        assert [os.fsencode(x) for x in result2] == result1
+
     def test_fdlistdir(self):
         posix = self.posix
         dirfd = posix.open('.', posix.O_RDONLY)
@@ -1141,6 +1149,12 @@ class AppTestPosix:
             with open(dest) as f:
                 data = f.read()
                 assert data == "who cares?"
+            #
+            posix.unlink(dest)
+            posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
 
         # XXX skip test if dir_fd is unsupported
         def test_symlink_fd(self):
@@ -1292,6 +1306,15 @@ class AppTestPosix:
             posix.close(fd)
             s2.close()
             s1.close()
+
+        def test_filename_can_be_a_buffer(self):
+            import posix, sys
+            fsencoding = sys.getfilesystemencoding()
+            pdir = (self.pdir + '/file1').encode(fsencoding)
+            fd = posix.open(pdir, posix.O_RDONLY)
+            posix.close(fd)
+            fd = posix.open(memoryview(pdir), posix.O_RDONLY)
+            posix.close(fd)
 
     if sys.platform.startswith('linux'):
         def test_sendfile_no_offset(self):

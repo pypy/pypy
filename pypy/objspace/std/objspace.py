@@ -96,6 +96,8 @@ class StdObjSpace(ObjSpace):
         self.w_text = self.w_str
         del self.w_str
         self.w_dict.flag_map_or_seq = 'M'
+        from pypy.objspace.std import dictproxyobject
+        dictproxyobject._set_flag_map_or_seq(self)
         self.w_list.flag_map_or_seq = 'S'
         self.w_tuple.flag_map_or_seq = 'S'
         self.builtin_types['str'] = self.w_unicode

@@ -1,24 +1,25 @@
 import py
 
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
-from pypy.module.cpyext.tupleobject import PyTupleObject
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.debug import FatalError
+from pypy.module.cpyext.tupleobject import (
+    PyTupleObject, PyTuple_Check, PyTuple_SetItem, PyTuple_Size)
 
 
 class TestTupleObject(BaseApiTest):
 
-    def test_tupleobject(self, space, api):
-        assert not api.PyTuple_Check(space.w_None)
-        assert api.PyTuple_SetItem(space.w_None, 0, space.w_None) == -1
+    def test_tupleobject(self, space):
+        assert not PyTuple_Check(space, space.w_None)
+        with raises_w(space, SystemError):
+            PyTuple_SetItem(space, space.w_None, 0, space.w_None)
         atuple = space.newtuple([space.wrap(0), space.wrap(1),
                                  space.wrap('yay')])
-        assert api.PyTuple_Size(atuple) == 3
-        #assert api.PyTuple_GET_SIZE(atuple) == 3  --- now a C macro
-        raises(TypeError, api.PyTuple_Size(space.newlist([])))
-        api.PyErr_Clear()
+        assert PyTuple_Size(space, atuple) == 3
+        with raises_w(space, SystemError):
+            PyTuple_Size(space, space.newlist([]))
 
     def test_tuple_realize_refuses_nulls(self, space, api):
         py_tuple = api.PyTuple_New(1)

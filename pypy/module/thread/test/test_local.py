@@ -73,13 +73,13 @@ class AppTestLocal(GenericTestThread):
         assert tags == ['???']
 
     def test_local_init2(self):
-        import thread
+        import _thread
 
         class A(object):
             def __init__(self, n):
                 assert n == 42
                 self.n = n
-        class X(thread._local, A):
+        class X(_thread._local, A):
             pass
 
         x = X(42)

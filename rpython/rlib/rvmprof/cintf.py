@@ -58,6 +58,7 @@ eci_kwds = dict(
         SHARED.join('compat.c'),
         SHARED.join('machine.c'),
         SHARED.join('vmp_stack.c'),
+        SHARED.join('vmprof_main.c'),
         # symbol table already in separate_module_files
     ] + separate_module_files,
     post_include_bits=[],
@@ -84,9 +85,9 @@ def setup():
     eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",
                                   [rffi.INT, rffi.DOUBLE, rffi.INT, rffi.INT,
-                                   rffi.CCHARP, rffi.INT],
+                                   rffi.CCHARP, rffi.INT, rffi.INT],
                                   rffi.CCHARP, compilation_info=eci)
-    vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.INT, rffi.INT],
+    vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.INT, rffi.INT, rffi.INT],
                                     rffi.INT,
                                     compilation_info=eci,
                                     save_err=rffi.RFFI_SAVE_ERRNO)
@@ -109,6 +110,12 @@ def setup():
 
     vmprof_get_profile_path = rffi.llexternal("vmprof_get_profile_path", [rffi.CCHARP, lltype.Signed],
                                               lltype.Signed, compilation_info=eci,
+                                              _nowrapper=True)
+    vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
+                                              rffi.INT, compilation_info=eci,
+                                              _nowrapper=True)
+    vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
+                                              lltype.Void, compilation_info=eci,
                                               _nowrapper=True)
 
     return CInterface(locals())

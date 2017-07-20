@@ -1663,7 +1663,8 @@ order (MRO) for bases """
         self.assertEqual(b.foo, 3)
         self.assertEqual(b.__class__, D)
 
-    @unittest.expectedFailure
+    #@unittest.expectedFailure --- on CPython.  On PyPy, the test passes
+    @support.impl_detail(cpython=False)
     def test_bad_new(self):
         self.assertRaises(TypeError, object.__new__)
         self.assertRaises(TypeError, object.__new__, '')
