@@ -135,10 +135,10 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         raises(SystemError, self.import_module, name='multiphase', body=body,
                init=init)
 
-    def test_module(self):
+    def test_basic(self):
         import sys
         from importlib import machinery, util
-        NAME = '_testmultiphase'
+        NAME = 'multiphase2'
         module = self.import_module(name=NAME)
         finder = machinery.FileFinder(None)
         spec = util.find_spec(NAME)
@@ -152,7 +152,7 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
 
     def test_functionality(self):
         import types
-        NAME = '_testmultiphase'
+        NAME = 'multiphase2'
         module = self.import_module(name=NAME)
         assert isinstance(module, types.ModuleType)
         ex = module.Example()
@@ -170,7 +170,7 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
 
     def test_reload(self):
         import importlib
-        NAME = '_testmultiphase'
+        NAME = 'multiphase2'
         module = self.import_module(name=NAME)
         ex_class = module.Example
         importlib.reload(module)
