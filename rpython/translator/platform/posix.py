@@ -3,6 +3,7 @@
 import py, os, sys
 
 from rpython.translator.platform import Platform, log, _run_subprocess
+from rpython.config.support import detect_pax
 
 import rpython
 rpydir = str(py.path.local(rpython.__file__).join('..'))
@@ -196,9 +197,17 @@ class BasePosix(Platform):
         for args in definitions:
             m.definition(*args)
 
+        # Post compile rule to be executed after a TARGET is ran
+        #
+        # Some processing might be necessary on the resulting binary,
+        # which is received in $(BIN) parameter
+        postcompile_rule = ('postcompile', '', ['true'])
+        if detect_pax():
+            postcompile_rule[2].append('attr -q -s pax.flags -V m $(BIN)')
+
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)'),
+            ('$(TARGET)', '$(OBJECTS)', ['$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)', '$(MAKE) postcompile BIN=$(TARGET)']),
             ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ('%.o', '%.s', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ('%.o', '%.cxx', '$(CXX) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
@@ -206,6 +215,8 @@ class BasePosix(Platform):
 
         for rule in rules:
             m.rule(*rule)
+
+        m.rule(*postcompile_rule)
 
         if shared:
             m.definition('SHARED_IMPORT_LIB', libname),
@@ -216,7 +227,7 @@ class BasePosix(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS)')
+                   ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS)', '$(MAKE) postcompile BIN=$(DEFAULT_TARGET)'])
 
         return m
 

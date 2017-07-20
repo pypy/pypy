@@ -35,3 +35,15 @@ def sysctl_get_cpu_count(cmd, name='hw.ncpu'):
         return int(count)
     except (OSError, ValueError):
         return 1
+
+def detect_pax():
+    """
+    Function to determine if your system comes with PAX protection.
+    """
+    if sys.platform.startswith('linux'):
+        # we need a running process PID and 1 is always running
+        with open("/proc/1/status") as fd:
+            data = fd.read()
+        if 'PaX' in data:
+            return True
+    return False
