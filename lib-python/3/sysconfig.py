@@ -355,6 +355,8 @@ def get_makefile_filename():
 
 
 def _get_sysconfigdata_name():
+    # FIXME: temporary hack for PyPy
+    return '_sysconfigdata'
     return os.environ.get('_PYTHON_SYSCONFIGDATA_NAME',
         '_sysconfigdata_{abi}_{platform}_{multiarch}'.format(
         abi=sys.abiflags,
