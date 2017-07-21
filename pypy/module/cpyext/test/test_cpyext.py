@@ -84,7 +84,7 @@ class LeakCheckingTest(object):
         self.space.getexecutioncontext().cleanup_cpyext_state()
         rawrefcount._collect()
         self.space.user_del_action._run_finalizers()
-        leakfinder.stop_tracking_allocations(check=False)
+        leakfinder.stop_tracking_allocations(check=True)
         assert not self.space.finalizer_queue.next_dead()
 
 
@@ -131,6 +131,18 @@ def _unwrap_include_dirs(space, w_include_dirs):
 def debug_collect(space):
     rawrefcount._collect()
 
+def preload(space, name):
+    from pypy.module.cpyext.pyobject import make_ref
+    if '.' not in name:
+        w_obj = space.builtin.getdictvalue(space, name)
+    else:
+        module, localname = name.rsplit('.', 1)
+        code = "(): import {module}; return {module}.{localname}"
+        code = code.format(**locals())
+        w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
+
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
@@ -144,6 +156,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             # 'import os' to warm up reference counts
             w_import = space.builtin.getdictvalue(space, '__import__')
             space.call_function(w_import, space.wrap("os"))
+            for name in ['buffer', 'mmap.mmap']:
+                preload(space, name)
             #state = cls.space.fromcache(RefcountState) ZZZ
             #state.non_heaptypes_w[:] = []
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
