@@ -80,14 +80,13 @@ class LeakCheckingTest(object):
                                    'micronumpy', 'mmap'
                                    ])
 
-    @staticmethod
-    def cleanup_references(space):
-        return
-
-    def check_and_print_leaks(self):
+    def cleanup(self):
+        self.space.getexecutioncontext().cleanup_cpyext_state()
         rawrefcount._collect()
+        self.space.user_del_action._run_finalizers()
         leakfinder.stop_tracking_allocations(check=False)
-        return False
+        assert not self.space.finalizer_queue.next_dead()
+
 
 class AppTestApi(LeakCheckingTest):
     def setup_class(cls):
@@ -104,15 +103,7 @@ class AppTestApi(LeakCheckingTest):
     def teardown_method(self, meth):
         if self.runappdirect:
             return
-        self.space.getexecutioncontext().cleanup_cpyext_state()
-        self.cleanup_references(self.space)
-        # XXX: like AppTestCpythonExtensionBase.teardown_method:
-        # find out how to disable check_and_print_leaks() if the
-        # test failed
-        assert not self.check_and_print_leaks(), (
-            "Test leaks or loses object(s).  You should also check if "
-            "the test actually passed in the first place; if it failed "
-            "it is likely to reach this place.")
+        self.cleanup()
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_only_import(self):
@@ -280,7 +271,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.space.call_method(self.space.sys.get("stdout"), "flush")
 
         freeze_refcnts(self)
-        #self.check_and_print_leaks()
 
     def unimport_module(self, name):
         """
@@ -292,17 +282,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def teardown_method(self, func):
         if self.runappdirect:
+            self.w_debug_collect()
             return
+        debug_collect(self.space)
         for name in self.imported_module_names:
             self.unimport_module(name)
-        self.space.getexecutioncontext().cleanup_cpyext_state()
-        self.cleanup_references(self.space)
-        # XXX: find out how to disable check_and_print_leaks() if the
-        # test failed...
-        assert not self.check_and_print_leaks(), (
-            "Test leaks or loses object(s).  You should also check if "
-            "the test actually passed in the first place; if it failed "
-            "it is likely to reach this place.")
+        self.cleanup()
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
