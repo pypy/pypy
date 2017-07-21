@@ -135,7 +135,7 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         raises(SystemError, self.import_module, name='multiphase', body=body,
                init=init)
 
-    def test_basic(self):
+    def test_multiphase2(self):
         import sys
         from importlib import machinery, util
         NAME = 'multiphase2'
