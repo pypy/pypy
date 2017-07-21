@@ -492,9 +492,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 else:
                     msg = "name '%s' is used prior to global declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg,
-                                    self.compile_info.filename,
-                                    glob.lineno, glob.col_offset)
+                raise SyntaxError(msg, glob.lineno, glob.col_offset)
             self.note_symbol(name, SYM_GLOBAL)
 
     def visit_Nonlocal(self, nonl):
@@ -519,9 +517,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 else:
                     msg = "name '%s' is used prior to nonlocal declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg,
-                                    self.compile_info.filename,
-                                    nonl.lineno, nonl.col_offset)
+                raise SyntaxError(msg, nonl.lineno, nonl.col_offset)
 
             self.note_symbol(name, SYM_NONLOCAL)
 

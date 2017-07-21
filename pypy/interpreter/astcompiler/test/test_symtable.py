@@ -318,6 +318,14 @@ def f(x):
         x = g.lookup_role('x')
         assert x == symtable.SYM_GLOBAL
 
+    def test_global_after_assignment(self):
+        src = ("def f():\n"
+               "    x = 1\n"
+               "    global x\n")
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.lineno == 3
+        assert exc.msg == "name 'x' is assigned to before global declaration"
+
     def test_nonlocal(self):
         src = """
 x = 1
@@ -395,6 +403,14 @@ def f(x):
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.msg == "name 'x' is parameter and nonlocal"
         assert exc.lineno == 4
+
+    def test_nonlocal_after_assignment(self):
+        src = ("def f():\n"
+               "    x = 1\n"
+               "    nonlocal x\n")
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.lineno == 3
+        assert exc.msg == "name 'x' is assigned to before nonlocal declaration"
 
     def test_optimization(self):
         assert not self.mod_scope("").can_be_optimized
