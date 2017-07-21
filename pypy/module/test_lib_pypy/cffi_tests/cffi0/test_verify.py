@@ -1450,20 +1450,30 @@ def test_bool():
         py.test.skip("_Bool not in MSVC")
     ffi = FFI()
     ffi.cdef("struct foo_s { _Bool x; };"
-             "_Bool foo(_Bool);")
+             "_Bool foo(_Bool); _Bool (*foop)(_Bool);")
     lib = ffi.verify("""
         struct foo_s { _Bool x; };
         int foo(int arg) {
             return !arg;
         }
+        _Bool _foofunc(_Bool x) {
+            return !x;
+        }
+        _Bool (*foop)(_Bool) = _foofunc;
     """)
     p = ffi.new("struct foo_s *")
     p.x = 1
-    assert p.x == 1
+    assert p.x is True
     py.test.raises(OverflowError, "p.x = -1")
     py.test.raises(TypeError, "p.x = 0.0")
-    assert lib.foo(1) == 0
-    assert lib.foo(0) == 1
+    assert lib.foop(1) is False
+    assert lib.foop(True) is False
+    assert lib.foop(0) is True
+    py.test.raises(OverflowError, lib.foop, 42)
+    py.test.raises(TypeError, lib.foop, 0.0)
+    assert lib.foo(1) is False
+    assert lib.foo(True) is False
+    assert lib.foo(0) is True
     py.test.raises(OverflowError, lib.foo, 42)
     py.test.raises(TypeError, lib.foo, 0.0)
     assert int(ffi.cast("_Bool", long(1))) == 1

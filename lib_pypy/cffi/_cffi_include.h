@@ -95,6 +95,7 @@ extern "C" {
 #define _cffi_from_c_ulong PyLong_FromUnsignedLong
 #define _cffi_from_c_longlong PyLong_FromLongLong
 #define _cffi_from_c_ulonglong PyLong_FromUnsignedLongLong
+#define _cffi_from_c__Bool PyBool_FromLong
 
 #define _cffi_to_c_double PyFloat_AsDouble
 #define _cffi_to_c_float PyFloat_AsDouble
