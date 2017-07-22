@@ -365,8 +365,8 @@ class W_AbstractBytesObject(W_Root):
         characters, all remaining cased characters have lowercase.
         """
 
-    @unwrap_spec(w_deletechars=WrappedDefault(''))
-    def descr_translate(self, space, w_table, w_deletechars):
+    @unwrap_spec(w_delete=WrappedDefault(''))
+    def descr_translate(self, space, w_table, w_delete):
         """B.translate(table[, deletechars]) -> copy of B
 
         Return a copy of the string B, where all characters occurring
