@@ -349,6 +349,27 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert type(module.asbytes(sub1(b''))) is bytes
         assert type(module.asbytes(sub2(b''))) is sub2
 
+    def test_LengthHint(self):
+        import operator
+        class WithLen:
+            def __len__(self):
+                return 1
+            def __length_hint__(self):
+                return 42
+        class NoLen:
+            def __length_hint__(self):
+                return 2
+        module = self.import_extension('test_LengthHint', [
+            ('length_hint', 'METH_VARARGS',
+             """
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 Py_ssize_t i = PyLong_AsSsize_t(PyTuple_GET_ITEM(args, 1));
+                 return PyLong_FromSsize_t(PyObject_LengthHint(obj, i));
+             """)])
+        assert module.length_hint(WithLen(), 5) == operator.length_hint(WithLen(), 5) == 1
+        assert module.length_hint(NoLen(), 5) == operator.length_hint(NoLen(), 5) == 2
+        assert module.length_hint(object(), 5) == operator.length_hint(object(), 5) == 5
+
     def test_add_memory_pressure(self):
         self.reset_memory_pressure()    # for the potential skip
         module = self.import_extension('foo', [
@@ -528,4 +549,3 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
     Py_RETURN_NONE;
                  """)])
         assert module.release() is None
-
