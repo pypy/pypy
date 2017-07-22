@@ -142,6 +142,12 @@ def preload(space, name):
         w_obj = space.appexec([], code)
     make_ref(space, w_obj)
 
+def preload_expr(space, expr):
+    from pypy.module.cpyext.pyobject import make_ref
+    code = "(): return {}".format(expr)
+    w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
@@ -158,6 +164,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             space.call_function(w_import, space.wrap("os"))
             for name in ['buffer', 'mmap.mmap']:
                 preload(space, name)
+            for expr in ['type(str.join)']:
+                preload_expr(space, expr)
             #state = cls.space.fromcache(RefcountState) ZZZ
             #state.non_heaptypes_w[:] = []
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
