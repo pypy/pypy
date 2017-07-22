@@ -564,7 +564,10 @@ class W_BytesObject(W_AbstractBytesObject):
         from pypy.objspace.std.bytearrayobject import _hexstring_to_array
         hexstring = space.unicode_w(w_hexstring)
         bytes = ''.join(_hexstring_to_array(space, hexstring))
-        return W_BytesObject(bytes)
+        w_result = W_BytesObject(bytes)
+        if w_type is not space.w_bytes:
+            w_result = space.call_function(w_type, w_result)
+        return w_result
 
     def descr_repr(self, space):
         return space.newtext(string_escape_encode(self._value, True))

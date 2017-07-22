@@ -135,6 +135,11 @@ class AppTestBytesObject:
         raises(TypeError, bytes.fromhex, True)
         raises(ValueError, bytes.fromhex, "hello world")
 
+    def test_fromhex_subclass(self):
+        class Sub(bytes):
+            pass
+        assert type(Sub.fromhex("abcd")) is Sub
+
     def test_format(self):
         raises(TypeError, "foo".__mod__, "bar")
         raises(TypeError, u"foo".__mod__, "bar")

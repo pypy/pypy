@@ -204,7 +204,10 @@ class W_BytearrayObject(W_Root):
         data = _hexstring_to_array(space, hexstring)
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray
-        return new_bytearray(space, space.w_bytearray, data)
+        w_result = new_bytearray(space, space.w_bytearray, data)
+        if w_bytearraytype is not space.w_bytearray:
+            w_result = space.call_function(w_bytearraytype, w_result)
+        return w_result
 
     @unwrap_spec(encoding='text_or_none', errors='text_or_none')
     def descr_init(self, space, w_source=None, encoding=None, errors=None):
