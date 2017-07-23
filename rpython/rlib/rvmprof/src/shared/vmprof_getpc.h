@@ -142,6 +142,7 @@ static intptr_t GetPC(ucontext_t *signal_ucontext) {
 // the right value for your system, and add it to the list in
 // vmrpof_config.h
 #else
+
 static intptr_t GetPC(ucontext_t *signal_ucontext) {
   return signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
 }

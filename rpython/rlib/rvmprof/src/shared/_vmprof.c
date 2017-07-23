@@ -9,8 +9,8 @@
 #include <signal.h>
 
 #include "_vmprof.h"
+#include "vmprof_common.h"
 
-static volatile int is_enabled = 0;
 static destructor Original_code_dealloc = 0;
 static PyObject* (*_default_eval_loop)(PyFrameObject *, int) = 0;
 
@@ -18,9 +18,9 @@ static PyObject* (*_default_eval_loop)(PyFrameObject *, int) = 0;
 #include "trampoline.h"
 #include "machine.h"
 #include "symboltable.h"
-#include "vmprof_main.h"
+#include "vmprof_unix.h"
 #else
-#include "vmprof_main_win32.h"
+#include "vmprof_win.h"
 #endif
 #include "vmp_stack.h"
 
@@ -156,7 +156,7 @@ void emit_all_code_objects(PyObject * seen_code_ids)
 
 static void cpyprof_code_dealloc(PyObject *co)
 {
-    if (is_enabled) {
+    if (vmprof_is_enabled()) {
         emit_code_object((PyCodeObject *)co);
         /* xxx error return values are ignored */
     }
@@ -187,7 +187,7 @@ static PyObject *enable_vmprof(PyObject* self, PyObject *args)
         return NULL;
     }
 
-    if (is_enabled) {
+    if (vmprof_is_enabled()) {
         PyErr_SetString(PyExc_ValueError, "vmprof is already enabled");
         return NULL;
     }
@@ -217,13 +217,13 @@ static PyObject *enable_vmprof(PyObject* self, PyObject *args)
         return NULL;
     }
 
-    is_enabled = 1;
+    vmprof_set_enabled(1);
 
     Py_RETURN_NONE;
 }
 
 static PyObject * vmp_is_enabled(PyObject *module, PyObject *noargs) {
-    if (is_enabled) {
+    if (vmprof_is_enabled()) {
         Py_RETURN_TRUE;
     }
     Py_RETURN_FALSE;
@@ -237,7 +237,7 @@ disable_vmprof(PyObject *module, PyObject *noargs)
         return NULL;
     }
 
-    is_enabled = 0;
+    vmprof_set_enabled(0);
 
     if (PyErr_Occurred())
         return NULL;
@@ -362,7 +362,7 @@ start_sampling(PyObject *module, PyObject *noargs)
 #ifdef VMPROF_UNIX
 static PyObject * vmp_get_profile_path(PyObject *module, PyObject *noargs) {
     PyObject * o;
-    if (is_enabled) {
+    if (vmprof_is_enabled()) {
         char buffer[4096];
         buffer[0] = 0;
         ssize_t buffer_len = vmp_fd_to_path(vmp_profile_fileno(), buffer, 4096);
@@ -382,21 +382,19 @@ static PyObject *
 insert_real_time_thread(PyObject *module, PyObject * noargs) {
     ssize_t thread_count;
 
-    if (!is_enabled) {
+    if (!vmprof_is_enabled()) {
         PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
         return NULL;
     }
 
-    if (signal_type != SIGALRM) {
+    if (vmprof_get_signal_type() != SIGALRM) {
         PyErr_SetString(PyExc_ValueError, "vmprof is not in real time mode");
         return NULL;
     }
 
-    while (__sync_lock_test_and_set(&spinlock, 1)) {
-    }
-
+    vmprof_aquire_lock();
     thread_count = insert_thread(pthread_self(), -1);
-    __sync_lock_release(&spinlock);
+    vmprof_release_lock();
 
     return PyLong_FromSsize_t(thread_count);
 }
@@ -405,21 +403,19 @@ static PyObject *
 remove_real_time_thread(PyObject *module, PyObject * noargs) {
     ssize_t thread_count;
 
-    if (!is_enabled) {
+    if (!vmprof_is_enabled()) {
         PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
         return NULL;
     }
 
-    if (signal_type != SIGALRM) {
+    if (vmprof_get_signal_type() != SIGALRM) {
         PyErr_SetString(PyExc_ValueError, "vmprof is not in real time mode");
         return NULL;
     }
 
-    while (__sync_lock_test_and_set(&spinlock, 1)) {
-    }
-
+    vmprof_aquire_lock();
     thread_count = remove_thread(pthread_self(), -1);
-    __sync_lock_release(&spinlock);
+    vmprof_release_lock();
 
     return PyLong_FromSsize_t(thread_count);
 }
