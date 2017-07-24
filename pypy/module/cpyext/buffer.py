@@ -82,11 +82,10 @@ class CPyBuffer(BufferView):
                         for i in range(self.ndim):
                             pybuf.c_shape[i] = self.shape[i]
                             pybuf.c_strides[i] = self.strides[i]
-                        if self.format:
-                            pybuf.c_format = rffi.str2charp(self.format)
-                        else:
-                            pybuf.c_format = rffi.str2charp("B")
-                        generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
+                        with rffi.scoped_str2charp(
+                                self.format if self.format else "B") as fmt:
+                            pybuf.c_format = fmt
+                            generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
                 decref(self.space, self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
         else:
@@ -167,6 +166,8 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
     sizep[0] = size
     return 0
 
+DEFAULT_FMT = rffi.str2charp("B")
+
 @cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
               lltype.Signed, lltype.Signed], rffi.INT, error=-1)
 def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
@@ -187,7 +188,8 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     rffi.setintfield(view, 'c_ndim', 1)
     view.c_format = lltype.nullptr(rffi.CCHARP.TO)
     if (flags & PyBUF_FORMAT) == PyBUF_FORMAT:
-        view.c_format = rffi.str2charp("B")
+        # NB: this needs to be a static string, because nothing frees it
+        view.c_format = DEFAULT_FMT
     view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
     if (flags & PyBUF_ND) == PyBUF_ND:
         view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
