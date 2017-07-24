@@ -4,6 +4,7 @@ import pytest
 
 from pypy.tool.cpyext.extbuild import SystemCompilationInfo, HERE
 from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
@@ -73,6 +74,25 @@ def get_cpyext_info(space):
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
 
+def is_interned_string(space, w_obj):
+    try:
+        s = space.str_w(w_obj)
+    except OperationError:
+        return False
+    return space.is_interned_str(s)
+
+def is_allowed_to_leak(space, obj):
+    from pypy.module.cpyext.pyobject import from_ref
+    from pypy.module.cpyext.api import cts
+    try:
+        w_obj = from_ref(space, cts.cast('PyObject*', obj._as_ptr()))
+    except:
+        return False
+    # It's OK to "leak" some interned strings: if the pyobj is created by
+    # the test, but the w_obj is referred to from elsewhere.
+    return is_interned_string(space, w_obj)
+
+
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
@@ -84,7 +104,16 @@ class LeakCheckingTest(object):
         self.space.getexecutioncontext().cleanup_cpyext_state()
         rawrefcount._collect()
         self.space.user_del_action._run_finalizers()
-        leakfinder.stop_tracking_allocations(check=True)
+        try:
+            leakfinder.stop_tracking_allocations(check=True)
+        except leakfinder.MallocMismatch as e:
+            result = e.args[0]
+            filtered_result = {}
+            for obj in result:
+                if not is_allowed_to_leak(self.space, obj):
+                    filtered_result[obj] = result[obj]
+            if filtered_result:
+                raise leakfinder.MallocMismatch(filtered_result)
         assert not self.space.finalizer_queue.next_dead()
 
 
