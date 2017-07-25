@@ -84,10 +84,13 @@ def is_interned_string(space, w_obj):
 def is_allowed_to_leak(space, obj):
     from pypy.module.cpyext.pyobject import from_ref
     from pypy.module.cpyext.api import cts
+    from pypy.module.cpyext.methodobject import W_PyCFunctionObject
     try:
         w_obj = from_ref(space, cts.cast('PyObject*', obj._as_ptr()))
     except:
         return False
+    if isinstance(w_obj, W_PyCFunctionObject):
+        return True
     # It's OK to "leak" some interned strings: if the pyobj is created by
     # the test, but the w_obj is referred to from elsewhere.
     return is_interned_string(space, w_obj)
