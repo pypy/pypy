@@ -605,6 +605,7 @@ def report_error(space, e, where, w_obj):
         e.write_unraisable(space, where, w_obj)
         e.clear(space)   # break up reference cycles
     else:
+        raise
         addrstring = w_obj.getaddrstring(space)
         msg = ("RPython exception %s in %s<%s at 0x%s> ignored\n" % (
                    str(e), where, space.type(w_obj).name, addrstring))
@@ -615,7 +616,7 @@ def report_error(space, e, where, w_obj):
 def make_finalizer_queue(W_Root, space):
     """Make a FinalizerQueue subclass which responds to GC finalizer
     events by 'firing' the UserDelAction class above.  It does not
-    directly fetches the objects to finalize at all; they stay in the 
+    directly fetches the objects to finalize at all; they stay in the
     GC-managed queue, and will only be fetched by UserDelAction
     (between bytecodes)."""
 

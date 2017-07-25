@@ -73,19 +73,24 @@ class CPyBuffer(BufferView):
             if self.needs_decref:
                 if self.releasebufferproc:
                     func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
-                    with lltype.scoped_alloc(Py_buffer) as pybuf:
-                        pybuf.c_buf = self.ptr
-                        pybuf.c_len = self.size
-                        pybuf.c_ndim = cts.cast('int', self.ndim)
-                        pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
-                        pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
-                        for i in range(self.ndim):
-                            pybuf.c_shape[i] = self.shape[i]
-                            pybuf.c_strides[i] = self.strides[i]
-                        with rffi.scoped_str2charp(
-                                self.format if self.format else "B") as fmt:
-                            pybuf.c_format = fmt
-                            generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
+                    size = rffi.sizeof(cts.gettype('Py_buffer'))
+                    pybuf = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw', zero=True)
+                    pybuf = cts.cast('Py_buffer*', pybuf)
+                    pybuf.c_buf = self.ptr
+                    pybuf.c_len = self.size
+                    pybuf.c_ndim = cts.cast('int', self.ndim)
+                    pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
+                    pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
+                    for i in range(self.ndim):
+                        pybuf.c_shape[i] = self.shape[i]
+                        pybuf.c_strides[i] = self.strides[i]
+                    fmt = rffi.str2charp(self.format if self.format else "B")
+                    try:
+                        pybuf.c_format = fmt
+                        generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
+                    finally:
+                        lltype.free(fmt, flavor='raw')
+                        lltype.free(pybuf, flavor='raw')
                 decref(self.space, self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
         else:

@@ -6,6 +6,7 @@ import traceback
 # So far, this is used for lltype.malloc(flavor='raw').
 TRACK_ALLOCATIONS = False
 ALLOCATED = {}
+TB_LINES = 76
 
 class MallocMismatch(Exception):
     def __str__(self):
@@ -13,8 +14,8 @@ class MallocMismatch(Exception):
         dict2 = {}
         for obj, traceback in dict.items():
             traceback = traceback.splitlines()
-            if len(traceback) > 8:
-                traceback = ['    ...'] + traceback[-6:]
+            if len(traceback) > TB_LINES + 2:
+                traceback = ['    ...'] + traceback[-TB_LINES:]
             traceback = '\n'.join(traceback)
             dict2.setdefault(traceback, [])
             dict2[traceback].append(obj)
@@ -58,7 +59,7 @@ def remember_malloc(obj, framedepth=1):
     if TRACK_ALLOCATIONS:
         frame = sys._getframe(framedepth)
         sio = cStringIO.StringIO()
-        traceback.print_stack(frame, limit=10, file=sio)
+        traceback.print_stack(frame, limit=40, file=sio)
         tb = sio.getvalue()
         ALLOCATED[obj] = tb
 

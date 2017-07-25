@@ -109,9 +109,9 @@ class LeakCheckingTest(object):
         except leakfinder.MallocMismatch as e:
             result = e.args[0]
             filtered_result = {}
-            for obj in result:
+            for obj, value in result.iteritems():
                 if not is_allowed_to_leak(self.space, obj):
-                    filtered_result[obj] = result[obj]
+                    filtered_result[obj] = value
             if filtered_result:
                 raise leakfinder.MallocMismatch(filtered_result)
         assert not self.space.finalizer_queue.next_dead()
