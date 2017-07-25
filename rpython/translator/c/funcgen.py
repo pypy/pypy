@@ -713,6 +713,10 @@ class FunctionCodeGenerator(object):
                 return gencsupp.cast_gcptr_to_int(self, op)
         return self.OP_CAST_POINTER(op)
 
+    def OP_REVDB_DO_NEXT_CALL(self, op):
+        self.revdb_do_next_call = True
+        return "/* revdb_do_next_call */"
+
     def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
         return ('%s = *(long *)(((char *)%s) + sizeof(struct pypy_header0));'
                 '  /* length_of_simple_gcarray_from_opaque */'

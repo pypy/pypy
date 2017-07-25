@@ -4,6 +4,7 @@ from __future__ import with_statement
 
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, is_emulated_long
@@ -419,8 +420,8 @@ def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
                   (what the real callback is for example), casted to VOIDP
     """
     userdata = rffi.cast(USERDATA_P, ll_userdata)
+    llop.revdb_do_next_call(lltype.Void)
     userdata.callback(ll_args, ll_res, userdata)
-_ll_callback._revdb_do_all_calls_ = True
 
 def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     rposix._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)

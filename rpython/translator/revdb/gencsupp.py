@@ -78,10 +78,11 @@ def emit(normal_code, tp, value):
     return 'RPY_REVDB_EMIT(%s, %s, %s);' % (normal_code, cdecl(tp, '_e'), value)
 
 def emit_residual_call(funcgen, call_code, v_result, expr_result):
-    if getattr(getattr(funcgen.graph, 'func', None),
-               '_revdb_do_all_calls_', False):
+    if hasattr(funcgen, 'revdb_do_next_call'):
+        del funcgen.revdb_do_next_call
         return call_code   # a hack for ll_call_destructor() to mean
-                           # that the calls should really be done
+                           # that the calls should really be done.
+                           # Also used in rpython.rlib.clibffi.
     #
     if call_code in ('RPyGilAcquire();', 'RPyGilRelease();'):
         # Could also work with a regular RPY_REVDB_CALL_VOID, but we
