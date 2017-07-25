@@ -2468,6 +2468,15 @@ create_and_release_buffer(PyObject *self, PyObject *obj)
     Py_RETURN_NONE;
 }
 
+static PyObject *
+same_dealloc(PyObject *self, PyObject *args)
+{
+    PyObject *obj1, *obj2;
+    if (!PyArg_ParseTuple(args, "OO", &obj1, &obj2)) {
+        return NULL;
+    }
+    return PyLong_FromLong(obj1->ob_type->tp_dealloc == obj2->ob_type->tp_dealloc);
+}
 
 /*********************** Install Module **************************/
 
@@ -2477,6 +2486,7 @@ static PyMethodDef a_methods[] = {
     {"readbuffer_as_string",   (PyCFunction)readbuffer_as_string, METH_VARARGS, NULL},
     {"get_releasebuffer_cnt",   (PyCFunction)get_releasebuffer_cnt, METH_NOARGS, NULL},
     {"create_and_release_buffer",   (PyCFunction)create_and_release_buffer, METH_O, NULL},
+    {"same_dealloc",   (PyCFunction)same_dealloc, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
