@@ -1867,6 +1867,7 @@ array_multiply(PyObject* obj1, PyObject* obj2)
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
         int i = ((PyIntObject*)v)->ob_ival;
+        Py_DECREF(v);
         PyObject * ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
@@ -1883,6 +1884,7 @@ array_multiply(PyObject* obj1, PyObject* obj2)
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
         int i = ((PyIntObject*)v)->ob_ival;
+        Py_DECREF(v);
         PyObject * ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
@@ -1919,6 +1921,7 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
         int i = ((PyIntObject*)v)->ob_ival;
+        Py_DECREF(v);
         PyObject * ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
@@ -1926,7 +1929,10 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
             if (PyInt_Check(v))
                 PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
             else
+            {
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn, v);
+            }
         }
         return ret;
     }
@@ -1936,6 +1942,7 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
         int i = ((PyIntObject*)v)->ob_ival;
+        Py_DECREF(v);
         PyObject * ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
@@ -1943,7 +1950,10 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
             if (PyInt_Check(v))
                 PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
             else
+            {
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn, v);
+            }
         }
         return ret;
     }
