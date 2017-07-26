@@ -450,6 +450,25 @@ class W_Socket(W_Root):
 
     @unwrap_spec(message_size=int, ancbufsize=int, flags=int)
     def recvmsg_w(self,space,message_size, ancbufsize = 0, flags = 0):
+        """
+        recvfrom(message_size[, ancbufsize[, flags]]) -> (message, ancillary, flags, address)
+        recvmsg(message_size, [ancbufsize,[flags]]) -> (message, ancillary, flags, address)
+        Receive normal data (up to bufsize bytes) and ancillary data from the socket.
+        The ancbufsize argument sets the size in bytes of the internal buffer used to receive the ancillary data;
+        it defaults to 0, meaning that no ancillary data will be received.
+        Appropriate buffer sizes for ancillary data can be calculated using CMSG_SPACE() or CMSG_LEN(),
+        and items which do not fit into the buffer might be truncated or discarded.
+        The flags argument defaults to 0 and has the same meaning as for recv().
+        The ancdata item is a list of zero or more tuples (cmsg_level, cmsg_type, cmsg_data):
+        cmsg_level and cmsg_type are integers specifying the protocol level and protocol-specific type respectively,
+        and cmsg_data is a bytes object holding the associated data.
+
+        :param space: Non useable parameter. It represents the object space.
+        :param message_size: Maximum size of the message to be received
+        :param ancbufsize:  Maximum size of the ancillary data to be received
+        :param flags: Receive flag. For more details, please check the Unix manual
+        :return: a tuple consisting of the message, the ancillary data, return flag and the address.
+        """
         if (message_size < 0):
             raise oefmt(space.w_ValueError, "negative buffer size in recvmsg()")
         if ancbufsize < 0:
@@ -475,10 +494,6 @@ class W_Socket(W_Root):
             return rettup
         except SocketError as e:
             converted_error(space, e, eintr_retry=True)
-
-
-
-
 
     @unwrap_spec(data='bufferstr', flags=int)
     def send_w(self, space, data, flags=0):
@@ -535,10 +550,22 @@ class W_Socket(W_Root):
                 converted_error(space, e, eintr_retry=True)
         return space.newint(count)
 
-    #@unwrap_spec(data='bufferstr', flags = int)
     def sendmsg_w(self, space, w_data, w_ancillary=None, w_flags=None ,w_address=None):
-        """sendmsg(messages, [ancillaries, [flags, [address]]])
         """
+        sendmsg(data[,ancillary[,flags[,address]]]) -> bytes_sent
+        Send normal and ancillary data to the socket, gathering the non-ancillary data
+        from a series of buffers and concatenating it into a single message.
+        The ancdata argument specifies the ancillary data (control messages) as an iterable of zero or more tuples
+        (cmsg_level, cmsg_type, cmsg_data), where cmsg_level and cmsg_type are integers specifying the protocol level
+        and protocol-specific type respectively, and cmsg_data is a bytes-like object holding the associated data.
+        :param space: Represents the object space.
+        :param w_data: The message(s). needs to be a bytes like object
+        :param w_ancillary: needs to be a sequence object Can remain unspecified.
+        :param w_flags: needs to be an integer. Can remain unspecified.
+        :param w_address: needs to be a bytes-like object Can remain unspecified.
+        :return: Bytes sent from the message
+        """
+        # Get the flag and address from the object space
         flags = 0
         if space.is_none(w_flags) is False:
             flags = space.int_w(w_flags)
@@ -547,6 +574,7 @@ class W_Socket(W_Root):
         if space.is_none(w_address) is False:
             address = self.addr_from_object(space, w_address)
 
+        # find data's type in the ObjectSpace and get a list of string out of it.
         data = []
         if (w_data.typedef.name == 'list'):
             for i in w_data.getitems():
@@ -574,8 +602,9 @@ class W_Socket(W_Root):
                     if not e.match(space,space.w_StopIteration):
                         raise
                     break
-        ancillary = []
 
+        # find the ancillary's type in the ObjectSpace and get a list of tuples out of it.
+        ancillary = []
         if w_ancillary is not None:
             if (space.isinstance_w(w_ancillary,space.w_list)):
                 for i in w_ancillary.getitems():
@@ -594,19 +623,22 @@ class W_Socket(W_Root):
                         tup = (level, type, cont)
                         ancillary.append(tup)
                     else:
-                        raise oefmt(space.w_TypeError,"[sendmsg() ancillary data items]() argument must be sequence of length 3")
+                        raise oefmt(space.w_TypeError,
+                                    "[sendmsg() ancillary data items]() argument must be sequence of length 3")
 
             else:
                 while True:
                     try:
                         if (space.is_generator(w_ancillary) is False):
-                            raise oefmt(space.w_TypeError,"[sendmsg() ancillary data items]() argument must be sequence")
+                            raise oefmt(space.w_TypeError,
+                                        "[sendmsg() ancillary data items]() argument must be sequence")
                         i = space.next(w_ancillary)
                         if (space.isinstance_w(i, space.w_tuple) is False):
                             raise oefmt(space.w_TypeError,
                                         "[sendmsg() ancillary data items]() argument must be sequence of length 3")
                         if (space.len_w(i) != 3):
-                            raise oefmt(space.w_TypeError,"[sendmsg() ancillary data items]() argument must be sequence of length 3")
+                            raise oefmt(space.w_TypeError,
+                                        "[sendmsg() ancillary data items]() argument must be sequence of length 3")
                     except OperationError as e:
                         if not e.match(space,space.w_StopIteration):
                             raise
