@@ -9,35 +9,22 @@ from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rfloat import FloatRepr
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.rstring import UnicodeBuilder
 
 
 class AbstractStringRepr(Repr):
 
-    def __init__(self, *args):
-        Repr.__init__(self, *args)
-        self.rstr_decode_utf_8 = None
-
-    def ensure_ll_decode_utf8(self):
-        from rpython.rlib.runicode import str_decode_utf_8_impl
-        self.rstr_decode_utf_8 = func_with_new_name(str_decode_utf_8_impl,
-                                                    'rstr_decode_utf_8_impl')
-
     @jit.elidable
     def ll_decode_utf8(self, llvalue):
         from rpython.rtyper.annlowlevel import hlstr
+        from rpython.rlib import runicode
         value = hlstr(llvalue)
         assert value is not None
-        result = UnicodeBuilder(len(value))
-        self.rstr_decode_utf_8(
-            value, len(value), 'strict', final=False,
-            errorhandler=self.ll_raise_unicode_exception_decode,
-            allow_surrogates=False, result=result)
-        return self.ll.llunicode(result.build())
-
-    def ll_raise_unicode_exception_decode(self, errors, encoding, msg, s,
-                                       startingpos, endingpos):
-        raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
+        errorhandler = runicode.default_unicode_error_decode
+        # NB. keep the arguments in sync with annotator/unaryop.py
+        u, pos = runicode.str_decode_utf_8_elidable(
+            value, len(value), 'strict', True, errorhandler, True)
+        # XXX maybe the whole ''.decode('utf-8') should be not RPython.
+        return self.ll.llunicode(u)
 
     def _str_reprs(self, hop):
         return hop.args_r[0].repr, hop.args_r[1].repr
@@ -346,7 +333,6 @@ class AbstractStringRepr(Repr):
         elif encoding == 'latin-1':
             return hop.gendirectcall(self.ll_decode_latin1, v_self)
         elif encoding == 'utf-8':
-            self.ensure_ll_decode_utf8()
             return hop.gendirectcall(self.ll_decode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
@@ -385,15 +371,6 @@ class AbstractStringRepr(Repr):
 
 class AbstractUnicodeRepr(AbstractStringRepr):
 
-    def __init__(self, *args):
-        AbstractStringRepr.__init__(self, *args)
-        self.runicode_encode_utf_8 = None
-
-    def ensure_ll_encode_utf8(self):
-        from rpython.rlib.runicode import unicode_encode_utf_8_impl
-        self.runicode_encode_utf_8 = func_with_new_name(
-            unicode_encode_utf_8_impl, 'runicode_encode_utf_8')
-
     def rtype_method_upper(self, hop):
         raise TyperError("Cannot do toupper on unicode string")
 
@@ -403,17 +380,14 @@ class AbstractUnicodeRepr(AbstractStringRepr):
     @jit.elidable
     def ll_encode_utf8(self, ll_s):
         from rpython.rtyper.annlowlevel import hlunicode
+        from rpython.rlib import runicode
         s = hlunicode(ll_s)
         assert s is not None
-        bytes = self.runicode_encode_utf_8(
-            s, len(s), 'strict',
-            errorhandler=self.ll_raise_unicode_exception_encode,
-            allow_surrogates=False)
+        errorhandler = runicode.default_unicode_error_encode
+        # NB. keep the arguments in sync with annotator/unaryop.py
+        bytes = runicode.unicode_encode_utf_8_elidable(
+            s, len(s), 'strict', errorhandler, True)
         return self.ll.llstr(bytes)
-
-    def ll_raise_unicode_exception_encode(self, errors, encoding, msg, u,
-                                          startingpos, endingpos):
-        raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
     def rtype_method_encode(self, hop):
         if not hop.args_s[1].is_constant():
@@ -430,7 +404,6 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         elif encoding == "latin-1":
             return hop.gendirectcall(self.ll_encode_latin1, v_self)
         elif encoding == 'utf-8':
-            self.ensure_ll_encode_utf8()
             return hop.gendirectcall(self.ll_encode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
@@ -591,7 +564,9 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
 
 class __extend__(pairtype(IntegerRepr, AbstractStringRepr)):
     def rtype_mul((r_int, r_str), hop):
-        return pair(r_str, r_int).rtype_mul(hop)
+        str_repr = r_str.repr
+        v_int, v_str = hop.inputargs(Signed, str_repr)
+        return hop.gendirectcall(r_str.ll.ll_str_mul, v_str, v_int)
     rtype_inplace_mul = rtype_mul
 
 

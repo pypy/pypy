@@ -3,8 +3,8 @@ be used directly and instead it's magically appearing each time you call
 python builtin open()
 """
 
-import os, stat, errno
-from rpython.rlib import rposix
+import os, stat, errno, sys
+from rpython.rlib import rposix, rgc
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import StringBuilder
@@ -173,7 +173,6 @@ def create_file(filename, mode="r", buffering=-1):
 
 def create_fdopen_rfile(fd, mode="r", buffering=-1):
     newmode = _sanitize_mode(mode)
-    fd = rffi.cast(rffi.INT, fd)
     rposix.validate_fd(fd)
     ll_mode = rffi.str2charp(newmode)
     try:
@@ -220,6 +219,22 @@ def create_stdio():
     stderr = RFile(c_stderr(), close2=close2)
     return stdin, stdout, stderr
 
+
+def write_int(f, l):
+    if sys.maxint == 2147483647:
+        f.write(chr(l & 0xff) +
+                chr((l >> 8) & 0xff) +
+                chr((l >> 16) & 0xff) +
+                chr((l >> 24) & 0xff))
+    else:
+        f.write(chr(l & 0xff) + 
+                chr((l >> 8) & 0xff) +
+                chr((l >> 16) & 0xff) +
+                chr((l >> 24) & 0xff) +
+                chr((l >> 32) & 0xff) +
+                chr((l >> 40) & 0xff) +
+                chr((l >> 48) & 0xff) +
+                chr((l >> 56) & 0xff))
 
 class RFile(object):
     _setbuf = lltype.nullptr(rffi.CCHARP.TO)
@@ -279,6 +294,7 @@ class RFile(object):
         if ll_file:
             # double close is allowed
             self._ll_file = lltype.nullptr(FILEP.TO)
+            rgc.may_ignore_finalizer(self)
             do_close = self._close2[0]
             try:
                 if do_close:

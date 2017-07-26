@@ -52,6 +52,18 @@ def sizeof_c_types(typenames_c, **kwds):
         result.append(int(answer[1]))
     return result
 
+def signof_c_type(c_typename, **kwds):
+    question = 'printf("sign %s=%%d\\n", ((%s) -1) <= (%s)0);' % (c_typename,
+                                                                  c_typename,
+                                                                  c_typename)
+    answer = ask_gcc(question, **kwds).strip()
+    if answer == 'sign %s=0' % (c_typename,):
+        return False
+    if answer == 'sign %s=1' % (c_typename,):
+        return True
+    raise ValueError(answer)
+
+
 class Platform:
     def __init__(self):
         self.types = {}

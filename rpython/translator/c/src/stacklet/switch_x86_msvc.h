@@ -5,6 +5,9 @@ extern void *slp_switch_raw(void *(*save_state)(void*, void*),
                         void *(*restore_state)(void*, void*),
                         void *extra);
 
+#undef STATIC_NOINLINE
+#define STATIC_NOINLINE   static __declspec(noinline)
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 

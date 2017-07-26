@@ -1,7 +1,9 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from rpython.tool.pairtype import extendabletype
+from rpython.rlib.rarithmetic import ovfcheck
 from pypy.module.micronumpy import support
+from pypy.module.micronumpy import constants as NPY
 
 def wrap_impl(space, w_cls, w_instance, impl):
     if w_cls is None or space.is_w(w_cls, space.gettypefor(W_NDimArray)):
@@ -22,6 +24,9 @@ class W_NumpyObject(W_Root):
     """Base class for ndarrays and scalars (aka boxes)."""
     _attrs_ = []
 
+    def get_flags(self):
+        return 0
+
 
 class W_NDimArray(W_NumpyObject):
     __metaclass__ = extendabletype
@@ -33,47 +38,67 @@ class W_NDimArray(W_NumpyObject):
         self.implementation = implementation
 
     @staticmethod
-    def from_shape(space, shape, dtype, order='C', w_instance=None, zero=True):
-        from pypy.module.micronumpy import concrete
+    def from_shape(space, shape, dtype, order=NPY.CORDER,
+                   w_instance=None, zero=True):
+        from pypy.module.micronumpy import concrete, descriptor, boxes
         from pypy.module.micronumpy.strides import calc_strides
+        if len(shape) > NPY.MAXDIMS:
+            raise oefmt(space.w_ValueError,
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
+        try:
+            ovfcheck(support.product_check(shape) * dtype.elsize)
+        except OverflowError as e:
+            raise oefmt(space.w_ValueError, "array is too big.")
         strides, backstrides = calc_strides(shape, dtype.base, order)
         impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides, zero=zero)
+        if dtype == descriptor.get_dtype_cache(space).w_objectdtype:
+            impl.fill(space, boxes.W_ObjectBox(space.w_None))
         if w_instance:
             return wrap_impl(space, space.type(w_instance), w_instance, impl)
         return W_NDimArray(impl)
 
     @staticmethod
     def from_shape_and_storage(space, shape, storage, dtype, storage_bytes=-1,
-                               order='C', owning=False, w_subtype=None,
-                               w_base=None, writable=True, strides=None, start=0):
+                               order=NPY.CORDER, owning=False, w_subtype=None,
+                               w_base=None, writable=True, strides=None,
+                               start=0):
         from pypy.module.micronumpy import concrete
         from pypy.module.micronumpy.strides import (calc_strides,
                                                     calc_backstrides)
         isize = dtype.elsize
+        if len(shape) > NPY.MAXDIMS:
+            raise oefmt(space.w_ValueError,
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
+        try:
+            totalsize = ovfcheck(support.product_check(shape) * isize)
+        except OverflowError as e:
+            raise oefmt(space.w_ValueError, "array is too big.")
         if storage_bytes > 0 :
-            totalsize = support.product(shape) * isize
             if totalsize > storage_bytes:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "buffer is too small for requested array"))
+                raise oefmt(space.w_TypeError,
+                            "buffer is too small for requested array")
         else:
-            storage_bytes = support.product(shape) * isize
+            storage_bytes = totalsize
         if strides is None:
             strides, backstrides = calc_strides(shape, dtype, order)
         else:
             if len(strides) != len(shape):
                 raise oefmt(space.w_ValueError,
                     'strides, if given, must be the same length as shape')
+            last = 0
             for i in range(len(strides)):
-                if strides[i] < 0 or strides[i]*shape[i] > storage_bytes:
-                    raise oefmt(space.w_ValueError,
-                        'strides is incompatible with shape of requested '
-                        'array and size of buffer')
+                last += (shape[i] - 1) * strides[i]
+            if last > storage_bytes or start < 0 or \
+                    start + dtype.elsize > storage_bytes:
+                raise oefmt(space.w_ValueError,
+                    'strides is incompatible with shape of requested '
+                    'array and size of buffer')
             backstrides = calc_backstrides(strides, shape)
         if w_base is not None:
             if owning:
-                raise OperationError(space.w_ValueError,
-                        space.wrap("Cannot have owning=True when specifying a buffer"))
+                raise oefmt(space.w_ValueError,
+                            "Cannot have owning=True when specifying a buffer")
             if writable:
                 impl = concrete.ConcreteArrayWithBase(shape, dtype, order,
                                     strides, backstrides, storage, w_base,
@@ -97,19 +122,21 @@ class W_NDimArray(W_NumpyObject):
         return W_NDimArray(impl)
 
     @staticmethod
-    def new_slice(space, offset, strides, backstrides, shape, parent, orig_arr, dtype=None):
+    def new_slice(space, offset, strides, backstrides, shape, parent, w_arr, dtype=None):
         from pypy.module.micronumpy import concrete
-
+        w_base = w_arr
+        if w_arr.implementation.base() is not None:
+            w_base = w_arr.implementation.base()
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,
-                                   orig_arr, dtype)
-        return wrap_impl(space, space.type(orig_arr), orig_arr, impl)
+                                   w_base, dtype)
+        return wrap_impl(space, space.type(w_arr), w_arr, impl)
 
     @staticmethod
     def new_scalar(space, dtype, w_val=None):
         if w_val is not None:
             w_val = dtype.coerce(space, w_val)
         else:
-            w_val = dtype.coerce(space, space.wrap(0))
+            w_val = dtype.coerce(space, space.newint(0))
         return convert_to_array(space, w_val)
 
     @staticmethod
@@ -123,7 +150,7 @@ class W_NDimArray(W_NumpyObject):
     def get_shape(self):
         return self.implementation.get_shape()
 
-    def get_dtype(self):
+    def get_dtype(self, space=None):
         return self.implementation.dtype
 
     def get_order(self):
@@ -131,6 +158,9 @@ class W_NDimArray(W_NumpyObject):
 
     def get_start(self):
         return self.implementation.start
+
+    def get_flags(self):
+        return self.implementation.flags
 
     def ndims(self):
         return len(self.get_shape())

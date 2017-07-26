@@ -395,6 +395,7 @@ class ArenaCollection(object):
                 if arena.nfreepages == arena.totalpages:
                     #
                     # The whole arena is empty.  Free it.
+                    llarena.arena_reset(arena.base, self.arena_size, 4)
                     llarena.arena_free(arena.base)
                     lltype.free(arena, flavor='raw', track_allocation=False)
                     #

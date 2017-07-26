@@ -1,4 +1,4 @@
-Sprint reports from PyPy sprints 2003-2006
+Sprint reports from PyPy sprints 2003-2010
 ==========================================
 
 Here are links to sprint reports from various sprints in the PyPy project,

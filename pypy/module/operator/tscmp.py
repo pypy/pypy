@@ -9,6 +9,7 @@ from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.interpreter.error import oefmt
+from pypy.interpreter.baseobjspace import BufferInterfaceNotFound
 
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
@@ -52,7 +53,7 @@ def compare_digest(space, w_a, w_b):
         with rffi.scoped_nonmoving_unicodebuffer(a) as a_buf:
             with rffi.scoped_nonmoving_unicodebuffer(b) as b_buf:
                 result = pypy_tscmp_wide(a_buf, b_buf, len(a), len(b))
-        return space.wrap(rffi.cast(lltype.Bool, result))
+        return space.newbool(rffi.cast(lltype.Bool, result))
     return compare_digest_buffer(space, w_a, w_b)
 
 
@@ -60,7 +61,7 @@ def compare_digest_buffer(space, w_a, w_b):
     try:
         a_buf = w_a.buffer_w(space, space.BUF_SIMPLE)
         b_buf = w_b.buffer_w(space, space.BUF_SIMPLE)
-    except TypeError:
+    except BufferInterfaceNotFound:
         raise oefmt(space.w_TypeError,
                     "unsupported operand types(s) or combination of types: "
                     "'%T' and '%T'", w_a, w_b)
@@ -70,4 +71,4 @@ def compare_digest_buffer(space, w_a, w_b):
     with rffi.scoped_nonmovingbuffer(a) as a_buf:
         with rffi.scoped_nonmovingbuffer(b) as b_buf:
             result = pypy_tscmp(a_buf, b_buf, len(a), len(b))
-    return space.wrap(rffi.cast(lltype.Bool, result))
+    return space.newbool(rffi.cast(lltype.Bool, result))

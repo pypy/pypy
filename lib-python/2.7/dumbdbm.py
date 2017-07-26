@@ -21,6 +21,7 @@ is read when the database is opened, and some updates rewrite the whole index)
 
 """
 
+import ast as _ast
 import os as _os
 import __builtin__
 import UserDict
@@ -44,8 +45,9 @@ class _Database(UserDict.DictMixin):
     _os = _os       # for _commit()
     _open = _open   # for _commit()
 
-    def __init__(self, filebasename, mode):
+    def __init__(self, filebasename, mode, flag='c'):
         self._mode = mode
+        self._readonly = (flag == 'r')
 
         # The directory file is a text file.  Each line looks like
         #    "%r, (%d, %d)\n" % (key, pos, siz)
@@ -80,12 +82,13 @@ class _Database(UserDict.DictMixin):
         try:
             f = _open(self._dirfile)
         except IOError:
-            pass
+            self._modified = not self._readonly
         else:
+            self._modified = False
             with f:
                 for line in f:
                     line = line.rstrip()
-                    key, pos_and_siz_pair = eval(line)
+                    key, pos_and_siz_pair = _ast.literal_eval(line)
                     self._index[key] = pos_and_siz_pair
 
     # Write the index dict to the directory file.  The original directory
@@ -95,7 +98,7 @@ class _Database(UserDict.DictMixin):
         # CAUTION:  It's vital that _commit() succeed, and _commit() can
         # be called from __del__().  Therefore we must never reference a
         # global in this routine.
-        if self._index is None:
+        if self._index is None or not self._modified:
             return  # nothing to do
 
         try:
@@ -158,6 +161,7 @@ class _Database(UserDict.DictMixin):
     def __setitem__(self, key, val):
         if not type(key) == type('') == type(val):
             raise TypeError, "keys and values must be strings"
+        self._modified = True
         if key not in self._index:
             self._addkey(key, self._addval(val))
         else:
@@ -183,6 +187,7 @@ class _Database(UserDict.DictMixin):
             # (so that _commit() never gets called).
 
     def __delitem__(self, key):
+        self._modified = True
         # The blocks used by the associated value are lost.
         del self._index[key]
         # XXX It's unclear why we do a _commit() here (the code always
@@ -208,8 +213,10 @@ class _Database(UserDict.DictMixin):
         return len(self._index)
 
     def close(self):
-        self._commit()
-        self._index = self._datfile = self._dirfile = self._bakfile = None
+        try:
+            self._commit()
+        finally:
+            self._index = self._datfile = self._dirfile = self._bakfile = None
 
     __del__ = close
 
@@ -243,4 +250,4 @@ def open(file, flag=None, mode=0666):
         # Turn off any bits that are set in the umask
         mode = mode & (~um)
 
-    return _Database(file, mode)
+    return _Database(file, mode, flag)

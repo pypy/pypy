@@ -1,4 +1,4 @@
-
+import sys
 from ctypes import *
 from support import BaseCTypesTestChecker
 
@@ -8,8 +8,11 @@ class TestUnion(BaseCTypesTestChecker):
             _fields_ = [('x', c_char), ('y', c_int)]
 
         stuff = Stuff()
-        stuff.y = ord('x')
-        assert stuff.x == 'x'
+        stuff.y = ord('x') | (ord('z') << 24)
+        if sys.byteorder == 'little':
+            assert stuff.x == 'x'
+        else:
+            assert stuff.x == 'z'
 
     def test_union_of_structures(self):
         class Stuff(Structure):

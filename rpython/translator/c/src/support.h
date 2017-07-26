@@ -6,11 +6,9 @@
 #define _SRC_SUPPORT_H
 
 #define RUNNING_ON_LLINTERP	0
-#define OP_JIT_RECORD_KNOWN_CLASS(i, c, r)  /* nothing */
+#define OP_JIT_RECORD_EXACT_CLASS(i, c, r)  /* nothing */
 
 #define FAIL_OVF(msg) _RPyRaiseSimpleException(RPyExc_OverflowError)
-#define FAIL_VAL(msg) _RPyRaiseSimpleException(RPyExc_ValueError)
-#define FAIL_ZER(msg) _RPyRaiseSimpleException(RPyExc_ZeroDivisionError)
 
 /* Extra checks can be enabled with the RPY_ASSERT or RPY_LL_ASSERT
  * macros.  They differ in the level at which the tests are made.

@@ -7,19 +7,22 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import ovfcheck
 
 from pypy.module._cffi_backend import cdataobj
-from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray, W_CTypePointer
+from pypy.module._cffi_backend import ctypeprim
 
 
 class W_CTypeArray(W_CTypePtrOrArray):
     _attrs_            = ['ctptr']
     _immutable_fields_ = ['ctptr']
     kind = "array"
+    is_nonfunc_pointer_or_array = True
 
     def __init__(self, space, ctptr, length, arraysize, extra):
+        assert isinstance(ctptr, W_CTypePointer)
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
                                    ctptr.ctitem)
         self.length = length
@@ -28,35 +31,54 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def _alignof(self):
         return self.ctitem.alignof()
 
-    def newp(self, w_init):
+    def newp(self, w_init, allocator):
         space = self.space
         datasize = self.size
         #
         if datasize < 0:
-            from pypy.module._cffi_backend import misc
-            w_init, length = misc.get_new_array_length(space, w_init)
+            w_init, length = self.get_new_array_length(w_init)
             try:
                 datasize = ovfcheck(length * self.ctitem.size)
             except OverflowError:
-                raise OperationError(space.w_OverflowError,
-                    space.wrap("array size would overflow a ssize_t"))
-            #
-            cdata = cdataobj.W_CDataNewOwningLength(space, datasize,
-                                                    self, length)
-        #
+                raise oefmt(space.w_OverflowError,
+                            "array size would overflow a ssize_t")
         else:
-            cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
+            length = self.length
+        #
+        cdata = allocator.allocate(space, datasize, self, length)
         #
         if not space.is_w(w_init, space.w_None):
             with cdata as ptr:
                 self.convert_from_object(ptr, w_init)
         return cdata
 
+    def get_new_array_length(self, w_value):
+        space = self.space
+        if (space.isinstance_w(w_value, space.w_list) or
+            space.isinstance_w(w_value, space.w_tuple)):
+            return (w_value, space.int_w(space.len(w_value)))
+        elif space.isinstance_w(w_value, space.w_bytes):
+            # from a string, we add the null terminator
+            s = space.bytes_w(w_value)
+            return (w_value, len(s) + 1)
+        elif space.isinstance_w(w_value, space.w_unicode):
+            from pypy.module._cffi_backend import wchar_helper
+            u = space.unicode_w(w_value)
+            if self.ctitem.size == 2:
+                length = wchar_helper.unicode_size_as_char16(u)
+            else:
+                length = wchar_helper.unicode_size_as_char32(u)
+            return (w_value, length + 1)
+        else:
+            explicitlength = space.getindex_w(w_value, space.w_OverflowError)
+            if explicitlength < 0:
+                raise oefmt(space.w_ValueError, "negative array length")
+            return (space.w_None, explicitlength)
+
     def _check_subscript_index(self, w_cdata, i):
         space = self.space
         if i < 0:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("negative index not supported"))
+            raise oefmt(space.w_IndexError, "negative index not supported")
         if i >= w_cdata.get_array_length():
             raise oefmt(space.w_IndexError,
                         "index too large for cdata '%s' (expected %d < %d)",
@@ -66,8 +88,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def _check_slice_index(self, w_cdata, start, stop):
         space = self.space
         if start < 0:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("negative index not supported"))
+            raise oefmt(space.w_IndexError, "negative index not supported")
         if stop > w_cdata.get_array_length():
             raise oefmt(space.w_IndexError,
                         "index too large (expected %d <= %d)",
@@ -98,10 +119,10 @@ class W_CTypeArray(W_CTypePtrOrArray):
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
-            return self.space.wrap(self.ctitem)
+            return self.ctitem
         if attrchar == 'l':     # length
             if self.length >= 0:
-                return self.space.wrap(self.length)
+                return self.space.newint(self.length)
             else:
                 return self.space.w_None
         return W_CTypePtrOrArray._fget(self, attrchar)
@@ -122,7 +143,7 @@ class W_CDataIter(W_Root):
         self._stop = rffi.ptradd(self._next, length * ctitem.size)
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         result = self._next

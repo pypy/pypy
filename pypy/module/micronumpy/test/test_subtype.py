@@ -80,25 +80,53 @@ class AppTestSupport(BaseNumpyAppTest):
         a = array(range(5))
         b = matrix(a)
         assert isinstance(b, matrix)
+        assert b.__array_priority__ == 0.0
         assert (b == a).all()
+        assert isinstance(b.view(), matrix) 
         a = array(5)[()]
         for s in [matrix, ndarray]:
             b = a.view(s)
             assert b == a
             assert type(b) is type(a)
+        a = matrix(array(range(5)))
+        for s in [matrix, ndarray]:
+            b = ndarray.view(a, s)
+            assert (b == a).all()
+            assert type(b) is s
 
     def test_subtype_like_matrix(self):
         import numpy as np
         arr = np.array([1,2,3])
         ret = np.ndarray.__new__(np.ndarray, arr.shape, arr.dtype, buffer=arr)
+        assert ret.__array_priority__ == 0.0
         assert (arr == ret).all()
+    
+    def test_priority(self):
+        from numpy import ndarray, arange, add
+        class DoReflected(object):
+            __array_priority__ = 10
+            def __radd__(self, other):
+                return 42
 
+        class A(object):
+            def __add__(self, other):
+                return NotImplemented
+
+
+        a = arange(10)
+        b = DoReflected()
+        c = A()
+        assert c + b == 42
+        assert a.__add__(b) is NotImplemented # not an exception
+        assert b.__radd__(a) == 42
+        assert a + b == 42
+        
     def test_finalize(self):
         #taken from http://docs.scipy.org/doc/numpy/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
         import numpy as np
         class InfoArray(np.ndarray):
             def __new__(subtype, shape, dtype=float, buffer=None, offset=0,
-                          strides=None, order='C', info=None):
+                          strides=None, order='C', info=1):
                 obj = np.ndarray.__new__(subtype, shape, dtype, buffer,
                          offset, strides, order)
                 obj.info = info
@@ -106,25 +134,31 @@ class AppTestSupport(BaseNumpyAppTest):
 
             def __array_finalize__(self, obj):
                 if obj is None:
-                    print 'finalize with None'
                     return
                 # printing the object itself will crash the test
-                print 'finalize with something',type(obj)
-                self.info = getattr(obj, 'info', None)
+                self.info = 1 + getattr(obj, 'info', 0)
+                if hasattr(obj, 'info'):
+                    obj.info += 100
+
         obj = InfoArray(shape=(3,))
         assert isinstance(obj, InfoArray)
-        assert obj.info is None
-        obj = InfoArray(shape=(3,), info='information')
-        assert obj.info == 'information'
+        assert obj.info == 1
+        obj = InfoArray(shape=(3,), info=10)
+        assert obj.info == 10
         v = obj[1:]
         assert isinstance(v, InfoArray)
         assert v.base is obj
-        assert v.info == 'information'
+        assert v.info == 11
         arr = np.arange(10)
         cast_arr = arr.view(InfoArray)
         assert isinstance(cast_arr, InfoArray)
         assert cast_arr.base is arr
-        assert cast_arr.info is None
+        assert cast_arr.info == 1
+        # Test that setshape calls __array_finalize__
+        cast_arr.shape = (5,2)
+        z = cast_arr.info
+        assert z == 101
+
 
     def test_sub_where(self):
         from numpy import where, ones, zeros, array
@@ -275,9 +309,13 @@ class AppTestSupport(BaseNumpyAppTest):
         assert c.dtype is dtype(float)
 
     def test_array_of_subtype(self):
-        import numpy as N
-        # numpy's matrix class caused an infinite loop
-        class matrix(N.ndarray):
+        import numpy as np
+        # this part of numpy's matrix class causes an infinite loop
+        # on cpython
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('does not pass on cpython')
+        class matrix(np.ndarray):
             def __new__(subtype, data, dtype=None, copy=True):
                 print('matrix __new__')
                 if isinstance(data, matrix):
@@ -288,11 +326,11 @@ class AppTestSupport(BaseNumpyAppTest):
                         return data
                     return data.astype(dtype)
 
-                if isinstance(data, N.ndarray):
+                if isinstance(data, np.ndarray):
                     if dtype is None:
                         intype = data.dtype
                     else:
-                        intype = N.dtype(dtype)
+                        intype = np.dtype(dtype)
                     new = data.view(subtype)
                     if intype != data.dtype:
                         return new.astype(intype)
@@ -303,7 +341,7 @@ class AppTestSupport(BaseNumpyAppTest):
                     data = _convert_from_string(data)
 
                 # now convert data to an array
-                arr = N.array(data, dtype=dtype, copy=copy)
+                arr = np.array(data, dtype=dtype, copy=copy)
                 ndim = arr.ndim
                 shape = arr.shape
                 if (ndim > 2):
@@ -320,13 +358,13 @@ class AppTestSupport(BaseNumpyAppTest):
                 if not (order or arr.flags.contiguous):
                     arr = arr.copy()
 
-                ret = N.ndarray.__new__(subtype, shape, arr.dtype,
+                ret = np.ndarray.__new__(subtype, shape, arr.dtype,
                                         buffer=arr,
                                         order=order)
                 return ret
 
             def __array_finalize__(self, obj):
-                print('matrix __array_finalize__')
+                print('matrix __array_finalize__',obj)
                 self._getitem = False
                 if (isinstance(obj, matrix) and obj._getitem): return
                 ndim = self.ndim
@@ -349,15 +387,15 @@ class AppTestSupport(BaseNumpyAppTest):
                 return
 
             def __getitem__(self, index):
-                print('matrix __getitem__')
+                print('matrix __getitem__',index)
                 self._getitem = True
 
                 try:
-                    out = N.ndarray.__getitem__(self, index)
+                    out = np.ndarray.__getitem__(self, index)
                 finally:
                     self._getitem = False
 
-                if not isinstance(out, N.ndarray):
+                if not isinstance(out, np.ndarray):
                     return out
 
                 if out.ndim == 0:
@@ -376,18 +414,18 @@ class AppTestSupport(BaseNumpyAppTest):
                 return out
 
         a = matrix([[1., 2.], [3., 4.]])
-        b = N.array([a])
+        b = np.array([a])
         assert (b == a).all()
 
-        b = N.array(a)
+        b = np.array(a)
         assert len(b.shape) == 2
         assert (b == a).all()
 
-        b = N.array(a, copy=False)
+        b = np.array(a, copy=False)
         assert len(b.shape) == 2
         assert (b == a).all()
 
-        b = N.array(a, copy=True, dtype=int)
+        b = np.array(a, copy=True, dtype=int)
         assert len(b.shape) == 2
         assert (b == a).all()
 
@@ -395,12 +433,33 @@ class AppTestSupport(BaseNumpyAppTest):
         assert c.base is not None
         c[0, 0] = 100
         assert a[0, 0] == 100
-        b = N.array(c, copy=True)
+        b = np.array(c, copy=True)
         assert (b == a).all()
+
+        d = np.empty([6,2], dtype=float)
+        d.view('int64').fill(0xdeadbeef)
+        e = d[0::3,:]
+        e[...] = [[1, 2], [3, 4]]
+        assert e.strides == (48, 8)
+        f = e.view(matrix)
+        assert f.strides == (48, 8)
+        g = np.array(f, copy=False)
+        assert (g == [[1, 2], [3, 4]]).all()
+
+        k = np.empty([2, 8], dtype=float)
+        k.view('int64').fill(0xdeadbeef)
+        m = k[:, ::-4]
+        m[...] = [[1, 2], [3, 4]]
+        assert m.strides == (64, -32)
+        n = m.view(matrix)
+        assert n.strides == (64, -32)
+        p = np.array(n, copy=False)
+        assert (p == [[1, 2], [3, 4]]).all()
+
 
     def test_setstate_no_version(self):
         # Some subclasses of ndarray, like MaskedArray, do not use
-        # version in __setstare__
+        # version in __setstate__
         from numpy import ndarray, array
         from pickle import loads, dumps
         import sys, new
@@ -419,6 +478,7 @@ class AppTestSupport(BaseNumpyAppTest):
                 (version, shp, typ, isf, raw) = state
                 ndarray.__setstate__(self, (shp, typ, isf, raw))
 
+        E = '<' if sys.byteorder == 'little' else '>'
         D.__module__ = 'mod'
         mod = new.module('mod')
         mod.D = D
@@ -451,7 +511,7 @@ class AppTestSupport(BaseNumpyAppTest):
             tp9
             Rp10
             (I3
-            S'<'
+            S'{E}'
             p11
             NNNI-1
             I-1
@@ -461,7 +521,7 @@ class AppTestSupport(BaseNumpyAppTest):
             S'\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\x00@'
             p13
             tp14
-            b.'''.replace('            ','')
+            b.'''.replace('            ','').format(E=E)
         for ss,sn in zip(s.split('\n')[1:],s_from_numpy.split('\n')[1:]):
             if len(ss)>10:
                 # ignore binary data, it will be checked later
@@ -592,4 +652,82 @@ class AppTestSupport(BaseNumpyAppTest):
         fp[5:6][:,4] = vals
         a = asarray(fp[5:6][:,4])
         assert (a == vals).all()
+
+    def test__array_wrap__(self):
+        ''' Straight from the documentation of __array_wrap__
+        '''
+        import numpy as np
+
+        class MySubClass(np.ndarray):
+            output = ''
+
+            def __new__(cls, input_array, info=None):
+                obj = np.array(input_array).view(cls)
+                obj.info = info
+                return obj
+
+            def __array_finalize__(self, obj):
+                self.output += 'In __array_finalize__:'
+                self.output += '   self is %s' % repr(self)
+                self.output += '   obj is %s\n' % repr(obj)
+                print self.output
+                if obj is None: return
+                self.info = getattr(obj, 'info', None)
+
+            def __array_wrap__(self, out_arr, context=None):
+                self.output += 'In __array_wrap__:'
+                self.output += '   self is %s' % repr(self)
+                self.output += '   arr is %r\n' % (out_arr,)
+                self.output += '   context is %r\n' % (context,)
+                # then just call the parent
+                ret = np.ndarray.__array_wrap__(self, out_arr, context)
+                print 'wrap',self.output
+                return ret 
+
+        obj = MySubClass(np.arange(5), info='spam')
+        assert obj.output.startswith('In __array_finalize')
+        obj.output = ''
+        print 'np.arange(5) + 1'
+        arr2 = np.arange(5) + 1
+        assert len(obj.output) < 1
+        print 'np.add(arr2, obj)'
+        ret = np.add(arr2, obj)
+        assert obj.output.startswith('In __array_wrap')
+        assert 'finalize' not in obj.output
+        assert ret.info == 'spam'
+        print 'np.negative(obj)'
+        ret = np.negative(obj)
+        assert ret.info == 'spam'
+        print 'obj.sum()'
+        ret = obj.sum()
+        print type(ret)
+        assert ret.info == 'spam'
+
+    def test_ndarray_subclass_assigns_base(self):
+        import numpy as np
+        init_called = []
+        class _DummyArray(object):
+            """ Dummy object that just exists to hang __array_interface__ dictionaries
+            and possibly keep alive a reference to a base array.
+            """
+            def __init__(self, interface, base=None):
+                self.__array_interface__ = interface
+                init_called.append(1)
+                self.base = base
+
+        x = np.zeros(10)
+        d = _DummyArray(x.__array_interface__, base=x)
+        y = np.array(d, copy=False)
+        assert sum(init_called) == 1
+        assert y.base is d
+
+        x = np.zeros((0,), dtype='float32')
+        intf = x.__array_interface__.copy()
+        intf["strides"] = x.strides
+        x.__array_interface__["strides"] = x.strides
+        d = _DummyArray(x.__array_interface__, base=x)
+        y = np.array(d, copy=False)
+        assert sum(init_called) == 2
+        assert y.base is d
+
 

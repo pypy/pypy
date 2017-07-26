@@ -18,34 +18,34 @@ class AppTestRaise:
     def test_1arg(self):
         try:
             raise SystemError, 1
-        except Exception, e:
+        except Exception as e:
             assert e.args[0] == 1
 
     def test_2args(self):
         try:
             raise SystemError, (1, 2)
-        except Exception, e:
+        except Exception as e:
             assert e.args[0] == 1
             assert e.args[1] == 2
 
     def test_instancearg(self):
         try:
             raise SystemError, SystemError(1, 2)
-        except Exception, e:
+        except Exception as e:
             assert e.args[0] == 1
             assert e.args[1] == 2
 
     def test_more_precise_instancearg(self):
         try:
             raise Exception, SystemError(1, 2)
-        except SystemError, e:
+        except SystemError as e:
             assert e.args[0] == 1
             assert e.args[1] == 2
 
     def test_builtin_exc(self):
         try:
             [][0]
-        except IndexError, e:
+        except IndexError as e:
             assert isinstance(e, IndexError)
 
     def test_raise_cls(self):
@@ -194,7 +194,7 @@ class AppTestRaise:
             raise Sub
         except IndexError:
             assert 0
-        except A, a:
+        except A as a:
             assert a.__class__ is Sub
 
         sub = Sub()
@@ -202,14 +202,14 @@ class AppTestRaise:
             raise sub
         except IndexError:
             assert 0
-        except A, a:
+        except A as a:
             assert a is sub
 
         try:
             raise A, sub
         except IndexError:
             assert 0
-        except A, a:
+        except A as a:
             assert a is sub
             assert sub.val is None
 
@@ -217,13 +217,13 @@ class AppTestRaise:
             raise Sub, 42
         except IndexError:
             assert 0
-        except A, a:
+        except A as a:
             assert a.__class__ is Sub
             assert a.val == 42
 
         try:
             {}[5]
-        except A, a:
+        except A as a:
             assert 0
         except KeyError:
             pass

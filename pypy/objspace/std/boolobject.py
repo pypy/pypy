@@ -13,7 +13,7 @@ from pypy.objspace.std.intobject import W_AbstractIntObject, W_IntObject
 class W_BoolObject(W_IntObject):
 
     def __init__(self, boolval):
-        self.intval = not not boolval
+        self.intval = int(not not boolval)
 
     def __nonzero__(self):
         raise Exception("you cannot do that, you must use space.is_true()")
@@ -45,7 +45,7 @@ class W_BoolObject(W_IntObject):
         return space.newbool(space.is_true(w_obj))
 
     def descr_repr(self, space):
-        return space.wrap('True' if self.intval else 'False')
+        return space.newtext('True' if self.intval else 'False')
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_nonzero(self, space):

@@ -11,6 +11,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
     RegLoc, RawEspLoc, RawEbpLoc, imm, ImmedLoc)
 from rpython.jit.backend.x86.jump import remap_frame_layout
+from rpython.jit.backend.x86 import codebuf
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.llsupport import llerrno
 from rpython.rtyper.lltypesystem import llmemory, rffi
@@ -58,7 +59,7 @@ class CallBuilderX86(AbstractCallBuilder):
             self.fnloc_is_immediate = False
             self.fnloc = None
             self.arglocs = arglocs + [fnloc]
-        self.current_esp = 0     # 0 or (usually) negative, counted in bytes
+        self.start_frame_size = self.mc._frame_size
 
     def select_call_release_gil_mode(self):
         AbstractCallBuilder.select_call_release_gil_mode(self)
@@ -70,13 +71,15 @@ class CallBuilderX86(AbstractCallBuilder):
     def subtract_esp_aligned(self, count):
         if count > 0:
             align = align_stack_words(count)
-            self.current_esp -= align * WORD
             self.mc.SUB_ri(esp.value, align * WORD)
 
+    def get_current_esp(self):
+        return self.start_frame_size - self.mc._frame_size
+
     def restore_stack_pointer(self, target_esp=0):
-        if self.current_esp != target_esp:
-            self.mc.ADD_ri(esp.value, target_esp - self.current_esp)
-            self.current_esp = target_esp
+        current_esp = self.get_current_esp()
+        if current_esp != target_esp:
+            self.mc.ADD_ri(esp.value, target_esp - current_esp)
 
     def load_result(self):
         """Overridden in CallBuilder32 and CallBuilder64"""
@@ -99,9 +102,10 @@ class CallBuilderX86(AbstractCallBuilder):
         # after the rearrangements done just before, ignoring the return
         # value eax, if necessary
         assert not self.is_call_release_gil
-        self.change_extra_stack_depth = (self.current_esp != 0)
+        current_esp = self.get_current_esp()
+        self.change_extra_stack_depth = (current_esp != 0)
         if self.change_extra_stack_depth:
-            self.asm.set_extra_stack_depth(self.mc, -self.current_esp)
+            self.asm.set_extra_stack_depth(self.mc, -current_esp)
         noregs = self.asm.cpu.gc_ll_descr.is_shadow_stack()
         gcmap = self.asm._regalloc.get_gcmap([eax], noregs=noregs)
         self.asm.push_gcmap(self.mc, gcmap, store=True)
@@ -135,6 +139,7 @@ class CallBuilderX86(AbstractCallBuilder):
             # shadowstack: change 'rpy_fastgil' to 0 (it should be
             # non-zero right now).
             self.change_extra_stack_depth = False
+            # ^^ note that set_extra_stack_depth() in this case is a no-op
             css_value = imm(0)
         else:
             from rpython.memory.gctransform import asmgcroot
@@ -142,7 +147,7 @@ class CallBuilderX86(AbstractCallBuilder):
             # and 5/7 words as described for asmgcroot.ASM_FRAMEDATA, for a
             # total size of JIT_USE_WORDS.  This structure is found at
             # [ESP+css].
-            css = -self.current_esp + (
+            css = -self.get_current_esp() + (
                 WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS))
             assert css >= 2 * WORD
             # Save ebp
@@ -178,7 +183,7 @@ class CallBuilderX86(AbstractCallBuilder):
             else:
                 self.tlofs_reg = r12
             self.mc.MOV_rs(self.tlofs_reg.value,
-                           THREADLOCAL_OFS - self.current_esp)
+                           THREADLOCAL_OFS - self.get_current_esp())
             if self.asm._is_asmgcc():
                 self.mc.AND_ri(self.tlofs_reg.value, ~1)
         return self.tlofs_reg
@@ -218,6 +223,7 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.CALL(imm(follow_jump(SetLastError_addr)))
             # restore the stack position without assuming a particular
             # calling convention of _SetLastError()
+            self.mc.stack_frame_size_delta(-WORD)
             self.mc.MOV(esp, self.saved_stack_position_reg)
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
@@ -234,7 +240,7 @@ class CallBuilderX86(AbstractCallBuilder):
             if IS_X86_32:
                 tmpreg = edx
             else:
-                tmpreg = r11     # edx is used for 3rd argument
+                tmpreg = r10                   # edx is used for 3rd argument
             mc.MOV_rm(tmpreg.value, (tlofsreg.value, p_errno))
             mc.MOV32_rm(eax.value, (tlofsreg.value, rpy_errno))
             mc.MOV32_mr((tmpreg.value, 0), eax.value)
@@ -262,9 +268,9 @@ class CallBuilderX86(AbstractCallBuilder):
                 rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()   # => esi or r12 (possibly reused)
-            mc.MOV_rm(edi.value, (tlofsreg.value, p_errno))
-            mc.MOV32_rm(edi.value, (edi.value, 0))
-            mc.MOV32_mr((tlofsreg.value, rpy_errno), edi.value)
+            mc.MOV_rm(ecx.value, (tlofsreg.value, p_errno))
+            mc.MOV32_rm(ecx.value, (ecx.value, 0))
+            mc.MOV32_mr((tlofsreg.value, rpy_errno), ecx.value)
 
         if handle_lasterror and (save_err & (rffi.RFFI_SAVE_LASTERROR |
                                              rffi.RFFI_SAVE_WSALASTERROR)):
@@ -288,6 +294,41 @@ class CallBuilderX86(AbstractCallBuilder):
             tlofsreg = self.get_tlofs_reg()    # => esi (possibly reused)
             mc.MOV32_mr((tlofsreg.value, lasterror), eax.value)
 
+    class ReacqGilSlowPath(codebuf.SlowPath):
+        early_jump_addr = 0
+
+        def generate_body(self, assembler, mc):
+            if self.early_jump_addr != 0:
+                # This slow-path has two entry points, with two
+                # conditional jumps.  We can jump to the regular start
+                # of this slow-path with the 2nd conditional jump.  Or,
+                # we can jump past the "MOV(heap(fastgil), ecx)"
+                # instruction from the 1st conditional jump.
+                # This instruction reverts the rpy_fastgil acquired
+                # previously, so that the general 'reacqgil_addr'
+                # function can acquire it again.  It must only be done
+                # if we actually succeeded in acquiring rpy_fastgil.
+                from rpython.jit.backend.x86.assembler import heap
+                mc.MOV(heap(self.fastgil), ecx)
+                offset = mc.get_relative_pos() - self.early_jump_addr
+                mc.overwrite32(self.early_jump_addr-4, offset)
+                # scratch register forgotten here, by get_relative_pos()
+
+            # call the reacqgil() function
+            cb = self.callbuilder
+            if not cb.result_value_saved_early:
+                cb.save_result_value(save_edx=False)
+            if assembler._is_asmgcc():
+                if IS_X86_32:
+                    css_value = edx
+                    old_value = ecx
+                    mc.MOV_sr(4, old_value.value)
+                    mc.MOV_sr(0, css_value.value)
+                # on X86_64, they are already in the right registers
+            mc.CALL(imm(follow_jump(assembler.reacqgil_addr)))
+            if not cb.result_value_saved_early:
+                cb.restore_result_value(save_edx=False)
+
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
         #
@@ -309,8 +350,8 @@ class CallBuilderX86(AbstractCallBuilder):
                     if not self.result_value_saved_early:
                         mc.MOV_sr(12, edx.value)
                         restore_edx = True
-                css_value = edx
-                old_value = ecx
+                css_value = edx    # note: duplicated in ReacqGilSlowPath
+                old_value = ecx    #
             elif IS_X86_64:
                 css_value = edi
                 old_value = esi
@@ -336,42 +377,25 @@ class CallBuilderX86(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
-            mc.J_il8(rx86.Conditions['NE'], 0)
-            jne_location = mc.get_relative_pos()
+            mc.J_il(rx86.Conditions['NE'], 0xfffff)     # patched later
+            early_jump_addr = mc.get_relative_pos(break_basic_block=False)
+            # ^^^ this jump will go to almost the same place as the
+            # ReacqGilSlowPath() computes, but one instruction farther,
+            # i.e. just after the "MOV(heap(fastgil), ecx)".
+
             # here, ecx (=old_value) is zero (so rpy_fastgil was in 'released'
             # state before the XCHG, but the XCHG acquired it by writing 1)
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
             mc.CMP(ebx, heap(rst))
-            mc.J_il8(rx86.Conditions['E'], 0)
-            je_location = mc.get_relative_pos()
-            # revert the rpy_fastgil acquired above, so that the
-            # general 'reacqgil_addr' below can acquire it again...
-            mc.MOV(heap(fastgil), ecx)
-            # patch the JNE above
-            offset = mc.get_relative_pos() - jne_location
-            assert 0 < offset <= 127
-            mc.overwrite(jne_location-1, chr(offset))
+            sp = self.ReacqGilSlowPath(mc, rx86.Conditions['NE'])
+            sp.early_jump_addr = early_jump_addr
+            sp.fastgil = fastgil
         else:
-            mc.J_il8(rx86.Conditions['E'], 0)
-            je_location = mc.get_relative_pos()
-        #
-        # Yes, we need to call the reacqgil() function
-        if not self.result_value_saved_early:
-            self.save_result_value(save_edx=False)
-        if self.asm._is_asmgcc():
-            if IS_X86_32:
-                mc.MOV_sr(4, old_value.value)
-                mc.MOV_sr(0, css_value.value)
-            # on X86_64, they are already in the right registers
-        mc.CALL(imm(follow_jump(self.asm.reacqgil_addr)))
-        if not self.result_value_saved_early:
-            self.restore_result_value(save_edx=False)
-        #
-        # patch the JE above
-        offset = mc.get_relative_pos() - je_location
-        assert 0 < offset <= 127
-        mc.overwrite(je_location-1, chr(offset))
+            sp = self.ReacqGilSlowPath(mc, rx86.Conditions['NE'])
+        sp.callbuilder = self
+        sp.set_continue_addr(mc)
+        self.asm.pending_slowpaths.append(sp)
         #
         if restore_edx:
             mc.MOV_rs(edx.value, 12)   # restore this
@@ -451,7 +475,10 @@ class CallBuilder32(CallBuilderX86):
         else:
             self.mc.CALL(self.fnloc)
             if self.callconv != FFI_DEFAULT_ABI:
-                self.current_esp += self._fix_stdcall(self.callconv)
+                # in the STDCALL ABI, the CALL above has an effect on
+                # the stack depth.  Adjust 'mc._frame_size'.
+                delta = self._fix_stdcall(self.callconv)
+                self.mc.stack_frame_size_delta(-delta)
 
     def _fix_stdcall(self, callconv):
         from rpython.rlib.clibffi import FFI_STDCALL

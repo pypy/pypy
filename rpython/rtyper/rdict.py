@@ -72,20 +72,14 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
         return hop.gendirectcall(self.ll_dictiter, citerptr, v_dict)
 
     def rtype_next(self, hop):
-        variant = self.variant
         v_iter, = hop.inputargs(self)
         # record that we know about these two possible exceptions
         hop.has_implicit_exception(StopIteration)
         hop.has_implicit_exception(RuntimeError)
         hop.exception_is_here()
         v_index = hop.gendirectcall(self._ll_dictnext, v_iter)
-        if variant == 'items' and hop.r_result.lowleveltype != lltype.Void:
-            # this allocates the tuple for the result, directly in the function
-            # where it will be used (likely).  This will let it be removed.
-            c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype.TO)
-            cflags = hop.inputconst(lltype.Void, {'flavor': 'gc'})
-            v_result = hop.genop('malloc', [c1, cflags],
-                                 resulttype = hop.r_result.lowleveltype)
+        #
+        # read 'iter.dict.entries'
         DICT = self.lowleveltype.TO.dict
         c_dict = hop.inputconst(lltype.Void, 'dict')
         v_dict = hop.genop('getfield', [v_iter, c_dict], resulttype=DICT)
@@ -93,32 +87,61 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
         c_entries = hop.inputconst(lltype.Void, 'entries')
         v_entries = hop.genop('getfield', [v_dict, c_entries],
                               resulttype=ENTRIES)
-        if variant != 'values':
-            KEY = ENTRIES.TO.OF.key
-            c_key = hop.inputconst(lltype.Void, 'key')
-            v_key = hop.genop('getinteriorfield', [v_entries, v_index, c_key],
-                              resulttype=KEY)
-        if variant != 'keys' and variant != 'reversed':
-            VALUE = ENTRIES.TO.OF.value
-            c_value = hop.inputconst(lltype.Void, 'value')
-            v_value = hop.genop('getinteriorfield', [v_entries,v_index,c_value],
-                                resulttype=VALUE)
-        if variant == 'keys' or variant == 'reversed':
-            return self.r_dict.recast_key(hop.llops, v_key)
-        elif variant == 'values':
-            return self.r_dict.recast_value(hop.llops, v_value)
-        elif hop.r_result.lowleveltype == lltype.Void:
+        # call the correct variant_*() method
+        method = getattr(self, 'variant_' + self.variant)
+        return method(hop, ENTRIES, v_entries, v_index)
+
+    def get_tuple_result(self, hop, items_v):
+        # this allocates the tuple for the result, directly in the function
+        # where it will be used (likely).  This will let it be removed.
+        if hop.r_result.lowleveltype is lltype.Void:
             return hop.inputconst(lltype.Void, None)
-        else:
-            assert variant == 'items'
-            ITEM0 = v_result.concretetype.TO.item0
-            ITEM1 = v_result.concretetype.TO.item1
-            if ITEM0 != v_key.concretetype:
-                v_key = hop.genop('cast_pointer', [v_key], resulttype=ITEM0)
-            if ITEM1 != v_value.concretetype:
-                v_value = hop.genop('cast_pointer', [v_value], resulttype=ITEM1)
-            c_item0 = hop.inputconst(lltype.Void, 'item0')
-            c_item1 = hop.inputconst(lltype.Void, 'item1')
-            hop.genop('setfield', [v_result, c_item0, v_key])
-            hop.genop('setfield', [v_result, c_item1, v_value])
-            return v_result
+        c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype.TO)
+        cflags = hop.inputconst(lltype.Void, {'flavor': 'gc'})
+        v_result = hop.genop('malloc', [c1, cflags],
+                             resulttype = hop.r_result.lowleveltype)
+        for i, v_item in enumerate(items_v):
+            ITEM = getattr(v_result.concretetype.TO, 'item%d' % i)
+            if ITEM != v_item.concretetype:
+                assert isinstance(ITEM, lltype.Ptr)
+                v_item = hop.genop('cast_pointer', [v_item], resulttype=ITEM)
+            c_item = hop.inputconst(lltype.Void, 'item%d' % i)
+            hop.genop('setfield', [v_result, c_item, v_item])
+        return v_result
+
+    def variant_keys(self, hop, ENTRIES, v_entries, v_index):
+        KEY = ENTRIES.TO.OF.key
+        c_key = hop.inputconst(lltype.Void, 'key')
+        v_key = hop.genop('getinteriorfield', [v_entries, v_index, c_key],
+                          resulttype=KEY)
+        return self.r_dict.recast_key(hop.llops, v_key)
+
+    variant_reversed = variant_keys
+
+    def variant_values(self, hop, ENTRIES, v_entries, v_index):
+        VALUE = ENTRIES.TO.OF.value
+        c_value = hop.inputconst(lltype.Void, 'value')
+        v_value = hop.genop('getinteriorfield', [v_entries,v_index,c_value],
+                            resulttype=VALUE)
+        return self.r_dict.recast_value(hop.llops, v_value)
+
+    def variant_items(self, hop, ENTRIES, v_entries, v_index):
+        v_key = self.variant_keys(hop, ENTRIES, v_entries, v_index)
+        v_value = self.variant_values(hop, ENTRIES, v_entries, v_index)
+        return self.get_tuple_result(hop, (v_key, v_value))
+
+    def variant_hashes(self, hop, ENTRIES, v_entries, v_index):
+        # there is not really a variant 'hashes', but this method is
+        # convenient for the following variants
+        return hop.gendirectcall(ENTRIES.TO.hash, v_entries, v_index)
+
+    def variant_keys_with_hash(self, hop, ENTRIES, v_entries, v_index):
+        v_key = self.variant_keys(hop, ENTRIES, v_entries, v_index)
+        v_hash = self.variant_hashes(hop, ENTRIES, v_entries, v_index)
+        return self.get_tuple_result(hop, (v_key, v_hash))
+
+    def variant_items_with_hash(self, hop, ENTRIES, v_entries, v_index):
+        v_key = self.variant_keys(hop, ENTRIES, v_entries, v_index)
+        v_value = self.variant_values(hop, ENTRIES, v_entries, v_index)
+        v_hash = self.variant_hashes(hop, ENTRIES, v_entries, v_index)
+        return self.get_tuple_result(hop, (v_key, v_value, v_hash))

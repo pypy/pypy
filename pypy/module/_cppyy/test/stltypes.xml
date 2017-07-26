@@ -1,0 +1,31 @@
+<lcgdict>
+
+  <namespace name="std" />
+
+  <class pattern="std::vector<*>" />
+  <!-- <class pattern="std::vector<*>::iterator" />
+  <class pattern="std::vector<*>::const_iterator" /> -->
+
+  <class pattern="std::list<*>" />
+  <!-- <class pattern="std::list<*>::iterator" />
+  <class pattern="std::list<*>::const_iterator" />
+  <class name="std::__detail::_List_node_base" /> -->
+
+  <class pattern="std::map<*>" />
+  <!-- <class pattern="std::pair<*>" /> -->
+  <!-- <class pattern="std::map<*>::iterator" />
+  <class pattern="std::map<*>::const_iterator" /> -->
+
+  <!-- <class pattern="__gnu_cxx::__normal_iterator<*>" /> -->
+
+  <!-- the following are for testing, not for iteration -->
+  <function name="__gnu_cxx::operator=="/>
+  <function name="__gnu_cxx::operator!="/>
+
+  <class name="just_a_class" />
+
+  <class name="std::string" />
+  <class name="stringy_class" />
+  <class pattern="stl_like_class<*>" />
+
+</lcgdict>

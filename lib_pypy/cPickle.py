@@ -167,7 +167,11 @@ class Unpickler(object):
         try:
             key = ord(self.read(1))
             while key != STOP:
-                self.dispatch[key](self)
+                try:
+                    meth = self.dispatch[key]
+                except KeyError:
+                    raise UnpicklingError("invalid load key, %r." % chr(key))
+                meth(self)
                 key = ord(self.read(1))
         except TypeError:
             if self.read(1) == '':
@@ -427,7 +431,14 @@ class Unpickler(object):
         self.append(obj)
 
     def find_class(self, module, name):
-        # Subclasses may override this
+        if self.find_global is None:
+            raise UnpicklingError(
+                "Global and instance pickles are not supported.")
+        return self.find_global(module, name)
+
+    def find_global(self, module, name):
+        # This can officially be patched directly in the Unpickler
+        # instance, according to the docs
         __import__(module)
         mod = sys.modules[module]
         klass = getattr(mod, name)
@@ -559,6 +570,7 @@ class Unpickler(object):
 
 def decode_long(data):
     r"""Decode a long from a two's complement little-endian binary string.
+    This is overriden on PyPy by a RPython version that has linear complexity.
 
     >>> decode_long('')
     0L
@@ -591,6 +603,11 @@ def decode_long(data):
     if ord(data[nbytes - 1]) >= 128:
         n -= 1L << (nbytes << 3)
     return n
+
+try:
+    from __pypy__ import decode_long
+except ImportError:
+    pass
 
 def load(f):
     return Unpickler(f).load()

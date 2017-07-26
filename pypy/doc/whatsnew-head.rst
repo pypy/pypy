@@ -1,13 +1,32 @@
-=======================
-What's new in PyPy 2.5+
-=======================
+==========================
+What's new in PyPy2.7 5.9+
+==========================
 
-.. this is a revision shortly after release-2.5.1
-.. startrev: 397b96217b85
+.. this is a revision shortly after release-pypy2.7-v5.8.0
+.. startrev: 558bd00b3dd8
 
-.. branch: gc-incminimark-pinning-improve
-Object Pinning is now used in `bz2` and `rzlib` (therefore also affects
-Python's `zlib`). In case the data to compress/decompress is inside the nursery
-(incminimark) it no longer needs to create a non-moving copy of it. This saves
-one `malloc` and copying the data.  Additionally a new GC environment variable
-is introduced (`PYPY_GC_MAX_PINNED`) primarily for debugging purposes.
+.. branch: cffi-complex
+.. branch: cffi-char16-char32
+
+The two ``cffi-*`` branches are part of the upgrade to cffi 1.11.
+
+.. branch: ctypes_char_indexing
+
+Indexing into char* behaves differently than CPython
+
+.. branch: vmprof-0.4.8
+
+Improve and fix issues with vmprof
+
+.. branch: issue-2592
+
+CPyext PyListObject.pop must return the value
+
+.. branch: cpyext-hash_notimpl
+
+If ``tp_hash`` is ``PyObject_HashNotImplemented``, set ``obj.__dict__['__hash__']`` to None
+
+.. branch: cppyy-packaging
+
+Renaming of ``cppyy`` to ``_cppyy``.
+The former is now an external package installable with ``pip install cppyy``.

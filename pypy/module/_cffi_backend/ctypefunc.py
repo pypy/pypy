@@ -12,30 +12,33 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.module import _cffi_backend
 from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
-from pypy.module._cffi_backend.ctypestruct import W_CTypeStruct
+from pypy.module._cffi_backend.ctypestruct import W_CTypeStruct, W_CTypeUnion
 from pypy.module._cffi_backend.ctypeprim import (W_CTypePrimitiveSigned,
     W_CTypePrimitiveUnsigned, W_CTypePrimitiveCharOrUniChar,
-    W_CTypePrimitiveFloat, W_CTypePrimitiveLongDouble)
+    W_CTypePrimitiveFloat, W_CTypePrimitiveLongDouble, W_CTypePrimitiveComplex)
 
 
 class W_CTypeFunc(W_CTypePtrBase):
-    _attrs_            = ['fargs', 'ellipsis', 'cif_descr']
-    _immutable_fields_ = ['fargs[*]', 'ellipsis', 'cif_descr']
+    _attrs_            = ['fargs', 'ellipsis', 'abi', 'cif_descr']
+    _immutable_fields_ = ['fargs[*]', 'ellipsis', 'abi', 'cif_descr']
     kind = "function"
 
     cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
-    def __init__(self, space, fargs, fresult, ellipsis):
-        extra = self._compute_extra_text(fargs, fresult, ellipsis)
+    def __init__(self, space, fargs, fresult, ellipsis,
+                 abi=_cffi_backend.FFI_DEFAULT_ABI):
+        assert isinstance(ellipsis, bool)
+        extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
-        W_CTypePtrBase.__init__(self, space, size, extra, 2, fresult,
-                                could_cast_anything=False)
+        W_CTypePtrBase.__init__(self, space, size, extra, xpos, fresult)
         self.fargs = fargs
-        self.ellipsis = bool(ellipsis)
+        self.ellipsis = ellipsis
+        self.abi = abi
         # fresult is stored in self.ctitem
 
         if not ellipsis:
@@ -43,10 +46,10 @@ class W_CTypeFunc(W_CTypePtrBase):
             # at all.  The cif is computed on every call from the actual
             # types passed in.  For all other functions, the cif_descr
             # is computed here.
-            builder = CifDescrBuilder(fargs, fresult)
+            builder = CifDescrBuilder(fargs, fresult, abi)
             try:
                 builder.rawallocate(self)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_NotImplementedError):
                     raise
                 # else, eat the NotImplementedError.  We will get the
@@ -55,11 +58,22 @@ class W_CTypeFunc(W_CTypePtrBase):
                     lltype.free(self.cif_descr, flavor='raw')
                     self.cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
+    def is_unichar_ptr_or_array(self):
+        return False
+
+    def is_char_or_unichar_ptr_or_array(self):
+        return False
+
+    def string(self, cdataobj, maxlen):
+        # Can't use ffi.string() on a function pointer
+        return W_CType.string(self, cdataobj, maxlen)
+
     def new_ctypefunc_completing_argtypes(self, args_w):
         space = self.space
         nargs_declared = len(self.fargs)
         fvarargs = [None] * len(args_w)
-        fvarargs[:nargs_declared] = self.fargs
+        for i in range(nargs_declared):
+            fvarargs[i] = self.fargs[i]
         for i in range(nargs_declared, len(args_w)):
             w_obj = args_w[i]
             if isinstance(w_obj, cdataobj.W_CData):
@@ -75,7 +89,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         ctypefunc.fargs = fvarargs
         ctypefunc.ctitem = self.ctitem
         #ctypefunc.cif_descr = NULL --- already provided as the default
-        CifDescrBuilder(fvarargs, self.ctitem).rawallocate(ctypefunc)
+        CifDescrBuilder(fvarargs, self.ctitem, self.abi).rawallocate(ctypefunc)
         return ctypefunc
 
     @rgc.must_be_light_finalizer
@@ -83,8 +97,13 @@ class W_CTypeFunc(W_CTypePtrBase):
         if self.cif_descr:
             lltype.free(self.cif_descr, flavor='raw')
 
-    def _compute_extra_text(self, fargs, fresult, ellipsis):
+    def _compute_extra_text(self, fargs, fresult, ellipsis, abi):
+        from pypy.module._cffi_backend import newtype
         argnames = ['(*)(']
+        xpos = 2
+        if _cffi_backend.has_stdcall and abi == _cffi_backend.FFI_STDCALL:
+            argnames[0] = '(__stdcall *)('
+            xpos += len('__stdcall ')
         for i, farg in enumerate(fargs):
             if i > 0:
                 argnames.append(', ')
@@ -94,18 +113,17 @@ class W_CTypeFunc(W_CTypePtrBase):
                 argnames.append(', ')
             argnames.append('...')
         argnames.append(')')
-        return ''.join(argnames)
+        return ''.join(argnames), xpos
 
     def _fget(self, attrchar):
         if attrchar == 'a':    # args
-            return self.space.newtuple([self.space.wrap(a)
-                                        for a in self.fargs])
+            return self.space.newtuple([a for a in self.fargs])
         if attrchar == 'r':    # result
-            return self.space.wrap(self.ctitem)
+            return self.ctitem
         if attrchar == 'E':    # ellipsis
-            return self.space.wrap(self.ellipsis)
+            return self.space.newbool(self.ellipsis)
         if attrchar == 'A':    # abi
-            return self.space.wrap(clibffi.FFI_DEFAULT_ABI)     # XXX
+            return self.space.newint(self.abi)
         return W_CTypePtrBase._fget(self, attrchar)
 
     def call(self, funcaddr, args_w):
@@ -142,16 +160,18 @@ class W_CTypeFunc(W_CTypePtrBase):
     @jit.unroll_safe
     def _call(self, funcaddr, args_w):
         space = self.space
-        cif_descr = self.cif_descr
+        cif_descr = self.cif_descr   # 'self' should have been promoted here
         size = cif_descr.exchange_size
         mustfree_max_plus_1 = 0
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
+            keepalives = [None] * len(args_w)    # None or strings
             for i in range(len(args_w)):
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                 w_obj = args_w[i]
                 argtype = self.fargs[i]
-                if argtype.convert_argument_from_object(data, w_obj):
+                if argtype.convert_argument_from_object(data, w_obj,
+                                                        keepalives, i):
                     # argtype is a pointer type, and w_obj a list/tuple/str
                     mustfree_max_plus_1 = i + 1
 
@@ -167,9 +187,13 @@ class W_CTypeFunc(W_CTypePtrBase):
                 if isinstance(argtype, W_CTypePointer):
                     data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                     flag = get_mustfree_flag(data)
+                    raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                     if flag == 1:
-                        raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                         lltype.free(raw_cdata, flavor='raw')
+                    elif flag >= 4:
+                        value = keepalives[i]
+                        assert value is not None
+                        rffi.free_nonmovingbuffer(value, raw_cdata, chr(flag))
             lltype.free(buffer, flavor='raw')
             keepalive_until_here(args_w)
         return w_res
@@ -180,36 +204,38 @@ def get_mustfree_flag(data):
 def set_mustfree_flag(data, flag):
     rffi.ptradd(data, -1)[0] = chr(flag)
 
-def _get_abi(space, name):
-    abi = getattr(clibffi, name)
-    assert isinstance(abi, int)
-    return space.wrap(abi)
-
 # ____________________________________________________________
 
 
-BIG_ENDIAN = sys.byteorder == 'big'
 USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
 
 
 # ----------
 # We attach to the classes small methods that return a 'ffi_type'
-def _missing_ffi_type(self, cifbuilder, is_result_type):
-    space = self.space
-    if self.size < 0:
-        raise oefmt(space.w_TypeError,
-                    "ctype '%s' has incomplete type", self.name)
+
+def _notimplemented_ffi_type(self, is_result_type, extra=''):
     if is_result_type:
         place = "return value"
     else:
         place = "argument"
-    raise oefmt(space.w_NotImplementedError,
-                "ctype '%s' (size %d) not supported as %s",
-                self.name, self.size, place)
+    raise oefmt(self.space.w_NotImplementedError,
+                "ctype '%s' (size %d) not supported as %s%s",
+                self.name, self.size, place, extra)
+
+def _missing_ffi_type(self, cifbuilder, is_result_type):
+    if self.size < 0:
+        raise oefmt(self.space.w_TypeError,
+                    "ctype '%s' has incomplete type", self.name)
+    raise _notimplemented_ffi_type(self, is_result_type)
 
 def _struct_ffi_type(self, cifbuilder, is_result_type):
     if self.size >= 0:
         return cifbuilder.fb_struct_ffi_type(self, is_result_type)
+    return _missing_ffi_type(self, cifbuilder, is_result_type)
+
+def _union_ffi_type(self, cifbuilder, is_result_type):
+    if self.size >= 0:   # only for a better error message
+        return cifbuilder.fb_union_ffi_type(self, is_result_type)
     return _missing_ffi_type(self, cifbuilder, is_result_type)
 
 def _primsigned_ffi_type(self, cifbuilder, is_result_type):
@@ -237,6 +263,13 @@ def _primfloat_ffi_type(self, cifbuilder, is_result_type):
 def _primlongdouble_ffi_type(self, cifbuilder, is_result_type):
     return clibffi.ffi_type_longdouble
 
+def _primcomplex_ffi_type(self, cifbuilder, is_result_type):
+    raise _notimplemented_ffi_type(self, is_result_type,
+        extra = " (the support for complex types inside libffi "
+                "is mostly missing at this point, so CFFI only "
+                "supports complex types as arguments or return "
+                "value in API-mode functions)")
+
 def _ptr_ffi_type(self, cifbuilder, is_result_type):
     return clibffi.ffi_type_pointer
 
@@ -247,22 +280,31 @@ def _void_ffi_type(self, cifbuilder, is_result_type):
 
 W_CType._get_ffi_type                       = _missing_ffi_type
 W_CTypeStruct._get_ffi_type                 = _struct_ffi_type
+W_CTypeUnion._get_ffi_type                  = _union_ffi_type
 W_CTypePrimitiveSigned._get_ffi_type        = _primsigned_ffi_type
 W_CTypePrimitiveCharOrUniChar._get_ffi_type = _primunsigned_ffi_type
 W_CTypePrimitiveUnsigned._get_ffi_type      = _primunsigned_ffi_type
 W_CTypePrimitiveFloat._get_ffi_type         = _primfloat_ffi_type
 W_CTypePrimitiveLongDouble._get_ffi_type    = _primlongdouble_ffi_type
+W_CTypePrimitiveComplex._get_ffi_type       = _primcomplex_ffi_type
 W_CTypePtrBase._get_ffi_type                = _ptr_ffi_type
 W_CTypeVoid._get_ffi_type                   = _void_ffi_type
 # ----------
 
 
+_SUPPORTED_IN_API_MODE = (
+        " are only supported as %s if the function is "
+        "'API mode' and non-variadic (i.e. declared inside ffibuilder"
+        ".cdef()+ffibuilder.set_source() and not taking a final '...' "
+        "argument)")
+
 class CifDescrBuilder(object):
     rawmem = lltype.nullptr(rffi.CCHARP.TO)
 
-    def __init__(self, fargs, fresult):
+    def __init__(self, fargs, fresult, fabi):
         self.fargs = fargs
         self.fresult = fresult
+        self.fabi = fabi
 
     def fb_alloc(self, size):
         size = llmemory.raw_malloc_usage(size)
@@ -277,6 +319,20 @@ class CifDescrBuilder(object):
     def fb_fill_type(self, ctype, is_result_type):
         return ctype._get_ffi_type(self, is_result_type)
 
+    def fb_unsupported(self, ctype, is_result_type, detail):
+        place = "return value" if is_result_type else "argument"
+        raise oefmt(self.space.w_NotImplementedError,
+            "ctype '%s' not supported as %s.  %s.  "
+            "Such structs" + _SUPPORTED_IN_API_MODE,
+            ctype.name, place, detail, place)
+
+    def fb_union_ffi_type(self, ctype, is_result_type=False):
+        place = "return value" if is_result_type else "argument"
+        raise oefmt(self.space.w_NotImplementedError,
+            "ctype '%s' not supported as %s by libffi.  "
+            "Unions" + _SUPPORTED_IN_API_MODE,
+            ctype.name, place, place)
+
     def fb_struct_ffi_type(self, ctype, is_result_type=False):
         # We can't pass a struct that was completed by verify().
         # Issue: assume verify() is given "struct { long b; ...; }".
@@ -289,32 +345,40 @@ class CifDescrBuilder(object):
         # Another reason for 'custom_field_pos' would be anonymous
         # nested structures: we lost the information about having it
         # here, so better safe (and forbid it) than sorry (and maybe
-        # crash).
+        # crash).  Note: it seems we only get in this case with
+        # ffi.verify().
         space = self.space
-        if ctype.custom_field_pos:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap(
-               "cannot pass as an argument a struct that was completed "
-               "with verify() (see pypy/module/_cffi_backend/ctypefunc.py "
-               "for details)"))
+        ctype.force_lazy_struct()
+        if ctype._custom_field_pos:
+            # these NotImplementedErrors may be caught and ignored until
+            # a real call is made to a function of this type
+            raise self.fb_unsupported(ctype, is_result_type,
+                "It is a struct declared with \"...;\", but the C "
+                "calling convention may depend on the missing fields; "
+                "or, it contains anonymous struct/unions")
+        # Another reason: __attribute__((packed)) is not supported by libffi.
+        if ctype._with_packed_change:
+            raise self.fb_unsupported(ctype, is_result_type,
+                "It is a 'packed' structure, with a different layout than "
+                "expected by libffi")
 
         # walk the fields, expanding arrays into repetitions; first,
         # only count how many flattened fields there are
         nflat = 0
-        for i, cf in enumerate(ctype.fields_list):
+        for i, cf in enumerate(ctype._fields_list):
             if cf.is_bitfield():
-                raise oefmt(space.w_NotImplementedError,
-                    "ctype '%s' not supported as argument or return value"
-                    " (it is a struct with bit fields)", ctype.name)
+                raise self.fb_unsupported(ctype, is_result_type,
+                    "It is a struct with bit fields, which libffi does not "
+                    "support")
             flat = 1
             ct = cf.ctype
             while isinstance(ct, ctypearray.W_CTypeArray):
                 flat *= ct.length
                 ct = ct.ctitem
             if flat <= 0:
-                raise oefmt(space.w_NotImplementedError,
-                    "ctype '%s' not supported as argument or return value"
-                    " (it is a struct with a zero-length array)", ctype.name)
+                raise self.fb_unsupported(ctype, is_result_type,
+                    "It is a struct with a zero-length array, which libffi "
+                    "does not support")
             nflat += flat
 
         if USE_C_LIBFFI_MSVC and is_result_type:
@@ -333,7 +397,7 @@ class CifDescrBuilder(object):
 
         # fill it with the ffi types of the fields
         nflat = 0
-        for i, cf in enumerate(ctype.fields_list):
+        for i, cf in enumerate(ctype._fields_list):
             flat = 1
             ct = cf.ctype
             while isinstance(ct, ctypearray.W_CTypeArray):
@@ -399,16 +463,6 @@ class CifDescrBuilder(object):
         exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
         exchange_offset = self.align_arg(exchange_offset)
         cif_descr.exchange_result = exchange_offset
-        cif_descr.exchange_result_libffi = exchange_offset
-
-        if BIG_ENDIAN and self.fresult.is_primitive_integer:
-            # For results of precisely these types, libffi has a
-            # strange rule that they will be returned as a whole
-            # 'ffi_arg' if they are smaller.  The difference
-            # only matters on big-endian.
-            if self.fresult.size < SIZE_OF_FFI_ARG:
-                diff = SIZE_OF_FFI_ARG - self.fresult.size
-                cif_descr.exchange_result += diff
 
         # then enough room for the result, rounded up to sizeof(ffi_arg)
         exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'),
@@ -423,10 +477,12 @@ class CifDescrBuilder(object):
             exchange_offset += rffi.getintfield(self.atypes[i], 'c_size')
 
         # store the exchange data size
-        cif_descr.exchange_size = exchange_offset
+        # we also align it to the next multiple of 8, in an attempt to
+        # work around bugs(?) of libffi (see cffi issue #241)
+        cif_descr.exchange_size = self.align_arg(exchange_offset)
 
     def fb_extra_fields(self, cif_descr):
-        cif_descr.abi = clibffi.FFI_DEFAULT_ABI    # XXX
+        cif_descr.abi = self.fabi
         cif_descr.nargs = len(self.fargs)
         cif_descr.rtype = self.rtype
         cif_descr.atypes = self.atypes
@@ -469,5 +525,5 @@ class CifDescrBuilder(object):
         # call libffi's ffi_prep_cif() function
         res = jit_libffi.jit_ffi_prep_cif(rawmem)
         if res != clibffi.FFI_OK:
-            raise OperationError(space.w_SystemError,
-                space.wrap("libffi failed to build this function type"))
+            raise oefmt(space.w_SystemError,
+                        "libffi failed to build this function type")

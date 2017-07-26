@@ -4,16 +4,20 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy import support, concrete
-from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, W_NumpyObject
 from pypy.module.micronumpy.descriptor import decode_w_dtype
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
+from pypy.module.micronumpy.casting import (find_binop_result_dtype, 
+                    can_cast_array, can_cast_type)
+import pypy.module.micronumpy.constants as NPY
+from pypy.module.micronumpy.converters import order_converter
 
 
 def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
     if space.is_w(w_op_flags, space.w_None):
-        w_op_flags = space.newtuple([space.wrap('readonly')])
+        w_op_flags = space.newtuple([space.newtext('readonly')])
     if not space.isinstance_w(w_op_flags, space.w_tuple) and not \
             space.isinstance_w(w_op_flags, space.w_list):
         raise oefmt(space.w_ValueError,
@@ -49,7 +53,7 @@ class OpFlag(object):
 def parse_op_flag(space, lst):
     op_flag = OpFlag()
     for w_item in lst:
-        item = space.str_w(w_item)
+        item = space.text_w(w_item)
         if item == 'readonly':
             op_flag.rw = 'r'
         elif item == 'readwrite':
@@ -98,18 +102,16 @@ def parse_func_flags(space, nditer, w_flags):
             'Iter global flags must be a list or tuple of strings')
     lst = space.listview(w_flags)
     for w_item in lst:
-        if not space.isinstance_w(w_item, space.w_str) and not \
+        if not space.isinstance_w(w_item, space.w_bytes) and not \
                 space.isinstance_w(w_item, space.w_unicode):
             raise oefmt(space.w_TypeError,
                         "expected string or Unicode object, %T found",
                         w_item)
-        item = space.str_w(w_item)
+        item = space.text_w(w_item)
         if item == 'external_loop':
             nditer.external_loop = True
         elif item == 'buffered':
-            raise oefmt(space.w_NotImplementedError,
-                'nditer buffered not implemented yet')
-            # For numpy compatability
+            # Each iterator should be 1d
             nditer.buffered = True
         elif item == 'c_index':
             nditer.tracked_index = 'C'
@@ -142,14 +144,13 @@ def parse_func_flags(space, nditer, w_flags):
             'Iterator flag EXTERNAL_LOOP cannot be used if an index or '
             'multi-index is being tracked')
 
-
-def is_backward(imp, order):
-    if order == 'K' or (order == 'C' and imp.order == 'C'):
+def is_backward(imp_order, order):
+    if imp_order == order:
         return False
-    elif order == 'F' and imp.order == 'C':
-        return True
+    if order == NPY.KEEPORDER:
+        return False
     else:
-        raise NotImplementedError('not implemented yet')
+        return True
 
 
 class OperandIter(ArrayIter):
@@ -173,7 +174,7 @@ class ConcreteIter(OperandIter):
     def __init__(self, array, size, shape, strides, backstrides,
                  op_flags, base):
         OperandIter.__init__(self, array, size, shape, strides, backstrides)
-        self.slice_shape =[] 
+        self.slice_shape =[]
         self.slice_stride = []
         self.slice_backstride = []
         if op_flags.rw == 'r':
@@ -212,30 +213,6 @@ class SliceIter(OperandIter):
         return arr
 
 
-def get_iter(space, order, arr, shape, dtype, op_flags, base):
-    imp = arr.implementation
-    backward = is_backward(imp, order)
-    if arr.is_scalar():
-        return ConcreteIter(imp, 1, [], [], [], op_flags, base)
-    if (imp.strides[0] < imp.strides[-1] and not backward) or \
-       (imp.strides[0] > imp.strides[-1] and backward):
-        # flip the strides. Is this always true for multidimension?
-        strides = imp.strides[:]
-        backstrides = imp.backstrides[:]
-        shape = imp.shape[:]
-        strides.reverse()
-        backstrides.reverse()
-        shape.reverse()
-    else:
-        strides = imp.strides
-        backstrides = imp.backstrides
-    r = calculate_broadcast_strides(strides, backstrides, imp.shape,
-                                    shape, backward)
-    if len(shape) != len(r[0]):
-        # shape can be shorter when using an external loop, just return a view
-        return ConcreteIter(imp, imp.get_size(), imp.shape, r[0], r[1], op_flags, base)
-    return ConcreteIter(imp, imp.get_size(), shape, r[0], r[1], op_flags, base)
-
 def calculate_ndim(op_in, oa_ndim):
     if oa_ndim >=0:
         return oa_ndim
@@ -258,7 +235,7 @@ def coalesce_axes(it, space):
                 continue
             assert isinstance(op_it, ArrayIter)
             indx = len(op_it.strides)
-            if it.order == 'F':
+            if it.order == NPY.FORTRANORDER:
                 indx = len(op_it.array.strides) - indx
                 assert indx >=0
                 astrides = op_it.array.strides[indx:]
@@ -274,7 +251,7 @@ def coalesce_axes(it, space):
                                          it.order)
                 it.iters[i] = (new_iter, new_iter.reset())
             if len(it.shape) > 1:
-                if it.order == 'F':
+                if it.order == NPY.FORTRANORDER:
                     it.shape = it.shape[1:]
                 else:
                     it.shape = it.shape[:-1]
@@ -285,10 +262,10 @@ def coalesce_axes(it, space):
             break
     # Always coalesce at least one
     for i in range(len(it.iters)):
-        new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it, 'C')
+        new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it, NPY.CORDER)
         it.iters[i] = (new_iter, new_iter.reset())
     if len(it.shape) > 1:
-        if it.order == 'F':
+        if it.order == NPY.FORTRANORDER:
             it.shape = it.shape[1:]
         else:
             it.shape = it.shape[:-1]
@@ -302,14 +279,16 @@ def coalesce_iter(old_iter, op_flags, it, order, flat=True):
     But after coalesce(), getoperand() will return a slice by removing
     the fastest varying dimension(s) from the beginning or end of the shape.
     If flat is true, then the slice will be 1d, otherwise stack up the shape of
-    the fastest varying dimension in the slice, so an iterator of a  'C' array 
+    the fastest varying dimension in the slice, so an iterator of a  'C' array
     of shape (2,4,3) after two calls to coalesce will iterate 2 times over a slice
     of shape (4,3) by setting the offset to the beginning of the data at each iteration
     '''
     shape = [s+1 for s in old_iter.shape_m1]
+    if len(shape) < 1:
+        return old_iter
     strides = old_iter.strides
     backstrides = old_iter.backstrides
-    if order == 'F':
+    if order == NPY.FORTRANORDER:
         new_shape = shape[1:]
         new_strides = strides[1:]
         new_backstrides = backstrides[1:]
@@ -327,6 +306,8 @@ def coalesce_iter(old_iter, op_flags, it, order, flat=True):
         _shape = [shape[-1]]  + old_iter.slice_shape
         _backstride = [(shape[-1] - 1) * strides[-1]] + old_iter.slice_backstride
         fastest = shape[-1]
+    if fastest == 0:
+        return old_iter
     if flat:
         _shape = [support.product(_shape)]
         if len(_stride) > 1:
@@ -363,13 +344,11 @@ class IndexIterator(object):
         return ret
 
 
-class W_NDIter(W_Root):
+class W_NDIter(W_NumpyObject):
     _immutable_fields_ = ['ndim', ]
     def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes,
-                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
-        from pypy.module.micronumpy.ufuncs import find_binop_result_dtype
-        
-        self.order = order
+                 w_casting, w_op_axes, w_itershape, buffersize=0,
+                 order=NPY.KEEPORDER, allow_backward=True):
         self.external_loop = False
         self.buffered = False
         self.tracked_index = ''
@@ -384,6 +363,11 @@ class W_NDIter(W_Root):
         self.done = False
         self.first_next = True
         self.op_axes = []
+        self.allow_backward = allow_backward
+        if not space.is_w(w_casting, space.w_None):
+            self.casting = space.text_w(w_casting)
+        else:
+            self.casting = 'safe'
         # convert w_seq operands to a list of W_NDimArray
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
@@ -393,7 +377,25 @@ class W_NDIter(W_Root):
                         for w_elem in w_seq_as_list]
         else:
             self.seq = [convert_to_array(space, w_seq)]
-
+        if order == NPY.ANYORDER:
+            # 'A' means "'F' order if all the arrays are Fortran contiguous,
+            #            'C' order otherwise"
+            order = NPY.CORDER
+            for s in self.seq:
+                if s and not(s.get_flags() & NPY.ARRAY_F_CONTIGUOUS):
+                     break
+                else:
+                    order = NPY.FORTRANORDER
+        elif order == NPY.KEEPORDER:
+            # 'K' means "as close to the order the array elements appear in
+            #     memory as possible", so match self.order to seq.order
+            order = NPY.CORDER
+            for s in self.seq:
+                if s and not(s.get_order() == NPY.FORTRANORDER):
+                     break
+                else:
+                    order = NPY.FORTRANORDER
+        self.order = order
         parse_func_flags(space, self, w_flags)
         self.op_flags = parse_op_arg(space, 'op_flags', w_op_flags,
                                      len(self.seq), parse_op_flag)
@@ -446,33 +448,66 @@ class W_NDIter(W_Root):
                     self.seq[i] = W_NDimArray.from_shape(space, self.shape, out_dtype)
                 else:
                     if not self.op_flags[i].broadcast:
-                        # Raises if ooutput cannot be broadcast
-                        shape_agreement(space, self.shape, self.seq[i], False)
+                        # Raises if output cannot be broadcast
+                        try:
+                            shape_agreement(space, self.shape, self.seq[i], False)
+                        except OperationError as e:
+                            raise oefmt(space.w_ValueError, "non-broadcastable"
+                                " output operand with shape %s doesn't match "
+                                "the broadcast shape %s", 
+                                str(self.seq[i].get_shape()),
+                                str(self.shape)) 
 
         if self.tracked_index != "":
-            if self.order == "K":
-                self.order = self.seq[0].implementation.order
+            order = self.order
+            if order == NPY.KEEPORDER:
+                order = self.seq[0].implementation.order
             if self.tracked_index == "multi":
                 backward = False
             else:
-                backward = self.order != self.tracked_index
+                backward = ((
+                    order == NPY.CORDER and self.tracked_index != 'C') or (
+                    order == NPY.FORTRANORDER and self.tracked_index != 'F'))
             self.index_iter = IndexIterator(self.shape, backward=backward)
 
         # handle w_op_dtypes part 2: copy where needed if possible
         if len(self.dtypes) > 0:
             for i in range(len(self.seq)):
-                selfd = self.dtypes[i]
+                self_d = self.dtypes[i]
                 seq_d = self.seq[i].get_dtype()
-                if not selfd:
+                if not self_d:
                     self.dtypes[i] = seq_d
-                elif selfd != seq_d:
-                    if not 'r' in self.op_flags[i].tmp_copy:
-                        raise oefmt(space.w_TypeError,
-                                    "Iterator operand required copying or "
-                                    "buffering for operand %d", i)
-                    impl = self.seq[i].implementation
-                    new_impl = impl.astype(space, selfd)
-                    self.seq[i] = W_NDimArray(new_impl)
+                elif self_d != seq_d:
+                        impl = self.seq[i].implementation
+                        if self.buffered or 'r' in self.op_flags[i].tmp_copy:
+                            if not can_cast_array(
+                                    space, self.seq[i], self_d, self.casting):
+                                raise oefmt(space.w_TypeError, "Iterator operand %d"
+                                    " dtype could not be cast from %R to %R"
+                                    " according to the rule '%s'",
+                                    i, seq_d, self_d, self.casting)
+                            order = support.get_order_as_CF(impl.order, self.order)
+                            new_impl = impl.astype(space, self_d, order).copy(space)
+                            self.seq[i] = W_NDimArray(new_impl)
+                        else:
+                            raise oefmt(space.w_TypeError, "Iterator "
+                                "operand required copying or buffering, "
+                                "but neither copying nor buffering was "
+                                "enabled")
+                        if 'w' in self.op_flags[i].rw:
+                            if not can_cast_type(
+                                    space, self_d, seq_d, self.casting):
+                                raise oefmt(space.w_TypeError, "Iterator"
+                                    " requested dtype could not be cast from "
+                                    " %R to %R, the operand %d dtype, accord"
+                                    "ing to the rule '%s'",
+                                    self_d, seq_d, i, self.casting)
+        elif self.buffered and not (self.external_loop and len(self.seq)<2):
+            for i in range(len(self.seq)):
+                if i not in outargs:
+                    self.seq[i] = self.seq[i].descr_copy(space,
+                                     w_order=space.newint(self.order))
+            self.dtypes = [s.get_dtype() for s in self.seq]
         else:
             #copy them from seq
             self.dtypes = [s.get_dtype() for s in self.seq]
@@ -480,13 +515,49 @@ class W_NDIter(W_Root):
         # create an iterator for each operand
         self.iters = []
         for i in range(len(self.seq)):
-            it = get_iter(space, self.order, self.seq[i], self.shape,
-                          self.dtypes[i], self.op_flags[i], self)
+            it = self.get_iter(space, i)
             it.contiguous = False
             self.iters.append((it, it.reset()))
 
         if self.external_loop:
             coalesce_axes(self, space)
+
+    def get_iter(self, space, i):
+        arr = self.seq[i]
+        imp = arr.implementation
+        if arr.is_scalar():
+            return ConcreteIter(imp, 1, [], [], [], self.op_flags[i], self)
+        shape = self.shape
+        if (self.external_loop and len(self.seq)<2 and self.buffered):
+            # Special case, always return a memory-ordered iterator
+            stride = imp.dtype.elsize
+            backstride = imp.size * stride - stride
+            return ConcreteIter(imp, imp.get_size(), 
+                [support.product(shape)], [stride], [backstride],
+                            self.op_flags[i], self)
+        backward = imp.order != self.order
+        # XXX cleanup needed
+        strides = imp.strides
+        backstrides = imp.backstrides
+        if self.allow_backward:
+            if  ((abs(imp.strides[0]) < abs(imp.strides[-1]) and not backward) or \
+                 (abs(imp.strides[0]) > abs(imp.strides[-1]) and backward)):
+                # flip the strides. Is this always true for multidimension?
+                strides = imp.strides[:]
+                backstrides = imp.backstrides[:]
+                shape = imp.shape[:]
+                strides.reverse()
+                backstrides.reverse()
+                shape.reverse()
+        r = calculate_broadcast_strides(strides, backstrides, imp.shape,
+                                        shape, backward)
+        iter_shape = shape
+        if len(shape) != len(r[0]):
+            # shape can be shorter when using an external loop, just return a view
+            iter_shape = imp.shape
+        return ConcreteIter(imp, imp.get_size(), iter_shape, r[0], r[1],
+                            self.op_flags[i], self)
+
 
     def set_op_axes(self, space, w_op_axes):
         if space.len_w(w_op_axes) != len(self.seq):
@@ -517,11 +588,11 @@ class W_NDIter(W_Root):
         return oa_ndim
 
     def descr_iter(self, space):
-        return space.wrap(self)
+        return self
 
     def getitem(self, it, st):
-        res = it.getoperand(st)
-        return W_NDimArray(res)
+        w_res = W_NDimArray(it.getoperand(st))
+        return w_res
 
     def descr_getitem(self, space, w_idx):
         idx = space.int_w(w_idx)
@@ -536,7 +607,7 @@ class W_NDIter(W_Root):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_len(self, space):
-        space.wrap(len(self.iters))
+        space.newint(len(self.iters))
 
     @jit.unroll_safe
     def descr_next(self, space):
@@ -573,7 +644,7 @@ class W_NDIter(W_Root):
         return self.done
 
     def descr_iternext(self, space):
-        return space.wrap(self.iternext())
+        return space.newbool(self.iternext())
 
     def descr_copy(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
@@ -607,30 +678,30 @@ class W_NDIter(W_Root):
         return space.newtuple(res)
 
     def descr_get_finished(self, space):
-        return space.wrap(self.done)
+        return space.newbool(self.done)
 
     def descr_get_has_delayed_bufalloc(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_has_index(self, space):
-        return space.wrap(self.tracked_index in ["C", "F"])
+        return space.newbool(self.tracked_index in ["C", "F"])
 
     def descr_get_index(self, space):
         if not self.tracked_index in ["C", "F"]:
             raise oefmt(space.w_ValueError, "Iterator does not have an index")
         if self.done:
             raise oefmt(space.w_ValueError, "Iterator is past the end")
-        return space.wrap(self.index_iter.getvalue())
+        return space.newint(self.index_iter.getvalue())
 
     def descr_get_has_multi_index(self, space):
-        return space.wrap(self.tracked_index == "multi")
+        return space.newbool(self.tracked_index == "multi")
 
     def descr_get_multi_index(self, space):
         if not self.tracked_index == "multi":
             raise oefmt(space.w_ValueError, "Iterator is not tracking a multi-index")
         if self.done:
             raise oefmt(space.w_ValueError, "Iterator is past the end")
-        return space.newtuple([space.wrap(x) for x in self.index_iter.index])
+        return space.newtuple([space.newint(x) for x in self.index_iter.index])
 
     def descr_get_iterationneedsapi(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
@@ -639,13 +710,13 @@ class W_NDIter(W_Root):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_itersize(self, space):
-        return space.wrap(support.product(self.shape))
+        return space.newint(support.product(self.shape))
 
     def descr_get_itviews(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_ndim(self, space):
-        return space.wrap(self.ndim)
+        return space.newint(self.ndim)
 
     def descr_get_nop(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
@@ -658,13 +729,15 @@ class W_NDIter(W_Root):
 
 
 @unwrap_spec(w_flags=WrappedDefault(None), w_op_flags=WrappedDefault(None),
-             w_op_dtypes=WrappedDefault(None), order=str,
+             w_op_dtypes=WrappedDefault(None), w_order=WrappedDefault(None),
              w_casting=WrappedDefault(None), w_op_axes=WrappedDefault(None),
-             w_itershape=WrappedDefault(None), buffersize=int)
+             w_itershape=WrappedDefault(None), w_buffersize=WrappedDefault(0))
 def descr_new_nditer(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
-                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
+                 w_casting, w_op_axes, w_itershape, w_buffersize, w_order):
+    npy_order = order_converter(space, w_order, NPY.KEEPORDER)
+    buffersize = space.int_w(w_buffersize) 
     return W_NDIter(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-                    w_itershape, buffersize, order)
+                    w_itershape, buffersize, npy_order)
 
 W_NDIter.typedef = TypeDef('numpy.nditer',
     __new__ = interp2app(descr_new_nditer),

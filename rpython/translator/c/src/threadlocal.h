@@ -13,13 +13,27 @@ RPY_EXTERN void RPython_ThreadLocals_ProgramInit(void);
    to die. */
 RPY_EXTERN void RPython_ThreadLocals_ThreadDie(void);
 
-/* There are two llops: 'threadlocalref_addr' and 'threadlocalref_make'.
-   They both return the address of the thread-local structure (of the
-   C type 'struct pypy_threadlocal_s').  The difference is that
-   OP_THREADLOCALREF_MAKE() checks if we have initialized this thread-
-   local structure in the current thread, and if not, calls the following
-   helper. */
+/* 'threadlocalref_addr' returns the address of the thread-local
+   structure (of the C type 'struct pypy_threadlocal_s').  It first
+   checks if we have initialized this thread-local structure in the
+   current thread, and if not, calls the following helper. */
 RPY_EXTERN char *_RPython_ThreadLocals_Build(void);
+
+RPY_EXTERN void _RPython_ThreadLocals_Acquire(void);
+RPY_EXTERN void _RPython_ThreadLocals_Release(void);
+RPY_EXTERN int _RPython_ThreadLocals_AcquireTimeout(int max_wait_iterations);
+
+/* Must acquire/release the thread-local lock around a series of calls
+   to the following function */
+RPY_EXTERN struct pypy_threadlocal_s *
+_RPython_ThreadLocals_Enum(struct pypy_threadlocal_s *prev);
+
+/* will return the head of the list */
+RPY_EXTERN struct pypy_threadlocal_s *_RPython_ThreadLocals_Head();
+
+#define OP_THREADLOCALREF_ACQUIRE(r)   _RPython_ThreadLocals_Acquire()
+#define OP_THREADLOCALREF_RELEASE(r)   _RPython_ThreadLocals_Release()
+#define OP_THREADLOCALREF_ENUM(p, r)   r = _RPython_ThreadLocals_Enum(p)
 
 
 /* ------------------------------------------------------------ */
@@ -29,13 +43,22 @@ RPY_EXTERN char *_RPython_ThreadLocals_Build(void);
 
 /* Use the '__thread' specifier, so far only on Linux */
 
+#include <pthread.h>
+
 RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
 
 #define OP_THREADLOCALREF_ADDR(r)               \
     do {                                        \
-        r = (char *)&pypy_threadlocal;          \
+        r = (void *)&pypy_threadlocal;          \
         if (pypy_threadlocal.ready != 42)       \
             r = _RPython_ThreadLocals_Build();  \
+    } while (0)
+
+#define _OP_THREADLOCALREF_ADDR_SIGHANDLER(r)   \
+    do {                                        \
+        r = (void *)&pypy_threadlocal;          \
+        if (pypy_threadlocal.ready != 42)       \
+            r = NULL;                           \
     } while (0)
 
 #define RPY_THREADLOCALREF_ENSURE()             \
@@ -43,6 +66,8 @@ RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
         (void)_RPython_ThreadLocals_Build();
 
 #define RPY_THREADLOCALREF_GET(FIELD)   pypy_threadlocal.FIELD
+
+#define _RPy_ThreadLocals_Get()  (&pypy_threadlocal)
 
 
 /* ------------------------------------------------------------ */
@@ -64,14 +89,17 @@ typedef DWORD pthread_key_t;
 #  define _RPy_ThreadLocals_Set(x)  pthread_setspecific(pypy_threadlocal_key, x)
 #endif
 
-RPY_EXTERN pthread_key_t pypy_threadlocal_key;
-
 
 #define OP_THREADLOCALREF_ADDR(r)               \
     do {                                        \
-        r = (char *)_RPy_ThreadLocals_Get();    \
+        r = (void *)_RPy_ThreadLocals_Get();    \
         if (!r)                                 \
             r = _RPython_ThreadLocals_Build();  \
+    } while (0)
+
+#define _OP_THREADLOCALREF_ADDR_SIGHANDLER(r)   \
+    do {                                        \
+        r = (void *)_RPy_ThreadLocals_Get();    \
     } while (0)
 
 #define RPY_THREADLOCALREF_ENSURE()             \
@@ -85,6 +113,9 @@ RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 /* ------------------------------------------------------------ */
 #endif
 /* ------------------------------------------------------------ */
+
+
+RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 
 
 /* only for the fall-back path in the JIT */

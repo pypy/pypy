@@ -26,7 +26,7 @@ class TestInterpreter:
         wrappedfunc = space.getitem(w_glob, w(functionname))
         try:
             w_output = space.call_function(wrappedfunc, *wrappedargs)
-        except error.OperationError, e:
+        except error.OperationError as e:
             #e.print_detailed_traceback(space)
             return '<<<%s>>>' % e.errorstr(space)
         else:
@@ -299,6 +299,30 @@ class AppTestInterpreter:
         finally:
             sys.stdout = save
 
+    def test_print_strange_object(self):
+        import sys
+
+        class A(object):
+            def __getattribute__(self, name):
+                print "seeing", name
+            def __str__(self):
+                return 'A!!'
+        save = sys.stdout
+        class Out(object):
+            def __init__(self):
+                self.data = []
+            def write(self, x):
+                self.data.append((type(x), x))
+        sys.stdout = out = Out()
+        try:
+            a = A()
+            assert out.data == []
+            print a
+            assert out.data == [(str, 'A!!'),
+                                (str, '\n')]
+        finally:
+            sys.stdout = save
+
     def test_identity(self):
         def f(x): return x
         assert f(666) == 666
@@ -307,7 +331,7 @@ class AppTestInterpreter:
         def f(): f()
         try:
             f()
-        except RuntimeError, e:
+        except RuntimeError as e:
             assert str(e) == "maximum recursion depth exceeded"
         else:
             assert 0, "should have raised!"

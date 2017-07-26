@@ -1,6 +1,6 @@
 
 from rpython.translator.c.genc import CBuilder
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 

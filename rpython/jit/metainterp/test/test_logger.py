@@ -38,14 +38,14 @@ class Logger(logger.Logger):
                          loop.inputargs, loop.operations, ops_offset=ops_offset,
                          name=name)
 
-    def _make_log_operations(self1):
+    def _make_log_operations(self1, memo):
         class LogOperations(logger.LogOperations):
             def repr_of_descr(self, descr):
                 for k, v in self1.namespace.items():
                     if v == descr:
                         return k
                 return descr.repr_of_descr()
-        logops = LogOperations(self1.metainterp_sd, self1.guard_number)
+        logops = LogOperations(self1.metainterp_sd, self1.guard_number, memo)
         self1.logops = logops
         return logops
 
@@ -76,8 +76,11 @@ class TestLogger(object):
         output = logger.log_loop(loop, namespace)
         oloop = pure_parse(output, namespace=namespace)
         if check_equal:
-            equaloplists(loop.operations, oloop.operations)
-            assert oloop.inputargs == loop.inputargs
+            remap = {}
+            for box1, box2 in zip(loop.inputargs, oloop.inputargs):
+                assert box1.__class__ == box2.__class__
+                remap[box2] = box1
+            equaloplists(loop.operations, oloop.operations, remap=remap)
         return logger, loop, oloop
 
     def test_simple(self):
@@ -154,7 +157,11 @@ class TestLogger(object):
         f1 = float_add(3.5, f0)
         '''
         _, loop, oloop = self.reparse(inp)
-        equaloplists(loop.operations, oloop.operations)
+        remap = {}
+        for box1, box2 in zip(loop.inputargs, oloop.inputargs):
+            assert box1.__class__ == box2.__class__
+            remap[box2] = box1
+        equaloplists(loop.operations, oloop.operations, remap=remap)
 
     def test_jump(self):
         namespace = {'target': JitCellToken()}
@@ -186,22 +193,6 @@ class TestLogger(object):
         lastline = output.splitlines()[-1]
         assert lastline.startswith("guard_true(i0, descr=<")
         assert not lastline.startswith("guard_true(i0, descr=<Guard")
-
-    def test_class_name(self):
-        from rpython.rtyper.lltypesystem import lltype
-        AbcVTable = lltype.Struct('AbcVTable')
-        abcvtable = lltype.malloc(AbcVTable, immortal=True)
-        namespace = {'Name': abcvtable}
-        inp = '''
-        [i0]
-        p = new_with_vtable(ConstClass(Name))
-        '''
-        loop = pure_parse(inp, namespace=namespace)
-        logger = Logger(self.make_metainterp_sd())
-        output = logger.log_loop(loop)
-        assert output.splitlines()[-1].endswith(
-            " = new_with_vtable(ConstClass(Name))")
-        pure_parse(output, namespace=namespace)
 
     def test_intro_loop(self):
         bare_logger = logger.Logger(self.make_metainterp_sd())
@@ -251,3 +242,51 @@ i4 = int_mul(i2, 2)
 +30: jump(i4)
 +40: --end of the loop--
 """.strip()
+
+    def test_ops_offset_with_forward(self):
+        inp = '''
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_mul(i0, 8)
+        jump(i2)
+        '''
+        loop = pure_parse(inp)
+        ops = loop.operations
+
+        # again to get new ops with different identities to existing ones
+        loop2 = pure_parse(inp)
+        ops2 = loop.operations
+
+        # Suppose a re-write occurs which replaces the operations with these.
+        # The add 4 became a sub -4. The others are the same, but have a
+        # different address, thus still require forwarding.
+        inp2 = '''
+        [i0]
+        i1 = int_sub(i0, -4)
+        i2 = int_mul(i0, 8)
+        jump(i2)
+        '''
+        loop2 = pure_parse(inp2)
+        ops2 = loop2.operations
+
+        # Add forwarding
+        for i in xrange(3):
+            ops[i].set_forwarded(ops2[i])
+
+        # So the offsets are keyed by ops2 instances
+        ops_offset = {
+            ops2[0]: 10,
+            ops2[1]: 20,
+            ops2[2]: 30,
+            None: 40
+        }
+
+        logger = Logger(self.make_metainterp_sd())
+        output = logger.log_loop(loop, ops_offset=ops_offset, name="foo")
+
+        # The logger should have followed the forwarding pointers
+        lines = output.strip().splitlines()
+        assert lines[2].startswith("+10")
+        assert lines[3].startswith("+20")
+        assert lines[4].startswith("+30")
+        assert lines[5].startswith("+40")

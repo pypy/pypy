@@ -1,12 +1,18 @@
 """Python control flow graph generation and bytecode assembly."""
 
+import os
 from rpython.rlib import rfloat
 from rpython.rlib.objectmodel import we_are_translated
 
 from pypy.interpreter.astcompiler import ast, misc, symtable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.miscutils import string_sort
 from pypy.tool import stdlib_opcode as ops
+
+
+class StackDepthComputationError(Exception):
+    pass
 
 
 class Instruction(object):
@@ -55,11 +61,13 @@ class Block(object):
     reaches the end of the block, it continues to next_block.
     """
 
+    marked = False
+    have_return = False
+    auto_inserted_return = False
+
     def __init__(self):
         self.instructions = []
         self.next_block = None
-        self.marked = False
-        self.have_return = False
 
     def _post_order_see(self, stack, nextblock):
         if nextblock.marked == 0:
@@ -131,9 +139,12 @@ class Block(object):
 
 
 def _make_index_dict_filter(syms, flag):
+    names = syms.keys()
+    string_sort(names)   # return cell vars in alphabetical order
     i = 0
     result = {}
-    for name, scope in syms.iteritems():
+    for name in names:
+        scope = syms[name]
         if scope == flag:
             result[name] = i
             i += 1
@@ -163,6 +174,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.var_names = _list_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
                                                  symtable.SCOPE_CELL)
+        string_sort(scope.free_vars)    # return free vars in alphabetical order
         self.free_vars = _list_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
         self.argcount = 0
@@ -259,8 +271,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 w_key = space.newtuple([obj, space.w_float])
         elif space.is_w(w_type, space.w_complex):
-            w_real = space.getattr(obj, space.wrap("real"))
-            w_imag = space.getattr(obj, space.wrap("imag"))
+            w_real = space.getattr(obj, space.newtext("real"))
+            w_imag = space.getattr(obj, space.newtext("imag"))
             real = space.float_w(w_real)
             imag = space.float_w(w_imag)
             real_negzero = (real == 0.0 and
@@ -282,6 +294,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             for w_item in space.fixedview(obj):
                 result_w.append(self._make_key(w_item))
             w_key = space.newtuple(result_w[:])
+        elif isinstance(obj, PyCode):
+            w_key = space.newtuple([obj, w_type, space.id(obj)])
         else:
             w_key = space.newtuple([obj, w_type])
         return w_key
@@ -357,7 +371,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         space = self.space
         consts_w = [space.w_None] * space.len_w(w_consts)
         w_iter = space.iter(w_consts)
-        first = space.wrap(0)
+        first = space.newint(0)
         while True:
             try:
                 w_key = space.next(w_iter)
@@ -378,13 +392,18 @@ class PythonCodeMaker(ast.ASTVisitor):
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
         for block in blocks:
-            block.initial_depth = 0
+            block.initial_depth = -99
+        blocks[0].initial_depth = 0
         # Assumes that it is sufficient to walk the blocks in 'post-order'.
         # This means we ignore all back-edges, but apart from that, we only
         # look into a block when all the previous blocks have been done.
         self._max_depth = 0
         for block in blocks:
-            self._do_stack_depth_walk(block)
+            depth = self._do_stack_depth_walk(block)
+            if block.auto_inserted_return and depth != 0:
+                os.write(2, "StackDepthComputationError in %s at %s:%s\n" % (
+                    self.compile_info.filename, self.name, self.first_lineno))
+                raise StackDepthComputationError   # fatal error
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth):
@@ -393,20 +412,24 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _do_stack_depth_walk(self, block):
         depth = block.initial_depth
-        done = False
+        if depth == -99:     # this block is never reached, skip
+             return 0
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
+            assert depth >= 0
             if depth >= self._max_depth:
                 self._max_depth = depth
+            jump_op = instr.opcode
             if instr.has_jump:
                 target_depth = depth
-                jump_op = instr.opcode
                 if jump_op == ops.FOR_ITER:
                     target_depth -= 2
                 elif (jump_op == ops.SETUP_FINALLY or
                       jump_op == ops.SETUP_EXCEPT or
                       jump_op == ops.SETUP_WITH):
-                    target_depth += 3
+                    if jump_op == ops.SETUP_WITH:
+                        target_depth -= 1     # ignore the w_result just pushed
+                    target_depth += 3         # add [exc_type, exc, unroller]
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
                 elif (jump_op == ops.JUMP_IF_TRUE_OR_POP or
@@ -415,10 +438,14 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self._next_stack_depth_walk(instr.jump[0], target_depth)
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
-                    done = True
                     break
-        if block.next_block and not done:
-            self._next_stack_depth_walk(block.next_block, depth)
+            elif jump_op == ops.RETURN_VALUE or jump_op == ops.RAISE_VARARGS:
+                # Nothing more can occur.
+                break
+        else:
+            if block.next_block:
+                self._next_stack_depth_walk(block.next_block, depth)
+        return depth
 
     def _build_lnotab(self, blocks):
         """Build the line number table for tracebacks and tracing."""
@@ -471,6 +498,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if self.add_none_to_final_return:
                 self.load_const(self.space.w_None)
             self.emit_op(ops.RETURN_VALUE)
+            self.current_block.auto_inserted_return = True
         # Set the first lineno if it is not already explicitly set.
         if self.first_lineno == -1:
             if self.first_block.instructions:
@@ -563,10 +591,10 @@ _static_opcode_stack_effects = {
     ops.INPLACE_OR: -1,
     ops.INPLACE_XOR: -1,
 
-    ops.SLICE+0: 1,
-    ops.SLICE+1: 0,
-    ops.SLICE+2: 0,
-    ops.SLICE+3: -1,
+    ops.SLICE+0: 0,
+    ops.SLICE+1: -1,
+    ops.SLICE+2: -1,
+    ops.SLICE+3: -2,
     ops.STORE_SLICE+0: -2,
     ops.STORE_SLICE+1: -3,
     ops.STORE_SLICE+2: -3,
@@ -576,7 +604,7 @@ _static_opcode_stack_effects = {
     ops.DELETE_SLICE+2: -2,
     ops.DELETE_SLICE+3: -3,
 
-    ops.STORE_SUBSCR: -2,
+    ops.STORE_SUBSCR: -3,
     ops.DELETE_SUBSCR: -2,
 
     ops.GET_ITER: 0,
@@ -593,7 +621,9 @@ _static_opcode_stack_effects = {
 
     ops.WITH_CLEANUP: -1,
     ops.POP_BLOCK: 0,
-    ops.END_FINALLY: -1,
+    ops.END_FINALLY: -3,     # assume always 3: we pretend that SETUP_FINALLY
+                             # pushes 3.  In truth, it would only push 1 and
+                             # the corresponding END_FINALLY only pops 1.
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
@@ -604,7 +634,6 @@ _static_opcode_stack_effects = {
     ops.YIELD_VALUE: 0,
     ops.BUILD_CLASS: -2,
     ops.BUILD_MAP: 1,
-    ops.BUILD_SET: 1,
     ops.COMPARE_OP: -1,
 
     ops.LOOKUP_METHOD: 1,
@@ -657,6 +686,9 @@ def _compute_BUILD_TUPLE(arg):
     return 1 - arg
 
 def _compute_BUILD_LIST(arg):
+    return 1 - arg
+
+def _compute_BUILD_SET(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):

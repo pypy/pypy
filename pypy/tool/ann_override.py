@@ -1,15 +1,7 @@
 # overrides for annotation specific to PyPy codebase
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.flowspace.model import Constant
-from rpython.annotator import specialize
-
-
-
-def isidentifier(s):
-    if not s:
-        return False
-    s = s.replace('_', 'x')
-    return s[0].isalpha() and s.isalnum()
+from rpython.annotator.classdesc import InstanceSource
 
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
@@ -18,86 +10,34 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         self.lookups_where = {}
         self.pypytypes = {}
 
-    def specialize__wrap(self,  funcdesc, args_s):
-        from pypy.interpreter.baseobjspace import W_Root
-        from rpython.annotator.classdef import ClassDef
-        W_Root_def = funcdesc.bookkeeper.getuniqueclassdef(W_Root)
-        typ = args_s[1].knowntype
-        if isinstance(typ, ClassDef):
-            assert typ.issubclass(W_Root_def)
-            typ = W_Root
-        else:
-            assert not issubclass(typ, W_Root)
-            assert typ != tuple, "space.wrap(tuple) forbidden; use newtuple()"
-            assert typ != list, "space.wrap(list) forbidden; use newlist()"
-            assert typ != dict, "space.wrap(dict) forbidden; use newdict()"
-            assert typ != object, "degenerated space.wrap(object)"
-            if args_s[0].is_constant() and args_s[1].is_constant():
-                if typ in (str, bool, int, float):
-                    space = args_s[0].const
-                    x = args_s[1].const
-
-                    def fold():
-                        if typ is str and isidentifier(x):
-                            return space.new_interned_str(x)
-                        else:
-                            return space.wrap(x)
-                    builder = specialize.make_constgraphbuilder(2, factory=fold,
-                                                                srcmodule='<ann_override.wrap>')
-                    return funcdesc.cachedgraph((typ, x), builder=builder)
-        if typ is str:
-            if args_s[1].can_be_None:
-                typ = (None, str)
-        return funcdesc.cachedgraph(typ)
-
-    def _remember_immutable(self, t, cached):
-        # for jit benefit
-        if cached not in t._immutable_fields_: # accessed this way just
-                                               # for convenience
-            t._immutable_fields_.append(cached)
-
-    def attach_lookup(self, t, attr):
-        cached = "cached_%s" % attr
-        if not t.is_heaptype() and not t.is_cpytype():
-            self._remember_immutable(t, cached)
-            setattr(t, cached, t._lookup(attr))
-            return True
-        return False
-
-    def attach_lookup_in_type_where(self, t, attr):
-        cached = "cached_where_%s" % attr
-        if not t.is_heaptype() and not t.is_cpytype():
-            self._remember_immutable(t, cached)
-            setattr(t, cached, t._lookup_where(attr))
-            return True
-        return False
-
     def consider_lookup(self, bookkeeper, attr):
-        from rpython.annotator.classdef import InstanceSource
         assert attr not in self.lookups
         from pypy.objspace.std import typeobject
         cached = "cached_%s" % attr
         clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
         classdesc = clsdef.classdesc
+        classdesc.immutable_fields.add(cached)
         classdesc.classdict[cached] = Constant(None)
         clsdef.add_source_for_attribute(cached, classdesc)
         for t in self.pypytypes:
-            if self.attach_lookup(t, attr):
+            if not (t.is_heaptype() or t.is_cpytype()):
+                setattr(t, cached, t._lookup(attr))
                 source = InstanceSource(bookkeeper, t)
                 clsdef.add_source_for_attribute(cached, source)
         self.lookups[attr] = True
 
     def consider_lookup_in_type_where(self, bookkeeper, attr):
-        from rpython.annotator.classdef import InstanceSource
         assert attr not in self.lookups_where
         from pypy.objspace.std import typeobject
         cached = "cached_where_%s" % attr
         clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
         classdesc = clsdef.classdesc
+        classdesc.immutable_fields.add(cached)
         classdesc.classdict[cached] = Constant((None, None))
         clsdef.add_source_for_attribute(cached, classdesc)
         for t in self.pypytypes:
-            if self.attach_lookup_in_type_where(t, attr):
+            if not (t.is_heaptype() or t.is_cpytype()):
+                setattr(t, cached, t._lookup_where(attr))
                 source = InstanceSource(bookkeeper, t)
                 clsdef.add_source_for_attribute(cached, source)
         self.lookups_where[attr] = True
@@ -135,18 +75,19 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
     def event(self, bookkeeper, what, x):
         from pypy.objspace.std import typeobject
         if isinstance(x, typeobject.W_TypeObject):
-            from rpython.annotator.classdef import InstanceSource
             clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
             self.pypytypes[x] = True
             #print "TYPE", x
             for attr in self.lookups:
-                if attr and self.attach_lookup(x, attr):
+                if attr and not (x.is_heaptype() or x.is_cpytype()):
                     cached = "cached_%s" % attr
+                    setattr(x, cached, x._lookup(attr))
                     source = InstanceSource(bookkeeper, x)
                     clsdef.add_source_for_attribute(cached, source)
             for attr in self.lookups_where:
-                if attr and self.attach_lookup_in_type_where(x, attr):
+                if attr and not (x.is_heaptype() or x.is_cpytype()):
                     cached = "cached_where_%s" % attr
+                    setattr(x, cached, x._lookup_where(attr))
                     source = InstanceSource(bookkeeper, x)
                     clsdef.add_source_for_attribute(cached, source)
         return

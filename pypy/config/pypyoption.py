@@ -1,3 +1,4 @@
+import os
 import sys
 
 import py
@@ -22,21 +23,30 @@ default_modules = essential_modules.copy()
 default_modules.update([
     "_codecs", "gc", "_weakref", "marshal", "errno", "imp", "math", "cmath",
     "_sre", "_pickle_support", "operator", "parser", "symbol", "token", "_ast",
-    "_io", "_random", "__pypy__", "_testing"
+    "_io", "_random", "__pypy__", "_testing", "time"
 ])
 
 
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update([
-    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd", "time" ,
+    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
     "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
     "zlib", "bz2", "struct", "_hashlib", "_md5", "_sha", "_minimal_curses",
     "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
-    "_csv", "cppyy", "_pypyjson"
+    "_csv", "_cppyy", "_pypyjson", "_jitlog"
 ])
+
+from rpython.jit.backend import detect_cpu
+try:
+    if detect_cpu.autodetect().startswith('x86'):
+        if not sys.platform.startswith('openbsd'):
+            working_modules.add('_vmprof')
+            working_modules.add('faulthandler')
+except detect_cpu.ProcessorAutodetectError:
+    pass
 
 translation_modules = default_modules.copy()
 translation_modules.update([
@@ -57,8 +67,10 @@ if sys.platform == "win32":
         if name in translation_modules:
             translation_modules.remove(name)
 
-    if "cppyy" in working_modules:
-        working_modules.remove("cppyy")  # not tested on win32
+    if "_cppyy" in working_modules:
+        working_modules.remove("_cppyy")  # not tested on win32
+    if "faulthandler" in working_modules:
+        working_modules.remove("faulthandler")  # missing details
 
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")
@@ -67,15 +79,21 @@ if sys.platform == "sunos5":
     working_modules.remove('fcntl')  # LOCK_NB not defined
     working_modules.remove("_minimal_curses")
     working_modules.remove("termios")
-    if "cppyy" in working_modules:
-        working_modules.remove("cppyy")  # depends on ctypes
+    if "_cppyy" in working_modules:
+        working_modules.remove("_cppyy")  # depends on ctypes
+
+#if sys.platform.startswith("linux"):
+#    _mach = os.popen('uname -m', 'r').read().strip()
+#    if _mach.startswith(...):
+#        working_modules.remove("_continuation")
 
 
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.time', True),
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
-    'cppyy': [('objspace.usemodules.cpyext', True)],
+    '_cppyy': [('objspace.usemodules.cpyext', True)],
+    'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
@@ -87,6 +105,8 @@ module_suggests = {
 if sys.platform == "win32":
     module_suggests["cpyext"].append(("translation.shared", True))
 
+
+# NOTE: this dictionary is not used any more
 module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
@@ -99,9 +119,12 @@ module_import_dependencies = {
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
+    "_vmprof"      : ["pypy.module._vmprof.interp_vmprof"],
+    "faulthandler" : ["pypy.module._vmprof.interp_vmprof"],
     }
 
 def get_module_validator(modname):
+    # NOTE: this function is not used any more
     if modname in module_import_dependencies:
         modlist = module_import_dependencies[modname]
         def validator(config):
@@ -152,12 +175,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
 
-    BoolOption("usepycfiles", "Write and read pyc files when importing",
-               default=True),
-
     BoolOption("lonepycfiles", "Import pyc files with no matching py file",
-               default=False,
-               requires=[("objspace.usepycfiles", True)]),
+               default=False),
 
     StrOption("soabi",
               "Tag to differentiate extension modules built for different Python interpreters",
@@ -171,6 +190,19 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     BoolOption("disable_call_speedhacks",
                "make sure that all calls go through space.call_args",
                default=False),
+
+    BoolOption("disable_entrypoints",
+               "Disable external entry points, notably the"
+               " cpyext module and cffi's embedding mode.",
+               default=False,
+               requires=[("objspace.usemodules.cpyext", False)]),
+
+    ChoiceOption("hash",
+                 "The hash function to use for strings: fnv from CPython 2.7"
+                 " or siphash24 from CPython >= 3.4",
+                 ["fnv", "siphash24"],
+                 default="fnv",
+                 cmdline="--hash"),
 
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
@@ -188,18 +220,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withsmalllong", "use a version of 'long' in a C long long",
                    default=False),
 
-        BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
-                   default=False),
-
-        BoolOption("withprebuiltchar",
-                   "use prebuilt single-character string objects",
-                   default=False),
-
-        BoolOption("sharesmallstr",
-                   "always reuse the prebuilt string objects "
-                   "(the empty string and potentially single-char strings)",
-                   default=False),
-
         BoolOption("withspecialisedtuple",
                    "use specialised tuples",
                    default=False),
@@ -209,39 +229,14 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False,
                    requires=[("objspace.honor__builtins__", False)]),
 
-        BoolOption("withmapdict",
-                   "make instances really small but slow without the JIT",
-                   default=False,
-                   requires=[("objspace.std.getattributeshortcut", True),
-                             ("objspace.std.withtypeversion", True),
-                       ]),
-
-        BoolOption("withrangelist",
-                   "enable special range list implementation that does not "
-                   "actually create the full list until the resulting "
-                   "list is mutated",
-                   default=False),
         BoolOption("withliststrategies",
                    "enable optimized ways to store lists of primitives ",
                    default=True),
 
-        BoolOption("withtypeversion",
-                   "version type objects when changing them",
-                   cmdline=None,
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
-
-        BoolOption("withmethodcache",
-                   "try to cache method lookups",
-                   default=False,
-                   requires=[("objspace.std.withtypeversion", True),
-                             ("translation.rweakref", True)]),
         BoolOption("withmethodcachecounter",
                    "try to cache methods and provide a counter in __pypy__. "
                    "for testing purposes only.",
-                   default=False,
-                   requires=[("objspace.std.withmethodcache", True)]),
+                   default=False),
         IntOption("methodcachesizeexp",
                   " 2 ** methodcachesizeexp is the size of the of the method cache ",
                   default=11),
@@ -252,22 +247,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
                    default=False),
-        BoolOption("getattributeshortcut",
-                   "track types that override __getattribute__",
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
+                   default=False),
 
-        BoolOption("withidentitydict",
-                   "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
      ]),
 ])
 
@@ -283,15 +266,10 @@ def set_pypy_opt_level(config, level):
     """
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
-        config.objspace.std.suggest(withrangelist=True)
-        config.objspace.std.suggest(withmethodcache=True)
-        config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(intshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
-        config.objspace.std.suggest(getattributeshortcut=True)
         #config.objspace.std.suggest(newshortcut=True)
         config.objspace.std.suggest(withspecialisedtuple=True)
-        config.objspace.std.suggest(withidentitydict=True)
         #if not IS_64_BITS:
         #    config.objspace.std.suggest(withsmalllong=True)
 
@@ -304,20 +282,17 @@ def set_pypy_opt_level(config, level):
     # memory-saving optimizations
     if level == 'mem':
         config.objspace.std.suggest(withprebuiltint=True)
-        config.objspace.std.suggest(withrangelist=True)
-        config.objspace.std.suggest(withprebuiltchar=True)
-        config.objspace.std.suggest(withmapdict=True)
+        config.objspace.std.suggest(withliststrategies=True)
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
-        config.objspace.std.suggest(withmapdict=True)
 
 
 def enable_allworkingmodules(config):
-    modules = working_modules
+    modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which

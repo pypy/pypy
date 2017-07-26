@@ -5,6 +5,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rmmap as mmap
 from rpython.rlib.rmmap import RTypeError, RValueError, alloc, free
+from rpython.rlib.rmmap import madvise_free
+
 
 class TestMMap:
     def setup_class(cls):
@@ -296,7 +298,7 @@ class TestMMap:
         f = open(self.tmpname + "l2", "w+")
         f.write("foobar")
         f.flush()
-        m = mmap.mmap(f.fileno(), 6, prot=~mmap.PROT_WRITE)
+        m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ|mmap.PROT_EXEC)
         py.test.raises(RTypeError, m.check_writeable)
         py.test.raises(RTypeError, m.check_writeable)
         m.close()
@@ -490,6 +492,7 @@ def test_alloc_free():
         data[i] = chr(i & 0xff)
     for i in range(0, map_size, 171):
         assert data[i] == chr(i & 0xff)
+    madvise_free(data, map_size)
     free(data, map_size)
 
 def test_compile_alloc_free():

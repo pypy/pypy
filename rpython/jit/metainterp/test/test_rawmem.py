@@ -30,7 +30,9 @@ class RawMemTests(object):
             return 42
         res = self.interp_operations(f, [])
         assert res == 42
-        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
+        self.check_operations_history({'call_i': 1,
+                                       'call_n': 1,
+                                       'guard_no_exception': 1,
                                        'finish': 1})
 
     def test_raw_storage_int(self):
@@ -42,8 +44,9 @@ class RawMemTests(object):
             return res
         res = self.interp_operations(f, [])
         assert res == 24
-        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
-                                       'raw_store': 1, 'raw_load': 1,
+        self.check_operations_history({'call_i': 1, 'guard_no_exception': 1,
+                                       'call_n': 1,
+                                       'raw_store': 1, 'raw_load_i': 1,
                                        'finish': 1})
         self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
 
@@ -56,8 +59,9 @@ class RawMemTests(object):
             return res
         res = self.interp_operations(f, [])
         assert res == 2.4e15
-        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
-                                       'raw_store': 1, 'raw_load': 1,
+        self.check_operations_history({'call_i': 1, 'guard_no_exception': 1,
+                                       'call_n': 1,
+                                       'raw_store': 1, 'raw_load_f': 1,
                                        'finish': 1})
         self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
 
@@ -70,8 +74,9 @@ class RawMemTests(object):
             return rffi.cast(lltype.Signed, res)
         res = self.interp_operations(f, [])
         assert res == 254
-        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
-                                       'raw_store': 1, 'raw_load': 1,
+        self.check_operations_history({'call_n': 1, 'guard_no_exception': 1,
+                                       'call_i': 1,
+                                       'raw_store': 1, 'raw_load_i': 1,
                                        'finish': 1})
         self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
 
@@ -84,8 +89,9 @@ class RawMemTests(object):
             return res
         res = self.interp_operations(f, [])
         assert res == 24
-        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
-                                       'raw_store': 1, 'raw_load': 1,
+        self.check_operations_history({'call_n': 1, 'guard_no_exception': 1,
+                                       'call_i': 1,
+                                       'raw_store': 1, 'raw_load_i': 1,
                                        'finish': 1})
         self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
 

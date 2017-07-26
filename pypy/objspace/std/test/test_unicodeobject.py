@@ -72,7 +72,7 @@ class AppTestUnicodeString:
         check(u', '.join(['a', 'b']), u'a, b')
         try:
             u''.join([u'a', 2, 3])
-        except TypeError, e:
+        except TypeError as e:
             assert 'sequence item 1' in str(e)
         else:
             raise Exception("DID NOT RAISE")
@@ -332,6 +332,12 @@ class AppTestUnicodeString:
         assert u'xyzzyhelloxyzzy'.strip(u'xyz') == u'hello'
         assert u'xyzzyhelloxyzzy'.lstrip('xyz') == u'helloxyzzy'
         assert u'xyzzyhelloxyzzy'.rstrip(u'xyz') == u'xyzzyhello'
+        exc = raises(TypeError, s.strip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, unicode or str'
+        exc = raises(TypeError, s.rstrip, buffer(' '))
+        assert str(exc.value) == 'rstrip arg must be None, unicode or str'
+        exc = raises(TypeError, s.lstrip, buffer(' '))
+        assert str(exc.value) == 'lstrip arg must be None, unicode or str'
 
     def test_strip_str_unicode(self):
         x = "--abc--".strip(u"-")
@@ -409,6 +415,14 @@ class AppTestUnicodeString:
         assert u'abc'.startswith(u'bc', 1, 2) is False
         assert u'abc'.startswith(u'c', -1, 4) is True
 
+    def test_startswith_too_large(self):
+        assert u'ab'.startswith(u'b', 1) is True
+        assert u'ab'.startswith(u'', 2) is True
+        assert u'ab'.startswith(u'', 3) is True   # not False
+        assert u'ab'.endswith(u'b', 1) is True
+        assert u'ab'.endswith(u'', 2) is True
+        assert u'ab'.endswith(u'', 3) is True   # not False
+
     def test_startswith_tuples(self):
         assert u'hello'.startswith((u'he', u'ha'))
         assert not u'hello'.startswith((u'lo', u'llo'))
@@ -485,6 +499,10 @@ class AppTestUnicodeString:
         if sys.maxint > (1 << 32):
             skip("Wrong platform")
         raises((OverflowError, MemoryError), u't\tt\t'.expandtabs, sys.maxint)
+
+    def test_expandtabs_0(self):
+        assert u'x\ty'.expandtabs(0) == u'xy'
+        assert u'x\ty'.expandtabs(-42) == u'xy'
 
     def test_translate(self):
         assert u'bbbc' == u'abababc'.translate({ord('a'):None})
@@ -730,7 +748,9 @@ class AppTestUnicodeString:
         assert 'abc'.__add__(u'def') == u'abcdef'
         assert u'abc'.__add__(u'def') == u'abcdef'
         assert u'abc'.__add__('def') == u'abcdef'
-        # xxx CPython has no str.__radd__ and no unicode.__radd__
+        assert u'abc'.__rmod__(u'%s') == u'abc'
+        ret = u'abc'.__rmod__('%s')
+        raises(AttributeError, "u'abc'.__radd__(u'def')")
 
     def test_str_unicode_concat_overrides(self):
         "Test from Jython about being bug-compatible with CPython."
@@ -935,6 +955,11 @@ class AppTestUnicodeString:
         assert repr("%s" % u) == "u'__unicode__ overridden'"
         assert repr("{}".format(u)) == "'__unicode__ overridden'"
 
+    def test_format_c_overflow(self):
+        import sys
+        raises(OverflowError, u'{0:c}'.format, -1)
+        raises(OverflowError, u'{0:c}'.format, sys.maxunicode + 1)
+
     def test_replace_with_buffer(self):
         assert u'abc'.replace(buffer('b'), buffer('e')) == u'aec'
         assert u'abc'.replace(buffer('b'), u'e') == u'aec'
@@ -980,3 +1005,10 @@ class AppTestUnicodeString:
         assert u''.join([s1]) is not s1
         s2 = StrSubclass(u'a')
         assert u''.join([s2]) is not s2
+
+    def test_encoding_and_errors_cant_be_none(self):
+        raises(TypeError, "''.decode(None)")
+        raises(TypeError, "u''.encode(None)")
+        raises(TypeError, "unicode('', encoding=None)")
+        raises(TypeError, 'u"".encode("utf-8", None)')
+

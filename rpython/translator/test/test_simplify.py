@@ -1,7 +1,7 @@
 import py
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
-from rpython.translator.simplify import (get_graph, transform_dead_op_vars)
+from rpython.translator.simplify import get_graph, transform_dead_op_vars
 from rpython.flowspace.model import Block, Constant, summary
 from rpython.conftest import option
 
@@ -52,9 +52,11 @@ def test_remove_ovfcheck_floordiv():
             return -42
         except ZeroDivisionError:
             return -43
-    graph, _ = translate(f, [int, int])
+    graph, _ = translate(f, [int, int], backend_optimize=False)
     assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_floordiv_ovf_zer'
+    assert graph.startblock.operations[0].opname == 'direct_call'
+    assert 'int_py_div_ovf_zer' in repr(
+        graph.startblock.operations[0].args[0].value)
     assert len(graph.startblock.exits) == 3
     assert [link.target.operations for link in graph.startblock.exits[1:]] == \
            [(), ()]
@@ -68,9 +70,11 @@ def test_remove_ovfcheck_floordiv_2():
             return ovfcheck(x // y)
         except ZeroDivisionError:
             return -43
-    graph, _ = translate(f, [int, int])
+    graph, _ = translate(f, [int, int], backend_optimize=False)
     assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_floordiv_ovf_zer'
+    assert graph.startblock.operations[0].opname == 'direct_call'
+    assert 'int_py_div_ovf_zer' in repr(
+        graph.startblock.operations[0].args[0].value)
     assert len(graph.startblock.exits) == 3
     assert [link.target.operations for link in graph.startblock.exits[1:]] == \
            [(), ()]
@@ -183,8 +187,10 @@ def test_get_graph():
                     print op
                     subgraph = get_graph(op.args[0], t)
                     if subgraph is None:
-                        # ignore 'get_errno' and 'set_errno'
-                        if 'et_errno' not in repr(op.args[0]):
+                        # ignore 'get_errno' and 'set_errno', and
+                        # 'RPyGilRelease' and 'RPyGilAcquire'
+                        if ('et_errno' not in repr(op.args[0]) and
+                            'RPyGil' not in repr(op.args[0])):
                             found.append(op)
                     else:
                         walkgraph(subgraph)
@@ -330,11 +336,14 @@ class TestLLSpecializeListComprehension:
         interp = LLInterpreter(t.rtyper)
         return interp, graph
 
-    def no_resize(self, graph):
+    def no_resize(self, graph, expect_resize=0):
+        found_resize = 0
         for block in graph.iterblocks():
             for op in block.operations:
                 if op.opname == 'direct_call':
-                    assert 'list_resize' not in repr(op.args[0])
+                    if 'list_resize' in repr(op.args[0]):
+                        found_resize += 1
+        assert found_resize == expect_resize
 
     def test_simple(self):
         def main(n):
@@ -361,7 +370,8 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5
-        self.no_resize(graph)
+        self.no_resize(graph, expect_resize=1)
+        # the non-exactness disables preallocating now, for sanity
 
     def test_mutated_after_listcomp(self):
         def main(n):
@@ -373,6 +383,7 @@ class TestLLSpecializeListComprehension:
         assert res == 5 * 17
         res = interp.eval_graph(graph, [5])
         assert res == -42
+        self.no_resize(graph, expect_resize=1)   # after the loop
 
     def test_two_loops(self):
         def main(n, m):
@@ -391,6 +402,7 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int, int])
         res = interp.eval_graph(graph, [8, 3])
         assert res == 28 - 3
+        self.no_resize(graph)
 
     def test_dict(self):
         def main(n, m):
@@ -402,6 +414,7 @@ class TestLLSpecializeListComprehension:
         assert res == 2 + 8 * 17 + 5 * 17
         res = interp.eval_graph(graph, [4, 4])
         assert res == 1 + 4 * 17 + 4 * 17
+        self.no_resize(graph)
 
 
     def test_list_iterator(self):
@@ -446,3 +459,4 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5 * 17
+        self.no_resize(graph)

@@ -21,7 +21,7 @@ far using the digest() method."""
     interpleveldefs = {
         'new': 'interp_md5.W_MD5',
         'MD5Type': 'interp_md5.W_MD5',
-        'digest_size': 'space.wrap(16)',
+        'digest_size': 'space.newint(16)',
         }
 
     appleveldefs = {

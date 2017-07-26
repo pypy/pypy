@@ -24,7 +24,11 @@ class TestRx86_64(test_rx86_32_auto_encoding.TestRx86_32):
         return (
                 super(TestRx86_64, self).should_skip_instruction(instrname, argmodes) or
                 # Not testing FSTP on 64-bit for now
-                (instrname == 'FSTP')
+                (instrname == 'FSTP') or
+                # the test suite uses 64 bit registers instead of 32 bit...
+                # it is tested in the 32 bit test!
+                (instrname == 'PEXTRD') or
+                (instrname == 'PINSRD')
         )
 
     def array_tests(self):
@@ -47,3 +51,19 @@ class TestRx86_64(test_rx86_32_auto_encoding.TestRx86_32):
     def test_extra_MOV_ri64(self):
         self.imm32_tests = self.imm64_tests      # patch on 'self'
         self.complete_test('MOV_ri')
+
+    def rip_relative_tests(self):
+        return [-0x80000000, 0x7FFFFFFF, 128, 256, -129, -255, 0, 127]
+
+    def get_all_tests(self):
+        d = super(TestRx86_64, self).get_all_tests()
+        d['p'] = self.rip_relative_tests
+        return d
+
+    def assembler_operand_rip_relative(self, value):
+        return '%d(%%rip)' % value
+
+    def get_all_assembler_operands(self):
+        d = super(TestRx86_64, self).get_all_assembler_operands()
+        d['p'] = self.assembler_operand_rip_relative
+        return d

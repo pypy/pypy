@@ -2,6 +2,7 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.rarithmetic import *
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
+from hypothesis import given, strategies
 import sys
 import py
 
@@ -18,11 +19,11 @@ while i == l and type(i) is int:
 
 class Test_r_int:
     def test__add__(self):
-        self.binary_test(lambda x, y: x + y)
+        self.binary_test(lambda x, y: x + y, includes_floats=True)
     def test__sub__(self):
-        self.binary_test(lambda x, y: x - y)
+        self.binary_test(lambda x, y: x - y, includes_floats=True)
     def test__mul__(self):
-        self.binary_test(lambda x, y: x * y)
+        self.binary_test(lambda x, y: x * y, includes_floats=True)
         x = 3; y = [2]
         assert x*y == r_int(x)*y
         assert y*x == y*r_int(x)
@@ -58,12 +59,15 @@ class Test_r_int:
             cmp = f(r_int(arg))
             assert res == cmp
 
-    def binary_test(self, f, rargs = None):
+    def binary_test(self, f, rargs=None, includes_floats=False):
         if not rargs:
             rargs = (-10, -1, 3, 55)
+        types_list = [(int, r_int), (r_int, int), (r_int, r_int)]
+        if includes_floats:
+            types_list += [(float, r_int), (r_int, float)]
         for larg in (-10, -1, 0, 3, 1234):
             for rarg in rargs:
-                for types in ((int, r_int), (r_int, int), (r_int, r_int)):
+                for types in types_list:
                     res = f(larg, rarg)
                     left, right = types
                     cmp = f(left(larg), right(rarg))
@@ -390,6 +394,23 @@ def test_int_between():
     assert not int_between(1, 2, 2)
     assert not int_between(1, 1, 1)
 
+def test_int_force_ge_zero():
+    assert int_force_ge_zero(42) == 42
+    assert int_force_ge_zero(0) == 0
+    assert int_force_ge_zero(-42) == 0
+
+@given(strategies.integers(min_value=0, max_value=sys.maxint),
+       strategies.integers(min_value=1, max_value=sys.maxint))
+def test_int_c_div_mod(x, y):
+    assert int_c_div(~x, y) == -(abs(~x) // y)
+    assert int_c_div( x,-y) == -(x // y)
+    if (x, y) == (sys.maxint, 1):
+        py.test.skip("would overflow")
+    assert int_c_div(~x,-y) == +(abs(~x) // y)
+    for x1 in [x, ~x]:
+        for y1 in [y, -y]:
+            assert int_c_div(x1, y1) * y1 + int_c_mod(x1, y1) == x1
+
 # these can't be prebuilt on 32bit
 U1 = r_ulonglong(0x0102030405060708L)
 U2 = r_ulonglong(0x0807060504030201L)
@@ -528,3 +549,137 @@ class TestStringToInt:
             py.test.raises(ParseStringError, string_to_int, s+'  ', base)
             py.test.raises(ParseStringError, string_to_int, '+'+s, base)
             py.test.raises(ParseStringError, string_to_int, '-'+s, base)
+
+class TestExplicitIntsizes:
+
+    _32_max =            2147483647
+    _32_min =           -2147483648
+    _32_umax =           4294967295
+    _64_max =   9223372036854775807
+    _64_min =  -9223372036854775808
+    _64_umax = 18446744073709551615
+
+    def test_explicit_32(self):
+
+        assert type(r_int32(0)) == r_int32
+        assert type(r_int32(self._32_max)) == r_int32
+        assert type(r_int32(self._32_min)) == r_int32
+
+        assert type(r_uint32(0)) == r_uint32
+        assert type(r_uint32(self._32_umax)) == r_uint32
+
+        with py.test.raises(OverflowError):
+            ovfcheck(r_int32(self._32_max) + r_int32(1))
+            ovfcheck(r_int32(self._32_min) - r_int32(1))
+
+        assert most_pos_value_of_same_type(r_int32(1)) == self._32_max
+        assert most_neg_value_of_same_type(r_int32(1)) == self._32_min
+
+        assert most_pos_value_of_same_type(r_uint32(1)) == self._32_umax
+        assert most_neg_value_of_same_type(r_uint32(1)) == 0
+
+        assert r_uint32(self._32_umax) + r_uint32(1) == r_uint32(0)
+        assert r_uint32(0) - r_uint32(1) == r_uint32(self._32_umax)
+
+    def test_explicit_64(self):
+
+        assert type(r_int64(0)) == r_int64
+        assert type(r_int64(self._64_max)) == r_int64
+        assert type(r_int64(self._64_min)) == r_int64
+
+        assert type(r_uint64(0)) == r_uint64
+        assert type(r_uint64(self._64_umax)) == r_uint64
+
+        with py.test.raises(OverflowError):
+            ovfcheck(r_int64(self._64_max) + r_int64(1))
+            ovfcheck(r_int64(self._64_min) - r_int64(1))
+
+        assert most_pos_value_of_same_type(r_int64(1)) == self._64_max
+        assert most_neg_value_of_same_type(r_int64(1)) == self._64_min
+
+        assert most_pos_value_of_same_type(r_uint64(1)) == self._64_umax
+        assert most_neg_value_of_same_type(r_uint64(1)) == 0
+
+        assert r_uint64(self._64_umax) + r_uint64(1) == r_uint64(0)
+        assert r_uint64(0) - r_uint64(1) == r_uint64(self._64_umax)
+
+
+def test_operation_with_float():
+    def f(x):
+        assert r_longlong(x) + 0.5 == 43.5
+        assert r_longlong(x) - 0.5 == 42.5
+        assert r_longlong(x) * 0.5 == 21.5
+        assert r_longlong(x) / 0.8 == 53.75
+    f(43)
+    interpret(f, [43])
+
+def test_int64_plus_int32():
+    assert r_uint64(1234567891234) + r_uint32(1) == r_uint64(1234567891235)
+
+def test_fallback_paths():
+
+    def make(pattern):
+        def method(self, other, *extra):
+            if extra:
+                assert extra == (None,)   # for 'pow'
+            if type(other) is long:
+                return pattern % other
+            else:
+                return NotImplemented
+        return method
+
+    class A(object):
+        __add__  = make("a+%d")
+        __radd__ = make("%d+a")
+        __sub__  = make("a-%d")
+        __rsub__ = make("%d-a")
+        __mul__  = make("a*%d")
+        __rmul__ = make("%d*a")
+        __div__  = make("a/%d")
+        __rdiv__ = make("%d/a")
+        __floordiv__  = make("a//%d")
+        __rfloordiv__ = make("%d//a")
+        __mod__  = make("a%%%d")
+        __rmod__ = make("%d%%a")
+        __and__  = make("a&%d")
+        __rand__ = make("%d&a")
+        __or__   = make("a|%d")
+        __ror__  = make("%d|a")
+        __xor__  = make("a^%d")
+        __rxor__ = make("%d^a")
+        __pow__  = make("a**%d")
+        __rpow__ = make("%d**a")
+
+    a = A()
+    assert r_uint32(42) + a == "42+a"
+    assert a + r_uint32(42) == "a+42"
+    assert r_uint32(42) - a == "42-a"
+    assert a - r_uint32(42) == "a-42"
+    assert r_uint32(42) * a == "42*a"
+    assert a * r_uint32(42) == "a*42"
+    assert r_uint32(42) / a == "42/a"
+    assert a / r_uint32(42) == "a/42"
+    assert r_uint32(42) // a == "42//a"
+    assert a // r_uint32(42) == "a//42"
+    assert r_uint32(42) % a == "42%a"
+    assert a % r_uint32(42) == "a%42"
+    py.test.raises(TypeError, "a << r_uint32(42)")
+    py.test.raises(TypeError, "r_uint32(42) << a")
+    py.test.raises(TypeError, "a >> r_uint32(42)")
+    py.test.raises(TypeError, "r_uint32(42) >> a")
+    assert r_uint32(42) & a == "42&a"
+    assert a & r_uint32(42) == "a&42"
+    assert r_uint32(42) | a == "42|a"
+    assert a | r_uint32(42) == "a|42"
+    assert r_uint32(42) ^ a == "42^a"
+    assert a ^ r_uint32(42) == "a^42"
+    assert r_uint32(42) ** a == "42**a"
+    assert a ** r_uint32(42) == "a**42"
+
+def test_ovfcheck_int32():
+    assert ovfcheck_int32_add(-2**30, -2**30) == -2**31
+    py.test.raises(OverflowError, ovfcheck_int32_add, 2**30, 2**30)
+    assert ovfcheck_int32_sub(-2**30, 2**30) == -2**31
+    py.test.raises(OverflowError, ovfcheck_int32_sub, 2**30, -2**30)
+    assert ovfcheck_int32_mul(-2**16, 2**15) == -2**31
+    py.test.raises(OverflowError, ovfcheck_int32_mul, -2**16, -2**15)

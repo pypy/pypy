@@ -31,7 +31,7 @@ class TestCProfile(BaseTestPyPyC):
             # but all calls can be special-cased by the backend if
             # supported.  On 64-bit there is only the two calls to
             # read_timestamp.
-            r = re.compile(r" call[(]ConstClass[(](.+?)[)]")
+            r = re.compile(r" call_\w[(]ConstClass[(](.+?)[)]")
             calls = r.findall(repr(loop.ops_by_id(method)))
             if sys.maxint == 2147483647:
                 assert len(calls) == 6

@@ -61,6 +61,14 @@ class ContinueRunningNormally(JitException):
             self.green_int, self.green_ref, self.green_float,
             self.red_int, self.red_ref, self.red_float)
 
+class NotAVectorizeableLoop(JitException):
+    def __str__(self):
+        return 'NotAVectorizeableLoop()'
+
+class NotAProfitableLoop(JitException):
+    def __str__(self):
+        return 'NotAProfitableLoop()'
+
 
 def _get_standard_error(rtyper, Class):
     exdata = rtyper.exceptiondata

@@ -33,7 +33,7 @@ C (which is the default and original target).
 The RPython translation toolchain never sees Python source code or syntax
 trees, but rather starts with the *code objects* that define the
 behaviour of the function objects one gives it as input.  The
-`bytecode evaluator`_ and the :ref:`flow graph builder<flow-graphs>` work through these
+:ref:`flow graph builder<flow-graphs>` works through these
 code objects using `abstract interpretation`_ to produce a control
 flow graph (one per function): yet another representation of the
 source program, but one which is suitable for applying type inference
@@ -85,7 +85,6 @@ The following figure gives a simplified overview (`PDF color version`_):
 
 
 .. _PDF color version: _static/translation.pdf
-.. _bytecode evaluator: interpreter.html
 .. _abstract interpretation: http://en.wikipedia.org/wiki/Abstract_interpretation
 
 

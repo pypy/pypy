@@ -107,7 +107,7 @@ class SearchEngine:
         It directly return the result of that call.
 
         Text is a text widget. Prog is a precompiled pattern.
-        The ok parameteris a bit complicated as it has two effects.
+        The ok parameter is a bit complicated as it has two effects.
 
         If there is a selection, the search begin at either end,
         depending on the direction setting and ok, with ok meaning that
@@ -191,7 +191,7 @@ def search_reverse(prog, chars, col):
 
     This is done by searching forwards until there is no match.
     Prog: compiled re object with a search method returning a match.
-    Chars: line of text, without \n.
+    Chars: line of text, without \\n.
     Col: stop index for the search; the limit for match.end().
     '''
     m = prog.search(chars)

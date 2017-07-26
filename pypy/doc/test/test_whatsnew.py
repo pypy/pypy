@@ -101,3 +101,15 @@ def test_whatsnew():
     assert not not_documented
     if branch == 'default':
         assert not not_merged
+    else:
+        assert branch in documented, 'Please document this branch before merging: %s' % branch
+
+def test_startrev_on_default():
+    doc = ROOT.join('pypy', 'doc')
+    last_whatsnew = doc.join('whatsnew-head.rst').read()
+    startrev, documented = parse_doc(last_whatsnew)
+    errcode, wc_branch = getstatusoutput(
+        "hg log -r %s --template '{branch}'" % startrev)
+    if errcode != 0:
+        py.test.skip('no Mercurial repo')
+    assert wc_branch in ('default', "'default'") # sometimes the ' leaks (windows)

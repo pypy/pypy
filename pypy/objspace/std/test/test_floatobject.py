@@ -450,10 +450,14 @@ class AppTestAppFloatTest:
     def test_invalid_literal_message(self):
         try:
             float('abcdef')
-        except ValueError, e:
+        except ValueError as e:
             assert 'abcdef' in e.message
         else:
             assert False, 'did not raise'
+
+    def test_hash_minus_one(self):
+        assert hash(-1.0) == -2
+        assert (-1.0).__hash__() == -2
 
 
 class AppTestFloatHex:
@@ -840,3 +844,12 @@ class AppTestFloatHex:
         check(mod(0.0, -1.0), -0.0)
         check(mod(1e-100, -1.0), -1.0)
         check(mod(1.0, -1.0), -0.0)
+
+    def test_equality_rounding(self):
+        i = int(2 ** 63 - 1)
+        f = float(i)           # not enough precision, becomes 2.0 ** 63
+        assert f == 2.0 ** 63
+        assert i != f
+        assert f != i
+        assert long(i) != f
+        assert f != long(i)

@@ -2,7 +2,7 @@ from rpython.rlib import rgc
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import wrap_oserror, OperationError
+from pypy.interpreter.error import oefmt, wrap_oserror
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -30,7 +30,7 @@ def try_cast_gcref_to_w_root(gcref):
 def wrap(space, gcref):
     w_obj = try_cast_gcref_to_w_root(gcref)
     if w_obj is None:
-        w_obj = space.wrap(W_GcRef(gcref))
+        w_obj = W_GcRef(gcref)
     return w_obj
 
 def unwrap(space, w_obj):
@@ -41,84 +41,9 @@ def unwrap(space, w_obj):
     return gcref
 
 def missing_operation(space):
-    return OperationError(space.w_NotImplementedError,
-                          space.wrap("operation not implemented by this GC"))
+    return oefmt(space.w_NotImplementedError,
+                 "operation not implemented by this GC")
 
-# ____________________________________________________________
-
-def clear_gcflag_extra(fromlist):
-    pending = fromlist[:]
-    while pending:
-        gcref = pending.pop()
-        if rgc.get_gcflag_extra(gcref):
-            rgc.toggle_gcflag_extra(gcref)
-            pending.extend(rgc.get_rpy_referents(gcref))
-
-def do_get_objects():
-    roots = [gcref for gcref in rgc.get_rpy_roots() if gcref]
-    pending = roots[:]
-    result_w = []
-    while pending:
-        gcref = pending.pop()
-        if not rgc.get_gcflag_extra(gcref):
-            rgc.toggle_gcflag_extra(gcref)
-            w_obj = try_cast_gcref_to_w_root(gcref)
-            if w_obj is not None:
-                result_w.append(w_obj)
-            pending.extend(rgc.get_rpy_referents(gcref))
-    clear_gcflag_extra(roots)
-    return result_w
-
-# ____________________________________________________________
-
-class PathEntry(object):
-    # PathEntries are nodes of a complete tree of all objects, but
-    # built lazily (there is only one branch alive at any time).
-    # Each node has a 'gcref' and the list of referents from this gcref.
-    def __init__(self, prev, gcref, referents):
-        self.prev = prev
-        self.gcref = gcref
-        self.referents = referents
-        self.remaining = len(referents)
-
-    def get_most_recent_w_obj(self):
-        entry = self
-        while entry is not None:
-            if entry.gcref:
-                w_obj = try_cast_gcref_to_w_root(entry.gcref)
-                if w_obj is not None:
-                    return w_obj
-            entry = entry.prev
-        return None
-
-def do_get_referrers(w_arg):
-    result_w = []
-    gcarg = rgc.cast_instance_to_gcref(w_arg)
-    roots = [gcref for gcref in rgc.get_rpy_roots() if gcref]
-    head = PathEntry(None, rgc.NULL_GCREF, roots)
-    while True:
-        head.remaining -= 1
-        if head.remaining >= 0:
-            gcref = head.referents[head.remaining]
-            if not rgc.get_gcflag_extra(gcref):
-                # not visited so far
-                if gcref == gcarg:
-                    w_obj = head.get_most_recent_w_obj()
-                    if w_obj is not None:
-                        result_w.append(w_obj)   # found!
-                        rgc.toggle_gcflag_extra(gcref)  # toggle twice
-                rgc.toggle_gcflag_extra(gcref)
-                head = PathEntry(head, gcref, rgc.get_rpy_referents(gcref))
-        else:
-            # no more referents to visit
-            head = head.prev
-            if head is None:
-                break
-    # done.  Clear flags carefully
-    rgc.toggle_gcflag_extra(gcarg)
-    clear_gcflag_extra(roots)
-    clear_gcflag_extra([gcarg])
-    return result_w
 
 # ____________________________________________________________
 
@@ -173,7 +98,7 @@ def get_rpy_memory_usage(space, w_obj):
     size = rgc.get_rpy_memory_usage(gcref)
     if size < 0:
         raise missing_operation(space)
-    return space.wrap(size)
+    return space.newint(size)
 
 def get_rpy_type_index(space, w_obj):
     """Return an integer identifying the RPython type of the given
@@ -183,14 +108,13 @@ def get_rpy_type_index(space, w_obj):
     index = rgc.get_rpy_type_index(gcref)
     if index < 0:
         raise missing_operation(space)
-    return space.wrap(index)
+    return space.newint(index)
 
 def get_objects(space):
     """Return a list of all app-level objects."""
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
-    result_w = do_get_objects()
-    rgc.assert_no_more_gcflags()
+    result_w = rgc.do_get_objects(try_cast_gcref_to_w_root)
     return space.newlist(result_w)
 
 def get_referents(space, args_w):
@@ -209,9 +133,22 @@ def get_referrers(space, args_w):
     """Return the list of objects that directly refer to any of objs."""
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
+    # xxx uses a lot of memory to make the list of all W_Root objects,
+    # but it's simpler this way and more correct than the previous
+    # version of this code (issue #2612).  It is potentially very slow
+    # because each of the n calls to _list_w_obj_referents() could take
+    # O(n) time as well, in theory, but I hope in practice the whole
+    # thing takes much less than O(n^2).  We could re-add an algorithm
+    # that visits most objects only once, if needed...
+    all_objects_w = rgc.do_get_objects(try_cast_gcref_to_w_root)
     result_w = []
-    for w_arg in args_w:
-        result_w += do_get_referrers(w_arg)
+    for w_obj in all_objects_w:
+        refs_w = []
+        gcref = rgc.cast_instance_to_gcref(w_obj)
+        _list_w_obj_referents(gcref, refs_w)
+        for w_arg in args_w:
+            if w_arg in refs_w:
+                result_w.append(w_obj)
     rgc.assert_no_more_gcflags()
     return space.newlist(result_w)
 
@@ -219,7 +156,7 @@ def get_referrers(space, args_w):
 def _dump_rpy_heap(space, fd):
     try:
         ok = rgc.dump_rpy_heap(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     if not ok:
         raise missing_operation(space)
@@ -227,9 +164,9 @@ def _dump_rpy_heap(space, fd):
 def get_typeids_z(space):
     a = rgc.get_typeids_z()
     s = ''.join([a[i] for i in range(len(a))])
-    return space.wrap(s)
+    return space.newbytes(s)
 
 def get_typeids_list(space):
     l = rgc.get_typeids_list()
-    list_w = [space.wrap(l[i]) for i in range(len(l))]
+    list_w = [space.newint(l[i]) for i in range(len(l))]
     return space.newlist(list_w)

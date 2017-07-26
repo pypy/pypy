@@ -16,9 +16,8 @@ corresponding to the original creator's erase function.  Otherwise, segfault.
 
 import sys
 from rpython.annotator import model as annmodel
-from rpython.tool.pairtype import pairtype
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rarithmetic import is_valid_int
@@ -96,19 +95,19 @@ def new_erasing_pair(name):
 
         def compute_result_annotation(self, s_obj):
             identity.enter_tunnel(self.bookkeeper, s_obj)
-            return SomeErased()
+            return _some_erased()
 
         def specialize_call(self, hop):
             bk = hop.rtyper.annotator.bookkeeper
             s_obj = identity.get_input_annotation(bk)
             hop.exception_cannot_occur()
-            return hop.r_result.rtype_erase(hop, s_obj)
+            return _rtype_erase(hop, s_obj)
 
     class Entry(ExtRegistryEntry):
         _about_ = unerase
 
         def compute_result_annotation(self, s_obj):
-            assert SomeErased().contains(s_obj)
+            assert _some_erased().contains(s_obj)
             return identity.leave_tunnel(self.bookkeeper)
 
         def specialize_call(self, hop):
@@ -116,7 +115,7 @@ def new_erasing_pair(name):
             if hop.r_result.lowleveltype is lltype.Void:
                 return hop.inputconst(lltype.Void, None)
             [v] = hop.inputargs(hop.args_r[0])
-            return hop.args_r[0].rtype_unerase(hop, v)
+            return _rtype_unerase(hop, v)
 
     return erase, unerase
 
@@ -134,6 +133,21 @@ class Erased(object):
     def __repr__(self):
         return "Erased(%r, %r)" % (self._x, self._identity)
 
+    def _convert_const_ptr(self, r_self):
+        value = self
+        if value._identity is _identity_for_ints:
+            config = r_self.rtyper.annotator.translator.config
+            assert config.translation.taggedpointers, "need to enable tagged pointers to use erase_int"
+            return lltype.cast_int_to_ptr(r_self.lowleveltype, value._x * 2 + 1)
+        bk = r_self.rtyper.annotator.bookkeeper
+        s_obj = value._identity.get_input_annotation(bk)
+        r_obj = r_self.rtyper.getrepr(s_obj)
+        if r_obj.lowleveltype is lltype.Void:
+            return lltype.nullptr(r_self.lowleveltype.TO)
+        v = r_obj.convert_const(value._x)
+        return lltype.cast_opaque_ptr(r_self.lowleveltype, v)
+
+
 class Entry(ExtRegistryEntry):
     _about_ = erase_int
 
@@ -141,22 +155,22 @@ class Entry(ExtRegistryEntry):
         config = self.bookkeeper.annotator.translator.config
         assert config.translation.taggedpointers, "need to enable tagged pointers to use erase_int"
         assert annmodel.SomeInteger().contains(s_obj)
-        return SomeErased()
+        return _some_erased()
 
     def specialize_call(self, hop):
-        return hop.r_result.rtype_erase_int(hop)
+        return _rtype_erase_int(hop)
 
 class Entry(ExtRegistryEntry):
     _about_ = unerase_int
 
     def compute_result_annotation(self, s_obj):
-        assert SomeErased().contains(s_obj)
+        assert _some_erased().contains(s_obj)
         return annmodel.SomeInteger()
 
     def specialize_call(self, hop):
         [v] = hop.inputargs(hop.args_r[0])
         assert isinstance(hop.s_result, annmodel.SomeInteger)
-        return hop.args_r[0].rtype_unerase_int(hop, v)
+        return _rtype_unerase_int(hop, v)
 
 def ll_unerase_int(gcref):
     x = llop.cast_ptr_to_int(lltype.Signed, gcref)
@@ -171,71 +185,39 @@ class Entry(ExtRegistryEntry):
         identity = self.instance._identity
         s_obj = self.bookkeeper.immutablevalue(self.instance._x)
         identity.enter_tunnel(self.bookkeeper, s_obj)
-        return SomeErased()
+        return _some_erased()
 
 # annotation and rtyping support
 
-class SomeErased(annmodel.SomeObject):
+def _some_erased():
+    return lltype_to_annotation(llmemory.GCREF)
 
-    def can_be_none(self):
-        return False # cannot be None, but can contain a None
+def _rtype_erase(hop, s_obj):
+    hop.exception_cannot_occur()
+    r_obj = hop.rtyper.getrepr(s_obj)
+    if r_obj.lowleveltype is lltype.Void:
+        return hop.inputconst(llmemory.GCREF,
+                              lltype.nullptr(llmemory.GCREF.TO))
+    [v_obj] = hop.inputargs(r_obj)
+    return hop.genop('cast_opaque_ptr', [v_obj],
+                     resulttype=llmemory.GCREF)
 
-    def rtyper_makerepr(self, rtyper):
-        return ErasedRepr(rtyper)
+def _rtype_unerase(hop, s_obj):
+    [v] = hop.inputargs(hop.args_r[0])
+    return hop.genop('cast_opaque_ptr', [v], resulttype=hop.r_result)
 
-    def rtyper_makekey(self):
-        return self.__class__,
+def _rtype_unerase_int(hop, v):
+    hop.exception_cannot_occur()
+    return hop.gendirectcall(ll_unerase_int, v)
 
-class __extend__(pairtype(SomeErased, SomeErased)):
-
-    def union((serased1, serased2)):
-        return SomeErased()
-
-
-class ErasedRepr(Repr):
-    lowleveltype = llmemory.GCREF
-    def __init__(self, rtyper):
-        self.rtyper = rtyper
-
-    def rtype_erase(self, hop, s_obj):
-        hop.exception_cannot_occur()
-        r_obj = self.rtyper.getrepr(s_obj)
-        if r_obj.lowleveltype is lltype.Void:
-            return hop.inputconst(self.lowleveltype,
-                                  lltype.nullptr(self.lowleveltype.TO))
-        [v_obj] = hop.inputargs(r_obj)
-        return hop.genop('cast_opaque_ptr', [v_obj],
-                         resulttype=self.lowleveltype)
-
-    def rtype_unerase(self, hop, s_obj):
-        [v] = hop.inputargs(hop.args_r[0])
-        return hop.genop('cast_opaque_ptr', [v], resulttype=hop.r_result)
-
-    def rtype_unerase_int(self, hop, v):
-        hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_unerase_int, v)
-
-    def rtype_erase_int(self, hop):
-        [v_value] = hop.inputargs(lltype.Signed)
-        c_one = hop.inputconst(lltype.Signed, 1)
-        hop.exception_is_here()
-        v2 = hop.genop('int_add_ovf', [v_value, v_value],
-                       resulttype = lltype.Signed)
-        v2p1 = hop.genop('int_add', [v2, c_one],
-                         resulttype = lltype.Signed)
-        v_instance = hop.genop('cast_int_to_ptr', [v2p1],
-                               resulttype=self.lowleveltype)
-        return v_instance
-
-    def convert_const(self, value):
-        if value._identity is _identity_for_ints:
-            config = self.rtyper.annotator.translator.config
-            assert config.translation.taggedpointers, "need to enable tagged pointers to use erase_int"
-            return lltype.cast_int_to_ptr(self.lowleveltype, value._x * 2 + 1)
-        bk = self.rtyper.annotator.bookkeeper
-        s_obj = value._identity.get_input_annotation(bk)
-        r_obj = self.rtyper.getrepr(s_obj)
-        if r_obj.lowleveltype is lltype.Void:
-            return lltype.nullptr(self.lowleveltype.TO)
-        v = r_obj.convert_const(value._x)
-        return lltype.cast_opaque_ptr(self.lowleveltype, v)
+def _rtype_erase_int(hop):
+    [v_value] = hop.inputargs(lltype.Signed)
+    c_one = hop.inputconst(lltype.Signed, 1)
+    hop.exception_is_here()
+    v2 = hop.genop('int_add_ovf', [v_value, v_value],
+                   resulttype = lltype.Signed)
+    v2p1 = hop.genop('int_add', [v2, c_one],
+                     resulttype = lltype.Signed)
+    v_instance = hop.genop('cast_int_to_ptr', [v2p1],
+                           resulttype=llmemory.GCREF)
+    return v_instance

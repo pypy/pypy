@@ -15,6 +15,8 @@ from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
 
+from hypothesis import given, strategies
+
 long_vals_not_too_big = range(17) + [
         37, 50,
         127, 128, 129, 511, 512, 513, sys.maxint, sys.maxint + 1,
@@ -672,6 +674,11 @@ class Test_rbigint(object):
                 else:
                     assert ulps_check(l, math.log(op)) is None
 
+    def test_log2(self):
+        assert rbigint.fromlong(1).log(2.0) == 0.0
+        assert rbigint.fromlong(2).log(2.0) == 1.0
+        assert rbigint.fromlong(2**1023).log(2.0) == 1023.0
+
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!
@@ -825,7 +832,19 @@ class TestInternalFunctions(object):
             def __init__(self, base, sign, digits):
                 self.base = base
                 self.sign = sign
-                self.next_digit = iter(digits + [-1]).next
+                self.i = 0
+                self._digits = digits
+            def next_digit(self):
+                i = self.i
+                if i == len(self._digits):
+                    return -1
+                self.i = i + 1
+                return self._digits[i]
+            def prev_digit(self):
+                i = self.i - 1
+                assert i >= 0
+                self.i = i
+                return self._digits[i]
         x = parse_digit_string(Parser(10, 1, [6]))
         assert x.eq(rbigint.fromint(6))
         x = parse_digit_string(Parser(10, 1, [6, 2, 3]))
@@ -846,6 +865,16 @@ class TestInternalFunctions(object):
         assert x.tobool() is False
         x = parse_digit_string(Parser(7, -1, [0, 0, 0]))
         assert x.tobool() is False
+
+        for base in [2, 4, 8, 16, 32]:
+            for inp in [[0], [1], [1, 0], [0, 1], [1, 0, 1], [1, 0, 0, 1],
+                        [1, 0, 0, base-1, 0, 1], [base-1, 1, 0, 0, 0, 1, 0],
+                        [base-1]]:
+                inp = inp * 97
+                x = parse_digit_string(Parser(base, -1, inp))
+                num = sum(inp[i] * (base ** (len(inp)-1-i))
+                          for i in range(len(inp)))
+                assert x.eq(rbigint.fromlong(-num))
 
 
 BASE = 2 ** SHIFT
@@ -944,6 +973,14 @@ class TestTranslatable(object):
         py.test.raises(InvalidEndiannessError, i.tobytes, 3, 'foo', signed=True)
         py.test.raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
         py.test.raises(OverflowError, i.tobytes, 2, 'little', signed=True)
+
+    @given(strategies.binary(), strategies.booleans(), strategies.booleans())
+    def test_frombytes_tobytes_hypothesis(self, s, big, signed):
+        # check the roundtrip from binary strings to bigints and back
+        byteorder = 'big' if big else 'little'
+        bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
+        t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
+        assert s == t
 
 
 class TestTranslated(StandaloneTests):

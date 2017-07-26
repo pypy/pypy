@@ -36,7 +36,7 @@ class TestConstPtr(BaseTestRegalloc):
         self.struct_ptr.int1049 = 666
         ops = '''
         [p0]
-        i0 = getfield_gc(p0, descr=fielddescr)
+        i0 = getfield_gc_i(p0, descr=fielddescr)
         finish(i0)
         '''
         self.interpret(ops, [self.struct_ptr])

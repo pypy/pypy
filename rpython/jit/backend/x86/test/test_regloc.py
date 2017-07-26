@@ -1,5 +1,5 @@
 import struct, sys
-from rpython.jit.backend.x86.rx86 import R
+from rpython.jit.backend.x86.rx86 import R, fits_in_32bits
 from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.x86.test.test_rx86 import CodeBuilder32, CodeBuilder64, assert_encodes_as
 from rpython.jit.backend.x86.assembler import heap
@@ -10,10 +10,18 @@ from rpython.rlib.rarithmetic import intmask
 import py.test
 
 class LocationCodeBuilder32(CodeBuilder32, LocationCodeBuilder):
-    pass
+    def force_frame_size(self, frame_size):
+        pass
+
+    def stack_frame_size_delta(self, delta):
+        pass
 
 class LocationCodeBuilder64(CodeBuilder64, LocationCodeBuilder):
-    pass
+    def force_frame_size(self, frame_size):
+        pass
+
+    def stack_frame_size_delta(self, delta):
+        pass
 
 cb32 = LocationCodeBuilder32
 cb64 = LocationCodeBuilder64
@@ -97,13 +105,20 @@ def test_relocation():
         assert ''.join([buf[i] for i in range(length)]) == expected
         lltype.free(buf, flavor='raw')
 
+class Fake32CodeBlockWrapper(codebuf.MachineCodeBlockWrapper):
+    def check_stack_size_at_ret(self):
+        pass
+        
 def test_follow_jump_instructions_32():
     buf = lltype.malloc(rffi.CCHARP.TO, 80, flavor='raw')
     raw = rffi.cast(lltype.Signed, buf)
-    mc = codebuf.MachineCodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
+    if not fits_in_32bits(raw):
+        lltype.free(buf, flavor='raw')
+        py.test.skip("not testable")
+    mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
     mc.RET()
     mc.copy_to_raw_memory(raw)
-    mc = codebuf.MachineCodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
+    mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
     assert follow_jump(raw) == raw
     mc.JMP(imm(raw))
     mc.copy_to_raw_memory(raw + 20)
@@ -112,7 +127,7 @@ def test_follow_jump_instructions_32():
     assert buf[22] == '\xFF'
     assert buf[23] == '\xFF'
     assert buf[24] == '\xFF'
-    mc = codebuf.MachineCodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
+    mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
     assert follow_jump(raw + 20) == raw
     mc.JMP(imm(raw))
     mc.copy_to_raw_memory(raw + 40)
@@ -132,12 +147,10 @@ class Test64Bits:
             py.test.skip()
 
     def test_reuse_scratch_register(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
-        cb.begin_reuse_scratch_register()
         cb.MOV(ecx, heap(base_addr))
         cb.MOV(ecx, heap(base_addr + 8))
-        cb.end_reuse_scratch_register()
 
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
@@ -152,7 +165,7 @@ class Test64Bits:
     # ------------------------------------------------------------
 
     def test_64bit_address_1(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.CMP(ecx, AddressLoc(ImmedLoc(0), ImmedLoc(0), 0, base_addr))
         # this case is a CMP_rj
@@ -166,7 +179,7 @@ class Test64Bits:
         assert cb.getvalue() == expected_instructions
 
     def test_64bit_address_2(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(ecx, AddressLoc(ImmedLoc(0), edx, 3, base_addr))
         # this case is a CMP_ra
@@ -180,7 +193,7 @@ class Test64Bits:
         assert cb.getvalue() == expected_instructions
 
     def test_64bit_address_3(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(ecx, AddressLoc(edx, ImmedLoc(0), 0, base_addr))
         # this case is a CMP_rm
@@ -196,14 +209,11 @@ class Test64Bits:
         assert cb.getvalue() == expected_instructions
 
     def test_64bit_address_4(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
-        cb.begin_reuse_scratch_register()
-        assert cb._reuse_scratch_register is True
-        assert cb._scratch_register_known is False
+        assert cb._scratch_register_value == -1
         cb.MOV(ecx, AddressLoc(edx, esi, 2, base_addr))
-        assert cb._reuse_scratch_register is True
-        assert cb._scratch_register_known is False
+        assert cb._scratch_register_value == -1
         # this case is a CMP_ra
         #
         expected_instructions = (
@@ -219,7 +229,7 @@ class Test64Bits:
     # ------------------------------------------------------------
 
     def test_MOV_64bit_constant_into_r11(self):
-        base_constant = 0xFEDCBA9876543210
+        base_constant = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(r11, imm(base_constant))
 
@@ -229,8 +239,19 @@ class Test64Bits:
         )
         assert cb.getvalue() == expected_instructions
 
+    def test_MOV_64bit_constant_into_rax(self):
+        base_constant = intmask(0xFEDCBA9876543210)
+        cb = LocationCodeBuilder64()
+        cb.MOV(eax, imm(base_constant))
+
+        expected_instructions = (
+                # mov rax, 0xFEDCBA9876543210
+                '\x48\xB8\x10\x32\x54\x76\x98\xBA\xDC\xFE'
+        )
+        assert cb.getvalue() == expected_instructions
+
     def test_MOV_64bit_address_into_r11(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(r11, heap(base_addr))
 
@@ -244,7 +265,7 @@ class Test64Bits:
 
     def test_MOV_immed32_into_64bit_address_1(self):
         immed = -0x01234567
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(ImmedLoc(0), ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
@@ -260,7 +281,7 @@ class Test64Bits:
 
     def test_MOV_immed32_into_64bit_address_2(self):
         immed = -0x01234567
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(ImmedLoc(0), edx, 3, base_addr),
                ImmedLoc(immed))
@@ -276,7 +297,7 @@ class Test64Bits:
 
     def test_MOV_immed32_into_64bit_address_3(self):
         immed = -0x01234567
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(edx, ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
@@ -294,7 +315,7 @@ class Test64Bits:
 
     def test_MOV_immed32_into_64bit_address_4(self):
         immed = -0x01234567
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(edx, esi, 2, base_addr), ImmedLoc(immed))
         # this case is a MOV_ai
@@ -313,7 +334,7 @@ class Test64Bits:
 
     def test_MOV_immed64_into_64bit_address_1(self):
         immed = 0x0123456789ABCDEF
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(ImmedLoc(0), ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
@@ -335,7 +356,7 @@ class Test64Bits:
 
     def test_MOV_immed64_into_64bit_address_2(self):
         immed = 0x0123456789ABCDEF
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(ImmedLoc(0), edx, 3, base_addr),
                ImmedLoc(immed))
@@ -357,7 +378,7 @@ class Test64Bits:
 
     def test_MOV_immed64_into_64bit_address_3(self):
         immed = 0x0123456789ABCDEF
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(eax, ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
@@ -381,7 +402,7 @@ class Test64Bits:
 
     def test_MOV_immed64_into_64bit_address_4(self):
         immed = 0x0123456789ABCDEF
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(edx, eax, 2, base_addr), ImmedLoc(immed))
         # this case is a MOV_ai

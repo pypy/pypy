@@ -197,7 +197,7 @@ class AppTestSignal:
             except OSError:
                 pass
             else:
-                raise AssertionError, "os.read(fd_read, 1) succeeded?"
+                raise AssertionError("os.read(fd_read, 1) succeeded?")
         #
         fd_read, fd_write = posix.pipe()
         flags = fcntl.fcntl(fd_write, fcntl.F_GETFL, 0)

@@ -7,6 +7,7 @@ from __future__ import (print_function, unicode_literals)
 import os
 import abc
 import codecs
+import sys
 import warnings
 import errno
 # Import thread instead of threading to reduce startup cost
@@ -25,8 +26,8 @@ __metaclass__ = type
 DEFAULT_BUFFER_SIZE = 8 * 1024  # bytes
 
 # NOTE: Base classes defined here are registered with the "official" ABCs
-# defined in io.py. We don't use real inheritance though, because we don't
-# want to inherit the C implementations.
+# defined in io.py. We don't use real inheritance though, because we don't want
+# to inherit the C implementations.
 
 
 class BlockingIOError(IOError):
@@ -273,11 +274,12 @@ class IOBase:
     Even though IOBase does not declare read, readinto, or write because
     their signatures will vary, implementations and clients should
     consider those methods part of the interface. Also, implementations
-    may raise a IOError when operations they do not support are called.
+    may raise an IOError when operations they do not support are called.
 
     The basic type used for binary data read from or written to a file is
-    bytes. bytearrays are accepted too, and in some cases (such as
-    readinto) needed. Text I/O classes work with str data.
+    the bytes type. Method arguments may also be bytearray or memoryview of
+    arrays of bytes. In some cases, such as readinto, a writable object such
+    as bytearray is required. Text I/O classes work with unicode data.
 
     Note that calling any method (even inquiries) on a closed stream is
     undefined. Implementations may raise IOError in this case.
@@ -419,7 +421,7 @@ class IOBase:
         return self.__closed
 
     def _checkClosed(self, msg=None):
-        """Internal: raise an ValueError if file is closed
+        """Internal: raise a ValueError if file is closed
         """
         if self.closed:
             raise ValueError("I/O operation on closed file."
@@ -648,7 +650,6 @@ class BufferedIOBase(IOBase):
         Raises BlockingIOError if the underlying raw stream has no
         data at the moment.
         """
-        # XXX This ought to work with anything that supports the buffer API
         data = self.read(len(b))
         n = len(data)
         try:
@@ -663,8 +664,7 @@ class BufferedIOBase(IOBase):
     def write(self, b):
         """Write the given buffer to the IO stream.
 
-        Return the number of bytes written, which is never less than
-        len(b).
+        Return the number of bytes written, which is always len(b).
 
         Raises BlockingIOError if the buffer is full and the
         underlying raw stream cannot accept more data at the moment.
@@ -775,7 +775,7 @@ class _BufferedIOMixin(BufferedIOBase):
         clsname = self.__class__.__name__
         try:
             name = self.name
-        except AttributeError:
+        except Exception:
             return "<_pyio.{0}>".format(clsname)
         else:
             return "<_pyio.{0} name={1!r}>".format(clsname, name)
@@ -996,7 +996,7 @@ class BufferedReader(_BufferedIOMixin):
                 break
             avail += len(chunk)
             chunks.append(chunk)
-        # n is more then avail only when an EOF occurred or when
+        # n is more than avail only when an EOF occurred or when
         # read() would have blocked.
         n = min(n, avail)
         out = b"".join(chunks)
@@ -1216,8 +1216,10 @@ class BufferedRWPair(BufferedIOBase):
         return self.writer.flush()
 
     def close(self):
-        self.writer.close()
-        self.reader.close()
+        try:
+            self.writer.close()
+        finally:
+            self.reader.close()
 
     def isatty(self):
         return self.reader.isatty() or self.writer.isatty()
@@ -1495,6 +1497,11 @@ class TextIOWrapper(TextIOBase):
         if not isinstance(encoding, basestring):
             raise ValueError("invalid encoding: %r" % encoding)
 
+        if sys.py3kwarning and not codecs.lookup(encoding)._is_text_encoding:
+            msg = ("%r is not a text encoding; "
+                   "use codecs.open() to handle arbitrary codecs")
+            warnings.warnpy3k(msg % encoding, stacklevel=2)
+
         if errors is None:
             errors = "strict"
         else:
@@ -1538,7 +1545,7 @@ class TextIOWrapper(TextIOBase):
     def __repr__(self):
         try:
             name = self.name
-        except AttributeError:
+        except Exception:
             return "<_pyio.TextIOWrapper encoding='{0}'>".format(self.encoding)
         else:
             return "<_pyio.TextIOWrapper name={0!r} encoding='{1}'>".format(
@@ -2014,7 +2021,7 @@ class StringIO(TextIOWrapper):
 
     def __repr__(self):
         # TextIOWrapper tells the encoding in its repr. In StringIO,
-        # that's a implementation detail.
+        # that's an implementation detail.
         return object.__repr__(self)
 
     @property

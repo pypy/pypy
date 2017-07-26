@@ -54,8 +54,24 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert (where(False, 1, [1, 2, 3]) == [1, 2, 3]).all()
         assert (where([1, 2, 3], True, False) == [True, True, True]).all()
 
-    #def test_where_1_arg(self):
-    #    xxx
+    def test_where_1_arg(self):
+        from numpy import where, array
+
+        result = where([1,0,1])
+
+        assert isinstance(result, tuple)
+        assert len(result) == 1
+        assert (result[0] == array([0, 2])).all()
+
+    def test_where_1_arg_2d(self):
+        from numpy import where, array
+
+        result = where([[1,0,1],[2,-1,-1]])
+
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        assert (result[0] == array([0, 0, 1, 1, 1])).all()
+        assert (result[1] == array([0, 2, 0, 1, 2])).all()
 
     def test_where_invalidates(self):
         from numpy import where, ones, zeros, array
@@ -199,19 +215,3 @@ class AppTestNumSupport(BaseNumpyAppTest):
         a.put(23, -1, mode=1)  # wrap
         assert (a == array([0, 1, -10, -1, -15])).all()
         raises(TypeError, "arange(5).put(22, -5, mode='zzzz')")  # unrecognized mode
-
-    def test_result_type(self):
-        import numpy as np
-        exc = raises(ValueError, np.result_type)
-        assert str(exc.value) == "at least one array or dtype is required"
-        exc = raises(TypeError, np.result_type, a=2)
-        assert str(exc.value) == "result_type() takes no keyword arguments"
-        assert np.result_type(True) is np.dtype('bool')
-        assert np.result_type(1) is np.dtype('int')
-        assert np.result_type(1.) is np.dtype('float64')
-        assert np.result_type(1+2j) is np.dtype('complex128')
-        assert np.result_type(1, 1.) is np.dtype('float64')
-        assert np.result_type(np.array([1, 2])) is np.dtype('int')
-        assert np.result_type(np.array([1, 2]), 1, 1+2j) is np.dtype('complex128')
-        assert np.result_type(np.array([1, 2]), 1, 'float64') is np.dtype('float64')
-        assert np.result_type(np.array([1, 2]), 1, None) is np.dtype('float64')

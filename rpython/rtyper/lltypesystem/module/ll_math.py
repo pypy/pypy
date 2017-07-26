@@ -6,8 +6,8 @@ import sys
 from rpython.translator import cdir
 from rpython.rlib import jit, rposix
 from rpython.rlib.rfloat import INFINITY, NAN, isfinite, isinf, isnan
+from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.module.support import UNDERSCORE_ON_WIN32
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
@@ -132,8 +132,7 @@ def ll_math_isfinite(y):
     # Floats are awesome (bis).
     if use_library_isinf_isnan and not jit.we_are_jitted():
         return bool(_lib_finite(y))
-    z = 0.0 * y
-    return z == z       # i.e.: z is not a NaN
+    return (y - y) == 0.0    # (y - y) is NaN if y is an infinite or NaN
 
 
 ll_math_floor = math_floor

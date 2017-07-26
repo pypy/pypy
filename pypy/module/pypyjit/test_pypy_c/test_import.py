@@ -38,3 +38,27 @@ class TestImport(BaseTestPyPyC):
         # call_may_force(absolute_import_with_lock).
         for opname in log.opnames(loop.allops(opcode="IMPORT_NAME")):
             assert 'call' not in opname    # no call-like opcode
+
+    def test_import_fast_path(self, tmpdir):
+        print tmpdir
+        pkg = tmpdir.join('mypkg').ensure(dir=True)
+        subdir = pkg.join("sub").ensure(dir=True)
+        pkg.join('__init__.py').write("")
+        subdir.join('__init__.py').write("")
+        subdir.join('mod.py').write(str(py.code.Source("""
+            def do_the_import():
+                import sys
+        """)))
+        def main(path, n):
+            def do_the_import():
+                from mypkg.sub import mod
+            import sys
+            sys.path.append(path)
+            for i in range(n):
+                do_the_import()
+        #
+        log = self.run(main, [str(tmpdir), 300])
+        loop, = log.loops_by_filename(self.filepath)
+        # check that no string compares and other calls are there
+        for opname in log.opnames(loop.allops(opcode="IMPORT_NAME")):
+            assert 'call' not in opname    # no call-like opcode

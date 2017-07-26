@@ -5,6 +5,13 @@ INITIAL_SIZE = 4
 
 
 class RWeakListMixin(object):
+    """A mixin base class.  A collection that weakly maps indexes to objects.
+    After an object goes away, its index is marked free and will be reused
+    by some following add_handle() call.  So add_handle() might not append
+    the object at the end of the list, but can put it anywhere.
+
+    See also rpython.rlib.rshrinklist.
+    """
     _mixin_ = True
 
     def initialize(self):

@@ -1,9 +1,15 @@
-""" generate a single-file self-contained version of pytest """
-import py
+""" (deprecated) generate a single-file self-contained version of pytest """
+import os
 import sys
+import pkgutil
+
+import py
+import _pytest
+
+
 
 def find_toplevel(name):
-    for syspath in py.std.sys.path:
+    for syspath in sys.path:
         base = py.path.local(syspath)
         lib = base/name
         if lib.check(dir=1):
@@ -26,12 +32,16 @@ def pkg_to_mapping(name):
         for pyfile in toplevel.visit('*.py'):
             pkg = pkgname(name, toplevel, pyfile)
             name2src[pkg] = pyfile.read()
+        # with wheels py source code might be not be installed
+        # and the resulting genscript is useless, just bail out.
+        assert name2src, "no source code found for %r at %r" %(name, toplevel)
     return name2src
 
 def compress_mapping(mapping):
-    data = py.std.pickle.dumps(mapping, 2)
-    data = py.std.zlib.compress(data, 9)
-    data = py.std.base64.encodestring(data)
+    import base64, pickle, zlib
+    data = pickle.dumps(mapping, 2)
+    data = zlib.compress(data, 9)
+    data = base64.encodestring(data)
     data = data.decode('ascii')
     return data
 
@@ -58,17 +68,20 @@ def pytest_addoption(parser):
         help="create standalone pytest script at given target path.")
 
 def pytest_cmdline_main(config):
+    import _pytest.config
     genscript = config.getvalue("genscript")
     if genscript:
-        tw = py.io.TerminalWriter()
-        deps =  ['py', '_pytest', 'pytest']
+        tw = _pytest.config.create_terminal_writer(config)
+        tw.line("WARNING: usage of genscript is deprecated.",
+                red=True)
+        deps =  ['py', '_pytest', 'pytest']  # pluggy is vendored
         if sys.version_info < (2,7):
             deps.append("argparse")
-            tw.line("generated script will run on python2.5-python3.3++")
+            tw.line("generated script will run on python2.6-python3.3++")
         else:
             tw.line("WARNING: generated script will not run on python2.6 "
-                    "or below due to 'argparse' dependency. Use python2.6 "
-                    "to generate a python2.5/6 compatible script", red=True)
+                    "due to 'argparse' dependency. Use python2.6 "
+                    "to generate a python2.6 compatible script", red=True)
         script = generate_script(
             'import pytest; raise SystemExit(pytest.cmdline.main())',
             deps,
@@ -78,3 +91,42 @@ def pytest_cmdline_main(config):
         tw.line("generated pytest standalone script: %s" % genscript,
                 bold=True)
         return 0
+
+
+def pytest_namespace():
+    return {'freeze_includes': freeze_includes}
+
+
+def freeze_includes():
+    """
+    Returns a list of module names used by py.test that should be
+    included by cx_freeze.
+    """
+    result = list(_iter_all_modules(py))
+    result += list(_iter_all_modules(_pytest))
+    return result
+
+
+def _iter_all_modules(package, prefix=''):
+    """
+    Iterates over the names of all modules that can be found in the given
+    package, recursively.
+
+    Example:
+        _iter_all_modules(_pytest) ->
+            ['_pytest.assertion.newinterpret',
+             '_pytest.capture',
+             '_pytest.core',
+             ...
+            ]
+    """
+    if type(package) is not str:
+        path, prefix = package.__path__[0], package.__name__ + '.'
+    else:
+        path = package
+    for _, name, is_package in pkgutil.iter_modules([path]):
+        if is_package:
+            for m in _iter_all_modules(os.path.join(path, name), prefix=name + '.'):
+                yield prefix + m
+        else:
+            yield prefix + name

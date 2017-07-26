@@ -2,7 +2,11 @@
 #define _PYPY_H_
 
 /* This header is meant to be included in programs that use PyPy as an
-   embedded library. */
+   embedded library.
+
+   NOTE: this is deprecated.  Instead, use cffi's embedding support:
+   http://cffi.readthedocs.org/en/latest/embedding.html
+*/
 
 #ifdef __cplusplus
 extern "C" {

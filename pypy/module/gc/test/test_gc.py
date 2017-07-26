@@ -70,6 +70,19 @@ class AppTestGC(object):
         gc.enable()
         assert gc.isenabled()
 
+    def test_gc_collect_overrides_gc_disable(self):
+        import gc
+        deleted = []
+        class X(object):
+            def __del__(self):
+                deleted.append(1)
+        assert gc.isenabled()
+        gc.disable()
+        X()
+        gc.collect()
+        assert deleted == [1]
+        gc.enable()
+
 
 class AppTestGcDumpHeap(object):
     pytestmark = py.test.mark.xfail(run=False)
@@ -106,7 +119,6 @@ class AppTestGcDumpHeap(object):
 
 
 class AppTestGcMethodCache(object):
-    spaceconfig = {"objspace.std.withmethodcache": True}
 
     def test_clear_method_cache(self):
         import gc, weakref
@@ -126,10 +138,6 @@ class AppTestGcMethodCache(object):
         for r in rlist:
             assert r() is None
 
-
-class AppTestGcMapDictIndexCache(AppTestGcMethodCache):
-    spaceconfig = {"objspace.std.withmethodcache": True,
-                   "objspace.std.withmapdict": True}
 
     def test_clear_index_cache(self):
         import gc, weakref

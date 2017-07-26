@@ -1,25 +1,62 @@
+import sys
+from contextlib import contextmanager
+import signal
+
 from rpython.translator.translator import TranslationContext
+from rpython.annotator.model import (
+    SomeInteger, SomeString, SomeChar, SomeUnicodeString, SomeUnicodeCodePoint)
+from rpython.annotator.dictdef import DictKey, DictValue
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper import rint
-from rpython.rtyper.lltypesystem import rdict, rstr
+from rpython.rtyper.lltypesystem import rdict
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
 import py
-py.log.setconsumer("rtyper", py.log.STDOUT)
+from hypothesis import settings
+from hypothesis.strategies import (
+    builds, sampled_from, binary, just, integers, text, characters, tuples)
+from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
 
-def not_really_random():
-    """A random-ish generator, which also generates nice patterns from time to time.
-    Could be useful to detect problems associated with specific usage patterns."""
-    import random
-    x = random.random()
-    print 'random seed: %r' % (x,)
-    for i in range(12000):
-        r = 3.4 + i/20000.0
-        x = r*x - x*x
-        assert 0 <= x < 4
-        yield x
+def ann2strategy(s_value):
+    if isinstance(s_value, SomeChar):
+        return builds(chr, integers(min_value=0, max_value=255))
+    elif isinstance(s_value, SomeString):
+        if s_value.can_be_None:
+            return binary() | just(None)
+        else:
+            return binary()
+    elif isinstance(s_value, SomeUnicodeCodePoint):
+        return characters()
+    elif isinstance(s_value, SomeUnicodeString):
+        if s_value.can_be_None:
+            return text() | just(None)
+        else:
+            return text()
+    elif isinstance(s_value, SomeInteger):
+        return integers(min_value=~sys.maxint, max_value=sys.maxint)
+    else:
+        raise TypeError("Cannot convert annotation %s to a strategy" % s_value)
+
+
+if hasattr(signal, 'alarm'):
+    @contextmanager
+    def signal_timeout(n):
+        """A flaky context manager that throws an exception if the body of the
+        `with` block runs for longer than `n` seconds.
+        """
+        def handler(signum, frame):
+            raise RuntimeError('timeout')
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(n)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+else:
+    @contextmanager
+    def signal_timeout(n):
+        yield
 
 
 class BaseTestRDict(BaseRtypingTest):
@@ -199,9 +236,8 @@ class BaseTestRDict(BaseRtypingTest):
 
     def test_dict_copy(self):
         def func():
-            # XXX this does not work if we use chars, only!
             dic = self.newdict()
-            dic['ab'] = 1
+            dic['a'] = 1
             dic['b'] = 2
             d2 = dic.copy()
             ok = 1
@@ -999,32 +1035,10 @@ class TestRDict(BaseTestRDict):
         s_BA_dic = s.items[1]
 
         r_AB_dic = rtyper.getrepr(s_AB_dic)
-        r_BA_dic = rtyper.getrepr(s_AB_dic)
+        r_BA_dic = rtyper.getrepr(s_BA_dic)
 
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
-
-    def test_dict_resize(self):
-        py.test.skip("test written for non-ordered dicts, update or kill")
-        # XXX we no longer automatically resize on 'del'.  We need to
-        # hack a bit in this test to trigger a resize by continuing to
-        # fill the dict's table while keeping the actual size very low
-        # in order to force a resize to shrink the table back
-        def func(want_empty):
-            d = self.newdict()
-            for i in range(rdict.DICT_INITSIZE << 1):
-                d[chr(ord('a') + i)] = i
-            if want_empty:
-                for i in range(rdict.DICT_INITSIZE << 1):
-                    del d[chr(ord('a') + i)]
-                for i in range(rdict.DICT_INITSIZE << 3):
-                    d[chr(ord('A') - i)] = i
-                    del d[chr(ord('A') - i)]
-            return d
-        res = self.interpret(func, [0])
-        assert len(res.entries) > rdict.DICT_INITSIZE
-        res = self.interpret(func, [1])
-        assert len(res.entries) == rdict.DICT_INITSIZE
 
     def test_opt_dummykeymarker(self):
         def f():
@@ -1117,183 +1131,185 @@ class TestRDict(BaseTestRDict):
         DICT = lltype.typeOf(llres.item1)
         assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
-    def test_deleted_entry_reusage_with_colliding_hashes(self):
-        py.test.skip("test written for non-ordered dicts, update or kill")
-        def lowlevelhash(value):
-            p = rstr.mallocstr(len(value))
-            for i in range(len(value)):
-                p.chars[i] = value[i]
-            return rstr.LLHelpers.ll_strhash(p)
 
-        def func(c1, c2):
-            c1 = chr(c1)
-            c2 = chr(c2)
-            d = self.newdict()
-            d[c1] = 1
-            d[c2] = 2
-            del d[c1]
-            return d[c2]
+class Action(object):
+    def __init__(self, method, args):
+        self.method = method
+        self.args = args
 
-        char_by_hash = {}
-        base = rdict.DICT_INITSIZE
-        for y in range(0, 256):
-            y = chr(y)
-            y_hash = lowlevelhash(y) % base
-            char_by_hash.setdefault(y_hash, []).append(y)
+    def execute(self, space):
+        getattr(space, self.method)(*self.args)
 
-        x, y = char_by_hash[0][:2]   # find a collision
+    def __repr__(self):
+        return "space.%s(%s)" % (self.method, ', '.join(map(repr, self.args)))
 
-        res = self.interpret(func, [ord(x), ord(y)])
-        assert res == 2
+class PseudoRTyper:
+    cache_dummy_values = {}
 
-        def func2(c1, c2):
-            c1 = chr(c1)
-            c2 = chr(c2)
-            d = self.newdict()
-            d[c1] = 1
-            d[c2] = 2
-            del d[c1]
-            d[c1] = 3
-            return d
+# XXX: None keys crash the test, but translation sort-of allows it
+keytypes_s = [
+    SomeString(), SomeInteger(), SomeChar(),
+    SomeUnicodeString(), SomeUnicodeCodePoint()]
+st_keys = sampled_from(keytypes_s)
+st_values = sampled_from(keytypes_s + [SomeString(can_be_None=True)])
 
-        res = self.interpret(func2, [ord(x), ord(y)])
-        for i in range(len(res.entries)):
-            assert not (res.entries.everused(i) and not res.entries.valid(i))
+class MappingSpace(object):
+    def __init__(self, s_key, s_value):
+        from rpython.rtyper.rtuple import TupleRepr
 
-        def func3(c0, c1, c2, c3, c4, c5, c6, c7):
-            d = self.newdict()
-            c0 = chr(c0) ; d[c0] = 1; del d[c0]
-            c1 = chr(c1) ; d[c1] = 1; del d[c1]
-            c2 = chr(c2) ; d[c2] = 1; del d[c2]
-            c3 = chr(c3) ; d[c3] = 1; del d[c3]
-            c4 = chr(c4) ; d[c4] = 1; del d[c4]
-            c5 = chr(c5) ; d[c5] = 1; del d[c5]
-            c6 = chr(c6) ; d[c6] = 1; del d[c6]
-            c7 = chr(c7) ; d[c7] = 1; del d[c7]
-            return d
-
-        if rdict.DICT_INITSIZE != 8:
-            py.test.skip("make dict tests more indepdent from initsize")
-        res = self.interpret(func3, [ord(char_by_hash[i][0])
-                                   for i in range(rdict.DICT_INITSIZE)])
-        count_frees = 0
-        for i in range(len(res.entries)):
-            if not res.entries.everused(i):
-                count_frees += 1
-        assert count_frees >= 3
-
-class TestStress:
-
-    def test_stress(self):
-        from rpython.annotator.dictdef import DictKey, DictValue
-        from rpython.annotator import model as annmodel
-        dictrepr = rdict.DictRepr(None, rint.signed_repr, rint.signed_repr,
-                                  DictKey(None, annmodel.SomeInteger()),
-                                  DictValue(None, annmodel.SomeInteger()))
+        self.s_key = s_key
+        self.s_value = s_value
+        rtyper = PseudoRTyper()
+        r_key = s_key.rtyper_makerepr(rtyper)
+        r_value = s_value.rtyper_makerepr(rtyper)
+        dictrepr = self.MappingRepr(rtyper, r_key, r_value,
+                        DictKey(None, s_key),
+                        DictValue(None, s_value))
         dictrepr.setup()
-        l_dict = rdict.ll_newdict(dictrepr.DICT)
-        referencetable = [None] * 400
-        referencelength = 0
-        value = 0
+        self.l_dict = self.newdict(dictrepr)
+        self.reference = self.new_reference()
+        self.ll_key = r_key.convert_const
+        self.ll_value = r_value.convert_const
+        self.removed_keys = []
+        r_tuple = TupleRepr(rtyper, [r_key, r_value])
+        self.TUPLE = r_tuple.lowleveltype
 
-        def complete_check():
-            for n, refvalue in zip(range(len(referencetable)), referencetable):
-                try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, n)
-                except KeyError:
-                    assert refvalue is None
-                else:
-                    assert gotvalue == refvalue
+    def setitem(self, key, value):
+        ll_key = self.ll_key(key)
+        ll_value = self.ll_value(value)
+        self.ll_setitem(self.l_dict, ll_key, ll_value)
+        self.reference[key] = value
+        assert self.ll_contains(self.l_dict, ll_key)
 
-        for x in not_really_random():
-            n = int(x*100.0)    # 0 <= x < 400
-            op = repr(x)[-1]
-            if op <= '2' and referencetable[n] is not None:
-                rdict.ll_dict_delitem(l_dict, n)
-                referencetable[n] = None
-                referencelength -= 1
-            elif op <= '6':
-                rdict.ll_dict_setitem(l_dict, n, value)
-                if referencetable[n] is None:
-                    referencelength += 1
-                referencetable[n] = value
-                value += 1
+    def delitem(self, key):
+        ll_key = self.ll_key(key)
+        self.ll_delitem(self.l_dict, ll_key)
+        del self.reference[key]
+        assert not self.ll_contains(self.l_dict, ll_key)
+        self.removed_keys.append(key)
+
+    def move_to_end(self, key, last=True):
+        "For test_rordereddict"
+
+    def move_to_first(self, key):
+        self.move_to_end(key, last=False)
+
+    def copydict(self):
+        self.l_dict = self.ll_copy(self.l_dict)
+        assert self.ll_len(self.l_dict) == len(self.reference)
+
+    def cleardict(self):
+        self.ll_clear(self.l_dict)
+        for key in self.reference:
+            self.removed_keys.append(key)
+        self.reference.clear()
+        assert self.ll_len(self.l_dict) == 0
+
+    def popitem(self):
+        try:
+            ll_tuple = self.ll_popitem(self.TUPLE, self.l_dict)
+        except KeyError:
+            assert len(self.reference) == 0
+        else:
+            ll_key = ll_tuple.item0
+            ll_value = ll_tuple.item1
+            for key, value in self.reference.iteritems():
+                if self.ll_key(key) == ll_key:
+                    assert self.ll_value(value) == ll_value
+                    del self.reference[key]
+                    self.removed_keys.append(key)
+                    break
             else:
+                raise AssertionError("popitem() returned unexpected key")
+
+    def removeindex(self):
+        pass     # overridden in test_rordereddict
+
+    def fullcheck(self):
+        assert self.ll_len(self.l_dict) == len(self.reference)
+        for key, value in self.reference.iteritems():
+            assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
+                self.ll_value(value))
+        for key in self.removed_keys:
+            if key not in self.reference:
                 try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, n)
+                    self.ll_getitem(self.l_dict, self.ll_key(key))
                 except KeyError:
-                    assert referencetable[n] is None
+                    pass
                 else:
-                    assert gotvalue == referencetable[n]
-            if 1.38 <= x <= 1.39:
-                complete_check()
-                print 'current dict length:', referencelength
-            assert l_dict.num_items == referencelength
-        complete_check()
+                    raise AssertionError("removed key still shows up")
 
-    def test_stress_2(self):
-        yield self.stress_combination, True,  False
-        yield self.stress_combination, False, True
-        yield self.stress_combination, False, False
-        yield self.stress_combination, True,  True
+class MappingSM(GenericStateMachine):
+    def __init__(self):
+        self.space = None
 
-    def stress_combination(self, key_can_be_none, value_can_be_none):
-        from rpython.rtyper.lltypesystem.rstr import string_repr
-        from rpython.annotator.dictdef import DictKey, DictValue
-        from rpython.annotator import model as annmodel
+    def st_setitem(self):
+        return builds(Action,
+            just('setitem'), tuples(self.st_keys, self.st_values))
 
-        print
-        print "Testing combination with can_be_None: keys %s, values %s" % (
-            key_can_be_none, value_can_be_none)
+    def st_updateitem(self):
+        return builds(Action,
+            just('setitem'),
+            tuples(sampled_from(self.space.reference), self.st_values))
 
-        class PseudoRTyper:
-            cache_dummy_values = {}
-        dictrepr = rdict.DictRepr(PseudoRTyper(), string_repr, string_repr,
-                       DictKey(None, annmodel.SomeString(key_can_be_none)),
-                       DictValue(None, annmodel.SomeString(value_can_be_none)))
-        dictrepr.setup()
-        print dictrepr.lowleveltype
-        for key, value in dictrepr.DICTENTRY._adtmeths.items():
-            print '    %s = %s' % (key, value)
-        l_dict = rdict.ll_newdict(dictrepr.DICT)
-        referencetable = [None] * 400
-        referencelength = 0
-        values = not_really_random()
-        keytable = [string_repr.convert_const("foo%d" % n)
-                    for n in range(len(referencetable))]
+    def st_delitem(self):
+        return builds(Action,
+            just('delitem'), tuples(sampled_from(self.space.reference)))
 
-        def complete_check():
-            for n, refvalue in zip(range(len(referencetable)), referencetable):
-                try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, keytable[n])
-                except KeyError:
-                    assert refvalue is None
-                else:
-                    assert gotvalue == refvalue
+    def st_move_to_end(self):
+        return builds(Action,
+            just('move_to_end'), tuples(sampled_from(self.space.reference)))
 
-        for x in not_really_random():
-            n = int(x*100.0)    # 0 <= x < 400
-            op = repr(x)[-1]
-            if op <= '2' and referencetable[n] is not None:
-                rdict.ll_dict_delitem(l_dict, keytable[n])
-                referencetable[n] = None
-                referencelength -= 1
-            elif op <= '6':
-                ll_value = string_repr.convert_const(str(values.next()))
-                rdict.ll_dict_setitem(l_dict, keytable[n], ll_value)
-                if referencetable[n] is None:
-                    referencelength += 1
-                referencetable[n] = ll_value
-            else:
-                try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, keytable[n])
-                except KeyError:
-                    assert referencetable[n] is None
-                else:
-                    assert gotvalue == referencetable[n]
-            if 1.38 <= x <= 1.39:
-                complete_check()
-                print 'current dict length:', referencelength
-            assert l_dict.num_items == referencelength
-        complete_check()
+    def st_move_to_first(self):
+        return builds(Action,
+            just('move_to_first'),
+                tuples(sampled_from(self.space.reference)))
 
+    def steps(self):
+        if not self.space:
+            return builds(Action, just('setup'), tuples(st_keys, st_values))
+        global_actions = [Action('copydict', ()), Action('cleardict', ()),
+                          Action('popitem', ()), Action('removeindex', ())]
+        if self.space.reference:
+            return (
+                self.st_setitem() | sampled_from(global_actions) |
+                self.st_updateitem() | self.st_delitem() |
+                self.st_move_to_end() | self.st_move_to_first())
+        else:
+            return (self.st_setitem() | sampled_from(global_actions))
+
+    def execute_step(self, action):
+        if action.method == 'setup':
+            self.space = self.Space(*action.args)
+            self.st_keys = ann2strategy(self.space.s_key)
+            self.st_values = ann2strategy(self.space.s_value)
+            return
+        with signal_timeout(10):  # catches infinite loops
+            action.execute(self.space)
+
+    def teardown(self):
+        if self.space:
+            self.space.fullcheck()
+
+
+class DictSpace(MappingSpace):
+    MappingRepr = rdict.DictRepr
+    new_reference = dict
+    ll_getitem = staticmethod(rdict.ll_dict_getitem)
+    ll_setitem = staticmethod(rdict.ll_dict_setitem)
+    ll_delitem = staticmethod(rdict.ll_dict_delitem)
+    ll_len = staticmethod(rdict.ll_dict_len)
+    ll_contains = staticmethod(rdict.ll_contains)
+    ll_copy = staticmethod(rdict.ll_copy)
+    ll_clear = staticmethod(rdict.ll_clear)
+    ll_popitem = staticmethod(rdict.ll_popitem)
+
+    def newdict(self, repr):
+        return rdict.ll_newdict(repr.DICT)
+
+class DictSM(MappingSM):
+    Space = DictSpace
+
+def test_hypothesis():
+    run_state_machine_as_test(
+        DictSM, settings(max_examples=500, stateful_step_count=100))

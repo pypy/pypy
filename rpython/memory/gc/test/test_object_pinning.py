@@ -1,6 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC, WORD
+from rpython.memory.gc.incminimark import GCFLAG_VISITED
 from test_direct import BaseDirectGCTest
 
 T = lltype.GcForwardReference()
@@ -19,6 +20,8 @@ class PinningGCTest(BaseDirectGCTest):
         BaseDirectGCTest.setup_method(self, meth)
         max = getattr(meth, 'max_number_of_pinned_objects', 20)
         self.gc.max_number_of_pinned_objects = max
+        if not hasattr(self.gc, 'minor_collection'):
+            self.gc.minor_collection = self.gc._minor_collection
 
     def test_pin_can_move(self):
         # even a pinned object is considered to be movable. Only the caller
@@ -88,7 +91,7 @@ class PinningGCTest(BaseDirectGCTest):
 
 class TestIncminimark(PinningGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
-    from rpython.memory.gc.incminimark import STATE_SCANNING
+    from rpython.memory.gc.incminimark import STATE_SCANNING, STATE_MARKING
 
     def test_try_pin_gcref_containing_type(self):
         # scenario: incminimark's object pinning can't pin objects that may
@@ -917,3 +920,118 @@ class TestIncminimark(PinningGCTest):
         py.test.raises(Exception, self.malloc, T)
     test_full_pinned_nursery_pin_fail.max_number_of_pinned_objects = 50
 
+
+    def test_pin_bug1(self):
+        #
+        # * the nursery contains a pinned object 'ptr1'
+        #
+        # * outside the nursery is another object 'ptr2' pointing to 'ptr1'
+        #
+        # * during one incremental tracing step, we see 'ptr2' but don't
+        #   trace 'ptr1' right now: it is left behind on the trace-me-later
+        #   list
+        #
+        # * then we run the program, unpin 'ptr1', and remove it from 'ptr2'
+        #
+        # * at the next minor collection, we free 'ptr1' because we don't
+        #   find anything pointing to it (it is removed from 'ptr2'),
+        #   but 'ptr1' is still in the trace-me-later list
+        #
+        # * the trace-me-later list is deep enough that 'ptr1' is not
+        #   seen right now!  it is only seen at some later minor collection
+        #
+        # * at that later point, crash, because 'ptr1' in the nursery was
+        #   overwritten
+        #
+        ptr2 = self.malloc(S)
+        ptr2.someInt = 102
+        self.stackroots.append(ptr2)
+
+        self.gc.collect()
+        ptr2 = self.stackroots[-1]    # now outside the nursery
+        adr2 = llmemory.cast_ptr_to_adr(ptr2)
+
+        ptr1 = self.malloc(T)
+        adr1 = llmemory.cast_ptr_to_adr(ptr1)
+        ptr1.someInt = 101
+        self.write(ptr2, 'data', ptr1)
+        res = self.gc.pin(adr1)
+        assert res
+
+        self.gc.minor_collection()
+        assert self.gc.gc_state == self.STATE_SCANNING
+        self.gc.major_collection_step()
+        assert self.gc.objects_to_trace.tolist() == [adr2]
+        assert self.gc.more_objects_to_trace.tolist() == []
+
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+
+        self.gc.minor_collection()
+        assert self.gc.gc_state == self.STATE_MARKING
+        self.gc.major_collection_step()
+        assert self.gc.objects_to_trace.tolist() == []
+        assert self.gc.more_objects_to_trace.tolist() == [adr2]
+
+        self.write(ptr2, 'data', lltype.nullptr(T))
+        self.gc.unpin(adr1)
+
+        assert ptr1.someInt == 101
+        self.gc.minor_collection()        # should free 'ptr1'
+        py.test.raises(RuntimeError, "ptr1.someInt")
+        assert self.gc.gc_state == self.STATE_MARKING
+        self.gc.major_collection_step()   # should not crash reading 'ptr1'!
+
+        del self.gc.TEST_VISIT_SINGLE_STEP
+
+
+    def test_pin_bug2(self):
+        #
+        # * we have an old object A that points to a pinned object B
+        #
+        # * we unpin B
+        #
+        # * the next minor_collection() is done in STATE_MARKING==1
+        #   when the object A is already black
+        #
+        # * _minor_collection() => _visit_old_objects_pointing_to_pinned()
+        #   which will move the now-unpinned B out of the nursery, to B'
+        #
+        # At that point we need to take care of colors, otherwise we
+        # get a black object (A) pointing to a white object (B'),
+        # which must never occur.
+        #
+        ptrA = self.malloc(T)
+        ptrA.someInt = 42
+        adrA = llmemory.cast_ptr_to_adr(ptrA)
+        res = self.gc.pin(adrA)
+        assert res
+
+        ptrC = self.malloc(S)
+        self.stackroots.append(ptrC)
+
+        ptrB = self.malloc(S)
+        ptrB.data = ptrA
+        self.stackroots.append(ptrB)
+
+        self.gc.collect()
+        ptrB = self.stackroots[-1]    # now old and outside the nursery
+        ptrC = self.stackroots[-2]    # another random old object, traced later
+        adrB = llmemory.cast_ptr_to_adr(ptrB)
+
+        self.gc.minor_collection()
+        assert self.gc.gc_state == self.STATE_SCANNING
+        self.gc.major_collection_step()
+        assert self.gc.gc_state == self.STATE_MARKING
+        assert not (self.gc.header(adrB).tid & GCFLAG_VISITED)  # not black yet
+
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+        self.gc.major_collection_step()
+        assert self.gc.gc_state == self.STATE_MARKING
+        assert self.gc.header(adrB).tid & GCFLAG_VISITED    # now black
+        # but ptrC is not traced yet, which is why we're still in STATE_MARKING
+        assert self.gc.old_objects_pointing_to_pinned.tolist() == [adrB]
+
+        self.gc.unpin(adrA)
+
+        self.gc.DEBUG = 2
+        self.gc.minor_collection()

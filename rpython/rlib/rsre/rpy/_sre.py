@@ -16,10 +16,12 @@ def compile(pattern, flags, code, *args):
 
 
 def get_code(regexp, flags=0, allargs=False):
+    """NOT_RPYTHON: you can't compile new regexps in an RPython program,
+    you can only use precompiled ones"""
     from . import sre_compile
     try:
         sre_compile.compile(regexp, flags)
-    except GotIt, e:
+    except GotIt as e:
         pass
     else:
         raise ValueError("did not reach _sre.compile()!")

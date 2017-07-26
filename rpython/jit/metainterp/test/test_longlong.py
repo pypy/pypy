@@ -1,4 +1,5 @@
 import py, sys
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 from rpython.jit.metainterp.test.support import LLJitMixin
 
@@ -227,6 +228,20 @@ class LongLongTests:
         assert res == 0x56700000
         res = self.interp_operations(f, [0x56789ABC])
         assert intmask(res) == intmask(0xABC00000)
+
+    def test_cast_longlong_to_bool(self):
+        def f(n):
+            m = r_longlong(n) << 20
+            return lltype.cast_primitive(lltype.Bool, m)
+        res = self.interp_operations(f, [2**12])
+        assert res == 1
+
+    def test_cast_ulonglong_to_bool(self):
+        def f(n):
+            m = r_ulonglong(n) << 20
+            return lltype.cast_primitive(lltype.Bool, m)
+        res = self.interp_operations(f, [2**12])
+        assert res == 1
 
 
 class TestLLtype(LongLongTests, LLJitMixin):

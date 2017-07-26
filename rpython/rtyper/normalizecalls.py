@@ -6,6 +6,7 @@ from rpython.rlib.objectmodel import ComputedIntSymbolic
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.rmodel import getgcflavor
 from rpython.tool.sourcetools import valid_identifier
+from rpython.annotator.classdesc import ClassDesc
 
 
 def normalize_call_familes(annotator):
@@ -86,12 +87,7 @@ def normalize_calltable_row_signature(annotator, shape, row):
         return False   # nothing to do, all signatures already match
 
     shape_cnt, shape_keys, shape_star = shape
-    if shape_star:
-        raise TyperError(
-            "not implemented: a call is done with a '*' argument, and the"
-            " multiple functions or methods that it can go to don't have"
-            " all the same signature (different argument names or defaults)."
-            " The call can go to:\n%s" % '\n'.join(map(repr, graphs)))
+    assert not shape_star, "should have been removed at this stage"
 
     # for the first 'shape_cnt' arguments we need to generalize to
     # a common type
@@ -218,7 +214,7 @@ def merge_classpbc_getattr_into_classdef(annotator):
             descs = access_set.descs
             if len(descs) <= 1:
                 continue
-            if not isinstance(descs.iterkeys().next(), description.ClassDesc):
+            if not isinstance(descs.iterkeys().next(), ClassDesc):
                 continue
             classdefs = [desc.getuniqueclassdef() for desc in descs]
             commonbase = classdefs[0]
@@ -246,7 +242,7 @@ def create_class_constructors(annotator):
         if len(family.descs) <= 1:
             continue
         descs = family.descs.keys()
-        if not isinstance(descs[0], description.ClassDesc):
+        if not isinstance(descs[0], ClassDesc):
             continue
         # Note that if classes are in the same callfamily, their __init__
         # attribute must be in the same attrfamily as well.

@@ -3,6 +3,7 @@ import sys
 import random
 import struct
 
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rfloat import isnan, NAN, INFINITY
 from rpython.translator.c.test.test_genc import compile
@@ -73,9 +74,9 @@ class TestFloatPacking:
                 assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
 
         for be in [False, True]:
-            Q = []
-            ieee.pack_float(Q, x, 8, be)
-            Q = Q[0]
+            buf = MutableStringBuffer(8)
+            ieee.pack_float(buf, 0, x, 8, be)
+            Q = buf.finish()
             y = ieee.unpack_float(Q, be)
             assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
 
@@ -168,25 +169,40 @@ class TestFloatPacking:
 
     def test_random(self):
         # construct a Python float from random integer, using struct
+        mantissa_mask = (1 << 53) - 1
         for _ in xrange(10000):
             Q = random.randrange(2**64)
             x = struct.unpack('<d', struct.pack('<Q', Q))[0]
             # nans are tricky:  we can't hope to reproduce the bit
-            # pattern exactly, so check_float will fail for a random nan.
-            if isnan(x):
+            # pattern exactly, so check_float will fail for a nan
+            # whose mantissa does not fit into float16's mantissa.
+            if isnan(x) and (Q & mantissa_mask) >=  1 << 11:
                 continue
             self.check_float(x)
 
+    def test_various_nans(self):
+        # check patterns that should preserve the mantissa across nan conversions
+        maxmant64 = (1 << 52) - 1 # maximum double mantissa
+        maxmant16 = (1 << 10) - 1 # maximum float16 mantissa
+        assert maxmant64 >> 42 == maxmant16
+        exp = 0xfff << 52
+        for i in range(20):
+            val_to_preserve = exp | ((maxmant16 - i) << 42)
+            a = ieee.float_unpack(val_to_preserve, 8)
+            assert isnan(a), 'i %d, maxmant %s' % (i, hex(val_to_preserve))
+            b = ieee.float_pack(a, 8)
+            assert b == val_to_preserve, 'i %d, val %s b %s' % (i, hex(val_to_preserve), hex(b)) 
+            b = ieee.float_pack(a, 2)
+            assert b == 0xffff - i, 'i %d, b%s' % (i, hex(b))
 
 class TestCompiled:
     def test_pack_float(self):
         def pack(x, size):
-            result = []
-            ieee.pack_float(result, x, size, False)
+            buf = MutableStringBuffer(size)
+            ieee.pack_float(buf, 0, x, size, False)
             l = []
-            for x in result:
-                for c in x:
-                    l.append(str(ord(c)))
+            for c in buf.finish():
+                l.append(str(ord(c)))
             return ','.join(l)
         c_pack = compile(pack, [float, int])
 

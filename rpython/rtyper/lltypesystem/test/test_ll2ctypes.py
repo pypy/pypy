@@ -11,12 +11,12 @@ from rpython.rtyper.lltypesystem.ll2ctypes import cast_adr_to_int, get_ctypes_ty
 from rpython.rtyper.lltypesystem.ll2ctypes import _llgcopaque
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rposix
+from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 from rpython.tool.udir import udir
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.annotator.annrpython import RPythonAnnotator
-from rpython.rtyper.module.support import UNDERSCORE_ON_WIN32
 from rpython.rtyper.rtyper import RPythonTyper
 from rpython.rlib.rarithmetic import r_uint, get_long_pattern, is_emulated_long
 from rpython.rlib.rarithmetic import is_valid_int
@@ -945,6 +945,11 @@ class TestLL2Ctypes(object):
         a[4] = rffi.r_int(4)
 
         def compare(a, b):
+            # do not use a,b directly! on a big endian machine
+            # ((void*)ptr)[0] will return 0x0 if the 32 bit value
+            # ptr points to is 0x1
+            a = rffi.cast(rffi.INTP, a)
+            b = rffi.cast(rffi.INTP, b)
             if a[0] > b[0]:
                 return rffi.r_int(1)
             else:
@@ -1400,6 +1405,45 @@ class TestLL2Ctypes(object):
         a2 = ctypes2lltype(lltype.Ptr(A), lltype2ctypes(a))
         assert a2._obj.getitem(0)._obj._parentstructure() is a2._obj
 
+    def test_array_of_function_pointers(self):
+        c_source = py.code.Source(r"""
+        #include "src/precommondefs.h"
+        #include <stdio.h>
+
+        typedef int(*funcptr_t)(void);
+        static int forty_two(void) { return 42; }
+        static int forty_three(void) { return 43; }
+        static funcptr_t testarray[2];
+        RPY_EXPORTED void runtest(void cb(funcptr_t *)) { 
+            testarray[0] = &forty_two;
+            testarray[1] = &forty_three;
+            fprintf(stderr, "&forty_two = %p\n", testarray[0]);
+            fprintf(stderr, "&forty_three = %p\n", testarray[1]);
+            cb(testarray);
+            testarray[0] = 0;
+            testarray[1] = 0;
+        }
+        """)
+        eci = ExternalCompilationInfo(include_dirs=[cdir],
+                                      separate_module_sources=[c_source])
+
+        PtrF = lltype.Ptr(lltype.FuncType([], rffi.INT))
+        ArrayPtrF = rffi.CArrayPtr(PtrF)
+        CALLBACK = rffi.CCallback([ArrayPtrF], lltype.Void)
+
+        runtest = rffi.llexternal('runtest', [CALLBACK], lltype.Void,
+                                  compilation_info=eci)
+        seen = []
+
+        def callback(testarray):
+            seen.append(testarray[0])   # read a PtrF out of testarray
+            seen.append(testarray[1])
+
+        runtest(callback)
+        assert seen[0]() == 42
+        assert seen[1]() == 43
+
+
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
         from rpython.translator.platform import platform
@@ -1461,3 +1505,20 @@ class TestPlatform(object):
         assert a[3].a == 17
         #lltype.free(a, flavor='raw')
         py.test.skip("free() not working correctly here...")
+
+    def test_fixedsizedarray_to_ctypes(self):
+        T = lltype.Ptr(rffi.CFixedArray(rffi.INT, 1))
+        inst = lltype.malloc(T.TO, flavor='raw')
+        inst[0] = rffi.cast(rffi.INT, 42)
+        assert inst[0] == 42
+        cinst = lltype2ctypes(inst)
+        assert rffi.cast(lltype.Signed, inst[0]) == 42
+        assert cinst.contents.item0 == 42
+        lltype.free(inst, flavor='raw')
+
+    def test_fixedsizedarray_to_ctypes(self):
+        T = lltype.Ptr(rffi.CFixedArray(rffi.CHAR, 123))
+        inst = lltype.malloc(T.TO, flavor='raw', zero=True)
+        cinst = lltype2ctypes(inst)
+        assert cinst.contents.item0 == 0
+        lltype.free(inst, flavor='raw')

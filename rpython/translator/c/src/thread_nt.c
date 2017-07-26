@@ -18,7 +18,8 @@
 typedef struct RPyOpaque_ThreadLock NRMUTEX, *PNRMUTEX;
 
 typedef struct {
-	void (*func)(void);
+	void (*func)(void *);
+	void *arg;
 	long id;
 	HANDLE done;
 } callobj;
@@ -30,20 +31,29 @@ bootstrap(void *call)
 {
 	callobj *obj = (callobj*)call;
 	/* copy callobj since other thread might free it before we're done */
-	void (*func)(void) = obj->func;
+	void (*func)(void *) = obj->func;
+	void *arg = obj->arg;
 
 	obj->id = GetCurrentThreadId();
 	ReleaseSemaphore(obj->done, 1, NULL);
-	func();
+	func(arg);
 }
 
 long RPyThreadStart(void (*func)(void))
+{
+    /* a kind-of-invalid cast, but the 'func' passed here doesn't expect
+       any argument, so it's unlikely to cause problems */
+    return RPyThreadStartEx((void(*)(void *))func, NULL);
+}
+
+long RPyThreadStartEx(void (*func)(void *), void *arg)
 {
 	unsigned long rv;
 	callobj obj;
 
 	obj.id = -1;	/* guilty until proved innocent */
 	obj.func = func;
+	obj.arg = arg;
 	obj.done = CreateSemaphore(NULL, 0, 1, NULL);
 	if (obj.done == NULL)
 		return -1;
@@ -231,18 +241,28 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay)
     return (result != WAIT_TIMEOUT);
 }
 
-#define mutex1_t      mutex2_t
-#define mutex1_init   mutex2_init
-#define mutex1_lock   mutex2_lock
-#define mutex1_unlock mutex2_unlock
+typedef CRITICAL_SECTION mutex1_t;
 
-#ifdef _M_IA64
-/* On Itanium, use 'acquire' memory ordering semantics */
-#define lock_test_and_set(ptr, value)  InterlockedExchangeAcquire(ptr, value)
-#else
-#define lock_test_and_set(ptr, value)  InterlockedExchange(ptr, value)
-#endif
+static inline void mutex1_init(mutex1_t *mutex) {
+    InitializeCriticalSection(mutex);
+}
+
+static inline void mutex1_lock(mutex1_t *mutex) {
+    EnterCriticalSection(mutex);
+}
+
+static inline void mutex1_unlock(mutex1_t *mutex) {
+    LeaveCriticalSection(mutex);
+}
+
+//#define pypy_lock_test_and_set(ptr, value)  see thread_nt.h
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
+#ifdef YieldProcessor
+#  define RPy_YieldProcessor()         YieldProcessor()
+#else
+#  define RPy_YieldProcessor()         __asm { rep nop }
+#endif
+#define RPy_CompilerMemoryBarrier()    _ReadWriteBarrier()
 
 #include "src/thread_gil.c"

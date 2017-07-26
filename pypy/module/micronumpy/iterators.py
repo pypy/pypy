@@ -39,8 +39,6 @@ All the calculations happen in next()
 from rpython.rlib import jit
 from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.flagsobj import _update_contiguous_flags
-
 
 class PureShapeIter(object):
     def __init__(self, shape, idx_w):
@@ -73,7 +71,7 @@ class PureShapeIter(object):
 
     @jit.unroll_safe
     def get_index(self, space, shapelen):
-        return [space.wrap(self.indexes[i]) for i in range(shapelen)]
+        return [space.newint(self.indexes[i]) for i in range(shapelen)]
 
 
 class IterState(object):
@@ -85,6 +83,12 @@ class IterState(object):
         self._indices = indices
         self.offset = offset
 
+    def same(self, other):
+        if self.offset == other.offset and \
+           self.index == other.index and \
+           self._indices == other._indices:
+            return self.iterator.same_shape(other.iterator)
+        return False
 
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
@@ -96,13 +100,13 @@ class ArrayIter(object):
     @jit.unroll_safe
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
-        _update_contiguous_flags(array)
         self.contiguous = (array.flags & NPY.ARRAY_C_CONTIGUOUS and
                            array.shape == shape and array.strides == strides)
 
         self.array = array
         self.size = size
         self.ndim_m1 = len(shape) - 1
+        #
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
@@ -115,6 +119,17 @@ class ArrayIter(object):
             else:
                 factors[ndim-i-1] = factors[ndim-i] * shape[ndim-i]
         self.factors = factors
+
+    def same_shape(self, other):
+        """ Iterating over the same element """
+        if not self.contiguous or not other.contiguous:
+            return False
+        return (self.contiguous == other.contiguous and
+                self.array.dtype is self.array.dtype and
+                self.shape_m1 == other.shape_m1 and
+                self.strides == other.strides and
+                self.backstrides == other.backstrides and
+                self.factors == other.factors)
 
     @jit.unroll_safe
     def reset(self, state=None, mutate=False):
@@ -141,9 +156,13 @@ class ArrayIter(object):
         indices = state._indices
         offset = state.offset
         if self.contiguous:
-            offset += self.array.dtype.elsize
+            elsize = self.array.dtype.elsize
+            jit.promote(elsize)
+            offset += elsize
         elif self.ndim_m1 == 0:
-            offset += self.strides[0]
+            stride = self.strides[0]
+            jit.promote(stride)
+            offset += stride
         else:
             for i in xrange(self.ndim_m1, -1, -1):
                 idx = indices[i]
@@ -195,7 +214,7 @@ class ArrayIter(object):
         return state.index >= self.size
 
     def getitem(self, state):
-        assert state.iterator is self
+        # assert state.iterator is self
         return self.array.getitem(state.offset)
 
     def getitem_bool(self, state):
@@ -206,18 +225,16 @@ class ArrayIter(object):
         assert state.iterator is self
         self.array.setitem(state.offset, elem)
 
-
-def AxisIter(array, shape, axis, cumulative):
+def AxisIter(array, shape, axis):
     strides = array.get_strides()
     backstrides = array.get_backstrides()
-    if not cumulative:
-        if len(shape) == len(strides):
-            # keepdims = True
-            strides = strides[:axis] + [0] + strides[axis + 1:]
-            backstrides = backstrides[:axis] + [0] + backstrides[axis + 1:]
-        else:
-            strides = strides[:axis] + [0] + strides[axis:]
-            backstrides = backstrides[:axis] + [0] + backstrides[axis:]
+    if len(shape) == len(strides):
+        # keepdims = True
+        strides = strides[:axis] + [0] + strides[axis + 1:]
+        backstrides = backstrides[:axis] + [0] + backstrides[axis + 1:]
+    else:
+        strides = strides[:axis] + [0] + strides[axis:]
+        backstrides = backstrides[:axis] + [0] + backstrides[axis:]
     return ArrayIter(array, support.product(shape), shape, strides, backstrides)
 
 

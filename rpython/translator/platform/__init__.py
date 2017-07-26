@@ -5,8 +5,9 @@ import py, os, sys
 from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
+from rpython.tool.ansi_print import AnsiLogger
 
-log = py.log.Producer("platform")
+log = AnsiLogger("platform")
 
 
 class CompilationError(Exception):
@@ -101,7 +102,7 @@ class Platform(object):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = []):
+                     no_precompile_cfiles = [], profopt=False, config=None):
         raise NotImplementedError("Pure abstract baseclass")
 
     def __repr__(self):
@@ -259,7 +260,8 @@ if sys.platform.startswith('linux'):
     # Only required on armhf and mips{,el}, not armel. But there's no way to
     # detect armhf without shelling out
     if (platform.architecture()[0] == '64bit'
-            or platform.machine().startswith(('arm', 'mips', 'ppc'))):
+            or platform.machine().startswith(
+                ('arm', 'm68k', 'mips', 'parisc', 'ppc', 'sh4'))):
         host_factory = LinuxPIC
     else:
         host_factory = Linux

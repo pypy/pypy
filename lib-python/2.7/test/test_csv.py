@@ -2,6 +2,7 @@
 # Copyright (C) 2001,2002 Python Software Foundation
 # csv package unit tests
 
+import copy
 import sys
 import os
 import unittest
@@ -10,6 +11,7 @@ import tempfile
 import csv
 import gc
 import io
+import pickle
 from test import test_support
 
 class Test_Csv(unittest.TestCase):
@@ -134,13 +136,25 @@ class Test_Csv(unittest.TestCase):
             fileobj.close()
             os.unlink(name)
 
+    def _write_error_test(self, exc, fields, **kwargs):
+        fd, name = tempfile.mkstemp()
+        fileobj = os.fdopen(fd, "w+b")
+        try:
+            writer = csv.writer(fileobj, **kwargs)
+            with self.assertRaises(exc):
+                writer.writerow(fields)
+            fileobj.seek(0)
+            self.assertEqual(fileobj.read(), '')
+        finally:
+            fileobj.close()
+            os.unlink(name)
+
     def test_write_arg_valid(self):
         # PyPy gets a TypeError instead of a csv.Error for "not a sequence"
-        self.assertRaises((csv.Error, TypeError), self._write_test, None, '')
+        self._write_error_test((csv.Error, TypeError), None)
         self._write_test((), '')
         self._write_test([None], '""')
-        self.assertRaises(csv.Error, self._write_test,
-                          [None], None, quoting = csv.QUOTE_NONE)
+        self._write_error_test(csv.Error, [None], quoting = csv.QUOTE_NONE)
         # Check that exceptions are passed up the chain
         class BadList:
             def __len__(self):
@@ -148,11 +162,11 @@ class Test_Csv(unittest.TestCase):
             def __getitem__(self, i):
                 if i > 2:
                     raise IOError
-        self.assertRaises(IOError, self._write_test, BadList(), '')
+        self._write_error_test(IOError, BadList())
         class BadItem:
             def __str__(self):
                 raise IOError
-        self.assertRaises(IOError, self._write_test, [BadItem()], '')
+        self._write_error_test(IOError, [BadItem()])
 
     def test_write_bigfield(self):
         # This exercises the buffer realloc functionality
@@ -162,10 +176,8 @@ class Test_Csv(unittest.TestCase):
 
     def test_write_quoting(self):
         self._write_test(['a',1,'p,q'], 'a,1,"p,q"')
-        self.assertRaises(csv.Error,
-                          self._write_test,
-                          ['a',1,'p,q'], 'a,1,p,q',
-                          quoting = csv.QUOTE_NONE)
+        self._write_error_test(csv.Error, ['a',1,'p,q'],
+                               quoting = csv.QUOTE_NONE)
         self._write_test(['a',1,'p,q'], 'a,1,"p,q"',
                          quoting = csv.QUOTE_MINIMAL)
         self._write_test(['a',1,'p,q'], '"a",1,"p,q"',
@@ -178,10 +190,8 @@ class Test_Csv(unittest.TestCase):
     def test_write_escape(self):
         self._write_test(['a',1,'p,q'], 'a,1,"p,q"',
                          escapechar='\\')
-        self.assertRaises(csv.Error,
-                          self._write_test,
-                          ['a',1,'p,"q"'], 'a,1,"p,\\"q\\""',
-                          escapechar=None, doublequote=False)
+        self._write_error_test(csv.Error, ['a',1,'p,"q"'],
+                               escapechar=None, doublequote=False)
         self._write_test(['a',1,'p,"q"'], 'a,1,"p,\\"q\\""',
                          escapechar='\\', doublequote = False)
         self._write_test(['"'], '""""',
@@ -462,6 +472,18 @@ class TestDialectRegistry(unittest.TestCase):
         self.assertRaises(TypeError, csv.reader, [], delimiter = None)
         self.assertRaises(TypeError, csv.reader, [], quoting = -1)
         self.assertRaises(TypeError, csv.reader, [], quoting = 100)
+
+    # See issue #22995
+    ## def test_copy(self):
+    ##     for name in csv.list_dialects():
+    ##         dialect = csv.get_dialect(name)
+    ##         self.assertRaises(TypeError, copy.copy, dialect)
+
+    ## def test_pickle(self):
+    ##     for name in csv.list_dialects():
+    ##         dialect = csv.get_dialect(name)
+    ##         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+    ##             self.assertRaises(TypeError, pickle.dumps, dialect, proto)
 
 class TestCsvBase(unittest.TestCase):
     def readerAssertEqual(self, input, expected_result):

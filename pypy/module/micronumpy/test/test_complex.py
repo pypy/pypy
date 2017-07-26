@@ -120,13 +120,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 try:
                     retVal = c_pow(*map(space.unwrap, args_w))
                     return space.wrap(retVal)
-                except ZeroDivisionError, e:
+                except ZeroDivisionError as e:
                     raise OperationError(cls.space.w_ZeroDivisionError,
                             cls.space.wrap(e.message))
-                except OverflowError, e:
+                except OverflowError as e:
                     raise OperationError(cls.space.w_OverflowError,
                             cls.space.wrap(e.message))
-                except ValueError, e:
+                except ValueError as e:
                     raise OperationError(cls.space.w_ValueError,
                             cls.space.wrap(e.message))
             cls.w_c_pow = cls.space.wrap(interp2app(cls_c_pow))
@@ -331,6 +331,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 complex(float('nan'), 0)], dtype=complex)) == \
                 [False, True, True, False, False]).all()
 
+    def test_sign_for_complex_nan(self):
+        from numpy import array, nan, sign, isnan
+        C = array([nan], dtype=complex)
+        res = sign(C)
+        assert isnan(res.real)
+        assert res.imag == 0+0j
 
     def test_square(self):
         from numpy import square
@@ -480,13 +486,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == max(a[i], b[i])
 
 
-    def test_abs_overflow(self):
-        from numpy import array, absolute, isinf
+    def test_complex_overflow(self):
+        from numpy import array, absolute, isinf, complex128, floor_divide
         a = array(complex(1.5e308,1.5e308))
         # Prints a RuntimeWarning, but does not raise
         b = absolute(a)
         assert isinf(b)
-        
+        c = array([1.e+110, 1.e-110], dtype=complex128)
+        d = floor_divide(c**2, c)
+        assert (d == [1.e+110, 0]).all()
+
+
 
     def test_basic(self):
         import sys
@@ -592,7 +602,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             # but numpy.raises a TypeError
             if '__pypy__' in sys.builtin_module_names:
                 exct, excm = TypeError, 'readonly attribute'
-            else:
+            else :
                 exct, excm = AttributeError, 'is not writable'
             exc = raises(exct, 'c2.real = 10.')
             assert excm in exc.value[0]

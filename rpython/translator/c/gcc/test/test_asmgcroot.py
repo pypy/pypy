@@ -9,7 +9,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as compiler
 from rpython.rlib.rarithmetic import is_emulated_long
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.entrypoint import entrypoint, secondary_entrypoints
+from rpython.rlib.entrypoint import entrypoint_highlevel, secondary_entrypoints
 from rpython.rtyper.lltypesystem.lloperation import llop
 
 _MSVC = compiler.name == "msvc"
@@ -195,7 +195,8 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
         except KeyError:
             pass
         
-        @entrypoint("x42", [lltype.Signed, lltype.Signed], c_name='callback')
+        @entrypoint_highlevel("x42", [lltype.Signed, lltype.Signed],
+                              c_name='callback')
         def mycallback(a, b):
             gc.collect()
             return a + b

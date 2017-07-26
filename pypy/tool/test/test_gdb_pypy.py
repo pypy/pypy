@@ -204,6 +204,22 @@ def test_pprint_list():
     mylist.type.target().tag = None
     assert gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb) is None
 
+def test_pprint_array():
+    d = {'_gcheder': {'h_tid': 234}, 'length': 3, 'items': [20, 21, 22]}
+    mylist = PtrValue(d, type_tag='pypy_array1')
+    printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
+    assert printer.to_string() == 'r[20, 21, 22] (len=3)'
+
+def test_pprint_null_list():
+    mylist = PtrValue({}, type_tag='pypy_list1')
+    printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
+    assert printer.to_string() == 'r(null_list)'
+
+def test_pprint_null_array():
+    mylist = PtrValue({}, type_tag='pypy_array1')
+    printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
+    assert printer.to_string() == 'r(null_array)'
+
 def test_typeidsmap():
     gdb = FakeGdb('', {exprmember(1): 111,
                        exprmember(2): 222,

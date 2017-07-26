@@ -7,8 +7,6 @@ ctype_types = [c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint,
                  c_long, c_ulong, c_longlong, c_ulonglong, c_double, c_float]
 python_types = [int, int, int, int, int, long,
                 int, long, long, long, float, float]
-LargeNamedType = type('T' * 2 ** 25, (Structure,), {})
-large_string = 'T' * 2 ** 25
 
 class PointersTestCase(unittest.TestCase):
 
@@ -55,8 +53,12 @@ class PointersTestCase(unittest.TestCase):
         # C code:
         #   int x = 12321;
         #   res = &x
-        res.contents = c_int(12321)
+        x = c_int(12321)
+        res.contents = x
         self.assertEqual(i.value, 54345)
+
+        x.value = -99
+        self.assertEqual(res.contents.value, -99)
 
     def test_callbacks_with_pointers(self):
         # a function type receiving a pointer
@@ -130,9 +132,10 @@ class PointersTestCase(unittest.TestCase):
 
     def test_basic(self):
         p = pointer(c_int(42))
-        # Although a pointer can be indexed, it ha no length
+        # Although a pointer can be indexed, it has no length
         self.assertRaises(TypeError, len, p)
         self.assertEqual(p[0], 42)
+        self.assertEqual(p[0:1], [42])
         self.assertEqual(p.contents.value, 42)
 
     def test_charpp(self):
@@ -191,10 +194,22 @@ class PointersTestCase(unittest.TestCase):
             self.assertEqual(bool(mth), True)
 
     def test_pointer_type_name(self):
+        LargeNamedType = type('T' * 2 ** 25, (Structure,), {})
         self.assertTrue(POINTER(LargeNamedType))
 
+        # to not leak references, we must clean _pointer_type_cache
+        from ctypes import _pointer_type_cache
+        del _pointer_type_cache[LargeNamedType]
+
     def test_pointer_type_str_name(self):
-        self.assertTrue(POINTER(large_string))
+        large_string = 'T' * 2 ** 25
+        P = POINTER(large_string)
+        self.assertTrue(P)
+
+        # to not leak references, we must clean _pointer_type_cache
+        from ctypes import _pointer_type_cache
+        del _pointer_type_cache[id(P)]
+
 
 if __name__ == '__main__':
     unittest.main()

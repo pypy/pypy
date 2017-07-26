@@ -3,6 +3,7 @@ import sys
 import difflib
 import __builtin__
 import re
+import py_compile
 import pydoc
 import contextlib
 import inspect
@@ -12,6 +13,7 @@ import unittest
 import xml.etree
 import types
 import test.test_support
+import xml.etree.ElementTree
 from collections import namedtuple
 from test.script_helper import assert_python_ok
 from test.test_support import (TESTFN, rmtree, reap_children, captured_stdout,
@@ -252,6 +254,14 @@ def get_pydoc_html(module):
         loc = "<br><a href=\"" + loc + "\">Module Docs</a>"
     return output.strip(), loc
 
+def get_pydoc_link(module):
+    "Returns a documentation web link of a module"
+    dirname = os.path.dirname
+    basedir = dirname(dirname(__file__))
+    doc = pydoc.TextDoc()
+    loc = doc.getdocloc(module, basedir=basedir)
+    return loc
+
 def get_pydoc_text(module):
     "Returns pydoc generated output as text"
     doc = pydoc.TextDoc()
@@ -330,6 +340,11 @@ class PydocDocTest(unittest.TestCase):
             print_diffs(expected_text, result)
             self.fail("outputs are not equal, see diff above")
 
+    def test_mixed_case_module_names_are_lower_cased(self):
+        # issue16484
+        doc_link = get_pydoc_link(xml.etree.ElementTree)
+        self.assertIn('xml.etree.elementtree', doc_link)
+
     def test_issue8225(self):
         # Test issue8225 to ensure no doc link appears for xml.etree
         result, doc_loc = get_pydoc_text(xml.etree)
@@ -381,6 +396,36 @@ class PydocDocTest(unittest.TestCase):
         self.assertEqual(stripid('42'), '42')
         self.assertEqual(stripid("<type 'exceptions.Exception'>"),
                          "<type 'exceptions.Exception'>")
+
+    def test_synopsis(self):
+        with test.test_support.temp_cwd() as test_dir:
+            init_path = os.path.join(test_dir, 'dt.py')
+            with open(init_path, 'w') as fobj:
+                fobj.write('''\
+"""
+my doc
+
+second line
+"""
+foo = 1
+''')
+            py_compile.compile(init_path)
+            synopsis = pydoc.synopsis(init_path, {})
+            self.assertEqual(synopsis, 'my doc')
+
+    @unittest.skipIf(sys.flags.optimize >= 2,
+                     'Docstrings are omitted with -OO and above')
+    def test_synopsis_sourceless_empty_doc(self):
+        with test.test_support.temp_cwd() as test_dir:
+            init_path = os.path.join(test_dir, 'foomod42.py')
+            cached_path = os.path.join(test_dir, 'foomod42.pyc')
+            with open(init_path, 'w') as fobj:
+                fobj.write("foo = 1")
+            py_compile.compile(init_path)
+            synopsis = pydoc.synopsis(init_path, {})
+            self.assertIsNone(synopsis)
+            synopsis_cached = pydoc.synopsis(cached_path, {})
+            self.assertIsNone(synopsis_cached)
 
 
 class PydocImportTest(PydocBaseTest):

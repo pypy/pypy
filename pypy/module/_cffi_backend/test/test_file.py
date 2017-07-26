@@ -20,7 +20,8 @@ def test_egginfo_version():
     from pypy.module._cffi_backend import VERSION
     line = "Version: %s\n" % VERSION
     eggfile = py.path.local(__file__).join('..', '..', '..', '..', '..',
-                                           'lib_pypy', 'cffi.egg-info')
+                                           'lib_pypy', 'cffi.egg-info',
+                                           'PKG-INFO')
     assert line in eggfile.readlines()
 
 def test_app_version():

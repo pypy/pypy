@@ -149,6 +149,7 @@ _init_func('fetch', (c_void_p, datum), restype=datum)
 _init_func('store', (c_void_p, datum, datum, c_int), restype=c_int)
 _init_func('error', (c_void_p,), restype=c_int)
 _init_func('delete', (c_void_p, datum), restype=c_int)
+_init_func('clearerr', (c_void_p,), restype=c_int)
 
 lib.DBM_INSERT = 0
 lib.DBM_REPLACE = 1

@@ -453,6 +453,7 @@ class KeysView(MappingView, Set):
         for key in self._mapping:
             yield key
 
+KeysView.register(type({}.viewkeys()))
 
 class ItemsView(MappingView, Set):
 
@@ -473,6 +474,7 @@ class ItemsView(MappingView, Set):
         for key in self._mapping:
             yield (key, self._mapping[key])
 
+ItemsView.register(type({}.viewitems()))
 
 class ValuesView(MappingView):
 
@@ -486,6 +488,7 @@ class ValuesView(MappingView):
         for key in self._mapping:
             yield self._mapping[key]
 
+ValuesView.register(type({}.viewvalues()))
 
 class MutableMapping(Mapping):
 
@@ -548,23 +551,25 @@ class MutableMapping(Mapping):
             If E present and lacks .keys() method, does:     for (k, v) in E: D[k] = v
             In either case, this is followed by: for k, v in F.items(): D[k] = v
         '''
-        if len(args) > 2:
-            raise TypeError("update() takes at most 2 positional "
-                            "arguments ({} given)".format(len(args)))
-        elif not args:
-            raise TypeError("update() takes at least 1 argument (0 given)")
+        if not args:
+            raise TypeError("descriptor 'update' of 'MutableMapping' object "
+                            "needs an argument")
         self = args[0]
-        other = args[1] if len(args) >= 2 else ()
-
-        if isinstance(other, Mapping):
-            for key in other:
-                self[key] = other[key]
-        elif hasattr(other, "keys"):
-            for key in other.keys():
-                self[key] = other[key]
-        else:
-            for key, value in other:
-                self[key] = value
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('update expected at most 1 arguments, got %d' %
+                            len(args))
+        if args:
+            other = args[0]
+            if isinstance(other, Mapping):
+                for key in other:
+                    self[key] = other[key]
+            elif hasattr(other, "keys"):
+                for key in other.keys():
+                    self[key] = other[key]
+            else:
+                for key, value in other:
+                    self[key] = value
         for key, value in kwds.items():
             self[key] = value
 

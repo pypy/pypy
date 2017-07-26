@@ -1,6 +1,6 @@
 """
 This file is imported by rpython.translator.driver when running the
-target --jittest.  Feel free to hack it as needed; it is imported
+target --pyjittest.  Feel free to hack it as needed; it is imported
 only after the '---> Checkpoint' fork.
 """
 

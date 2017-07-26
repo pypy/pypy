@@ -17,9 +17,9 @@ if __name__ == '__main__':
             resultwc = py.path.svnwc(testresultdir)
             print "updating", resultwc
             resultwc.update()
-        except KeyboardInterrupt, RuntimeError:
+        except (KeyboardInterrupt, RuntimeError):
             raise
-        except Exception,e: #py.process.ExecutionFailed,e:
+        except Exception as e: #py.process.ExecutionFailed,e:
             print >> sys.stderr, "Warning: ",e #Subversion update failed"
 
     print "traversing", mydir 

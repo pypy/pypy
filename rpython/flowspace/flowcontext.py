@@ -597,7 +597,10 @@ class FlowContext(object):
 
         Returns an FSException object whose w_value is an instance of w_type.
         """
-        w_is_type = op.simple_call(const(isinstance), w_arg1, const(type)).eval(self)
+        from rpython.rlib.debug import ll_assert_not_none
+
+        check_not_none = False
+        w_is_type = op.isinstance(w_arg1, const(type)).eval(self)
         if self.guessbool(w_is_type):
             # this is for all cases of the form (Class, something)
             if self.guessbool(op.is_(w_arg2, w_None).eval(self)):
@@ -608,6 +611,7 @@ class FlowContext(object):
                 if self.guessbool(op.issubtype(w_valuetype, w_arg1).eval(self)):
                     # raise Type, Instance: let etype be the exact type of value
                     w_value = w_arg2
+                    check_not_none = True
                 else:
                     # raise Type, X: assume X is the constructor argument
                     w_value = op.simple_call(w_arg1, w_arg2).eval(self)
@@ -618,6 +622,10 @@ class FlowContext(object):
                                 "separate value")
                 raise Raise(const(exc))
             w_value = w_arg1
+            check_not_none = True
+        if check_not_none:
+            w_value = op.simple_call(const(ll_assert_not_none),
+                                     w_value).eval(self)
         w_type = op.type(w_value).eval(self)
         return FSException(w_type, w_value)
 
@@ -1207,7 +1215,8 @@ class Raise(FlowSignal):
     def nomoreblocks(self, ctx):
         w_exc = self.w_exc
         if w_exc.w_type == const(ImportError):
-            msg = 'import statement always raises %s' % self
+            msg = 'ImportError is raised in RPython: %s' % (
+                getattr(w_exc.w_value, 'value', '<not a constant message>'),)
             raise ImportError(msg)
         link = Link([w_exc.w_type, w_exc.w_value], ctx.graph.exceptblock)
         ctx.recorder.crnt_block.closeblock(link)

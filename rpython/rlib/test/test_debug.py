@@ -94,40 +94,54 @@ def test_check_list_of_chars():
     py.test.raises(NotAListOfChars, "interpret(g, [3])")
 
 
-class DebugTests(object):
+def test_debug_print_start_stop():
+    def f(x):
+        debug_start("mycat")
+        debug_print("foo", 2, "bar", x)
+        debug_stop("mycat")
+        debug_flush()  # does nothing
+        debug_offset()  # should not explode at least
+        return have_debug_prints()
 
-    def test_debug_print_start_stop(self):
-        def f(x):
-            debug_start("mycat")
-            debug_print("foo", 2, "bar", x)
-            debug_stop("mycat")
-            debug_flush() # does nothing
-            debug_offset() # should not explode at least
-            return have_debug_prints()
+    try:
+        debug._log = dlog = debug.DebugLog()
+        res = f(3)
+        assert res is True
+    finally:
+        debug._log = None
+    assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
 
+    try:
+        debug._log = dlog = debug.DebugLog()
+        res = interpret(f, [3])
+        assert res is True
+    finally:
+        debug._log = None
+    assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
+
+
+def test_debug_print_traceback():
+    from rpython.translator.c.test.test_genc import compile
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+
+    def ggg(n):
+        if n < 10:
+            ggg(n + 1)
+        else:
+            raise ValueError
+    def recovery():
+        llop.debug_print_traceback(lltype.Void)
+    recovery._dont_inline_ = True
+    def fff():
         try:
-            debug._log = dlog = debug.DebugLog()
-            res = f(3)
-            assert res == True
-        finally:
-            debug._log = None
-        assert dlog == [
-            ("mycat", [
-                ('debug_print', 'foo', 2, 'bar', 3),
-                ]),
-            ]
+            ggg(0)
+        except:
+            recovery()
 
-        try:
-            debug._log = dlog = debug.DebugLog()
-            res = self.interpret(f, [3])
-            assert res == True
-        finally:
-            debug._log = None
-        assert dlog == [
-            ("mycat", [
-                ('debug_print', 'foo', 2, 'bar', 3),
-                ]),
-            ]
-
-    def interpret(self, f, args):
-        return interpret(f, args, type_system='lltype')
+    fn = compile(fff, [], return_stderr=True)
+    stderr = fn()
+    assert 'RPython traceback:\n' in stderr
+    assert stderr.count('entry_point') == 1
+    assert stderr.count('ggg') == 11
+    assert stderr.count('recovery') == 0

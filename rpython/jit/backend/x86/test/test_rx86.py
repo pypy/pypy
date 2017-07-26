@@ -5,6 +5,7 @@ globals().update(R.__dict__)
 class CodeBuilderMixin(object):
     def __init__(self):
         self.buffer = []
+        super(CodeBuilderMixin, self).__init__()
 
     def writechar(self, c):
         assert isinstance(c, str) and len(c) == 1
@@ -12,6 +13,12 @@ class CodeBuilderMixin(object):
 
     def getvalue(self):
         return ''.join(self.buffer)
+
+    def force_frame_size(self, frame_size):
+        pass
+
+    def stack_frame_size_delta(self, delta):
+        pass
 
 def assert_encodes_as(code_builder_cls, insn_name, args, expected_encoding):
     s = code_builder_cls()

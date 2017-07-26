@@ -97,19 +97,15 @@ class AppTestCallMethod:
             else:
                 raise Exception("did not raise?")
         """
-    
+
     def test_kwargs(self):
         exec """if 1:
             class C(object):
                 def f(self, a):
                     return a + 2
-            
+
             assert C().f(a=3) == 5
         """
-
-
-class AppTestCallMethodWithGetattributeShortcut(AppTestCallMethod):
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
 
 
 class TestCallMethod:

@@ -44,8 +44,10 @@ class MultibyteStreamWriter(MultibyteIncrementalEncoder):
                 self, data))
 
     def reset(self):
-        self.stream.write(MultibyteIncrementalEncoder.encode(
-                self, '', final=True))
+        data = MultibyteIncrementalEncoder.encode(
+            self, '', final=True)
+        if len(data) > 0:
+            self.stream.write(data)
         MultibyteIncrementalEncoder.reset(self)
 
     def writelines(self, lines):

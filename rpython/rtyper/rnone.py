@@ -3,7 +3,7 @@ from rpython.annotator.model import SomeNone
 from rpython.rtyper.rmodel import Repr, TyperError, inputconst
 from rpython.rtyper.lltypesystem.lltype import Void, Bool, Ptr, Char
 from rpython.rtyper.lltypesystem.llmemory import Address
-from rpython.rtyper.lltypesystem.rpbc import SmallFunctionSetPBCRepr
+from rpython.rtyper.rpbc import SmallFunctionSetPBCRepr
 from rpython.rtyper.annlowlevel import llstr
 from rpython.tool.pairtype import pairtype
 
@@ -24,6 +24,8 @@ class NoneRepr(Repr):
 
     def get_ll_hash_function(self):
         return ll_none_hash
+
+    get_ll_fasthash_function = get_ll_hash_function
 
     rtype_simple_call = none_call
     rtype_call_args = none_call

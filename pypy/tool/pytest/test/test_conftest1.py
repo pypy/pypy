@@ -20,11 +20,3 @@ class TestPyPyTests:
         assert not skipped and not failed
         assert "app_test_something" in passed[0].nodeid
         assert "test_method_app" in passed[1].nodeid
-
-    def test_appdirect(self, testdir):
-        sorter = testdir.inline_run(innertest, '-m', 'applevel', '--runappdirect')
-        passed, skipped, failed = sorter.listoutcomes()
-        assert len(passed) == 2
-        print passed
-        assert "app_test_something" in passed[0].nodeid
-        assert "test_method_app" in passed[1].nodeid

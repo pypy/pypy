@@ -95,6 +95,13 @@ PyAPI_FUNC(int) PyArg_UnpackTuple(PyObject *args, const char *name, Py_ssize_t m
 
 PyAPI_DATA(char *) _Py_PackageContext;
 
+/* hack hack hack */
+#ifndef __va_copy
+# ifdef va_copy
+#  define __va_copy(a,b) va_copy(a,b)
+# endif
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -6,9 +6,8 @@ from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC)
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, not_rpython
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH
-from rpython.rlib.buffer import Buffer
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
@@ -291,6 +290,7 @@ def count(value, other, start, end):
     return _search(value, other, start, end, SEARCH_COUNT)
 
 # -------------- substring searching helper ----------------
+# XXX a lot of code duplication with lltypesystem.rstr :-(
 
 SEARCH_COUNT = 0
 SEARCH_FIND = 1
@@ -309,6 +309,8 @@ def _search(value, other, start, end, mode):
     if end > len(value):
         end = len(value)
     if start > end:
+        if mode == SEARCH_COUNT:
+            return 0
         return -1
 
     count = 0
@@ -326,6 +328,8 @@ def _search(value, other, start, end, mode):
     w = n - m
 
     if w < 0:
+        if mode == SEARCH_COUNT:
+            return 0
         return -1
 
     mlast = m - 1
@@ -485,6 +489,24 @@ class NumberStringParser:
         else:
             return -1
 
+    def prev_digit(self):
+        # After exhausting all n digits in next_digit(), you can walk them
+        # again in reverse order by calling prev_digit() exactly n times
+        i = self.i - 1
+        assert i >= 0
+        self.i = i
+        c = self.s[i]
+        digit = ord(c)
+        if '0' <= c <= '9':
+            digit -= ord('0')
+        elif 'A' <= c <= 'Z':
+            digit = (digit - ord('A')) + 10
+        elif 'a' <= c <= 'z':
+            digit = (digit - ord('a')) + 10
+        else:
+            raise AssertionError
+        return digit
+
 # -------------- public API ---------------------------------
 
 INIT_SIZE = 100 # XXX tweak
@@ -493,18 +515,22 @@ INIT_SIZE = 100 # XXX tweak
 class AbstractStringBuilder(object):
     # This is not the real implementation!
 
+    @not_rpython
     def __init__(self, init_size=INIT_SIZE):
         self._l = []
         self._size = 0
 
+    @not_rpython
     def _grow(self, size):
         self._size += size
 
+    @not_rpython
     def append(self, s):
         assert isinstance(s, self._tp)
         self._l.append(s)
         self._grow(len(s))
 
+    @not_rpython
     def append_slice(self, s, start, end):
         assert isinstance(s, self._tp)
         assert 0 <= start <= end <= len(s)
@@ -512,11 +538,13 @@ class AbstractStringBuilder(object):
         self._l.append(s)
         self._grow(len(s))
 
+    @not_rpython
     def append_multiple_char(self, c, times):
         assert isinstance(c, self._tp)
         self._l.append(c * times)
         self._grow(times)
 
+    @not_rpython
     def append_charpsize(self, s, size):
         assert size >= 0
         l = []
@@ -525,12 +553,14 @@ class AbstractStringBuilder(object):
         self._l.append(self._tp("").join(l))
         self._grow(size)
 
+    @not_rpython
     def build(self):
         result = self._tp("").join(self._l)
         assert len(result) == self._size
         self._l = [result]
         return result
 
+    @not_rpython
     def getlength(self):
         return self._size
 
@@ -544,18 +574,20 @@ class UnicodeBuilder(AbstractStringBuilder):
 
 class ByteListBuilder(object):
     def __init__(self, init_size=INIT_SIZE):
+        assert init_size >= 0
         self.l = newlist_hint(init_size)
 
     @specialize.argtype(1)
     def append(self, s):
+        l = self.l
         for c in s:
-            self.l.append(c)
+            l.append(c)
 
     @specialize.argtype(1)
     def append_slice(self, s, start, end):
-        assert 0 <= start <= end <= len(s)
-        for c in s[start:end]:
-            self.l.append(c)
+        l = self.l
+        for i in xrange(start, end):
+            l.append(s[i])
 
     def append_multiple_char(self, c, times):
         assert isinstance(c, str)
@@ -563,8 +595,9 @@ class ByteListBuilder(object):
 
     def append_charpsize(self, s, size):
         assert size >= 0
+        l = self.l
         for i in xrange(size):
-            self.l.append(s[i])
+            l.append(s[i])
 
     def build(self):
         return self.l
@@ -603,7 +636,7 @@ class SomeStringBuilder(SomeObject):
         return SomeInteger(nonneg=True)
 
     def method_build(self):
-        return SomeString()
+        return SomeString(can_be_None=False)
 
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.lltypesystem.rbuilder import stringbuilder_repr
@@ -643,7 +676,7 @@ class SomeUnicodeBuilder(SomeObject):
         return SomeInteger(nonneg=True)
 
     def method_build(self):
-        return SomeUnicodeString()
+        return SomeUnicodeString(can_be_None=False)
 
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.lltypesystem.rbuilder import unicodebuilder_repr
@@ -672,10 +705,31 @@ class StringBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = StringBuilder
     use_unicode = False
 
-
 class UnicodeBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = UnicodeBuilder
     use_unicode = True
+
+class __extend__(pairtype(SomeStringBuilder, SomeStringBuilder)):
+
+    def union((obj1, obj2)):
+        return obj1
+
+class __extend__(pairtype(SomeUnicodeBuilder, SomeUnicodeBuilder)):
+
+    def union((obj1, obj2)):
+        return obj1
+
+class PrebuiltStringBuilderEntry(ExtRegistryEntry):
+    _type_ = StringBuilder
+
+    def compute_annotation(self):
+        return SomeStringBuilder()
+
+class PrebuiltUnicodeBuilderEntry(ExtRegistryEntry):
+    _type_ = UnicodeBuilder
+
+    def compute_annotation(self):
+        return SomeUnicodeBuilder()
 
 
 #___________________________________________________________________

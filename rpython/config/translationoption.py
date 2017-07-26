@@ -6,6 +6,7 @@ from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
 from rpython.translator.platform import platform as compiler
 
+
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
 
@@ -15,18 +16,24 @@ DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "incminimark"   # XXX
 
-if sys.platform.startswith("linux"):
-    DEFL_ROOTFINDER_WITHJIT = "asmgcc"
-else:
-    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
+DEFL_ROOTFINDER_WITHJIT = "shadowstack"
+## if sys.platform.startswith("linux"):
+##     _mach = os.popen('uname -m', 'r').read().strip()
+##     if _mach.startswith('x86') or _mach in ['i386', 'i486', 'i586', 'i686']:
+##         DEFL_ROOTFINDER_WITHJIT = "asmgcc"   # only for Linux on x86 / x86-64
 
 IS_64_BITS = sys.maxint > 2147483647
 
 SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
-    sys.platform.startswith("linux"))     # Linux works
-    # OS/X doesn't work, because we still target 10.5/10.6 and the
-    # minimum required version is 10.7.  Windows doesn't work.  Please
+    sys.platform.startswith("linux") or     # Linux works
+    #sys.platform.startswith("darwin") or   # OS/X >= 10.7 works (*)
+    False)
+    # Windows doesn't work.  Please
     # add other platforms here if it works on them.
+
+# (*) NOTE: __thread on OS/X does not work together with
+# pthread_key_create(): when the destructor is called, the __thread is
+# already freed!
 
 MAINDIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
@@ -124,6 +131,9 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
+    ChoiceOption("jit_opencoder_model", "the model limits the maximal length"
+                 " of traces. Use big if you want to go bigger than "
+                 "the default", ["big", "normal"], default="normal"),
     BoolOption("check_str_without_nul",
                "Forbid NUL chars in strings in some external function calls",
                default=False, cmdline=None),
@@ -132,10 +142,9 @@ translation_optiondescription = OptionDescription(
     BoolOption("verbose", "Print extra information", default=False,
                cmdline="--verbose"),
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
-    StrOption("profopt", "Specify profile based optimization script",
-              cmdline="--profopt"),
-    BoolOption("noprofopt", "Don't use profile based optimization",
-               default=False, cmdline="--no-profopt", negation=False),
+    BoolOption("profopt", "Enable profile guided optimization. Defaults to enabling this for PyPy. For other training workloads, please specify them in profoptargs",
+              cmdline="--profopt", default=False),
+    StrOption("profoptargs", "Absolute path to the profile guided optimization training script + the necessary arguments of the script", cmdline="--profoptargs", default=None),
     BoolOption("instrument", "internal: turn instrumentation on",
                default=False, cmdline=None),
     BoolOption("countmallocs", "Count mallocs and frees", default=False,
@@ -183,12 +192,22 @@ translation_optiondescription = OptionDescription(
                "When true, enable the use of tagged pointers. "
                "If false, use normal boxing",
                default=False),
+    BoolOption("keepgoing",
+               "Continue annotating when errors are encountered, and report "
+               "them all at the end of the annotation phase",
+               default=False, cmdline="--keepgoing"),
     BoolOption("lldebug",
                "If true, makes an lldebug build", default=False,
                cmdline="--lldebug"),
     BoolOption("lldebug0",
                "If true, makes an lldebug0 build", default=False,
                cmdline="--lldebug0"),
+    BoolOption("lto", "enable link time optimization",
+               default=False, cmdline="--lto",
+               requires=[("translation.gcrootfinder", "shadowstack")]),
+    StrOption("icon", "Path to the (Windows) icon to use for the executable"),
+    StrOption("libname",
+              "Windows: name and possibly location of the lib file to create"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
@@ -205,11 +224,6 @@ translation_optiondescription = OptionDescription(
                    default=False),
         BoolOption("merge_if_blocks", "Merge if ... elif chains",
                    cmdline="--if-block-merge", default=True),
-        BoolOption("raisingop2direct_call",
-                   "Transform operations that can implicitly raise an "
-                   "exception into calls to functions that explicitly "
-                   "raise exceptions",
-                   default=False, cmdline="--raisingop2direct_call"),
         BoolOption("mallocs", "Remove mallocs", default=True),
         BoolOption("constfold", "Constant propagation",
                    default=True),
@@ -258,6 +272,9 @@ translation_optiondescription = OptionDescription(
                    "stack based virtual machines (only for backends that support it)",
                    default=True),
         BoolOption("storesink", "Perform store sinking", default=True),
+        BoolOption("replace_we_are_jitted",
+                   "Replace we_are_jitted() calls by False",
+                   default=False, cmdline=None),
         BoolOption("none",
                    "Do not run any backend optimizations",
                    requires=[('translation.backendopt.inline', False),
@@ -391,3 +408,16 @@ def get_platform(config):
     opt = config.translation.platform
     cc = config.translation.cc
     return pick_platform(opt, cc)
+
+
+
+# when running a translation, this is patched
+# XXX evil global variable
+_GLOBAL_TRANSLATIONCONFIG = None
+
+
+def get_translation_config():
+    """ Return the translation config when translating. When running
+    un-translated returns None """
+    return _GLOBAL_TRANSLATIONCONFIG
+

@@ -276,6 +276,30 @@ class BaseTestSQLite:
         exc = raises(ValueError, cur.execute, "select 2\0")
         assert str(exc.value) == "the query contains a null character"
 
+    def test_close_in_del_ordering(self):
+        import gc
+        class SQLiteBackend(object):
+            success = False
+            def __init__(self):
+                self.connection = _sqlite3.connect(":memory:")
+            def close(self):
+                self.connection.close()
+            def __del__(self):
+                self.close()
+                SQLiteBackend.success = True
+            def create_db_if_needed(self):
+                conn = self.connection
+                cursor = conn.cursor()
+                cursor.execute("""
+                    create table if not exists nameoftable(value text)
+                """)
+                cursor.close()
+                conn.commit()
+        SQLiteBackend().create_db_if_needed()
+        gc.collect()
+        gc.collect()
+        assert SQLiteBackend.success
+
 
 class TestSQLiteHost(BaseTestSQLite):
     def setup_class(cls):
@@ -289,10 +313,11 @@ class TestSQLitePyPy(BaseTestSQLite):
             pytest.skip("_sqlite3 requires Python 2.7")
 
         try:
-            import _cffi_backend
+            from lib_pypy import _sqlite3_cffi
         except ImportError:
             # On CPython, "pip install cffi".  On old PyPy's, no chance
-            pytest.skip("_sqlite3 requires _cffi_backend to be installed")
+            pytest.skip("install cffi and run lib_pypy/_sqlite3_build.py "
+                        "manually first")
 
         global _sqlite3
         from lib_pypy import _sqlite3

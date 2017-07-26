@@ -64,7 +64,7 @@ class TestPlatform(object):
         cfile.write('')
         try:
             executable = self.platform.compile([cfile], ExternalCompilationInfo())
-        except CompilationError, e:
+        except CompilationError as e:
             filename = cfile.dirpath().join(cfile.purebasename + '.errors')
             assert filename.read('r') == e.err
         else:

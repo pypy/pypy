@@ -5,7 +5,7 @@ Common types, functions from core win32 libraries, such as kernel32
 import os
 import errno
 
-from rpython.rtyper.module.ll_os_environ import make_env_impls
+from rpython.rlib.rposix_environ import make_env_impls
 from rpython.rtyper.tool import rffi_platform
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -46,6 +46,7 @@ class CConfig:
         LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
         LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.UINTP)
+        LPBOOL = rffi_platform.SimpleType("LPBOOL", rffi.LONGP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
         ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
 
@@ -57,6 +58,24 @@ class CConfig:
                                          ('dwHighDateTime', rffi.UINT)])
         SYSTEMTIME = rffi_platform.Struct('SYSTEMTIME',
                                           [])
+
+        Struct = rffi_platform.Struct
+        COORD = Struct("COORD",
+                       [("X", rffi.SHORT),
+                        ("Y", rffi.SHORT)])
+
+        SMALL_RECT = Struct("SMALL_RECT",
+                            [("Left", rffi.SHORT),
+                             ("Top", rffi.SHORT),
+                             ("Right", rffi.SHORT),
+                             ("Bottom", rffi.SHORT)])
+
+        CONSOLE_SCREEN_BUFFER_INFO = Struct("CONSOLE_SCREEN_BUFFER_INFO",
+                                            [("dwSize", COORD),
+                                             ("dwCursorPosition", COORD),
+                                             ("wAttributes", WORD.ctype_hint),
+                                             ("srWindow", SMALL_RECT),
+                                             ("dwMaximumWindowSize", COORD)])
 
         OSVERSIONINFOEX = rffi_platform.Struct(
             'OSVERSIONINFOEX',
@@ -92,7 +111,8 @@ class CConfig:
                        PROCESS_VM_WRITE
                        CTRL_C_EVENT CTRL_BREAK_EVENT
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
-                       WC_NO_BEST_FIT_CHARS
+                       WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
+                       STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -289,7 +309,7 @@ if WIN32:
                 buflen -= 1
 
             if buflen <= 0:
-                result = fake_FormatError(code)
+                result = 'Windows Error %d' % (code,)
             else:
                 result = rffi.charpsize2str(s_buf, buflen)
         finally:
@@ -297,9 +317,6 @@ if WIN32:
             lltype.free(buf, flavor='raw')
 
         return result
-
-    def fake_FormatError(code):
-        return 'Windows Error %d' % (code,)
 
     def lastSavedWindowsError(context="Windows Error"):
         code = GetLastError_saved()
@@ -445,19 +462,75 @@ if WIN32:
     def GetConsoleOutputCP():
         return rffi.cast(lltype.Signed, _GetConsoleOutputCP())
 
-    def os_kill(pid, sig):
-        if sig == CTRL_C_EVENT or sig == CTRL_BREAK_EVENT:
-            if GenerateConsoleCtrlEvent(sig, pid) == 0:
-                raise lastSavedWindowsError('os_kill failed generating event')
-            return
-        handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
-        if handle == NULL_HANDLE:
-            raise lastSavedWindowsError('os_kill failed opening process')
-        try:
-            if TerminateProcess(handle, sig) == 0:
-                raise lastSavedWindowsError(
-                    'os_kill failed to terminate process')
-        finally:
-            CloseHandle(handle)
-
     _wenviron_items, _wgetenv, _wputenv = make_env_impls(win32=True)
+
+
+    _GetStdHandle = winexternal(
+        'GetStdHandle', [DWORD], HANDLE)
+
+    def GetStdHandle(handle_id):
+        return _GetStdHandle(handle_id)
+    CONSOLE_SCREEN_BUFFER_INFO_P = lltype.Ptr(CONSOLE_SCREEN_BUFFER_INFO)
+    GetConsoleScreenBufferInfo = winexternal(
+        "GetConsoleScreenBufferInfo", [HANDLE, CONSOLE_SCREEN_BUFFER_INFO_P], BOOL)
+
+    _GetHandleInformation = winexternal(
+        'GetHandleInformation', [HANDLE, LPDWORD], BOOL)
+    _SetHandleInformation = winexternal(
+        'SetHandleInformation', [HANDLE, DWORD, DWORD], BOOL)
+
+    def set_inheritable(fd, inheritable):
+        handle = get_osfhandle(fd)
+        set_handle_inheritable(handle, inheritable)
+
+    def set_handle_inheritable(handle, inheritable):
+        assert lltype.typeOf(handle) is HANDLE
+        if inheritable:
+            flags = HANDLE_FLAG_INHERIT
+        else:
+            flags = 0
+        if not _SetHandleInformation(handle, HANDLE_FLAG_INHERIT, flags):
+            raise lastSavedWindowsError("SetHandleInformation")
+
+    def get_inheritable(fd):
+        handle = get_osfhandle(fd)
+        return get_handle_inheritable(handle)
+
+    def get_handle_inheritable(handle):
+        assert lltype.typeOf(handle) is HANDLE
+        pflags = lltype.malloc(LPDWORD.TO, 1, flavor='raw')
+        try:
+            if not _GetHandleInformation(handle, pflags):
+                raise lastSavedWindowsError("GetHandleInformation")
+            flags = pflags[0]
+        finally:
+            lltype.free(pflags, flavor='raw')
+        return (flags & HANDLE_FLAG_INHERIT) != 0
+
+    _GetFileType = winexternal('GetFileType', [HANDLE], DWORD)
+
+    def c_dup_noninheritable(fd1):
+        from rpython.rlib.rposix import c_dup
+
+        ftype = _GetFileType(get_osfhandle(fd1))
+        fd2 = c_dup(fd1)     # the inheritable version
+        if fd2 >= 0 and ftype != FILE_TYPE_CHAR:
+            try:
+                set_inheritable(fd2, False)
+            except:
+                os.close(fd2)
+                raise
+        return fd2
+
+    def c_dup2_noninheritable(fd1, fd2):
+        from rpython.rlib.rposix import c_dup2
+
+        ftype = _GetFileType(get_osfhandle(fd1))
+        res = c_dup2(fd1, fd2)     # the inheritable version
+        if res >= 0 and ftype != FILE_TYPE_CHAR:
+            try:
+                set_inheritable(fd2, False)
+            except:
+                os.close(fd2)
+                raise
+        return res

@@ -167,7 +167,7 @@ class BaseFrameworkTests(object):
             funcs[num][2](n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s)
         myjitdriver = JitDriver(greens = ['num'],
                                 reds = ['n', 'x', 'x0', 'x1', 'x2', 'x3', 'x4',
-                                        'x5', 'x6', 'x7', 'l', 's'])
+                                        'x5', 'x6', 'x7', 'l', 's'], is_recursive=True)
         cls.main_allfuncs = staticmethod(main_allfuncs)
         cls.name_to_func = name_to_func
         OLD_DEBUG = GcLLDescr_framework.DEBUG
@@ -176,7 +176,7 @@ class BaseFrameworkTests(object):
             cls.cbuilder = compile(get_entry(allfuncs), cls.gc,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
                                    thread=True)
-        except ConfigError, e:        
+        except ConfigError as e:        
             assert str(e).startswith('invalid value asmgcc')
             py.test.skip('asmgcc not supported')
         finally:
@@ -768,7 +768,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def define_compile_framework_call_assembler(self):
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S', ('s', lltype.Ptr(S))))
-        driver = JitDriver(greens = [], reds = 'auto')
+        driver = JitDriver(greens = [], reds = 'auto', is_recursive=True)
 
         def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0):
             driver.jit_merge_point()

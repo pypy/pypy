@@ -205,9 +205,14 @@ def _get_default_tempdir():
                     _os.unlink(filename)
                 return dir
             except (OSError, IOError) as e:
-                if e.args[0] != _errno.EEXIST:
-                    break # no point trying more names in this directory
-                pass
+                if e.args[0] == _errno.EEXIST:
+                    continue
+                if (_os.name == 'nt' and e.args[0] == _errno.EACCES and
+                    _os.path.isdir(dir) and _os.access(dir, _os.W_OK)):
+                    # On windows, when a directory with the chosen name already
+                    # exists, EACCES error code is returned instead of EEXIST.
+                    continue
+                break # no point trying more names in this directory
     raise IOError, (_errno.ENOENT,
                     ("No usable temporary directory found in %s" % dirlist))
 
@@ -242,7 +247,8 @@ def _mkstemp_inner(dir, pre, suf, flags):
         except OSError, e:
             if e.errno == _errno.EEXIST:
                 continue # try again
-            if _os.name == 'nt' and e.errno == _errno.EACCES:
+            if (_os.name == 'nt' and e.errno == _errno.EACCES and
+                _os.path.isdir(dir) and _os.access(dir, _os.W_OK)):
                 # On windows, when a directory with the chosen name already
                 # exists, EACCES error code is returned instead of EEXIST.
                 continue
@@ -335,6 +341,11 @@ def mkdtemp(suffix="", prefix=template, dir=None):
         except OSError, e:
             if e.errno == _errno.EEXIST:
                 continue # try again
+            if (_os.name == 'nt' and e.errno == _errno.EACCES and
+                _os.path.isdir(dir) and _os.access(dir, _os.W_OK)):
+                # On windows, when a directory with the chosen name already
+                # exists, EACCES error code is returned instead of EEXIST.
+                continue
             raise
 
     raise IOError, (_errno.EEXIST, "No usable temporary directory name found")
@@ -413,9 +424,11 @@ class _TemporaryFileWrapper:
         def close(self):
             if not self.close_called:
                 self.close_called = True
-                self.file.close()
-                if self.delete:
-                    self.unlink(self.name)
+                try:
+                    self.file.close()
+                finally:
+                    if self.delete:
+                        self.unlink(self.name)
 
         def __del__(self):
             self.close()
@@ -442,8 +455,8 @@ def NamedTemporaryFile(mode='w+b', bufsize=-1, suffix="",
     The file is created as mkstemp() would do it.
 
     Returns an object with a file-like interface; the name of the file
-    is accessible as file.name.  The file will be automatically deleted
-    when it is closed unless the 'delete' argument is set to False.
+    is accessible as its 'name' attribute.  The file will be automatically
+    deleted when it is closed unless the 'delete' argument is set to False.
     """
 
     if dir is None:
@@ -463,7 +476,8 @@ def NamedTemporaryFile(mode='w+b', bufsize=-1, suffix="",
     try:
         file = _os.fdopen(fd, mode, bufsize)
         return _TemporaryFileWrapper(file, name, delete)
-    except:
+    except BaseException:
+        _os.unlink(name)
         _os.close(fd)
         raise
 

@@ -4,7 +4,7 @@ from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 
 class W_FFIType(W_Root):
@@ -37,10 +37,10 @@ class W_FFIType(W_Root):
 
     def descr_sizeof(self, space):
         try:
-            return space.wrap(self.sizeof())
+            return space.newint(self.sizeof())
         except ValueError:
-            msg = "Operation not permitted on an incomplete type"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError,
+                        "Operation not permitted on an incomplete type")
 
     def sizeof(self):
         return intmask(self.get_ffitype().c_size)
@@ -49,7 +49,7 @@ class W_FFIType(W_Root):
         return intmask(self.get_ffitype().c_alignment)
 
     def repr(self, space):
-        return space.wrap(self.__repr__())
+        return space.newtext(self.__repr__())
 
     def __repr__(self):
         name = self.name
@@ -105,7 +105,8 @@ class W_FFIType(W_Root):
 
 W_FFIType.typedef = TypeDef(
     'FFIType',
-    name = interp_attrproperty('name', W_FFIType),
+    name = interp_attrproperty('name', W_FFIType,
+        wrapfn="newtext_or_none"),
     __repr__ = interp2app(W_FFIType.repr),
     deref_pointer = interp2app(W_FFIType.descr_deref_pointer),
     sizeof = interp2app(W_FFIType.descr_sizeof),

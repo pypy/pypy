@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rarithmetic, objectmodel
@@ -47,31 +49,14 @@ class __extend__(annmodel.SomeBuiltinMethod):
         # to it.
         return (self.__class__, self.methodname, id(self.s_self))
 
-def call_args_expand(hop, takes_kwds = True):
+def call_args_expand(hop):
     hop = hop.copy()
     from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
             hop.args_s[1].const, # shape
             range(hop.nb_args-2))
-    if arguments.w_stararg is not None:
-        # expand the *arg in-place -- it must be a tuple
-        from rpython.rtyper.rtuple import TupleRepr
-        if arguments.w_stararg != hop.nb_args - 3:
-            raise TyperError("call pattern too complex")
-        v_tuple = hop.args_v.pop()
-        s_tuple = hop.args_s.pop()
-        r_tuple = hop.args_r.pop()
-        if not isinstance(r_tuple, TupleRepr):
-            raise TyperError("*arg must be a tuple")
-        for i in range(len(r_tuple.items_r)):
-            v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
-            hop.args_v.append(v_item)
-            hop.args_s.append(s_tuple.items[i])
-            hop.args_r.append(r_tuple.items_r[i])
-
+    assert arguments.w_stararg is None
     keywords = arguments.keywords
-    if not takes_kwds and keywords:
-        raise TyperError("kwds args not supported")
     # prefix keyword arguments with 'i_'
     kwds_i = {}
     for key in keywords:
@@ -363,7 +348,7 @@ typer_for(enumerate)(rrange.rtype_builtin_enumerate)
 
 @typer_for(lltype.malloc)
 def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
-                 i_add_memory_pressure=None):
+                 i_add_memory_pressure=None, i_nonmovable=None):
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
@@ -372,8 +357,10 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
         (i_flavor, lltype.Void),
         (i_zero, None),
         (i_track_allocation, None),
-        (i_add_memory_pressure, None))
-    (v_flavor, v_zero, v_track_allocation, v_add_memory_pressure) = kwds_v
+        (i_add_memory_pressure, None),
+        (i_nonmovable, None))
+    (v_flavor, v_zero, v_track_allocation,
+     v_add_memory_pressure, v_nonmovable) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value
@@ -383,6 +370,8 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
         flags['track_allocation'] = v_track_allocation.value
     if i_add_memory_pressure is not None:
         flags['add_memory_pressure'] = v_add_memory_pressure.value
+    if i_nonmovable is not None:
+        flags['nonmovable'] = v_nonmovable
     vlist.append(hop.inputconst(lltype.Void, flags))
 
     assert 1 <= hop.nb_args <= 2
@@ -497,7 +486,6 @@ _cast_to_Signed = {
     }
 _cast_from_Signed = {
     lltype.Signed:         None,
-    lltype.Bool:           'int_is_true',
     lltype.Char:           'cast_int_to_char',
     lltype.UniChar:        'cast_int_to_unichar',
     lltype.Float:          'cast_int_to_float',
@@ -519,6 +507,8 @@ def gen_cast(llops, TGT, v_value):
             if op:
                 v_value = llops.genop(op, [v_value], resulttype=TGT)
             return v_value
+        elif ORIG is lltype.Signed and TGT is lltype.Bool:
+            return llops.genop('int_is_true', [v_value], resulttype=lltype.Bool)
         else:
             # use the generic operation if there is no alternative
             return llops.genop('cast_primitive', [v_value], resulttype=TGT)
@@ -584,10 +574,14 @@ def rtype_runtime_type_info(hop):
 # memory addresses
 
 @typer_for(llmemory.raw_malloc)
-def rtype_raw_malloc(hop):
-    v_size, = hop.inputargs(lltype.Signed)
+def rtype_raw_malloc(hop, i_zero=None):
+    v_size = hop.inputarg(lltype.Signed, arg=0)
+    v_zero, = parse_kwds(hop, (i_zero, None))
+    if v_zero is None:
+        v_zero = hop.inputconst(lltype.Bool, False)
     hop.exception_cannot_occur()
-    return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
+    return hop.genop('raw_malloc', [v_size, v_zero],
+                     resulttype=llmemory.Address)
 
 @typer_for(llmemory.raw_malloc_usage)
 def rtype_raw_malloc_usage(hop):
@@ -690,37 +684,25 @@ def rtype_cast_int_to_adr(hop):
                      resulttype=llmemory.Address)
 
 
-@typer_for(isinstance)
-def rtype_builtin_isinstance(hop):
-    hop.exception_cannot_occur()
-    if hop.s_result.is_constant():
-        return hop.inputconst(lltype.Bool, hop.s_result.const)
-
-    if hop.args_s[1].is_constant() and hop.args_s[1].const in (str, list, unicode):
-        if hop.args_s[0].knowntype not in (str, list, unicode):
-            raise TyperError("isinstance(x, str/list/unicode) expects x to be known"
-                             " statically to be a str/list/unicode or None")
-        rstrlist = hop.args_r[0]
-        vstrlist = hop.inputarg(rstrlist, arg=0)
-        cnone = hop.inputconst(rstrlist, None)
-        return hop.genop('ptr_ne', [vstrlist, cnone], resulttype=lltype.Bool)
-
-    assert isinstance(hop.args_r[0], rclass.InstanceRepr)
-    return hop.args_r[0].rtype_isinstance(hop)
-
 @typer_for(objectmodel.instantiate)
-def rtype_instantiate(hop):
+def rtype_instantiate(hop, i_nonmovable=None):
     hop.exception_cannot_occur()
     s_class = hop.args_s[0]
     assert isinstance(s_class, annmodel.SomePBC)
+    v_nonmovable, = parse_kwds(hop, (i_nonmovable, None))
+    nonmovable = (i_nonmovable is not None and v_nonmovable.value)
     if len(s_class.descriptions) != 1:
         # instantiate() on a variable class
+        if nonmovable:
+            raise TyperError("instantiate(x, nonmovable=True) cannot be used "
+                             "if x is not a constant class")
         vtypeptr, = hop.inputargs(rclass.get_type_repr(hop.rtyper))
         r_class = hop.args_r[0]
         return r_class._instantiate_runtime_class(hop, vtypeptr,
                                                   hop.r_result.lowleveltype)
     classdef = s_class.any_description().getuniqueclassdef()
-    return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
+    return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops,
+                                     nonmovable=nonmovable)
 
 
 @typer_for(hasattr)
@@ -731,7 +713,7 @@ def rtype_builtin_hasattr(hop):
 
     raise TyperError("hasattr is only suported on a constant")
 
-@typer_for(annmodel.SomeOrderedDict.knowntype)
+@typer_for(OrderedDict)
 @typer_for(objectmodel.r_dict)
 @typer_for(objectmodel.r_ordereddict)
 def rtype_dict_constructor(hop, i_force_non_null=None):
@@ -761,12 +743,21 @@ from rpython.rtyper.lltypesystem import llmemory
 @typer_for(llmemory.weakref_create)
 @typer_for(weakref.ref)
 def rtype_weakref_create(hop):
-    vlist = hop.inputargs(hop.args_r[0])
+    from rpython.rtyper.rweakref import BaseWeakRefRepr
+
+    v_inst, = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
-    return hop.genop('weakref_create', vlist, resulttype=llmemory.WeakRefPtr)
+    if isinstance(hop.r_result, BaseWeakRefRepr):
+        return hop.r_result._weakref_create(hop, v_inst)
+    else:
+        # low-level <PtrRepr * WeakRef>
+        assert hop.rtyper.getconfig().translation.rweakref
+        return hop.genop('weakref_create', [v_inst],
+                         resulttype=llmemory.WeakRefPtr)
 
 @typer_for(llmemory.weakref_deref)
 def rtype_weakref_deref(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
     assert v_wref.concretetype == llmemory.WeakRefPtr
     hop.exception_cannot_occur()
@@ -774,6 +765,7 @@ def rtype_weakref_deref(hop):
 
 @typer_for(llmemory.cast_ptr_to_weakrefptr)
 def rtype_cast_ptr_to_weakrefptr(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     vlist = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
     return hop.genop('cast_ptr_to_weakrefptr', vlist,
@@ -781,6 +773,7 @@ def rtype_cast_ptr_to_weakrefptr(hop):
 
 @typer_for(llmemory.cast_weakrefptr_to_ptr)
 def rtype_cast_weakrefptr_to_ptr(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
     assert v_wref.concretetype == llmemory.WeakRefPtr
     hop.exception_cannot_occur()

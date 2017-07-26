@@ -532,8 +532,7 @@ def measure_median_execution_cost(graph):
         return sys.maxint
     else:
         res = Solution[blockmap[graph.startblock]]
-        assert res >= 0
-        return res
+        return max(res, 0.0)
 
 def static_instruction_count(graph):
     count = 0
@@ -679,7 +678,7 @@ def auto_inlining(translator, threshold=None,
                                            call_count_pred, cleanup=False)
                 to_cleanup[parentgraph] = True
                 res = bool(subcount)
-            except CannotInline, e:
+            except CannotInline as e:
                 try_again[graph] = str(e)
                 res = CannotInline
             if res is True:

@@ -20,7 +20,7 @@ def test_execute_source(space):
                                                 space.wrap('modules')),
                                                 space.wrap('xyz')))
     assert x == 3
-    lls = rffi.str2charp("sys")
+    lls = rffi.str2charp("sys   # should give a NameError")
     execute_source(lls)
     lltype.free(lls, flavor='raw')
     # did not crash - the same globals

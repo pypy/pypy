@@ -12,12 +12,14 @@ class SyntaxError(Exception):
         self.lastlineno = lastlineno
 
     def wrap_info(self, space):
-        return space.newtuple([space.wrap(self.msg),
-                               space.newtuple([space.wrap(self.filename),
-                                               space.wrap(self.lineno),
-                                               space.wrap(self.offset),
-                                               space.wrap(self.text),
-                                               space.wrap(self.lastlineno)])])
+        w_filename = space.newtext_or_none(self.filename)
+        w_text = space.newtext_or_none(self.text)
+        return space.newtuple([space.newtext(self.msg),
+                               space.newtuple([w_filename,
+                                               space.newint(self.lineno),
+                                               space.newint(self.offset),
+                                               w_text,
+                                               space.newint(self.lastlineno)])])
 
     def __str__(self):
         return "%s at pos (%d, %d) in %r" % (self.__class__.__name__,

@@ -261,6 +261,40 @@ class PosixTester(unittest.TestCase):
     def test_stat(self):
         self.assertTrue(posix.stat(test_support.TESTFN))
 
+    @unittest.skipUnless(hasattr(posix, 'stat'), 'test needs posix.stat()')
+    @unittest.skipUnless(hasattr(posix, 'makedev'), 'test needs posix.makedev()')
+    def test_makedev(self):
+        st = posix.stat(test_support.TESTFN)
+        dev = st.st_dev
+        self.assertIsInstance(dev, (int, long))
+        self.assertGreaterEqual(dev, 0)
+
+        major = posix.major(dev)
+        self.assertIsInstance(major, (int, long))
+        self.assertGreaterEqual(major, 0)
+        self.assertEqual(posix.major(int(dev)), major)
+        self.assertEqual(posix.major(long(dev)), major)
+        self.assertRaises(TypeError, posix.major, float(dev))
+        self.assertRaises(TypeError, posix.major)
+        self.assertRaises((ValueError, OverflowError), posix.major, -1)
+
+        minor = posix.minor(dev)
+        self.assertIsInstance(minor, (int, long))
+        self.assertGreaterEqual(minor, 0)
+        self.assertEqual(posix.minor(int(dev)), minor)
+        self.assertEqual(posix.minor(long(dev)), minor)
+        self.assertRaises(TypeError, posix.minor, float(dev))
+        self.assertRaises(TypeError, posix.minor)
+        self.assertRaises((ValueError, OverflowError), posix.minor, -1)
+
+        self.assertEqual(posix.makedev(major, minor), dev)
+        self.assertEqual(posix.makedev(int(major), int(minor)), dev)
+        self.assertEqual(posix.makedev(long(major), long(minor)), dev)
+        self.assertRaises(TypeError, posix.makedev, float(major), minor)
+        self.assertRaises(TypeError, posix.makedev, major, float(minor))
+        self.assertRaises(TypeError, posix.makedev, major)
+        self.assertRaises(TypeError, posix.makedev)
+
     def _test_all_chown_common(self, chown_func, first_param, stat_func):
         """Common code for chown, fchown and lchown tests."""
         def check_stat(uid, gid):
@@ -542,6 +576,48 @@ class PosixTester(unittest.TestCase):
         self.assertEqual(
                 set([int(x) for x in groups.split()]),
                 set(posix.getgroups() + [posix.getegid()]))
+
+    @test_support.requires_unicode
+    def test_path_with_null_unicode(self):
+        fn = test_support.TESTFN_UNICODE
+        try:
+            fn.encode(test_support.TESTFN_ENCODING)
+        except (UnicodeError, TypeError):
+            self.skipTest("Requires unicode filenames support")
+        fn_with_NUL = fn + u'\0'
+        self.addCleanup(test_support.unlink, fn)
+        test_support.unlink(fn)
+        fd = None
+        try:
+            with self.assertRaises(TypeError):
+                fd = os.open(fn_with_NUL, os.O_WRONLY | os.O_CREAT) # raises
+        finally:
+            if fd is not None:
+                os.close(fd)
+        self.assertFalse(os.path.exists(fn))
+        self.assertRaises(TypeError, os.mkdir, fn_with_NUL)
+        self.assertFalse(os.path.exists(fn))
+        open(fn, 'wb').close()
+        self.assertRaises(TypeError, os.stat, fn_with_NUL)
+
+    def test_path_with_null_byte(self):
+        fn = test_support.TESTFN
+        fn_with_NUL = fn + '\0'
+        self.addCleanup(test_support.unlink, fn)
+        test_support.unlink(fn)
+        fd = None
+        try:
+            with self.assertRaises(TypeError):
+                fd = os.open(fn_with_NUL, os.O_WRONLY | os.O_CREAT) # raises
+        finally:
+            if fd is not None:
+                os.close(fd)
+        self.assertFalse(os.path.exists(fn))
+        self.assertRaises(TypeError, os.mkdir, fn_with_NUL)
+        self.assertFalse(os.path.exists(fn))
+        open(fn, 'wb').close()
+        self.assertRaises(TypeError, os.stat, fn_with_NUL)
+
 
 class PosixGroupsTester(unittest.TestCase):
 

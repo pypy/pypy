@@ -62,6 +62,8 @@ struct RPyOpaque_ThreadLock {
 RPY_EXTERN
 long RPyThreadStart(void (*func)(void));
 RPY_EXTERN
+long RPyThreadStartEx(void (*func)(void *), void *arg);
+RPY_EXTERN
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
 RPY_EXTERN
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
@@ -78,3 +80,7 @@ RPY_EXTERN
 long RPyThreadSetStackSize(long);
 RPY_EXTERN
 void RPyThreadAfterFork(void);
+
+
+#define pypy_lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
+#define pypy_lock_release(ptr)              __sync_lock_release(ptr)

@@ -19,7 +19,9 @@ like this:
 
 * Clone this new repo (i.e. the fork) to your local machine with the command 
   ``hg clone ssh://hg@bitbucket.org/yourname/pypy``.  It is a very slow
-  operation but only ever needs to be done once.  If you already cloned
+  operation but only ever needs to be done once.  See also 
+  http://pypy.org/download.html#building-from-source .
+  If you already cloned
   ``https://bitbucket.org/pypy/pypy`` before, even if some time ago,
   then you can reuse the same clone by editing the file ``.hg/hgrc`` in
   your clone to contain the line ``default =
@@ -207,12 +209,17 @@ pyinteractive.py supports most of the options that CPython supports too (in addi
 large amount of options that can be used to customize pyinteractive.py).
 As an example of using PyPy from the command line, you could type::
 
-    python pyinteractive.py -c "from test import pystone; pystone.main(10)"
+    python pyinteractive.py --withmod-time -c "from test import pystone; pystone.main(10)"
 
 Alternatively, as with regular Python, you can simply give a
 script name on the command line::
 
-    python pyinteractive.py ../../lib-python/2.7/test/pystone.py 10
+    python pyinteractive.py --withmod-time ../../lib-python/2.7/test/pystone.py 10
+
+The ``--withmod-xxx`` option enables the built-in module ``xxx``.  By
+default almost none of them are, because initializing them takes time.
+If you want anyway to enable all built-in modules, you can use
+``--allworkingmodules``.
 
 See our :doc:`configuration sections <config/index>` for details about what all the commandline
 options do.
@@ -329,6 +336,6 @@ or start off at one of the following points:
    that fixes some bugs and is translatable.
 
 *  :source:`pypy/objspace/std` contains the :ref:`Standard object space <standard-object-space>`.  The main file
-   is :source:`pypy/objspace/std/objspace.py`.  For each type, the files ``xxxtype.py`` and
-   ``xxxobject.py`` contain respectively the definition of the type and its
-   (default) implementation.
+   is :source:`pypy/objspace/std/objspace.py`.  For each type, the file
+   ``xxxobject.py`` contains the implementation for objects of type ``xxx``,
+   as a first approximation.  (Some types have multiple implementations.)

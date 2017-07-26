@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.lltypesystem import rffi
 
 from rpython.rlib import rzlib
 
@@ -15,9 +16,7 @@ if intmask(2**31) == -2**31:
 else:
     # 64-bit platforms
     def unsigned_to_signed_32bit(x):
-        # assumes that 'x' is in range(0, 2**32) to start with
-        SIGN_EXTEND2 = 1 << 31
-        return intmask((x ^ SIGN_EXTEND2) - SIGN_EXTEND2)
+        return intmask(rffi.cast(rffi.INT, x))
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')
@@ -38,7 +37,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     # the 2.6 behavior and always return a number in range(-2**31, 2**31).
     checksum = unsigned_to_signed_32bit(checksum)
 
-    return space.wrap(checksum)
+    return space.newint(checksum)
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')
@@ -54,7 +53,7 @@ def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     # See comments in crc32() for the following line
     checksum = unsigned_to_signed_32bit(checksum)
 
-    return space.wrap(checksum)
+    return space.newint(checksum)
 
 
 class Cache:
@@ -63,7 +62,7 @@ class Cache:
 
 def zlib_error(space, msg):
     w_error = space.fromcache(Cache).w_error
-    return OperationError(w_error, space.wrap(msg))
+    return OperationError(w_error, space.newtext(msg))
 
 
 @unwrap_spec(string='bufferstr', level=int)
@@ -82,9 +81,9 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
             result = rzlib.compress(stream, string, rzlib.Z_FINISH)
         finally:
             rzlib.deflateEnd(stream)
-    except rzlib.RZlibError, e:
+    except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
-    return space.wrap(result)
+    return space.newbytes(result)
 
 
 @unwrap_spec(string='bufferstr', wbits="c_int", bufsize=int)
@@ -104,9 +103,9 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
             result, _, _ = rzlib.decompress(stream, string, rzlib.Z_FINISH)
         finally:
             rzlib.inflateEnd(stream)
-    except rzlib.RZlibError, e:
+    except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
-    return space.wrap(result)
+    return space.newbytes(result)
 
 
 class ZLibObject(W_Root):
@@ -144,13 +143,13 @@ class Compress(ZLibObject):
         try:
             self.stream = rzlib.deflateInit(level, method, wbits,
                                             memLevel, strategy)
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Invalid initialization option"))
+            raise oefmt(space.w_ValueError, "Invalid initialization option")
+        self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         """Automatically free the resources used by the stream."""
         if self.stream:
             rzlib.deflateEnd(self.stream)
@@ -175,9 +174,9 @@ class Compress(ZLibObject):
                 result = rzlib.compress(self.stream, data)
             finally:
                 self.unlock()
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
-        return space.wrap(result)
+        return space.newbytes(result)
 
     @unwrap_spec(mode="c_int")
     def flush(self, space, mode=rzlib.Z_FINISH):
@@ -202,11 +201,12 @@ class Compress(ZLibObject):
                 if mode == rzlib.Z_FINISH:    # release the data structures now
                     rzlib.deflateEnd(self.stream)
                     self.stream = rzlib.null_stream
+                    self.may_unregister_rpython_finalizer(space)
             finally:
                 self.unlock()
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
-        return space.wrap(result)
+        return space.newbytes(result)
 
 
 @unwrap_spec(level=int, method=int, wbits=int, memLevel=int, strategy=int)
@@ -222,7 +222,7 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
     stream = space.interp_w(Compress, stream)
     Compress.__init__(stream, space, level,
                       method, wbits, memLevel, strategy)
-    return space.wrap(stream)
+    return stream
 
 
 Compress.typedef = TypeDef(
@@ -255,13 +255,13 @@ class Decompress(ZLibObject):
         self.unconsumed_tail = ''
         try:
             self.stream = rzlib.inflateInit(wbits)
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Invalid initialization option"))
+            raise oefmt(space.w_ValueError, "Invalid initialization option")
+        self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         """Automatically free the resources used by the stream."""
         if self.stream:
             rzlib.inflateEnd(self.stream)
@@ -277,7 +277,7 @@ class Decompress(ZLibObject):
         else:
             self.unconsumed_tail = tail
 
-    @unwrap_spec(data='bufferstr', max_length="c_int")
+    @unwrap_spec(data='bufferstr', max_length=int)
     def decompress(self, space, data, max_length=0):
         """
         decompress(data[, max_length]) -- Return a string containing the
@@ -298,12 +298,12 @@ class Decompress(ZLibObject):
                 result = rzlib.decompress(self.stream, data, max_length=max_length)
             finally:
                 self.unlock()
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
 
         string, finished, unused_len = result
         self._save_unconsumed_input(data, finished, unused_len)
-        return space.wrap(string)
+        return space.newbytes(string)
 
     def flush(self, space, w_length=None):
         """
@@ -312,7 +312,7 @@ class Decompress(ZLibObject):
         data as possible.
         """
         if w_length is not None:
-            length = space.c_int_w(w_length)
+            length = space.int_w(w_length)
             if length <= 0:
                 raise oefmt(space.w_ValueError,
                             "length must be greater than zero")
@@ -328,7 +328,7 @@ class Decompress(ZLibObject):
         else:
             string, finished, unused_len = result
             self._save_unconsumed_input(data, finished, unused_len)
-        return space.wrap(string)
+        return space.newbytes(string)
 
 
 @unwrap_spec(wbits=int)
@@ -339,7 +339,7 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS):
     stream = space.allocate_instance(Decompress, w_subtype)
     stream = space.interp_w(Decompress, stream)
     Decompress.__init__(stream, space, wbits)
-    return space.wrap(stream)
+    return stream
 
 
 Decompress.typedef = TypeDef(
@@ -347,8 +347,8 @@ Decompress.typedef = TypeDef(
     __new__ = interp2app(Decompress___new__),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
-    unused_data = interp_attrproperty('unused_data', Decompress),
-    unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress),
+    unused_data = interp_attrproperty('unused_data', Decompress, wrapfn="newbytes"),
+    unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress, wrapfn="newbytes"),
     __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
 
 Optional arg wbits is the window buffer size.

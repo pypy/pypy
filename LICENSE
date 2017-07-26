@@ -1,3 +1,5 @@
+#encoding utf-8
+
 License
 =======
 
@@ -28,7 +30,7 @@ the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', 'lib_pypy',
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2015
+PyPy Copyright holders 2003-2017
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -37,289 +39,350 @@ copyrighted by one or more of the following people and organizations:
 
   Armin Rigo
   Maciej Fijalkowski
-  Carl Friedrich Bolz
-  Antonio Cuni
+  Carl Friedrich Bolz-Tereick
   Amaury Forgeot d'Arc
-  Samuele Pedroni
-  Alex Gaynor
-  Brian Kearns
+  Antonio Cuni
   Matti Picus
+  Samuele Pedroni
+  Ronan Lamy
+  Alex Gaynor
   Philip Jenvey
+  Brian Kearns
+  Richard Plangger
   Michael Hudson
+  Manuel Jacob
   David Schneider
   Holger Krekel
   Christian Tismer
   Hakan Ardo
   Benjamin Peterson
-  Manuel Jacob
-  Ronan Lamy
   Anders Chrigstrom
-  Eric van Riet Paap
   Wim Lavrijsen
+  Eric van Riet Paap
   Richard Emslie
   Alexander Schremmer
+  Remi Meier
   Dan Villiom Podlaski Christiansen
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
   Aurelien Campeas
   Niklaus Haldimann
-  Remi Meier
   Camillo Bruni
   Laura Creighton
-  Toon Verwaest
   Romain Guillebert
+  Toon Verwaest
   Leonardo Santagada
   Seo Sanghyeon
-  Justin Peel
   Ronny Pfannschmidt
+  Justin Peel
+  Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
+  Gregor Wegberg
   Guido Wesdorp
   Lawrence Oluyede
   Bartosz Skowron
-  Gregor Wegberg
   Daniel Roberts
-  Niko Matsakis
   Adrien Di Mascio
+  Niko Matsakis
   Alexander Hesse
   Ludovic Aubry
   Jacob Hallen
   Jason Creighton
+  Mark Young
   Alex Martelli
+  Spenser Bauman
   Michal Bendowski
-  Jan de Mooij
   stian
+  Jan de Mooij
   Tyler Wade
+  Vincent Legoll
   Michael Foord
   Stephan Diehl
+  Stefano Rivera
   Stefan Schwarzer
-  Valentino Volonghi
   Tomek Meka
+  Valentino Volonghi
   Patrick Maupin
+  Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
   David Malcolm
   Jean-Paul Calderone
-  Timo Paulssen
   Squeaky
+  Edd Barrett
+  Timo Paulssen
+  Marius Gedminas
   Alexandre Fayolle
   Simon Burton
-  Marius Gedminas
+  Nicolas Truessel
   Martin Matusiak
-  Konstantin Lopuhin
-  Wenzhu Man
-  John Witulski
   Laurence Tratt
-  Ivan Sichmann Freitas
+  Wenzhu Man
+  Konstantin Lopuhin
+  John Witulski
   Greg Price
+  Ivan Sichmann Freitas
   Dario Bertini
+  Jeremy Thurgood
   Mark Pearse
   Simon Cross
+  Tobias Pape
   Andreas Stührk
-  Stefano Rivera
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
   Paweł Piotr Przeradowski
-  Paul deGrandis
+  William Leslie
+  marky1991
   Ilya Osadchiy
   Tobias Oberstein
-  Adrian Kuhn
+  Paul deGrandis
   Boris Feigin
-  tav
   Taavi Burns
+  Adrian Kuhn
+  tav
   Georg Brandl
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
-  Gerald Klix
   Mike Blume
+  Joannah Nanjekye
+  Gerald Klix
   Oscar Nierstrasz
-  Stefan H. Muller
-  Edd Barrett
-  Jeremy Thurgood
   Rami Chowdhury
-  Tobias Pape
+  Stefan H. Muller
+  Tim Felgentreff
   Eugene Oden
+  Jeff Terrace
   Henry Mason
   Vasily Kuznetsov
   Preston Timmons
   David Ripton
-  Jeff Terrace
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
+  Jasper Schulz
   Ned Batchelder
   Amit Regmi
-  Ben Young
+  Anton Gulenko
+  Sergey Matyunin
+  Andrew Chambers
   Nicolas Chauvat
   Andrew Durdin
-  Andrew Chambers
+  Ben Young
   Michael Schneider
   Nicholas Riley
   Jason Chu
   Igor Trindade Oliveira
-  Tim Felgentreff
+  Yichao Yu
+  Michael Twomey
   Rocco Moretti
   Gintautas Miliauskas
-  Michael Twomey
   Lucian Branescu Mihaila
-  Yichao Yu
-  Gabriel Lavoie
-  Olivier Dormond
-  Jared Grubb
+  anatoly techtonik
+  Dodan Mihai
   Karl Bartel
+  Gabriel Lavoie
+  Jared Grubb
+  Olivier Dormond
   Wouter van Heyst
+  Sebastian Pawluś
   Brian Dorsey
   Victor Stinner
   Andrews Medina
-  anatoly techtonik
-  Stuart Williams
-  Jasper Schulz
-  Christian Hudon
-  Toby Watson
-  Antoine Pitrou
   Aaron Iles
-  Michael Cheng
+  Toby Watson
+  Daniel Patrick
+  Stuart Williams
+  Antoine Pitrou
+  Christian Hudon
   Justas Sadzevicius
-  Gasper Zejn
   Neil Shepperd
-  Stanislaw Halik
+  Michael Cheng
   Mikael Schönenberg
-  Elmo M?ntynen
-  Jonathan David Riehl
+  Stanislaw Halik
+  Berkin Ilbeyi
+  Gasper Zejn
+  Faye Zhao
+  Elmo Mäntynen
   Anders Qvist
   Corbin Simpson
   Chirag Jadwani
+  Jonathan David Riehl
   Beatrice During
   Alex Perry
-  Vincent Legoll
+  p_zieschang@yahoo.de
+  Robert Zaremba
   Alan McIntyre
   Alexander Sedov
+  Vaibhav Sood
+  Reuben Cummings
   Attila Gobi
+  Alecsandru Patrascu
   Christopher Pope
+  Tristan Arthur
   Christian Tismer 
-  Marc Abramowitz
   Dan Stromberg
-  Arjun Naik
+  Carl Meyer
+  Florin Papa
+  Jens-Uwe Mager
   Valentina Mukhamedzhanova
   Stefano Parmesan
+  touilleMan
+  Marc Abramowitz
+  Arjun Naik
+  Aaron Gallagher
   Alexis Daboville
-  Jens-Uwe Mager
-  Carl Meyer
-  Karl Ramm
   Pieter Zieschang
-  Sebastian Pawluś
-  Gabriel
+  Karl Ramm
   Lukas Vacek
-  Andrew Dalke
-  Sylvain Thenault
-  Nathan Taylor
-  Vladimir Kryachko
+  Omer Katz
   Jacek Generowicz
+  Sylvain Thenault
+  Jakub Stasiak
+  Stefan Beyer
+  Andrew Dalke
   Alejandro J. Cura
-  Jacob Oscarson
+  Vladimir Kryachko
+  Gabriel
+  Mark Williams
+  Kunal Grover
+  Nathan Taylor
   Travis Francis Athougies
-  Ryan Gonzalez
-  Ian Foote
-  Kristjan Valur Jonsson
-  David Lievens
-  Neil Blakey-Milner
-  Lutz Paelike
-  Lucio Torre
-  Lars Wassermann
-  Henrik Vendelbo
-  Dan Buch
-  Miguel de Val Borro
-  Artur Lisiecki
+  Yasir Suhail
   Sergey Kishchenko
-  Ignas Mikalajunas
-  Christoph Gerum
   Martin Blais
+  Lutz Paelike
+  Ian Foote
+  Philipp Rustemeuer
+  Catalin Gabriel Manciu
+  Jacob Oscarson
+  Ryan Gonzalez
+  Kristjan Valur Jonsson
+  Lucio Torre
+  Richard Lancaster
+  Dan Buch
   Lene Wagner
   Tomo Cocoa
+  David Lievens
+  Neil Blakey-Milner
+  Henrik Vendelbo
+  Lars Wassermann
+  Ignas Mikalajunas
+  Christoph Gerum
+  Miguel de Val Borro
+  Artur Lisiecki
   Toni Mattis
-  Lucas Stadler
-  roberto@goyle
-  Yury V. Zaytsev
-  Anna Katrina Dominguez
-  William Leslie
+  Laurens Van Houtven
   Bobby Impollonia
-  timo@eistee.fritz.box
+  Roberto De Ioris
+  Jeong YunWon
+  Christopher Armstrong
+  Aaron Tubbs
+  Vasantha Ganesh K
+  Jason Michalski
+  Markus Holtermann
   Andrew Thompson
   Yusei Tahara
-  Ben Darnell
-  Roberto De Ioris
-  Juan Francisco Cantero Hurtado
-  Godefroid Chappelle
-  Joshua Gilbert
-  Dan Colish
-  Christopher Armstrong
-  Michael Hudson-Doyle
-  Anders Sigfridsson
-  Yasir Suhail
-  Jason Michalski
-  rafalgalczynski@gmail.com
-  Floris Bruynooghe
-  Laurens Van Houtven
+  Ruochen Huang
+  Fabio Niephaus
   Akira Li
   Gustavo Niemeyer
-  Stephan Busemann
   Rafał Gałczyński
-  Christian Muirhead
-  Berker Peksag
-  James Lan
-  shoma hosaka
+  Logan Chien
+  Lucas Stadler
+  roberto@goyle
+  Matt Bogosian
+  Yury V. Zaytsev
+  florinpapa
+  Anders Sigfridsson
+  Nikolay Zinov
+  rafalgalczynski@gmail.com
+  Joshua Gilbert
+  Anna Katrina Dominguez
+  Kim Jin Su
+  Amber Brown
+  Nate Bragg
+  Ben Darnell
+  Juan Francisco Cantero Hurtado
+  Godefroid Chappelle
+  Julian Berman
+  Michael Hudson-Doyle
+  Floris Bruynooghe
+  Stephan Busemann
+  Dan Colish
+  timo
+  Volodymyr Vladymyrov
   Daniel Neuhäuser
-  Ben Mather
+  Flavio Percoco
   halgari
-  Boglarka Vezer
-  Chris Pressey
-  Buck Golemon
-  Konrad Delong
-  Dinu Gherman
+  Jim Baker
   Chris Lambacher
   coolbutuseless@gmail.com
-  Jim Baker
+  Mike Bayer
   Rodrigo Araújo
-  Nikolaos-Digenis Karagiannis
-  James Robert
-  Armin Ronacher
-  Brett Cannon
-  Donald Stufft
-  yrttyr
-  aliceinwire
+  Daniil Yarancev
   OlivierBlanvillain
-  Dan Sanders
-  Zooko Wilcox-O Hearn
+  Jonas Pfannschmidt
+  Zearin
+  Andrey Churin
+  Dan Crosta
+  reubano@gmail.com
+  Julien Phalip
+  Roman Podoliaka
+  Eli Stevens
+  Boglarka Vezer
+  PavloKapyshin
   Tomer Chachamu
   Christopher Groskopf
   Asmo Soinio
-  Stefan Marr
-  jiaaro
-  Mads Kiilerich
-  opassembler.py
   Antony Lee
   Jim Hunziker
-  Markus Unterwaditzer
-  Even Wiik Thomassen
-  jbs
-  squeaky
-  soareschen
-  Kurt Griffiths
-  Mike Bayer
-  Matthew Miller
-  Flavio Percoco
-  Kristoffer Kleine
-  yasirs
+  shoma hosaka
+  Buck Golemon
+  Iraklis D.
+  JohnDoe
+  yrttyr
   Michael Chermside
   Anna Ravencroft
-  Dan Crosta
-  Julien Phalip
-  Roman Podoliaka
+  remarkablerocket
+  Petre Vijiac
+  Berker Peksag
+  Christian Muirhead
+  soareschen
+  Matthew Miller
+  Konrad Delong
+  Dinu Gherman
+  pizi
+  James Robert
+  Armin Ronacher
+  Diana Popa
+  Mads Kiilerich
+  Brett Cannon
+  aliceinwire
+  Zooko Wilcox-O Hearn
+  James Lan
+  jiaaro
+  Markus Unterwaditzer
+  Kristoffer Kleine
+  Graham Markall
   Dan Loewenherz
+  werat
+  Niclas Olofsson
+  Chris Pressey
+  Tobias Diaz
+  Nikolaos-Digenis Karagiannis
+  Kurt Griffiths
+  Ben Mather
+  Donald Stufft
+  Dan Sanders
+  Jason Madden
+  Yaroslav Fedevych
+  Even Wiik Thomassen
+  Stefan Marr
 
   Heinrich-Heine University, Germany 
   Open End AB (formerly AB Strakt), Sweden
@@ -343,8 +406,7 @@ License for 'lib-python/2.7'
 Except when otherwise stated (look for LICENSE files or copyright/license
 information at the beginning of each file) the files in the 'lib-python/2.7'
 directory are all copyrighted by the Python Software Foundation and licensed
-under the Python Software License of which you can find a copy here:
-http://www.python.org/doc/Copyright.html 
+under the terms that you can find here: https://docs.python.org/2/license.html
 
 License for 'pypy/module/unicodedata/'
 ======================================
@@ -420,3 +482,10 @@ The gdbm module includes code from gdbm.h, which is distributed under
 the terms of the GPL license version 2 or any later version.  Thus the
 gdbm module, provided in the file lib_pypy/gdbm.py, is redistributed
 under the terms of the GPL license as well.
+
+License for 'rpython/rlib/rvmprof/src'
+--------------------------------------
+
+The code is based on gperftools. You may see a copy of the License for it at
+
+    https://github.com/gperftools/gperftools/blob/master/COPYING

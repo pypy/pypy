@@ -4,7 +4,7 @@ class AppTestBuffer:
     def test_init(self):
         import sys
         class A(object):
-            def __buffer__(self):
+            def __buffer__(self, flags):
                 return buffer('123')
         if '__pypy__' not in sys.builtin_module_names:
             raises(TypeError, buffer, A())
@@ -199,7 +199,9 @@ class AppTestBuffer:
         raises(TypeError, "buf[MyInt(0):MyInt(5)]")
 
     def test_pypy_raw_address_base(self):
-        raises(ValueError, buffer("foobar")._pypy_raw_address)
-        raises(ValueError, buffer(u"foobar")._pypy_raw_address)
-        e = raises(ValueError, buffer(bytearray("foobar"))._pypy_raw_address)
-        assert 'BytearrayBuffer' in str(e.value)
+        a = buffer("foobar")._pypy_raw_address()
+        assert a != 0
+        b = buffer(u"foobar")._pypy_raw_address()
+        assert b != 0
+        c = buffer(bytearray("foobar"))._pypy_raw_address()
+        assert c != 0

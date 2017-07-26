@@ -4,6 +4,7 @@ import sys
 
 from rpython.rlib import rarithmetic, rfloat
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
+from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN, copysign,
@@ -121,10 +122,11 @@ def make_compare_func(opname):
         if space.isinstance_w(w_other, space.w_int):
             f1 = self.floatval
             i2 = space.int_w(w_other)
-            f2 = float(i2)
-            if LONG_BIT > 32 and int(f2) != i2:
+            # (double-)floats have always at least 48 bits of precision
+            if LONG_BIT > 32 and not int_between(-1, i2 >> 48, 1):
                 res = do_compare_bigint(f1, rbigint.fromint(i2))
             else:
+                f2 = float(i2)
                 res = op(f1, f2)
             return space.newbool(res)
         if space.isinstance_w(w_other, space.w_long):
@@ -158,15 +160,11 @@ class W_FloatObject(W_Root):
         return self.floatval
 
     def int(self, space):
+        # this is a speed-up only, for space.int(w_float).
         if (type(self) is not W_FloatObject and
             space.is_overloaded(self, space.w_float, '__int__')):
             return W_Root.int(self, space)
-        try:
-            value = ovfcheck_float_to_int(self.floatval)
-        except OverflowError:
-            return space.long(self)
-        else:
-            return space.newint(value)
+        return self.descr_trunc(space)
 
     def is_w(self, space, w_other):
         from rpython.rlib.longlong2float import float2longlong
@@ -183,9 +181,10 @@ class W_FloatObject(W_Root):
             return None
         from rpython.rlib.longlong2float import float2longlong
         from pypy.objspace.std.util import IDTAG_FLOAT as tag
+        from pypy.objspace.std.util import IDTAG_SHIFT
         val = float2longlong(space.float_w(self))
         b = rbigint.fromrarith_int(val)
-        b = b.lshift(3).or_(rbigint.fromint(tag))
+        b = b.lshift(IDTAG_SHIFT).int_or_(tag)
         return space.newlong_from_rbigint(b)
 
     def __repr__(self):
@@ -225,16 +224,16 @@ class W_FloatObject(W_Root):
         return w_obj
 
     @staticmethod
-    @unwrap_spec(kind=str)
+    @unwrap_spec(kind='text')
     def descr___getformat__(space, w_cls, kind):
         if kind == "float":
-            return space.wrap(_float_format)
+            return space.newtext(_float_format)
         elif kind == "double":
-            return space.wrap(_double_format)
+            return space.newtext(_double_format)
         raise oefmt(space.w_ValueError, "only float and double are valid")
 
     @staticmethod
-    @unwrap_spec(s=str)
+    @unwrap_spec(s='text')
     def descr_fromhex(space, w_cls, s):
         length = len(s)
         i = 0
@@ -373,7 +372,7 @@ class W_FloatObject(W_Root):
             i += 1
         if i != length:
             raise oefmt(space.w_ValueError, "invalid hex string")
-        w_float = space.wrap(sign * value)
+        w_float = space.newfloat(sign * value)
         return space.call_function(w_cls, w_float)
 
     def _to_float(self, space, w_obj):
@@ -385,13 +384,15 @@ class W_FloatObject(W_Root):
             return W_FloatObject(space.float_w(w_obj))
 
     def descr_repr(self, space):
-        return space.wrap(float2string(self.floatval, 'r', 0))
+        return space.newtext(float2string(self.floatval, 'r', 0))
 
     def descr_str(self, space):
-        return space.wrap(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
+        return space.newtext(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
 
     def descr_hash(self, space):
-        return space.wrap(_hash_float(space, self.floatval))
+        h = _hash_float(space, self.floatval)
+        h -= (h == -1)
+        return space.newint(h)
 
     def descr_format(self, space, w_spec):
         return newformat.run_formatter(space, w_spec, "format_float", self)
@@ -422,9 +423,8 @@ class W_FloatObject(W_Root):
                         "cannot convert float NaN to integer")
 
     def descr_trunc(self, space):
-        whole = math.modf(self.floatval)[1]
         try:
-            value = ovfcheck_float_to_int(whole)
+            value = ovfcheck_float_to_int(self.floatval)
         except OverflowError:
             return self.descr_long(space)
         else:
@@ -584,7 +584,7 @@ class W_FloatObject(W_Root):
         return space.float(self)
 
     def descr_get_imag(self, space):
-        return space.wrap(0.0)
+        return space.newfloat(0.0)
 
     def descr_conjugate(self, space):
         return space.float(self)
@@ -593,7 +593,7 @@ class W_FloatObject(W_Root):
         v = self.floatval
         if not rfloat.isfinite(v):
             return space.w_False
-        return space.wrap(math.floor(v) == v)
+        return space.newbool(math.floor(v) == v)
 
     def descr_as_integer_ratio(self, space):
         value = self.floatval
@@ -618,9 +618,9 @@ class W_FloatObject(W_Root):
             return self.descr_str(space)
         if value == 0.0:
             if copysign(1., value) == -1.:
-                return space.wrap("-0x0.0p+0")
+                return space.newtext("-0x0.0p+0")
             else:
-                return space.wrap("0x0.0p+0")
+                return space.newtext("0x0.0p+0")
         mant, exp = math.frexp(value)
         shift = 1 - max(rfloat.DBL_MIN_EXP - exp, 0)
         mant = math.ldexp(mant, shift)
@@ -641,9 +641,9 @@ class W_FloatObject(W_Root):
         exp = abs(exp)
         s = ''.join(result)
         if value < 0.0:
-            return space.wrap("-0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("-0x%sp%s%d" % (s, sign, exp))
         else:
-            return space.wrap("0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("0x%sp%s%d" % (s, sign, exp))
 
 
 W_FloatObject.typedef = TypeDef("float",
@@ -659,7 +659,7 @@ Convert a string or number to a floating point number, if possible.''',
     __format__ = interp2app(W_FloatObject.descr_format),
     __coerce__ = interp2app(W_FloatObject.descr_coerce),
     __nonzero__ = interp2app(W_FloatObject.descr_nonzero),
-    __int__ = interp2app(W_FloatObject.int),
+    __int__ = interp2app(W_FloatObject.descr_trunc),
     __float__ = interp2app(W_FloatObject.descr_float),
     __long__ = interp2app(W_FloatObject.descr_long),
     __trunc__ = interp2app(W_FloatObject.descr_trunc),

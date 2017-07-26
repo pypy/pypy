@@ -134,7 +134,8 @@ class TraceWithIds(Function):
 
     def _ops_for_chunk(self, chunk, include_guard_not_invalidated):
         for op in chunk.operations:
-            if op.name != 'debug_merge_point' and \
+            if op.name not in ('debug_merge_point', 'enter_portal_frame',
+                               'leave_portal_frame') and \
                 (op.name != 'guard_not_invalidated' or include_guard_not_invalidated):
                 yield op
 
@@ -325,7 +326,7 @@ class OpMatcher(object):
         # to repeat it every time
         ticker_check = """
             guard_not_invalidated?
-            ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker0, 0)
             guard_false(ticker_cond0, descr=...)
         """
@@ -334,7 +335,7 @@ class OpMatcher(object):
         # this is the ticker check generated if we have threads
         thread_ticker_check = """
             guard_not_invalidated?
-            ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker1 = int_sub(ticker0, #)
             setfield_raw(#, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker1, 0)
@@ -344,7 +345,7 @@ class OpMatcher(object):
         #
         # this is the ticker check generated in PyFrame.handle_operation_error
         exc_ticker_check = """
-            ticker2 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker2 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond1 = int_lt(ticker2, 0)
             guard_false(ticker_cond1, descr=...)
         """
@@ -449,6 +450,9 @@ class OpMatcher(object):
             if self.try_match(op, until_op):
                 # it matched! The '...' operator ends here
                 return op
+            self._assert(op != '--end--',
+                         'nothing in the end of the loop matches %r' %
+                          (until_op,))
 
     def match_any_order(self, iter_exp_ops, iter_ops, ignore_ops):
         exp_ops = []
@@ -503,7 +507,7 @@ class OpMatcher(object):
                     #else: optional operation
                     iter_ops.revert_one()
                     continue       # try to match with the next exp_op
-            except InvalidMatch, e:
+            except InvalidMatch as e:
                 e.opindex = iter_ops.index - 1
                 raise
 
@@ -521,7 +525,7 @@ class OpMatcher(object):
         expected_ops = self.parse_ops(expected_src)
         try:
             self.match_loop(expected_ops, ignore_ops)
-        except InvalidMatch, e:
+        except InvalidMatch as e:
             print '@' * 40
             print "Loops don't match"
             print "================="

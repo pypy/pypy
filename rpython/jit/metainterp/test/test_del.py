@@ -22,7 +22,7 @@ class DelTests:
                 n -= 1
             return 42
         self.meta_interp(f, [20])
-        self.check_resops({'call': 4,      # calls to a helper function
+        self.check_resops({'call_r': 4,      # calls to a helper function
                            'guard_no_exception': 4,    # follows the calls
                            'int_sub': 2,
                            'int_gt': 2,
@@ -80,7 +80,7 @@ class DelTests:
             return 1
         res = self.meta_interp(f, [20], enable_opts='')
         assert res == 1
-        self.check_resops(call=1)   # for the case B(), but not for the case A()
+        self.check_resops(call_r=1)   # for the case B(), but not for the case A()
 
     def test_keepalive(self):
         py.test.skip("XXX fails")   # hum, I think the test itself is broken

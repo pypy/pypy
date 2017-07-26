@@ -1,6 +1,7 @@
 from rpython.jit.metainterp.history import *
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.rfloat import NAN, INFINITY
+from rpython.jit.metainterp.resoperation import InputArgInt
 from rpython.jit.codewriter import longlong
 from rpython.translator.c.test.test_standalone import StandaloneTests
 
@@ -12,18 +13,6 @@ def test_repr():
     s = lltype.cast_pointer(lltype.Ptr(S), t)
     const = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))
     assert const._getrepr_() == "*T"
-
-def test_repr_ll2ctypes():
-    ptr = lltype.malloc(rffi.VOIDPP.TO, 10, flavor='raw')
-    # force it to be a ll2ctypes object
-    ptr = rffi.cast(rffi.VOIDPP, rffi.cast(rffi.LONG, ptr))
-    adr = llmemory.cast_ptr_to_adr(ptr)
-    lltype.free(ptr, flavor='raw')
-    intval = llmemory.cast_adr_to_int(adr, 'symbolic')
-    box = BoxInt(intval)
-    s = box.repr_rpython()
-    assert s.startswith('12345/') # the arbitrary hash value used by
-                                  # make_hashable_int
 
 def test_same_constant():
     c1a = ConstInt(0)
@@ -73,6 +62,13 @@ def test_float_nonnull():
     assert c5.nonnull()
     assert c6.nonnull()
 
+def test_frontendop():
+    f = FrontendOp(42)
+    assert f.get_position() == 42
+    f = FrontendOp(-56)
+    assert f.get_position() == -56
+    f.set_position(6519)
+    assert f.get_position() == 6519
 
 class TestZTranslated(StandaloneTests):
     def test_ztranslated_same_constant_float(self):

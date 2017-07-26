@@ -66,15 +66,15 @@ CertFreeCRLContext = external(
 
 def w_certEncodingType(space, encodingType):
     if encodingType == X509_ASN_ENCODING:
-        return space.wrap("x509_asn")
+        return space.newtext("x509_asn")
     elif encodingType == PKCS_7_ASN_ENCODING:
-        return space.wrap("pkcs_7_asn")
+        return space.newtext("pkcs_7_asn")
     else:
-        return space.wrap(encodingType)
+        return space.newint(encodingType)
 
 def w_parseKeyUsage(space, pCertCtx, flags):
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as size_ptr:
-        if not CertGetEnhancedKeyUsage(pCertCtx, flags, 
+        if not CertGetEnhancedKeyUsage(pCertCtx, flags,
                              lltype.nullptr(CERT_ENHKEY_USAGE), size_ptr):
             last_error = rwin32.lastSavedWindowsError()
             if last_error.winerror == CRYPT_E_NOT_FOUND:
@@ -95,11 +95,11 @@ def w_parseKeyUsage(space, pCertCtx, flags):
             for i in range(usage.c_cUsageIdentifier):
                 if not usage.c_rgpszUsageIdentifier[i]:
                     continue
-                result_w[i] = space.wrap(rffi.charp2str(
+                result_w[i] = space.newtext(rffi.charp2str(
                     usage.c_rgpszUsageIdentifier[i]))
             return space.newset(result_w)
 
-@unwrap_spec(store_name=str)
+@unwrap_spec(store_name='text')
 def enum_certificates_w(space, store_name):
     """enum_certificates(store_name) -> []
 
@@ -120,7 +120,7 @@ def enum_certificates_w(space, store_name):
             pCertCtx = CertEnumCertificatesInStore(hStore, pCertCtx)
             if not pCertCtx:
                 break
-            w_cert = space.wrapbytes(
+            w_cert = space.newbytes(
                 rffi.charpsize2str(pCertCtx.c_pbCertEncoded,
                                    intmask(pCertCtx.c_cbCertEncoded)))
             w_enc = w_certEncodingType(space, pCertCtx.c_dwCertEncodingType)
@@ -142,7 +142,7 @@ def enum_certificates_w(space, store_name):
 
     return space.newlist(result_w)
 
-@unwrap_spec(store_name=str)
+@unwrap_spec(store_name='text')
 def enum_crls_w(space, store_name):
     """enum_crls(store_name) -> []
 
@@ -162,7 +162,7 @@ def enum_crls_w(space, store_name):
             pCrlCtx = CertEnumCRLsInStore(hStore, pCrlCtx)
             if not pCrlCtx:
                 break
-            w_crl = space.wrapbytes(
+            w_crl = space.newbytes(
                 rffi.charpsize2str(pCrlCtx.c_pbCrlEncoded,
                                    intmask(pCrlCtx.c_cbCrlEncoded)))
             w_enc = w_certEncodingType(space, pCrlCtx.c_dwCertEncodingType)

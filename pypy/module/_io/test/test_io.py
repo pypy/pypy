@@ -56,7 +56,7 @@ class AppTestIoModule:
         import _io
         try:
             raise _io.BlockingIOError(42, "test blocking", 123)
-        except IOError, e:
+        except IOError as e:
             assert isinstance(e, _io.BlockingIOError)
             assert e.errno == 42
             assert e.strerror == "test blocking"
@@ -88,7 +88,6 @@ class AppTestIoModule:
         class MyIO(io.IOBase):
             def __del__(self):
                 record.append(1)
-                super(MyIO, self).__del__()
             def close(self):
                 record.append(2)
                 super(MyIO, self).close()
@@ -391,3 +390,57 @@ class AppTestOpen:
             f.seek(1, 0)
             f.read(buffer_size * 2)
             assert f.tell() == 1 + buffer_size * 2
+
+
+class AppTestIoAferClose:
+    spaceconfig = dict(usemodules=['_io'])
+
+    def setup_class(cls):
+        tmpfile = udir.join('tmpfile').ensure()
+        cls.w_tmpfile = cls.space.wrap(str(tmpfile))
+
+    def test_io_after_close(self):
+        import _io
+        for kwargs in [
+                {"mode": "w"},
+                {"mode": "wb"},
+                {"mode": "w", "buffering": 1},
+                {"mode": "w", "buffering": 2},
+                {"mode": "wb", "buffering": 0},
+                {"mode": "r"},
+                {"mode": "rb"},
+                {"mode": "r", "buffering": 1},
+                {"mode": "r", "buffering": 2},
+                {"mode": "rb", "buffering": 0},
+                {"mode": "w+"},
+                {"mode": "w+b"},
+                {"mode": "w+", "buffering": 1},
+                {"mode": "w+", "buffering": 2},
+                {"mode": "w+b", "buffering": 0},
+            ]:
+            print kwargs
+            if "b" not in kwargs["mode"]:
+                kwargs["encoding"] = "ascii"
+            f = _io.open(self.tmpfile, **kwargs)
+            f.close()
+            raises(ValueError, f.flush)
+            raises(ValueError, f.fileno)
+            raises(ValueError, f.isatty)
+            raises(ValueError, f.__iter__)
+            if hasattr(f, "peek"):
+                raises(ValueError, f.peek, 1)
+            raises(ValueError, f.read)
+            if hasattr(f, "read1"):
+                raises(ValueError, f.read1, 1024)
+            if hasattr(f, "readall"):
+                raises(ValueError, f.readall)
+            if hasattr(f, "readinto"):
+                raises(ValueError, f.readinto, bytearray(1024))
+            raises(ValueError, f.readline)
+            raises(ValueError, f.readlines)
+            raises(ValueError, f.seek, 0)
+            raises(ValueError, f.tell)
+            raises(ValueError, f.truncate)
+            raises(ValueError, f.write, b"" if "b" in kwargs['mode'] else u"")
+            raises(ValueError, f.writelines, [])
+            raises(ValueError, next, f)

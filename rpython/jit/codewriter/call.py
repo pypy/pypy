@@ -9,11 +9,12 @@ from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
     EffectInfo, CallInfoCollection)
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rlib import rposix
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.graphanalyze import DependencyTracker
+from rpython.translator.backendopt.collectanalyze import CollectAnalyzer
 
 
 class CallControl(object):
@@ -31,13 +32,15 @@ class CallControl(object):
             self.rtyper = cpu.rtyper
             translator = self.rtyper.annotator.translator
             self.raise_analyzer = RaiseAnalyzer(translator)
+            self.raise_analyzer_ignore_memoryerror = RaiseAnalyzer(translator)
+            self.raise_analyzer_ignore_memoryerror.do_ignore_memory_error()
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
             self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
             self.randomeffects_analyzer = RandomEffectsAnalyzer(translator)
-            self.seen = DependencyTracker(self.readwrite_analyzer)
-        else:
-            self.seen = None
+            self.collect_analyzer = CollectAnalyzer(translator)
+            self.seen_rw = DependencyTracker(self.readwrite_analyzer)
+            self.seen_gc = DependencyTracker(self.collect_analyzer)
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
@@ -141,7 +144,7 @@ class CallControl(object):
     def grab_initial_jitcodes(self):
         for jd in self.jitdrivers_sd:
             jd.mainjitcode = self.get_jitcode(jd.portal_graph)
-            jd.mainjitcode.is_portal = True
+            jd.mainjitcode.jitdriver_sd = jd
 
     def enum_pending_graphs(self):
         while self.unfinished_graphs:
@@ -176,7 +179,6 @@ class CallControl(object):
         """
         fnptr = getfunctionptr(graph)
         FUNC = lltype.typeOf(fnptr).TO
-        assert self.rtyper.type_system.name == "lltypesystem"
         fnaddr = llmemory.cast_ptr_to_adr(fnptr)
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
         calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS),
@@ -200,12 +202,12 @@ class CallControl(object):
         ARGS = FUNC.ARGS
         if NON_VOID_ARGS != [T for T in ARGS if T is not lltype.Void]:
             raise Exception(
-                "in operation %r: caling a function with signature %r, "
+                "in operation %r: calling a function with signature %r, "
                 "but passing actual arguments (ignoring voids) of types %r"
                 % (op, FUNC, NON_VOID_ARGS))
         if RESULT != FUNC.RESULT:
             raise Exception(
-                "in operation %r: caling a function with signature %r, "
+                "in operation %r: calling a function with signature %r, "
                 "but the actual return type is %r" % (op, FUNC, RESULT))
         # ok
         # get the 'elidable' and 'loopinvariant' flags from the function object
@@ -260,11 +262,14 @@ class CallControl(object):
             elif loopinvariant:
                 extraeffect = EffectInfo.EF_LOOPINVARIANT
             elif elidable:
-                if self._canraise(op):
+                cr = self._canraise(op)
+                if cr == "mem":
+                    extraeffect = EffectInfo.EF_ELIDABLE_OR_MEMORYERROR
+                elif cr:
                     extraeffect = EffectInfo.EF_ELIDABLE_CAN_RAISE
                 else:
                     extraeffect = EffectInfo.EF_ELIDABLE_CANNOT_RAISE
-            elif self._canraise(op):
+            elif self._canraise(op):   # True or "mem"
                 extraeffect = EffectInfo.EF_CAN_RAISE
             else:
                 extraeffect = EffectInfo.EF_CANNOT_RAISE
@@ -278,21 +283,27 @@ class CallControl(object):
                 " effects): EF=%s" % (op, extraeffect))
         if elidable:
             if extraeffect not in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                                   EffectInfo.EF_ELIDABLE_OR_MEMORYERROR,
                                    EffectInfo.EF_ELIDABLE_CAN_RAISE):
                 raise Exception(
-                "in operation %r: this calls an _elidable_function_,"
+                "in operation %r: this calls an elidable function,"
                 " but this contradicts other sources (e.g. it can have random"
                 " effects): EF=%s" % (op, extraeffect))
+            elif RESULT is lltype.Void:
+                raise Exception(
+                    "in operation %r: this calls an elidable function "
+                    "but the function has no result" % (op, ))
         #
         effectinfo = effectinfo_from_writeanalyze(
-            self.readwrite_analyzer.analyze(op, self.seen), self.cpu,
+            self.readwrite_analyzer.analyze(op, self.seen_rw), self.cpu,
             extraeffect, oopspecindex, can_invalidate, call_release_gil_target,
-            extradescr,
+            extradescr, self.collect_analyzer.analyze(op, self.seen_gc),
         )
         #
         assert effectinfo is not None
         if elidable or loopinvariant:
-            assert extraeffect != EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            assert (effectinfo.extraeffect <
+                    EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
             # XXX this should also say assert not can_invalidate, but
             #     it can't because our analyzer is not good enough for now
             #     (and getexecutioncontext() can't really invalidate)
@@ -301,10 +312,17 @@ class CallControl(object):
                                     effectinfo)
 
     def _canraise(self, op):
+        """Returns True, False, or "mem" to mean 'only MemoryError'."""
         if op.opname == 'pseudo_call_cannot_raise':
             return False
         try:
-            return self.raise_analyzer.can_raise(op)
+            if self.raise_analyzer.can_raise(op):
+                if self.raise_analyzer_ignore_memoryerror.can_raise(op):
+                    return True
+                else:
+                    return "mem"
+            else:
+                return False
         except lltype.DelayedPointer:
             return True  # if we need to look into the delayed ptr that is
                          # the portal, then it's certainly going to raise

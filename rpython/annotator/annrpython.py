@@ -1,29 +1,30 @@
 from __future__ import absolute_import
 
 import types
+from collections import defaultdict
+from contextlib import contextmanager
 
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
                              gather_error, source_lines)
-from rpython.flowspace.model import (
-    Variable, Constant, FunctionGraph, checkgraph)
+from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
-from rpython.annotator.argument import simple_args
+from rpython.annotator.model import (
+    typeof, s_ImpossibleValue, SomeInstance, intersection, difference)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 
-import py
-log = py.log.Producer("annrpython")
-py.log.setconsumer("annrpython", ansi_log)
+log = AnsiLogger("annrpython")
 
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.
     See description in doc/translation.txt."""
 
-    def __init__(self, translator=None, policy=None, bookkeeper=None):
+    def __init__(self, translator=None, policy=None, bookkeeper=None,
+            keepgoing=False):
         import rpython.rtyper.extfuncregistry # has side effects
 
         if translator is None:
@@ -51,6 +52,9 @@ class RPythonAnnotator(object):
         if bookkeeper is None:
             bookkeeper = Bookkeeper(self)
         self.bookkeeper = bookkeeper
+        self.keepgoing = keepgoing
+        self.failed_blocks = set()
+        self.errors = []
 
     def __getstate__(self):
         attrs = """translator pendingblocks annotated links_followed
@@ -80,33 +84,17 @@ class RPythonAnnotator(object):
         annmodel.TLS.check_str_without_nul = (
             self.translator.config.translation.check_str_without_nul)
 
-        flowgraph, inputcells = self.get_call_parameters(function, args_s, policy)
-        if not isinstance(flowgraph, FunctionGraph):
-            assert isinstance(flowgraph, annmodel.SomeObject)
-            return flowgraph
+        with self.using_policy(policy):
+            flowgraph, inputs_s = self.get_call_parameters(function, args_s)
 
         if main_entry_point:
             self.translator.entry_point_graph = flowgraph
-        return self.build_graph_types(flowgraph, inputcells, complete_now=complete_now)
+        return self.build_graph_types(flowgraph, inputs_s, complete_now=complete_now)
 
-    def get_call_parameters(self, function, args_s, policy):
-        desc = self.bookkeeper.getdesc(function)
-        args = simple_args(args_s)
-        result = []
-        def schedule(graph, inputcells):
-            result.append((graph, inputcells))
-            return annmodel.s_ImpossibleValue
-
-        prevpolicy = self.policy
-        self.policy = policy
-        self.bookkeeper.enter(None)
-        try:
-            desc.pycall(schedule, args, annmodel.s_ImpossibleValue)
-        finally:
-            self.bookkeeper.leave()
-            self.policy = prevpolicy
-        [(graph, inputcells)] = result
-        return graph, inputcells
+    def get_call_parameters(self, function, args_s):
+        with self.bookkeeper.at_position(None):
+            desc = self.bookkeeper.getdesc(function)
+            return desc.get_call_parameters(args_s)
 
     def annotate_helper(self, function, args_s, policy=None):
         if policy is None:
@@ -115,21 +103,29 @@ class RPythonAnnotator(object):
             # XXX hack
             annmodel.TLS.check_str_without_nul = (
                 self.translator.config.translation.check_str_without_nul)
-        graph, inputcells = self.get_call_parameters(function, args_s, policy)
-        self.build_graph_types(graph, inputcells, complete_now=False)
-        self.complete_helpers(policy)
+        with self.using_policy(policy):
+            graph, inputcells = self.get_call_parameters(function, args_s)
+            self.build_graph_types(graph, inputcells, complete_now=False)
+            self.complete_helpers()
         return graph
 
-    def complete_helpers(self, policy):
-        saved = self.policy, self.added_blocks
-        self.policy = policy
+    def complete_helpers(self):
+        saved = self.added_blocks
+        self.added_blocks = {}
         try:
-            self.added_blocks = {}
             self.complete()
             # invoke annotation simplifications for the new blocks
             self.simplify(block_subset=self.added_blocks)
         finally:
-            self.policy, self.added_blocks = saved
+            self.added_blocks = saved
+
+    @contextmanager
+    def using_policy(self, policy):
+        """A context manager that temporarily replaces the annotator policy"""
+        old_policy = self.policy
+        self.policy = policy
+        yield
+        self.policy = old_policy
 
     def build_graph_types(self, flowgraph, inputcells, complete_now=True):
         checkgraph(flowgraph)
@@ -176,8 +172,15 @@ class RPythonAnnotator(object):
             # annotations that are passed in, and don't annotate the old
             # graph -- it's already low-level operations!
             for a, s_newarg in zip(block.inputargs, cells):
-                s_oldarg = self.binding(a)
-                assert annmodel.unionof(s_oldarg, s_newarg) == s_oldarg
+                s_oldarg = a.annotation
+                # XXX: Should use s_oldarg.contains(s_newarg) but that breaks
+                # PyPy translation
+                if annmodel.unionof(s_oldarg, s_newarg) != s_oldarg:
+                    raise annmodel.AnnotatorError(
+                        "Late-stage annotation is not allowed to modify the "
+                        "existing annotation for variable %s: %s" %
+                            (a, s_oldarg))
+
         else:
             assert not self.frozen
             if block not in self.annotated:
@@ -207,6 +210,12 @@ class RPythonAnnotator(object):
         else:
             newgraphs = self.translator.graphs  #all of them
             got_blocked_blocks = False in self.annotated.values()
+        if self.failed_blocks:
+            text = ('Annotation failed, %s errors were recorded:' %
+                    len(self.errors))
+            text += '\n-----'.join(str(e) for e in self.errors)
+            raise annmodel.AnnotatorError(text)
+
         if got_blocked_blocks:
             for graph in self.blocked_graphs.values():
                 self.blocked_graphs[graph] = True
@@ -221,9 +230,13 @@ class RPythonAnnotator(object):
         for graph in newgraphs:
             v = graph.getreturnvar()
             if v.annotation is None:
-                self.setbinding(v, annmodel.s_ImpossibleValue)
-        # policy-dependent computation
-        self.bookkeeper.compute_at_fixpoint()
+                self.setbinding(v, s_ImpossibleValue)
+            v = graph.exceptblock.inputargs[1]
+            if v.annotation is not None and v.annotation.can_be_none():
+                raise annmodel.AnnotatorError(
+                    "%r is found by annotation to possibly raise None, "
+                    "but the None was not suppressed by the flow space" %
+                        (graph,))
 
     def validate(self):
         """Check that the annotation results are valid"""
@@ -251,7 +264,10 @@ class RPythonAnnotator(object):
     def setbinding(self, arg, s_value):
         s_old = arg.annotation
         if s_old is not None:
-            assert s_value.contains(s_old)
+            if not s_value.contains(s_old):
+                log.WARNING("%s does not contain %s" % (s_value, s_old))
+                log.WARNING("%s" % annmodel.union(s_value, s_old))
+                assert False
         arg.annotation = s_value
 
     def warning(self, msg, pos=None):
@@ -295,12 +311,24 @@ class RPythonAnnotator(object):
         except KeyError:
             # the function didn't reach any return statement so far.
             # (some functions actually never do, they always raise exceptions)
-            return annmodel.s_ImpossibleValue
+            return s_ImpossibleValue
 
     def reflowfromposition(self, position_key):
         graph, block, index = position_key
         self.reflowpendingblock(graph, block)
 
+    def call_sites(self):
+        newblocks = self.added_blocks
+        if newblocks is None:
+            newblocks = self.annotated  # all of them
+        for block in newblocks:
+            for op in block.operations:
+                if op.opname in ('simple_call', 'call_args'):
+                    yield op
+
+                # some blocks are partially annotated
+                if op.result.annotation is None:
+                    break   # ignore the unannotated part
 
     #___ simplification (should be moved elsewhere?) _______
 
@@ -318,6 +346,7 @@ class RPythonAnnotator(object):
                     graphs[graph] = True
         for graph in graphs:
             simplify.eliminate_empty_blocks(graph)
+        self.bookkeeper.compute_at_fixpoint()
         if block_subset is None:
             perform_normalizations(self)
 
@@ -339,14 +368,16 @@ class RPythonAnnotator(object):
 
         #print '* processblock', block, cells
         self.annotated[block] = graph
+        if block in self.failed_blocks:
+            return
         if block in self.blocked_blocks:
             del self.blocked_blocks[block]
         try:
             self.flowin(graph, block)
-        except BlockedInference, e:
+        except BlockedInference as e:
             self.annotated[block] = False   # failed, hopefully temporarily
             self.blocked_blocks[block] = (graph, e.opindex)
-        except Exception, e:
+        except Exception as e:
             # hack for debug tools only
             if not hasattr(e, '__annotator_block'):
                 setattr(e, '__annotator_block', block)
@@ -380,13 +411,45 @@ class RPythonAnnotator(object):
         oldcells = [self.binding(a) for a in block.inputargs]
         try:
             unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
-        except annmodel.UnionError, e:
+        except annmodel.UnionError as e:
             # Add source code to the UnionError
             e.source = '\n'.join(source_lines(graph, block, None, long=True))
+            if self.keepgoing:
+                self.errors.append(e)
+                self.failed_blocks.add(block)
+                return
             raise
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
             self.bindinputargs(graph, block, unions)
+
+    def apply_renaming(self, s_out, renaming):
+        if hasattr(s_out, 'is_type_of'):
+            renamed_is_type_of = []
+            for v in s_out.is_type_of:
+                renamed_is_type_of += renaming[v]
+            assert s_out.knowntype is type
+            newcell = typeof(renamed_is_type_of)
+            if s_out.is_constant():
+                newcell.const = s_out.const
+            s_out = newcell
+
+        if hasattr(s_out, 'knowntypedata'):
+            renamed_knowntypedata = {}
+            for value, constraints in s_out.knowntypedata.items():
+                renamed_knowntypedata[value] = {}
+                for v, s in constraints.items():
+                    new_vs = renaming.get(v, [])
+                    for new_v in new_vs:
+                        renamed_knowntypedata[value][new_v] = s
+            assert isinstance(s_out, annmodel.SomeBool)
+            newcell = annmodel.SomeBool()
+            if s_out.is_constant():
+                newcell.const = s_out.const
+            s_out = newcell
+            s_out.set_knowntypedata(renamed_knowntypedata)
+        return s_out
+
 
     def whereami(self, position_key):
         graph, block, i = position_key
@@ -405,8 +468,7 @@ class RPythonAnnotator(object):
             i = 0
             while i < len(block.operations):
                 op = block.operations[i]
-                self.bookkeeper.enter((graph, block, i))
-                try:
+                with self.bookkeeper.at_position((graph, block, i)):
                     new_ops = op.transform(self)
                     if new_ops is not None:
                         block.operations[i:i+1] = new_ops
@@ -415,8 +477,6 @@ class RPythonAnnotator(object):
                         new_ops[-1].result = op.result
                         op = new_ops[0]
                     self.consider_op(op)
-                finally:
-                    self.bookkeeper.leave()
                 i += 1
 
         except BlockedInference as e:
@@ -448,6 +508,10 @@ class RPythonAnnotator(object):
 
         except annmodel.AnnotatorError as e: # note that UnionError is a subclass
             e.source = gather_error(self, graph, block, i)
+            if self.keepgoing:
+                self.errors.append(e)
+                self.failed_blocks.add(block)
+                return
             raise
 
         else:
@@ -460,33 +524,31 @@ class RPythonAnnotator(object):
                     exits = [link for link in exits
                                   if link.exitcase == s_exitswitch.const]
 
-        # filter out those exceptions which cannot
-        # occour for this specific, typed operation.
         if block.canraise:
             op = block.raising_op
-            can_only_throw = op.get_can_only_throw(self)
-            if can_only_throw is not None:
-                candidates = can_only_throw
-                candidate_exits = exits
-                exits = []
-                for link in candidate_exits:
-                    case = link.exitcase
-                    if case is None:
-                        exits.append(link)
-                        continue
-                    covered = [c for c in candidates if issubclass(c, case)]
-                    if covered:
-                        exits.append(link)
-                        candidates = [c for c in candidates if c not in covered]
+            s_exception = self.get_exception(op)
+            for link in exits:
+                case = link.exitcase
+                if case is None:
+                    self.follow_link(graph, link, {})
+                    continue
+                if s_exception == s_ImpossibleValue:
+                    break
+                s_case = SomeInstance(self.bookkeeper.getuniqueclassdef(case))
+                s_matching_exc = intersection(s_exception, s_case)
+                if s_matching_exc != s_ImpossibleValue:
+                    self.follow_raise_link(graph, link, s_matching_exc)
+                s_exception = difference(s_exception, s_case)
+        else:
+            if isinstance(block.exitswitch, Variable):
+                knowntypedata = getattr(
+                    block.exitswitch.annotation, "knowntypedata", {})
+            else:
+                knowntypedata = {}
+            for link in exits:
+                constraints = knowntypedata.get(link.exitcase, {})
+                self.follow_link(graph, link, constraints)
 
-        # mapping (exitcase, variable) -> s_annotation
-        # that can be attached to booleans, exitswitches
-        knowntypedata = {}
-        if isinstance(block.exitswitch, Variable):
-            knowntypedata = getattr(self.binding(block.exitswitch),
-                                    "knowntypedata", {})
-        for link in exits:
-            self.follow_link(graph, link, knowntypedata)
         if block in self.notify:
             # reflow from certain positions when this block is done
             for callback in self.notify[block]:
@@ -495,84 +557,66 @@ class RPythonAnnotator(object):
                 else:
                     callback()
 
-    def follow_link(self, graph, link, knowntypedata):
-        in_except_block = False
-        v_last_exc_type = link.last_exception  # may be None for non-exception link
-        v_last_exc_value = link.last_exc_value  # may be None for non-exception link
 
-        if (isinstance(link.exitcase, (types.ClassType, type)) and
-                issubclass(link.exitcase, BaseException)):
-            assert v_last_exc_type and v_last_exc_value
-            s_last_exc_value = self.bookkeeper.valueoftype(link.exitcase)
-            s_last_exc_type = annmodel.SomeType()
-            if isinstance(v_last_exc_type, Constant):
-                s_last_exc_type.const = v_last_exc_type.value
-            s_last_exc_type.is_type_of = [v_last_exc_value]
-
-            if isinstance(v_last_exc_type, Variable):
-                self.setbinding(v_last_exc_type, s_last_exc_type)
-            if isinstance(v_last_exc_value, Variable):
-                self.setbinding(v_last_exc_value, s_last_exc_value)
-
-            s_last_exc_type = annmodel.SomeType()
-            if isinstance(v_last_exc_type, Constant):
-                s_last_exc_type.const = v_last_exc_type.value
-            last_exc_value_vars = []
-            in_except_block = True
+    def follow_link(self, graph, link, constraints):
+        assert not (isinstance(link.exitcase, (types.ClassType, type)) and
+                issubclass(link.exitcase, BaseException))
 
         ignore_link = False
         inputs_s = []
-        renaming = {}
+        renaming = defaultdict(list)
         for v_out, v_input in zip(link.args, link.target.inputargs):
-            renaming.setdefault(v_out, []).append(v_input)
-        for v_out, v_input in zip(link.args, link.target.inputargs):
-            if v_out == v_last_exc_type:
-                assert in_except_block
-                inputs_s.append(s_last_exc_type)
-            elif v_out == v_last_exc_value:
-                assert in_except_block
-                inputs_s.append(s_last_exc_value)
-                last_exc_value_vars.append(v_input)
-            else:
-                s_out = self.annotation(v_out)
-                if (link.exitcase, v_out) in knowntypedata:
-                    knownvarvalue = knowntypedata[(link.exitcase, v_out)]
-                    s_out = pair(s_out, knownvarvalue).improve()
-                    # ignore links that try to pass impossible values
-                    if s_out == annmodel.s_ImpossibleValue:
-                        ignore_link = True
+            renaming[v_out].append(v_input)
 
-                if hasattr(s_out,'is_type_of'):
-                    renamed_is_type_of = []
-                    for v in s_out.is_type_of:
-                        new_vs = renaming.get(v, [])
-                        renamed_is_type_of += new_vs
-                    assert s_out.knowntype is type
-                    newcell = annmodel.SomeType()
-                    if s_out.is_constant():
-                        newcell.const = s_out.const
-                    s_out = newcell
-                    s_out.is_type_of = renamed_is_type_of
-
-                if hasattr(s_out, 'knowntypedata'):
-                    renamed_knowntypedata = {}
-                    for (value, v), s in s_out.knowntypedata.items():
-                        new_vs = renaming.get(v, [])
-                        for new_v in new_vs:
-                            renamed_knowntypedata[value, new_v] = s
-                    assert isinstance(s_out, annmodel.SomeBool)
-                    newcell = annmodel.SomeBool()
-                    if s_out.is_constant():
-                        newcell.const = s_out.const
-                    s_out = newcell
-                    s_out.set_knowntypedata(renamed_knowntypedata)
-
-                inputs_s.append(s_out)
+        for v_out in link.args:
+            s_out = self.annotation(v_out)
+            if v_out in constraints:
+                s_constraint = constraints[v_out]
+                s_out = pair(s_out, s_constraint).improve()
+                # ignore links that try to pass impossible values
+                if s_out == s_ImpossibleValue:
+                    ignore_link = True
+            s_out = self.apply_renaming(s_out, renaming)
+            inputs_s.append(s_out)
         if ignore_link:
             return
 
-        if in_except_block:
-            s_last_exc_type.is_type_of = last_exc_value_vars
+        self.links_followed[link] = True
+        self.addpendingblock(graph, link.target, inputs_s)
+
+    def follow_raise_link(self, graph, link, s_last_exc_value):
+        v_last_exc_type = link.last_exception
+        v_last_exc_value = link.last_exc_value
+
+        assert (isinstance(link.exitcase, (types.ClassType, type)) and
+                issubclass(link.exitcase, BaseException))
+
+        assert v_last_exc_type and v_last_exc_value
+
+        if isinstance(v_last_exc_value, Variable):
+            self.setbinding(v_last_exc_value, s_last_exc_value)
+
+        if isinstance(v_last_exc_type, Variable):
+            self.setbinding(v_last_exc_type, typeof([v_last_exc_value]))
+
+        inputs_s = []
+        renaming = defaultdict(list)
+        for v_out, v_input in zip(link.args, link.target.inputargs):
+            renaming[v_out].append(v_input)
+
+        for v_out, v_input in zip(link.args, link.target.inputargs):
+            if v_out == v_last_exc_type:
+                s_out = typeof(renaming[v_last_exc_value])
+                if isinstance(v_last_exc_type, Constant):
+                    s_out.const = v_last_exc_type.value
+                elif v_last_exc_type.annotation.is_constant():
+                    s_out.const = v_last_exc_type.annotation.const
+                inputs_s.append(s_out)
+            else:
+                s_out = self.annotation(v_out)
+                s_out = self.apply_renaming(s_out, renaming)
+                inputs_s.append(s_out)
+
         self.links_followed[link] = True
         self.addpendingblock(graph, link.target, inputs_s)
 
@@ -590,12 +634,22 @@ class RPythonAnnotator(object):
                 raise BlockedInference(self, op, -1)
         resultcell = op.consider(self)
         if resultcell is None:
-            resultcell = annmodel.s_ImpossibleValue
-        elif resultcell == annmodel.s_ImpossibleValue:
+            resultcell = s_ImpossibleValue
+        elif resultcell == s_ImpossibleValue:
             raise BlockedInference(self, op, -1) # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result
+
+    def get_exception(self, operation):
+        """
+        Return the annotation for all exceptions that `operation` may raise.
+        """
+        can_only_throw = operation.get_can_only_throw(self)
+        if can_only_throw is None:
+            return SomeInstance(self.bookkeeper.getuniqueclassdef(Exception))
+        else:
+            return self.bookkeeper.new_exception(can_only_throw)
 
 
 class BlockedInference(Exception):

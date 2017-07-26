@@ -90,6 +90,8 @@ def add_dumper(s_obj, dumper):
     dumper._annenforceargs_ = [s_list_of_chars, s_obj]
 
 def add_loader(s_obj, loader):
+    # 's_obj' should be the **least general annotation** that we're
+    # interested in, somehow
     loaders.append((s_obj, loader))
 
 def get_dumper_annotation(dumper):
@@ -186,6 +188,14 @@ def dump_longlong(buf, x):
 add_dumper(annotation(r_longlong), dump_longlong)
 
 r_32bits_mask = r_longlong(0xFFFFFFFF)
+
+def load_longlong_nonneg(loader):
+    x = load_longlong(loader)
+    if x < 0:
+        raise ValueError("expected a non-negative longlong")
+    return x
+add_loader(annmodel.SomeInteger(knowntype=r_longlong, nonneg=True),
+           load_longlong_nonneg)
 
 def load_longlong(loader):
     if readchr(loader) != TYPE_INT64:
@@ -336,11 +346,15 @@ def weakly_contains(s_bigger, s_smaller):
     # on s_bigger.  It relies on the fact that s_bigger was created with
     # an expression like 'annotation([s_item])' which returns a ListDef with
     # no bookkeeper, on which side-effects are not allowed.
+    saved = annmodel.TLS.allow_int_to_float
     try:
+        annmodel.TLS.allow_int_to_float = False
         s_union = annmodel.unionof(s_bigger, s_smaller)
         return s_bigger.contains(s_union)
     except (annmodel.UnionError, TooLateForChange):
         return False
+    finally:
+        annmodel.TLS.allow_int_to_float = saved
 
 
 class __extend__(pairtype(MTag, annmodel.SomeObject)):

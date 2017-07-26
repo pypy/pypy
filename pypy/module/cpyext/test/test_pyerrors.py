@@ -1,12 +1,11 @@
+import pytest
 import sys
 import StringIO
 
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from rpython.rtyper.lltypesystem import rffi, ll2ctypes
-
-from pypy.interpreter.gateway import interp2app
+from rpython.rtyper.lltypesystem import rffi
 
 class TestExceptions(BaseApiTest):
     def test_GivenExceptionMatches(self, space, api):
@@ -69,13 +68,6 @@ class TestExceptions(BaseApiTest):
         assert space.eq_w(state.operror.w_type, space.w_MemoryError)
         api.PyErr_Clear()
 
-    def test_BadArgument(self, space, api):
-        ret = api.PyErr_BadArgument()
-        state = space.fromcache(State)
-        assert space.eq_w(state.operror.w_type, space.w_TypeError)
-        assert ret == 0
-        api.PyErr_Clear()
-
     def test_Warning(self, space, api, capfd):
         message = rffi.str2charp("this is a warning")
         api.PyErr_WarnEx(None, message, 1)
@@ -101,10 +93,19 @@ class TestExceptions(BaseApiTest):
         instance = space.call_function(space.w_ValueError)
         assert api.PyExceptionInstance_Class(instance) is space.w_ValueError
 
+    @pytest.mark.skipif(True, reason='not implemented yet')
+    def test_interrupt_occurred(self, space, api):
+        assert not api.PyOS_InterruptOccurred()
+        import signal, os
+        recieved = []
+        def default_int_handler(*args):
+            recieved.append('ok')
+        signal.signal(signal.SIGINT, default_int_handler)
+        os.kill(os.getpid(), signal.SIGINT)
+        assert recieved == ['ok']
+        assert api.PyOS_InterruptOccurred()
+
 class AppTestFetch(AppTestCpythonExtensionBase):
-    def setup_class(cls):
-        AppTestCpythonExtensionBase.setup_class.im_func(cls)
-        space = cls.space
 
     def test_occurred(self):
         module = self.import_extension('foo', [
@@ -158,18 +159,35 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              PyErr_NormalizeException(&type, &val, &tb);
              if (type != PyExc_TypeError)
                  Py_RETURN_FALSE;
-             if (val->ob_type != PyExc_TypeError)
+             if ((PyObject*)Py_TYPE(val) != PyExc_TypeError)
                  Py_RETURN_FALSE;
 
              /* Normalize again */
              PyErr_NormalizeException(&type, &val, &tb);
              if (type != PyExc_TypeError)
                  Py_RETURN_FALSE;
-             if (val->ob_type != PyExc_TypeError)
+             if ((PyObject*)Py_TYPE(val) != PyExc_TypeError)
                  Py_RETURN_FALSE;
 
              PyErr_Restore(type, val, tb);
              PyErr_Clear();
+             Py_RETURN_TRUE;
+             '''
+             ),
+            ])
+        assert module.check_error()
+
+    def test_normalize_no_exception(self):
+        module = self.import_extension('foo', [
+            ("check_error", "METH_NOARGS",
+             '''
+             PyObject *type, *val, *tb;
+             PyErr_Fetch(&type, &val, &tb);
+             if (type != NULL)
+                 Py_RETURN_FALSE;
+             if (val != NULL)
+                 Py_RETURN_FALSE;
+             PyErr_NormalizeException(&type, &val, &tb);
              Py_RETURN_TRUE;
              '''
              ),
@@ -193,7 +211,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         try:
             module.set_from_errno()
-        except OSError, e:
+        except OSError as e:
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
             assert e.filename is None
@@ -328,6 +346,9 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_PyErr_Display(self):
+        from sys import version_info
+        if self.runappdirect and (version_info.major < 3 or version_info.minor < 3):
+            skip('PyErr_{GS}etExcInfo introduced in python 3.3')
         module = self.import_extension('foo', [
             ("display_error", "METH_VARARGS",
              r'''
@@ -352,8 +373,13 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert "in test_PyErr_Display\n" in output
         assert "ZeroDivisionError" in output
 
+    @pytest.mark.skipif(True, reason=
+        "XXX seems to pass, but doesn't: 'py.test -s' shows errors in PyObject_Free")
     def test_GetSetExcInfo(self):
         import sys
+        if self.runappdirect and (sys.version_info.major < 3 or
+                                  sys.version_info.minor < 3):
+            skip('PyErr_{GS}etExcInfo introduced in python 3.3')
         module = self.import_extension('foo', [
             ("getset_exc_info", "METH_VARARGS",
              r'''
@@ -384,7 +410,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             ])
         try:
             raise ValueError(5)
-        except ValueError, old_exc:
+        except ValueError as old_exc:
             new_exc = TypeError("TEST")
             orig_sys_exc_info = sys.exc_info()
             orig_exc_info = module.getset_exc_info(new_exc.__class__,

@@ -80,7 +80,7 @@ Papers
 .. _How to *not* write Virtual Machines for Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
 .. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
-.. _Automatic JIT Compiler Generation with Runtime Partial Evaluation: http://wwwold.cobra.cs.uni-duesseldorf.de/thesis/final-master.pdf
+.. _Automatic JIT Compiler Generation with Runtime Partial Evaluation: http://stups.hhu.de/mediawiki/images/b/b9/Master_bolz.pdf
 .. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
 .. _EU Reports: index-report.html
 .. _Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution: http://sabi.net/nriley/pubs/dls6-riley.pdf

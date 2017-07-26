@@ -335,7 +335,7 @@ class TestStructure(BaseCTypesTestChecker):
         # XXX remove this, py.test.raises returns a nice inspectable object
         try:
             func(*args)
-        except Exception, detail:
+        except Exception as detail:
             return detail.__class__, str(detail)
 
 
@@ -509,11 +509,11 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
 
         try:
             Recursive._fields_ = [("next", Recursive)]
-        except AttributeError, details:
+        except AttributeError as details:
             assert ("Structure or union cannot contain itself" in
                             str(details))
         else:
-            raise AssertionError, "Structure or union cannot contain itself"
+            raise AssertionError("Structure or union cannot contain itself")
 
     def test_vice_versa(self):
         py.test.skip("mutually dependent lazily defined structures error semantics")
@@ -526,11 +526,11 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
 
         try:
             Second._fields_ = [("first", First)]
-        except AttributeError, details:
+        except AttributeError as details:
             assert ("_fields_ is final" in
                             str(details))
         else:
-            raise AssertionError, "AttributeError not raised"
+            raise AssertionError("AttributeError not raised")
 
     def test_nonfinal_struct(self):
         class X(Structure):
@@ -558,7 +558,7 @@ class TestPatologicalCases(BaseCTypesTestChecker):
             _fields_ = [('x', c_int)]
 
             def __getattr__(self, name):
-                raise AttributeError, name
+                raise AttributeError(name)
 
         x = X()
         assert x.x == 0
