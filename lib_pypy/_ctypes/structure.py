@@ -130,6 +130,7 @@ class Field(object):
             obj._buffer.__setattr__(self.name, arg)
 
 
+
 def _set_shape(tp, rawfields, is_union=False):
     tp._ffistruct_ = _rawffi.Structure(rawfields, is_union,
                                       getattr(tp, '_pack_', 0))
@@ -224,7 +225,6 @@ class StructOrUnionMeta(_CDataMeta):
         res.__dict__['_index'] = -1
         return res
 
-
 class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
@@ -234,9 +234,6 @@ class StructOrUnion(_CData):
         if ('_abstract_' in cls.__dict__ or cls is Structure 
                                          or cls is union.Union):
             raise TypeError("abstract class")
-        if hasattr(cls, '_swappedbytes_'):
-            raise NotImplementedError("missing in PyPy: structure/union with "
-                                      "swapped (non-native) byte ordering")
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
         return self
@@ -253,6 +250,17 @@ class StructOrUnion(_CData):
         for name, arg in kwds.items():
             self.__setattr__(name, arg)
 
+    def __getattribute__(self, item):
+        if item in (field[0] for field in object.__getattribute__(self, "_fields_"))\
+                and hasattr(self.__class__, '_swappedbytes_'):
+            self._swap_bytes(item, 'get')
+        return object.__getattribute__(self, item)
+
+    def __setattr__(self, key, value):
+        object.__setattr__(self,  key, value)
+        if key in (field[0] for field in self._fields_) and hasattr(self.__class__, '_swappedbytes_'):
+            self._swap_bytes(key, 'set')
+
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as
         the address of the field 'name' of self."""
@@ -268,6 +276,63 @@ class StructOrUnion(_CData):
 
     def _to_ffi_param(self):
         return self._buffer
+
+    def _swap_bytes(self, field, get_or_set):
+        def swap_2(v):
+            return ((v >> 8) & 0x00FF) | ((v << 8) & 0xFF00)
+
+        def swap_4(v):
+            return ((v & 0x000000FF) << 24) | \
+                   ((v & 0x0000FF00) << 8) | \
+                   ((v & 0x00FF0000) >> 8) | \
+                   ((v >> 24) & 0xFF)
+
+        def swap_8(v):
+            return ((v & 0x00000000000000FFL) << 56) | \
+                   ((v & 0x000000000000FF00L) << 40) | \
+                   ((v & 0x0000000000FF0000L) << 24) | \
+                   ((v & 0x00000000FF000000L) << 8) | \
+                   ((v & 0x000000FF00000000L) >> 8) | \
+                   ((v & 0x0000FF0000000000L) >> 24) | \
+                   ((v & 0x00FF000000000000L) >> 40) | \
+                   ((v >> 56) & 0xFF)
+
+        def swap_double_float(v, typ):
+            from struct import pack, unpack
+            st = ''
+            if get_or_set == 'set':
+                if sys.byteorder == 'little':
+                    st = pack(''.join(['>', typ]), v)
+                else:
+                    st = pack(''.join(['<', typ]), v)
+                return unpack(typ, st)[0]
+            else:
+                packed = pack(typ, v)
+                if sys.byteorder == 'little':
+                    st = unpack(''.join(['>', typ]), packed)
+                else:
+                    st = unpack(''.join(['<', typ]), packed)
+                return st[0]
+
+        from ctypes import sizeof, c_double, c_float
+        sizeof_field = 0
+        typeof_field = None
+        for i in self._fields_:
+            if i[0] == field:
+                sizeof_field = sizeof(i[1])
+                typeof_field = i[1]
+        field_value = object.__getattribute__(self, field)
+        if typeof_field == c_float:
+            object.__setattr__(self, field, swap_double_float(field_value, 'f'))
+        elif typeof_field == c_double:
+            object.__setattr__(self, field, swap_double_float(field_value, 'd'))
+        else:
+            if sizeof_field == 2:
+                object.__setattr__(self, field, swap_2(field_value))
+            elif sizeof_field == 4:
+                object.__setattr__(self, field, swap_4(field_value))
+            elif sizeof_field == 8:
+                object.__setattr__(self, field, swap_8(field_value))
 
 
 class StructureMeta(StructOrUnionMeta):

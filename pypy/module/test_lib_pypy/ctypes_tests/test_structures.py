@@ -460,6 +460,38 @@ class TestStructure(BaseCTypesTestChecker):
         class X(Structure):
             _fields_ = [(u"i", c_int)]
 
+    def test_swapped_bytes(self):
+        import sys
+
+        for i in [c_short, c_int, c_long, c_longlong,
+                  c_float, c_double, c_ushort, c_uint,
+                  c_ulong, c_ulonglong]:
+            FIELDS = [
+                ('n', i)
+            ]
+
+            class Native(Structure):
+                _fields_ = FIELDS
+
+            class Big(BigEndianStructure):
+                _fields_ = FIELDS
+
+            class Little(LittleEndianStructure):
+                _fields_ = FIELDS
+
+            def dostruct(c):
+                ba = create_string_buffer(sizeof(c))
+                ms = c.from_buffer(ba)
+                ms.n = 0xff00
+                return repr(ba[:])
+
+            if sys.byteorder == 'little':
+                assert dostruct(Native) == dostruct(Little)
+                assert dostruct(Native) != dostruct(Big)
+            else:
+                assert dostruct(Native) == dostruct(Big)
+                assert dostruct(Native) != dostruct(Little)
+
 
 class TestPointerMember(BaseCTypesTestChecker):
     def test_1(self):
