@@ -1,10 +1,7 @@
 include README-rpython.rst
 exclude README.rst
 recursive-include rpython/translator/c/src *.c *.h
-prune _pytest
-prune ctypes_configure
+recursive-include rpython/rlib/src *.c *.h
+recursive-include rpython/rlib/rvmprof/src *.c *.h
 prune include
 prune lib-python
-prune lib_pypy
-prune py
-prune pypy

@@ -18,9 +18,13 @@ This is an experimental release of a randomly chosen, untested version of
 RPython. Packaging issues are likely, feedback is welcome.
 """
 
+PKG_EXCLUDES = (
+    'lib_pypy', 'lib_pypy.*', 'pypy', 'pypy.*',
+    'py', 'py.*', '_pytest', '_pytest.*')
+
 setup(
     name='rpython',
-    version='0.1.4',
+    version='0.2.0',
     description='RPython',
     long_description=long_description,
 
@@ -40,9 +44,15 @@ setup(
     ],
     keywords='development',
 
-    packages=find_packages(),  # MANIFEST.in filters out all the pypy stuff
-    package_data={'rpython': ['translator/c/src/*.c', 'translator/c/src/*.h']},
-    install_requires=['pytest'],
+    packages=find_packages(exclude=PKG_EXCLUDES),
+    package_data={
+        'rpython.translator.c': ['src/*.c', 'src/*.h'],
+        'rpython.rlib': ['src/*.c', 'src/*.h'],
+        'rpython.rlib.rvmprof': ['src/**/*.c', 'src/**/*.h'],
+        'rpython.rlib.rjitlog': ['src/*.c', 'src/*.h'],
+        'rpython.jit.backend.llsupport': ['src/*.c', 'src/*.h'],
+    },
+    install_requires=['pytest<3'],
     entry_points={
         "console_scripts" : [
             "rpython = rpython.__main__:main",
