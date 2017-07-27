@@ -46,15 +46,15 @@ setup(
 
     packages=find_packages(exclude=PKG_EXCLUDES),
     package_data={
-        'rpython.translator.c': ['src/*.c', 'src/*.h'],
-        'rpython.rlib': ['src/*.c', 'src/*.h'],
-        'rpython.rlib.rvmprof': ['src/**/*.c', 'src/**/*.h'],
-        'rpython.rlib.rjitlog': ['src/*.c', 'src/*.h'],
-        'rpython.jit.backend.llsupport': ['src/*.c', 'src/*.h'],
+        'rpython': ['**/*.c', '**/*.h'],
+        'rpython.rlib.rvmprof': ['src/shared/**/*.*'],
     },
+    # https://github.com/pypa/setuptools/issues/1064
+    include_package_data=True,
+
     install_requires=['pytest<3'],
     entry_points={
-        "console_scripts" : [
+        "console_scripts": [
             "rpython = rpython.__main__:main",
         ],
     },
