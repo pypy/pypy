@@ -40,6 +40,9 @@ Release Steps
   sure things are ported back to the trunk and to the branch as
   necessary.
 
+* Maybe bump the SOABI number in module/imp/importing. This has many
+  implications, so make sure the PyPy community agrees to the change.
+
 * Update and write documentation
 
   * update pypy/doc/contributor.rst (and possibly LICENSE)

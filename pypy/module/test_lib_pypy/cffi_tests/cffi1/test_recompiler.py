@@ -1939,7 +1939,7 @@ def test_bool_in_cpp():
     ffi = FFI()
     ffi.cdef("bool f(void);")
     lib = verify(ffi, "test_bool_in_cpp", "char f(void) { return 2; }")
-    assert lib.f() == 1
+    assert lib.f() is True
 
 def test_bool_in_cpp_2():
     ffi = FFI()

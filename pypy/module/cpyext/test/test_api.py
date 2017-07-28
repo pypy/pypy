@@ -64,14 +64,7 @@ class BaseApiTest(LeakCheckingTest):
         except OperationError as e:
             print e.errorstr(self.space)
             raise
-
-        try:
-            self.space.getexecutioncontext().cleanup_cpyext_state()
-        except AttributeError:
-            pass
-
-        if self.check_and_print_leaks():
-            assert False, "Test leaks or loses object(s)."
+        self.cleanup()
 
 @slot_function([PyObject], lltype.Void)
 def PyPy_GetWrapped(space, w_arg):

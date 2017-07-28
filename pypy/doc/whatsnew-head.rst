@@ -25,3 +25,8 @@ CPyext PyListObject.pop must return the value
 .. branch: cpyext-hash_notimpl
 
 If ``tp_hash`` is ``PyObject_HashNotImplemented``, set ``obj.__dict__['__hash__']`` to None
+
+.. branch: cppyy-packaging
+
+Renaming of ``cppyy`` to ``_cppyy``.
+The former is now an external package installable with ``pip install cppyy``.

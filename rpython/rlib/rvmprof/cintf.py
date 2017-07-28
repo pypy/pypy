@@ -20,7 +20,8 @@ BACKTRACE = SHARED.join('libbacktrace')
 
 compile_extra = ['-DRPYTHON_VMPROF', '-O3']
 separate_module_files = [
-    SHARED.join('symboltable.c')
+    SHARED.join('symboltable.c'),
+    SHARED.join('vmprof_unix.c')
 ]
 if sys.platform.startswith('linux'):
     separate_module_files += [
@@ -40,7 +41,7 @@ if sys.platform.startswith('linux'):
     compile_extra += ['-DVMPROF_LINUX']
 elif sys.platform == 'win32':
     compile_extra = ['-DRPYTHON_VMPROF', '-DVMPROF_WINDOWS']
-    separate_module_files = [SHARED.join('vmprof_main_win32.c')]
+    separate_module_files = [SHARED.join('vmprof_win.c')]
     _libs = []
 else:
     # Guessing a BSD-like Unix platform
@@ -58,7 +59,9 @@ eci_kwds = dict(
         SHARED.join('compat.c'),
         SHARED.join('machine.c'),
         SHARED.join('vmp_stack.c'),
-        SHARED.join('vmprof_main.c'),
+        SHARED.join('vmprof_mt.c'),
+        SHARED.join('vmprof_memory.c'),
+        SHARED.join('vmprof_common.c'),
         # symbol table already in separate_module_files
     ] + separate_module_files,
     post_include_bits=[],

@@ -1,5 +1,11 @@
 #pragma once
 
+#define _GNU_SOURCE 1
+
+#ifndef RPYTHON_VMPROF
+#include <Python.h>
+#endif
+
 #ifdef VMPROF_UNIX
 #include <unistd.h>
 #endif
@@ -78,4 +84,8 @@ int IS_VMPROF_EVAL(void * ptr);
 #endif
 
 #endif
+
+void set_current_codes(void * to);
+int opened_profile(const char *interp_name, int memory, int proflines, int native, int real_time);
+void flush_codes(void);
 

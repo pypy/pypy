@@ -296,7 +296,7 @@ class VCPythonEngine(object):
 
     def _convert_expr_from_c(self, tp, var, context):
         if isinstance(tp, model.PrimitiveType):
-            if tp.is_integer_type():
+            if tp.is_integer_type() and tp.name != '_Bool':
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
             elif tp.name != 'long double':
                 return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
@@ -872,6 +872,7 @@ cffimod_header = r'''
 #define _cffi_from_c_ulong PyLong_FromUnsignedLong
 #define _cffi_from_c_longlong PyLong_FromLongLong
 #define _cffi_from_c_ulonglong PyLong_FromUnsignedLongLong
+#define _cffi_from_c__Bool PyBool_FromLong
 
 #define _cffi_to_c_double PyFloat_AsDouble
 #define _cffi_to_c_float PyFloat_AsDouble
