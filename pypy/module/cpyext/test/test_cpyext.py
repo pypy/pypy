@@ -83,8 +83,9 @@ class LeakCheckingTest(object):
 
     def cleanup(self):
         self.space.getexecutioncontext().cleanup_cpyext_state()
-        rawrefcount._collect()
-        self.space.user_del_action._run_finalizers()
+        for _ in range(5):
+            rawrefcount._collect()
+            self.space.user_del_action._run_finalizers()
         leakfinder.stop_tracking_allocations(check=False)
         assert not self.space.finalizer_queue.next_dead()
 
