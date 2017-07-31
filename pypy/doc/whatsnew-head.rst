@@ -38,3 +38,18 @@ If ``tp_hash`` is ``PyObject_HashNotImplemented``, set ``obj.__dict__['__hash__'
 
 Renaming of ``cppyy`` to ``_cppyy``.
 The former is now an external package installable with ``pip install cppyy``.
+
+.. branch: Enable_PGO_for_clang
+
+.. branch: nopax
+
+Deleted ``--nopax`` option
+
+.. branch: pypy_bytearray
+
+Improve ``bytearray`` performance (backported from py3.5)
+
+.. branch: gc-del-limit-growth
+
+Fix the bounds in the GC when allocating a lot of objects with finalizers,
+fixes issue #2590
