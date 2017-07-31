@@ -5,6 +5,14 @@ What's new in PyPy2.7 5.9+
 .. this is a revision shortly after release-pypy2.7-v5.8.0
 .. startrev: 558bd00b3dd8
 
+In previous versions of PyPy, ``instance.method`` would return always
+the same bound method object, when gotten out of the same instance (as
+far as ``is`` and ``id()`` can tell).  CPython doesn't do that.  Now
+PyPy, like CPython, returns a different bound method object every time.
+For ``type.method``, PyPy2 still returns always the same *unbound*
+method object; CPython does it for built-in types but not for
+user-defined types.
+
 .. branch: cffi-complex
 .. branch: cffi-char16-char32
 
