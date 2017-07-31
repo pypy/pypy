@@ -76,6 +76,23 @@ def get_cpyext_info(space):
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
 
+def preload(space, name):
+    from pypy.module.cpyext.pyobject import make_ref
+    if '.' not in name:
+        w_obj = space.builtin.getdictvalue(space, name)
+    else:
+        module, localname = name.rsplit('.', 1)
+        code = "(): import {module}; return {module}.{localname}"
+        code = code.format(**locals())
+        w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
+def preload_expr(space, expr):
+    from pypy.module.cpyext.pyobject import make_ref
+    code = "(): return {}".format(expr)
+    w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
 def is_interned_string(space, w_obj):
     try:
         s = space.str_w(w_obj)
@@ -117,6 +134,24 @@ class LeakCheckingTest(object):
                                    'itertools', 'time', 'binascii',
                                    'micronumpy', 'mmap'
                                    ])
+
+    @classmethod
+    def preload_builtins(cls, space):
+        """
+        Eagerly create pyobjs for various builtins so they don't look like
+        leaks.
+        """
+        space.getbuiltinmodule("cpyext")
+        # 'import os' to warm up reference counts
+        w_import = space.builtin.getdictvalue(space, '__import__')
+        space.call_function(w_import, space.wrap("os"))
+        for name in [
+                'buffer', 'mmap.mmap',
+                'types.FunctionType', 'types.CodeType',
+                'types.TracebackType', 'types.FrameType']:
+            preload(space, name)
+        for expr in ['type(str.join)']:
+            preload_expr(space, expr)
 
     def cleanup(self):
         self.space.getexecutioncontext().cleanup_cpyext_state()
@@ -178,23 +213,6 @@ def _unwrap_include_dirs(space, w_include_dirs):
 def debug_collect(space):
     rawrefcount._collect()
 
-def preload(space, name):
-    from pypy.module.cpyext.pyobject import make_ref
-    if '.' not in name:
-        w_obj = space.builtin.getdictvalue(space, name)
-    else:
-        module, localname = name.rsplit('.', 1)
-        code = "(): import {module}; return {module}.{localname}"
-        code = code.format(**locals())
-        w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
-
-def preload_expr(space, expr):
-    from pypy.module.cpyext.pyobject import make_ref
-    code = "(): return {}".format(expr)
-    w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
-
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
@@ -205,20 +223,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         cls.w_runappdirect = space.wrap(cls.runappdirect)
         if not cls.runappdirect:
             cls.sys_info = get_cpyext_info(space)
-            space.getbuiltinmodule("cpyext")
-            # 'import os' to warm up reference counts
-            w_import = space.builtin.getdictvalue(space, '__import__')
-            space.call_function(w_import, space.wrap("os"))
-            for name in [
-                    'buffer', 'mmap.mmap',
-                    'types.FunctionType', 'types.CodeType',
-                    'types.TracebackType', 'types.FrameType']:
-                preload(space, name)
-            for expr in ['type(str.join)']:
-                preload_expr(space, expr)
-            #state = cls.space.fromcache(RefcountState) ZZZ
-            #state.non_heaptypes_w[:] = []
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
+            cls.preload_builtins(space)
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
                     include_dirs=None, PY_SSIZE_T_CLEAN=False):

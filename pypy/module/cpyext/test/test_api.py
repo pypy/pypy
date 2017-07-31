@@ -6,7 +6,8 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext.api import (
     slot_function, cpython_api, copy_header_files, INTERPLEVEL_API,
     Py_ssize_t, Py_ssize_tP, PyObject, cts)
-from pypy.module.cpyext.test.test_cpyext import freeze_refcnts, LeakCheckingTest
+from pypy.module.cpyext.test.test_cpyext import (
+    freeze_refcnts, LeakCheckingTest)
 from pypy.interpreter.error import OperationError
 from rpython.rlib import rawrefcount
 import os
@@ -32,6 +33,7 @@ class BaseApiTest(LeakCheckingTest):
         space.call_function(space.getattr(space.sys.get("stdout"),
                                           space.wrap("write")),
                             space.wrap(""))
+        cls.preload_builtins(space)
 
         class CAPI:
             def __getattr__(self, name):
