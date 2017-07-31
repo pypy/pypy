@@ -7,6 +7,8 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
+from pypy.module.cpyext.api import cts
+from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.state import State
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
@@ -82,8 +84,6 @@ def is_interned_string(space, w_obj):
     return space.is_interned_str(s)
 
 def is_allowed_to_leak(space, obj):
-    from pypy.module.cpyext.pyobject import from_ref
-    from pypy.module.cpyext.api import cts
     from pypy.module.cpyext.methodobject import W_PyCFunctionObject
     try:
         w_obj = from_ref(space, cts.cast('PyObject*', obj._as_ptr()))
@@ -94,6 +94,21 @@ def is_allowed_to_leak(space, obj):
     # It's OK to "leak" some interned strings: if the pyobj is created by
     # the test, but the w_obj is referred to from elsewhere.
     return is_interned_string(space, w_obj)
+
+def _get_w_obj(space, c_obj):
+    return from_ref(space, cts.cast('PyObject*', c_obj._as_ptr()))
+
+class CpyextLeak(leakfinder.MallocMismatch):
+    def __str__(self):
+        lines = [leakfinder.MallocMismatch.__str__(self), '']
+        lines.append(
+            "These objects are attached to the following W_Root objects:")
+        for c_obj in self.args[0]:
+            try:
+                lines.append("  %s" % (_get_w_obj(self.args[1], c_obj),))
+            except:
+                pass
+        return '\n'.join(lines)
 
 
 class LeakCheckingTest(object):
@@ -116,7 +131,7 @@ class LeakCheckingTest(object):
                 if not is_allowed_to_leak(self.space, obj):
                     filtered_result[obj] = value
             if filtered_result:
-                raise leakfinder.MallocMismatch(filtered_result)
+                raise CpyextLeak(filtered_result, self.space)
         assert not self.space.finalizer_queue.next_dead()
 
 
