@@ -1195,7 +1195,7 @@ W_CPPInstance.typedef = TypeDef(
     __len__ = interp2app(W_CPPInstance.instance__len__),
     __cmp__ = interp2app(W_CPPInstance.instance__cmp__),
     __repr__ = interp2app(W_CPPInstance.instance__repr__),
-    destruct = interp2app(W_CPPInstance.destruct),
+    __destruct__ = interp2app(W_CPPInstance.destruct),
 )
 W_CPPInstance.typedef.acceptable_as_base_class = True
 

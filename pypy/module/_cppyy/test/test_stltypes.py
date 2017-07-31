@@ -102,7 +102,7 @@ class AppTestSTLVECTOR:
             assert v[i].m_i == i
 
         assert len(v) == self.N
-        v.destruct()
+        v.__destruct__()
 
     def test03_empty_vector_type(self):
         """Test behavior of empty std::vector<int>"""
@@ -112,7 +112,7 @@ class AppTestSTLVECTOR:
         v = _cppyy.gbl.std.vector(int)()
         for arg in v:
             pass
-        v.destruct()
+        v.__destruct__()
 
     def test04_vector_iteration(self):
         """Test iteration over an std::vector<int>"""
@@ -137,7 +137,7 @@ class AppTestSTLVECTOR:
 
         assert list(v) == [i for i in range(self.N)]
 
-        v.destruct()
+        v.__destruct__()
 
     def test05_push_back_iterables_with_iadd(self):
         """Test usage of += of iterable on push_back-able container"""

@@ -110,7 +110,7 @@ class AppTestDATATYPES:
         assert not hasattr(CppyyTestData, 'm_bool')
         assert not hasattr(CppyyTestData, 'm_int')
 
-        c.destruct()
+        c.__destruct__()
 
     def test03_instance_data_write_access(self):
         """Test write access to instance public data and verify values"""
@@ -197,7 +197,7 @@ class AppTestDATATYPES:
             for i in range(self.N):
                 assert eval('c.m_%s_array2[i]' % names[j]) == b[i]
 
-        c.destruct()
+        c.__destruct__()
 
     def test04_array_passing(self):
         """Test passing of array arguments"""
@@ -235,7 +235,7 @@ class AppTestDATATYPES:
         assert not c.pass_array(_cppyy.gbl.nullptr)
         raises(Exception, c.pass_array(_cppyy.gbl.nullptr).__getitem__, 0) # id. id.
 
-        c.destruct()
+        c.__destruct__()
 
     def test05_class_read_access(self):
         """Test read access to class public data and verify values"""
@@ -276,7 +276,7 @@ class AppTestDATATYPES:
         assert round(CppyyTestData.s_double + 707., 8)   == 0
         assert round(c.s_double               + 707., 8) == 0
 
-        c.destruct()
+        c.__destruct__()
 
     def test06_class_data_write_access(self):
         """Test write access to class public data and verify values"""
@@ -340,7 +340,7 @@ class AppTestDATATYPES:
         CppyyTestData.s_double                   =  math.pi
         assert c.s_double                         ==  math.pi
 
-        c.destruct()
+        c.__destruct__()
 
     def test07_range_access(self):
         """Test the ranges of integer types"""
@@ -356,7 +356,7 @@ class AppTestDATATYPES:
         raises(ValueError, setattr, c, 'm_uint',  -1)
         raises(ValueError, setattr, c, 'm_ulong', -1)
 
-        c.destruct()
+        c.__destruct__()
 
     def test08_type_conversions(self):
         """Test conversions between builtin types"""
@@ -374,7 +374,7 @@ class AppTestDATATYPES:
         raises(TypeError, c.m_int,     -1.)
         raises(TypeError, c.m_int,      1.)
 
-        c.destruct()
+        c.__destruct__()
 
     def test09_global_builtin_type(self):
         """Test access to a global builtin type"""
@@ -618,7 +618,7 @@ class AppTestDATATYPES:
 
         raises(AttributeError, getattr, c, 'm_owns_arrays')
 
-        c.destruct()
+        c.__destruct__()
 
     def test18_object_and_pointer_comparisons(self):
         """Verify object and pointer comparisons"""

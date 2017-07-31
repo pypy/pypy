@@ -82,7 +82,7 @@ class AppTestPYTHONIFY:
         assert res == 11
         res = instance.addDataToInt(-4)
         assert res == 3
-        instance.destruct()
+        instance.__destruct__()
         assert example01_class.getCount() == 0
         raises(ReferenceError, 'instance.addDataToInt(4)')
         return
@@ -90,16 +90,16 @@ class AppTestPYTHONIFY:
         instance = example01_class(7)
         instance2 = example01_class(8)
         assert example01_class.getCount() == 2
-        instance.destruct()
+        instance.__destruct__()
         assert example01_class.getCount() == 1
-        instance2.destruct()
+        instance2.__destruct__()
         assert example01_class.getCount() == 0
 
         t = self.example01
         instance = example01_class(13)
         res = instance.addDataToDouble(16)
         assert round(res-29, 8) == 0.
-        instance.destruct()
+        instance.__destruct__()
         instance = example01_class(-13)
         res = instance.addDataToDouble(16)
         assert round(res-3, 8) == 0.
@@ -119,7 +119,7 @@ class AppTestPYTHONIFY:
         res = instance.staticAddOneToInt(1L)
         assert res == 2
 
-        instance.destruct()
+        instance.__destruct__()
         assert example01_class.getCount() == 0
 
     def test05_passing_object_by_pointer(self):
@@ -141,8 +141,8 @@ class AppTestPYTHONIFY:
         e.setPayload(pl)
         assert round(pl.getData()-14., 8) == 0
 
-        pl.destruct()
-        e.destruct()
+        pl.__destruct__()
+        e.__destruct__()
         assert example01_class.getCount() == 0
 
     def test06_returning_object_by_pointer(self):
@@ -161,8 +161,8 @@ class AppTestPYTHONIFY:
         pl2 = e.cyclePayload(pl)
         assert round(pl2.getData()-14., 8) == 0
 
-        pl.destruct()
-        e.destruct()
+        pl.__destruct__()
+        e.__destruct__()
         assert example01_class.getCount() == 0
 
     def test07_returning_object_by_value(self):
@@ -175,16 +175,16 @@ class AppTestPYTHONIFY:
 
         pl2 = example01_class.staticCopyCyclePayload(pl, 38.)
         assert pl2.getData() == 38.
-        pl2.destruct()
+        pl2.__destruct__()
 
         e = example01_class(14)
 
         pl2 = e.copyCyclePayload(pl)
         assert round(pl2.getData()-14., 8) == 0
-        pl2.destruct()
+        pl2.__destruct__()
 
-        pl.destruct()
-        e.destruct()
+        pl.__destruct__()
+        e.__destruct__()
         assert example01_class.getCount() == 0
 
     def test08_global_functions(self):
@@ -341,7 +341,7 @@ class AppTestPYTHONIFY:
         o = example01()
         assert type(o) == example01
         assert example01.getCount() == 1
-        o.destruct()
+        o.__destruct__()
         assert example01.getCount() == 0
 
         class MyClass1(example01):
@@ -353,7 +353,7 @@ class AppTestPYTHONIFY:
         assert isinstance(o, example01)
         assert example01.getCount() == 1
         assert o.myfunc() == 1
-        o.destruct()
+        o.__destruct__()
         assert example01.getCount() == 0
 
         class MyClass2(example01):
@@ -365,7 +365,7 @@ class AppTestPYTHONIFY:
         assert type(o) == MyClass2
         assert example01.getCount() == 1
         assert o.what == 'hi'
-        o.destruct()
+        o.__destruct__()
 
         assert example01.getCount() == 0
 

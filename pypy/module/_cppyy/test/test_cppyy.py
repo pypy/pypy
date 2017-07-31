@@ -98,19 +98,19 @@ class AppTestCPPYY:
         assert res == 11
         res = t.get_overload("addDataToInt").call(e1, -4)
         assert res == 3
-        e1.destruct()
+        e1.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
         raises(ReferenceError, 't.get_overload("addDataToInt").call(e1, 4)')
 
         e1 = t.get_overload(t.type_name).call(None, 7)
         e2 = t.get_overload(t.type_name).call(None, 8)
         assert t.get_overload("getCount").call(None) == 2
-        e1.destruct()
+        e1.__destruct__()
         assert t.get_overload("getCount").call(None) == 1
-        e2.destruct()
+        e2.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
 
-        e2.destruct()
+        e2.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
 
         raises(TypeError, t.get_overload("addDataToInt").call, 41, 4)
@@ -141,7 +141,7 @@ class AppTestCPPYY:
         e1 = None
         gc.collect()
         assert t.get_overload("getCount").call(None) == 1
-        e2.destruct()
+        e2.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
         e2 = None
         gc.collect()
@@ -178,12 +178,12 @@ class AppTestCPPYY:
         e = t.get_overload(t.type_name).call(None, 13)
         res = t.get_overload("addDataToDouble").call(e, 16)
         assert round(res-29, 8) == 0.
-        e.destruct()
+        e.__destruct__()
 
         e = t.get_overload(t.type_name).call(None, -13)
         res = t.get_overload("addDataToDouble").call(e, 16)
         assert round(res-3, 8) == 0.
-        e.destruct()
+        e.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
 
     def test07_method_constcharp(self):
@@ -200,7 +200,7 @@ class AppTestCPPYY:
         assert res == "54"
         res = t.get_overload("addToStringValue").call(e, "-12")      # TODO: this leaks
         assert res == "30"
-        e.destruct()
+        e.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
 
     def test08_pass_object_by_pointer(self):
@@ -219,8 +219,8 @@ class AppTestCPPYY:
         t1.get_overload("setPayload").call(e, pl);
         assert round(t2.get_overload("getData").call(pl)-50., 8) == 0
 
-        e.destruct()
-        pl.destruct() 
+        e.__destruct__()
+        pl.__destruct__() 
         assert t1.get_overload("getCount").call(None) == 0
 
     def test09_return_object_by_pointer(self):
@@ -239,6 +239,6 @@ class AppTestCPPYY:
         pl2 = t1.get_overload("cyclePayload").call(e, pl1);
         assert round(t2.get_overload("getData").call(pl2)-50., 8) == 0
 
-        e.destruct()
-        pl1.destruct() 
+        e.__destruct__()
+        pl1.__destruct__() 
         assert t1.get_overload("getCount").call(None) == 0
