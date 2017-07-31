@@ -90,7 +90,6 @@ class LeakCheckingTest(object):
         assert not self.space.finalizer_queue.next_dead()
 
 
-@pytest.mark.xfail(reason="Skipped until other tests in this file are unskipped")
 class AppTestApi(LeakCheckingTest):
     def setup_class(cls):
         from rpython.rlib.clibffi import get_libc_name
@@ -111,12 +110,6 @@ class AppTestApi(LeakCheckingTest):
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_only_import(self):
         import cpyext
-
-    @pytest.mark.skipif(only_pypy, reason='pypy only test')
-    def test_load_error(self):
-        import cpyext
-        raises(ImportError, cpyext.load_module, "missing.file", "foo")
-        raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
 
     def test_dllhandle(self):
         import sys
