@@ -209,7 +209,10 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             # 'import os' to warm up reference counts
             w_import = space.builtin.getdictvalue(space, '__import__')
             space.call_function(w_import, space.wrap("os"))
-            for name in ['buffer', 'mmap.mmap']:
+            for name in [
+                    'buffer', 'mmap.mmap',
+                    'types.FunctionType', 'types.CodeType',
+                    'types.TracebackType', 'types.FrameType']:
                 preload(space, name)
             for expr in ['type(str.join)']:
                 preload_expr(space, expr)
