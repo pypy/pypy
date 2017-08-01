@@ -43,7 +43,9 @@ The former is now an external package installable with ``pip install cppyy``.
 
 .. branch: nopax
 
-Deleted ``--nopax`` option
+At the end of translation, run ``attr -q -s pax.flags -V m`` on
+PAX-enabled systems on the produced binary.  This seems necessary
+because PyPy uses a JIT.
 
 .. branch: pypy_bytearray
 
