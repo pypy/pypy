@@ -10,6 +10,18 @@ Even when using PyPy to build PyPy, translation is time-consuming -- 30
 minutes on a fast machine -- and RAM-hungry.  You will need **at least** 2 GB
 of memory on a 32-bit machine and 4GB on a 64-bit machine.
 
+Before you start
+----------------
+
+Our normal development workflow avoids a full translation by using test-driven
+development. You can read more about how to develop PyPy here_, and latest
+translated (hopefully functional) binary packages are available on our
+buildbot's `nightly builds`_
+
+.. _here: getting-started-dev.html
+.. _`nightly builds`: http://buildbot.pypy.org/nightly
+
+You will need the build dependencies below to run the tests.
 
 Clone the repository
 --------------------

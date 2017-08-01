@@ -412,6 +412,9 @@ class Recompiler:
             prnt('    }')
         prnt('    p[0] = (const void *)0x%x;' % self._version)
         prnt('    p[1] = &_cffi_type_context;')
+        prnt('#if PY_MAJOR_VERSION >= 3')
+        prnt('    return NULL;')
+        prnt('#endif')
         prnt('}')
         # on Windows, distutils insists on putting init_cffi_xyz in
         # 'export_symbols', so instead of fighting it, just give up and
@@ -578,7 +581,7 @@ class Recompiler:
 
     def _convert_expr_from_c(self, tp, var, context):
         if isinstance(tp, model.BasePrimitiveType):
-            if tp.is_integer_type():
+            if tp.is_integer_type() and tp.name != '_Bool':
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
             elif isinstance(tp, model.UnknownFloatType):
                 return '_cffi_from_c_double(%s)' % (var,)

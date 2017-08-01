@@ -1,16 +1,12 @@
 import sys
-import weakref
 
 import pytest
 
-from pypy.tool.cpyext.extbuild import (
-    SystemCompilationInfo, HERE, get_sys_info_app)
+from pypy.tool.cpyext.extbuild import SystemCompilationInfo, HERE
 from pypy.interpreter.gateway import unwrap_spec, interp2app
-from rpython.rtyper.lltypesystem import lltype, ll2ctypes
+from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext.pyobject import Py_DecRef
-from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
 from rpython.tool.udir import udir
@@ -76,13 +72,6 @@ def get_cpyext_info(space):
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
-    return #ZZZ
-    state = self.space.fromcache(RefcountState)
-    self.frozen_refcounts = {}
-    for w_obj, obj in state.py_objects_w2r.iteritems():
-        self.frozen_refcounts[w_obj] = obj.c_ob_refcnt
-    #state.print_refcounts()
-    self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
@@ -91,78 +80,13 @@ class LeakCheckingTest(object):
                                    'micronumpy', 'mmap'
                                    ])
 
-    enable_leak_checking = True
-
-    @staticmethod
-    def cleanup_references(space):
-        return #ZZZ
-        state = space.fromcache(RefcountState)
-
-        import gc; gc.collect()
-        # Clear all lifelines, objects won't resurrect
-        for w_obj, obj in state.lifeline_dict._dict.items():
-            if w_obj not in state.py_objects_w2r:
-                state.lifeline_dict.set(w_obj, None)
-            del obj
-        import gc; gc.collect()
-
-
-        for w_obj in state.non_heaptypes_w:
-            Py_DecRef(space, w_obj)
-        state.non_heaptypes_w[:] = []
-        state.reset_borrowed_references()
-
-    def check_and_print_leaks(self):
+    def cleanup(self):
+        self.space.getexecutioncontext().cleanup_cpyext_state()
         rawrefcount._collect()
-        # check for sane refcnts
-        import gc
+        self.space.user_del_action._run_finalizers()
+        leakfinder.stop_tracking_allocations(check=False)
+        assert not self.space.finalizer_queue.next_dead()
 
-        if 1:  #ZZZ  not self.enable_leak_checking:
-            leakfinder.stop_tracking_allocations(check=False)
-            return False
-
-        leaking = False
-        state = self.space.fromcache(RefcountState)
-        gc.collect()
-        lost_objects_w = identity_dict()
-        lost_objects_w.update((key, None) for key in self.frozen_refcounts.keys())
-
-        for w_obj, obj in state.py_objects_w2r.iteritems():
-            base_refcnt = self.frozen_refcounts.get(w_obj)
-            delta = obj.c_ob_refcnt
-            if base_refcnt is not None:
-                delta -= base_refcnt
-                lost_objects_w.pop(w_obj)
-            if delta != 0:
-                leaking = True
-                print >>sys.stderr, "Leaking %r: %i references" % (w_obj, delta)
-                try:
-                    weakref.ref(w_obj)
-                except TypeError:
-                    lifeline = None
-                else:
-                    lifeline = state.lifeline_dict.get(w_obj)
-                if lifeline is not None:
-                    refcnt = lifeline.pyo.c_ob_refcnt
-                    if refcnt > 0:
-                        print >>sys.stderr, "\tThe object also held by C code."
-                    else:
-                        referrers_repr = []
-                        for o in gc.get_referrers(w_obj):
-                            try:
-                                repr_str = repr(o)
-                            except TypeError as e:
-                                repr_str = "%s (type of o is %s)" % (str(e), type(o))
-                            referrers_repr.append(repr_str)
-                        referrers = ", ".join(referrers_repr)
-                        print >>sys.stderr, "\tThe object is referenced by these objects:", \
-                                referrers
-        for w_obj in lost_objects_w:
-            print >>sys.stderr, "Lost object %r" % (w_obj, )
-            leaking = True
-        # the actual low-level leak checking is done by pypy.tool.leakfinder,
-        # enabled automatically by pypy.conftest.
-        return leaking
 
 class AppTestApi(LeakCheckingTest):
     def setup_class(cls):
@@ -179,15 +103,7 @@ class AppTestApi(LeakCheckingTest):
     def teardown_method(self, meth):
         if self.runappdirect:
             return
-        self.space.getexecutioncontext().cleanup_cpyext_state()
-        self.cleanup_references(self.space)
-        # XXX: like AppTestCpythonExtensionBase.teardown_method:
-        # find out how to disable check_and_print_leaks() if the
-        # test failed
-        assert not self.check_and_print_leaks(), (
-            "Test leaks or loses object(s).  You should also check if "
-            "the test actually passed in the first place; if it failed "
-            "it is likely to reach this place.")
+        self.cleanup()
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_only_import(self):
@@ -355,7 +271,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.space.call_method(self.space.sys.get("stdout"), "flush")
 
         freeze_refcnts(self)
-        #self.check_and_print_leaks()
 
     def unimport_module(self, name):
         """
@@ -367,17 +282,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def teardown_method(self, func):
         if self.runappdirect:
+            self.w_debug_collect()
             return
+        debug_collect(self.space)
         for name in self.imported_module_names:
             self.unimport_module(name)
-        self.space.getexecutioncontext().cleanup_cpyext_state()
-        self.cleanup_references(self.space)
-        # XXX: find out how to disable check_and_print_leaks() if the
-        # test failed...
-        assert not self.check_and_print_leaks(), (
-            "Test leaks or loses object(s).  You should also check if "
-            "the test actually passed in the first place; if it failed "
-            "it is likely to reach this place.")
+        self.cleanup()
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
@@ -415,7 +325,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
 
     def test_export_docstring(self):
-        import sys
         init = """
         if (Py_IsInitialized())
             Py_InitModule("foo", methods);
@@ -534,7 +443,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
 
     def test_export_function2(self):
-        import sys
         init = """
         if (Py_IsInitialized())
             Py_InitModule("foo", methods);

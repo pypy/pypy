@@ -3838,6 +3838,7 @@ def test_unpack():
         assert result == samples
         for i in range(len(samples)):
             assert result[i] == p[i] and type(result[i]) is type(p[i])
+            assert (type(result[i]) is bool) == (type(samples[i]) is bool)
     #
     BInt = new_primitive_type("int")
     py.test.raises(TypeError, unpack, p)

@@ -330,6 +330,8 @@ integers ``x``. The rule applies for the following types:
 
  - ``frozenset`` (empty frozenset only)
 
+ - unbound method objects (for Python 2 only)
+
 This change requires some changes to ``id`` as well. ``id`` fulfills the
 following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can

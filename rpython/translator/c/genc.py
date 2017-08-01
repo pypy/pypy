@@ -14,6 +14,7 @@ from rpython.translator.c.support import log
 from rpython.translator.gensupp import uniquemodulename, NameManager
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
+
 _CYGWIN = sys.platform == 'cygwin'
 
 _CPYTHON_RE = py.std.re.compile('^Python 2.[567]')
@@ -458,7 +459,7 @@ class CStandaloneBuilder(CBuilder):
 
             if self.config.translation.shared:
                 mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
-                         '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov')
+                         ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov', '$(MAKE) postcompile BIN=$(PROFOPT_TARGET)'])
             else:
                 mk.definition('PROFOPT_TARGET', '$(TARGET)')
 

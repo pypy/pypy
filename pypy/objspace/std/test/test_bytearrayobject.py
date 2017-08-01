@@ -448,6 +448,13 @@ class AppTestBytesArray:
         raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, u"unicode")
 
+    def test_extend_calls_len_or_lengthhint(self):
+        class BadLen(object):
+            def __iter__(self): return iter(range(10))
+            def __len__(self): raise RuntimeError('hello')
+        b = bytearray()
+        raises(RuntimeError, b.extend, BadLen())
+
     def test_setitem_from_front(self):
         b = bytearray(b'abcdefghij')
         b[:2] = b''
