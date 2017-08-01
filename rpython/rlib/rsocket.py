@@ -932,7 +932,6 @@ class RSocket(object):
                     address.addrlen = addrlen
                 else:
                     address = None
-                print address
                 data = buf.str(read_bytes)
                 return (data, address)
         raise self.error_handler()
@@ -997,7 +996,7 @@ class RSocket(object):
         retflag[0] = rffi.cast(rffi.SIGNED,0)
 
         # a mask for the SIGNEDP's that need to be cast to int. (long default)
-        LONG_MASK =  2**32 - 1
+        #LONG_MASK =  2**32 - 1
         reply = _c.recvmsg(self.fd, rffi.cast(lltype.Signed,message_size),
                            rffi.cast(lltype.Signed,ancbufsize),rffi.cast(lltype.Signed,flags),
                            addr_p, addrlen_p, len_of_msgs, messages, no_of_messages,size_of_anc,
@@ -1011,7 +1010,7 @@ class RSocket(object):
 
             for i in range(msg_no):
                 x = rffi.cast(rffi.SIGNED,len_of_msgs[0][i])
-                x &= LONG_MASK
+                #x &= LONG_MASK
                 retmsg = rffi.charp2strn(messages[0],x)
 
             offset = 0
@@ -1078,6 +1077,8 @@ class RSocket(object):
 
             if address is not None:
                 address.unlock()
+            if _c.geterrno() == _c.EINTR:
+                raise last_error()
             if (reply == -10000):
                 raise RSocketError("Invalid message size")
             if (reply == -10001):

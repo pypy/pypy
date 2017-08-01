@@ -514,15 +514,15 @@ if _POSIX:
                                   int flags,
                                   struct sockaddr* address,
                                   socklen_t* addrlen,
-                                  int** length_of_messages,
+                                  long** length_of_messages,
                                   char** messages,
-                                  int* no_of_messages,
-                                  int* size_of_ancillary,
+                                  long* no_of_messages,
+                                  long* size_of_ancillary,
                                   long** levels,
                                   long** types,
                                   char** file_descr,
                                   long** descr_per_ancillary,
-                                  int* retflag)
+                                  long* retflag)
 
         {
 
@@ -629,13 +629,15 @@ if _POSIX:
             *addrlen = retinfo->addrlen;
 
             // Set the parameters of message
-            *no_of_messages = retinfo->no_of_messages;
-            *size_of_ancillary = retinfo->size_of_ancillary;
-            *length_of_messages = (int*) malloc (sizeof(int) * retinfo->no_of_messages);
-            memcpy(*length_of_messages, retinfo->length_of_messages, sizeof(int) * retinfo->no_of_messages);
+            no_of_messages[0] = retinfo->no_of_messages;
+            size_of_ancillary[0] = retinfo->size_of_ancillary;
+            *length_of_messages = (long*) malloc (sizeof(long) * retinfo->no_of_messages);
+            //memcpy(*length_of_messages, retinfo->length_of_messages, sizeof(int) * retinfo->no_of_messages);
             int counter = 0;
-            for (i=0; i< retinfo->no_of_messages; i++)
+            for (i=0; i< retinfo->no_of_messages; i++){
                 counter += retinfo->length_of_messages[i];
+                length_of_messages[0][i] = retinfo->length_of_messages[i];
+            }
             memset(*messages, 0, sizeof(char) * counter);
             counter = 0;
             for(i=0; i< retinfo->no_of_messages; i++){
@@ -664,7 +666,7 @@ if _POSIX:
             }
 
             // Set the retflag
-            *retflag = retinfo->retflag;
+            retflag[0] = retinfo->retflag;
 
             // Free the memory
             free(retinfo->address);
@@ -959,7 +961,7 @@ if _POSIX:
     post_include_bits =[ "RPY_EXTERN "
                          "int sendmsg_implementation(int socket, struct sockaddr* address, socklen_t addrlen, long* length_of_messages, char** messages, int no_of_messages, long* levels, long* types, char** file_descriptors, long* no_of_fds, int control_length, int flag );\n"
                          "RPY_EXTERN "
-                         "int recvmsg_implementation(int socket_fd, int message_size, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, int** length_of_messages, char** messages, int* no_of_messages, int* size_of_ancillary, long** levels, long** types, char** file_descr, long** descr_per_ancillary, int* flag);\n"
+                         "int recvmsg_implementation(int socket_fd, int message_size, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, long** length_of_messages, char** messages, long* no_of_messages, long* size_of_ancillary, long** levels, long** types, char** file_descr, long** descr_per_ancillary, long* flag);\n"
                          "static "
                          "int cmsg_min_space(struct msghdr *msg, struct cmsghdr *cmsgh, size_t space);\n"
                          "static "
