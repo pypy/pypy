@@ -111,70 +111,14 @@ class TestDictObject(BaseApiTest):
             PyDict_Update(space, w_d, w_d2)
         assert space.unwrap(w_d) == dict(a='b') # unchanged
 
-    def test_iter(self, space):
-        w_dict = space.sys.getdict(space)
-        py_dict = make_ref(space, w_dict)
-
-        ppos = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
-        ppos[0] = 0
-        pkey = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        pvalue = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-
-        try:
-            w_copy = space.newdict()
-            while PyDict_Next(space, w_dict, ppos, pkey, pvalue):
-                w_key = from_ref(space, pkey[0])
-                w_value = from_ref(space, pvalue[0])
-                space.setitem(w_copy, w_key, w_value)
-        finally:
-            lltype.free(ppos, flavor='raw')
-            lltype.free(pkey, flavor='raw')
-            lltype.free(pvalue, flavor='raw')
-
-        decref(space, py_dict) # release borrowed references
-
-        assert space.eq_w(space.len(w_copy), space.len(w_dict))
-        assert space.eq_w(w_copy, w_dict)
-
-    def test_iterkeys(self, space):
-        w_dict = space.sys.getdict(space)
-        py_dict = make_ref(space, w_dict)
-
-        ppos = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
-        pkey = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        pvalue = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-
-        keys_w = []
-        values_w = []
-        try:
-            ppos[0] = 0
-            while PyDict_Next(space, w_dict, ppos, pkey, None):
-                w_key = from_ref(space, pkey[0])
-                keys_w.append(w_key)
-            ppos[0] = 0
-            while PyDict_Next(space, w_dict, ppos, None, pvalue):
-                w_value = from_ref(space, pvalue[0])
-                values_w.append(w_value)
-        finally:
-            lltype.free(ppos, flavor='raw')
-            lltype.free(pkey, flavor='raw')
-            lltype.free(pvalue, flavor='raw')
-
-        decref(space, py_dict) # release borrowed references
-
-        assert space.eq_w(space.newlist(keys_w),
-                          space.call_method(w_dict, "keys"))
-        assert space.eq_w(space.newlist(values_w),
-                          space.call_method(w_dict, "values"))
-
     def test_dictproxy(self, space):
-        w_dict = space.sys.get('modules')
+        w_dict = space.appexec([], """(): return {1: 2, 3: 4}""")
         w_proxy = PyDictProxy_New(space, w_dict)
-        assert space.contains_w(w_proxy, space.wrap('sys'))
+        assert space.contains_w(w_proxy, space.newint(1))
         raises(OperationError, space.setitem,
-               w_proxy, space.wrap('sys'), space.w_None)
+               w_proxy, space.newint(1), space.w_None)
         raises(OperationError, space.delitem,
-               w_proxy, space.wrap('sys'))
+               w_proxy, space.newint(1))
         raises(OperationError, space.call_method, w_proxy, 'clear')
         assert PyDictProxy_Check(space, w_proxy)
 
@@ -243,6 +187,59 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
         d = {"a": 1}
         raises(AttributeError, module.update, d, [("c", 2)])
 
+    def test_iter(self):
+        module = self.import_extension('foo', [
+            ("copy", "METH_O",
+             '''
+             Py_ssize_t pos = 0;
+             PyObject *key, *value;
+             PyObject* copy = PyDict_New();
+             while (PyDict_Next(args, &pos, &key, &value))
+             {
+                if (PyDict_SetItem(copy, key, value) < 0)
+                {
+                    Py_DecRef(copy);
+                    return NULL;
+                }
+             }
+             return copy;
+             ''')])
+        d = {1: 'xyz', 3: 'abcd'}
+        copy = module.copy(d)
+        assert len(copy) == len(d)
+        assert copy == d
+
+    def test_iterkeys(self):
+        module = self.import_extension('foo', [
+            ("keys_and_values", "METH_O",
+             '''
+             Py_ssize_t pos = 0;
+             PyObject *key, *value;
+             PyObject* keys = PyList_New(0);
+             while (PyDict_Next(args, &pos, &key, NULL))
+             {
+                if (PyList_Append(keys, key) < 0)
+                {
+                    Py_DecRef(keys);
+                    return NULL;
+                }
+             }
+             pos = 0;
+             PyObject* values = PyList_New(0);
+             while (PyDict_Next(args, &pos, NULL, &value))
+             {
+                if (PyList_Append(values, value) < 0)
+                {
+                    Py_DecRef(keys);
+                    Py_DecRef(values);
+                    return NULL;
+                }
+             }
+             return Py_BuildValue("(NN)", keys, values);
+             ''')])
+        d = {1: 'xyz', 3: 'abcd'}
+        assert module.keys_and_values(d) == (d.keys(), d.values())
+
     def test_typedict2(self):
         module = self.import_extension('foo', [
             ("get_type_dict", "METH_O",
@@ -255,6 +252,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
             ])
         d = module.get_type_dict(1)
         assert d['real'].__get__(1, 1) == 1
+
     def test_advanced(self):
         module = self.import_extension('foo', [
             ("dict_len", "METH_O",
@@ -266,7 +264,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
             '''
                 int ret;
                 PyObject * dict = PyTuple_GetItem(args, 0);
-                if (PyTuple_Size(args) < 3 || !dict || 
+                if (PyTuple_Size(args) < 3 || !dict ||
                         !dict->ob_type->tp_as_mapping ||
                         !dict->ob_type->tp_as_mapping->mp_ass_subscript)
                     return PyLong_FromLong(-1);
@@ -279,7 +277,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
             '''
                 int ret;
                 PyObject * dict = PyTuple_GetItem(args, 0);
-                if (PyTuple_Size(args) < 2 || !dict || 
+                if (PyTuple_Size(args) < 2 || !dict ||
                         !dict->ob_type->tp_as_mapping ||
                         !dict->ob_type->tp_as_mapping->mp_ass_subscript)
                     return PyLong_FromLong(-1);
