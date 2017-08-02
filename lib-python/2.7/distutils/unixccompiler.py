@@ -226,7 +226,19 @@ class UnixCCompiler(CCompiler):
         return "-L" + dir
 
     def _is_gcc(self, compiler_name):
-        return "gcc" in compiler_name or "g++" in compiler_name
+        # XXX PyPy workaround, look at the big comment below for more
+        # context. On CPython, the hack below works fine because
+        # `compiler_name` contains the name of the actual compiler which was
+        # used at compile time (e.g. 'x86_64-linux-gnu-gcc' on my machine).
+        # PyPy hardcodes it to 'cc', so the hack doesn't work, and the end
+        # result is that we pass the wrong option to the compiler.
+        #
+        # The workaround is to *always* pretend to be GCC if we are on Linux:
+        # this should cover the vast majority of real systems, including the
+        # ones which use clang (which understands the '-Wl,-rpath' syntax as
+        # well)
+        return (sys.platform == "linux2" or
+                "gcc" in compiler_name or "g++" in compiler_name)
 
     def runtime_library_dir_option(self, dir):
         # XXX Hackish, at the very least.  See Python bug #445902:
