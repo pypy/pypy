@@ -735,15 +735,14 @@ class OptHeap(Optimization):
                 structinfo = info.InstancePtrInfo(parent_descr)
                 structinfo.init_fields(parent_descr, descr.get_index())
                 box1.set_forwarded(structinfo)
-
             cf = self.field_cache(descr)
             structinfo.setfield(descr, box1, box2, optheap=self, cf=cf)
+
         for box1, index, descr, box2 in triples_array:
             arrayinfo = box1.get_forwarded()
             if not isinstance(arrayinfo, info.AbstractVirtualPtrInfo):
                 arrayinfo = info.ArrayPtrInfo(descr)
                 box1.set_forwarded(arrayinfo)
-
             cf = self.arrayitem_cache(descr, index)
             arrayinfo.setitem(descr, index, box1, box2, optheap=self, cf=cf)
 
