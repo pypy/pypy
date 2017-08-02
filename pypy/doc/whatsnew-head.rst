@@ -55,3 +55,8 @@ Improve ``bytearray`` performance (backported from py3.5)
 
 Fix the bounds in the GC when allocating a lot of objects with finalizers,
 fixes issue #2590
+
+.. branch: arrays-force-less
+
+Small improvement to optimize list accesses with constant indexes better by
+throwing away information about them less eagerly.
