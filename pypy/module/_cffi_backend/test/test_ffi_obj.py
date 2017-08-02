@@ -377,7 +377,7 @@ class AppTestFFIObj:
         raises(TypeError, ffi.gc, p, None)
         seen = []
         q1 = ffi.gc(p, lambda p: seen.append(1))
-        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        q2 = ffi.gc(q1, lambda p: seen.append(2), size=123)
         import gc; gc.collect()
         assert seen == []
         assert ffi.gc(q1, None) is None

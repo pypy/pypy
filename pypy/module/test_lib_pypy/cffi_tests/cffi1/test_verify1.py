@@ -2291,3 +2291,61 @@ def test_win_common_types():
         expected = "unsigned int"
     assert ffi.typeof("UINT_PTR") is ffi.typeof(expected)
     assert ffi.typeof("PTSTR") is ffi.typeof("wchar_t *")
+
+def test_gc_pypy_size_arg():
+    ffi = FFI()
+    ffi.cdef("void *malloc(size_t); void free(void *);")
+    lib = ffi.verify(r"""
+        #include <stdlib.h>
+    """)
+    for i in range(2000):
+        p = lib.malloc(20*1024*1024)    # 20 MB
+        p1 = ffi.cast("char *", p)
+        for j in xrange(0, 20*1024*1024, 4096):
+            p1[j] = '!'
+        p = ffi.gc(p, lib.free, 20*1024*1024)
+        del p
+        # with PyPy's GC, the above would rapidly consume 40 GB of RAM
+        # without the third argument to ffi.gc()
+
+def test_ffi_gc_size_arg_2():
+    # a variant of the above: this "attack" works on cpython's cyclic gc too
+    # and I found no obvious way to prevent that.  So for now, this test
+    # is skipped on CPython, where it eats all the memory.
+    if '__pypy__' not in sys.builtin_module_names:
+        py.test.skip("find a way to tweak the cyclic GC of CPython")
+    ffi = FFI()
+    ffi.cdef("void *malloc(size_t); void free(void *);")
+    lib = ffi.verify(r"""
+        #include <stdlib.h>
+    """)
+    class X(object):
+        pass
+    for i in range(2000):
+        p = lib.malloc(50*1024*1024)    # 50 MB
+        p1 = ffi.cast("char *", p)
+        for j in xrange(0, 50*1024*1024, 4096):
+            p1[j] = '!'
+        p = ffi.gc(p, lib.free, 50*1024*1024)
+        x = X()
+        x.p = p
+        x.cyclic = x
+        del p, x
+
+def test_ffi_new_with_cycles():
+    # still another variant, with ffi.new()
+    if '__pypy__' not in sys.builtin_module_names:
+        py.test.skip("find a way to tweak the cyclic GC of CPython")
+    ffi = FFI()
+    ffi.cdef("")
+    lib = ffi.verify("")
+    class X(object):
+        pass
+    for i in range(2000):
+        p = ffi.new("char[]", 50*1024*1024)    # 50 MB
+        for j in xrange(0, 50*1024*1024, 4096):
+            p[j] = '!'
+        x = X()
+        x.p = p
+        x.cyclic = x
+        del p, x
