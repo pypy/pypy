@@ -223,7 +223,10 @@ class ArrayCachedItem(AbstractCachedEntry):
     def invalidate(self, descr):
         for opinfo in self.cached_infos:
             assert isinstance(opinfo, info.ArrayPtrInfo)
-            opinfo._items = None
+            # only invalidate those at self.index
+            if self.index < len(opinfo._items):
+                opinfo._items[self.index] = None
+            #opinfo._items = None #[self.index] = None
         self.cached_infos = []
         self.cached_structs = []
 
