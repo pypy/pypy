@@ -1354,7 +1354,7 @@ class ObjSpace(object):
         return self.getitem(w_glob, self.newtext('anonymous'))
 
     @specialize.arg(2)
-    def appexec(self, posargs_w, source):
+    def appexec(self, posargs_w, source, cache=True):
         """ return value from executing given source at applevel.
             The source must look like
                '''(x, y):
@@ -1362,7 +1362,11 @@ class ObjSpace(object):
                        return result
                '''
         """
-        w_func = self.fromcache(AppExecCache).getorbuild(source)
+        if cache:
+            w_func = self.fromcache(AppExecCache).getorbuild(source)
+        else:
+            # NB: since appdef() is not-RPython, using cache=False also is.
+            w_func = self.appdef(source)
         args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
 
