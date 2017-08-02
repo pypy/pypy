@@ -143,11 +143,7 @@ class TestOptBridge(LLJitMixin):
     def test_bridge_field_read(self):
         myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n', 'a'])
         class A(object):
-            def f(self):
-                return 1
-        class B(A):
-            def f(self):
-                return 2
+            pass
         class M(object):
             _immutable_fields_ = ['x']
             def __init__(self, x):
@@ -156,18 +152,59 @@ class TestOptBridge(LLJitMixin):
         m1 = M(1)
         m2 = M(2)
         def f(x, y, n):
+            a = A()
+            a.n = n
             if x:
-                a = A()
+                a.m = m1
+            else:
+                a.m = m2
+            a.x = 0
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res, a=a)
+                n1 = a.n
+                m = jit.promote(a.m)
+                res += m.x
+                a.x += 1
+                if y > n:
+                    res += 1
+                m = jit.promote(a.m)
+                res += m.x
+                res += n1 + a.n
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        assert res == f(6, 32, 16)
+        self.check_trace_count(3)
+        self.check_resops(guard_value=1)
+        self.check_resops(getfield_gc_i=4) # 3x a.x, 1x a.n
+        self.check_resops(getfield_gc_r=1) # in main loop
+
+    def test_bridge_field_read_constants(self):
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n'])
+        class A(object):
+            pass
+        class M(object):
+            _immutable_fields_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        m1 = M(1)
+        m2 = M(2)
+        a = A()
+        a.m = m1
+        a.n = 0
+        def f(x, y, n):
+            if x:
                 a.m = m1
                 a.n = n
             else:
-                a = B()
                 a.m = m2
                 a.n = n
             a.x = 0
             res = 0
             while y > 0:
-                myjitdriver.jit_merge_point(y=y, n=n, res=res, a=a)
+                myjitdriver.jit_merge_point(y=y, n=n, res=res)
                 n1 = a.n
                 m = jit.promote(a.m)
                 res += m.x
@@ -213,3 +250,35 @@ class TestOptBridge(LLJitMixin):
         self.check_resops(guard_value=1)
         self.check_resops(getarrayitem_gc_i=4)
 
+    def test_bridge_array_read_constant(self):
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n'])
+        class A(object):
+            pass
+        a = A()
+        a.l = [1, -65, 0]
+        def f(x, y, n):
+            if x:
+                a.l[0] = 1
+            else:
+                a.l[0] = 2
+            a.l[1] = n
+            a.l[2] = 0
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res)
+                n1 = a.l[1]
+                m = jit.promote(a.l[0])
+                res += m
+                a.l[2] += 1
+                if y > n:
+                    res += 1
+                m = jit.promote(a.l[0])
+                res += m
+                res += n1 + a.l[1]
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        assert res == f(6, 32, 16)
+        self.check_trace_count(3)
+        self.check_resops(guard_value=1)
+        self.check_resops(getarrayitem_gc_i=5)
