@@ -211,6 +211,5 @@ class TestOptBridge(LLJitMixin):
         assert res == f(6, 32, 16)
         self.check_trace_count(3)
         self.check_resops(guard_value=1)
-        self.check_resops(getarrayitem_gc_r=4) # 3x a.x, 1x a.n
-        self.check_resops(getfield_gc_r=1) # in main loop
+        self.check_resops(getarrayitem_gc_i=4)
 
