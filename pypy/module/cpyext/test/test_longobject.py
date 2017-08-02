@@ -313,6 +313,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     ret = obj->ob_type->tp_as_number->nb_power(obj, one, one);
                 else
                     ret = PyLong_FromLong(-1);
+                Py_DECREF(one);
                 Py_DECREF(obj);
                 return ret;
              """),
@@ -340,4 +341,3 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         assert module.has_pow() == 0
         assert module.has_hex() == '0x2aL'
         assert module.has_oct() == '052L'
-
