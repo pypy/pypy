@@ -186,3 +186,31 @@ class TestOptBridge(LLJitMixin):
         self.check_resops(getfield_gc_i=4) # 3x a.x, 1x a.n
         self.check_resops(getfield_gc_r=1) # in main loop
 
+    def test_bridge_array_read(self):
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n', 'a'])
+        def f(x, y, n):
+            if x:
+                a = [1, n, 0]
+            else:
+                a = [2, n, 0]
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res, a=a)
+                n1 = a[1]
+                m = jit.promote(a[0])
+                res += m
+                a[2] += 1
+                if y > n:
+                    res += 1
+                m = jit.promote(a[0])
+                res += m
+                res += n1 + a[1]
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        assert res == f(6, 32, 16)
+        self.check_trace_count(3)
+        self.check_resops(guard_value=1)
+        self.check_resops(getarrayitem_gc_r=4) # 3x a.x, 1x a.n
+        self.check_resops(getfield_gc_r=1) # in main loop
+

@@ -116,6 +116,7 @@ class AbstractCachedEntry(object):
             return None
 
     def force_lazy_set(self, optheap, descr, can_cache=True):
+        import pdb; pdb.set_trace()
         op = self._lazy_set
         if op is not None:
             # This is the way _lazy_set is usually reset to None.
@@ -223,7 +224,7 @@ class ArrayCachedItem(AbstractCachedEntry):
     def invalidate(self, descr):
         for opinfo in self.cached_infos:
             assert isinstance(opinfo, info.ArrayPtrInfo)
-            opinfo._items = None
+            opinfo._items[self.index] = None
         self.cached_infos = []
         self.cached_structs = []
 
@@ -574,6 +575,7 @@ class OptHeap(Optimization):
         cf.do_setfield(self, op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
+        import pdb; pdb.set_trace()
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
@@ -636,6 +638,7 @@ class OptHeap(Optimization):
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_PURE_I
 
     def optimize_SETARRAYITEM_GC(self, op):
+        import pdb; pdb.set_trace()
         #opnum = OpHelpers.getarrayitem_pure_for_descr(op.getdescr())
         #if self.has_pure_result(opnum, [op.getarg(0), op.getarg(1)],
         #                        op.getdescr()):
@@ -695,7 +698,7 @@ class OptHeap(Optimization):
         return self.emit(op)
 
     def serialize_optheap(self, available_boxes):
-        result = []
+        result_getfield = []
         for descr, cf in self.cached_fields.iteritems():
             if cf._lazy_set:
                 continue # XXX safe default for now
@@ -708,11 +711,24 @@ class OptHeap(Optimization):
                 structinfo = cf.cached_infos[i]
                 box2 = structinfo.getfield(descr).get_box_replacement()
                 if isinstance(box2, Const) or box2 in available_boxes:
-                    result.append((box1, descr, box2))
-        return result
+                    result_getfield.append((box1, descr, box2))
+        result_array = []
+        import pdb; pdb.set_trace()
+        for descr, indexdict in self.cached_arrayitems.iteritems():
+            for index, cf in indexdict.iteritems():
+                if cf._lazy_set:
+                    continue # XXX safe default for now
+                for i, box1 in enumerate(cf.cached_structs):
+                    if box1 not in available_boxes:
+                        continue
+                    arrayinfo = cf.cached_infos[i]
+                    box2 = arrayinfo.getitem(descr, index).get_box_replacement()
+                    if isinstance(box2, Const) or box2 in available_boxes:
+                        result_array.append((box1, index, descr, box2))
+        return result_getfield, result_array
 
-    def deserialize_optheap(self, triples):
-        for box1, descr, box2 in triples:
+    def deserialize_optheap(self, triples_struct, triples_array):
+        for box1, descr, box2 in triples_struct[0]:
             parent_descr = descr.get_parent_descr()
             assert parent_descr.is_object()
             structinfo = box1.get_forwarded()
@@ -722,6 +738,15 @@ class OptHeap(Optimization):
                 box1.set_forwarded(structinfo)
 
             cf = self.field_cache(descr)
+            structinfo.setfield(descr, box1, box2, optheap=self, cf=cf)
+        import pdb; pdb.set_trace()
+        for box1, index, descr, box2 in triples_array[0]:
+            structinfo = box1.get_forwarded()
+            if not isinstance(structinfo, info.AbstractVirtualPtrInfo):
+                structinfo = info.ArrayPtrInfo(descr)
+                box1.set_forwarded(structinfo)
+
+            cf = self.arrayitem_cache(index, descr)
             structinfo.setfield(descr, box1, box2, optheap=self, cf=cf)
 
 
