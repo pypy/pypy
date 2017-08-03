@@ -17,9 +17,6 @@ from pypy.module._cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
 
 reflection_library = 'libcppyy_backend.so'
 
-def identify():
-    return 'loadable_capi'
-
 # this is not technically correct, but will do for now
 std_string_name = 'std::basic_string<char>'
 
