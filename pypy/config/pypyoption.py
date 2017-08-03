@@ -224,11 +224,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "use specialised tuples",
                    default=False),
 
-        BoolOption("withcelldict",
-                   "use dictionaries that are optimized for being used as module dicts",
-                   default=False,
-                   requires=[("objspace.honor__builtins__", False)]),
-
         BoolOption("withliststrategies",
                    "enable optimized ways to store lists of primitives ",
                    default=True),
@@ -288,7 +283,7 @@ def set_pypy_opt_level(config, level):
 
     # extra optimizations with the JIT
     if level == 'jit':
-        config.objspace.std.suggest(withcelldict=True)
+        pass # none at the moment
 
 
 def enable_allworkingmodules(config):
