@@ -1,6 +1,6 @@
 dicts = example01Dict.so datatypesDict.so advancedcppDict.so advancedcpp2Dict.so \
 overloadsDict.so stltypesDict.so operatorsDict.so fragileDict.so crossingDict.so \
-std_streamsDict.so iotypesDict.so
+iotypesDict.so
 all : $(dicts)
 
 ifneq (${REFLEXHOME},)
@@ -62,12 +62,6 @@ else # reflex
 
 endif
 
-ifeq ($(DUMMY),)
-# TODO: methptrgetter causes these tests to crash, so don't use it for now
-std_streamsDict.so: std_streams.cxx std_streams.h std_streams.xml
-	$(genreflex) std_streams.h --selection=std_streams.xml
-	g++ -o $@ std_streams_rflx.cpp std_streams.cxx -shared -std=c++11 $(cppflags) $(cppflags2)
-endif
 
 .PHONY: clean
 clean:
