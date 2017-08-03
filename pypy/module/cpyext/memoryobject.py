@@ -72,7 +72,7 @@ def memory_realize(space, obj):
                     readonly=widen(view.c_readonly))
     # Ensure view.c_buf is released upon object finalization
     fq.register_finalizer(buf)
-    # Allow subclassing W_MemeoryView
+    # Allow subclassing W_MemoryView
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemoryView, w_type)
     w_obj.__init__(buf)
@@ -177,11 +177,9 @@ def PyBuffer_IsContiguous(space, view, fort):
         return (_IsCContiguous(view) or _IsFortranContiguous(view))
     return 0
 
-@cpython_api([PyObject], PyObject, result_is_ll=True)
+@cpython_api([PyObject], PyObject)
 def PyMemoryView_FromObject(space, w_obj):
-    w_memview = space.call_method(space.builtin, "memoryview", w_obj)
-    py_memview = make_ref(space, w_memview, w_obj)
-    return py_memview
+    return space.call_method(space.builtin, "memoryview", w_obj)
 
 @cpython_api([Py_bufferP], PyObject, result_is_ll=True)
 def PyMemoryView_FromBuffer(space, view):
@@ -193,6 +191,7 @@ def PyMemoryView_FromBuffer(space, view):
     # copy view into obj.c_view, without creating a new view.c_obj
     typedescr = get_typedescr(W_MemoryView.typedef)
     py_obj = typedescr.allocate(space, space.w_memoryview)
+
     py_mem = rffi.cast(PyMemoryViewObject, py_obj)
     mview = py_mem.c_view
     mview.c_buf = view.c_buf
