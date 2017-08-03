@@ -369,7 +369,7 @@ def _pythonize(pyclass):
                 while i != self.end():
                     yield i.__deref__()
                     i.__preinc__()
-                i.destruct()
+                i.__destruct__()
                 raise StopIteration
             pyclass.__iter__ = __iter__
         # else: rely on numbered iteration
