@@ -1,4 +1,6 @@
 import py, os, sys
+from .support import setup_make
+
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib import rarithmetic, rbigint, jit
@@ -8,9 +10,9 @@ from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module._cppyy import interp_cppyy, capi, executor
 # These tests are for the backend that support the fast path only.
-if capi.identify() == 'loadable_capi':
-    py.test.skip("can not currently use FakeSpace with _cffi_backend")
-elif os.getenv("CPPYY_DISABLE_FASTPATH"):
+#if capi.identify() == 'loadable_capi':
+#    py.test.skip("can not currently use FakeSpace with _cffi_backend")
+if os.getenv("CPPYY_DISABLE_FASTPATH"):
     py.test.skip("fast path is disabled by CPPYY_DISABLE_FASTPATH envar")
 
 # load cpyext early, or its global vars are counted as leaks in the test
@@ -57,14 +59,11 @@ def setup_module(mod):
 class FakeBase(W_Root):
     typename = None
 
-class FakeBool(FakeBase):
-    typename = "bool"
-    def __init__(self, val):
-        self.val = val
 class FakeInt(FakeBase):
     typename = "int"
     def __init__(self, val):
         self.val = val
+FakeBool = FakeInt
 class FakeLong(FakeBase):
     typename = "long"
     def __init__(self, val):
@@ -110,6 +109,13 @@ class FakeState(object):
     def __init__(self, space):
         self.slowcalls = 0
 
+class FakeFinalizerQueue(object):
+    def register_finalizer(self, obj):
+        pass
+
+class FakeConfig(object):
+    pass
+
 class FakeSpace(object):
     fake = True
 
@@ -119,10 +125,11 @@ class FakeSpace(object):
     w_float = FakeType("float")
 
     def __init__(self):
+        self.finalizer_queue = FakeFinalizerQueue()
+
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.user_del_action = FakeUserDelAction(self)
-        class dummy: pass
-        self.config = dummy()
+        self.config = FakeConfig()
         self.config.translating = False
 
         # kill calls to c_call_i (i.e. slow path)
@@ -200,6 +207,10 @@ class FakeSpace(object):
     def is_w(self, w_one, w_two):
         return w_one is w_two
 
+    def bool_w(self, w_obj, allow_conversion=True):
+        assert isinstance(w_obj, FakeBool)
+        return w_obj.val
+
     def int_w(self, w_obj, allow_conversion=True):
         assert isinstance(w_obj, FakeInt)
         return w_obj.val
@@ -220,7 +231,12 @@ class FakeSpace(object):
         assert isinstance(obj, str)
         return obj
 
+    def len_w(self, obj):
+        assert isinstance(obj, str)
+        return (obj)
+
     c_int_w = int_w
+    c_uint_w = uint_w
     r_longlong_w = int_w
     r_ulonglong_w = uint_w
 
@@ -254,13 +270,16 @@ class FakeSpace(object):
     def _freeze_(self):
         return True
 
+
 class TestFastPathJIT(LLJitMixin):
+    def setup_class(cls):
+        import ctypes
+        return ctypes.CDLL(test_dct, ctypes.RTLD_GLOBAL)
+
     def _run_zjit(self, method_name):
         space = FakeSpace()
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "cppmethod"])
         def f():
-            import ctypes
-            lib = ctypes.CDLL("./example01Dict.so", ctypes.RTLD_GLOBAL)
             cls  = interp_cppyy.scope_byname(space, "example01")
             inst = cls.get_overload("example01").call(None, [FakeInt(0)])
             cppmethod = cls.get_overload(method_name)
@@ -277,16 +296,19 @@ class TestFastPathJIT(LLJitMixin):
         self.check_jitcell_token_count(1)   # same for fast and slow path??
         # rely on replacement of capi calls to raise exception instead (see FakeSpace.__init__)
 
+    @py.test.mark.dont_track_allocations("cppmethod.cif_descr kept 'leaks'")
     def test01_simple(self):
         """Test fast path being taken for methods"""
 
         self._run_zjit("addDataToInt")
 
+    @py.test.mark.dont_track_allocations("cppmethod.cif_descr kept 'leaks'")
     def test02_overload(self):
         """Test fast path being taken for overloaded methods"""
 
         self._run_zjit("overloadedAddDataToInt")
 
+    @py.test.mark.dont_track_allocations("cppmethod.cif_descr kept 'leaks'")
     def test03_const_ref(self):
         """Test fast path being taken for methods with const ref arguments"""
 
