@@ -26,7 +26,7 @@ ifeq ($(PLATFORM),Darwin)
 endif
 
 
-ifndef HASREFLEX
+ifndef HASGENREFLEX
 %Dict.so: %.cxx
 	$(CXX) -shared $(cppflags) -o $@ $^
 

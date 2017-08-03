@@ -14,7 +14,8 @@ def setup_module(mod):
 class TestCPPYYImplementation:
     def test01_class_query(self, space):
         # NOTE: this test needs to run before test_pythonify.py
-        dct = interp_cppyy.load_dictionary(space, test_dct)
+        import ctypes
+        dct = ctypes.CDLL(test_dct)
         w_cppyyclass = interp_cppyy.scope_byname(space, "example01")
         w_cppyyclass2 = interp_cppyy.scope_byname(space, "example01")
         assert space.is_w(w_cppyyclass, w_cppyyclass2)
@@ -30,10 +31,12 @@ class AppTestCPPYY:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_example01, cls.w_payload = cls.space.unpackiterable(cls.space.appexec([], """():
-            import _cppyy
-            _cppyy.load_reflection_info(%r)
-            return _cppyy._scope_byname('example01'), _cppyy._scope_byname('payload')""" % (test_dct, )))
+        cls.w_lib, cls.w_example01, cls.w_payload = \
+                   cls.space.unpackiterable(cls.space.appexec([], """():
+            import _cppyy, ctypes
+            lib = ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)
+            return lib, _cppyy._scope_byname('example01'), _cppyy._scope_byname('payload')"""\
+                                                              % (test_dct, )))
 
     def test01_static_int(self):
         """Test passing of an int, returning of an int, and overloading on a

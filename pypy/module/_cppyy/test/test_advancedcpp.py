@@ -1,8 +1,12 @@
 import py, os, sys
+from .support import setup_make
+
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("advancedcppDict.so"))
 
+def setup_module(mod):
+    setup_make("advancedcppDict.so")
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -18,8 +22,8 @@ class AppTestADVANCEDCPP:
     def setup_class(cls):
         cls.w_test_dct = cls.space.newtext(test_dct)
         cls.w_advanced = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_default_arguments(self):
         """Test usage of default arguments"""
@@ -146,10 +150,10 @@ class AppTestADVANCEDCPP:
     def test03a_namespace_lookup_on_update(self):
         """Test whether namespaces can be shared across dictionaries."""
 
-        import _cppyy
+        import _cppyy, ctypes
         gbl = _cppyy.gbl
 
-        lib2 = _cppyy.load_reflection_info("advancedcpp2Dict.so")
+        lib2 = ctypes.CDLL("./advancedcpp2Dict.so", ctypes.RTLD_GLOBAL)
 
         assert gbl.a_ns      is gbl.a_ns
         assert gbl.a_ns.d_ns is gbl.a_ns.d_ns

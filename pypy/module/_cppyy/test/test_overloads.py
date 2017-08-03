@@ -18,8 +18,8 @@ class AppTestOVERLOADS:
         env = os.environ
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_overloads = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_class_based_overloads(self):
         """Test functions overloaded on different C++ clases"""

@@ -14,17 +14,11 @@ class AppTestDATATYPES:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
         cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
 
-    def test01_load_reflection_cache(self):
-        """Loading reflection info twice should result in the same object"""
-        import _cppyy
-        lib2 = _cppyy.load_reflection_info(self.test_dct)
-        assert self.datatypes is lib2
-
-    def test02_instance_data_read_access(self):
+    def test01_instance_data_read_access(self):
         """Read access to instance public data and verify values"""
 
         import _cppyy
@@ -112,7 +106,7 @@ class AppTestDATATYPES:
 
         c.__destruct__()
 
-    def test03_instance_data_write_access(self):
+    def test02_instance_data_write_access(self):
         """Test write access to instance public data and verify values"""
 
         import _cppyy
@@ -199,7 +193,7 @@ class AppTestDATATYPES:
 
         c.__destruct__()
 
-    def test04_array_passing(self):
+    def test03_array_passing(self):
         """Test passing of array arguments"""
 
         import _cppyy, array, sys
@@ -237,7 +231,7 @@ class AppTestDATATYPES:
 
         c.__destruct__()
 
-    def test05_class_read_access(self):
+    def test04_class_read_access(self):
         """Test read access to class public data and verify values"""
 
         import _cppyy, sys
@@ -278,7 +272,7 @@ class AppTestDATATYPES:
 
         c.__destruct__()
 
-    def test06_class_data_write_access(self):
+    def test05_class_data_write_access(self):
         """Test write access to class public data and verify values"""
 
         import _cppyy, sys
@@ -342,7 +336,7 @@ class AppTestDATATYPES:
 
         c.__destruct__()
 
-    def test07_range_access(self):
+    def test06_range_access(self):
         """Test the ranges of integer types"""
 
         import _cppyy, sys
@@ -358,7 +352,7 @@ class AppTestDATATYPES:
 
         c.__destruct__()
 
-    def test08_type_conversions(self):
+    def test07_type_conversions(self):
         """Test conversions between builtin types"""
 
         import _cppyy, sys
@@ -376,7 +370,7 @@ class AppTestDATATYPES:
 
         c.__destruct__()
 
-    def test09_global_builtin_type(self):
+    def test08_global_builtin_type(self):
         """Test access to a global builtin type"""
 
         import _cppyy
@@ -392,7 +386,7 @@ class AppTestDATATYPES:
         assert gbl.get_global_int() == 22
         assert gbl.g_int == 22
 
-    def test10_global_ptr(self):
+    def test09_global_ptr(self):
         """Test access of global objects through a pointer"""
 
         import _cppyy
@@ -423,7 +417,7 @@ class AppTestDATATYPES:
         assert gbl.g_pod.m_int == 43
         assert gbl.g_pod.m_double == 2.14
 
-    def test11_enum(self):
+    def test10_enum(self):
         """Test access to enums"""
 
         import _cppyy
@@ -471,7 +465,7 @@ class AppTestDATATYPES:
         assert gbl.kBanana == 29
         assert gbl.kCitrus == 34
 
-    def test12_string_passing(self):
+    def test11_string_passing(self):
         """Test passing/returning of a const char*"""
 
         import _cppyy
@@ -481,7 +475,7 @@ class AppTestDATATYPES:
         assert c.get_valid_string('aap') == 'aap'
         #assert c.get_invalid_string() == ''
 
-    def test13_copy_contructor(self):
+    def test12_copy_contructor(self):
         """Test copy constructor"""
 
         import _cppyy
@@ -497,7 +491,7 @@ class AppTestDATATYPES:
         for i in range(4):
             assert t1[i] == t3[i]
 
-    def test14_object_returns(self):
+    def test13_object_returns(self):
         """Test access to and return of PODs"""
 
         import _cppyy
@@ -524,7 +518,7 @@ class AppTestDATATYPES:
         assert c.get_pod_ptrref().m_int == 666
         assert c.get_pod_ptrref().m_double == 3.14
 
-    def test15_object_arguments(self):
+    def test14_object_arguments(self):
         """Test setting and returning of a POD through arguments"""
 
         import _cppyy
@@ -592,7 +586,7 @@ class AppTestDATATYPES:
         assert p.m_int == 888
         assert p.m_double == 3.14
 
-    def test16_nullptr_passing(self):
+    def test15_nullptr_passing(self):
         """Integer 0 ('NULL') and None allowed to pass through instance*"""
 
         import _cppyy
@@ -607,7 +601,7 @@ class AppTestDATATYPES:
             assert not c.m_ppod
             assert not c.get_pod_ptr()
 
-    def test17_respect_privacy(self):
+    def test16_respect_privacy(self):
         """Test that privacy settings are respected"""
 
         import _cppyy
@@ -620,7 +614,7 @@ class AppTestDATATYPES:
 
         c.__destruct__()
 
-    def test18_object_and_pointer_comparisons(self):
+    def test17_object_and_pointer_comparisons(self):
         """Verify object and pointer comparisons"""
 
         import _cppyy
@@ -657,7 +651,7 @@ class AppTestDATATYPES:
         assert l3 != l5
         assert l5 != l3
 
-    def test19_object_validity(self):
+    def test18_object_validity(self):
         """Test object validity checking"""
 
         from _cppyy import gbl
@@ -671,7 +665,7 @@ class AppTestDATATYPES:
 
         assert not d2
 
-    def test20_buffer_reshaping(self):
+    def test19_buffer_reshaping(self):
         """Test usage of buffer sizing"""
 
         import _cppyy
@@ -692,7 +686,7 @@ class AppTestDATATYPES:
             for i in range(self.N):
                 assert arr[i] == l[i]
 
-    def test21_voidp(self):
+    def test20_voidp(self):
         """Test usage of void* data"""
 
         import _cppyy

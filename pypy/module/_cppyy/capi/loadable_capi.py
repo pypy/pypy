@@ -320,9 +320,6 @@ def _cdata_to_ccharp(space, w_cdata):
     ptr = _cdata_to_ptr(space, w_cdata)      # see above ... something better?
     return rffi.cast(rffi.CCHARP, ptr)
 
-def c_load_dictionary(name):
-    return libffi.CDLL(name)
-
 # name to opaque C++ scope representation ------------------------------------
 def c_num_scopes(space, cppscope):
     return space.int_w(call_capi(space, 'num_scopes', [_ArgH(cppscope.handle)]))

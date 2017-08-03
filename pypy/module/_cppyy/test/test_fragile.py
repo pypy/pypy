@@ -1,15 +1,12 @@
 import py, os, sys
+from .support import setup_make
+
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("fragileDict.so"))
 
-
 def setup_module(mod):
-    if sys.platform == 'win32':
-        py.test.skip("win32 not supported so far")
-    err = os.system("cd '%s' && make fragileDict.so" % currpath)
-    if err:
-        raise OSError("'make' failed (see stderr)")
+    setup_make("fragileDict.so")
 
 class AppTestFRAGILE:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
@@ -17,21 +14,10 @@ class AppTestFRAGILE:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_fragile = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
-    def test01_load_failure(self):
-        """Test failure to load dictionary"""
-
-        import _cppyy
-        raises(RuntimeError, _cppyy.load_reflection_info, "does_not_exist.so")
-
-        try:
-            _cppyy.load_reflection_info("does_not_exist.so")
-        except RuntimeError as e:
-            assert "does_not_exist.so" in str(e)
-
-    def test02_missing_classes(self):
+    def test01_missing_classes(self):
         """Test (non-)access to missing classes"""
 
         import _cppyy
@@ -54,7 +40,7 @@ class AppTestFRAGILE:
         assert fragile.C().check() == ord('C')
         raises(TypeError, fragile.C().use_no_such, None)
 
-    def test03_arguments(self):
+    def test02_arguments(self):
         """Test reporting when providing wrong arguments"""
 
         import _cppyy
@@ -72,7 +58,7 @@ class AppTestFRAGILE:
         d.overload('a')
         d.overload(1)
 
-    def test04_unsupported_arguments(self):
+    def test03_unsupported_arguments(self):
         """Test arguments that are yet unsupported"""
 
         import _cppyy
@@ -87,7 +73,7 @@ class AppTestFRAGILE:
         raises(TypeError, e.overload, None)
         raises(TypeError, getattr, e, 'm_pp_no_such')
 
-    def test05_wrong_arg_addressof(self):
+    def test04_wrong_arg_addressof(self):
         """Test addressof() error reporting"""
 
         import _cppyy
@@ -109,7 +95,7 @@ class AppTestFRAGILE:
         assert _cppyy.addressof(None)               == 0
         assert _cppyy.addressof(_cppyy.gbl.nullptr) == 0
 
-    def test06_wrong_this(self):
+    def test05_wrong_this(self):
         """Test that using an incorrect self argument raises"""
 
         import _cppyy
@@ -130,7 +116,7 @@ class AppTestFRAGILE:
         assert isinstance(a.gime_null(), fragile.A)
         raises(ReferenceError, fragile.A.check, a.gime_null())
 
-    def test07_unnamed_enum(self):
+    def test06_unnamed_enum(self):
         """Test that an unnamed enum does not cause infinite recursion"""
 
         import _cppyy
@@ -141,7 +127,7 @@ class AppTestFRAGILE:
 
         g = fragile.G()
 
-    def test08_unhandled_scoped_datamember(self):
+    def test07_unhandled_scoped_datamember(self):
         """Test that an unhandled scoped data member does not cause infinite recursion"""
 
         import _cppyy
@@ -152,7 +138,7 @@ class AppTestFRAGILE:
 
         h = fragile.H()
 
-    def test09_operator_bool(self):
+    def test08_operator_bool(self):
         """Access to global vars with an operator bool() returning False"""
 
         import _cppyy
@@ -163,7 +149,7 @@ class AppTestFRAGILE:
         g = _cppyy.gbl.fragile.gI
         assert not g
 
-    def test10_documentation(self):
+    def test09_documentation(self):
         """Check contents of documentation"""
 
         import _cppyy
@@ -205,7 +191,7 @@ class AppTestFRAGILE:
         except TypeError as e:
             assert "cannot instantiate abstract class 'O'" in str(e)
 
-    def test11_dir(self):
+    def test10_dir(self):
         """Test __dir__ method"""
 
         import _cppyy
@@ -223,7 +209,7 @@ class AppTestFRAGILE:
         #assert 'fglobal' in members          # function
         #assert 'gI'in members                # variable
 
-    def test12_imports(self):
+    def test11_imports(self):
         """Test ability to import from namespace (or fail with ImportError)"""
 
         import _cppyy
@@ -258,7 +244,7 @@ class AppTestFRAGILE:
         from _cppyy.gbl.fragile.nested1.nested2.nested3 import A
         assert _cppyy.gbl.fragile.nested1.nested2.nested3.A is nested3.A
 
-    def test13_missing_casts(self):
+    def test12_missing_casts(self):
         """Test proper handling when a hierarchy is not fully available"""
 
         import _cppyy
@@ -275,7 +261,7 @@ class AppTestFRAGILE:
         l = k.GimeL()
         assert l is k.GimeL()
 
-    def test14_double_enum_trouble(self):
+    def test13_double_enum_trouble(self):
         """Test a redefinition of enum in a derived class"""
 
         return # don't bother; is fixed in cling-support

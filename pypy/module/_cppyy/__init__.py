@@ -6,7 +6,6 @@ class Module(MixedModule):
     See http://doc.pypy.org/en/latest/cppyy.html for full details."
 
     interpleveldefs = {
-        '_load_dictionary'       : 'interp_cppyy.load_dictionary',
         '_resolve_name'          : 'interp_cppyy.resolve_name',
         '_scope_byname'          : 'interp_cppyy.scope_byname',
         '_template_byname'       : 'interp_cppyy.template_byname',
@@ -22,7 +21,6 @@ class Module(MixedModule):
 
     appleveldefs = {
         '_init_pythonify'        : 'pythonify._init_pythonify',
-        'load_reflection_info'   : 'pythonify.load_reflection_info',
         'add_pythonization'      : 'pythonify.add_pythonization',
         'Template'               : 'pythonify.CPPTemplate',
     }

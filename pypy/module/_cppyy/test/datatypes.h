@@ -1,6 +1,3 @@
-#ifndef CPPYY_DUMMY_BACKEND
-#include "RtypesCore.h"
-#else
 // copied from RtypesCore.h ...
 #if defined(R__WIN32) && !defined(__CINT__)
 typedef __int64          Long64_t;  //Portable signed long integer 8 bytes
@@ -9,7 +6,7 @@ typedef unsigned __int64 ULong64_t; //Portable unsigned long integer 8 bytes
 typedef long long          Long64_t; //Portable signed long integer 8 bytes
 typedef unsigned long long ULong64_t;//Portable unsigned long integer 8 bytes
 #endif
-#endif
+
 #include <vector>
 
 const int N = 5;

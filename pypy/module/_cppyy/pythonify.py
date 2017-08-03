@@ -403,17 +403,6 @@ def _pythonize(pyclass):
         pyclass.__getitem__ = getitem
         pyclass.__len__     = return2
 
-_loaded_dictionaries = {}
-def load_reflection_info(name):
-    """Takes the name of a library containing reflection info, returns a handle
-    to the loaded library."""
-    try:
-        return _loaded_dictionaries[name]
-    except KeyError:
-        import _cppyy
-        lib = _cppyy._load_dictionary(name)
-        _loaded_dictionaries[name] = lib
-        return lib
 
 def _init_pythonify():
     # _cppyy should not be loaded at the module level, as that will trigger a

@@ -31,21 +31,6 @@ class CPPMethodSort(CPPMethodBaseTimSort):
     def lt(self, a, b):
         return a.priority() < b.priority()
 
-@unwrap_spec(name='text')
-def load_dictionary(space, name):
-    try:
-        cdll = capi.c_load_dictionary(name)
-        if not cdll:
-           raise OperationError(space.w_RuntimeError, space.newtext(str("could not load dictionary " + name)))
-
-    except rdynload.DLOpenError as e:
-        if hasattr(space, "fake"):      # FakeSpace fails e.msg (?!)
-            errmsg = "failed to load cdll"
-        else:
-            errmsg = e.msg
-        raise OperationError(space.w_RuntimeError, space.newtext(str(errmsg)))
-    return W_CPPLibrary(space, cdll)
-
 class State(object):
     def __init__(self, space):
         self.cppscope_cache = {

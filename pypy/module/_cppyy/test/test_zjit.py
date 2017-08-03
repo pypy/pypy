@@ -51,11 +51,7 @@ currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
 
 def setup_module(mod):
-    if sys.platform == 'win32':
-        py.test.skip("win32 not supported so far")
-    err = os.system("cd '%s' && make example01Dict.so" % currpath)
-    if err:
-        raise OSError("'make' failed (see stderr)")
+    setup_make("example01Dict.so")
 
 
 class FakeBase(W_Root):
@@ -263,7 +259,8 @@ class TestFastPathJIT(LLJitMixin):
         space = FakeSpace()
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "cppmethod"])
         def f():
-            lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
+            import ctypes
+            lib = ctypes.CDLL("./example01Dict.so", ctypes.RTLD_GLOBAL)
             cls  = interp_cppyy.scope_byname(space, "example01")
             inst = cls.get_overload("example01").call(None, [FakeInt(0)])
             cppmethod = cls.get_overload(method_name)

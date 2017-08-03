@@ -1,15 +1,12 @@
 import py, os, sys
+from .support import setup_make
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("stltypesDict.so"))
 
 def setup_module(mod):
-    if sys.platform == 'win32':
-        py.test.skip("win32 not supported so far")
-    err = os.system("cd '%s' && make stltypesDict.so" % currpath)
-    if err:
-        raise OSError("'make' failed (see stderr)")
+    setup_make("stltypesDict.so")
 
 class AppTestSTLVECTOR:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
@@ -18,8 +15,8 @@ class AppTestSTLVECTOR:
         cls.w_N = cls.space.newint(13)
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlvector = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_builtin_type_vector_types(self):
         """Test access to std::vector<int>/std::vector<double>"""
@@ -205,8 +202,8 @@ class AppTestSTLSTRING:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_string_argument_passing(self):
         """Test mapping of python strings and std::string"""
@@ -284,8 +281,8 @@ class AppTestSTLLIST:
         cls.w_N = cls.space.newint(13)
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_builtin_list_type(self):
         """Test access to a list<int>"""
@@ -340,8 +337,8 @@ class AppTestSTLMAP:
         cls.w_N = cls.space.newint(13)
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_builtin_map_type(self):
         """Test access to a map<int,int>"""
@@ -448,8 +445,8 @@ class AppTestSTLITERATOR:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import _cppyy, sys
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_builtin_vector_iterators(self):
         """Test iterator comparison with operator== reflected"""
@@ -485,8 +482,8 @@ class AppTestTEMPLATE_UI:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import _cppyy, sys
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_explicit_templates(self):
         """Explicit use of Template class"""
