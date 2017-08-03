@@ -709,7 +709,12 @@ class OptHeap(Optimization):
                 if not box1.is_constant() and box1 not in available_boxes:
                     continue
                 structinfo = cf.cached_infos[i]
-                box2 = structinfo.getfield(descr).get_box_replacement()
+                box2 = structinfo.getfield(descr)
+                if box2 is None:
+                    # XXX this should not happen, as it is an invariant
+                    # violation! yet it does if box1 is a constant
+                    continue
+                box2 = box2.get_box_replacement()
                 if box2.is_constant() or box2 in available_boxes:
                     result_getfield.append((box1, descr, box2))
         result_array = []
@@ -721,7 +726,12 @@ class OptHeap(Optimization):
                     if not box1.is_constant() and box1 not in available_boxes:
                         continue
                     arrayinfo = cf.cached_infos[i]
-                    box2 = arrayinfo.getitem(descr, index).get_box_replacement()
+                    box2 = arrayinfo.getitem(descr, index)
+                    if box2 is None:
+                        # XXX this should not happen, as it is an invariant
+                        # violation! yet it does if box1 is a constant
+                        continue
+                    box2 = box2.get_box_replacement()
                     if box2.is_constant() or box2 in available_boxes:
                         result_array.append((box1, index, descr, box2))
         return result_getfield, result_array
