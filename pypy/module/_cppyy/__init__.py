@@ -1,9 +1,8 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
-    "This module provides runtime bindings to C++ code for which reflection\n\
-    info has been generated. Current supported back-ends are Reflex and CINT.\n\
-    See http://doc.pypy.org/en/latest/cppyy.html for full details."
+    "This module brigdes the cppyy frontend with its backend, through PyPy.\n\
+    See http://cppyy.readthedocs.io/en/latest for full details."
 
     interpleveldefs = {
         '_resolve_name'          : 'interp_cppyy.resolve_name',
