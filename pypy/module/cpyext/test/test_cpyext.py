@@ -141,10 +141,6 @@ class LeakCheckingTest(object):
         Eagerly create pyobjs for various builtins so they don't look like
         leaks.
         """
-        space.getbuiltinmodule("cpyext")
-        # 'import os' to warm up reference counts
-        w_import = space.builtin.getdictvalue(space, '__import__')
-        space.call_function(w_import, space.wrap("os"))
         for name in [
                 'buffer', 'mmap.mmap',
                 'types.FunctionType', 'types.CodeType',

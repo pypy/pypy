@@ -22,17 +22,6 @@ def raises_w(space, expected_exc):
 class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
         space = cls.space
-        # warm up reference counts:
-        # - the posix module allocates a HCRYPTPROV on Windows
-        # - writing to stdout and stderr allocates a file lock
-        space.getbuiltinmodule("cpyext")
-        space.getbuiltinmodule(os.name)
-        space.call_function(space.getattr(space.sys.get("stderr"),
-                                          space.wrap("write")),
-                            space.wrap(""))
-        space.call_function(space.getattr(space.sys.get("stdout"),
-                                          space.wrap("write")),
-                            space.wrap(""))
         cls.preload_builtins(space)
 
         class CAPI:
@@ -40,9 +29,6 @@ class BaseApiTest(LeakCheckingTest):
                 return getattr(cls.space, name)
         cls.api = CAPI()
         CAPI.__dict__.update(INTERPLEVEL_API)
-
-        print 'DONT_FREE_ANY_MORE'
-        rawrefcount._dont_free_any_more()
 
     def raises(self, space, api, expected_exc, f, *args):
         if not callable(f):
