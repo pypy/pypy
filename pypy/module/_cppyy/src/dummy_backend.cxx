@@ -1,4 +1,3 @@
-#include "cppyy.h"
 #include "capi.h"
 
 #include <map>
@@ -13,6 +12,27 @@
 #include <string.h>
 
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
+
+// union for argument passing
+struct CPPYY_G__value {
+  union {
+    double d;
+    long    i; /* used to be int */
+    char ch;
+    short sh;
+    int in;
+    float fl;
+    unsigned char uch;
+    unsigned short ush;
+    unsigned int uin;
+    unsigned long ulo;
+    long long ll;
+    unsigned long long ull;
+    long double ld;
+  } obj;
+  long ref;
+  int type;
+};
 
 // add example01.cxx code
 int globalAddOneToInt(int a);
