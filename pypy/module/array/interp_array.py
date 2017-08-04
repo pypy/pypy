@@ -119,7 +119,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
     return space.w_False
 
 index_count_jd = jit.JitDriver(
-    greens = ['count', 'tp_item', 'arrclass'],
+    greens = ['count', 'arrclass', 'tp_item'],
     reds = 'auto', name = 'array.index_or_count')
 
 def index_count_array(arr, w_val, count=False):
