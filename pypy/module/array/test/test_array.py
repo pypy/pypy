@@ -162,6 +162,11 @@ class AppTestArray(object):
             raises(OverflowError, a.append, -1)
             raises(OverflowError, a.append, 2 ** (8 * b))
 
+    def test_errormessage(self):
+        a = self.array("L", [1, 2, 3])
+        excinfo = raises(TypeError, "a[0] = 'abc'")
+        assert str(excinfo.value) == "array item must be integer"
+
     def test_fromstring(self):
         import sys
 
