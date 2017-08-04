@@ -12,7 +12,7 @@ directly useful to most messy to use with PyPy):
 
 * Write them in pure Python and use ctypes_.
 
-* Write them in C++ and bind them through  :doc:`cppyy <cppyy>` using Cling.
+* Write them in C++ and bind them through  cppyy_ using Cling.
 
 * Write them as `RPython mixed modules`_.
 
@@ -64,9 +64,9 @@ these two modules.
 cppyy
 -----
 
-For C++, `cppyy`_ is an automated bindings generator available for both
+For C++, _cppyy_ is an automated bindings generator available for both
 PyPy and CPython.
-``cppyy`` relies on declarations from C++ header files to dynamically
+_cppyy_ relies on declarations from C++ header files to dynamically
 construct Python equivalent classes, functions, variables, etc.
 It is designed for use by large scale programs and supports modern C++.
 With PyPy, it leverages the built-in ``_cppyy`` module, allowing the JIT to
@@ -75,8 +75,7 @@ remove most of the cross-language overhead.
 To install, run ``pip install cppyy``.
 Further details are available in the `full documentation`_.
 
-.. _cppyy: http://cppyy.readthedocs.org/
-.. _`full documentation`: http://cppyy.readthedocs.org/
+.. _`full documentation`: https://cppyy.readthedocs.org/
 
 
 RPython Mixed Modules

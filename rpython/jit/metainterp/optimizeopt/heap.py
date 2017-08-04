@@ -223,7 +223,10 @@ class ArrayCachedItem(AbstractCachedEntry):
     def invalidate(self, descr):
         for opinfo in self.cached_infos:
             assert isinstance(opinfo, info.ArrayPtrInfo)
-            opinfo._items = None
+            # only invalidate those at self.index
+            if self.index < len(opinfo._items):
+                opinfo._items[self.index] = None
+            #opinfo._items = None #[self.index] = None
         self.cached_infos = []
         self.cached_structs = []
 
@@ -695,7 +698,7 @@ class OptHeap(Optimization):
         return self.emit(op)
 
     def serialize_optheap(self, available_boxes):
-        result = []
+        result_getfield = []
         for descr, cf in self.cached_fields.iteritems():
             if cf._lazy_set:
                 continue # XXX safe default for now
@@ -703,26 +706,61 @@ class OptHeap(Optimization):
             if not parent_descr.is_object():
                 continue # XXX could be extended to non-instance objects
             for i, box1 in enumerate(cf.cached_structs):
-                if box1 not in available_boxes:
+                if not box1.is_constant() and box1 not in available_boxes:
                     continue
                 structinfo = cf.cached_infos[i]
-                box2 = structinfo.getfield(descr).get_box_replacement()
-                if isinstance(box2, Const) or box2 in available_boxes:
-                    result.append((box1, descr, box2))
-        return result
+                box2 = structinfo.getfield(descr)
+                if box2 is None:
+                    # XXX this should not happen, as it is an invariant
+                    # violation! yet it does if box1 is a constant
+                    continue
+                box2 = box2.get_box_replacement()
+                if box2.is_constant() or box2 in available_boxes:
+                    result_getfield.append((box1, descr, box2))
+        result_array = []
+        for descr, indexdict in self.cached_arrayitems.iteritems():
+            for index, cf in indexdict.iteritems():
+                if cf._lazy_set:
+                    continue # XXX safe default for now
+                for i, box1 in enumerate(cf.cached_structs):
+                    if not box1.is_constant() and box1 not in available_boxes:
+                        continue
+                    arrayinfo = cf.cached_infos[i]
+                    box2 = arrayinfo.getitem(descr, index)
+                    if box2 is None:
+                        # XXX this should not happen, as it is an invariant
+                        # violation! yet it does if box1 is a constant
+                        continue
+                    box2 = box2.get_box_replacement()
+                    if box2.is_constant() or box2 in available_boxes:
+                        result_array.append((box1, index, descr, box2))
+        return result_getfield, result_array
 
-    def deserialize_optheap(self, triples):
-        for box1, descr, box2 in triples:
+    def deserialize_optheap(self, triples_struct, triples_array):
+        for box1, descr, box2 in triples_struct:
             parent_descr = descr.get_parent_descr()
             assert parent_descr.is_object()
-            structinfo = box1.get_forwarded()
-            if not isinstance(structinfo, info.AbstractVirtualPtrInfo):
-                structinfo = info.InstancePtrInfo(parent_descr)
-                structinfo.init_fields(parent_descr, descr.get_index())
-                box1.set_forwarded(structinfo)
-
+            if box1.is_constant():
+                structinfo = info.ConstPtrInfo(box1)
+            else:
+                structinfo = box1.get_forwarded()
+                if not isinstance(structinfo, info.AbstractVirtualPtrInfo):
+                    structinfo = info.InstancePtrInfo(parent_descr)
+                    structinfo.init_fields(parent_descr, descr.get_index())
+                    box1.set_forwarded(structinfo)
             cf = self.field_cache(descr)
             structinfo.setfield(descr, box1, box2, optheap=self, cf=cf)
+
+        for box1, index, descr, box2 in triples_array:
+            if box1.is_constant():
+                arrayinfo = info.ConstPtrInfo(box1)
+            else:
+                arrayinfo = box1.get_forwarded()
+                if not isinstance(arrayinfo, info.AbstractVirtualPtrInfo):
+                    arrayinfo = info.ArrayPtrInfo(descr)
+                    box1.set_forwarded(arrayinfo)
+            cf = self.arrayitem_cache(descr, index)
+            arrayinfo.setitem(descr, index, box1, box2, optheap=self, cf=cf)
 
 
 dispatch_opt = make_dispatcher_method(OptHeap, 'optimize_',

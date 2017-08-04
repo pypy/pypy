@@ -7,6 +7,7 @@ from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.debug import ll_assert_not_none
 from rpython.rlib.jit import hint
 from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
+from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
@@ -144,8 +145,9 @@ class PyFrame(W_Root):
             return None
         return d.w_locals
 
+    @not_rpython
     def __repr__(self):
-        # NOT_RPYTHON: useful in tracebacks
+        # useful in tracebacks
         return "<%s.%s executing %s at line %s" % (
             self.__class__.__module__, self.__class__.__name__,
             self.pycode, self.get_last_lineno())
