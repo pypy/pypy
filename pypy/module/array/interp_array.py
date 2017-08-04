@@ -769,7 +769,9 @@ W_ArrayBase.typedef = TypeDef(
 
 class TypeCode(object):
     def __init__(self, itemtype, unwrap, canoverflow=False, signed=False,
-                 method='__int__'):
+                 method='__int__', errorname=None):
+        if errorname is None:
+            errorname = unwrap[:-2]
         self.itemtype = itemtype
         self.bytes = rffi.sizeof(itemtype)
         self.arraytype = lltype.Array(itemtype, hints={'nolength': True})
@@ -779,6 +781,7 @@ class TypeCode(object):
         self.canoverflow = canoverflow
         self.w_class = None
         self.method = method
+        self.errorname = errorname
 
     def _freeze_(self):
         # hint for the annotator: track individual constant instances
@@ -802,8 +805,8 @@ types = {
     'i': TypeCode(rffi.INT,           'int_w', True, True),
     'I': _UINTTypeCode,
     'l': TypeCode(rffi.LONG,          'int_w', True, True),
-    'L': TypeCode(rffi.ULONG,         'bigint_w'),  # Overflow handled by
-                                                    # rbigint.touint() which
+    'L': TypeCode(rffi.ULONG,         'bigint_w',   # Overflow handled by
+                  errorname="integer"),             # rbigint.touint() which
                                                     # corresponds to the
                                                     # C-type unsigned long
     'f': TypeCode(lltype.SingleFloat, 'float_w', method='__float__'),
@@ -881,7 +884,7 @@ def make_array(mytype):
                         item = unwrap(space.call_method(w_item, mytype.method))
                     except OperationError:
                         raise oefmt(space.w_TypeError,
-                                    "array item must be " + mytype.unwrap[:-2])
+                                    "array item must be " + mytype.errorname)
                 else:
                     raise
             if mytype.unwrap == 'bigint_w':
