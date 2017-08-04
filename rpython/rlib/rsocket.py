@@ -996,22 +996,16 @@ class RSocket(object):
         retflag[0] = rffi.cast(rffi.SIGNED,0)
 
         # a mask for the SIGNEDP's that need to be cast to int. (long default)
-        #LONG_MASK =  2**32 - 1
         reply = _c.recvmsg(self.fd, rffi.cast(lltype.Signed,message_size),
                            rffi.cast(lltype.Signed,ancbufsize),rffi.cast(lltype.Signed,flags),
                            addr_p, addrlen_p, len_of_msgs, messages, no_of_messages,size_of_anc,
                            levels, types,file_descr,descr_per_anc,retflag)
         if reply >= 0:
-            msg_no = rffi.cast(rffi.SIGNED,no_of_messages[0])
             anc_size  = rffi.cast(rffi.SIGNED,size_of_anc[0])
             returnflag  = rffi.cast(rffi.SIGNED,retflag[0])
             addrlen = rffi.cast(rffi.SIGNED,addrlen_p[0])
-            retmsg = ""
 
-            for i in range(msg_no):
-                x = rffi.cast(rffi.SIGNED,len_of_msgs[0][i])
-                #x &= LONG_MASK
-                retmsg = rffi.charp2strn(messages[0],x)
+            retmsg = rffi.charpsize2str(messages[0],reply)
 
             offset = 0
             list_of_tuples = []
