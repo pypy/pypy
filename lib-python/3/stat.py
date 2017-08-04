@@ -139,13 +139,21 @@ _filemode_table = (
 def filemode(mode):
     """Convert a file's mode to a string of the form '-rwxrwxrwx'."""
     perm = []
+
+    # The first group gets a question mark if none of the bits match the mode.
+    empty = "?"
+
     for table in _filemode_table:
         for bit, char in table:
             if mode & bit == bit:
                 perm.append(char)
                 break
         else:
-            perm.append("-")
+            perm.append(empty)
+
+        # All the rest of the positions get a - if the bits don't match.
+        empty = "-"
+
     return "".join(perm)
 
 
