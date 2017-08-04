@@ -3,6 +3,9 @@ from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
+
+from rpython.rlib.objectmodel import not_rpython
+
 import sys
 
 class MixedModule(Module):
@@ -15,8 +18,8 @@ class MixedModule(Module):
     lazy = False
     submodule_name = None
 
+    @not_rpython
     def __init__(self, space, w_name):
-        """ NOT_RPYTHON """
         Module.__init__(self, space, w_name)
         init_extra_module_attrs(space, self)
         self.lazy = True
@@ -25,8 +28,9 @@ class MixedModule(Module):
         self.loaders = self.loaders.copy()    # copy from the class to the inst
         self.submodules_w = []
 
+    @not_rpython
     def install(self):
-        """NOT_RPYTHON: install this module, and it's submodules into
+        """install this module, and it's submodules into
         space.builtin_modules"""
         Module.install(self)
         if hasattr(self, "submodules"):
@@ -66,8 +70,8 @@ class MixedModule(Module):
         self.w_initialdict = self.space.call_method(w_dict, 'copy')
 
     @classmethod
+    @not_rpython
     def get_applevel_name(cls):
-        """ NOT_RPYTHON """
         if cls.applevel_name is not None:
             return cls.applevel_name
         else:
@@ -163,8 +167,8 @@ class MixedModule(Module):
         self._frozen = True
 
     @classmethod
+    @not_rpython
     def buildloaders(cls):
-        """ NOT_RPYTHON """
         if not hasattr(cls, 'loaders'):
             # build a constant dictionary out of
             # applevel/interplevel definitions
@@ -194,8 +198,8 @@ class MixedModule(Module):
         return space.newtext_or_none(cls.__doc__)
 
 
+@not_rpython
 def getinterpevalloader(pkgroot, spec):
-    """ NOT_RPYTHON """
     def ifileloader(space):
         d = {'space': space}
         # EVIL HACK (but it works, and this is not RPython :-)
@@ -235,8 +239,8 @@ def getinterpevalloader(pkgroot, spec):
     return ifileloader
 
 applevelcache = {}
+@not_rpython
 def getappfileloader(pkgroot, appname, spec):
-    """ NOT_RPYTHON """
     # hum, it's a bit more involved, because we usually
     # want the import at applevel
     modname, attrname = spec.split('.')

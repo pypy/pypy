@@ -1,6 +1,6 @@
 import sys
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
 from rpython.rlib.runicode import (
     code_to_unichr, MAXUNICODE,
@@ -477,8 +477,8 @@ def surrogateescape_errors(space, w_exc):
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
 
+@not_rpython
 def register_builtin_error_handlers(space):
-    "NOT_RPYTHON"
     state = space.fromcache(CodecState)
     for error in ("strict", "ignore", "replace", "xmlcharrefreplace",
                   "backslashreplace", "surrogateescape", "surrogatepass",

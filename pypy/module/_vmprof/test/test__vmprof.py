@@ -1,3 +1,4 @@
+import sys
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 
@@ -7,6 +8,8 @@ class AppTestVMProf(object):
     def setup_class(cls):
         cls.w_tmpfilename = cls.space.wrap(str(udir.join('test__vmprof.1')))
         cls.w_tmpfilename2 = cls.space.wrap(str(udir.join('test__vmprof.2')))
+        cls.w_plain = cls.space.wrap(not cls.runappdirect and
+            '__pypy__' not in sys.builtin_module_names)
 
     def test_import_vmprof(self):
         tmpfile = open(self.tmpfilename, 'wb')
@@ -120,6 +123,8 @@ class AppTestVMProf(object):
         assert _vmprof.get_profile_path() is None
 
     def test_stop_sampling(self):
+        if not self.plain:
+            skip("unreliable test except on CPython without -A")
         import os
         import _vmprof
         tmpfile = open(self.tmpfilename, 'wb')

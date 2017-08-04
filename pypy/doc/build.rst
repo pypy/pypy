@@ -10,6 +10,18 @@ Even when using PyPy to build PyPy, translation is time-consuming -- 30
 minutes on a fast machine -- and RAM-hungry.  You will need **at least** 2 GB
 of memory on a 32-bit machine and 4GB on a 64-bit machine.
 
+Before you start
+----------------
+
+Our normal development workflow avoids a full translation by using test-driven
+development. You can read more about how to develop PyPy here_, and latest
+translated (hopefully functional) binary packages are available on our
+buildbot's `nightly builds`_
+
+.. _here: getting-started-dev.html
+.. _`nightly builds`: http://buildbot.pypy.org/nightly
+
+You will need the build dependencies below to run the tests.
 
 Clone the repository
 --------------------
@@ -140,22 +152,61 @@ find them you may need to run::
 Run the translation
 -------------------
 
+We usually translate in the ``pypy/goal`` directory, so all the following
+commands assume your ``$pwd`` is there.
+
 Translate with JIT::
 
-    cd pypy/goal
     pypy ../../rpython/bin/rpython --opt=jit
 
 Translate without JIT::
 
-    cd pypy/goal
     pypy ../../rpython/bin/rpython --opt=2
+
+Note this translates pypy via the ``targetpypystandalone.py`` file, so these
+are shorthand for::
+
+    pypy ../../rpython/bin/rpython <rpython options> targetpypystandalone.py <pypy options>
+
+More help is availabe via ``--help`` at either option position, and more info
+can be found in the :doc:`config/index` section.
 
 (You can use ``python`` instead of ``pypy`` here, which will take longer
 but works too.)
 
-If everything works correctly this will create an executable ``pypy-c`` in the
-current directory. The executable behaves mostly like a normal Python
-interpreter (see :doc:`cpython_differences`).
+If everything works correctly this will:
+
+1. Run the rpython `translation chain`_, producing a database of the
+   entire pypy interpreter. This step is currently singe threaded, and RAM
+   hungry. As part of this step,  the chain creates a large number of C code
+   files and a Makefile to compile them in a
+   directory controlled by the ``PYPY_USESSION_DIR`` environment variable.  
+2. Create an executable ``pypy-c`` by running the Makefile. This step can
+   utilize all possible cores on the machine.  
+3. Copy the needed binaries to the current directory.  
+4. Generate c-extension modules for any cffi-based stdlib modules.  
+
+
+The resulting executable behaves mostly like a normal Python
+interpreter (see :doc:`cpython_differences`), and is ready for testing, for
+use as a base interpreter for a new virtualenv, or for packaging into a binary
+suitable for installation on another machine running the same OS as the build
+machine. 
+
+Note that step 4 is merely done as a convenience, any of the steps may be rerun
+without rerunning the previous steps.
+
+.. _`translation chain`: https://rpython.readthedocs.io/en/latest/translation.html
+
+
+Making a debug build of PyPy
+----------------------------
+
+If the Makefile is rerun with the lldebug or lldebug0 target, appropriate
+compilation flags are added to add debug info and reduce compiler optimizations
+to ``-O0`` respectively. If you stop in a debugger, you will see the
+very wordy machine-generated C code from the rpython translation step, which
+takes a little bit of reading to relate back to the rpython code.
 
 Build cffi import libraries for the stdlib
 ------------------------------------------
@@ -168,14 +219,6 @@ command::
    PYTHONPATH=../.. ./pypy-c ../tool/build_cffi_imports.py
 
 .. _`out-of-line API mode`: http://cffi.readthedocs.org/en/latest/overview.html#real-example-api-level-out-of-line
-
-Translating with non-standard options
--------------------------------------
-
-It is possible to have non-standard features enabled for translation,
-but they are not really tested any more.  Look, for example, at the
-:doc:`objspace proxies <objspace-proxies>` document.
-
 
 Packaging (preparing for installation)
 --------------------------------------
@@ -205,14 +248,16 @@ pre-compiling them, normal users will get errors:
 
 * PyPy 2.5.1 or earlier: normal users would see permission errors.
   Installers need to run ``pypy -c "import gdbm"`` and other similar
-  commands at install time; the exact list is in `package.py`_.  Users
+  commands at install time; the exact list is in 
+  :source:`pypy/tool/release/package.py <package.py>`.  Users
   seeing a broken installation of PyPy can fix it after-the-fact if they
   have sudo rights, by running once e.g. ``sudo pypy -c "import gdbm``.
 
 * PyPy 2.6 and later: anyone would get ``ImportError: no module named
   _gdbm_cffi``.  Installers need to run ``pypy _gdbm_build.py`` in the
   ``lib_pypy`` directory during the installation process (plus others;
-  see the exact list in `package.py`_).  Users seeing a broken
+  see the exact list in :source:`pypy/tool/release/package.py <package.py>`).
+  Users seeing a broken
   installation of PyPy can fix it after-the-fact, by running ``pypy
   /path/to/lib_pypy/_gdbm_build.py``.  This command produces a file
   called ``_gdbm_cffi.pypy-41.so`` locally, which is a C extension

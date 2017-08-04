@@ -38,3 +38,25 @@ If ``tp_hash`` is ``PyObject_HashNotImplemented``, set ``obj.__dict__['__hash__'
 
 Renaming of ``cppyy`` to ``_cppyy``.
 The former is now an external package installable with ``pip install cppyy``.
+
+.. branch: Enable_PGO_for_clang
+
+.. branch: nopax
+
+At the end of translation, run ``attr -q -s pax.flags -V m`` on
+PAX-enabled systems on the produced binary.  This seems necessary
+because PyPy uses a JIT.
+
+.. branch: pypy_bytearray
+
+Improve ``bytearray`` performance (backported from py3.5)
+
+.. branch: gc-del-limit-growth
+
+Fix the bounds in the GC when allocating a lot of objects with finalizers,
+fixes issue #2590
+
+.. branch: arrays-force-less
+
+Small improvement to optimize list accesses with constant indexes better by
+throwing away information about them less eagerly.

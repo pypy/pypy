@@ -1537,6 +1537,46 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_duplicate_getarrayitem_after_setarrayitem_and_guard(self):
+        ops = """
+        [p0, p1, p2, p3, i1]
+        p4 = getarrayitem_gc_r(p0, 0, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        setarrayitem_gc(p1, 1, p3, descr=arraydescr2)
+        guard_true(i1) [i1]
+        p7 = getarrayitem_gc_r(p0, 0, descr=arraydescr2)
+        p8 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
+        p9 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        p10 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
+        escape_n(p4)
+        escape_n(p5)
+        escape_n(p6)
+        escape_n(p7)
+        escape_n(p8)
+        escape_n(p9)
+        escape_n(p10)
+        jump(p0, p1, p2, p3, i1)
+        """
+        expected = """
+        [p0, p1, p2, p3, i1]
+        p4 = getarrayitem_gc_r(p0, 0, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        setarrayitem_gc(p1, 1, p3, descr=arraydescr2)
+        guard_true(i1) [i1]
+        p8 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
+        escape_n(p4)
+        escape_n(p5)
+        escape_n(p6)
+        escape_n(p4)
+        escape_n(p8)
+        escape_n(p6)
+        escape_n(p3)
+        jump(p0, p1, p2, p3, 1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_getarrayitem_pure_does_not_invalidate(self):
         ops = """
         [p1, p2]
