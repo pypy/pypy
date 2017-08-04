@@ -216,13 +216,18 @@ class AppTestFRAGILE:
 
         # TODO: namespaces aren't loaded (and thus not added to sys.modules)
         # with just the from ... import statement; actual use is needed
-        from _cppyy.gbl import fragile
+
+        # TODO: this is really front-end testing, but the code is still in
+        # _cppyy, so we test it here until pythonify.py can be moved
+        import sys
+        sys.modules['cppyy'] = sys.modules['_cppyy']
+        from cppyy.gbl import fragile
 
         def fail_import():
-            from _cppyy.gbl import does_not_exist
+            from cppyy.gbl import does_not_exist
         raises(ImportError, fail_import)
 
-        from _cppyy.gbl.fragile import A, B, C, D
+        from cppyy.gbl.fragile import A, B, C, D
         assert _cppyy.gbl.fragile.A is A
         assert _cppyy.gbl.fragile.B is B
         assert _cppyy.gbl.fragile.C is C
@@ -230,18 +235,18 @@ class AppTestFRAGILE:
 
         # according to warnings, can't test "import *" ...
 
-        from _cppyy.gbl.fragile import nested1
+        from cppyy.gbl.fragile import nested1
         assert _cppyy.gbl.fragile.nested1 is nested1
 
-        from _cppyy.gbl.fragile.nested1 import A, nested2
+        from cppyy.gbl.fragile.nested1 import A, nested2
         assert _cppyy.gbl.fragile.nested1.A is A
         assert _cppyy.gbl.fragile.nested1.nested2 is nested2
 
-        from _cppyy.gbl.fragile.nested1.nested2 import A, nested3
+        from cppyy.gbl.fragile.nested1.nested2 import A, nested3
         assert _cppyy.gbl.fragile.nested1.nested2.A is A
         assert _cppyy.gbl.fragile.nested1.nested2.nested3 is nested3
 
-        from _cppyy.gbl.fragile.nested1.nested2.nested3 import A
+        from cppyy.gbl.fragile.nested1.nested2.nested3 import A
         assert _cppyy.gbl.fragile.nested1.nested2.nested3.A is nested3.A
 
     def test12_missing_casts(self):

@@ -288,7 +288,7 @@ class AppTestSTLLIST:
         """Test access to a list<int>"""
 
         import _cppyy
-        from _cppyy.gbl import std
+        std = _cppyy.gbl.std
 
         type_info = (
             ("int",     int),
@@ -323,7 +323,7 @@ class AppTestSTLLIST:
         """Test behavior of empty list<int>"""
 
         import _cppyy
-        from _cppyy.gbl import std
+        std = _cppyy.gbl.std
 
         a = std.list(int)()
         for arg in a:
@@ -452,7 +452,7 @@ class AppTestSTLITERATOR:
         """Test iterator comparison with operator== reflected"""
 
         import _cppyy
-        from _cppyy.gbl import std
+        std = _cppyy.gbl.std
 
         v = std.vector(int)()
         v.resize(1)

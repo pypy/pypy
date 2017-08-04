@@ -126,7 +126,7 @@ def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
             setattr(metans, dm_name, cppdm)
 
         modname = pycppns.__name__.replace('::', '.')
-        sys.modules['_cppyy.gbl.'+modname] = pycppns
+        sys.modules['cppyy.gbl.'+modname] = pycppns   # note naming (cppyy)
     return pycppns
 
 def _drop_cycles(bases):
@@ -444,9 +444,9 @@ def _init_pythonify():
     # install for user access
     _cppyy.gbl = gbl
 
-    # install as modules to allow importing from
-    sys.modules['_cppyy.gbl'] = gbl
-    sys.modules['_cppyy.gbl.std'] = gbl.std
+    # install as modules to allow importing from (note naming: cppyy)
+    sys.modules['cppyy.gbl'] = gbl
+    sys.modules['cppyy.gbl.std'] = gbl.std
 
 # user-defined pythonizations interface
 _pythonizations = {}
