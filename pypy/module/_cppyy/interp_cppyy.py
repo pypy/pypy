@@ -788,7 +788,7 @@ class W_CPPScope(W_Root):
         for f in overload.functions:
             if 0 < f.signature().find(sig):
                 return W_CPPOverload(self.space, self, [f])
-        raise oefmt(self.space.w_TypeError, "no overload matches signature")
+        raise oefmt(self.space.w_LookupError, "no overload matches signature")
 
     def missing_attribute_error(self, name):
         return oefmt(self.space.w_AttributeError,
