@@ -545,7 +545,7 @@ class Has(CConfigSingleEntry):
 
     def question(self, ask_gcc):
         try:
-            ask_gcc(self.name + ';')
+            ask_gcc('(void)' + self.name + ';')
             return True
         except CompilationError:
             return False
