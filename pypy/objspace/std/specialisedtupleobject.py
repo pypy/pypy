@@ -80,8 +80,9 @@ def make_specialised_class(typetuple):
                     # integer & other less frequent cases
                     from pypy.objspace.std.floatobject import _hash_float
                     y = _hash_float(space, value)
+                    y -= (y == -1)
                 else:
-                    y = compute_hash(value)
+                    assert 0, "unreachable"
                 x = (x ^ y) * mult
                 z -= 1
                 mult += 82520 + z + z
