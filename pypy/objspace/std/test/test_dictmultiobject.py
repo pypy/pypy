@@ -1261,7 +1261,6 @@ class FakeSpace:
 class Config:
     class objspace:
         class std:
-            withcelldict = False
             methodcachesizeexp = 11
             withmethodcachecounter = False
 
@@ -1467,6 +1466,7 @@ class TestDevolvedBytesDictImplementation(BaseTestDevolvedDictImplementation):
 
 
 def test_module_uses_strdict():
+    from pypy.objspace.std.celldict import ModuleDictStrategy
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
-    assert type(d.get_strategy()) is BytesDictStrategy
+    assert type(d.get_strategy()) is ModuleDictStrategy

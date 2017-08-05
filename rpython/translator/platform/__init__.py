@@ -129,7 +129,7 @@ class Platform(object):
     # some helpers which seem to be cross-platform enough
 
     def _execute_c_compiler(self, cc, args, outname, cwd=None):
-        log.execute(cc + ' ' + ' '.join(args))
+        #log.execute(cc + ' ' + ' '.join(args))
         # 'cc' can also contain some options for the C compiler;
         # e.g. it can be "gcc -m32".  We handle it by splitting on ' '.
         cclist = cc.split()

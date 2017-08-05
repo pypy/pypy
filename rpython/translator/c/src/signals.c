@@ -31,11 +31,11 @@
 # endif
 #endif
 
+#define N_LONGBITS  (8 * sizeof(long))
+#define N_LONGSIG   ((NSIG - 1) / N_LONGBITS + 1)
+
 struct pypysig_long_struct pypysig_counter = {0};
-static char volatile pypysig_flags[NSIG] = {0};
-static int volatile pypysig_occurred = 0;
-/* pypysig_occurred is only an optimization: it tells if any
-   pypysig_flags could be set. */
+static long volatile pypysig_flags_bits[N_LONGSIG];
 static int wakeup_fd = -1;
 static int wakeup_with_nul_byte = 1;
 
@@ -73,12 +73,28 @@ void pypysig_default(int signum)
 #endif
 }
 
+#ifdef _WIN32
+#define atomic_cas(ptr, oldv, newv)   (InterlockedCompareExchange(ptr, \
+                                            newv, oldv) == (oldv))
+#else
+#define atomic_cas(ptr, oldv, newv)    __sync_bool_compare_and_swap(ptr, \
+                                            oldv, newv)
+#endif
+
 void pypysig_pushback(int signum)
 {
     if (0 <= signum && signum < NSIG)
       {
-        pypysig_flags[signum] = 1;
-        pypysig_occurred = 1;
+        int ok, index = signum / N_LONGBITS;
+        unsigned long bitmask = 1UL << (signum % N_LONGBITS);
+        do
+        {
+            long value = pypysig_flags_bits[index];
+            if (value & bitmask)
+                break;   /* already set */
+            ok = atomic_cas(&pypysig_flags_bits[index], value, value | bitmask);
+        } while (!ok);
+
         pypysig_counter.value = -1;
       }
 }
@@ -161,19 +177,22 @@ void pypysig_reinstall(int signum)
 
 int pypysig_poll(void)
 {
-  if (pypysig_occurred)
-    {
-      int i;
-      pypysig_occurred = 0;
-      for (i=0; i<NSIG; i++)
-        if (pypysig_flags[i])
-          {
-            pypysig_flags[i] = 0;
-            pypysig_occurred = 1;   /* maybe another signal is pending */
-            return i;
-          }
+    int index;
+    for (index = 0; index < N_LONGSIG; index++) {
+        long value;
+      retry:
+        value = pypysig_flags_bits[index];
+        if (value != 0L) {
+            int j = 0;
+            while ((value & (1UL << j)) == 0)
+                j++;
+            if (!atomic_cas(&pypysig_flags_bits[index], value,
+                            value & ~(1UL << j)))
+                goto retry;
+            return index * N_LONGBITS + j;
+        }
     }
-  return -1;  /* no pending signal */
+    return -1;  /* no pending signal */
 }
 
 int pypysig_set_wakeup_fd(int fd, int with_nul_byte)
