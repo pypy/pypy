@@ -1,2 +1,4 @@
 include README-rpython.rst
 exclude README.rst
+recursive-include rpython *.c *.h
+recursive-include rpython/rlib/vmprof/src/
