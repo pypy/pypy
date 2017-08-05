@@ -18,7 +18,7 @@ SRC = ROOT.join('src')
 SHARED = SRC.join('shared')
 BACKTRACE = SHARED.join('libbacktrace')
 
-compile_extra = ['-DRPYTHON_VMPROF', '-O3']
+compile_extra = ['-DRPYTHON_VMPROF']
 separate_module_files = [
     SHARED.join('symboltable.c'),
     SHARED.join('vmprof_unix.c')
