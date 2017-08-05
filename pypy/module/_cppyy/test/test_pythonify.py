@@ -68,18 +68,16 @@ class AppTestPYTHONIFY:
         """Test object and method calls."""
         import _cppyy
         example01_class = _cppyy.gbl.example01
-        #assert example01_class.getCount() == 0
+        assert example01_class.getCount() == 0
         instance = example01_class(7)
-        #assert example01_class.getCount() == 1
+        assert example01_class.getCount() == 1
         res = instance.addDataToInt(4)
-        return
         assert res == 11
         res = instance.addDataToInt(-4)
         assert res == 3
         instance.__destruct__()
         assert example01_class.getCount() == 0
         raises(ReferenceError, 'instance.addDataToInt(4)')
-        return
 
         instance = example01_class(7)
         instance2 = example01_class(8)
@@ -89,7 +87,6 @@ class AppTestPYTHONIFY:
         instance2.__destruct__()
         assert example01_class.getCount() == 0
 
-        t = self.example01
         instance = example01_class(13)
         res = instance.addDataToDouble(16)
         assert round(res-29, 8) == 0.
@@ -97,10 +94,10 @@ class AppTestPYTHONIFY:
         instance = example01_class(-13)
         res = instance.addDataToDouble(16)
         assert round(res-3, 8) == 0.
+        instance.__destruct__()
 
-
-        t = self.example01
         instance = example01_class(42)
+        assert example01_class.getCount() == 1
 
         res = instance.addDataToAtoi("13")
         assert res == 55
@@ -327,7 +324,9 @@ class AppTestPYTHONIFY:
     def test15_subclassing(self):
         """A sub-class on the python side should have that class as type"""
 
-        import _cppyy
+        import _cppyy, gc
+        gc.collect()
+
         example01 = _cppyy.gbl.example01
 
         assert example01.getCount() == 0
