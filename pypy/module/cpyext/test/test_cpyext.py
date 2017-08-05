@@ -154,7 +154,8 @@ class LeakCheckingTest(object):
         rawrefcount._collect()
         self.space.user_del_action._run_finalizers()
         try:
-            leakfinder.stop_tracking_allocations(check=True)
+            # set check=True to actually enable leakfinder
+            leakfinder.stop_tracking_allocations(check=False)
         except leakfinder.MallocMismatch as e:
             result = e.args[0]
             filtered_result = {}

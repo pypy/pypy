@@ -1,3 +1,4 @@
+import pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.conftest import option
 
@@ -111,6 +112,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         res = [1, 2, 3] * arr
         assert res == [2, 4, 6]
 
+    @pytest.mark.xfail
     def test_subclass_dealloc(self):
         module = self.import_module(name='array')
         class Sub(module.array):
