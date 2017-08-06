@@ -29,7 +29,7 @@ class BaseCpyTypedescr(object):
         from pypy.module.cpyext.typeobject import subtype_dealloc
         return subtype_dealloc.api_func
 
-    def allocate(self, space, w_type, itemcount=0):
+    def allocate(self, space, w_type, itemcount=0, immortal=False):
         # typically called from PyType_GenericAlloc via typedescr.allocate
         # this returns a PyObject with ob_refcnt == 1.
 
@@ -50,7 +50,7 @@ class BaseCpyTypedescr(object):
         assert size >= rffi.sizeof(PyObject.TO)
         buf = lltype.malloc(rffi.VOIDP.TO, size,
                             flavor='raw', zero=True,
-                            add_memory_pressure=True)
+                            add_memory_pressure=True, immortal=immortal)
         pyobj = rffi.cast(PyObject, buf)
         if pytype.c_tp_itemsize:
             pyvarobj = rffi.cast(PyVarObject, pyobj)
@@ -102,7 +102,7 @@ def make_typedescr(typedef, **kw):
         basestruct = tp_basestruct
 
         if tp_alloc:
-            def allocate(self, space, w_type, itemcount=0):
+            def allocate(self, space, w_type, itemcount=0, immortal=False):
                 return tp_alloc(space, w_type, itemcount)
 
         if tp_dealloc:
@@ -151,7 +151,7 @@ def get_typedescr(typedef):
 class InvalidPointerException(Exception):
     pass
 
-def create_ref(space, w_obj, w_userdata=None):
+def create_ref(space, w_obj, w_userdata=None, immortal=False):
     """
     Allocates a PyObject, and fills its fields with info from the given
     interpreter object.
@@ -163,7 +163,7 @@ def create_ref(space, w_obj, w_userdata=None):
         itemcount = space.len_w(w_obj) # PyBytesObject and subclasses
     else:
         itemcount = 0
-    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
+    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount, immortal=immortal)
     track_reference(space, py_obj, w_obj)
     #
     # py_obj.c_ob_refcnt should be exactly REFCNT_FROM_PYPY + 1 here,
@@ -227,7 +227,7 @@ def from_ref(space, ref):
     assert isinstance(w_type, W_TypeObject)
     return get_typedescr(w_type.layout.typedef).realize(space, ref)
 
-def as_pyobj(space, w_obj, w_userdata=None):
+def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
     """
     Returns a 'PyObject *' representing the given intepreter object.
     This doesn't give a new reference, but the returned 'PyObject *'
@@ -239,7 +239,7 @@ def as_pyobj(space, w_obj, w_userdata=None):
         assert not is_pyobj(w_obj)
         py_obj = rawrefcount.from_obj(PyObject, w_obj)
         if not py_obj:
-            py_obj = create_ref(space, w_obj, w_userdata)
+            py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
         return py_obj
     else:
         return lltype.nullptr(PyObject.TO)
@@ -270,7 +270,7 @@ class Entry(ExtRegistryEntry):
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 @specialize.ll()
-def make_ref(space, obj, w_userdata=None):
+def make_ref(space, obj, w_userdata=None, immortal=False):
     """Increment the reference counter of the PyObject and return it.
     Can be called with either a PyObject or a W_Root.
     """
@@ -278,7 +278,7 @@ def make_ref(space, obj, w_userdata=None):
         pyobj = rffi.cast(PyObject, obj)
         at_least = 1
     else:
-        pyobj = as_pyobj(space, obj, w_userdata)
+        pyobj = as_pyobj(space, obj, w_userdata, immortal=immortal)
         at_least = rawrefcount.REFCNT_FROM_PYPY
     if pyobj:
         assert pyobj.c_ob_refcnt >= at_least

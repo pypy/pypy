@@ -6,7 +6,7 @@ from rpython.rlib.buffer import StringBuffer
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.interpreter.buffer import SimpleView
-from pypy.module.cpyext.pyobject import from_ref
+from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
@@ -14,9 +14,9 @@ only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_
 class TestMemoryViewObject(BaseApiTest):
     def test_frombuffer(self, space, api):
         w_view = SimpleView(StringBuffer("hello")).wrap(space)
+        w_memoryview = api.PyMemoryView_FromObject(w_view)
         c_memoryview = rffi.cast(
-            PyMemoryViewObject, api.PyMemoryView_FromObject(w_view))
-        w_memoryview = from_ref(space, c_memoryview)
+            PyMemoryViewObject, make_ref(space, w_memoryview))
         view = c_memoryview.c_view
         assert view.c_ndim == 1
         f = rffi.charp2str(view.c_format)
@@ -34,6 +34,7 @@ class TestMemoryViewObject(BaseApiTest):
             assert space.eq_w(space.getattr(w_mv, w_f),
                               space.getattr(w_memoryview, w_f))
         api.Py_DecRef(ref)
+        api.Py_DecRef(w_memoryview)
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
@@ -64,7 +65,6 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  """)])
         result = module.fillinfo()
         assert b"hello, world." == result
-        del result
 
     def test_0d(self):
         module = self.import_extension('foo', [
@@ -195,8 +195,6 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         #         in <bound method ConcreteArray.__del__ ...> ignored
 
     def test_releasebuffer(self):
-        if not self.runappdirect:
-            skip("Fails due to ll2ctypes nonsense")
         module = self.import_extension('foo', [
             ("create_test", "METH_NOARGS",
              """

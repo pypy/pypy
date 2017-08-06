@@ -4,8 +4,11 @@ import pytest
 
 from pypy.tool.cpyext.extbuild import SystemCompilationInfo, HERE
 from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
+from pypy.module.cpyext.api import cts
+from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.state import State
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
@@ -75,18 +78,94 @@ def get_cpyext_info(space):
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
 
+def preload(space, name):
+    from pypy.module.cpyext.pyobject import make_ref
+    if '.' not in name:
+        w_obj = space.builtin.getdictvalue(space, name)
+    else:
+        module, localname = name.rsplit('.', 1)
+        code = "(): import {module}; return {module}.{localname}"
+        code = code.format(**locals())
+        w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
+def preload_expr(space, expr):
+    from pypy.module.cpyext.pyobject import make_ref
+    code = "(): return {}".format(expr)
+    w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
+def is_interned_string(space, w_obj):
+    try:
+        s = space.str_w(w_obj)
+    except OperationError:
+        return False
+    return space.is_interned_str(s)
+
+def is_allowed_to_leak(space, obj):
+    from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+    try:
+        w_obj = from_ref(space, cts.cast('PyObject*', obj._as_ptr()))
+    except:
+        return False
+    if isinstance(w_obj, W_PyCFunctionObject):
+        return True
+    # It's OK to "leak" some interned strings: if the pyobj is created by
+    # the test, but the w_obj is referred to from elsewhere.
+    return is_interned_string(space, w_obj)
+
+def _get_w_obj(space, c_obj):
+    return from_ref(space, cts.cast('PyObject*', c_obj._as_ptr()))
+
+class CpyextLeak(leakfinder.MallocMismatch):
+    def __str__(self):
+        lines = [leakfinder.MallocMismatch.__str__(self), '']
+        lines.append(
+            "These objects are attached to the following W_Root objects:")
+        for c_obj in self.args[0]:
+            try:
+                lines.append("  %s" % (_get_w_obj(self.args[1], c_obj),))
+            except:
+                pass
+        return '\n'.join(lines)
+
+
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
                                    'itertools', 'time', 'binascii', 'mmap',
                                    ])
 
+    @classmethod
+    def preload_builtins(cls, space):
+        """
+        Eagerly create pyobjs for various builtins so they don't look like
+        leaks.
+        """
+        for name in [
+                'buffer', 'mmap.mmap',
+                'types.FunctionType', 'types.CodeType',
+                'types.TracebackType', 'types.FrameType']:
+            preload(space, name)
+        for expr in ['type(str.join)']:
+            preload_expr(space, expr)
+
     def cleanup(self):
         self.space.getexecutioncontext().cleanup_cpyext_state()
         for _ in range(5):
             rawrefcount._collect()
             self.space.user_del_action._run_finalizers()
-        leakfinder.stop_tracking_allocations(check=False)
+        try:
+            # set check=True to actually enable leakfinder
+            leakfinder.stop_tracking_allocations(check=False)
+        except leakfinder.MallocMismatch as e:
+            result = e.args[0]
+            filtered_result = {}
+            for obj, value in result.iteritems():
+                if not is_allowed_to_leak(self.space, obj):
+                    filtered_result[obj] = value
+            if filtered_result:
+                raise CpyextLeak(filtered_result, self.space)
         assert not self.space.finalizer_queue.next_dead()
 
 
@@ -127,6 +206,7 @@ def _unwrap_include_dirs(space, w_include_dirs):
 def debug_collect(space):
     rawrefcount._collect()
 
+
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
@@ -136,13 +216,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         cls.w_runappdirect = space.wrap(cls.runappdirect)
         if not cls.runappdirect:
             cls.sys_info = get_cpyext_info(space)
-            space.getbuiltinmodule("cpyext")
-            # 'import os' to warm up reference counts
-            w_import = space.builtin.getdictvalue(space, '__import__')
-            space.call_function(w_import, space.wrap("os"))
-            #state = cls.space.fromcache(RefcountState) ZZZ
-            #state.non_heaptypes_w[:] = []
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
+            cls.preload_builtins(space)
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
                     include_dirs=None, PY_SSIZE_T_CLEAN=False):

@@ -37,6 +37,8 @@ class TestW_SpecialisedTupleObject():
                     self.space.eq(self.space.hash(N_w_tuple),
                                   self.space.hash(S_w_tuple)))
 
+        hash_test([-1, -1])
+        hash_test([-1.0, -1.0])
         hash_test([1, 2])
         hash_test([1.5, 2.8])
         hash_test([1.0, 2.0])
