@@ -1864,11 +1864,12 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
     {
         int ii, nn;
+        PyObject *ret;
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
         int i = ((PyIntObject*)v)->ob_ival;
         Py_DECREF(v);
-        PyObject * ret = PyList_New(n*i);
+        ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
             {
@@ -1881,11 +1882,12 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
     {
         int ii, nn;
+        PyObject *ret;
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
         int i = ((PyIntObject*)v)->ob_ival;
         Py_DECREF(v);
-        PyObject * ret = PyList_New(n*i);
+        ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
             {
@@ -1918,11 +1920,12 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
     if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
     {
         int nn;
+        PyObject *ret;
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
         int i = ((PyIntObject*)v)->ob_ival;
         Py_DECREF(v);
-        PyObject * ret = PyList_New(n);
+        ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             v = PyList_GetItem(obj1, nn);
@@ -1939,11 +1942,12 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
     else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
     {
         int nn;
+        PyObject *ret;
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
         int i = ((PyIntObject*)v)->ob_ival;
         Py_DECREF(v);
-        PyObject * ret = PyList_New(n);
+        ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             v = PyList_GetItem(obj2, nn);

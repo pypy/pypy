@@ -214,7 +214,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
             ("keys_and_values", "METH_O",
              '''
              Py_ssize_t pos = 0;
-             PyObject *key, *value;
+             PyObject *key, *value, *values;
              PyObject* keys = PyList_New(0);
              while (PyDict_Next(args, &pos, &key, NULL))
              {
@@ -225,7 +225,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
                 }
              }
              pos = 0;
-             PyObject* values = PyList_New(0);
+             values = PyList_New(0);
              while (PyDict_Next(args, &pos, NULL, &value))
              {
                 if (PyList_Append(values, value) < 0)
