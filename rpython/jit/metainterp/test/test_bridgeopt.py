@@ -27,6 +27,7 @@ class FakeCPU(object):
 class FakeOptimizer(object):
     metainterp_sd = None
     optheap = None
+    optrewrite = None
 
     def __init__(self, dct={}, cpu=None):
         self.dct = dct
@@ -46,6 +47,13 @@ class FakeStorage(object):
     def __init__(self, numb):
         self.rd_numb = numb
 
+class FakeAdder(object):
+    def __init__(self, optimizer, liveboxes_from_env, liveboxes, memo):
+        self.optimizer = optimizer
+        self.liveboxes_from_env = liveboxes_from_env
+        self.liveboxes = liveboxes
+        self.memo = memo
+
 def test_known_classes():
     box1 = InputArgRef()
     box2 = InputArgRef()
@@ -57,11 +65,13 @@ def test_known_classes():
 
     numb_state = NumberingState(4)
     numb_state.append_int(1) # size of resume block
+    numb_state.append_int(0) # size of extra arg block
     liveboxes = [InputArgInt(), box2, box1, box3]
+    adder = FakeAdder(optimizer, {}, {}, None)
 
-    serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
+    serialize_optimizer_knowledge(adder, numb_state, liveboxes)
 
-    assert unpack_numbering(numb_state.create_numbering()) == [1, 0b010000, 0, 0]
+    assert unpack_numbering(numb_state.create_numbering()) == [1, 0, 0b010000, 0, 0, 0]
 
     rbox1 = InputArgRef()
     rbox2 = InputArgRef()
@@ -93,11 +103,14 @@ def test_random_class_knowledge(boxes_known_classes):
 
     numb_state = NumberingState(1)
     numb_state.append_int(1) # size of resume block
+    numb_state.append_int(0) # size of extra arg block
     liveboxes = [box for (box, _) in boxes_known_classes]
 
-    serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
+    adder = FakeAdder(optimizer, {}, {}, None)
 
-    assert len(numb_state.create_numbering().code) == 3 + math.ceil(len(refboxes) / 6.0)
+    serialize_optimizer_knowledge(adder, numb_state, liveboxes)
+
+    assert len(numb_state.create_numbering().code) == 5 + math.ceil(len(refboxes) / 6.0)
 
     dct = {box: cls
               for box, known_class in boxes_known_classes
@@ -134,6 +147,40 @@ class TestOptBridge(LLJitMixin):
                     res += 1
                 res += a.f()
                 y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        assert res == f(6, 32, 16)
+        self.check_trace_count(3)
+        self.check_resops(guard_class=1)
+
+    def Xtest_bridge_guard_class_virtual(self):
+        myjitdriver = jit.JitDriver(greens=[], reds='auto')
+        class A(object):
+            def f(self):
+                return 1
+        class B(A):
+            def f(self):
+                return 2
+        class Box(object):
+            def __init__(self, a):
+                self.a = a
+        def f(x, y, n):
+            if x:
+                a = A()
+            else:
+                a = B()
+            a.x = 0
+            box = Box(a)
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point()
+                res += box.a.f()
+                a.x += 1
+                if y > n:
+                    res += 1
+                res += box.a.f()
+                y -= 1
+                box = Box(box.a)
             return res
         res = self.meta_interp(f, [6, 32, 16])
         assert res == f(6, 32, 16)
@@ -282,3 +329,33 @@ class TestOptBridge(LLJitMixin):
         self.check_trace_count(3)
         self.check_resops(guard_value=1)
         self.check_resops(getarrayitem_gc_i=5)
+
+    def test_loop_invariant_bridge(self):
+        myjitdriver = jit.JitDriver(greens = [], reds = ['x', 'res'])
+        class A(object):
+            pass
+        a = A()
+        a.current_a = A()
+        a.current_a.x = 12
+        @jit.loop_invariant
+        def f():
+            return a.current_a
+
+        def g(x):
+            res = 0
+            while x > 0:
+                myjitdriver.can_enter_jit(x=x, res=res)
+                myjitdriver.jit_merge_point(x=x, res=res)
+                res += jit.promote(f().x)
+                if x % 5 == 1:
+                    res += 5
+                res += jit.promote(f().x)
+                res += jit.promote(f().x)
+                x -= 1
+            a.current_a = A()
+            a.current_a.x = 2
+            return res
+        res = self.meta_interp(g, [21])
+        assert res == g(21)
+        self.check_resops(call_r=1)
+

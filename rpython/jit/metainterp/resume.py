@@ -412,7 +412,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         _, tagbits = untag(tagged)
         return tagbits == TAGVIRTUAL
 
-    def finish(self, pending_setfields=[]):
+    def finish(self, pending_setfields=[], extra_liveboxes=[]):
+        from rpython.jit.metainterp.optimizeopt.bridgeopt import consistency_checking_numbering
         optimizer = self.optimizer
         # compute the numbering
         storage = self.storage
@@ -458,16 +459,30 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             info = optimizer.getptrinfo(fieldbox)
             assert info is not None and info.is_virtual()
             info.visitor_walk_recursive(fieldbox, self, optimizer)
+        for box in extra_liveboxes:
+            box = optimizer.get_box_replacement(box)
+            self.register_box(box)
+            info = optimizer.getptrinfo(box)
+            assert info is None or not info.is_virtual()
 
         self._number_virtuals(liveboxes, optimizer, num_virtuals)
         self._add_pending_fields(optimizer, pending_setfields)
 
         numb_state.patch(1, len(liveboxes))
 
-        self._add_optimizer_sections(numb_state, liveboxes, liveboxes_from_env)
-        storage.rd_numb = numb_state.create_numbering()
+        self._add_extra_box_section(extra_liveboxes, numb_state)
+
+        self._add_optimizer_sections(numb_state, liveboxes)
+        rd_numb = numb_state.create_numbering()
+        consistency_checking_numbering(rd_numb, liveboxes)
+        storage.rd_numb = rd_numb
         storage.rd_consts = self.memo.consts
         return liveboxes[:]
+
+    def _add_extra_box_section(self, extra_liveboxes, numb_state):
+        numb_state.append_int(len(extra_liveboxes))
+        for box in extra_liveboxes:
+            numb_state.append_short(self._gettagged(box.get_box_replacement()))
 
     def _number_virtuals(self, liveboxes, optimizer, num_env_virtuals):
         from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
@@ -584,11 +599,10 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 return self.liveboxes_from_env[box]
             return self.liveboxes[box]
 
-    def _add_optimizer_sections(self, numb_state, liveboxes, liveboxes_from_env):
+    def _add_optimizer_sections(self, numb_state, liveboxes):
         # add extra information about things the optimizer learned
         from rpython.jit.metainterp.optimizeopt.bridgeopt import serialize_optimizer_knowledge
-        serialize_optimizer_knowledge(
-            self.optimizer, numb_state, liveboxes, liveboxes_from_env, self.memo)
+        serialize_optimizer_knowledge(self, numb_state, liveboxes)
 
 class AbstractVirtualInfo(object):
     kind = REF
@@ -1067,6 +1081,7 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
         resumereader.consume_boxes(f.get_current_position_info(),
                                    f.registers_i, f.registers_r, f.registers_f)
         f.handle_rvmprof_enter_on_resume()
+    resumereader.consume_extra_boxes()
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
 
@@ -1112,6 +1127,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             virtualizable_boxes = None
         virtualref_boxes = self.consume_virtualref_boxes()
         return virtualizable_boxes, virtualref_boxes
+
+    def consume_extra_boxes(self):
+        extra_boxes_size = self.resumecodereader.next_item()
+        for i in range(extra_boxes_size):
+            self.next_ref() # does nothing but read the box!
 
     def allocate_with_vtable(self, descr=None):
         return self.metainterp.execute_new_with_vtable(descr=descr)

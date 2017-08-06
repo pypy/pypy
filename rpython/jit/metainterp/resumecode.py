@@ -18,6 +18,8 @@
 
   until the size of the resume section
 
+  [<length> <numb> <numb> ... <numb>]              more boxes for the optimizer section
+
   # ----- optimization section
   <more code>                                      further sections according to bridgeopt.py
 """

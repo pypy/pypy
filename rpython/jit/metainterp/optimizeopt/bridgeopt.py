@@ -2,6 +2,7 @@
 optimizer of the bridge attached to a guard. """
 
 from rpython.jit.metainterp import resumecode
+from rpython.rlib.objectmodel import we_are_translated
 
 
 # adds the following sections at the end of the resume code:
@@ -22,17 +23,22 @@ from rpython.jit.metainterp import resumecode
 # (<box1> <index> <descr> <box2>) length times, if getarrayitem_gc(box1, index, descr) == box2
 #                                 both boxes should be in the liveboxes
 #
+# <length>
+# (<const> <descr> <box1>) length times, if call_loop_invariant(const, descr) == box1
+#                          the box should be in the liveboxes
 # ----
 
 
 # maybe should be delegated to the optimization classes?
 
-def tag_box(box, liveboxes_from_env, memo):
+def tag_box(box, adder):
     from rpython.jit.metainterp.history import Const
     if isinstance(box, Const):
-        return memo.getconst(box)
+        return adder.memo.getconst(box)
     else:
-        return liveboxes_from_env[box] # has to exist
+        if box in adder.liveboxes_from_env:
+            return adder.liveboxes_from_env[box]
+        return adder.liveboxes[box] # has to exist
 
 def decode_box(resumestorage, tagged, liveboxes, cpu):
     from rpython.jit.metainterp.resume import untag, TAGCONST, TAGINT, TAGBOX
@@ -54,10 +60,13 @@ def decode_box(resumestorage, tagged, liveboxes, cpu):
         raise AssertionError("unreachable")
     return box
 
-def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_from_env, memo):
+def serialize_optimizer_knowledge(adder, numb_state, liveboxes):
+    optimizer = adder.optimizer
+    liveboxes_from_env = adder.liveboxes_from_env
     available_boxes = {}
     for box in liveboxes:
-        if box is not None and box in liveboxes_from_env:
+        if box is not None and (
+                box in adder.liveboxes_from_env or box in adder.liveboxes):
             available_boxes[box] = None
     metainterp_sd = optimizer.metainterp_sd
 
@@ -84,7 +93,6 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
 
     # heap knowledge: we store triples of known heap fields in non-virtual
     # structs
-    # XXX could be extended to arrays
     if optimizer.optheap:
         triples_struct, triples_array = optimizer.optheap.serialize_optheap(available_boxes)
         # can only encode descrs that have a known index into
@@ -93,18 +101,30 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         numb_state.append_int(len(triples_struct))
         for box1, descr, box2 in triples_struct:
             descr_index = descr.descr_index
-            numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
+            numb_state.append_short(tag_box(box1, adder))
             numb_state.append_int(descr_index)
-            numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
+            numb_state.append_short(tag_box(box2, adder))
         numb_state.append_int(len(triples_array))
         for box1, index, descr, box2 in triples_array:
             descr_index = descr.descr_index
-            numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
+            numb_state.append_short(tag_box(box1, adder))
             numb_state.append_int(index)
             numb_state.append_int(descr_index)
-            numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
+            numb_state.append_short(tag_box(box2, adder))
     else:
         numb_state.append_int(0)
+        numb_state.append_int(0)
+
+    # loop invariant calls
+    if optimizer.optrewrite:
+        triples = optimizer.optrewrite.serialize_optrewrite(available_boxes)
+        numb_state.append_int(len(triples))
+        for const, descr, box in triples:
+            descr_index = descr.descr_index
+            numb_state.append_short(tag_box(const, adder))
+            numb_state.append_int(descr_index)
+            numb_state.append_short(tag_box(box, adder))
+    else:
         numb_state.append_int(0)
 
 def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):
@@ -115,6 +135,8 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
     # skip resume section
     startcount = reader.next_item()
     reader.jump(startcount - 1)
+    extracount = reader.next_item()
+    reader.jump(extracount)
 
     # class knowledge
     bitfield = 0
@@ -132,8 +154,6 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
             optimizer.make_constant_class(box, cls)
 
     # heap knowledge
-    if not optimizer.optheap:
-        return
     length = reader.next_item()
     result_struct = []
     for i in range(length):
@@ -155,4 +175,59 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         tagged = reader.next_item()
         box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
         result_array.append((box1, index, descr, box2))
-    optimizer.optheap.deserialize_optheap(result_struct, result_array)
+    if result_struct or result_array:
+        optimizer.optheap.deserialize_optheap(result_struct, result_array)
+
+    # loop_invariant knowledge
+    length = reader.next_item()
+    results = []
+    for i in range(length):
+        tagged = reader.next_item()
+        box1 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
+        descr_index = reader.next_item()
+        descr = metainterp_sd.all_descrs[descr_index]
+        tagged = reader.next_item()
+        box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
+        results.append((box1, descr, box2))
+    if results:
+        optimizer.optrewrite.deserialize_optrewrite(results)
+
+def consistency_checking_numbering(numb, liveboxes):
+    if we_are_translated():
+        return
+    # very much a "does not crash" kind of affair
+    reader = resumecode.Reader(numb)
+
+    # skip resume section
+    startcount = reader.next_item()
+    reader.jump(startcount - 1)
+    extracount = reader.next_item()
+    reader.jump(extracount)
+
+    mask = 0
+    for i, box in enumerate(liveboxes):
+        if box.type != "r":
+            continue
+        if not mask:
+            bitfield = reader.next_item()
+            mask = 0b100000
+        mask >>= 1
+
+    length = reader.next_item()
+    for i in range(length):
+        tagged = reader.next_item()
+        descr_index = reader.next_item()
+        tagged = reader.next_item()
+    length = reader.next_item()
+    for i in range(length):
+        tagged = reader.next_item()
+        index = reader.next_item()
+        descr_index = reader.next_item()
+        tagged = reader.next_item()
+
+    # loop_invariant knowledge
+    length = reader.next_item()
+    for i in range(length):
+        tagged = reader.next_item()
+        descr_index = reader.next_item()
+        tagged = reader.next_item()

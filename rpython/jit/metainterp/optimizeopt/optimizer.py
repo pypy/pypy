@@ -620,7 +620,12 @@ class Optimizer(Optimization):
                 del self.replaces_guard[orig_op]
                 return
             else:
-                op = self.emit_guard_operation(op, pendingfields)
+                extra_liveboxes = []
+                # hack, but probably a good one
+                if len(self.optrewrite.loop_invariant_results) == 1:
+                    extra_liveboxes = [
+                        self.optrewrite.loop_invariant_results.values()[0][0].get_box_replacement()]
+                op = self.emit_guard_operation(op, pendingfields, extra_liveboxes)
         elif op.can_raise():
             self.exception_might_have_happened = True
         opnum = op.opnum
@@ -633,7 +638,7 @@ class Optimizer(Optimization):
         self._really_emitted_operation = op
         self._newoperations.append(op)
 
-    def emit_guard_operation(self, op, pendingfields):
+    def emit_guard_operation(self, op, pendingfields, extra_liveboxes):
         guard_op = op # self.replace_op_with(op, op.getopnum())
         opnum = guard_op.getopnum()
         # If guard_(no)_exception is merged with another previous guard, then
@@ -653,7 +658,8 @@ class Optimizer(Optimization):
             op = self._copy_resume_data_from(guard_op,
                                              self._last_guard_op)
         else:
-            op = self.store_final_boxes_in_guard(guard_op, pendingfields)
+            op = self.store_final_boxes_in_guard(
+                    guard_op, pendingfields, extra_liveboxes)
             self._last_guard_op = op
             # for unrolling
             for farg in op.getfailargs():
@@ -723,7 +729,7 @@ class Optimizer(Optimization):
         new_descr.copy_all_attributes_from(old_descr)
         self._newoperations[old_op_pos] = new_op
 
-    def store_final_boxes_in_guard(self, op, pendingfields):
+    def store_final_boxes_in_guard(self, op, pendingfields, extra_liveboxes):
         assert pendingfields is not None
         if op.getdescr() is not None:
             descr = op.getdescr()
@@ -736,7 +742,7 @@ class Optimizer(Optimization):
         modifier = resume.ResumeDataVirtualAdder(self, descr, op, self.trace,
                                                  self.resumedata_memo)
         try:
-            newboxes = modifier.finish(pendingfields)
+            newboxes = modifier.finish(pendingfields, extra_liveboxes)
             if (newboxes is not None and
                 len(newboxes) > self.metainterp_sd.options.failargs_limit):
                 raise resume.TagOverflow

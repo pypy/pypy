@@ -154,8 +154,11 @@ class LoopInvariantOp(AbstractShortOp):
             return
         op = self.res
         key = make_hashable_int(op.getarg(0).getint())
-        optrewrite.loop_invariant_results[key] = PreambleOp(op, preamble_op,
-                                                            invented_name)
+        optrewrite.loop_invariant_results[key] = (
+            PreambleOp(op, preamble_op, invented_name),
+            op.getarg(0),
+            op.getdescr()
+        )
 
     def add_op_to_short(self, sb):
         op = self.res

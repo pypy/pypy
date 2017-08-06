@@ -28,7 +28,7 @@ class CallLoopinvariantOptimizationResult(OptimizationResult):
     def _callback(self, op, old_op):
         key = make_hashable_int(op.getarg(0).getint())
         self.opt.loop_invariant_producer[key] = self.opt.optimizer.getlastop()
-        self.opt.loop_invariant_results[key] = old_op
+        self.opt.loop_invariant_results[key] = old_op, op.getarg(0), old_op.getdescr()
 
 
 class OptRewrite(Optimization):
@@ -568,13 +568,15 @@ class OptRewrite(Optimization):
         arg = op.getarg(0)
         # 'arg' must be a Const, because residual_call in codewriter
         # expects a compile-time constant
+        # XXX the descr is ignored! let's hope there are no different
+        # call_loop_invariant around
         assert isinstance(arg, Const)
         key = make_hashable_int(arg.getint())
 
-        resvalue = self.loop_invariant_results.get(key, None)
+        resvalue, arg0, descr = self.loop_invariant_results.get(key, (None, None, None))
         if resvalue is not None:
             resvalue = self.optimizer.force_op_from_preamble(resvalue)
-            self.loop_invariant_results[key] = resvalue
+            self.loop_invariant_results[key] = resvalue, arg0, descr
             self.make_equal_to(op, resvalue)
             self.last_emitted_operation = REMOVED
             return
@@ -866,6 +868,18 @@ class OptRewrite(Optimization):
         self.make_equal_to(op, op.getarg(0))
     optimize_SAME_AS_R = optimize_SAME_AS_I
     optimize_SAME_AS_F = optimize_SAME_AS_I
+
+    def serialize_optrewrite(self, available_boxes):
+        triples = []
+        for box, arg0, descr in self.loop_invariant_results.values():
+            triples.append((arg0, descr, box.get_box_replacement()))
+        return triples
+
+    def deserialize_optrewrite(self, triples):
+        for arg, descr, resvalue in triples:
+            assert isinstance(arg, Const)
+            key = make_hashable_int(arg.getint())
+            self.loop_invariant_results[key] = resvalue, arg, descr
 
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
                                       default=OptRewrite.emit)
