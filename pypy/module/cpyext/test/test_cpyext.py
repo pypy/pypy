@@ -97,10 +97,10 @@ def preload_expr(space, expr):
 
 def is_interned_string(space, w_obj):
     try:
-        s = space.str_w(w_obj)
+        u = space.unicode_w(w_obj)
     except OperationError:
         return False
-    return space.is_interned_str(s)
+    return space.interned_strings.get(u) is not None
 
 def is_allowed_to_leak(space, obj):
     from pypy.module.cpyext.methodobject import W_PyCFunctionObject
