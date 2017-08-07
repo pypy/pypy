@@ -469,27 +469,27 @@ class W_Socket(W_Root):
         :param flags: Receive flag. For more details, please check the Unix manual
         :return: a tuple consisting of the message, the ancillary data, return flag and the address.
         """
-        if (message_size < 0):
+        if message_size < 0:
             raise oefmt(space.w_ValueError, "negative buffer size in recvmsg()")
         if ancbufsize < 0:
             raise oefmt(space.w_ValueError, "invalid ancillary data buffer length")
         while True:
             try:
-                tuple = self.sock.recvmsg(message_size, ancbufsize, flags)
-                message = space.newbytes(tuple[0])
-                list = []
-                for l in tuple[1]:
+                recvtup = self.sock.recvmsg(message_size, ancbufsize, flags)
+                w_message = space.newbytes(recvtup[0])
+                anclist = []
+                for l in recvtup[1]:
                     tup = space.newtuple([space.newint(l[0]), space.newint(l[1]), space.newbytes(l[2])])
-                    list.append(tup)
+                    anclist.append(tup)
 
-                anc = space.newlist(list)
+                w_anc = space.newlist(anclist)
 
-                flag = space.newint(tuple[2])
-                if (tuple[3] is not None):
-                    address = addr_as_object(tuple[3], self.sock.fd, space)
+                w_flag = space.newint(recvtup[2])
+                if (recvtup[3] is not None):
+                    w_address = addr_as_object(recvtup[3], self.sock.fd, space)
                 else:
-                    address = space.w_None
-                rettup = space.newtuple([message, anc, flag, address])
+                    w_address = space.w_None
+                rettup = space.newtuple([w_message, w_anc, w_flag, w_address])
                 break
             except SocketError as e:
                 converted_error(space, e, eintr_retry=True)
@@ -550,7 +550,8 @@ class W_Socket(W_Root):
                 converted_error(space, e, eintr_retry=True)
         return space.newint(count)
 
-    def sendmsg_w(self, space, w_data, w_ancillary=None, w_flags=None ,w_address=None):
+    @unwrap_spec(flags=int)
+    def sendmsg_w(self, space, w_data, w_ancillary=None, flags=0 ,w_address=None):
         """
         sendmsg(data[,ancillary[,flags[,address]]]) -> bytes_sent
         Send normal and ancillary data to the socket, gathering the non-ancillary data
@@ -568,101 +569,44 @@ class W_Socket(W_Root):
         # Get the flag and address from the object space
         while True:
             try:
-                flags = 0
-                if space.is_none(w_flags) is False:
-                    flags = space.int_w(w_flags)
-
                 address = None
-                if space.is_none(w_address) is False:
+                if not space.is_none(w_address):
                     address = self.addr_from_object(space, w_address)
 
                 # find data's type in the ObjectSpace and get a list of string out of it.
                 data = []
-                if (w_data.typedef.name == 'list'):
-                    for i in w_data.getitems():
-                        if space.isinstance_w(i, space.w_bytes):
-                            data.append(space.bytes_w(i))
-                        else:
-                            if (i.typedef.name == 'array.array'):
-                                data.append(space.bytes_w(i.descr_tobytes(space)))
-                            else:
-                                if (i.typedef.name == 'memoryview'):
-                                    data.append(space.bytes_w(i.descr_tobytes(space)))
-                                else:
-                                    raise oefmt(space.w_TypeError, "a bytes-like object is required")
-                else:
-                    while True:
-                        try:
-                            if (space.is_generator(w_data) is False):
-                                raise oefmt(space.w_TypeError, "sendmsg(): argument 1 must be iterable")
-                            i = space.next(w_data)
-                            if space.isinstance_w(i, space.w_bytes):
-                                data.append(space.bytes_w(i))
-                            else:
-                                if (i.typedef.name == 'array.array'):
-                                    data.append(space.bytes_w(i.descr_tobytes(space)))
-                                else:
-                                    if (i.typedef.name == 'memoryview'):
-                                        data.append(space.bytes_w(i.descr_tobytes(space)))
-                                    else:
-                                        raise oefmt(space.w_TypeError, "a bytes-like object is required")
-                        except OperationError as e:
-                            if not e.match(space, space.w_StopIteration):
-                                raise
-                            break
+                data_iter = space.unpackiterable(w_data)
+                for i in data_iter:
+                    if space.isinstance_w(i, space.w_bytes):
+                        data.append(space.bytes_w(i))
+                    elif (i.typedef.name == 'array.array'):
+                        data.append(space.bytes_w(i.descr_tobytes(space)))
+                    elif (i.typedef.name == 'memoryview'):
+                        data.append(space.bytes_w(i.descr_tobytes(space)))
+                    else:
+                        raise oefmt(space.w_TypeError, "a bytes-like object is required")
 
                 # find the ancillary's type in the ObjectSpace and get a list of tuples out of it.
                 ancillary = []
                 if w_ancillary is not None:
-                    if (space.isinstance_w(w_ancillary, space.w_list)):
-                        for i in w_ancillary.getitems():
-                            if (space.isinstance_w(i, space.w_tuple) is False):
-                                raise oefmt(space.w_TypeError, "[sendmsg() ancillary data items]() argument must be sequence")
-                            if (space.len_w(i) == 3):
-                                level = space.int_w(space.getitem(i, space.newint(0)))
-                                type = space.int_w(space.getitem(i, space.newint(1)))
-                                if (space.getitem(i, space.newint(2)).typedef.name == 'array.array'):
-                                    cont = space.bytes_w(space.getitem(i, space.newint(2)).descr_tobytes(space))
-                                else:
-                                    if (space.isinstance_w(space.getitem(i, space.newint(2)), space.w_bytes)):
-                                        cont = space.bytes_w(space.getitem(i, space.newint(2)))
-                                    else:
-                                        raise oefmt(space.w_TypeError, "a bytes-like object is required")
-                                tup = (level, type, cont)
-                                ancillary.append(tup)
-                            else:
-                                raise oefmt(space.w_TypeError,
-                                            "[sendmsg() ancillary data items]() argument must be sequence of length 3")
-
-                    else:
-                        while True:
-                            try:
-                                if (space.is_generator(w_ancillary) is False):
-                                    raise oefmt(space.w_TypeError,
-                                                "[sendmsg() ancillary data items]() argument must be sequence")
-                                i = space.next(w_ancillary)
-                                if (space.isinstance_w(i, space.w_tuple) is False):
-                                    raise oefmt(space.w_TypeError,
-                                                "[sendmsg() ancillary data items]() argument must be sequence of length 3")
-                                if (space.len_w(i) != 3):
-                                    raise oefmt(space.w_TypeError,
-                                                "[sendmsg() ancillary data items]() argument must be sequence of length 3")
-                            except OperationError as e:
-                                if not e.match(space, space.w_StopIteration):
-                                    raise
-                                break
+                    anc_iter = space.unpackiterable(w_ancillary)
+                    for i in anc_iter:
+                        if (not space.isinstance_w(i, space.w_tuple)):
+                            raise oefmt(space.w_TypeError, "[sendmsg() ancillary data items]() argument must be sequence")
+                        if (space.len_w(i) == 3):
                             level = space.int_w(space.getitem(i, space.newint(0)))
                             type = space.int_w(space.getitem(i, space.newint(1)))
                             if (space.getitem(i, space.newint(2)).typedef.name == 'array.array'):
                                 cont = space.bytes_w(space.getitem(i, space.newint(2)).descr_tobytes(space))
+                            elif (space.isinstance_w(space.getitem(i, space.newint(2)), space.w_bytes)):
+                                cont = space.bytes_w(space.getitem(i, space.newint(2)))
                             else:
-                                if (space.isinstance_w(space.getitem(i, space.newint(2)), space.w_bytes)):
-                                    cont = space.bytes_w(space.getitem(i, space.newint(2)))
-                                else:
-                                    raise oefmt(space.w_TypeError, "a bytes-like object is required")
+                                raise oefmt(space.w_TypeError, "a bytes-like object is required")
                             tup = (level, type, cont)
                             ancillary.append(tup)
-
+                        else:
+                            raise oefmt(space.w_TypeError,
+                                        "[sendmsg() ancillary data items]() argument must be sequence of length 3")
 
                 count = self.sock.sendmsg(data, ancillary, flags, address)
                 if count < 0:
