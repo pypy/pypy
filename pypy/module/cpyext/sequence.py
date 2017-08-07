@@ -48,7 +48,7 @@ def PySequence_Fast(space, w_obj, m):
     m as the message text. If the conversion otherwise, fails, reraise the
     original exception"""
     if isinstance(w_obj, W_ListObject):
-        # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM    
+        # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM
         w_obj.convert_to_cpy_strategy(space)
         return w_obj
     try:
@@ -313,7 +313,7 @@ class CPyListStrategy(ListStrategy):
                                                          self)
         w_clone.switch_to_object_strategy()
         return w_clone
-        
+
     def copy_into(self, w_list, w_other):
         w_list.switch_to_object_strategy()
         w_list.strategy.copy_into(w_list, w_other)
@@ -378,7 +378,7 @@ class CPyListStrategy(ListStrategy):
 
     def is_empty_strategy(self):
         return False
-        
+
 
 PyObjectList = lltype.Ptr(lltype.Array(PyObject, hints={'nolength': True}))
 

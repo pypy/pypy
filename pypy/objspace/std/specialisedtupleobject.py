@@ -74,15 +74,15 @@ def make_specialised_class(typetuple):
                 elif typetuple[i] == int:
                     # mimic cpythons behavior of a hash value of -2 for -1
                     y = value
-                    if y == -1:
-                        y = -2
+                    y -= (y == -1)  # No explicit condition, to avoid JIT bridges
                 elif typetuple[i] == float:
                     # get the correct hash for float which is an
                     # integer & other less frequent cases
                     from pypy.objspace.std.floatobject import _hash_float
                     y = _hash_float(space, value)
+                    y -= (y == -1)
                 else:
-                    y = compute_hash(value)
+                    assert 0, "unreachable"
                 x = (x ^ y) * mult
                 z -= 1
                 mult += 82520 + z + z

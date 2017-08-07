@@ -60,3 +60,16 @@ fixes issue #2590
 
 Small improvement to optimize list accesses with constant indexes better by
 throwing away information about them less eagerly.
+
+
+.. branch: getarrayitem-into-bridges:
+
+More information is retained into a bridge: knowledge about the content of
+arrays (at fixed indices) is stored in guards (and thus available at the
+beginning of bridges). Also, some better feeding of information about known
+fields of constant objects into bridges.
+
+.. branch: cpyext-leakchecking
+
+Add support for leakfinder in cpyext tests (disabled for now, due to too many
+failures).

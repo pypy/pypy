@@ -1,3 +1,4 @@
+import pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.conftest import option
 
@@ -110,6 +111,19 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module.switch_multiply()
         res = [1, 2, 3] * arr
         assert res == [2, 4, 6]
+
+    @pytest.mark.xfail
+    def test_subclass_dealloc(self):
+        module = self.import_module(name='array')
+        class Sub(module.array):
+            pass
+
+        arr = Sub('i', [2])
+        module.readbuffer_as_string(arr)
+        class A(object):
+            pass
+        assert not module.same_dealloc(arr, module.array('i', [2]))
+        assert module.same_dealloc(arr, A())
 
     def test_subclass(self):
         import struct

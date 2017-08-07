@@ -2208,7 +2208,7 @@ def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
     return _ptr(Ptr(T), o, solid)
 
 @analyzer_for(malloc)
-def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
+def ann_malloc(s_T, s_n=None, s_flavor=None, s_immortal=None, s_zero=None,
                s_track_allocation=None, s_add_memory_pressure=None,
                s_nonmovable=None):
     assert (s_n is None or s_n.knowntype == int
