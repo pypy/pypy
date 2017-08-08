@@ -577,31 +577,20 @@ class W_Socket(W_Root):
                 data = []
                 data_iter = space.unpackiterable(w_data)
                 for i in data_iter:
-                    if space.isinstance_w(i, space.w_bytes):
-                        data.append(space.bytes_w(i))
-                    elif (i.typedef.name == 'array.array'):
-                        data.append(space.bytes_w(i.descr_tobytes(space)))
-                    elif (i.typedef.name == 'memoryview'):
-                        data.append(space.bytes_w(i.descr_tobytes(space)))
-                    else:
-                        raise oefmt(space.w_TypeError, "a bytes-like object is required")
+                    data.append(space.readbuf_w(i).as_str())
 
                 # find the ancillary's type in the ObjectSpace and get a list of tuples out of it.
                 ancillary = []
                 if w_ancillary is not None:
                     anc_iter = space.unpackiterable(w_ancillary)
-                    for i in anc_iter:
-                        if (not space.isinstance_w(i, space.w_tuple)):
+                    for w_i in anc_iter:
+                        if not space.isinstance_w(w_i, space.w_tuple):
                             raise oefmt(space.w_TypeError, "[sendmsg() ancillary data items]() argument must be sequence")
-                        if (space.len_w(i) == 3):
-                            level = space.int_w(space.getitem(i, space.newint(0)))
-                            type = space.int_w(space.getitem(i, space.newint(1)))
-                            if (space.getitem(i, space.newint(2)).typedef.name == 'array.array'):
-                                cont = space.bytes_w(space.getitem(i, space.newint(2)).descr_tobytes(space))
-                            elif (space.isinstance_w(space.getitem(i, space.newint(2)), space.w_bytes)):
-                                cont = space.bytes_w(space.getitem(i, space.newint(2)))
-                            else:
-                                raise oefmt(space.w_TypeError, "a bytes-like object is required")
+                        if space.len_w(w_i) == 3:
+                            intemtup = space.unpackiterable(w_i)
+                            level = space.int_w(intemtup[0])
+                            type = space.int_w(intemtup[1])
+                            cont = space.readbuf_w(intemtup[2]).as_str()
                             tup = (level, type, cont)
                             ancillary.append(tup)
                         else:
