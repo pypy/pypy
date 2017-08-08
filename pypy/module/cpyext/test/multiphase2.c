@@ -249,51 +249,51 @@ PyInit_multiphase2(PyObject *spec)
 
 /**** Importing a non-module object ****/
 
-//static PyModuleDef def_nonmodule;
-//static PyModuleDef def_nonmodule_with_methods;
-//
-///* Create a SimpleNamespace(three=3) */
-//static PyObject*
-//createfunc_nonmodule(PyObject *spec, PyModuleDef *def)
-//{
-//    PyObject *dct, *ns, *three;
-//
-//    if (def != &def_nonmodule && def != &def_nonmodule_with_methods) {
-//        PyErr_SetString(PyExc_SystemError, "def does not match");
-//        return NULL;
-//    }
-//
-//    dct = PyDict_New();
-//    if (dct == NULL)
-//        return NULL;
-//
-//    three = PyLong_FromLong(3);
-//    if (three == NULL) {
-//        Py_DECREF(dct);
-//        return NULL;
-//    }
-//    PyDict_SetItemString(dct, "three", three);
-//    Py_DECREF(three);
-//
-//    ns = _PyNamespace_New(dct);
-//    Py_DECREF(dct);
-//    return ns;
-//}
-//
-//static PyModuleDef_Slot slots_create_nonmodule[] = {
-//    {Py_mod_create, createfunc_nonmodule},
-//    {0, NULL},
-//};
-//
-//static PyModuleDef def_nonmodule = TEST_MODULE_DEF(
-//    "_testmultiphase_nonmodule", slots_create_nonmodule, NULL);
-//
-//PyMODINIT_FUNC
-//PyInit__testmultiphase_nonmodule(PyObject *spec)
-//{
-//    return PyModuleDef_Init(&def_nonmodule);
-//}
-/*
+static PyModuleDef def_nonmodule;
+static PyModuleDef def_nonmodule_with_methods;
+
+/* Create a SimpleNamespace(three=3) */
+static PyObject*
+createfunc_nonmodule(PyObject *spec, PyModuleDef *def)
+{
+    PyObject *dct, *ns, *three;
+
+    if (def != &def_nonmodule && def != &def_nonmodule_with_methods) {
+        PyErr_SetString(PyExc_SystemError, "def does not match");
+        return NULL;
+    }
+
+    dct = PyDict_New();
+    if (dct == NULL)
+        return NULL;
+
+    three = PyLong_FromLong(3);
+    if (three == NULL) {
+        Py_DECREF(dct);
+        return NULL;
+    }
+    PyDict_SetItemString(dct, "three", three);
+    Py_DECREF(three);
+
+    ns = _PyNamespace_New(dct);
+    Py_DECREF(dct);
+    return ns;
+}
+
+static PyModuleDef_Slot slots_create_nonmodule[] = {
+    {Py_mod_create, createfunc_nonmodule},
+    {0, NULL},
+};
+
+static PyModuleDef def_nonmodule = TEST_MODULE_DEF(
+    "_testmultiphase_nonmodule", slots_create_nonmodule, NULL);
+
+PyMODINIT_FUNC
+PyInit__testmultiphase_nonmodule(PyObject *spec)
+{
+    return PyModuleDef_Init(&def_nonmodule);
+}
+
 PyDoc_STRVAR(nonmodule_bar_doc,
 "bar(i,j)\n\
 \n\
@@ -309,20 +309,20 @@ nonmodule_bar(PyObject *self, PyObject *args)
     res = i - j;
     return PyLong_FromLong(res);
 }
-*/
-//static PyMethodDef nonmodule_methods[] = {
-//    {"bar", nonmodule_bar, METH_VARARGS, nonmodule_bar_doc},
-//    {NULL, NULL}           /* sentinel */
-//};
-//
-//static PyModuleDef def_nonmodule_with_methods = TEST_MODULE_DEF(
-//    "_testmultiphase_nonmodule_with_methods", slots_create_nonmodule, nonmodule_methods);
-//
-//PyMODINIT_FUNC
-//PyInit__testmultiphase_nonmodule_with_methods(PyObject *spec)
-//{
-//    return PyModuleDef_Init(&def_nonmodule_with_methods);
-//}
+
+static PyMethodDef nonmodule_methods[] = {
+    {"bar", nonmodule_bar, METH_VARARGS, nonmodule_bar_doc},
+    {NULL, NULL}           /* sentinel */
+};
+
+static PyModuleDef def_nonmodule_with_methods = TEST_MODULE_DEF(
+    "_testmultiphase_nonmodule_with_methods", slots_create_nonmodule, nonmodule_methods);
+
+PyMODINIT_FUNC
+PyInit__testmultiphase_nonmodule_with_methods(PyObject *spec)
+{
+    return PyModuleDef_Init(&def_nonmodule_with_methods);
+}
 
 /**** Non-ASCII-named modules ****/
 
@@ -539,20 +539,20 @@ PyInit__testmultiphase_create_unreported_exception(PyObject *spec)
     return PyModuleDef_Init(&def_create_unreported_exception);
 }
 
-//static PyModuleDef_Slot slots_nonmodule_with_exec_slots[] = {
-//    {Py_mod_create, createfunc_nonmodule},
-//    {Py_mod_exec, execfunc},
-//    {0, NULL},
-//};
-//
-//static PyModuleDef def_nonmodule_with_exec_slots = TEST_MODULE_DEF(
-//    "_testmultiphase_nonmodule_with_exec_slots", slots_nonmodule_with_exec_slots, NULL);
-//
-//PyMODINIT_FUNC
-//PyInit__testmultiphase_nonmodule_with_exec_slots(PyObject *spec)
-//{
-//    return PyModuleDef_Init(&def_nonmodule_with_exec_slots);
-//}
+static PyModuleDef_Slot slots_nonmodule_with_exec_slots[] = {
+    {Py_mod_create, createfunc_nonmodule},
+    {Py_mod_exec, execfunc},
+    {0, NULL},
+};
+
+static PyModuleDef def_nonmodule_with_exec_slots = TEST_MODULE_DEF(
+    "_testmultiphase_nonmodule_with_exec_slots", slots_nonmodule_with_exec_slots, NULL);
+
+PyMODINIT_FUNC
+PyInit__testmultiphase_nonmodule_with_exec_slots(PyObject *spec)
+{
+    return PyModuleDef_Init(&def_nonmodule_with_exec_slots);
+}
 
 static int
 execfunc_err(PyObject *mod)
