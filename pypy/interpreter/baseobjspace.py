@@ -1,4 +1,5 @@
 import sys
+import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
@@ -1271,8 +1272,22 @@ class ObjSpace(object):
             self.setitem(w_globals, w_key, self.builtin)
         return statement.exec_code(self, w_globals, w_locals)
 
+    @not_rpython
+    def appdef(self, source):
+        '''Create interp-level function object from app-level source.
+
+        The source should be in the same format as for space.appexec():
+            """(foo, bar): return 'baz'"""
+        '''
+        source = source.lstrip()
+        assert source.startswith('('), "incorrect header in:\n%s" % (source,)
+        source = py.code.Source("def anonymous%s\n" % source)
+        w_glob = self.newdict(module=True)
+        self.exec_(str(source), w_glob, w_glob)
+        return self.getitem(w_glob, self.newtext('anonymous'))
+
     @specialize.arg(2)
-    def appexec(self, posargs_w, source):
+    def appexec(self, posargs_w, source, cache=True):
         """ return value from executing given source at applevel.
             The source must look like
                '''(x, y):
@@ -1280,7 +1295,11 @@ class ObjSpace(object):
                        return result
                '''
         """
-        w_func = self.fromcache(AppExecCache).getorbuild(source)
+        if cache:
+            w_func = self.fromcache(AppExecCache).getorbuild(source)
+        else:
+            # NB: since appdef() is not-RPython, using cache=False also is.
+            w_func = self.appdef(source)
         args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
 
@@ -1817,15 +1836,7 @@ class ObjSpace(object):
 class AppExecCache(SpaceCache):
     @not_rpython
     def build(cache, source):
-        space = cache.space
-        # XXX will change once we have our own compiler
-        import py
-        source = source.lstrip()
-        assert source.startswith('('), "incorrect header in:\n%s" % (source,)
-        source = py.code.Source("def anonymous%s\n" % source)
-        w_glob = space.newdict(module=True)
-        space.exec_(str(source), w_glob, w_glob)
-        return space.getitem(w_glob, space.newtext('anonymous'))
+        return cache.space.appdef(source)
 
 
 # Table describing the regular part of the interface of object spaces,

@@ -1002,7 +1002,7 @@ class CTypesBackend(object):
 
     _weakref_cache_ref = None
 
-    def gcp(self, cdata, destructor):
+    def gcp(self, cdata, destructor, size=0):
         if self._weakref_cache_ref is None:
             import weakref
             class MyRef(weakref.ref):

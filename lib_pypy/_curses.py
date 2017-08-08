@@ -411,7 +411,7 @@ class Window(object):
             val = lib.mvwget_wch(self._win, *args, wch)
         else:
             raise error("get_wch requires 0 or 2 arguments")
-        _check_ERR(val, "get_wch"):
+        _check_ERR(val, "get_wch")
         return wch[0]
 
     def getkey(self, *args):

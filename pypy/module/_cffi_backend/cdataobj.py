@@ -433,17 +433,22 @@ class W_CData(W_Root):
     def _sizeof(self):
         return self.ctype.size
 
-    def with_gc(self, w_destructor):
+    def with_gc(self, w_destructor, size=0):
         space = self.space
         if space.is_none(w_destructor):
             if isinstance(self, W_CDataGCP):
                 self.detach_destructor()
-                return space.w_None
-            raise oefmt(space.w_TypeError,
-                        "Can remove destructor only on a object "
-                        "previously returned by ffi.gc()")
-        with self as ptr:
-            return W_CDataGCP(space, ptr, self.ctype, self, w_destructor)
+                w_res = space.w_None
+            else:
+                raise oefmt(space.w_TypeError,
+                            "Can remove destructor only on a object "
+                            "previously returned by ffi.gc()")
+        else:
+            with self as ptr:
+                w_res = W_CDataGCP(space, ptr, self.ctype, self, w_destructor)
+        if size != 0:
+            rgc.add_memory_pressure(size)
+        return w_res
 
     def unpack(self, length):
         from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray

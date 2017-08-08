@@ -394,12 +394,17 @@ class FFI(object):
             replace_with = ' ' + replace_with
         return self._backend.getcname(cdecl, replace_with)
 
-    def gc(self, cdata, destructor):
+    def gc(self, cdata, destructor, size=0):
         """Return a new cdata object that points to the same
         data.  Later, when this new cdata object is garbage-collected,
         'destructor(old_cdata_object)' will be called.
+
+        The optional 'size' gives an estimate of the size, used to
+        trigger the garbage collection more eagerly.  So far only used
+        on PyPy.  It tells the GC that the returned object keeps alive
+        roughly 'size' bytes of external memory.
         """
-        return self._backend.gcp(cdata, destructor)
+        return self._backend.gcp(cdata, destructor, size)
 
     def _get_cached_btype(self, type):
         assert self._lock.acquire(False) is False

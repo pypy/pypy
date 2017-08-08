@@ -279,6 +279,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert module.call_method("text") == 2
 
     def test_CompileString_and_Exec(self):
+        import sys
         module = self.import_extension('foo', [
             ("compile_string", "METH_NOARGS",
              """
@@ -312,6 +313,9 @@ class AppTestCall(AppTestCpythonExtensionBase):
         print(dir(mod))
         print(mod.__dict__)
         assert mod.f(42) == 47
+
+        # Clean-up
+        del sys.modules['cpyext_test_modname']
 
     def test_merge_compiler_flags(self):
         import sys

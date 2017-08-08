@@ -4,7 +4,7 @@ Module objects.
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 
 
 class Module(W_Root):
@@ -35,8 +35,9 @@ class Module(W_Root):
         except OperationError:
             pass
 
+    @not_rpython
     def install(self):
-        """NOT_RPYTHON: installs this module into space.builtin_modules"""
+        """installs this module into space.builtin_modules"""
         modulename = self.space.text0_w(self.w_name)
         if modulename in self.space.builtin_modules:
             raise ValueError(
@@ -44,8 +45,9 @@ class Module(W_Root):
                 "app-level module %r" % (modulename,))
         self.space.builtin_modules[modulename] = self
 
+    @not_rpython
     def setup_after_space_initialization(self):
-        """NOT_RPYTHON: to allow built-in modules to do some more setup
+        """to allow built-in modules to do some more setup
         after the space is fully initialized."""
 
     def init(self, space):

@@ -1636,6 +1636,7 @@ class MiniMarkGC(MovingGCBase):
         # with a finalizer and all objects reachable from there (and also
         # moves some objects from 'objects_with_finalizers' to
         # 'run_finalizers').
+        self.kept_alive_by_finalizer = r_uint(0)
         if self.old_objects_with_finalizers.non_empty():
             self.deal_with_objects_with_finalizers()
         #
@@ -1678,6 +1679,9 @@ class MiniMarkGC(MovingGCBase):
         # we currently have -- but no more than 'max_delta' more than
         # we currently have.
         total_memory_used = float(self.get_total_memory_used())
+        total_memory_used -= float(self.kept_alive_by_finalizer)
+        if total_memory_used < 0:
+            total_memory_used = 0
         bounded = self.set_major_threshold_from(
             min(total_memory_used * self.major_collection_threshold,
                 total_memory_used + self.max_delta),
@@ -1999,8 +2003,11 @@ class MiniMarkGC(MovingGCBase):
     def _bump_finalization_state_from_0_to_1(self, obj):
         ll_assert(self._finalization_state(obj) == 0,
                   "unexpected finalization state != 0")
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + self.get_size(obj)
         hdr = self.header(obj)
         hdr.tid |= GCFLAG_FINALIZATION_ORDERING
+        self.kept_alive_by_finalizer += raw_malloc_usage(totalsize)
 
     def _recursively_bump_finalization_state_from_2_to_3(self, obj):
         ll_assert(self._finalization_state(obj) == 2,
