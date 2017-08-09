@@ -8,7 +8,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.object import (
     PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
     PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
-    PyObject_GetItem, PyObject_RichCompareBool,
+    PyObject_GetItem, 
     PyObject_IsInstance, PyObject_IsSubclass, PyObject_AsFileDescriptor,
     PyObject_Hash, PyObject_Cmp, PyObject_Unicode
 )
@@ -136,7 +136,18 @@ class TestObject(BaseApiTest):
 
         w_i = space.wrap(1)
         with raises_w(space, SystemError):
-            PyObject_RichCompareBool(space, w_i, w_i, 123456)
+            api.PyObject_RichCompareBool(w_i, w_i, 123456)
+
+    def test_RichCompareNanlike(self, space,api):
+        w_obj = space.appexec([], """():
+            class Nanlike(object):
+                def __eq__(self, other):
+                    raise RuntimeError('unreachable')
+            return Nanlike()""")
+        res = api.PyObject_RichCompareBool(w_obj, w_obj, Py_EQ)
+        assert res == 1
+        res = api.PyObject_RichCompareBool(w_obj, w_obj, Py_NE)
+        assert res == 0
 
     def test_IsInstance(self, space, api):
         assert api.PyObject_IsInstance(space.wrap(1), space.w_int) == 1
