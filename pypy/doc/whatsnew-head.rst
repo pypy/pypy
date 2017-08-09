@@ -62,7 +62,7 @@ Small improvement to optimize list accesses with constant indexes better by
 throwing away information about them less eagerly.
 
 
-.. branch: getarrayitem-into-bridges:
+.. branch: getarrayitem-into-bridges
 
 More information is retained into a bridge: knowledge about the content of
 arrays (at fixed indices) is stored in guards (and thus available at the
