@@ -59,8 +59,8 @@ def _get_hg_version(hgexe, root):
     p = Popen([str(hgexe), 'id', '-i', root],
               stdout=PIPE, stderr=PIPE, env=env)
     hgid = p.stdout.read().strip()
-    maywarn(p.stderr.read())
     if p.wait() != 0:
+        maywarn(p.stderr.read())
         hgid = '?'
 
     p = Popen([str(hgexe), 'id', '-t', root],
