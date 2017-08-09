@@ -417,7 +417,7 @@ static PyModuleDef def_create_int_with_state = { \
     PyDoc_STR("Not a PyModuleObject object, but requests per-module state"),
     10,                                         /* m_size */
     NULL,                                       /* m_methods */
-    //slots_create_nonmodule,                     /* m_slots */
+    slots_create_nonmodule,                     /* m_slots */
     NULL,                                       /* m_traverse */
     NULL,                                       /* m_clear */
     NULL,                                       /* m_free */
@@ -436,7 +436,7 @@ static PyModuleDef def_negative_size = { \
     PyDoc_STR("PyModuleDef with negative m_size"),
     -1,                                         /* m_size */
     NULL,                                       /* m_methods */
-    NULL, //slots_create_nonmodule,                     /* m_slots */
+    slots_create_nonmodule,                     /* m_slots */
     NULL,                                       /* m_traverse */
     NULL,                                       /* m_clear */
     NULL,                                       /* m_free */

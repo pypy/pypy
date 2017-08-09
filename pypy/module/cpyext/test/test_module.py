@@ -175,3 +175,38 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         ex_class = module.Example
         importlib.reload(module)
         assert ex_class is module.Example
+
+    def w_load_from_spec(self, loader, spec):
+        from importlib import util
+        module = util.module_from_spec(spec)
+        loader.exec_module(module)
+        return module
+
+    def test_bad_modules(self):
+        # XXX: not a very good test, since most internal issues in cpyext
+        # cause SystemErrors.
+        from importlib import machinery, util
+        NAME = 'multiphase2'
+        module = self.import_module(name=NAME)
+        origin = module.__loader__.path
+        for name_base in [
+                'bad_slot_large',
+                'bad_slot_negative',
+                'create_int_with_state',
+                'negative_size',
+                'export_null',
+                'export_uninitialized',
+                'export_raise',
+                'export_unreported_exception',
+                'create_null',
+                'create_raise',
+                'create_unreported_exception',
+                'nonmodule_with_exec_slots',
+                'exec_err',
+                'exec_raise',
+                'exec_unreported_exception',
+                ]:
+            name = '_testmultiphase_' + name_base
+            loader = machinery.ExtensionFileLoader(name, origin)
+            spec = util.spec_from_loader(name, loader)
+            raises(SystemError, self.load_from_spec, loader, spec)
