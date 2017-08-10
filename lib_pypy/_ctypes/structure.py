@@ -40,6 +40,22 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
         else:
             rawfields.append((f[0], f[1]._ffishape_))
 
+    # hack for duplicate field names
+    already_seen = set()
+    names1 = names
+    names = []
+    for f in names1:
+        if f not in already_seen:
+            names.append(f)
+            already_seen.add(f)
+    already_seen = set()
+    for i in reversed(range(len(rawfields))):
+        if rawfields[i][0] in already_seen:
+            rawfields[i] = (('$DUP%d$%s' % (i, rawfields[i][0]),)
+                            + rawfields[i][1:])
+        already_seen.add(rawfields[i][0])
+    # /hack
+
     _set_shape(self, rawfields, self._is_union)
 
     fields = {}
@@ -230,10 +246,22 @@ class StructOrUnion(_CData):
 
     def __new__(cls, *args, **kwds):
         from _ctypes import union
-        self = super(_CData, cls).__new__(cls)
-        if ('_abstract_' in cls.__dict__ or cls is Structure 
+        if ('_abstract_' in cls.__dict__ or cls is Structure
                                          or cls is union.Union):
             raise TypeError("abstract class")
+        if hasattr(cls, '_swappedbytes_'):
+            fields = [None] * len(cls._fields_)
+            for i in range(len(cls._fields_)):
+                if cls._fields_[i][1] == cls._fields_[i][1].__dict__.get('__ctype_be__', None):
+                    swapped = cls._fields_[i][1].__dict__.get('__ctype_le__', cls._fields_[i][1])
+                else:
+                    swapped = cls._fields_[i][1].__dict__.get('__ctype_be__', cls._fields_[i][1])
+                if len(cls._fields_[i]) < 3:
+                    fields[i] = (cls._fields_[i][0], swapped)
+                else:
+                    fields[i] = (cls._fields_[i][0], swapped, cls._fields_[i][2])
+            names_and_fields(cls, fields, _CData, cls.__dict__.get('_anonymous_', None))
+        self = super(_CData, cls).__new__(cls)
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
         return self
@@ -250,17 +278,6 @@ class StructOrUnion(_CData):
         for name, arg in kwds.items():
             self.__setattr__(name, arg)
 
-    def __getattribute__(self, item):
-        if item in (field[0] for field in object.__getattribute__(self, "_fields_"))\
-                and hasattr(self.__class__, '_swappedbytes_'):
-            self._swap_bytes(item, 'get')
-        return object.__getattribute__(self, item)
-
-    def __setattr__(self, key, value):
-        object.__setattr__(self,  key, value)
-        if key in (field[0] for field in self._fields_) and hasattr(self.__class__, '_swappedbytes_'):
-            self._swap_bytes(key, 'set')
-
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as
         the address of the field 'name' of self."""
@@ -276,63 +293,6 @@ class StructOrUnion(_CData):
 
     def _to_ffi_param(self):
         return self._buffer
-
-    def _swap_bytes(self, field, get_or_set):
-        def swap_2(v):
-            return ((v >> 8) & 0x00FF) | ((v << 8) & 0xFF00)
-
-        def swap_4(v):
-            return ((v & 0x000000FF) << 24) | \
-                   ((v & 0x0000FF00) << 8) | \
-                   ((v & 0x00FF0000) >> 8) | \
-                   ((v >> 24) & 0xFF)
-
-        def swap_8(v):
-            return ((v & 0x00000000000000FFL) << 56) | \
-                   ((v & 0x000000000000FF00L) << 40) | \
-                   ((v & 0x0000000000FF0000L) << 24) | \
-                   ((v & 0x00000000FF000000L) << 8) | \
-                   ((v & 0x000000FF00000000L) >> 8) | \
-                   ((v & 0x0000FF0000000000L) >> 24) | \
-                   ((v & 0x00FF000000000000L) >> 40) | \
-                   ((v >> 56) & 0xFF)
-
-        def swap_double_float(v, typ):
-            from struct import pack, unpack
-            st = ''
-            if get_or_set == 'set':
-                if sys.byteorder == 'little':
-                    st = pack(''.join(['>', typ]), v)
-                else:
-                    st = pack(''.join(['<', typ]), v)
-                return unpack(typ, st)[0]
-            else:
-                packed = pack(typ, v)
-                if sys.byteorder == 'little':
-                    st = unpack(''.join(['>', typ]), packed)
-                else:
-                    st = unpack(''.join(['<', typ]), packed)
-                return st[0]
-
-        from ctypes import sizeof, c_double, c_float
-        sizeof_field = 0
-        typeof_field = None
-        for i in self._fields_:
-            if i[0] == field:
-                sizeof_field = sizeof(i[1])
-                typeof_field = i[1]
-        field_value = object.__getattribute__(self, field)
-        if typeof_field == c_float:
-            object.__setattr__(self, field, swap_double_float(field_value, 'f'))
-        elif typeof_field == c_double:
-            object.__setattr__(self, field, swap_double_float(field_value, 'd'))
-        else:
-            if sizeof_field == 2:
-                object.__setattr__(self, field, swap_2(field_value))
-            elif sizeof_field == 4:
-                object.__setattr__(self, field, swap_4(field_value))
-            elif sizeof_field == 8:
-                object.__setattr__(self, field, swap_8(field_value))
 
 
 class StructureMeta(StructOrUnionMeta):

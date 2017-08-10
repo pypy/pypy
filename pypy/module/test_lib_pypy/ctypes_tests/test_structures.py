@@ -22,7 +22,6 @@ class TestSubclasses(BaseCTypesTestChecker):
         assert X._fields_ == [("a", c_int)]
         assert Y._fields_ == [("b", c_int)]
         assert Z._fields_ == [("a", c_int)]
-
         assert Y._names_ == ['a', 'b']
 
     def test_subclass_delayed(self):
@@ -594,3 +593,13 @@ class TestPatologicalCases(BaseCTypesTestChecker):
 
         x = X()
         assert x.x == 0
+
+    def test_duplicate_names(self):
+        class S(Structure):
+            _fields_ = [('a', c_int),
+                        ('b', c_int),
+                        ('a', c_byte)]
+        s = S(260, -123)
+        assert sizeof(s) == 3 * sizeof(c_int)
+        assert s.a == 4     # 256 + 4
+        assert s.b == -123
