@@ -706,9 +706,7 @@ def is_static(space, w_obj):
 
 class W_CPPScope(W_Root):
     _attrs_ = ['space', 'name', 'handle', 'methods', 'datamembers']
-    _immutable_fields_ = ['kind', 'name']
-
-    kind = "scope"
+    _immutable_fields_ = ['handle', 'name']
 
     def __init__(self, space, name, opaque_handle):
         self.space = space
@@ -755,9 +753,6 @@ class W_CPPScope(W_Root):
                 overload = W_CPPOverload(self.space, self, methods[:])
             self.methods[pyname] = overload
 
-    def full_name(self):
-        return capi.c_scoped_final_name(self.space, self.handle)
-
     def get_method_names(self):
         return self.space.newlist([self.space.newtext(name) for name in self.methods])
 
@@ -790,11 +785,6 @@ class W_CPPScope(W_Root):
                 return W_CPPOverload(self.space, self, [f])
         raise oefmt(self.space.w_LookupError, "no overload matches signature")
 
-    def missing_attribute_error(self, name):
-        return oefmt(self.space.w_AttributeError,
-                     "%s '%s' has no attribute %s",
-                     self.kind, self.name, name)
-
     def __eq__(self, other):
         return self.handle == other.handle
 
@@ -807,9 +797,6 @@ class W_CPPScope(W_Root):
 # classes for inheritance. Both are python classes, though, and refactoring
 # may be in order at some point.
 class W_CPPNamespace(W_CPPScope):
-    _immutable_fields_ = ['kind']
-
-    kind = "namespace"
 
     def _make_cppfunction(self, pyname, index):
         num_args = capi.c_method_num_args(self.space, self, index)
@@ -877,6 +864,10 @@ class W_CPPNamespace(W_CPPScope):
             if dname: alldir.append(self.space.newtext(dname))
         return self.space.newlist(alldir)
         
+    def missing_attribute_error(self, name):
+        return oefmt(self.space.w_AttributeError,
+            "namespace '%s' has no attribute %s", self.name, name)
+
 
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
@@ -892,12 +883,41 @@ W_CPPNamespace.typedef.acceptable_as_base_class = False
 
 class W_CPPClass(W_CPPScope):
     _attrs_ = ['space', 'name', 'handle', 'methods', 'datamembers']
-    _immutable_fields_ = ['kind', 'constructor', 'methods[*]', 'datamembers[*]']
-
-    kind = "class"
+    _immutable_fields_ = ['handle', 'constructor', 'methods[*]', 'datamembers[*]']
 
     def __init__(self, space, name, opaque_handle):
         W_CPPScope.__init__(self, space, name, opaque_handle)
+
+    def _build_methods(self):
+        assert len(self.methods) == 0
+        methods_temp = {}
+        for i in range(capi.c_num_methods(self.space, self)):
+            idx = capi.c_method_index_at(self.space, self, i)
+            pyname = helper.map_operator_name(self.space,
+                capi.c_method_name(self.space, self, idx),
+                capi.c_method_num_args(self.space, self, idx),
+                capi.c_method_result_type(self.space, self, idx))
+            cppmethod = self._make_cppfunction(pyname, idx)
+            methods_temp.setdefault(pyname, []).append(cppmethod)
+        # the following covers the case where the only kind of operator[](idx)
+        # returns are the ones that produce non-const references; these can be
+        # used for __getitem__ just as much as for __setitem__, though
+        if not "__getitem__" in methods_temp:
+            try:
+                for m in methods_temp["__setitem__"]:
+                    cppmethod = self._make_cppfunction("__getitem__", m.index)
+                    methods_temp.setdefault("__getitem__", []).append(cppmethod)
+            except KeyError:
+                pass          # just means there's no __setitem__ either
+
+        # create the overload methods from the method sets
+        for pyname, methods in methods_temp.iteritems():
+            CPPMethodSort(methods).sort()
+            if pyname == self.name:
+                overload = W_CPPConstructorOverload(self.space, self, methods[:])
+            else:
+                overload = W_CPPOverload(self.space, self, methods[:])
+            self.methods[pyname] = overload
 
     def _make_cppfunction(self, pyname, index):
         num_args = capi.c_method_num_args(self.space, self, index)
@@ -937,9 +957,6 @@ class W_CPPClass(W_CPPScope):
                 datamember = W_CPPDataMember(self.space, self, type_name, offset)
             self.datamembers[datamember_name] = datamember
 
-    def construct(self):
-        return self.get_overload(self.name).call(None, [])
-
     def find_overload(self, name):
         raise self.missing_attribute_error(name)
 
@@ -964,6 +981,11 @@ class W_CPPClass(W_CPPScope):
             base_name = capi.c_base_name(self.space, self, i)
             bases.append(self.space.newtext(base_name))
         return self.space.newlist(bases)
+
+    def missing_attribute_error(self, name):
+        return oefmt(self.space.w_AttributeError,
+            "class '%s' has no attribute %s", self.name, name)
+
 
 W_CPPClass.typedef = TypeDef(
     'CPPClass',
