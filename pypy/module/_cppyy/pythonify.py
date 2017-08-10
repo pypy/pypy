@@ -88,45 +88,23 @@ def make_method(meth_name, cppol):
     return method
 
 
-def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
+def make_cppnamespace(scope, namespace_name, cppns, build_in_full=False):
     # build up a representation of a C++ namespace (namespaces are classes)
 
     # create a meta class to allow properties (for static data write access)
     metans = type(CPPNamespace)(namespace_name+'_meta', (CPPNamespace,), {})
 
-    if cppns:
-        d = {"_cpp_proxy" : cppns}
-    else:
-        d = dict()
-        def cpp_proxy_loader(cls):
-            import _cppyy
-            cpp_proxy = _cppyy._scope_byname(cls.__name__ != '::' and cls.__name__ or '')
-            del cls.__class__._cpp_proxy
-            cls._cpp_proxy = cpp_proxy
-            return cpp_proxy
-        metans._cpp_proxy = property(cpp_proxy_loader)
-
     # create the python-side C++ namespace representation, cache in scope if given
+    d = {"_cpp_proxy" : cppns}
     pycppns = metans(namespace_name, (object,), d)
     if scope:
         setattr(scope, namespace_name, pycppns)
 
-    if build_in_full:   # if False, rely on lazy build-up
-        # insert static methods into the "namespace" dictionary
-        for func_name in cppns.get_method_names():
-            cppol = cppns.get_overload(func_name)
-            pyfunc = make_static_function(func_name, cppol)
-            setattr(pycppns, func_name, pyfunc)
-
-        # add all data members to the dictionary of the class to be created, and
-        # static ones also to the meta class (needed for property setters)
-        for dm_name in cppns.get_datamember_names():
-            cppdm = cppns.get_datamember(dm_name)
-            setattr(pycppns, dm_name, cppdm)
-            setattr(metans, dm_name, cppdm)
-
-        modname = pycppns.__name__.replace('::', '.')
-        sys.modules['cppyy.gbl.'+modname] = pycppns   # note naming (cppyy)
+    # install as modules to allow importing from (note naming: cppyy)
+    modname = 'cppyy.gbl'
+    if scope:
+        modname = 'cppyy.gbl.'+pycppns.__name__.replace('::', '.')
+    sys.modules[modname] = pycppns
     return pycppns
 
 def _drop_cycles(bases):
@@ -148,7 +126,7 @@ def make_new(class_name):
         return instance
     return __new__
 
-def make_pycppclass(scope, class_name, final_class_name, cppclass):
+def make_cppclass(scope, class_name, final_class_name, cppclass):
 
     # get a list of base classes for class creation
     bases = [get_pycppclass(base) for base in cppclass.get_base_names()]
@@ -229,7 +207,7 @@ def get_pycppitem(scope, name):
             pycppitem = make_cppnamespace(scope, true_name, cppitem)
             setattr(scope, name, pycppitem)
         else:
-            pycppitem = make_pycppclass(scope, true_name, name, cppitem)
+            pycppitem = make_cppclass(scope, true_name, name, cppitem)
 
     # templates
     if not cppitem:
@@ -423,15 +401,13 @@ def _init_pythonify():
     # function generator callback
     _cppyy._set_function_generator(fngen_callback)
 
-    # user interface objects (note the two-step of not calling scope_byname here:
-    # creation of global functions may cause the creation of classes in the global
-    # namespace, so gbl must exist at that point to cache them)
+    # user interface objects
     global gbl
-    gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
+    gbl = make_cppnamespace(None, '::', _cppyy._scope_byname(''))
     gbl.__doc__ = "Global C++ namespace."
 
     # pre-create std to allow direct importing
-    gbl.std = make_cppnamespace(None, "std", None, False)
+    gbl.std = make_cppnamespace(gbl, 'std', _cppyy._scope_byname('std'))
 
     # install a type for enums to refer to
     # TODO: this is correct for C++98, not for C++11 and in general there will
@@ -443,10 +419,6 @@ def _init_pythonify():
 
     # install for user access
     _cppyy.gbl = gbl
-
-    # install as modules to allow importing from (note naming: cppyy)
-    sys.modules['cppyy.gbl'] = gbl
-    sys.modules['cppyy.gbl.std'] = gbl.std
 
 # user-defined pythonizations interface
 _pythonizations = {}
