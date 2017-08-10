@@ -102,9 +102,10 @@ void pypysig_pushback(int signum)
 static void write_str(int fd, const char *p)
 {
     int i = 0;
+    int res RPY_UNUSED;
     while (p[i] != '\x00')
         i++;
-    (void)write(fd, p, i);
+    res = write(fd, p, i);
 }
 
 static void signal_setflag_handler(int signum)
