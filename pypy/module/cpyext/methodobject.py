@@ -203,6 +203,10 @@ def cfunction_descr_call(space, w_self, __args__):
 def cmethod_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
+    if len(args_w) < 1:
+        raise oefmt(space.w_TypeError,
+            "descriptor '%s' of '%s' object needs an argument",
+            self.name, self.w_objclass.getname(space))
     w_instance = args_w[0] # XXX typecheck missing
     w_args = space.newtuple(args_w[1:])
     w_kw = space.newdict()

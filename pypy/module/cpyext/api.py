@@ -1632,6 +1632,7 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
         assert cpyext_glob_tid_ptr[0] == 0
         cpyext_glob_tid_ptr[0] = tid
 
+        preexist_error = PyErr_Occurred(space) is not None
         try:
             # Call the function
             result = call_external_function(func, *boxed_args)
@@ -1656,15 +1657,15 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
 
             # Check for exception consistency
             has_error = PyErr_Occurred(space) is not None
-            if has_error and has_result:
-                raise oefmt(space.w_SystemError,
-                            "An exception was set, but function returned a "
-                            "value")
-            elif not expect_null and not has_error and not has_result:
-                raise oefmt(space.w_SystemError,
-                            "Function returned a NULL result without setting "
-                            "an exception")
-
+            if not preexist_error:
+                if has_error and has_result:
+                    raise oefmt(space.w_SystemError,
+                                "An exception was set, but function returned a "
+                                "value")
+                elif not expect_null and not has_error and not has_result:
+                    raise oefmt(space.w_SystemError,
+                                "Function returned a NULL result without setting "
+                                "an exception")
             if has_error:
                 state = space.fromcache(State)
                 state.check_and_raise_exception()

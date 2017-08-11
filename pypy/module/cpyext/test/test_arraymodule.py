@@ -12,6 +12,9 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert arr.itemsize == 4
         assert arr[2] == 3
         assert len(arr.buffer_info()) == 2
+        exc = raises(TypeError, module.array.append)
+        errstr = str(exc.value)
+        assert errstr.startswith("descriptor 'append' of")
         arr.append(4)
         assert arr.tolist() == [1, 2, 3, 4]
         assert len(arr) == 4
