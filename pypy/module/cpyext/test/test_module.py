@@ -135,25 +135,28 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         raises(SystemError, self.import_module, name='multiphase', body=body,
                init=init)
 
+class AppTestMultiPhase2(AppTestCpythonExtensionBase):
+    def setup_class(cls):
+        cls.w_name = cls.space.wrap('multiphase2')
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+
     def test_multiphase2(self):
         import sys
         from importlib import machinery, util
-        NAME = 'multiphase2'
-        module = self.import_module(name=NAME)
+        module = self.import_module(name=self.name)
         finder = machinery.FileFinder(None)
-        spec = util.find_spec(NAME)
+        spec = util.find_spec(self.name)
         assert spec
-        assert module.__name__ == NAME
+        assert module.__name__ == self.name
         #assert module.__file__ == spec.origin
         assert module.__package__ == ''
         raises(AttributeError, 'module.__path__')
-        assert module is sys.modules[NAME]
+        assert module is sys.modules[self.name]
         assert isinstance(module.__loader__, machinery.ExtensionFileLoader)
 
     def test_functionality(self):
         import types
-        NAME = 'multiphase2'
-        module = self.import_module(name=NAME)
+        module = self.import_module(name=self.name)
         assert isinstance(module, types.ModuleType)
         ex = module.Example()
         assert ex.demo('abcd') == 'abcd'
@@ -170,14 +173,19 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
 
     def test_reload(self):
         import importlib
-        NAME = 'multiphase2'
-        module = self.import_module(name=NAME)
+        module = self.import_module(name=self.name)
         ex_class = module.Example
         importlib.reload(module)
         assert ex_class is module.Example
 
-    def w_load_from_spec(self, loader, spec):
-        from importlib import util
+    def w_load_from_name(self, name, origin=None):
+        from importlib import machinery, util
+        if not origin:
+            module = self.import_module(name=self.name)
+            origin = module.__loader__.path
+        name = '_testmultiphase_' + name
+        loader = machinery.ExtensionFileLoader(name, origin)
+        spec = util.spec_from_loader(name, loader)
         module = util.module_from_spec(spec)
         loader.exec_module(module)
         return module
@@ -185,19 +193,13 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def test_bad_modules(self):
         # XXX: not a very good test, since most internal issues in cpyext
         # cause SystemErrors.
-        from importlib import machinery, util
-        NAME = 'multiphase2'
-        module = self.import_module(name=NAME)
+        module = self.import_module(name=self.name)
         origin = module.__loader__.path
-        for name_base in [
+        for name in [
                 'bad_slot_large',
                 'bad_slot_negative',
                 'create_int_with_state',
                 'negative_size',
-                'export_null',
-                'export_uninitialized',
-                'export_raise',
-                'export_unreported_exception',
                 'create_null',
                 'create_raise',
                 'create_unreported_exception',
@@ -206,7 +208,23 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
                 'exec_raise',
                 'exec_unreported_exception',
                 ]:
-            name = '_testmultiphase_' + name_base
-            loader = machinery.ExtensionFileLoader(name, origin)
-            spec = util.spec_from_loader(name, loader)
-            raises(SystemError, self.load_from_spec, loader, spec)
+            raises(SystemError, self.load_from_name, name, origin)
+
+    def test_export_null(self):
+        excinfo = raises(SystemError, self.load_from_name, 'export_null')
+        assert "initialization" in excinfo.value.args[0]
+        assert "without raising" in excinfo.value.args[0]
+
+    def test_export_uninit(self):
+        excinfo = raises(SystemError, self.load_from_name, 'export_uninitialized')
+        assert "init function" in excinfo.value.args[0]
+        assert "uninitialized object" in excinfo.value.args[0]
+
+    def test_export_raise(self):
+        excinfo = raises(SystemError, self.load_from_name, 'export_raise')
+        assert "bad export function" == excinfo.value.args[0]
+
+    def test_export_unreported(self):
+        excinfo = raises(SystemError, self.load_from_name, 'export_unreported_exception')
+        assert "initialization" in excinfo.value.args[0]
+        assert "unreported exception" in excinfo.value.args[0]

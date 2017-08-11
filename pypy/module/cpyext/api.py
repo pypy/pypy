@@ -1545,7 +1545,17 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     try:
         initfunc = rffi.cast(initfunctype, initptr)
         initret = generic_cpy_call_dont_convert_result(space, initfunc)
-        state.check_and_raise_exception()
+        if not initret:
+            if state.operror:
+                state.check_and_raise_exception()
+            raise oefmt(space.w_SystemError,
+                "initialization of %s failed without raising an exception",
+                name)
+        else:
+            if state.clear_exception():
+                raise oefmt(space.w_SystemError,
+                    "initialization of %s raised unreported exception",
+                    name)
         if not initret.c_ob_type:
             raise oefmt(space.w_SystemError,
                         "init function of %s returned uninitialized object",
@@ -1588,7 +1598,7 @@ def generic_cpy_call_expect_null(space, func, *args):
 @specialize.ll()
 def generic_cpy_call_dont_convert_result(space, func, *args):
     FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, False, False)(space, func, *args)
+    return make_generic_cpy_call(FT, True, False)(space, func, *args)
 
 @specialize.memo()
 def make_generic_cpy_call(FT, expect_null, convert_result):
