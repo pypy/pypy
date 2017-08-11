@@ -49,6 +49,15 @@ class AppTestFunctionIntrospection:
         assert f().__qualname__ == 'inner_global'
         assert f()().__qualname__ == 'inner_global.<locals>.inner_function2'
 
+    def test_classmethod_reduce(self):
+        class X(object):
+            @classmethod
+            def y(cls):
+                pass
+
+        f, args = X.y.__reduce__()
+        assert f(*args) == X.y
+
     def test_annotations(self):
         def f(): pass
         ann = f.__annotations__

@@ -596,8 +596,9 @@ class Method(W_Root):
             new_inst = mod.get('builtin_method_new')
             tup = [w_instance, space.newtext(w_function.name)]
         else:
-            new_inst = mod.get('method_new')
-            tup = [self.w_function, w_instance]
+            w_builtins = space.getbuiltinmodule('builtins')
+            new_inst = space.getattr(w_builtins, space.newtext('getattr'))
+            tup = [w_instance, space.newtext(self.w_function.name)]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
 
