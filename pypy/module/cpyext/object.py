@@ -311,7 +311,7 @@ def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     PyErr_BadInternalCall(space)
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
-def PyObject_RichCompareBool(space, ref1, ref2, opid):
+def PyObject_RichCompareBool(space, ref1, ref2, opid_int):
     """Compare the values of o1 and o2 using the operation specified by opid,
     which must be one of Py_LT, Py_LE, Py_EQ,
     Py_NE, Py_GT, or Py_GE, corresponding to <,
@@ -319,7 +319,15 @@ def PyObject_RichCompareBool(space, ref1, ref2, opid):
     0 if the result is false, 1 otherwise. This is the equivalent of the
     Python expression o1 op o2, where op is the operator corresponding to
     opid."""
-    w_res = PyObject_RichCompare(space, ref1, ref2, opid)
+    # Quick result when objects are the same.
+    # Guarantees that identity implies equality.
+    if ref1 is ref2:
+        opid = rffi.cast(lltype.Signed, opid_int)
+        if opid == Py_EQ:
+            return 1
+        if opid == Py_NE:
+            return 0 
+    w_res = PyObject_RichCompare(space, ref1, ref2, opid_int)
     return int(space.is_true(w_res))
 
 @cpython_api([PyObject], PyObject, result_is_ll=True)
