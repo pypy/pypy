@@ -57,6 +57,10 @@ class AppTestFunctionIntrospection:
 
         f, args = X.y.__reduce__()
         assert f(*args) == X.y
+        # This is perhaps overly specific.  It's an attempt to be certain that
+        # pickle will actually work with this implementation.
+        assert f == getattr
+        assert args == (X, "y")
 
     def test_annotations(self):
         def f(): pass
