@@ -74,6 +74,7 @@ void pypysig_default(int signum)
 }
 
 #ifdef _WIN32
+#include <Windows.h>
 #define atomic_cas(ptr, oldv, newv)   (InterlockedCompareExchange(ptr, \
                                             newv, oldv) == (oldv))
 #else
