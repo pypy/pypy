@@ -46,7 +46,7 @@ def cfunction_dealloc(space, py_obj):
 class W_PyCFunctionObject(W_Root):
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
-        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP,self.ml.c_ml_name))
+        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP, self.ml.c_ml_name))
         self.w_self = w_self
         self.w_module = w_module
 
@@ -205,8 +205,8 @@ def cmethod_descr_call(space, w_self, __args__):
     args_w, kw_w = __args__.unpack()
     if len(args_w) < 1:
         raise oefmt(space.w_TypeError,
-            "descriptor '%s' of '%s' object needs an argument",
-            self.name, self.w_objclass.getname(space))
+            "descriptor '%8' of '%N' object needs an argument",
+            self.name, self.w_objclass)
     w_instance = args_w[0] # XXX typecheck missing
     w_args = space.newtuple(args_w[1:])
     w_kw = space.newdict()
@@ -328,8 +328,8 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
             if not method.c_ml_name:
                 break
             if name == "__methods__":
-                method_list_w.append(
-                    space.newtext(rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name))))
+                method_list_w.append(space.newtext(rffi.charp2str(
+                    rffi.cast(rffi.CCHARP, method.c_ml_name))))
             elif rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name)) == name: # XXX expensive copy
                 return W_PyCFunctionObject(space, method, w_obj)
     if name == "__methods__":
