@@ -1031,6 +1031,12 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
                 "command disables it manually:\n"
                 "\n"
                 "    echo 0 | sudo tee /proc/sys/kernel/randomize_va_space\n"
+                "\n"
+                "It has been reported that on Linux kernel 4.12.4-1-ARCH,\n"
+                "ASLR cannot be disabled at all for libpypy-c.so.  For now\n"
+                "there is no good solution.  Either you downgrade the\n"
+                "kernel, or you translate with --no-shared (and you loose\n"
+                "PyPy's cpyext ability).\n"
                 "\n", argv[0]);
         exit(1);
     }
