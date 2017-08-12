@@ -598,7 +598,7 @@ class Method(W_Root):
         else:
             w_builtins = space.getbuiltinmodule('builtins')
             new_inst = space.getattr(w_builtins, space.newtext('getattr'))
-            tup = [w_instance, space.newtext(self.w_function.name)]
+            tup = [w_instance, space.newunicode(w_function.getname(space))]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
 
