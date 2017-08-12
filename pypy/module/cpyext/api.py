@@ -26,6 +26,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
 #from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
@@ -1476,12 +1477,11 @@ def create_extension_module(space, w_spec):
     # order of things here.
     from rpython.rlib import rdynload
 
-    name = space.text_w(space.getattr(w_spec, space.newtext("name")))
+    w_name = space.getattr(w_spec, space.newtext("name"))
     path = space.text_w(space.getattr(w_spec, space.newtext("origin")))
 
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
-    basename = name.split('.')[-1]
     try:
         ll_libname = rffi.str2charp(path)
         try:
@@ -1489,13 +1489,14 @@ def create_extension_module(space, w_spec):
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
-        w_name = space.newunicode(name.decode('ascii'))
         w_path = space.newfilename(path)
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
     look_for = None
+    name = space.text_w(w_name)
     #
     if space.config.objspace.usemodules._cffi_backend:
+        basename = name.split('.')[-1]
         look_for = '_cffi_pypyinit_%s' % (basename,)
         try:
             initptr = rdynload.dlsym(dll, look_for)
@@ -1510,7 +1511,7 @@ def create_extension_module(space, w_spec):
                 raise
     #
     if space.config.objspace.usemodules.cpyext:
-        also_look_for = 'PyInit_%s' % (basename,)
+        also_look_for = get_init_name(space, w_name)
         try:
             initptr = rdynload.dlsym(dll, also_look_for)
         except KeyError:
@@ -1523,9 +1524,20 @@ def create_extension_module(space, w_spec):
             look_for = also_look_for
     msg = u"function %s not found in library %s" % (
         unicode(look_for), space.unicode_w(space.newfilename(path)))
-    w_name = space.newunicode(name.decode('ascii'))
     w_path = space.newfilename(path)
     raise_import_error(space, space.newunicode(msg), w_name, w_path)
+
+def get_init_name(space, w_name):
+    name_u = space.unicode_w(w_name)
+    basename_u = name_u.split(u'.')[-1]
+    try:
+        basename = basename_u.encode('ascii')
+        return 'PyInit_%s' % (basename,)
+    except UnicodeEncodeError:
+        basename = space.bytes_w(encode_object(
+            space, space.newunicode(basename_u), 'punycode', None))
+        basename = basename.replace('-', '_')
+        return 'PyInitU_%s' % (basename,)
 
 
 initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
@@ -1570,6 +1582,7 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
                                                    name)
     finally:
         state.package_context = old_context
+    # XXX: should disable single-step init for non-ascii module names
     w_mod = get_w_obj_and_decref(space, initret)
     state.fixup_extension(w_mod, name, path)
     return w_mod

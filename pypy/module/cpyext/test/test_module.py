@@ -178,12 +178,13 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         importlib.reload(module)
         assert ex_class is module.Example
 
-    def w_load_from_name(self, name, origin=None):
+    def w_load_from_name(self, name, origin=None, use_prefix=True):
         from importlib import machinery, util
         if not origin:
             module = self.import_module(name=self.name)
             origin = module.__loader__.path
-        name = '_testmultiphase_' + name
+        if use_prefix:
+            name = '_testmultiphase_' + name
         loader = machinery.ExtensionFileLoader(name, origin)
         spec = util.spec_from_loader(name, loader)
         module = util.module_from_spec(spec)
@@ -228,3 +229,21 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         excinfo = raises(SystemError, self.load_from_name, 'export_unreported_exception')
         assert "initialization" in excinfo.value.args[0]
         assert "unreported exception" in excinfo.value.args[0]
+
+    def test_unloadable_nonascii(self):
+        name = u"fo\xf3"
+        excinfo = raises(ImportError, self.load_from_name, name)
+        assert excinfo.value.name == '_testmultiphase_' + name
+
+    def test_nonascii(self):
+        module = self.import_module(name=self.name)
+        origin = module.__loader__.path
+        cases = [
+            ('_testmultiphase_zkou\u0161ka_na\u010dten\xed', 'Czech'),
+            ('\uff3f\u30a4\u30f3\u30dd\u30fc\u30c8\u30c6\u30b9\u30c8',
+             'Japanese'),
+            ]
+        for name, lang in cases:
+            module = self.load_from_name(name, origin=origin, use_prefix=False)
+            assert module.__name__ == name
+            assert module.__doc__ == "Module named in %s" % lang
