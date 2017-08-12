@@ -175,7 +175,8 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         import importlib
         module = self.import_module(name=self.name)
         ex_class = module.Example
-        importlib.reload(module)
+        # Simulate what importlib.reload() does, without recomputing the spec
+        module.__spec__.loader.exec_module(module)
         assert ex_class is module.Example
 
     def w_load_from_name(self, name, origin=None, use_prefix=True):

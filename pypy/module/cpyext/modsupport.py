@@ -142,6 +142,11 @@ def exec_def(space, w_mod, mod_as_pyobj):
     mod = rffi.cast(PyModuleObject, mod_as_pyobj)
     moddef = mod.c_md_def
     cur_slot = rffi.cast(rffi.CArrayPtr(PyModuleDef_Slot), moddef.c_m_slots)
+    if moddef.c_m_size >= 0 and not mod.c_md_state:
+        # Always set md_state, to use as marker for exec_extension_module()
+        # (cf. CPython's PyModule_ExecDef)
+        mod.c_md_state = lltype.malloc(
+            rffi.VOIDP.TO, moddef.c_m_size, flavor='raw', zero=True)
     while cur_slot and rffi.cast(lltype.Signed, cur_slot[0].c_slot):
         if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == 2:
             execf = rffi.cast(execfunctype, cur_slot[0].c_value)
