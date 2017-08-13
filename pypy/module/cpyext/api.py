@@ -1595,9 +1595,10 @@ def exec_extension_module(space, w_mod):
         return
     space.getbuiltinmodule("cpyext")
     mod_as_pyobj = rawrefcount.from_obj(PyObject, w_mod)
-    if cts.cast('PyModuleObject*', mod_as_pyobj).c_md_state:
-        return
     if mod_as_pyobj:
+        if cts.cast('PyModuleObject*', mod_as_pyobj).c_md_state:
+            # already initialised
+            return
         return exec_def(space, w_mod, mod_as_pyobj)
 
 @specialize.ll()
