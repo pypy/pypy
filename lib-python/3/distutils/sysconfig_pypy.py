@@ -81,6 +81,19 @@ def _init_posix():
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['VERSION'] = get_python_version()
 
+    if sys.platform[:6] == "darwin":
+        import platform
+        if platform.machine() == 'i386':
+            if platform.architecture()[0] == '32bit':
+                arch = 'i386'
+            else:
+                arch = 'x86_64'
+        else:
+            # just a guess
+            arch = platform.machine()
+        g['LDSHARED'] += ' -undefined dynamic_lookup'
+        g['CC'] += ' -arch %s' % (arch,)
+
     global _config_vars
     _config_vars = g
 
