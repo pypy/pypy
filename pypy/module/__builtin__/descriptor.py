@@ -16,12 +16,12 @@ class W_Super(W_Root):
     def descr_init(self, space, w_starttype, w_obj_or_type=None):
         if space.is_none(w_obj_or_type):
             w_type = None  # unbound super object
-            w_obj_or_type = space.w_None
+            w_obj_or_type = None
         else:
             w_type = _super_check(space, w_starttype, w_obj_or_type)
         self.w_starttype = w_starttype
         self.w_objtype = w_type
-        self.w_self = w_obj_or_type
+        self.w_self = w_obj_or_type      # may be None
 
     def descr_repr(self, space):
         if self.w_objtype is not None:
@@ -32,7 +32,7 @@ class W_Super(W_Root):
             self.w_starttype.getname(space), objtype_name))
 
     def get(self, space, w_obj, w_type=None):
-        if self.w_self is None or space.is_w(w_obj, space.w_None):
+        if self.w_self is not None or space.is_w(w_obj, space.w_None):
             return self
         else:
             # if type(self) is W_Super:
@@ -54,10 +54,9 @@ class W_Super(W_Root):
                     return w_value
                 # Only pass 'obj' param if this is instance-mode super
                 # (see CPython sourceforge id #743627)
-                if self.w_self is self.w_objtype:
+                w_obj = self.w_self
+                if w_obj is None or w_obj is self.w_objtype:
                     w_obj = space.w_None
-                else:
-                    w_obj = self.w_self
                 return space.get_and_call_function(w_get, w_value,
                                                    w_obj, self.w_objtype)
         # fallback to object.__getattribute__()

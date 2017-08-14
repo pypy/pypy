@@ -280,6 +280,14 @@ class AppTestBuiltinApp:
         assert repr(A()).endswith('>!')
         assert repr(super(A, A())) == "<super: <class 'A'>, <A object>>"
 
+    def test_super_get_corner_case(self):
+        class A(object):
+            pass
+        s = super(A, A())
+        assert s.__get__(42) is s
+        s = super(A)
+        assert s.__get__(None, "anything") is s
+
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
 
