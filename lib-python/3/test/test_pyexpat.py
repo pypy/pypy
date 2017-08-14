@@ -459,7 +459,6 @@ class HandlerExceptionTest(unittest.TestCase):
                              " found %r" % e.args[0])
             # Check that the traceback contains the relevant line in pyexpat.c
             entries = traceback.extract_tb(e.__traceback__)
-            print(entries)
             self.assertEqual(len(entries), 3)
             self.check_traceback_entry(entries[0],
                                        "test_pyexpat.py", "test_exception")
