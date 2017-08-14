@@ -28,12 +28,19 @@ class W_Super(W_Root):
             objtype_name = "<%s object>" % self.w_objtype.getname(space)
         else:
             objtype_name = 'NULL'
+        if self.w_starttype is not None:
+            starttype_name = self.w_starttype.getname(space)
+        else:
+            starttype_name = 'NULL'
         return space.newtext("<super: <class '%s'>, %s>" % (
-            self.w_starttype.getname(space), objtype_name))
+            starttype_name, objtype_name))
 
     def get(self, space, w_obj, w_type=None):
         if self.w_self is not None or space.is_w(w_obj, space.w_None):
             return self
+        if self.w_starttype is None:
+            raise oefmt(space.w_TypeError,
+                "__get__(x) is invalid on an uninitialized instance of 'super'")
         else:
             # if type(self) is W_Super:
             #     XXX write a fast path for this common case
@@ -45,6 +52,7 @@ class W_Super(W_Root):
         # only use a special logic for bound super objects and not for
         # getting the __class__ of the super object itself.
         if self.w_objtype is not None and name != '__class__':
+            assert self.w_starttype is not None
             w_value = space.lookup_in_type_starting_at(self.w_objtype,
                                                        self.w_starttype,
                                                        name)
@@ -114,7 +122,11 @@ class W_Property(W_Root):
     _immutable_fields_ = ["w_fget", "w_fset", "w_fdel"]
 
     def __init__(self, space):
-        pass
+        self.w_fget = space.w_None
+        self.w_fset = space.w_None
+        self.w_fdel = space.w_None
+        self.w_doc = space.w_None
+        self.getter_doc = False
 
     @unwrap_spec(w_fget=WrappedDefault(None),
                  w_fset=WrappedDefault(None),
