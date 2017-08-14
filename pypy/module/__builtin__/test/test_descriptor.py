@@ -283,10 +283,18 @@ class AppTestBuiltinApp:
     def test_super_get_corner_case(self):
         class A(object):
             pass
-        s = super(A, A())
-        assert s.__get__(42) is s
-        s = super(A)
-        assert s.__get__(None, "anything") is s
+        s1 = super(A, A())
+        assert s1.__get__(42) is s1
+        assert s1.__get__(42, int) is s1
+        s2 = super(A)
+        assert s2.__get__(None, "anything") is s2
+        #
+        assert s1.__get__(None, "anything") is s1
+        raises(TypeError, s2.__get__, 42)
+        raises(TypeError, s2.__get__, 42, int)
+        a = A()
+        assert s2.__get__(a).__self__ is a
+        assert s1.__get__(a) is s1
 
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
