@@ -597,6 +597,7 @@ def type_dealloc(space, obj):
     if obj_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         heaptype = rffi.cast(PyHeapTypeObject, obj)
         Py_DecRef(space, heaptype.c_ht_name)
+        Py_DecRef(space, heaptype.c_ht_qualname)
         Py_DecRef(space, base_pyo)
         _dealloc(space, obj)
 
@@ -925,8 +926,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
         name = specname
     else:
         name = specname[dotpos + 1:]
-    res.c_ht_name = make_ref(
-        space, PyUnicode_FromString(space, rffi.str2charp(name)))
+    res.c_ht_name = make_ref(space, space.newtext(name))
     res.c_ht_qualname = res.c_ht_name
     incref(space, res.c_ht_qualname)
     typ.c_tp_name = spec.c_name
