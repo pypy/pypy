@@ -1523,7 +1523,7 @@ def create_extension_module(space, w_spec):
         else:
             look_for = also_look_for
     msg = u"function %s not found in library %s" % (
-        unicode(look_for), space.unicode_w(space.newfilename(path)))
+        look_for.decode('utf-8'), space.unicode_w(space.newfilename(path)))
     w_path = space.newfilename(path)
     raise_import_error(space, space.newunicode(msg), w_name, w_path)
 
