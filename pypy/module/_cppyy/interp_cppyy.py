@@ -722,37 +722,6 @@ class W_CPPScope(W_Root):
         self.datamembers = {}
         # Idem as for self.methods: a type could hold itself by pointer.
 
-    def _build_methods(self):
-        assert len(self.methods) == 0
-        methods_temp = {}
-        for i in range(capi.c_num_methods(self.space, self)):
-            idx = capi.c_method_index_at(self.space, self, i)
-            pyname = helper.map_operator_name(self.space,
-                capi.c_method_name(self.space, self, idx),
-                capi.c_method_num_args(self.space, self, idx),
-                capi.c_method_result_type(self.space, self, idx))
-            cppmethod = self._make_cppfunction(pyname, idx)
-            methods_temp.setdefault(pyname, []).append(cppmethod)
-        # the following covers the case where the only kind of operator[](idx)
-        # returns are the ones that produce non-const references; these can be
-        # used for __getitem__ just as much as for __setitem__, though
-        if not "__getitem__" in methods_temp:
-            try:
-                for m in methods_temp["__setitem__"]:
-                    cppmethod = self._make_cppfunction("__getitem__", m.index)
-                    methods_temp.setdefault("__getitem__", []).append(cppmethod)
-            except KeyError:
-                pass          # just means there's no __setitem__ either
-
-        # create the overload methods from the method sets
-        for pyname, methods in methods_temp.iteritems():
-            CPPMethodSort(methods).sort()
-            if pyname == self.name:
-                overload = W_CPPConstructorOverload(self.space, self, methods[:])
-            else:
-                overload = W_CPPOverload(self.space, self, methods[:])
-            self.methods[pyname] = overload
-
     def get_method_names(self):
         return self.space.newlist([self.space.newtext(name) for name in self.methods])
 
