@@ -636,6 +636,14 @@ if hasattr(rwin32, 'build_winerror_to_errno'):
 else:
     WINERROR_TO_ERRNO, DEFAULT_WIN32_ERRNO = {}, 22 # EINVAL
 
+if rwin32.WIN32:
+    _winerror_property = dict(
+        winerror = readwrite_attrproperty_w('w_winerror', W_OSError),
+    )
+else:
+    _winerror_property = dict()
+
+
 W_OSError.typedef = TypeDef(
     'OSError',
     W_Exception.typedef,
@@ -648,9 +656,9 @@ W_OSError.typedef = TypeDef(
     strerror = readwrite_attrproperty_w('w_strerror', W_OSError),
     filename = readwrite_attrproperty_w('w_filename', W_OSError),
     filename2= readwrite_attrproperty_w('w_filename2',W_OSError),
-    winerror = readwrite_attrproperty_w('w_winerror', W_OSError),
     characters_written = GetSetProperty(W_OSError.descr_get_written,
                                         W_OSError.descr_set_written),
+    **_winerror_property
     )
 
 W_BlockingIOError = _new_exception(
