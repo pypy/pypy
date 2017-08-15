@@ -23,7 +23,9 @@ default_modules = essential_modules.copy()
 default_modules.update([
     "_codecs", "gc", "_weakref", "marshal", "errno", "imp", "math", "cmath",
     "_sre", "_pickle_support", "operator", "parser", "symbol", "token", "_ast",
-    "_io", "_random", "__pypy__", "_testing", "time"
+    "_io", "_random", "__pypy__", "_testing", "time",
+    "thread"     # XXX with nogil, it doesn't make sense to not have threads
+                 # (and it fails translation right now, FIXME)
 ])
 
 
