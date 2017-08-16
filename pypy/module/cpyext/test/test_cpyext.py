@@ -24,6 +24,10 @@ def PyPy_Crash1(space):
 def PyPy_Crash2(space):
     1/0
 
+@api.cpython_api([api.PyObject], api.PyObject, result_is_ll=True)
+def PyPy_Noop(space, pyobj):
+    return pyobj
+
 class TestApi:
     def test_signature(self):
         common_functions = api.FUNCTIONS_BY_HEADER[api.pypy_decl]
@@ -685,6 +689,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         body = """
         PyAPI_FUNC(PyObject*) PyPy_Crash1(void);
         PyAPI_FUNC(long) PyPy_Crash2(void);
+        PyAPI_FUNC(PyObject*) PyPy_Noop(PyObject*);
         static PyObject* foo_crash1(PyObject* self, PyObject *args)
         {
             return PyPy_Crash1();
@@ -708,9 +713,27 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             int a = PyPy_Crash2();
             return PyFloat_FromDouble(a);
         }
+        static PyObject* foo_noop(PyObject* self, PyObject* args)
+        {
+            Py_INCREF(args);
+            return PyPy_Noop(args);
+        }
+        static PyObject* foo_set(PyObject* self, PyObject *args)
+        {
+            PyErr_SetString(PyExc_TypeError, "clear called with no error");
+            if (PyInt_Check(args)) {
+                Py_INCREF(args);
+                return args;
+            }
+            return NULL;
+        }
         static PyObject* foo_clear(PyObject* self, PyObject *args)
         {
             PyErr_Clear();
+            if (PyInt_Check(args)) {
+                Py_INCREF(args);
+                return args;
+            }
             return NULL;
         }
         static PyMethodDef methods[] = {
@@ -718,20 +741,53 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "crash2", foo_crash2, METH_NOARGS },
             { "crash3", foo_crash3, METH_NOARGS },
             { "crash4", foo_crash4, METH_NOARGS },
-            { "clear",  foo_clear, METH_NOARGS },
+            { "clear",  foo_clear,  METH_O },
+            { "set",    foo_set,    METH_O },
+            { "noop",   foo_noop,   METH_O },
             { NULL }
         };
         """
         module = self.import_module(name='foo', init=init, body=body)
+
         # uncaught interplevel exceptions are turned into SystemError
-        raises(SystemError, module.crash1)
-        raises(SystemError, module.crash2)
-        # caught exception
+        expected = "ZeroDivisionError('integer division or modulo by zero',)"
+        exc = raises(SystemError, module.crash1)
+        assert exc.value[0] == expected
+
+        exc = raises(SystemError, module.crash2)
+        assert exc.value[0] == expected
+
+        # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
-        # An exception was set, but function returned a value
-        raises(SystemError, module.crash4)
-        # No exception set, but NULL returned
-        raises(SystemError, module.clear)
+
+        expected = 'An exception was set, but function returned a value'
+        # PyPy only incompatibility/extension
+        exc = raises(SystemError, module.crash4)
+        assert exc.value[0] == expected
+
+        # An exception was set by the previous call, it can pass
+        # cleanly through a call that doesn't check error state
+        assert module.noop(1) == 1
+
+        # clear the exception but return NULL, signalling an error
+        expected = 'Function returned a NULL result without setting an exception'
+        exc = raises(SystemError, module.clear, None)
+        assert exc.value[0] == expected
+
+        # Set an exception and return NULL
+        raises(TypeError, module.set, None)
+
+        # clear any exception and return a value 
+        assert module.clear(1) == 1
+
+        # Set an exception, but return non-NULL
+        expected = 'An exception was set, but function returned a value'
+        exc = raises(SystemError, module.set, 1)
+        assert exc.value[0] == expected
+        
+
+        # Clear the exception and return a value, all is OK
+        assert module.clear(1) == 1
 
     def test_new_exception(self):
         mod = self.import_extension('foo', [
