@@ -45,6 +45,10 @@ void RPyGilAllocate(void)
 
 void RPyGilAcquireSlowPath(void)
 {
+    assert((__sync_fetch_and_add(
+                &RPY_THREADLOCALREF_GET(synclock), 0)
+            & 0b001) == 0b0);
+
     /* wait until the master leaves the safe point */
     pthread_mutex_lock(&master_mutex);
 
@@ -63,6 +67,9 @@ void RPyGilAcquireSlowPath(void)
 
 void RPyGilReleaseSlowPath(void)
 {
+    assert((__sync_fetch_and_add(
+                &RPY_THREADLOCALREF_GET(synclock), 0) & 0b101) == 0b101);
+
     pthread_mutex_lock(&sync_mutex);
     assert(RPY_THREADLOCALREF_GET(synclock) == 0b111L);
 

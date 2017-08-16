@@ -3,7 +3,7 @@ from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rlib.objectmodel import not_rpython
+from rpython.rlib.objectmodel import not_rpython, we_are_translated
 
 # these functions manipulate directly the GIL, whose definition does not
 # escape the C code itself
@@ -122,21 +122,24 @@ def allocate():
     _gil_allocate()
 
 def release():
-    return
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
-    _gil_release()
-#release._gctransformer_hint_cannot_collect_ = True
-#release._dont_reach_me_in_del_ = True
+    if we_are_translated():
+        _gil_release()
+release._gctransformer_hint_cannot_collect_ = True
+release._dont_reach_me_in_del_ = True
 
 def acquire():
-    return
-    from rpython.rlib import rthread
-    _gil_acquire()
-    rthread.gc_thread_run()
-    _after_thread_switch()
-#acquire._gctransformer_hint_cannot_collect_ = True
-#acquire._dont_reach_me_in_del_ = True
+    ###XXX commented some lines out for nogil-unsafe-2
+    ###XXX but note that _gil_acquire() does not acquire any GIL there!
+
+    ###from rpython.rlib import rthread
+    if we_are_translated():
+        _gil_acquire()
+    ###rthread.gc_thread_run()
+    ###_after_thread_switch()
+acquire._gctransformer_hint_cannot_collect_ = True
+acquire._dont_reach_me_in_del_ = True
 
 # The _gctransformer_hint_cannot_collect_ hack is needed for
 # translations in which the *_external_call() functions are not inlined.
