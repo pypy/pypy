@@ -19,6 +19,7 @@ class GILThreadLocals(OSThreadLocals):
 
     def initialize(self, space):
         # add the GIL-releasing callback as an action on the space
+        return # XXX nogil-unsafe-2
         space.actionflag.register_periodic_action(GILReleaseAction(space),
                                                   use_bytecode_counter=True)
 

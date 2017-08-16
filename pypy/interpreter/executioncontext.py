@@ -436,6 +436,8 @@ class AbstractActionFlag(object):
         # hack to put the release-the-GIL one at the end of the list,
         # and the report-the-signals one at the start of the list.
         if use_bytecode_counter:
+            assert False, ("nogil-unsafe-2: shouldn't register a "
+                           "gil-releasing periodic action")
             self._periodic_actions.append(action)
             self.has_bytecode_counter = True
         else:
