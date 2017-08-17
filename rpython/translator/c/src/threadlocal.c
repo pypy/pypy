@@ -11,9 +11,10 @@
 #include "src/thread.h"
 
 
-/* this is a reentrant lock that must be acquired around each doubly-linked-list
-   manipulation (because such manipulations can occur without the GIL) */
-static pthread_mutex_t _rpy_threadlocal_lock;
+/* this is a read-write lock that must be acquired around each
+   doubly-linked-list access or manipulation (because such manipulations
+   can occur without the GIL) */
+static pthread_rwlockattr_t _rpy_threadlocal_lock;
 
 static int check_valid(void);
 
@@ -27,20 +28,23 @@ static void do_check(int result)
 
 static void init_lock(void)
 {
-    pthread_mutexattr_t attr;
-    do_check(pthread_mutexattr_init(&attr)
-          || pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE)
-          || pthread_mutex_init(&_rpy_threadlocal_lock, &attr)
-          || pthread_mutexattr_destroy(&attr));
+    do_check(pthread_rwlock_init(&_rpy_threadlocal_lock, NULL));
 }
 
-void _RPython_ThreadLocals_Acquire(void) {
-    do_check(pthread_mutex_lock(&_rpy_threadlocal_lock));
+void _RPython_ThreadLocals_Acquire(void)
+{
+    do_check(pthread_rwlock_wrlock(&_rpy_threadlocal_lock));
     assert(check_valid());
 }
-void _RPython_ThreadLocals_Release(void) {
+void _RPython_ThreadLocals_ReadOnlyAcquire(void)
+{
+    do_check(pthread_rwlock_rdlock(&_rpy_threadlocal_lock));
     assert(check_valid());
-    do_check(pthread_mutex_unlock(&_rpy_threadlocal_lock));
+}
+void _RPython_ThreadLocals_Release(void)
+{
+    assert(check_valid());
+    do_check(pthread_rwlock_unlock(&_rpy_threadlocal_lock));
 }
 
 
