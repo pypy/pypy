@@ -11,32 +11,36 @@
 #include "src/thread.h"
 
 
-/* this is a spin-lock that must be acquired around each doubly-linked-list
+/* this is a reentrant lock that must be acquired around each doubly-linked-list
    manipulation (because such manipulations can occur without the GIL) */
-static long pypy_threadlocal_lock = 0;
+static pthread_mutex_t _rpy_threadlocal_lock;
 
 static int check_valid(void);
 
-int _RPython_ThreadLocals_AcquireTimeout(int max_wait_iterations) {
-    while (1) {
-        long old_value = pypy_lock_test_and_set(&pypy_threadlocal_lock, 1);
-        if (old_value == 0)
-            break;
-        /* busy loop */
-        if (max_wait_iterations == 0)
-            return -1;
-        if (max_wait_iterations > 0)
-            --max_wait_iterations;
+static void do_check(int result)
+{
+    if (result != 0) {
+        fprintf(stderr, "threadlocal.c got an unexpected mutex error\n");
+        exit(1);
     }
-    assert(check_valid());
-    return 0;
 }
+
+static void init_lock(void)
+{
+    pthread_mutexattr_t attr;
+    do_check(pthread_mutexattr_init(&attr)
+          || pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE)
+          || pthread_mutex_init(&_rpy_threadlocal_lock, &attr)
+          || pthread_mutexattr_destroy(&attr));
+}
+
 void _RPython_ThreadLocals_Acquire(void) {
-    _RPython_ThreadLocals_AcquireTimeout(-1);
+    do_check(pthread_mutex_lock(&_rpy_threadlocal_lock));
+    assert(check_valid());
 }
 void _RPython_ThreadLocals_Release(void) {
     assert(check_valid());
-    pypy_lock_release(&pypy_threadlocal_lock);
+    do_check(pthread_mutex_unlock(&_rpy_threadlocal_lock));
 }
 
 
@@ -73,6 +77,7 @@ static void cleanup_after_fork(void)
 {
     /* assume that at most one pypy_threadlocal_s survived, the current one */
     struct pypy_threadlocal_s *cur;
+    init_lock();
     cur = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
     if (cur && cur->ready == 42) {
         cur->next = cur->prev = &linkedlist_head;
@@ -81,7 +86,6 @@ static void cleanup_after_fork(void)
     else {
         linkedlist_head.next = linkedlist_head.prev = &linkedlist_head;
     }
-    _RPython_ThreadLocals_Release();
 }
 
 
@@ -188,7 +192,7 @@ void RPython_ThreadLocals_ProgramInit(void)
        a non-null thread-local value).  This is needed even in the
        case where we use '__thread' below, for the destructor.
     */
-    assert(pypy_threadlocal_lock == 0);
+    init_lock();
 #ifdef _WIN32
     pypy_threadlocal_key = TlsAlloc();
     if (pypy_threadlocal_key == TLS_OUT_OF_INDEXES)

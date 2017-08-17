@@ -191,6 +191,30 @@ class ArenaCollection(object):
         return result
 
 
+    def force_non_sharing_by_dummy_allocation(self, alignment):
+        """Force a few bytes of memory to be lost, to ensure that
+        a CPU cache of size "alignment" would not cause false sharing
+        between objects allocated just before and objects allocated
+        just after the call to the present function.
+        """
+        size_class_max = self.small_request_threshold >> WORD_POWER_2
+        size_class = 1
+        while size_class <= size_class_max:
+            page = self.page_for_size[size_class]
+            if page != PAGE_NULL:
+                next_alloc = page.freeblock
+                allocation_start = llmemory.cast_ptr_to_adr(page) + self.hdrsize
+                if next_alloc != allocation_start:
+                    next_alloc = rffi.cast(lltype.Signed, next_alloc)
+                    rounded_up = (next_alloc + (alignment-1)) & ~(alignment-1)
+                    while next_alloc < rounded_up:
+                        self.malloc(size_class << WORD_POWER_2)
+                        if self.page_for_size[size_class] != page:
+                            break
+                        next_alloc = rffi.cast(lltype.Signed, page.freeblock)
+            size_class += 1
+
+
     def allocate_new_page(self, size_class):
         """Allocate and return a new page for the given size_class."""
         #

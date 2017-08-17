@@ -280,7 +280,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # "cache_line_min" is used to round the actual thread-local
         # blocks to a cache line, to avoid pointless cache conflicts.
         "tl_block_size": 131072,
-        "cache_line_min": 256,  # why not 64b?
+        "cache_line_min": 128,  # two cache lines on x86
         }
 
     def __init__(self, config,
@@ -313,6 +313,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.max_heap_size_already_raised = False
         self.max_delta = float(r_uint(-1))
         self.max_number_of_pinned_objects = 0      # computed later
+        self.collecting_roots_in_nursery = False
         #
         self.card_page_indices = card_page_indices
         if self.card_page_indices > 0:
@@ -1983,12 +1984,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # see them.
         use_jit_frame_stoppers = not any_pinned_object_from_earlier
         #
+        self.collecting_roots_in_nursery = True
         self.root_walker.walk_roots(
             callback,     # stack roots
             callback,     # static in prebuilt non-gc
             None,         # static in prebuilt gc
             is_minor=use_jit_frame_stoppers)
+        self.collecting_roots_in_nursery = False
         debug_stop("gc-minor-walkroots")
+
+    def collected_roots_for_one_thread(self):
+        if self.collecting_roots_in_nursery:
+            self.collect_oldrefs_to_nursery()
+            self.ac.force_non_sharing_by_dummy_allocation(self.cache_line_min)
 
     def collect_cardrefs_to_nursery(self):
         size_gc_header = self.gcheaderbuilder.size_gc_header

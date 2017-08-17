@@ -113,6 +113,7 @@ class NoGilShadowStackRootWalker(BaseRootWalker):
             debug_print("walk_stack", base, top)
             walk_stack_root(self.invoke_collect_stack_root, collect_stack_root,
                 None, base, top, is_minor=False)
+            self.gcdata.gc.collected_roots_for_one_thread()
 
         self._walk_thread_stack = walk_thread_stack
 

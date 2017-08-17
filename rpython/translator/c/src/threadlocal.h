@@ -21,7 +21,6 @@ RPY_EXTERN char *_RPython_ThreadLocals_Build(void);
 
 RPY_EXTERN void _RPython_ThreadLocals_Acquire(void);
 RPY_EXTERN void _RPython_ThreadLocals_Release(void);
-RPY_EXTERN int _RPython_ThreadLocals_AcquireTimeout(int max_wait_iterations);
 
 /* Must acquire/release the thread-local lock around a series of calls
    to the following function */
