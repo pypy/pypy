@@ -82,7 +82,7 @@ class _CDataMeta(type):
         return False
 
     def in_dll(self, dll, name):
-        return self.from_address(dll._handle.getaddressindll(name))
+        return self.from_address(dll._pypy_dll.getaddressindll(name))
 
     def from_buffer(self, obj, offset=0):
         size = self._sizeofinstances()
