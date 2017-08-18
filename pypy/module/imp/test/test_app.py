@@ -81,15 +81,17 @@ class AppTestImpModule:
     def test_suffixes(self):
         import imp
         for suffix, mode, type in imp.get_suffixes():
-            if mode == imp.PY_SOURCE:
+            if type == imp.PY_SOURCE:
                 assert suffix == '.py'
-                assert type == 'r'
-            elif mode == imp.PY_COMPILED:
+                assert mode == 'U'
+            elif type == imp.PY_COMPILED:
                 assert suffix in ('.pyc', '.pyo')
-                assert type == 'rb'
-            elif mode == imp.C_EXTENSION:
+                assert mode == 'rb'
+            elif type == imp.C_EXTENSION:
                 assert suffix.endswith(('.pyd', '.so'))
-                assert type == 'rb'
+                assert mode == 'rb'
+            else:
+                assert False, ("Unknown type", suffix, mode, type)
 
     def test_ext_suffixes(self):
         import _imp
