@@ -293,12 +293,12 @@ class RegisterManager(object):
     def is_still_alive(self, v):
         # Check if 'v' is alive at the current position.
         # Return False if the last usage is strictly before.
-        return self.longevity[v][1] >= self.position
+        return self.longevity[v].last_usage >= self.position
 
     def stays_alive(self, v):
         # Check if 'v' stays alive after the current position.
         # Return False if the last usage is before or at position.
-        return self.longevity[v][1] > self.position
+        return self.longevity[v].last_usage > self.position
 
     def next_instruction(self, incr=1):
         self.position += incr
@@ -315,7 +315,7 @@ class RegisterManager(object):
         self._check_type(v)
         if isinstance(v, Const):
             return
-        if v not in self.longevity or self.longevity[v][1] <= self.position:
+        if v not in self.longevity or self.longevity[v].last_usage <= self.position:
             if v in self.reg_bindings:
                 self.free_regs.append(self.reg_bindings[v])
                 del self.reg_bindings[v]
@@ -351,7 +351,7 @@ class RegisterManager(object):
             for v in self.reg_bindings:
                 if v not in self.longevity:
                     llop.debug_print(lltype.Void, "variable %s not in longevity\n" % v.repr({}))
-                assert self.longevity[v][1] > self.position
+                assert self.longevity[v].last_usage > self.position
 
     def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
         """ Try to allocate a register, if we have one free.
@@ -427,7 +427,7 @@ class RegisterManager(object):
                     continue
             if need_lower_byte and reg in self.no_lower_byte_regs:
                 continue
-            max_age = self.longevity[next][1]
+            max_age = self.longevity[next].last_usage
             if cur_max_age < max_age:
                 cur_max_age = max_age
                 candidate = next
@@ -446,7 +446,7 @@ class RegisterManager(object):
         """
         self._check_type(v)
         if isinstance(v, TempVar):
-            self.longevity[v] = (self.position, self.position)
+            self.longevity[v] = Lifetime(self.position, self.position)
         loc = self.try_allocate_reg(v, selected_reg,
                                     need_lower_byte=need_lower_byte)
         if loc:
@@ -556,7 +556,7 @@ class RegisterManager(object):
             loc = self.force_allocate_reg(v, forbidden_vars)
             self.assembler.regalloc_mov(prev_loc, loc)
         assert v in self.reg_bindings
-        if self.longevity[v][1] > self.position:
+        if self.longevity[v].last_usage > self.position:
             # we need to find a new place for variable v and
             # store result in the same place
             loc = self.reg_bindings[v]
@@ -643,7 +643,7 @@ class RegisterManager(object):
         move_or_spill = []
 
         for v, reg in self.reg_bindings.items():
-            max_age = self.longevity[v][1]
+            max_age = self.longevity[v].last_usage
             if v not in force_store and max_age <= self.position:
                 # variable dies
                 del self.reg_bindings[v]
@@ -765,7 +765,7 @@ class BaseRegalloc(object):
         # of COND_CALL don't accept a cc as input
         if next_op.getarg(0) is not op:
             return False
-        if self.longevity[op][1] > i + 1:
+        if self.longevity[op].last_usage > i + 1:
             return False
         if opnum != rop.COND_CALL:
             if op in operations[i + 1].getfailargs():
@@ -785,6 +785,10 @@ class BaseRegalloc(object):
             assert op.numargs() == 1
             return [self.loc(op.getarg(0))]
 
+class Lifetime(object):
+    def __init__(self, definition_pos, last_usage):
+        self.definition_pos = definition_pos
+        self.last_usage = last_usage
 
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to index in
@@ -824,14 +828,14 @@ def compute_vars_longevity(inputargs, operations):
         if arg.type != 'v' and arg in last_used:
             assert not isinstance(arg, Const)
             assert i < last_used[arg]
-            longevity[arg] = (i, last_used[arg])
+            longevity[arg] = Lifetime(i, last_used[arg])
             del last_used[arg]
     for arg in inputargs:
         assert not isinstance(arg, Const)
         if arg not in last_used:
-            longevity[arg] = (-1, -1)
+            longevity[arg] = Lifetime(-1, -1)
         else:
-            longevity[arg] = (0, last_used[arg])
+            longevity[arg] = Lifetime(0, last_used[arg])
             del last_used[arg]
     assert len(last_used) == 0
 

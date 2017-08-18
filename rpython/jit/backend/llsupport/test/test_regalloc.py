@@ -1,7 +1,7 @@
 import py
 from rpython.jit.metainterp.history import ConstInt, INT, FLOAT
 from rpython.jit.backend.llsupport.regalloc import FrameManager, LinkedList
-from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan
+from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan, Lifetime
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
      InputArgFloat
 
@@ -17,7 +17,7 @@ def boxes_and_longevity(num):
     for i in range(num):
         box = InputArgInt(0)
         res.append(box)
-        longevity[box] = (0, 1)
+        longevity[box] = Lifetime(0, 1)
     return res, longevity
 
 class FakeReg(object):
@@ -76,7 +76,7 @@ class MockAsm(object):
 class TestRegalloc(object):
     def test_freeing_vars(self):
         b0, b1, b2 = newboxes(0, 0, 0)
-        longevity = {b0: (0, 1), b1: (0, 2), b2: (0, 2)}
+        longevity = {b0: Lifetime(0, 1), b1: Lifetime(0, 2), b2: Lifetime(0, 2)}
         rm = RegisterManager(longevity)
         rm.next_instruction()
         for b in b0, b1, b2:
@@ -190,7 +190,7 @@ class TestRegalloc(object):
         
     def test_force_result_in_reg_1(self):
         b0, b1 = newboxes(0, 0)
-        longevity = {b0: (0, 1), b1: (1, 3)}
+        longevity = {b0: Lifetime(0, 1), b1: Lifetime(1, 3)}
         fm = TFrameManager()
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
@@ -206,7 +206,7 @@ class TestRegalloc(object):
 
     def test_force_result_in_reg_2(self):
         b0, b1 = newboxes(0, 0)
-        longevity = {b0: (0, 2), b1: (1, 3)}
+        longevity = {b0: Lifetime(0, 2), b1: Lifetime(1, 3)}
         fm = TFrameManager()
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
@@ -222,7 +222,9 @@ class TestRegalloc(object):
 
     def test_force_result_in_reg_3(self):
         b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
-        longevity = {b0: (0, 2), b1: (0, 2), b3: (0, 2), b2: (0, 2), b4: (1, 3)}
+        longevity = {b0: Lifetime(0, 2), b1: Lifetime(0, 2),
+                     b3: Lifetime(0, 2), b2: Lifetime(0, 2),
+                     b4: Lifetime(1, 3)}
         fm = TFrameManager()
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
@@ -238,7 +240,7 @@ class TestRegalloc(object):
 
     def test_force_result_in_reg_4(self):
         b0, b1 = newboxes(0, 0)
-        longevity = {b0: (0, 1), b1: (0, 1)}
+        longevity = {b0: Lifetime(0, 1), b1: Lifetime(0, 1)}
         fm = TFrameManager()
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
@@ -254,7 +256,7 @@ class TestRegalloc(object):
 
     def test_bogus_make_sure_var_in_reg(self):
         b0, = newboxes(0)
-        longevity = {b0: (0, 1)}
+        longevity = {b0: Lifetime(0, 1)}
         fm = TFrameManager()
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
@@ -350,11 +352,11 @@ class TestRegalloc(object):
 
         fm = TFrameManager()
         b0 = InputArgInt()
-        longevity = {b0: (0, 1)}
+        longevity = {b0: Lifetime(0, 1)}
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
         f0 = InputArgFloat()
-        longevity = {f0: (0, 1)}
+        longevity = {f0: Lifetime(0, 1)}
         xrm = XRegisterManager(longevity, frame_manager=fm, assembler=asm)
         xrm.loc(f0)
         rm.loc(b0)
@@ -362,7 +364,9 @@ class TestRegalloc(object):
                 
     def test_spilling(self):
         b0, b1, b2, b3, b4, b5 = newboxes(0, 1, 2, 3, 4, 5)
-        longevity = {b0: (0, 3), b1: (0, 3), b3: (0, 5), b2: (0, 2), b4: (1, 4), b5: (1, 3)}
+        longevity = {b0: Lifetime(0, 3), b1: Lifetime(0, 3),
+                     b3: Lifetime(0, 5), b2: Lifetime(0, 2),
+                     b4: Lifetime(1, 4), b5: Lifetime(1, 3)}
         fm = TFrameManager()
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
@@ -377,7 +381,6 @@ class TestRegalloc(object):
         spilled2 = rm.force_allocate_reg(b5)
         assert spilled2 is loc
         rm._check_invariants()
-
 
     def test_hint_frame_locations_1(self):
         for hint_value in range(11):

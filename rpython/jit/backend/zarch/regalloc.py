@@ -1,6 +1,7 @@
 from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                     TempVar, compute_vars_longevity,
-                                                    BaseRegalloc, NoVariableToSpill)
+                                                    BaseRegalloc, NoVariableToSpill,
+                                                    Lifetime)
 from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.zarch.arch import WORD
 from rpython.jit.codewriter import longlong
@@ -255,9 +256,9 @@ class ZARCHRegisterManager(RegisterManager):
         self._check_type(even_var)
         self._check_type(odd_var)
         if isinstance(even_var, TempVar):
-            self.longevity[even_var] = (self.position, self.position)
+            self.longevity[even_var] = Lifetime(self.position, self.position)
         if isinstance(odd_var, TempVar):
-            self.longevity[odd_var] = (self.position, self.position)
+            self.longevity[odd_var] = Lifetime(self.position, self.position)
 
         # this function steps through the following:
         # 1) maybe there is an even/odd pair that is always
