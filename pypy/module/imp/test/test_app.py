@@ -83,7 +83,7 @@ class AppTestImpModule:
         for suffix, mode, type in imp.get_suffixes():
             if type == imp.PY_SOURCE:
                 assert suffix == '.py'
-                assert mode == 'U'
+                assert mode == 'r'
             elif type == imp.PY_COMPILED:
                 assert suffix in ('.pyc', '.pyo')
                 assert mode == 'rb'
