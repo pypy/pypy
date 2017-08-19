@@ -394,6 +394,7 @@ class RegisterManager(object):
         try:
             return self.reg_bindings[v]
         except KeyError:
+            # YYY here we should chose the free variable a bit more carefully
             if self.free_regs:
                 loc = self.free_regs.pop()
                 self.reg_bindings[v] = loc
@@ -416,6 +417,8 @@ class RegisterManager(object):
         """
         cur_max_age = -1
         candidate = None
+        # YYY we should pick a variable to spill that is only used in failargs
+        # from now on
         for next in self.reg_bindings:
             reg = self.reg_bindings[next]
             if next in forbidden_vars:
@@ -528,6 +531,8 @@ class RegisterManager(object):
         self.reg_bindings[to_v] = reg
 
     def _move_variable_away(self, v, prev_loc):
+        # YYY here we should not move it to another reg, if all uses are in
+        # failargs
         if self.free_regs:
             loc = self.free_regs.pop()
             self.reg_bindings[v] = loc
