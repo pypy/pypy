@@ -792,23 +792,27 @@ class BaseRegalloc(object):
 
 class Lifetime(object):
     def __init__(self, definition_pos, last_usage, last_real_usage=-42):
+        # all positions are indexes into the operations list
+
+        # the position where the variable is defined
         self.definition_pos = definition_pos
+        # the position where the variable is last used. this includes failargs
+        # and jumps
         self.last_usage = last_usage
         if last_real_usage == -42:
             last_real_usage = last_usage
+        # last *real* usage, ie as an argument to an operation
+        # after last_real_usage and last_usage it does not matter whether the
+        # variable is stored on the stack
         self.last_real_usage = last_real_usage
 
     def is_last_real_use_before(self, position):
         return self.last_real_usage <= position
 
 def compute_vars_longevity(inputargs, operations):
-    # compute a dictionary that maps variables to index in
-    # operations that is a "last-time-seen"
-
-    # returns a pair longevity/useful. Non-useful variables are ones that
-    # never appear in the assembler or it does not matter if they appear on
-    # stack or in registers. Main example is loop arguments that go
-    # only to guard operations or to jump or to finish
+    # compute a dictionary that maps variables to Lifetime information
+    # if a variable is not in the dictionary, it's operation is dead because
+    # it's side-effect-free and the result is unused
     last_used = {}
     last_real_usage = {}
     for i in range(len(operations)-1, -1, -1):
