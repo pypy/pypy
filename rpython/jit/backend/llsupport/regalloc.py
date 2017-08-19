@@ -791,9 +791,15 @@ class BaseRegalloc(object):
             return [self.loc(op.getarg(0))]
 
 class Lifetime(object):
-    def __init__(self, definition_pos, last_usage):
+    def __init__(self, definition_pos, last_usage, last_real_usage=-42):
         self.definition_pos = definition_pos
         self.last_usage = last_usage
+        if last_real_usage == -42:
+            last_real_usage = last_usage
+        self.last_real_usage = last_real_usage
+
+    def is_last_real_use_before(self, position):
+        return self.last_real_usage <= position
 
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to index in
@@ -833,14 +839,17 @@ def compute_vars_longevity(inputargs, operations):
         if arg.type != 'v' and arg in last_used:
             assert not isinstance(arg, Const)
             assert i < last_used[arg]
-            longevity[arg] = Lifetime(i, last_used[arg])
+            longevity[arg] = Lifetime(
+                i, last_used[arg], last_real_usage.get(arg, -1))
             del last_used[arg]
     for arg in inputargs:
         assert not isinstance(arg, Const)
         if arg not in last_used:
-            longevity[arg] = Lifetime(-1, -1)
+            longevity[arg] = Lifetime(
+                -1, -1, -1)
         else:
-            longevity[arg] = Lifetime(0, last_used[arg])
+            longevity[arg] = Lifetime(
+                0, last_used[arg], last_real_usage.get(arg, -1))
             del last_used[arg]
     assert len(last_used) == 0
 
@@ -853,8 +862,8 @@ def compute_vars_longevity(inputargs, operations):
                 if not isinstance(arg, Const):
                     assert arg in produced
             produced[op] = None
-    
-    return longevity, last_real_usage
+
+    return longevity
 
 def is_comparison_or_ovf_op(opnum):
     return rop.is_comparison(opnum) or rop.is_ovf(opnum)
