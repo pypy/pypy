@@ -433,7 +433,13 @@ class RegisterManager(object):
                     continue
             if need_lower_byte and reg in self.no_lower_byte_regs:
                 continue
-            max_age = self.longevity[next].last_usage
+            lifetime = self.longevity[next]
+            if lifetime.is_last_real_use_before(self.position):
+                # this variable has no "real" use as an argument to an op left
+                # it is only used in failargs, and maybe in a jump. spilling is
+                # fine
+                return next
+            max_age = lifetime.last_usage
             if cur_max_age < max_age:
                 cur_max_age = max_age
                 candidate = next
@@ -813,6 +819,9 @@ class Lifetime(object):
 
     def is_last_real_use_before(self, position):
         return self.last_real_usage <= position
+
+    def __repr__(self):
+        return "%s:%s(%s)" % (self.definition_pos, self.last_real_usage, self.last_usage)
 
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to Lifetime information

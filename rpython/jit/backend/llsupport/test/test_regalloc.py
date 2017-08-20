@@ -395,6 +395,28 @@ class TestRegalloc(object):
         assert spilled2 is loc
         rm._check_invariants()
 
+    def test_spill_useless_vars_first(self):
+        b0, b1, b2, b3, b4, b5 = newboxes(0, 1, 2, 3, 4, 5)
+        longevity = {b0: Lifetime(0, 5), b1: Lifetime(0, 5),
+                     # b3 becomes useless but b2 lives longer
+                     b3: Lifetime(0, 5, 3), b2: Lifetime(0, 6),
+                     b4: Lifetime(4, 5), b5: Lifetime(4, 7)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        for b in b0, b1, b2, b3:
+            rm.force_allocate_reg(b)
+        rm.position = 4
+        assert len(rm.free_regs) == 0
+        loc = rm.loc(b3)
+        spilled = rm.force_allocate_reg(b4)
+        assert spilled is loc
+        loc = rm.loc(b2)
+        spilled2 = rm.force_allocate_reg(b5)
+        assert spilled2 is loc
+        rm._check_invariants()
+
     def test_hint_frame_locations_1(self):
         for hint_value in range(11):
             b0, = newboxes(0)
