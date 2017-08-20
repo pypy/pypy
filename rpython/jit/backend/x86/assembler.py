@@ -1618,18 +1618,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         else:
             not_implemented("save_into_mem size = %d" % size)
 
-    def _genop_getfield(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, sign_loc = arglocs
-        assert isinstance(size_loc, ImmedLoc)
-        source_addr = AddressLoc(base_loc, ofs_loc)
-        self.load_from_mem(resloc, source_addr, size_loc, sign_loc)
-
-    genop_getfield_gc_i = _genop_getfield
-    genop_getfield_gc_r = _genop_getfield
-    genop_getfield_gc_f = _genop_getfield
-    genop_getfield_raw_i = _genop_getfield
-    genop_getfield_raw_f = _genop_getfield
-
     def _genop_gc_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
