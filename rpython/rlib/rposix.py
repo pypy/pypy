@@ -205,6 +205,18 @@ if os.name == 'nt':
         if not is_valid_fd(fd):
             from errno import EBADF
             raise OSError(EBADF, 'Bad file descriptor')
+
+    def _bound_for_write(fd, count):
+        if count > 32767 and c_isatty(fd):
+            # CPython Issue #11395, PyPy Issue #2636: the Windows console
+            # returns an error (12: not enough space error) on writing into
+            # stdout if stdout mode is binary and the length is greater than
+            # 66,000 bytes (or less, depending on heap usage).  Can't easily
+            # test that, because we need 'fd' to be non-redirected...
+            count = 32767
+        elif count > 0x7fffffff:
+            count = 0x7fffffff
+        return count
 else:
     def is_valid_fd(fd):
         return 1
@@ -212,6 +224,9 @@ else:
     @enforceargs(int)
     def validate_fd(fd):
         pass
+
+    def _bound_for_write(fd, count):
+        return count
 
 def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
@@ -449,6 +464,7 @@ def read(fd, count):
 def write(fd, data):
     count = len(data)
     validate_fd(fd)
+    count = _bound_for_write(fd, count)
     with rffi.scoped_nonmovingbuffer(data) as buf:
         return handle_posix_error('write', c_write(fd, buf, count))
 
