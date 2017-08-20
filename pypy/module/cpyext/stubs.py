@@ -226,11 +226,6 @@ def _Py_c_pow(space, num, exp):
     representation."""
     raise NotImplementedError
 
-@cpython_api([Py_complex], PyObject)
-def PyComplex_FromCComplex(space, v):
-    """Create a new Python complex number object from a C Py_complex value."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE, error=CANNOT_FAIL)
 def PyOS_ascii_strtod(space, nptr, endptr):
     """Convert a string to a double. This function behaves like the Standard C
