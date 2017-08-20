@@ -586,7 +586,7 @@ class RegisterManager(object):
 
     def _sync_var(self, v):
         if not self.frame_manager.get(v):
-            self.num_moves_calls += 1
+            self.assembler.num_moves_calls += 1
             reg = self.reg_bindings[v]
             to = self.frame_manager.loc(v)
             self.assembler.regalloc_mov(reg, to)
