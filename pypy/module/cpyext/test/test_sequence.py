@@ -226,6 +226,15 @@ class TestCPyListStrategy(BaseApiTest):
         w_l.inplace_mul(2)
         assert space.int_w(space.len(w_l)) == 10
 
+    def test_getstorage_copy(self, space, api):
+        w = space.wrap
+        w_l = w([1, 2, 3, 4])
+        api.PySequence_Fast(w_l, "foo") # converts
+
+        w_l1 = w([])
+        space.setitem(w_l1, space.newslice(w(0), w(0), w(1)), w_l)
+        assert map(space.unwrap, space.unpackiterable(w_l1)) == [1, 2, 3, 4]
+
 
 class AppTestSequenceObject(AppTestCpythonExtensionBase):
     def test_fast(self):

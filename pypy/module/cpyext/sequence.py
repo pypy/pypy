@@ -330,7 +330,11 @@ class CPyListStrategy(ListStrategy):
         return w_list.strategy.getitems_copy(w_list)
 
     def getstorage_copy(self, w_list):
-        raise NotImplementedError
+        storage = self.unerase(w_list.lstorage)
+        lst = [None] * storage._length
+        for i in range(storage._length):
+            lst[i] = from_ref(w_list.space, storage._elems[i])
+        return self.erase(CPyListStorage(w_list.space, lst))
 
     def append(self, w_list, w_item):
         w_list.switch_to_object_strategy()
