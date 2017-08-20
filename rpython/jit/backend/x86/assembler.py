@@ -504,7 +504,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
         clt.frame_info.clear() # for now
 
-        if log:
+        if log or self._debug:
             number = looptoken.number
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', number)
@@ -589,7 +589,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 faildescr.adr_jump_offset)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         descr_number = compute_unique_id(faildescr)
-        if log:
+        if log or self._debug:
             operations = self._inject_debugging_code(faildescr, operations,
                                                      'b', descr_number)
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
