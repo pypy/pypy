@@ -406,9 +406,12 @@ class RegisterManager(object):
                                selected_reg, need_lower_byte=need_lower_byte)
         loc = self.reg_bindings[v_to_spill]
         del self.reg_bindings[v_to_spill]
+        self.assembler.num_spills += 1
         if self.frame_manager.get(v_to_spill) is None:
             newloc = self.frame_manager.loc(v_to_spill)
             self.assembler.regalloc_mov(loc, newloc)
+        else:
+            self.assembler.num_spills_to_existing += 1
         return loc
 
     def _pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
@@ -522,6 +525,7 @@ class RegisterManager(object):
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
                                       need_lower_byte=need_lower_byte)
         if prev_loc is not loc:
+            self.assembler.num_reloads += 1
             self.assembler.regalloc_mov(prev_loc, loc)
         return loc
 
@@ -576,6 +580,7 @@ class RegisterManager(object):
 
     def _sync_var(self, v):
         if not self.frame_manager.get(v):
+            self.num_moves_calls += 1
             reg = self.reg_bindings[v]
             to = self.frame_manager.loc(v)
             self.assembler.regalloc_mov(reg, to)

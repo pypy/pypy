@@ -1365,11 +1365,12 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             tmpreg = None
             xmmtmp = None
         # Do the remapping
-        remap_frame_layout_mixed(assembler,
+        num_moves = remap_frame_layout_mixed(assembler,
                                  src_locations1, dst_locations1, tmpreg,
                                  src_locations2, dst_locations2, xmmtmp)
         self.possibly_free_vars_for_op(op)
         assembler.closing_jump(self.jump_target_descr)
+        assembler.num_moves_jump += num_moves
 
     def consider_enter_portal_frame(self, op):
         self.assembler.enter_portal_frame(op)
