@@ -114,6 +114,7 @@ class BaseTestRegalloc(object):
 
     def prepare_loop(self, ops):
         loop = self.parse(ops)
+        self.loop = loop
         regalloc = self.cpu.build_regalloc()
         regalloc.prepare_loop(loop.inputargs, loop.operations,
                               loop.original_jitcell_token, [])
@@ -406,6 +407,30 @@ class TestRegallocSimple(BaseTestRegalloc):
         assert len(regalloc.rm.reg_bindings) == 0
         assert len(regalloc.fm.bindings) == 4
 
+    def test_longevity(self):
+        ops = """
+        [i0, i1, i2, i3, i4]
+        i5 = int_add(i0, i1)
+        i6 = int_is_true(i5)
+        guard_true(i6) [i0, i4]
+        jump(i5, i1, i2, i3, i5)
+        """
+        regalloc = self.prepare_loop(ops)
+        i0, i1, i2, i3, i4 = self.loop.inputargs
+        i5 = self.loop.operations[0]
+        longevity = regalloc.longevity
+        longevity[i0].last_usage == 2
+        longevity[i0].last_real_usage == 0
+        longevity[i1].last_usage == 3
+        longevity[i1].last_real_usage == 0
+        longevity[i2].last_usage == 3
+        longevity[i2].last_real_usage == 0
+        longevity[i3].last_usage == 3
+        longevity[i3].last_real_usage == 0
+        longevity[i4].last_usage == 3
+        longevity[i4].last_real_usage == -1
+        longevity[i5].last_usage == 3
+        longevity[i5].last_real_usage == 2
 
 class TestRegallocCompOps(BaseTestRegalloc):
 
