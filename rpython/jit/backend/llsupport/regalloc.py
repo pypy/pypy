@@ -806,8 +806,11 @@ class BaseRegalloc(object):
             assert op.numargs() == 1
             return [self.loc(op.getarg(0))]
 
+UNDEF_POS = -42
+
 class Lifetime(object):
-    def __init__(self, definition_pos, last_usage, last_real_usage=-42):
+    def __init__(self, definition_pos=UNDEF_POS, last_usage=UNDEF_POS,
+                 last_real_usage=UNDEF_POS):
         # all positions are indexes into the operations list
 
         # the position where the variable is defined
@@ -815,7 +818,7 @@ class Lifetime(object):
         # the position where the variable is last used. this includes failargs
         # and jumps
         self.last_usage = last_usage
-        if last_real_usage == -42:
+        if last_real_usage == UNDEF_POS:
             last_real_usage = last_usage
         # last *real* usage, ie as an argument to an operation
         # after last_real_usage and last_usage it does not matter whether the
@@ -832,49 +835,41 @@ def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to Lifetime information
     # if a variable is not in the dictionary, it's operation is dead because
     # it's side-effect-free and the result is unused
-    last_used = {}
-    last_real_usage = {}
+    longevity = {}
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
-        if op.type != 'v':
-            if op not in last_used and rop.has_no_side_effect(op.opnum):
-                continue
         opnum = op.getopnum()
+        if op not in longevity:
+            if op.type != 'v' and rop.has_no_side_effect(opnum):
+                # result not used, operation has no side-effect, it can be
+                # removed
+                continue
+            longevity[op] = Lifetime(definition_pos=i, last_usage=i)
+        else:
+            longevity[op].definition_pos = i
         for j in range(op.numargs()):
             arg = op.getarg(j)
             if isinstance(arg, Const):
                 continue
-            if arg not in last_used:
-                last_used[arg] = i
+            if arg not in longevity:
+                lifetime = longevity[arg] = Lifetime(last_usage=i)
+            else:
+                lifetime = longevity[arg]
             if opnum != rop.JUMP and opnum != rop.LABEL:
-                if arg not in last_real_usage:
-                    last_real_usage[arg] = i
+                if lifetime.last_real_usage == UNDEF_POS:
+                    lifetime.last_real_usage = i
         if rop.is_guard(op.opnum):
             for arg in op.getfailargs():
                 if arg is None: # hole
                     continue
                 assert not isinstance(arg, Const)
-                if arg not in last_used:
-                    last_used[arg] = i
+                if arg not in longevity:
+                    longevity[arg] = Lifetime(last_usage=i)
     #
-    longevity = {}
-    for i, arg in enumerate(operations):
-        if arg.type != 'v' and arg in last_used:
-            assert not isinstance(arg, Const)
-            assert i < last_used[arg]
-            longevity[arg] = Lifetime(
-                i, last_used[arg], last_real_usage.get(arg, -1))
-            del last_used[arg]
     for arg in inputargs:
         assert not isinstance(arg, Const)
-        if arg not in last_used:
-            longevity[arg] = Lifetime(
-                -1, -1, -1)
-        else:
-            longevity[arg] = Lifetime(
-                0, last_used[arg], last_real_usage.get(arg, -1))
-            del last_used[arg]
-    assert len(last_used) == 0
+        if arg not in longevity:
+            longevity[arg] = Lifetime(-1, -1, -1)
 
     if not we_are_translated():
         produced = {}
