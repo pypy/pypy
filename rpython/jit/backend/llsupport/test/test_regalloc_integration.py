@@ -409,28 +409,35 @@ class TestRegallocSimple(BaseTestRegalloc):
 
     def test_longevity(self):
         ops = """
-        [i0, i1, i2, i3, i4]
-        i5 = int_add(i0, i1)
-        i6 = int_is_true(i5)
-        guard_true(i6) [i0, i4]
-        jump(i5, i1, i2, i3, i5)
+        [i0, i1, i2, i3, i4, i10]
+        i5 = int_add(i0, i1)     # 0
+        i8 = int_add(i0, i1)     # 1 unused result, so not in real_usages
+        i6 = int_is_true(i5)     # 2
+        i11 = int_add(i5, i10)   # 3
+        guard_true(i6) [i0, i4]  # 4
+        jump(i5, i1, i2, i3, i5, i11) # 5
         """
         regalloc = self.prepare_loop(ops)
-        i0, i1, i2, i3, i4 = self.loop.inputargs
+        i0, i1, i2, i3, i4, i10 = self.loop.inputargs
         i5 = self.loop.operations[0]
+        i6 = self.loop.operations[2]
         longevity = regalloc.longevity
-        longevity[i0].last_usage == 2
-        longevity[i0].last_real_usage == 0
-        longevity[i1].last_usage == 3
-        longevity[i1].last_real_usage == 0
-        longevity[i2].last_usage == 3
-        longevity[i2].last_real_usage == 0
-        longevity[i3].last_usage == 3
-        longevity[i3].last_real_usage == 0
-        longevity[i4].last_usage == 3
-        longevity[i4].last_real_usage == -1
-        longevity[i5].last_usage == 3
-        longevity[i5].last_real_usage == 2
+        assert longevity[i0].last_usage == 4
+        assert longevity[i0].real_usages == [0]
+        assert longevity[i1].last_usage == 5
+        assert longevity[i1].real_usages == [0]
+        assert longevity[i2].last_usage == 5
+        assert longevity[i2].real_usages is None
+        assert longevity[i3].last_usage == 5
+        assert longevity[i3].real_usages is None
+        assert longevity[i4].last_usage == 4
+        assert longevity[i4].real_usages is None
+        assert longevity[i5].last_usage == 5
+        assert longevity[i5].real_usages == [2, 3]
+        assert longevity[i6].last_usage == 4
+        assert longevity[i6].real_usages == [4]
+        assert longevity[i10].last_usage == 3
+        assert longevity[i10].real_usages == [3]
 
 class TestRegallocCompOps(BaseTestRegalloc):
 

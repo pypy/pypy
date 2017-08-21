@@ -416,9 +416,13 @@ class RegisterManager(object):
 
     def _pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
                                 need_lower_byte=False):
-        """ Slightly less silly algorithm.
-        """
-        cur_max_age = -1
+        # try to spill a variable that has no further real usages, ie that only
+        # appears in failargs or in a jump
+        # if that doesn't exist, spill the variable that has a real_usage that
+        # is the furthest away from the current position
+
+        cur_max_use_distance = -1
+        position = self.position
         candidate = None
         cur_max_age_failargs = -1
         candidate_from_failargs = None
@@ -434,17 +438,19 @@ class RegisterManager(object):
             if need_lower_byte and reg in self.no_lower_byte_regs:
                 continue
             lifetime = self.longevity[next]
-            max_age = lifetime.last_usage
-            if lifetime.is_last_real_use_before(self.position):
+            if lifetime.is_last_real_use_before(position):
                 # this variable has no "real" use as an argument to an op left
                 # it is only used in failargs, and maybe in a jump. spilling is
                 # fine
+                max_age = lifetime.last_usage
                 if cur_max_age_failargs < max_age:
                     cur_max_age_failargs = max_age
                     candidate_from_failargs = next
-            if cur_max_age < max_age:
-                cur_max_age = max_age
-                candidate = next
+            else:
+                use_distance = lifetime.next_real_usage(position) - position
+                if cur_max_use_distance < use_distance:
+                    cur_max_use_distance = use_distance
+                    candidate = next
         if candidate_from_failargs is not None:
             return candidate_from_failargs
         if candidate is not None:
@@ -809,8 +815,7 @@ class BaseRegalloc(object):
 UNDEF_POS = -42
 
 class Lifetime(object):
-    def __init__(self, definition_pos=UNDEF_POS, last_usage=UNDEF_POS,
-                 last_real_usage=UNDEF_POS):
+    def __init__(self, definition_pos=UNDEF_POS, last_usage=UNDEF_POS):
         # all positions are indexes into the operations list
 
         # the position where the variable is defined
@@ -819,16 +824,38 @@ class Lifetime(object):
         # and jumps
         self.last_usage = last_usage
 
-        # last *real* usage, ie as an argument to an operation
-        # after last_real_usage and last_usage it does not matter whether the
-        # variable is stored on the stack
-        self.last_real_usage = last_real_usage
+        # *real* usages, ie as an argument to an operation (as opposed to jump
+        # arguments or in failargs)
+        self.real_usages = None
 
     def is_last_real_use_before(self, position):
-        return self.last_real_usage <= position
+        if self.real_usages is None:
+            return True
+        return self.real_usages[-1] <= position
+
+    def next_real_usage(self, position):
+        assert position >= self.definition_pos
+        # binary search
+        l = self.real_usages
+        low = 0
+        high = len(l)
+        while low < high:
+            mid = low + (high - low) // 2 # no overflow ;-)
+            if position < l[mid]:
+                high = mid
+            else:
+                low = mid + 1
+        return l[low]
+
+    def _check_invariants(self):
+        assert self.definition_pos <= self.last_usage
+        if self.real_usages is not None:
+            assert sorted(self.real_usages) == self.real_usages
+            assert self.last_usage >= max(self.real_usages)
+            assert self.definition_pos < min(self.real_usages)
 
     def __repr__(self):
-        return "%s:%s(%s)" % (self.definition_pos, self.last_real_usage, self.last_usage)
+        return "%s:%s(%s)" % (self.definition_pos, self.real_usages, self.last_usage)
 
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to Lifetime information
@@ -855,8 +882,9 @@ def compute_vars_longevity(inputargs, operations):
             else:
                 lifetime = longevity[arg]
             if opnum != rop.JUMP and opnum != rop.LABEL:
-                if lifetime.last_real_usage == UNDEF_POS:
-                    lifetime.last_real_usage = i
+                if lifetime.real_usages is None:
+                    lifetime.real_usages = []
+                lifetime.real_usages.append(i)
         if rop.is_guard(op.opnum):
             for arg in op.getfailargs():
                 if arg is None: # hole
@@ -868,7 +896,7 @@ def compute_vars_longevity(inputargs, operations):
     for arg in inputargs:
         assert not isinstance(arg, Const)
         if arg not in longevity:
-            longevity[arg] = Lifetime(-1, -1, -1)
+            longevity[arg] = Lifetime(-1, -1)
 
     if not we_are_translated():
         produced = {}
@@ -879,6 +907,11 @@ def compute_vars_longevity(inputargs, operations):
                 if not isinstance(arg, Const):
                     assert arg in produced
             produced[op] = None
+    for lifetime in longevity.itervalues():
+        if lifetime.real_usages is not None:
+            lifetime.real_usages.reverse()
+        if not we_are_translated():
+            lifetime._check_invariants()
 
     return longevity
 

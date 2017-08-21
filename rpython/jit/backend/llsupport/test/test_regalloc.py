@@ -13,10 +13,14 @@ def newrefboxes(count):
     return [InputArgRef() for _ in range(count)]
 
 def Lifetime(definition_pos=UNDEF_POS, last_usage=UNDEF_POS,
-             last_real_usage=UNDEF_POS):
-    if last_real_usage == UNDEF_POS:
-        last_real_usage = last_usage
-    return RealLifetime(definition_pos, last_usage, last_real_usage)
+             real_usages=UNDEF_POS):
+    if real_usages == UNDEF_POS:
+        real_usages = last_usage
+    lifetime = RealLifetime(definition_pos, last_usage)
+    if isinstance(real_usages, int):
+        real_usages = [real_usages]
+    lifetime.real_usages = real_usages
+    return lifetime
 
 
 def boxes_and_longevity(num):
@@ -93,6 +97,16 @@ class MockAsm(object):
 
     def regalloc_mov(self, from_loc, to_loc):
         self.moves.append((from_loc, to_loc))
+
+
+def test_lifetime_next_real_usage():
+    lt = RealLifetime(0, 1000)
+    lt.real_usages = [0, 1, 5, 10, 24, 35, 55, 56, 57, 90, 92, 100]
+    for i in range(100):
+        next = lt.next_real_usage(i)
+        assert next in lt.real_usages
+        assert next > i
+        assert lt.real_usages[lt.real_usages.index(next) - 1] <= i
 
 class TestRegalloc(object):
     def test_freeing_vars(self):
@@ -382,7 +396,7 @@ class TestRegalloc(object):
         xrm.loc(f0)
         rm.loc(b0)
         assert fm.get_frame_depth() == 3
-                
+
     def test_spilling(self):
         b0, b1, b2, b3, b4, b5 = newboxes(0, 1, 2, 3, 4, 5)
         longevity = {b0: Lifetime(0, 3), b1: Lifetime(0, 3),
@@ -402,6 +416,27 @@ class TestRegalloc(object):
         spilled2 = rm.force_allocate_reg(b5)
         assert spilled2 is loc
         rm._check_invariants()
+
+    def test_spilling_furthest_next_real_use(self):
+        b0, b1, b2, b3, b4, b5 = newboxes(0, 1, 2, 3, 4, 5)
+        longevity = {b0: Lifetime(0, 3, [1, 2, 3]), b1: Lifetime(0, 3, [3]),
+                     b3: Lifetime(0, 4, [1, 2, 3, 4]), b2: Lifetime(0, 2),
+                     b4: Lifetime(1, 4), b5: Lifetime(1, 3)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        for b in b0, b1, b2, b3:
+            rm.force_allocate_reg(b)
+        assert len(rm.free_regs) == 0
+        rm.next_instruction()
+        loc = rm.loc(b1)
+        spilled = rm.force_allocate_reg(b4)
+        assert spilled is loc
+        spilled2 = rm.force_allocate_reg(b5)
+        assert spilled2 is loc
+        rm._check_invariants()
+
 
     def test_spill_useless_vars_first(self):
         b0, b1, b2, b3, b4, b5 = newboxes(0, 1, 2, 3, 4, 5)
