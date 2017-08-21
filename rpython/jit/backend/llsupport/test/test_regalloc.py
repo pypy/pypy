@@ -1,7 +1,8 @@
 import py
 from rpython.jit.metainterp.history import ConstInt, INT, FLOAT
 from rpython.jit.backend.llsupport.regalloc import FrameManager, LinkedList
-from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan, Lifetime
+from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan,\
+     Lifetime as RealLifetime, UNDEF_POS
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
      InputArgFloat
 
@@ -10,6 +11,13 @@ def newboxes(*values):
 
 def newrefboxes(count):
     return [InputArgRef() for _ in range(count)]
+
+def Lifetime(definition_pos=UNDEF_POS, last_usage=UNDEF_POS,
+             last_real_usage=UNDEF_POS):
+    if last_real_usage == UNDEF_POS:
+        last_real_usage = last_usage
+    return RealLifetime(definition_pos, last_usage, last_real_usage)
+
 
 def boxes_and_longevity(num):
     res = []

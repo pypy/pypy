@@ -818,8 +818,7 @@ class Lifetime(object):
         # the position where the variable is last used. this includes failargs
         # and jumps
         self.last_usage = last_usage
-        if last_real_usage == UNDEF_POS:
-            last_real_usage = last_usage
+
         # last *real* usage, ie as an argument to an operation
         # after last_real_usage and last_usage it does not matter whether the
         # variable is stored on the stack
