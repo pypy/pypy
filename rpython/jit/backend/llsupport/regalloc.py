@@ -420,8 +420,8 @@ class RegisterManager(object):
         """
         cur_max_age = -1
         candidate = None
-        # YYY we should pick a variable to spill that is only used in failargs
-        # from now on
+        cur_max_age_failargs = -1
+        candidate_from_failargs = None
         for next in self.reg_bindings:
             reg = self.reg_bindings[next]
             if next in forbidden_vars:
@@ -434,18 +434,22 @@ class RegisterManager(object):
             if need_lower_byte and reg in self.no_lower_byte_regs:
                 continue
             lifetime = self.longevity[next]
+            max_age = lifetime.last_usage
             if lifetime.is_last_real_use_before(self.position):
                 # this variable has no "real" use as an argument to an op left
                 # it is only used in failargs, and maybe in a jump. spilling is
                 # fine
-                return next
-            max_age = lifetime.last_usage
+                if cur_max_age_failargs < max_age:
+                    cur_max_age_failargs = max_age
+                    candidate_from_failargs = next
             if cur_max_age < max_age:
                 cur_max_age = max_age
                 candidate = next
-        if candidate is None:
-            raise NoVariableToSpill
-        return candidate
+        if candidate_from_failargs is not None:
+            return candidate_from_failargs
+        if candidate is not None:
+            return candidate
+        raise NoVariableToSpill
 
     def force_allocate_reg(self, v, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):

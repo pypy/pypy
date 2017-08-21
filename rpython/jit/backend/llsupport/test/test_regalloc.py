@@ -397,9 +397,9 @@ class TestRegalloc(object):
 
     def test_spill_useless_vars_first(self):
         b0, b1, b2, b3, b4, b5 = newboxes(0, 1, 2, 3, 4, 5)
-        longevity = {b0: Lifetime(0, 5), b1: Lifetime(0, 5),
-                     # b3 becomes useless but b2 lives longer
-                     b3: Lifetime(0, 5, 3), b2: Lifetime(0, 6),
+        longevity = {b0: Lifetime(0, 5), b1: Lifetime(0, 10),
+                     # b2 and b3 become useless but b3 lives longer
+                     b3: Lifetime(0, 7, 3), b2: Lifetime(0, 6, 3),
                      b4: Lifetime(4, 5), b5: Lifetime(4, 7)}
         fm = TFrameManager()
         asm = MockAsm()
