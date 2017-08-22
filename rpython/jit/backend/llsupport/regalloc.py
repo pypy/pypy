@@ -881,7 +881,7 @@ class FixedRegisterPositions(object):
             assert opindex > self.index_lifetimes[-1][0]
         self.index_lifetimes.append((opindex, varlifetime))
 
-    def compute_free_until_pos(self, opindex):
+    def free_until_pos(self, opindex):
         for (index, varlifetime) in self.index_lifetimes:
             if opindex <= index:
                 if varlifetime is not None and varlifetime.definition_pos >= opindex:
@@ -914,7 +914,7 @@ class LifetimeManager(object):
             self.fixed_register_use[register] = FixedRegisterPositions(register)
         self.fixed_register_use[register].fixed_register(opindex, varlifetime)
 
-    def compute_longest_free_reg(self, position, free_regs):
+    def longest_free_reg(self, position, free_regs):
         """ for every register in free_regs, compute how far into the
         future that register can remain free, according to the constraints of
         the fixed registers. Find the register that is free the longest. Return a tuple
@@ -927,7 +927,7 @@ class LifetimeManager(object):
             if fixed_reg_pos is None:
                 return reg, sys.maxint
             else:
-                free_until_pos = fixed_reg_pos.compute_free_until_pos(position)
+                free_until_pos = fixed_reg_pos.free_until_pos(position)
                 if free_until_pos > max_free_pos:
                     best_reg = reg
                     max_free_pos = free_until_pos

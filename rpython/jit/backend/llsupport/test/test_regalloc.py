@@ -168,35 +168,31 @@ def test_fixed_position_none():
     assert fpr2.index_lifetimes == [(4, None)]
 
 
-def test_compute_free_until_pos_none():
+def test_free_until_pos_none():
     longevity = LifetimeManager({})
-    longevity.fixed_register(1, r0, None)
-    longevity.fixed_register(4, r2, None)
     longevity.fixed_register(5, r1, None)
     longevity.fixed_register(8, r1, None)
     longevity.fixed_register(35, r1, None)
 
     fpr1 = longevity.fixed_register_use[r1]
 
-    assert fpr1.compute_free_until_pos(0) == 5
-    assert fpr1.compute_free_until_pos(1) == 5
-    assert fpr1.compute_free_until_pos(2) == 5
-    assert fpr1.compute_free_until_pos(3) == 5
-    assert fpr1.compute_free_until_pos(4) == 5
-    assert fpr1.compute_free_until_pos(5) == 5
-    assert fpr1.compute_free_until_pos(10) == 35
-    assert fpr1.compute_free_until_pos(20) == 35
-    assert fpr1.compute_free_until_pos(30) == 35
-    assert fpr1.compute_free_until_pos(36) == sys.maxint
+    assert fpr1.free_until_pos(0) == 5
+    assert fpr1.free_until_pos(1) == 5
+    assert fpr1.free_until_pos(2) == 5
+    assert fpr1.free_until_pos(3) == 5
+    assert fpr1.free_until_pos(4) == 5
+    assert fpr1.free_until_pos(5) == 5
+    assert fpr1.free_until_pos(10) == 35
+    assert fpr1.free_until_pos(20) == 35
+    assert fpr1.free_until_pos(30) == 35
+    assert fpr1.free_until_pos(36) == sys.maxint
 
-def test_compute_free_until_pos():
+def test_free_until_pos():
     b0, b1, b2 = newboxes(0, 0, 0)
     l0 = Lifetime(0, 5)
     l1 = Lifetime(2, 9)
     l2 = Lifetime(30, 40)
     longevity = LifetimeManager({b0: l0, b1: l1, b2: l2})
-    longevity.fixed_register(1, r0, b0)
-    longevity.fixed_register(4, r2, b0)
     longevity.fixed_register(5, r1, b1)
     longevity.fixed_register(8, r1, b1)
     longevity.fixed_register(35, r1, b2)
@@ -206,31 +202,32 @@ def test_compute_free_until_pos():
     # simple cases: we are before the beginning of the lifetime of the variable
     # in the fixed register, then it's free until the definition of the
     # variable
-    assert fpr1.compute_free_until_pos(0) == 2
-    assert fpr1.compute_free_until_pos(1) == 2
-    assert fpr1.compute_free_until_pos(2) == 2
-    assert fpr1.compute_free_until_pos(10) == 30
-    assert fpr1.compute_free_until_pos(20) == 30
-    assert fpr1.compute_free_until_pos(30) == 30
+    assert fpr1.free_until_pos(0) == 2
+    assert fpr1.free_until_pos(1) == 2
+    assert fpr1.free_until_pos(2) == 2
+    assert fpr1.free_until_pos(10) == 30
+    assert fpr1.free_until_pos(20) == 30
+    assert fpr1.free_until_pos(30) == 30
 
     # after the fixed use, we are fined anyway
-    assert fpr1.compute_free_until_pos(36) == sys.maxint
-    assert fpr1.compute_free_until_pos(50) == sys.maxint
+    assert fpr1.free_until_pos(36) == sys.maxint
+    assert fpr1.free_until_pos(50) == sys.maxint
 
     # asking for a position *after* the definition of the variable in the fixed
     # register means the variable didn't make it into the fixed register, but
     # at the latest by the use point it will have to go there
-    assert fpr1.compute_free_until_pos(3) == 5
-    assert fpr1.compute_free_until_pos(4) == 5
-    assert fpr1.compute_free_until_pos(5) == 5
-    assert fpr1.compute_free_until_pos(6) == 8
-    assert fpr1.compute_free_until_pos(7) == 8
-    assert fpr1.compute_free_until_pos(8) == 8
-    assert fpr1.compute_free_until_pos(31) == 35
-    assert fpr1.compute_free_until_pos(32) == 35
-    assert fpr1.compute_free_until_pos(33) == 35
-    assert fpr1.compute_free_until_pos(34) == 35
-    assert fpr1.compute_free_until_pos(35) == 35
+    assert fpr1.free_until_pos(3) == 5
+    assert fpr1.free_until_pos(4) == 5
+    assert fpr1.free_until_pos(5) == 5
+    assert fpr1.free_until_pos(6) == 8
+    assert fpr1.free_until_pos(7) == 8
+    assert fpr1.free_until_pos(8) == 8
+    assert fpr1.free_until_pos(31) == 35
+    assert fpr1.free_until_pos(32) == 35
+    assert fpr1.free_until_pos(33) == 35
+    assert fpr1.free_until_pos(34) == 35
+    assert fpr1.free_until_pos(35) == 35
+
 
 class TestRegalloc(object):
     def test_freeing_vars(self):
