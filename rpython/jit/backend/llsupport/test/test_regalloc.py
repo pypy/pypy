@@ -1071,4 +1071,21 @@ class TestFullRegallocFakeCPU(object):
             ("guard_false", r0, [r4]),
         ]
 
-
+    def test_coalescing(self):
+        py.test.skip("hard - later")
+        ops = '''
+        [i0]
+        i2 = int_mul(i0, 2)
+        i3 = int_add(i2, 1) # i2 and i3 need to be coalesced
+        i4 = call_i(ConstClass(f1ptr), i3, descr=f1_calldescr)
+        guard_false(i4) []
+        '''
+        emitted = self.allocate(ops)
+        fp0 = FakeFramePos(0, INT)
+        assert emitted == [
+            ("move", r1, fp0),
+            ("int_mul", r1, [2]),
+            ("int_add", r1, [1]),
+            ("call_i", r0, [r1]),
+            ("guard_false", r0, []),
+        ]
