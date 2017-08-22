@@ -381,24 +381,27 @@ class RegisterManager(object):
             loc = self.reg_bindings.get(v, None)
             if loc is not None and loc not in self.no_lower_byte_regs:
                 return loc
-            for i in range(len(self.free_regs) - 1, -1, -1):
-                reg = self.free_regs[i]
-                if reg not in self.no_lower_byte_regs:
-                    if loc is not None:
-                        self.free_regs[i] = loc
-                    else:
-                        del self.free_regs[i]
-                    self.reg_bindings[v] = reg
-                    return reg
-            return None
+            free_regs = [reg for reg in self.free_regs
+                         if reg not in self.no_lower_byte_regs]
+            newloc = self.longevity.try_pick_free_reg(
+                self.position, v, free_regs)
+            if newloc is None:
+                return None
+            self.free_regs.remove(newloc)
+            if loc is not None:
+                self.free_regs.append(loc)
+            self.reg_bindings[v] = newloc
+            return newloc
         try:
             return self.reg_bindings[v]
         except KeyError:
-            # YYY here we should chose the free variable a bit more carefully
-            if self.free_regs:
-                loc = self.free_regs.pop()
-                self.reg_bindings[v] = loc
-                return loc
+            loc = self.longevity.try_pick_free_reg(
+                self.position, v, self.free_regs)
+            if loc is None:
+                return None
+            self.reg_bindings[v] = loc
+            self.free_regs.remove(loc)
+            return loc
 
     def _spill_var(self, v, forbidden_vars, selected_reg,
                    need_lower_byte=False):
@@ -420,6 +423,8 @@ class RegisterManager(object):
         # appears in failargs or in a jump
         # if that doesn't exist, spill the variable that has a real_usage that
         # is the furthest away from the current position
+
+        # YYY check for fixed variable usages
 
         cur_max_use_distance = -1
         position = self.position
@@ -579,9 +584,9 @@ class RegisterManager(object):
         if v not in self.reg_bindings:
             # v not in a register. allocate one for result_v and move v there
             prev_loc = self.frame_manager.loc(v)
-            loc = self.force_allocate_reg(v, forbidden_vars)
+            loc = self.force_allocate_reg(result_v, forbidden_vars)
             self.assembler.regalloc_mov(prev_loc, loc)
-        assert v in self.reg_bindings
+            return loc
         if self.longevity[v].last_usage > self.position:
             # we need to find a new place for variable v and
             # store result in the same place
@@ -865,6 +870,14 @@ class Lifetime(object):
         self.fixed_positions.append((position, reg))
         return res
 
+    def find_fixed_register(self, opindex):
+        # XXX could use binary search
+        if self.fixed_positions is None:
+            return None
+        for (index, reg) in self.fixed_positions:
+            if opindex <= index:
+                return reg
+
     def _check_invariants(self):
         assert self.definition_pos <= self.last_usage
         if self.real_usages is not None:
@@ -928,9 +941,11 @@ class LifetimeManager(object):
         fixed registers. Find the register that is free the longest. Return a
         tuple (reg, free_until_pos). """
         free_until_pos = {}
-        max_free_pos = -1
+        max_free_pos = position
         best_reg = None
-        for reg in free_regs:
+        # reverse for compatibility with old code
+        for i in range(len(free_regs) - 1, -1, -1):
+            reg = free_regs[i]
             fixed_reg_pos = self.fixed_register_use.get(reg, None)
             if fixed_reg_pos is None:
                 return reg, sys.maxint
@@ -940,6 +955,26 @@ class LifetimeManager(object):
                     best_reg = reg
                     max_free_pos = free_until_pos
         return best_reg, max_free_pos
+
+    def try_pick_free_reg(self, position, v, free_regs):
+        if not free_regs:
+            return None
+        longevityvar = self[v]
+        reg = longevityvar.find_fixed_register(position)
+        if reg is not None and reg in free_regs:
+            return reg
+        return free_regs[-1]
+        # more advanced stuff below, needs tests
+
+
+
+        loc, free_until = self.longevity.longest_free_reg(
+                self.position, free_regs)
+        if loc is None:
+            return None
+        # YYY could check whether it's best to spill v here, but hard
+        # to do in the current system
+        return loc
 
     def __contains__(self, var):
         return var in self.longevity

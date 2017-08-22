@@ -56,6 +56,12 @@ regs = [r0, r1, r2, r3]
 
 class RegisterManager(BaseRegMan):
     all_regs = regs
+
+    def __init__(self, longevity, frame_manager=None, assembler=None):
+        if isinstance(longevity, dict):
+            longevity = LifetimeManager(longevity)
+        BaseRegMan.__init__(self, longevity, frame_manager, assembler)
+
     def convert_to_imm(self, v):
         return v
 
@@ -840,6 +846,7 @@ class FakeRegalloc(BaseRegalloc):
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
+        self._add_fixed_registers()
         return operations
 
     def _prepare(self, inputargs, operations, allgcrefs):
@@ -915,6 +922,16 @@ class FakeRegalloc(BaseRegalloc):
                 else:
                     emit((opname, locs))
         return self.assembler.emitted
+
+    def _add_fixed_registers(self):
+        for i, op in enumerate(self.operations):
+            if rop.is_call(op.getopnum()):
+                # calling convention!
+                arglist = op.getarglist()[1:]
+                for arg, reg in zip(arglist + [None] * (3 - len(arglist)), [r1, r2, r3]):
+                    self.longevity.fixed_register(i, reg, arg)
+                self.longevity.fixed_register(i, r0, op)
+
 
 CPU = getcpuclass()
 class TestFullRegallocFakeCPU(object):
@@ -1006,9 +1023,8 @@ class TestFullRegallocFakeCPU(object):
         emitted = self.allocate(ops)
         fp0 = FakeFramePos(0, INT)
         assert emitted == [
-            ("move", r0, fp0),
-            ("int_mul", r0, [2]),
-            ("move", r1, r0),
+            ("move", r1, fp0),
+            ("int_mul", r1, [2]),
             ("call_i", r0, [r1]),
             ("guard_false", r0, []),
         ]
