@@ -956,6 +956,30 @@ class LifetimeManager(object):
                     max_free_pos = free_until_pos
         return best_reg, max_free_pos
 
+    def free_reg_whole_lifetime(self, position, v, free_regs):
+        """ try to find a register from free_regs for v at position that's
+        free for the whole lifetime of v. pick the one that is blocked first
+        *after* the lifetime of v. """
+        longevityvar = self[v]
+        min_fixed_use_after = sys.maxint
+        best_reg = None
+        unfixed_reg = None
+        for reg in free_regs:
+            fixed_reg_pos = self.fixed_register_use.get(reg, None)
+            if fixed_reg_pos is None:
+                unfixed_reg = reg
+                continue
+            use_after = fixed_reg_pos.free_until_pos(longevityvar.last_usage)
+            assert use_after >= longevityvar.last_usage
+            if use_after < min_fixed_use_after:
+                best_reg = reg
+                min_fixed_use_after = use_after
+        if best_reg is not None:
+            return best_reg
+
+        # no fitting fixed registers. pick a non-fixed one
+        return unfixed_reg
+
     def try_pick_free_reg(self, position, v, free_regs):
         if not free_regs:
             return None
@@ -965,13 +989,19 @@ class LifetimeManager(object):
         if reg is not None and reg in free_regs:
             return reg
 
-        # pick the register that's free the longest
+        # try to find a register that's free for the whole lifetime of v
+        # pick the one that is blocked first *after* the lifetime of v
+        loc = self.free_reg_whole_lifetime(position, v, free_regs)
+        if loc is not None:
+            return loc
+
+        # can't fit v completely, so pick the register that's free the longest
         loc, free_until = self.longest_free_reg(position, free_regs)
-        if loc is None:
-            return None
+        if loc is not None:
+            return loc
         # YYY could check whether it's best to spill v here, but hard
         # to do in the current system
-        return loc
+        return None
 
     def __contains__(self, var):
         return var in self.longevity

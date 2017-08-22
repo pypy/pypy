@@ -52,6 +52,8 @@ class FakeReg(object):
         return 'r%d' % self.n
 
 r0, r1, r2, r3 = [FakeReg(i) for i in range(4)]
+r4, r5, r6, r7, r8, r9 = [FakeReg(i) for i in range(4, 10)]
+
 regs = [r0, r1, r2, r3]
 
 class RegisterManager(BaseRegMan):
@@ -269,6 +271,27 @@ def test_longest_free_reg():
     longevity.fixed_register(35, r1, b2)
 
     assert longevity.longest_free_reg(0, [r0, r1, r2]) == (r1, 2)
+
+def test_try_pick_free_reg():
+    b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
+    l0 = Lifetime(0, 4)
+    l1 = Lifetime(2, 20)
+    l2 = Lifetime(6, 20)
+    l3 = Lifetime(8, 20)
+    l4 = Lifetime(0, 10)
+    longevity = LifetimeManager({b0: l0, b1: l1, b2: l2, b3: l3, b4: l4})
+    longevity.fixed_register(3, r1, b1)
+    longevity.fixed_register(7, r2, b2)
+    longevity.fixed_register(9, r3, b3)
+
+    # a best fit
+    loc = longevity.try_pick_free_reg(0, b0, [r1, r2, r3, r4, r5])
+    assert loc is r2
+
+    # does not fit into any of the fixed regs, use a non-fixed one
+    loc = longevity.try_pick_free_reg(0, b4, [r5, r2, r3, r4, r1])
+    assert loc in [r4, r5]
+
 
 class TestRegalloc(object):
     def test_freeing_vars(self):
@@ -815,7 +838,6 @@ class TestRegalloc(object):
 # _____________________________________________________
 # tests that assign registers in a mocked way for a fake CPU
 
-r4, r5, r6, r7, r8, r9 = [FakeReg(i) for i in range(4, 10)]
 
 class RegisterManager2(BaseRegMan):
     all_regs = [r0, r1, r2, r3, r4, r5, r6, r7]
