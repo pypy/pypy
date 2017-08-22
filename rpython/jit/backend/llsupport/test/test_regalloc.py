@@ -144,9 +144,9 @@ def test_fixed_position():
     fpr1 = longevity.fixed_register_use[r1]
     fpr2 = longevity.fixed_register_use[r2]
     assert r3 not in longevity.fixed_register_use
-    assert fpr0.index_lifetimes == [(1, l0)]
-    assert fpr1.index_lifetimes == [(5, l1), (8, l1)]
-    assert fpr2.index_lifetimes == [(4, l0)]
+    assert fpr0.index_lifetimes == [(1, 0)]
+    assert fpr1.index_lifetimes == [(5, 2), (8, 5)]
+    assert fpr2.index_lifetimes == [(4, 1)]
 
 def test_fixed_position_none():
     b0, b1, b2 = newboxes(0, 0, 0)
@@ -163,9 +163,9 @@ def test_fixed_position_none():
     fpr1 = longevity.fixed_register_use[r1]
     fpr2 = longevity.fixed_register_use[r2]
     assert r3 not in longevity.fixed_register_use
-    assert fpr0.index_lifetimes == [(1, None)]
-    assert fpr1.index_lifetimes == [(5, None), (8, None)]
-    assert fpr2.index_lifetimes == [(4, None)]
+    assert fpr0.index_lifetimes == [(1, 1)]
+    assert fpr1.index_lifetimes == [(5, 5), (8, 8)]
+    assert fpr2.index_lifetimes == [(4, 4)]
 
 
 def test_free_until_pos_none():
@@ -228,6 +228,33 @@ def test_free_until_pos():
     assert fpr1.free_until_pos(34) == 35
     assert fpr1.free_until_pos(35) == 35
 
+def test_free_until_pos_different_regs():
+    b0, b1, b2 = newboxes(0, 0, 0)
+    l0 = Lifetime(0, 5)
+    l1 = Lifetime(2, 9)
+    l2 = Lifetime(30, 40)
+    longevity = LifetimeManager({b0: l0, b1: l1, b2: l2})
+    longevity.fixed_register(1, r0, b0)
+    longevity.fixed_register(4, r2, b0)
+    fpr2 = longevity.fixed_register_use[r2]
+    # the definition of b0 is before the other fixed register use of r0, so the
+    # earliest b0 can be in r2 is that use point at index 1
+    assert fpr2.free_until_pos(0) == 1
+
+
+def test_longest_free_reg():
+    b0, b1, b2 = newboxes(0, 0, 0)
+    l0 = Lifetime(0, 5)
+    l1 = Lifetime(2, 9)
+    l2 = Lifetime(30, 40)
+    longevity = LifetimeManager({b0: l0, b1: l1, b2: l2})
+    longevity.fixed_register(1, r0, b0)
+    longevity.fixed_register(4, r2, b0)
+    longevity.fixed_register(5, r1, b1)
+    longevity.fixed_register(8, r1, b1)
+    longevity.fixed_register(35, r1, b2)
+
+    assert longevity.longest_free_reg(0, [r0, r1, r2]) == (r2, 2)
 
 class TestRegalloc(object):
     def test_freeing_vars(self):

@@ -852,12 +852,18 @@ class Lifetime(object):
         return l[low]
 
     def fixed_register(self, position, reg):
+        """ registers a fixed register use for the variable at position in
+        register reg. returns the position from where on the register should be
+        held free. """
         assert self.definition_pos <= position <= self.last_usage
         if self.fixed_positions is None:
             self.fixed_positions = []
+            res = self.definition_pos
         else:
             assert position > self.fixed_positions[-1][0]
+            res = self.fixed_positions[-1][0]
         self.fixed_positions.append((position, reg))
+        return res
 
     def _check_invariants(self):
         assert self.definition_pos <= self.last_usage
@@ -876,16 +882,17 @@ class FixedRegisterPositions(object):
 
         self.index_lifetimes = []
 
-    def fixed_register(self, opindex, varlifetime):
+    def fixed_register(self, opindex, definition_pos):
         if self.index_lifetimes:
             assert opindex > self.index_lifetimes[-1][0]
-        self.index_lifetimes.append((opindex, varlifetime))
+        self.index_lifetimes.append((opindex, definition_pos))
 
     def free_until_pos(self, opindex):
-        for (index, varlifetime) in self.index_lifetimes:
+        # XXX could use binary search
+        for (index, definition_pos) in self.index_lifetimes:
             if opindex <= index:
-                if varlifetime is not None and varlifetime.definition_pos >= opindex:
-                    return varlifetime.definition_pos
+                if definition_pos >= opindex:
+                    return definition_pos
                 else:
                     # the variable doesn't exist or didn't make it into the
                     # register despite being defined already. so we don't care
@@ -893,6 +900,7 @@ class FixedRegisterPositions(object):
                     # index
                     return index
         return sys.maxint
+
 
 class LifetimeManager(object):
     def __init__(self, longevity):
@@ -906,19 +914,19 @@ class LifetimeManager(object):
         operation opindex. var can be None, if no variable at all can be in
         that register at the point."""
         if var is None:
-            varlifetime = None
+            definition_pos = opindex
         else:
             varlifetime = self.longevity[var]
-            varlifetime.fixed_register(opindex, register)
+            definition_pos = varlifetime.fixed_register(opindex, register)
         if register not in self.fixed_register_use:
             self.fixed_register_use[register] = FixedRegisterPositions(register)
-        self.fixed_register_use[register].fixed_register(opindex, varlifetime)
+        self.fixed_register_use[register].fixed_register(opindex, definition_pos)
 
     def longest_free_reg(self, position, free_regs):
-        """ for every register in free_regs, compute how far into the
-        future that register can remain free, according to the constraints of
-        the fixed registers. Find the register that is free the longest. Return a tuple
-        (reg, free_until_pos). """
+        """ for every register in free_regs, compute how far into the future
+        that register can remain free, according to the constraints of the
+        fixed registers. Find the register that is free the longest. Return a
+        tuple (reg, free_until_pos). """
         free_until_pos = {}
         max_free_pos = -1
         best_reg = None
