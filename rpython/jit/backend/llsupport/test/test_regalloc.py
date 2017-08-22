@@ -1,4 +1,5 @@
 import py
+import sys
 from rpython.jit.metainterp.history import ConstInt, INT, FLOAT
 from rpython.jit.metainterp.history import BasicFailDescr, TargetToken
 from rpython.jit.metainterp.resoperation import rop
@@ -7,7 +8,8 @@ from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.llsupport.regalloc import FrameManager, LinkedList
 from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan,\
-     Lifetime as RealLifetime, UNDEF_POS, BaseRegalloc, compute_vars_longevity
+     Lifetime as RealLifetime, UNDEF_POS, BaseRegalloc, compute_vars_longevity,\
+     LifetimeManager
 from rpython.jit.tool.oparser import parse
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rtyper.lltypesystem import lltype
@@ -123,6 +125,73 @@ def test_lifetime_next_real_usage():
         assert next > i
         assert lt.real_usages[lt.real_usages.index(next) - 1] <= i
 
+def test_fixed_position():
+    b0, b1, b2 = newboxes(0, 0, 0)
+    l0 = Lifetime(0, 5)
+    l1 = Lifetime(2, 9)
+    l2 = Lifetime(0, 9)
+    longevity = LifetimeManager({b0: l0, b1: l1, b2: l2})
+    longevity.fixed_register(1, r0, b0)
+    longevity.fixed_register(4, r2, b0)
+    longevity.fixed_register(5, r1, b1)
+    longevity.fixed_register(8, r1, b1)
+
+    assert l0.fixed_positions == [(1, r0), (4, r2)]
+    assert l1.fixed_positions == [(5, r1), (8, r1)]
+    assert l2.fixed_positions is None
+
+    fpr0 = longevity.fixed_register_use[r0]
+    fpr1 = longevity.fixed_register_use[r1]
+    fpr2 = longevity.fixed_register_use[r2]
+    assert r3 not in longevity.fixed_register_use
+    assert fpr0.index_lifetimes == [(1, l0)]
+    assert fpr1.index_lifetimes == [(5, l1), (8, l1)]
+    assert fpr2.index_lifetimes == [(4, l0)]
+
+
+def test_compute_free_until_pos():
+    b0, b1, b2 = newboxes(0, 0, 0)
+    l0 = Lifetime(0, 5)
+    l1 = Lifetime(2, 9)
+    l2 = Lifetime(30, 40)
+    longevity = LifetimeManager({b0: l0, b1: l1, b2: l2})
+    longevity.fixed_register(1, r0, b0)
+    longevity.fixed_register(4, r2, b0)
+    longevity.fixed_register(5, r1, b1)
+    longevity.fixed_register(8, r1, b1)
+    longevity.fixed_register(35, r1, b2)
+
+    fpr1 = longevity.fixed_register_use[r1]
+
+    # simple cases: we are before the beginning of the lifetime of the variable
+    # in the fixed register, then it's free until the definition of the
+    # variable
+    assert fpr1.compute_free_until_pos(0) == 2
+    assert fpr1.compute_free_until_pos(1) == 2
+    assert fpr1.compute_free_until_pos(2) == 2
+    assert fpr1.compute_free_until_pos(10) == 30
+    assert fpr1.compute_free_until_pos(20) == 30
+    assert fpr1.compute_free_until_pos(30) == 30
+
+    # after the fixed use, we are fined anyway
+    assert fpr1.compute_free_until_pos(36) == sys.maxint
+    assert fpr1.compute_free_until_pos(50) == sys.maxint
+
+    # asking for a position *after* the definition of the variable in the fixed
+    # register means the variable didn't make it into the fixed register, but
+    # at the latest by the use point it will have to go there
+    assert fpr1.compute_free_until_pos(3) == 5
+    assert fpr1.compute_free_until_pos(4) == 5
+    assert fpr1.compute_free_until_pos(5) == 5
+    assert fpr1.compute_free_until_pos(6) == 8
+    assert fpr1.compute_free_until_pos(7) == 8
+    assert fpr1.compute_free_until_pos(8) == 8
+    assert fpr1.compute_free_until_pos(31) == 35
+    assert fpr1.compute_free_until_pos(32) == 35
+    assert fpr1.compute_free_until_pos(33) == 35
+    assert fpr1.compute_free_until_pos(34) == 35
+    assert fpr1.compute_free_until_pos(35) == 35
+
 class TestRegalloc(object):
     def test_freeing_vars(self):
         b0, b1, b2 = newboxes(0, 0, 0)
@@ -223,7 +292,7 @@ class TestRegalloc(object):
         assert isinstance(loc, FakeReg)
         assert loc not in [r2, r3]
         rm._check_invariants()
-    
+
     def test_make_sure_var_in_reg(self):
         boxes, longevity = boxes_and_longevity(5)
         fm = TFrameManager()
@@ -237,7 +306,7 @@ class TestRegalloc(object):
         loc = rm.make_sure_var_in_reg(b0)
         assert isinstance(loc, FakeReg)
         rm._check_invariants()
-        
+
     def test_force_result_in_reg_1(self):
         b0, b1 = newboxes(0, 0)
         longevity = {b0: Lifetime(0, 1), b1: Lifetime(1, 3)}

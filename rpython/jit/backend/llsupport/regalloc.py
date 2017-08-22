@@ -1,3 +1,4 @@
+import sys
 from rpython.jit.metainterp.history import Const, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop, AbstractValue
@@ -827,6 +828,10 @@ class Lifetime(object):
         # arguments or in failargs)
         self.real_usages = None
 
+        # fixed registers are positions where the variable *needs* to be in a
+        # specific register
+        self.fixed_positions = None
+
     def is_last_real_use_before(self, position):
         if self.real_usages is None:
             return True
@@ -846,6 +851,14 @@ class Lifetime(object):
                 low = mid + 1
         return l[low]
 
+    def fixed_register(self, position, reg):
+        assert self.definition_pos <= position <= self.last_usage
+        if self.fixed_positions is None:
+            self.fixed_positions = []
+        else:
+            assert position > self.fixed_positions[-1][0]
+        self.fixed_positions.append((position, reg))
+
     def _check_invariants(self):
         assert self.definition_pos <= self.last_usage
         if self.real_usages is not None:
@@ -856,12 +869,65 @@ class Lifetime(object):
     def __repr__(self):
         return "%s:%s(%s)" % (self.definition_pos, self.real_usages, self.last_usage)
 
+
+class FixedRegisterPositions(object):
+    def __init__(self, register):
+        self.register = register
+
+        self.index_lifetimes = []
+
+    def fixed_register(self, opindex, varlifetime):
+        if self.index_lifetimes:
+            assert opindex > self.index_lifetimes[-1][0]
+        self.index_lifetimes.append((opindex, varlifetime))
+
+    def compute_free_until_pos(self, opindex):
+        for (index, varlifetime) in self.index_lifetimes:
+            if opindex <= index:
+                if varlifetime.definition_pos >= opindex:
+                    return varlifetime.definition_pos
+                else:
+                    # the variable didn't make it into the register despite
+                    # being defined already. so we don't care too much, and can
+                    # say that the variable is free until index
+                    return index
+        return sys.maxint
+
 class LifetimeManager(object):
     def __init__(self, longevity):
         self.longevity = longevity
 
-    def register_hint(self, opindex, var, register):
-        raise NotImplementedError
+        # dictionary maps register to FixedRegisterPositions
+        self.fixed_register_use = {}
+
+    def fixed_register(self, opindex, register, var=None):
+        """ Tell the LifetimeManager that variable var *must* be in register at
+        operation opindex. var can be None, if no variable at all can be in
+        that register at the point."""
+        varlifetime = self.longevity[var]
+        if register not in self.fixed_register_use:
+            self.fixed_register_use[register] = FixedRegisterPositions(register)
+        self.fixed_register_use[register].fixed_register(opindex, varlifetime)
+        varlifetime.fixed_register(opindex, register)
+
+    def compute_longest_free_reg(self, position, free_regs):
+        """ for every register in free_regs, compute how far into the
+        future that register can remain free, according to the constraints of
+        the fixed registers. Find the register that is free the longest. Return a tuple
+        (reg, free_until_pos). """
+        free_until_pos = {}
+        max_free_pos = -1
+        best_reg = None
+        for reg in free_regs:
+            fixed_reg_pos = self.fixed_register_use.get(reg, None)
+            if fixed_reg_pos is None:
+                return reg, sys.maxint
+            else:
+                free_until_pos = fixed_reg_pos.compute_free_until_pos(position)
+                if free_until_pos > max_free_pos:
+                    best_reg = reg
+                    max_free_pos = free_until_pos
+        return best_reg, max_free_pos
 
     def __contains__(self, var):
         return var in self.longevity
