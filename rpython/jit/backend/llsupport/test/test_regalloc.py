@@ -734,24 +734,31 @@ class FakeRegalloc(BaseRegalloc):
         emit = self.assembler.emitted.append
         for i, op in enumerate(loop.operations):
             self.rm.position = i
-            if rop.is_comparison(op.getopnum()):
+            opnum = op.getopnum()
+            opname = op.getopname()
+            if rop.is_comparison(opnum):
                 locs = [self.loc(x) for x in op.getarglist()]
                 loc = self.force_allocate_reg_or_cc(op)
-                emit((op.getopname(), loc, locs))
-            elif op.getopname().startswith("int_"):
+                emit((opname, loc, locs))
+            elif opname.startswith("int_"):
                 locs = [self.loc(x) for x in op.getarglist()]
                 loc = self.rm.force_result_in_reg(
                     op, op.getarg(0), op.getarglist())
-                emit((op.getopname(), loc, locs[1:]))
+                emit((opname, loc, locs[1:]))
             elif op.is_guard():
-                emit((op.getopname(), self.loc(op.getarg(0))))
+                emit((opname, self.loc(op.getarg(0))))
+            elif opname == "label":
+                descr = op.getdescr()
+                locs = [self.loc(x) for x in op.getarglist()]
+                emit((opname, locs))
+                descr._fake_arglocs = locs
             else:
                 locs = [self.loc(x) for x in op.getarglist()]
                 if op.type != "v":
                     loc = self.rm.force_allocate_reg(op)
-                    emit((op.getopname(), loc, locs))
+                    emit((opname, loc, locs))
                 else:
-                    emit((op.getopname(), locs))
+                    emit((opname, locs))
         return self.assembler.emitted
 
 CPU = getcpuclass()
