@@ -44,6 +44,10 @@ def boxes_and_longevity(num):
 class FakeReg(object):
     def __init__(self, i):
         self.n = i
+    def _getregkey(self):
+        return self.n
+    def is_memory_reference(self):
+        return False
     def __repr__(self):
         return 'r%d' % self.n
 
@@ -60,6 +64,10 @@ class FakeFramePos(object):
         self.pos = pos
         self.value = pos
         self.box_type = box_type
+    def _getregkey(self):
+        return ~self.value
+    def is_memory_reference(self):
+        return True
     def __repr__(self):
         return 'FramePos<%d,%s>' % (self.pos, self.box_type)
     def __eq__(self, other):
@@ -254,7 +262,7 @@ def test_longest_free_reg():
     longevity.fixed_register(8, r1, b1)
     longevity.fixed_register(35, r1, b2)
 
-    assert longevity.longest_free_reg(0, [r0, r1, r2]) == (r2, 2)
+    assert longevity.longest_free_reg(0, [r0, r1, r2]) == (r1, 2)
 
 class TestRegalloc(object):
     def test_freeing_vars(self):
@@ -811,11 +819,14 @@ class RegisterManager2(BaseRegMan):
     frame_reg = r8
 
     # calling conventions: r0 is result
-    # r1 r2 r3 are arguments and callee-saved registers
-    # r4 r5 r6 r7 are caller-saved registers
+    # r1 r2 r3 are arguments and caller-saved registers
+    # r4 r5 r6 r7 are callee-saved registers
 
     def convert_to_imm(self, v):
         return v.value
+
+    def call_result_location(self, v):
+        return r0
 
 
 class FakeRegalloc(BaseRegalloc):
@@ -864,6 +875,8 @@ class FakeRegalloc(BaseRegalloc):
             return self.rm.force_allocate_reg(var, need_lower_byte=True)
 
     def fake_allocate(self, loop):
+        from rpython.jit.backend.x86.jump import remap_frame_layout
+
         emit = self.assembler.emitted.append
         for i, op in enumerate(loop.operations):
             self.rm.position = i
@@ -879,7 +892,16 @@ class FakeRegalloc(BaseRegalloc):
                     op, op.getarg(0), op.getarglist())
                 emit((opname, loc, locs[1:]))
             elif op.is_guard():
-                emit((opname, self.loc(op.getarg(0))))
+                fail_locs = [self.loc(x) for x in op.getfailargs()]
+                emit((opname, self.loc(op.getarg(0)), fail_locs))
+            elif rop.is_call(opnum):
+                # calling convention!
+                src_locs = [self.loc(x) for x in op.getarglist()[1:]]
+                self.rm.before_call()
+                loc = self.rm.after_call(op)
+                dst_locs = [r1, r2, r3][:len(src_locs)]
+                remap_frame_layout(self.assembler, src_locs, dst_locs, r8)
+                emit((opname, loc, dst_locs))
             elif opname == "label":
                 descr = op.getdescr()
                 locs = [self.loc(x) for x in op.getarglist()]
@@ -946,6 +968,7 @@ class TestFullRegallocFakeCPU(object):
         regalloc = FakeRegalloc()
         regalloc.prepare_loop(loop.inputargs, loop.operations,
                               loop.original_jitcell_token, [])
+        self.regalloc = regalloc
         return regalloc.fake_allocate(loop)
 
     def _consider_binop(self, op):
@@ -969,6 +992,23 @@ class TestFullRegallocFakeCPU(object):
             ("move", r0, fp0),
             ("int_add", r0, [1]),
             ("int_lt", r8, [r0, 20]),
-            ("guard_true", r8),
+            ("guard_true", r8, [r0]),
             ("jump", [r0]),
-            ]
+        ]
+
+    def test_call(self):
+        ops = '''
+        [i0]
+        i1 = int_mul(i0, 2)
+        i2 = call_i(ConstClass(f1ptr), i1, descr=f1_calldescr)
+        guard_false(i2) []
+        '''
+        emitted = self.allocate(ops)
+        fp0 = FakeFramePos(0, INT)
+        assert emitted == [
+            ("move", r0, fp0),
+            ("int_mul", r0, [2]),
+            ("move", r1, r0),
+            ("call_i", r0, [r1]),
+            ("guard_false", r0, []),
+        ]

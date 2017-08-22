@@ -579,9 +579,9 @@ class RegisterManager(object):
         if v not in self.reg_bindings:
             # v not in a register. allocate one for result_v and move v there
             prev_loc = self.frame_manager.loc(v)
-            loc = self.force_allocate_reg(result_v, forbidden_vars)
+            loc = self.force_allocate_reg(v, forbidden_vars)
             self.assembler.regalloc_mov(prev_loc, loc)
-            return loc
+        assert v in self.reg_bindings
         if self.longevity[v].last_usage > self.position:
             # we need to find a new place for variable v and
             # store result in the same place
