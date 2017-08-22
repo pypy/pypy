@@ -1028,3 +1028,25 @@ class TestFullRegallocFakeCPU(object):
             ("call_i", r0, [r1]),
             ("guard_false", r0, []),
         ]
+
+    def test_call_2(self):
+        ops = '''
+        [i0, i1]
+        i2 = int_mul(i0, 2)
+        i3 = int_add(i1, 1)
+        i4 = call_i(ConstClass(f1ptr), i2, descr=f1_calldescr)
+        guard_false(i4) [i3]
+        '''
+        emitted = self.allocate(ops)
+        fp0 = FakeFramePos(0, INT)
+        fp1 = FakeFramePos(1, INT)
+        assert emitted == [
+            ("move", r1, fp0),
+            ("int_mul", r1, [2]),
+            ("move", r4, fp1), # r4 gets picked since it's callee-saved
+            ("int_add", r4, [1]),
+            ("call_i", r0, [r1]),
+            ("guard_false", r0, [r4]),
+        ]
+
+

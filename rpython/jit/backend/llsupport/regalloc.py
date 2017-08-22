@@ -960,16 +960,13 @@ class LifetimeManager(object):
         if not free_regs:
             return None
         longevityvar = self[v]
+        # check whether there is a fixed register and whether it's free
         reg = longevityvar.find_fixed_register(position)
         if reg is not None and reg in free_regs:
             return reg
-        return free_regs[-1]
-        # more advanced stuff below, needs tests
 
-
-
-        loc, free_until = self.longevity.longest_free_reg(
-                self.position, free_regs)
+        # pick the register that's free the longest
+        loc, free_until = self.longest_free_reg(position, free_regs)
         if loc is None:
             return None
         # YYY could check whether it's best to spill v here, but hard
