@@ -1,10 +1,17 @@
 import py
 from rpython.jit.metainterp.history import ConstInt, INT, FLOAT
-from rpython.jit.backend.llsupport.regalloc import FrameManager, LinkedList
-from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan,\
-     Lifetime as RealLifetime, UNDEF_POS
+from rpython.jit.metainterp.history import BasicFailDescr, TargetToken
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
      InputArgFloat
+from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.backend.llsupport.regalloc import FrameManager, LinkedList
+from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan,\
+     Lifetime as RealLifetime, UNDEF_POS, BaseRegalloc, compute_vars_longevity
+from rpython.jit.tool.oparser import parse
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.annlowlevel import llhelper
 
 def newboxes(*values):
     return [InputArgInt(v) for v in values]
@@ -49,6 +56,7 @@ class RegisterManager(BaseRegMan):
 class FakeFramePos(object):
     def __init__(self, pos, box_type):
         self.pos = pos
+        self.value = pos
         self.box_type = box_type
     def __repr__(self):
         return 'FramePos<%d,%s>' % (self.pos, self.box_type)
@@ -78,9 +86,15 @@ class TFrameManager(FrameManager):
         assert isinstance(loc, FakeFramePos)
         return loc.pos
 
+class FakeCPU(object):
+    def get_baseofs_of_frame_field(self):
+        return 0
+
 class MockAsm(object):
     def __init__(self):
         self.moves = []
+        self.emitted = []
+        self.cpu = FakeCPU()
 
         # XXX register allocation statistics to be removed later
         self.num_moves_calls = 0
@@ -97,6 +111,7 @@ class MockAsm(object):
 
     def regalloc_mov(self, from_loc, to_loc):
         self.moves.append((from_loc, to_loc))
+        self.emitted.append(("move", to_loc, from_loc))
 
 
 def test_lifetime_next_real_usage():
@@ -649,3 +664,171 @@ class TestRegalloc(object):
         assert fm.get_loc_index(floc) == 0
         for box in fm.bindings.keys():
             fm.mark_as_free(box)
+
+# _____________________________________________________
+# tests that assign registers in a mocked way for a fake CPU
+
+r4, r5, r6, r7, r8, r9 = [FakeReg(i) for i in range(4, 10)]
+
+class RegisterManager2(BaseRegMan):
+    all_regs = [r0, r1, r2, r3, r4, r5, r6, r7]
+
+    save_around_call_regs = [r0, r1, r2, r3]
+
+    frame_reg = r8
+
+    # calling conventions: r0 is result
+    # r1 r2 r3 are arguments and callee-saved registers
+    # r4 r5 r6 r7 are caller-saved registers
+
+    def convert_to_imm(self, v):
+        return v.value
+
+
+class FakeRegalloc(BaseRegalloc):
+    def __init__(self):
+        self.assembler = MockAsm()
+
+    def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
+        self.operations = operations
+        self._set_initial_bindings(inputargs, looptoken)
+        # note: we need to make a copy of inputargs because possibly_free_vars
+        # is also used on op args, which is a non-resizable list
+        self.possibly_free_vars(list(inputargs))
+        return operations
+
+    def _prepare(self, inputargs, operations, allgcrefs):
+        self.fm = TFrameManager()
+        # compute longevity of variables
+        longevity = compute_vars_longevity(inputargs, operations)
+        self.longevity = longevity
+        self.rm = RegisterManager2(
+            longevity, assembler=self.assembler, frame_manager=self.fm)
+        return operations
+
+    def possibly_free_var(self, var):
+        self.rm.possibly_free_var(var)
+
+    def possibly_free_vars(self, vars):
+        for var in vars:
+            if var is not None: # xxx kludgy
+                self.possibly_free_var(var)
+
+    def loc(self, x):
+        return self.rm.loc(x)
+
+    def force_allocate_reg_or_cc(self, var):
+        assert var.type == INT
+        if self.next_op_can_accept_cc(self.operations, self.rm.position):
+            # hack: return the ebp location to mean "lives in CC".  This
+            # ebp will not actually be used, and the location will be freed
+            # after the next op as usual.
+            self.rm.force_allocate_frame_reg(var)
+            return r8
+        else:
+            # else, return a regular register (not ebp).
+            return self.rm.force_allocate_reg(var, need_lower_byte=True)
+
+    def fake_allocate(self, loop):
+        emit = self.assembler.emitted.append
+        for i, op in enumerate(loop.operations):
+            self.rm.position = i
+            if rop.is_comparison(op.getopnum()):
+                locs = [self.loc(x) for x in op.getarglist()]
+                loc = self.force_allocate_reg_or_cc(op)
+                emit((op.getopname(), loc, locs))
+            elif op.getopname().startswith("int_"):
+                locs = [self.loc(x) for x in op.getarglist()]
+                loc = self.rm.force_result_in_reg(
+                    op, op.getarg(0), op.getarglist())
+                emit((op.getopname(), loc, locs[1:]))
+            elif op.is_guard():
+                emit((op.getopname(), self.loc(op.getarg(0))))
+            else:
+                locs = [self.loc(x) for x in op.getarglist()]
+                if op.type != "v":
+                    loc = self.rm.force_allocate_reg(op)
+                    emit((op.getopname(), loc, locs))
+                else:
+                    emit((op.getopname(), locs))
+        return self.assembler.emitted
+
+CPU = getcpuclass()
+class TestFullRegallocFakeCPU(object):
+    # XXX copy-paste from test_regalloc_integration
+    cpu = CPU(None, None)
+    cpu.setup_once()
+
+    targettoken = TargetToken()
+    targettoken2 = TargetToken()
+    fdescr1 = BasicFailDescr(1)
+    fdescr2 = BasicFailDescr(2)
+    fdescr3 = BasicFailDescr(3)
+
+    def setup_method(self, meth):
+        self.targettoken._ll_loop_code = 0
+        self.targettoken2._ll_loop_code = 0
+
+    def f1(x):
+        return x+1
+
+    def f2(x, y):
+        return x*y
+
+    def f10(*args):
+        assert len(args) == 10
+        return sum(args)
+
+    F1PTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+    F2PTR = lltype.Ptr(lltype.FuncType([lltype.Signed]*2, lltype.Signed))
+    F10PTR = lltype.Ptr(lltype.FuncType([lltype.Signed]*10, lltype.Signed))
+    f1ptr = llhelper(F1PTR, f1)
+    f2ptr = llhelper(F2PTR, f2)
+    f10ptr = llhelper(F10PTR, f10)
+
+    f1_calldescr = cpu.calldescrof(F1PTR.TO, F1PTR.TO.ARGS, F1PTR.TO.RESULT,
+                                   EffectInfo.MOST_GENERAL)
+    f2_calldescr = cpu.calldescrof(F2PTR.TO, F2PTR.TO.ARGS, F2PTR.TO.RESULT,
+                                   EffectInfo.MOST_GENERAL)
+    f10_calldescr = cpu.calldescrof(F10PTR.TO, F10PTR.TO.ARGS, F10PTR.TO.RESULT,
+                                    EffectInfo.MOST_GENERAL)
+
+    namespace = locals().copy()
+
+    def parse(self, s, boxkinds=None, namespace=None):
+        return parse(s, self.cpu, namespace or self.namespace,
+                     boxkinds=boxkinds)
+
+    def allocate(self, s):
+        loop = self.parse(s)
+        self.loop = loop
+        regalloc = FakeRegalloc()
+        regalloc.prepare_loop(loop.inputargs, loop.operations,
+                              loop.original_jitcell_token, [])
+        return regalloc.fake_allocate(loop)
+
+    def _consider_binop(self, op):
+        loc, argloc = self._consider_binop_part(op)
+        self.perform(op, [loc, argloc], loc)
+
+
+    def test_simple(self):
+        ops = '''
+        [i0]
+        label(i0, descr=targettoken)
+        i1 = int_add(i0, 1)
+        i2 = int_lt(i1, 20)
+        guard_true(i2) [i1]
+        jump(i1, descr=targettoken)
+        '''
+        emitted = self.allocate(ops)
+        fp0 = FakeFramePos(0, INT)
+        assert emitted == [
+            ("label", [fp0]),
+            ("move", r0, fp0),
+            ("int_add", r0, [1]),
+            ("int_lt", r8, [r0, 20]),
+            ("guard_true", r8),
+            ("jump", [r0]),
+            ]

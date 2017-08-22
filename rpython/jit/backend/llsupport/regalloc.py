@@ -1,4 +1,3 @@
-import os
 from rpython.jit.metainterp.history import Const, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop, AbstractValue
