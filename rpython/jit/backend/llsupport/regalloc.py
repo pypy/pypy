@@ -856,6 +856,22 @@ class Lifetime(object):
     def __repr__(self):
         return "%s:%s(%s)" % (self.definition_pos, self.real_usages, self.last_usage)
 
+class LifetimeManager(object):
+    def __init__(self, longevity):
+        self.longevity = longevity
+
+    def register_hint(self, opindex, var, register):
+        raise NotImplementedError
+
+    def __contains__(self, var):
+        return var in self.longevity
+
+    def __getitem__(self, var):
+        return self.longevity[var]
+
+    def __setitem__(self, var, val):
+        self.longevity[var] = val
+
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to Lifetime information
     # if a variable is not in the dictionary, it's operation is dead because
@@ -912,7 +928,7 @@ def compute_vars_longevity(inputargs, operations):
         if not we_are_translated():
             lifetime._check_invariants()
 
-    return longevity
+    return LifetimeManager(longevity)
 
 def is_comparison_or_ovf_op(opnum):
     return rop.is_comparison(opnum) or rop.is_ovf(opnum)
