@@ -536,23 +536,27 @@ class W_TypeObject(W_Root):
         space = self.space
         if self.is_heaptype():
             return self.getdictvalue(space, '__module__')
+        elif self.is_cpytype():
+            dot = self.name.rfind('.')
         else:
             dot = self.name.find('.')
-            if dot >= 0:
-                mod = self.name[:dot]
-            else:
-                mod = "__builtin__"
-            return space.newtext(mod)
+        if dot >= 0:
+            mod = self.name[:dot]
+        else:
+            mod = "__builtin__"
+        return space.newtext(mod)
 
     def getname(self, space):
         if self.is_heaptype():
             return self.name
+        elif self.is_cpytype():
+            dot = self.name.rfind('.')
         else:
             dot = self.name.find('.')
-            if dot >= 0:
-                return self.name[dot+1:]
-            else:
-                return self.name
+        if dot >= 0:
+            return self.name[dot+1:]
+        else:
+            return self.name
 
     def add_subclass(self, w_subclass):
         space = self.space
