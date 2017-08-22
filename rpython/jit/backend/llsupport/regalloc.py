@@ -884,12 +884,13 @@ class FixedRegisterPositions(object):
     def compute_free_until_pos(self, opindex):
         for (index, varlifetime) in self.index_lifetimes:
             if opindex <= index:
-                if varlifetime.definition_pos >= opindex:
+                if varlifetime is not None and varlifetime.definition_pos >= opindex:
                     return varlifetime.definition_pos
                 else:
-                    # the variable didn't make it into the register despite
-                    # being defined already. so we don't care too much, and can
-                    # say that the variable is free until index
+                    # the variable doesn't exist or didn't make it into the
+                    # register despite being defined already. so we don't care
+                    # too much, and can say that the variable is free until
+                    # index
                     return index
         return sys.maxint
 
@@ -904,11 +905,14 @@ class LifetimeManager(object):
         """ Tell the LifetimeManager that variable var *must* be in register at
         operation opindex. var can be None, if no variable at all can be in
         that register at the point."""
-        varlifetime = self.longevity[var]
+        if var is None:
+            varlifetime = None
+        else:
+            varlifetime = self.longevity[var]
+            varlifetime.fixed_register(opindex, register)
         if register not in self.fixed_register_use:
             self.fixed_register_use[register] = FixedRegisterPositions(register)
         self.fixed_register_use[register].fixed_register(opindex, varlifetime)
-        varlifetime.fixed_register(opindex, register)
 
     def compute_longest_free_reg(self, position, free_regs):
         """ for every register in free_regs, compute how far into the

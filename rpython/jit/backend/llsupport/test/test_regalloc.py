@@ -148,6 +148,46 @@ def test_fixed_position():
     assert fpr1.index_lifetimes == [(5, l1), (8, l1)]
     assert fpr2.index_lifetimes == [(4, l0)]
 
+def test_fixed_position_none():
+    b0, b1, b2 = newboxes(0, 0, 0)
+    l0 = Lifetime(0, 5)
+    l1 = Lifetime(2, 9)
+    l2 = Lifetime(0, 9)
+    longevity = LifetimeManager({b0: l0, b1: l1, b2: l2})
+    longevity.fixed_register(1, r0)
+    longevity.fixed_register(4, r2)
+    longevity.fixed_register(5, r1)
+    longevity.fixed_register(8, r1)
+
+    fpr0 = longevity.fixed_register_use[r0]
+    fpr1 = longevity.fixed_register_use[r1]
+    fpr2 = longevity.fixed_register_use[r2]
+    assert r3 not in longevity.fixed_register_use
+    assert fpr0.index_lifetimes == [(1, None)]
+    assert fpr1.index_lifetimes == [(5, None), (8, None)]
+    assert fpr2.index_lifetimes == [(4, None)]
+
+
+def test_compute_free_until_pos_none():
+    longevity = LifetimeManager({})
+    longevity.fixed_register(1, r0, None)
+    longevity.fixed_register(4, r2, None)
+    longevity.fixed_register(5, r1, None)
+    longevity.fixed_register(8, r1, None)
+    longevity.fixed_register(35, r1, None)
+
+    fpr1 = longevity.fixed_register_use[r1]
+
+    assert fpr1.compute_free_until_pos(0) == 5
+    assert fpr1.compute_free_until_pos(1) == 5
+    assert fpr1.compute_free_until_pos(2) == 5
+    assert fpr1.compute_free_until_pos(3) == 5
+    assert fpr1.compute_free_until_pos(4) == 5
+    assert fpr1.compute_free_until_pos(5) == 5
+    assert fpr1.compute_free_until_pos(10) == 35
+    assert fpr1.compute_free_until_pos(20) == 35
+    assert fpr1.compute_free_until_pos(30) == 35
+    assert fpr1.compute_free_until_pos(36) == sys.maxint
 
 def test_compute_free_until_pos():
     b0, b1, b2 = newboxes(0, 0, 0)
