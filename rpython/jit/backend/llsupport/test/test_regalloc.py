@@ -945,12 +945,15 @@ class FakeRegalloc(BaseRegalloc):
     def __init__(self):
         self.assembler = MockAsm()
 
-    def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
-        operations = self._prepare(inputargs, operations, allgcrefs)
+    def fake_prepare_loop(self, inputargs, operations, looptoken, inputarg_locs=None):
+        operations = self._prepare(inputargs, operations, [])
         self.operations = operations
-        self._set_initial_bindings(inputargs, looptoken)
-        # note: we need to make a copy of inputargs because possibly_free_vars
-        # is also used on op args, which is a non-resizable list
+        if inputarg_locs is None:
+            self._set_initial_bindings(inputargs, looptoken)
+        else:
+            for v, loc in zip(inputargs, inputarg_locs):
+                self.rm.reg_bindings[v] = loc
+                self.rm.free_regs.remove(loc)
         self.possibly_free_vars(list(inputargs))
         self._add_fixed_registers()
         return operations
@@ -1105,12 +1108,12 @@ class TestFullRegallocFakeCPU(object):
         return parse(s, self.cpu, namespace or self.namespace,
                      boxkinds=boxkinds)
 
-    def allocate(self, s):
+    def allocate(self, s, inputarg_locs=None):
         loop = self.parse(s)
         self.loop = loop
         regalloc = FakeRegalloc()
-        regalloc.prepare_loop(loop.inputargs, loop.operations,
-                              loop.original_jitcell_token, [])
+        regalloc.fake_prepare_loop(loop.inputargs, loop.operations,
+                                   loop.original_jitcell_token, inputarg_locs)
         self.regalloc = regalloc
         return regalloc.fake_allocate(loop)
 
@@ -1200,3 +1203,36 @@ class TestFullRegallocFakeCPU(object):
             ('call_i', r0, [r1]),
             ('guard_false', r0, [])
         ]
+
+    def test_specify_inputarg_locs(self):
+        ops = '''
+        [i0]
+        i1 = int_mul(i0, 5)
+        i5 = int_is_true(i1)
+        guard_true(i5) []
+        '''
+        emitted = self.allocate(ops, [r0])
+        assert emitted == [
+            ('int_mul', r0, [5]),
+            ('int_is_true', r8, [r0]),
+            ('guard_true', r8, [])
+        ]
+
+    def test_coalescing_first_var_already_in_different_reg(self):
+        py.test.skip("messy - later")
+        ops = '''
+        [i0]
+        i2 = int_mul(i0, 2)
+        i3 = int_add(i2, 1) # i2 and i3 need to be coalesced
+        i4 = call_i(ConstClass(f1ptr), i3, descr=f1_calldescr)
+        guard_false(i4) [i0]
+        '''
+        emitted = self.allocate(ops, [r5])
+        assert emitted == [
+            ('move', r1, r5),
+            ('int_mul', r1, [2]),
+            ('int_add', r1, [1]),
+            ('call_i', r0, [r1]),
+            ('guard_false', r0, [])
+        ]
+
