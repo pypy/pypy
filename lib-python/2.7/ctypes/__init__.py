@@ -364,7 +364,7 @@ class CDLL(object):
                 pypy_dll = _ffi.CDLL(name, mode)
             else:
                 pypy_dll = _ffi.WinDLL(name, mode)
-            self._pypy_dll = pypy_dll
+            self.__pypy_dll__ = pypy_dll
             handle = int(pypy_dll)
             if _sys.maxint > 2 ** 32:
                 handle = int(handle)   # long -> int
