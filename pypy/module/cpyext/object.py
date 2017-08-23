@@ -80,24 +80,6 @@ def _PyObject_GC_NewVar(space, type, itemcount):
 def PyObject_GC_Del(space, obj):
     PyObject_Free(space, obj)
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_GC_Track(space, op):
-    """Adds the object op to the set of container objects tracked by the
-    collector.  The collector can run at unexpected times so objects must be
-    valid while being tracked.  This should be called once all the fields
-    followed by the tp_traverse handler become valid, usually near the
-    end of the constructor."""
-    pass
-
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_GC_UnTrack(space, op):
-    """Remove the object op from the set of container objects tracked by the
-    collector.  Note that PyObject_GC_Track() can be called again on
-    this object to add it back to the set of tracked objects.  The deallocator
-    (tp_dealloc handler) should call this for the object before any of
-    the fields used by the tp_traverse handler become invalid."""
-    pass
-
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
     return lltype.nullptr(PyObjectP.TO)
