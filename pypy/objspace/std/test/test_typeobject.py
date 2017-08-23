@@ -1284,6 +1284,25 @@ class AppTestTypeObject:
         raises(ValueError, type, 'A\x00B', (), {})
         raises(TypeError, type, b'A', (), {})
 
+    def test_incomplete_extend(self): """
+        # Extending an unitialized type with type.__mro__ is None must
+        # throw a reasonable TypeError exception, instead of failing
+        # with a segfault.
+        class M(type):
+            def mro(cls):
+                if cls.__mro__ is None and cls.__name__ != 'X':
+                    try:
+                        class X(cls):
+                            pass
+                    except TypeError:
+                        found.append(1)
+                return type.mro(cls)
+        found = []
+        class A(metaclass=M):
+            pass
+        assert found == [1]
+        """
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

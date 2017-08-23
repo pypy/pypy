@@ -1055,6 +1055,9 @@ def check_and_find_best_base(space, bases_w):
     if w_bestbase is None:
         raise oefmt(space.w_TypeError,
                     "a new-style class can't have only classic bases")
+    if not w_bestbase.hasmro:
+        raise oefmt(space.w_TypeError,
+                    "Cannot extend an incomplete type '%N'", w_bestbase)
     if not w_bestbase.layout.typedef.acceptable_as_base_class:
         raise oefmt(space.w_TypeError,
                     "type '%N' is not an acceptable base class", w_bestbase)
