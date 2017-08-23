@@ -94,6 +94,13 @@ def PyObject_GC_UnTrack(space, op):
     the fields used by the tp_traverse handler become invalid."""
     pass
 
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyType_IS_GC(space, o):
+    """Return true if the type object includes support for the cycle detector; this
+    tests the type flag Py_TPFLAGS_HAVE_GC.
+    """
+    return False
+
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
     return lltype.nullptr(PyObjectP.TO)
