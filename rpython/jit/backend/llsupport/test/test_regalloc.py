@@ -1032,6 +1032,14 @@ class FakeRegalloc(BaseRegalloc):
                 locs = [self.loc(x) for x in op.getarglist()]
                 emit(opname, locs)
                 descr._fake_arglocs = locs
+                lastop = loop.operations[-1]
+                if lastop.getopname() == "jump" and lastop.getdescr() is descr:
+                    # now we know the places, add hints
+                    for i, r in enumerate(locs):
+                        if isinstance(r, FakeReg):
+                            self.longevity.fixed_register(
+                                len(loop.operations) - 1, r, lastop.getarg(i))
+
             elif opname == "jump":
                 src_locs = [self.loc(x) for x in op.getarglist()]
                 dst_locs = op.getdescr()._fake_arglocs
@@ -1269,3 +1277,24 @@ class TestFullRegallocFakeCPU(object):
         '''
         emitted = self.allocate(ops, [r5, r1, r0, r2, r3, r6, r7])
         assert emitted == ["???"]
+
+    def test_jump_hinting(self):
+        ops = '''
+        [i0, i1]
+        i2 = escape_i()
+        i3 = escape_i()
+        label(i2, i3, descr=targettoken)
+        i4 = escape_i()
+        i5 = escape_i()
+        jump(i4, i5, descr=targettoken)
+        '''
+        self.targettoken._fake_arglocs = [r5, r6]
+        emitted = self.allocate(ops)
+        assert emitted == [
+            ('escape_i', r0, []),
+            ('escape_i', r1, []),
+            ('label', [r0, r1]),
+            ('escape_i', r0, []),
+            ('escape_i', r1, []),
+            ('jump', [r0, r1])
+        ]
