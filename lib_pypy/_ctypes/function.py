@@ -430,7 +430,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
             ffires = restype.get_ffi_argtype()
             return _ffi.FuncPtr.fromaddr(ptr, '', ffiargs, ffires, self._flags_)
 
-        cdll = self.dll._pypy_dll
+        cdll = self.dll.__pypy_dll__
         try:
             ffi_argtypes = [argtype.get_ffi_argtype() for argtype in argtypes]
             ffi_restype = restype.get_ffi_argtype()

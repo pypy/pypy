@@ -1516,13 +1516,6 @@ def PyType_GetFlags(space, type):
     raise NotImplementedError
 
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyType_IS_GC(space, o):
-    """Return true if the type object includes support for the cycle detector; this
-    tests the type flag Py_TPFLAGS_HAVE_GC."""
-    raise NotImplementedError
-
-
 @cpython_api([], rffi.INT_real, error=-1)
 def PyUnicode_ClearFreeList(space, ):
     """Clear the free list. Return the total number of freed items."""
