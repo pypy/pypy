@@ -617,6 +617,7 @@ class TestRegalloc(object):
                               assembler=asm)
         for b in boxes[:-1]:
             rm.force_allocate_reg(b)
+        rm.position = 0
         rm.before_call()
         assert len(rm.reg_bindings) == 2
         assert fm.get_frame_depth() == 2
@@ -1236,3 +1237,35 @@ class TestFullRegallocFakeCPU(object):
             ('guard_false', r0, [])
         ]
 
+    def test_call_spill_furthest_use(self):
+        # here, i2 should be spilled, because its use is farther away
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6]
+        i8 = call_i(ConstClass(f2ptr), i0, i1, descr=f2_calldescr)
+        escape_i(i3)
+        escape_i(i2)
+        guard_false(i8) [i2, i3, i4, i5, i6]
+        '''
+        emitted = self.allocate(ops, [r1, r2, r0, r3, r4, r5, r6])
+        fp0 = FakeFramePos(0, INT)
+        assert emitted == [
+            ('move', fp0, r0),
+            ('move', r7, r3),
+            ('call_i', r0, [r1, r2]),
+            ('escape_i', r1, [r7]),
+            ('escape_i', r1, [fp0]),
+            ('guard_false', r0, [fp0, r7, r4, r5, r6])
+        ]
+
+    def test_call_spill(self):
+        py.test.skip("also messy")
+        # i0 dies, i1 is the argument, the other fight for caller-saved regs
+        # all_regs = [r0, r1, r2, r3, r4, r5, r6, r7]
+        # save_around_call_regs = [r0, r1, r2, r3]
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6]
+        i8 = call_i(ConstClass(f2ptr), i1, i0, descr=f2_calldescr)
+        guard_false(i8) [i2, i3, i4, i5, i6]
+        '''
+        emitted = self.allocate(ops, [r5, r1, r0, r2, r3, r6, r7])
+        assert emitted == ["???"]

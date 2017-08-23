@@ -418,20 +418,24 @@ class RegisterManager(object):
         return loc
 
     def _pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
-                                need_lower_byte=False):
+                                need_lower_byte=False, vars=None):
+        # YYY v is unused, remove
+
         # try to spill a variable that has no further real usages, ie that only
         # appears in failargs or in a jump
         # if that doesn't exist, spill the variable that has a real_usage that
         # is the furthest away from the current position
 
         # YYY check for fixed variable usages
+        if vars is None:
+            vars = self.reg_bindings.keys()
 
         cur_max_use_distance = -1
         position = self.position
         candidate = None
         cur_max_age_failargs = -1
         candidate_from_failargs = None
-        for next in self.reg_bindings:
+        for next in vars:
             reg = self.reg_bindings[next]
             if next in forbidden_vars:
                 continue
@@ -696,46 +700,31 @@ class RegisterManager(object):
             else:
                 # this is a register like eax/rax, which needs either
                 # spilling or moving.
-                move_or_spill.append((v, max_age))
+                move_or_spill.append(v)
 
         if len(move_or_spill) > 0:
-            while len(self.free_regs) > 0:
-                # YYY here we need to use the new information to pick stuff
-                new_reg = self.free_regs.pop()
-                if new_reg in self.save_around_call_regs:
-                    new_free_regs.append(new_reg)    # not this register...
-                    continue
-                # This 'new_reg' is suitable for moving a candidate to.
-                # Pick the one with the smallest max_age.  (This
-                # is one step of a naive sorting algo, slow in theory,
-                # but the list should always be very small so it
-                # doesn't matter.)
-                best_i = 0
-                smallest_max_age = move_or_spill[0][1]
-                for i in range(1, len(move_or_spill)):
-                    max_age = move_or_spill[i][1]
-                    if max_age < smallest_max_age:
-                        best_i = i
-                        smallest_max_age = max_age
-                v, max_age = move_or_spill.pop(best_i)
-                # move from 'reg' to 'new_reg'
+            free_regs = [reg for reg in self.free_regs
+                             if reg not in self.save_around_call_regs]
+            # chose which to spill using the usual spill heuristics
+            while len(move_or_spill) > len(free_regs):
+                v = self._pick_variable_to_spill(None, [], vars=move_or_spill)
+                self._bc_spill(v, new_free_regs)
+                move_or_spill.remove(v)
+            assert len(move_or_spill) <= len(free_regs)
+            for v in move_or_spill:
+                # search next good reg
+                new_reg = None
+                while True:
+                    new_reg = self.free_regs.pop()
+                    if new_reg in self.save_around_call_regs:
+                        new_free_regs.append(new_reg)    # not this register...
+                        continue
+                    break
+                assert new_reg is not None # must succeed
                 reg = self.reg_bindings[v]
-                if not we_are_translated():
-                    if move_or_spill:
-                        assert max_age <= min([_a for _, _a in move_or_spill])
-                    assert reg in save_sublist
-                    assert reg in self.save_around_call_regs
-                    assert new_reg not in self.save_around_call_regs
                 self.assembler.regalloc_mov(reg, new_reg)
                 self.reg_bindings[v] = new_reg    # change the binding
                 new_free_regs.append(reg)
-                #
-                if len(move_or_spill) == 0:
-                    break
-            else:
-                # no more free registers to move to, spill the rest
-                for v, max_age in move_or_spill:
-                    self._bc_spill(v, new_free_regs)
 
         # re-add registers in 'new_free_regs', but in reverse order,
         # so that the last ones (added just above, from
