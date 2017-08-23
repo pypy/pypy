@@ -997,8 +997,8 @@ class FakeRegalloc(BaseRegalloc):
 
     def fake_allocate(self, loop):
         from rpython.jit.backend.x86.jump import remap_frame_layout
-
-        emit = self.assembler.emitted.append
+        def emit(*args):
+            self.assembler.emitted.append(args)
         for i, op in enumerate(loop.operations):
             self.rm.position = i
             opnum = op.getopnum()
@@ -1006,15 +1006,15 @@ class FakeRegalloc(BaseRegalloc):
             if rop.is_comparison(opnum):
                 locs = [self.loc(x) for x in op.getarglist()]
                 loc = self.force_allocate_reg_or_cc(op)
-                emit((opname, loc, locs))
+                emit(opname, loc, locs)
             elif opname.startswith("int_"):
                 locs = [self.loc(x) for x in op.getarglist()]
                 loc = self.rm.force_result_in_reg(
                     op, op.getarg(0), op.getarglist())
-                emit((opname, loc, locs[1:]))
+                emit(opname, loc, locs[1:])
             elif op.is_guard():
                 fail_locs = [self.loc(x) for x in op.getfailargs()]
-                emit((opname, self.loc(op.getarg(0)), fail_locs))
+                emit(opname, self.loc(op.getarg(0)), fail_locs)
             elif rop.is_call(opnum):
                 # calling convention!
                 src_locs = [self.loc(x) for x in op.getarglist()[1:]]
@@ -1022,19 +1022,24 @@ class FakeRegalloc(BaseRegalloc):
                 loc = self.rm.after_call(op)
                 dst_locs = [r1, r2, r3][:len(src_locs)]
                 remap_frame_layout(self.assembler, src_locs, dst_locs, r8)
-                emit((opname, loc, dst_locs))
+                emit(opname, loc, dst_locs)
             elif opname == "label":
                 descr = op.getdescr()
                 locs = [self.loc(x) for x in op.getarglist()]
-                emit((opname, locs))
+                emit(opname, locs)
                 descr._fake_arglocs = locs
+            elif opname == "jump":
+                src_locs = [self.loc(x) for x in op.getarglist()]
+                dst_locs = op.getdescr()._fake_arglocs
+                remap_frame_layout(self.assembler, src_locs, dst_locs, r8)
+                emit("jump", dst_locs)
             else:
                 locs = [self.loc(x) for x in op.getarglist()]
                 if op.type != "v":
                     loc = self.rm.force_allocate_reg(op)
-                    emit((opname, loc, locs))
+                    emit(opname, loc, locs)
                 else:
-                    emit((opname, locs))
+                    emit(opname, locs)
             self.possibly_free_vars_for_op(op)
         return self.assembler.emitted
 
@@ -1131,7 +1136,8 @@ class TestFullRegallocFakeCPU(object):
             ("int_add", r0, [1]),
             ("int_lt", r8, [r0, 20]),
             ("guard_true", r8, [r0]),
-            ("jump", [r0]),
+            ("move", fp0, r0),
+            ("jump", [fp0]),
         ]
 
     def test_call(self):
