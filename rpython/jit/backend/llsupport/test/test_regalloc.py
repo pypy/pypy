@@ -972,6 +972,14 @@ class FakeRegalloc(BaseRegalloc):
             if var is not None: # xxx kludgy
                 self.possibly_free_var(var)
 
+    def possibly_free_vars_for_op(self, op):
+        for i in range(op.numargs()):
+            var = op.getarg(i)
+            if var is not None: # xxx kludgy
+                self.possibly_free_var(var)
+        if op.type != 'v':
+            self.possibly_free_var(op)
+
     def loc(self, x):
         return self.rm.loc(x)
 
@@ -1027,16 +1035,23 @@ class FakeRegalloc(BaseRegalloc):
                     emit((opname, loc, locs))
                 else:
                     emit((opname, locs))
+            self.possibly_free_vars_for_op(op)
         return self.assembler.emitted
 
     def _add_fixed_registers(self):
         for i, op in enumerate(self.operations):
-            if rop.is_call(op.getopnum()):
+            opnum = op.getopnum()
+            opname = op.getopname()
+            args = op.getarglist()
+            if rop.is_call(opnum):
                 # calling convention!
                 arglist = op.getarglist()[1:]
                 for arg, reg in zip(arglist + [None] * (3 - len(arglist)), [r1, r2, r3]):
                     self.longevity.fixed_register(i, reg, arg)
                 self.longevity.fixed_register(i, r0, op)
+            elif opname.startswith("int_"):
+                if not args[0].is_constant():
+                    self.longevity.try_use_same_register(args[0], op)
 
 
 CPU = getcpuclass()
@@ -1156,9 +1171,11 @@ class TestFullRegallocFakeCPU(object):
         ]
 
     def test_coalescing(self):
-        py.test.skip("hard - later")
         ops = '''
         [i0]
+        i1 = int_mul(i0, 5)
+        i5 = int_is_true(i1)
+        guard_true(i5) []
         i2 = int_mul(i0, 2)
         i3 = int_add(i2, 1) # i2 and i3 need to be coalesced
         i4 = call_i(ConstClass(f1ptr), i3, descr=f1_calldescr)
@@ -1167,9 +1184,13 @@ class TestFullRegallocFakeCPU(object):
         emitted = self.allocate(ops)
         fp0 = FakeFramePos(0, INT)
         assert emitted == [
-            ("move", r1, fp0),
-            ("int_mul", r1, [2]),
-            ("int_add", r1, [1]),
-            ("call_i", r0, [r1]),
-            ("guard_false", r0, []),
+            ('move', r1, fp0),
+            ('int_mul', r1, [5]),
+            ('int_is_true', r8, [r1]),
+            ('guard_true', r8, []),
+            ('move', r1, fp0),
+            ('int_mul', r1, [2]),
+            ('int_add', r1, [1]),
+            ('call_i', r0, [r1]),
+            ('guard_false', r0, [])
         ]
