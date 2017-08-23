@@ -297,6 +297,17 @@ def test_try_pick_free_reg():
     loc = longevity.try_pick_free_reg(0, b4, [r1, r2, r3])
     assert loc is r3
 
+def test_try_pick_free_reg_bug():
+    b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
+    l0 = Lifetime(10, 30)
+    l1 = Lifetime(0, 15)
+    longevity = LifetimeManager({b0: l0, b1: l1})
+    longevity.fixed_register(20, r0, b0)
+
+    # does not fit into r0, use r1
+    loc = longevity.try_pick_free_reg(0, b1, [r0, r1])
+    assert loc == r1
+
 def test_simple_coalescing():
     b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
     l0 = Lifetime(0, 4)
@@ -330,6 +341,42 @@ def test_coalescing_blocks_regs_correctly():
     # r1 is picked, because b4 fits before b0
     assert loc is r1
 
+
+def test_chained_coalescing():
+    #              5 + b4
+    #                |
+    #  10  + b0      |
+    #      |         |
+    #      |      15 +
+    #      |
+    #      +
+    #  20
+    #      + b1
+    #      |
+    #      |
+    #      |
+    #      +
+    #  30
+    #      + b2
+    #      |
+    #  r1  *
+    #      |
+    #      +
+    #  40
+    b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
+    l0 = Lifetime(10, 20)
+    l1 = Lifetime(20, 30)
+    l2 = Lifetime(30, 40)
+    l4 = Lifetime(5, 15)
+    longevity = LifetimeManager({b0: l0, b1: l1, b2: l2, b4: l4})
+    longevity.try_use_same_register(b0, b1)
+    longevity.try_use_same_register(b1, b2)
+    longevity.fixed_register(35, r1, b2)
+
+    loc = longevity.try_pick_free_reg(5, b4, [r0, r1])
+    assert loc is r0
+
+
 class TestRegalloc(object):
     def test_freeing_vars(self):
         b0, b1, b2 = newboxes(0, 0, 0)
@@ -356,7 +403,7 @@ class TestRegalloc(object):
         rm._check_invariants()
         assert len(rm.free_regs) == 4
         assert len(rm.reg_bindings) == 0
-        
+
     def test_register_exhaustion(self):
         boxes, longevity = boxes_and_longevity(5)
         rm = RegisterManager(longevity)

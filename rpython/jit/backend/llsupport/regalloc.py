@@ -843,7 +843,7 @@ class Lifetime(object):
         self.share_with = None
 
         # the other lifetime will have this variable set to self.definition_pos
-        self.definition_pos_shared = UNDEF_POS
+        self._definition_pos_shared = UNDEF_POS
 
     def is_last_real_use_before(self, position):
         if self.real_usages is None:
@@ -864,6 +864,12 @@ class Lifetime(object):
                 low = mid + 1
         return l[low]
 
+    def definition_pos_shared(self):
+        if self._definition_pos_shared != UNDEF_POS:
+            return self._definition_pos_shared
+        else:
+            return self.definition_pos
+
     def fixed_register(self, position, reg):
         """ registers a fixed register use for the variable at position in
         register reg. returns the position from where on the register should be
@@ -871,10 +877,7 @@ class Lifetime(object):
         assert self.definition_pos <= position <= self.last_usage
         if self.fixed_positions is None:
             self.fixed_positions = []
-            if self.definition_pos_shared != UNDEF_POS:
-                res = self.definition_pos_shared
-            else:
-                res = self.definition_pos
+            res = self.definition_pos_shared()
         else:
             assert position > self.fixed_positions[-1][0]
             res = self.fixed_positions[-1][0]
@@ -957,7 +960,7 @@ class LifetimeManager(object):
         if longevityvar0.last_usage != longevityvar1.definition_pos:
             return # not supported for now
         longevityvar0.share_with = longevityvar1
-        longevityvar1.definition_pos_shared = longevityvar0.definition_pos
+        longevityvar1._definition_pos_shared = longevityvar0.definition_pos_shared()
 
     def longest_free_reg(self, position, free_regs):
         """ for every register in free_regs, compute how far into the future
@@ -993,7 +996,10 @@ class LifetimeManager(object):
             if fixed_reg_pos is None:
                 unfixed_reg = reg
                 continue
-            use_after = fixed_reg_pos.free_until_pos(longevityvar.last_usage)
+            use_after = fixed_reg_pos.free_until_pos(position)
+            if use_after < longevityvar.last_usage:
+                # can't fit
+                continue
             assert use_after >= longevityvar.last_usage
             if use_after < min_fixed_use_after:
                 best_reg = reg
