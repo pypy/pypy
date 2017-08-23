@@ -143,7 +143,7 @@ def descr_set___class__(space, w_obj, w_newcls):
     from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_newcls, W_TypeObject):
         raise oefmt(space.w_TypeError,
-                    "__class__ must be set to new-style class, not '%T' "
+                    "__class__ must be set to a class, not '%T' "
                     "object", w_newcls)
     if not w_newcls.is_heaptype():
         raise oefmt(space.w_TypeError,
