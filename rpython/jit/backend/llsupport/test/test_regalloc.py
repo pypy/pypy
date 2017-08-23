@@ -292,6 +292,11 @@ def test_try_pick_free_reg():
     loc = longevity.try_pick_free_reg(0, b4, [r5, r2, r3, r4, r1])
     assert loc in [r4, r5]
 
+    # all available are fixed but var doesn't fit completely into any of these.
+    # pick the biggest interval
+    loc = longevity.try_pick_free_reg(0, b4, [r1, r2, r3])
+    assert loc is r3
+
 
 class TestRegalloc(object):
     def test_freeing_vars(self):

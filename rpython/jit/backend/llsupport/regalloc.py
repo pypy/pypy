@@ -700,6 +700,7 @@ class RegisterManager(object):
 
         if len(move_or_spill) > 0:
             while len(self.free_regs) > 0:
+                # YYY here we need to use the new information to pick stuff
                 new_reg = self.free_regs.pop()
                 if new_reg in self.save_around_call_regs:
                     new_free_regs.append(new_reg)    # not this register...
