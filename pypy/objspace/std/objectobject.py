@@ -141,13 +141,17 @@ def descr_get___class__(space, w_obj):
 
 def descr_set___class__(space, w_obj, w_newcls):
     from pypy.objspace.std.typeobject import W_TypeObject
+    from pypy.interpreter.module import Module
+    #
     if not isinstance(w_newcls, W_TypeObject):
         raise oefmt(space.w_TypeError,
                     "__class__ must be set to a class, not '%T' "
                     "object", w_newcls)
-    if not w_newcls.is_heaptype():
+    if not (w_newcls.is_heaptype() or
+            w_newcls is space.gettypeobject(Module.typedef)):
         raise oefmt(space.w_TypeError,
-                    "__class__ assignment: only for heap types")
+                    "__class__ assignment only supported for heap types "
+                    "or ModuleType subclasses")
     w_oldcls = space.type(w_obj)
     assert isinstance(w_oldcls, W_TypeObject)
     if (w_oldcls.get_full_instance_layout() ==
