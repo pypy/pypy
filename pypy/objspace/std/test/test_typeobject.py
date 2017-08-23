@@ -1324,6 +1324,25 @@ class AppTestTypeObject:
         assert found == [1]
         """
 
+    def test_incomplete_extend_3(self): """
+        # this case "works", but gives a slightly strange error message
+        # on both CPython and PyPy
+        class M(type):
+            def mro(cls):
+                if cls.__mro__ is None and cls.__name__ == 'A':
+                    try:
+                        Base.__new__(cls)
+                    except TypeError:
+                        found.append(1)
+                return type.mro(cls)
+        found = []
+        class Base(metaclass=M):
+            pass
+        class A(Base):
+            pass
+        assert found == [1]
+        """
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
