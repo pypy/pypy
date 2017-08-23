@@ -842,6 +842,8 @@ class Lifetime(object):
         # share a register with this variable
         self.share_with = None
 
+        # the other lifetime will have this variable set to self.definition_pos
+        self.definition_pos_shared = UNDEF_POS
 
     def is_last_real_use_before(self, position):
         if self.real_usages is None:
@@ -869,7 +871,10 @@ class Lifetime(object):
         assert self.definition_pos <= position <= self.last_usage
         if self.fixed_positions is None:
             self.fixed_positions = []
-            res = self.definition_pos
+            if self.definition_pos_shared != UNDEF_POS:
+                res = self.definition_pos_shared
+            else:
+                res = self.definition_pos
         else:
             assert position > self.fixed_positions[-1][0]
             res = self.fixed_positions[-1][0]
@@ -952,6 +957,7 @@ class LifetimeManager(object):
         if longevityvar0.last_usage != longevityvar1.definition_pos:
             return # not supported for now
         longevityvar0.share_with = longevityvar1
+        longevityvar1.definition_pos_shared = longevityvar0.definition_pos
 
     def longest_free_reg(self, position, free_regs):
         """ for every register in free_regs, compute how far into the future

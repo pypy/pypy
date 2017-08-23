@@ -310,6 +310,26 @@ def test_simple_coalescing():
     loc = longevity.try_pick_free_reg(0, b0, [r0, r1, r2, r3, r4])
     assert loc is r2
 
+def test_coalescing_blocks_regs_correctly():
+    b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
+    l0 = Lifetime(10, 30)
+    l1 = Lifetime(30, 40)
+    l2 = Lifetime(30, 40)
+    l3 = Lifetime(0, 15)
+    l4 = Lifetime(0, 5)
+    longevity = LifetimeManager({b0: l0, b1: l1, b2: l2, b3: l3, b4: l4})
+    longevity.try_use_same_register(b0, b1)
+    longevity.fixed_register(35, r1, b1)
+    longevity.fixed_register(35, r2, b2)
+
+    loc = longevity.try_pick_free_reg(0, b3, [r1, r2])
+    # r2 is picked, otherwise b0 can't b0 can't end up in r1
+    assert loc is r2
+
+    loc = longevity.try_pick_free_reg(0, b4, [r1, r2])
+    # r1 is picked, because b4 fits before b0
+    assert loc is r1
+
 class TestRegalloc(object):
     def test_freeing_vars(self):
         b0, b1, b2 = newboxes(0, 0, 0)
