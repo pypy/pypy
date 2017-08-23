@@ -1036,6 +1036,9 @@ def find_best_base(bases_w):
     for w_candidate in bases_w:
         if not isinstance(w_candidate, W_TypeObject):
             continue
+        if not w_candidate.hasmro:
+            raise oefmt(w_candidate.space.w_TypeError,
+                        "Cannot extend an incomplete type '%N'", w_candidate)
         if w_bestbase is None:
             w_bestbase = w_candidate   # for now
             continue
@@ -1055,9 +1058,6 @@ def check_and_find_best_base(space, bases_w):
     if w_bestbase is None:
         raise oefmt(space.w_TypeError,
                     "a new-style class can't have only classic bases")
-    if not w_bestbase.hasmro:
-        raise oefmt(space.w_TypeError,
-                    "Cannot extend an incomplete type '%N'", w_bestbase)
     if not w_bestbase.layout.typedef.acceptable_as_base_class:
         raise oefmt(space.w_TypeError,
                     "type '%N' is not an acceptable base class", w_bestbase)

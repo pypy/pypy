@@ -1303,6 +1303,27 @@ class AppTestTypeObject:
         assert found == [1]
         """
 
+    def test_incomplete_extend_2(self): """
+        # Same as test_incomplete_extend, with multiple inheritance
+        class M(type):
+            def mro(cls):
+                if cls.__mro__ is None and cls.__name__ == 'Second':
+                    try:
+                        class X(First, cls):
+                            pass
+                    except TypeError:
+                        found.append(1)
+                return type.mro(cls)
+        found = []
+        class Base(metaclass=M):
+            pass
+        class First(Base):
+            pass
+        class Second(Base):
+            pass
+        assert found == [1]
+        """
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
