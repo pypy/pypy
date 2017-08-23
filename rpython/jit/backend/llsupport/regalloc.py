@@ -838,6 +838,11 @@ class Lifetime(object):
         # specific register
         self.fixed_positions = None
 
+        # another Lifetime that lives after the current one that would like to
+        # share a register with this variable
+        self.share_with = None
+
+
     def is_last_real_use_before(self, position):
         if self.real_usages is None:
             return True
@@ -873,11 +878,12 @@ class Lifetime(object):
 
     def find_fixed_register(self, opindex):
         # XXX could use binary search
-        if self.fixed_positions is None:
-            return None
-        for (index, reg) in self.fixed_positions:
-            if opindex <= index:
-                return reg
+        if self.fixed_positions is not None:
+            for (index, reg) in self.fixed_positions:
+                if opindex <= index:
+                    return reg
+        if self.share_with is not None:
+            return self.share_with.find_fixed_register(opindex)
 
     def _check_invariants(self):
         assert self.definition_pos <= self.last_usage
@@ -935,6 +941,17 @@ class LifetimeManager(object):
         if register not in self.fixed_register_use:
             self.fixed_register_use[register] = FixedRegisterPositions(register)
         self.fixed_register_use[register].fixed_register(opindex, definition_pos)
+
+    def try_use_same_register(self, v0, v1):
+        """ Try to arrange things to put v0 and v1 into the same register.
+        v0 must be defined before v1"""
+        # only works in limited situations now
+        longevityvar0 = self[v0]
+        longevityvar1 = self[v1]
+        assert longevityvar0.definition_pos < longevityvar1.definition_pos
+        if longevityvar0.last_usage != longevityvar1.definition_pos:
+            return # not supported for now
+        longevityvar0.share_with = longevityvar1
 
     def longest_free_reg(self, position, free_regs):
         """ for every register in free_regs, compute how far into the future
