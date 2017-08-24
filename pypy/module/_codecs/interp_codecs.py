@@ -374,16 +374,17 @@ from rpython.rlib import runicode
 
 def make_encoder_wrapper(name):
     rname = "utf8_encode_%s" % (name.replace("_encode", ""), )
-    @unwrap_spec(utf8='utf8', errors='text_or_none')
-    def wrap_encoder(space, utf8, errors="strict"):
+    @unwrap_spec(errors='text_or_none')
+    def wrap_encoder(space, w_arg, errors="strict"):
         from pypy.interpreter import unicodehelper
-        XXX
 
+        w_arg = unicodehelper.convert_arg_to_w_unicode(space, w_arg, rname)
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
         func = getattr(unicodehelper, rname)
-        result = func(utf8, utf8len,
+        utf8len = w_arg._length
+        result = func(w_arg._utf8, utf8len,
             errors, state.encode_error_handler)
         return space.newtuple([space.newbytes(result), space.newint(utf8len)])
     wrap_encoder.func_name = rname

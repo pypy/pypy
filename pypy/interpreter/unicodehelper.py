@@ -29,6 +29,10 @@ def encode_error_handler(space):
                                              space.newtext(msg)]))
     return raise_unicode_exception_encode
 
+def convert_arg_to_w_unicode(space, w_arg, strict=None):
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    return W_UnicodeObject.convert_arg_to_w_unicode(space, w_arg, strict)
+
 # ____________________________________________________________
 
 def encode(space, w_data, encoding=None, errors='strict'):
