@@ -341,6 +341,21 @@ def test_coalescing_blocks_regs_correctly():
     # r1 is picked, because b4 fits before b0
     assert loc is r1
 
+def test_coalescing_non_fixed_regs():
+    b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
+    l0 = Lifetime(0, 10)
+    l1 = Lifetime(10, 20)
+    l2 = Lifetime(25, 40)
+    l3 = Lifetime(15, 40)
+    longevity = LifetimeManager({b0: l0, b1: l1, b2: l2, b3: l3})
+    longevity.try_use_same_register(b0, b1)
+    longevity.fixed_register(35, r2, b2)
+    longevity.fixed_register(35, r3, b3)
+
+    loc = longevity.try_pick_free_reg(0, b0, [r1, r2, r3])
+    # r2 is picked, otherwise b1 can't end up in the same reg as b0
+    assert loc is r2
+
 
 def test_chained_coalescing():
     #              5 + b4
@@ -419,7 +434,7 @@ class TestRegalloc(object):
 
         class XRegisterManager(RegisterManager):
             no_lower_byte_regs = [r2, r3]
-        
+
         rm = XRegisterManager(longevity)
         rm.next_instruction()
         loc0 = rm.try_allocate_reg(b0, need_lower_byte=True)
@@ -454,7 +469,7 @@ class TestRegalloc(object):
 
         class XRegisterManager(RegisterManager):
             no_lower_byte_regs = [r2, r3]
-        
+
         rm = XRegisterManager(longevity,
                               frame_manager=fm,
                               assembler=MockAsm())
@@ -649,7 +664,7 @@ class TestRegalloc(object):
         rm.after_call(boxes[-1])
         assert len(rm.reg_bindings) == 1
         rm._check_invariants()
-        
+
 
     def test_different_frame_width(self):
         class XRegisterManager(RegisterManager):

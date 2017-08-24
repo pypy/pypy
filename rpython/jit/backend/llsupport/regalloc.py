@@ -482,7 +482,7 @@ class RegisterManager(object):
                                     need_lower_byte=need_lower_byte)
         if loc:
             return loc
-        loc = self._spill_var(v, forbidden_vars, selected_reg,
+        loc = self._spill_var(forbidden_vars, selected_reg,
                               need_lower_byte=need_lower_byte)
         prev_loc = self.reg_bindings.get(v, None)
         if prev_loc is not None:
@@ -707,7 +707,7 @@ class RegisterManager(object):
                              if reg not in self.save_around_call_regs]
             # chose which to spill using the usual spill heuristics
             while len(move_or_spill) > len(free_regs):
-                v = self._pick_variable_to_spill(None, [], vars=move_or_spill)
+                v = self._pick_variable_to_spill([], vars=move_or_spill)
                 self._bc_spill(v, new_free_regs)
                 move_or_spill.remove(v)
             assert len(move_or_spill) <= len(free_regs)
@@ -807,6 +807,11 @@ class BaseRegalloc(object):
             assert op.numargs() == 1
             return [self.loc(op.getarg(0))]
 
+
+# ____________________________________________________________
+
+
+
 UNDEF_POS = -42
 
 class Lifetime(object):
@@ -833,6 +838,11 @@ class Lifetime(object):
 
         # the other lifetime will have this variable set to self.definition_pos
         self._definition_pos_shared = UNDEF_POS
+
+    def last_usage_including_sharing(self):
+        while self.share_with is not None:
+            self = self.share_with
+        return self.last_usage
 
     def is_last_real_use_before(self, position):
         if self.real_usages is None:
@@ -918,6 +928,9 @@ class FixedRegisterPositions(object):
                     return index
         return sys.maxint
 
+    def __repr__(self):
+        return "%s: fixed at %s" % (self.register, self.index_lifetimes)
+
 
 class LifetimeManager(object):
     def __init__(self, longevity):
@@ -986,10 +999,10 @@ class LifetimeManager(object):
                 unfixed_reg = reg
                 continue
             use_after = fixed_reg_pos.free_until_pos(position)
-            if use_after < longevityvar.last_usage:
+            if use_after < longevityvar.last_usage_including_sharing():
                 # can't fit
                 continue
-            assert use_after >= longevityvar.last_usage
+            assert use_after >= longevityvar.last_usage_including_sharing()
             if use_after < min_fixed_use_after:
                 best_reg = reg
                 min_fixed_use_after = use_after
