@@ -1,14 +1,18 @@
-
+import py
 import sys
 from hypothesis import given, strategies, settings, example
 
 from rpython.rlib import rutf8, runicode
 
-@given(strategies.integers(min_value=0, max_value=runicode.MAXUNICODE))
-def test_unichr_as_utf8(i):
-    u, lgt = rutf8.unichr_as_utf8(i)
-    r = runicode.UNICHR(i)
-    assert u == r.encode('utf8')
+
+@given(strategies.characters(), strategies.booleans())
+def test_unichr_as_utf8(c, allow_surrogates):
+    i = ord(c)
+    if not allow_surrogates and 0xD800 <= i <= 0xDFFF:
+        py.test.raises(ValueError, rutf8.unichr_as_utf8, i, allow_surrogates)
+    else:
+        u = rutf8.unichr_as_utf8(i, allow_surrogates)
+        assert u == c.encode('utf8')
 
 @given(strategies.binary())
 def test_check_ascii(s):
@@ -19,28 +23,32 @@ def test_check_ascii(s):
         raised = True
     try:
         rutf8.check_ascii(s)
-    except rutf8.AsciiCheckError as a:
+    except rutf8.CheckError:
         assert raised
-        assert a.pos == e.start
     else:
         assert not raised
 
-@given(strategies.binary())
-def test_str_check_utf8(s):
+@given(strategies.binary(), strategies.booleans())
+def test_check_utf8(s, allow_surrogates):
+    _test_check_utf8(s, allow_surrogates)
+
+@given(strategies.text(), strategies.booleans())
+def test_check_utf8_valid(u, allow_surrogates):
+    _test_check_utf8(u.encode('utf-8'), allow_surrogates)
+
+def _test_check_utf8(s, allow_surrogates):
     try:
-        u, _ = runicode.str_decode_utf_8(s, len(s), None, final=True)
+        u, _ = runicode.str_decode_utf_8(s, len(s), None, final=True,
+                                         allow_surrogates=allow_surrogates)
         valid = True
     except UnicodeDecodeError as e:
         valid = False
     try:
-        consumed, length = rutf8.str_check_utf8(s, len(s), final=True)
-    except rutf8.Utf8CheckError as a:
+        length = rutf8.check_utf8(s, allow_surrogates)
+    except rutf8.CheckError:
         assert not valid
-        assert a.startpos == e.start
-        # assert a.end == e.end, ideally
     else:
         assert valid
-        assert consumed == len(s)
         assert length == len(u)
 
 @given(strategies.characters())
@@ -80,5 +88,5 @@ def test_utf8_in_chars(i, uni):
         response = True
     else:
         response = False
-    r = rutf8.utf8_in_chars(unichr(i).encode('utf8'), 0, uni.encode('utf8'))
+    r = unichr(i).encode('utf8') in uni.encode('utf8')
     assert r == response
