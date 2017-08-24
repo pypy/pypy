@@ -34,12 +34,13 @@ class W_UnicodeObject(W_Root):
     @enforceargs(utf8str=str)
     def __init__(self, utf8str, length, ucs4str=None):
         assert isinstance(utf8str, str)
+        assert length >= 0
         if ucs4str is not None:
             assert isinstance(ucs4str, unicode)
         self._utf8 = utf8str
         self._length = length
         self._ucs4 = ucs4str
-        if not we_are_translated() and length != -1:
+        if not we_are_translated():
             assert rutf8.compute_length_utf8(utf8str) == length
 
     def __repr__(self):
@@ -133,8 +134,8 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject.EMPTY
 
     def _len(self):
-        if self._length == -1:
-            self._length = self._compute_length()
+        #if self._length == -1:
+        #    self._length = self._compute_length()
         return self._length
 
     def _compute_length(self):
@@ -902,7 +903,7 @@ def unicode_from_string(space, w_bytes):
     s = space.bytes_w(w_bytes)
     try:
         rutf8.check_ascii(s)
-    except rutf8.AsciiCheckError:
+    except rutf8.CheckError:
         # raising UnicodeDecodeError is messy, "please crash for me"
         return unicode_from_encoded_object(space, w_bytes, "ascii", "strict")
     return W_UnicodeObject(s, len(s))

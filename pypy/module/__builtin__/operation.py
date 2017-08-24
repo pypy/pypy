@@ -5,9 +5,8 @@ Interp-level implementation of the basic space operations.
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from rpython.rlib.rutf8 import unichr_as_utf8
 from rpython.rlib.rfloat import isfinite, isinf, round_double, round_away
-from rpython.rlib import rfloat
+from rpython.rlib import rfloat, rutf8
 import __builtin__
 
 def abs(space, w_val):
@@ -25,12 +24,11 @@ def chr(space, w_ascii):
 @unwrap_spec(code=int)
 def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
-    # XXX this assumes unichr would be happy to return you surrogates
     try:
-        s, lgt = unichr_as_utf8(code)
+        s = rutf8.unichr_as_utf8(code, allow_surrogates=True)
     except ValueError:
         raise oefmt(space.w_ValueError, "unichr() arg out of range")
-    return space.newutf8(s, lgt)
+    return space.newutf8(s, 1)
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."

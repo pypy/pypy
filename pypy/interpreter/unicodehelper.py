@@ -63,8 +63,9 @@ def check_utf8(space, string):
     # you still get two surrogate unicode characters in the result.
     # These are the Python2 rules; Python3 differs.
     try:
-        consumed, length = rutf8.str_check_utf8(string, len(string), True)
-    except rutf8.Utf8CheckError as e:
+        length = rutf8.check_utf8(string, allow_surrogates=True)
+    except rutf8.CheckError as e:
+        XXX
         decode_error_handler(space)('strict', 'utf8', e.msg, string, e.startpos,
                                     e.endpos)
         raise False, "unreachable"
