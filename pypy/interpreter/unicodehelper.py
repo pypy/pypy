@@ -44,7 +44,8 @@ def decode_unicode_escape(space, string):
         string, len(string), "strict",
         final=True, errorhandler=DecodeWrapper(decode_error_handler(space)).handle,
         unicodedata_handler=unicodedata_handler)
-    return result_u.encode('utf8'), len(result_u)
+    # XXX argh.  we want each surrogate to be encoded separately
+    return ''.join([u.encode('utf8') for u in result_u]), len(result_u)
 
 def decode_raw_unicode_escape(space, string):
     # XXX pick better length, maybe
@@ -52,7 +53,8 @@ def decode_raw_unicode_escape(space, string):
     result_u, consumed = runicode.str_decode_raw_unicode_escape(
         string, len(string), "strict",
         final=True, errorhandler=DecodeWrapper(decode_error_handler(space)).handle)
-    return result_u.encode('utf8'), len(result_u)
+    # XXX argh.  we want each surrogate to be encoded separately
+    return ''.join([u.encode('utf8') for u in result_u]), len(result_u)
 
 def check_utf8(space, string):
     # Surrogates are accepted and not treated specially at all.
