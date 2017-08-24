@@ -507,72 +507,6 @@ class TestRegalloc(object):
         assert isinstance(loc, FakeReg)
         rm._check_invariants()
 
-    def test_force_result_in_reg_1(self):
-        b0, b1 = newboxes(0, 0)
-        longevity = {b0: Lifetime(0, 1), b1: Lifetime(1, 3)}
-        fm = TFrameManager()
-        asm = MockAsm()
-        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
-        rm.next_instruction()
-        # first path, var is already in reg and dies
-        loc0 = rm.force_allocate_reg(b0)
-        rm._check_invariants()
-        rm.next_instruction()
-        loc = rm.force_result_in_reg(b1, b0)
-        assert loc is loc0
-        assert len(asm.moves) == 0
-        rm._check_invariants()
-
-    def test_force_result_in_reg_2(self):
-        b0, b1 = newboxes(0, 0)
-        longevity = {b0: Lifetime(0, 2), b1: Lifetime(1, 3)}
-        fm = TFrameManager()
-        asm = MockAsm()
-        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
-        rm.next_instruction()
-        loc0 = rm.force_allocate_reg(b0)
-        rm._check_invariants()
-        rm.next_instruction()
-        loc = rm.force_result_in_reg(b1, b0)
-        assert loc is loc0
-        assert rm.loc(b0) is not loc0
-        assert len(asm.moves) == 1
-        rm._check_invariants()
-
-    def test_force_result_in_reg_3(self):
-        b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
-        longevity = {b0: Lifetime(0, 2), b1: Lifetime(0, 2),
-                     b3: Lifetime(0, 2), b2: Lifetime(0, 2),
-                     b4: Lifetime(1, 3)}
-        fm = TFrameManager()
-        asm = MockAsm()
-        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
-        rm.next_instruction()
-        for b in b0, b1, b2, b3:
-            rm.force_allocate_reg(b)
-        assert not len(rm.free_regs)
-        rm._check_invariants()
-        rm.next_instruction()
-        rm.force_result_in_reg(b4, b0)
-        rm._check_invariants()
-        assert len(asm.moves) == 1
-
-    def test_force_result_in_reg_4(self):
-        b0, b1 = newboxes(0, 0)
-        longevity = {b0: Lifetime(0, 1), b1: Lifetime(0, 1)}
-        fm = TFrameManager()
-        asm = MockAsm()
-        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
-        rm.next_instruction()
-        fm.loc(b0)
-        rm.force_result_in_reg(b1, b0)
-        rm._check_invariants()
-        loc = rm.loc(b1)
-        assert isinstance(loc, FakeReg)
-        loc = rm.loc(b0)
-        assert isinstance(loc, FakeFramePos)
-        assert len(asm.moves) == 1
-
     def test_bogus_make_sure_var_in_reg(self):
         b0, = newboxes(0)
         longevity = {b0: Lifetime(0, 1)}
@@ -600,17 +534,6 @@ class TestRegalloc(object):
             rm.force_allocate_reg(box)
         assert len(asm.moves) == 2       # Const(1) -> r1, twice
         assert len(rm.reg_bindings) == 4
-        rm._check_invariants()
-
-    def test_force_result_in_reg_const(self):
-        boxes, longevity = boxes_and_longevity(2)
-        fm = TFrameManager()
-        asm = MockAsm()
-        rm = RegisterManager(longevity, frame_manager=fm,
-                             assembler=asm)
-        rm.next_instruction()
-        c = ConstInt(0)
-        rm.force_result_in_reg(boxes[0], c)
         rm._check_invariants()
 
     def test_loc_of_const(self):
@@ -935,6 +858,87 @@ class TestRegalloc(object):
         for box in fm.bindings.keys():
             fm.mark_as_free(box)
 
+
+class TestForceResultInReg(object):
+    # use it's own class since there are so many cases
+
+    def test_force_result_in_reg_1(self):
+        b0, b1 = newboxes(0, 0)
+        longevity = {b0: Lifetime(0, 1), b1: Lifetime(1, 3)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        # first path, var is already in reg and dies
+        loc0 = rm.force_allocate_reg(b0)
+        rm._check_invariants()
+        rm.next_instruction()
+        loc = rm.force_result_in_reg(b1, b0)
+        assert loc is loc0
+        assert len(asm.moves) == 0
+        rm._check_invariants()
+
+    def test_force_result_in_reg_2(self):
+        b0, b1 = newboxes(0, 0)
+        longevity = {b0: Lifetime(0, 2), b1: Lifetime(1, 3)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        loc0 = rm.force_allocate_reg(b0)
+        rm._check_invariants()
+        rm.next_instruction()
+        loc = rm.force_result_in_reg(b1, b0)
+        assert loc is loc0
+        assert rm.loc(b0) is not loc0
+        assert len(asm.moves) == 1
+        rm._check_invariants()
+
+    def test_force_result_in_reg_3(self):
+        b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
+        longevity = {b0: Lifetime(0, 2), b1: Lifetime(0, 2),
+                     b3: Lifetime(0, 2), b2: Lifetime(0, 2),
+                     b4: Lifetime(1, 3)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        for b in b0, b1, b2, b3:
+            rm.force_allocate_reg(b)
+        assert not len(rm.free_regs)
+        rm._check_invariants()
+        rm.next_instruction()
+        rm.force_result_in_reg(b4, b0)
+        rm._check_invariants()
+        assert len(asm.moves) == 1
+
+    def test_force_result_in_reg_4(self):
+        b0, b1 = newboxes(0, 0)
+        longevity = {b0: Lifetime(0, 1), b1: Lifetime(0, 1)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        fm.loc(b0)
+        rm.force_result_in_reg(b1, b0)
+        rm._check_invariants()
+        loc = rm.loc(b1)
+        assert isinstance(loc, FakeReg)
+        loc = rm.loc(b0)
+        assert isinstance(loc, FakeFramePos)
+        assert len(asm.moves) == 1
+
+    def test_force_result_in_reg_const(self):
+        boxes, longevity = boxes_and_longevity(2)
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm,
+                             assembler=asm)
+        rm.next_instruction()
+        c = ConstInt(0)
+        rm.force_result_in_reg(boxes[0], c)
+        rm._check_invariants()
+
 # _____________________________________________________
 # tests that assign registers in a mocked way for a fake CPU
 
@@ -1243,7 +1247,6 @@ class TestFullRegallocFakeCPU(object):
         ]
 
     def test_coalescing_first_var_already_in_different_reg(self):
-        py.test.skip("messy - later")
         ops = '''
         [i0]
         i2 = int_mul(i0, 2)
