@@ -334,7 +334,7 @@ def test_coalescing_blocks_regs_correctly():
     longevity.fixed_register(35, r2, b2)
 
     loc = longevity.try_pick_free_reg(0, b3, [r1, r2])
-    # r2 is picked, otherwise b0 can't b0 can't end up in r1
+    # r2 is picked, otherwise b0 can't end up in r1
     assert loc is r2
 
     loc = longevity.try_pick_free_reg(0, b4, [r1, r2])
@@ -1303,7 +1303,6 @@ class TestFullRegallocFakeCPU(object):
         i5 = escape_i()
         jump(i4, i5, descr=targettoken)
         '''
-        self.targettoken._fake_arglocs = [r5, r6]
         emitted = self.allocate(ops)
         assert emitted == [
             ('escape_i', r0, []),

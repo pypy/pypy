@@ -403,23 +403,18 @@ class RegisterManager(object):
             self.free_regs.remove(loc)
             return loc
 
-    def _spill_var(self, v, forbidden_vars, selected_reg,
+    def _spill_var(self, forbidden_vars, selected_reg,
                    need_lower_byte=False):
-        v_to_spill = self._pick_variable_to_spill(v, forbidden_vars,
+        v_to_spill = self._pick_variable_to_spill(forbidden_vars,
                                selected_reg, need_lower_byte=need_lower_byte)
         loc = self.reg_bindings[v_to_spill]
-        del self.reg_bindings[v_to_spill]
         self.assembler.num_spills += 1
-        if self.frame_manager.get(v_to_spill) is None:
-            newloc = self.frame_manager.loc(v_to_spill)
-            self.assembler.regalloc_mov(loc, newloc)
-        else:
-            self.assembler.num_spills_to_existing += 1
+        self._sync_var(v_to_spill)
+        del self.reg_bindings[v_to_spill]
         return loc
 
-    def _pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
+    def _pick_variable_to_spill(self, forbidden_vars, selected_reg=None,
                                 need_lower_byte=False, vars=None):
-        # YYY v is unused, remove
 
         # try to spill a variable that has no further real usages, ie that only
         # appears in failargs or in a jump
@@ -529,7 +524,7 @@ class RegisterManager(object):
             if selected_reg in self.free_regs:
                 self.assembler.regalloc_mov(immloc, selected_reg)
                 return selected_reg
-            loc = self._spill_var(v, forbidden_vars, selected_reg)
+            loc = self._spill_var(forbidden_vars, selected_reg)
             self.free_regs.append(loc)
             self.assembler.regalloc_mov(immloc, loc)
             return loc
@@ -578,12 +573,8 @@ class RegisterManager(object):
         self._check_type(result_v)
         self._check_type(v)
         if isinstance(v, Const):
-            if self.free_regs:
-                loc = self.free_regs.pop()
-            else:
-                loc = self._spill_var(v, forbidden_vars, None)
+            loc = self.force_allocate_reg(result_v, forbidden_vars)
             self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
-            self.reg_bindings[result_v] = loc
             return loc
         if v not in self.reg_bindings:
             # v not in a register. allocate one for result_v and move v there
@@ -605,11 +596,13 @@ class RegisterManager(object):
         return loc
 
     def _sync_var(self, v):
+        self.assembler.num_spills += 1
         if not self.frame_manager.get(v):
-            self.assembler.num_moves_calls += 1
             reg = self.reg_bindings[v]
             to = self.frame_manager.loc(v)
             self.assembler.regalloc_mov(reg, to)
+        else:
+            self.assembler.num_spills_to_existing += 1
         # otherwise it's clean
 
     def _bc_spill(self, v, new_free_regs):
@@ -1102,6 +1095,7 @@ def compute_vars_longevity(inputargs, operations):
 
     return LifetimeManager(longevity)
 
+# YYY unused?
 def is_comparison_or_ovf_op(opnum):
     return rop.is_comparison(opnum) or rop.is_ovf(opnum)
 
