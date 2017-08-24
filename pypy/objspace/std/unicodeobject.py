@@ -365,36 +365,39 @@ class W_UnicodeObject(W_Root):
         return mod_format(space, w_values, self, do_unicode=True)
 
     def descr_translate(self, space, w_table):
-        selfvalue = self._utf8.decode("utf8")
-        w_sys = space.getbuiltinmodule('sys')
-        maxunicode = space.int_w(space.getattr(w_sys,
-                                               space.newtext("maxunicode")))
-        result = []
-        for unichar in selfvalue:
+        input = self._utf8
+        result = StringBuilder(len(input))
+        result_length = 0
+        i = 0
+        while i < len(input):
+            codepoint = rutf8.codepoint_at_pos(input, i)
+            i = rutf8.next_codepoint_pos(input, i)
             try:
-                w_newval = space.getitem(w_table, space.newint(ord(unichar)))
+                w_newval = space.getitem(w_table, space.newint(codepoint))
             except OperationError as e:
-                if e.match(space, space.w_LookupError):
-                    result.append(unichar)
-                else:
+                if not e.match(space, space.w_LookupError):
                     raise
             else:
                 if space.is_w(w_newval, space.w_None):
                     continue
                 elif space.isinstance_w(w_newval, space.w_int):
-                    newval = space.int_w(w_newval)
-                    if newval < 0 or newval > maxunicode:
-                        raise oefmt(space.w_TypeError,
-                                    "character mapping must be in range(%s)",
-                                    hex(maxunicode + 1))
-                    result.append(unichr(newval))
-                elif space.isinstance_w(w_newval, space.w_unicode):
-                    result.append(space.utf8_w(w_newval).decode("utf8"))
+                    codepoint = space.int_w(w_newval)
+                elif isinstance(w_newval, W_UnicodeObject):
+                    result.append(w_newval._utf8)
+                    result_length += w_newval._length
+                    continue
                 else:
                     raise oefmt(space.w_TypeError,
                                 "character mapping must return integer, None "
                                 "or unicode")
-        return W_UnicodeObject(u''.join(result).encode("utf8"), -1)
+            try:
+                rutf8.unichr_as_utf8_append(result, codepoint,
+                                            allow_surrogates=True)
+                result_length += 1
+            except ValueError:
+                raise oefmt(space.w_TypeError,
+                            "character mapping must be in range(0x110000)")
+        return W_UnicodeObject(result.build(), result_length)
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
