@@ -203,6 +203,24 @@ def isspace(s, pos):
         return True
     return False
 
+def utf8_in_chars(value, pos, chars):
+    """Equivalent of u'x' in u'xyz', where the left-hand side is
+    a single UTF-8 character extracted from the string 'value' at 'pos'.
+    Only works if both 'value' and 'chars' are correctly-formed UTF-8
+    strings.
+    """
+    end = next_codepoint_pos(value, pos)
+    i = 0
+    while i < len(chars):
+        k = pos
+        while value[k] == chars[i]:
+            k += 1
+            i += 1
+            if k == end:
+                return True
+        i += 1
+    return False
+
 
 def _invalid_cont_byte(ordch):
     return ordch>>6 != 0x2    # 0b10

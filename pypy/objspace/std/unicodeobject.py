@@ -6,7 +6,7 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder,\
-     replace
+     replace_count
 from rpython.rlib.runicode import make_unicode_escape_function
 from rpython.rlib import rutf8, jit
 
@@ -41,7 +41,7 @@ class W_UnicodeObject(W_Root):
         self._length = length
         self._ucs4 = ucs4str
         if not we_are_translated():
-            assert rutf8.compute_length_utf8(utf8str) == length
+            assert rutf8.check_utf8(utf8str) == length
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -561,30 +561,30 @@ class W_UnicodeObject(W_Root):
         res = []
         value = self._utf8
         if space.is_none(w_sep):
-            res = split(value, maxsplit=maxsplit, isutf8=1)
-            return space.newlist_from_unicode(res)
+            res = split(value, maxsplit=maxsplit, isutf8=True)
+            return space.newlist_utf8(res)
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
-        res = split(value, by, maxsplit, isutf8=1)
+        res = split(value, by, maxsplit, isutf8=True)
 
-        return space.newlist_from_unicode(res)
+        return space.newlist_utf8(res)
 
     @unwrap_spec(maxsplit=int)
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
         res = []
         value = self._utf8
         if space.is_none(w_sep):
-            res = rsplit(value, maxsplit=maxsplit, isutf8=1)
-            return space.newlist_from_unicode(res)
+            res = rsplit(value, maxsplit=maxsplit, isutf8=True)
+            return space.newlist_utf8(res)
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
-        res = rsplit(value, by, maxsplit, isutf8=1)
+        res = rsplit(value, by, maxsplit, isutf8=True)
 
-        return space.newlist_from_unicode(res)
+        return space.newlist_utf8(res)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):
@@ -622,11 +622,13 @@ class W_UnicodeObject(W_Root):
         if count >= 0 and len(input) == 0:
             return self._empty()
         try:
-            res = replace(input, w_sub._utf8, w_by._utf8, count)
+            res, replacements = replace_count(input, w_sub._utf8, w_by._utf8,
+                                              count, isutf8=True)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "replace string is too long")
 
-        return W_UnicodeObject(res, -1)
+        newlength = self._length + replacements * (w_by._length - w_sub._length)
+        return W_UnicodeObject(res, newlength)
 
     def descr_mul(self, space, w_times):
         try:

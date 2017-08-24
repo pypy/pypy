@@ -9,7 +9,7 @@ from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_cons
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
 from rpython.rlib.objectmodel import import_from_mixin, enforceargs, not_rpython
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 
 # Object imports
 from pypy.objspace.std.basestringtype import basestring_typedef
@@ -312,11 +312,12 @@ class StdObjSpace(ObjSpace):
         return self.newlist(list_u)
         return W_ListObject.newlist_unicode(self, list_u)
 
-    def newlist_from_unicode(self, lst):
+    def newlist_utf8(self, lst):
         res_w = []
-        for u in lst:
-            assert u is not None
-            res_w.append(self.newutf8(u, -1))
+        for utf in lst:
+            assert utf is not None
+            assert isinstance(utf, str)
+            res_w.append(self.newutf8(utf, rutf8.check_utf8(utf)))
         return self.newlist(res_w)
 
     def newlist_int(self, list_i):
