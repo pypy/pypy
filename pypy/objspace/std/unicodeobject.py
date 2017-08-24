@@ -41,7 +41,7 @@ class W_UnicodeObject(W_Root):
         self._length = length
         self._ucs4 = ucs4str
         if not we_are_translated():
-            assert rutf8.check_utf8(utf8str) == length
+            assert rutf8.check_utf8(utf8str, allow_surrogates=True) == length
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -845,12 +845,11 @@ def decode_object(space, w_obj, encoding, errors):
             return space.newutf8(s, len(s))
         if encoding == 'utf-8':
             s = space.charbuf_w(w_obj)
-            eh = unicodehelper.decode_error_handler(space)
             try:
-                _, lgt = rutf8.str_check_utf8(s, len(s), final=True,
-                                              allow_surrogates=True)
+                lgt = rutf8.check_utf8(s, allow_surrogates=True)
             except rutf8.CheckError:
                 XXX
+                eh = unicodehelper.decode_error_handler(space)
                 eh(None, 'utf8', e.msg, s, e.startpos, e.endpos)
                 assert False, "has to raise"
             return space.newutf8(s, lgt)
