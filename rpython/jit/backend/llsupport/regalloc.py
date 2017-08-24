@@ -414,7 +414,7 @@ class RegisterManager(object):
         return loc
 
     def _pick_variable_to_spill(self, forbidden_vars, selected_reg=None,
-                                need_lower_byte=False, vars=None):
+                                need_lower_byte=False, regs=None):
 
         # try to spill a variable that has no further real usages, ie that only
         # appears in failargs or in a jump
@@ -422,15 +422,15 @@ class RegisterManager(object):
         # is the furthest away from the current position
 
         # YYY check for fixed variable usages
-        if vars is None:
-            vars = self.reg_bindings.keys()
+        if regs is None:
+            regs = self.reg_bindings.keys()
 
         cur_max_use_distance = -1
         position = self.position
         candidate = None
         cur_max_age_failargs = -1
         candidate_from_failargs = None
-        for next in vars:
+        for next in regs:
             reg = self.reg_bindings[next]
             if next in forbidden_vars:
                 continue
@@ -700,7 +700,7 @@ class RegisterManager(object):
                              if reg not in self.save_around_call_regs]
             # chose which to spill using the usual spill heuristics
             while len(move_or_spill) > len(free_regs):
-                v = self._pick_variable_to_spill([], vars=move_or_spill)
+                v = self._pick_variable_to_spill([], regs=move_or_spill)
                 self._bc_spill(v, new_free_regs)
                 move_or_spill.remove(v)
             assert len(move_or_spill) <= len(free_regs)
