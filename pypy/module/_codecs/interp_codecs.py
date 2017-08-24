@@ -375,7 +375,7 @@ from rpython.rlib import runicode
 def make_encoder_wrapper(name):
     rname = "utf8_encode_%s" % (name.replace("_encode", ""), )
     @unwrap_spec(utf8='utf8', errors='text_or_none')
-    def wrap_encoder(space, utf8, utf8len, errors="strict"):
+    def wrap_encoder(space, utf8, errors="strict"):
         from pypy.interpreter import unicodehelper
         XXX
 
@@ -446,7 +446,8 @@ if hasattr(runicode, 'str_decode_mbcs'):
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=True"
 @unwrap_spec(utf8='utf8', errors='text_or_none')
-def utf_8_encode(space, utf8, utf8len, errors="strict"):
+def utf_8_encode(space, utf8, errors="strict"):
+    XXXX
     return space.newtuple([space.newbytes(utf8), space.newint(utf8len)])
 #@unwrap_spec(uni=unicode, errors='text_or_none')
 #def utf_8_encode(space, uni, errors="strict"):
@@ -472,29 +473,17 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
     state = space.fromcache(CodecState)
     # call the fast version for checking
     try:
-        consumed, lgt = rutf8.str_check_utf8(string, len(string), final)
-    except rutf8.Utf8CheckError as e:
-        if errors == 'strict':
-            # just raise
-            state.decode_error_handler(errors, 'utf8', e.msg, string,
-                                       e.startpos, e.endpos)
-            assert False, "raises"
-        # XXX do the way aroun runicode - we can optimize it later if we
+        lgt = rutf8.check_utf8(string)
+    except rutf8.CheckError as e:
+        # XXX do the way around runicode - we can optimize it later if we
         # decide we care about obscure cases
         res, consumed, lgt = unicodehelper.str_decode_utf8(string, len(string),
             errors, final, state.decode_error_handler)
         return space.newtuple([space.newutf8(res, lgt),
-                           space.newint(consumed)])
-    #result, consumed = runicode.str_decode_utf_8_impl(
-    #    string, len(string), errors,
-    #    final, state.decode_error_handler,
-    #    allow_surrogates=True)
-    if final or consumed == len(string):
-        return space.newtuple([space.newutf8(string, lgt),
                                space.newint(consumed)])
-
-    return space.newtuple([space.newutf8(string[:consumed], lgt),
-                           space.newint(consumed)])
+    else:
+        return space.newtuple([space.newutf8(string, lgt),
+                               space.newint(len(string))])
 
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
@@ -639,8 +628,9 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
     return space.newtuple([space.newunicode(result), space.newint(consumed)])
 
 @unwrap_spec(utf8='utf8', errors='text_or_none')
-def charmap_encode(space, utf8, utf8len, errors="strict", w_mapping=None):
+def charmap_encode(space, utf8, errors="strict", w_mapping=None):
     from pypy.interpreter.unicodehelper import EncodeWrapper
+    XXXXX
 
     if errors is None:
         errors = 'strict'
@@ -658,8 +648,9 @@ def charmap_encode(space, utf8, utf8len, errors="strict", w_mapping=None):
 
 
 @unwrap_spec(chars='utf8')
-def charmap_build(space, chars, charslen):
+def charmap_build(space, chars):
     # XXX CPython sometimes uses a three-level trie
+    XXXXXX
     w_charmap = space.newdict()
     pos = 0
     num = 0
