@@ -522,17 +522,18 @@ class W_UnicodeObject(W_Root):
                 lgt += 1
             eol = pos
             if pos < length:
-                pos = rutf8.next_codepoint_pos(value, pos)
-            # read CRLF as one line break
-            if pos < length and value[eol] == '\r' and value[pos] == '\n':
-                pos += 1
+                # read CRLF as one line break
+                if (value[pos] == '\r' and pos + 1 < length
+                                       and value[pos + 1] == '\n'):
+                    pos += 2
+                    line_end_chars = 2
+                else:
+                    pos = rutf8.next_codepoint_pos(value, pos)
+                    line_end_chars = 1
                 if keepends:
-                    lgt += 1
-            if keepends:
-                eol = pos
-                lgt += 1
-            # XXX find out why lgt calculation is off
-            strs_w.append(W_UnicodeObject(value[sol:eol], -1))
+                    eol = pos
+                    lgt += line_end_chars
+            strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
         return space.newlist(strs_w)
 
     @unwrap_spec(width=int)
