@@ -1,4 +1,4 @@
-import pytest
+import pytest, sys
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, descr_function_get
 from pypy.interpreter.pycode import PyCode
@@ -342,6 +342,11 @@ class AppTestFunction:
         raises(ValueError, type(f).__setstate__, f, (1, 2, 3))
 
 class AppTestMethod:
+    def setup_class(cls):
+        cls.w_runappdirect_on_cpython = cls.space.wrap(
+            cls.runappdirect and
+            '__pypy__' not in sys.builtin_module_names)
+
     def test_simple_call(self):
         class A(object):
             def func(self, arg2):
@@ -560,7 +565,18 @@ class AppTestMethod:
         assert A().m == X()
         assert X() == A().m
 
-    @pytest.mark.skipif("config.option.runappdirect")
+    def test_method_equals_with_identity(self):
+        from types import MethodType
+        class CallableBadEq(object):
+            def __call__(self):
+                pass
+            def __eq__(self, other):
+                raise ZeroDivisionError
+        func = CallableBadEq()
+        meth = MethodType(func, object)
+        assert meth == meth
+        assert meth == MethodType(func, object)
+
     def test_method_identity(self):
         class A(object):
             def m(self):
@@ -577,19 +593,24 @@ class AppTestMethod:
 
         a = A()
         a2 = A()
-        assert a.m is a.m
-        assert id(a.m) == id(a.m)
-        assert a.m is not a.n
-        assert id(a.m) != id(a.n)
-        assert a.m is not a2.m
-        assert id(a.m) != id(a2.m)
+        x = a.m; y = a.m
+        assert x is not y
+        assert id(x) != id(y)
+        assert x == y
+        assert x is not a.n
+        assert id(x) != id(a.n)
+        assert x is not a2.m
+        assert id(x) != id(a2.m)
 
-        assert A.m is A.m
-        assert id(A.m) == id(A.m)
-        assert A.m is not A.n
-        assert id(A.m) != id(A.n)
-        assert A.m is not B.m
-        assert id(A.m) != id(B.m)
+        if not self.runappdirect_on_cpython:
+            assert A.m is A.m
+            assert id(A.m) == id(A.m)
+        assert A.m == A.m
+        x = A.m
+        assert x is not A.n
+        assert id(x) != id(A.n)
+        assert x is not B.m
+        assert id(x) != id(B.m)
 
 
 class TestMethod:

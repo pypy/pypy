@@ -52,12 +52,12 @@ def test_fix_seed():
         os.environ['PYTHONHASHSEED'] = '0'
         initialize_from_env()
         assert siphash24("foo") == 15988776847138518036
-        # value checked with CPython 3.5
+        # value checked with CPython 3.5 (turned positive by adding 2**64)
 
         os.environ['PYTHONHASHSEED'] = '4000000000'
         initialize_from_env()
         assert siphash24("foo") == 13829150778707464258
-        # value checked with CPython 3.5
+        # value checked with CPython 3.5 (turned positive by adding 2**64)
 
         for env in ['', 'random']:
             os.environ['PYTHONHASHSEED'] = env
@@ -118,8 +118,9 @@ def test_translated():
             123, 123, intmask(15988776847138518036),
             456, 456, intmask(15988776847138518036),
             789, 789]
-        assert s1[8] in [intmask(17593683438421985039),    # ucs2 mode
-                         intmask(94801584261658677)]       # ucs4 mode
+        assert s1[8] in [intmask(17593683438421985039),    # ucs2 mode little endian
+                         intmask(94801584261658677),       # ucs4 mode little endian
+                         intmask(3849431280840015342),]    # ucs4 mode big endian
 
         os.environ['PYTHONHASHSEED'] = '3987654321'
         s1 = getall()
@@ -127,8 +128,9 @@ def test_translated():
             123, 123, intmask(5890804383681474441),
             456, 456, intmask(5890804383681474441),
             789, 789]
-        assert s1[8] in [intmask(4192582507672183374),     # ucs2 mode
-                         intmask(7179255293164649778)]     # ucs4 mode
+        assert s1[8] in [intmask(4192582507672183374),     # ucs2 mode little endian
+                         intmask(7179255293164649778),     # ucs4 mode little endian
+                         intmask(-3945781295304514711),]   # ucs4 mode big endian
 
         for env in ['', 'random']:
             os.environ['PYTHONHASHSEED'] = env

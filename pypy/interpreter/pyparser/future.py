@@ -78,6 +78,7 @@ def add_future_flags(future_flags, tokens):
     from pypy.interpreter.pyparser import pygram
     it = TokenIterator(tokens)
     result = 0
+    last_position = (0, 0)
     #
     # The only things that can precede a future statement are another
     # future statement and a doc string (only one).  This is a very
@@ -92,6 +93,11 @@ def add_future_flags(future_flags, tokens):
            it.skip_name("__future__") and
            it.skip_name("import")):
         it.skip(pygram.tokens.LPAR)    # optionally
+        # return in 'last_position' any line-column pair that points
+        # somewhere inside the last __future__ import statement
+        # (at the start would be fine too, but it's easier to grab a
+        # random position inside)
+        last_position = (it.tok[2], it.tok[3])
         result |= future_flags.get_compiler_feature(it.next_feature_name())
         while it.skip(pygram.tokens.COMMA):
             result |= future_flags.get_compiler_feature(it.next_feature_name())
@@ -99,5 +105,4 @@ def add_future_flags(future_flags, tokens):
         it.skip(pygram.tokens.SEMI)    # optionally
         it.skip_newlines()
 
-    position = (it.tok[2], it.tok[3])
-    return result, position
+    return result, last_position

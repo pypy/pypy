@@ -226,11 +226,6 @@ def _Py_c_pow(space, num, exp):
     representation."""
     raise NotImplementedError
 
-@cpython_api([Py_complex], PyObject)
-def PyComplex_FromCComplex(space, v):
-    """Create a new Python complex number object from a C Py_complex value."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE, error=CANNOT_FAIL)
 def PyOS_ascii_strtod(space, nptr, endptr):
     """Convert a string to a double. This function behaves like the Standard C
@@ -490,29 +485,6 @@ def PyUnicodeDecodeError_SetReason(space, exc, reason):
     0 on success, -1 on failure."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], rffi.INT_real, error=1)
-def Py_EnterRecursiveCall(space, where):
-    """Marks a point where a recursive C-level call is about to be performed.
-
-    If USE_STACKCHECK is defined, this function checks if the the OS
-    stack overflowed using PyOS_CheckStack().  In this is the case, it
-    sets a MemoryError and returns a nonzero value.
-
-    The function then checks if the recursion limit is reached.  If this is the
-    case, a RuntimeError is set and a nonzero value is returned.
-    Otherwise, zero is returned.
-
-    where should be a string such as " in instance check" to be
-    concatenated to the RuntimeError message caused by the recursion depth
-    limit."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def Py_LeaveRecursiveCall(space):
-    """Ends a Py_EnterRecursiveCall().  Must be called once for each
-    successful invocation of Py_EnterRecursiveCall()."""
-    raise NotImplementedError
-
 @cpython_api([PyFileObject], lltype.Void)
 def PyFile_IncUseCount(space, p):
     """Increments the PyFileObject's internal use count to indicate
@@ -681,18 +653,6 @@ def PyObject_GC_Resize(space, op, newsize):
 
     This function used an int type for newsize. This might
     require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_GC_TRACK(space, op):
-    """A macro version of PyObject_GC_Track().  It should not be used for
-    extension modules."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_GC_UNTRACK(space, op):
-    """A macro version of PyObject_GC_UnTrack().  It should not be used for
-    extension modules."""
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], PyObject)
@@ -1365,13 +1325,6 @@ def PyModule_CheckExact(space, p):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], PyObject)
-def PyModule_New(space, name):
-    """Return a new module object with the __name__ attribute set to name.  Only
-    the module's __doc__ and __name__ attributes are filled in; the caller is
-    responsible for providing a __file__ attribute."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.CCHARP)
 def PyModule_GetFilename(space, module):
     """Return the name of the file from which module was loaded using module's
@@ -1451,31 +1404,6 @@ def PySequence_Count(space, o, value):
 
     This function returned an int type. This might require changes
     in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_Check(space, p):
-    """Return true if p is a frozenset object or an instance of a
-    subtype.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_CheckExact(space, p):
-    """Return true if p is a frozenset object but not an instance of a
-    subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyFrozenSet_New(space, iterable):
-    """Return a new frozenset containing objects returned by the iterable.
-    The iterable may be NULL to create a new empty frozenset.  Return the new
-    set on success or NULL on failure.  Raise TypeError if iterable is
-    not actually iterable.
-
-    Now guaranteed to return a brand-new frozenset.  Formerly,
-    frozensets of zero-length were a singleton.  This got in the way of
-    building-up new frozensets with PySet_Add()."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
@@ -1563,13 +1491,6 @@ def PyTuple_ClearFreeList(space):
 @cpython_api([], rffi.UINT, error=CANNOT_FAIL)
 def PyType_ClearCache(space):
     """Clear the internal lookup cache. Return the current version tag.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyType_IS_GC(space, o):
-    """Return true if the type object includes support for the cycle detector; this
-    tests the type flag Py_TPFLAGS_HAVE_GC.
     """
     raise NotImplementedError
 

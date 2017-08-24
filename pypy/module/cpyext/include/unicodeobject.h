@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include <cpyext_unicodeobject.h>
+#include "cpyext_unicodeobject.h"
 
 #ifdef __cplusplus
 }

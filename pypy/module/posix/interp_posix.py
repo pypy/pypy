@@ -3,7 +3,7 @@ import sys
 
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 
@@ -36,12 +36,6 @@ def wrap_uid(space, uid):
         return space.newint(uid)     # an unsigned number
 wrap_gid = wrap_uid
 
-def fsencode_w(space, w_obj):
-    if space.isinstance_w(w_obj, space.w_unicode):
-        w_obj = space.call_method(w_obj, 'encode',
-                                  getfilesystemencoding(space))
-    return space.str0_w(w_obj)
-
 class FileEncoder(object):
     is_unicode = True
 
@@ -50,7 +44,7 @@ class FileEncoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return fsencode_w(self.space, self.w_obj)
+        return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
         return self.space.unicode0_w(self.w_obj)
@@ -63,7 +57,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.str0_w(self.w_obj)
+        return self.space.bytes0_w(self.w_obj)
 
     def as_unicode(self):
         space = self.space
@@ -78,7 +72,7 @@ def dispatch_filename(func, tag=0):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.str0_w(w_fname)
+            fname = space.bytes0_w(w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -398,7 +392,7 @@ def times(space):
                                space.newfloat(times[3]),
                                space.newfloat(times[4])])
 
-@unwrap_spec(cmd='str0')
+@unwrap_spec(cmd='text0')
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
@@ -430,7 +424,7 @@ def _getfullpathname(space, w_path):
             fullpath = rposix.getfullpathname(path)
             w_fullpath = space.newunicode(fullpath)
         else:
-            path = space.str0_w(w_path)
+            path = space.bytes0_w(w_path)
             fullpath = rposix.getfullpathname(path)
             w_fullpath = space.newbytes(fullpath)
     except OSError as e:
@@ -501,7 +495,7 @@ def getlogin(space):
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.newtext(cur)
+        return space.newfilename(cur)
 
 # ____________________________________________________________
 
@@ -534,7 +528,7 @@ def _convertenviron(space, w_env):
     for key, value in os.environ.items():
         space.setitem(w_env, space.newtext(key), space.newtext(value))
 
-@unwrap_spec(name='str0', value='str0')
+@unwrap_spec(name='text0', value='text0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
     if _WIN32 and len(name) > _MAX_ENV:
@@ -554,7 +548,7 @@ def putenv(space, name, value):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name='str0')
+@unwrap_spec(name='text0')
 def unsetenv(space, name):
     """Delete an environment variable."""
     try:
@@ -600,7 +594,7 @@ entries '.' and '..' even if they are present in the directory."""
                 result_w[i] = w_res
             return space.newlist(result_w)
         else:
-            dirname = space.str0_w(w_dirname)
+            dirname = space.bytes0_w(w_dirname)
             result = rposix.listdir(dirname)
             # The list comprehension is a workaround for an obscure translation
             # bug.
@@ -698,7 +692,7 @@ in the hardest way possible on the hosting operating system."""
     import signal
     rposix.kill(os.getpid(), signal.SIGABRT)
 
-@unwrap_spec(src='str0', dst='str0')
+@unwrap_spec(src='fsencode', dst='fsencode')
 def link(space, src, dst):
     "Create a hard link to a file."
     try:
@@ -713,7 +707,7 @@ def symlink(space, w_src, w_dst):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def readlink(space, path):
     "Return a string representing the path to which the symbolic link points."
     try:
@@ -737,8 +731,8 @@ def get_fork_hooks(where):
     else:
         assert False, "Unknown fork hook"
 
+@not_rpython
 def add_fork_hook(where, hook):
-    "NOT_RPYTHON"
     get_fork_hooks(where).append(hook)
 
 add_fork_hook('child', ExecutionContext._mark_thread_disappeared)
@@ -804,7 +798,8 @@ def waitpid(space, pid, options):
 def _exit(space, status):
     os._exit(status)
 
-def execv(space, w_command, w_args):
+@unwrap_spec(command='fsencode')
+def execv(space, command, w_args):
     """ execv(path, args)
 
 Execute an executable path with arguments, replacing current process.
@@ -812,17 +807,18 @@ Execute an executable path with arguments, replacing current process.
         path: path of executable file
         args: iterable of strings
     """
-    execve(space, w_command, w_args, None)
+    execve(space, command, w_args, None)
 
 def _env2interp(space, w_env):
     env = {}
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):
         w_value = space.getitem(w_env, w_key)
-        env[space.str0_w(w_key)] = space.str0_w(w_value)
+        env[space.text0_w(w_key)] = space.text0_w(w_value)
     return env
 
-def execve(space, w_command, w_args, w_env):
+@unwrap_spec(command='fsencode')
+def execve(space, command, w_args, w_env):
     """ execve(path, args, env)
 
 Execute a path with arguments and environment, replacing current process.
@@ -831,13 +827,12 @@ Execute a path with arguments and environment, replacing current process.
         args: iterable of arguments
         env: dictionary of strings mapping to strings
     """
-    command = fsencode_w(space, w_command)
     try:
         args_w = space.unpackiterable(w_args)
         if len(args_w) < 1:
             raise oefmt(space.w_ValueError,
                         "execv() must have at least one argument")
-        args = [fsencode_w(space, w_arg) for w_arg in args_w]
+        args = [space.fsencode_w(w_arg) for w_arg in args_w]
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -856,18 +851,18 @@ Execute a path with arguments and environment, replacing current process.
         except OSError as e:
             raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=int, path='str0')
+@unwrap_spec(mode=int, path='fsencode')
 def spawnv(space, mode, path, w_args):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
     except OSError as e:
         raise wrap_oserror(space, e)
     return space.newint(ret)
 
-@unwrap_spec(mode=int, path='str0')
+@unwrap_spec(mode=int, path='fsencode')
 def spawnve(space, mode, path, w_args, w_env):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
@@ -912,7 +907,7 @@ def uname(space):
         r = os.uname()
     except OSError as e:
         raise wrap_oserror(space, e)
-    l_w = [space.newtext(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
+    l_w = [space.newfilename(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
     return space.newtuple(l_w)
 
 def getuid(space):
@@ -966,7 +961,7 @@ def setegid(space, arg):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def chroot(space, path):
     """ chroot(path)
 
@@ -1223,7 +1218,7 @@ for name in rposix.WAIT_MACROS:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.newtext(os.ttyname(fd))
+        return space.newfilename(os.ttyname(fd))
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -1256,7 +1251,7 @@ def fpathconf(space, fd, w_name):
         raise wrap_oserror(space, e)
     return space.newint(res)
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def pathconf(space, path, w_name):
     num = confname_w(space, w_name, os.pathconf_names)
     try:
@@ -1273,7 +1268,7 @@ def confstr(space, w_name):
         raise wrap_oserror(space, e)
     return space.newtext(res)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid."""
     try:
@@ -1281,7 +1276,7 @@ def chown(space, path, uid, gid):
     except OSError as e:
         raise wrap_oserror(space, e, path)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid.
 This function will not follow symbolic links."""
@@ -1360,4 +1355,4 @@ def ctermid(space):
 
     Return the name of the controlling terminal for this process.
     """
-    return space.newtext(os.ctermid())
+    return space.newfilename(os.ctermid())

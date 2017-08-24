@@ -24,7 +24,7 @@ from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCMethodObject, W_PyCFunctionObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
+    PyObject, make_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, Py_DecRef, as_pyobj)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
@@ -195,6 +195,8 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
         py_getsetdef = make_GetSet(space, w_obj)
         assert space.isinstance_w(w_userdata, space.w_type)
         w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)
+        # now w_obj.getset is py_getsetdef, which was freshly allocated
+        # XXX how is this ever released?
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
@@ -338,13 +340,19 @@ def update_all_slots(space, w_type, pto):
                 setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
-    # XXX support PyObject_HashNotImplemented
+    from pypy.module.cpyext.object import PyObject_HashNotImplemented
+    hash_not_impl = PyObject_HashNotImplemented.api_func.get_llhelper(space)
     for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
         offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
+            if slot_names[0] == 'c_tp_hash':
+                if hash_not_impl == func:
+                    # special case for tp_hash == PyObject_HashNotImplemented
+                    dict_w[method_name] = space.w_None
+                    continue
         else:
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
@@ -418,8 +426,8 @@ def add_tp_new_wrapper(space, dict_w, pto):
 
 def inherit_special(space, pto, base_pto):
     # XXX missing: copy basicsize and flags in a magical way
-    # (minimally, if tp_basicsize is zero we copy it from the base)
-    if not pto.c_tp_basicsize:
+    # (minimally, if tp_basicsize is zero or too low, we copy it from the base)
+    if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
     if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
         pto.c_tp_itemsize = base_pto.c_tp_itemsize
@@ -760,7 +768,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))
     else:
-        finish_type_1(space, pto)
+        finish_type_1(space, pto, w_type.bases_w)
         finish_type_2(space, pto, w_type)
 
     pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
@@ -770,10 +778,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
             pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
 
-    if space.is_w(w_type, space.w_object):
-        # will be filled later on with the correct value
-        # may not be 0
-        pto.c_tp_new = cts.cast('newfunc', 1)
     update_all_slots(space, w_type, pto)
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
@@ -903,7 +907,7 @@ def _type_realize(space, py_obj):
 
     return w_obj
 
-def finish_type_1(space, pto):
+def finish_type_1(space, pto, bases_w=None):
     """
     Sets up tp_bases, necessary before creating the interpreter type.
     """
@@ -915,11 +919,14 @@ def finish_type_1(space, pto):
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
     if not pto.c_tp_bases:
-        if not base:
-            bases = space.newtuple([])
-        else:
-            bases = space.newtuple([from_ref(space, base_pyo)])
-        pto.c_tp_bases = make_ref(space, bases)
+        if bases_w is None:
+            if not base:
+                bases_w = []
+            else:
+                bases_w = [from_ref(space, base_pyo)]
+        is_heaptype = bool(pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE)
+        pto.c_tp_bases = make_ref(space, space.newtuple(bases_w),
+                                  immortal=not is_heaptype)
 
 def finish_type_2(space, pto, w_obj):
     """
@@ -930,7 +937,10 @@ def finish_type_2(space, pto, w_obj):
     if base:
         inherit_special(space, pto, base)
     for w_base in space.fixedview(from_ref(space, pto.c_tp_bases)):
-        inherit_slots(space, pto, w_base)
+        if isinstance(w_base, W_TypeObject):
+            inherit_slots(space, pto, w_base)
+        #else:
+        #   w_base is a W_ClassObject, ignore it
 
     if not pto.c_tp_setattro:
         from pypy.module.cpyext.object import PyObject_GenericSetAttr

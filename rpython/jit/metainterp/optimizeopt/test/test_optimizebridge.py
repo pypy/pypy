@@ -30,6 +30,7 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         self.add_guard_future_condition(bridge)
         trace = oparser.convert_loop_to_trace(bridge, FakeMetaInterpStaticData(self.cpu))
         data = compile.BridgeCompileData(trace, self.convert_values(bridge.operations[-1].getarglist(), bridge_values),
+                                         None,
                                          enable_opts=self.enable_opts,
                             inline_short_preamble=inline_short_preamble)
         bridge_info, ops = self._do_optimize_loop(data)

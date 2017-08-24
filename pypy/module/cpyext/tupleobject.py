@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
     PyVarObjectFields, cpython_struct, bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, decref, incref,
-    track_reference, make_typedescr, get_typedescr)
+    track_reference, make_typedescr, get_typedescr, pyobj_has_w_obj)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
 
@@ -34,7 +34,7 @@ PyTupleObjectFields = PyVarObjectFields + \
 cpython_struct("PyTupleObject", PyTupleObjectFields, PyTupleObjectStruct)
 
 @bootstrap_function
-def init_stringobject(space):
+def init_tupleobject(space):
     "Type description of PyTupleObject"
     make_typedescr(space.w_tuple.layout.typedef,
                    basestruct=PyTupleObject.TO,
@@ -132,19 +132,21 @@ def PyTuple_New(space, size):
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyTuple_SetItem(space, ref, index, py_obj):
-    # XXX this will not complain when changing tuples that have
-    # already been realized as a W_TupleObject, but won't update the
-    # W_TupleObject
     if not tuple_check_ref(space, ref):
         decref(space, py_obj)
         PyErr_BadInternalCall(space)
-    ref = rffi.cast(PyTupleObject, ref)
-    size = ref.c_ob_size
+    tupleobj = rffi.cast(PyTupleObject, ref)
+    size = tupleobj.c_ob_size
     if index < 0 or index >= size:
         decref(space, py_obj)
         raise oefmt(space.w_IndexError, "tuple assignment index out of range")
-    old_ref = ref.c_ob_item[index]
-    ref.c_ob_item[index] = py_obj    # consumes a reference
+    old_ref = tupleobj.c_ob_item[index]
+    if pyobj_has_w_obj(ref):
+        # similar but not quite equal to ref.c_ob_refcnt != 1 on CPython
+        decref(space, py_obj)
+        raise oefmt(space.w_SystemError, "PyTuple_SetItem called on tuple after"
+                                        " use of tuple")
+    tupleobj.c_ob_item[index] = py_obj    # consumes a reference
     if old_ref:
         decref(space, old_ref)
     return 0

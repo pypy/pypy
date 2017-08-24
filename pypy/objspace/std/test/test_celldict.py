@@ -58,7 +58,6 @@ class TestCellDict(object):
         assert v2 is v3
 
 class AppTestModuleDict(object):
-    spaceconfig = {"objspace.std.withcelldict": True}
 
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
@@ -116,7 +115,6 @@ class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
 
 
 class AppTestCellDict(object):
-    spaceconfig = {"objspace.std.withcelldict": True}
 
     def setup_class(cls):
         if cls.runappdirect:

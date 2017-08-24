@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin,
     enforceargs, newlist_hint, specialize, we_are_translated)
 from rpython.rlib.buffer import StringBuffer
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder,\
      replace
 from rpython.rlib.runicode import make_unicode_escape_function
@@ -84,11 +85,26 @@ class W_UnicodeObject(W_Root):
     def readbuf_w(self, space):
         # XXX for now
         from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
-        v = self._utf8.decode("utf8")
-        builder = StringBuilder(len(v) * UNICODE_SIZE)
-        for unich in v:
-            pack_unichar(unich, builder)
-        return StringBuffer(builder.build())
+        XXX - FIXME
+#<<<<<<< /home/arigo/hg/pypy/default/pypy/objspace/std/unicodeobject.py
+#        v = self._utf8.decode("utf8")
+#        builder = StringBuilder(len(v) * UNICODE_SIZE)
+#        for unich in v:
+#            pack_unichar(unich, builder)
+#        return StringBuffer(builder.build())
+#||||||| /tmp/unicodeobject~base.7TSwHV.py
+#        builder = StringBuilder(len(self._value) * UNICODE_SIZE)
+#        for unich in self._value:
+#            pack_unichar(unich, builder)
+#        return StringBuffer(builder.build())
+#=======
+#        buf = MutableStringBuffer(len(self._value) * UNICODE_SIZE)
+#        pos = 0
+#        for unich in self._value:
+#            pack_unichar(unich, buf, pos)
+#            pos += UNICODE_SIZE
+#        return StringBuffer(buf.finish())
+#>>>>>>> /tmp/unicodeobject~other.TRKznC.py
 
     def writebuf_w(self, space):
         raise oefmt(space.w_TypeError,
@@ -257,6 +273,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_hash(self, space):
         x = compute_hash(self._utf8)
+        x -= (x == -1) # convert -1 to -2 without creating a bridge
         return space.newint(x)
 
     def descr_eq(self, space, w_other):
@@ -770,33 +787,26 @@ def encode_object(space, w_object, encoding, errors):
         w_encoder = space.sys.get_w_default_encoder()
     else:
         if errors is None or errors == 'strict':
-            try:
-                if encoding == 'ascii':
-                    s = space.utf8_w(w_object)
-                    try:
-                        rutf8.check_ascii(s)
-                    except rutf8.AsciiCheckError as a:
-                        eh = unicodehelper.raise_unicode_exception_encode
-                        eh(None, "ascii", "ordinal not in range(128)", s,
-                            a.pos, a.pos + 1)
-                        assert False, "always raises"
-                    return space.newbytes(s)
-                if encoding == 'utf-8':
-                    u = space.utf8_w(w_object)
-                    return space.newbytes(u)
-                    # XXX is this enough?
-                    #eh = unicodehelper.raise_unicode_exception_encode
-                    #return space.newbytes(unicode_encode_utf_8(
-                    #        u, len(u), None, errorhandler=eh,
-                    #        allow_surrogates=True))
-            except unicodehelper.RUnicodeEncodeError as ue:
-                raise OperationError(space.w_UnicodeEncodeError,
-                                     space.newtuple([
-                    space.newtext(ue.encoding),
-                    space.newutf8(ue.object, -1),
-                    space.newint(ue.start),
-                    space.newint(ue.end),
-                    space.newtext(ue.reason)]))
+            if encoding == 'ascii':
+                s = space.utf8_w(w_object)
+                try:
+                    rutf8.check_ascii(s)
+                except rutf8.AsciiCheckError as a:
+                    XXX  # must raise OperationError(w_UnicodeEncodeError)
+                    XXX  # maybe with eh = unicodehelper.encode_error_handler(space)?
+                    eh = unicodehelper.raise_unicode_exception_encode
+                    eh(None, "ascii", "ordinal not in range(128)", s,
+                        a.pos, a.pos + 1)
+                    assert False, "always raises"
+                return space.newbytes(s)
+            if encoding == 'utf-8':
+                u = space.utf8_w(w_object)
+                return space.newbytes(u)
+                # XXX is this enough?
+                #eh = unicodehelper.raise_unicode_exception_encode
+                #return space.newbytes(unicode_encode_utf_8(
+                #        u, len(u), None, errorhandler=eh,
+                #        allow_surrogates=True))
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
     if errors is None:

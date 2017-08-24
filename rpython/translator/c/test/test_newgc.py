@@ -1730,7 +1730,11 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                      (ulimitv, ' '.join(args),)]
             popen = subprocess.Popen(args1, stderr=subprocess.PIPE)
             _, child_stderr = popen.communicate()
-            assert popen.wait() == 134     # aborted
+            assert popen.wait() in (-6, 134)     # aborted
+            # note: it seems that on some systems we get 134 and on
+            # others we get -6.  Bash is supposed to translate the
+            # SIGABRT (signal 6) from the subprocess into the exit 
+            # code 128+6, but I guess it may not always do so.
             assert 'out of memory:' in child_stderr
             return '42'
         #

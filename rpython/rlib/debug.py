@@ -524,7 +524,8 @@ extern "C" RPY_EXPORTED void AttachToVS() {
     ll_attach = rffi.llexternal("AttachToVS", [], lltype.Void,
                                 compilation_info=make_vs_attach_eci())
     def impl_attach_gdb():
-        ll_attach()
+        #ll_attach()
+        print "AttachToVS is disabled at the moment (compilation failure)"
 
 register_external(attach_gdb, [], result=None,
                   export_name="impl_attach_gdb", llimpl=impl_attach_gdb)

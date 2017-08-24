@@ -5,6 +5,7 @@ from rpython.rlib.buffer import Buffer, SubBuffer
 from rpython.rlib.objectmodel import compute_hash
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import SimpleView, BufferInterfaceNotFound
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
@@ -19,7 +20,7 @@ class W_Buffer(W_Root):
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, self.buf.readonly)
-        return self.buf
+        return SimpleView(self.buf)
 
     def readbuf_w(self, space):
         return self.buf
@@ -39,7 +40,10 @@ class W_Buffer(W_Root):
     @staticmethod
     @unwrap_spec(offset=int, size=int)
     def descr_new_buffer(space, w_subtype, w_object, offset=0, size=-1):
-        buf = space.readbuf_w(w_object)
+        try:
+            buf = w_object.readbuf_w(space)
+        except BufferInterfaceNotFound:
+            raise oefmt(space.w_TypeError, "expected a readable buffer object")
         if offset == 0 and size == -1:
             return W_Buffer(buf)
         # handle buffer slices
@@ -108,7 +112,9 @@ class W_Buffer(W_Root):
     descr_ge = _make_descr__cmp('ge')
 
     def descr_hash(self, space):
-        return space.newint(compute_hash(self.buf.as_str()))
+        x = compute_hash(self.buf.as_str())
+        x -= (x == -1) # convert -1 to -2 without creating a bridge
+        return space.newint(x)
 
     def descr_mul(self, space, w_times):
         # xxx not the most efficient implementation

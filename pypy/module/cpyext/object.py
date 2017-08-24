@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
     PyVarObject, size_t, slot_function,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, CONST_STRINGP, FILEP, fwrite)
+    Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, Py_IncRef, Py_DecRef,
     get_typedescr)
@@ -75,24 +75,6 @@ def _PyObject_GC_New(space, type):
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Del(space, obj):
     PyObject_Free(space, obj)
-
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_GC_Track(space, op):
-    """Adds the object op to the set of container objects tracked by the
-    collector.  The collector can run at unexpected times so objects must be
-    valid while being tracked.  This should be called once all the fields
-    followed by the tp_traverse handler become valid, usually near the
-    end of the constructor."""
-    pass
-
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_GC_UnTrack(space, op):
-    """Remove the object op from the set of container objects tracked by the
-    collector.  Note that PyObject_GC_Track() can be called again on
-    this object to add it back to the set of tracked objects.  The deallocator
-    (tp_dealloc handler) should call this for the object before any of
-    the fields used by the tp_traverse handler become invalid."""
-    pass
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
@@ -305,7 +287,7 @@ def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     PyErr_BadInternalCall(space)
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
-def PyObject_RichCompareBool(space, ref1, ref2, opid):
+def PyObject_RichCompareBool(space, w_o1, w_o2, opid_int):
     """Compare the values of o1 and o2 using the operation specified by opid,
     which must be one of Py_LT, Py_LE, Py_EQ,
     Py_NE, Py_GT, or Py_GE, corresponding to <,
@@ -313,7 +295,15 @@ def PyObject_RichCompareBool(space, ref1, ref2, opid):
     0 if the result is false, 1 otherwise. This is the equivalent of the
     Python expression o1 op o2, where op is the operator corresponding to
     opid."""
-    w_res = PyObject_RichCompare(space, ref1, ref2, opid)
+    # Quick result when objects are the same.
+    # Guarantees that identity implies equality.
+    if space.is_w(w_o1, w_o2):
+        opid = rffi.cast(lltype.Signed, opid_int)
+        if opid == Py_EQ:
+            return 1
+        if opid == Py_NE:
+            return 0 
+    w_res = PyObject_RichCompare(space, w_o1, w_o2, opid_int)
     return int(space.is_true(w_res))
 
 @cpython_api([PyObject], PyObject, result_is_ll=True)
@@ -432,46 +422,31 @@ def PyObject_Dir(space, w_o):
     is active then NULL is returned but PyErr_Occurred() will return false."""
     return space.call_function(space.builtin.get('dir'), w_o)
 
-@cpython_api([PyObject, CONST_STRINGP, Py_ssize_tP], rffi.INT_real, error=-1)
-def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
-    """Returns a pointer to a read-only memory location usable as
-    character-based input.  The obj argument must support the single-segment
-    character buffer interface.  On success, returns 0, sets buffer to the
-    memory location and size to the buffer length.  Returns -1 and sets a
-    TypeError on error.
-    """
-    pto = obj.c_ob_type
-
-    pb = pto.c_tp_as_buffer
-    if not (pb and pb.c_bf_getreadbuffer and pb.c_bf_getsegcount):
-        raise oefmt(space.w_TypeError, "expected a character buffer object")
-    if generic_cpy_call(space, pb.c_bf_getsegcount,
-                        obj, lltype.nullptr(Py_ssize_tP.TO)) != 1:
-        raise oefmt(space.w_TypeError,
-                    "expected a single-segment buffer object")
-    size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
-                            obj, 0, bufferp)
-    if size < 0:
-        return -1
-    sizep[0] = size
-    return 0
-
 # Also in include/object.h
 Py_PRINT_RAW = 1 # No string quotes etc.
 
 @cpython_api([PyObject, FILEP, rffi.INT_real], rffi.INT_real, error=-1)
-def PyObject_Print(space, w_obj, fp, flags):
+def PyObject_Print(space, pyobj, fp, flags):
     """Print an object o, on file fp.  Returns -1 on error.  The flags argument
     is used to enable certain printing options.  The only option currently
     supported is Py_PRINT_RAW; if given, the str() of the object is written
     instead of the repr()."""
-    if rffi.cast(lltype.Signed, flags) & Py_PRINT_RAW:
-        w_str = space.str(w_obj)
+    if not pyobj:
+        w_str = space.newtext("<nil>")
     else:
-        w_str = space.repr(w_obj)
+        w_obj = from_ref(space, pyobj)
+        if rffi.cast(lltype.Signed, flags) & Py_PRINT_RAW:
+            w_str = space.str(w_obj)
+        else:
+            w_str = space.repr(w_obj)
 
     count = space.len_w(w_str)
     data = space.text_w(w_str)
     with rffi.scoped_nonmovingbuffer(data) as buf:
         fwrite(buf, 1, count, fp)
     return 0
+
+@cpython_api([lltype.Signed], lltype.Void)
+def _PyPyGC_AddMemoryPressure(space, report):
+    from rpython.rlib import rgc
+    rgc.add_memory_pressure(report)

@@ -1,4 +1,5 @@
 import sys
+import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
@@ -9,7 +10,9 @@ from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
+from rpython.rlib.buffer import StringBuffer
 
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
@@ -221,7 +224,8 @@ class W_Root(object):
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(flags))
-            if space.isinstance_w(w_result, space.w_buffer):
+            if (space.isinstance_w(w_result, space.w_buffer) or
+                    space.isinstance_w(w_result, space.w_memoryview)):
                 return w_result.buffer_w(space, flags)
         raise BufferInterfaceNotFound
 
@@ -233,7 +237,8 @@ class W_Root(object):
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL_RO))
-            if space.isinstance_w(w_result, space.w_buffer):
+            if (space.isinstance_w(w_result, space.w_buffer) or
+                    space.isinstance_w(w_result, space.w_memoryview)):
                 return w_result.readbuf_w(space)
         raise BufferInterfaceNotFound
 
@@ -245,7 +250,8 @@ class W_Root(object):
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL))
-            if space.isinstance_w(w_result, space.w_buffer):
+            if (space.isinstance_w(w_result, space.w_buffer) or
+                    space.isinstance_w(w_result, space.w_memoryview)):
                 return w_result.writebuf_w(space)
         raise BufferInterfaceNotFound
 
@@ -254,7 +260,8 @@ class W_Root(object):
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL_RO))
-            if space.isinstance_w(w_result, space.w_buffer):
+            if (space.isinstance_w(w_result, space.w_buffer) or
+                    space.isinstance_w(w_result, space.w_memoryview)):
                 return w_result.charbuf_w(space)
         raise BufferInterfaceNotFound
 
@@ -393,9 +400,6 @@ class SpaceCache(Cache):
         pass
 
 class DescrMismatch(Exception):
-    pass
-
-class BufferInterfaceNotFound(Exception):
     pass
 
 @specialize.memo()
@@ -1338,8 +1342,22 @@ class ObjSpace(object):
             self.setitem(w_globals, w_key, self.builtin)
         return statement.exec_code(self, w_globals, w_locals)
 
+    @not_rpython
+    def appdef(self, source):
+        '''Create interp-level function object from app-level source.
+
+        The source should be in the same format as for space.appexec():
+            """(foo, bar): return 'baz'"""
+        '''
+        source = source.lstrip()
+        assert source.startswith('('), "incorrect header in:\n%s" % (source,)
+        source = py.code.Source("def anonymous%s\n" % source)
+        w_glob = self.newdict(module=True)
+        self.exec_(str(source), w_glob, w_glob)
+        return self.getitem(w_glob, self.newtext('anonymous'))
+
     @specialize.arg(2)
-    def appexec(self, posargs_w, source):
+    def appexec(self, posargs_w, source, cache=True):
         """ return value from executing given source at applevel.
             The source must look like
                '''(x, y):
@@ -1347,7 +1365,11 @@ class ObjSpace(object):
                        return result
                '''
         """
-        w_func = self.fromcache(AppExecCache).getorbuild(source)
+        if cache:
+            w_func = self.fromcache(AppExecCache).getorbuild(source)
+        else:
+            # NB: since appdef() is not-RPython, using cache=False also is.
+            w_func = self.appdef(source)
         args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
 
@@ -1504,18 +1526,28 @@ class ObjSpace(object):
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
+            return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
+        except OperationError:
+            self._getarg_error("convertible to a buffer", w_obj)
+        except BufferInterfaceNotFound:
+            pass
+        try:
             return w_obj.readbuf_w(self)
         except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected a readable buffer object")
+            self._getarg_error("convertible to a buffer", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
+            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_writebuf()
+        except OperationError:
+            self._getarg_error("read-write buffer", w_obj)
+        except BufferInterfaceNotFound:
+            pass
+        try:
             return w_obj.writebuf_w(self)
         except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected a writeable buffer object")
+            self._getarg_error("read-write buffer", w_obj)
 
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
@@ -1544,12 +1576,10 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_unicode):
                 return self.str(w_obj).readbuf_w(self)
             try:
-                return w_obj.buffer_w(self, 0)
-            except BufferInterfaceNotFound:
-                pass
-            try:
-                return w_obj.readbuf_w(self)
-            except BufferInterfaceNotFound:
+                return self.readbuf_w(w_obj)
+            except OperationError as e:
+                if not e.match(self, self.w_TypeError):
+                    raise
                 self._getarg_error("string or buffer", w_obj)
         elif code == 's#':
             if self.isinstance_w(w_obj, self.w_bytes):
@@ -1561,16 +1591,7 @@ class ObjSpace(object):
             except BufferInterfaceNotFound:
                 self._getarg_error("string or read-only buffer", w_obj)
         elif code == 'w*':
-            try:
-                return w_obj.buffer_w(self, self.BUF_WRITABLE)
-            except OperationError:
-                self._getarg_error("read-write buffer", w_obj)
-            except BufferInterfaceNotFound:
-                pass
-            try:
-                return w_obj.writebuf_w(self)
-            except BufferInterfaceNotFound:
-                self._getarg_error("read-write buffer", w_obj)
+            return self.writebuf_w(w_obj)
         elif code == 't#':
             try:
                 return w_obj.charbuf_w(self)
@@ -1607,33 +1628,72 @@ class ObjSpace(object):
         else:
             return buf.as_str()
 
-    def str_or_None_w(self, w_obj):
-        # YYY rename
-        return None if self.is_none(w_obj) else self.bytes_w(w_obj)
+    def text_or_none_w(self, w_obj):
+        # return text_w(w_obj) or None
+        return None if self.is_none(w_obj) else self.text_w(w_obj)
 
     def bytes_w(self, w_obj):
-        "Takes a bytes object and returns an unwrapped RPython bytestring."
+        """ Takes an application level :py:class:`bytes`
+            (on PyPy2 this equals `str`) and returns a rpython byte string.
+        """
         return w_obj.str_w(self)
 
     def text_w(self, w_obj):
-        """Takes a string object (unicode in Python 3) and returns an
-        unwrapped RPython bytestring."""
+        """ PyPy2 takes either a :py:class:`str` and returns a
+            rpython byte string, or it takes an :py:class:`unicode`
+            and uses the systems default encoding to return a rpython
+            byte string.
+
+            On PyPy3 it takes a :py:class:`str` and it will return
+            an utf-8 encoded rpython string.
+        """
         return w_obj.str_w(self)
 
-    #@not_rpython    BACKCOMPAT: should be replaced with bytes_w or text_w
+    @not_rpython    # tests only; should be replaced with bytes_w or text_w
     def str_w(self, w_obj):
         """For tests only."""
         return self.bytes_w(w_obj)
 
-
-    def str0_w(self, w_obj):
-        "Like str_w, but rejects strings with NUL bytes."
+    def bytes0_w(self, w_obj):
+        "Like bytes_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
         result = w_obj.str_w(self)
         if '\x00' in result:
             raise oefmt(self.w_TypeError,
                         "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
+
+    def text0_w(self, w_obj):
+        "Like text_w, but rejects strings with NUL bytes."
+        return self.bytes0_w(w_obj)
+
+    def fsencode_w(self, w_obj):
+        "Like text0_w, but unicodes are encoded with the filesystem encoding."
+        if self.isinstance_w(w_obj, self.w_unicode):
+            from pypy.module.sys.interp_encoding import getfilesystemencoding
+            w_obj = self.call_method(self.w_unicode, 'encode', w_obj,
+                                     getfilesystemencoding(self))
+        return self.bytes0_w(w_obj)
+
+    def fsencode_or_none_w(self, w_obj):
+        return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
+
+    def byte_w(self, w_obj):
+        """
+        Convert an index-like object to an interp-level char
+
+        Used for app-level code like "bytearray(b'abc')[0] = 42".
+        """
+        if self.isinstance_w(w_obj, self.w_bytes):
+            string = self.bytes_w(w_obj)
+            if len(string) != 1:
+                raise oefmt(self.w_ValueError, "string must be of size 1")
+            return string[0]
+        value = self.getindex_w(w_obj, None)
+        if not 0 <= value < 256:
+            # this includes the OverflowError in case the long is too large
+            raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")
+        return chr(value)
 
     def int_w(self, w_obj, allow_conversion=True):
         """
@@ -1669,9 +1729,9 @@ class ObjSpace(object):
         """
         return w_obj.float_w(self, allow_conversion)
 
-    def realstr_w(self, w_obj):
-        # YYY rename
-        # Like bytes_w, but only works if w_obj is really of type 'str'.
+    def realtext_w(self, w_obj):
+        # Like bytes_w(), but only works if w_obj is really of type 'str'.
+        # On Python 3 this is the same as text_w().
         if not self.isinstance_w(w_obj, self.w_bytes):
             raise oefmt(self.w_TypeError, "argument must be a string")
         return self.bytes_w(w_obj)
@@ -1704,8 +1764,8 @@ class ObjSpace(object):
         return rstring.assert_str0(result)
 
     def realutf8_w(self, w_obj):
-        # Like utf8_w, but only works if w_obj is really of type
-        # 'unicode'.
+        # Like utf8_w(), but only works if w_obj is really of type
+        # 'unicode'.  On Python 3 this is the same as utf8_w().
         if not self.isinstance_w(w_obj, self.w_unicode):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
         return self.utf8_w(w_obj)
@@ -1902,15 +1962,7 @@ class ObjSpace(object):
 class AppExecCache(SpaceCache):
     @not_rpython
     def build(cache, source):
-        space = cache.space
-        # XXX will change once we have our own compiler
-        import py
-        source = source.lstrip()
-        assert source.startswith('('), "incorrect header in:\n%s" % (source,)
-        source = py.code.Source("def anonymous%s\n" % source)
-        w_glob = space.newdict(module=True)
-        space.exec_(str(source), w_glob, w_glob)
-        return space.getitem(w_glob, space.newtext('anonymous'))
+        return cache.space.appdef(source)
 
 
 # Table describing the regular part of the interface of object spaces,

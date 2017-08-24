@@ -280,8 +280,9 @@ class UCD(W_Root):
                     # If L, V -> LV
                     current = SBase + ((current - LBase)*VCount + (next - VBase)) * TCount
                     continue
+                # Note: if next == TBase, leave LV unchanged
                 if (SBase <= current < SBase + SCount and
-                    TBase <= next < TBase + TCount and
+                    TBase < next < TBase + TCount and
                     (current - SBase) % TCount == 0):
                     # If LV, T -> LVT
                     current = current + (next - TBase)

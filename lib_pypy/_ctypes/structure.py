@@ -40,6 +40,22 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
         else:
             rawfields.append((f[0], f[1]._ffishape_))
 
+    # hack for duplicate field names
+    already_seen = set()
+    names1 = names
+    names = []
+    for f in names1:
+        if f not in already_seen:
+            names.append(f)
+            already_seen.add(f)
+    already_seen = set()
+    for i in reversed(range(len(rawfields))):
+        if rawfields[i][0] in already_seen:
+            rawfields[i] = (('$DUP%d$%s' % (i, rawfields[i][0]),)
+                            + rawfields[i][1:])
+        already_seen.add(rawfields[i][0])
+    # /hack
+
     _set_shape(self, rawfields, self._is_union)
 
     fields = {}
@@ -234,6 +250,9 @@ class StructOrUnion(_CData):
         if ('_abstract_' in cls.__dict__ or cls is Structure 
                                          or cls is union.Union):
             raise TypeError("abstract class")
+        if hasattr(cls, '_swappedbytes_'):
+            raise NotImplementedError("missing in PyPy: structure/union with "
+                                      "swapped (non-native) byte ordering")
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
         return self

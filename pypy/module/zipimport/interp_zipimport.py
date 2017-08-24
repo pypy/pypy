@@ -263,11 +263,18 @@ class W_ZipImporter(W_Root):
                     if compiled:
                         w_result = self.import_pyc_file(space, fullname, fname,
                                                         buf, pkgpath)
-                        if w_result is not None:
-                            return w_result
+                        if w_result is None:
+                            continue
                     else:
-                        return self.import_py_file(space, fullname, fname,
+                        w_result = self.import_py_file(space, fullname, fname,
                                                    buf, pkgpath)
+                    if space.sys.get_flag('verbose') >= 1:
+                        w_stderr = space.sys.get('stderr')
+                        message = "import %s # loaded from Zip %s%s%s\n" % (
+                                fullname, self.filename, os.path.sep, fname)
+                        space.call_method(w_stderr, "write",
+                                          space.newtext(message))
+                    return w_result
                 except:
                     w_mods = space.sys.get('modules')
                     space.call_method(w_mods, 'pop', space.newtext(fullname), space.w_None)
@@ -350,7 +357,7 @@ class W_ZipImporter(W_Root):
         space = self.space
         return space.newtext(self.filename)
 
-@unwrap_spec(name='str0')
+@unwrap_spec(name='text0')
 def descr_new_zipimporter(space, w_type, name):
     ok = False
     parts_ends = [i for i in range(0, len(name))

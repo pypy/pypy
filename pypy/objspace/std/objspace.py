@@ -16,7 +16,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.bufferobject import W_Buffer
 from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject
+from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, W_DictObject
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -81,21 +81,25 @@ class StdObjSpace(ObjSpace):
             W_TypeObject.typedef: W_TypeObject,
             W_UnicodeObject.typedef: W_UnicodeObject,
         }
-        if self.config.objspace.std.withstrbuf:
-            builtin_type_classes[W_BytesObject.typedef] = W_AbstractBytesObject
-
         self.builtin_types = {}
         self._interplevel_classes = {}
         for typedef, cls in builtin_type_classes.items():
             w_type = self.gettypeobject(typedef)
             self.builtin_types[typedef.name] = w_type
-            if 1: # typedef.name != "str":      BACKCOMPAT
-                setattr(self, 'w_' + typedef.name, w_type)
-            if typedef.name == "str":
-                self.w_bytes = w_type
+            name = typedef.name
+            # we don't expose 'space.w_str' at all, to avoid confusion
+            # with Python 3.  Instead, in Python 2, it becomes
+            # space.w_bytes (or space.w_text).
+            if name == 'str':
+                name = 'bytes'
+            setattr(self, 'w_' + name, w_type)
             self._interplevel_classes[w_type] = cls
-        self.w_text = self.w_bytes # this is w_unicode on Py3
+        self.w_text = self.w_bytes   # 'space.w_text' is w_unicode on Py3
         self.w_dict.flag_map_or_seq = 'M'
+        from pypy.objspace.std import dictproxyobject
+        dictproxyobject._set_flag_map_or_seq(self)
+        self.w_list.flag_map_or_seq = 'S'
+        self.w_tuple.flag_map_or_seq = 'S'
         self.builtin_types["NotImplemented"] = self.w_NotImplemented
         self.builtin_types["Ellipsis"] = self.w_Ellipsis
         self.w_basestring = self.builtin_types['basestring'] = \
@@ -124,6 +128,14 @@ class StdObjSpace(ObjSpace):
         ec._py_repr = None
         return ec
 
+    def get_objects_in_repr(self):
+        from pypy.module.__pypy__.interp_identitydict import W_IdentityDict
+        ec = self.getexecutioncontext()
+        w_currently_in_repr = ec._py_repr
+        if w_currently_in_repr is None:
+            w_currently_in_repr = ec._py_repr = W_IdentityDict(self)
+        return w_currently_in_repr
+
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
 
@@ -133,10 +145,7 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
-    # BACKCOMPAT: this function is still accepted for backward
-    # compatibility, but its usage should be progressively removed
-    # everywhere apart from tests.
-    #@not_rpython # only for tests
+    @not_rpython # only for tests
     @specialize.argtype(1)
     def wrap(self, x):
         """ Wraps the Python value 'x' into one of the wrapper classes. This
@@ -172,8 +181,8 @@ class StdObjSpace(ObjSpace):
 
         return self._wrap_not_rpython(x)
 
+    @not_rpython
     def _wrap_not_rpython(self, x):
-        "NOT_RPYTHON"
         # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is
@@ -277,7 +286,7 @@ class StdObjSpace(ObjSpace):
         return W_LongObject.fromint(self, val)
 
     @specialize.argtype(1)
-    def newlong_from_rarith_int(self, val): # val is an rarithmetic type 
+    def newlong_from_rarith_int(self, val): # val is an rarithmetic type
         return W_LongObject.fromrarith_int(val)
 
     def newlong_from_rbigint(self, val):
@@ -342,6 +351,9 @@ class StdObjSpace(ObjSpace):
         ret = W_Buffer(obj)
         return ret
 
+    def newmemoryview(self, view):
+        return W_MemoryView(view)
+
     def newbytes(self, s):
         assert isinstance(s, str)
         return W_BytesObject(s)
@@ -359,6 +371,10 @@ class StdObjSpace(ObjSpace):
         assert utf8s is not None
         assert isinstance(utf8s, str)
         return W_UnicodeObject(utf8s, length)
+
+    def newfilename(self, s):
+        assert isinstance(s, str) # on pypy3, this decodes the byte string
+        return W_BytesObject(s)   # with the filesystem encoding
 
     def type(self, w_obj):
         jit.promote(w_obj.__class__)

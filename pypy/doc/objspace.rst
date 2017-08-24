@@ -250,12 +250,12 @@ Creation of Application Level objects
 .. py:function:: newunicode(ustr)
 
    Creates a Unicode string from an rpython unicode string.
-   This method may disappear soon and be replaced by :py:function:`newutf8()`.
+   This method may disappear soon and be replaced by :py:function::`newutf8`.
 
 .. py:function:: newutf8(bytestr)
 
    Creates a Unicode string from an rpython byte string, decoded as
-   "utf-8-nosg".  On PyPy3 it is the same as :py:function:`newtext()`.
+   "utf-8-nosg".  On PyPy3 it is the same as :py:function::`newtext`.
 
 Many more space operations can be found in `pypy/interpeter/baseobjspace.py` and
 `pypy/objspace/std/objspace.py`.
@@ -291,15 +291,8 @@ Conversions from Application Level to Interpreter Level
    If :py:obj:`w_x` is an application-level integer or long, return an interpreter-level
    :py:class:`rbigint`. Otherwise raise :py:exc:`TypeError`.
 
-.. py:function:: text_w(w_x)
-
-   Takes an application level :py:class:`str` and converts it to a rpython byte string.
-   PyPy3 this method will return an utf-8-nosg encoded result.
-
-.. py:function:: bytes_w(w_x)
-
-   Takes an application level :py:class:`bytes` (PyPy2 this equals `str`) and returns a rpython
-   byte string.
+.. automethod:: pypy.interpreter.baseobjspace.ObjSpace.bytes_w(w_x)
+.. automethod:: pypy.interpreter.baseobjspace.ObjSpace.text_w(w_x)
 
 .. py:function:: str_w(w_x)
 
@@ -309,9 +302,9 @@ Conversions from Application Level to Interpreter Level
 
 .. py:function:: unicode_w(w_x)
 
-   Takes an application level :py:class:`unicode` and return an
+   Takes an application level :py:class::`unicode` and return an
    interpreter-level unicode string.  This method may disappear soon and
-   be replaced by :py:function:`text_w()`.
+   be replaced by :py:function::`text_w`.
 
 .. py:function:: float_w(w_x)
 

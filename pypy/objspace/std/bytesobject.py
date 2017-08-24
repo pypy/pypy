@@ -7,6 +7,7 @@ from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import SimpleView
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
@@ -457,7 +458,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
-        return StringBuffer(self._value)
+        return SimpleView(StringBuffer(self._value))
 
     def readbuf_w(self, space):
         return StringBuffer(self._value)
@@ -593,6 +594,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
+        x -= (x == -1) # convert -1 to -2 without creating a bridge
         return space.newint(x)
 
     def descr_format(self, space, __args__):
@@ -612,55 +614,31 @@ class W_BytesObject(W_AbstractBytesObject):
         return mod_format(space, w_values, self, do_unicode=False)
 
     def descr_eq(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value == w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value == w_other._value)
 
     def descr_ne(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value != w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value != w_other._value)
 
     def descr_lt(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value < w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value < w_other._value)
 
     def descr_le(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value <= w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value <= w_other._value)
 
     def descr_gt(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value > w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value > w_other._value)
 
     def descr_ge(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value >= w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value >= w_other._value)
@@ -672,24 +650,12 @@ class W_BytesObject(W_AbstractBytesObject):
         if space.isinstance_w(w_other, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
-            return space.add(self_as_unicode, w_other)
+            return self_as_unicode.descr_add(space, w_other)
         elif space.isinstance_w(w_other, space.w_bytearray):
             # XXX: eliminate double-copy
             from .bytearrayobject import W_BytearrayObject, _make_data
             self_as_bytearray = W_BytearrayObject(_make_data(self._value))
             return space.add(self_as_bytearray, w_other)
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            try:
-                other = self._op_val(space, w_other)
-            except OperationError as e:
-                if e.match(space, space.w_TypeError):
-                    return space.w_NotImplemented
-                raise
-            builder = StringBuilder()
-            builder.append(self._value)
-            builder.append(other)
-            return W_StringBufferObject(builder)
         return self._StringMethods_descr_add(space, w_other)
 
     _StringMethods__startswith = _startswith

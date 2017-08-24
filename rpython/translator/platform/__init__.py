@@ -102,7 +102,7 @@ class Platform(object):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], profopt=False, config=None):
         raise NotImplementedError("Pure abstract baseclass")
 
     def __repr__(self):
@@ -129,7 +129,7 @@ class Platform(object):
     # some helpers which seem to be cross-platform enough
 
     def _execute_c_compiler(self, cc, args, outname, cwd=None):
-        log.execute(cc + ' ' + ' '.join(args))
+        #log.execute(cc + ' ' + ' '.join(args))
         # 'cc' can also contain some options for the C compiler;
         # e.g. it can be "gcc -m32".  We handle it by splitting on ' '.
         cclist = cc.split()
@@ -260,7 +260,8 @@ if sys.platform.startswith('linux'):
     # Only required on armhf and mips{,el}, not armel. But there's no way to
     # detect armhf without shelling out
     if (platform.architecture()[0] == '64bit'
-            or platform.machine().startswith(('arm', 'mips', 'ppc'))):
+            or platform.machine().startswith(
+                ('arm', 'm68k', 'mips', 'parisc', 'ppc', 'sh4'))):
         host_factory = LinuxPIC
     else:
         host_factory = Linux

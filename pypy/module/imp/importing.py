@@ -172,7 +172,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
         try:
-            ctxt_package = space.str0_w(ctxt_w_package)
+            ctxt_package = space.text0_w(ctxt_w_package)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -220,7 +220,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
-                ctxt_name = space.str0_w(ctxt_w_name)
+                ctxt_name = space.text0_w(ctxt_w_name)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -263,7 +263,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     return rel_modulename, rel_level
 
 
-@unwrap_spec(name='str0', level=int)
+@unwrap_spec(name='text0', level=int)
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
@@ -362,11 +362,6 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
         # to get a better trace. if it is unwrapped, the immutability of the
         # tuple is lost
         length = space.len_w(w_fromlist)
-        for i in range(length):
-            w_name = space.getitem(w_fromlist, space.wrap(i))
-            if not space.isinstance_w(w_name, space.w_str):
-                raise oefmt(space.w_TypeError,
-                    "'fromlist' items must be str, not %T", w_name)
         if w_path is not None:
             if length == 1 and space.eq_w(
                     space.getitem(w_fromlist, space.newint(0)),
@@ -384,6 +379,9 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
             if w_fromlist is not None:
                 for i in range(length):
                     w_name = space.getitem(w_fromlist, space.newint(i))
+                    if not space.isinstance_w(w_name, space.w_text):
+                        raise oefmt(space.w_TypeError,
+                            "'Item in ``fromlist'' must be str, not %T", w_name)
                     if try_getattr(space, w_mod, w_name) is None:
                         return None
         return w_mod
@@ -430,8 +428,11 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
             if w_fromlist is not None:
                 for i in range(length):
                     w_name = space.getitem(w_fromlist, space.newint(i))
+                    if not space.isinstance_w(w_name, space.w_text):
+                        raise oefmt(space.w_TypeError,
+                            "'Item in ``fromlist'' must be str, not %T", w_name)
                     if try_getattr(space, w_mod, w_name) is None:
-                        load_part(space, w_path, prefix, space.str0_w(w_name),
+                        load_part(space, w_path, prefix, space.text0_w(w_name),
                                   w_mod, tentative=1)
         return w_mod
     else:
@@ -491,7 +492,7 @@ class W_NullImporter(W_Root):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(path='str0')
+    @unwrap_spec(path='fsencode')
     def descr_init(self, space, path):
         if not path:
             raise oefmt(space.w_ImportError, "empty pathname")
@@ -570,7 +571,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                 if w_loader:
                     return FindInfo.fromLoader(w_loader)
 
-            path = space.str0_w(w_pathitem)
+            path = space.fsencode_w(w_pathitem)
             filepart = os.path.join(path, partname)
             log_pyverbose(space, 2, "# trying %s\n" % (filepart,))
             if os.path.isdir(filepart) and case_ok(filepart):
@@ -616,7 +617,7 @@ def load_c_extension(space, filename, modulename):
     from pypy.module.cpyext.api import load_extension_module
     log_pyverbose(space, 1, "import %s # from %s\n" %
                   (modulename, filename))
-    load_extension_module(space, filename, modulename)
+    return load_extension_module(space, filename, modulename)
     # NB. cpyext.api.load_extension_module() can also delegate to _cffi_backend
 
 @jit.dont_look_inside
@@ -680,8 +681,8 @@ def load_module(space, w_modulename, find_info, reuse=False):
                         pass
                 return w_mod
             elif find_info.modtype == C_EXTENSION and has_so_extension(space):
-                load_c_extension(space, find_info.filename, space.text_w(w_modulename))
-                return check_sys_modules(space, w_modulename)
+                return load_c_extension(space, find_info.filename,
+                                        space.text_w(w_modulename))
         except OperationError:
             w_mods = space.sys.get('modules')
             space.call_method(w_mods, 'pop', w_modulename, space.w_None)
@@ -728,7 +729,7 @@ def reload(space, w_module):
         raise oefmt(space.w_TypeError, "reload() argument must be module")
 
     w_modulename = space.getattr(w_module, space.newtext("__name__"))
-    modulename = space.str0_w(w_modulename)
+    modulename = space.text0_w(w_modulename)
     if not space.is_w(check_sys_modules(space, w_modulename), w_module):
         raise oefmt(space.w_ImportError,
                     "reload(): module %s not in sys.modules", modulename)

@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-#include <cpyext_object.h>
+#include "cpyext_object.h"
 
 #define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
 #define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
@@ -276,6 +276,15 @@ manually remove this flag though!
 typedef union _gc_head {
     char dummy;
 } PyGC_Head;
+
+/* dummy GC macros */
+#define _PyGC_FINALIZED(o) 1
+#define PyType_IS_GC(tp) 1
+
+#define PyObject_GC_Track(o)      do { } while(0)
+#define PyObject_GC_UnTrack(o)    do { } while(0)
+#define _PyObject_GC_TRACK(o)     do { } while(0)
+#define _PyObject_GC_UNTRACK(o)   do { } while(0)
 
 /* Utility macro to help write tp_traverse functions.
  * To use this macro, the tp_traverse function must name its arguments

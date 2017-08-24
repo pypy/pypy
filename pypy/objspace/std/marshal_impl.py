@@ -1,5 +1,5 @@
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.unroll import unrolling_iterable
 
@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import unicodehelper
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.complexobject import W_ComplexObject
@@ -73,14 +74,12 @@ def marshal(space, w_obj, m):
                 func(space, w_obj, m)
                 return
 
-    # any unknown object implementing the buffer protocol is
+    # any unknown object implementing the old-style buffer protocol is
     # accepted and encoded as a plain string
     try:
-        s = space.readbuf_w(w_obj)
-    except OperationError as e:
-        if e.match(space, space.w_TypeError):
-            raise oefmt(space.w_ValueError, "unmarshallable object")
-        raise
+        s = w_obj.readbuf_w(space)
+    except BufferInterfaceNotFound:
+        raise oefmt(space.w_ValueError, "unmarshallable object")
     m.atom_str(TYPE_STRING, s.as_str())
 
 def get_unmarshallers():
@@ -191,9 +190,9 @@ def unmarshal_long(space, u, tc):
 
 
 def pack_float(f):
-    result = StringBuilder(8)
-    ieee.pack_float(result, f, 8, False)
-    return result.build()
+    buf = MutableStringBuffer(8)
+    ieee.pack_float(buf, 0, f, 8, False)
+    return buf.finish()
 
 def unpack_float(s):
     return ieee.unpack_float(s, False)

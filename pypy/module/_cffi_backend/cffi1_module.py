@@ -9,7 +9,7 @@ from pypy.module._cffi_backend.lib_obj import W_LibObject
 
 
 VERSION_MIN    = 0x2601
-VERSION_MAX    = 0x27FF
+VERSION_MAX    = 0x28FF
 
 VERSION_EXPORT = 0x0A03
 
@@ -48,3 +48,4 @@ def load_cffi1_module(space, name, path, initptr):
     w_modules_dict = space.sys.get('modules')
     space.setitem(w_modules_dict, w_name, module)
     space.setitem(w_modules_dict, space.newtext(name + '.lib'), lib)
+    return module

@@ -167,6 +167,9 @@ class PythonParser(parser.Parser):
             except error.TokenError as e:
                 e.filename = compile_info.filename
                 raise
+            except error.TokenIndentationError as e:
+                e.filename = compile_info.filename
+                raise
             except parser.ParseError as e:
                 # Catch parse errors, pretty them up and reraise them as a
                 # SyntaxError.

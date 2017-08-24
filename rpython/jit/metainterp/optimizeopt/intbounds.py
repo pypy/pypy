@@ -94,8 +94,11 @@ class OptIntBounds(Optimization):
         if b1.known_ge(IntBound(0, 0)) and \
            b2.known_ge(IntBound(0, 0)):
             r = self.getintbound(op)
-            mostsignificant = b1.upper | b2.upper
-            r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
+            if b1.has_upper and b2.has_upper:
+                mostsignificant = b1.upper | b2.upper
+                r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
+            else:
+                r.make_ge(IntBound(0, 0))
 
     optimize_INT_OR = optimize_INT_OR_or_XOR
     optimize_INT_XOR = optimize_INT_OR_or_XOR

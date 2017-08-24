@@ -31,10 +31,8 @@
 RPY_EXTERN
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg);
-#  define RPY_ASSERT_VALUE 1
 #else
 #  define RPyAssert(x, msg)   /* nothing */
-#  define RPY_ASSERT_VALUE 0
 #endif
 
 RPY_EXTERN

@@ -312,7 +312,7 @@ typedef struct _typeobject {
 
 } PyTypeObject;
 
-typedef struct {
+typedef struct _heaptypeobject {
     PyTypeObject ht_type;
     PyNumberMethods as_number;
     PyMappingMethods as_mapping;

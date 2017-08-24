@@ -162,7 +162,7 @@ class TestW_DictObject(object):
         w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_int(w_l)) == [1,2]
-        
+
         # make sure that .keys() calls newlist_bytes for string dicts
         def not_allowed(*args):
             assert False, 'should not be called'
@@ -173,14 +173,14 @@ class TestW_DictObject(object):
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
 
+        #---the rest is for listview_unicode(), which is disabled---
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
-        monkeypatch.undo() 
-        py.test.skip("listview_unicode disabled")
-        w_d = self.space.newdict()
-        w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
-        w_l = self.space.call_method(w_d, "keys")
-        assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
+        # monkeypatch.undo()
+        # w_d = self.space.newdict()
+        # w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
+        # w_l = self.space.call_method(w_d, "keys")
+        # assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
 
 class AppTest_DictObject:
     def setup_class(cls):
@@ -224,6 +224,10 @@ class AppTest_DictObject:
         assert result == 44
         assert len(dd) == 1
         raises(KeyError, dd.pop, 33)
+
+        assert d.pop("abc", None) is None
+        raises(KeyError, d.pop, "abc")
+        assert len(d) == 2
 
     def test_has_key(self):
         d = {1: 2, 3: 4}
@@ -808,6 +812,8 @@ class AppTestDictViews:
         assert "a" in keys
         assert 10 not in keys
         assert "Z" not in keys
+        raises(TypeError, "[] in keys")     # [] is unhashable
+        raises(TypeError, keys.__contains__, [])
         assert d.viewkeys() == d.viewkeys()
         e = {1: 11, "a": "def"}
         assert d.viewkeys() == e.viewkeys()
@@ -833,12 +839,24 @@ class AppTestDictViews:
         assert () not in items
         assert (1,) not in items
         assert (1, 2, 3) not in items
+        assert ([], []) not in items     # [] is unhashable, but no TypeError
+        assert not items.__contains__(([], []))
         assert d.viewitems() == d.viewitems()
         e = d.copy()
         assert d.viewitems() == e.viewitems()
         e["a"] = "def"
         assert d.viewitems() != e.viewitems()
         assert not d.viewitems() == 42
+
+    def test_dict_items_contains_with_identity(self):
+        class BadEq(object):
+            def __eq__(self, other):
+                raise ZeroDivisionError
+            def __hash__(self):
+                return 7
+        k = BadEq()
+        v = BadEq()
+        assert (k, v) in {k: v}.viewitems()
 
     def test_dict_mixed_keys_items(self):
         d = {(1, 1): 11, (2, 2): 22}
@@ -1245,7 +1263,6 @@ class FakeSpace:
 class Config:
     class objspace:
         class std:
-            withcelldict = False
             methodcachesizeexp = 11
             withmethodcachecounter = False
 
@@ -1451,7 +1468,7 @@ class TestDevolvedBytesDictImplementation(BaseTestDevolvedDictImplementation):
 
 
 def test_module_uses_strdict():
+    from pypy.objspace.std.celldict import ModuleDictStrategy
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
-    assert type(d.get_strategy()) is BytesDictStrategy
-
+    assert type(d.get_strategy()) is ModuleDictStrategy

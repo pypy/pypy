@@ -666,7 +666,7 @@ def is_wouldblock_error(errno):
     return False
 
 
-@unwrap_spec(w_file=W_File, encoding="str_or_None", errors="str_or_None")
+@unwrap_spec(w_file=W_File, encoding="text_or_none", errors="text_or_none")
 def set_file_encoding(space, w_file, encoding=None, errors=None):
     w_file.encoding = encoding
     w_file.errors = errors

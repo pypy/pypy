@@ -68,6 +68,16 @@ class TestPosixStatFunctions:
             py.test.skip("the underlying os.fstatvfs() failed: %s" % e)
         rposix_stat.fstatvfs(0)
 
+    @py.test.mark.skipif(sys.platform != 'win32', reason='win32 test')
+    def test_stat3_ino_dev(self):
+        st = rposix_stat.stat('C:\\')
+        assert st.st_dev == st.st_ino == 0
+        st = rposix_stat.stat3('C:\\')
+        assert st.st_dev != 0 and st.st_ino != 0
+        st2 = rposix_stat.lstat3('C:\\')
+        assert (st2.st_dev, st2.st_ino) == (st.st_dev, st.st_ino)
+
+
 @py.test.mark.skipif("not hasattr(rposix_stat, 'fstatat')")
 def test_fstatat(tmpdir):
     tmpdir.join('file').write('text')

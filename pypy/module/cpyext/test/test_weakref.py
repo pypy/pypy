@@ -1,5 +1,6 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
+from pypy.module.cpyext.weakrefobject import PyWeakref_NewRef
 
 class TestWeakReference(BaseApiTest):
     def test_weakref(self, space, api):
@@ -10,12 +11,11 @@ class TestWeakReference(BaseApiTest):
         assert space.is_w(api.PyWeakref_LockObject(w_ref), w_obj)
 
         w_obj = space.newtuple([])
-        assert api.PyWeakref_NewRef(w_obj, space.w_None) is None
-        assert api.PyErr_Occurred() is space.w_TypeError
-        api.PyErr_Clear()
+        with raises_w(space, TypeError):
+            PyWeakref_NewRef(space, w_obj, space.w_None)
 
     def test_proxy(self, space, api):
-        w_obj = space.w_Warning # some weakrefable object
+        w_obj = space.w_Warning  # some weakrefable object
         w_proxy = api.PyWeakref_NewProxy(w_obj, None)
         assert space.unwrap(space.str(w_proxy)) == "<type 'exceptions.Warning'>"
         assert space.unwrap(space.repr(w_proxy)).startswith('<weak')

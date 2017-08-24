@@ -351,14 +351,14 @@ in the program).  Failure to follow these rules will crash."""
         return handle.from_handle(self.space, w_arg)
 
 
-    @unwrap_spec(w_cdata=W_CData)
-    def descr_gc(self, w_cdata, w_destructor):
+    @unwrap_spec(w_cdata=W_CData, size=int)
+    def descr_gc(self, w_cdata, w_destructor, size=0):
         """\
 Return a new cdata object that points to the same data.
 Later, when this new cdata object is garbage-collected,
 'destructor(old_cdata_object)' will be called."""
         #
-        return w_cdata.with_gc(w_destructor)
+        return w_cdata.with_gc(w_destructor, size)
 
 
     @unwrap_spec(replace_with='text')
@@ -572,7 +572,7 @@ It can also be used on 'cdata' instance to get its C type."""
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 
 
-    @unwrap_spec(filename="str_or_None", flags=int)
+    @unwrap_spec(filename="fsencode_or_none", flags=int)
     def descr_dlopen(self, filename, flags=0):
         """\
 Load and return a dynamic library identified by 'name'.  The standard

@@ -48,7 +48,7 @@ def PySequence_Fast(space, w_obj, m):
     m as the message text. If the conversion otherwise, fails, reraise the
     original exception"""
     if isinstance(w_obj, W_ListObject):
-        # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM    
+        # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM
         w_obj.convert_to_cpy_strategy(space)
         return w_obj
     try:
@@ -230,7 +230,7 @@ def PySequence_Index(space, w_seq, w_obj):
             if e.match(space, space.w_StopIteration):
                 break
             raise
-        if space.is_true(space.eq(w_next, w_obj)):
+        if space.eq_w(w_next, w_obj):
             return idx
         idx += 1
 
@@ -256,8 +256,9 @@ class CPyListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_obj):
         storage = self.unerase(w_list.lstorage)
         index = self._check_index(index, storage._length)
-        decref(w_list.space, storage._elems[index])
+        py_old = storage._elems[index]
         storage._elems[index] = make_ref(w_list.space, w_obj)
+        decref(w_list.space, py_old)
 
     def length(self, w_list):
         storage = self.unerase(w_list.lstorage)
@@ -293,6 +294,23 @@ class CPyListStrategy(ListStrategy):
     def getitems_fixedsize(self, w_list):
         return self.getitems_unroll(w_list)
 
+    def copy_into(self, w_list, w_other):
+        w_other.strategy = self
+        w_other.lstorage = self.getstorage_copy(w_list)
+
+    def clone(self, w_list):
+        storage = self.getstorage_copy(w_list)
+        w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
+                                                         self)
+        return w_clone
+
+    def getitems_copy(self, w_list):
+        return self.getitems(w_list) # getitems copies anyway
+
+    def getstorage_copy(self, w_list):
+        lst = self.getitems(w_list)
+        return self.erase(CPyListStorage(w_list.space, lst))
+
     #------------------------------------------
     # all these methods fail or switch strategy and then call ListObjectStrategy's method
 
@@ -300,22 +318,8 @@ class CPyListStrategy(ListStrategy):
         w_list.switch_to_object_strategy()
         w_list.strategy.setslice(w_list, start, stop, step, length)
 
-    def get_sizehint(self):
-        return -1
-
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
-
-    def clone(self, w_list):
-        storage = w_list.lstorage  # lstorage is tuple, no need to clone
-        w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
-                                                         self)
-        w_clone.switch_to_object_strategy()
-        return w_clone
-        
-    def copy_into(self, w_list, w_other):
-        w_list.switch_to_object_strategy()
-        w_list.strategy.copy_into(w_list, w_other)
 
     def _resize_hint(self, w_list, hint):
         pass
@@ -323,13 +327,6 @@ class CPyListStrategy(ListStrategy):
     def find(self, w_list, w_item, start, stop):
         w_list.switch_to_object_strategy()
         return w_list.strategy.find(w_list, w_item, start, stop)
-
-    def getitems_copy(self, w_list):
-        w_list.switch_to_object_strategy()
-        return w_list.strategy.getitems_copy(w_list)
-
-    def getstorage_copy(self, w_list):
-        raise NotImplementedError
 
     def append(self, w_list, w_item):
         w_list.switch_to_object_strategy()
@@ -345,11 +342,11 @@ class CPyListStrategy(ListStrategy):
 
     def pop(self, w_list, index):
         w_list.switch_to_object_strategy()
-        w_list.strategy.pop(w_list, index)
+        return w_list.strategy.pop(w_list, index)
 
     def pop_end(self, w_list):
         w_list.switch_to_object_strategy()
-        w_list.strategy.pop_end(w_list)
+        return w_list.strategy.pop_end(w_list)
 
     def insert(self, w_list, index, w_item):
         w_list.switch_to_object_strategy()
@@ -377,7 +374,7 @@ class CPyListStrategy(ListStrategy):
 
     def is_empty_strategy(self):
         return False
-        
+
 
 PyObjectList = lltype.Ptr(lltype.Array(PyObject, hints={'nolength': True}))
 

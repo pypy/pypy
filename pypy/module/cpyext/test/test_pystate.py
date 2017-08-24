@@ -69,12 +69,11 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         assert module.get() == 3
 
     def test_basic_threadstate_dance(self):
-        if self.runappdirect:
-            py.test.xfail('segfault: on cpython cannot Get() a NULL tstate')
         module = self.import_extension('foo', [
                 ("dance", "METH_NOARGS",
                  """
                      PyThreadState *old_tstate, *new_tstate;
+                     PyObject *d;
 
                      PyEval_InitThreads();
 
@@ -83,8 +82,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                          return PyLong_FromLong(0);
                      }
 
-                     new_tstate = PyThreadState_Get(); /* fails on cpython */
-                     if (new_tstate != NULL) {
+                     d = PyThreadState_GetDict(); /* fails on cpython */
+                     if (d != NULL) {
                          return PyLong_FromLong(1);
                      }
 
@@ -146,6 +145,9 @@ class AppTestThreads(AppTestCpythonExtensionBase):
             ("bounce", "METH_NOARGS",
             """
             PyThreadState * tstate;
+            PyObject *dict;
+            PyGILState_STATE gilstate;
+
             if (PyEval_ThreadsInitialized() == 0)
             {
             PyEval_InitThreads();
@@ -154,11 +156,11 @@ class AppTestThreads(AppTestCpythonExtensionBase):
             if (tstate == NULL) {
                 return PyLong_FromLong(0);
             }
-            PyObject* dict = PyThreadState_GetDict();
+            dict = PyThreadState_GetDict();
             if (dict != NULL) {
             return PyLong_FromLong(1);
             }
-            PyGILState_STATE gilstate = PyGILState_Ensure();
+            gilstate = PyGILState_Ensure();
             dict = PyThreadState_GetDict();
             if (dict == NULL) {
             return PyLong_FromLong(2);
@@ -170,6 +172,25 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                 return PyLong_FromLong(3);
             }
 
+            return PyLong_FromLong(4);
+            """)])
+        res = module.bounce()
+        assert res == 4
+
+    def test_nested_pygilstate_ensure(self):
+        module = self.import_extension('foo', [
+            ("bounce", "METH_NOARGS",
+            """
+            PyGILState_STATE gilstate;
+            PyObject *dict;
+
+            if (PyEval_ThreadsInitialized() == 0)
+                PyEval_InitThreads();
+            dict = PyThreadState_GetDict();
+            gilstate = PyGILState_Ensure();
+            PyGILState_Release(gilstate);
+            if (PyThreadState_GetDict() != dict)
+                return PyLong_FromLong(-2);
             return PyLong_FromLong(4);
             """)])
         res = module.bounce()

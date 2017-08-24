@@ -1,26 +1,21 @@
 from pypy.module.cpyext.api import (
-    cpython_api, Py_buffer, CANNOT_FAIL, Py_MAX_FMT, Py_MAX_NDIMS,
-    build_type_checkers, Py_ssize_tP, PyObjectFields, cpython_struct,
-    bootstrap_function, Py_bufferP, slot_function)
+    cpython_api, CANNOT_FAIL, Py_MAX_FMT, Py_MAX_NDIMS, build_type_checkers,
+    Py_ssize_tP, cts, parse_dir, bootstrap_function, Py_bufferP, slot_function)
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, as_pyobj, incref, decref, from_ref, make_typedescr,
+    PyObject, make_ref, decref, from_ref, make_typedescr,
     get_typedescr, track_reference)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from pypy.objspace.std.memoryobject import W_MemoryView
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.import_ import PyImport_Import
+from pypy.module.cpyext.buffer import CPyBuffer, fq
+
+cts.parse_header(parse_dir / 'cpyext_memoryobject.h')
+PyMemoryViewObject = cts.gettype('PyMemoryViewObject*')
 
 PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers("MemoryView")
 
-
-PyMemoryViewObjectStruct = lltype.ForwardReference()
-PyMemoryViewObject = lltype.Ptr(PyMemoryViewObjectStruct)
-PyMemoryViewObjectFields = PyObjectFields + \
-    (("view", Py_buffer),)
-cpython_struct(
-    "PyMemoryViewObject", PyMemoryViewObjectFields, PyMemoryViewObjectStruct,
-    level=2)
 
 @bootstrap_function
 def init_memoryobject(space):
@@ -30,7 +25,7 @@ def init_memoryobject(space):
                    attach=memory_attach,
                    dealloc=memory_dealloc,
                    realize=memory_realize,
-                  )
+                   )
 
 def memory_attach(space, py_obj, w_obj, w_userdata=None):
     """
@@ -39,15 +34,15 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, W_MemoryView)
     py_obj = rffi.cast(PyMemoryViewObject, py_obj)
     view = py_obj.c_view
-    ndim = w_obj.buf.getndim()
+    ndim = w_obj.getndim()
     if ndim >= Py_MAX_NDIMS:
         # XXX warn?
         return
-    fill_Py_buffer(space, w_obj.buf, view)
+    fill_Py_buffer(space, w_obj.view, view)
     try:
-        view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
+        view.c_buf = rffi.cast(rffi.VOIDP, w_obj.view.get_raw_address())
         view.c_obj = make_ref(space, w_userdata)
-        rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
+        rffi.setintfield(view, 'c_readonly', w_obj.view.readonly)
     except ValueError:
         w_s = w_obj.descr_tobytes(space)
         view.c_obj = make_ref(space, w_s)
@@ -59,7 +54,6 @@ def memory_realize(space, obj):
     """
     Creates the memory object in the interpreter
     """
-    from pypy.module.cpyext.slotdefs import CPyBuffer, fq
     py_mem = rffi.cast(PyMemoryViewObject, obj)
     view = py_mem.c_view
     ndim = widen(view.c_ndim)
@@ -78,7 +72,7 @@ def memory_realize(space, obj):
                     readonly=widen(view.c_readonly))
     # Ensure view.c_buf is released upon object finalization
     fq.register_finalizer(buf)
-    # Allow subclassing W_MemeoryView
+    # Allow subclassing W_MemoryView
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemoryView, w_type)
     w_obj.__init__(buf)
@@ -92,41 +86,6 @@ def memory_dealloc(space, py_obj):
         decref(space, mem_obj.c_view.c_obj)
     mem_obj.c_view.c_obj = rffi.cast(PyObject, 0)
     _dealloc(space, py_obj)
-
-
-@cpython_api([PyObject, Py_bufferP, rffi.INT_real],
-             rffi.INT_real, error=-1)
-def PyObject_GetBuffer(space, w_obj, view, flags):
-    """Export obj into a Py_buffer, view.  These arguments must
-    never be NULL.  The flags argument is a bit field indicating what
-    kind of buffer the caller is prepared to deal with and therefore what
-    kind of buffer the exporter is allowed to return.  The buffer interface
-    allows for complicated memory sharing possibilities, but some caller may
-    not be able to handle all the complexity but may want to see if the
-    exporter will let them take a simpler view to its memory.
-
-    Some exporters may not be able to share memory in every possible way and
-    may need to raise errors to signal to some consumers that something is
-    just not possible. These errors should be a BufferError unless
-    there is another error that is actually causing the problem. The
-    exporter can use flags information to simplify how much of the
-    Py_buffer structure is filled in with non-default values and/or
-    raise an error if the object can't support a simpler view of its memory.
-
-    0 is returned on success and -1 on error."""
-    flags = widen(flags)
-    buf = space.buffer_w(w_obj, flags)
-    try:
-        view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-    except ValueError:
-        if not space.isinstance_w(w_obj, space.w_str):
-            # XXX Python 3?
-            raise BufferError("could not create buffer from object")
-        view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.bytes_w(w_obj), track_allocation=False))
-        rffi.setintfield(view, 'c_readonly', 1)
-    ret = fill_Py_buffer(space, buf, view)
-    view.c_obj = make_ref(space, w_obj)
-    return ret
 
 def fill_Py_buffer(space, buf, view):
     # c_buf, c_obj have been filled in
@@ -218,11 +177,9 @@ def PyBuffer_IsContiguous(space, view, fort):
         return (_IsCContiguous(view) or _IsFortranContiguous(view))
     return 0
 
-@cpython_api([PyObject], PyObject, result_is_ll=True)
+@cpython_api([PyObject], PyObject)
 def PyMemoryView_FromObject(space, w_obj):
-    w_memview = space.call_method(space.builtin, "memoryview", w_obj)
-    py_memview = make_ref(space, w_memview, w_obj)
-    return py_memview
+    return space.call_method(space.builtin, "memoryview", w_obj)
 
 @cpython_api([Py_bufferP], PyObject, result_is_ll=True)
 def PyMemoryView_FromBuffer(space, view):
@@ -234,6 +191,7 @@ def PyMemoryView_FromBuffer(space, view):
     # copy view into obj.c_view, without creating a new view.c_obj
     typedescr = get_typedescr(W_MemoryView.typedef)
     py_obj = typedescr.allocate(space, space.w_memoryview)
+
     py_mem = rffi.cast(PyMemoryViewObject, py_obj)
     mview = py_mem.c_view
     mview.c_buf = view.c_buf
@@ -259,4 +217,3 @@ def PyMemoryView_FromBuffer(space, view):
         py_mem.c_view.c_shape = view.c_shape
     # XXX ignore suboffsets?
     return py_obj
-

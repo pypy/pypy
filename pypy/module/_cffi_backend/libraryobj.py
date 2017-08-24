@@ -91,7 +91,7 @@ W_Library.typedef = TypeDef(
 W_Library.typedef.acceptable_as_base_class = False
 
 
-@unwrap_spec(filename="str_or_None", flags=int)
+@unwrap_spec(filename="fsencode_or_none", flags=int)
 def load_library(space, filename, flags=0):
     lib = W_Library(space, filename, flags)
     return lib

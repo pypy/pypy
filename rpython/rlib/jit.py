@@ -244,6 +244,10 @@ def look_inside_iff(predicate):
     return inner
 
 def oopspec(spec):
+    """ The JIT compiler won't look inside this decorated function,
+        but instead during translation, rewrites it according to the handler in
+        rpython/jit/codewriter/jtransform.py.
+    """
     def decorator(func):
         func.oopspec = spec
         return func

@@ -56,7 +56,7 @@ class W_DictMultiObject(W_Root):
     def allocate_and_init_instance(space, w_type=None, module=False,
                                    instance=False, strdict=False,
                                    kwargs=False):
-        if space.config.objspace.std.withcelldict and module:
+        if module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
             assert w_type is None
             # every module needs its own strategy, because the strategy stores
@@ -139,11 +139,7 @@ class W_DictMultiObject(W_Root):
         init_or_update(space, self, __args__, 'dict')
 
     def descr_repr(self, space):
-        ec = space.getexecutioncontext()
-        w_currently_in_repr = ec._py_repr
-        if w_currently_in_repr is None:
-            w_currently_in_repr = ec._py_repr = space.newdict()
-        return dictrepr(space, w_currently_in_repr, self)
+        return dictrepr(space, space.get_objects_in_repr(), self)
 
     def descr_eq(self, space, w_other):
         if space.is_w(self, w_other):
@@ -239,10 +235,6 @@ class W_DictMultiObject(W_Root):
             raise oefmt(self.space.w_RuntimeError,
                         "an internal 'del' on the dictionary failed to find "
                         "the key")
-
-    def descr_reversed(self, space):
-        raise oefmt(space.w_TypeError,
-                    "argument to reversed() must be a sequence")
 
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
@@ -468,10 +460,9 @@ app = applevel('''
     def dictrepr(currently_in_repr, d):
         if len(d) == 0:
             return "{}"
-        dict_id = id(d)
-        if dict_id in currently_in_repr:
+        if d in currently_in_repr:
             return '{...}'
-        currently_in_repr[dict_id] = 1
+        currently_in_repr[d] = 1
         try:
             items = []
             # XXX for now, we cannot use iteritems() at app-level because
@@ -482,7 +473,7 @@ app = applevel('''
             return "{" +  ', '.join(items) + "}"
         finally:
             try:
-                del currently_in_repr[dict_id]
+                del currently_in_repr[d]
             except:
                 pass
 ''', filename=__file__)
@@ -522,7 +513,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __setitem__ = interp2app(W_DictMultiObject.descr_setitem),
     __delitem__ = interp2app(W_DictMultiObject.descr_delitem),
 
-    __reversed__ = interp2app(W_DictMultiObject.descr_reversed),
     copy = interp2app(W_DictMultiObject.descr_copy),
     items = interp2app(W_DictMultiObject.descr_items),
     keys = interp2app(W_DictMultiObject.descr_keys),
@@ -1050,6 +1040,8 @@ class AbstractTypedStrategy(object):
             else:
                 return d.pop(key, w_default)
         elif self._never_equal_to(space.type(w_key)):
+            if w_default is not None:
+                return w_default
             raise KeyError
         else:
             self.switch_to_object_strategy(w_dict)
@@ -1586,9 +1578,25 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
 
+    def descr_contains(self, space, w_item):
+        if not space.isinstance_w(w_item, space.w_tuple):
+            return space.w_False
+        try:
+            w_key, w_value = space.fixedview_unroll(w_item, 2)
+            w_found = self.w_dict.getitem(w_key)
+        except OperationError as e:
+            if e.async(space):
+                raise
+            w_found = None
+        if w_found is None:
+            return space.w_False
+        return space.newbool(space.eq_w(w_value, w_found))
+
 class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
+    def descr_contains(self, space, w_key):
+        return self.w_dict.descr_contains(space, w_key)
 
 class W_DictViewValuesObject(W_DictViewObject):
     def descr_iter(self, space):
@@ -1599,6 +1607,7 @@ W_DictViewItemsObject.typedef = TypeDef(
     __repr__ = interp2app(W_DictViewItemsObject.descr_repr),
     __len__ = interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = interp2app(W_DictViewItemsObject.descr_iter),
+    __contains__ = interp2app(W_DictViewItemsObject.descr_contains),
 
     __eq__ = interp2app(W_DictViewItemsObject.descr_eq),
     __ne__ = interp2app(W_DictViewItemsObject.descr_ne),
@@ -1622,6 +1631,7 @@ W_DictViewKeysObject.typedef = TypeDef(
     __repr__ = interp2app(W_DictViewKeysObject.descr_repr),
     __len__ = interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = interp2app(W_DictViewKeysObject.descr_iter),
+    __contains__ = interp2app(W_DictViewKeysObject.descr_contains),
 
     __eq__ = interp2app(W_DictViewKeysObject.descr_eq),
     __ne__ = interp2app(W_DictViewKeysObject.descr_ne),

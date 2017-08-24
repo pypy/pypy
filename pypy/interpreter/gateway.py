@@ -23,7 +23,7 @@ from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
     DescrMismatch)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
 
@@ -64,8 +64,8 @@ class Unwrapper(object):
     def _freeze_(self):
         return True
 
+    @not_rpython
     def unwrap(self, space, w_value):
-        """NOT_RPYTHON"""
         raise NotImplementedError
 
 
@@ -145,21 +145,26 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_bufferstr(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit_str_or_None(self, el, app_sig):
-        self.checked_space_method(el, app_sig)
-
-    def visit_str0(self, el, app_sig):
+    def visit_text_or_none(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit_bytes(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_bytes0(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_text(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit_utf8(self, el, app_sig):
+    def visit_text0(self, el, app_sig):
         self.checked_space_method(el, app_sig)
-        self.orig_arg() # iterate
+
+    def visit_fsencode(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_fsencode_or_none(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
 
     def visit_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
@@ -285,24 +290,26 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
 
-    def visit_str_or_None(self, typ):
-        self.run_args.append("space.str_or_None_w(%s)" % (self.scopenext(),))
-
-    def visit_str0(self, typ):
-        self.run_args.append("space.str0_w(%s)" % (self.scopenext(),))
+    def visit_text_or_none(self, typ):
+        self.run_args.append("space.text_or_none_w(%s)" % (self.scopenext(),))
 
     def visit_bytes(self, typ):
         self.run_args.append("space.bytes_w(%s)" % (self.scopenext(),))
 
+    def visit_bytes0(self, typ):
+        self.run_args.append("space.bytes0_w(%s)" % (self.scopenext(),))
+
     def visit_text(self, typ):
         self.run_args.append("space.text_w(%s)" % (self.scopenext(),))
 
-    def visit_utf8(self, typ):
-        name = 'w_uni%d' % self.n
-        self.extracode.append('%s = space.convert_to_w_unicode(%s)' %
-                              (name, self.scopenext()))
-        self.run_args.append("space.utf8_w(%s)" % (name,))
-        self.run_args.append("%s._length" % (name,))
+    def visit_text0(self, typ):
+        self.run_args.append("space.text0_w(%s)" % (self.scopenext(),))
+
+    def visit_fsencode(self, typ):
+        self.run_args.append("space.fsencode_w(%s)" % (self.scopenext(),))
+
+    def visit_fsencode_or_none(self, typ):
+        self.run_args.append("space.fsencode_or_none_w(%s)" % (self.scopenext(),))
 
     def visit_nonnegint(self, typ):
         self.run_args.append("space.gateway_nonnegint_w(%s)" % (
@@ -375,8 +382,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 class BuiltinActivation(object):
     _immutable_ = True
 
+    @not_rpython
     def __init__(self, behavior):
-        """NOT_RPYTHON"""
         self.behavior = behavior
 
     def _run(self, space, scope_w):
@@ -450,24 +457,26 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
 
-    def visit_str_or_None(self, typ):
-        self.unwrap.append("space.str_or_None_w(%s)" % (self.nextarg(),))
-
-    def visit_str0(self, typ):
-        self.unwrap.append("space.str0_w(%s)" % (self.nextarg(),))
+    def visit_text_or_none(self, typ):
+        self.unwrap.append("space.text_or_none_w(%s)" % (self.nextarg(),))
 
     def visit_bytes(self, typ):
         self.unwrap.append("space.bytes_w(%s)" % (self.nextarg(),))
 
+    def visit_bytes0(self, typ):
+        self.unwrap.append("space.bytes0_w(%s)" % (self.nextarg(),))
+
     def visit_text(self, typ):
         self.unwrap.append("space.text_w(%s)" % (self.nextarg(),))
 
-    def visit_utf8(self, typ):
-        name = 'w_uni%d' % self.n
-        self.extracode.append('%s = space.convert_to_w_unicode(%s)' %
-                              (name, self.nextarg()))
-        self.unwrap.append("space.utf8_w(%s)" % (name,))
-        self.unwrap.append("%s._length" % (name,))
+    def visit_text0(self, typ):
+        self.unwrap.append("space.text0_w(%s)" % (self.nextarg(),))
+
+    def visit_fsencode(self, typ):
+        self.unwrap.append("space.fsencode_w(%s)" % (self.nextarg(),))
+
+    def visit_fsencode_or_none(self, typ):
+        self.unwrap.append("space.fsencode_or_none_w(%s)" % (self.nextarg(),))
 
     def visit_nonnegint(self, typ):
         self.unwrap.append("space.gateway_nonnegint_w(%s)" % (self.nextarg(),))
@@ -555,13 +564,6 @@ def unwrap_spec(*spec, **kwargs):
         return func
     return decorator
 
-def unwrap_count_len(spec):
-    lgt = len(spec)
-    for item in spec:
-        if item == 'utf8':
-            lgt += 1
-    return lgt
-
 class WrappedDefault(object):
     """ Can be used inside unwrap_spec as WrappedDefault(3) which means
     it'll be treated as W_Root, but fed with default which will be a wrapped
@@ -608,16 +610,8 @@ def build_unwrap_spec(func, argnames, self_type=None):
                              "the name of an argument of the following "
                              "function" % (name,))
 
-    if kw_spec:
-        filtered = []
-        i = 0
-        while i < len(unwrap_spec):
-            elem = unwrap_spec[i]
-            filtered.append(elem)
-            if elem == 'utf8':
-                i += 1
-            i += 1
-        unwrap_spec = filtered
+    assert str not in unwrap_spec   # use 'text' or 'bytes' instead of str
+
     return unwrap_spec
 
 
@@ -631,9 +625,9 @@ class BuiltinCode(Code):
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
 
+    @not_rpython
     def __init__(self, func, unwrap_spec=None, self_type=None,
                  descrmismatch=None, doc=None):
-        "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         Code.__init__(self, func.__name__)
@@ -979,10 +973,10 @@ class interp2app(W_Root):
 
     instancecache = {}
 
+    @not_rpython
     def __new__(cls, f, app_name=None, unwrap_spec=None, descrmismatch=None,
                 as_classmethod=False, doc=None):
 
-        "NOT_RPYTHON"
         # f must be a function whose name does NOT start with 'app_'
         self_type = None
         if hasattr(f, 'im_func'):
@@ -1023,8 +1017,8 @@ class interp2app(W_Root):
             self._staticdefs = zip(argnames[-len(defaults):], defaults)
         return self
 
+    @not_rpython
     def _getdefaults(self, space):
-        "NOT_RPYTHON"
         defs_w = []
         for name, defaultval in self._staticdefs:
             if name.startswith('w_'):
@@ -1043,7 +1037,7 @@ class interp2app(W_Root):
             code = self._code
             assert isinstance(code._unwrap_spec, (list, tuple))
             assert isinstance(code._argnames, list)
-            assert unwrap_count_len(code._unwrap_spec) == len(code._argnames)
+            assert len(code._unwrap_spec) == len(code._argnames)
             for i in range(len(code._unwrap_spec)-1, -1, -1):
                 spec = code._unwrap_spec[i]
                 argname = code._argnames[i]
@@ -1080,8 +1074,8 @@ class interp2app(W_Root):
 
 
 class GatewayCache(SpaceCache):
+    @not_rpython
     def build(cache, gateway):
-        "NOT_RPYTHON"
         space = cache.space
         defs = gateway._getdefaults(space) # needs to be implemented by subclass
         code = gateway._code
@@ -1151,8 +1145,8 @@ class ApplevelClass:
         w_globals = self.getwdict(space)
         return space.getitem(w_globals, space.newtext(name))
 
+    @not_rpython
     def interphook(self, name):
-        "NOT_RPYTHON"
         def appcaller(space, *args_w):
             if not isinstance(space, ObjSpace):
                 raise TypeError("first argument must be a space instance.")
@@ -1189,15 +1183,16 @@ class ApplevelCache(SpaceCache):
     """NOT_RPYTHON
     The cache mapping each applevel instance to its lazily built w_dict"""
 
+    @not_rpython
     def build(self, app):
-        "NOT_RPYTHON.  Called indirectly by Applevel.getwdict()."
+        "Called indirectly by Applevel.getwdict()."
         return build_applevel_dict(app, self.space)
 
 
 # __________ pure applevel version __________
 
+@not_rpython
 def build_applevel_dict(self, space):
-    "NOT_RPYTHON"
     w_glob = space.newdict(module=True)
     space.setitem(w_glob, space.newtext('__name__'), space.newtext(self.modname))
     space.exec_(self.source, w_glob, w_glob,
@@ -1208,8 +1203,9 @@ def build_applevel_dict(self, space):
 # ____________________________________________________________
 
 
+@not_rpython
 def appdef(source, applevel=ApplevelClass, filename=None):
-    """ NOT_RPYTHON: build an app-level helper function, like for example:
+    """ build an app-level helper function, like for example:
     myfunc = appdef('''myfunc(x, y):
                            return x+y
                     ''')
@@ -1255,6 +1251,6 @@ class applevel_temp(ApplevelClass):
 
 
 # app2interp_temp is used for testing mainly
+@not_rpython
 def app2interp_temp(func, applevel_temp=applevel_temp, filename=None):
-    """ NOT_RPYTHON """
     return appdef(func, applevel_temp, filename=filename)

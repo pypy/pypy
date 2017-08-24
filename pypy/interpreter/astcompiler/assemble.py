@@ -7,6 +7,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.astcompiler import ast, misc, symtable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.miscutils import string_sort
 from pypy.tool import stdlib_opcode as ops
 
 
@@ -138,9 +139,12 @@ class Block(object):
 
 
 def _make_index_dict_filter(syms, flag):
+    names = syms.keys()
+    string_sort(names)   # return cell vars in alphabetical order
     i = 0
     result = {}
-    for name, scope in syms.iteritems():
+    for name in names:
+        scope = syms[name]
         if scope == flag:
             result[name] = i
             i += 1
@@ -170,6 +174,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.var_names = _list_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
                                                  symtable.SCOPE_CELL)
+        string_sort(scope.free_vars)    # return free vars in alphabetical order
         self.free_vars = _list_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
         self.argcount = 0

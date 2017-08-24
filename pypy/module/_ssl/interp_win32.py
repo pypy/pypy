@@ -99,7 +99,7 @@ def w_parseKeyUsage(space, pCertCtx, flags):
                     usage.c_rgpszUsageIdentifier[i]))
             return space.newset(result_w)
 
-@unwrap_spec(store_name=str)
+@unwrap_spec(store_name='text')
 def enum_certificates_w(space, store_name):
     """enum_certificates(store_name) -> []
 
@@ -142,7 +142,7 @@ def enum_certificates_w(space, store_name):
 
     return space.newlist(result_w)
 
-@unwrap_spec(store_name=str)
+@unwrap_spec(store_name='text')
 def enum_crls_w(space, store_name):
     """enum_crls(store_name) -> []
 

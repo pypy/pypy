@@ -1138,7 +1138,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Check if the object at 'addr' is young.
         if not self.is_valid_gc_object(addr):
             return False     # filter out tagged pointers explicitly.
-        if self.nursery <= addr < self.nursery_top:
+        if self.is_in_nursery(addr):
             return True      # addr is in the nursery
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
@@ -2124,7 +2124,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _malloc_out_of_nursery(self, totalsize):
         """Allocate non-movable memory for an object of the given
         'totalsize' that lives so far in the nursery."""
-        if raw_malloc_usage(totalsize) <= self.small_request_threshold:
+        if (r_uint(raw_malloc_usage(totalsize)) <=
+            r_uint(self.small_request_threshold)):
             # most common path
             return self.ac.malloc(totalsize)
         else:
@@ -2133,6 +2134,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     _malloc_out_of_nursery._always_inline_ = True
 
     def _malloc_out_of_nursery_nonsmall(self, totalsize):
+        if r_uint(raw_malloc_usage(totalsize)) > r_uint(self.nursery_size):
+            out_of_memory("memory corruption: bad size for object in the "
+                          "nursery")
         # 'totalsize' should be aligned.
         ll_assert(raw_malloc_usage(totalsize) & (WORD-1) == 0,
                   "misaligned totalsize in _malloc_out_of_nursery_nonsmall")
@@ -2304,6 +2308,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 ll_assert(not (self.probably_young_objects_with_finalizers
                                .non_empty()),
                     "probably_young_objects_with_finalizers should be empty")
+                self.kept_alive_by_finalizer = r_uint(0)
                 if self.old_objects_with_finalizers.non_empty():
                     self.deal_with_objects_with_finalizers()
                 elif self.old_objects_with_weakrefs.non_empty():
@@ -2376,6 +2381,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # we currently have -- but no more than 'max_delta' more than
                 # we currently have.
                 total_memory_used = float(self.get_total_memory_used())
+                total_memory_used -= float(self.kept_alive_by_finalizer)
+                if total_memory_used < 0:
+                    total_memory_used = 0
                 bounded = self.set_major_threshold_from(
                     min(total_memory_used * self.major_collection_threshold,
                         total_memory_used + self.max_delta),
@@ -2414,7 +2422,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.execute_finalizers()
             #END FINALIZING
         else:
-            pass #XXX which exception to raise here. Should be unreachable.
+            ll_assert(False, "bogus gc_state")
 
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
         debug_stop("gc-collect-step")
@@ -2780,8 +2788,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _bump_finalization_state_from_0_to_1(self, obj):
         ll_assert(self._finalization_state(obj) == 0,
                   "unexpected finalization state != 0")
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + self.get_size(obj)
         hdr = self.header(obj)
         hdr.tid |= GCFLAG_FINALIZATION_ORDERING
+        # A bit hackish, but we will not count these objects as "alive"
+        # for the purpose of computing when the next major GC should
+        # occur.  This is done for issue #2590: without this, if we
+        # allocate mostly objects with finalizers, the
+        # next_major_collection_threshold grows forever and actual
+        # memory usage is not bounded.
+        self.kept_alive_by_finalizer += raw_malloc_usage(totalsize)
 
     def _recursively_bump_finalization_state_from_2_to_3(self, obj):
         ll_assert(self._finalization_state(obj) == 2,

@@ -344,7 +344,7 @@ class W_CDLL(W_Root):
     def getidentifier(self, space):
         return space.newint(self.cdll.getidentifier())
 
-@unwrap_spec(name='str_or_None', mode=int)
+@unwrap_spec(name='fsencode_or_none', mode=int)
 def descr_new_cdll(space, w_type, name, mode=-1):
     return W_CDLL(space, name, mode)
 
@@ -363,7 +363,7 @@ class W_WinDLL(W_CDLL):
         W_CDLL.__init__(self, space, name, mode)
         self.flags = libffi.FUNCFLAG_STDCALL
 
-@unwrap_spec(name='str_or_None', mode=int)
+@unwrap_spec(name='fsencode_or_none', mode=int)
 def descr_new_windll(space, w_type, name, mode=-1):
     return W_WinDLL(space, name, mode)
 

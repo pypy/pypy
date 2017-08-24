@@ -1,9 +1,4 @@
 from rpython.annotator.model import SomeInstance, s_None
-from pypy.interpreter import argument, gateway
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.objspace.std.sliceobject import W_SliceObject
-from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.objectmodel import (instantiate, we_are_translated, specialize,
     not_rpython)
 from rpython.rlib.nonconst import NonConstant
@@ -13,6 +8,13 @@ from rpython.rtyper.lltypesystem import lltype
 from pypy.tool.option import make_config
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.translator.translator import TranslationContext
+
+from pypy.tool.option import make_config
+from pypy.interpreter import argument, gateway
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
+from pypy.interpreter.buffer import StringBuffer, SimpleView
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.sliceobject import W_SliceObject
 
 
 class W_MyObject(W_Root):
@@ -41,11 +43,10 @@ class W_MyObject(W_Root):
         is_root(w_subtype)
 
     def buffer_w(self, space, flags):
-        return StringBuffer("foobar")
+        return SimpleView(StringBuffer("foobar"))
 
     def str_w(self, space):
         return NonConstant("foobar")
-    identifier_w = bytes_w = str_w
 
     def utf8_w(self, space):
         return NonConstant("foobar")
@@ -124,7 +125,7 @@ class Entry(ExtRegistryEntry):
 
 BUILTIN_TYPES = ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict',
                  'unicode', 'complex', 'slice', 'bool', 'basestring', 'object',
-                 'bytearray', 'buffer', 'set', 'frozenset']
+                 'set', 'frozenset', 'bytearray', 'buffer', 'memoryview']
 
 INTERP_TYPES = ['function', 'builtin_function', 'module', 'getset_descriptor',
                 'instance', 'classobj']
@@ -198,7 +199,7 @@ class FakeObjSpace(ObjSpace):
     def newseqiter(self, x):
         return w_some_obj()
 
-    def newbuffer(self, x):
+    def newmemoryview(self, x):
         return w_some_obj()
 
     @not_rpython
@@ -213,6 +214,7 @@ class FakeObjSpace(ObjSpace):
 
     newtext = newbytes
     newtext_or_none = newbytes
+    newfilename = newbytes
 
     @not_rpython
     def wrap(self, x):

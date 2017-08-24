@@ -46,7 +46,7 @@ class TestFunctionObject(BaseApiTest):
         w_function = space.appexec([], """():
             def func(x, y, z): return x
             return func
-        """)
+        """, cache=False)
         w_code = PyFunction_GetCode(space, w_function)
         assert w_code.co_name == "func"
 
@@ -63,7 +63,7 @@ class TestFunctionObject(BaseApiTest):
             w_code = space.appexec([], """():
                 def func(%s): %s
                 return func.__code__
-            """ % (signature, body))
+            """ % (signature, body), cache=False)
             ref = make_ref(space, w_code)
             co_flags = rffi.cast(PyCodeObject, ref).c_co_flags
             decref(space, ref)

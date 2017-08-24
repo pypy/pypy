@@ -93,6 +93,31 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
             assert mod.isSameFunction(mod.getarg_O)
         raises(SystemError, mod.isSameFunction, 1)
 
+    def test_check(self):
+        mod = self.import_extension('foo', [
+            ('check', 'METH_O',
+            '''
+                return PyLong_FromLong(PyCFunction_Check(args));
+            '''),
+            ])
+        from math import degrees
+        assert mod.check(degrees) == 1
+        assert mod.check(list) == 0
+        assert mod.check(sorted) == 1
+        def func():
+            pass
+        class A(object):
+            def meth(self):
+                pass
+            @staticmethod
+            def stat():
+                pass
+        assert mod.check(func) == 0
+        assert mod.check(A) == 0
+        assert mod.check(A.meth) == 0
+        assert mod.check(A.stat) == 0
+ 
+
 class TestPyCMethodObject(BaseApiTest):
     def test_repr(self, space, api):
         """
