@@ -831,7 +831,8 @@ def decode_object(space, w_obj, encoding, errors):
             s = space.charbuf_w(w_obj)
             try:
                 rutf8.check_ascii(s)
-            except rutf8.AsciiCheckError as e:
+            except rutf8.CheckError:
+                XXX
                 unicodehelper.decode_error_handler(space)(None,
                     'ascii', "ordinal not in range(128)", s, e.pos, e.pos+1)
                 assert False
@@ -842,7 +843,8 @@ def decode_object(space, w_obj, encoding, errors):
             try:
                 _, lgt = rutf8.str_check_utf8(s, len(s), final=True,
                                               allow_surrogates=True)
-            except rutf8.Utf8CheckError as e:
+            except rutf8.CheckError:
+                XXX
                 eh(None, 'utf8', e.msg, s, e.startpos, e.endpos)
                 assert False, "has to raise"
             return space.newutf8(s, lgt)

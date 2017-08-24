@@ -160,6 +160,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_text0(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_utf8(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_fsencode(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -244,7 +247,6 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def __init__(self):
         UnwrapSpecEmit.__init__(self)
         self.run_args = []
-        self.extracode = []
 
     def scopenext(self):
         return "scope_w[%d]" % self.succ()
@@ -305,6 +307,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_text0(self, typ):
         self.run_args.append("space.text0_w(%s)" % (self.scopenext(),))
 
+    def visit_utf8(self, typ):
+        self.run_args.append("space.utf8_w(%s)" % (self.scopenext(),))
+
     def visit_fsencode(self, typ):
         self.run_args.append("space.fsencode_w(%s)" % (self.scopenext(),))
 
@@ -359,9 +364,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
             d = {}
             source = """if 1:
                 def _run(self, space, scope_w):
-                    %s
                     return self.behavior(%s)
-                \n""" % ("\n".join(self.extracode), ', '.join(self.run_args))
+                \n""" % (', '.join(self.run_args),)
             exec compile2(source) in self.miniglobals, d
 
             activation_cls = type("BuiltinActivation_UwS_%s" % label,
@@ -402,7 +406,6 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         UnwrapSpecEmit.__init__(self)
         self.args = []
         self.unwrap = []
-        self.extracode = []
         self.finger = 0
 
     def dispatch(self, el, *args):
@@ -472,6 +475,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_text0(self, typ):
         self.unwrap.append("space.text0_w(%s)" % (self.nextarg(),))
 
+    def visit_utf8(self, typ):
+        self.unwrap.append("space.utf8_w(%s)" % (self.nextarg(),))
+
     def visit_fsencode(self, typ):
         self.unwrap.append("space.fsencode_w(%s)" % (self.nextarg(),))
 
@@ -526,10 +532,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
             unwrap_info.miniglobals['func'] = func
             source = """if 1:
                 def fastfunc_%s_%d(%s):
-                    %s
                     return func(%s)
                 \n""" % (func.__name__.replace('-', '_'), narg,
-                         ', '.join(args), '\n'.join(unwrap_info.extracode),
+                         ', '.join(args),
                          ', '.join(unwrap_info.unwrap))
             exec compile2(source) in unwrap_info.miniglobals, d
             fastfunc = d['fastfunc_%s_%d' % (func.__name__.replace('-', '_'), narg)]

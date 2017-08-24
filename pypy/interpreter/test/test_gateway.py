@@ -538,8 +538,8 @@ class TestGateway:
     def test_interp2app_unwrap_spec_utf8(self):
         space = self.space
         w = space.wrap
-        def g3_u(space, utf8, utf8len):
-            return space.newtuple([space.wrap(len(utf8)), space.wrap(utf8len)])
+        def g3_u(space, utf8):
+            return space.wrap(utf8)
         app_g3_u = gateway.interp2app_temp(g3_u,
                                          unwrap_spec=[gateway.ObjSpace,
                                                       'utf8'])
@@ -547,14 +547,20 @@ class TestGateway:
         encoded = u"gęść".encode('utf8')
         assert self.space.eq_w(
             space.call_function(w_app_g3_u, w(u"gęść")),
-            space.newtuple([w(len(encoded)), w(4)]))
+            w(encoded))
         assert self.space.eq_w(
             space.call_function(w_app_g3_u, w("foo")),
-            space.newtuple([w(3), w(3)]))
+            w("foo"))
         raises(gateway.OperationError, space.call_function, w_app_g3_u,
                w(None))
         raises(gateway.OperationError, space.call_function, w_app_g3_u,
                w(42))
+        w_ascii = space.appexec([], """():
+            import sys
+            return sys.getdefaultencoding() == 'ascii'""")
+        if space.is_true(w_ascii):
+            raises(gateway.OperationError, space.call_function, w_app_g3_u,
+                   w("\x80"))
 
     def test_interp2app_unwrap_spec_unwrapper(self):
         space = self.space
