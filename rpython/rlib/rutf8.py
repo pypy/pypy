@@ -9,6 +9,10 @@ the array or ctypes modules.
 Fun comes from surrogates.  Various functions don't normally accept
 any unicode character betwen 0xd800 and 0xdfff, but do if you give
 the 'allow_surrogates = True' flag.
+
+This is a minimal reference implementation.  A lot of interpreters
+need their own copy-pasted copy of some of the logic here, with
+extra code in the middle for error handlers and so on.
 """
 
 from rpython.rlib.objectmodel import enforceargs
@@ -138,43 +142,14 @@ def codepoint_at_pos(code, pos):
     assert False, "unreachable"
 
 class CheckError(Exception):
-    pass
+    def __init__(self, pos):
+        self.pos = pos
 
 @jit.elidable
 def check_ascii(s):
     for i in range(len(s)):
         if ord(s[i]) > 0x7F:
-            raise CheckError
-
-#def utf8_encode_ascii(s, errors, encoding, msg, errorhandler):
-#    res = StringBuilder(len(s))
-#    u_pos = 0
-#    pos = 0
-#    while pos < len(s):
-#        chr1 = s[pos]
-#        if ord(chr1) < 0x80:
-#            res.append(chr1)
-#        else:
-#            repl, _, _, _ = errorhandler(errors, encoding, msg, s, u_pos, u_pos + 1)
-#            res.append(repl)
-#        u_pos += 1
-#        pos = next_codepoint_pos(s, pos)
-#    return res.build()
-
-#def str_decode_ascii(s, size, errors, errorhandler):
-#    # ASCII is equivalent to the first 128 ordinals in Unicode.
-#    result = StringBuilder(size)
-#    pos = 0
-#    while pos < size:
-#        c = s[pos]
-#        if ord(c) < 128:
-#            result.append(c)
-#        else:
-#            r, _, _ = errorhandler(errors, "ascii", "ordinal not in range(128)",
-#                                   s,  pos, pos + 1)
-#            result.append(r)
-#        pos += 1
-#    return result.build(), pos, -1
+            raise CheckError(i)
 
 def islinebreak(s, pos):
     chr1 = ord(s[pos])
@@ -266,54 +241,51 @@ def check_utf8(s, allow_surrogates=False):
             continue
 
         if ordch1 <= 0xC1:
-            raise CheckError
+            raise CheckError(pos - 1)
 
         if ordch1 <= 0xDF:
-            continuation_bytes += 1
             if pos >= len(s):
-                raise CheckError
+                raise CheckError(pos - 1)
             ordch2 = ord(s[pos])
             pos += 1
 
             if _invalid_byte_2_of_2(ordch2):
-                raise CheckError
+                raise CheckError(pos - 2)
             # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
+            continuation_bytes += 1
             continue
 
         if ordch1 <= 0xEF:
-            continuation_bytes += 2
             if (pos + 2) > len(s):
-                raise CheckError
+                raise CheckError(pos - 1)
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
             pos += 2
 
-            if _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
-                raise CheckError
-            elif _invalid_byte_3_of_3(ordch3):
-                raise CheckError
+            if (_invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates) or
+                _invalid_byte_3_of_3(ordch3)):
+                raise CheckError(pos - 3)
             # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
+            continuation_bytes += 2
             continue
 
         if ordch1 <= 0xF4:
-            continuation_bytes += 3
             if (pos + 3) > len(s):
-                raise CheckError
+                raise CheckError(pos - 1)
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
             ordch4 = ord(s[pos + 2])
             pos += 3
 
-            if _invalid_byte_2_of_4(ordch1, ordch2):
-                raise CheckError
-            elif _invalid_byte_3_of_4(ordch3):
-                raise CheckError
-            elif _invalid_byte_4_of_4(ordch4):
-                raise CheckError
+            if (_invalid_byte_2_of_4(ordch1, ordch2) or
+                _invalid_byte_3_of_4(ordch3) or
+                _invalid_byte_4_of_4(ordch4)):
+                raise CheckError(pos - 4)
             # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
+            continuation_bytes += 3
             continue
 
-        raise CheckError
+        raise CheckError(pos - 1)
 
     assert pos == len(s)
     return pos - continuation_bytes
