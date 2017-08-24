@@ -19,6 +19,7 @@ from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import lltype
 
 
 def unichr_as_utf8(code, allow_surrogates=False):
@@ -307,3 +308,65 @@ def check_utf8(s, allow_surrogates=False):
 
     assert pos == len(s)
     return pos - continuation_bytes
+
+
+UTF8_INDEX_STORAGE = lltype.GcArray(lltype.Struct(
+    'utf8_loc',
+    ('index', lltype.Signed),
+    ('ofs', lltype.FixedSizeArray(lltype.Char, 16))
+    ))
+
+EMPTY_INDEX_STORAGE = lltype.malloc(UTF8_INDEX_STORAGE, 0, immortal=True)
+
+def create_utf8_index_storage(utf8, utf8len):
+    """ Create an index storage which stores index of each 4th character
+    in utf8 encoded unicode string.
+    """
+    if utf8len == 0:
+        return EMPTY_INDEX_STORAGE
+    arraysize = (utf8len + 63) // 64
+    storage = lltype.malloc(UTF8_INDEX_STORAGE, arraysize)
+    baseindex = 0
+    current = 0
+    next = 0
+    while True:
+        storage[current].index = baseindex
+        for i in range(16):
+            next = next_codepoint_pos(utf8, next)
+            storage[current].ofs[i] = chr(next - baseindex)
+            utf8len -= 4
+            if utf8len <= 0:
+                break
+            next = next_codepoint_pos(utf8, next)
+            next = next_codepoint_pos(utf8, next)
+            next = next_codepoint_pos(utf8, next)            
+        else:
+            current += 1
+            baseindex = next
+            continue
+        break
+    return storage
+
+def codepoint_position_at_index(utf8, storage, index):
+    """ Return byte index of a character inside utf8 encoded string, given
+    storage of type UTF8_INDEX_STORAGE
+    """
+    current = index >> 6
+    ofs = ord(storage[current].ofs[(index >> 2) & 15])
+    bytepos = storage[current].index + ofs
+    index &= 0x3
+    if index == 0:
+        return prev_codepoint_pos(utf8, bytepos)
+    elif index == 1:
+        return bytepos
+    elif index == 2:
+        return next_codepoint_pos(utf8, bytepos)
+    else:
+        return next_codepoint_pos(utf8, next_codepoint_pos(utf8, bytepos))
+
+def codepoint_at_index(utf8, storage, index):
+    """ Return codepoint of a character inside utf8 encoded string, given
+    storage of type UTF8_INDEX_STORAGE
+    """
+    bytepos = codepoint_position_at_index(utf8, storage, index)
+    return codepoint_at_pos(utf8, bytepos)

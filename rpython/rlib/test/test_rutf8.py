@@ -84,3 +84,9 @@ def test_utf8_in_chars(ch, txt):
     response = rutf8.utf8_in_chars(ch.encode('utf8'), 0, txt.encode('utf8'))
     r = (ch in txt)
     assert r == response
+
+@given(strategies.text())
+def test_utf8_index_storage(u):
+    index = rutf8.create_utf8_index_storage(u.encode('utf8'), len(u))
+    for i, item in enumerate(u):
+        rutf8.codepoint_at_index(u.encode('utf8'), index, i) == item.encode('utf8')
