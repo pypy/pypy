@@ -93,6 +93,7 @@ def prev_codepoint_pos(code, pos):
     """Gives the position of the previous codepoint.
     'pos' must not be zero.
     """
+    pos = r_uint(pos)
     pos -= 1
     chr1 = ord(code[pos])
     if chr1 <= 0x7F:
@@ -134,6 +135,43 @@ def codepoint_at_pos(code, pos):
                 (ordch3 & 0x3F))              # 0b00111111
 
     ordch4 = ord(code[pos+3])
+    if True:
+        # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
+        return (((ordch1 & 0x07) << 18) +      # 0b00000111
+                ((ordch2 & 0x3F) << 12) +      # 0b00111111
+                ((ordch3 & 0x3F) << 6) +       # 0b00111111
+                (ordch4 & 0x3F))               # 0b00111111
+    assert False, "unreachable"
+
+def codepoint_before_pos(code, pos):
+    """Give a codepoint in code at the position immediately before pos
+    - assumes valid utf8, no checking!
+    """
+    pos = r_uint(pos)
+    ordch1 = ord(code[pos-1])
+    if ordch1 <= 0x7F:
+        return ordch1
+
+    ordch2 = ordch1
+    ordch1 = ord(code[pos-2])
+    if ordch1 >= 0xC0:
+        # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
+        return (((ordch1 & 0x1F) << 6) +    # 0b00011111
+                 (ordch2 & 0x3F))           # 0b00111111
+
+    ordch3 = ordch2
+    ordch2 = ordch1
+    ordch1 = ord(code[pos-3])
+    if ordch1 >= 0xC0:
+        # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
+        return (((ordch1 & 0x0F) << 12) +     # 0b00001111
+                ((ordch2 & 0x3F) << 6) +      # 0b00111111
+                (ordch3 & 0x3F))              # 0b00111111
+
+    ordch4 = ordch3
+    ordch3 = ordch2
+    ordch2 = ordch1
+    ordch1 = ord(code[pos-4])
     if True:
         # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
         return (((ordch1 & 0x07) << 18) +      # 0b00000111
@@ -312,25 +350,32 @@ def check_utf8(s, allow_surrogates=False):
 
 UTF8_INDEX_STORAGE = lltype.GcArray(lltype.Struct(
     'utf8_loc',
-    ('index', lltype.Signed),
+    ('baseindex', lltype.Signed),
     ('ofs', lltype.FixedSizeArray(lltype.Char, 16))
     ))
 
-EMPTY_INDEX_STORAGE = lltype.malloc(UTF8_INDEX_STORAGE, 0, immortal=True)
+ASCII_INDEX_STORAGE_BLOCKS = 5
+ASCII_INDEX_STORAGE = lltype.malloc(UTF8_INDEX_STORAGE,
+                                    ASCII_INDEX_STORAGE_BLOCKS,
+                                    immortal=True)
+for _i in range(ASCII_INDEX_STORAGE_BLOCKS):
+    ASCII_INDEX_STORAGE[_i].baseindex = _i * 64
+    for _j in range(16):
+        ASCII_INDEX_STORAGE[_i].ofs[_j] = chr(_j * 4 + 1)
 
 def create_utf8_index_storage(utf8, utf8len):
     """ Create an index storage which stores index of each 4th character
     in utf8 encoded unicode string.
     """
-    if utf8len == 0:
-        return EMPTY_INDEX_STORAGE
+    if len(utf8) == utf8len <= ASCII_INDEX_STORAGE_BLOCKS * 64:
+        return ASCII_INDEX_STORAGE
     arraysize = (utf8len + 63) // 64
     storage = lltype.malloc(UTF8_INDEX_STORAGE, arraysize)
     baseindex = 0
     current = 0
-    next = 0
     while True:
-        storage[current].index = baseindex
+        storage[current].baseindex = baseindex
+        next = baseindex
         for i in range(16):
             next = next_codepoint_pos(utf8, next)
             storage[current].ofs[i] = chr(next - baseindex)
@@ -339,7 +384,7 @@ def create_utf8_index_storage(utf8, utf8len):
                 break
             next = next_codepoint_pos(utf8, next)
             next = next_codepoint_pos(utf8, next)
-            next = next_codepoint_pos(utf8, next)            
+            next = next_codepoint_pos(utf8, next)
         else:
             current += 1
             baseindex = next
@@ -349,11 +394,13 @@ def create_utf8_index_storage(utf8, utf8len):
 
 def codepoint_position_at_index(utf8, storage, index):
     """ Return byte index of a character inside utf8 encoded string, given
-    storage of type UTF8_INDEX_STORAGE
+    storage of type UTF8_INDEX_STORAGE.  The index must be smaller than
+    the utf8 length: if needed, check explicitly before calling this
+    function.
     """
     current = index >> 6
-    ofs = ord(storage[current].ofs[(index >> 2) & 15])
-    bytepos = storage[current].index + ofs
+    ofs = ord(storage[current].ofs[(index >> 2) & 0x0F])
+    bytepos = storage[current].baseindex + ofs
     index &= 0x3
     if index == 0:
         return prev_codepoint_pos(utf8, bytepos)
@@ -368,5 +415,15 @@ def codepoint_at_index(utf8, storage, index):
     """ Return codepoint of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE
     """
-    bytepos = codepoint_position_at_index(utf8, storage, index)
+    current = index >> 6
+    ofs = ord(storage[current].ofs[(index >> 2) & 0x0F])
+    bytepos = storage[current].baseindex + ofs
+    index &= 0x3
+    if index == 0:
+        return codepoint_before_pos(utf8, bytepos)
+    if index == 3:
+        bytepos = next_codepoint_pos(utf8, bytepos)
+        index = 2     # fall-through to the next case
+    if index == 2:
+        bytepos = next_codepoint_pos(utf8, bytepos)
     return codepoint_at_pos(utf8, bytepos)
