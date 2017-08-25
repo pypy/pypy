@@ -839,15 +839,15 @@ class TestFlowObjSpace(Base):
             return x[s]
         graph = self.codetest(myfunc)
 
+    @py.test.mark.xfail
     def test_unichr_constfold(self):
-        py.test.skip("not working")
         def myfunc():
             return unichr(1234)
         graph = self.codetest(myfunc)
         assert graph.startblock.exits[0].target is graph.returnblock
 
+    @py.test.mark.xfail
     def test_unicode_constfold(self):
-        py.test.skip("not working for now")
         def myfunc():
             return unicode("1234")
         graph = self.codetest(myfunc)
