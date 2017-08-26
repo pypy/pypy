@@ -413,7 +413,7 @@ class RegisterManager(object):
                                selected_reg, need_lower_byte=need_lower_byte)
         loc = self.reg_bindings[v_to_spill]
         self.assembler.num_spills += 1
-        self._sync_var(v_to_spill)
+        self._sync_var_to_stack(v_to_spill)
         del self.reg_bindings[v_to_spill]
         return loc
 
@@ -494,7 +494,7 @@ class RegisterManager(object):
         self.bindings_to_frame_reg[v] = None
 
     def force_spill_var(self, var):
-        self._sync_var(var)
+        self._sync_var_to_stack(var)
         try:
             loc = self.reg_bindings[var]
             del self.reg_bindings[var]
@@ -570,26 +570,25 @@ class RegisterManager(object):
             result_loc = self.force_allocate_reg(result_v, forbidden_vars)
             self.assembler.regalloc_mov(self.convert_to_imm(v), result_loc)
             return result_loc
-        if v not in self.reg_bindings:
-            # v not in a register. allocate one for result_v and move v there
-            v_loc = self.frame_manager.loc(v)
+        v_keeps_living = self.longevity[v].last_usage > self.position
+        # there are two cases where we should allocate a new register for
+        # result:
+        # 1) v is itself not in a register
+        # 2) v keeps on being live. if there is a free register, we need a move
+        # anyway, so we can use force_allocate_reg on result_v to make sure any
+        # fixed registers are used
+        if (v not in self.reg_bindings or (v_keeps_living and self.free_regs)):
+            v_loc = self.loc(v)
             result_loc = self.force_allocate_reg(result_v, forbidden_vars)
             self.assembler.regalloc_mov(v_loc, result_loc)
             return result_loc
-        if self.longevity[v].last_usage > self.position:
-            # v keeps on being live. if there is a free register, we need a
-            # move anyway, so we can use force_allocate_reg on result_v to make
-            # sure any fixed registers are used
-            if self.free_regs:
-                v_loc = self.reg_bindings[v]
-                result_loc = self.force_allocate_reg(result_v, forbidden_vars)
-                self.assembler.regalloc_mov(v_loc, result_loc)
-                return result_loc
-            # v needs to go to the stack. sync it there if necessary
-            self._sync_var(v)
+        if v_keeps_living:
+            # since there are no free registers, v needs to go to the stack.
+            # sync it there.
+            self._sync_var_to_stack(v)
         return self._reallocate_from_to(v, result_v)
 
-    def _sync_var(self, v):
+    def _sync_var_to_stack(self, v):
         self.assembler.num_spills += 1
         if not self.frame_manager.get(v):
             reg = self.reg_bindings[v]
@@ -600,7 +599,7 @@ class RegisterManager(object):
         # otherwise it's clean
 
     def _bc_spill(self, v, new_free_regs):
-        self._sync_var(v)
+        self._sync_var_to_stack(v)
         new_free_regs.append(self.reg_bindings.pop(v))
 
     def before_call(self, force_store=[], save_all_regs=0):
@@ -788,7 +787,7 @@ class BaseRegalloc(object):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         if op.numargs() == 2:
-            self.rm._sync_var(op.getarg(1))
+            self.rm._sync_var_to_stack(op.getarg(1))
             return [self.loc(op.getarg(0)), self.fm.loc(op.getarg(1))]
         else:
             assert op.numargs() == 1
