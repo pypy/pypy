@@ -559,17 +559,6 @@ class RegisterManager(object):
         self.reg_bindings[to_v] = reg
         return reg
 
-    def _move_variable_away(self, v, prev_loc):
-        # YYY here we should not move it to another reg, if all uses are in
-        # failargs
-        if self.free_regs:
-            loc = self.free_regs.pop()
-            self.reg_bindings[v] = loc
-            self.assembler.regalloc_mov(prev_loc, loc)
-        else:
-            loc = self.frame_manager.loc(v)
-            self.assembler.regalloc_mov(prev_loc, loc)
-
     def force_result_in_reg(self, result_v, v, forbidden_vars=[]):
         """ Make sure that result is in the same register as v.
         The variable v is copied away if it's further used.  The meaning
@@ -596,17 +585,9 @@ class RegisterManager(object):
                 result_loc = self.force_allocate_reg(result_v, forbidden_vars)
                 self.assembler.regalloc_mov(v_loc, result_loc)
                 return result_loc
-            else:
-                result_loc = self.reg_bindings[v]
-                if self.frame_manager.get(v) is None:
-                    v_loc = self.frame_manager.loc(v)
-                    self.assembler.regalloc_mov(result_loc, v_loc)
-                    del self.reg_bindings[v]
-                self.reg_bindings[result_v] = result_loc
-                return result_loc
-        else:
-            result_loc = self._reallocate_from_to(v, result_v)
-        return result_loc
+            # v needs to go to the stack. sync it there if necessary
+            self._sync_var(v)
+        return self._reallocate_from_to(v, result_v)
 
     def _sync_var(self, v):
         self.assembler.num_spills += 1
