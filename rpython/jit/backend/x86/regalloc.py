@@ -508,6 +508,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # For symmetrical operations, if 'y' is already in a register
         # and won't be used after the current operation finishes,
         # then swap the role of 'x' and 'y'
+        # XXX only do that if x is *not* in a register
         if (symm and isinstance(argloc, RegLoc) and
                 self.rm.longevity[y].last_usage == self.rm.position):
             x, y = y, x

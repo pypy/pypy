@@ -63,6 +63,7 @@ class LinkedList(object):
 
     @specialize.arg(1)
     def foreach(self, function, arg):
+        # XXX unused?
         node = self.master_node
         while node is not None:
             function(arg, node.val)
@@ -362,6 +363,9 @@ class RegisterManager(object):
         returns allocated register or None, if not possible.
         """
         self._check_type(v)
+        if isinstance(v, TempVar):
+            self.longevity[v] = Lifetime(self.position, self.position)
+        # YYY all subtly similar code
         assert not isinstance(v, Const)
         if selected_reg is not None:
             res = self.reg_bindings.get(v, None)
@@ -553,6 +557,7 @@ class RegisterManager(object):
         reg = self.reg_bindings[from_v]
         del self.reg_bindings[from_v]
         self.reg_bindings[to_v] = reg
+        return reg
 
     def _move_variable_away(self, v, prev_loc):
         # YYY here we should not move it to another reg, if all uses are in
@@ -573,27 +578,35 @@ class RegisterManager(object):
         self._check_type(result_v)
         self._check_type(v)
         if isinstance(v, Const):
-            loc = self.force_allocate_reg(result_v, forbidden_vars)
-            self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
-            return loc
+            result_loc = self.force_allocate_reg(result_v, forbidden_vars)
+            self.assembler.regalloc_mov(self.convert_to_imm(v), result_loc)
+            return result_loc
         if v not in self.reg_bindings:
             # v not in a register. allocate one for result_v and move v there
-            prev_loc = self.frame_manager.loc(v)
-            loc = self.force_allocate_reg(result_v, forbidden_vars)
-            self.assembler.regalloc_mov(prev_loc, loc)
-            return loc
+            v_loc = self.frame_manager.loc(v)
+            result_loc = self.force_allocate_reg(result_v, forbidden_vars)
+            self.assembler.regalloc_mov(v_loc, result_loc)
+            return result_loc
         if self.longevity[v].last_usage > self.position:
-            # we need to find a new place for variable v and
-            # store result in the same place
-            loc = self.reg_bindings[v]
-            del self.reg_bindings[v]
-            if self.frame_manager.get(v) is None:
-                self._move_variable_away(v, loc)
-            self.reg_bindings[result_v] = loc
+            # v keeps on being live. if there is a free register, we need a
+            # move anyway, so we can use force_allocate_reg on result_v to make
+            # sure any fixed registers are used
+            if self.free_regs:
+                v_loc = self.reg_bindings[v]
+                result_loc = self.force_allocate_reg(result_v, forbidden_vars)
+                self.assembler.regalloc_mov(v_loc, result_loc)
+                return result_loc
+            else:
+                result_loc = self.reg_bindings[v]
+                if self.frame_manager.get(v) is None:
+                    v_loc = self.frame_manager.loc(v)
+                    self.assembler.regalloc_mov(result_loc, v_loc)
+                    del self.reg_bindings[v]
+                self.reg_bindings[result_v] = result_loc
+                return result_loc
         else:
-            self._reallocate_from_to(v, result_v)
-            loc = self.reg_bindings[result_v]
-        return loc
+            result_loc = self._reallocate_from_to(v, result_v)
+        return result_loc
 
     def _sync_var(self, v):
         self.assembler.num_spills += 1

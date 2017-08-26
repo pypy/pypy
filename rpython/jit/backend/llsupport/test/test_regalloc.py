@@ -863,13 +863,13 @@ class TestForceResultInReg(object):
     # use it's own class since there are so many cases
 
     def test_force_result_in_reg_1(self):
+        # var in reg, dies
         b0, b1 = newboxes(0, 0)
         longevity = {b0: Lifetime(0, 1), b1: Lifetime(1, 3)}
         fm = TFrameManager()
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
         rm.next_instruction()
-        # first path, var is already in reg and dies
         loc0 = rm.force_allocate_reg(b0)
         rm._check_invariants()
         rm.next_instruction()
@@ -879,6 +879,7 @@ class TestForceResultInReg(object):
         rm._check_invariants()
 
     def test_force_result_in_reg_2(self):
+        # var in reg, survives
         b0, b1 = newboxes(0, 0)
         longevity = {b0: Lifetime(0, 2), b1: Lifetime(1, 3)}
         fm = TFrameManager()
@@ -889,12 +890,13 @@ class TestForceResultInReg(object):
         rm._check_invariants()
         rm.next_instruction()
         loc = rm.force_result_in_reg(b1, b0)
-        assert loc is loc0
-        assert rm.loc(b0) is not loc0
+        assert loc is not loc0
+        assert rm.loc(b0) is loc0
         assert len(asm.moves) == 1
         rm._check_invariants()
 
     def test_force_result_in_reg_3(self):
+        # var in reg, survives, no free registers
         b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
         longevity = {b0: Lifetime(0, 2), b1: Lifetime(0, 2),
                      b3: Lifetime(0, 2), b2: Lifetime(0, 2),
@@ -929,6 +931,7 @@ class TestForceResultInReg(object):
         assert len(asm.moves) == 1
 
     def test_force_result_in_reg_const(self):
+        # const
         boxes, longevity = boxes_and_longevity(2)
         fm = TFrameManager()
         asm = MockAsm()
@@ -937,6 +940,50 @@ class TestForceResultInReg(object):
         rm.next_instruction()
         c = ConstInt(0)
         rm.force_result_in_reg(boxes[0], c)
+        rm._check_invariants()
+
+    # some tests where the result is supposed to go in a fixed register
+
+    def test_force_result_in_reg_fixed_reg_1(self):
+        # var in reg, dies
+        b0, b1 = newboxes(0, 0)
+        longevity = LifetimeManager({b0: Lifetime(0, 1), b1: Lifetime(1, 3)})
+        longevity.try_use_same_register(b0, b1)
+        longevity.fixed_register(1, r1, b1)
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        loc0 = rm.force_allocate_reg(b0)
+        rm._check_invariants()
+        rm.next_instruction()
+        loc = rm.force_result_in_reg(b1, b0)
+        assert loc is loc0
+        assert loc is r1
+        assert len(asm.moves) == 0
+        rm._check_invariants()
+
+    def test_force_result_in_reg_fixed_reg_2(self):
+        # var in reg, survives
+        b0, b1 = newboxes(0, 0)
+        longevity = LifetimeManager({b0: Lifetime(0, 2), b1: Lifetime(1, 3)})
+
+        # has no effect, lifetimes overlap
+        longevity.try_use_same_register(b0, b1)
+        longevity.fixed_register(1, r1, b1)
+
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        loc0 = rm.force_allocate_reg(b0)
+        rm._check_invariants()
+        rm.next_instruction()
+        loc = rm.force_result_in_reg(b1, b0)
+        assert loc is not loc0
+        assert rm.loc(b0) is loc0
+        assert loc is r1
+        assert len(asm.moves) == 1
         rm._check_invariants()
 
 # _____________________________________________________
@@ -1246,6 +1293,7 @@ class TestFullRegallocFakeCPU(object):
             ('guard_true', r8, [])
         ]
 
+    @py.test.mark.skip("messy - later")
     def test_coalescing_first_var_already_in_different_reg(self):
         ops = '''
         [i0]
@@ -1283,8 +1331,8 @@ class TestFullRegallocFakeCPU(object):
             ('guard_false', r0, [fp0, r7, r4, r5, r6])
         ]
 
+    @py.test.mark.skip("messy - later")
     def test_call_spill(self):
-        py.test.skip("also messy")
         # i0 dies, i1 is the argument, the other fight for caller-saved regs
         # all_regs = [r0, r1, r2, r3, r4, r5, r6, r7]
         # save_around_call_regs = [r0, r1, r2, r3]
