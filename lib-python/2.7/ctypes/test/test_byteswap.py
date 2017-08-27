@@ -186,7 +186,6 @@ class Test(unittest.TestCase):
                 pass
             self.assertRaises(TypeError, setattr, T, "_fields_", [("x", typ)])
 
-    @xfail
     def test_struct_struct(self):
         # nested structures with different byteorders
 
