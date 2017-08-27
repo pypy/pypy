@@ -387,16 +387,6 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                     0                             /* tp_itemsize */
                     };
 
-                PyTypeObject PyGenArrType_Type = {
-                    PyObject_HEAD_INIT(NULL)
-                    0,                            /* ob_size */
-                    "bar.generic",                /* tp_name*/
-                    };
-
-                static PyObject*
-                gentype_add(PyObject* self, PyObject*other) {
-                    return PyString_FromString("gentype_add");
-                }
                     static PyObject *
                     stringtype_repr(PyObject *self)
                     {
@@ -453,25 +443,15 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                         memcpy(destptr, data, itemsize);
                         return obj;
                     }
-                static PyNumberMethods gentype_as_number;
             """, more_init = '''
-                long flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES;
-                PyGenArrType_Type.tp_flags = flags;
-                gentype_as_number.nb_add = gentype_add;
-                PyGenArrType_Type.tp_as_number = &gentype_as_number;
-                if (PyType_Ready(&PyGenArrType_Type) < 0) INITERROR;
-
                 PyStringArrType_Type.tp_alloc = NULL;
                 PyStringArrType_Type.tp_free = NULL;
+
                 PyStringArrType_Type.tp_repr = stringtype_repr;
                 PyStringArrType_Type.tp_str = stringtype_str;
-                PyStringArrType_Type.tp_flags = flags;
+                PyStringArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE;
                 PyStringArrType_Type.tp_itemsize = sizeof(char);
                 PyStringArrType_Type.tp_base = &PyString_Type;
-                Py_INCREF(&PyString_Type);
-                Py_INCREF(&PyGenArrType_Type);
-                PyStringArrType_Type.tp_bases = PyTuple_Pack(2,
-                                                &PyString_Type, &PyGenArrType_Type);
                 PyStringArrType_Type.tp_hash = PyString_Type.tp_hash;
                 if (PyType_Ready(&PyStringArrType_Type) < 0) INITERROR;
             ''')
@@ -481,8 +461,6 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         assert module.has_nb_add(a) is False
         assert type(a).__name__ == 'string_'
         assert a == 'abc'
-        ret = ' ' + a
-        assert ret == ' abc'
         assert 3 == module.get_len(a)
         b = module.newsubstr('')
         assert 0 == module.get_len(b)
