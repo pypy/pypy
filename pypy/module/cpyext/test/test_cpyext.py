@@ -739,10 +739,10 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         # uncaught interplevel exceptions are turned into SystemError
         expected = "ZeroDivisionError('integer division or modulo by zero',)"
         exc = raises(SystemError, module.crash1)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
         exc = raises(SystemError, module.crash2)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
         # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
@@ -750,7 +750,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         expected = 'An exception was set, but function returned a value'
         # PyPy only incompatibility/extension
         exc = raises(SystemError, module.crash4)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
         # An exception was set by the previous call, it can pass
         # cleanly through a call that doesn't check error state
@@ -759,7 +759,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         # clear the exception but return NULL, signalling an error
         expected = 'Function returned a NULL result without setting an exception'
         exc = raises(SystemError, module.clear, None)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
         # Set an exception and return NULL
         raises(TypeError, module.set, None)
@@ -770,7 +770,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         # Set an exception, but return non-NULL
         expected = 'An exception was set, but function returned a value'
         exc = raises(SystemError, module.set, 1)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
 
         # Clear the exception and return a value, all is OK

@@ -1660,7 +1660,6 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
             # overwritten with a new error of the same type
             error = PyErr_Occurred(space)
             has_new_error = (error is not None) and (error is not preexist_error)
-            has_result = ret is not None
             if not expect_null and has_new_error and has_result:
                 raise oefmt(space.w_SystemError,
                             "An exception was set, but function returned a "
