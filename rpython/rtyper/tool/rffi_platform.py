@@ -710,7 +710,8 @@ def fixup_ctype(fieldtype, fieldname, expected_size_and_sign):
         size, _ = expected_size_and_sign
         return lltype.FixedSizeArray(fieldtype.OF, size/_sizeof(fieldtype.OF))
     raise TypeError("conflict between translating python and compiler field"
-                    " type %r for %r" % (fieldtype, fieldname))
+                    " type %r for symbol %r, expected size+sign %r" % (
+                        fieldtype, fieldname, expected_size_and_sign))
 
 def expose_value_as_rpython(value):
     if intmask(value) == value:

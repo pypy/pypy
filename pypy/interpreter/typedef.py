@@ -130,7 +130,7 @@ def get_unique_interplevel_subclass(space, cls):
         return subcls
 _unique_subclass_cache = {}
 
-def _getusercls(cls, reallywantdict=False):
+def _getusercls(cls):
     from rpython.rlib import objectmodel
     from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
@@ -144,7 +144,7 @@ def _getusercls(cls, reallywantdict=False):
     else:
         base_mixin = MapdictStorageMixin
     copy_methods = [BaseUserClassMapdict]
-    if reallywantdict or not typedef.hasdict:
+    if not typedef.hasdict:
         # the type has no dict, mapdict to provide the dict
         copy_methods.append(MapdictDictSupport)
         name += "Dict"

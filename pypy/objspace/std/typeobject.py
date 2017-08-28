@@ -546,19 +546,24 @@ class W_TypeObject(W_Root):
         space = self.space
         if self.is_heaptype():
             return self.getdictvalue(space, '__module__')
+        elif self.is_cpytype():
+            dot = self.name.rfind('.')
         else:
             dot = self.name.find('.')
-            if dot >= 0:
-                mod = self.name[:dot]
-            else:
-                mod = "builtins"
-            return space.newtext(mod)
+        if dot >= 0:
+            mod = self.name[:dot]
+        else:
+            mod = "builtins"
+        return space.newtext(mod)
 
     def getname(self, space):
         if self.is_heaptype():
             result = self.name
         else:
-            dot = self.name.find('.')
+            if self.is_cpytype():
+                dot = self.name.rfind('.')
+            else:
+                dot = self.name.find('.')
             if dot >= 0:
                 result = self.name[dot+1:]
             else:
@@ -1036,6 +1041,9 @@ def find_best_base(bases_w):
     for w_candidate in bases_w:
         if not isinstance(w_candidate, W_TypeObject):
             continue
+        if not w_candidate.hasmro:
+            raise oefmt(w_candidate.space.w_TypeError,
+                        "Cannot extend an incomplete type '%N'", w_candidate)
         if w_bestbase is None:
             w_bestbase = w_candidate   # for now
             continue

@@ -416,7 +416,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         Py_buffer passed to it.
         """
         module = self.import_extension('foo', [
-                ("fillinfo", "METH_VARARGS",
+                ("fillinfo", "METH_NOARGS",
                  """
     Py_buffer buf;
     PyObject *str = PyBytes_FromString("hello, world.");
@@ -468,7 +468,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         object.
         """
         module = self.import_extension('foo', [
-                ("fillinfo", "METH_VARARGS",
+                ("fillinfo", "METH_NOARGS",
                  """
     Py_buffer buf;
     PyObject *str = PyBytes_FromString("hello, world.");
@@ -514,7 +514,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         PyBuffer_FillInfo fails if WRITABLE is passed but object is readonly.
         """
         module = self.import_extension('foo', [
-                ("fillinfo", "METH_VARARGS",
+                ("fillinfo", "METH_NOARGS",
                  """
     Py_buffer buf;
     PyObject *str = PyBytes_FromString("hello, world.");
@@ -541,7 +541,7 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
         decremented by PyBuffer_Release.
         """
         module = self.import_extension('foo', [
-                ("release", "METH_VARARGS",
+                ("release", "METH_NOARGS",
                  """
     Py_buffer buf;
     buf.obj = PyBytes_FromString("release me!");
@@ -560,3 +560,20 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
     Py_RETURN_NONE;
                  """)])
         assert module.release() is None
+
+
+class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
+    def test_richcomp_nan(self):
+        module = self.import_extension('foo', [
+               ("comp_eq", "METH_VARARGS",
+                """
+                PyObject *a = PyTuple_GetItem(args, 0);
+                PyObject *b = PyTuple_GetItem(args, 1);
+                int res = PyObject_RichCompareBool(a, b, Py_EQ);
+                return PyLong_FromLong(res);  
+                """),])
+        a = float('nan')
+        b = float('nan')
+        assert a is b
+        res = module.comp_eq(a, b)
+        assert res == 1

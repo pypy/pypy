@@ -314,7 +314,8 @@ class _ReadlineWrapper(object):
         # history item: we use \r\n instead of just \n.  If the history
         # file is passed to GNU readline, the extra \r are just ignored.
         history = self.get_reader().history
-        f = open(os.path.expanduser(filename), 'r', encoding='utf-8')
+        f = open(os.path.expanduser(filename), 'r', encoding='utf-8',
+                 errors='replace')
         buffer = []
         for line in f:
             if line.endswith('\r\n'):

@@ -29,3 +29,14 @@ class AppTestReadline:
             readline.add_history("dummy")
         assert readline.get_history_item(1) ==  "entrée 1"
         assert readline.get_history_item(2) == "entrée 22"
+
+
+    def test_insert_text_leading_tab(self):
+        """
+        A literal tab can be inserted at the beginning of a line.
+
+        See <https://bugs.python.org/issue25660>
+        """
+        import readline
+        readline.insert_text("\t")
+        assert readline.get_line_buffer() == b"\t"

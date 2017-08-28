@@ -239,6 +239,10 @@ feeling more loquacious than I am now."""
 
     def __init__(self, console):
         self.buffer = []
+        # Enable the use of `insert` without a `prepare` call - necessary to
+        # facilitate the tab completion hack implemented for
+        # <https://bugs.python.org/issue25660>.
+        self.pos = 0
         self.ps1 = "->> "
         self.ps2 = "/>> "
         self.ps3 = "|.. "

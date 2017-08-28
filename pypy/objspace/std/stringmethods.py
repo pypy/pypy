@@ -742,8 +742,8 @@ class StringMethods(object):
     DEFAULT_NOOP_TABLE = ''.join([chr(i) for i in range(256)])
 
     # for bytes and bytearray, overridden by unicode
-    @unwrap_spec(w_deletechars=WrappedDefault(''))
-    def descr_translate(self, space, w_table, w_deletechars):
+    @unwrap_spec(w_delete=WrappedDefault(''))
+    def descr_translate(self, space, w_table, w_delete):
         if space.is_w(w_table, space.w_None):
             table = self.DEFAULT_NOOP_TABLE
         else:
@@ -753,7 +753,7 @@ class StringMethods(object):
                             "translation table must be 256 characters long")
 
         string = self._val(space)
-        deletechars = self._op_val(space, w_deletechars)
+        deletechars = self._op_val(space, w_delete)
         if len(deletechars) == 0:
             buf = self._builder(len(string))
             for char in string:
