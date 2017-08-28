@@ -1522,6 +1522,7 @@ def create_extension_module(space, w_spec):
             look_for += ' or ' + also_look_for
         else:
             look_for = also_look_for
+    assert look_for is not None
     msg = u"function %s not found in library %s" % (
         look_for.decode('utf-8'), space.unicode_w(space.newfilename(path)))
     w_path = space.newfilename(path)
