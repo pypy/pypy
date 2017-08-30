@@ -21,7 +21,7 @@ if _POSIX:
     includes = ('sys/types.h',
                 'sys/socket.h',
                 'sys/un.h',
-                'sys/poll.h',
+                'poll.h',
                 'sys/select.h',
                 'sys/types.h',
                 'netinet/in.h',

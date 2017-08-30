@@ -80,24 +80,6 @@ def _PyObject_GC_NewVar(space, type, itemcount):
 def PyObject_GC_Del(space, obj):
     PyObject_Free(space, obj)
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_GC_Track(space, op):
-    """Adds the object op to the set of container objects tracked by the
-    collector.  The collector can run at unexpected times so objects must be
-    valid while being tracked.  This should be called once all the fields
-    followed by the tp_traverse handler become valid, usually near the
-    end of the constructor."""
-    pass
-
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_GC_UnTrack(space, op):
-    """Remove the object op from the set of container objects tracked by the
-    collector.  Note that PyObject_GC_Track() can be called again on
-    this object to add it back to the set of tracked objects.  The deallocator
-    (tp_dealloc handler) should call this for the object before any of
-    the fields used by the tp_traverse handler become invalid."""
-    pass
-
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
     return lltype.nullptr(PyObjectP.TO)
@@ -311,7 +293,7 @@ def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     PyErr_BadInternalCall(space)
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
-def PyObject_RichCompareBool(space, ref1, ref2, opid):
+def PyObject_RichCompareBool(space, w_o1, w_o2, opid_int):
     """Compare the values of o1 and o2 using the operation specified by opid,
     which must be one of Py_LT, Py_LE, Py_EQ,
     Py_NE, Py_GT, or Py_GE, corresponding to <,
@@ -319,7 +301,15 @@ def PyObject_RichCompareBool(space, ref1, ref2, opid):
     0 if the result is false, 1 otherwise. This is the equivalent of the
     Python expression o1 op o2, where op is the operator corresponding to
     opid."""
-    w_res = PyObject_RichCompare(space, ref1, ref2, opid)
+    # Quick result when objects are the same.
+    # Guarantees that identity implies equality.
+    if space.is_w(w_o1, w_o2):
+        opid = rffi.cast(lltype.Signed, opid_int)
+        if opid == Py_EQ:
+            return 1
+        if opid == Py_NE:
+            return 0 
+    w_res = PyObject_RichCompare(space, w_o1, w_o2, opid_int)
     return int(space.is_true(w_res))
 
 @cpython_api([PyObject], PyObject, result_is_ll=True)
@@ -461,6 +451,12 @@ def PyObject_Print(space, pyobj, fp, flags):
     with rffi.scoped_nonmovingbuffer(data) as buf:
         fwrite(buf, 1, count, fp)
     return 0
+
+@cts.decl("""
+    Py_ssize_t PyObject_LengthHint(PyObject *o, Py_ssize_t defaultvalue)""",
+    error=-1)
+def PyObject_LengthHint(space, w_o, defaultvalue):
+    return space.length_hint(w_o, defaultvalue)
 
 @cpython_api([lltype.Signed], lltype.Void)
 def _PyPyGC_AddMemoryPressure(space, report):

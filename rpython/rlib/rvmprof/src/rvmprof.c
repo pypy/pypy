@@ -15,9 +15,9 @@
 
 #include "shared/vmprof_get_custom_offset.h"
 #ifdef VMPROF_UNIX
-#include "shared/vmprof_main.h"
+#include "shared/vmprof_unix.h"
 #else
-#include "shared/vmprof_main_win32.h"
+#include "shared/vmprof_win.h"
 #endif
 
 

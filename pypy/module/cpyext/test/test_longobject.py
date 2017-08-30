@@ -329,6 +329,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     ret = obj->ob_type->tp_as_number->nb_power(obj, one, one);
                 else
                     ret = PyLong_FromLong(-1);
+                Py_DECREF(one);
                 Py_DECREF(obj);
                 return ret;
              """)])

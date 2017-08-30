@@ -203,8 +203,8 @@ class StdObjSpace(ObjSpace):
 
         return self._wrap_not_rpython(x)
 
+    @not_rpython
     def _wrap_not_rpython(self, x):
-        "NOT_RPYTHON"
         # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is

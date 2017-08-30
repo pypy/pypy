@@ -39,7 +39,7 @@ working_modules.update([
     "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
-    "_csv", "_pypyjson", "_posixsubprocess", # "cppyy", "micronumpy"
+    "_csv", "_pypyjson", "_posixsubprocess", # "_cppyy", "micronumpy"
     "_jitlog",
 ])
 
@@ -71,8 +71,10 @@ if sys.platform == "win32":
         if name in translation_modules:
             translation_modules.remove(name)
 
-    if "cppyy" in working_modules:
-        working_modules.remove("cppyy")  # not tested on win32
+    if "_cppyy" in working_modules:
+        working_modules.remove("_cppyy")  # not tested on win32
+    if "_vmprof" in working_modules:
+        working_modules.remove("_vmprof")  # FIXME: missing details
 
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")
@@ -81,8 +83,8 @@ if sys.platform == "sunos5":
     working_modules.remove('fcntl')  # LOCK_NB not defined
     working_modules.remove("_minimal_curses")
     working_modules.remove("termios")
-    if "cppyy" in working_modules:
-        working_modules.remove("cppyy")  # depends on ctypes
+    if "_cppyy" in working_modules:
+        working_modules.remove("_cppyy")  # depends on ctypes
 
 #if sys.platform.startswith("linux"):
 #    _mach = os.popen('uname -m', 'r').read().strip()
@@ -94,7 +96,7 @@ module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.time', True),
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
-    'cppyy': [('objspace.usemodules.cpyext', True)],
+    '_cppyy': [('objspace.usemodules.cpyext', True)],
     'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
@@ -227,11 +229,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "use specialised tuples",
                    default=False),
 
-        BoolOption("withcelldict",
-                   "use dictionaries that are optimized for being used as module dicts",
-                   default=False,
-                   requires=[("objspace.honor__builtins__", False)]),
-
         BoolOption("withliststrategies",
                    "enable optimized ways to store lists of primitives ",
                    default=True),
@@ -291,7 +288,7 @@ def set_pypy_opt_level(config, level):
 
     # extra optimizations with the JIT
     if level == 'jit':
-        config.objspace.std.suggest(withcelldict=True)
+        pass # none at the moment
 
 
 def enable_allworkingmodules(config):

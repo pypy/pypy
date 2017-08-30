@@ -173,14 +173,13 @@ def _create_tuple_for_X509_NAME(xname):
 
     return tuple(dn)
 
-STATIC_BIO_BUF = ffi.new("char[]", 2048)
-
 def _bio_get_str(biobuf):
-    length = lib.BIO_gets(biobuf, STATIC_BIO_BUF, len(STATIC_BIO_BUF)-1)
+    bio_buf = ffi.new("char[]", 2048)
+    length = lib.BIO_gets(biobuf, bio_buf, len(bio_buf)-1)
     if length < 0:
         if biobuf: lib.BIO_free(biobuf)
         raise ssl_error(None)
-    return _str_with_len(STATIC_BIO_BUF, length)
+    return _str_with_len(bio_buf, length)
 
 def _decode_certificate(certificate):
     retval = {}
