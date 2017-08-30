@@ -152,15 +152,16 @@ def exec_def(space, w_mod, mod_as_pyobj):
             execf = rffi.cast(execfunctype, cur_slot[0].c_value)
             res = generic_cpy_call(space, execf, w_mod)
             has_error = PyErr_Occurred(space) is not None
+            state = space.fromcache(State)
             if rffi.cast(lltype.Signed, res):
                 if has_error:
-                    state = space.fromcache(State)
                     state.check_and_raise_exception()
                 else:
                     raise oefmt(space.w_SystemError,
                                 "execution of module %S failed without "
                                 "setting an exception", w_mod.w_name)
             if has_error:
+                state.clear_exception()
                 raise oefmt(space.w_SystemError,
                             "execution of module %S raised unreported "
                             "exception", w_mod.w_name)
