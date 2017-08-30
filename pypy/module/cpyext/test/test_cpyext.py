@@ -363,6 +363,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         for name in self.imported_module_names:
             self.unimport_module(name)
         self.cleanup()
+        state = self.space.fromcache(State)
+        assert not state.operror
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
