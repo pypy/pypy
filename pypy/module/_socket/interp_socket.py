@@ -285,8 +285,6 @@ class W_Socket(W_Root):
         except SocketError as e:
             raise converted_error(space, e)
 
-
-
     def close_w(self, space):
         """close()
 
@@ -449,10 +447,9 @@ class W_Socket(W_Root):
         return space.newtuple([space.newbytes(data), w_addr])
 
     @unwrap_spec(message_size=int, ancbufsize=int, flags=int)
-    def recvmsg_w(self,space,message_size, ancbufsize = 0, flags = 0):
+    def recvmsg_w(self, space, message_size, ancbufsize=0, flags=0):
         """
-        recvfrom(message_size[, ancbufsize[, flags]]) -> (message, ancillary, flags, address)
-        recvmsg(message_size, [ancbufsize,[flags]]) -> (message, ancillary, flags, address)
+        recvmsg(message_size[, ancbufsize[, flags]]) -> (message, ancillary, flags, address)
         Receive normal data (up to bufsize bytes) and ancillary data from the socket.
         The ancbufsize argument sets the size in bytes of the internal buffer used to receive the ancillary data;
         it defaults to 0, meaning that no ancillary data will be received.
