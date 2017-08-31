@@ -88,6 +88,7 @@ class MultiPhaseExtensionModuleTests(abc.LoaderTests):
 
     def setUp(self):
         self.name = '_testmultiphase'
+        __import__(self.name)  # PyPy hack
         finder = self.machinery.FileFinder(None)
         self.spec = importlib.util.find_spec(self.name)
         assert self.spec
