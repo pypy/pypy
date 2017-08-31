@@ -119,43 +119,43 @@ testexport_foo(PyObject *self, PyObject *args)
 
 /* Test that PyState registration fails  */
 
-PyDoc_STRVAR(call_state_registration_func_doc,
-"register_state(0): call PyState_FindModule()\n\
-register_state(1): call PyState_AddModule()\n\
-register_state(2): call PyState_RemoveModule()");
-
-static PyObject *
-call_state_registration_func(PyObject *mod, PyObject *args)
-{
-    int i, ret;
-    PyModuleDef *def = PyModule_GetDef(mod);
-    if (def == NULL) {
-        return NULL;
-    }
-    if (!PyArg_ParseTuple(args, "i:call_state_registration_func", &i))
-        return NULL;
-    switch (i) {
-        case 0:
-            mod = PyState_FindModule(def);
-            if (mod == NULL) {
-                Py_RETURN_NONE;
-            }
-            return mod;
-        case 1:
-            ret = PyState_AddModule(mod, def);
-            if (ret != 0) {
-                return NULL;
-            }
-            break;
-        case 2:
-            ret = PyState_RemoveModule(def);
-            if (ret != 0) {
-                return NULL;
-            }
-            break;
-    }
-    Py_RETURN_NONE;
-}
+//PyDoc_STRVAR(call_state_registration_func_doc,
+//"register_state(0): call PyState_FindModule()\n\
+//register_state(1): call PyState_AddModule()\n\
+//register_state(2): call PyState_RemoveModule()");
+//
+//static PyObject *
+//call_state_registration_func(PyObject *mod, PyObject *args)
+//{
+//    int i, ret;
+//    PyModuleDef *def = PyModule_GetDef(mod);
+//    if (def == NULL) {
+//        return NULL;
+//    }
+//    if (!PyArg_ParseTuple(args, "i:call_state_registration_func", &i))
+//        return NULL;
+//    switch (i) {
+//        case 0:
+//            mod = PyState_FindModule(def);
+//            if (mod == NULL) {
+//                Py_RETURN_NONE;
+//            }
+//            return mod;
+//        case 1:
+//            ret = PyState_AddModule(mod, def);
+//            if (ret != 0) {
+//                return NULL;
+//            }
+//            break;
+//        case 2:
+//            ret = PyState_RemoveModule(def);
+//            if (ret != 0) {
+//                return NULL;
+//            }
+//            break;
+//    }
+//    Py_RETURN_NONE;
+//}
 
 
 static PyType_Slot Str_Type_slots[] = {
@@ -174,8 +174,8 @@ static PyType_Spec Str_Type_spec = {
 static PyMethodDef testexport_methods[] = {
     {"foo",             testexport_foo,         METH_VARARGS,
         testexport_foo_doc},
-    {"call_state_registration_func",  call_state_registration_func,
-        METH_VARARGS, call_state_registration_func_doc},
+//    {"call_state_registration_func",  call_state_registration_func,
+//        METH_VARARGS, call_state_registration_func_doc},
     {NULL,              NULL}           /* sentinel */
 };
 
