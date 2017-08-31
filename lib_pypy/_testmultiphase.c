@@ -83,7 +83,7 @@ Example_setattr(ExampleObject *self, char *name, PyObject *v)
 
 static PyType_Slot Example_Type_slots[] = {
     {Py_tp_doc, "The Example type"},
-    {Py_tp_finalize, Example_finalize},
+//    {Py_tp_finalize, Example_finalize},
     {Py_tp_traverse, Example_traverse},
     {Py_tp_getattro, Example_getattro},
     {Py_tp_setattr, Example_setattr},
