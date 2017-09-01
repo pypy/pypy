@@ -26,6 +26,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
 #from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
@@ -596,6 +597,8 @@ SYMBOLS_C = [
     'PyObject_CallFinalizerFromDealloc',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack',
     'PyBytes_FromFormat', 'PyBytes_FromFormatV',
+
+    'PyType_FromSpec',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1319,6 +1322,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "_warnings.c",
                          source_dir / "pylifecycle.c",
                          source_dir / "object.c",
+                         source_dir / "typeobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):
@@ -1473,12 +1477,11 @@ def create_extension_module(space, w_spec):
     # order of things here.
     from rpython.rlib import rdynload
 
-    name = space.text_w(space.getattr(w_spec, space.newtext("name")))
+    w_name = space.getattr(w_spec, space.newtext("name"))
     path = space.text_w(space.getattr(w_spec, space.newtext("origin")))
 
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
-    basename = name.split('.')[-1]
     try:
         ll_libname = rffi.str2charp(path)
         try:
@@ -1486,13 +1489,14 @@ def create_extension_module(space, w_spec):
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
-        w_name = space.newunicode(name.decode('ascii'))
         w_path = space.newfilename(path)
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
     look_for = None
+    name = space.text_w(w_name)
     #
     if space.config.objspace.usemodules._cffi_backend:
+        basename = name.split('.')[-1]
         look_for = '_cffi_pypyinit_%s' % (basename,)
         try:
             initptr = rdynload.dlsym(dll, look_for)
@@ -1507,7 +1511,7 @@ def create_extension_module(space, w_spec):
                 raise
     #
     if space.config.objspace.usemodules.cpyext:
-        also_look_for = 'PyInit_%s' % (basename,)
+        also_look_for = get_init_name(space, w_name)
         try:
             initptr = rdynload.dlsym(dll, also_look_for)
         except KeyError:
@@ -1518,11 +1522,23 @@ def create_extension_module(space, w_spec):
             look_for += ' or ' + also_look_for
         else:
             look_for = also_look_for
+    assert look_for is not None
     msg = u"function %s not found in library %s" % (
-        unicode(look_for), space.unicode_w(space.newfilename(path)))
-    w_name = space.newunicode(name.decode('ascii'))
+        look_for.decode('utf-8'), space.unicode_w(space.newfilename(path)))
     w_path = space.newfilename(path)
     raise_import_error(space, space.newunicode(msg), w_name, w_path)
+
+def get_init_name(space, w_name):
+    name_u = space.unicode_w(w_name)
+    basename_u = name_u.split(u'.')[-1]
+    try:
+        basename = basename_u.encode('ascii')
+        return 'PyInit_%s' % (basename,)
+    except UnicodeEncodeError:
+        basename = space.bytes_w(encode_object(
+            space, space.newunicode(basename_u), 'punycode', None))
+        basename = basename.replace('-', '_')
+        return 'PyInitU_%s' % (basename,)
 
 
 initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
@@ -1542,7 +1558,16 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     try:
         initfunc = rffi.cast(initfunctype, initptr)
         initret = generic_cpy_call_dont_convert_result(space, initfunc)
-        state.check_and_raise_exception()
+        if not initret:
+            state.check_and_raise_exception()
+            raise oefmt(space.w_SystemError,
+                "initialization of %s failed without raising an exception",
+                name)
+        else:
+            if state.clear_exception():
+                raise oefmt(space.w_SystemError,
+                    "initialization of %s raised unreported exception",
+                    name)
         if not initret.c_ob_type:
             raise oefmt(space.w_SystemError,
                         "init function of %s returned uninitialized object",
@@ -1557,6 +1582,7 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
                                                    name)
     finally:
         state.package_context = old_context
+    # XXX: should disable single-step init for non-ascii module names
     w_mod = get_w_obj_and_decref(space, initret)
     state.fixup_extension(w_mod, name, path)
     return w_mod
@@ -1570,6 +1596,9 @@ def exec_extension_module(space, w_mod):
     space.getbuiltinmodule("cpyext")
     mod_as_pyobj = rawrefcount.from_obj(PyObject, w_mod)
     if mod_as_pyobj:
+        if cts.cast('PyModuleObject*', mod_as_pyobj).c_md_state:
+            # already initialised
+            return
         return exec_def(space, w_mod, mod_as_pyobj)
 
 @specialize.ll()
@@ -1641,10 +1670,9 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
             cpyext_glob_tid_ptr[0] = 0
             keepalive_until_here(*keepalives)
 
-        if is_PyObject(RESULT_TYPE):
-            if not convert_result or not is_pyobj(result):
+        if convert_result and is_PyObject(RESULT_TYPE):
+            if not is_pyobj(result):
                 ret = result
-                has_result = bool(ret)
             else:
                 # The object reference returned from a C function
                 # that is called from Python must be an owned reference
@@ -1653,13 +1681,13 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
                     ret = get_w_obj_and_decref(space, result)
                 else:
                     ret = None
-                has_result = ret is not None
 
             # Check for exception consistency
             # XXX best attempt, will miss preexisting error that is
             # overwritten with a new error of the same type
             error = PyErr_Occurred(space)
             has_new_error = (error is not None) and (error is not preexist_error)
+            has_result = ret is not None
             if not expect_null and has_new_error and has_result:
                 raise oefmt(space.w_SystemError,
                             "An exception was set, but function returned a "

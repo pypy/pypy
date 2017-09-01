@@ -1,5 +1,6 @@
 import os
 
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -14,17 +15,17 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     slot_function, generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING, Py_buffer,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    build_type_checkers,
+    build_type_checkers, Py_TPFLAGS_BASETYPE,
     PyObjectFields, PyTypeObject, PyTypeObjectPtr,
     cts, parse_dir)
-from pypy.module.cpyext.cparser import parse_source
+from pypy.module.cpyext.cparser import CTypeSpace
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, Py_DecRef, as_pyobj)
+    track_reference, Py_DecRef, as_pyobj, incref)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
     llslot)
@@ -41,6 +42,8 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
+
+cts.parse_header(parse_dir / "typeslots.h")
 
 
 class W_GetSetPropertyEx(GetSetProperty):
@@ -594,6 +597,7 @@ def type_dealloc(space, obj):
     if obj_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         heaptype = rffi.cast(PyHeapTypeObject, obj)
         Py_DecRef(space, heaptype.c_ht_name)
+        Py_DecRef(space, heaptype.c_ht_qualname)
         Py_DecRef(space, base_pyo)
         _dealloc(space, obj)
 
@@ -876,6 +880,115 @@ def PyType_GenericNew(space, type, w_args, w_kwds):
     return generic_cpy_call(
         space, type.c_tp_alloc, type, 0)
 
+def _parse_typeslots():
+    slots_hdr = CTypeSpace()
+    slots_hdr.parse_header(parse_dir / "typeslots.h")
+    prefix2member = {
+        'tp': "ht_type",
+        'am': "as_async",
+        'nb': "as_number",
+        'mp': "as_mapping",
+        'sq': "as_sequence",
+        'bf': "as_buffer"}
+
+    TABLE = []
+    HTO = cts.gettype('PyHeapTypeObject')
+    for name, num in slots_hdr.macros.items():
+        assert isinstance(num, int)
+        assert name.startswith('Py_')
+        name = name[3:]
+        membername = 'c_' + prefix2member[name[:2]]
+        slotname = 'c_' + name
+        TARGET = HTO._flds[membername]._flds[slotname]
+        TABLE.append((num, membername, slotname, TARGET))
+    return unrolling_iterable(TABLE)
+SLOT_TABLE = _parse_typeslots()
+
+def fill_slot(ht, slotnum, ptr):
+    for num, membername, slotname, TARGET in SLOT_TABLE:
+        if num == slotnum:
+            setattr(getattr(ht, membername), slotname, rffi.cast(TARGET, ptr))
+
+
+@cts.decl("""PyObject *
+    PyType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)""",
+    result_is_ll=True)
+def PyType_FromSpecWithBases(space, spec, bases):
+    from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
+    res = PyType_GenericAlloc(space, space.w_type, 0)
+    res = cts.cast('PyHeapTypeObject *', res)
+    typ = res.c_ht_type
+    typ.c_tp_flags = rffi.cast(lltype.Signed, spec.c_flags)
+    typ.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
+    specname = rffi.charp2str(cts.cast('char*', spec.c_name))
+    dotpos = specname.rfind('.')
+    if dotpos < 0:
+        name = specname
+    else:
+        name = specname[dotpos + 1:]
+    res.c_ht_name = make_ref(space, space.newtext(name))
+    res.c_ht_qualname = res.c_ht_name
+    incref(space, res.c_ht_qualname)
+    typ.c_tp_name = spec.c_name
+    slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
+    if not bases:
+        w_base = space.w_object
+        bases_w = []
+        i = 0
+        while True:
+            slotdef = slotdefs[i]
+            slotnum = rffi.cast(lltype.Signed, slotdef.c_slot)
+            if slotnum == 0:
+                break
+            elif slotnum == cts.macros['Py_tp_base']:
+                w_base = from_ref(space, cts.cast('PyObject*', slotdef.c_pfunc))
+            elif slotnum == cts.macros['Py_tp_bases']:
+                bases = cts.cast('PyObject*', slotdef.c_pfunc)
+                bases_w = space.fixedview(from_ref(space, bases))
+            i += 1
+        if not bases_w:
+            bases_w = [w_base]
+    else:
+        bases_w = space.fixedview(from_ref(space, bases))
+    w_base = best_base(space, bases_w)
+    base = cts.cast('PyTypeObject*', make_ref(space, w_base))
+    if False:  # not base.c_tp_flags & Py_TPFLAGS_BASETYPE:
+        raise oefmt(space.w_TypeError,
+            "type '%s' is not an acceptable base type",
+            rffi.charp2str(base.c_tp_name))
+
+    typ.c_tp_as_async = res.c_as_async
+    typ.c_tp_as_number = res.c_as_number
+    typ.c_tp_as_sequence = res.c_as_sequence
+    typ.c_tp_as_mapping = res.c_as_mapping
+    typ.c_tp_as_buffer = res.c_as_buffer
+    typ.c_tp_bases = bases
+    typ.c_tp_base = base
+    typ.c_tp_basicsize = cts.cast('Py_ssize_t', spec.c_basicsize)
+    typ.c_tp_itemsize = cts.cast('Py_ssize_t', spec.c_itemsize)
+
+    i = 0
+    while True:
+        slotdef = slotdefs[i]
+        slot = rffi.cast(lltype.Signed, slotdef.c_slot)
+        if slot == 0:
+            break
+        if slot < 0:  # or slot > len(slotoffsets):
+            raise oefmt(space.w_RuntimeError, "invalid slot offset")
+        if slot in (cts.macros['Py_tp_base'], cts.macros['Py_tp_bases']):
+            # Processed above
+            i += 1
+            continue
+        fill_slot(res, slot, slotdef.c_pfunc)
+        # XXX: need to make a copy of the docstring slot, which usually
+        # points to a static string literal
+        i += 1
+
+    if not typ.c_tp_dealloc:
+        typ.c_tp_dealloc = llslot(space, subtype_dealloc)
+    py_type_ready(space, typ)
+    return cts.cast('PyObject*', res)
+
 @cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
 def _PyType_Lookup(space, type, w_name):
@@ -903,4 +1016,3 @@ def PyType_Modified(space, w_obj):
         return
     if w_obj.is_cpytype():
         w_obj.mutated(None)
-

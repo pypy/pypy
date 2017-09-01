@@ -289,11 +289,25 @@ typedef struct _typeobject {
     destructor tp_finalize;
 } PyTypeObject;
 
+typedef struct{
+    int slot;    /* slot id, see below */
+    void *pfunc; /* function pointer */
+} PyType_Slot;
+
+typedef struct{
+    const char* name;
+    int basicsize;
+    int itemsize;
+    unsigned int flags;
+    PyType_Slot *slots; /* terminated by slot==0. */
+} PyType_Spec;
+
 typedef struct _heaptypeobject {
     PyTypeObject ht_type;
+    PyAsyncMethods as_async;
     PyNumberMethods as_number;
     PyMappingMethods as_mapping;
     PySequenceMethods as_sequence;
     PyBufferProcs as_buffer;
-    PyObject *ht_name, *ht_slots;
+    PyObject *ht_name, *ht_slots, *ht_qualname;
 } PyHeapTypeObject;
