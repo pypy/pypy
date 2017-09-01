@@ -1559,8 +1559,7 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
         initfunc = rffi.cast(initfunctype, initptr)
         initret = generic_cpy_call_dont_convert_result(space, initfunc)
         if not initret:
-            if state.operror:
-                state.check_and_raise_exception()
+            state.check_and_raise_exception()
             raise oefmt(space.w_SystemError,
                 "initialization of %s failed without raising an exception",
                 name)
@@ -1615,7 +1614,7 @@ def generic_cpy_call_expect_null(space, func, *args):
 @specialize.ll()
 def generic_cpy_call_dont_convert_result(space, func, *args):
     FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, True, False)(space, func, *args)
+    return make_generic_cpy_call(FT, False, False)(space, func, *args)
 
 @specialize.memo()
 def make_generic_cpy_call(FT, expect_null, convert_result):
@@ -1671,10 +1670,9 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
             cpyext_glob_tid_ptr[0] = 0
             keepalive_until_here(*keepalives)
 
-        if is_PyObject(RESULT_TYPE):
-            if not convert_result or not is_pyobj(result):
+        if convert_result and is_PyObject(RESULT_TYPE):
+            if not is_pyobj(result):
                 ret = result
-                has_result = bool(ret)
             else:
                 # The object reference returned from a C function
                 # that is called from Python must be an owned reference
@@ -1683,13 +1681,13 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
                     ret = get_w_obj_and_decref(space, result)
                 else:
                     ret = None
-                has_result = ret is not None
 
             # Check for exception consistency
             # XXX best attempt, will miss preexisting error that is
             # overwritten with a new error of the same type
             error = PyErr_Occurred(space)
             has_new_error = (error is not None) and (error is not preexist_error)
+            has_result = ret is not None
             if not expect_null and has_new_error and has_result:
                 raise oefmt(space.w_SystemError,
                             "An exception was set, but function returned a "

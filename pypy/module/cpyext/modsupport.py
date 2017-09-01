@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, cts,
-    parse_dir, bootstrap_function, generic_cpy_call, slot_function)
+    parse_dir, bootstrap_function, generic_cpy_call,
+    generic_cpy_call_dont_convert_result, slot_function)
 from pypy.module.cpyext.pyobject import PyObject, as_pyobj, make_typedescr
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
@@ -150,21 +151,18 @@ def exec_def(space, w_mod, mod_as_pyobj):
     while cur_slot and rffi.cast(lltype.Signed, cur_slot[0].c_slot):
         if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == 2:
             execf = rffi.cast(execfunctype, cur_slot[0].c_value)
-            res = generic_cpy_call(space, execf, w_mod)
-            has_error = PyErr_Occurred(space) is not None
+            res = generic_cpy_call_dont_convert_result(space, execf, w_mod)
             state = space.fromcache(State)
-            if rffi.cast(lltype.Signed, res):
-                if has_error:
-                    state.check_and_raise_exception()
-                else:
-                    raise oefmt(space.w_SystemError,
-                                "execution of module %S failed without "
-                                "setting an exception", w_mod.w_name)
-            if has_error:
-                state.clear_exception()
+            if res:
+                state.check_and_raise_exception()
                 raise oefmt(space.w_SystemError,
-                            "execution of module %S raised unreported "
-                            "exception", w_mod.w_name)
+                            "execution of module %S failed without "
+                            "setting an exception", w_mod.w_name)
+            else:
+                if state.clear_exception():
+                    raise oefmt(space.w_SystemError,
+                                "execution of module %S raised unreported "
+                                "exception", w_mod.w_name)
         cur_slot = rffi.ptradd(cur_slot, 1)
 
 
