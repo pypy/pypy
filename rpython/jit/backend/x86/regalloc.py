@@ -158,6 +158,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.final_jump_op = None
 
     def _prepare(self, inputargs, operations, allgcrefs):
+        from rpython.jit.backend.x86.reghint import X86RegisterHints
         for box in inputargs:
             assert box.get_forwarded() is None
         cpu = self.assembler.cpu
@@ -166,6 +167,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                                                        allgcrefs)
         # compute longevity of variables
         longevity = compute_vars_longevity(inputargs, operations)
+        X86RegisterHints().add_hints(longevity, inputargs, operations)
         self.longevity = longevity
         self.rm = gpr_reg_mgr_cls(self.longevity,
                                   frame_manager = self.fm,
@@ -966,6 +968,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             # Load the register for the result.  Possibly reuse 'args[0]'.
             # But the old value of args[0], if it survives, is first
             # spilled away.  We can't overwrite any of op.args[2:] here.
+
+            # YYY args[0] is maybe not spilled here!!!
             resloc = self.rm.force_result_in_reg(op, args[0],
                                                  forbidden_vars=args[2:])
 
