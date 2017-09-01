@@ -816,6 +816,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             # without distinguishing call sites, which we don't do any
             # more for now.
             if gcrootmap: # and gcrootmap.is_shadow_stack:
+                # YYY this is weird???
                 save_all_regs = 2
         self.rm.before_call(save_all_regs=save_all_regs)
         if op.type != 'v':

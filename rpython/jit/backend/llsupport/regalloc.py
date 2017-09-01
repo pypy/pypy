@@ -412,7 +412,6 @@ class RegisterManager(object):
         v_to_spill = self._pick_variable_to_spill(forbidden_vars,
                                selected_reg, need_lower_byte=need_lower_byte)
         loc = self.reg_bindings[v_to_spill]
-        self.assembler.num_spills += 1
         self._sync_var_to_stack(v_to_spill)
         del self.reg_bindings[v_to_spill]
         return loc
@@ -623,8 +622,8 @@ class RegisterManager(object):
         valid, but only *if they are in self.save_around_call_regs,*
         not if they are callee-saved registers!
 
-        'save_all_regs' can be 0 (default set of registers), 1 (do that
-        for all registers), or 2 (default + gc ptrs).
+        'save_all_regs' can be 0 (default set of registers), 1 (default + gc
+        ptrs), or 2 (do that for all registers).
 
         Overview of what we do (the implementation does it differently,
         for the same result):
@@ -708,6 +707,7 @@ class RegisterManager(object):
                     break
                 assert new_reg is not None # must succeed
                 reg = self.reg_bindings[v]
+                self.assembler.num_moves_calls += 1
                 self.assembler.regalloc_mov(reg, new_reg)
                 self.reg_bindings[v] = new_reg    # change the binding
                 new_free_regs.append(reg)
