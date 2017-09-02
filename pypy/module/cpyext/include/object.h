@@ -236,6 +236,11 @@ manually remove this flag though!
 #define Py_TPFLAGS_DEFAULT Py_TPFLAGS_DEFAULT_EXTERNAL
 
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
+#define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
+
+#define PyType_Check(op) \
+    PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
+#define PyType_CheckExact(op) (Py_TYPE(op) == &PyType_Type)
 
 /* objimpl.h ----------------------------------------------*/
 #define PyObject_New(type, typeobj) \
