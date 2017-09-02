@@ -433,7 +433,7 @@ class ThreadLocalReference(ThreadLocalField):
 
         def _trace_tlref(gc, obj, callback, arg):
             p = llmemory.NULL
-            llop.threadlocalref_acquire(lltype.Void)
+            llop.threadlocalref_readonly_acquire(lltype.Void)
             while True:
                 p = llop.threadlocalref_enum(llmemory.Address, p)
                 if not p:
@@ -490,7 +490,7 @@ class _Entry(ExtRegistryEntry):
 @specialize.arg(0)
 def enum_all_threadlocals(callback, arg):
     p = llmemory.NULL
-    llop.threadlocalref_acquire(lltype.Void)
+    llop.threadlocalref_readonly_acquire(lltype.Void)
     while True:
         p = llop.threadlocalref_enum(llmemory.Address, p)
         if not p:

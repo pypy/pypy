@@ -111,7 +111,7 @@ void RPyGilMasterRequestSafepoint(void)
     assert(counter_of_sevens == 0);
 
     /* signal all threads to enter safepoints */
-    OP_THREADLOCALREF_ACQUIRE(/* */);
+    OP_THREADLOCALREF_READONLY_ACQUIRE(/* */);
 
     struct pypy_threadlocal_s *t = NULL;
     while (1) {
