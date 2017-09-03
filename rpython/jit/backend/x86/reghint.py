@@ -50,13 +50,13 @@ class X86RegisterHints(object):
     def _consider_binop_symm(self, op, position):
         self._consider_binop_part(op, position, symm=True)
 
-    #consider_int_mul = _consider_binop_symm
-    #consider_int_and = _consider_binop_symm
-    #consider_int_or  = _consider_binop_symm
-    #consider_int_xor = _consider_binop_symm
+    consider_int_mul = _consider_binop_symm
+    consider_int_and = _consider_binop_symm
+    consider_int_or  = _consider_binop_symm
+    consider_int_xor = _consider_binop_symm
 
-    #consider_int_mul_ovf = _consider_binop_symm
-    #consider_int_sub_ovf = _consider_binop
+    consider_int_mul_ovf = _consider_binop_symm
+    consider_int_sub_ovf = _consider_binop
     consider_int_add_ovf = _consider_binop_symm
 
     def _consider_lea(self, op, loc):
@@ -73,12 +73,15 @@ class X86RegisterHints(object):
 
     consider_nursery_ptr_increment = consider_int_add
 
-    def Xconsider_int_lshift(self, op, position):
-        if not isinstance(op.getarg(1), Const):
+    def consider_int_lshift(self, op, position):
+        x, y = op.getarg(0), op.getarg(1)
+        if not isinstance(y, Const):
             self.longevity.fixed_register(position, ecx, op.getarg(1))
+        if not isinstance(x, Const):
+            self.longevity.try_use_same_register(x, op)
 
-    #consider_int_rshift  = consider_int_lshift
-    #consider_uint_rshift = consider_int_lshift
+    consider_int_rshift  = consider_int_lshift
+    consider_uint_rshift = consider_int_lshift
 
     def Xconsider_call_malloc_nursery(self, op, position):
         self.longevity.fixed_register(position, ecx, op)

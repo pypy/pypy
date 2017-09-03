@@ -102,6 +102,35 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # coalescing makes sure that i0 (and thus i71) lands in edi
         assert len([entry for entry in self.log if entry.name == "mov"]) == 2
 
+    def test_coalescing_mul(self):
+        # won't test all operations, but at least check a second one
+        ops = '''
+        [i0, i1, i2, i3]
+        i7 = int_mul(i0, i1)
+        i8 = int_mul(i7, i3)
+        i9 = call_i(ConstClass(f1ptr), i8, descr=f1_calldescr)
+        i10 = int_is_true(i9)
+        guard_true(i10) []
+        finish(i9)
+        '''
+        self.interpret(ops, [5, 6, 7, 8])
+        assert len([entry for entry in self.log if entry.name == "mov"]) == 2
+
+    def test_lshift(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i5 = int_add(i2, i3)
+        i7 = int_lshift(i0, i5)
+        i8 = int_lshift(i7, i3)
+        i9 = call_i(ConstClass(f1ptr), i8, descr=f1_calldescr)
+        i10 = int_is_true(i9)
+        guard_true(i10) []
+        finish(i9)
+        '''
+        self.interpret(ops, [5, 6, 7, 8])
+        # 3 moves for arguments, 1 move for result
+        assert len([entry for entry in self.log if entry.name == "mov"]) == 4
+
     def test_binop_dont_swap_unnecessarily(self):
         ops = '''
         [i0, i1, i2, i3]
