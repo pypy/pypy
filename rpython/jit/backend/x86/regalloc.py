@@ -505,14 +505,16 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def _consider_binop_part(self, op, symm=False):
         x = op.getarg(0)
         y = op.getarg(1)
+        xloc = self.loc(x)
         argloc = self.loc(y)
-        #
-        # For symmetrical operations, if 'y' is already in a register
-        # and won't be used after the current operation finishes,
-        # then swap the role of 'x' and 'y'
-        # XXX only do that if x is *not* in a register
-        if (symm and isinstance(argloc, RegLoc) and
-                self.rm.longevity[y].last_usage == self.rm.position):
+
+        # For symmetrical operations, if x is not in a reg, but y is,
+        # and if x lives longer than the current operation while y dies, then
+        # swap the role of 'x' and 'y'
+        if (symm and not isinstance(xloc, RegLoc) and
+                isinstance(argloc, RegLoc) and
+                self.rm.longevity[x].last_usage > self.rm.position and
+                self.longevity[y].last_usage == self.rm.position):
             x, y = y, x
             argloc = self.loc(y)
         #
@@ -993,6 +995,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self.assembler.test_location(resloc)
             self.assembler.guard_success_cc = rx86.Conditions['Z']
 
+        if not we_are_translated():
+            self.assembler.dump('%s <- %s(%s)' % (resloc, op, arglocs))
         self.assembler.cond_call(gcmap, imm_func, arglocs, resloc)
 
     consider_cond_call_value_i = consider_cond_call

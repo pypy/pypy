@@ -102,7 +102,6 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # coalescing makes sure that i0 (and thus i71) lands in edi
         assert len([entry for entry in self.log if entry.name == "mov"]) == 2
 
-    @pytest.mark.skip("later")
     def test_binop_dont_swap_unnecessarily(self):
         ops = '''
         [i0, i1, i2, i3]
