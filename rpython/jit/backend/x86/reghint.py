@@ -37,12 +37,10 @@ class X86RegisterHints(object):
         # For symmetrical operations, if 'y' is already in a register
         # and won't be used after the current operation finishes,
         # then swap the role of 'x' and 'y'
-        if self.longevity[x].last_usage > position:
-            if self.longevity[y].last_usage == position:
-                x, y = y, x
-                self.longevity.try_use_same_register(y, op)
-        else:
-            self.longevity.try_use_same_register(x, op)
+        if (self.longevity[x].last_usage > position and
+                self.longevity[y].last_usage == position):
+            x, y = y, x
+        self.longevity.try_use_same_register(x, op)
 
     def _consider_binop(self, op, position):
         self._consider_binop_part(op, position)
@@ -159,7 +157,6 @@ class CallHints64(object):
             return None
 
     def hint(self, position, args, argtypes, save_all_regs):
-        import pdb; pdb.set_trace()
         hinted_xmm = []
         hinted_gpr = []
         for i in range(len(args)):
