@@ -167,24 +167,28 @@ class CallHints64(object):
     def hint(self, position, args, argtypes, save_all_regs):
         hinted_xmm = []
         hinted_gpr = []
+        hinted_args = []
         for i in range(len(args)):
             arg = args[i]
             if arg.type == "f":
                 tgt = self._unused_xmm()
-                if tgt is not None and not arg.is_constant():
+                if tgt is not None and not arg.is_constant() and arg not in hinted_args:
                     self.longevity.fixed_register(position, tgt, arg)
                     hinted_xmm.append(tgt)
+                    hinted_args.append(arg)
             elif i < len(argtypes) and argtypes[i] == 'S':
                 # Singlefloat argument
                 tgt = self._unused_xmm()
-                if tgt is not None and not arg.is_constant():
+                if tgt is not None and not arg.is_constant() and arg not in hinted_args:
                     self.longevity.fixed_register(position, tgt, arg)
                     hinted_xmm.append(tgt)
+                    hinted_args.append(arg)
             else:
                 tgt = self._unused_gpr()
-                if tgt is not None and not arg.is_constant():
+                if tgt is not None and not arg.is_constant() and arg not in hinted_args:
                     self.longevity.fixed_register(position, tgt, arg)
                     hinted_gpr.append(tgt)
+                    hinted_args.append(arg)
         # block all remaining registers that are not caller save
         # XXX the case save_all_regs == 1 (save callee-save regs + gc ptrs) is
         # no expressible atm

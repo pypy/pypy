@@ -97,6 +97,22 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # i0 and i1, one for the result to the stack
         assert len([entry for entry in self.log if entry.name == "mov"]) == 3
 
+    def test_call_use_argument_twice(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i7 = int_add(i0, i1)
+        i8 = int_add(i2, 13)
+        i9 = call_i(ConstClass(f2ptr), i7, i7, descr=f2_calldescr)
+        i10 = int_is_true(i9)
+        guard_true(i10) [i8]
+        finish(i9)
+        '''
+        self.interpret(ops, [5, 6, 7, 8])
+        # two moves are needed from the stack frame to registers for arguments
+        # i0 and i1, one for the result to the stack
+        # one for the copy to the other argument register
+        assert len([entry for entry in self.log if entry.name == "mov"]) == 4
+
     @pytest.mark.skip("later")
     def test_same_stack_entry_many_times(self):
         ops = '''
