@@ -153,7 +153,7 @@ def exec_def(space, w_mod, mod_as_pyobj):
             execf = rffi.cast(execfunctype, cur_slot[0].c_value)
             res = generic_cpy_call_dont_convert_result(space, execf, w_mod)
             state = space.fromcache(State)
-            if res:
+            if rffi.cast(lltype.Signed, res):
                 state.check_and_raise_exception()
                 raise oefmt(space.w_SystemError,
                             "execution of module %S failed without "
