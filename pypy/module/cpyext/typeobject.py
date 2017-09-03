@@ -13,7 +13,7 @@ from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     slot_function, generic_cpy_call, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    build_type_checkers, cts, parse_dir, PyObjectFields, PyTypeObject,
+    build_type_checkers_flags, cts, parse_dir, PyObjectFields, PyTypeObject,
     PyTypeObjectPtr, Py_TPFLAGS_CHECKTYPES,
     Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, Py_TPFLAGS_HAVE_INPLACEOPS,
@@ -44,7 +44,7 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
-PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
+PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 

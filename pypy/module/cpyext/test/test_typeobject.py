@@ -1072,7 +1072,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_call_tp_dealloc(self):
         module = self.import_extension('foo', [
-            ("fetchFooType", "NOARGS",
+            ("fetchFooType", "METH_NOARGS",
              """
                 PyObject *o;
                 o = PyObject_New(PyObject, &Foo_Type);
