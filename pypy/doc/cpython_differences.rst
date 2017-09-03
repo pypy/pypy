@@ -548,6 +548,11 @@ Miscellaneous
   or ``float`` subtypes. Currently PyPy does not support the
   ``__class__`` attribute assignment for any non heaptype subtype.
 
+* In PyPy, module and class dictionaries are optimized under the assumption
+  that deleting attributes from them are rare. Because of this, e.g.
+  ``del foo.bar`` where ``foo`` is a module (or class) that contains the
+  function ``bar``, is significantly slower than CPython.
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/

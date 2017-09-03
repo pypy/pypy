@@ -22,7 +22,6 @@ class TestSubclasses(BaseCTypesTestChecker):
         assert X._fields_ == [("a", c_int)]
         assert Y._fields_ == [("b", c_int)]
         assert Z._fields_ == [("a", c_int)]
-
         assert Y._names_ == ['a', 'b']
 
     def test_subclass_delayed(self):
@@ -454,6 +453,39 @@ class TestStructure(BaseCTypesTestChecker):
         obj = X()
         p = pointer(obj)
         assert p.contents._b_base_ is p
+
+    def test_swapped_bytes(self):
+        import sys
+
+        for i in [c_short, c_int, c_long, c_longlong,
+                  c_float, c_double, c_ushort, c_uint,
+                  c_ulong, c_ulonglong]:
+            FIELDS = [
+                ('n', i)
+            ]
+
+            class Native(Structure):
+                _fields_ = FIELDS
+
+            class Big(BigEndianStructure):
+                _fields_ = FIELDS
+
+            class Little(LittleEndianStructure):
+                _fields_ = FIELDS
+
+            def dostruct(c):
+                ba = create_string_buffer(sizeof(c))
+                ms = c.from_buffer(ba)
+                ms.n = 0xff00
+                return repr(ba[:])
+
+            if sys.byteorder == 'little':
+                assert dostruct(Native) == dostruct(Little)
+                assert dostruct(Native) != dostruct(Big)
+            else:
+                assert dostruct(Native) == dostruct(Big)
+                assert dostruct(Native) != dostruct(Little)
+
 
 class TestPointerMember(BaseCTypesTestChecker):
     def test_1(self):

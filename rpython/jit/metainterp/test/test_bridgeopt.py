@@ -76,8 +76,11 @@ def test_known_classes():
 
 
 box_strategy = strategies.builds(InputArgInt) | strategies.builds(InputArgRef)
-tuples = strategies.tuples(box_strategy, strategies.booleans()).filter(
-        lambda (box, known_class): isinstance(box, InputArgRef) or not known_class)
+def _make_tup(box, known_class):
+    if isinstance(box, InputArgInt):
+        known_class = False
+    return box, known_class
+tuples = strategies.builds(_make_tup, box_strategy, strategies.booleans())
 boxes_known_classes = strategies.lists(tuples, min_size=1)
 
 @given(boxes_known_classes)

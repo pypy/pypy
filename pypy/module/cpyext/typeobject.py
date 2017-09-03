@@ -311,12 +311,17 @@ def update_all_slots(space, w_type, pto):
                 setattr(pto, slot_names[0], slot_func_helper)
         elif ((w_type is space.w_list or w_type is space.w_tuple) and
               slot_names[0] == 'c_tp_as_number'):
-            # XXX hack - hwo can we generalize this? The problem is method
+            # XXX hack - how can we generalize this? The problem is method
             # names like __mul__ map to more than one slot, and we have no
             # convenient way to indicate which slots CPython have filled
             #
             # We need at least this special case since Numpy checks that
             # (list, tuple) do __not__ fill tp_as_number
+            pass
+        elif ((space.issubtype_w(w_type, space.w_bytes) or
+                space.issubtype_w(w_type, space.w_unicode)) and
+                slot_names[0] == 'c_tp_as_number'):
+            # like above but for any str type
             pass
         else:
             assert len(slot_names) == 2
