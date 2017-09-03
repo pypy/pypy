@@ -886,7 +886,11 @@ class Lifetime(object):
             assert self.definition_pos < min(self.real_usages)
 
     def __repr__(self):
-        return "%s:%s(%s)" % (self.definition_pos, self.real_usages, self.last_usage)
+        if self.fixed_positions:
+            s = " " + ", ".join("@%s in %s" % (index, reg) for (index, reg) in self.fixed_positions)
+        else:
+            s = ""
+        return "%s:%s(%s)%s" % (self.definition_pos, self.real_usages, self.last_usage, s)
 
 
 class FixedRegisterPositions(object):
