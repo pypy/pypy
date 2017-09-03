@@ -88,6 +88,21 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # i0 and i1, one for the result to the stack
         assert len([entry for entry in self.log if entry.name == "mov"]) == 3
 
+    @pytest.mark.skip("later")
+    def test_same_stack_entry_many_times(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i7 = int_add(i0, i1)
+        i8 = int_add(i2, i1)
+        i9 = int_add(i3, i1)
+        i10 = int_is_true(i9)
+        guard_true(i10) [i8]
+        finish(i7)
+        '''
+        self.interpret(ops, [5, 6, 7, 8])
+        # 4 moves for arguments, 1 for result
+        assert len([entry for entry in self.log if entry.name == "mov"]) == 5
+
     def test_coalescing(self):
         ops = '''
         [i0, i1, i2, i3]
