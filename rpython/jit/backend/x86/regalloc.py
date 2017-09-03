@@ -512,11 +512,12 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # and if x lives longer than the current operation while y dies, then
         # swap the role of 'x' and 'y'
         if (symm and not isinstance(xloc, RegLoc) and
-                isinstance(argloc, RegLoc) and
-                self.rm.longevity[x].last_usage > self.rm.position and
-                self.longevity[y].last_usage == self.rm.position):
-            x, y = y, x
-            argloc = self.loc(y)
+                isinstance(argloc, RegLoc)):
+            if ((x not in self.rm.longevity or
+                    self.rm.longevity[x].last_usage > self.rm.position) and
+                    self.rm.longevity[y].last_usage == self.rm.position):
+                x, y = y, x
+                argloc = self.loc(y)
         #
         args = op.getarglist()
         loc = self.rm.force_result_in_reg(op, x, args)
@@ -613,7 +614,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         vx = op.getarg(0)
         vy = op.getarg(1)
         arglocs = [self.loc(vx), self.loc(vy)]
-        args = op.getarglist()
         if (vx in self.rm.reg_bindings or vy in self.rm.reg_bindings or
             isinstance(vx, Const) or isinstance(vy, Const)):
             pass

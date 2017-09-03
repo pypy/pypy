@@ -38,8 +38,10 @@ class X86RegisterHints(object):
 
         # For symmetrical operations, if y won't be used after the current
         # operation finishes, but x will be, then swap the role of 'x' and 'y'
-        if (self.longevity[x].last_usage > position and
-                self.longevity[y].last_usage == position):
+        if (symm and isinstance(x, ConstInt) or (
+                not isinstance(y, ConstInt) and
+                self.longevity[x].last_usage > position and
+                self.longevity[y].last_usage == position)):
             x, y = y, x
         self.longevity.try_use_same_register(x, op)
 
@@ -77,6 +79,12 @@ class X86RegisterHints(object):
     consider_int_rshift  = consider_int_lshift
     consider_uint_rshift = consider_int_lshift
 
+    def consider_uint_mul_high(self, op, position):
+        # could do a lot more, but I suspect not worth it
+        # just block eax and edx
+        self.longevity.fixed_register(position, eax)
+        self.longevity.fixed_register(position, edx)
+
     def Xconsider_call_malloc_nursery(self, op, position):
         self.longevity.fixed_register(position, ecx, op)
         self.longevity.fixed_register(position, edx)
@@ -108,7 +116,8 @@ class X86RegisterHints(object):
         assert effectinfo is not None
         oopspecindex = effectinfo.oopspecindex
         if oopspecindex != EffectInfo.OS_NONE:
-            raise NotImplementedError
+            # XXX safe default: do nothing
+            return
         self._consider_call(op, position)
 
     consider_call_i = _consider_real_call

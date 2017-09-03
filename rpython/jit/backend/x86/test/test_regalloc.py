@@ -72,6 +72,15 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         self.interpret(ops, [5, 6, 7, 8])
         assert len([entry for entry in self.log if entry.args[0] == "int_add"]) == 1
 
+    def test_bug_const(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i9 = int_add(1, i3)
+        finish(i9)
+        '''
+        # does not crash
+        self.interpret(ops, [5, 6, 7, 8])
+        assert len([entry for entry in self.log if entry.args[0] == "int_add"]) == 1
 
     def test_call_use_correct_regs(self):
         ops = '''
@@ -161,5 +170,5 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         op = self.log[5]
         assert op.name == "op"
         # make sure that the arguments of the third op are not swapped (since
-        # that would break coalescing between i7 and i9
+        # that would break coalescing between i7 and i9)
         assert op.args[1][0] is add1.args[-1]
