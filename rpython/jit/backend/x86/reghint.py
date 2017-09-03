@@ -24,6 +24,8 @@ class X86RegisterHints(object):
         self.longevity = longevity
         for i in range(len(operations)):
             op = operations[i]
+            if rop.has_no_side_effect(op.opnum) and op not in self.longevity:
+                continue
             oplist[op.getopnum()](self, op, i)
 
     def not_implemented_op(self, op, position):

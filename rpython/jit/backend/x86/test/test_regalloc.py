@@ -61,6 +61,18 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         for l in self.log:
             print l
 
+    def test_unused(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i7 = int_add(i0, i1) # unused
+        i9 = int_add(i2, i3)
+        finish(i9)
+        '''
+        # does not crash
+        self.interpret(ops, [5, 6, 7, 8])
+        assert len([entry for entry in self.log if entry.args[0] == "int_add"]) == 1
+
+
     def test_call_use_correct_regs(self):
         ops = '''
         [i0, i1, i2, i3]
