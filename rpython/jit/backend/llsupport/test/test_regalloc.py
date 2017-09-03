@@ -308,6 +308,17 @@ def test_try_pick_free_reg_bug():
     loc = longevity.try_pick_free_reg(0, b1, [r0, r1])
     assert loc == r1
 
+def test_try_pick_free_reg_bug2():
+    b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
+    l0 = Lifetime(1, 2)
+    l1 = Lifetime(2, 4)
+    longevity = LifetimeManager({b0: l0, b1: l1})
+    longevity.fixed_register(4, r1, b1)
+
+    # does not fit into r0, use r1
+    loc = longevity.try_pick_free_reg(0, b0, [r0, r1])
+    assert loc == r0
+
 def test_simple_coalescing():
     b0, b1, b2, b3, b4 = newboxes(0, 0, 0, 0, 0)
     l0 = Lifetime(0, 4)

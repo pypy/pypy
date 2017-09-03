@@ -985,7 +985,7 @@ class LifetimeManager(object):
                 unfixed_reg = reg
                 continue
             use_after = fixed_reg_pos.free_until_pos(position)
-            if use_after < longevityvar.last_usage_including_sharing():
+            if use_after <= longevityvar.last_usage_including_sharing():
                 # can't fit
                 continue
             assert use_after >= longevityvar.last_usage_including_sharing()
