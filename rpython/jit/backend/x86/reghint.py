@@ -36,9 +36,8 @@ class X86RegisterHints(object):
         x = op.getarg(0)
         y = op.getarg(1)
 
-        # For symmetrical operations, if 'y' is already in a register
-        # and won't be used after the current operation finishes,
-        # then swap the role of 'x' and 'y'
+        # For symmetrical operations, if y won't be used after the current
+        # operation finishes, but x will be, then swap the role of 'x' and 'y'
         if (self.longevity[x].last_usage > position and
                 self.longevity[y].last_usage == position):
             x, y = y, x
@@ -59,11 +58,6 @@ class X86RegisterHints(object):
     consider_int_sub_ovf = _consider_binop
     consider_int_add_ovf = _consider_binop_symm
 
-    def _consider_lea(self, op, loc):
-        argloc = self.loc(op.getarg(1))
-        resloc = self.force_allocate_reg(op)
-        self.perform(op, [loc, argloc], resloc)
-
     def consider_int_add(self, op, position):
         y = op.getarg(1)
         if isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value):
@@ -76,7 +70,7 @@ class X86RegisterHints(object):
     def consider_int_lshift(self, op, position):
         x, y = op.getarg(0), op.getarg(1)
         if not isinstance(y, Const):
-            self.longevity.fixed_register(position, ecx, op.getarg(1))
+            self.longevity.fixed_register(position, ecx, y)
         if not isinstance(x, Const):
             self.longevity.try_use_same_register(x, op)
 
