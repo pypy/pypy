@@ -48,6 +48,9 @@ class LoggingAssembler(Assembler386):
         return Assembler386.regalloc_perform_guard(self, guard_op, faillocs,
                 arglocs, resloc, frame_depth)
 
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
+        self._log("malloc_cond", size) # always uses edx and ecx
+
 
 class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
     def setup_class(cls):
@@ -202,3 +205,24 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # make sure that the arguments of the third op are not swapped (since
         # that would break coalescing between i7 and i9)
         assert op.args[1][0] is add1.args[-1]
+
+    def test_malloc(self, monkeypatch):
+        ops = '''
+        [i0]
+        label(i0, descr=targettoken)
+        i1 = int_add(i0, 1) # this is using ecx or edx because it fits
+        i6 = int_add(i0, 6) # this is using ecx or edx because it fits
+        i2 = int_add(i6, i1)
+        p0 = call_malloc_nursery(16)
+        gc_store(p0, 0, 83944, 8)
+        gc_store(p0, 8, i2, 8)
+        i10 = int_is_true(i2)
+        guard_true(i10) [p0, i0]
+        finish(p0)
+        '''
+        monkeypatch.setattr(self.cpu.gc_ll_descr, "get_nursery_top_addr", lambda: 61)
+        monkeypatch.setattr(self.cpu.gc_ll_descr, "get_nursery_free_addr", lambda: 68)
+        self.interpret(ops, [0], run=False)
+        # 2 moves, because the call_malloc_nursery hints prevent using ecx and
+        # edx for any of the integer results
+        assert len(self.filter_log_moves()) == 2

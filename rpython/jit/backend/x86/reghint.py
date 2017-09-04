@@ -85,7 +85,7 @@ class X86RegisterHints(object):
         self.longevity.fixed_register(position, eax)
         self.longevity.fixed_register(position, edx)
 
-    def Xconsider_call_malloc_nursery(self, op, position):
+    def consider_call_malloc_nursery(self, op, position):
         self.longevity.fixed_register(position, ecx, op)
         self.longevity.fixed_register(position, edx)
 
