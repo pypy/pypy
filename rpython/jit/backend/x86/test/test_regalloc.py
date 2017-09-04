@@ -61,6 +61,9 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         for l in self.log:
             print l
 
+    def filter_log_moves(self):
+        return [entry for entry in self.log if entry.name == "mov"]
+
     def test_unused(self):
         ops = '''
         [i0, i1, i2, i3]
@@ -95,7 +98,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         self.interpret(ops, [5, 6, 7, 8])
         # two moves are needed from the stack frame to registers for arguments
         # i0 and i1, one for the result to the stack
-        assert len([entry for entry in self.log if entry.name == "mov"]) == 3
+        assert len(self.filter_log_moves()) == 3
 
     def test_call_use_argument_twice(self):
         ops = '''
@@ -111,7 +114,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # two moves are needed from the stack frame to registers for arguments
         # i0 and i1, one for the result to the stack
         # one for the copy to the other argument register
-        assert len([entry for entry in self.log if entry.name == "mov"]) == 4
+        assert len(self.filter_log_moves()) == 4
 
     @pytest.mark.skip("later")
     def test_same_stack_entry_many_times(self):
@@ -126,7 +129,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         '''
         self.interpret(ops, [5, 6, 7, 8])
         # 4 moves for arguments, 1 for result
-        assert len([entry for entry in self.log if entry.name == "mov"]) == 5
+        assert len(self.filter_log_moves()) == 5
 
     def test_coalescing(self):
         ops = '''
@@ -140,7 +143,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         '''
         self.interpret(ops, [5, 6, 7, 8])
         # coalescing makes sure that i0 (and thus i71) lands in edi
-        assert len([entry for entry in self.log if entry.name == "mov"]) == 2
+        assert len(self.filter_log_moves()) == 2
 
     def test_coalescing_mul(self):
         # won't test all operations, but at least check a second one
@@ -154,7 +157,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         finish(i9)
         '''
         self.interpret(ops, [5, 6, 7, 8])
-        assert len([entry for entry in self.log if entry.name == "mov"]) == 2
+        assert len(self.filter_log_moves()) == 2
 
     def test_lshift(self):
         ops = '''
@@ -169,7 +172,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         '''
         self.interpret(ops, [5, 6, 7, 8])
         # 3 moves for arguments, 1 move for result
-        assert len([entry for entry in self.log if entry.name == "mov"]) == 4
+        assert len(self.filter_log_moves()) == 4
 
     def test_binop_dont_swap_unnecessarily(self):
         ops = '''
