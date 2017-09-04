@@ -85,6 +85,17 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         self.interpret(ops, [5, 6, 7, 8])
         assert len([entry for entry in self.log if entry.args[0] == "int_add"]) == 1
 
+    def test_use_lea_even_for_stack(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i9 = int_add(i3, 16)
+        i4 = int_add(i3, 26)
+        i6 = int_add(i9, i4)
+        finish(i6)
+        '''
+        self.interpret(ops, [5, 6, 7, 8])
+        assert len(self.filter_log_moves()) == 2
+
     def test_call_use_correct_regs(self):
         ops = '''
         [i0, i1, i2, i3]

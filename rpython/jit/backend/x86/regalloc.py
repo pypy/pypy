@@ -531,28 +531,25 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         loc, argloc = self._consider_binop_part(op, symm=True)
         self.perform(op, [loc, argloc], loc)
 
-    def _consider_lea(self, op, loc):
+    def _consider_lea(self, op):
+        loc = self.make_sure_var_in_reg(op.getarg(0))
         argloc = self.loc(op.getarg(1))
         resloc = self.force_allocate_reg(op)
         self.perform(op, [loc, argloc], resloc)
 
     def consider_int_add(self, op):
-        loc = self.loc(op.getarg(0))
         y = op.getarg(1)
-        if (isinstance(loc, RegLoc) and
-            isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value)):
-            self._consider_lea(op, loc)
+        if isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value):
+            self._consider_lea(op)
         else:
             self._consider_binop_symm(op)
 
     consider_nursery_ptr_increment = consider_int_add
 
     def consider_int_sub(self, op):
-        loc = self.loc(op.getarg(0))
         y = op.getarg(1)
-        if (isinstance(loc, RegLoc) and
-            isinstance(y, ConstInt) and rx86.fits_in_32bits(-y.value)):
-            self._consider_lea(op, loc)
+        if isinstance(y, ConstInt) and rx86.fits_in_32bits(-y.value):
+            self._consider_lea(op)
         else:
             self._consider_binop(op)
 
