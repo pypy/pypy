@@ -214,6 +214,9 @@ class AppTestItertools:
         assert list(itertools.islice(range(10), None,None)) == list(range(10))
         assert list(itertools.islice(range(10), None,None,None)) == list(range(10))
 
+        it = itertools.islice([0, 1, 2], None, None, 2)
+        assert list(it) == [0, 2]
+
         import weakref
         for args in [(1,), (None,), (0, None, 2)]:
             it = (x for x in (1, 2, 3))
