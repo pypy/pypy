@@ -7541,6 +7541,33 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
+    def test_guards_before_getfields_in_short_preamble_removetypeptr(self, monkeypatch):
+        monkeypatch.setattr(self.cpu, "remove_gctypeptr", True)
+        ops = """
+        [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
+        p2 = getfield_gc_r(p1, descr=nextdescr)
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        expected = """
+        [p0, p1]
+        jump(p0, p1)
+        """
+        short = """
+        [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
+        p2 = getfield_gc_r(p1, descr=nextdescr)
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+
+
     def test_forced_virtual_pure_getfield(self):
         ops = """
         [p0]
