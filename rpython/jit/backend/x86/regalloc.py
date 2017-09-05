@@ -1000,6 +1000,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_cond_call_value_r = consider_cond_call
 
     def consider_call_malloc_nursery(self, op):
+        # YYY what's the reason for using a fixed register for the result?
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()

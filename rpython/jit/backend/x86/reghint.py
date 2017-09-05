@@ -32,18 +32,27 @@ class X86RegisterHints(object):
         # no hint by default
         pass
 
+
+    def consider_int_neg(self, op, position):
+        self.longevity.try_use_same_register(op.getarg(0), op)
+    consider_int_invert = consider_int_neg
+
     def _consider_binop_part(self, op, position, symm=False):
         x = op.getarg(0)
         y = op.getarg(1)
 
         # For symmetrical operations, if y won't be used after the current
         # operation finishes, but x will be, then swap the role of 'x' and 'y'
-        if (symm and isinstance(x, ConstInt) or (
-                not isinstance(y, ConstInt) and
-                self.longevity[x].last_usage > position and
-                self.longevity[y].last_usage == position)):
-            x, y = y, x
-        self.longevity.try_use_same_register(x, op)
+        if symm:
+            if isinstance(x, Const):
+                x, y = y, x
+            elif (not isinstance(y, Const) and
+                    self.longevity[x].last_usage > position and
+                    self.longevity[y].last_usage == position):
+                x, y = y, x
+
+        if not isinstance(x, Const):
+            self.longevity.try_use_same_register(x, op)
 
     def _consider_binop(self, op, position):
         self._consider_binop_part(op, position)
@@ -89,8 +98,8 @@ class X86RegisterHints(object):
         self.longevity.fixed_register(position, ecx, op)
         self.longevity.fixed_register(position, edx)
 
-    #consider_call_malloc_nursery_varsize = consider_call_malloc_nursery
-    #consider_call_malloc_nursery_varsize_frame = consider_call_malloc_nursery
+    consider_call_malloc_nursery_varsize = consider_call_malloc_nursery
+    consider_call_malloc_nursery_varsize_frame = consider_call_malloc_nursery
 
 
     def _call(self, op, position, args, save_all_regs=False):

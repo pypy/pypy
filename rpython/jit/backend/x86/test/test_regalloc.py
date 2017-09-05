@@ -226,3 +226,36 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # 2 moves, because the call_malloc_nursery hints prevent using ecx and
         # edx for any of the integer results
         assert len(self.filter_log_moves()) == 2
+
+    def test_flowcontext(self):
+        # real index manipulation for a slicing operation done when translating
+        # on top of pypy
+        ops = """
+        [i1, i2]
+        i3 = int_and(i1, 255)
+        i4 = int_rshift(i1, 8)
+        i5 = int_and(i4, 255)
+        i6 = int_lt(0, i5)
+        guard_false(i6) [i1]
+        i7 = int_eq(i3, 0)
+        guard_false(i7) [i1]
+        i8 = int_neg(i3)
+        i9 = int_lt(i8, 0)
+        guard_true(i9) [i1]
+        i10 = int_lt(i2, 0)
+        guard_false(i10) [i1]
+        i11 = int_add(i8, i2)
+        i12 = int_lt(i11, 0)
+        guard_false(i12) [i1]
+        i13 = int_gt(i11, i2)
+        guard_false(i13) [i1]
+        i14 = int_sub(i2, i11)
+        i15 = int_is_zero(i14)
+        guard_false(i15) [i1]
+        # this simulates the arraycopy call
+        i16 = call_i(ConstClass(f2ptr), i11, i14, descr=f2_calldescr)
+        finish(i16)
+        """
+        self.interpret(ops, [0], run=False)
+        # 4 moves, three for args, one for result
+        assert len(self.filter_log_moves()) == 4
