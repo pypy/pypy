@@ -73,3 +73,7 @@ fields of constant objects into bridges.
 
 Add support for leakfinder in cpyext tests (disabled for now, due to too many
 failures).
+
+.. branch: pypy_swappedbytes
+
+Added ``_swappedbytes_`` support for ``ctypes.Structure``
