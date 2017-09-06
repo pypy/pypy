@@ -76,6 +76,14 @@ class X86RegisterHints(object):
         else:
             self._consider_binop_symm(op, position)
 
+    def consider_int_sub(self, op, position):
+        y = op.getarg(1)
+        if isinstance(y, ConstInt) and rx86.fits_in_32bits(-y.value):
+            pass # nothing to be hinted
+        else:
+            self._consider_binop(op, position)
+
+
     consider_nursery_ptr_increment = consider_int_add
 
     def consider_int_lshift(self, op, position):

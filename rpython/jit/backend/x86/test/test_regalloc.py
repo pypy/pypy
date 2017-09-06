@@ -147,7 +147,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
 
     def test_coalescing(self):
         ops = '''
-        [i0, i1, i2, i3]
+        [i0, i1, i3]
         i7 = int_add(i0, i1)
         i8 = int_add(i7, i3)
         i9 = call_i(ConstClass(f1ptr), i8, descr=f1_calldescr)
@@ -155,14 +155,28 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         guard_true(i10) []
         finish(i9)
         '''
-        self.interpret(ops, [5, 6, 7, 8])
+        self.interpret(ops, [5, 6, 8])
         # coalescing makes sure that i0 (and thus i71) lands in edi
         assert len(self.filter_log_moves()) == 2
 
-    def test_coalescing_mul(self):
-        # won't test all operations, but at least check a second one
+    def test_coalescing_sub(self):
         ops = '''
-        [i0, i1, i2, i3]
+        [i0, i1, i3]
+        i7 = int_sub(i0, i1)
+        i8 = int_sub(i7, i3)
+        i9 = call_i(ConstClass(f1ptr), i8, descr=f1_calldescr)
+        i10 = int_is_true(i9)
+        guard_true(i10) []
+        finish(i9)
+        '''
+        self.interpret(ops, [5, 6, 8])
+        # coalescing makes sure that i7 (and thus i8) lands in edi
+        assert len(self.filter_log_moves()) == 2
+
+    def test_coalescing_mul(self):
+        # won't test all symmetric operations, but at least check a second one
+        ops = '''
+        [i0, i1, i3]
         i7 = int_mul(i0, i1)
         i8 = int_mul(i7, i3)
         i9 = call_i(ConstClass(f1ptr), i8, descr=f1_calldescr)
@@ -170,7 +184,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         guard_true(i10) []
         finish(i9)
         '''
-        self.interpret(ops, [5, 6, 7, 8])
+        self.interpret(ops, [5, 6, 8])
         assert len(self.filter_log_moves()) == 2
 
     def test_lshift(self):
