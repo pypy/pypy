@@ -49,7 +49,7 @@ class LoggingAssembler(Assembler386):
                 arglocs, resloc, frame_depth)
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
-        self._log("malloc_cond", size) # always uses edx and ecx
+        self._log("malloc_cond", size, "ecx") # always uses edx and ecx
 
 
 class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
@@ -259,3 +259,51 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         self.interpret(ops, [0], run=False)
         # 4 moves, three for args, one for result
         assert len(self.filter_log_moves()) == 4
+
+    def test_dict_lookup(self, monkeypatch):
+        monkeypatch.setattr(self.cpu.gc_ll_descr, "get_nursery_top_addr", lambda: 61)
+        monkeypatch.setattr(self.cpu.gc_ll_descr, "get_nursery_free_addr", lambda: 68)
+        # real trace for a dict lookup
+        ops = """
+        [i172, i182, i201, p209, p0, p219]
+        i184 = int_lt(i172, 0)
+        guard_false(i184) []
+        i185 = int_ge(i172, i182)
+        guard_false(i185) []
+        i187 = int_add(i172, 1)
+        i202 = uint_ge(i172, i201)
+        guard_false(i202) [i172]
+        i221 = int_xor(i172, 3430008)
+        i223 = int_mul(i221, 1000003)
+        i230 = call_i(ConstClass(fgcrefptr), p209, descr=fgcref_calldescr)
+        guard_no_exception() [p209, i230, i172]
+        i232 = int_eq(i230, -1)
+        i233 = int_sub(i230, i232)
+        i234 = int_xor(i223, i233)
+        i236 = int_mul(i234, 1082525)
+        i238 = int_add(i236, 97531)
+        i240 = int_eq(i238, -1)
+        i241 = int_sub(i238, i240)
+        p242 = force_token()
+        p244 = call_malloc_nursery(40)
+        gc_store(p244, 0, 83568, 8)
+        p249 = nursery_ptr_increment(p244, 24)
+        gc_store(p249, 0, 4656, 8)
+        gc_store(p249, 8, i172, 8)
+        #cond_call_gc_wb(p0)
+        gc_store(p0, 8, p242, 8)
+        i263 = call_may_force_i(ConstClass(fppiiptr), p219, p244, i241, 0, descr=fppii_calldescr)
+        guard_not_forced() [p0, p249, p244, i263, p219]
+        guard_no_exception() [p0, p249, p244, i263, p219]
+        i265 = int_lt(i263, 0)
+        guard_true(i265) [p0, p249, p244, i263, p219]
+        finish(i263)
+        """
+        self.interpret(ops, [0], run=False)
+        # the moves are:
+        # 5 arguments
+        # 1 result
+        # 1 because lifetime of i172 does not end at the int_xor
+        # 1 ptr to save before call
+        # 3 for argument shuffling
+        assert len(self.filter_log_moves()) == 11

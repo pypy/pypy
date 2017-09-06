@@ -101,11 +101,6 @@ class X86RegisterHints(object):
     consider_call_malloc_nursery_varsize = consider_call_malloc_nursery
     consider_call_malloc_nursery_varsize_frame = consider_call_malloc_nursery
 
-
-    def _call(self, op, position, args, save_all_regs=False):
-        # XXX fish for correct argtypes
-        CallHints64(self.longevity).hint(position, args, [], save_all_regs)
-
     def _consider_call(self, op, position, guard_not_forced=False, first_arg_index=1):
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
@@ -117,8 +112,9 @@ class X86RegisterHints(object):
             gc_level = 1
         else:
             gc_level = 0
-        self._call(op, position, op.getarglist()[first_arg_index:],
-                   save_all_regs=gc_level)
+        args = op.getarglist()[first_arg_index:]
+        argtypes = calldescr.get_arg_types()
+        CallHints64(self.longevity).hint(position, args, argtypes, gc_level)
 
     def _consider_real_call(self, op, position):
         effectinfo = op.getdescr().get_extra_info()
@@ -148,10 +144,7 @@ class CallHints64(object):
 
     ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
     ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
-    _ALL_CALLEE_SAVE_GPR = [ebx, r12, r13, r14, r15]
 
-    next_arg_gpr = 0
-    next_arg_xmm = 0
 
     def __init__(self, longevity):
         self.longevity = longevity
@@ -177,27 +170,26 @@ class CallHints64(object):
         hinted_xmm = []
         hinted_gpr = []
         hinted_args = []
+        next_arg_gpr = 0
+        next_arg_xmm = 0
         for i in range(len(args)):
             arg = args[i]
-            if arg.type == "f":
-                tgt = self._unused_xmm()
-                if tgt is not None and not arg.is_constant() and arg not in hinted_args:
-                    self.longevity.fixed_register(position, tgt, arg)
-                    hinted_xmm.append(tgt)
-                    hinted_args.append(arg)
-            elif i < len(argtypes) and argtypes[i] == 'S':
-                # Singlefloat argument
-                tgt = self._unused_xmm()
-                if tgt is not None and not arg.is_constant() and arg not in hinted_args:
-                    self.longevity.fixed_register(position, tgt, arg)
-                    hinted_xmm.append(tgt)
-                    hinted_args.append(arg)
+            if arg.type == "f" or (i < len(argtypes) and argtypes[i] == 'S'):
+                if next_arg_xmm < len(self.ARGUMENTS_XMM):
+                    tgt = self.ARGUMENTS_XMM[next_arg_xmm]
+                    if not arg.is_constant() and arg not in hinted_args:
+                        self.longevity.fixed_register(position, tgt, arg)
+                        hinted_xmm.append(tgt)
+                        hinted_args.append(arg)
+                    next_arg_xmm += 1
             else:
-                tgt = self._unused_gpr()
-                if tgt is not None and not arg.is_constant() and arg not in hinted_args:
-                    self.longevity.fixed_register(position, tgt, arg)
-                    hinted_gpr.append(tgt)
-                    hinted_args.append(arg)
+                if next_arg_gpr < len(self.ARGUMENTS_GPR):
+                    tgt = self.ARGUMENTS_GPR[next_arg_gpr]
+                    if not arg.is_constant() and arg not in hinted_args:
+                        self.longevity.fixed_register(position, tgt, arg)
+                        hinted_gpr.append(tgt)
+                        hinted_args.append(arg)
+                    next_arg_gpr += 1
         # block all remaining registers that are not caller save
         # XXX the case save_all_regs == 1 (save callee-save regs + gc ptrs) is
         # no expressible atm
