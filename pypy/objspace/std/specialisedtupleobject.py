@@ -31,23 +31,23 @@ def make_specialised_class(typetuple):
     class cls(W_AbstractTupleObject):
         _immutable_fields_ = ['value%s' % i for i in iter_n]
 
-        def __init__(self, space, *values_w):
+        def __init__(self, space, *values):
             self.space = space
-            assert len(values_w) == typelen
+            assert len(values) == typelen
             for i in iter_n:
-                w_obj = values_w[i]
+                obj = values[i]
                 val_type = typetuple[i]
                 if val_type == int:
-                    unwrapped = w_obj.int_w(space)
+                    assert isinstance(obj, int)
                 elif val_type == float:
-                    unwrapped = w_obj.float_w(space)
+                    assert isinstance(obj, float)
                 elif val_type == str:
-                    unwrapped = w_obj.str_w(space)
+                    assert isinstance(obj, str)
                 elif val_type == object:
-                    unwrapped = w_obj
+                    pass
                 else:
                     raise AssertionError
-                setattr(self, 'value%s' % i, unwrapped)
+                setattr(self, 'value%s' % i, obj)
 
         def length(self):
             return typelen
@@ -150,10 +150,10 @@ def makespecialisedtuple(space, list_w):
         w_arg1, w_arg2 = list_w
         if type(w_arg1) is W_IntObject:
             if type(w_arg2) is W_IntObject:
-                return Cls_ii(space, w_arg1, w_arg2)
+                return Cls_ii(space, space.int_w(w_arg1), space.int_w(w_arg2))
         elif type(w_arg1) is W_FloatObject:
             if type(w_arg2) is W_FloatObject:
-                return Cls_ff(space, w_arg1, w_arg2)
+                return Cls_ff(space, space.float_w(w_arg1), space.float_w(w_arg2))
         return Cls_oo(space, w_arg1, w_arg2)
     else:
         raise NotSpecialised
@@ -170,10 +170,9 @@ def makespecialisedtuple(space, list_w):
 # faster to move the decision out of the loop.
 
 @specialize.arg(1)
-def _build_zipped_spec(space, Cls, lst1, lst2, wrap1, wrap2):
+def _build_zipped_spec(space, Cls, lst1, lst2):
     length = min(len(lst1), len(lst2))
-    return [Cls(space, wrap1(lst1[i]),
-                       wrap2(lst2[i])) for i in range(length)]
+    return [Cls(space, lst1[i], lst2[i]) for i in range(length)]
 
 def _build_zipped_spec_oo(space, w_list1, w_list2):
     strat1 = w_list1.strategy
@@ -200,8 +199,7 @@ def specialized_zip_2_lists(space, w_list1, w_list2):
             intlist2 = w_list2.getitems_int()
             if intlist2 is not None:
                 lst_w = _build_zipped_spec(
-                        space, Cls_ii, intlist1, intlist2,
-                        space.newint, space.newint)
+                        space, Cls_ii, intlist1, intlist2)
                 return space.newlist(lst_w)
         else:
             floatlist1 = w_list1.getitems_float()
@@ -209,8 +207,7 @@ def specialized_zip_2_lists(space, w_list1, w_list2):
                 floatlist2 = w_list2.getitems_float()
                 if floatlist2 is not None:
                     lst_w = _build_zipped_spec(
-                        space, Cls_ff, floatlist1, floatlist2, space.newfloat,
-                        space.newfloat)
+                        space, Cls_ff, floatlist1, floatlist2)
                     return space.newlist(lst_w)
 
         lst_w = _build_zipped_spec_oo(space, w_list1, w_list2)

@@ -752,7 +752,8 @@ LONGDOUBLEP = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={'nolength': True}))
 
 # Signed, Signed *
 SIGNED = lltype.Signed
-SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
+SIGNEDP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+SIGNEDPP = lltype.Ptr(lltype.Array(SIGNEDP, hints={'nolength': True}))
 
 
 # various type mapping
