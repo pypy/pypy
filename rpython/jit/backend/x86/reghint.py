@@ -76,6 +76,8 @@ class X86RegisterHints(object):
         else:
             self._consider_binop_symm(op, position)
 
+    consider_nursery_ptr_increment = consider_int_add
+
     def consider_int_sub(self, op, position):
         y = op.getarg(1)
         if isinstance(y, ConstInt) and rx86.fits_in_32bits(-y.value):
@@ -83,8 +85,17 @@ class X86RegisterHints(object):
         else:
             self._consider_binop(op, position)
 
+    def _consider_float_op(self, op, position):
+        x = op.getarg(0)
+        if not isinstance(x, Const):
+            self.longevity.try_use_same_register(x, op)
 
-    consider_nursery_ptr_increment = consider_int_add
+    consider_float_add = _consider_float_op
+    consider_float_sub = _consider_float_op
+    consider_float_mul = _consider_float_op
+    consider_float_truediv = _consider_float_op
+    consider_float_neg = _consider_float_op
+    consider_float_abs = _consider_float_op
 
     def consider_int_lshift(self, op, position):
         x, y = op.getarg(0), op.getarg(1)

@@ -77,17 +77,22 @@ class BaseTestRegalloc(object):
     def fppii(x, y, i, j):
         return 19
 
+    def ff(x, y):
+        return x + y + 0.1
+
     F1PTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
     F2PTR = lltype.Ptr(lltype.FuncType([lltype.Signed]*2, lltype.Signed))
     F10PTR = lltype.Ptr(lltype.FuncType([lltype.Signed]*10, lltype.Signed))
     FGCREFPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF], lltype.Signed))
     FPPIIPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.GCREF, lltype.Signed, lltype.Signed], lltype.Signed))
+    FFPTR = lltype.Ptr(lltype.FuncType([lltype.Float]*2, lltype.Float))
 
     f1ptr = llhelper(F1PTR, f1)
     f2ptr = llhelper(F2PTR, f2)
     f10ptr = llhelper(F10PTR, f10)
     fgcrefptr = llhelper(FGCREFPTR, fgcref)
     fppiiptr = llhelper(FPPIIPTR, fppii)
+    ffptr = llhelper(FFPTR, ff)
 
     f1_calldescr = cpu.calldescrof(F1PTR.TO, F1PTR.TO.ARGS, F1PTR.TO.RESULT,
                                    EffectInfo.MOST_GENERAL)
@@ -99,6 +104,8 @@ class BaseTestRegalloc(object):
                                        EffectInfo.MOST_GENERAL)
     fppii_calldescr = cpu.calldescrof(FPPIIPTR.TO, FPPIIPTR.TO.ARGS, FPPIIPTR.TO.RESULT,
                                       EffectInfo.MOST_GENERAL)
+    ff_calldescr = cpu.calldescrof(FFPTR.TO, FFPTR.TO.ARGS, FFPTR.TO.RESULT,
+                                   EffectInfo.MOST_GENERAL)
 
     namespace = locals().copy()
 

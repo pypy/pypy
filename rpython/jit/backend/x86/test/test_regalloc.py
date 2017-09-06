@@ -220,6 +220,19 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # that would break coalescing between i7 and i9)
         assert op.args[1][0] is add1.args[-1]
 
+    def test_coalescing_float(self):
+        ops = '''
+        [f0, f1, f3]
+        f7 = float_add(f0, f1)
+        f8 = float_add(f7, f3)
+        f9 = call_f(ConstClass(ffptr), f8, 1.0, descr=ff_calldescr)
+        i10 = float_ne(f9, 0.0)
+        guard_true(i10) []
+        finish(f9)
+        '''
+        self.interpret(ops, [5.0, 6.0, 8.0])
+        assert len(self.filter_log_moves()) == 3
+
     def test_malloc(self, monkeypatch):
         ops = '''
         [i0]
