@@ -329,19 +329,19 @@ def test_raise_elidable_no_result():
     @jit.elidable
     def f1(n, m):
         l.append(n)
-    def f(n, m):
+    def fancy_graph_name(n, m):
         f1(n, m)
         return n + m
 
-    rtyper = support.annotate(f, [7, 9])
+    rtyper = support.annotate(fancy_graph_name, [7, 9])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
     cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
     res = cc.find_all_graphs(FakePolicy())
-    [f_graph] = [x for x in res if x.func is f]
+    [f_graph] = [x for x in res if x.func is fancy_graph_name]
     call_op = f_graph.startblock.operations[0]
     assert call_op.opname == 'direct_call'
-    with py.test.raises(Exception):
-        call_descr = cc.getcalldescr(call_op)
+    x = py.test.raises(Exception, cc.getcalldescr, call_op, calling_graph=f_graph)
+    assert "fancy_graph_name" in str(x.value)
 
 def test_can_or_cannot_collect():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
