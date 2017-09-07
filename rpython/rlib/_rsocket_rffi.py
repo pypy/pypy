@@ -985,11 +985,14 @@ if _POSIX:
                          ]
 
 
-    compilation_info = ExternalCompilationInfo(
+    compilation_info = eci.merge(ExternalCompilationInfo(
                                     includes=includes,
                                     separate_module_sources=separate_module_sources,
                                     post_include_bits=post_include_bits,
-                               )
+                               ))
+else:
+    compilation_info = eci
+
 
 if _WIN32:
     CConfig.WSAEVENT = platform.SimpleType('WSAEVENT', rffi.VOIDP)
