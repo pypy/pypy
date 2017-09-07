@@ -1629,12 +1629,15 @@ class ObjSpace(object):
         # return text_w(w_obj) or None
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
+    @specialize.argtype(1)
     def bytes_w(self, w_obj):
         """ Takes an application level :py:class:`bytes`
             (on PyPy2 this equals `str`) and returns a rpython byte string.
         """
+        assert w_obj is not None
         return w_obj.str_w(self)
 
+    @specialize.argtype(1)
     def text_w(self, w_obj):
         """ PyPy2 takes either a :py:class:`str` and returns a
             rpython byte string, or it takes an :py:class:`unicode`
@@ -1644,6 +1647,7 @@ class ObjSpace(object):
             On PyPy3 it takes a :py:class:`str` and it will return
             an utf-8 encoded rpython string.
         """
+        assert w_obj is not None
         return w_obj.str_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
@@ -1692,6 +1696,7 @@ class ObjSpace(object):
             raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")
         return chr(value)
 
+    @specialize.argtype(1)
     def int_w(self, w_obj, allow_conversion=True):
         """
         Unwrap an app-level int object into an interpret-level int.
@@ -1704,26 +1709,35 @@ class ObjSpace(object):
         If allow_conversion=False, w_obj needs to be an app-level int or a
         subclass.
         """
+        assert w_obj is not None
         return w_obj.int_w(self, allow_conversion)
 
+    @specialize.argtype(1)
     def int(self, w_obj):
+        assert w_obj is not None
         return w_obj.int(self)
 
+    @specialize.argtype(1)
     def uint_w(self, w_obj):
+        assert w_obj is not None
         return w_obj.uint_w(self)
 
+    @specialize.argtype(1)
     def bigint_w(self, w_obj, allow_conversion=True):
         """
         Like int_w, but return a rlib.rbigint object and call __long__ if
         allow_conversion is True.
         """
+        assert w_obj is not None
         return w_obj.bigint_w(self, allow_conversion)
 
+    @specialize.argtype(1)
     def float_w(self, w_obj, allow_conversion=True):
         """
         Like int_w, but return an interp-level float and call __float__ if
         allow_conversion is True.
         """
+        assert w_obj is not None
         return w_obj.float_w(self, allow_conversion)
 
     def realtext_w(self, w_obj):
@@ -1733,7 +1747,9 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError, "argument must be a string")
         return self.bytes_w(w_obj)
 
+    @specialize.argtype(1)
     def unicode_w(self, w_obj):
+        assert w_obj is not None
         return w_obj.unicode_w(self)
 
     def unicode0_w(self, w_obj):
@@ -1758,7 +1774,9 @@ class ObjSpace(object):
         # This is here mostly just for gateway.int_unwrapping_space_method().
         return bool(self.int_w(w_obj))
 
+    @specialize.argtype(1)
     def ord(self, w_obj):
+        assert w_obj is not None
         return w_obj.ord(self)
 
     # This is all interface for gateway.py.
