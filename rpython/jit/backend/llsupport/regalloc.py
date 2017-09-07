@@ -841,6 +841,8 @@ class Lifetime(object):
         l = self.real_usages
         low = 0
         high = len(l)
+        if position >= l[-1]:
+            return -1
         while low < high:
             mid = low + (high - low) // 2 # no overflow ;-)
             if position < l[mid]:

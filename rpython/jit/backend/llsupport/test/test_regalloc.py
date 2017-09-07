@@ -140,6 +140,8 @@ def test_lifetime_next_real_usage():
         assert next in lt.real_usages
         assert next > i
         assert lt.real_usages[lt.real_usages.index(next) - 1] <= i
+    assert lt.next_real_usage(100) == -1
+    assert lt.next_real_usage(101) == -1
 
 def test_fixed_position():
     b0, b1, b2 = newboxes(0, 0, 0)
