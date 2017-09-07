@@ -1205,11 +1205,6 @@ class TestFullRegallocFakeCPU(object):
         self.regalloc = regalloc
         return regalloc.fake_allocate(loop)
 
-    def _consider_binop(self, op):
-        loc, argloc = self._consider_binop_part(op)
-        self.perform(op, [loc, argloc], loc)
-
-
     def test_simple(self):
         ops = '''
         [i0]
@@ -1306,7 +1301,6 @@ class TestFullRegallocFakeCPU(object):
             ('guard_true', r8, [])
         ]
 
-    @py.test.mark.skip("messy - later")
     def test_coalescing_first_var_already_in_different_reg(self):
         ops = '''
         [i0]
@@ -1321,7 +1315,7 @@ class TestFullRegallocFakeCPU(object):
             ('int_mul', r1, [2]),
             ('int_add', r1, [1]),
             ('call_i', r0, [r1]),
-            ('guard_false', r0, [])
+            ('guard_false', r0, [r5])
         ]
 
     def test_call_spill_furthest_use(self):
