@@ -533,7 +533,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.perform(op, [loc, argloc], loc)
 
     def _consider_lea(self, op):
-        loc = self.make_sure_var_in_reg(op.getarg(0))
+        x = op.getarg(0)
+        loc = self.make_sure_var_in_reg(x)
+        # make it possible to have argloc be == loc if x dies
+        # (then LEA will not be used, but that's fine anyway)
+        self.possibly_free_var(x)
         argloc = self.loc(op.getarg(1))
         resloc = self.force_allocate_reg(op)
         self.perform(op, [loc, argloc], resloc)

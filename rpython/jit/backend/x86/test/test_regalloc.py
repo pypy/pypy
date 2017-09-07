@@ -262,6 +262,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         assert len(self.filter_log_moves()) == 2
 
     def test_jump_hinting(self):
+        self.targettoken._ll_loop_code = 0
         ops = '''
         [i0]
         i1 = int_add(i0, 1)
@@ -276,6 +277,22 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         i6 = int_lt(i5, 20)
         guard_true(i6) [i4, i11]
         jump(i5, descr=targettoken)
+        '''
+        self.interpret(ops, [0], run=False)
+        assert len(self.filter_log_moves()) == 1
+
+    def test_jump_hinting_int_add(self):
+        self.targettoken._ll_loop_code = 0
+        ops = '''
+        [i0]
+        i1 = int_add(i0, 1)
+        i3 = int_lt(i1, 20)
+        guard_true(i3) [i1]
+        label(i1, descr=targettoken)
+        i4 = int_add(i1, 1)
+        i6 = int_lt(i4, 20)
+        guard_true(i6) [i4]
+        jump(i4, descr=targettoken)
         '''
         self.interpret(ops, [0], run=False)
         assert len(self.filter_log_moves()) == 1
