@@ -51,6 +51,13 @@ class LoggingAssembler(Assembler386):
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         self._log("malloc_cond", size, "ecx") # always uses edx and ecx
 
+    def label(self):
+        self._log("label")
+        return Assembler386.label(self)
+
+    def closing_jump(self, jump_target_descr):
+        self._log("jump")
+        return Assembler386.closing_jump(self, jump_target_descr)
 
 class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
     def setup_class(cls):
@@ -253,6 +260,41 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # 2 moves, because the call_malloc_nursery hints prevent using ecx and
         # edx for any of the integer results
         assert len(self.filter_log_moves()) == 2
+
+    def test_jump_hinting(self):
+        ops = '''
+        [i0]
+        i1 = int_add(i0, 1)
+        i10 = int_add(i1, 1)
+        i2 = int_add(i1, 1)
+        i3 = int_lt(i2, 20)
+        guard_true(i3) [i1, i10]
+        label(i2, descr=targettoken)
+        i4 = int_add(i2, 1)
+        i11 = int_add(i4, 1)
+        i5 = int_add(i4, 1)
+        i6 = int_lt(i5, 20)
+        guard_true(i6) [i4, i11]
+        jump(i5, descr=targettoken)
+        '''
+        self.interpret(ops, [0], run=False)
+        assert len(self.filter_log_moves()) == 1
+
+    @pytest.mark.skip("later")
+    def test_jump_different_args2(self):
+        ops = '''
+        [i0, i4, i6]
+        i1 = int_add(i0, i6)
+        i2 = int_lt(i1, 20)
+        guard_true(i2) [i1]
+        label(i4, i1, i6, descr=targettoken)
+        i3 = int_add(i4, i6)
+        i7 = int_lt(i3, 20)
+        guard_true(i7) [i3]
+        jump(i1, i3, i6, descr=targettoken)
+        '''
+        self.interpret(ops, [0], run=False)
+
 
     def test_flowcontext(self):
         # real index manipulation for a slicing operation done when translating

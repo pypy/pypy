@@ -156,6 +156,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # to be read/used by the assembler too
         self.jump_target_descr = None
         self.final_jump_op = None
+        self.final_jump_op_position = -1
 
     def _prepare(self, inputargs, operations, allgcrefs):
         from rpython.jit.backend.x86.reghint import X86RegisterHints
@@ -1318,19 +1319,20 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         if op.getopnum() != rop.JUMP:
             return
         self.final_jump_op = op
+        self.final_jump_op_position = len(operations) - 1
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         if descr._ll_loop_code != 0:
             # if the target LABEL was already compiled, i.e. if it belongs
             # to some already-compiled piece of code
-            self._compute_hint_frame_locations_from_descr(descr)
+            self._compute_hint_locations_from_descr(descr)
         #else:
         #   The loop ends in a JUMP going back to a LABEL in the same loop.
         #   We cannot fill 'hint_frame_pos' immediately, but we can
         #   wait until the corresponding consider_label() to know where the
         #   we would like the boxes to be after the jump.
 
-    def _compute_hint_frame_locations_from_descr(self, descr):
+    def _compute_hint_locations_from_descr(self, descr):
         arglocs = descr._x86_arglocs
         jump_op = self.final_jump_op
         assert len(arglocs) == jump_op.numargs()
@@ -1340,6 +1342,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 loc = arglocs[i]
                 if isinstance(loc, FrameLoc):
                     self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
+                else:
+                    assert isinstance(loc, RegLoc)
+                    self.longevity.fixed_register(
+                            self.final_jump_op_position,
+                            loc, box)
 
     def consider_jump(self, op):
         assembler = self.assembler
@@ -1447,7 +1454,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # the hints about the expected position of the spilled variables.
         jump_op = self.final_jump_op
         if jump_op is not None and jump_op.getdescr() is descr:
-            self._compute_hint_frame_locations_from_descr(descr)
+            self._compute_hint_locations_from_descr(descr)
 
     def consider_guard_not_forced_2(self, op):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
