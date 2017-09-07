@@ -53,6 +53,7 @@ class Module(MixedModule):
 
     def __init__(self, space, w_name):
         "NOT_RPYTHON"
+        from pypy.module.pyexpat import interp_pyexpat
         super(Module, self).__init__(space, w_name)
         ver = space.unwrap(interp_pyexpat.get_expat_version(space))
         assert len(ver) >= 5, (
