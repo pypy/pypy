@@ -2,7 +2,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, build_type_checkers, bootstrap_function,
+    cpython_api, cpython_struct, build_type_checkers_flags, bootstrap_function,
     PyObject, PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
@@ -40,7 +40,7 @@ def int_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
-PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")
+PyInt_Check, PyInt_CheckExact = build_type_checkers_flags("Int")
 
 @cpython_api([], lltype.Signed, error=CANNOT_FAIL)
 def PyInt_GetMax(space):

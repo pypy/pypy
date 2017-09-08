@@ -26,6 +26,9 @@ PyAPI_FUNC(PyObject *) PyTuple_Pack(Py_ssize_t, ...);
 /* Macro, *only* to be used to fill in brand new tuples */
 #define PyTuple_SET_ITEM(op, i, v) (((PyTupleObject *)(op))->ob_item[i] = v)
 
+#define PyTuple_Check(op) \
+		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_TUPLE_SUBCLASS)
+#define PyTuple_CheckExact(op) ((op)->ob_type == &PyTuple_Type)
 
 #ifdef __cplusplus
 }

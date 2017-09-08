@@ -12,12 +12,17 @@ from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
-    slot_function, generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
-    Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers,
-    PyObjectFields, PyTypeObject, PyTypeObjectPtr,
-    Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_CHECKTYPES,
-    Py_TPFLAGS_HAVE_INPLACEOPS, cts, parse_dir)
+    slot_function, generic_cpy_call, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
+    build_type_checkers_flags, cts, parse_dir, PyObjectFields, PyTypeObject,
+    PyTypeObjectPtr, Py_TPFLAGS_CHECKTYPES,
+    Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, Py_TPFLAGS_HAVE_INPLACEOPS,
+    Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_LONG_SUBCLASS, Py_TPFLAGS_LIST_SUBCLASS,
+    Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
+    Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
+    Py_TPFLAGS_TYPE_SUBCLASS,
+    Py_TPFLAGS_INT_SUBCLASS, Py_TPFLAGS_STRING_SUBCLASS, # change on py3
+    )
 from pypy.module.cpyext.cparser import parse_source
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
@@ -39,7 +44,7 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
-PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
+PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
@@ -428,7 +433,7 @@ def add_tp_new_wrapper(space, dict_w, pto):
     dict_w["__new__"] = PyCFunction_NewEx(space, get_new_method_def(space),
                                           from_ref(space, pyo), None)
 
-def inherit_special(space, pto, base_pto):
+def inherit_special(space, pto, w_obj, base_pto):
     # XXX missing: copy basicsize and flags in a magical way
     # (minimally, if tp_basicsize is zero or too low, we copy it from the base)
     if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
@@ -437,6 +442,26 @@ def inherit_special(space, pto, base_pto):
         pto.c_tp_itemsize = base_pto.c_tp_itemsize
     pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_CHECKTYPES
     pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
+
+    #/* Setup fast subclass flags */
+    if space.issubtype_w(w_obj, space.w_Exception):
+        pto.c_tp_flags |= Py_TPFLAGS_BASE_EXC_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_type):
+        pto.c_tp_flags |= Py_TPFLAGS_TYPE_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_int): # remove on py3
+        pto.c_tp_flags |= Py_TPFLAGS_INT_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_long):
+        pto.c_tp_flags |= Py_TPFLAGS_LONG_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_bytes): 
+        pto.c_tp_flags |= Py_TPFLAGS_STRING_SUBCLASS # STRING->BYTES on py3
+    elif space.issubtype_w(w_obj, space.w_unicode):
+        pto.c_tp_flags |= Py_TPFLAGS_UNICODE_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_tuple):
+        pto.c_tp_flags |= Py_TPFLAGS_TUPLE_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_list):
+        pto.c_tp_flags |= Py_TPFLAGS_LIST_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_dict):
+        pto.c_tp_flags |= Py_TPFLAGS_DICT_SUBCLASS
 
 def check_descr(space, w_self, w_type):
     if not space.isinstance_w(w_self, w_type):
@@ -939,7 +964,7 @@ def finish_type_2(space, pto, w_obj):
     pto.c_tp_mro = make_ref(space, space.newtuple(w_obj.mro_w))
     base = pto.c_tp_base
     if base:
-        inherit_special(space, pto, base)
+        inherit_special(space, pto, w_obj, base)
     for w_base in space.fixedview(from_ref(space, pto.c_tp_bases)):
         if isinstance(w_base, W_TypeObject):
             inherit_slots(space, pto, w_base)
