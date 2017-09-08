@@ -10,7 +10,7 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, bootstrap_function,
-    build_type_checkers, cpython_api, generic_cpy_call, CANNOT_FAIL,
+    cpython_api, generic_cpy_call, CANNOT_FAIL,
     PyTypeObjectPtr, slot_function, cts)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
