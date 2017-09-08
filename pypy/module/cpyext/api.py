@@ -1229,7 +1229,8 @@ def write_header(header_name, decls):
 #  error "PyPy does not support 64-bit on Windows.  Use Win32"
 #endif
 ''',
-        '#define Signed   long           /* xxx temporary fix */',
+        '#include "cpyext_object.h"',
+        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
         '#define Unsigned unsigned long  /* xxx temporary fix */',
         '',] + decls + [
         '',
