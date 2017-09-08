@@ -52,11 +52,11 @@ class LoggingAssembler(Assembler386):
         self._log("malloc_cond", size, "ecx") # always uses edx and ecx
 
     def label(self):
-        self._log("label")
+        self._log("label", self._regalloc.final_jump_op.getdescr()._x86_arglocs)
         return Assembler386.label(self)
 
     def closing_jump(self, jump_target_descr):
-        self._log("jump")
+        self._log("jump", self._regalloc.final_jump_op.getdescr()._x86_arglocs)
         return Assembler386.closing_jump(self, jump_target_descr)
 
 class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
@@ -243,7 +243,6 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
     def test_malloc(self, monkeypatch):
         ops = '''
         [i0]
-        label(i0, descr=targettoken)
         i1 = int_add(i0, 1) # this is using ecx or edx because it fits
         i6 = int_add(i0, 6) # this is using ecx or edx because it fits
         i2 = int_add(i6, i1)
@@ -280,6 +279,27 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         '''
         self.interpret(ops, [0], run=False)
         assert len(self.filter_log_moves()) == 1
+
+    def test_jump_hinting_duplicate(self):
+        self.targettoken._ll_loop_code = 0
+        ops = '''
+        [i0]
+        i1 = int_add(i0, 1)
+        i10 = int_add(i1, 1)
+        i2 = int_add(i1, 1)
+        i3 = int_lt(i2, 20)
+        guard_true(i3) [i1, i10]
+        label(i2, i10, descr=targettoken)
+        i4 = int_add(i2, 1)
+        i11 = int_add(i4, i10)
+        i5 = int_add(i4, 1)
+        i6 = int_lt(i5, 20)
+        guard_true(i6) [i4, i11]
+        jump(i5, i5, descr=targettoken)
+        '''
+        self.interpret(ops, [0], run=False)
+        assert len(self.filter_log_moves()) == 3
+
 
     def test_jump_hinting_int_add(self):
         self.targettoken._ll_loop_code = 0

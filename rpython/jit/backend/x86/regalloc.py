@@ -1340,6 +1340,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         arglocs = descr._x86_arglocs
         jump_op = self.final_jump_op
         assert len(arglocs) == jump_op.numargs()
+        hinted = []
         for i in range(jump_op.numargs()):
             box = jump_op.getarg(i)
             if not isinstance(box, Const):
@@ -1347,10 +1348,12 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 if isinstance(loc, FrameLoc):
                     self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
                 else:
-                    assert isinstance(loc, RegLoc)
-                    self.longevity.fixed_register(
-                            self.final_jump_op_position,
-                            loc, box)
+                    if box not in hinted:
+                        hinted.append(box)
+                        assert isinstance(loc, RegLoc)
+                        self.longevity.fixed_register(
+                                self.final_jump_op_position,
+                                loc, box)
 
     def consider_jump(self, op):
         assembler = self.assembler
