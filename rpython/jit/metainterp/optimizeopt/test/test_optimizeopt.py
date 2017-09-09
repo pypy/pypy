@@ -3562,6 +3562,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, expected_preamble=expected_preamble)
 
+    def test_residual_call_still_forces_immutable_writes_though(self):
+        ops = """
+        [p1]
+        setfield_gc(p1, 6, descr=valuedescr3)
+        i2 = call_i(5, descr=writevalue3descr)
+        jump(p1)
+        """
+        expected_preamble = """
+        [p1]
+        setfield_gc(p1, 6, descr=valuedescr3)
+        i2 = call_i(5, descr=writevalue3descr)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        setfield_gc(p1, 6, descr=valuedescr3)
+        i2 = call_i(5, descr=writevalue3descr)
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected, expected_preamble=expected_preamble)
+
     def test_residual_call_invalidate_some_caches(self):
         ops = """
         [p1, p2]
