@@ -815,6 +815,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_base != base_object_pto or flags & Py_TPFLAGS_HEAPTYPE:
                 pto.c_tp_new = pto.c_tp_base.c_tp_new
         Py_DecRef(space, base_object_pyo)
+    pto.c_tp_dictoffset = rffi.offsetof(lltype.typeOf(pto).TO, 'c_tp_dictoffset')
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return pto
 

@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, Py_IncRef, Py_DecRef,
-    get_typedescr)
+    get_typedescr, as_pyobj)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
@@ -122,12 +122,20 @@ def PyObject_HasAttrString(space, w_obj, name_ptr):
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyObject_SetAttr(space, w_obj, w_name, w_value):
+    pyobj = as_pyobj(space, w_obj) # assumes w_obj is kept alive for the call
+    if (pyobj.c_ob_type.c_tp_dictoffset == 0):
+        raise oefmt(space.w_AttributeError,
+             "object has no attribute %s", space.text_w(w_name))
     operation.setattr(space, w_obj, w_name, w_value)
     return 0
 
 @cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyObject_SetAttrString(space, w_obj, name_ptr, w_value):
     w_name = space.newtext(rffi.charp2str(name_ptr))
+    pyobj = as_pyobj(space, w_obj) # assumes w_obj is kept alive for the call
+    if (pyobj.c_ob_type.c_tp_dictoffset == 0):
+        raise oefmt(space.w_AttributeError,
+             "object has no attribute %s", space.text_w(w_name))
     operation.setattr(space, w_obj, w_name, w_value)
     return 0
 
@@ -135,6 +143,10 @@ def PyObject_SetAttrString(space, w_obj, name_ptr, w_value):
 def PyObject_DelAttr(space, w_obj, w_name):
     """Delete attribute named attr_name, for object o. Returns -1 on failure.
     This is the equivalent of the Python statement del o.attr_name."""
+    pyobj = as_pyobj(space, w_obj) # assumes w_obj is kept alive for the call
+    if (pyobj.c_ob_type.c_tp_dictoffset == 0):
+        raise oefmt(space.w_AttributeError,
+             "object has no attribute %s", space.text_w(w_name))
     space.delattr(w_obj, w_name)
     return 0
 
@@ -143,6 +155,10 @@ def PyObject_DelAttrString(space, w_obj, name_ptr):
     """Delete attribute named attr_name, for object o. Returns -1 on failure.
     This is the equivalent of the Python statement del o.attr_name."""
     w_name = space.newtext(rffi.charp2str(name_ptr))
+    pyobj = as_pyobj(space, w_obj) # assumes w_obj is kept alive for the call
+    if (pyobj.c_ob_type.c_tp_dictoffset == 0):
+        raise oefmt(space.w_AttributeError,
+             "object has no attribute %s", space.text_w(w_name))
     space.delattr(w_obj, w_name)
     return 0
 

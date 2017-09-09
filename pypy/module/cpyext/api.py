@@ -1206,6 +1206,8 @@ def attach_recursively(space, static_pyobjs, static_objs_w, attached_objs, i):
     py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
                                  make_ref(space, w_type))
     typedescr.attach(space, py_obj, w_obj)
+    # prevent PyObject_SetAttr on built-ins
+    rffi.cast(PyTypeObjectPtr, py_obj).c_tp_dictoffset = 0
     attached_objs.append(i)
 
 

@@ -276,7 +276,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                  PyObject *method;
                  if (!args->ob_type->tp_dict)
                  {
-                     PyErr_SetNone(PyExc_ValueError);
+                     PyErr_SetString(PyExc_ValueError, "no tp_dict");
                      return NULL;
                  }
                  method = PyDict_GetItemString(
@@ -291,25 +291,54 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 Py_INCREF(value);
                 return value;
              '''),
+            ('set_attr', "METH_VARARGS",
+             '''
+                PyObject * v, *name, *w;
+                int ret;
+                if (!PyArg_ParseTuple(args, "OOO", &v, &name, &w))
+                    return NULL;
+                ret = PyObject_SetAttr(v, name, w);
+                if (ret != 0)
+                    return NULL;
+                Py_RETURN_NONE;
+             '''),   
+            ('get_tp_dictoffset', "METH_O",
+             '''
+                return PyLong_FromLong(args->ob_type->tp_dictoffset);
+             '''),
             ])
         obj = foo.new()
+        assert module.get_tp_dictoffset(obj) == 0
         assert module.read_tp_dict(obj) == foo.fooType.copy
         d = module.get_type_dict(obj)
         assert type(d) is dict
         d["_some_attribute"] = 1
         assert type(obj)._some_attribute == 1
+        assert module.get_tp_dictoffset(obj) == 0
         del d["_some_attribute"]
+        assert module.get_tp_dictoffset(obj) == 0
+
+        def method(self):
+            return 42
+
+        exc = raises(AttributeError, module.set_attr, obj, 'meth', method)
+        assert 'object has no attribute' in str(exc.value)
 
         class A(object):
             pass
         obj = A()
+        assert module.get_tp_dictoffset(obj) > 0
+        module.set_attr(obj, 'meth', method)
+        assert obj.meth(obj) == 42
         d = module.get_type_dict(obj)
         assert type(d) is dict
         d["_some_attribute"] = 1
         assert type(obj)._some_attribute == 1
         del d["_some_attribute"]
 
-        d = module.get_type_dict(1)
+        a = 1
+        d = module.get_type_dict(a)
+        assert module.get_tp_dictoffset(a) == 0
         assert type(d) is dict
         try:
             d["_some_attribute"] = 1
@@ -318,6 +347,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         else:
             assert int._some_attribute == 1
             del d["_some_attribute"]
+        assert module.get_tp_dictoffset(a) == 0
 
     def test_custom_allocation(self):
         foo = self.import_module("foo")
