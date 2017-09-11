@@ -1092,8 +1092,6 @@ class AppTestItertools32:
     def test_accumulate(self):
         """copied from ./lib-python/3/test/test_itertools.py"""
         from itertools import accumulate
-        from decimal import Decimal
-        from fractions import Fraction
         import _operator as operator
         expected = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45]
         # one positional arg
@@ -1101,7 +1099,7 @@ class AppTestItertools32:
         # kw arg
         assert list(accumulate(iterable=range(10))) == expected
         # multiple types
-        for typ in int, complex, Decimal, Fraction:
+        for typ in int, complex:
             assert list(accumulate(map(typ, range(10)))) == list(map(typ, expected))
         assert list(accumulate('abc')) == ['a', 'ab', 'abc']   # works with non-numeric
         assert list(accumulate([])) == []                  # empty iterable
