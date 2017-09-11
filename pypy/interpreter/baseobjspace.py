@@ -1625,6 +1625,7 @@ class ObjSpace(object):
     def int(self, w_obj):
         assert w_obj is not None
         return w_obj.int(self)
+    long = int
 
     @specialize.argtype(1)
     def uint_w(self, w_obj):

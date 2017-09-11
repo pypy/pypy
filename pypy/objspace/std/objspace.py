@@ -95,6 +95,7 @@ class StdObjSpace(ObjSpace):
         self.w_unicode = self.w_str
         self.w_text = self.w_str
         del self.w_str
+        self.w_long = self.w_int
         self.w_dict.flag_map_or_seq = 'M'
         from pypy.objspace.std import dictproxyobject
         dictproxyobject._set_flag_map_or_seq(self)
