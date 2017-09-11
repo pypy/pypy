@@ -569,18 +569,18 @@ def subtype_dealloc(space, obj):
     # w_obj is an instance of w_A or one of its subclasses. So climb up the
     # inheritance chain until base.c_tp_dealloc is exactly this_func, and then
     # continue on up until they differ.
-    #print 'subtype_dealloc, start from', rffi.charp2str(base.c_tp_name)
+    # print 'subtype_dealloc, start from', rffi.charp2str(base.c_tp_name)
     while base.c_tp_dealloc != this_func_ptr:
         base = base.c_tp_base
         assert base
-        #print '                 ne move to', rffi.charp2str(base.c_tp_name)
+        # print '                 ne move to', rffi.charp2str(base.c_tp_name)
         w_obj = from_ref(space, rffi.cast(PyObject, base))
     while base.c_tp_dealloc == this_func_ptr:
         base = base.c_tp_base
         assert base
-        #print '                 eq move to', rffi.charp2str(base.c_tp_name)
+        # print '                 eq move to', rffi.charp2str(base.c_tp_name)
         w_obj = from_ref(space, rffi.cast(PyObject, base))
-    #print '                   end with', rffi.charp2str(base.c_tp_name)
+    # print '                   end with', rffi.charp2str(base.c_tp_name)
     dealloc = base.c_tp_dealloc
     # XXX call tp_del if necessary
     generic_cpy_call(space, dealloc, obj)
@@ -740,7 +740,7 @@ def type_alloc(space, w_metatype, itemsize=0):
 
     return rffi.cast(PyObject, heaptype)
 
-def type_attach(space, py_obj, w_type, w_userdata=None):
+def type_attach(space, py_obj, w_type, w_userdata=None, set_tp_dictoffset=True):
     """
     Fills a newly allocated PyTypeObject from an existing type.
     """
@@ -815,7 +815,8 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_base != base_object_pto or flags & Py_TPFLAGS_HEAPTYPE:
                 pto.c_tp_new = pto.c_tp_base.c_tp_new
         Py_DecRef(space, base_object_pyo)
-    pto.c_tp_dictoffset = rffi.offsetof(lltype.typeOf(pto).TO, 'c_tp_dictoffset')
+    if set_tp_dictoffset:
+        pto.c_tp_dictoffset = rffi.offsetof(lltype.typeOf(pto).TO, 'c_tp_dictoffset')
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return pto
 

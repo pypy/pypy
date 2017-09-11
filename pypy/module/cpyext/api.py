@@ -1183,6 +1183,7 @@ def build_bridge(space):
 def attach_recursively(space, static_pyobjs, static_objs_w, attached_objs, i):
     # Start at i but make sure all the base classes are already attached
     from pypy.module.cpyext.pyobject import get_typedescr, make_ref
+    from pypy.module.cpyext.typeobject import type_attach
     if i in attached_objs:
         return
     py_obj = static_pyobjs[i]
@@ -1205,9 +1206,18 @@ def attach_recursively(space, static_pyobjs, static_objs_w, attached_objs, i):
     typedescr = get_typedescr(w_type.layout.typedef)
     py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
                                  make_ref(space, w_type))
-    typedescr.attach(space, py_obj, w_obj)
-    # prevent PyObject_SetAttr on built-ins
-    rffi.cast(PyTypeObjectPtr, py_obj).c_tp_dictoffset = 0
+    if isinstance(w_obj, W_TypeObject):
+        # type and module objects need to have tp_dictoffset != 0
+        # so that, like user-defined python classes, they can have
+        # attributes set via PyObject_SetAttr()
+        set_tp_dictoffset = False
+        if w_obj is space.w_type:
+            set_tp_dictoffset = True
+        if space.is_w(w_obj, space.gettypeobject(Module.typedef)):
+            set_tp_dictoffset = True
+        type_attach(space, py_obj, w_obj, set_tp_dictoffset=set_tp_dictoffset)
+    else:
+        typedescr.attach(space, py_obj, w_obj) 
     attached_objs.append(i)
 
 

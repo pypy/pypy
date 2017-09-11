@@ -584,12 +584,17 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_INCREF(t);
             return t;
         }
+        static PyObject * foo_get_dictoffset(PyObject *self, PyObject * args) {
+            return PyLong_FromLong(args->ob_type->tp_dictoffset);
+        }
         static PyMethodDef methods[] = {
             { "test", foo_test, METH_VARARGS },
+            { "get_dictoffset",   foo_get_dictoffset, METH_O },
             { NULL }
         };
         """
         module = self.import_module(name='foo', init=init, body=body)
+        assert module.get_dictoffset(module) > 0
         assert module.test(True, True) == True
 
     def test_exception(self):

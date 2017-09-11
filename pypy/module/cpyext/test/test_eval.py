@@ -388,6 +388,10 @@ class AppTestCall(AppTestCpythonExtensionBase):
                         return NULL;
                     }
                     return args->ob_type->tp_iternext(args);
+                 '''),
+                ('get_dictoffset', "METH_O",
+                 '''
+                    return PyLong_FromLong(args->ob_type->tp_dictoffset);
                  '''),])
             def __init__(self, N):
                 self.N = N
@@ -415,3 +419,4 @@ class AppTestCall(AppTestCpythonExtensionBase):
             except StopIteration:
                 pass
             assert out == [0, 1, 2, 3, 4]
+            assert module.get_dictoffset(c) > 0
