@@ -2,7 +2,7 @@ import py
 import pytest
 
 
-class AppTestItertools:
+class AppTestItertools(object):
     spaceconfig = dict(usemodules=['itertools'])
 
     def test_count(self):
@@ -646,7 +646,7 @@ class AppTestItertools:
         assert itertools.tee(a, 0) == ()
 
 
-class AppTestItertools26:
+class AppTestItertools26(object):
     spaceconfig = dict(usemodules=['itertools'])
 
     def test_count_overflow(self):
@@ -908,10 +908,8 @@ class AppTestItertools26:
         raises(ValueError, permutations, [1, 2], -1)
 
 
-class AppTestItertools27:
-    spaceconfig = {
-        "usemodules": ['itertools', 'struct', 'binascii'],
-    }
+class AppTestItertools27(object):
+    spaceconfig = {"usemodules": ['itertools', 'struct', 'binascii']}
 
     def test_compress(self):
         import itertools

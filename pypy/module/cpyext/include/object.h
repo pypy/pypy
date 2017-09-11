@@ -227,6 +227,10 @@ given type object has a specified feature.
 #endif
 #define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
 
+#define PyType_Check(op) \
+    PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
+#define PyType_CheckExact(op) (Py_TYPE(op) == &PyType_Type)
+
 /* objimpl.h ----------------------------------------------*/
 #define PyObject_New(type, typeobj) \
 		( (type *) _PyObject_New(typeobj) )

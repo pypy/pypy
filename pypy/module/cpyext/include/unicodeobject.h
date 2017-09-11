@@ -7,6 +7,11 @@ extern "C" {
 
 #include "cpyext_unicodeobject.h"
 
+/*#define PyUnicode_Check(op) \
+**		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_UNICODE_SUBCLASS)
+**#define PyUnicode_CheckExact(op) ((op)->ob_type == &PyUnicode_Type)
+*/
+
 /* Fast access macros */
 #ifndef Py_LIMITED_API
 

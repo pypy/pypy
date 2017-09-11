@@ -38,7 +38,7 @@ DEFAULT_ENCODING_SIZE = 100
 default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
                                  flavor='raw', zero=True)
 
-PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers("Unicode", "w_unicode")
+PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers("Unicode")
 
 MAX_UNICODE = 1114111
 WCHAR_KIND = 0

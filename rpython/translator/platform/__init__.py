@@ -151,8 +151,9 @@ class Platform(object):
                 # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
         else:
-            for line in stderr.splitlines():
-                log.WARNING(line)
+            if self.log_errors:
+                for line in stderr.splitlines():
+                    log.WARNING(line)
 
     def _make_o_file(self, cfile, ext):
         """Create an object file name under the udir for a .c file"""

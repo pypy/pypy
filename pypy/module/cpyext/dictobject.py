@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.classdict import ClassDictStrategy
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
+    cpython_api, CANNOT_FAIL, build_type_checkers_flags, Py_ssize_t,
     Py_ssize_tP, CONST_STRING, PyObjectFields, cpython_struct,
     bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj, 
@@ -66,7 +66,7 @@ def dict_dealloc(space, py_obj):
 def PyDict_New(space):
     return space.newdict()
 
-PyDict_Check, PyDict_CheckExact = build_type_checkers("Dict")
+PyDict_Check, PyDict_CheckExact = build_type_checkers_flags("Dict")
 
 @cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)

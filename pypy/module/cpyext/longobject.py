@@ -1,13 +1,13 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
-    cpython_api, PyObject, build_type_checkers, Py_ssize_t,
+    cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
     CONST_STRING, ADDR, CANNOT_FAIL)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rbigint import rbigint
 
 
-PyLong_Check, PyLong_CheckExact = build_type_checkers("Long", "w_int")
+PyLong_Check, PyLong_CheckExact = build_type_checkers_flags("Long", "w_int")
 
 @cpython_api([lltype.Signed], PyObject)
 def PyLong_FromLong(space, val):

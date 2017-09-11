@@ -40,6 +40,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
+from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.module.cpyext.cparser import CTypeSpace
 
@@ -129,6 +130,11 @@ Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
 Py_CLEANUP_SUPPORTED
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
 """.split()
+
+for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
+             'TYPE', 'BYTES'):
+    constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
+
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 globals().update(rffi_platform.configure(CConfig_constants))
@@ -765,6 +771,45 @@ def build_type_checkers(type_name, cls=None):
 
     return check, check_exact
 
+def build_type_checkers_flags(type_name, cls=None, flagsubstr=None):
+    """
+    Builds two api functions: Py_XxxCheck() and Py_XxxCheckExact()
+    Does not export the functions, assumes they are macros in the *. files
+    check will try a fast path via pto flags
+    """
+    if cls is None:
+        attrname = "w_" + type_name.lower()
+        def get_w_type(space):
+            return getattr(space, attrname)
+    else:
+        def get_w_type(space):
+            return getattr(space, cls)
+    if flagsubstr is None:
+       tp_flag_str = 'Py_TPFLAGS_%s_SUBCLASS' % type_name.upper()
+    else:
+       tp_flag_str = 'Py_TPFLAGS_%s_SUBCLASS' % flagsubstr
+    check_name = "Py" + type_name + "_Check"
+    tp_flag = globals()[tp_flag_str]
+
+    @specialize.argtype(1)
+    def check(space, pto):
+        from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
+        "Implements the Py_Xxx_Check function"
+        if is_pyobj(pto):
+            return (pto.c_ob_type.c_tp_flags & tp_flag) == tp_flag
+        w_obj_type = space.type(pto)
+        w_type = get_w_type(space)
+        return (space.is_w(w_obj_type, w_type) or
+                space.issubtype_w(w_obj_type, w_type))
+
+    def check_exact(space, w_obj):
+        "Implements the Py_Xxx_CheckExact function"
+        w_obj_type = space.type(w_obj)
+        w_type = get_w_type(space)
+        return space.is_w(w_obj_type, w_type)
+
+    return check, check_exact
+
 pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
 
 
@@ -957,6 +1002,11 @@ def make_wrapper_second_level(space, argtypesw, restype,
                     message = str(e)
                 state.set_exception(OperationError(space.w_SystemError,
                                                    space.newtext(message)))
+            except rstackovf.StackOverflow as e:
+                rstackovf.check_stack_overflow()
+                failed = True
+                state.set_exception(OperationError(space.w_RuntimeError,
+                         space.newtext("maximum recursion depth exceeded")))
             else:
                 failed = False
 
@@ -1240,7 +1290,8 @@ def write_header(header_name, decls):
 #  error "PyPy does not support 64-bit on Windows.  Use Win32"
 #endif
 ''',
-        '#define Signed   long           /* xxx temporary fix */',
+        '#include "cpyext_object.h"',
+        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
         '#define Unsigned unsigned long  /* xxx temporary fix */',
         '',] + decls + [
         '',

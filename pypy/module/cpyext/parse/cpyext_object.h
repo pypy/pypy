@@ -1,3 +1,4 @@
+#pragma once
 
 typedef long Py_ssize_t;
 
