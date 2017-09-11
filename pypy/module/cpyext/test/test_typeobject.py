@@ -1384,9 +1384,9 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
            ("test_flags", "METH_VARARGS",
             '''
-                long in_flag, my_flag;
+                long long in_flag, my_flag;
                 PyObject * obj;
-                if (!PyArg_ParseTuple(args, "Ol", &obj, &in_flag))
+                if (!PyArg_ParseTuple(args, "OL", &obj, &in_flag))
                     return NULL;
                 if (!PyType_Check(obj))
                 {
