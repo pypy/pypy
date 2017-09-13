@@ -22,7 +22,6 @@ class GCBase(object):
     can_usually_pin_objects = False
     object_minimal_size = 0
     gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
-    _totalroots_rpy = 0   # for inspector.py
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
                  translated_to_c=True):
@@ -336,7 +335,6 @@ class GCBase(object):
         callback2, attrname = _convert_callback_formats(callback)    # :-/
         setattr(self, attrname, arg)
         self.root_walker.walk_roots(callback2, callback2, callback2)
-        self.enum_live_with_finalizers(callback, arg)
         self.enum_pending_finalizers(callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
@@ -348,12 +346,6 @@ class GCBase(object):
             self._adr2deque(handlers[i].deque).foreach(callback, arg)
             i += 1
     enum_pending_finalizers._annspecialcase_ = 'specialize:arg(1)'
-
-    def enum_live_with_finalizers(self, callback, arg):
-        # as far as possible, enumerates the live objects with finalizers,
-        # even if they have not been detected as unreachable yet (but may be)
-        pass
-    enum_live_with_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
     def _copy_pending_finalizers_deque(self, deque, copy_fn):
         tmp = self.AddressDeque()

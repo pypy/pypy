@@ -10,62 +10,73 @@ from rpython.memory.support import AddressDict, get_address_stack
 
 # ---------- implementation of rpython.rlib.rgc.get_rpy_roots() ----------
 
+def _counting_rpy_root(obj, gc):
+    gc._count_rpy += 1
+
+def _do_count_rpy_roots(gc):
+    gc._count_rpy = 0
+    gc.enumerate_all_roots(_counting_rpy_root, gc)
+    return gc._count_rpy
+
 def _append_rpy_root(obj, gc):
     # Can use the gc list, but should not allocate!
     # It is essential that the list is not resizable!
     lst = gc._list_rpy
     index = gc._count_rpy
-    if index < len(lst):
-        lst[index] = llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
-    #else:
-    #   too many items.  This situation is detected at the end
+    if index >= len(lst):
+        raise ValueError
     gc._count_rpy = index + 1
+    lst[index] = llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 def _do_append_rpy_roots(gc, lst):
     gc._count_rpy = 0
     gc._list_rpy = lst
     gc.enumerate_all_roots(_append_rpy_root, gc)
     gc._list_rpy = None
-    return gc._count_rpy
 
 def get_rpy_roots(gc):
+    count = _do_count_rpy_roots(gc)
+    extra = 16
     while True:
-        result = [lltype.nullptr(llmemory.GCREF.TO)] * gc._totalroots_rpy
-        count = _do_append_rpy_roots(gc, result)
-        if count <= len(result):     # 'count' fits inside the list
+        result = [lltype.nullptr(llmemory.GCREF.TO)] * (count + extra)
+        try:
+            _do_append_rpy_roots(gc, result)
+        except ValueError:
+            extra *= 3
+        else:
             return result
-        count += (count // 8)
-        gc._totalroots_rpy = count + 10
 
 # ---------- implementation of rpython.rlib.rgc.get_rpy_referents() ----------
+
+def _count_rpy_referent(pointer, gc):
+    gc._count_rpy += 1
+
+def _do_count_rpy_referents(gc, gcref):
+    gc._count_rpy = 0
+    gc.trace(llmemory.cast_ptr_to_adr(gcref), _count_rpy_referent, gc)
+    return gc._count_rpy
 
 def _append_rpy_referent(pointer, gc):
     # Can use the gc list, but should not allocate!
     # It is essential that the list is not resizable!
     lst = gc._list_rpy
     index = gc._count_rpy
-    if index < len(lst):
-        lst[index] = llmemory.cast_adr_to_ptr(pointer.address[0],
-                                              llmemory.GCREF)
-    #else:
-    #   too many items.  This situation is detected at the end
+    if index >= len(lst):
+        raise ValueError
     gc._count_rpy = index + 1
+    lst[index] = llmemory.cast_adr_to_ptr(pointer.address[0],
+                                          llmemory.GCREF)
 
 def _do_append_rpy_referents(gc, gcref, lst):
     gc._count_rpy = 0
     gc._list_rpy = lst
     gc.trace(llmemory.cast_ptr_to_adr(gcref), _append_rpy_referent, gc)
-    gc._list_rpy = None
-    return gc._count_rpy
 
 def get_rpy_referents(gc, gcref):
-    count = 7
-    while True:
-        result = [lltype.nullptr(llmemory.GCREF.TO)] * count
-        count = _do_append_rpy_referents(gc, gcref, result)
-        if count <= len(result):     # 'count' fits inside the list
-            return result
-        count += (count // 8)
+    count = _do_count_rpy_referents(gc, gcref)
+    result = [lltype.nullptr(llmemory.GCREF.TO)] * count
+    _do_append_rpy_referents(gc, gcref, result)
+    return result
 
 # ----------
 

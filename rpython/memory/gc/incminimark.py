@@ -2515,11 +2515,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         MovingGCBase.enumerate_all_roots(self, callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
-    def enum_live_with_finalizers(self, callback, arg):
-        self.probably_young_objects_with_finalizers.foreach(callback, arg, 2)
-        self.old_objects_with_finalizers.foreach(callback, arg, 2)
-    enum_live_with_finalizers._annspecialcase_ = 'specialize:arg(1)'
-
     def _collect_obj(self, obj, ignored):
         # Ignore pinned objects, which are the ones still in the nursery here.
         # Cache effects: don't read any flag out of 'obj' at this point.
