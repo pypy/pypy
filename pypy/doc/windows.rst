@@ -114,12 +114,15 @@ directory is ``d:\pypy``. You must then set the
 INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 
 
-Abridged method (for -Ojit builds using Visual Studio 2008)
------------------------------------------------------------
+Abridged method (using Visual Studio 2008)
+------------------------------------------
 
 Download the versions of all the external packages from
+https://bitbucket.org/pypy/pypy/downloads/local_59.zip
+(for post-5.8 builds) with sha256 checksum
+``0f96c045db1f5f73ad0fae7857caa69c261324bd8e51f6d2ad1fa842c4a5f26f``
 https://bitbucket.org/pypy/pypy/downloads/local_5.8.zip
-(for post-5.7.1 builds) with sha256 checksum 
+(to reproduce 5.8 builds) with sha256 checksum 
 ``fbe769bf3a4ab6f5a8b0a05b61930fc7f37da2a9a85a8f609cf5a9bad06e2554`` or
 https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
 (for 2.4 release and later) or
@@ -135,8 +138,8 @@ to reflect this::
 Now you should be good to go. If you choose this method, you do not need
 to download/build anything else. 
 
-Nonabrided method (building from scratch)
------------------------------------------
+Nonabridged method (building from scratch)
+------------------------------------------
 
 If you want to, you can rebuild everything from scratch by continuing.
 
