@@ -122,6 +122,14 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = module.fooType.classmeth()
         assert obj is module.fooType
 
+    def test_methoddescr(self):
+        module = self.import_module(name='foo')
+        descr = module.fooType.copy
+        assert type(descr).__name__ == 'method_descriptor'
+        assert str(descr) == "<method 'copy' of 'foo.foo' objects>"
+        assert repr(descr) == "<method 'copy' of 'foo.foo' objects>"
+        raises(TypeError, descr, None)
+
     def test_new(self):
         # XXX cpython segfaults but if run singly (with -k test_new) this passes
         module = self.import_module(name='foo')
@@ -1252,13 +1260,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                   ((PyHeapTypeObject*)Base2)->ht_name = dummyname;
                   ((PyHeapTypeObject*)Base12)->ht_name = dummyname;
                 }
-                #endif 
-                #endif 
+                #endif
+                #endif
                 Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_base = Base1;
-                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2); 
+                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2);
                 Base12->tp_doc = "The Base12 type or object";
                 if (PyType_Ready(Base1) < 0) return NULL;
                 if (PyType_Ready(Base2) < 0) return NULL;
@@ -1426,4 +1434,4 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             pass
         assert module.test_flags(MyList, Py_TPFLAGS_LIST_SUBCLASS) == 0
 
-         
+
