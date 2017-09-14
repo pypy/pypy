@@ -1904,7 +1904,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                 #ll_assert(cardbyte <= 1 and bytes == 0,
                                 #          "premature end of object")
                                 ll_assert(bytes == 0, "premature end of object")
-                                cardbyte = 1
+                                if interval_stop <= interval_start:
+                                    break
                             self.trace_and_drag_out_of_nursery_partial(
                                 obj, interval_start, interval_stop)
                         #
