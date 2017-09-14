@@ -1897,8 +1897,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                         if cardbyte & 1:
                             if interval_stop > length:
                                 interval_stop = length
-                                ll_assert(cardbyte <= 1 and bytes == 0,
-                                          "premature end of object")
+                                #--- the sanity check below almost always
+                                #--- passes, except in situations like
+                                #--- test_writebarrier_before_copy_manually\
+                                #    _copy_card_bits
+                                #ll_assert(cardbyte <= 1 and bytes == 0,
+                                #          "premature end of object")
+                                ll_assert(bytes == 0, "premature end of object")
+                                cardbyte = 1
                             self.trace_and_drag_out_of_nursery_partial(
                                 obj, interval_start, interval_stop)
                         #
