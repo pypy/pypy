@@ -335,6 +335,7 @@ class GCBase(object):
         callback2, attrname = _convert_callback_formats(callback)    # :-/
         setattr(self, attrname, arg)
         self.root_walker.walk_roots(callback2, callback2, callback2)
+        self.enum_live_with_finalizers(callback, arg)
         self.enum_pending_finalizers(callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
@@ -346,6 +347,12 @@ class GCBase(object):
             self._adr2deque(handlers[i].deque).foreach(callback, arg)
             i += 1
     enum_pending_finalizers._annspecialcase_ = 'specialize:arg(1)'
+
+    def enum_live_with_finalizers(self, callback, arg):
+        # as far as possible, enumerates the live objects with finalizers,
+        # even if they have not been detected as unreachable yet (but may be)
+        pass
+    enum_live_with_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
     def _copy_pending_finalizers_deque(self, deque, copy_fn):
         tmp = self.AddressDeque()
