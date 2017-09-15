@@ -2355,12 +2355,14 @@ array_multiply(PyObject* obj1, PyObject* obj2)
             }
         return ret;
     }
+    /*
     else if(obj1->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
             ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name);
     else if(obj2->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
             ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name);
+    */
     Py_INCREF(Py_NotImplemented);
     return Py_NotImplemented;
 }
@@ -2409,12 +2411,14 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
         Py_DECREF(lhs);
         return ret;
     }
+    /*
     else if(obj1->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
             ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name);
     else if(obj2->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
             ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name);
+    */
     Py_INCREF(Py_NotImplemented);
     return Py_NotImplemented;
 }

@@ -24,6 +24,7 @@ import sys
 cts.parse_header(parse_dir / 'cpyext_unicodeobject.h')
 PyUnicodeObject = cts.gettype('PyUnicodeObject*')
 Py_UNICODE = cts.gettype('Py_UNICODE')
+INT_realP = lltype.Ptr(lltype.Array(rffi.INT_real, hints={'nolength': True}))
 
 @bootstrap_function
 def init_unicodeobject(space):
@@ -730,7 +731,7 @@ make_conversion_functions('Latin1', 'latin-1')
 if sys.platform == 'win32':
     make_conversion_functions('MBCS', 'mbcs')
 
-@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, rffi.INTP], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INT_realP], PyObject)
 def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     """Decode length bytes from a UTF-16 encoded buffer string and return the
     corresponding Unicode object.  errors (if non-NULL) defines the error
@@ -780,11 +781,11 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
         None, # errorhandler
         byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, byteorder)
 
     return space.newunicode(result)
 
-@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, rffi.INTP], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INT_realP], PyObject)
 def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     """Decode length bytes from a UTF-32 encoded buffer string and
     return the corresponding Unicode object.  errors (if non-NULL)
@@ -836,7 +837,7 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
         None, # errorhandler
         byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, byteorder)
 
     return space.newunicode(result)
 
