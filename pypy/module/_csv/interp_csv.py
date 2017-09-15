@@ -36,7 +36,7 @@ def _get_int(space, w_src, default, attrname):
         return space.int_w(w_src)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
-            raise oefmt(space.w_TypeError, '"%s" must be a string', attrname)
+            raise oefmt(space.w_TypeError, '"%s" must be an int', attrname)
         raise
 
 def _get_str(space, w_src, default, attrname):

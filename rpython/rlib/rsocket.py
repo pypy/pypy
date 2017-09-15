@@ -845,6 +845,9 @@ class RSocket(object):
     @jit.dont_look_inside
     def getsockopt_int(self, level, option):
         flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        # some win32 calls use only a byte to represent a bool
+        # zero out so the result is correct anyway
+        flag_p[0] = rffi.cast(rffi.INT, 0)
         try:
             flagsize_p = lltype.malloc(_c.socklen_t_ptr.TO, flavor='raw')
             try:

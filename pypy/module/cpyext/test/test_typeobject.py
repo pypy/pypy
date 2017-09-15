@@ -125,6 +125,16 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = module.fooType.classmeth()
         assert obj is module.fooType
 
+    def test_methoddescr(self):
+        module = self.import_module(name='foo')
+        descr = module.fooType.copy
+        assert type(descr).__name__ == 'method_descriptor'
+        assert str(descr) in ("<method 'copy' of 'foo.foo' objects>",
+            "<method 'copy' of 'foo' objects>")
+        assert repr(descr) in ("<method 'copy' of 'foo.foo' objects>",
+            "<method 'copy' of 'foo' objects>")
+        raises(TypeError, descr, None)
+
     def test_new(self):
         # XXX cpython segfaults but if run singly (with -k test_new) this passes
         module = self.import_module(name='foo')
@@ -1341,9 +1351,9 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
            ("test_flags", "METH_VARARGS",
             '''
-                long in_flag, my_flag;
+                long long in_flag, my_flag;
                 PyObject * obj;
-                if (!PyArg_ParseTuple(args, "Ol", &obj, &in_flag))
+                if (!PyArg_ParseTuple(args, "OL", &obj, &in_flag))
                     return NULL;
                 if (!PyType_Check(obj))
                 {

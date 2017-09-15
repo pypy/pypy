@@ -102,9 +102,27 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         return self.space.unwrap(self.descr_method_repr())
 
     def descr_method_repr(self):
-        return self.getrepr(
-            self.space, u"built-in method '%s' of '%s' object" %
-            (self.name.decode('utf-8'), self.w_objclass.getname(self.space)))
+        return self.space.newtext("<method '%s' of '%s' objects>" % (
+            self.name, self.w_objclass.getname(self.space).encode('utf-8')))
+
+    def descr_call(self, space, __args__):
+        args_w, kw_w = __args__.unpack()
+        if len(args_w) < 1:
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' of '%N' object needs an argument",
+                self.name, self.w_objclass)
+        w_instance = args_w[0]
+        # XXX: needs a stricter test
+        if not space.isinstance_w(w_instance, self.w_objclass):
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' requires a '%N' object but received a '%T'",
+                self.name, self.w_objclass, w_instance)
+        w_args = space.newtuple(args_w[1:])
+        w_kw = space.newdict()
+        for key, w_obj in kw_w.items():
+            space.setitem(w_kw, space.newtext(key), w_obj)
+        ret = self.call(space, w_instance, w_args, w_kw)
+        return ret
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCFunction_Check(space, w_obj):
@@ -200,7 +218,7 @@ def cfunction_descr_call(space, w_self, __args__):
     ret = self.call(space, None, w_args, w_kw)
     return ret
 
-def cmethod_descr_call(space, w_self, __args__):
+def cclassmethod_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
     if len(args_w) < 1:
@@ -238,9 +256,9 @@ W_PyCFunctionObject.typedef = TypeDef(
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
 W_PyCMethodObject.typedef = TypeDef(
-    'method',
+    'method_descriptor',
     __get__ = interp2app(cmethod_descr_get),
-    __call__ = interp2app(cmethod_descr_call),
+    __call__ = interp2app(W_PyCMethodObject.descr_call),
     __name__ = interp_attrproperty('name', cls=W_PyCMethodObject,
         wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCMethodObject),
@@ -251,7 +269,7 @@ W_PyCMethodObject.typedef.acceptable_as_base_class = False
 W_PyCClassMethodObject.typedef = TypeDef(
     'classmethod',
     __get__ = interp2app(cclassmethod_descr_get),
-    __call__ = interp2app(cmethod_descr_call),
+    __call__ = interp2app(cclassmethod_descr_call),
     __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject,
         wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass',

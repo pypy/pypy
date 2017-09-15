@@ -81,3 +81,7 @@ Added ``_swappedbytes_`` support for ``ctypes.Structure``
 .. branch: pycheck-macros
 
 Convert many Py*_Check cpyext functions into macros, like CPython.
+
+.. branch: py_ssize_t
+
+Explicitly use Py_ssize_t as the Signed type in pypy c-api

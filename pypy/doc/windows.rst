@@ -114,12 +114,15 @@ directory is ``d:\pypy``. You must then set the
 INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 
 
-Abridged method (for -Ojit builds using Visual Studio 2008)
------------------------------------------------------------
+Abridged method (using Visual Studio 2008)
+------------------------------------------
 
 Download the versions of all the external packages from
+https://bitbucket.org/pypy/pypy/downloads/local_59.zip
+(for post-5.8 builds) with sha256 checksum
+``0f96c045db1f5f73ad0fae7857caa69c261324bd8e51f6d2ad1fa842c4a5f26f``
 https://bitbucket.org/pypy/pypy/downloads/local_5.8.zip
-(for post-5.7.1 builds) with sha256 checksum 
+(to reproduce 5.8 builds) with sha256 checksum 
 ``fbe769bf3a4ab6f5a8b0a05b61930fc7f37da2a9a85a8f609cf5a9bad06e2554`` or
 https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
 (for 2.4 release and later) or
@@ -135,8 +138,8 @@ to reflect this::
 Now you should be good to go. If you choose this method, you do not need
 to download/build anything else. 
 
-Nonabrided method (building from scratch)
------------------------------------------
+Nonabridged method (building from scratch)
+------------------------------------------
 
 If you want to, you can rebuild everything from scratch by continuing.
 
@@ -209,17 +212,85 @@ The sqlite3.dll should be version 3.8.11 for CPython2.7 compatablility.
 The expat XML parser
 ~~~~~~~~~~~~~~~~~~~~
 
-Download the source code of expat on sourceforge:
-https://github.com/libexpat/libexpat/releases and extract it in the base directory.
-Version 2.1.1 is known to pass tests. Then open the project file ``expat.dsw``
-with Visual Studio; follow the instruction for converting the project files,
-switch to the "Release" configuration, use the ``expat_static`` project,
-reconfigure the runtime for Multi-threaded DLL (/MD) and build. Do the same for
-the ``expat`` project to build the ``expat.dll`` (for tests via ll2ctypes)
+CPython compiles expat from source as part of the build. PyPy uses the same
+code base, but expects to link to a static lib of expat. Here are instructions
+to reproduce the static lib in version 2.2.4.
 
-Then, copy the file ``win32\bin\release\libexpat.lib`` into
-LIB, and both ``lib\expat.h`` and ``lib\expat_external.h`` in
-INCLUDE, and ``win32\bin\release\libexpat.dll`` into PATH.
+Download the source code of expat: https://github.com/libexpat/libexpat. 
+``git checkout`` the proper tag, in this case ``R_2_2_4``. Run
+``vcvars.bat`` to set up the visual compiler tools, and CD into the source
+directory. Create a file ``stdbool.h`` with the content
+
+.. code-block:: c
+
+    #pragma once
+
+    #define false   0
+    #define true    1
+
+    #define bool int
+
+and put it in a place on the ``INCLUDE`` path, or create it in the local
+directory and add ``.`` to the ``INCLUDE`` path::
+
+    SET INCLUDE=%INCLUDE%;.
+
+Then compile all the ``*.c`` file into ``*.obj``::
+
+    cl.exe /nologo /MD  /O2 *c /c
+    rem for debug
+    cl.exe /nologo /MD  /O0 /Ob0 /Zi *c /c
+
+You may need to move some variable declarations to the beginning of the
+function, to be compliant with C89 standard. Here is the diff for version 2.2.4
+
+.. code-block:: diff
+
+    diff --git a/expat/lib/xmltok.c b/expat/lib/xmltok.c
+    index 007aed0..a2dcaad 100644
+    --- a/expat/lib/xmltok.c
+    +++ b/expat/lib/xmltok.c
+    @@ -399,19 +399,21 @@ utf8_toUtf8(const ENCODING *UNUSED_P(enc),
+       /* Avoid copying partial characters (due to limited space). */
+       const ptrdiff_t bytesAvailable = fromLim - *fromP;
+       const ptrdiff_t bytesStorable = toLim - *toP;
+    +  const char * fromLimBefore;
+    +  ptrdiff_t bytesToCopy;
+       if (bytesAvailable > bytesStorable) {
+         fromLim = *fromP + bytesStorable;
+         output_exhausted = true;
+       }
+
+       /* Avoid copying partial characters (from incomplete input). */
+    -  const char * const fromLimBefore = fromLim;
+    +  fromLimBefore = fromLim;
+       align_limit_to_full_utf8_characters(*fromP, &fromLim);
+       if (fromLim < fromLimBefore) {
+         input_incomplete = true;
+       }
+
+    -  const ptrdiff_t bytesToCopy = fromLim - *fromP;
+    +  bytesToCopy = fromLim - *fromP;
+       memcpy((void *)*toP, (const void *)*fromP, (size_t)bytesToCopy);
+       *fromP += bytesToCopy;
+       *toP += bytesToCopy;
+
+
+Create ``libexpat.lib`` (for translation) and ``libexpat.dll`` (for tests)::
+
+    cl /LD *.obj libexpat.def /Felibexpat.dll 
+    rem for debug
+    rem cl /LDd /Zi *.obj libexpat.def /Felibexpat.dll
+
+    rem this will override the export library created in the step above
+    rem but tests do not need the export library, they load the dll dynamically
+    lib *.obj /out:libexpat.lib
+
+Then, copy 
+
+- ``libexpat.lib`` into LIB
+- both ``lib\expat.h`` and ``lib\expat_external.h`` in INCLUDE
+- ``libexpat.dll`` into PATH
 
 
 The OpenSSL library
@@ -363,7 +434,7 @@ it CPython64/64.
 It is probably not too much work if the goal is only to get a translated
 PyPy executable, and to run all tests before translation.  But you need
 to start somewhere, and you should start with some tests in
-rpython/translator/c/test/, like ``test_standalone.py`` and
+``rpython/translator/c/test/``, like ``test_standalone.py`` and
 ``test_newgc.py``: try to have them pass on top of CPython64/64.
 
 Keep in mind that this runs small translations, and some details may go
@@ -373,7 +444,7 @@ It should be equal to ``long`` on every other platform, but on Win64 it
 should be something like ``long long``.
 
 What is more generally needed is to review all the C files in
-rpython/translator/c/src for the word ``long``, because this means a
+``rpython/translator/c/src`` for the word ``long``, because this means a
 32-bit integer even on Win64.  Replace it with ``Signed`` most of the
 times.  You can replace one with the other without breaking anything on
 any other platform, so feel free to.

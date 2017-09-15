@@ -348,21 +348,26 @@ class AppTestCall(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("call_recursive", "METH_NOARGS",
              """
-                int res = 0;
-                int recurse(void) {
-                    if (Py_EnterRecursiveCall(" while calling recurse"))
-                        return -1;
-                    res ++;
-                    return recurse();
-                }
-                int oldlimit = Py_GetRecursionLimit();
+                int oldlimit;
+                int recurse(void);
+                res = 0;
+                oldlimit = Py_GetRecursionLimit();
                 Py_SetRecursionLimit(200);
                 res = recurse();
                 Py_SetRecursionLimit(oldlimit);
                 if (PyErr_Occurred())
                     return NULL;
                 return PyLong_FromLong(res);
-             """),], prologue= ''' int recurse(void); '''
+             """),], prologue= '''
+                int res;
+                int recurse(void) {
+                    if (Py_EnterRecursiveCall(" while calling recurse")) {
+                        return -1;
+                    }
+                    res ++;
+                    return recurse();
+                };
+             '''
             )
         excinfo = raises(RecursionError, module.call_recursive)
         assert 'while calling recurse' in str(excinfo.value)
