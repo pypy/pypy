@@ -314,6 +314,7 @@ def PyUnicode_FromKindAndData(space, kind, data, size):
     if size < 0:
         raise oefmt(space.w_ValueError, "size must be positive")
     data = cts.cast('char *', data)
+    kind = widen(kind)
     if kind == _1BYTE_KIND:
         value = rffi.charpsize2str(data, size)
         w_res = latin_1_decode(space, value, w_final=space.w_False)
