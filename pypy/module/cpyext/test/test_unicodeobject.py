@@ -154,6 +154,42 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.test_unicode_format(1, "xyz")
         assert res == "bla 1 ble xyz\n"
 
+    def test_fromkind(self):
+        module = self.import_extension('foo', [
+            ('from_ucs1', 'METH_O',
+             """
+             char* p;
+             Py_ssize_t size;
+             if (PyBytes_AsStringAndSize(args, &p, &size) < 0)
+                return NULL;
+             return PyUnicode_FromKindAndData(PyUnicode_1BYTE_KIND, p, size);
+             """),
+            ('from_ucs2', 'METH_O',
+             """
+             char* p;
+             Py_ssize_t size;
+             if (PyBytes_AsStringAndSize(args, &p, &size) < 0)
+                return NULL;
+             return PyUnicode_FromKindAndData(PyUnicode_2BYTE_KIND, p, size/2);
+             """),
+            ('from_ucs4', 'METH_O',
+             """
+             char* p;
+             Py_ssize_t size;
+             if (PyBytes_AsStringAndSize(args, &p, &size) < 0)
+                return NULL;
+             return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, p, size/4);
+             """)])
+        res = module.from_ucs1(b'spam')
+        assert res == 'spam'
+        s = "späm"
+        b = s.encode('utf-16')[2:]  # Skip the BOM
+        s2 = module.from_ucs2(b)
+        assert module.from_ucs2(b) == s
+        s = "x\N{PILE OF POO}x"
+        b = s.encode('utf-32')[4:]  # Skip the BOM
+        assert module.from_ucs4(b) == s
+
     def test_aswidecharstring(self):
         module = self.import_extension('foo', [
             ("aswidecharstring", "METH_O",

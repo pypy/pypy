@@ -13,7 +13,8 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr, as_pyobj)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
-from pypy.module._codecs.interp_codecs import CodecState
+from pypy.module._codecs.interp_codecs import (
+    CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
 from pypy.objspace.std import unicodeobject
 from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
@@ -34,7 +35,7 @@ def init_unicodeobject(space):
                    dealloc=unicode_dealloc,
                    realize=unicode_realize)
 
-# Buffer for the default encoding (used by PyUnicde_GetDefaultEncoding)
+# Buffer for the default encoding (used by PyUnicode_GetDefaultEncoding)
 DEFAULT_ENCODING_SIZE = 100
 default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
                                  flavor='raw', zero=True)
@@ -306,6 +307,26 @@ def _PyUnicode_Ready(space, w_obj):
         set_utf8_len(py_obj, 0)
     set_ready(py_obj, 1)
     return 0
+
+@cts.decl("""PyObject* PyUnicode_FromKindAndData(
+        int kind, const void *buffer, Py_ssize_t size)""")
+def PyUnicode_FromKindAndData(space, kind, data, size):
+    if size < 0:
+        raise oefmt(space.w_ValueError, "size must be positive")
+    if kind == _1BYTE_KIND:
+        value = rffi.charpsize2str(data, size)
+        w_res = latin_1_decode(space, value, w_final=space.w_False)
+    elif kind == _2BYTE_KIND:
+        value = rffi.charpsize2str(data, 2 * size)
+        w_res = utf_16_decode(space, value, w_final=space.w_False)
+    elif kind == _4BYTE_KIND:
+        value = rffi.charpsize2str(data, 4 * size)
+        w_res = utf_32_decode(space, value, w_final=space.w_False)
+    else:
+        raise oefmt(space.w_SystemError, "invalid kind")
+    w_ret = space.unpackiterable(w_res)[0]
+    _PyUnicode_Ready(space, w_ret)
+    return w_ret
 
 @cts.decl("Py_UNICODE * PyUnicode_AsUnicodeAndSize(PyObject *unicode, Py_ssize_t *size)")
 def PyUnicode_AsUnicodeAndSize(space, ref, psize):
