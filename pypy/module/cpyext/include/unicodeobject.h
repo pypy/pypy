@@ -340,7 +340,7 @@ PyAPI_FUNC(char *) PyUnicode_AsUTF8AndSize(
 
 Py_LOCAL_INLINE(size_t) Py_UNICODE_strlen(const Py_UNICODE *u)
 {
-    int res = 0;
+    size_t res = 0;
     while(*u++)
         res++;
     return res;
