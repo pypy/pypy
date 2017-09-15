@@ -943,7 +943,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
     res = PyType_GenericAlloc(space, space.w_type, 0)
     res = cts.cast('PyHeapTypeObject *', res)
     typ = res.c_ht_type
-    typ.c_tp_flags = rffi.cast(lltype.Signed, spec.c_flags)
+    typ.c_tp_flags = rffi.cast(lltype.Unsigned, spec.c_flags)
     typ.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
     specname = rffi.charp2str(cts.cast('char*', spec.c_name))
     dotpos = specname.rfind('.')
