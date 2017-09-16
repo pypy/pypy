@@ -190,6 +190,26 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         b = s.encode('utf-32')[4:]  # Skip the BOM
         assert module.from_ucs4(b) == s
 
+    def test_substring(self):
+        module = self.import_extension('foo', [
+            ("slice_start", "METH_VARARGS",
+             '''
+             PyObject* text;
+             Py_ssize_t start, length;
+             if (!PyArg_ParseTuple(args, "On", &text, &start))
+                return NULL;
+             if (PyUnicode_READY(text) == -1) return NULL;
+             length = PyUnicode_GET_LENGTH(text);
+             if (start > length) return PyLong_FromSsize_t(start);
+             return PyUnicode_FromKindAndData(PyUnicode_KIND(text),
+                 PyUnicode_1BYTE_DATA(text) + start*PyUnicode_KIND(text),
+                 length-start);
+             ''')])
+        s = 'aАbБcСdД'
+        assert module.slice_start(s, 2) == 'bБcСdД'
+        s = 'xx\N{PILE OF POO}'
+        assert module.slice_start(s, 2) == '\N{PILE OF POO}'
+
     def test_aswidecharstring(self):
         module = self.import_extension('foo', [
             ("aswidecharstring", "METH_O",

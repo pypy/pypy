@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.runicode import unicode_encode_latin_1, unicode_encode_utf_16
+from rpython.rlib.runicode import unicode_encode_latin_1, unicode_encode_utf_16_helper
 from rpython.rlib.rarithmetic import widen
 
 from pypy.module.unicodedata import unicodedb
@@ -289,8 +289,9 @@ def _PyUnicode_Ready(space, w_obj):
             set_utf8_len(py_obj, 0)
     elif maxchar < 65536:
         # XXX: assumes that sizeof(wchar_t) == 4
-        ucs2_str = unicode_encode_utf_16(
-            w_obj._value, len(w_obj._value), errors='strict')
+        ucs2_str = unicode_encode_utf_16_helper(
+            w_obj._value, len(w_obj._value), errors='strict',
+            byteorder=runicode.BYTEORDER)
         ucs2_data = cts.cast('Py_UCS2 *', rffi.str2charp(ucs2_str))
         set_data(py_obj, cts.cast('void*', ucs2_data))
         set_len(py_obj, get_wsize(py_obj))
