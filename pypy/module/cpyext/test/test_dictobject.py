@@ -174,6 +174,26 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
             ])
         assert module.dict_proxy({'a': 1, 'b': 2}) == 2
 
+    def test_setdefault(self):
+        module = self.import_extension('foo', [
+            ("setdefault", "METH_VARARGS",
+             '''
+             PyObject *d, *key, *defaultobj, *val;
+             if (!PyArg_ParseTuple(args, "OOO", &d, &key, &defaultobj))
+                 return NULL;
+             val = PyDict_SetDefault(d, key, defaultobj);
+             Py_XINCREF(val);
+             return val;
+             ''')])
+
+        class Dict(dict):
+            def setdefault(self, key, default):
+                return 42
+
+        d = Dict()
+        assert module.setdefault(d, 'x', 1) == 1
+        assert d['x'] == 1
+
     def test_update(self):
         module = self.import_extension('foo', [
             ("update", "METH_VARARGS",

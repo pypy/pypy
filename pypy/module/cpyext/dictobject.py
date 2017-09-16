@@ -4,10 +4,10 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.classdict import ClassDictStrategy
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, build_type_checkers_flags, Py_ssize_t,
+    cpython_api, CANNOT_FAIL, build_type_checkers_flags, Py_ssize_t, cts,
     Py_ssize_tP, CONST_STRING, PyObjectFields, cpython_struct,
     bootstrap_function, slot_function)
-from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj, 
+from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
         make_typedescr, track_reference, create_ref, from_ref, decref,
         Py_IncRef)
 from pypy.module.cpyext.object import _dealloc
@@ -155,6 +155,15 @@ def PyDict_Clear(space, w_obj):
     """Empty an existing dictionary of all key-value pairs."""
     space.call_method(space.w_dict, "clear", w_obj)
 
+@cts.decl("""PyObject *
+    PyDict_SetDefault(PyObject *d, PyObject *key, PyObject *defaultobj)""")
+def PyDict_SetDefault(space, w_dict, w_key, w_defaultobj):
+    if not PyDict_Check(space, w_dict):
+        PyErr_BadInternalCall(space)
+    else:
+        return space.call_method(
+            space.w_dict, "setdefault", w_dict, w_key, w_defaultobj)
+
 @cpython_api([PyObject], PyObject)
 def PyDict_Copy(space, w_obj):
     """Return a new dictionary that contains the same key-value pairs as p.
@@ -258,7 +267,7 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     if w_dict is None:
         return 0
     if not space.isinstance_w(w_dict, space.w_dict):
-        return 0 
+        return 0
     pos = ppos[0]
     py_obj = as_pyobj(space, w_dict)
     py_dict = rffi.cast(PyDictObject, py_obj)
