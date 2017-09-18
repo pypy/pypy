@@ -199,16 +199,21 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              if (!PyArg_ParseTuple(args, "On", &text, &start))
                 return NULL;
              if (PyUnicode_READY(text) == -1) return NULL;
+             if (!PyUnicode_1BYTE_DATA(text)) {
+                // Don't segfault, just fail the test.
+                Py_RETURN_NONE;
+             }
              length = PyUnicode_GET_LENGTH(text);
              if (start > length) return PyLong_FromSsize_t(start);
              return PyUnicode_FromKindAndData(PyUnicode_KIND(text),
                  PyUnicode_1BYTE_DATA(text) + start*PyUnicode_KIND(text),
                  length-start);
              ''')])
-        s = 'aАbБcСdД'
+        s = u'aАbБcСdД'
         assert module.slice_start(s, 2) == 'bБcСdД'
-        s = 'xx\N{PILE OF POO}'
-        assert module.slice_start(s, 2) == '\N{PILE OF POO}'
+        # s = u'xx\N{PILE OF POO}'
+        s = u'xx\U0001F4A9'
+        assert module.slice_start(s, 2) == u'\U0001F4A9'
 
     def test_aswidecharstring(self):
         module = self.import_extension('foo', [

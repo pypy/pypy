@@ -300,6 +300,11 @@ def _PyUnicode_Ready(space, w_obj):
         set_utf8_len(py_obj, 0)
     else:
         # XXX: assumes that sizeof(wchar_t) == 4
+        if not get_wbuffer(py_obj):
+            # Copy unicode buffer
+            u = w_obj._value
+            set_wbuffer(py_obj, rffi.unicode2wcharp(u))
+            set_wsize(py_obj, len(u))
         ucs4_data = get_wbuffer(py_obj)
         set_data(py_obj, cts.cast('void*', ucs4_data))
         set_len(py_obj, get_wsize(py_obj))
