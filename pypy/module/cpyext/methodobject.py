@@ -109,21 +109,27 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         return self.space.unwrap(self.descr_method_repr())
 
     def descr_method_repr(self):
+        w_objclass = self.w_objclass 
+        assert isinstance(w_objclass, W_TypeObject)
         return self.space.newtext("<method '%s' of '%s' objects>" % (
-            self.name, self.w_objclass.getname(self.space)))
+            self.name, w_objclass.name))
 
     def descr_call(self, space, __args__):
         args_w, kw_w = __args__.unpack()
         if len(args_w) < 1:
+            w_objclass = self.w_objclass 
+            assert isinstance(w_objclass, W_TypeObject)
             raise oefmt(space.w_TypeError,
                 "descriptor '%s' of '%s' object needs an argument",
-                self.name, self.w_objclass.getname(self.space))
+                self.name, w_objclass.name)
         w_instance = args_w[0]
         # XXX: needs a stricter test
         if not space.isinstance_w(w_instance, self.w_objclass):
+            w_objclass = self.w_objclass 
+            assert isinstance(w_objclass, W_TypeObject)
             raise oefmt(space.w_TypeError,
                 "descriptor '%s' requires a '%s' object but received a '%T'",
-                self.name, self.w_objclass.getname(self.space), w_instance)
+                self.name, w_objclass.name, w_instance)
         w_args = space.newtuple(args_w[1:])
         w_kw = space.newdict()
         for key, w_obj in kw_w.items():
