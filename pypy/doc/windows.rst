@@ -120,7 +120,7 @@ Abridged method (using Visual Studio 2008)
 Download the versions of all the external packages from
 https://bitbucket.org/pypy/pypy/downloads/local_59.zip
 (for post-5.8 builds) with sha256 checksum
-``0f96c045db1f5f73ad0fae7857caa69c261324bd8e51f6d2ad1fa842c4a5f26f``
+``6344230e90ab7a9cb84efbae1ba22051cdeeb40a31823e0808545b705aba8911``
 https://bitbucket.org/pypy/pypy/downloads/local_5.8.zip
 (to reproduce 5.8 builds) with sha256 checksum 
 ``fbe769bf3a4ab6f5a8b0a05b61930fc7f37da2a9a85a8f609cf5a9bad06e2554`` or
