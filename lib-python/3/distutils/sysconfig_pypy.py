@@ -73,7 +73,7 @@ def _init_posix():
     g['CCSHARED'] = "-fPIC"
     g['LDSHARED'] = "cc -pthread -shared"
     g['EXT_SUFFIX'] = so_ext
-    g['SHLIB_SUFFIX'] = so_ext
+    g['SHLIB_SUFFIX'] = ".so"
     g['SO'] = so_ext  # deprecated in Python 3, for backward compatibility
     g['AR'] = "ar"
     g['ARFLAGS'] = "rc"
