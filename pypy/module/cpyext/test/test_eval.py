@@ -344,7 +344,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
                 int recurse(void);
                 res = 0;
                 oldlimit = Py_GetRecursionLimit();
-                Py_SetRecursionLimit(200);
+                Py_SetRecursionLimit(oldlimit/100);
                 res = recurse();
                 Py_SetRecursionLimit(oldlimit);
                 if (PyErr_Occurred())
