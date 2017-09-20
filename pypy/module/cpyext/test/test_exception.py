@@ -51,6 +51,8 @@ class AppTestExceptions(AppTestCpythonExtensionBase):
             ("raise_exc", "METH_NOARGS",
              """
                 PyObject *ev, *et, *tb;
+                PyObject *ev0, *et0, *tb0;
+                PyErr_GetExcInfo(&ev0, &et0, &tb0);
                 PyErr_SetString(PyExc_ValueError, "foo");
 
                 // simplified copy of __Pyx_GetException
@@ -60,6 +62,7 @@ class AppTestExceptions(AppTestCpythonExtensionBase):
                 PyErr_SetExcInfo(et, ev, tb);
 
                 PyErr_SetString(PyExc_TypeError, "bar");
+                PyErr_SetExcInfo(ev0, et0, tb0);
                 return NULL;
              """)])
         excinfo = raises(TypeError, module.raise_exc)
