@@ -2456,9 +2456,18 @@ def test_win32_calling_convention_3():
     pt = lib.call2(lib.cb2)
     assert (pt.x, pt.y) == (99*500*999, -99*500*999)
 
+def _only_test_on_linux_intel():
+    if not sys.platform.startswith('linux'):
+        py.test.skip('only running the memory-intensive test on Linux')
+    import platform
+    machine = platform.machine()
+    if 'x86' not in machine and 'x64' not in machine:
+        py.test.skip('only running the memory-intensive test on x86/x64')
+
 def test_ffi_gc_size_arg():
     # with PyPy's GC, these calls to ffi.gc() would rapidly consume
     # 40 GB of RAM without the third argument
+    _only_test_on_linux_intel()
     ffi = FFI()
     ffi.cdef("void *malloc(size_t); void free(void *);")
     lib = ffi.verify(r"""
@@ -2467,8 +2476,8 @@ def test_ffi_gc_size_arg():
     for i in range(2000):
         p = lib.malloc(20*1024*1024)    # 20 MB
         p1 = ffi.cast("char *", p)
-        for j in xrange(0, 20*1024*1024, 4096):
-            p1[j] = '!'
+        for j in range(0, 20*1024*1024, 4096):
+            p1[j] = b'!'
         p = ffi.gc(p, lib.free, 20*1024*1024)
         del p
 
@@ -2478,6 +2487,7 @@ def test_ffi_gc_size_arg_2():
     # is skipped on CPython, where it eats all the memory.
     if '__pypy__' not in sys.builtin_module_names:
         py.test.skip("find a way to tweak the cyclic GC of CPython")
+    _only_test_on_linux_intel()
     ffi = FFI()
     ffi.cdef("void *malloc(size_t); void free(void *);")
     lib = ffi.verify(r"""

@@ -419,3 +419,7 @@ class AppTestTypeDef:
         def f():
             return x
         assert f.__closure__[0].cell_contents is x
+
+    def test_get_with_none_arg(self):
+        raises(TypeError, type.__dict__['__mro__'].__get__, None)
+        raises(TypeError, type.__dict__['__mro__'].__get__, None, None)
