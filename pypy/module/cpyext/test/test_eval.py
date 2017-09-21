@@ -373,6 +373,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert 'while calling recurse' in str(excinfo.value)
 
     def test_build_class(self):
+            """
             # make sure PyObject_Call generates a proper PyTypeObject,
             # along the way verify that userslot has iter and next
             module = self.import_extension('foo', [
@@ -397,7 +398,35 @@ class AppTestCall(AppTestCpythonExtensionBase):
                         return NULL;
                     }
                     return args->ob_type->tp_iternext(args);
-                 '''),])
+                 '''),
+                ('await_', "METH_O",
+                 '''
+                    if (NULL == args->ob_type->tp_as_async->am_await)
+                    {
+                        PyErr_SetString(PyExc_TypeError, "NULL am_await");
+                        return NULL;
+                    }
+                    return args->ob_type->tp_as_async->am_await(args);
+                 '''),
+                ('aiter', "METH_O",
+                 '''
+                    if (NULL == args->ob_type->tp_as_async->am_aiter)
+                    {
+                        PyErr_SetString(PyExc_TypeError, "NULL am_aiter");
+                        return NULL;
+                    }
+                    return args->ob_type->tp_as_async->am_aiter(args);
+                 '''),
+                ('anext', "METH_O",
+                 '''
+                    if (NULL == args->ob_type->tp_as_async->am_anext)
+                    {
+                        PyErr_SetString(PyExc_TypeError, "NULL am_anext");
+                        return NULL;
+                    }
+                    return args->ob_type->tp_as_async->am_anext(args);
+                 '''),
+            ])
             def __init__(self, N):
                 self.N = N
                 self.i = 0
@@ -424,3 +453,59 @@ class AppTestCall(AppTestCpythonExtensionBase):
             except StopIteration:
                 pass
             assert out == [0, 1, 2, 3, 4]
+
+            def run_async(coro):
+                buffer = []
+                result = None
+                while True:
+                    try:
+                        buffer.append(coro.send(None))
+                    except StopIteration as ex:
+                        result = ex.value
+                        break
+                return buffer, result
+
+            def __await__(self):
+                yield 42
+                return 100
+
+            Awaitable = module.object_call((
+                'Awaitable', (object,), {'__await__': __await__}))
+
+            async def wrapper():
+                return await Awaitable()
+
+            assert run_async(module.await_(Awaitable())) == ([42], 100)
+            assert run_async(wrapper()) == ([42], 100)
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                if self.i < self.N:
+                    res = self.i
+                    self.i += 1
+                    return res
+                raise StopAsyncIteration
+
+            AIter = module.object_call(('AIter', (object,),
+                {'__init__': __init__, '__aiter__': __aiter__,
+                 '__anext__': __anext__}))
+
+            async def list1():
+                s = []
+                async for i in AIter(3):
+                    s.append(i)
+                return s
+            async def list2():
+                s = []
+                ait = module.aiter(AIter(3))
+                try:
+                    while True:
+                        s.append(await module.anext(ait))
+                except StopAsyncIteration:
+                    return s
+
+            assert run_async(list1()) == ([], [0, 1, 2])
+            assert run_async(list2()) == ([], [0, 1, 2])
+            """
