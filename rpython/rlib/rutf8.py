@@ -347,6 +347,16 @@ def check_utf8(s, allow_surrogates=False):
     assert pos == len(s)
     return pos - continuation_bytes
 
+@jit.elidable
+def surrogate_in_utf8(value):
+    """Check if the UTF-8 byte string 'value' contains a surrogate.
+    The 'value' argument must be otherwise correctly formed for UTF-8.
+    """
+    for i in range(len(value) - 2):
+        if value[i] == '\xed' and value[i + 1] >= '\xa0':
+            return True
+    return False
+
 
 UTF8_INDEX_STORAGE = lltype.GcArray(lltype.Struct(
     'utf8_loc',
