@@ -1442,7 +1442,7 @@ class ObjSpace(object):
             length = 1
         return start, stop, step, length
 
-    def getindex_w(self, w_obj, w_exception, objdescr=None):
+    def getindex_w(self, w_obj, w_exception, objdescr=None, errmsg=None):
         """Return w_obj.__index__() as an RPython int.
         If w_exception is None, silently clamp in case of overflow;
         else raise w_exception.
@@ -1452,8 +1452,10 @@ class ObjSpace(object):
         except OperationError as err:
             if objdescr is None or not err.match(self, self.w_TypeError):
                 raise
-            raise oefmt(self.w_TypeError, "%s must be an integer, not %T",
-                        objdescr, w_obj)
+            if errmsg is None:
+                errmsg = " must be an integer"
+            raise oefmt(self.w_TypeError, "%s%s, not %T",
+                        objdescr, errmsg, w_obj)
         try:
             # allow_conversion=False it's not really necessary because the
             # return type of __index__ is already checked by space.index(),
@@ -1690,7 +1692,8 @@ class ObjSpace(object):
             if len(string) != 1:
                 raise oefmt(self.w_ValueError, "string must be of size 1")
             return string[0]
-        value = self.getindex_w(w_obj, None)
+        value = self.getindex_w(w_obj, None, "",
+                                "an integer or string of size 1 is required")
         if not 0 <= value < 256:
             # this includes the OverflowError in case the long is too large
             raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")

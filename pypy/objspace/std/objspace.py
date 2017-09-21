@@ -658,10 +658,10 @@ class StdObjSpace(ObjSpace):
         else:
             self.setitem(w_obj, self.newtext(key), w_value)
 
-    def getindex_w(self, w_obj, w_exception, objdescr=None):
+    def getindex_w(self, w_obj, w_exception, objdescr=None, errmsg=None):
         if type(w_obj) is W_IntObject:
             return w_obj.intval
-        return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr)
+        return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr, errmsg)
 
     def unicode_from_object(self, w_obj):
         from pypy.objspace.std.unicodeobject import unicode_from_object

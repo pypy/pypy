@@ -496,6 +496,15 @@ class AppTestBytesArray:
         b[1] = 'B'
         assert b == 'aBcdefghi'
 
+    def test_setitem_errmsg(self):
+        b = bytearray('abcdefghi')
+        e = raises(TypeError, "b[1] = u'B'")
+        assert str(e.value).startswith(
+            "an integer or string of size 1 is required")
+        e = raises(TypeError, "b[1] = None")
+        assert str(e.value).startswith(
+            "an integer or string of size 1 is required")
+
     def test_setitem_slice(self):
         b = bytearray('abcdefghi')
         b[0:3] = 'ABC'
