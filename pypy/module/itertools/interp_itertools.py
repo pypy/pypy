@@ -445,6 +445,7 @@ W_ISlice.typedef = TypeDef(
         __iter__ = interp2app(W_ISlice.iter_w),
         __next__ = interp2app(W_ISlice.next_w),
         __reduce__ = interp2app(W_ISlice.descr_reduce),
+        __setstate__ = interp2app(W_ISlice.descr_setstate),
         __doc__  = """Make an iterator that returns selected elements from the
     iterable.  If start is non-zero, then elements from the iterable
     are skipped until start is reached. Afterward, elements are

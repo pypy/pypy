@@ -1028,6 +1028,8 @@ class AppTestItertools27(object):
                 assert list(itertools.islice(c2, 3)) == expected
                 c3 = pickle.loads(pickle.dumps(c))
                 assert list(itertools.islice(c3, 3)) == expected
+        c4 = copy.copy(itertools.islice([1, 2, 3], 1, 5))
+        assert list(c4) == [2, 3]
 
     def test_islice_attack(self):
         import itertools
