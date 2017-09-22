@@ -95,6 +95,7 @@ class AppTestRecompiler:
 
     def setup_method(self, meth):
         self._w_modules = self.space.appexec([], """():
+            import cpyext      # ignore stuff there in the leakfinder
             import sys
             return set(sys.modules)
         """)
