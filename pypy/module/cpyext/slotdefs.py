@@ -442,7 +442,10 @@ def build_slot_tp_function(space, typedef, name):
 
     handled = False
     # unary functions
-    for tp_name, attr in [('tp_as_number.c_nb_int', '__int__'),
+    for tp_name, attr in [('tp_as_async.c_am_await', '__await__'),
+                          ('tp_as_async.c_am_anext', '__anext__'),
+                          ('tp_as_async.c_am_aiter', '__aiter__'),
+                          ('tp_as_number.c_nb_int', '__int__'),
                           ('tp_as_number.c_nb_long', '__long__'),
                           ('tp_as_number.c_nb_float', '__float__'),
                           ('tp_as_number.c_nb_negative', '__neg__'),
