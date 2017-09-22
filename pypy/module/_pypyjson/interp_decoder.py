@@ -264,19 +264,16 @@ class JSONDecoder(object):
 
     def decode_object(self, i):
         start = i
-        w_dict = self.space.newdict()
-        #
+
         i = self.skip_whitespace(i)
         if self.ll_chars[i] == '}':
             self.pos = i+1
-            return w_dict
-        #
+            return self.space.newdict()
+
+        d = {}
         while True:
             # parse a key: value
-            self.last_type = TYPE_UNKNOWN
-            w_name = self.decode_any(i)
-            if self.last_type != TYPE_STRING:
-                self._raise("Key name must be string for object starting at char %d", start)
+            name = self.decode_key(i)
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':
@@ -285,13 +282,13 @@ class JSONDecoder(object):
             i = self.skip_whitespace(i)
             #
             w_value = self.decode_any(i)
-            self.space.setitem(w_dict, w_name, w_value)
+            d[name] = w_value
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             i += 1
             if ch == '}':
                 self.pos = i
-                return w_dict
+                return self._create_dict(d)
             elif ch == ',':
                 pass
             elif ch == '\0':
@@ -300,6 +297,9 @@ class JSONDecoder(object):
                 self._raise("Unexpected '%s' when decoding object (char %d)",
                             ch, i-1)
 
+    def _create_dict(self, d):
+        from pypy.objspace.std.dictmultiobject import from_unicode_key_dict
+        return from_unicode_key_dict(self.space, d)
 
     def decode_string(self, i):
         start = i

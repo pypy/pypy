@@ -1257,6 +1257,12 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 create_iterator_classes(UnicodeDictStrategy)
 
 
+def from_unicode_key_dict(space, d):
+    strategy = space.fromcache(UnicodeDictStrategy)
+    storage = strategy.erase(d)
+    return W_DictObject(space, strategy, storage)
+
+
 class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
     erase, unerase = rerased.new_erasing_pair("int")
     erase = staticmethod(erase)
