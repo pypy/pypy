@@ -348,7 +348,8 @@ class InstancingTestCase(unittest.TestCase, HelperMixin):
     strobj = "abcde"*3
     dictobj = {"hello":floatobj, "goodbye":floatobj, floatobj:"hello"}
 
-    def helper3(self, rsample, recursive=False, simple=False):
+    def helper3(self, rsample, recursive=False, simple=False,
+                check_sharing=True):
         #we have two instances
         sample = (rsample, rsample)
 
@@ -358,7 +359,9 @@ class InstancingTestCase(unittest.TestCase, HelperMixin):
         n3 = CollectObjectIDs(set(), marshal.loads(s3))
 
         #same number of instances generated
-        self.assertEqual(n3, n0)
+        # except in one corner case on top of pypy, for code objects
+        if check_sharing:
+            self.assertEqual(n3, n0)
 
         if not recursive:
             #can compare with version 2
@@ -395,7 +398,7 @@ class InstancingTestCase(unittest.TestCase, HelperMixin):
         if __file__.endswith(".py"):
             code = compile(code, __file__, "exec")
         self.helper(code)
-        self.helper3(code)
+        self.helper3(code, check_sharing=support.check_impl_detail())
 
     def testRecursion(self):
         d = dict(self.dictobj)
