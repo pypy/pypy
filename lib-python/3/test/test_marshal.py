@@ -271,6 +271,11 @@ class BugsTestCase(unittest.TestCase):
                 if n is not None and n > 4:
                     n += 10**6
                 return n
+            def read(self, n):   # PyPy calls read(), not readinto()
+                result = super().read(n)
+                if len(result) > 4:
+                    result += b'\x00' * (10**6)
+                return result
         for value in (1.0, 1j, b'0123456789', '0123456789'):
             self.assertRaises(ValueError, marshal.load,
                               BadReader(marshal.dumps(value)))
