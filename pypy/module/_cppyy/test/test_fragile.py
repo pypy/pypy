@@ -34,7 +34,7 @@ class AppTestFRAGILE:
 
         assert fragile.B == fragile.B
         assert fragile.B().check() == ord('B')
-        raises(AttributeError, getattr, fragile.B().gime_no_such(), "_cpp_proxy")
+        raises(AttributeError, getattr, fragile.B().gime_no_such(), "__cppdecl__")
 
         assert fragile.C == fragile.C
         assert fragile.C().check() == ord('C')
@@ -237,17 +237,35 @@ class AppTestFRAGILE:
 
         from cppyy.gbl.fragile import nested1
         assert _cppyy.gbl.fragile.nested1 is nested1
+        assert nested1.__name__ == 'nested1'
+        assert nested1.__module__ == 'cppyy.gbl.fragile'
+        assert nested1.__cppname__ == 'nested1'
 
         from cppyy.gbl.fragile.nested1 import A, nested2
         assert _cppyy.gbl.fragile.nested1.A is A
+        assert A.__name__ == 'A'
+        assert A.__module__ == 'cppyy.gbl.fragile.nested1'
+        assert A.__cppname__ == 'fragile::nested1::A'
         assert _cppyy.gbl.fragile.nested1.nested2 is nested2
+        assert A.__name__ == 'A'
+        assert A.__module__ == 'cppyy.gbl.fragile.nested1'
+        assert nested2.__cppname__ == 'fragile::nested1::nested2'
 
         from cppyy.gbl.fragile.nested1.nested2 import A, nested3
         assert _cppyy.gbl.fragile.nested1.nested2.A is A
+        assert A.__name__ == 'A'
+        assert A.__module__ == 'cppyy.gbl.fragile.nested1'
+        assert A.__cppname__ == 'fragile::nested1::nested2::A'
         assert _cppyy.gbl.fragile.nested1.nested2.nested3 is nested3
+        assert A.__name__ == 'A'
+        assert A.__module__ == 'cppyy.gbl.fragile.nested1'
+        assert nested3.__cppname__ == 'fragile::nested1::nested2::nested3'
 
         from cppyy.gbl.fragile.nested1.nested2.nested3 import A
         assert _cppyy.gbl.fragile.nested1.nested2.nested3.A is nested3.A
+        assert A.__name__ == 'A'
+        assert A.__module__ == 'cppyy.gbl.fragile.nested1'
+        assert A.__cppname__ == 'fragile::nested1::nested2::nested3::A'
 
     def test12_missing_casts(self):
         """Test proper handling when a hierarchy is not fully available"""

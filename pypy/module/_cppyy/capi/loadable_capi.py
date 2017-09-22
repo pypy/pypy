@@ -594,7 +594,7 @@ def stdstring_c_str(space, w_self):
     """Return a python string taking into account \0"""
 
     from pypy.module._cppyy import interp_cppyy
-    cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
+    cppstr = space.interp_w(interp_cppyy.W_CPPClass, w_self, can_be_None=False)
     return space.newtext(c_stdstring2charp(space, cppstr._rawobject))
 
 # setup pythonizations for later use at run-time

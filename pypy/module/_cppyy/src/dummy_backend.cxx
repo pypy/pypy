@@ -164,6 +164,14 @@ struct Cppyy_InitPseudoReflectionInfo {
         static long s_scope_id  = 0;
         static long s_method_id = 0;
 
+        { // namespace ''
+        s_handles[""] = (cppyy_scope_t)++s_scope_id;
+        }
+
+        { // namespace std
+        s_handles["std"] = (cppyy_scope_t)++s_scope_id;
+        }
+
         { // class example01 --
         s_handles["example01"] = (cppyy_scope_t)++s_scope_id;
 
