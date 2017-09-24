@@ -18,6 +18,8 @@ CODE_FLAGS = dict(
     CO_VARKEYWORDS = 0x0008,
     CO_NESTED      = 0x0010,
     CO_GENERATOR   = 0x0020,
+    CO_COROUTINE=0x0080,
+    CO_ITERABLE_COROUTINE=0x0100,
 )
 ALL_CODE_FLAGS = unrolling_iterable(CODE_FLAGS.items())
 
