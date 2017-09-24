@@ -317,9 +317,9 @@ class W_ReversedIterator(W_Root):
 
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
-        if space.lookup(w_sequence, "__getitem__") is None:
+        if not space.issequence_w(w_sequence):
             raise oefmt(space.w_TypeError,
-                        "reversed() argument must be a sequence")
+                        "argument to reversed() must be a sequence")
         self.w_sequence = w_sequence
 
     @staticmethod
@@ -328,9 +328,6 @@ class W_ReversedIterator(W_Root):
         if w_reversed_descr is not None:
             w_reversed = space.get(w_reversed_descr, w_sequence)
             return space.call_function(w_reversed)
-        if not space.issequence_w(w_sequence):
-            raise oefmt(space.w_TypeError,
-                        "argument to reversed() must be a sequence")
         self = space.allocate_instance(W_ReversedIterator, w_subtype)
         self.__init__(space, w_sequence)
         return self

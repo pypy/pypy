@@ -81,15 +81,17 @@ class AppTestImpModule:
     def test_suffixes(self):
         import imp
         for suffix, mode, type in imp.get_suffixes():
-            if mode == imp.PY_SOURCE:
+            if type == imp.PY_SOURCE:
                 assert suffix == '.py'
-                assert type == 'r'
-            elif mode == imp.PY_COMPILED:
+                assert mode == 'r'
+            elif type == imp.PY_COMPILED:
                 assert suffix in ('.pyc', '.pyo')
-                assert type == 'rb'
-            elif mode == imp.C_EXTENSION:
+                assert mode == 'rb'
+            elif type == imp.C_EXTENSION:
                 assert suffix.endswith(('.pyd', '.so'))
-                assert type == 'rb'
+                assert mode == 'rb'
+            else:
+                assert False, ("Unknown type", suffix, mode, type)
 
     def test_ext_suffixes(self):
         import _imp
@@ -108,6 +110,14 @@ class AppTestImpModule:
         assert not imp.is_builtin('hello.world.this.is.never.a.builtin.module.name')
         assert not imp.is_frozen('hello.world.this.is.never.a.frozen.module.name')
 
+    def test_is_builtin(self):
+        import sys, imp
+        for name in sys.builtin_module_names:
+            assert imp.is_builtin(name)
+            mod = imp.init_builtin(name)
+            assert mod
+            assert mod.__spec__
+    test_is_builtin.dont_track_allocations = True
 
     def test_load_module_py(self):
         import imp

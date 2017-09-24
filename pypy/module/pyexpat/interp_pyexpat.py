@@ -120,18 +120,6 @@ class CConfigure:
         locals()[name] = rffi_platform.ConstantInteger(name)
     for name in xml_model_list:
         locals()[name] = rffi_platform.ConstantInteger(name)
-    for name in xml_model_list:
-        locals()[name] = rffi_platform.ConstantInteger(name)
-    for name in xml_model_list:
-        locals()[name] = rffi_platform.ConstantInteger(name)
-    for name in xml_model_list:
-        locals()[name] = rffi_platform.ConstantInteger(name)
-    for name in xml_model_list:
-        locals()[name] = rffi_platform.ConstantInteger(name)
-    for name in xml_model_list:
-        locals()[name] = rffi_platform.ConstantInteger(name)
-    for name in xml_model_list:
-        locals()[name] = rffi_platform.ConstantInteger(name)
     XML_Parser_SIZE = rffi_platform.SizeOf("XML_Parser")
 
 for k, v in rffi_platform.configure(CConfigure).items():

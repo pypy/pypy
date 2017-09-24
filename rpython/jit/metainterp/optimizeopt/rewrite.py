@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
 from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
-     OpHelpers
+     OpHelpers, AbstractResOp
 from rpython.rlib.rarithmetic import highest_bit
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper import rclass
@@ -490,6 +490,11 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_TRUE(self, op):
         box = self.get_box_replacement(op.getarg(0))
+        if (isinstance(box, AbstractResOp) and
+                box.getopnum() == rop.INT_IS_TRUE):
+            # we can't use the (current) range analysis for this because
+            # "anything but 0" is not a valid range
+            self.pure_from_args(rop.INT_IS_ZERO, [box.getarg(0)], CONST_0)
         self.make_constant(box, CONST_1)
 
     def optimize_GUARD_FALSE(self, op):
@@ -497,6 +502,11 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_FALSE(self, op):
         box = self.get_box_replacement(op.getarg(0))
+        if (isinstance(box, AbstractResOp) and
+                box.getopnum() == rop.INT_IS_ZERO):
+            # we can't use the (current) range analysis for this because
+            # "anything but 0" is not a valid range
+            self.pure_from_args(rop.INT_IS_TRUE, [box.getarg(0)], CONST_1)
         self.make_constant(box, CONST_0)
 
     def optimize_ASSERT_NOT_NONE(self, op):

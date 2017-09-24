@@ -7,9 +7,10 @@ from errno import EINTR
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib.objectmodel import dont_inline
+from rpython.rlib.objectmodel import dont_inline, not_rpython
 from rpython.rlib import rstack, rstackovf
 from rpython.rlib import rwin32
+from rpython.rlib import runicode
 
 from pypy.interpreter import debug
 
@@ -64,8 +65,9 @@ class OperationError(Exception):
                 self.match(space, space.w_KeyboardInterrupt))
         # note: an extra case is added in OpErrFmtNoArgs
 
+    @not_rpython
     def __str__(self):
-        "NOT_RPYTHON: Convenience for tracebacks."
+        "Convenience for tracebacks."
         s = self._w_value
         space = getattr(self.w_type, 'space', None)
         if space is not None:
@@ -118,15 +120,16 @@ class OperationError(Exception):
             if RECORD_INTERPLEVEL_TRACEBACK:
                 self.debug_excs.append(sys.exc_info())
 
+    @not_rpython
     def print_application_traceback(self, space, file=None):
-        "NOT_RPYTHON: Dump a standard application-level traceback."
+        "Dump a standard application-level traceback."
         if file is None:
             file = sys.stderr
         self.print_app_tb_only(file)
         print >> file, self.errorstr(space)
 
+    @not_rpython
     def print_app_tb_only(self, file):
-        "NOT_RPYTHON"
         tb = self._application_traceback
         if tb:
             import linecache
@@ -153,8 +156,9 @@ class OperationError(Exception):
                     print >> file, l
                 tb = tb.next
 
+    @not_rpython
     def print_detailed_traceback(self, space=None, file=None):
-        """NOT_RPYTHON: Dump a nice detailed interpreter- and
+        """Dump a nice detailed interpreter- and
         application-level traceback, useful to debug the interpreter."""
         if file is None:
             file = sys.stderr
@@ -468,6 +472,14 @@ def decompose_valuefmt(valuefmt):
     assert len(formats) > 0, "unsupported: no % command found"
     return tuple(parts), tuple(formats)
 
+def _decode_utf8(string):
+    # when building the error message, don't crash if the byte string
+    # provided is not valid UTF-8
+    assert isinstance(string, str)
+    result, consumed = runicode.str_decode_utf_8(
+        string, len(string), "replace", final=True)
+    return result
+
 def get_operrcls2(valuefmt):
     valuefmt = valuefmt.decode('ascii')
     strings, formats = decompose_valuefmt(valuefmt)
@@ -499,13 +511,16 @@ def get_operrcls2(valuefmt):
                     elif fmt == 'S':
                         result = space.unicode_w(space.str(value))
                     elif fmt == 'T':
-                        result = space.type(value).name.decode('utf-8')
+                        result = _decode_utf8(space.type(value).name)
                     elif fmt == 'N':
                         result = value.getname(space)
                     elif fmt == '8':
-                        result = value.decode('utf-8')
+                        result = _decode_utf8(value)
                     else:
-                        result = unicode(value)
+                        if isinstance(value, unicode):
+                            result = value
+                        else:
+                            result = _decode_utf8(str(value))
                     lst[i + i + 1] = result
                 lst[-1] = self.xstrings[-1]
                 return u''.join(lst)

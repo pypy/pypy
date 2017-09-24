@@ -2,6 +2,7 @@
 Arguments objects.
 """
 from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rstring import StringBuilder
@@ -48,8 +49,8 @@ class Arguments(object):
         # behaviour but produces better error messages
         self.methodcall = methodcall
 
+    @not_rpython
     def __repr__(self):
-        """ NOT_RPYTHON """
         name = self.__class__.__name__
         if not self.keywords:
             return '%s(%s)' % (name, self.arguments_w,)

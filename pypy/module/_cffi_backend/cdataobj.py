@@ -91,6 +91,11 @@ class W_CData(W_Root):
             w_result = self.ctype.float(ptr)
         return w_result
 
+    def complex(self):
+        with self as ptr:
+            w_result = self.ctype.complex(ptr)
+        return w_result
+
     def len(self):
         from pypy.module._cffi_backend import ctypearray
         space = self.space
@@ -405,6 +410,13 @@ class W_CData(W_Root):
         with self as ptr:
             misc.write_raw_float_data(ptr, source, self.ctype.size)
 
+    def write_raw_complex_data(self, real, imag):
+        with self as ptr:
+            halfsize = self.ctype.size >> 1
+            ptr2 = rffi.ptradd(ptr, halfsize)
+            misc.write_raw_float_data(ptr, real, halfsize)
+            misc.write_raw_float_data(ptr2, imag, halfsize)
+
     def convert_to_object(self):
         with self as ptr:
             w_obj = self.ctype.convert_to_object(ptr)
@@ -421,17 +433,22 @@ class W_CData(W_Root):
     def _sizeof(self):
         return self.ctype.size
 
-    def with_gc(self, w_destructor):
+    def with_gc(self, w_destructor, size=0):
         space = self.space
         if space.is_none(w_destructor):
             if isinstance(self, W_CDataGCP):
                 self.detach_destructor()
-                return space.w_None
-            raise oefmt(space.w_TypeError,
-                        "Can remove destructor only on a object "
-                        "previously returned by ffi.gc()")
-        with self as ptr:
-            return W_CDataGCP(space, ptr, self.ctype, self, w_destructor)
+                w_res = space.w_None
+            else:
+                raise oefmt(space.w_TypeError,
+                            "Can remove destructor only on a object "
+                            "previously returned by ffi.gc()")
+        else:
+            with self as ptr:
+                w_res = W_CDataGCP(space, ptr, self.ctype, self, w_destructor)
+        if size != 0:
+            rgc.add_memory_pressure(size)
+        return w_res
 
     def unpack(self, length):
         from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
@@ -646,6 +663,7 @@ W_CData.typedef = TypeDef(
     __int__ = interp2app(W_CData.int),
     __long__ = interp2app(W_CData.long),
     __float__ = interp2app(W_CData.float),
+    __complex__ = interp2app(W_CData.complex),
     __len__ = interp2app(W_CData.len),
     __lt__ = interp2app(W_CData.lt),
     __le__ = interp2app(W_CData.le),

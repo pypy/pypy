@@ -1,4 +1,5 @@
 import sys
+import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
@@ -546,14 +547,6 @@ class ObjSpace(object):
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 
-    ALL_BUILTIN_MODULES = [
-        'posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
-        'math', 'array', 'select',
-        '_random', '_sre', 'time', '_socket', 'errno',
-        'unicodedata',
-        'parser', 'fcntl', '_codecs', 'binascii'
-    ]
-
     @not_rpython
     def make_builtins(self):
         "only for initializing the space."
@@ -580,11 +573,6 @@ class ObjSpace(object):
         w_builtin.install()
         self.setitem(self.builtin.w_dict, self.newtext('__builtins__'), w_builtin)
 
-        # exceptions was bootstrapped as '__exceptions__' but still
-        # lives in pypy/module/exceptions, we rename it below for
-        # sys.builtin_module_names
-        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
-        installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
 
@@ -595,15 +583,13 @@ class ObjSpace(object):
             self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
+        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
         for mixedname in self.get_builtinmodule_to_install():
             if mixedname not in bootstrap_modules:
-                self.install_mixedmodule(mixedname, installed_builtin_modules)
+                self.install_mixedmodule(mixedname)
 
-        installed_builtin_modules.remove('exceptions')
-        installed_builtin_modules.append('__exceptions__')
-        installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
-            [self.newtext(fn) for fn in installed_builtin_modules])
+            [self.newtext(name) for name in sorted(self.builtin_modules)])
 
         # force this value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
@@ -635,13 +621,8 @@ class ObjSpace(object):
         return exc_types_w
 
     @not_rpython
-    def install_mixedmodule(self, mixedname, installed_builtin_modules):
-        modname = self.setbuiltinmodule(mixedname)
-        if modname:
-            assert modname not in installed_builtin_modules, (
-                "duplicate interp-level module enabled for the "
-                "app-level module %r" % (modname,))
-            installed_builtin_modules.append(modname)
+    def install_mixedmodule(self, mixedname):
+        self.setbuiltinmodule(mixedname)
 
     @not_rpython
     def setup_builtin_modules(self):
@@ -1291,8 +1272,22 @@ class ObjSpace(object):
             self.setitem(w_globals, w_key, self.builtin)
         return statement.exec_code(self, w_globals, w_locals)
 
+    @not_rpython
+    def appdef(self, source):
+        '''Create interp-level function object from app-level source.
+
+        The source should be in the same format as for space.appexec():
+            """(foo, bar): return 'baz'"""
+        '''
+        source = source.lstrip()
+        assert source.startswith('('), "incorrect header in:\n%s" % (source,)
+        source = py.code.Source("def anonymous%s\n" % source)
+        w_glob = self.newdict(module=True)
+        self.exec_(str(source), w_glob, w_glob)
+        return self.getitem(w_glob, self.newtext('anonymous'))
+
     @specialize.arg(2)
-    def appexec(self, posargs_w, source):
+    def appexec(self, posargs_w, source, cache=True):
         """ return value from executing given source at applevel.
             The source must look like
                '''(x, y):
@@ -1300,7 +1295,11 @@ class ObjSpace(object):
                        return result
                '''
         """
-        w_func = self.fromcache(AppExecCache).getorbuild(source)
+        if cache:
+            w_func = self.fromcache(AppExecCache).getorbuild(source)
+        else:
+            # NB: since appdef() is not-RPython, using cache=False also is.
+            w_func = self.appdef(source)
         args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
 
@@ -1538,12 +1537,15 @@ class ObjSpace(object):
     def text_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
+    @specialize.argtype(1)
     def bytes_w(self, w_obj):
         """ Takes an application level :py:class:`bytes`
             (on PyPy2 this equals `str`) and returns a rpython byte string.
         """
+        assert w_obj is not None
         return w_obj.bytes_w(self)
 
+    @specialize.argtype(1)
     def text_w(self, w_obj):
         """ PyPy2 takes either a :py:class:`str` and returns a
             rpython byte string, or it takes an :py:class:`unicode`
@@ -1553,6 +1555,7 @@ class ObjSpace(object):
             On PyPy3 it takes a :py:class:`str` and it will return
             an utf-8 encoded rpython string.
         """
+        assert w_obj is not None
         return w_obj.text_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
@@ -1602,6 +1605,7 @@ class ObjSpace(object):
             raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")
         return chr(value)
 
+    @specialize.argtype(1)
     def int_w(self, w_obj, allow_conversion=True):
         """
         Unwrap an app-level int object into an interpret-level int.
@@ -1614,29 +1618,41 @@ class ObjSpace(object):
         If allow_conversion=False, w_obj needs to be an app-level int or a
         subclass.
         """
+        assert w_obj is not None
         return w_obj.int_w(self, allow_conversion)
 
+    @specialize.argtype(1)
     def int(self, w_obj):
+        assert w_obj is not None
         return w_obj.int(self)
+    long = int
 
+    @specialize.argtype(1)
     def uint_w(self, w_obj):
+        assert w_obj is not None
         return w_obj.uint_w(self)
 
+    @specialize.argtype(1)
     def bigint_w(self, w_obj, allow_conversion=True):
         """
         Like int_w, but return a rlib.rbigint object and call __long__ if
         allow_conversion is True.
         """
+        assert w_obj is not None
         return w_obj.bigint_w(self, allow_conversion)
 
+    @specialize.argtype(1)
     def float_w(self, w_obj, allow_conversion=True):
         """
         Like int_w, but return an interp-level float and call __float__ if
         allow_conversion is True.
         """
+        assert w_obj is not None
         return w_obj.float_w(self, allow_conversion)
 
+    @specialize.argtype(1)
     def unicode_w(self, w_obj):
+        assert w_obj is not None
         return w_obj.unicode_w(self)
 
     def unicode0_w(self, w_obj):
@@ -1661,9 +1677,13 @@ class ObjSpace(object):
         return fsdecode(space, w_obj)
 
     def fsencode_w(self, w_obj):
-        from rpython.rlib import rstring
         if self.isinstance_w(w_obj, self.w_unicode):
             w_obj = self.fsencode(w_obj)
+        return self.bytesbuf0_w(w_obj)
+
+    def bytesbuf0_w(self, w_obj):
+        # Like bytes0_w(), but also accept a read-only buffer.
+        from rpython.rlib import rstring
         try:
             result = self.bytes_w(w_obj)
         except OperationError as e:
@@ -1687,7 +1707,9 @@ class ObjSpace(object):
         # this, but the general is_true(),  accepting any object.
         return bool(self.int_w(w_obj))
 
+    @specialize.argtype(1)
     def ord(self, w_obj):
+        assert w_obj is not None
         return w_obj.ord(self)
 
     # This is all interface for gateway.py.
@@ -1833,15 +1855,7 @@ class ObjSpace(object):
 class AppExecCache(SpaceCache):
     @not_rpython
     def build(cache, source):
-        space = cache.space
-        # XXX will change once we have our own compiler
-        import py
-        source = source.lstrip()
-        assert source.startswith('('), "incorrect header in:\n%s" % (source,)
-        source = py.code.Source("def anonymous%s\n" % source)
-        w_glob = space.newdict(module=True)
-        space.exec_(str(source), w_glob, w_glob)
-        return space.getitem(w_glob, space.newtext('anonymous'))
+        return cache.space.appdef(source)
 
 
 # Table describing the regular part of the interface of object spaces,

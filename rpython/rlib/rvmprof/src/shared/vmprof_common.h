@@ -6,21 +6,30 @@
 
 #include <stddef.h>
 #include <time.h>
+#include <stdlib.h>
 
-#ifndef VMPROF_WINDOWS
+#ifdef VMPROF_UNIX
 #include <sys/time.h>
 #include "vmprof_mt.h"
+#include <signal.h>
+#include <pthread.h>
+#endif
+
+#include "vmprof_getpc.h"
+
+#ifdef VMPROF_LINUX
+#include <syscall.h>
 #endif
 
 #define MAX_FUNC_NAME 1024
 
-static long prepare_interval_usec = 0;
-static long profile_interval_usec = 0;
-
-static int opened_profile(const char *interp_name, int memory, int proflines, int native);
-
 #ifdef VMPROF_UNIX
-static struct profbuf_s *volatile current_codes;
+
+ssize_t search_thread(pthread_t tid, ssize_t i);
+ssize_t insert_thread(pthread_t tid, ssize_t i);
+ssize_t remove_thread(pthread_t tid, ssize_t i);
+ssize_t remove_threads(void);
+
 #endif
 
 #define MAX_STACK_DEPTH   \
@@ -64,88 +73,9 @@ typedef struct prof_stacktrace_s {
 
 RPY_EXTERN
 char *vmprof_init(int fd, double interval, int memory,
-                  int proflines, const char *interp_name, int native)
-{
-    if (!(interval >= 1e-6 && interval < 1.0)) {   /* also if it is NaN */
-        return "bad value for 'interval'";
-    }
-    prepare_interval_usec = (int)(interval * 1000000.0);
+                  int proflines, const char *interp_name, int native, int real_time);
 
-    if (prepare_concurrent_bufs() < 0)
-        return "out of memory";
-#if VMPROF_UNIX
-    current_codes = NULL;
-    assert(fd >= 0);
-#else
-    if (memory) {
-        return "memory tracking only supported on unix";
-    }
-    if (native) {
-        return "native profiling only supported on unix";
-    }
-#endif
-    vmp_set_profile_fileno(fd);
-    if (opened_profile(interp_name, memory, proflines, native) < 0) {
-        vmp_set_profile_fileno(0);
-        return strerror(errno);
-    }
-    return NULL;
-}
-
-static int opened_profile(const char *interp_name, int memory, int proflines, int native)
-{
-    int success;
-    int bits;
-    struct {
-        long hdr[5];
-        char interp_name[259];
-    } header;
-
-    const char * machine;
-    size_t namelen = strnlen(interp_name, 255);
-
-    machine = vmp_machine_os_name();
-
-    header.hdr[0] = 0;
-    header.hdr[1] = 3;
-    header.hdr[2] = 0;
-    header.hdr[3] = prepare_interval_usec;
-    if (strstr(machine, "win64") != 0) {
-        header.hdr[4] = 1;
-    } else {
-        header.hdr[4] = 0;
-    }
-    header.interp_name[0] = MARKER_HEADER;
-    header.interp_name[1] = '\x00';
-    header.interp_name[2] = VERSION_TIMESTAMP;
-    header.interp_name[3] = memory*PROFILE_MEMORY + proflines*PROFILE_LINES + \
-                            native*PROFILE_NATIVE;
-#ifdef RPYTHON_VMPROF
-    header.interp_name[3] += PROFILE_RPYTHON;
-#endif
-    header.interp_name[4] = (char)namelen;
-
-    memcpy(&header.interp_name[5], interp_name, namelen);
-    success = vmp_write_all((char*)&header, 5 * sizeof(long) + 5 + namelen);
-    if (success < 0) {
-        return success;
-    }
-
-    /* Write the time and the zone to the log file, profiling will start now */
-    (void)vmp_write_time_now(MARKER_TIME_N_ZONE);
-
-    /* write some more meta information */
-    vmp_write_meta("os", machine);
-    bits = vmp_machine_bits();
-    if (bits == 64) {
-        vmp_write_meta("bits", "64");
-    } else if (bits == 32) {
-        vmp_write_meta("bits", "32");
-    }
-
-    return success;
-}
-
+int opened_profile(const char *interp_name, int memory, int proflines, int native, int real_time);
 
 /* Seems that CPython 3.5.1 made our job harder.  Did not find out how
    to do that without these hacks.  We can't use PyThreadState_GET(),
@@ -160,46 +90,22 @@ void *volatile _PyThreadState_Current;
 
 #ifdef RPYTHON_VMPROF
 #ifndef RPYTHON_LL2CTYPES
-static PY_STACK_FRAME_T *get_vmprof_stack(void)
-{
-    struct pypy_threadlocal_s *tl;
-    _OP_THREADLOCALREF_ADDR_SIGHANDLER(tl);
-    if (tl == NULL)
-        return NULL;
-    else
-        return tl->vmprof_tl_stack;
-}
-#else
-static PY_STACK_FRAME_T *get_vmprof_stack(void)
-{
-    return 0;
-}
+PY_STACK_FRAME_T *get_vmprof_stack(void);
 #endif
-
 RPY_EXTERN
 intptr_t vmprof_get_traceback(void *stack, void *ucontext,
-                              intptr_t *result_p, intptr_t result_length)
-{
-    int n;
-    int enabled;
-#ifdef VMPROF_WINDOWS
-    intptr_t pc = 0;   /* XXX implement me */
-#else
-    intptr_t pc = ucontext ? (intptr_t)GetPC((ucontext_t *)ucontext) : 0;
+                              intptr_t *result_p, intptr_t result_length);
 #endif
-    if (stack == NULL) {
-        stack = get_vmprof_stack();
-    }
-#ifdef VMP_SUPPORTS_NATIVE_PROFILING
-    enabled = vmp_native_enabled();
-    vmp_native_disable();
-#endif
-    n = get_stack_trace(stack, result_p, result_length - 2, pc);
-#ifdef VMP_SUPPORTS_NATIVE_PROFILING
-    if (enabled) {
-        vmp_native_enable();
-    }
-#endif
-    return (intptr_t)n;
-}
+
+int vmprof_get_signal_type(void);
+long vmprof_get_prepare_interval_usec(void);
+long vmprof_get_profile_interval_usec(void);
+void vmprof_set_prepare_interval_usec(long value);
+void vmprof_set_profile_interval_usec(long value);
+int vmprof_is_enabled(void);
+void vmprof_set_enabled(int value);
+int vmprof_get_itimer_type(void);
+#ifdef VMPROF_UNIX
+int broadcast_signal_for_threads(void);
+int is_main_thread(void);
 #endif

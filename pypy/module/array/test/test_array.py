@@ -144,6 +144,11 @@ class AppTestArray(object):
             raises(OverflowError, a.append, -1)
             raises(OverflowError, a.append, 2 ** (8 * b))
 
+    def test_errormessage(self):
+        a = self.array("L", [1, 2, 3])
+        excinfo = raises(TypeError, "a[0] = 'abc'")
+        assert str(excinfo.value) == "array item must be integer"
+
     def test_fromstring(self):
         a = self.array('b')
         a.fromstring('Hi!')
@@ -1061,6 +1066,13 @@ class AppTestArray(object):
 
     def test_fresh_array_buffer_bytes(self):
         assert bytes(memoryview(self.array('i'))) == b''
+
+    def test_mview_slice_aswritebuf(self):
+        import struct
+        a = self.array('B', b'abcdef')
+        view = memoryview(a)[1:5]
+        struct.pack_into('>H', view, 1, 0x1234)
+        assert a.tobytes() == b'ab\x12\x34ef'
 
 
 class AppTestArrayReconstructor:

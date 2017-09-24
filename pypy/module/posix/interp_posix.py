@@ -10,7 +10,7 @@ except ImportError:
 
 from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype
@@ -66,7 +66,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.bytes0_w(self.w_obj)
+        return self.space.bytesbuf0_w(self.w_obj)
 
     def as_unicode(self):
         return self.space.fsdecode_w(self.w_obj)
@@ -85,7 +85,7 @@ def make_dispatch_function(func, tag, allow_fd_fn=None):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.bytes0_w(w_fname)
+            fname = space.bytesbuf0_w(w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -531,9 +531,9 @@ def do_stat(space, funcname, path, dir_fd, follow_symlinks):
                     "%s: cannot use fd and follow_symlinks together", funcname)
             st = rposix_stat.fstat(path.as_fd)
         elif follow_symlinks and dir_fd == DEFAULT_DIR_FD:
-            st = call_rposix(rposix_stat.stat, path)
+            st = call_rposix(rposix_stat.stat3, path)
         elif not follow_symlinks and dir_fd == DEFAULT_DIR_FD:
-            st = call_rposix(rposix_stat.lstat, path)
+            st = call_rposix(rposix_stat.lstat3, path)
         elif rposix.HAVE_FSTATAT:
             st = call_rposix(rposix_stat.fstatat, path, dir_fd, follow_symlinks)
         else:
@@ -746,7 +746,7 @@ def _getfullpathname(space, w_path):
             fullpath = rposix.getfullpathname(path)
             w_fullpath = space.newunicode(fullpath)
         else:
-            path = space.bytes0_w(w_path)
+            path = space.bytesbuf0_w(w_path)
             fullpath = rposix.getfullpathname(path)
             w_fullpath = space.newbytes(fullpath)
     except OSError as e:
@@ -931,6 +931,8 @@ On some platforms, path may also be specified as an open file descriptor;
     if space.is_none(w_path):
         w_path = space.newunicode(u".")
     if space.isinstance_w(w_path, space.w_bytes):
+        # XXX CPython doesn't follow this path either if w_path is,
+        # for example, a memoryview or another buffer type
         dirname = space.bytes0_w(w_path)
         try:
             result = rposix.listdir(dirname)
@@ -1316,8 +1318,8 @@ def get_fork_hooks(where):
     else:
         assert False, "Unknown fork hook"
 
+@not_rpython
 def add_fork_hook(where, hook):
-    "NOT_RPYTHON"
     get_fork_hooks(where).append(hook)
 
 add_fork_hook('child', ExecutionContext._mark_thread_disappeared)

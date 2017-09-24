@@ -2,7 +2,7 @@ import py
 import pytest
 
 
-class AppTestItertools:
+class AppTestItertools(object):
     spaceconfig = dict(usemodules=['itertools'])
 
     def test_count(self):
@@ -213,6 +213,9 @@ class AppTestItertools:
         assert list(itertools.islice(range(10), None)) == list(range(10))
         assert list(itertools.islice(range(10), None,None)) == list(range(10))
         assert list(itertools.islice(range(10), None,None,None)) == list(range(10))
+
+        it = itertools.islice([0, 1, 2], None, None, 2)
+        assert list(it) == [0, 2]
 
         import weakref
         for args in [(1,), (None,), (0, None, 2)]:
@@ -643,7 +646,7 @@ class AppTestItertools:
         assert itertools.tee(a, 0) == ()
 
 
-class AppTestItertools26:
+class AppTestItertools26(object):
     spaceconfig = dict(usemodules=['itertools'])
 
     def test_count_overflow(self):
@@ -905,10 +908,8 @@ class AppTestItertools26:
         raises(ValueError, permutations, [1, 2], -1)
 
 
-class AppTestItertools27:
-    spaceconfig = {
-        "usemodules": ['itertools', 'struct', 'binascii'],
-    }
+class AppTestItertools27(object):
+    spaceconfig = {"usemodules": ['itertools', 'struct', 'binascii']}
 
     def test_compress(self):
         import itertools
@@ -1027,6 +1028,8 @@ class AppTestItertools27:
                 assert list(itertools.islice(c2, 3)) == expected
                 c3 = pickle.loads(pickle.dumps(c))
                 assert list(itertools.islice(c3, 3)) == expected
+        c4 = copy.copy(itertools.islice([1, 2, 3], 1, 5))
+        assert list(c4) == [2, 3]
 
     def test_islice_attack(self):
         import itertools
@@ -1091,8 +1094,6 @@ class AppTestItertools32:
     def test_accumulate(self):
         """copied from ./lib-python/3/test/test_itertools.py"""
         from itertools import accumulate
-        from decimal import Decimal
-        from fractions import Fraction
         import _operator as operator
         expected = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45]
         # one positional arg
@@ -1100,7 +1101,7 @@ class AppTestItertools32:
         # kw arg
         assert list(accumulate(iterable=range(10))) == expected
         # multiple types
-        for typ in int, complex, Decimal, Fraction:
+        for typ in int, complex:
             assert list(accumulate(map(typ, range(10)))) == list(map(typ, expected))
         assert list(accumulate('abc')) == ['a', 'ab', 'abc']   # works with non-numeric
         assert list(accumulate([])) == []                  # empty iterable

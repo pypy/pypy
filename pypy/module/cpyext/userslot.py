@@ -122,3 +122,35 @@ def slot_tp_descr_set(space, w_self, w_obj, w_value):
     else:
         space.delete(w_self, w_obj)
     return 0
+
+@slot_function([PyObject], PyObject)
+def slot_tp_iter(space, w_self):
+    return space.iter(w_self)
+
+@slot_function([PyObject], PyObject)
+def slot_tp_iternext(space, w_self):
+    return space.next(w_self)
+
+@slot_function([PyObject], PyObject)
+def slot_am_await(space, w_self):
+    w_await = space.lookup(w_self, "__await__")
+    if w_await is None:
+        raise oefmt(space.w_TypeError,
+            "object %T does not have __await__ method", w_self)
+    return space.get_and_call_function(w_await, w_self)
+
+@slot_function([PyObject], PyObject)
+def slot_am_aiter(space, w_self):
+    w_aiter = space.lookup(w_self, "__aiter__")
+    if w_aiter is None:
+        raise oefmt(space.w_TypeError,
+            "object %T does not have __aiter__ method", w_self)
+    return space.get_and_call_function(w_aiter, w_self)
+
+@slot_function([PyObject], PyObject)
+def slot_am_anext(space, w_self):
+    w_anext = space.lookup(w_self, "__anext__")
+    if w_anext is None:
+        raise oefmt(space.w_TypeError,
+            "object %T does not have __anext__ method", w_self)
+    return space.get_and_call_function(w_anext, w_self)

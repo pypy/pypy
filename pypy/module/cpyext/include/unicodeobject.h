@@ -7,6 +7,11 @@ extern "C" {
 
 #include "cpyext_unicodeobject.h"
 
+/*#define PyUnicode_Check(op) \
+**		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_UNICODE_SUBCLASS)
+**#define PyUnicode_CheckExact(op) ((op)->ob_type == &PyUnicode_Type)
+*/
+
 /* Fast access macros */
 #ifndef Py_LIMITED_API
 
@@ -335,7 +340,7 @@ PyAPI_FUNC(char *) PyUnicode_AsUTF8AndSize(
 
 Py_LOCAL_INLINE(size_t) Py_UNICODE_strlen(const Py_UNICODE *u)
 {
-    int res = 0;
+    size_t res = 0;
     while(*u++)
         res++;
     return res;

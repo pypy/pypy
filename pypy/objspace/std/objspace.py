@@ -95,7 +95,10 @@ class StdObjSpace(ObjSpace):
         self.w_unicode = self.w_str
         self.w_text = self.w_str
         del self.w_str
+        self.w_long = self.w_int
         self.w_dict.flag_map_or_seq = 'M'
+        from pypy.objspace.std import dictproxyobject
+        dictproxyobject._set_flag_map_or_seq(self)
         self.w_list.flag_map_or_seq = 'S'
         self.w_tuple.flag_map_or_seq = 'S'
         self.builtin_types['str'] = self.w_unicode
@@ -201,8 +204,8 @@ class StdObjSpace(ObjSpace):
 
         return self._wrap_not_rpython(x)
 
+    @not_rpython
     def _wrap_not_rpython(self, x):
-        "NOT_RPYTHON"
         # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is

@@ -37,24 +37,51 @@ we have it for compatibility with CPython.
 #define Py_INCREF(ob)   (((PyObject *)(ob))->ob_refcnt++)
 #define Py_DECREF(op)                                   \
     do {                                                \
-        if (--((PyObject *)(op))->ob_refcnt != 0)       \
+        PyObject *_py_decref_tmp = (PyObject *)(op);    \
+        if (--(_py_decref_tmp)->ob_refcnt != 0)         \
             ;                                           \
         else                                            \
-            _Py_Dealloc((PyObject *)(op));              \
+            _Py_Dealloc(_py_decref_tmp);                \
     } while (0)
 
-#define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
-#define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
+#define Py_XINCREF(op)                                \
+    do {                                              \
+        PyObject *_py_xincref_tmp = (PyObject *)(op); \
+        if (_py_xincref_tmp != NULL)                  \
+            Py_INCREF(_py_xincref_tmp);               \
+    } while (0)
+
+#define Py_XDECREF(op)                                \
+    do {                                              \
+        PyObject *_py_xdecref_tmp = (PyObject *)(op); \
+        if (_py_xdecref_tmp != NULL)                  \
+            Py_DECREF(_py_xdecref_tmp);               \
+    } while (0)
+
 #endif
 
-#define Py_CLEAR(op)				\
-        do {                            	\
-                if (op) {			\
-                        PyObject *_py_tmp = (PyObject *)(op);	\
-                        (op) = NULL;		\
-                        Py_DECREF(_py_tmp);	\
-                }				\
-        } while (0)
+#define Py_CLEAR(op)                            \
+    do {                                        \
+        PyObject *_py_tmp = (PyObject *)(op);   \
+        if (_py_tmp != NULL) {                  \
+            (op) = NULL;                        \
+            Py_DECREF(_py_tmp);                 \
+        }                                       \
+    } while (0)
+
+#define Py_SETREF(op, op2)                      \
+    do {                                        \
+        PyObject *_py_tmp = (PyObject *)(op);   \
+        (op) = (op2);                           \
+        Py_DECREF(_py_tmp);                     \
+    } while (0)
+
+#define Py_XSETREF(op, op2)                     \
+    do {                                        \
+        PyObject *_py_tmp = (PyObject *)(op);   \
+        (op) = (op2);                           \
+        Py_XDECREF(_py_tmp);                    \
+    } while (0)
 
 #define Py_REFCNT(ob)		(((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
@@ -112,6 +139,10 @@ not implemented for a given type combination.
 #define PyBUF_WRITE 0x200
 #define PyBUF_SHADOW 0x400
 /* end Py3k buffer interface */
+
+
+PyAPI_FUNC(PyObject*) PyType_FromSpec(PyType_Spec*);
+
 
 /* Flag bits for printing: */
 #define Py_PRINT_RAW    1       /* No string quotes etc. */
@@ -196,6 +227,10 @@ given type object has a specified feature.
 #endif
 #define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
 
+#define PyType_Check(op) \
+    PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
+#define PyType_CheckExact(op) (Py_TYPE(op) == &PyType_Type)
+
 /* objimpl.h ----------------------------------------------*/
 #define PyObject_New(type, typeobj) \
 		( (type *) _PyObject_New(typeobj) )
@@ -241,6 +276,11 @@ typedef union _gc_head {
 /* dummy GC macros */
 #define _PyGC_FINALIZED(o) 1
 #define PyType_IS_GC(tp) 1
+
+#define PyObject_GC_Track(o)      do { } while(0)
+#define PyObject_GC_UnTrack(o)    do { } while(0)
+#define _PyObject_GC_TRACK(o)     do { } while(0)
+#define _PyObject_GC_UNTRACK(o)   do { } while(0)
 
 /* Utility macro to help write tp_traverse functions.
  * To use this macro, the tp_traverse function must name its arguments

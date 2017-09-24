@@ -477,7 +477,8 @@ class AppTestTypeObject:
             a = 1
 
         class mymeta(type):
-            def mro(self):
+            def mro(self, ignore=False):
+                assert ignore or self.__mro__ is None
                 return [self, object]
 
         class B_mro(A_mro, metaclass=mymeta):
@@ -485,7 +486,7 @@ class AppTestTypeObject:
 
         assert B_mro.__bases__ == (A_mro,)
         assert B_mro.__mro__ == (B_mro, object)
-        assert B_mro.mro() == [B_mro, object]
+        assert B_mro.mro(ignore=True) == [B_mro, object]
         assert B_mro.b == 1
         assert B_mro().b == 1
         assert getattr(B_mro, 'a', None) == None
@@ -1282,6 +1283,65 @@ class AppTestTypeObject:
         raises(TypeError, type, 'A', (), collections.UserDict())
         raises(ValueError, type, 'A\x00B', (), {})
         raises(TypeError, type, b'A', (), {})
+
+    def test_incomplete_extend(self): """
+        # Extending an unitialized type with type.__mro__ is None must
+        # throw a reasonable TypeError exception, instead of failing
+        # with a segfault.
+        class M(type):
+            def mro(cls):
+                if cls.__mro__ is None and cls.__name__ != 'X':
+                    try:
+                        class X(cls):
+                            pass
+                    except TypeError:
+                        found.append(1)
+                return type.mro(cls)
+        found = []
+        class A(metaclass=M):
+            pass
+        assert found == [1]
+        """
+
+    def test_incomplete_extend_2(self): """
+        # Same as test_incomplete_extend, with multiple inheritance
+        class M(type):
+            def mro(cls):
+                if cls.__mro__ is None and cls.__name__ == 'Second':
+                    try:
+                        class X(First, cls):
+                            pass
+                    except TypeError:
+                        found.append(1)
+                return type.mro(cls)
+        found = []
+        class Base(metaclass=M):
+            pass
+        class First(Base):
+            pass
+        class Second(Base):
+            pass
+        assert found == [1]
+        """
+
+    def test_incomplete_extend_3(self): """
+        # this case "works", but gives a slightly strange error message
+        # on both CPython and PyPy
+        class M(type):
+            def mro(cls):
+                if cls.__mro__ is None and cls.__name__ == 'A':
+                    try:
+                        Base.__new__(cls)
+                    except TypeError:
+                        found.append(1)
+                return type.mro(cls)
+        found = []
+        class Base(metaclass=M):
+            pass
+        class A(Base):
+            pass
+        assert found == [1]
+        """
 
 
 class AppTestWithMethodCacheCounter:

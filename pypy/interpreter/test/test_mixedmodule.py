@@ -1,38 +1,43 @@
+import pytest
+
+from pypy.tool.pytest.objspace import maketestobjspace
 from pypy.interpreter.mixedmodule import MixedModule
-import py.test
 
+@pytest.fixture()
+def space():
+    # We need a fresh space for each test here
+    return maketestobjspace()
 
-class TestMixedModule(object):
-    def test_install(self):
-        class Module(MixedModule):
-            interpleveldefs = {}
-            appleveldefs = {}
+def test_install(space):
+    class Module(MixedModule):
+        interpleveldefs = {}
+        appleveldefs = {}
 
-        m = Module(self.space, self.space.wrap("test_module"))
-        m.install()
+    m = Module(space, space.wrap("test_module"))
+    m.install()
 
-        assert self.space.builtin_modules["test_module"] is m
+    assert space.builtin_modules["test_module"] is m
 
-    def test_submodule(self):
-        class SubModule(MixedModule):
-            interpleveldefs = {}
-            appleveldefs = {}
+def test_submodule(space):
+    class SubModule(MixedModule):
+        interpleveldefs = {}
+        appleveldefs = {}
 
-        class Module(MixedModule):
-            interpleveldefs = {}
-            appleveldefs = {}
-            submodules = {
-                "sub": SubModule
-            }
+    class Module(MixedModule):
+        interpleveldefs = {}
+        appleveldefs = {}
+        submodules = {
+            "sub": SubModule
+        }
 
-        m = Module(self.space, self.space.wrap("test_module"))
-        m.install()
+    m = Module(space, space.wrap("test_module"))
+    m.install()
 
-        assert self.space.builtin_modules["test_module"] is m
-        assert isinstance(self.space.builtin_modules["test_module.sub"], SubModule)
+    assert space.builtin_modules["test_module"] is m
+    assert isinstance(space.builtin_modules["test_module.sub"], SubModule)
 
 class AppTestMixedModule(object):
-    pytestmark = py.test.mark.skipif("config.option.runappdirect")
+    pytestmark = pytest.mark.skipif("config.option.runappdirect")
 
     def setup_class(cls):
         space = cls.space

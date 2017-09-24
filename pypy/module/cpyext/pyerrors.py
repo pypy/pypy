@@ -50,7 +50,9 @@ def PyErr_SetObject(space, w_type, w_value):
     """This function is similar to PyErr_SetString() but lets you specify an
     arbitrary Python object for the "value" of the exception."""
     state = space.fromcache(State)
-    state.set_exception(OperationError(w_type, w_value))
+    operr = OperationError(w_type, w_value)
+    operr.record_context(space, space.getexecutioncontext())
+    state.set_exception(operr)
 
 @cpython_api([PyObject, CONST_STRING], lltype.Void)
 def PyErr_SetString(space, w_type, message_ptr):
@@ -125,8 +127,18 @@ def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
     not an instance of the  same class.  This function can be used to instantiate
     the class in that case.  If the values are already normalized, nothing happens.
     The delayed normalization is implemented to improve performance."""
-    operr = OperationError(from_ref(space, exc_p[0]),
-                           from_ref(space, val_p[0]))
+    if exc_p[0]:
+        w_etype = from_ref(space, exc_p[0])
+    else:
+        # There is no exception, so nothing to do
+        return
+    if val_p[0]:
+        w_evalue = from_ref(space, val_p[0])
+    else:
+        # On CPython, PyErr_SetNone actually sets val to NULL.
+        # Sensible code should probably never trigger this path on PyPy, but...
+        w_evalue = space.w_None
+    operr = OperationError(w_etype, w_evalue)
     operr.normalize_exception(space)
     Py_DecRef(space, exc_p[0])
     Py_DecRef(space, val_p[0])

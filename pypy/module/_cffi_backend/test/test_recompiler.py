@@ -95,6 +95,7 @@ class AppTestRecompiler:
 
     def setup_method(self, meth):
         self._w_modules = self.space.appexec([], """():
+            import cpyext      # ignore stuff there in the leakfinder
             import sys
             return set(sys.modules)
         """)
@@ -928,8 +929,8 @@ class AppTestRecompiler:
     def test_constant_of_value_unknown_to_the_compiler(self):
         extra_c_source = self.udir + self.os_sep + (
             'extra_test_constant_of_value_unknown_to_the_compiler.c')
-        with open(extra_c_source, 'w') as f:
-            f.write('const int external_foo = 42;\n')
+        with open(extra_c_source, 'wb') as f:
+            f.write(b'const int external_foo = 42;\n')
         ffi, lib = self.prepare(
             "const int external_foo;",
             'test_constant_of_value_unknown_to_the_compiler',
@@ -1818,6 +1819,68 @@ class AppTestRecompiler:
                                 "void f(void) { }")
         assert lib.f.__get__(42) is lib.f
         assert lib.f.__get__(42, int) is lib.f
+
+    def test_function_returns_float_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "float _Complex f1(float a, float b);",
+            "test_function_returns_float_complex", """
+            #include <complex.h>
+            static float _Complex f1(float a, float b) { return a + I*2.0*b; }
+        """, min_version=(1, 11, 0))
+        result = lib.f1(1.25, 5.1)
+        assert type(result) == complex
+        assert result.real == 1.25   # exact
+        assert (result.imag != 2*5.1) and (abs(result.imag - 2*5.1) < 1e-5) # inexact
+
+    def test_function_returns_double_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "double _Complex f1(double a, double b);",
+            "test_function_returns_double_complex", """
+            #include <complex.h>
+            static double _Complex f1(double a, double b) { return a + I*2.0*b; }
+        """, min_version=(1, 11, 0))
+        result = lib.f1(1.25, 5.1)
+        assert type(result) == complex
+        assert result.real == 1.25   # exact
+        assert result.imag == 2*5.1  # exact
+
+    def test_function_argument_float_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "float f1(float _Complex x);",
+            "test_function_argument_float_complex", """
+            #include <complex.h>
+            static float f1(float _Complex x) { return cabsf(x); }
+        """, min_version=(1, 11, 0))
+        x = complex(12.34, 56.78)
+        result = lib.f1(x)
+        assert abs(result - abs(x)) < 1e-5
+        result2 = lib.f1(ffi.cast("float _Complex", x))
+        assert result2 == result
+
+    def test_function_argument_double_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "double f1(double _Complex);",
+            "test_function_argument_double_complex", """
+            #include <complex.h>
+            static double f1(double _Complex x) { return cabs(x); }
+        """, min_version=(1, 11, 0))
+        x = complex(12.34, 56.78)
+        result = lib.f1(x)
+        assert abs(result - abs(x)) < 1e-11
+        result2 = lib.f1(ffi.cast("double _Complex", x))
+        assert result2 == result
 
     def test_typedef_array_dotdotdot(self):
         ffi, lib = self.prepare("""

@@ -9,8 +9,9 @@ class AppTestBuilders(object):
         b.append("1")
         s = b.build()
         assert s == "abc1231"
-        raises(ValueError, b.build)
-        raises(ValueError, b.append, "123")
+        assert b.build() == s
+        b.append("123")
+        assert b.build() == s + "123"
 
     def test_preallocate(self):
         from __pypy__.builders import StringBuilder
@@ -27,7 +28,8 @@ class AppTestBuilders(object):
         raises(ValueError, b.append_slice, "1", 2, 1)
         s = b.build()
         assert s == "cde"
-        raises(ValueError, b.append_slice, "abc", 1, 2)
+        b.append_slice("abc", 1, 2)
+        assert b.build() == "cdeb"
 
     def test_stringbuilder(self):
         from __pypy__.builders import BytesBuilder
@@ -37,6 +39,6 @@ class AppTestBuilders(object):
         assert len(b) == 6
         b.append(b"you and me")
         s = b.build()
-        raises(ValueError, len, b)
+        assert len(b) == 16
         assert s == b"abc123you and me"
-        raises(ValueError, b.build)
+        assert b.build() == s

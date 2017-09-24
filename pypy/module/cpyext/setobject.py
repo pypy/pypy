@@ -9,6 +9,7 @@ from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, newset
 
 
 PySet_Check, PySet_CheckExact = build_type_checkers("Set")
+PyFrozenSet_Check, PyFrozenSet_CheckExact = build_type_checkers("FrozenSet")
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyAnySet_Check(space, w_obj):
@@ -91,7 +92,7 @@ def PySet_Size(space, ref):
     """Return the length of a set or frozenset object. Equivalent to
     len(anyset).  Raises a PyExc_SystemError if anyset is not a set, frozenset,
     or an instance of a subtype."""
-    if not PySet_Check(space, ref):
+    if not PyAnySet_Check(space, ref):
         raise oefmt(space.w_TypeError, "expected set object")
     return PySet_GET_SIZE(space, ref)
 
@@ -104,3 +105,20 @@ def PySet_Contains(space, w_obj, w_key):
     set, frozenset, or an instance of a subtype."""
     w_res = space.contains(w_obj, w_key)
     return space.int_w(w_res)
+
+@cpython_api([PyObject], PyObject)
+def PyFrozenSet_New(space, w_iterable):
+    """Return a new frozenset containing objects returned by the iterable.
+    The iterable may be NULL to create a new empty frozenset.  Return the new
+    set on success or NULL on failure.  Raise TypeError if iterable is
+    not actually iterable.
+
+    Now guaranteed to return a brand-new frozenset.  Formerly,
+    frozensets of zero-length were a singleton.  This got in the way of
+    building-up new frozensets with PySet_Add()."""
+    if w_iterable is None:
+        return space.call_function(space.w_frozenset)
+    else:
+        return space.call_function(space.w_frozenset, w_iterable)
+
+

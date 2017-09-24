@@ -321,7 +321,7 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_id("globalread", is_entry_bridge=True)
         assert loop.match_by_id("globalread", """
             # only a dead read
-            p26 = getfield_gc_r(ConstPtr(ptr25), descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>)
+            dummy_get_utf8?
         """)
 
     def test_eval(self):

@@ -4,15 +4,16 @@ Module objects.
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 
 
 class Module(W_Root):
     """A module."""
 
-    _immutable_fields_ = ["w_dict?"]
+    _immutable_fields_ = ["w_dict?", "w_userclass?"]
 
     _frozen = False
+    w_userclass = None
 
     def __init__(self, space, w_name, w_dict=None):
         self.space = space
@@ -35,13 +36,19 @@ class Module(W_Root):
         except OperationError:
             pass
 
+    @not_rpython
     def install(self):
-        """NOT_RPYTHON: installs this module into space.builtin_modules"""
+        """installs this module into space.builtin_modules"""
         modulename = self.space.text0_w(self.w_name)
+        if modulename in self.space.builtin_modules:
+            raise ValueError(
+                "duplicate interp-level module enabled for the "
+                "app-level module %r" % (modulename,))
         self.space.builtin_modules[modulename] = self
 
+    @not_rpython
     def setup_after_space_initialization(self):
-        """NOT_RPYTHON: to allow built-in modules to do some more setup
+        """to allow built-in modules to do some more setup
         after the space is fully initialized."""
 
     def init(self, space):
@@ -141,6 +148,26 @@ class Module(W_Root):
             raise oefmt(space.w_TypeError, "%N.__dict__ is not a dictionary",
                         self)
         return space.call_function(space.w_list, w_dict)
+
+    # These three methods are needed to implement '__class__' assignment
+    # between a module and a subclass of module.  They give every module
+    # the ability to have its '__class__' set, manually.  Note that if
+    # you instantiate a subclass of ModuleType in the first place, then
+    # you get an RPython instance of a subclass of Module created in the
+    # normal way by typedef.py.  That instance has got its own
+    # getclass(), getslotvalue(), etc. but provided it has no __slots__,
+    # it is compatible with ModuleType for '__class__' assignment.
+
+    def getclass(self, space):
+        if self.w_userclass is None:
+            return W_Root.getclass(self, space)
+        return self.w_userclass
+
+    def setclass(self, space, w_cls):
+        self.w_userclass = w_cls
+
+    def user_setup(self, space, w_subtype):
+        self.w_userclass = w_subtype
 
 
 def init_extra_module_attrs(space, w_mod):

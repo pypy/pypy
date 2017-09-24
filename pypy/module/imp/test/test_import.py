@@ -781,11 +781,10 @@ class TestAbi:
     def test_abi_tag(self):
         space1 = maketestobjspace(make_config(None, soabi='TEST'))
         space2 = maketestobjspace(make_config(None, soabi=''))
+        assert importing.get_so_extension(space1).startswith('.TEST')
         if sys.platform == 'win32':
-            assert importing.get_so_extension(space1) == '.TESTi.pyd'
             assert importing.get_so_extension(space2) == '.pyd'
         else:
-            assert importing.get_so_extension(space1) == '.TESTi.so'
             assert importing.get_so_extension(space2) == '.so'
 
 def _getlong(data):

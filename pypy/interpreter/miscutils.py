@@ -3,6 +3,7 @@ Miscellaneous utilities.
 """
 
 from rpython.rlib.listsort import make_timsort_class
+from rpython.rlib.objectmodel import not_rpython
 
 
 class ThreadLocals:
@@ -41,9 +42,8 @@ class ThreadLocals:
         # but in some corner cases it is not...  unsure why
         self._value = None
 
-
+@not_rpython
 def make_weak_value_dictionary(space, keytype, valuetype):
-    "NOT_RPYTHON"
     if space.config.translation.rweakref:
         from rpython.rlib.rweakref import RWeakValueDictionary
         return RWeakValueDictionary(keytype, valuetype)

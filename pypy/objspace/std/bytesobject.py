@@ -2,8 +2,7 @@
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
-    compute_hash, compute_unique_id, import_from_mixin, newlist_hint,
-    resizelist_hint)
+    compute_hash, compute_unique_id, import_from_mixin)
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -365,8 +364,8 @@ class W_AbstractBytesObject(W_Root):
         characters, all remaining cased characters have lowercase.
         """
 
-    @unwrap_spec(w_deletechars=WrappedDefault(''))
-    def descr_translate(self, space, w_table, w_deletechars):
+    @unwrap_spec(w_delete=WrappedDefault(''))
+    def descr_translate(self, space, w_table, w_delete):
         """B.translate(table[, deletechars]) -> copy of B
 
         Return a copy of the string B, where all characters occurring
@@ -748,22 +747,43 @@ def _convert_from_buffer_or_iterable(space, w_source):
     if space.isinstance_w(w_source, space.w_unicode):
         raise oefmt(space.w_TypeError,
                     "cannot convert a (unicode) str object to bytes")
+    return _from_byte_sequence(space, w_source)
 
-    # sequence of bytes
+
+def _get_printable_location(w_type):
+    return ('bytearray_from_byte_sequence [w_type=%s]' %
+            w_type.getname(w_type.space).encode('utf-8'))
+
+_byteseq_jitdriver = jit.JitDriver(
+    name='bytearray_from_byte_sequence',
+    greens=['w_type'],
+    reds=['w_iter', 'builder'],
+    get_printable_location=_get_printable_location)
+
+def _from_byte_sequence(space, w_source):
+    # Split off in a separate function for the JIT's benefit
+    # and add a jitdriver with the type of w_iter as the green key
     w_iter = space.iter(w_source)
     length_hint = space.length_hint(w_source, 0)
     builder = StringBuilder(length_hint)
+    #
+    _from_byte_sequence_loop(space, w_iter, builder)
+    #
+    return builder.build()
+
+def _from_byte_sequence_loop(space, w_iter, builder):
+    w_type = space.type(w_iter)
     while True:
+        _byteseq_jitdriver.jit_merge_point(w_type=w_type,
+                                           w_iter=w_iter,
+                                           builder=builder)
         try:
             w_item = space.next(w_iter)
         except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break
-        value = space.byte_w(w_item)
-        builder.append(value)
-    return builder.build()
-
+        builder.append(space.byte_w(w_item))
 
 W_BytesObject.typedef = TypeDef(
     "bytes", None, None, "read",

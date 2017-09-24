@@ -35,8 +35,8 @@ like this:
 
 * Edit things.  Use ``hg diff`` to see what you changed.  Use ``hg add``
   to make Mercurial aware of new files you added, e.g. new test files.
-  Use ``hg status`` to see if there are such files.  Run tests!  (See
-  the rest of this page.)
+  Use ``hg status`` to see if there are such files.  Write and run tests!
+  (See the rest of this page.)
 
 * Commit regularly with ``hg commit``.  A one-line commit message is
   fine.  We love to have tons of commits; make one as soon as you have
@@ -113,6 +113,10 @@ If you encounter problems with the installed version
 make sure you have the correct version installed which
 you can find out with the ``--version`` switch.
 
+You will need the `build requirements`_ to run tests successfully, since many of
+them compile little pieces of PyPy and then run the tests inside that minimal
+interpreter
+
 Now on to running some tests.  PyPy has many different test directories
 and you can use shell completion to point at directories or files::
 
@@ -141,7 +145,7 @@ interpreter.
 
 .. _py.test testing tool: http://pytest.org
 .. _py.test usage and invocations: http://pytest.org/latest/usage.html#usage
-
+.. _`build requirements`: build.html#install-build-time-dependencies
 
 Special Introspection Features of the Untranslated Python Interpreter
 ---------------------------------------------------------------------

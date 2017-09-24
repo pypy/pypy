@@ -129,7 +129,7 @@ class Platform(object):
     # some helpers which seem to be cross-platform enough
 
     def _execute_c_compiler(self, cc, args, outname, cwd=None):
-        log.execute(cc + ' ' + ' '.join(args))
+        #log.execute(cc + ' ' + ' '.join(args))
         # 'cc' can also contain some options for the C compiler;
         # e.g. it can be "gcc -m32".  We handle it by splitting on ' '.
         cclist = cc.split()
@@ -151,8 +151,9 @@ class Platform(object):
                 # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
         else:
-            for line in stderr.splitlines():
-                log.WARNING(line)
+            if self.log_errors:
+                for line in stderr.splitlines():
+                    log.WARNING(line)
 
     def _make_o_file(self, cfile, ext):
         """Create an object file name under the udir for a .c file"""
@@ -260,7 +261,8 @@ if sys.platform.startswith('linux'):
     # Only required on armhf and mips{,el}, not armel. But there's no way to
     # detect armhf without shelling out
     if (platform.architecture()[0] == '64bit'
-            or platform.machine().startswith(('arm', 'mips', 'ppc'))):
+            or platform.machine().startswith(
+                ('arm', 'm68k', 'mips', 'parisc', 'ppc', 'sh4'))):
         host_factory = LinuxPIC
     else:
         host_factory = Linux

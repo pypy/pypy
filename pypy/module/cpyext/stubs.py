@@ -625,18 +625,6 @@ def PyObject_GC_Resize(space, op, newsize):
     resized object or NULL on failure."""
     raise NotImplementedError
 
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_GC_TRACK(space, op):
-    """A macro version of PyObject_GC_Track().  It should not be used for
-    extension modules."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_GC_UNTRACK(space, op):
-    """A macro version of PyObject_GC_UnTrack().  It should not be used for
-    extension modules."""
-    raise NotImplementedError
-
 @cpython_api([PyFrameObject], PyObject)
 def PyGen_New(space, frame):
     """Create and return a new generator object based on the frame object. A
@@ -1408,26 +1396,6 @@ def PySequence_Count(space, o, value):
     equivalent to the Python expression o.count(value)."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_Check(space, p):
-    """Return true if p is a frozenset object or an instance of a
-    subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_CheckExact(space, p):
-    """Return true if p is a frozenset object but not an instance of a
-    subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyFrozenSet_New(space, iterable):
-    """Return a new frozenset containing objects returned by the iterable.
-    The iterable may be NULL to create a new empty frozenset.  Return the new
-    set on success or NULL on failure.  Raise TypeError if iterable is
-    not actually iterable."""
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=-1)
 def Py_FdIsInteractive(space, fp, filename):
     """Return true (nonzero) if the standard I/O file fp with name filename is
@@ -1533,13 +1501,6 @@ def PyType_GetFlags(space, type):
     guaranteed to be stable across Python releases, but access to
     tp_flags itself is not part of the limited API.
     """
-    raise NotImplementedError
-
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyType_IS_GC(space, o):
-    """Return true if the type object includes support for the cycle detector; this
-    tests the type flag Py_TPFLAGS_HAVE_GC."""
     raise NotImplementedError
 
 

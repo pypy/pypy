@@ -2322,10 +2322,12 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
     {
         int ii, nn;
+        PyObject *ret;
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
         long i = PyLong_AsLong(v);  // XXX: error checking?
-        PyObject * ret = PyList_New(n*i);
+        Py_DECREF(v);
+        ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
             {
@@ -2338,10 +2340,12 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
     {
         int ii, nn;
+        PyObject *ret;
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
         long i = PyLong_AsLong(v);
-        PyObject * ret = PyList_New(n*i);
+        Py_DECREF(v);
+        ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
             {
@@ -2351,12 +2355,14 @@ array_multiply(PyObject* obj1, PyObject* obj2)
             }
         return ret;
     }
+    /*
     else if(obj1->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
             ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name);
     else if(obj2->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
             ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name);
+    */
     Py_INCREF(Py_NotImplemented);
     return Py_NotImplemented;
 }
@@ -2374,39 +2380,45 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
     if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
     {
         int nn;
+        PyObject *ret;
         int n = PyList_Size(obj1);
         PyObject * lhs, * out;
         PyObject * rhs = getarrayitem(obj2, 0);
-        PyObject * ret = PyList_New(n);
+        ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             lhs = PyList_GetItem(obj1, nn);
             out = lhs->ob_type->tp_as_number->nb_multiply(lhs, rhs);
             PyList_SetItem(ret, nn, out);
         }
+        Py_DECREF(rhs);
         return ret;
     }
     else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
     {
         int nn;
+        PyObject *ret;
         int n = PyList_Size(obj2);
         PyObject * rhs, * out;
         PyObject * lhs = getarrayitem(obj1, 0);
-        PyObject * ret = PyList_New(n);
+        ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             rhs = PyList_GetItem(obj2, nn);
             out = lhs->ob_type->tp_as_number->nb_multiply(lhs, rhs);
             PyList_SetItem(ret, nn, out);
         }
+        Py_DECREF(lhs);
         return ret;
     }
+    /*
     else if(obj1->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
             ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name);
     else if(obj2->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
             ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name);
+    */
     Py_INCREF(Py_NotImplemented);
     return Py_NotImplemented;
 }
@@ -2904,6 +2916,16 @@ write_buffer_len(PyObject * self, PyObject * obj)
     return PyLong_FromLong(buf_len);
 }
 
+static PyObject *
+same_dealloc(PyObject *self, PyObject *args)
+{
+    PyObject *obj1, *obj2;
+    if (!PyArg_ParseTuple(args, "OO", &obj1, &obj2)) {
+        return NULL;
+    }
+    return PyLong_FromLong(obj1->ob_type->tp_dealloc == obj2->ob_type->tp_dealloc);
+}
+
 /*********************** Install Module **************************/
 
 static PyMethodDef a_methods[] = {
@@ -2914,6 +2936,7 @@ static PyMethodDef a_methods[] = {
     {"get_releasebuffer_cnt",   (PyCFunction)get_releasebuffer_cnt, METH_NOARGS, NULL},
     {"create_and_release_buffer",   (PyCFunction)create_and_release_buffer, METH_O, NULL},
     {"write_buffer_len", write_buffer_len, METH_O, NULL},
+    {"same_dealloc",   (PyCFunction)same_dealloc, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

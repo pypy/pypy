@@ -47,9 +47,19 @@ def build_ffi_for_binding(module_name, module_prefix, modules, libraries=[],
     # is legal, but the following will fail to compile:
     #   int foo(int);
     #   int foo(short);
+    #
+    # XXX <arigo> No, it is a bad idea.  OpenSSL itself tends to tweak
+    # the definitions, like adding a 'const' (see issue #2575).  Every
+    # time they do so, it makes a gratuitous break in this code.  It is
+    # better to rely on the C compiler for that, which is a little bit
+    # more flexible.  That's the point of set_source().  We can still
+    # re-enable the line ``#functions +`` below to get the original
+    # behavior.  (I would enable it during tests, but I don't find any
+    # custom test at all..??)
+    #
     verify_source = "\n".join(
         includes +
-        functions +
+        #functions +
         customizations
     )
     ffi = build_ffi(

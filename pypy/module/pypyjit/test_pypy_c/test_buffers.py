@@ -6,8 +6,8 @@ class TestBuffers(BaseTestPyPyC):
         def main(n):
             import re
             import array
-            p = re.compile('.+')
-            a = array.array('c', 'test' * 1000)
+            p = re.compile(b'.+')
+            a = array.array('B', b'test' * 1000)
             i = 0
             while i < n:
                 i += 1
@@ -30,7 +30,7 @@ class TestBuffers(BaseTestPyPyC):
         def main(n):
             import _struct as struct
             import array
-            a = array.array('c', struct.pack('i', 42))
+            a = array.array('B', struct.pack('i', 42))
             i = 0
             while i < n:
                 i += 1

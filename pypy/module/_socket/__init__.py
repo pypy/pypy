@@ -34,6 +34,7 @@ class Module(MixedModule):
             ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop
             getaddrinfo getnameinfo
             getdefaulttimeout setdefaulttimeout
+            CMSG_SPACE CMSG_LEN
             """.split():
 
             if (name in ('inet_pton', 'inet_ntop', 'socketpair') and
