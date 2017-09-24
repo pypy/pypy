@@ -297,6 +297,13 @@ res = f()
         except TypeError:
             pass
 
+    def test_multiple_invalid_sends(self):
+        def mygen():
+            yield 42
+        g = mygen()
+        raises(TypeError, g.send, 2)
+        raises(TypeError, g.send, 2)
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline

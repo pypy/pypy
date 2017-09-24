@@ -4,7 +4,6 @@ from pypy.objspace.std.mapdict import *
 class Config:
     class objspace:
         class std:
-            withcelldict = False
             methodcachesizeexp = 11
             withmethodcachecounter = False
 

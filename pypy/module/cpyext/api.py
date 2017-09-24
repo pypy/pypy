@@ -40,6 +40,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
+from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.module.cpyext.cparser import CTypeSpace
 
@@ -128,6 +129,11 @@ Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES Py_MAX_NDIMS
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE
 """.split()
+
+for name in ('INT', 'LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
+             'TYPE', 'STRING'): # 'STRING' -> 'BYTES' in py3
+    constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
+
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 globals().update(rffi_platform.configure(CConfig_constants))
@@ -448,49 +454,23 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             error=_compute_error(error, restype), gil=gil,
             result_borrowed=result_borrowed, result_is_ll=result_is_ll)
         FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
-
-        # ZZZ is this whole logic really needed???  It seems to be only
-        # for RPython code calling PyXxx() functions directly.  I would
-        # think that usually directly calling the function is clean
-        # enough now
-        def unwrapper_catch(space, *args):
-            try:
-                res = unwrapper(space, *args)
-            except OperationError as e:
-                if not hasattr(unwrapper.api_func, "error_value"):
-                    raise
-                state = space.fromcache(State)
-                state.set_exception(e)
-                if is_PyObject(restype):
-                    return None
-                else:
-                    return unwrapper.api_func.error_value
-            got_integer = isinstance(res, (int, long, float))
-            if isinstance(restype, lltype.Typedef):
-                real_restype = restype.OF
-            else:
-                real_restype = restype
-            expect_integer = (isinstance(real_restype, lltype.Primitive) and
-                            rffi.cast(restype, 0) == 0)
-            assert got_integer == expect_integer, (
-                'got %r not integer' % (res,))
-            return res
-        INTERPLEVEL_API[func.__name__] = unwrapper_catch  # used in tests
-
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
         unwrapper.api_func = api_function
+        INTERPLEVEL_API[func.__name__] = unwrapper  # used in tests
         return unwrapper
     return decorate
 
 def api_func_from_cdef(func, cdef, cts,
-        error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+        error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
+        result_is_ll=False):
     func._always_inline_ = 'try'
     cdecl = cts.parse_func(cdef)
     RESULT = cdecl.get_llresult(cts)
     api_function = ApiFunction(
         cdecl.get_llargs(cts), RESULT, func,
-        error=_compute_error(error, RESULT), cdecl=cdecl)
+        error=_compute_error(error, RESULT), cdecl=cdecl,
+        result_is_ll=result_is_ll)
     FUNCTIONS_BY_HEADER[header][cdecl.name] = api_function
     unwrapper = api_function.get_unwrapper()
     unwrapper.func = func
@@ -560,6 +540,7 @@ SYMBOLS_C = [
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
     'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyString_FromFormat', 'PyString_FromFormatV',
+    'PyUnicode_FromFormat', 'PyUnicode_FromFormatV',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
     '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
@@ -684,10 +665,12 @@ build_exported_objects()
 
 
 class CpyextTypeSpace(CTypeSpace):
-    def decl(self, cdef, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
+    def decl(self, cdef, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
+            result_is_ll=False):
         def decorate(func):
             return api_func_from_cdef(
-                    func, cdef, self, error=error, header=header)
+                func, cdef, self, error=error, header=header,
+                result_is_ll=result_is_ll)
         return decorate
 
 
@@ -755,22 +738,60 @@ def build_type_checkers(type_name, cls=None):
             return space.gettypeobject(cls.typedef)
     check_name = "Py" + type_name + "_Check"
 
+    @cts.decl("int %s(void * obj)" % check_name, error=CANNOT_FAIL)
     def check(space, w_obj):
         "Implements the Py_Xxx_Check function"
         w_obj_type = space.type(w_obj)
         w_type = get_w_type(space)
         return (space.is_w(w_obj_type, w_type) or
                 space.issubtype_w(w_obj_type, w_type))
+
+    @cts.decl("int %sExact(void * obj)" % check_name, error=CANNOT_FAIL)
     def check_exact(space, w_obj):
         "Implements the Py_Xxx_CheckExact function"
         w_obj_type = space.type(w_obj)
         w_type = get_w_type(space)
         return space.is_w(w_obj_type, w_type)
 
-    check = cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)(
-        func_with_new_name(check, check_name))
-    check_exact = cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)(
-        func_with_new_name(check_exact, check_name + "Exact"))
+    return check, check_exact
+
+def build_type_checkers_flags(type_name, cls=None, flagsubstr=None):
+    """
+    Builds two api functions: Py_XxxCheck() and Py_XxxCheckExact()
+    Does not export the functions, assumes they are macros in the *. files
+    check will try a fast path via pto flags
+    """
+    if cls is None:
+        attrname = "w_" + type_name.lower()
+        def get_w_type(space):
+            return getattr(space, attrname)
+    else:
+        def get_w_type(space):
+            return getattr(space, cls)
+    if flagsubstr is None:
+       tp_flag_str = 'Py_TPFLAGS_%s_SUBCLASS' % type_name.upper()
+    else:
+       tp_flag_str = 'Py_TPFLAGS_%s_SUBCLASS' % flagsubstr
+    check_name = "Py" + type_name + "_Check"
+    tp_flag = globals()[tp_flag_str]
+
+    @specialize.argtype(1)
+    def check(space, pto):
+        from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
+        "Implements the Py_Xxx_Check function"
+        if is_pyobj(pto):
+            return (pto.c_ob_type.c_tp_flags & tp_flag) == tp_flag
+        w_obj_type = space.type(pto)
+        w_type = get_w_type(space)
+        return (space.is_w(w_obj_type, w_type) or
+                space.issubtype_w(w_obj_type, w_type))
+
+    def check_exact(space, w_obj):
+        "Implements the Py_Xxx_CheckExact function"
+        w_obj_type = space.type(w_obj)
+        w_type = get_w_type(space)
+        return space.is_w(w_obj_type, w_type)
+
     return check, check_exact
 
 pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
@@ -965,6 +986,11 @@ def make_wrapper_second_level(space, argtypesw, restype,
                     message = str(e)
                 state.set_exception(OperationError(space.w_SystemError,
                                                    space.newtext(message)))
+            except rstackovf.StackOverflow as e:
+                rstackovf.check_stack_overflow()
+                failed = True
+                state.set_exception(OperationError(space.w_RuntimeError,
+                         space.newtext("maximum recursion depth exceeded")))
             else:
                 failed = False
 
@@ -1248,7 +1274,8 @@ def write_header(header_name, decls):
 #  error "PyPy does not support 64-bit on Windows.  Use Win32"
 #endif
 ''',
-        '#define Signed   long           /* xxx temporary fix */',
+        '#include "cpyext_object.h"',
+        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
         '#define Unsigned unsigned long  /* xxx temporary fix */',
         '',] + decls + [
         '',
@@ -1314,6 +1341,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "getargs.c",
                          source_dir / "abstract.c",
                          source_dir / "stringobject.c",
+                         source_dir / "unicodeobject.c",
                          source_dir / "mysnprintf.c",
                          source_dir / "pythonrun.c",
                          source_dir / "sysmodule.c",
@@ -1600,6 +1628,7 @@ def make_generic_cpy_call(FT, expect_null):
         assert cpyext_glob_tid_ptr[0] == 0
         cpyext_glob_tid_ptr[0] = tid
 
+        preexist_error = PyErr_Occurred(space)
         try:
             # Call the function
             result = call_external_function(func, *boxed_args)
@@ -1621,18 +1650,20 @@ def make_generic_cpy_call(FT, expect_null):
                     ret = None
 
             # Check for exception consistency
-            has_error = PyErr_Occurred(space) is not None
+            # XXX best attempt, will miss preexisting error that is
+            # overwritten with a new error of the same type
+            error = PyErr_Occurred(space)
+            has_new_error = (error is not None) and (error is not preexist_error)
             has_result = ret is not None
-            if has_error and has_result:
+            if not expect_null and has_new_error and has_result:
                 raise oefmt(space.w_SystemError,
                             "An exception was set, but function returned a "
                             "value")
-            elif not expect_null and not has_error and not has_result:
+            elif not expect_null and not has_new_error and not has_result:
                 raise oefmt(space.w_SystemError,
                             "Function returned a NULL result without setting "
                             "an exception")
-
-            if has_error:
+            elif has_new_error:
                 state = space.fromcache(State)
                 state.check_and_raise_exception()
 

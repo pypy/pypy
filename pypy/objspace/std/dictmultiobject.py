@@ -56,7 +56,7 @@ class W_DictMultiObject(W_Root):
     def allocate_and_init_instance(space, w_type=None, module=False,
                                    instance=False, strdict=False,
                                    kwargs=False):
-        if space.config.objspace.std.withcelldict and module:
+        if module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
             assert w_type is None
             # every module needs its own strategy, because the strategy stores
@@ -235,10 +235,6 @@ class W_DictMultiObject(W_Root):
             raise oefmt(self.space.w_RuntimeError,
                         "an internal 'del' on the dictionary failed to find "
                         "the key")
-
-    def descr_reversed(self, space):
-        raise oefmt(space.w_TypeError,
-                    "argument to reversed() must be a sequence")
 
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
@@ -517,7 +513,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __setitem__ = interp2app(W_DictMultiObject.descr_setitem),
     __delitem__ = interp2app(W_DictMultiObject.descr_delitem),
 
-    __reversed__ = interp2app(W_DictMultiObject.descr_reversed),
     copy = interp2app(W_DictMultiObject.descr_copy),
     items = interp2app(W_DictMultiObject.descr_items),
     keys = interp2app(W_DictMultiObject.descr_keys),
@@ -1260,6 +1255,12 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##     return keys, values
 
 create_iterator_classes(UnicodeDictStrategy)
+
+
+def from_unicode_key_dict(space, d):
+    strategy = space.fromcache(UnicodeDictStrategy)
+    storage = strategy.erase(d)
+    return W_DictObject(space, strategy, storage)
 
 
 class IntDictStrategy(AbstractTypedStrategy, DictStrategy):

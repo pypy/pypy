@@ -8,14 +8,15 @@ from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
-from rpython.rlib.objectmodel import instantiate
+from rpython.rlib.objectmodel import instantiate, not_rpython
 from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
 class TypeDef(object):
+    @not_rpython
     def __init__(self, __name, __base=None, __total_ordering__=None,
                  __buffer=None, **rawdict):
-        "NOT_RPYTHON: initialization-time only"
+        "initialization-time only"
         self.name = __name
         if __base is None:
             bases = []
@@ -113,8 +114,9 @@ def default_identity_hash(space, w_obj):
 # register_finalizer() or not.
 
 @specialize.memo()
+@not_rpython
 def get_unique_interplevel_subclass(space, cls):
-    "NOT_RPYTHON: initialization-time only"
+    "initialization-time only"
     assert cls.typedef.acceptable_as_base_class
     try:
         return _unique_subclass_cache[cls]
@@ -295,6 +297,8 @@ class GetSetProperty(W_Root):
         if (space.is_w(w_obj, space.w_None)
             and not space.is_w(w_cls, space.type(space.w_None))):
             #print self, w_obj, w_cls
+            if space.is_w(w_cls, space.w_None):
+                raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
             return self
         else:
             try:
@@ -349,15 +353,17 @@ class GetSetProperty(W_Root):
         return self
 
 
+@not_rpython
 def interp_attrproperty(name, cls, doc=None, wrapfn=None):
-    "NOT_RPYTHON: initialization-time only"
+    "initialization-time only"
     assert wrapfn is not None
     def fget(space, obj):
         return getattr(space, wrapfn)(getattr(obj, name))
     return GetSetProperty(fget, cls=cls, doc=doc)
 
+@not_rpython
 def interp_attrproperty_w(name, cls, doc=None):
-    "NOT_RPYTHON: initialization-time only"
+    "initialization-time only"
     def fget(space, obj):
         w_value = getattr(obj, name)
         if w_value is None:

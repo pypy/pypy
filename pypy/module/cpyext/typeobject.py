@@ -12,12 +12,17 @@ from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
-    slot_function, generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
-    Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers,
-    PyObjectFields, PyTypeObject, PyTypeObjectPtr,
-    Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_CHECKTYPES,
-    Py_TPFLAGS_HAVE_INPLACEOPS, cts, parse_dir)
+    slot_function, generic_cpy_call, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
+    build_type_checkers_flags, cts, parse_dir, PyObjectFields, PyTypeObject,
+    PyTypeObjectPtr, Py_TPFLAGS_CHECKTYPES,
+    Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, Py_TPFLAGS_HAVE_INPLACEOPS,
+    Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_LONG_SUBCLASS, Py_TPFLAGS_LIST_SUBCLASS,
+    Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
+    Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
+    Py_TPFLAGS_TYPE_SUBCLASS,
+    Py_TPFLAGS_INT_SUBCLASS, Py_TPFLAGS_STRING_SUBCLASS, # change on py3
+    )
 from pypy.module.cpyext.cparser import parse_source
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
@@ -39,7 +44,7 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
-PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
+PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
@@ -195,6 +200,8 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
         py_getsetdef = make_GetSet(space, w_obj)
         assert space.isinstance_w(w_userdata, space.w_type)
         w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)
+        # now w_obj.getset is py_getsetdef, which was freshly allocated
+        # XXX how is this ever released?
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
@@ -307,12 +314,16 @@ def update_all_slots(space, w_type, pto):
                 setattr(pto, slot_names[0], slot_func_helper)
         elif ((w_type is space.w_list or w_type is space.w_tuple) and
               slot_names[0] == 'c_tp_as_number'):
-            # XXX hack - hwo can we generalize this? The problem is method
+            # XXX hack - how can we generalize this? The problem is method
             # names like __mul__ map to more than one slot, and we have no
             # convenient way to indicate which slots CPython have filled
             #
             # We need at least this special case since Numpy checks that
             # (list, tuple) do __not__ fill tp_as_number
+            pass
+        elif (space.issubtype_w(w_type, space.w_basestring) and
+                slot_names[0] == 'c_tp_as_number'):
+            # like above but for any str type
             pass
         else:
             assert len(slot_names) == 2
@@ -338,13 +349,19 @@ def update_all_slots(space, w_type, pto):
                 setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
-    # XXX support PyObject_HashNotImplemented
+    from pypy.module.cpyext.object import PyObject_HashNotImplemented
+    hash_not_impl = PyObject_HashNotImplemented.api_func.get_llhelper(space)
     for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
         offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
+            if slot_names[0] == 'c_tp_hash':
+                if hash_not_impl == func:
+                    # special case for tp_hash == PyObject_HashNotImplemented
+                    dict_w[method_name] = space.w_None
+                    continue
         else:
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
@@ -416,7 +433,7 @@ def add_tp_new_wrapper(space, dict_w, pto):
     dict_w["__new__"] = PyCFunction_NewEx(space, get_new_method_def(space),
                                           from_ref(space, pyo), None)
 
-def inherit_special(space, pto, base_pto):
+def inherit_special(space, pto, w_obj, base_pto):
     # XXX missing: copy basicsize and flags in a magical way
     # (minimally, if tp_basicsize is zero or too low, we copy it from the base)
     if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
@@ -425,6 +442,26 @@ def inherit_special(space, pto, base_pto):
         pto.c_tp_itemsize = base_pto.c_tp_itemsize
     pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_CHECKTYPES
     pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
+
+    #/* Setup fast subclass flags */
+    if space.issubtype_w(w_obj, space.w_Exception):
+        pto.c_tp_flags |= Py_TPFLAGS_BASE_EXC_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_type):
+        pto.c_tp_flags |= Py_TPFLAGS_TYPE_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_int): # remove on py3
+        pto.c_tp_flags |= Py_TPFLAGS_INT_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_long):
+        pto.c_tp_flags |= Py_TPFLAGS_LONG_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_bytes): 
+        pto.c_tp_flags |= Py_TPFLAGS_STRING_SUBCLASS # STRING->BYTES on py3
+    elif space.issubtype_w(w_obj, space.w_unicode):
+        pto.c_tp_flags |= Py_TPFLAGS_UNICODE_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_tuple):
+        pto.c_tp_flags |= Py_TPFLAGS_TUPLE_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_list):
+        pto.c_tp_flags |= Py_TPFLAGS_LIST_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_dict):
+        pto.c_tp_flags |= Py_TPFLAGS_DICT_SUBCLASS
 
 def check_descr(space, w_self, w_type):
     if not space.isinstance_w(w_self, w_type):
@@ -916,7 +953,9 @@ def finish_type_1(space, pto, bases_w=None):
                 bases_w = []
             else:
                 bases_w = [from_ref(space, base_pyo)]
-        pto.c_tp_bases = make_ref(space, space.newtuple(bases_w))
+        is_heaptype = bool(pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE)
+        pto.c_tp_bases = make_ref(space, space.newtuple(bases_w),
+                                  immortal=not is_heaptype)
 
 def finish_type_2(space, pto, w_obj):
     """
@@ -925,7 +964,7 @@ def finish_type_2(space, pto, w_obj):
     pto.c_tp_mro = make_ref(space, space.newtuple(w_obj.mro_w))
     base = pto.c_tp_base
     if base:
-        inherit_special(space, pto, base)
+        inherit_special(space, pto, w_obj, base)
     for w_base in space.fixedview(from_ref(space, pto.c_tp_bases)):
         if isinstance(w_base, W_TypeObject):
             inherit_slots(space, pto, w_base)

@@ -448,6 +448,13 @@ class AppTestBytesArray:
         raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, u"unicode")
 
+    def test_extend_calls_len_or_lengthhint(self):
+        class BadLen(object):
+            def __iter__(self): return iter(range(10))
+            def __len__(self): raise RuntimeError('hello')
+        b = bytearray()
+        raises(RuntimeError, b.extend, BadLen())
+
     def test_setitem_from_front(self):
         b = bytearray(b'abcdefghij')
         b[:2] = b''
@@ -488,6 +495,15 @@ class AppTestBytesArray:
         b = bytearray('abcdefghi')
         b[1] = 'B'
         assert b == 'aBcdefghi'
+
+    def test_setitem_errmsg(self):
+        b = bytearray('abcdefghi')
+        e = raises(TypeError, "b[1] = u'B'")
+        assert str(e.value).startswith(
+            "an integer or string of size 1 is required")
+        e = raises(TypeError, "b[1] = None")
+        assert str(e.value).startswith(
+            "an integer or string of size 1 is required")
 
     def test_setitem_slice(self):
         b = bytearray('abcdefghi')

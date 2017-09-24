@@ -227,6 +227,45 @@ class AppTestReversed:
         assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
         raises(TypeError, reversed, reversed("hello"))
 
+    def test_reversed_user_type(self):
+        class X(object):
+            def __getitem__(self, index):
+                return str(index)
+            def __len__(self):
+                return 5
+        assert list(reversed(X())) == ["4", "3", "2", "1", "0"]
+
+    def test_reversed_not_for_mapping(self):
+        raises(TypeError, reversed, {})
+        raises(TypeError, reversed, {2: 3})
+        assert not hasattr(dict, '__reversed__')
+        raises(TypeError, reversed, int.__dict__)
+
+    def test_reversed_type_with_no_len(self):
+        class X(object):
+            def __getitem__(self, key):
+                raise ValueError
+        raises(TypeError, reversed, X())
+
+    def test_reversed_length_hint(self):
+        lst = [1, 2, 3]
+        r = reversed(lst)
+        assert r.__length_hint__() == 3
+        assert next(r) == 3
+        assert r.__length_hint__() == 2
+        lst.pop()
+        assert r.__length_hint__() == 2
+        lst.pop()
+        assert r.__length_hint__() == 0
+        raises(StopIteration, next, r)
+        #
+        r = reversed(lst)
+        assert r.__length_hint__() == 1
+        assert next(r) == 1
+        assert r.__length_hint__() == 0
+        raises(StopIteration, next, r)
+        assert r.__length_hint__() == 0
+
 
 class AppTestApply:
     def test_apply(self):

@@ -5,14 +5,7 @@
 extern "C" {
 #endif
 
-/* The struct is declared here but it shouldn't
-   be considered public. Don't access those fields directly,
-   use the functions instead! */
-typedef struct {
-    PyObject_HEAD
-    Py_buffer view;
-} PyMemoryViewObject;
-
+#include "cpyext_memoryobject.h"
 
 /* Get a pointer to the memoryview's private copy of the exporter's buffer. */
 #define PyMemoryView_GET_BUFFER(op) (&((PyMemoryViewObject *)(op))->view)

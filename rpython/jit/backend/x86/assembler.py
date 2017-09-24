@@ -504,7 +504,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
         clt.frame_info.clear() # for now
 
-        if log:
+        if log or self._debug:
             number = looptoken.number
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', number)
@@ -589,7 +589,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 faildescr.adr_jump_offset)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         descr_number = compute_unique_id(faildescr)
-        if log:
+        if log or self._debug:
             operations = self._inject_debugging_code(faildescr, operations,
                                                      'b', descr_number)
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
@@ -980,7 +980,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         from rpython.rlib.rvmprof.rvmprof import cintf
         # edx = address of pypy_threadlocal_s
         self.mc.MOV_rs(edx.value, THREADLOCAL_OFS)
-        self.mc.AND_ri(edx.value, ~1)
+        if self._is_asmgcc():
+            self.mc.AND_ri(edx.value, ~1)
         # eax = (our local vmprof_tl_stack).next
         self.mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE - 4 + 0) * WORD)
         # save in vmprof_tl_stack the value eax
@@ -1616,18 +1617,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 self.mc.MOV(dest_addr.add_offset(4), value_loc.high_part_loc())
         else:
             not_implemented("save_into_mem size = %d" % size)
-
-    def _genop_getfield(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, sign_loc = arglocs
-        assert isinstance(size_loc, ImmedLoc)
-        source_addr = AddressLoc(base_loc, ofs_loc)
-        self.load_from_mem(resloc, source_addr, size_loc, sign_loc)
-
-    genop_getfield_gc_i = _genop_getfield
-    genop_getfield_gc_r = _genop_getfield
-    genop_getfield_gc_f = _genop_getfield
-    genop_getfield_raw_i = _genop_getfield
-    genop_getfield_raw_f = _genop_getfield
 
     def _genop_gc_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs

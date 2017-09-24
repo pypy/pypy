@@ -11,7 +11,7 @@ from pypy.module.cpyext.bytesobject import (
     _PyString_Join)
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
-from pypy.module.cpyext.object import PyObject_AsCharBuffer
+from pypy.module.cpyext.buffer import PyObject_AsCharBuffer
 from pypy.module.cpyext.api import PyTypeObjectPtr
 
 
@@ -367,6 +367,16 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """
                 return PyLong_FromLong(PyObject_Size(args));
              """),
+            ('has_nb_add', "METH_O",
+             '''
+                if (args->ob_type->tp_as_number == NULL) {
+                    Py_RETURN_FALSE;
+                }
+                if (args->ob_type->tp_as_number->nb_add == NULL) {
+                    Py_RETURN_FALSE;
+                }
+                Py_RETURN_TRUE;
+             '''),
             ], prologue="""
                 #include <Python.h>
                 PyTypeObject PyStringArrType_Type = {
@@ -447,6 +457,8 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
             ''')
 
         a = module.newsubstr('abc')
+        assert module.has_nb_add('a') is False
+        assert module.has_nb_add(a) is False
         assert type(a).__name__ == 'string_'
         assert a == 'abc'
         assert 3 == module.get_len(a)

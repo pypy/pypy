@@ -12,9 +12,6 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
                  if (PyErr_Occurred()) return NULL;
                  module = PyImport_ImportModule("foo");
                  PyModule_AddObject(module, "_ptr", capsule);
-                 #ifdef PYPY_VERSION
-                   Py_DECREF(capsule);  /* XXX <--- anti-workaround */
-                 #endif
                  Py_DECREF(module);
                  if (PyErr_Occurred()) return NULL;
                  Py_RETURN_NONE;

@@ -14,6 +14,7 @@ from rpython.translator.c.support import log
 from rpython.translator.gensupp import uniquemodulename, NameManager
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
+
 _CYGWIN = sys.platform == 'cygwin'
 
 _CPYTHON_RE = py.std.re.compile('^Python 2.[567]')
@@ -382,18 +383,93 @@ class CStandaloneBuilder(CBuilder):
         if self.config.translation.profopt:
             if self.config.translation.profoptargs is None:
                 raise Exception("No profoptargs specified, neither in the command line, nor in the target. If the target is not PyPy, please specify profoptargs")
+
+            # Set the correct PGO params based on OS and CC
+            profopt_gen_flag = ""
+            profopt_use_flag = ""
+            profopt_merger = ""
+            profopt_file = ""
+            llvm_profdata = ""
+
+            cc = self.translator.platform.cc
+
+            # Locate llvm-profdata
+            if "clang" in cc:
+                clang_bin = cc
+                path = os.environ.get("PATH").split(":")
+                profdata_found = False
+
+                # Try to find it in $PATH (Darwin and Linux)
+                for dir in path:
+                    bin = "%s/llvm-profdata" % dir
+                    if os.path.isfile(bin):
+                        llvm_profdata = bin
+                        profdata_found = True
+                        break
+
+                # If not found, try to find it where clang is actually installed (Darwin and Linux)
+                if not profdata_found:
+                    # If the full path is not given, find where clang is located
+                    if not os.path.isfile(clang_bin):
+                        for dir in path:
+                            bin = "%s/%s" % (dir, cc)
+                            if os.path.isfile(bin):
+                                clang_bin = bin
+                                break
+                    # Some systems install clang elsewhere as a symlink to the real path,
+                    # which is where the related llvm tools are located.
+                    if os.path.islink(clang_bin):
+                        clang_bin = os.path.realpath(clang_bin)  # the real clang binary
+                    # llvm-profdata must be in the same directory as clang
+                    llvm_profdata = "%s/llvm-profdata" % os.path.dirname(clang_bin)
+                    profdata_found = os.path.isfile(llvm_profdata)
+
+                # If not found, and Darwin is used, try to find it in the development environment
+                # More: https://apple.stackexchange.com/questions/197053/
+                if not profdata_found and sys.platform == 'darwin':
+                    code = os.system("/usr/bin/xcrun -find llvm-profdata 2>/dev/null")
+                    if code == 0:
+                        llvm_profdata = "/usr/bin/xcrun llvm-profdata"
+                        profdata_found = True
+
+                # If everything failed, throw Exception, sorry
+                if not profdata_found:
+                    raise Exception(
+                        "Error: Cannot perform profopt build because llvm-profdata was not found in PATH. "
+                        "Please add it to PATH and run the translation again.")
+
+            # Set the PGO flags
+            if "clang" in cc:
+                # Any changes made here should be reflected in the GCC+Darwin case below
+                profopt_gen_flag = "-fprofile-instr-generate"
+                profopt_use_flag = "-fprofile-instr-use=code.profclangd"
+                profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
+                profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
+            elif "gcc" in cc:
+                if sys.platform == 'darwin':
+                    profopt_gen_flag = "-fprofile-instr-generate"
+                    profopt_use_flag = "-fprofile-instr-use=code.profclangd"
+                    profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
+                    profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
+                else:
+                    profopt_gen_flag = "-fprofile-generate"
+                    profopt_use_flag = "-fprofile-use -fprofile-correction"
+                    profopt_merger = "true"
+                    profopt_file = ""
+
             if self.config.translation.shared:
                 mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
-                         '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov')
+                         ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov', '$(MAKE) postcompile BIN=$(PROFOPT_TARGET)'])
             else:
                 mk.definition('PROFOPT_TARGET', '$(TARGET)')
 
             rules.append(
                 ('profopt', '', [
-                    '$(MAKE) CFLAGS="-fprofile-generate -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-generate $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
-                    '%s %s ' % (exe_name, self.config.translation.profoptargs),
+                    '$(MAKE) CFLAGS="%s -fPIC $(CFLAGS)"  LDFLAGS="%s $(LDFLAGS)" $(PROFOPT_TARGET)' % (profopt_gen_flag, profopt_gen_flag),
+                    '%s %s %s ' % (profopt_file, exe_name, self.config.translation.profoptargs),
+                    '%s' % (profopt_merger),
                     '$(MAKE) clean_noprof',
-                    '$(MAKE) CFLAGS="-fprofile-use -fprofile-correction -fPIC $(CFLAGS) -fno-lto"  LDFLAGS="-fprofile-use $(LDFLAGS) -fno-lto" $(PROFOPT_TARGET)',
+                    '$(MAKE) CFLAGS="%s -fPIC $(CFLAGS)"  LDFLAGS="%s $(LDFLAGS)" $(PROFOPT_TARGET)' % (profopt_use_flag, profopt_use_flag),
                 ]))
 
         for rule in rules:

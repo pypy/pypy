@@ -377,7 +377,7 @@ class AppTestFFIObj:
         raises(TypeError, ffi.gc, p, None)
         seen = []
         q1 = ffi.gc(p, lambda p: seen.append(1))
-        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        q2 = ffi.gc(q1, lambda p: seen.append(2), size=123)
         import gc; gc.collect()
         assert seen == []
         assert ffi.gc(q1, None) is None
@@ -555,3 +555,11 @@ class AppTestFFIObj:
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         raises(ffi.error, ffi.cast, "int[-5]", 0)
+
+    def test_char32_t(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        z = ffi.new("char32_t[]", u'\U00012345')
+        assert len(z) == 2
+        assert ffi.cast("int *", z)[0] == 0x12345
+        assert list(z) == [u'\U00012345', u'\x00']   # maybe a 2-unichars str

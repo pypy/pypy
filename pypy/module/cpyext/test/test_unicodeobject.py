@@ -132,6 +132,20 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              """)])
         assert module.test_macro_invocations() == u''
 
+    def test_format(self):
+        module = self.import_extension('foo', [
+            ("test_unicode_format", "METH_VARARGS",
+             '''
+                 return PyUnicode_FromFormat("bla %d ble %s\\n",
+                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
+                        PyString_AsString(PyTuple_GetItem(args, 1)));
+             '''
+             )
+            ])
+        res = module.test_unicode_format(1, "xyz")
+        assert res == u"bla 1 ble xyz\n"
+
+
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
         assert PyUnicode_GET_SIZE(space, space.wrap(u'sp�m')) == 4

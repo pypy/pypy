@@ -91,13 +91,14 @@ class Module(MixedModule):
         'float_info'            : 'system.get_float_info(space)',
         'long_info'             : 'system.get_long_info(space)',
         'float_repr_style'      : 'system.get_float_repr_style(space)',
-        'getdlopenflags'        : 'system.getdlopenflags',
-        'setdlopenflags'        : 'system.setdlopenflags',
         }
 
     if sys.platform == 'win32':
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
+    else:
+        interpleveldefs['getdlopenflags'] = 'system.getdlopenflags'
+        interpleveldefs['setdlopenflags'] = 'system.setdlopenflags'
 
     appleveldefs = {
         'excepthook'            : 'app.excepthook',

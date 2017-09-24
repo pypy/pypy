@@ -3,34 +3,44 @@ PyPy2.7 and PyPy3.5 v5.8 dual release
 =====================================
 
 The PyPy team is proud to release both PyPy2.7 v5.8 (an interpreter supporting
-Python v2.7 syntax), and a beta-quality PyPy3.5 v5.8 (an interpreter for Python
-v3.5 syntax). The two releases are both based on much the same codebase, thus
+Python 2.7 syntax), and a beta-quality PyPy3.5 v5.8 (an interpreter for Python
+3.5 syntax). The two releases are both based on much the same codebase, thus
 the dual release.  Note that PyPy3.5 supports Linux 64bit only for now. 
 
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
 
-We continue to make incremental improvements to our C-API
-compatibility layer (cpyext). PyPy2 can now import and run many C-extension
-packages, among the most notable are Numpy, Cython, and Pandas. Performance may
-be slower than CPython, especially for frequently-called short C functions.
+We fixed critical bugs in the shadowstack_ rootfinder garbage collector
+strategy that crashed multithreaded programs and very rarely showed up
+even in single threaded programs.
+
+We added native PyPy support to profile frames in the vmprof_ statistical
+profiler.
+
+The ``struct`` module functions ``pack*`` and ``unpack*`` are now much faster,
+especially on raw buffers and bytearrays. Microbenchmarks show a 2x to 10x
+speedup. Thanks to `Gambit Research`_ for sponsoring this work.
+
+This release adds (but disables by default) link-time optimization and
+`profile guided optimization`_ of the base interpreter, which may make
+unjitted code run faster. To use these, translate with appropriate
+`options`_.  Be aware of `issues with gcc toolchains`_, though.
+
 Please let us know if your use case is slow, we have ideas how to make things
 faster but need real-world examples (not micro-benchmarks) of problematic code.
 
-Work proceeds at a good pace on the PyPy3.5
-version due to a grant_ from the Mozilla Foundation, hence our 3.5.3 beta
-release. Thanks Mozilla !!! While we do not pass all tests yet, asyncio works and
-as `these benchmarks show`_ it already gives a nice speed bump.
-We also backported the ``f""`` formatting from 3.6 (as an exception; otherwise
-"PyPy3.5" supports the Python 3.5 language).
+Work sponsored by a Mozilla grant_ continues on PyPy3.5; numerous fixes from
+CPython were ported to PyPy and PEP 489 was fully implemented. Of course the
+bug fixes and performance enhancements mentioned above are part of both PyPy
+2.7 and PyPy 3.5.
 
-CFFI_ has been updated to 1.11, improving an already great package for
-interfacing with C.
+CFFI_, which is part of the PyPy release, has been updated to an unreleased 1.10.1,
+improving an already great package for interfacing with C.
 
-As always, this release fixed many issues and bugs raised by the
+As always, this release fixed many other issues and bugs raised by the
 growing community of PyPy users. We strongly recommend updating.
 
-You can download the v5.8 release here:
+You can download the v5.8 releases here:
 
     http://pypy.org/download.html
 
@@ -43,13 +53,19 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
+.. _`profile guided optimization`: https://pythonfiles.wordpress.com/2017/05/12/enabling-profile-guided-optimizations-for-pypy
+.. _shadowstack: config/translation.gcrootfinder.html
+.. _vmprof: http://vmprof.readthedocs.io
+.. _`issues with gcc toolchains`: https://bitbucket.org/pypy/pypy/issues/2572/link-time-optimization-lto-disabled
 .. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
 .. _`PyPy`: index.html
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`modules`: project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: project-ideas.html
+.. _`options`: config/commandline.html#general-translation-options
 .. _`these benchmarks show`: https://morepypy.blogspot.com/2017/03/async-http-benchmarks-on-pypy3.html
+.. _`Gambit Research`: http://gambitresearch.com
 
 What is PyPy?
 =============
@@ -148,7 +164,7 @@ Note that these are also merged into PyPy 3.5
     accepted in a few more places, e.g. in compile()
 
 
-.. _here: http://rpython.readthedocs.io/en/latest/cpython_differences.html
+.. _here: cpython_differences.html
 
 Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
 ======================================================================
@@ -175,6 +191,8 @@ Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
   * Get closer to supporting 32 bit windows, translation now succeeds and most
     lib-python/3/test runs
   * Call ``sys.__interactivehook__`` at startup
+  * Let ``OrderedDict.__init__`` behave like CPython wrt. subclasses
+    overridding ``__setitem__``
 
 * Performance improvements:
 

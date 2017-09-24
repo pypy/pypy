@@ -122,6 +122,14 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = module.fooType.classmeth()
         assert obj is module.fooType
 
+    def test_methoddescr(self):
+        module = self.import_module(name='foo')
+        descr = module.fooType.copy
+        assert type(descr).__name__ == 'method_descriptor'
+        assert str(descr) == "<method 'copy' of 'foo.foo' objects>"
+        assert repr(descr) == "<method 'copy' of 'foo.foo' objects>"
+        raises(TypeError, descr, None)
+
     def test_new(self):
         # XXX cpython segfaults but if run singly (with -k test_new) this passes
         module = self.import_module(name='foo')
@@ -1072,7 +1080,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_call_tp_dealloc(self):
         module = self.import_extension('foo', [
-            ("fetchFooType", "METH_VARARGS",
+            ("fetchFooType", "METH_NOARGS",
              """
                 PyObject *o;
                 o = PyObject_New(PyObject, &Foo_Type);
@@ -1090,7 +1098,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Py_DECREF(e);
                 return o;
              """),
-            ("getCounter", "METH_VARARGS",
+            ("getCounter", "METH_NOARGS",
              """
                 return PyInt_FromLong(foo_counter);
              """)], prologue="""
@@ -1252,13 +1260,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                   ((PyHeapTypeObject*)Base2)->ht_name = dummyname;
                   ((PyHeapTypeObject*)Base12)->ht_name = dummyname;
                 }
-                #endif 
-                #endif 
+                #endif
+                #endif
                 Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_base = Base1;
-                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2); 
+                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2);
                 Base12->tp_doc = "The Base12 type or object";
                 if (PyType_Ready(Base1) < 0) return NULL;
                 if (PyType_Ready(Base2) < 0) return NULL;
@@ -1347,3 +1355,83 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         Bsize = module.get_basicsize(B)
         assert Asize == Bsize
         assert Asize > basesize
+
+
+class AppTestHashable(AppTestCpythonExtensionBase):
+    def test_unhashable(self):
+        if not self.runappdirect:
+            skip('pointer to function equality available'
+                 ' only after translation')
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''', more_init = '''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_hash = PyObject_HashNotImplemented;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        obj = module.new_obj()
+        raises(TypeError, hash, obj)
+        assert type(obj).__dict__['__hash__'] is None
+        # this is equivalent to
+        from collections import Hashable
+        assert not isinstance(obj, Hashable)
+
+
+class AppTestFlags(AppTestCpythonExtensionBase):
+    def test_has_subclass_flag(self):
+        module = self.import_extension('foo', [
+           ("test_flags", "METH_VARARGS",
+            '''
+                long long in_flag, my_flag;
+                PyObject * obj;
+                if (!PyArg_ParseTuple(args, "OL", &obj, &in_flag))
+                    return NULL;
+                if (!PyType_Check(obj))
+                {
+                    PyErr_SetString(PyExc_ValueError, "input must be type");
+                    return NULL;
+                }
+                my_flag = ((PyTypeObject*)obj)->tp_flags;
+                if ((my_flag & in_flag) != in_flag)
+                    return PyLong_FromLong(-1);
+                if (!PyType_CheckExact(obj)) {
+                    if ((my_flag & Py_TPFLAGS_TYPE_SUBCLASS) == Py_TPFLAGS_TYPE_SUBCLASS)
+                        return PyLong_FromLong(-2);
+                }
+                return PyLong_FromLong(0);
+            '''),])
+        # copied from object.h
+        Py_TPFLAGS_INT_SUBCLASS       = (1L<<23) # goes away on py3
+        Py_TPFLAGS_LONG_SUBCLASS      = (1L<<24)
+        Py_TPFLAGS_LIST_SUBCLASS      = (1L<<25)
+        Py_TPFLAGS_TUPLE_SUBCLASS     = (1L<<26)
+        Py_TPFLAGS_STRING_SUBCLASS    = (1L<<27) # rename to BYTES on py3
+        Py_TPFLAGS_UNICODE_SUBCLASS   = (1L<<28)
+        Py_TPFLAGS_DICT_SUBCLASS      = (1L<<29)
+        Py_TPFLAGS_BASE_EXC_SUBCLASS  = (1L<<30)
+        Py_TPFLAGS_TYPE_SUBCLASS      = (1L<<31)
+        for t,f in ((long, Py_TPFLAGS_LONG_SUBCLASS),
+                    (int, Py_TPFLAGS_INT_SUBCLASS),
+                    (list, Py_TPFLAGS_LIST_SUBCLASS),
+                    (tuple, Py_TPFLAGS_TUPLE_SUBCLASS),
+                    (str, Py_TPFLAGS_STRING_SUBCLASS),
+                    (unicode, Py_TPFLAGS_UNICODE_SUBCLASS),
+                    (Exception, Py_TPFLAGS_BASE_EXC_SUBCLASS),
+                    (type, Py_TPFLAGS_TYPE_SUBCLASS),
+                   ):
+            assert module.test_flags(t, f) == 0
+        class MyList(list):
+            pass
+        assert module.test_flags(MyList, Py_TPFLAGS_LIST_SUBCLASS) == 0
+
+

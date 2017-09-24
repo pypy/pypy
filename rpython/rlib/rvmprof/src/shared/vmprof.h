@@ -1,5 +1,11 @@
 #pragma once
 
+#define _GNU_SOURCE 1
+
+#ifndef RPYTHON_VMPROF
+#include <Python.h>
+#endif
+
 #ifdef VMPROF_UNIX
 #include <unistd.h>
 #endif
@@ -26,6 +32,7 @@
 #define PROFILE_LINES  '\x02'
 #define PROFILE_NATIVE '\x04'
 #define PROFILE_RPYTHON '\x08'
+#define PROFILE_REAL_TIME '\x10'
 
 #define DYN_JIT_FLAG 0xbeefbeef
 
@@ -77,4 +84,8 @@ int IS_VMPROF_EVAL(void * ptr);
 #endif
 
 #endif
+
+void set_current_codes(void * to);
+int opened_profile(const char *interp_name, int memory, int proflines, int native, int real_time);
+void flush_codes(void);
 

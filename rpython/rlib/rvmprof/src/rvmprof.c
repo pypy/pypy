@@ -15,9 +15,9 @@
 
 #include "shared/vmprof_get_custom_offset.h"
 #ifdef VMPROF_UNIX
-#include "shared/vmprof_main.h"
+#include "shared/vmprof_unix.h"
 #else
-#include "shared/vmprof_main_win32.h"
+#include "shared/vmprof_win.h"
 #endif
 
 
@@ -30,8 +30,18 @@ int IS_VMPROF_EVAL(void * ptr)
 }
 #endif
 
-
 long vmprof_get_profile_path(const char * buffer, long size)
 {
     return vmp_fd_to_path(vmp_profile_fileno(), buffer, size);
+}
+
+int vmprof_stop_sampling(void)
+{
+    vmprof_ignore_signals(1);
+    return vmp_profile_fileno();
+}
+
+void vmprof_start_sampling(void)
+{
+    vmprof_ignore_signals(0);
 }
