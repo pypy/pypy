@@ -81,50 +81,111 @@ Note that these are also merged into PyPy 3.5
 
 * New features and cleanups
 
-  * 
-  * 
+  * Add support for ``PyFrozenSet_New``, ``PyObject_HashNotImplemented``,
+    ``PyObject_Print(NULL, ...)``, ``PyObject_RichCompareBool(a, a, ...)``,
+    ``PyType_IS_GC`` (does nothing), ``PyUnicode_FromFormat``
+  * ctypes ``char_p`` and ``unichar_p`` indexing now CPython compatible
+  * ``gcdump`` now reports largest object
+  * More complete support in the ``_curses`` CFFI module
+  * Add cPickle.Unpickler.find_global (issue #1853_)
+  * Fix ``PyErr_Fetch`` + ``PyErr_NormalizeException`` with no exception set
+  * Simplify ``gc.get_referrers()`` to return the opposite of ``gc.get_referents()``
+  * Update RevDB to version pypy2.7-v5.6.2
+  * Previously, ``instance.method`` would return always the same bound method
+    object, when gotten from the same instance (as far as ``is`` and ``id()``
+    can tell).  CPython doesn't do that.  Now PyPy, like CPython, returns a 
+    different bound method object every time.  For ``type.method``, PyPy2 still
+    returns always the same *unbound* method object; CPython does it for built-in
+    types but not for user-defined types
+  * Link to disable PaX protection for the JIT when needed
+  * Update build instructions and an rarely used Makefile
+  * Recreate support for using leakfinder in cpyext tests which had suffered
+    bit-rot, disable due to many false positives
+  * Add more functionality to ``sysconfig``
+  * Added ``_swappedbytes_`` support for ``ctypes.Structure``
 
 * Bug Fixes 
 
-  * 
-  * 
+  * Fix issue #2592_ - cpyext ``PyListObject.pop``, ``pop_end`` must return a value
+  * Implement ``PyListOjbect.getstorage_copy``
+  * Fix for ``reversed(dictproxy)`` issue #2601_
+  * Fix for duplicate names in ctypes' ``_fields__``, issue #2621_
+  * Update built-in ``pyexpat`` module on win32 to use UTF-8 version not UTF-16
+  * ``gc.get_objects`` now handles objects with finalizers more consistently
 
 * Performance improvements:
 
-  * 
-  * 
+  * Improve performance of ``bytearray.extend`` by rewriting portions in app-level
+  * Optimize list accesses with constant indexes better by retaining more
+    information about them
+  * Add a jit driver for ``array.count`` and ``array.index``
+  * Improve information retained in a bridge wrt ``array``
+  * Move some dummy CAPI functions and ``Py*_Check`` functions from RPython into
+    pure C macros
+  * In the fast ``zip(intlist1, intlist2)`` implementation, don't wrap and unwrap
+    all the ints
 
 * RPython improvements
 
-  * 
-  * 
+  * Do not preallocate a RPython list if we only know an upper bound on its size
+  * Issue #2590_: fix the bounds in the GC when allocating a lot of objects with finalizers
+  * Replace magical NOT RPYTHON comment with a decorator
+  * Implement ``socket.sendmsg()``/``.recvmsg()`` for py3.5
 
+* Degredations
+
+  * Disable vmprof on win32, due to upstream changes that break the internal ``_vmprof`` module
 
 .. _here: cpython_differences.html
+.. _1853: https://bitbucket.org/pypy/pypy/issues/1853
+.. _2592: https://bitbucket.org/pypy/pypy/issues/2592
+.. _2590: https://bitbucket.org/pypy/pypy/issues/2590
+.. _2621: https://bitbucket.org/pypy/pypy/issues/2621
 
-Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
+Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
 ======================================================================
 
 * New features
 
-  * 
-  * 
+  * Add support for ``_PyNamespace_New``, ``PyMemoryView_FromMemory``, 
+    ``Py_EnterRecursiveCall`` raising RecursionError, ``PyObject_LengthHint``
+  * mplement ``PyType_FromSpec`` (PEP 384) and fix issues with PEP 489 support
+  * Support the new version of ``os.stat()`` on win32
+  * Use ``stat3()`` on Posix
+  * Accept buffer objects as filenames, except for `oslistdir``
+  * Make slices of array ``memoryview`` s usable as writable buffers if contiguous
+  * Better handling of ``'%s'`` formatting for byte strings which might be utf-8 encoded
+  * Update the macros ``Py_DECREF`` and similar to use the CPython 3.5 version
+  * nsure that ``mappingproxy`` is recognised as a mapping, not a sequence
+  * Enable PGO for CLang
+  * Rework ``cppyy`` packaging and rename the backend to ``_cppyy``
+  * Support for libressl 2.5.4
+  * Mirror CPython ``classmethod __reduce__`` which fixes pickling test
+  * Use utf-8 for ``readline`` history file
+  * Allow assigning ``'__class__'`` between ``ModuleType`` and its subclasses
 
 * Bug Fixes
 
-  * 
-  * 
+  * Try to make ``openssl`` CFFI bindings more general and future-proof
+  * Better support ``importlib`` by only listing built-in modules in ``sys.builtin``
+  * Add ``memory_pressure`` to large CFFI allocations in ``_lzma``, issue #2579_
+  * Fix for ``reversed(mapping object)`` issue #2601_
+  * Fixing regression with non-started generator receiving non-``None``, should
+    always raise ``TypeError``
+  * ``itertools.islice``: use same logic as CPython, fixes #2643_
 
 * Performance improvements:
 
   * 
-  *
 
 * The following features of Python 3.5 are not implemented yet in PyPy:
 
   * PEP 442: Safe object finalization
 
 .. _resolved: whatsnew-pypy2-5.9.0.html
+.. _2579: https://bitbucket.org/pypy/pypy/issues/2579
+.. _2601: https://bitbucket.org/pypy/pypy/issues/2601
+.. _2643: https://bitbucket.org/pypy/pypy/issues/2643
 
 Please update, and continue to help us make PyPy better.
 
