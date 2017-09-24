@@ -74,7 +74,7 @@ except TypeError:
 # PyPy extension
 try:
     FakeFrameType = type(next(sys._current_frames().itervalues()))
-except AttributeError:
+except (AttributeError, StopIteration):
     FakeFrameType = FrameType
 
 SliceType = slice
