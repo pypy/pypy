@@ -103,6 +103,7 @@ Note that these are also merged into PyPy 3.5
     bit-rot, disable due to many false positives
   * Add more functionality to ``sysconfig``
   * Added ``_swappedbytes_`` support for ``ctypes.Structure``
+  * Better support the ``inspect`` module on ``frames``
 
 * Bug Fixes 
 
@@ -124,6 +125,7 @@ Note that these are also merged into PyPy 3.5
     pure C macros
   * In the fast ``zip(intlist1, intlist2)`` implementation, don't wrap and unwrap
     all the ints
+  * Cache string keys that occur in json dicts, as they are likely to repeat
 
 * RPython improvements
 
@@ -148,7 +150,8 @@ Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
 * New features
 
   * Add support for ``_PyNamespace_New``, ``PyMemoryView_FromMemory``, 
-    ``Py_EnterRecursiveCall`` raising RecursionError, ``PyObject_LengthHint``
+    ``Py_EnterRecursiveCall`` raising RecursionError, ``PyObject_LengthHint``,
+    ``PyUnicode_FromKindAndData``, ``PyDict_SetDefault``, ``PyGenObject``
   * mplement ``PyType_FromSpec`` (PEP 384) and fix issues with PEP 489 support
   * Support the new version of ``os.stat()`` on win32
   * Use ``stat3()`` on Posix
@@ -163,6 +166,7 @@ Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
   * Mirror CPython ``classmethod __reduce__`` which fixes pickling test
   * Use utf-8 for ``readline`` history file
   * Allow assigning ``'__class__'`` between ``ModuleType`` and its subclasses
+  * Add async slot functions in cpyext
 
 * Bug Fixes
 
