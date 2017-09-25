@@ -14,8 +14,8 @@ Only a handful of failing tests remain in NumPy and Pandas on PyPy2.7, issues
 that appeared as excessive memory use were cleared up and other incompatibilities
 were resolved.
 
-Cython 2.7 (released last week) should support more projects with PyPy, both on
-PyPy2.7 and PyPy3.5 beta.
+Cython 0.27 (released last week) should support more projects with PyPy, both
+on PyPy2.7 and PyPy3.5 beta.
 
 We optimized the JSON parser for recurring string keys, which should decrease
 memory use to 50% and increase parsing speed by up to 15% for large JSON files
@@ -96,7 +96,7 @@ Note that these are also merged into PyPy 3.5
   * ctypes ``char_p`` and ``unichar_p`` indexing now CPython compatible
   * ``gcdump`` now reports largest object
   * More complete support in the ``_curses`` CFFI module
-  * Add cPickle.Unpickler.find_global (issue #1853_)
+  * Add cPickle.Unpickler.find_global (issue 1853_)
   * Fix ``PyErr_Fetch`` + ``PyErr_NormalizeException`` with no exception set
   * Simplify ``gc.get_referrers()`` to return the opposite of ``gc.get_referents()``
   * Update RevDB to version pypy2.7-v5.6.2
@@ -116,10 +116,10 @@ Note that these are also merged into PyPy 3.5
 
 * Bug Fixes 
 
-  * Fix issue #2592_ - cpyext ``PyListObject.pop``, ``pop_end`` must return a value
+  * Fix issue 2592_ - cpyext ``PyListObject.pop``, ``pop_end`` must return a value
   * Implement ``PyListOjbect.getstorage_copy``
-  * Fix for ``reversed(dictproxy)`` issue #2601_
-  * Fix for duplicate names in ctypes' ``_fields__``, issue #2621_
+  * Fix for ``reversed(dictproxy)`` issue 2601_
+  * Fix for duplicate names in ctypes' ``_fields__``, issue 2621_
   * Update built-in ``pyexpat`` module on win32 to use UTF-8 version not UTF-16
   * ``gc.get_objects`` now handles objects with finalizers more consistently
 
@@ -139,7 +139,7 @@ Note that these are also merged into PyPy 3.5
 * RPython improvements
 
   * Do not preallocate a RPython list if we only know an upper bound on its size
-  * Issue #2590_: fix the bounds in the GC when allocating a lot of objects with finalizers
+  * Issue 2590_: fix the bounds in the GC when allocating a lot of objects with finalizers
   * Replace magical NOT RPYTHON comment with a decorator
   * Implement ``socket.sendmsg()``/``.recvmsg()`` for py3.5
 
@@ -161,14 +161,14 @@ Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
   * Add support for ``_PyNamespace_New``, ``PyMemoryView_FromMemory``, 
     ``Py_EnterRecursiveCall`` raising RecursionError, ``PyObject_LengthHint``,
     ``PyUnicode_FromKindAndData``, ``PyDict_SetDefault``, ``PyGenObject``
-  * mplement ``PyType_FromSpec`` (PEP 384) and fix issues with PEP 489 support
+  * Implement ``PyType_FromSpec`` (PEP 384) and fix issues with PEP 489 support
   * Support the new version of ``os.stat()`` on win32
   * Use ``stat3()`` on Posix
   * Accept buffer objects as filenames, except for `oslistdir``
   * Make slices of array ``memoryview`` s usable as writable buffers if contiguous
   * Better handling of ``'%s'`` formatting for byte strings which might be utf-8 encoded
   * Update the macros ``Py_DECREF`` and similar to use the CPython 3.5 version
-  * nsure that ``mappingproxy`` is recognised as a mapping, not a sequence
+  * Ensure that ``mappingproxy`` is recognised as a mapping, not a sequence
   * Enable PGO for CLang
   * Rework ``cppyy`` packaging and rename the backend to ``_cppyy``
   * Support for libressl 2.5.4
@@ -181,11 +181,11 @@ Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
 
   * Try to make ``openssl`` CFFI bindings more general and future-proof
   * Better support ``importlib`` by only listing built-in modules in ``sys.builtin``
-  * Add ``memory_pressure`` to large CFFI allocations in ``_lzma``, issue #2579_
-  * Fix for ``reversed(mapping object)`` issue #2601_
+  * Add ``memory_pressure`` to large CFFI allocations in ``_lzma``, issue 2579_
+  * Fix for ``reversed(mapping object)`` issue 2601_
   * Fixing regression with non-started generator receiving non-``None``, should
     always raise ``TypeError``
-  * ``itertools.islice``: use same logic as CPython, fixes #2643_
+  * ``itertools.islice``: use same logic as CPython, fixes 2643_
 
 * Performance improvements:
 
