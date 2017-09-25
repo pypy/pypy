@@ -20,6 +20,7 @@ PyGen_Check, PyGen_CheckExact = build_type_checkers("Gen", GeneratorIterator)
 _, PyCoro_CheckExact = build_type_checkers("Coro", Coroutine)
 
 def gi_attach(space, py_obj, w_obj, w_userdata=None):
+    assert isinstance(w_obj, GeneratorIterator)
     cts.cast('PyGenObject*', py_obj).c_gi_code = as_pyobj(space, w_obj.pycode)
 
 def gi_realize(space, py_obj):
