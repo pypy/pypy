@@ -10,19 +10,27 @@ the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
 
-XXXX hilights here
+Only a handful of failing tests remain in NumPy and Pandas on PyPy2.7, issues
+that appeared as excessive memory use were cleared up and other incompatibilities
+were resolved.
 
+Cython 2.7 (released last week) should support more projects with PyPy, both on
+PyPy2.7 and PyPy3.5 beta.
+
+We improved JSON support for recurring string keys when parsing, which should
+decrease memory use and increase parsing speed.
+
+CFFI_, which is part of the PyPy release, has been updated to 1.11,
+improving an already great package for interfacing with C. CFFI now supports
+complex arguments in API mode, as well as ``char16_t`` and ``char32_t`` and has
+improved support for callbacks.
 
 Please let us know if your use case is slow, we have ideas how to make things
 faster but need real-world examples (not micro-benchmarks) of problematic code.
 
 Work sponsored by a Mozilla grant_ continues on PyPy3.5; numerous fixes from
-CPython were ported to PyPy and PEP 489 was fully implemented. Of course the
-bug fixes and performance enhancements mentioned above are part of both PyPy
-2.7 and PyPy 3.5.
-
-CFFI_, which is part of the PyPy release, has been updated to an unreleased 1.11,
-improving an already great package for interfacing with C.
+CPython were ported to PyPy. Of course the bug fixes and performance enhancements
+mentioned above are part of both PyPy2.7 and PyPy3.5 beta.
 
 As always, this release fixed many other issues and bugs raised by the
 growing community of PyPy users. We strongly recommend updating.
@@ -125,7 +133,7 @@ Note that these are also merged into PyPy 3.5
     pure C macros
   * In the fast ``zip(intlist1, intlist2)`` implementation, don't wrap and unwrap
     all the ints
-  * Cache string keys that occur in json dicts, as they are likely to repeat
+  * Cache string keys that occur in JSON dicts, as they are likely to repeat
 
 * RPython improvements
 
