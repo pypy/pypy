@@ -17,8 +17,9 @@ were resolved.
 Cython 2.7 (released last week) should support more projects with PyPy, both on
 PyPy2.7 and PyPy3.5 beta.
 
-We improved JSON support for recurring string keys when parsing, which should
-decrease memory use and increase parsing speed.
+We optimized the JSON parser for recurring string keys, which should decrease
+memory use to 50% and increase parsing speed by up to 15% for large JSON files
+with many repeating dictionary keys (which is quite common).
 
 CFFI_, which is part of the PyPy release, has been updated to 1.11,
 improving an already great package for interfacing with C. CFFI now supports
