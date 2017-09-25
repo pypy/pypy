@@ -122,6 +122,9 @@ Note that these are also merged into PyPy 3.5
   * Fix for duplicate names in ctypes' ``_fields__``, issue 2621_
   * Update built-in ``pyexpat`` module on win32 to use UTF-8 version not UTF-16
   * ``gc.get_objects`` now handles objects with finalizers more consistently
+  * Fixed memory leak in ``SSLContext.getpeercert`` returning validated
+    certificates and ``SSLContext.get_ca_certs(binary_mode=True)``
+    (_get_crl_dp) `CPython issue 29738`_
 
 * Performance improvements:
 
@@ -199,6 +202,7 @@ Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
 .. _2579: https://bitbucket.org/pypy/pypy/issues/2579
 .. _2601: https://bitbucket.org/pypy/pypy/issues/2601
 .. _2643: https://bitbucket.org/pypy/pypy/issues/2643
+.. _CPython issue 29738: https://bugs.python.org/issue29738
 
 Please update, and continue to help us make PyPy better.
 
