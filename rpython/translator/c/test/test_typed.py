@@ -1,7 +1,7 @@
 from __future__ import with_statement
 
 import math
-import sys, os
+import sys, os, time
 import py
 
 from rpython.rlib.rstackovf import StackOverflow
@@ -468,14 +468,27 @@ class TestTypedTestCase(object):
         fn(0, expected_exception_name='ZeroDivisionError')
 
     def test_int_mul_ovf(self):
+        tic = time.clock()
         fn = self.getcompiled(snippet.mul_func, [int, int])
+        toc = time.clock()
+        compiletime = toc - tic
+        tic = toc
         for y in range(-5, 5):
             for x in range(-5, 5):
                 assert fn(x, y) == snippet.mul_func(x, y)
         n = sys.maxint / 4
         assert fn(n, 3) == snippet.mul_func(n, 3)
         assert fn(n, 4) == snippet.mul_func(n, 4)
+        toc = time.clock()
+        runningtime = toc - tic
+        tic = toc
         fn(n, 5, expected_exception_name='OverflowError')
+        toc = time.clock()
+        exceptiontime = toc - tic
+        tic = toc
+        print 'compiletime,runningtime,exceptiontime',compiletime,runningtime,exceptiontime
+        # same machine - linux 1.168619     0.026848      0.000303
+        #                win32 8.2197742749 3.80634991368 0.0371649693735
 
     def test_int_mod_ovf_zer(self):
         fn = self.getcompiled(snippet.mod_func, [int])
