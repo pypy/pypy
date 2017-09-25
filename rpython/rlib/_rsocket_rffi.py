@@ -534,7 +534,7 @@ if _POSIX:
             int cmsg_status;
             struct iovec iov;
             struct recvmsg_info* retinfo;
-            int error_flag;   // variable to be set in case of special errors.
+            int error_flag = 0;   // variable to be set in case of special errors.
             int cmsgdatalen = 0;
 
             // variables that are set to 1, if the message charp has been allocated
@@ -708,6 +708,7 @@ if _POSIX:
                     free(retinfo);
                 }
             }
+            if (error_flag==0) error_flag = -1;
             return error_flag;
 
         err_closefds:

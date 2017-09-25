@@ -1074,7 +1074,7 @@ class RSocket(object):
 
             if address is not None:
                 address.unlock()
-            if _c.geterrno() == _c.EINTR:
+            if (_c.geterrno() == _c.EINTR) or (_c.geterrno() == 11):
                 raise last_error()
             if (reply == -10000):
                 raise RSocketError("Invalid message size")
