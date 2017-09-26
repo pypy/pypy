@@ -1043,3 +1043,17 @@ def PyUnicode_Splitlines(space, w_str, keepend):
     resulting strings."""
     w_keepend = space.newbool(bool(rffi.cast(lltype.Signed, keepend)))
     return space.call_method(w_str, "splitlines", w_keepend)
+
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
+def PyUnicode_Substring(space, w_str, start, end):
+    usrc = space.unicode_w(w_str)
+    length = len(usrc)
+    if start < 0 or end < 0:
+        raise oefmt(space.w_IndexError, "string index out of range")
+    if start >= length or end < start:
+        result = u''
+    else:
+        if end > length:
+            end = length
+        result = usrc[start:end]
+    return space.newunicode(result)
