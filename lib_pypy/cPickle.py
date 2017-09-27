@@ -116,10 +116,20 @@ class Pickler(PythonPickler):
 
 @builtinify
 def dump(obj, file, protocol=None):
+    if protocol > HIGHEST_PROTOCOL:
+        # use cPickle error message, not pickle.py one
+        raise ValueError("pickle protocol %d asked for; "
+                     "the highest available protocol is %d" % (
+                     protocol, HIGHEST_PROTOCOL))
     Pickler(file, protocol).dump(obj)
 
 @builtinify
 def dumps(obj, protocol=None):
+    if protocol > HIGHEST_PROTOCOL:
+        # use cPickle error message, not pickle.py one
+        raise ValueError("pickle protocol %d asked for; "
+                     "the highest available protocol is %d" % (
+                     protocol, HIGHEST_PROTOCOL))
     file = StringIO()
     Pickler(file, protocol).dump(obj)
     return file.getvalue()

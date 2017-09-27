@@ -4658,6 +4658,25 @@ class TestAnnotateTestCase:
         s_exc = a.binding(graphof(a, f).exceptblock.inputargs[1])
         assert not s_exc.can_be_none()
 
+    def test_specialize_argtype_with_subclasses(self):
+        # checks that specialize:argtype() makes two copies of a
+        # function f(), one for the base class and one for the subclass
+        class A:
+            def foo(self):
+                return 123
+        class B(A):
+            def foo(self):
+                return 456
+        def f(x):
+            return x.foo()
+        f._annspecialcase_ = "specialize:argtype(0)"
+        def h(y):
+            if y > 5:
+                f(A())
+            return f(B())
+        a = self.RPythonAnnotator()
+        assert a.build_types(h, [int]).const == 456
+
 
 def g(n):
     return [0, 1, 2, n]

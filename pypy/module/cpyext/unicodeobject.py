@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
-    CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
+    CANNOT_FAIL, Py_ssize_t, build_type_checkers_flags, cpython_api,
     bootstrap_function, CONST_STRING,
     CONST_WSTRING, slot_function, cts, parse_dir)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
@@ -36,7 +36,7 @@ DEFAULT_ENCODING_SIZE = 100
 default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
                                  flavor='raw', zero=True)
 
-PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers("Unicode", "w_unicode")
+PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers_flags("Unicode")
 
 
 def new_empty_unicode(space, length):

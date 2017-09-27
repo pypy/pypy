@@ -142,6 +142,10 @@ def _cast_addr(obj, _, tp):
         ptr._buffer = tp._ffiarray(1, autofree=True)
         ptr._buffer[0] = obj._buffer
         result = ptr
+    elif isinstance(obj, bytes):
+        result = tp()
+        result._buffer[0] = buffer(obj)._pypy_raw_address()
+        return result
     elif not (isinstance(obj, _CData) and type(obj)._is_pointer_like()):
         raise TypeError("cast() argument 1 must be a pointer, not %s"
                         % (type(obj),))

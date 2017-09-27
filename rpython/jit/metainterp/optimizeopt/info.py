@@ -329,11 +329,14 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 
     def make_guards(self, op, short, optimizer):
         if self._known_class is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
+                short.append(ResOperation(rop.GUARD_NONNULL, [op]))
                 short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
-            short.append(ResOperation(rop.GUARD_CLASS,
-                                      [op, self._known_class]))
+                short.append(ResOperation(rop.GUARD_CLASS,
+                                          [op, self._known_class]))
+            else:
+                short.append(ResOperation(rop.GUARD_NONNULL_CLASS,
+                    [op, self._known_class]))
         elif self.descr is not None:
             short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:

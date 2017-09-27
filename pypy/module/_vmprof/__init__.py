@@ -1,5 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.rvmprof import VMProfPlatformUnsupported
+from rpython.translator.platform import CompilationError
+
 
 class Module(MixedModule):
     """
@@ -29,3 +31,9 @@ try:
     import pypy.module._vmprof.interp_vmprof
 except VMProfPlatformUnsupported as e:
     pass
+except CompilationError as e:
+    import sys
+    if sys.platform == 'win32':
+        pass
+    else:
+        raise

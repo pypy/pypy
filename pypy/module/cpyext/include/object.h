@@ -236,6 +236,11 @@ manually remove this flag though!
 #define Py_TPFLAGS_DEFAULT Py_TPFLAGS_DEFAULT_EXTERNAL
 
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
+#define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
+
+#define PyType_Check(op) \
+    PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
+#define PyType_CheckExact(op) (Py_TYPE(op) == &PyType_Type)
 
 /* objimpl.h ----------------------------------------------*/
 #define PyObject_New(type, typeobj) \
@@ -276,6 +281,15 @@ manually remove this flag though!
 typedef union _gc_head {
     char dummy;
 } PyGC_Head;
+
+/* dummy GC macros */
+#define _PyGC_FINALIZED(o) 1
+#define PyType_IS_GC(tp) 1
+
+#define PyObject_GC_Track(o)      do { } while(0)
+#define PyObject_GC_UnTrack(o)    do { } while(0)
+#define _PyObject_GC_TRACK(o)     do { } while(0)
+#define _PyObject_GC_UNTRACK(o)   do { } while(0)
 
 /* Utility macro to help write tp_traverse functions.
  * To use this macro, the tp_traverse function must name its arguments

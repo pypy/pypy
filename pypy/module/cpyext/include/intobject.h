@@ -12,6 +12,10 @@ typedef struct {
     long ob_ival;
 } PyIntObject;
 
+#define PyInt_Check(op) \
+		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_INT_SUBCLASS)
+#define PyInt_CheckExact(op) ((op)->ob_type == &PyInt_Type)
+
 #ifdef __cplusplus
 }
 #endif

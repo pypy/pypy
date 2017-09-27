@@ -531,3 +531,37 @@ class TestGcLoadStoreIndexed(BaseTest):
         typed_effects = self._analyze_graph(t, wa, typed_write)
         typed_effects = self._filter_reads(typed_effects)
         assert typed_effects == direct_effects
+
+    def test_explanation(self):
+        class A(object):
+            def methodname(self):
+                self.x = 1
+                return 1
+            def m(self):
+                raise ValueError
+        class B(A):
+            def methodname(self):
+                return 2
+            def m(self):
+                return 3
+        def fancyname(a):
+            return a.methodname()
+        def m(a):
+            return a.m()
+        def h(flag):
+            if flag:
+                obj = A()
+            else:
+                obj = B()
+            fancyname(obj)
+            m(obj)
+
+        t, wa = self.translate(h, [int])
+        hgraph = graphof(t, h)
+        # fiiiish :-(
+        block = hgraph.startblock.exits[0].target.exits[0].target
+        op_call_fancyname = block.operations[0]
+
+        explanation = wa.explain_analyze_slowly(op_call_fancyname)
+        assert "fancyname" in explanation[0]
+        assert "methodname" in explanation[1]

@@ -71,6 +71,12 @@ except TypeError:
     FrameType = type(tb.tb_frame)
     del tb
 
+# PyPy extension
+try:
+    FakeFrameType = type(next(sys._current_frames().itervalues()))
+except (AttributeError, StopIteration):
+    FakeFrameType = FrameType
+
 SliceType = slice
 EllipsisType = type(Ellipsis)
 

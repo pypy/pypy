@@ -445,13 +445,13 @@ class OptHeap(Optimization):
             if effectinfo.check_readonly_descr_field(fielddescr):
                 cf.force_lazy_set(self, fielddescr)
             if effectinfo.check_write_descr_field(fielddescr):
+                cf.force_lazy_set(self, fielddescr, can_cache=False)
                 if fielddescr.is_always_pure():
                     continue
                 try:
                     del self.cached_dict_reads[fielddescr]
                 except KeyError:
                     pass
-                cf.force_lazy_set(self, fielddescr, can_cache=False)
         #
         for arraydescr, submap in self.cached_arrayitems.items():
             if effectinfo.check_readonly_descr_array(arraydescr):

@@ -2,13 +2,13 @@
 """ Register allocation scheme.
 """
 
-import os, sys
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import CallDescr, unpack_arraydescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      RegisterManager, TempVar, compute_vars_longevity, is_comparison_or_ovf_op,
-     valid_addressing_size, get_scale)
+     valid_addressing_size, get_scale, SAVE_DEFAULT_REGS, SAVE_GCREF_REGS,
+     SAVE_ALL_REGS)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
     IS_X86_64, DEFAULT_FRAME_BYTES)
@@ -23,12 +23,11 @@ from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     ConstFloat, INT, REF, FLOAT, VECTOR, TargetToken, AbstractFailDescr)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resume import AccumInfo
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.x86.regloc import AddressLoc
@@ -804,26 +803,29 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # we need to save registers on the stack:
         #
         #  - at least the non-callee-saved registers
+        #    (gc_level == SAVE_DEFAULT_REGS)
         #
-        #  - if gc_level > 0, we save also the callee-saved registers that
-        #    contain GC pointers
+        #  - if gc_level == SAVE_GCREF_REGS we save also the callee-saved
+        #    registers that contain GC pointers
         #
-        #  - gc_level == 2 for CALL_MAY_FORCE or CALL_ASSEMBLER.  We
+        #  - gc_level == SAVE_ALL_REGS for CALL_MAY_FORCE or CALL_ASSEMBLER.  We
         #    have to save all regs anyway, in case we need to do
         #    cpu.force().  The issue is that grab_frame_values() would
         #    not be able to locate values in callee-saved registers.
         #
-        save_all_regs = gc_level == 2
+        if gc_level == SAVE_ALL_REGS:
+            save_all_regs = SAVE_ALL_REGS
+        else:
+            save_all_regs = SAVE_DEFAULT_REGS
         self.xrm.before_call(save_all_regs=save_all_regs)
-        if gc_level == 1:
+        if gc_level == SAVE_GCREF_REGS:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
-            # we save all the registers for shadowstack and asmgcc for now
+            # we save all the GCREF registers for shadowstack and asmgcc for now
             # --- for asmgcc too: we can't say "register x is a gc ref"
             # without distinguishing call sites, which we don't do any
             # more for now.
             if gcrootmap: # and gcrootmap.is_shadow_stack:
-                # YYY this is weird???
-                save_all_regs = 2
+                save_all_regs = SAVE_GCREF_REGS
         self.rm.before_call(save_all_regs=save_all_regs)
         if op.type != 'v':
             if op.type == FLOAT:
@@ -847,11 +849,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         #
         effectinfo = calldescr.get_extra_info()
         if guard_not_forced:
-            gc_level = 2
+            gc_level = SAVE_ALL_REGS
         elif effectinfo is None or effectinfo.check_can_collect():
-            gc_level = 1
+            gc_level = SAVE_GCREF_REGS
         else:
-            gc_level = 0
+            gc_level = SAVE_DEFAULT_REGS
         #
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
@@ -915,7 +917,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def _consider_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)
-        self._call(op, locs, gc_level=2)
+        self._call(op, locs, gc_level=SAVE_ALL_REGS)
     consider_call_assembler_i = _consider_call_assembler
     consider_call_assembler_r = _consider_call_assembler
     consider_call_assembler_f = _consider_call_assembler

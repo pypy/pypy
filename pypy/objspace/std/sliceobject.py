@@ -132,6 +132,18 @@ class W_SliceObject(W_Root):
         else:
             return space.w_False
 
+    def descr_ne(self, space, w_other):
+        if space.is_w(self, w_other):
+            return space.w_False
+        if not isinstance(w_other, W_SliceObject):
+            return space.w_NotImplemented
+        if space.eq_w(self.w_start, w_other.w_start) and \
+           space.eq_w(self.w_stop, w_other.w_stop) and \
+           space.eq_w(self.w_step, w_other.w_step):
+            return space.w_False
+        else:
+            return space.w_True
+
     def descr_lt(self, space, w_other):
         if space.is_w(self, w_other):
             return space.w_False   # see comments in descr_eq()
@@ -177,6 +189,7 @@ Create a slice object.  This is used for extended slicing (e.g. a[0:10:2]).''',
     __reduce__ = gateway.interp2app(W_SliceObject.descr__reduce__),
 
     __eq__ = gateway.interp2app(W_SliceObject.descr_eq),
+    __ne__ = gateway.interp2app(W_SliceObject.descr_ne),
     __lt__ = gateway.interp2app(W_SliceObject.descr_lt),
 
     start = slicewprop('w_start'),

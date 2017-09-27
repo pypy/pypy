@@ -18,9 +18,9 @@ static
 PyObject *make_object_base_type(void) {
 
     PyHeapTypeObject *heap_type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
-    if (!heap_type) return NULL;
 
     PyTypeObject *type = &heap_type->ht_type;
+    if (!heap_type) return NULL;
     type->tp_name = name;
 #ifdef ISSUE_2482
     type->tp_base = &PyBaseObject_Type; /*fails */
@@ -85,16 +85,19 @@ initissue2482(void)
 #else
     PyObject *module = Py_InitModule("issue2482", issue2482_functions);
 #endif
+    PyHeapTypeObject *heap_type;
+    PyTypeObject *type;
+    PyObject * base;
     if (module == NULL)
         INITERROR;
 
-    PyHeapTypeObject *heap_type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
+    heap_type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
     if (!heap_type) INITERROR;
 
-    PyTypeObject *type = &heap_type->ht_type;
+    type = &heap_type->ht_type;
     type->tp_name = name;
 
-    PyObject *base = make_object_base_type();
+    base = make_object_base_type();
     if (! base) INITERROR;
     Py_INCREF(base);
     type->tp_base = (PyTypeObject *) base;

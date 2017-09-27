@@ -122,3 +122,11 @@ def slot_tp_descr_set(space, w_self, w_obj, w_value):
     else:
         space.delete(w_self, w_obj)
     return 0
+
+@slot_function([PyObject], PyObject)
+def slot_tp_iter(space, w_self):
+    return space.iter(w_self)
+
+@slot_function([PyObject], PyObject)
+def slot_tp_iternext(space, w_self):
+    return space.next(w_self)
