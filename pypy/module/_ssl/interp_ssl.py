@@ -283,6 +283,7 @@ class _SSLSocket(W_Root):
         sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
         self.ssl = libssl_SSL_new(w_ctx.ctx)  # new ssl struct
 
+        rgc.add_memory_pressure(6 * 1024)
         self.register_finalizer(space)
 
         index = compute_unique_id(self)
