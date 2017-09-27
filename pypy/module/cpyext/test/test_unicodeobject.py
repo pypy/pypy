@@ -851,6 +851,17 @@ class TestUnicode(BaseApiTest):
         assert r"['a\n', 'b\n', 'c\n', 'd']" == space.unwrap(space.repr(
                 PyUnicode_Splitlines(space, w_str, 1)))
 
+    def test_substring_api(self, space):
+        w_str = space.wrap(u"abcd")
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 1, 3)) == u"bc"
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 0, 4)) == u"abcd"
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 0, 9)) == u"abcd"
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 1, 4)) == u"bcd"
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 2, 2)) == u""
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 5, 4)) == u""
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 5, 3)) == u""
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 4, 3)) == u""
+
     def test_Ready(self, space):
         w_str = space.wrap(u'abc')  # ASCII
         py_str = as_pyobj(space, w_str)

@@ -28,7 +28,29 @@ class TestGenObject(BaseApiTest):
         assert PyCoro_CheckExact(space, w_coroutine)
 
 class AppTestCoroutine(AppTestCpythonExtensionBase):
-    def test_simple(self):
+    def test_generator_coroutine(self):
+        module = self.import_extension('test_gen', [
+            ('is_coroutine', 'METH_O',
+             '''
+             if (!PyGen_CheckExact(args))
+                Py_RETURN_NONE;
+             PyObject* co = ((PyGenObject*)args)->gi_code;
+             if (((PyCodeObject*)co)->co_flags & CO_ITERABLE_COROUTINE)
+                Py_RETURN_TRUE;
+             else
+                Py_RETURN_FALSE;
+             ''')])
+
+        def it():
+            yield 42
+
+        print(module.is_coroutine(it()))
+        assert module.is_coroutine(it()) is False
+        self.debug_collect()  # don't crash while deallocating
+        from types import coroutine
+        assert module.is_coroutine(coroutine(it)()) is True
+
+    def test_await(self):
         """
         module = self.import_extension('test_coroutine', [
             ('await_', 'METH_O',

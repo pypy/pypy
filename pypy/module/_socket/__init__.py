@@ -37,7 +37,8 @@ class Module(MixedModule):
             CMSG_SPACE CMSG_LEN
             """.split():
 
-            if (name in ('inet_pton', 'inet_ntop', 'socketpair') and
+            if (name in ('inet_pton', 'inet_ntop', 'socketpair',
+                         'CMSG_SPACE', 'CMSG_LEN') and
                 not hasattr(rsocket, name)):
                 continue
 

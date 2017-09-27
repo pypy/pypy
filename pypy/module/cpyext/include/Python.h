@@ -127,6 +127,7 @@
 #include "pycapsule.h"
 #include "bytesobject.h"
 #include "sliceobject.h"
+#include "genobject.h"
 #include "datetime.h"
 #include "pystate.h"
 #include "fileobject.h"

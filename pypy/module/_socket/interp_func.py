@@ -1,3 +1,4 @@
+import sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
 from rpython.rlib.rarithmetic import intmask, r_longlong, r_uint32
@@ -327,41 +328,42 @@ def getaddrinfo(space, w_host, w_port,
             for (family, socktype, protocol, canonname, addr) in lst]
     return space.newlist(lst1)
 
-@unwrap_spec(size=int)
-def CMSG_SPACE(space, size):
-    """
-    Socket method to determine the optimal byte size of the ancillary.
-    Recommended to be used when computing the ancillary size for recvmsg.
-    :param space:
-    :param size: an integer with the minimum size required.
-    :return: an integer with the minimum memory needed for the required size. The value is memory alligned
-    """
-    if size < 0:
-        raise oefmt(space.w_OverflowError,
-                    "CMSG_SPACE() argument out of range")
-    retval = rsocket.CMSG_SPACE(size)
-    if retval == 0:
-        raise oefmt(space.w_OverflowError,
-                    "CMSG_SPACE() argument out of range")
-    return space.newint(retval)
+if sys.platform != 'win32':
+    @unwrap_spec(size=int)
+    def CMSG_SPACE(space, size):
+        """
+        Socket method to determine the optimal byte size of the ancillary.
+        Recommended to be used when computing the ancillary size for recvmsg.
+        :param space:
+        :param size: an integer with the minimum size required.
+        :return: an integer with the minimum memory needed for the required size. The value is memory alligned
+        """
+        if size < 0:
+            raise oefmt(space.w_OverflowError,
+                        "CMSG_SPACE() argument out of range")
+        retval = rsocket.CMSG_SPACE(size)
+        if retval == 0:
+            raise oefmt(space.w_OverflowError,
+                        "CMSG_SPACE() argument out of range")
+        return space.newint(retval)
 
-@unwrap_spec(len=int)
-def CMSG_LEN(space, len):
-    """
-    Socket method to determine the optimal byte size of the ancillary.
-    Recommended to be used when computing the ancillary size for recvmsg.
-    :param space:
-    :param len: an integer with the minimum size required.
-    :return: an integer with the minimum memory needed for the required size. The value is not mem alligned.
-    """
-    if len < 0:
-        raise oefmt(space.w_OverflowError,
-                    "CMSG_LEN() argument out of range")
-    retval = rsocket.CMSG_LEN(len)
-    if retval == 0:
-        raise oefmt(space.w_OverflowError,
-                    "CMSG_LEN() argument out of range")
-    return space.newint(retval)
+    @unwrap_spec(len=int)
+    def CMSG_LEN(space, len):
+        """
+        Socket method to determine the optimal byte size of the ancillary.
+        Recommended to be used when computing the ancillary size for recvmsg.
+        :param space:
+        :param len: an integer with the minimum size required.
+        :return: an integer with the minimum memory needed for the required size. The value is not mem alligned.
+        """
+        if len < 0:
+            raise oefmt(space.w_OverflowError,
+                        "CMSG_LEN() argument out of range")
+        retval = rsocket.CMSG_LEN(len)
+        if retval == 0:
+            raise oefmt(space.w_OverflowError,
+                        "CMSG_LEN() argument out of range")
+        return space.newint(retval)
 
 def getdefaulttimeout(space):
     """getdefaulttimeout() -> timeout

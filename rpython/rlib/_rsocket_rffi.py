@@ -348,7 +348,8 @@ if _POSIX:
                                  ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))])
 
 # insert handler for sendmsg / recvmsg here
-if _POSIX:
+HAVE_SENDMSG = bool(_POSIX)
+if HAVE_SENDMSG:
     includes = ['stddef.h',
                 'sys/socket.h',
                 'unistd.h',
