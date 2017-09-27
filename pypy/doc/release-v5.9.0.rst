@@ -10,9 +10,12 @@ the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
 
-Only a handful of failing tests remain in NumPy and Pandas on PyPy2.7, issues
-that appeared as excessive memory use were cleared up and other incompatibilities
-were resolved.
+NumPy and Pandas now work on PyPy2.7. Issues that appeared as excessive memory
+use were cleared up and other incompatibilities were resolved. The C-API
+compatibility layer does slow down code which crosses the python-c interface
+often, we have ideas on how it could be improved, and still recommend
+using pure python on PyPy or interfacing via CFFI_. Many other modules
+based on C-API exentions now work on PyPy as well.
 
 Cython 0.27 (released last week) should support more projects with PyPy, both
 on PyPy2.7 and PyPy3.5 beta.
