@@ -148,6 +148,8 @@ Note that these are also merged into PyPy 3.5
   * Issue 2590_: fix the bounds in the GC when allocating a lot of objects with finalizers
   * Replace magical NOT RPYTHON comment with a decorator
   * Implement ``socket.sendmsg()``/``.recvmsg()`` for py3.5
+  * Reduce excessive ``memory_pressure`` for ``_SSLContext`` objects and add
+    ``memory_pressure`` for ``_SSLSocket`` objects
 
 * Degredations
 
