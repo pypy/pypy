@@ -1393,7 +1393,7 @@ if hasattr(_c, 'socketpair'):
         return (make_socket(fd0, family, type, proto, SocketClass),
                 make_socket(fd1, family, type, proto, SocketClass))
 
-if _c._POSIX:
+if _c.HAVE_SENDMSG:
     def CMSG_LEN( demanded_len):
         """
         Socket method to determine the optimal byte size of the ancillary.
