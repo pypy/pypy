@@ -24,7 +24,7 @@ We optimized the JSON parser for recurring string keys, which should decrease
 memory use to 50% and increase parsing speed by up to 15% for large JSON files
 with many repeating dictionary keys (which is quite common).
 
-CFFI_, which is part of the PyPy release, has been updated to 1.11,
+CFFI_, which is part of the PyPy release, has been updated to 1.11.1,
 improving an already great package for interfacing with C. CFFI now supports
 complex arguments in API mode, as well as ``char16_t`` and ``char32_t`` and has
 improved support for callbacks.
@@ -166,7 +166,8 @@ Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
 
   * Add support for ``_PyNamespace_New``, ``PyMemoryView_FromMemory``, 
     ``Py_EnterRecursiveCall`` raising RecursionError, ``PyObject_LengthHint``,
-    ``PyUnicode_FromKindAndData``, ``PyDict_SetDefault``, ``PyGenObject``
+    ``PyUnicode_FromKindAndData``, ``PyDict_SetDefault``, ``PyGenObject``,
+    ``PyGenObject``, ``PyUnicode_Substring``, ``PyLong_FromUnicodeObject``
   * Implement ``PyType_FromSpec`` (PEP 384) and fix issues with PEP 489 support
   * Support the new version of ``os.stat()`` on win32
   * Use ``stat3()`` on Posix
