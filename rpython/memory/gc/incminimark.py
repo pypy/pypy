@@ -1023,7 +1023,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if self.max_heap_size < self.next_major_collection_threshold:
                 self.next_major_collection_threshold = self.max_heap_size
 
-    def raw_malloc_memory_pressure(self, sizehint):
+    def raw_malloc_memory_pressure(self, sizehint, adr):
         # Decrement by 'sizehint' plus a very little bit extra.  This
         # is needed e.g. for _rawffi, which may allocate a lot of tiny
         # arrays.

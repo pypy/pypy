@@ -598,21 +598,26 @@ def _keep_object(x):
         return False
     return type(x).__module__ != '__builtin__'   # keep non-builtins
 
-def add_memory_pressure(estimate):
+def add_memory_pressure(estimate, object=None):
     """Add memory pressure for OpaquePtrs."""
     pass
 
 class AddMemoryPressureEntry(ExtRegistryEntry):
     _about_ = add_memory_pressure
 
-    def compute_result_annotation(self, s_nbytes):
+    def compute_result_annotation(self, s_nbytes, s_object=None):
         from rpython.annotator import model as annmodel
         return annmodel.s_None
 
     def specialize_call(self, hop):
-        [v_size] = hop.inputargs(lltype.Signed)
+        v_size = hop.inputarg(lltype.Signed, 0)
+        if len(hop.args_v) == 2:
+            v_obj = hop.inputarg(hop.args_r[1], 1)
+            args = [v_size, v_obj]
+        else:
+            args = [v_size]
         hop.exception_cannot_occur()
-        return hop.genop('gc_add_memory_pressure', [v_size],
+        return hop.genop('gc_add_memory_pressure', args,
                          resulttype=lltype.Void)
 
 

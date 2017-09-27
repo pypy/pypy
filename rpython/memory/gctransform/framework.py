@@ -392,21 +392,22 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 inline = True)
 
         if getattr(GCClass, 'raw_malloc_memory_pressure', False):
-            def raw_malloc_memory_pressure_varsize(length, itemsize):
+            def raw_malloc_memory_pressure_varsize(length, itemsize, adr):
                 totalmem = length * itemsize
                 if totalmem > 0:
-                    gcdata.gc.raw_malloc_memory_pressure(totalmem)
+                    gcdata.gc.raw_malloc_memory_pressure(totalmem, adr)
                 #else: probably an overflow -- the following rawmalloc
                 #      will fail then
-            def raw_malloc_memory_pressure(sizehint):
-                gcdata.gc.raw_malloc_memory_pressure(sizehint)
+            def raw_malloc_memory_pressure(sizehint, adr):
+                gcdata.gc.raw_malloc_memory_pressure(sizehint, adr)
             self.raw_malloc_memory_pressure_varsize_ptr = getfn(
                 raw_malloc_memory_pressure_varsize,
-                [annmodel.SomeInteger(), annmodel.SomeInteger()],
+                [annmodel.SomeInteger(), annmodel.SomeInteger(),
+                 SomeAddress()],
                 annmodel.s_None, minimal_transform = False)
             self.raw_malloc_memory_pressure_ptr = getfn(
                 raw_malloc_memory_pressure,
-                [annmodel.SomeInteger()],
+                [annmodel.SomeInteger(), SomeAddress()],
                 annmodel.s_None, minimal_transform = False)
 
 

@@ -1613,7 +1613,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
                 digest = ropenssl.EVP_get_digestbyname('sha1')
                 self.ctx = ropenssl.EVP_MD_CTX_new()
                 ropenssl.EVP_DigestInit(self.ctx, digest)
-                rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64)
+                rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64, self)
 
             def __del__(self):
                 ropenssl.EVP_MD_CTX_free(self.ctx)
