@@ -10,9 +10,12 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,)
 from rpython.jit.backend.x86 import rx86
 
+from rpython.jit.backend.llsupport.regalloc import (SAVE_DEFAULT_REGS,
+     SAVE_GCREF_REGS, SAVE_ALL_REGS)
 
 from rpython.jit.backend.x86.regalloc import (
-    X86_64_RegisterManager, X86_64_XMMRegisterManager)
+    X86_64_RegisterManager, X86_64_XMMRegisterManager, compute_gc_level
+    )
 
 # tell the register allocator hints about which variables should be placed in
 # what registers (those are just hints, the register allocator will try its
@@ -123,14 +126,7 @@ class X86RegisterHints(object):
     def _consider_call(self, op, position, guard_not_forced=False, first_arg_index=1):
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
-        effectinfo = calldescr.get_extra_info()
-        # XXX this is nonsense, share the code somehow
-        if guard_not_forced:
-            gc_level = 2
-        elif effectinfo is None or effectinfo.check_can_collect():
-            gc_level = 1
-        else:
-            gc_level = 0
+        gc_level = compute_gc_level(calldescr, guard_not_forced)
         args = op.getarglist()[first_arg_index:]
         argtypes = calldescr.get_arg_types()
         CallHints64(self.longevity).hint(position, args, argtypes, gc_level)
@@ -210,9 +206,10 @@ class CallHints64(object):
                         hinted_args.append(arg)
                     next_arg_gpr += 1
         # block all remaining registers that are not caller save
-        # XXX the case save_all_regs == 1 (save callee-save regs + gc ptrs) is
-        # no expressible atm
-        if save_all_regs == 2:
+
+        # XXX the case save_all_regs == SAVE_GCREF_REGS
+        # (save callee-save regs + gc ptrs) is no expressible atm
+        if save_all_regs == SAVE_ALL_REGS:
             regs = X86_64_RegisterManager.all_regs
         else:
             regs = X86_64_RegisterManager.save_around_call_regs

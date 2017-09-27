@@ -32,6 +32,15 @@ from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.x86.regloc import AddressLoc
 
+def compute_gc_level(calldescr, guard_not_forced=False):
+    effectinfo = calldescr.get_extra_info()
+    if guard_not_forced:
+        return SAVE_ALL_REGS
+    elif effectinfo is None or effectinfo.check_can_collect():
+        return SAVE_GCREF_REGS
+    else:
+        return SAVE_DEFAULT_REGS
+
 
 class X86RegisterManager(RegisterManager):
     box_types = [INT, REF]
@@ -846,14 +855,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             sign_loc = imm1
         else:
             sign_loc = imm0
-        #
-        effectinfo = calldescr.get_extra_info()
-        if guard_not_forced:
-            gc_level = SAVE_ALL_REGS
-        elif effectinfo is None or effectinfo.check_can_collect():
-            gc_level = SAVE_GCREF_REGS
-        else:
-            gc_level = SAVE_DEFAULT_REGS
+
+        gc_level = compute_gc_level(calldescr, guard_not_forced)
         #
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
