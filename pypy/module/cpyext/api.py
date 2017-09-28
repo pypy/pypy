@@ -558,6 +558,7 @@ SYMBOLS_C = [
     'PyObject_GetBuffer', 'PyBuffer_Release',
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
     'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
+    '_Py_setfilesystemdefaultencoding',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
@@ -1045,11 +1046,17 @@ def setup_init_functions(eci, prefix):
     get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
                                        [], PyTypeObjectPtr,
                                        compilation_info=eci, _nowrapper=True)
+    setdefenc = rffi.llexternal('_%s_setfilesystemdefaultencoding' % prefix,
+                                [rffi.CCHARP], lltype.Void,
+                                compilation_info=eci, _nowrapper=True)
     def init_types(space):
         from pypy.module.cpyext.typeobject import py_type_ready
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
         py_type_ready(space, get_buffer_type())
         py_type_ready(space, get_cobject_type())
         py_type_ready(space, get_capsule_type())
+        s = space.text_w(getfilesystemencoding(space))
+        setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
     _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
