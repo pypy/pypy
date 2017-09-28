@@ -72,6 +72,7 @@ from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import rgc
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -2917,6 +2918,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 (obj + offset).address[0] = llmemory.NULL
         self.old_objects_with_weakrefs.delete()
         self.old_objects_with_weakrefs = new_with_weakref
+
+    def get_stats(self, stats_no):
+        return 0
 
 
     # ----------

@@ -410,6 +410,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 [annmodel.SomeInteger(), SomeAddress()],
                 annmodel.s_None, minimal_transform = False)
 
+        if getattr(GCClass, 'get_stats', False):
+            def get_stats(stats_no):
+                return gcdata.gc.get_stats(stats_no)
+            self.get_stats_ptr = getfn(get_stats, [annmodel.SomeInteger()],
+                annmodel.SomeInteger())
+
 
         self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
                                       [s_gc, s_gcref],
@@ -843,9 +849,17 @@ class BaseFrameworkGCTransformer(GCTransformer):
                     resulttype=llmemory.Address)
             else:
                 v_adr = rmodel.inputconst(llmemory.Address, llmemory.NULL)
-            return hop.genop("direct_call",
-                              [self.raw_malloc_memory_pressure_ptr,
+            hop.genop("direct_call", [self.raw_malloc_memory_pressure_ptr,
                                size, v_adr])
+
+
+    def gct_gc_get_stats(self, hop):
+        if hasattr(self, 'get_stats_ptr'):
+            return hop.genop("direct_call",
+                [self.get_stats_ptr, hop.spaceop.args[0]],
+                resultvar=hop.spaceop.result)
+        hop.genop("same_as", [rmodel.inputconst(lltype.Signed, 0)],
+            resultvar=hop.spaceop.result)
 
 
     def gct_gc__collect(self, hop):

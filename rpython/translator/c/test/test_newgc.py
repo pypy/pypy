@@ -1625,7 +1625,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
                 am2 = am1
                 am1 = A()
             # what can we use for the res?
-            return 0
+            return rgc.get_stats(rgc.TOTAL_MEMORY)
         return f
 
     def test_nongc_opaque_attached_to_gc(self):

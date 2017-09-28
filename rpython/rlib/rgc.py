@@ -650,6 +650,12 @@ def cast_gcref_to_int(gcref):
     else:
         return id(gcref._x)
 
+TOTAL_MEMORY, = range(1)
+
+@not_rpython
+def get_stats(stat_no):
+    raise NotImplementedError
+
 @not_rpython
 def dump_rpy_heap(fd):
     raise NotImplementedError
@@ -843,6 +849,18 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_type_index', vlist,
                          resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_stats
+    def compute_result_annotation(self, s_no):
+        from rpython.annotator.model import SomeInteger
+        if not isinstance(s_no, SomeInteger):
+            raise Exception("expecting an integer")
+        return SomeInteger()
+    def specialize_call(self, hop):
+        args = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_get_stats', args, resulttype=lltype.Signed)
 
 @not_rpython
 def _is_rpy_instance(gcref):
