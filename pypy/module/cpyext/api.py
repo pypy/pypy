@@ -1338,17 +1338,20 @@ def generate_decls_and_callbacks(db, prefix=''):
     for decl in FORWARD_DECLS:
         decls[pypy_decl].append("%s;" % (decl,))
     decls[pypy_decl].append("""
-        /* hack for https://bugs.python.org/issue29943 */
-        PyAPI_FUNC(int) %s(PySliceObject *arg0,
-                           Signed arg1, Signed *arg2,
-                           Signed *arg3, Signed *arg4, Signed *arg5);
-        static int PySlice_GetIndicesEx(PySliceObject *arg0, Py_ssize_t arg1,
-                Py_ssize_t *arg2, Py_ssize_t *arg3, Py_ssize_t *arg4,
-                Py_ssize_t *arg5) {
-            return %s(arg0, arg1, arg2, arg3,
-                      arg4, arg5);
-        }
-    """ % ((mangle_name(prefix, 'PySlice_GetIndicesEx'),)*2))
+/* hack for https://bugs.python.org/issue29943 */
+
+PyAPI_FUNC(int) %s(PySliceObject *arg0,
+                    Signed arg1, Signed *arg2,
+                    Signed *arg3, Signed *arg4, Signed *arg5);
+#ifdef __GNUC__
+__attribute__((__unused__))
+#endif
+static int PySlice_GetIndicesEx(PySliceObject *arg0, Py_ssize_t arg1,
+        Py_ssize_t *arg2, Py_ssize_t *arg3, Py_ssize_t *arg4,
+        Py_ssize_t *arg5) {
+    return %s(arg0, arg1, arg2, arg3,
+                arg4, arg5);
+}""" % ((mangle_name(prefix, 'PySlice_GetIndicesEx'),)*2))
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         header = decls[header_name]
