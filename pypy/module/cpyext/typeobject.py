@@ -12,15 +12,14 @@ from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
     slot_function, generic_cpy_call, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    build_type_checkers_flags, cts, parse_dir, PyObjectFields, PyTypeObject,
+    build_type_checkers_flags, cts, parse_dir, PyTypeObject,
     PyTypeObjectPtr, Py_buffer,
     Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_LONG_SUBCLASS, Py_TPFLAGS_LIST_SUBCLASS,
     Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
-    Py_TPFLAGS_INT_SUBCLASS, Py_TPFLAGS_STRING_SUBCLASS, # change on py3
-    )
+    Py_TPFLAGS_BYTES_SUBCLASS)
 from pypy.module.cpyext.cparser import CTypeSpace
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
@@ -40,7 +39,6 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
-cts.parse_header(parse_dir / "cpyext_descrobject.h")
 
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
@@ -48,6 +46,7 @@ PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
+cts.parse_header(parse_dir / "cpyext_descrobject.h")
 cts.parse_header(parse_dir / "typeslots.h")
 
 

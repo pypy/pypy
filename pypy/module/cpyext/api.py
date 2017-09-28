@@ -1340,13 +1340,13 @@ def generate_decls_and_callbacks(db, prefix=''):
     decls[pypy_decl].append("""
 /* hack for https://bugs.python.org/issue29943 */
 
-PyAPI_FUNC(int) %s(PySliceObject *arg0,
+PyAPI_FUNC(int) %s(PyObject *arg0,
                     Signed arg1, Signed *arg2,
                     Signed *arg3, Signed *arg4, Signed *arg5);
 #ifdef __GNUC__
 __attribute__((__unused__))
 #endif
-static int PySlice_GetIndicesEx(PySliceObject *arg0, Py_ssize_t arg1,
+static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
         Py_ssize_t *arg2, Py_ssize_t *arg3, Py_ssize_t *arg4,
         Py_ssize_t *arg5) {
     return %s(arg0, arg1, arg2, arg3,
