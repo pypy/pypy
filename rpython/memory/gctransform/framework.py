@@ -832,6 +832,22 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     gct_fv_gc_malloc_varsize = gct_fv_gc_malloc
 
+    def gct_gc_add_memory_pressure(self, hop):
+        if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
+            op = hop.spaceop
+            size = op.args[0]
+            if len(op.args) == 2:
+                v_fld = rmodel.inputconst(lltype.Void, "special_memory_pressure")
+                hop.genop("bare_setfield", [op.args[1], v_fld, size])
+                v_adr = hop.genop("cast_ptr_to_adr", [op.args[1]],
+                    resulttype=llmemory.Address)
+            else:
+                v_adr = rmodel.inputconst(llmemory.Address, llmemory.NULL)
+            return hop.genop("direct_call",
+                              [self.raw_malloc_memory_pressure_ptr,
+                               size, v_adr])
+
+
     def gct_gc__collect(self, hop):
         op = hop.spaceop
         if len(op.args) == 1:

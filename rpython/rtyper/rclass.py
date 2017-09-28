@@ -523,6 +523,10 @@ class InstanceRepr(Repr):
                 if not attrdef.readonly and self.is_quasi_immutable(name):
                     llfields.append(('mutate_' + name, OBJECTPTR))
 
+            bookkeeper = self.rtyper.annotator.bookkeeper
+            if self.classdef in bookkeeper.memory_pressure_types:
+                llfields = [('special_memory_pressure', lltype.Signed)] + llfields
+
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
                                    hints=hints,

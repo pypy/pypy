@@ -607,6 +607,11 @@ class AddMemoryPressureEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_nbytes, s_object=None):
         from rpython.annotator import model as annmodel
+        if s_object is not None:
+            if not isinstance(s_object, annmodel.SomeInstance):
+                raise Exception("Wrong kind of object passed to "
+                                "add memory pressure")
+            self.bookkeeper.memory_pressure_types.add(s_object.classdef)
         return annmodel.s_None
 
     def specialize_call(self, hop):
