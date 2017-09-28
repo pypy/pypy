@@ -2337,8 +2337,8 @@ def test_ffi_gc_size_arg_2():
     for i in range(2000):
         p = lib.malloc(50*1024*1024)    # 50 MB
         p1 = ffi.cast("char *", p)
-        for j in xrange(0, 50*1024*1024, 4096):
-            p1[j] = '!'
+        for j in range(0, 50*1024*1024, 4096):
+            p1[j] = b'!'
         p = ffi.gc(p, lib.free, 50*1024*1024)
         x = X()
         x.p = p
@@ -2356,8 +2356,8 @@ def test_ffi_new_with_cycles():
         pass
     for i in range(2000):
         p = ffi.new("char[]", 50*1024*1024)    # 50 MB
-        for j in xrange(0, 50*1024*1024, 4096):
-            p[j] = '!'
+        for j in range(0, 50*1024*1024, 4096):
+            p[j] = b'!'
         x = X()
         x.p = p
         x.cyclic = x

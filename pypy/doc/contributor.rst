@@ -27,8 +27,8 @@ Contributors
   Wim Lavrijsen
   Eric van Riet Paap
   Richard Emslie
-  Alexander Schremmer
   Remi Meier
+  Alexander Schremmer
   Dan Villiom Podlaski Christiansen
   Lukas Diekmann
   Sven Hager
@@ -69,6 +69,7 @@ Contributors
   Michael Foord
   Stephan Diehl
   Stefano Rivera
+  Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
   Valentino Volonghi
@@ -77,14 +78,13 @@ Contributors
   Bob Ippolito
   Bruno Gola
   David Malcolm
-  Jean-Paul Calderone
   Squeaky
   Edd Barrett
   Timo Paulssen
   Marius Gedminas
+  Nicolas Truessel
   Alexandre Fayolle
   Simon Burton
-  Nicolas Truessel
   Martin Matusiak
   Laurence Tratt
   Wenzhu Man
@@ -123,6 +123,7 @@ Contributors
   Stefan H. Muller
   Tim Felgentreff
   Eugene Oden
+  Dodan Mihai
   Jeff Terrace
   Henry Mason
   Vasily Kuznetsov
@@ -149,11 +150,13 @@ Contributors
   Rocco Moretti
   Gintautas Miliauskas
   Lucian Branescu Mihaila
+  Mariano Anaya
   anatoly techtonik
-  Dodan Mihai
   Karl Bartel
+  Stefan Beyer
   Gabriel Lavoie
   Jared Grubb
+  Alecsandru Patrascu
   Olivier Dormond
   Wouter van Heyst
   Sebastian Pawluś
@@ -161,6 +164,7 @@ Contributors
   Victor Stinner
   Andrews Medina
   Aaron Iles
+  p_zieschang@yahoo.de
   Toby Watson
   Daniel Patrick
   Stuart Williams
@@ -171,6 +175,7 @@ Contributors
   Michael Cheng
   Mikael Schönenberg
   Stanislaw Halik
+  Mihnea Saracin
   Berkin Ilbeyi
   Gasper Zejn
   Faye Zhao
@@ -181,14 +186,12 @@ Contributors
   Jonathan David Riehl
   Beatrice During
   Alex Perry
-  p_zieschang@yahoo.de
   Robert Zaremba
   Alan McIntyre
   Alexander Sedov
   Vaibhav Sood
   Reuben Cummings
   Attila Gobi
-  Alecsandru Patrascu
   Christopher Pope
   Tristan Arthur
   Christian Tismer 
@@ -210,7 +213,6 @@ Contributors
   Jacek Generowicz
   Sylvain Thenault
   Jakub Stasiak
-  Stefan Beyer
   Andrew Dalke
   Alejandro J. Cura
   Vladimir Kryachko
@@ -242,6 +244,7 @@ Contributors
   Christoph Gerum
   Miguel de Val Borro
   Artur Lisiecki
+  afteryu
   Toni Mattis
   Laurens Van Houtven
   Bobby Impollonia
@@ -272,6 +275,7 @@ Contributors
   Anna Katrina Dominguez
   Kim Jin Su
   Amber Brown
+  Anthony Sottile
   Nate Bragg
   Ben Darnell
   Juan Francisco Cantero Hurtado
@@ -292,12 +296,14 @@ Contributors
   Mike Bayer
   Rodrigo Araújo
   Daniil Yarancev
+  Min RK
   OlivierBlanvillain
   Jonas Pfannschmidt
   Zearin
   Andrey Churin
   Dan Crosta
   reubano@gmail.com
+  Stanisław Halik
   Julien Phalip
   Roman Podoliaka
   Eli Stevens

@@ -203,7 +203,7 @@ def isframe(object):
         f_locals        local namespace seen by this frame
         f_restricted    0 or 1 if frame is in restricted execution mode
         f_trace         tracing function for this frame, or None"""
-    return isinstance(object, types.FrameType)
+    return isinstance(object, (types.FrameType, types.FakeFrameType))
 
 def iscode(object):
     """Return true if the object is a code object.

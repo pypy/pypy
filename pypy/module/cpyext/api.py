@@ -562,6 +562,7 @@ SYMBOLS_C = [
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
     'PyObject_GetBuffer', 'PyBuffer_Release',
+    '_Py_setfilesystemdefaultencoding',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
@@ -1058,10 +1059,16 @@ def setup_init_functions(eci, prefix):
     get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
                                        [], PyTypeObjectPtr,
                                        compilation_info=eci, _nowrapper=True)
+    setdefenc = rffi.llexternal('_%s_setfilesystemdefaultencoding' % prefix,
+                                [rffi.CCHARP], lltype.Void,
+                                compilation_info=eci, _nowrapper=True)
     def init_types(space):
         from pypy.module.cpyext.typeobject import py_type_ready
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
         py_type_ready(space, get_cobject_type())
         py_type_ready(space, get_capsule_type())
+        s = space.text_w(getfilesystemencoding(space))
+        setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
     global py_fatalerror
@@ -1330,6 +1337,18 @@ def generate_decls_and_callbacks(db, prefix=''):
     decls = defaultdict(list)
     for decl in FORWARD_DECLS:
         decls[pypy_decl].append("%s;" % (decl,))
+    decls[pypy_decl].append("""
+        /* hack for https://bugs.python.org/issue29943 */
+        PyAPI_FUNC(int) %s(PySliceObject *arg0,
+                           Signed arg1, Signed *arg2,
+                           Signed *arg3, Signed *arg4, Signed *arg5);
+        static int PySlice_GetIndicesEx(PySliceObject *arg0, Py_ssize_t arg1,
+                Py_ssize_t *arg2, Py_ssize_t *arg3, Py_ssize_t *arg4,
+                Py_ssize_t *arg5) {
+            return %s(arg0, arg1, arg2, arg3,
+                      arg4, arg5);
+        }
+    """ % ((mangle_name(prefix, 'PySlice_GetIndicesEx'),)*2))
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         header = decls[header_name]
