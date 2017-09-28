@@ -220,3 +220,45 @@ class AppTest_ModuleObject:
         import sys
         m = type(sys).__new__(type(sys))
         assert not m.__dict__
+
+    def test_class_assignment_for_module(self):
+        import sys
+        modtype = type(sys)
+        class X(modtype):
+            _foobar_ = 42
+
+        m = X("yytest_moduleyy")
+        assert type(m) is m.__class__ is X
+        assert m._foobar_ == 42
+        m.__class__ = modtype
+        assert type(m) is m.__class__ is modtype
+        assert not hasattr(m, '_foobar_')
+
+        m = modtype("xxtest_modulexx")
+        assert type(m) is m.__class__ is modtype
+        m.__class__ = X
+        assert m._foobar_ == 42
+        assert type(m) is m.__class__ is X
+
+        sys.__class__ = modtype
+        assert type(sys) is sys.__class__ is modtype
+        sys.__class__ = X
+        assert sys._foobar_ == 42
+        sys.__class__ = modtype
+
+        class XX(modtype):
+            __slots__ = ['a', 'b']
+
+        x = XX("zztest_modulezz")
+        assert x.__class__ is XX
+        raises(AttributeError, "x.a")
+        x.a = 42
+        assert x.a == 42
+        x.a = 43
+        assert x.a == 43
+        assert 'a' not in x.__dict__
+        del x.a
+        raises(AttributeError, "x.a")
+        raises(AttributeError, "del x.a")
+        raises(TypeError, "x.__class__ = X")
+        raises(TypeError, "sys.__class__ = XX")

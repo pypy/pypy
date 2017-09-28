@@ -138,6 +138,10 @@ class TestFilemode:
             self.assertS_IS("REG", st_mode)
             self.assertEqual(modestr, '-r--r--r--')
             self.assertEqual(self.statmod.S_IMODE(st_mode), 0o444)
+
+            # If there are only permission bits, no type bytes, a question
+            # mark is rendered in the type field.
+            self.assertEqual(self.statmod.filemode(0o420), '?r---w----')
         else:
             os.chmod(TESTFN, 0o700)
             st_mode, modestr = self.get_mode()

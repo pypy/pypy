@@ -827,7 +827,8 @@ class date:
             month = self._month
         if day is None:
             day = self._day
-        return date(year, month, day)
+        # PyPy fix: returns type(self)() instead of date()
+        return type(self)(year, month, day)
 
     # Comparisons of date objects with other.
 
@@ -1320,7 +1321,8 @@ class time:
             tzinfo = self.tzinfo
         if fold is None:
             fold = self._fold
-        return time(hour, minute, second, microsecond, tzinfo, fold=fold)
+        # PyPy fix: returns type(self)() instead of time()
+        return type(self)(hour, minute, second, microsecond, tzinfo, fold=fold)
 
     # Pickle support.
 
@@ -1601,7 +1603,8 @@ class datetime(date):
             tzinfo = self.tzinfo
         if fold is None:
             fold = self.fold
-        return datetime(year, month, day, hour, minute, second,
+        # PyPy fix: returns type(self)() instead of datetime()
+        return type(self)(year, month, day, hour, minute, second,
                           microsecond, tzinfo, fold=fold)
 
     def _local_timezone(self):

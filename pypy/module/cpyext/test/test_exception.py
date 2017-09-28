@@ -45,3 +45,25 @@ class AppTestExceptions(AppTestCpythonExtensionBase):
                                      PyExc_IOError);
              """)])
         assert module.get_aliases() == (OSError, OSError)
+
+    def test_implicit_chaining(self):
+        module = self.import_extension('foo', [
+            ("raise_exc", "METH_NOARGS",
+             """
+                PyObject *ev, *et, *tb;
+                PyObject *ev0, *et0, *tb0;
+                PyErr_GetExcInfo(&ev0, &et0, &tb0);
+                PyErr_SetString(PyExc_ValueError, "foo");
+
+                // simplified copy of __Pyx_GetException
+                PyErr_Fetch(&et, &ev, &tb);
+                PyErr_NormalizeException(&et, &ev, &tb);
+                if (tb) PyException_SetTraceback(ev, tb);
+                PyErr_SetExcInfo(et, ev, tb);
+
+                PyErr_SetString(PyExc_TypeError, "bar");
+                PyErr_SetExcInfo(ev0, et0, tb0);
+                return NULL;
+             """)])
+        excinfo = raises(TypeError, module.raise_exc)
+        assert excinfo.value.__context__

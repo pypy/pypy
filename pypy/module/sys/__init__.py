@@ -93,8 +93,6 @@ class Module(MixedModule):
         'int_info'              : 'system.get_int_info(space)',
         'hash_info'             : 'system.get_hash_info(space)',
         'float_repr_style'      : 'system.get_float_repr_style(space)',
-        'getdlopenflags'        : 'system.getdlopenflags',
-        'setdlopenflags'        : 'system.setdlopenflags',
 
         'get_coroutine_wrapper' : 'vm.get_coroutine_wrapper',
         'set_coroutine_wrapper' : 'vm.set_coroutine_wrapper',
@@ -105,6 +103,9 @@ class Module(MixedModule):
     if sys.platform == 'win32':
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
+    else:
+        interpleveldefs['getdlopenflags'] = 'system.getdlopenflags'
+        interpleveldefs['setdlopenflags'] = 'system.setdlopenflags'
 
     appleveldefs = {
         'excepthook'            : 'app.excepthook',

@@ -95,6 +95,7 @@ class AppTestRecompiler:
 
     def setup_method(self, meth):
         self._w_modules = self.space.appexec([], """():
+            import cpyext      # ignore stuff there in the leakfinder
             import sys
             return set(sys.modules)
         """)
@@ -928,8 +929,8 @@ class AppTestRecompiler:
     def test_constant_of_value_unknown_to_the_compiler(self):
         extra_c_source = self.udir + self.os_sep + (
             'extra_test_constant_of_value_unknown_to_the_compiler.c')
-        with open(extra_c_source, 'w') as f:
-            f.write('const int external_foo = 42;\n')
+        with open(extra_c_source, 'wb') as f:
+            f.write(b'const int external_foo = 42;\n')
         ffi, lib = self.prepare(
             "const int external_foo;",
             'test_constant_of_value_unknown_to_the_compiler',

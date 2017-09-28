@@ -10,7 +10,7 @@ except ImportError:
 
 from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype
@@ -1318,8 +1318,8 @@ def get_fork_hooks(where):
     else:
         assert False, "Unknown fork hook"
 
+@not_rpython
 def add_fork_hook(where, hook):
-    "NOT_RPYTHON"
     get_fork_hooks(where).append(hook)
 
 add_fork_hook('child', ExecutionContext._mark_thread_disappeared)

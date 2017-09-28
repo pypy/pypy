@@ -297,10 +297,7 @@ class _ReadlineWrapper(object):
         line = line.rstrip('\n')
         if isinstance(line, unicode):
             return line # on py3k
-        try:
-            return unicode(line, ENCODING)
-        except UnicodeDecodeError:   # bah, silently fall back...
-            return unicode(line, 'utf-8', 'replace')
+        return unicode(line, 'utf-8', 'replace')
 
     def get_history_length(self):
         return self.saved_history_length
@@ -317,7 +314,8 @@ class _ReadlineWrapper(object):
         # history item: we use \r\n instead of just \n.  If the history
         # file is passed to GNU readline, the extra \r are just ignored.
         history = self.get_reader().history
-        f = open(os.path.expanduser(filename), 'r')
+        f = open(os.path.expanduser(filename), 'r', encoding='utf-8',
+                 errors='replace')
         buffer = []
         for line in f:
             if line.endswith('\r\n'):
@@ -334,15 +332,12 @@ class _ReadlineWrapper(object):
     def write_history_file(self, filename='~/.history'):
         maxlength = self.saved_history_length
         history = self.get_reader().get_trimmed_history(maxlength)
-        f = open(os.path.expanduser(filename), 'w')
+        f = open(os.path.expanduser(filename), 'w', encoding='utf-8')
         for entry in history:
             # if we are on py3k, we don't need to encode strings before
             # writing it to a file
             if isinstance(entry, unicode) and sys.version_info < (3,):
-                try:
-                    entry = entry.encode(ENCODING)
-                except UnicodeEncodeError:   # bah, silently fall back...
-                    entry = entry.encode('utf-8')
+                entry = entry.encode('utf-8')
             entry = entry.replace('\n', '\r\n')   # multiline history support
             f.write(entry + '\n')
         f.close()

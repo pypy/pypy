@@ -279,7 +279,13 @@ def _get_dllhandle(space):
     from rpython.rtyper.lltypesystem import lltype, rffi
     return space.newint(rffi.cast(lltype.Signed, handle))
 
-getsizeof_missing = """sys.getsizeof() is not implemented on PyPy.
+getsizeof_missing = """getsizeof(...)
+    getsizeof(object, default) -> int
+    
+    Return the size of object in bytes.
+
+sys.getsizeof(object, default) will always return default on PyPy, and
+raise a TypeError if default is not provided.
 
 First note that the CPython documentation says that this function may
 raise a TypeError, so if you are seeing it, it means that the program

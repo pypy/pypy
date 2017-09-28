@@ -2,7 +2,7 @@ from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.debug import fatalerror_notb
 from pypy.module.cpyext.api import (
-    cpython_api, Py_ssize_t, build_type_checkers,
+    cpython_api, Py_ssize_t, build_type_checkers_flags,
     PyVarObjectFields, cpython_struct, bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, decref, incref,
@@ -42,7 +42,7 @@ def init_tupleobject(space):
                    dealloc=tuple_dealloc,
                    realize=tuple_realize)
 
-PyTuple_Check, PyTuple_CheckExact = build_type_checkers("Tuple")
+PyTuple_Check, PyTuple_CheckExact = build_type_checkers_flags("Tuple")
 
 def tuple_check_ref(space, ref):
     w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
@@ -143,6 +143,7 @@ def PyTuple_SetItem(space, ref, index, py_obj):
     old_ref = tupleobj.c_ob_item[index]
     if pyobj_has_w_obj(ref):
         # similar but not quite equal to ref.c_ob_refcnt != 1 on CPython
+        decref(space, py_obj)
         raise oefmt(space.w_SystemError, "PyTuple_SetItem called on tuple after"
                                         " use of tuple")
     tupleobj.c_ob_item[index] = py_obj    # consumes a reference

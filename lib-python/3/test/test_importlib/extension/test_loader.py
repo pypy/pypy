@@ -88,6 +88,7 @@ class MultiPhaseExtensionModuleTests(abc.LoaderTests):
 
     def setUp(self):
         self.name = '_testmultiphase'
+        __import__(self.name)  # PyPy hack
         finder = self.machinery.FileFinder(None)
         self.spec = importlib.util.find_spec(self.name)
         assert self.spec
@@ -145,7 +146,8 @@ class MultiPhaseExtensionModuleTests(abc.LoaderTests):
             importlib.reload(module)
             self.assertIs(ex_class, module.Example)
 
-    def test_try_registration(self):
+    # XXX: PyPy doesn't support the PyState_* functions yet
+    def XXXtest_try_registration(self):
         '''Assert that the PyState_{Find,Add,Remove}Module C API doesn't work'''
         module = self.load_module()
         with self.subTest('PyState_FindModule'):

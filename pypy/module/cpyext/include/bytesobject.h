@@ -55,6 +55,9 @@ typedef struct {
 #define SSTATE_INTERNED_IMMORTAL 2
 #define PyString_CHECK_INTERNED(op) (((PyStringObject *)(op))->ob_sstate)
 
+#define PyBytes_Check(op) \
+                 PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_BYTES_SUBCLASS)
+#define PyBytes_CheckExact(op) (Py_TYPE(op) == &PyBytes_Type)
 
 PyAPI_FUNC(PyObject *) PyBytes_FromFormatV(const char*, va_list);
 PyAPI_FUNC(PyObject *) PyBytes_FromFormat(const char*, ...);

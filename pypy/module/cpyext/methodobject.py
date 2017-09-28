@@ -10,7 +10,7 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, bootstrap_function,
-    build_type_checkers, cpython_api, generic_cpy_call, CANNOT_FAIL,
+    cpython_api, generic_cpy_call, CANNOT_FAIL,
     PyTypeObjectPtr, slot_function, cts)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
@@ -46,7 +46,7 @@ def cfunction_dealloc(space, py_obj):
 class W_PyCFunctionObject(W_Root):
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
-        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP,self.ml.c_ml_name))
+        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP, self.ml.c_ml_name))
         self.w_self = w_self
         self.w_module = w_module
 
@@ -102,9 +102,33 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         return self.space.unwrap(self.descr_method_repr())
 
     def descr_method_repr(self):
-        return self.getrepr(
-            self.space, u"built-in method '%s' of '%s' object" %
-            (self.name.decode('utf-8'), self.w_objclass.getname(self.space)))
+        w_objclass = self.w_objclass 
+        assert isinstance(w_objclass, W_TypeObject)
+        return self.space.newtext("<method '%s' of '%s' objects>" % (
+            self.name, w_objclass.name))
+
+    def descr_call(self, space, __args__):
+        args_w, kw_w = __args__.unpack()
+        if len(args_w) < 1:
+            w_objclass = self.w_objclass 
+            assert isinstance(w_objclass, W_TypeObject)
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' of '%s' object needs an argument",
+                self.name, w_objclass.name)
+        w_instance = args_w[0]
+        # XXX: needs a stricter test
+        if not space.isinstance_w(w_instance, self.w_objclass):
+            w_objclass = self.w_objclass 
+            assert isinstance(w_objclass, W_TypeObject)
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' requires a '%s' object but received a '%T'",
+                self.name, w_objclass.name, w_instance)
+        w_args = space.newtuple(args_w[1:])
+        w_kw = space.newdict()
+        for key, w_obj in kw_w.items():
+            space.setitem(w_kw, space.newtext(key), w_obj)
+        ret = self.call(space, w_instance, w_args, w_kw)
+        return ret
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCFunction_Check(space, w_obj):
@@ -200,9 +224,13 @@ def cfunction_descr_call(space, w_self, __args__):
     ret = self.call(space, None, w_args, w_kw)
     return ret
 
-def cmethod_descr_call(space, w_self, __args__):
+def cclassmethod_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
+    if len(args_w) < 1:
+        raise oefmt(space.w_TypeError,
+            "descriptor '%8' of '%N' object needs an argument",
+            self.name, self.w_objclass)
     w_instance = args_w[0] # XXX typecheck missing
     w_args = space.newtuple(args_w[1:])
     w_kw = space.newdict()
@@ -234,9 +262,9 @@ W_PyCFunctionObject.typedef = TypeDef(
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
 W_PyCMethodObject.typedef = TypeDef(
-    'method',
+    'method_descriptor',
     __get__ = interp2app(cmethod_descr_get),
-    __call__ = interp2app(cmethod_descr_call),
+    __call__ = interp2app(W_PyCMethodObject.descr_call),
     __name__ = interp_attrproperty('name', cls=W_PyCMethodObject,
         wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCMethodObject),
@@ -247,7 +275,7 @@ W_PyCMethodObject.typedef.acceptable_as_base_class = False
 W_PyCClassMethodObject.typedef = TypeDef(
     'classmethod',
     __get__ = interp2app(cclassmethod_descr_get),
-    __call__ = interp2app(cmethod_descr_call),
+    __call__ = interp2app(cclassmethod_descr_call),
     __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject,
         wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass',
@@ -324,8 +352,8 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
             if not method.c_ml_name:
                 break
             if name == "__methods__":
-                method_list_w.append(
-                    space.newtext(rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name))))
+                method_list_w.append(space.newtext(rffi.charp2str(
+                    rffi.cast(rffi.CCHARP, method.c_ml_name))))
             elif rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name)) == name: # XXX expensive copy
                 return W_PyCFunctionObject(space, method, w_obj)
     if name == "__methods__":

@@ -11,7 +11,7 @@ import traceback
 from xml.parsers import expat
 from xml.parsers.expat import errors
 
-from test.support import sortdict
+from test.support import sortdict, impl_detail
 
 
 class SetAttributeTest(unittest.TestCase):
@@ -446,6 +446,7 @@ class HandlerExceptionTest(unittest.TestCase):
         self.assertEqual(os.path.basename(entry[0]), filename)
         self.assertEqual(entry[2], funcname)
 
+    @impl_detail("PyPy does not have pyexpat.c", pypy=False)
     def test_exception(self):
         parser = expat.ParserCreate()
         parser.StartElementHandler = self.StartElementHandler

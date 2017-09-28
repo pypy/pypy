@@ -18,6 +18,10 @@ from rpython.jit.metainterp import resumecode
 # (<box1> <descr> <box2>) length times, if getfield(box1, descr) == box2
 #                         both boxes should be in the liveboxes
 #
+# <length>
+# (<box1> <index> <descr> <box2>) length times, if getarrayitem_gc(box1, index, descr) == box2
+#                                 both boxes should be in the liveboxes
+#
 # ----
 
 
@@ -80,19 +84,26 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
 
     # heap knowledge: we store triples of known heap fields in non-virtual
     # structs
-    # XXX could be extended to arrays
     if optimizer.optheap:
-        triples = optimizer.optheap.serialize_optheap(available_boxes)
+        triples_struct, triples_array = optimizer.optheap.serialize_optheap(available_boxes)
         # can only encode descrs that have a known index into
         # metainterp_sd.all_descrs
-        triples = [triple for triple in triples if triple[1].descr_index != -1]
-        numb_state.append_int(len(triples))
-        for box1, descr, box2 in triples:
-            index = descr.descr_index
+        triples_struct = [triple for triple in triples_struct if triple[1].descr_index != -1]
+        numb_state.append_int(len(triples_struct))
+        for box1, descr, box2 in triples_struct:
+            descr_index = descr.descr_index
+            numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
+            numb_state.append_int(descr_index)
+            numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
+        numb_state.append_int(len(triples_array))
+        for box1, index, descr, box2 in triples_array:
+            descr_index = descr.descr_index
             numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
             numb_state.append_int(index)
+            numb_state.append_int(descr_index)
             numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
     else:
+        numb_state.append_int(0)
         numb_state.append_int(0)
 
 def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):
@@ -123,13 +134,24 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
     if not optimizer.optheap:
         return
     length = reader.next_item()
-    result = []
+    result_struct = []
+    for i in range(length):
+        tagged = reader.next_item()
+        box1 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
+        descr_index = reader.next_item()
+        descr = metainterp_sd.all_descrs[descr_index]
+        tagged = reader.next_item()
+        box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
+        result_struct.append((box1, descr, box2))
+    length = reader.next_item()
+    result_array = []
     for i in range(length):
         tagged = reader.next_item()
         box1 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
         index = reader.next_item()
-        descr = metainterp_sd.all_descrs[index]
+        descr_index = reader.next_item()
+        descr = metainterp_sd.all_descrs[descr_index]
         tagged = reader.next_item()
         box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
-        result.append((box1, descr, box2))
-    optimizer.optheap.deserialize_optheap(result)
+        result_array.append((box1, index, descr, box2))
+    optimizer.optheap.deserialize_optheap(result_struct, result_array)

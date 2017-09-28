@@ -23,7 +23,7 @@ from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
     DescrMismatch)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
 
@@ -75,8 +75,8 @@ class Unwrapper(object):
     def _freeze_(self):
         return True
 
+    @not_rpython
     def unwrap(self, space, w_value):
-        """NOT_RPYTHON"""
         raise NotImplementedError
 
 
@@ -399,8 +399,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 class BuiltinActivation(object):
     _immutable_ = True
 
+    @not_rpython
     def __init__(self, behavior):
-        """NOT_RPYTHON"""
         self.behavior = behavior
 
     def _run(self, space, scope_w):
@@ -654,9 +654,9 @@ class BuiltinCode(Code):
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
 
+    @not_rpython
     def __init__(self, func, unwrap_spec=None, self_type=None,
                  descrmismatch=None, doc=None):
-        "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         Code.__init__(self, func.__name__)
@@ -1004,10 +1004,10 @@ class interp2app(W_Root):
 
     instancecache = {}
 
+    @not_rpython
     def __new__(cls, f, app_name=None, unwrap_spec=None, descrmismatch=None,
                 as_classmethod=False, doc=None):
 
-        "NOT_RPYTHON"
         # f must be a function whose name does NOT start with 'app_'
         self_type = None
         if hasattr(f, 'im_func'):
@@ -1047,8 +1047,8 @@ class interp2app(W_Root):
 
         return self
 
+    @not_rpython
     def _getdefaults(self, space):
-        "NOT_RPYTHON"
         alldefs_w = {}
         assert len(self._code._argnames) == len(self._code._unwrap_spec)
         for name, spec in zip(self._code._argnames, self._code._unwrap_spec):
@@ -1124,8 +1124,8 @@ class interp2app(W_Root):
 
 
 class GatewayCache(SpaceCache):
+    @not_rpython
     def build(cache, gateway):
-        "NOT_RPYTHON"
         space = cache.space
         defs_w, kw_defs_w = gateway._getdefaults(space)
         code = gateway._code
@@ -1196,8 +1196,8 @@ class ApplevelClass:
         w_globals = self.getwdict(space)
         return space.getitem(w_globals, space.newtext(name))
 
+    @not_rpython
     def interphook(self, name):
-        "NOT_RPYTHON"
         def appcaller(space, *args_w):
             if not isinstance(space, ObjSpace):
                 raise TypeError("first argument must be a space instance.")
@@ -1234,15 +1234,16 @@ class ApplevelCache(SpaceCache):
     """NOT_RPYTHON
     The cache mapping each applevel instance to its lazily built w_dict"""
 
+    @not_rpython
     def build(self, app):
-        "NOT_RPYTHON.  Called indirectly by Applevel.getwdict()."
+        "Called indirectly by Applevel.getwdict()."
         return build_applevel_dict(app, self.space)
 
 
 # __________ pure applevel version __________
 
+@not_rpython
 def build_applevel_dict(self, space):
-    "NOT_RPYTHON"
     w_glob = space.newdict(module=True)
     space.setitem(w_glob, space.newtext('__name__'), space.newtext(self.modname))
     space.exec_(self.source, w_glob, w_glob,
@@ -1253,8 +1254,9 @@ def build_applevel_dict(self, space):
 # ____________________________________________________________
 
 
+@not_rpython
 def appdef(source, applevel=ApplevelClass, filename=None):
-    """ NOT_RPYTHON: build an app-level helper function, like for example:
+    """ build an app-level helper function, like for example:
     myfunc = appdef('''myfunc(x, y):
                            return x+y
                     ''')
@@ -1300,6 +1302,6 @@ class applevel_temp(ApplevelClass):
 
 
 # app2interp_temp is used for testing mainly
+@not_rpython
 def app2interp_temp(func, applevel_temp=applevel_temp, filename=None):
-    """ NOT_RPYTHON """
     return appdef(func, applevel_temp, filename=filename)

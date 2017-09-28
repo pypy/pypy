@@ -1,3 +1,4 @@
+import sys
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 
@@ -7,6 +8,8 @@ class AppTestVMProf(object):
     def setup_class(cls):
         cls.w_tmpfilename = cls.space.wrap(str(udir.join('test__vmprof.1')))
         cls.w_tmpfilename2 = cls.space.wrap(str(udir.join('test__vmprof.2')))
+        cls.w_plain = cls.space.wrap(not cls.runappdirect and
+            '__pypy__' not in sys.builtin_module_names)
 
     def test_import_vmprof(self):
         tmpfile = open(self.tmpfilename, 'wb')
@@ -118,3 +121,33 @@ class AppTestVMProf(object):
                 assert fd1.read() == tmpfile.read()
         _vmprof.disable()
         assert _vmprof.get_profile_path() is None
+
+    def test_stop_sampling(self):
+        if not self.plain:
+            skip("unreliable test except on CPython without -A")
+        import os
+        import _vmprof
+        tmpfile = open(self.tmpfilename, 'wb')
+        native = 1
+        def f():
+            import sys
+            import math
+            j = sys.maxsize
+            for i in range(500):
+                j = math.sqrt(j)
+        _vmprof.enable(tmpfile.fileno(), 0.01, 0, native, 0, 0)
+        # get_vmprof_stack() always returns 0 here!
+        # see vmprof_common.c and assume RPYTHON_LL2CTYPES is defined!
+        f()
+        fileno = _vmprof.stop_sampling()
+        pos = os.lseek(fileno, 0, os.SEEK_CUR)
+        f()
+        pos2 = os.lseek(fileno, 0, os.SEEK_CUR)
+        assert pos == pos2
+        _vmprof.start_sampling()
+        f()
+        fileno = _vmprof.stop_sampling()
+        pos3 = os.lseek(fileno, 0, os.SEEK_CUR)
+        assert pos3 > pos
+        _vmprof.disable()
+

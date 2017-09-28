@@ -7,7 +7,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 from rpython.rlib import jit, rstackovf, rstring
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.objectmodel import (
-    we_are_translated, always_inline, dont_inline)
+    we_are_translated, always_inline, dont_inline, not_rpython)
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -23,8 +23,8 @@ from pypy.tool.stdlib_opcode import bytecode_spec
 CANNOT_CATCH_MSG = ("catching classes that don't inherit from BaseException "
                     "is not allowed in 3.x")
 
+@not_rpython
 def unaryoperation(operationname):
-    """NOT_RPYTHON"""
     def opimpl(self, *ignored):
         operation = getattr(self.space, operationname)
         w_1 = self.popvalue()
@@ -34,8 +34,8 @@ def unaryoperation(operationname):
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
+@not_rpython
 def binaryoperation(operationname):
-    """NOT_RPYTHON"""
     def opimpl(self, *ignored):
         operation = getattr(self.space, operationname)
         w_2 = self.popvalue()

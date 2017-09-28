@@ -50,7 +50,9 @@ def PyErr_SetObject(space, w_type, w_value):
     """This function is similar to PyErr_SetString() but lets you specify an
     arbitrary Python object for the "value" of the exception."""
     state = space.fromcache(State)
-    state.set_exception(OperationError(w_type, w_value))
+    operr = OperationError(w_type, w_value)
+    operr.record_context(space, space.getexecutioncontext())
+    state.set_exception(operr)
 
 @cpython_api([PyObject, CONST_STRING], lltype.Void)
 def PyErr_SetString(space, w_type, message_ptr):

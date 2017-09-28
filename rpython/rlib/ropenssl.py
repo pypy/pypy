@@ -473,6 +473,7 @@ ssl_external('sk_ACCESS_DESCRIPTION_num', [AUTHORITY_INFO_ACCESS], rffi.INT,
 ssl_external('sk_ACCESS_DESCRIPTION_value', [AUTHORITY_INFO_ACCESS, rffi.INT], ACCESS_DESCRIPTION,
              macro=True)
 ssl_external('AUTHORITY_INFO_ACCESS_free', [AUTHORITY_INFO_ACCESS], lltype.Void)
+ssl_external('CRL_DIST_POINTS_free', [stack_st_DIST_POINT], lltype.Void)
 
 ssl_external('GENERAL_NAME_print', [BIO, GENERAL_NAME], rffi.INT)
 ssl_external('pypy_GENERAL_NAME_dirn', [GENERAL_NAME], X509_NAME,

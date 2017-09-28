@@ -84,22 +84,27 @@ class CPyBuffer(BufferView):
             if self.needs_decref:
                 if self.releasebufferproc:
                     func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
-                    with lltype.scoped_alloc(Py_buffer) as pybuf:
-                        pybuf.c_buf = self.ptr
-                        pybuf.c_len = self.size
-                        pybuf.c_ndim = cts.cast('int', self.ndim)
-                        pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
-                        pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
-                        for i in range(self.ndim):
-                            pybuf.c_shape[i] = self.shape[i]
-                            pybuf.c_strides[i] = self.strides[i]
-                        if self.format:
-                            pybuf.c_format = rffi.str2charp(self.format)
-                        else:
-                            pybuf.c_format = rffi.str2charp("B")
+                    size = rffi.sizeof(cts.gettype('Py_buffer'))
+                    pybuf = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw', zero=True)
+                    pybuf = cts.cast('Py_buffer*', pybuf)
+                    pybuf.c_buf = self.ptr
+                    pybuf.c_len = self.size
+                    pybuf.c_ndim = cts.cast('int', self.ndim)
+                    pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
+                    pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
+                    for i in range(self.ndim):
+                        pybuf.c_shape[i] = self.shape[i]
+                        pybuf.c_strides[i] = self.strides[i]
+                    fmt = rffi.str2charp(self.format if self.format else "B")
+                    try:
+                        pybuf.c_format = fmt
                         generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
+                    finally:
+                        lltype.free(fmt, flavor='raw')
+                        lltype.free(pybuf, flavor='raw')
                 decref(self.space, self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
+            self.w_obj = None
         else:
             #do not call twice
             return
@@ -211,6 +216,7 @@ def fill_buffer(space, view, pybuf, py_obj):
     view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
     view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
 
+DEFAULT_FMT = rffi.str2charp("B")
 
 @cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
               lltype.Signed, lltype.Signed], rffi.INT, error=-1)
@@ -233,7 +239,8 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     rffi.setintfield(view, 'c_ndim', 1)
     view.c_format = lltype.nullptr(rffi.CCHARP.TO)
     if (flags & PyBUF_FORMAT) == PyBUF_FORMAT:
-        view.c_format = rffi.str2charp("B")
+        # NB: this needs to be a static string, because nothing frees it
+        view.c_format = DEFAULT_FMT
     view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
     if (flags & PyBUF_ND) == PyBUF_ND:
         view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
