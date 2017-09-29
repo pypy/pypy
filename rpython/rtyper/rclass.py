@@ -475,6 +475,13 @@ class InstanceRepr(Repr):
         self.lowleveltype = Ptr(self.object_type)
         self.gcflavor = gcflavor
 
+    def has_special_memory_pressure(self, tp):
+        if 'special_memory_pressure' in tp._flds:
+            return True
+        if 'super' in tp._flds:
+            return self.has_special_memory_pressure(tp._flds['super'])
+        return False
+
     def _setup_repr(self, llfields=None, hints=None, adtmeths=None):
         # NOTE: don't store mutable objects like the dicts below on 'self'
         #       before they are fully built, to avoid strange bugs in case
@@ -525,7 +532,10 @@ class InstanceRepr(Repr):
 
             bookkeeper = self.rtyper.annotator.bookkeeper
             if self.classdef in bookkeeper.memory_pressure_types:
-                llfields = [('special_memory_pressure', lltype.Signed)] + llfields
+                # we don't need to add it if it's already there for some of
+                # the parent type
+                if not self.has_special_memory_pressure(self.rbase.object_type):
+                    llfields.append(('special_memory_pressure', lltype.Signed))
 
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),

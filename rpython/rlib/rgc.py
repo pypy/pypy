@@ -650,10 +650,12 @@ def cast_gcref_to_int(gcref):
     else:
         return id(gcref._x)
 
-TOTAL_MEMORY, = range(1)
+TOTAL_MEMORY, TOTAL_MEMORY_PRESSURE = range(2)
 
 @not_rpython
 def get_stats(stat_no):
+    """ Long docstring goes here
+    """
     raise NotImplementedError
 
 @not_rpython

@@ -1624,12 +1624,16 @@ class TestMiniMarkGC(TestSemiSpaceGC):
                 am3 = am2
                 am2 = am1
                 am1 = A()
+            am1 = am2 = am3 = None
             # what can we use for the res?
-            return rgc.get_stats(rgc.TOTAL_MEMORY)
+            for i in range(10):
+                gc.collect()
+            return rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
         return f
 
     def test_nongc_opaque_attached_to_gc(self):
         res = self.run("nongc_opaque_attached_to_gc")
+        # the res is 0 for non-memory-pressure-accounting GC
         assert res == 0
 
     def define_limited_memory(self):

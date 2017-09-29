@@ -2920,6 +2920,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_objects_with_weakrefs = new_with_weakref
 
     def get_stats(self, stats_no):
+        from rpython.memory.gc import inspector
+
+        if stats_no == rgc.TOTAL_MEMORY:
+            return 0
+        elif stats_no == rgc.TOTAL_MEMORY_PRESSURE:
+            return inspector.count_memory_pressure(self)
         return 0
 
 
