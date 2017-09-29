@@ -626,6 +626,12 @@ class W_TypeObject(W_Root):
             if w_newdescr is None:    # see test_crash_mro_without_object_1
                 raise oefmt(space.w_TypeError, "cannot create '%N' instances",
                             self)
+            #
+            # issue #2666
+            if space.config.objspace.usemodules.cpyext:
+                w_newtype, w_newdescr = self.hack_which_new_to_call(
+                    w_newtype, w_newdescr)
+            #
             w_newfunc = space.get(w_newdescr, self)
             if (space.config.objspace.std.newshortcut and
                 not we_are_jitted() and
@@ -645,6 +651,30 @@ class W_TypeObject(W_Root):
                     raise oefmt(space.w_TypeError,
                                 "__init__() should return None")
         return w_newobject
+
+    def hack_which_new_to_call(self, w_newtype, w_newdescr):
+        # issue #2666: for cpyext, we need to hack in order to reproduce
+        # an "optimization" of CPython that actually changes behaviour
+        # in corner cases.
+        #
+        # * Normally, we use the __new__ found in the MRO in the normal way.
+        #
+        # * If by chance this __new__ happens to be implemented as a C
+        #   function, then instead, we discard it and use directly
+        #   self.__base__.tp_new.
+        #
+        # * Most of the time this is the same (and faster for CPython), but
+        #   it can fail if self.__base__ happens not to be the first base.
+        #
+        from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+        from pypy.module.cpyext.typeobject import is_tp_new_wrapper
+
+        if (isinstance(w_newdescr, W_PyCFunctionObject) and
+                is_tp_new_wrapper(self.space, w_newdescr.ml)):
+            w_bestbase = find_best_base(self.bases_w)
+            return w_bestbase.lookup_where('__new__')
+        else:
+            return w_newtype, w_newdescr
 
     def descr_repr(self, space):
         w_mod = self.get_module()

@@ -394,6 +394,9 @@ def setup_new_method_def(space):
     ptr = get_new_method_def(space)
     ptr.c_ml_meth = rffi.cast(PyCFunction, llslot(space, tp_new_wrapper))
 
+def is_tp_new_wrapper(space, ml):
+    return ml.c_ml_meth == rffi.cast(PyCFunction, llslot(space, tp_new_wrapper))
+
 def add_tp_new_wrapper(space, dict_w, pto):
     if "__new__" in dict_w:
         return
