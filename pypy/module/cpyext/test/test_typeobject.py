@@ -130,6 +130,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert repr(descr) == "<method 'copy' of 'foo.foo' objects>"
         raises(TypeError, descr, None)
 
+    def test_cython_fake_classmethod(self):
+        module = self.import_module(name='foo')
+        print(module.fooType.fake_classmeth)
+        print(type(module.fooType.fake_classmeth))
+        assert module.fooType.fake_classmeth() is module.fooType
+
     def test_new(self):
         # XXX cpython segfaults but if run singly (with -k test_new) this passes
         module = self.import_module(name='foo')
