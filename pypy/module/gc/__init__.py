@@ -28,6 +28,7 @@ class Module(MixedModule):
                 'get_objects': 'referents.get_objects',
                 'get_referents': 'referents.get_referents',
                 'get_referrers': 'referents.get_referrers',
+                'get_stats': 'referents.get_stats',
                 '_dump_rpy_heap': 'referents._dump_rpy_heap',
                 'get_typeids_z': 'referents.get_typeids_z',
                 'get_typeids_list': 'referents.get_typeids_list',

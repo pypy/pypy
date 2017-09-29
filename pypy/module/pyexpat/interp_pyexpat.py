@@ -840,11 +840,11 @@ Return a new XML parser object."""
     # Currently this is just the size of the pointer and some estimated bytes.
     # The struct isn't actually defined in expat.h - it is in xmlparse.c
     # XXX: find a good estimate of the XML_ParserStruct
-    rgc.add_memory_pressure(XML_Parser_SIZE + 300)
     if not xmlparser:
         raise oefmt(space.w_RuntimeError, "XML_ParserCreate failed")
 
     parser = W_XMLParserType(space, xmlparser, w_intern)
+    rgc.add_memory_pressure(XML_Parser_SIZE + 300, parser)
     XML_SetUnknownEncodingHandler(
         parser.itself, UnknownEncodingHandlerData_callback,
         rffi.cast(rffi.VOIDP, parser.id))

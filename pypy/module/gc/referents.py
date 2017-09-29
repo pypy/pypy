@@ -1,6 +1,6 @@
 from rpython.rlib import rgc
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt, wrap_oserror
 from rpython.rlib.objectmodel import we_are_translated
@@ -170,3 +170,15 @@ def get_typeids_list(space):
     l = rgc.get_typeids_list()
     list_w = [space.newint(l[i]) for i in range(len(l))]
     return space.newlist(list_w)
+
+class W_GcStats(W_Root):
+    def __init__(self):
+        self.total_memory_pressure = rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
+
+W_GcStats.typedef = TypeDef("GcStats",
+    total_memory_pressure=interp_attrproperty("total_memory_pressure",
+        cls=W_GcStats, wrapfn="newint"),
+)
+
+def get_stats(space):
+    return W_GcStats()

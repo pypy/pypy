@@ -85,7 +85,11 @@ c_thread_releaselock_NOAUTO = c_thread_releaselock
 
 
 def allocate_lock():
-    return Lock(allocate_ll_lock())
+    # Add some memory pressure for the size of the lock because it is an
+    # Opaque object
+    lock = Lock(allocate_ll_lock())
+    rgc.add_memory_pressure(TLOCKP_SIZE, lock)
+    return lock
 
 @specialize.arg(0)
 def ll_start_new_thread(func):
@@ -242,9 +246,6 @@ def allocate_ll_lock():
     if rffi.cast(lltype.Signed, res) <= 0:
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
-    # Add some memory pressure for the size of the lock because it is an
-    # Opaque object
-    rgc.add_memory_pressure(TLOCKP_SIZE)
     return ll_lock
 
 def free_ll_lock(ll_lock):

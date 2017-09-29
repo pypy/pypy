@@ -447,7 +447,7 @@ class W_CData(W_Root):
             with self as ptr:
                 w_res = W_CDataGCP(space, ptr, self.ctype, self, w_destructor)
         if size != 0:
-            rgc.add_memory_pressure(size)
+            rgc.add_memory_pressure(size, w_res)
         return w_res
 
     def unpack(self, length):

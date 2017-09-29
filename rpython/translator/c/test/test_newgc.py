@@ -1672,6 +1672,38 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
 
+    def define_total_memory_pressure(cls):
+        class A(object):
+            def __init__(self):
+                rgc.add_memory_pressure(10, self)
+
+            def __del__(self):
+                pass
+
+        class B(A):
+            def __init__(self):
+                rgc.add_memory_pressure(10, self)
+
+        class C(A):
+            pass
+
+        class Glob(object):
+            pass
+        glob = Glob()
+
+        def f():
+            glob.l = [None] * 3
+            for i in range(10000):
+                glob.l[i % 3] = A()
+                glob.l[(i + 1) % 3] = B()
+                glob.l[(i + 2) % 3] = C()
+            return rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
+        return f
+
+    def test_total_memory_pressure(self):
+        res = self.run("total_memory_pressure")
+        assert res == 30 # total reachable is 3
+
     def define_random_pin(self):
         class A:
             foo = None

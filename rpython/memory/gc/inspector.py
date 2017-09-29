@@ -2,6 +2,7 @@
 Utility RPython functions to inspect objects in the GC.
 """
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import free_non_gc_object
 from rpython.rlib import rposix, rgc, jit
 
@@ -187,6 +188,11 @@ class MemoryPressureCounter(BaseWalker):
             ofs = gc.get_memory_pressure_ofs(typeid)
             val = (obj + ofs).signed[0]
             self.count += val
+        gc.trace(obj, self._ref, None)
+
+    def _ref(self, pointer, _):
+        obj = pointer.address[0]
+        self.add(obj)
 
 
 class HeapDumper(BaseWalker):
