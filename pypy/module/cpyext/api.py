@@ -669,7 +669,7 @@ def build_exported_objects():
         'PySlice_Type': 'space.gettypeobject(W_SliceObject.typedef)',
         'PyStaticMethod_Type': 'space.gettypeobject(StaticMethod.typedef)',
         'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
-        'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)',
+        'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCWrapperObject.typedef)',
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
@@ -1338,17 +1338,20 @@ def generate_decls_and_callbacks(db, prefix=''):
     for decl in FORWARD_DECLS:
         decls[pypy_decl].append("%s;" % (decl,))
     decls[pypy_decl].append("""
-        /* hack for https://bugs.python.org/issue29943 */
-        PyAPI_FUNC(int) %s(PySliceObject *arg0,
-                           Signed arg1, Signed *arg2,
-                           Signed *arg3, Signed *arg4, Signed *arg5);
-        static int PySlice_GetIndicesEx(PySliceObject *arg0, Py_ssize_t arg1,
-                Py_ssize_t *arg2, Py_ssize_t *arg3, Py_ssize_t *arg4,
-                Py_ssize_t *arg5) {
-            return %s(arg0, arg1, arg2, arg3,
-                      arg4, arg5);
-        }
-    """ % ((mangle_name(prefix, 'PySlice_GetIndicesEx'),)*2))
+/* hack for https://bugs.python.org/issue29943 */
+
+PyAPI_FUNC(int) %s(PyObject *arg0,
+                    Signed arg1, Signed *arg2,
+                    Signed *arg3, Signed *arg4, Signed *arg5);
+#ifdef __GNUC__
+__attribute__((__unused__))
+#endif
+static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
+        Py_ssize_t *arg2, Py_ssize_t *arg3, Py_ssize_t *arg4,
+        Py_ssize_t *arg5) {
+    return %s(arg0, arg1, arg2, arg3,
+                arg4, arg5);
+}""" % ((mangle_name(prefix, 'PySlice_GetIndicesEx'),)*2))
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         header = decls[header_name]

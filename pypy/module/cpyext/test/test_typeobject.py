@@ -135,6 +135,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             "<method 'copy' of 'foo' objects>")
         raises(TypeError, descr, None)
 
+    def test_cython_fake_classmethod(self):
+        module = self.import_module(name='foo')
+        print(module.fooType.fake_classmeth)
+        print(type(module.fooType.fake_classmeth))
+        assert module.fooType.fake_classmeth() is module.fooType
+
     def test_new(self):
         # XXX cpython segfaults but if run singly (with -k test_new) this passes
         module = self.import_module(name='foo')
@@ -1314,6 +1320,47 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         Bsize = module.get_basicsize(B)
         assert Asize == Bsize
         assert Asize > basesize
+
+    def test_multiple_inheritance_bug1(self):
+        module = self.import_extension('foo', [
+           ("get_type", "METH_NOARGS",
+            '''
+                Py_INCREF(&Foo_Type);
+                return (PyObject *)&Foo_Type;
+            '''
+            ), ("forty_two", "METH_O",
+            '''
+                return PyLong_FromLong(42);
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            static PyObject *dummy_new(PyTypeObject *t, PyObject *a,
+                                       PyObject *k)
+            {
+                abort();   /* never actually called in CPython */
+            }
+            ''', more_init = '''
+                Foo_Type.tp_base = (PyTypeObject *)PyExc_Exception;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_new = dummy_new;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        Foo = module.get_type()
+        class A(Foo, SyntaxError):
+            pass
+        assert A.__base__ is SyntaxError
+        A(42)    # assert is not aborting
+
+        class Bar(Exception):
+            __new__ = module.forty_two
+
+        class B(Bar, SyntaxError):
+            pass
+
+        assert B() == 42
 
 
 class AppTestHashable(AppTestCpythonExtensionBase):

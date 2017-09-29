@@ -12,7 +12,7 @@ from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
     slot_function, generic_cpy_call, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    build_type_checkers_flags, cts, parse_dir, PyObjectFields, PyTypeObject,
+    build_type_checkers_flags, cts, parse_dir, PyTypeObject,
     PyTypeObjectPtr, Py_buffer,
     Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_LONG_SUBCLASS, Py_TPFLAGS_LIST_SUBCLASS,
@@ -39,12 +39,14 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
+
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
+cts.parse_header(parse_dir / "cpyext_descrobject.h")
 cts.parse_header(parse_dir / "typeslots.h")
 
 
@@ -115,57 +117,24 @@ W_MemberDescr.typedef = TypeDef(
     )
 assert not W_MemberDescr.typedef.acceptable_as_base_class  # no __new__
 
-PyDescrObject = lltype.ForwardReference()
-PyDescrObjectPtr = lltype.Ptr(PyDescrObject)
-PyDescrObjectFields = PyObjectFields + (
-    ("d_type", PyTypeObjectPtr),
-    ("d_name", PyObject),
-    )
-cpython_struct("PyDescrObject", PyDescrObjectFields,
-               PyDescrObject)
-
-PyMemberDescrObjectStruct = lltype.ForwardReference()
-PyMemberDescrObject = lltype.Ptr(PyMemberDescrObjectStruct)
-PyMemberDescrObjectFields = PyDescrObjectFields + (
-    ("d_member", lltype.Ptr(PyMemberDef)),
-    )
-cpython_struct("PyMemberDescrObject", PyMemberDescrObjectFields,
-               PyMemberDescrObjectStruct, level=2)
-
-PyGetSetDescrObjectStruct = lltype.ForwardReference()
-PyGetSetDescrObject = lltype.Ptr(PyGetSetDescrObjectStruct)
-PyGetSetDescrObjectFields = PyDescrObjectFields + (
-    ("d_getset", lltype.Ptr(PyGetSetDef)),
-    )
-cpython_struct("PyGetSetDescrObject", PyGetSetDescrObjectFields,
-               PyGetSetDescrObjectStruct, level=2)
-
-PyMethodDescrObjectStruct = lltype.ForwardReference()
-PyMethodDescrObject = lltype.Ptr(PyMethodDescrObjectStruct)
-PyMethodDescrObjectFields = PyDescrObjectFields + (
-    ("d_method", lltype.Ptr(PyMethodDef)),
-    )
-cpython_struct("PyMethodDescrObject", PyMethodDescrObjectFields,
-               PyMethodDescrObjectStruct, level=2)
-
 @bootstrap_function
 def init_memberdescrobject(space):
     make_typedescr(W_MemberDescr.typedef,
-                   basestruct=PyMemberDescrObject.TO,
+                   basestruct=cts.gettype('PyMemberDescrObject'),
                    attach=memberdescr_attach,
                    realize=memberdescr_realize,
                    )
     make_typedescr(W_GetSetPropertyEx.typedef,
-                   basestruct=PyGetSetDescrObject.TO,
+                   basestruct=cts.gettype('PyGetSetDescrObject'),
                    attach=getsetdescr_attach,
                    )
     make_typedescr(W_PyCClassMethodObject.typedef,
-                   basestruct=PyMethodDescrObject.TO,
+                   basestruct=cts.gettype('PyMethodDescrObject'),
                    attach=methoddescr_attach,
                    realize=classmethoddescr_realize,
                    )
     make_typedescr(W_PyCMethodObject.typedef,
-                   basestruct=PyMethodDescrObject.TO,
+                   basestruct=cts.gettype('PyMethodDescrObject'),
                    attach=methoddescr_attach,
                    realize=methoddescr_realize,
                    )
@@ -175,7 +144,7 @@ def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
     Fills a newly allocated PyMemberDescrObject with the given W_MemberDescr
     object. The values must not be modified.
     """
-    py_memberdescr = rffi.cast(PyMemberDescrObject, py_obj)
+    py_memberdescr = cts.cast('PyMemberDescrObject*', py_obj)
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_MemberDescr)
     py_memberdescr.c_d_member = w_obj.member
@@ -194,7 +163,7 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
     Fills a newly allocated PyGetSetDescrObject with the given W_GetSetPropertyEx
     object. The values must not be modified.
     """
-    py_getsetdescr = rffi.cast(PyGetSetDescrObject, py_obj)
+    py_getsetdescr = cts.cast('PyGetSetDescrObject*', py_obj)
     if isinstance(w_obj, GetSetProperty):
         py_getsetdef = make_GetSet(space, w_obj)
         assert space.isinstance_w(w_userdata, space.w_type)
@@ -206,7 +175,7 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
     py_getsetdescr.c_d_getset = w_obj.getset
 
 def methoddescr_attach(space, py_obj, w_obj, w_userdata=None):
-    py_methoddescr = rffi.cast(PyMethodDescrObject, py_obj)
+    py_methoddescr = cts.cast('PyMethodDescrObject*', py_obj)
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_PyCFunctionObject)
     py_methoddescr.c_d_method = w_obj.ml
@@ -425,6 +394,9 @@ def get_new_method_def(space):
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)
     ptr.c_ml_meth = rffi.cast(PyCFunction, llslot(space, tp_new_wrapper))
+
+def is_tp_new_wrapper(space, ml):
+    return ml.c_ml_meth == rffi.cast(PyCFunction, llslot(space, tp_new_wrapper))
 
 def add_tp_new_wrapper(space, dict_w, pto):
     if "__new__" in dict_w:
