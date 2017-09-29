@@ -45,10 +45,10 @@ class AppTestVMProf(object):
                     _, size = struct.unpack("ll", s[i:i + 2 * WORD])
                     count += 1
                     i += 2 * WORD + size
-                elif s[i] == '\x06':
+                elif s[i] == 6:
                     print(s[i:i+24])
                     i += 1+8+8+8
-                elif s[i] == '\x07':
+                elif s[i] == 7:
                     i += 1
                     # skip string
                     size, = struct.unpack("l", s[i:i + WORD])
