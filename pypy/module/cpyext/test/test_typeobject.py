@@ -1403,6 +1403,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
         assert B() == 42
 
+        # aaaaa even more hackiness
+        class C(A):
+            pass
+        C(42)   # assert is not aborting
+
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
