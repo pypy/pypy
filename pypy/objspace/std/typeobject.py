@@ -670,6 +670,7 @@ class W_TypeObject(W_Root):
         from pypy.module.cpyext.typeobject import is_tp_new_wrapper
 
         if (isinstance(w_newdescr, W_PyCFunctionObject) and
+                w_newtype is not self and
                 is_tp_new_wrapper(self.space, w_newdescr.ml)):
             w_bestbase = find_best_base(self.bases_w)
             return w_bestbase.lookup_where('__new__')
