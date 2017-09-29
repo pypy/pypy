@@ -488,19 +488,19 @@ class MsvcPlatform(Platform):
                 deps.append('icon.res')
                 wdeps.append('icon.res')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)'] + deps,
-                   ['$(CC_LINK) /nologo /debug %s ' % (' '.join(deps),) + \
+                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE %s ' % (' '.join(deps),) + \
                     '$(SHARED_IMPORT_LIB) /out:$@ ' + \
                     '/MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
             m.rule('$(WTARGET)', ['$(TARGET)'] + wdeps,
-                   ['$(CC_LINK) /nologo /debug /SUBSYSTEM:WINDOWS %s ' % (' '.join(wdeps),) + \
-                    '$(SHARED_IMPORT_LIB) /out:$@ ' + \
+                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE /SUBSYSTEM:WINDOWS %s ' % (
+                    ' '.join(wdeps),) + '$(SHARED_IMPORT_LIB) /out:$@ ' + \
                     '/MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)']+deps,
-                   ['$(CC_LINK) /nologo /DEBUG %s ' % (' '.join(deps),) + \
+                   ['$(CC_LINK) /nologo /DEBUG /LARGEADDRESSAWARE %s ' % (' '.join(deps),) + \
                     'debugmode_$(SHARED_IMPORT_LIB) /out:$@',
                     ])
 

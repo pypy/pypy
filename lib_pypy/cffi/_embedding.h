@@ -1,7 +1,12 @@
 
 /***** Support code for embedding *****/
 
-#if defined(_MSC_VER)
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+#if defined(_WIN32)
 #  define CFFI_DLLEXPORT  __declspec(dllexport)
 #elif defined(__GNUC__)
 #  define CFFI_DLLEXPORT  __attribute__((visibility("default")))
@@ -242,7 +247,7 @@ static int _cffi_initialize_python(void)
 
         if (f != NULL && f != Py_None) {
             PyFile_WriteString("\nFrom: " _CFFI_MODULE_NAME
-                               "\ncompiled with cffi version: 1.11.0"
+                               "\ncompiled with cffi version: 1.11.1"
                                "\n_cffi_backend module: ", f);
             modules = PyImport_GetModuleDict();
             mod = PyDict_GetItemString(modules, "_cffi_backend");
@@ -525,3 +530,7 @@ static int cffi_start_python(void)
 #undef cffi_compare_and_swap
 #undef cffi_write_barrier
 #undef cffi_read_barrier
+
+#ifdef __cplusplus
+}
+#endif

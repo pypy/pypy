@@ -181,8 +181,8 @@ class StdObjSpace(ObjSpace):
 
         return self._wrap_not_rpython(x)
 
+    @not_rpython
     def _wrap_not_rpython(self, x):
-        "NOT_RPYTHON"
         # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is
@@ -658,10 +658,10 @@ class StdObjSpace(ObjSpace):
         else:
             self.setitem(w_obj, self.newtext(key), w_value)
 
-    def getindex_w(self, w_obj, w_exception, objdescr=None):
+    def getindex_w(self, w_obj, w_exception, objdescr=None, errmsg=None):
         if type(w_obj) is W_IntObject:
             return w_obj.intval
-        return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr)
+        return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr, errmsg)
 
     def unicode_from_object(self, w_obj):
         from pypy.objspace.std.unicodeobject import unicode_from_object

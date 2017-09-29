@@ -12,13 +12,17 @@ from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
-    slot_function, generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
-    Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers,
-    PyObjectFields, PyTypeObject, PyTypeObjectPtr,
-    Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_CHECKTYPES,
-    Py_TPFLAGS_HAVE_INPLACEOPS, cts, parse_dir)
-from pypy.module.cpyext.cparser import parse_source
+    slot_function, generic_cpy_call, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
+    build_type_checkers_flags, cts, parse_dir, PyObjectFields, PyTypeObject,
+    PyTypeObjectPtr, Py_TPFLAGS_CHECKTYPES,
+    Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, Py_TPFLAGS_HAVE_INPLACEOPS,
+    Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_LONG_SUBCLASS, Py_TPFLAGS_LIST_SUBCLASS,
+    Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
+    Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
+    Py_TPFLAGS_TYPE_SUBCLASS,
+    Py_TPFLAGS_INT_SUBCLASS, Py_TPFLAGS_STRING_SUBCLASS, # change on py3
+    )
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
@@ -37,9 +41,11 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
+cts.parse_header(parse_dir / "cpyext_descrobject.h")
+
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
-PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
+PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
@@ -111,57 +117,24 @@ W_MemberDescr.typedef = TypeDef(
     )
 assert not W_MemberDescr.typedef.acceptable_as_base_class  # no __new__
 
-PyDescrObject = lltype.ForwardReference()
-PyDescrObjectPtr = lltype.Ptr(PyDescrObject)
-PyDescrObjectFields = PyObjectFields + (
-    ("d_type", PyTypeObjectPtr),
-    ("d_name", PyObject),
-    )
-cpython_struct("PyDescrObject", PyDescrObjectFields,
-               PyDescrObject)
-
-PyMemberDescrObjectStruct = lltype.ForwardReference()
-PyMemberDescrObject = lltype.Ptr(PyMemberDescrObjectStruct)
-PyMemberDescrObjectFields = PyDescrObjectFields + (
-    ("d_member", lltype.Ptr(PyMemberDef)),
-    )
-cpython_struct("PyMemberDescrObject", PyMemberDescrObjectFields,
-               PyMemberDescrObjectStruct, level=2)
-
-PyGetSetDescrObjectStruct = lltype.ForwardReference()
-PyGetSetDescrObject = lltype.Ptr(PyGetSetDescrObjectStruct)
-PyGetSetDescrObjectFields = PyDescrObjectFields + (
-    ("d_getset", lltype.Ptr(PyGetSetDef)),
-    )
-cpython_struct("PyGetSetDescrObject", PyGetSetDescrObjectFields,
-               PyGetSetDescrObjectStruct, level=2)
-
-PyMethodDescrObjectStruct = lltype.ForwardReference()
-PyMethodDescrObject = lltype.Ptr(PyMethodDescrObjectStruct)
-PyMethodDescrObjectFields = PyDescrObjectFields + (
-    ("d_method", lltype.Ptr(PyMethodDef)),
-    )
-cpython_struct("PyMethodDescrObject", PyMethodDescrObjectFields,
-               PyMethodDescrObjectStruct, level=2)
-
 @bootstrap_function
 def init_memberdescrobject(space):
     make_typedescr(W_MemberDescr.typedef,
-                   basestruct=PyMemberDescrObject.TO,
+                   basestruct=cts.gettype('PyMemberDescrObject'),
                    attach=memberdescr_attach,
                    realize=memberdescr_realize,
                    )
     make_typedescr(W_GetSetPropertyEx.typedef,
-                   basestruct=PyGetSetDescrObject.TO,
+                   basestruct=cts.gettype('PyGetSetDescrObject'),
                    attach=getsetdescr_attach,
                    )
     make_typedescr(W_PyCClassMethodObject.typedef,
-                   basestruct=PyMethodDescrObject.TO,
+                   basestruct=cts.gettype('PyMethodDescrObject'),
                    attach=methoddescr_attach,
                    realize=classmethoddescr_realize,
                    )
     make_typedescr(W_PyCMethodObject.typedef,
-                   basestruct=PyMethodDescrObject.TO,
+                   basestruct=cts.gettype('PyMethodDescrObject'),
                    attach=methoddescr_attach,
                    realize=methoddescr_realize,
                    )
@@ -171,7 +144,7 @@ def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
     Fills a newly allocated PyMemberDescrObject with the given W_MemberDescr
     object. The values must not be modified.
     """
-    py_memberdescr = rffi.cast(PyMemberDescrObject, py_obj)
+    py_memberdescr = cts.cast('PyMemberDescrObject*', py_obj)
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_MemberDescr)
     py_memberdescr.c_d_member = w_obj.member
@@ -190,17 +163,19 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
     Fills a newly allocated PyGetSetDescrObject with the given W_GetSetPropertyEx
     object. The values must not be modified.
     """
-    py_getsetdescr = rffi.cast(PyGetSetDescrObject, py_obj)
+    py_getsetdescr = cts.cast('PyGetSetDescrObject*', py_obj)
     if isinstance(w_obj, GetSetProperty):
         py_getsetdef = make_GetSet(space, w_obj)
         assert space.isinstance_w(w_userdata, space.w_type)
         w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)
+        # now w_obj.getset is py_getsetdef, which was freshly allocated
+        # XXX how is this ever released?
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
 
 def methoddescr_attach(space, py_obj, w_obj, w_userdata=None):
-    py_methoddescr = rffi.cast(PyMethodDescrObject, py_obj)
+    py_methoddescr = cts.cast('PyMethodDescrObject*', py_obj)
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_PyCFunctionObject)
     py_methoddescr.c_d_method = w_obj.ml
@@ -307,12 +282,16 @@ def update_all_slots(space, w_type, pto):
                 setattr(pto, slot_names[0], slot_func_helper)
         elif ((w_type is space.w_list or w_type is space.w_tuple) and
               slot_names[0] == 'c_tp_as_number'):
-            # XXX hack - hwo can we generalize this? The problem is method
+            # XXX hack - how can we generalize this? The problem is method
             # names like __mul__ map to more than one slot, and we have no
             # convenient way to indicate which slots CPython have filled
             #
             # We need at least this special case since Numpy checks that
             # (list, tuple) do __not__ fill tp_as_number
+            pass
+        elif (space.issubtype_w(w_type, space.w_basestring) and
+                slot_names[0] == 'c_tp_as_number'):
+            # like above but for any str type
             pass
         else:
             assert len(slot_names) == 2
@@ -415,6 +394,9 @@ def setup_new_method_def(space):
     ptr = get_new_method_def(space)
     ptr.c_ml_meth = rffi.cast(PyCFunction, llslot(space, tp_new_wrapper))
 
+def is_tp_new_wrapper(space, ml):
+    return ml.c_ml_meth == rffi.cast(PyCFunction, llslot(space, tp_new_wrapper))
+
 def add_tp_new_wrapper(space, dict_w, pto):
     if "__new__" in dict_w:
         return
@@ -422,7 +404,7 @@ def add_tp_new_wrapper(space, dict_w, pto):
     dict_w["__new__"] = PyCFunction_NewEx(space, get_new_method_def(space),
                                           from_ref(space, pyo), None)
 
-def inherit_special(space, pto, base_pto):
+def inherit_special(space, pto, w_obj, base_pto):
     # XXX missing: copy basicsize and flags in a magical way
     # (minimally, if tp_basicsize is zero or too low, we copy it from the base)
     if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
@@ -431,6 +413,26 @@ def inherit_special(space, pto, base_pto):
         pto.c_tp_itemsize = base_pto.c_tp_itemsize
     pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_CHECKTYPES
     pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
+
+    #/* Setup fast subclass flags */
+    if space.issubtype_w(w_obj, space.w_Exception):
+        pto.c_tp_flags |= Py_TPFLAGS_BASE_EXC_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_type):
+        pto.c_tp_flags |= Py_TPFLAGS_TYPE_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_int): # remove on py3
+        pto.c_tp_flags |= Py_TPFLAGS_INT_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_long):
+        pto.c_tp_flags |= Py_TPFLAGS_LONG_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_bytes):
+        pto.c_tp_flags |= Py_TPFLAGS_STRING_SUBCLASS # STRING->BYTES on py3
+    elif space.issubtype_w(w_obj, space.w_unicode):
+        pto.c_tp_flags |= Py_TPFLAGS_UNICODE_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_tuple):
+        pto.c_tp_flags |= Py_TPFLAGS_TUPLE_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_list):
+        pto.c_tp_flags |= Py_TPFLAGS_LIST_SUBCLASS
+    elif space.issubtype_w(w_obj, space.w_dict):
+        pto.c_tp_flags |= Py_TPFLAGS_DICT_SUBCLASS
 
 def check_descr(space, w_self, w_type):
     if not space.isinstance_w(w_self, w_type):
@@ -922,7 +924,9 @@ def finish_type_1(space, pto, bases_w=None):
                 bases_w = []
             else:
                 bases_w = [from_ref(space, base_pyo)]
-        pto.c_tp_bases = make_ref(space, space.newtuple(bases_w))
+        is_heaptype = bool(pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE)
+        pto.c_tp_bases = make_ref(space, space.newtuple(bases_w),
+                                  immortal=not is_heaptype)
 
 def finish_type_2(space, pto, w_obj):
     """
@@ -931,7 +935,7 @@ def finish_type_2(space, pto, w_obj):
     pto.c_tp_mro = make_ref(space, space.newtuple(w_obj.mro_w))
     base = pto.c_tp_base
     if base:
-        inherit_special(space, pto, base)
+        inherit_special(space, pto, w_obj, base)
     for w_base in space.fixedview(from_ref(space, pto.c_tp_bases)):
         if isinstance(w_base, W_TypeObject):
             inherit_slots(space, pto, w_base)

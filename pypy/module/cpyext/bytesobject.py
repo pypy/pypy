@@ -1,7 +1,7 @@
 from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
+    cpython_api, cpython_struct, bootstrap_function, build_type_checkers_flags,
     PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
@@ -58,7 +58,7 @@ def init_bytesobject(space):
                    dealloc=bytes_dealloc,
                    realize=bytes_realize)
 
-PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_bytes")
+PyString_Check, PyString_CheckExact = build_type_checkers_flags("String", "w_bytes")
 
 def new_empty_str(space, length):
     """

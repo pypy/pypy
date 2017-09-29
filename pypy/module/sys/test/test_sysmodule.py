@@ -445,6 +445,8 @@ class AppTestSysModulePortedFromCPython:
 
     def test_dlopenflags(self):
         import sys
+        if not hasattr(sys, "getdlopenflags"):
+            skip('{gs}etdlopenflags is not implemented on this platform')
         raises(TypeError, sys.getdlopenflags, 42)
         oldflags = sys.getdlopenflags()
         raises(TypeError, sys.setdlopenflags)

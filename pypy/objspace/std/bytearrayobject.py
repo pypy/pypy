@@ -567,13 +567,38 @@ def makebytearraydata_w(space, w_source):
             raise
     else:
         return list(buf.as_str())
+    return _from_byte_sequence(space, w_source)
 
-    # sequence of bytes
+def _get_printable_location(w_type):
+    return ('bytearray_from_byte_sequence [w_type=%s]' %
+            w_type.getname(w_type.space))
+
+_byteseq_jitdriver = jit.JitDriver(
+    name='bytearray_from_byte_sequence',
+    greens=['w_type'],
+    reds=['w_iter', 'data'],
+    get_printable_location=_get_printable_location)
+
+def _from_byte_sequence(space, w_source):
+    # Split off in a separate function for the JIT's benefit
+    # and add a jitdriver with the type of w_iter as the green key
     w_iter = space.iter(w_source)
     length_hint = space.length_hint(w_source, 0)
     data = newlist_hint(length_hint)
-    extended = 0
+    #
+    _from_byte_sequence_loop(space, w_iter, data)
+    #
+    extended = len(data)
+    if extended < length_hint:
+        resizelist_hint(data, extended)
+    return data
+
+def _from_byte_sequence_loop(space, w_iter, data):
+    w_type = space.type(w_iter)
     while True:
+        _byteseq_jitdriver.jit_merge_point(w_type=w_type,
+                                           w_iter=w_iter,
+                                           data=data)
         try:
             w_item = space.next(w_iter)
         except OperationError as e:
@@ -581,10 +606,6 @@ def makebytearraydata_w(space, w_source):
                 raise
             break
         data.append(space.byte_w(w_item))
-        extended += 1
-    if extended < length_hint:
-        resizelist_hint(data, extended)
-    return data
 
 
 def _hex_digit_to_int(d):

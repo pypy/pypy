@@ -8,7 +8,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.object import (
     PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
     PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
-    PyObject_GetItem, PyObject_RichCompareBool,
+    PyObject_GetItem, 
     PyObject_IsInstance, PyObject_IsSubclass, PyObject_AsFileDescriptor,
     PyObject_Hash, PyObject_Cmp, PyObject_Unicode
 )
@@ -136,7 +136,18 @@ class TestObject(BaseApiTest):
 
         w_i = space.wrap(1)
         with raises_w(space, SystemError):
-            PyObject_RichCompareBool(space, w_i, w_i, 123456)
+            api.PyObject_RichCompareBool(w_i, w_i, 123456)
+
+    def test_RichCompareNanlike(self, space,api):
+        w_obj = space.appexec([], """():
+            class Nanlike(object):
+                def __eq__(self, other):
+                    raise RuntimeError('unreachable')
+            return Nanlike()""")
+        res = api.PyObject_RichCompareBool(w_obj, w_obj, Py_EQ)
+        assert res == 1
+        res = api.PyObject_RichCompareBool(w_obj, w_obj, Py_NE)
+        assert res == 0
 
     def test_IsInstance(self, space, api):
         assert api.PyObject_IsInstance(space.wrap(1), space.w_int) == 1
@@ -397,7 +408,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         Py_buffer passed to it.
         """
         module = self.import_extension('foo', [
-                ("fillinfo", "METH_VARARGS",
+                ("fillinfo", "METH_NOARGS",
                  """
     Py_buffer buf;
     PyObject *str = PyString_FromString("hello, world.");
@@ -449,7 +460,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         object.
         """
         module = self.import_extension('foo', [
-                ("fillinfo", "METH_VARARGS",
+                ("fillinfo", "METH_NOARGS",
                  """
     Py_buffer buf;
     PyObject *str = PyString_FromString("hello, world.");
@@ -495,7 +506,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         PyBuffer_FillInfo fails if WRITABLE is passed but object is readonly.
         """
         module = self.import_extension('foo', [
-                ("fillinfo", "METH_VARARGS",
+                ("fillinfo", "METH_NOARGS",
                  """
     Py_buffer buf;
     PyObject *str = PyString_FromString("hello, world.");
@@ -522,7 +533,7 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
         decremented by PyBuffer_Release.
         """
         module = self.import_extension('foo', [
-                ("release", "METH_VARARGS",
+                ("release", "METH_NOARGS",
                  """
     Py_buffer buf;
     buf.obj = PyString_FromString("release me!");
@@ -542,3 +553,19 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
                  """)])
         assert module.release() is None
 
+
+class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
+    def test_richcomp_nan(self):
+        module = self.import_extension('foo', [
+               ("comp_eq", "METH_VARARGS",
+                """
+                PyObject *a = PyTuple_GetItem(args, 0);
+                PyObject *b = PyTuple_GetItem(args, 1);
+                int res = PyObject_RichCompareBool(a, b, Py_EQ);
+                return PyLong_FromLong(res);  
+                """),])
+        a = float('nan')
+        b = float('nan')
+        assert a is b
+        res = module.comp_eq(a, b)
+        assert res == 1

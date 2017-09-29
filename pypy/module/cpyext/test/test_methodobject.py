@@ -117,25 +117,3 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.check(A.meth) == 0
         assert mod.check(A.stat) == 0
  
-
-class TestPyCMethodObject(BaseApiTest):
-    def test_repr(self, space, api):
-        """
-        W_PyCMethodObject has a repr string which describes it as a method
-        and gives its name and the name of its class.
-        """
-        def func(space, w_self, w_args):
-            return space.w_None
-        c_func = ApiFunction([PyObject, PyObject], PyObject, func)
-        func.api_func = c_func
-        ml = lltype.malloc(PyMethodDef, flavor='raw', zero=True)
-        namebuf = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp('func'))
-        ml.c_ml_name = namebuf
-        ml.c_ml_meth = rffi.cast(PyCFunction, c_func.get_llhelper(space))
-
-        method = api.PyDescr_NewMethod(space.w_bytes, ml)
-        assert repr(method).startswith(
-            "<built-in method 'func' of 'str' object ")
-
-        rffi.free_charp(namebuf)
-        lltype.free(ml, flavor='raw')

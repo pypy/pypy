@@ -56,7 +56,7 @@ class W_DictMultiObject(W_Root):
     def allocate_and_init_instance(space, w_type=None, module=False,
                                    instance=False, strdict=False,
                                    kwargs=False):
-        if space.config.objspace.std.withcelldict and module:
+        if module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
             assert w_type is None
             # every module needs its own strategy, because the strategy stores
@@ -1255,6 +1255,12 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##     return keys, values
 
 create_iterator_classes(UnicodeDictStrategy)
+
+
+def from_unicode_key_dict(space, d):
+    strategy = space.fromcache(UnicodeDictStrategy)
+    storage = strategy.erase(d)
+    return W_DictObject(space, strategy, storage)
 
 
 class IntDictStrategy(AbstractTypedStrategy, DictStrategy):

@@ -11,7 +11,7 @@ from pypy.module.__builtin__ import abstractinst
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
      elidable, dont_look_inside, unroll_safe)
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
 
 class MutableCell(W_Root):
@@ -212,8 +212,8 @@ class W_TypeObject(W_Root):
         else:
             self.terminator = NoDictTerminator(space, self)
 
+    @not_rpython
     def __repr__(self):
-        "NOT_RPYTHON"
         return '<W_TypeObject %r at 0x%x>' % (self.name, id(self))
 
     def mutated(self, key):
@@ -492,8 +492,9 @@ class W_TypeObject(W_Root):
                         self, w_subtype, w_subtype)
         return w_subtype
 
+    @not_rpython
     def _cleanup_(self):
-        "NOT_RPYTHON.  Forces the lazy attributes to be computed."
+        "Forces the lazy attributes to be computed."
         if 'lazyloaders' in self.__dict__:
             for attr in self.lazyloaders.keys():
                 self.getdictvalue(self.space, attr)
@@ -535,23 +536,27 @@ class W_TypeObject(W_Root):
         space = self.space
         if self.is_heaptype():
             return self.getdictvalue(space, '__module__')
+        elif self.is_cpytype():
+            dot = self.name.rfind('.')
         else:
             dot = self.name.find('.')
-            if dot >= 0:
-                mod = self.name[:dot]
-            else:
-                mod = "__builtin__"
-            return space.newtext(mod)
+        if dot >= 0:
+            mod = self.name[:dot]
+        else:
+            mod = "__builtin__"
+        return space.newtext(mod)
 
     def getname(self, space):
         if self.is_heaptype():
             return self.name
+        elif self.is_cpytype():
+            dot = self.name.rfind('.')
         else:
             dot = self.name.find('.')
-            if dot >= 0:
-                return self.name[dot+1:]
-            else:
-                return self.name
+        if dot >= 0:
+            return self.name[dot+1:]
+        else:
+            return self.name
 
     def add_subclass(self, w_subclass):
         space = self.space
@@ -621,6 +626,12 @@ class W_TypeObject(W_Root):
             if w_newdescr is None:    # see test_crash_mro_without_object_1
                 raise oefmt(space.w_TypeError, "cannot create '%N' instances",
                             self)
+            #
+            # issue #2666
+            if space.config.objspace.usemodules.cpyext:
+                w_newtype, w_newdescr = self.hack_which_new_to_call(
+                    w_newtype, w_newdescr)
+            #
             w_newfunc = space.get(w_newdescr, self)
             if (space.config.objspace.std.newshortcut and
                 not we_are_jitted() and
@@ -640,6 +651,46 @@ class W_TypeObject(W_Root):
                     raise oefmt(space.w_TypeError,
                                 "__init__() should return None")
         return w_newobject
+
+    def hack_which_new_to_call(self, w_newtype, w_newdescr):
+        # issue #2666: for cpyext, we need to hack in order to reproduce
+        # an "optimization" of CPython that actually changes behaviour
+        # in corner cases.
+        #
+        # * Normally, we use the __new__ found in the MRO in the normal way.
+        #
+        # * If by chance this __new__ happens to be implemented as a C
+        #   function, then instead, we discard it and use directly
+        #   self.__base__.tp_new.
+        #
+        # * Most of the time this is the same (and faster for CPython), but
+        #   it can fail if self.__base__ happens not to be the first base.
+        #
+        from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+
+        if isinstance(w_newdescr, W_PyCFunctionObject):
+            return self._really_hack_which_new_to_call(w_newtype, w_newdescr)
+        else:
+            return w_newtype, w_newdescr
+
+    def _really_hack_which_new_to_call(self, w_newtype, w_newdescr):
+        # This logic is moved in yet another helper function that
+        # is recursive.  We call this only if we see a
+        # W_PyCFunctionObject.  That's a performance optimization
+        # because in the common case, we won't call any function that
+        # contains the stack checks.
+        from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+        from pypy.module.cpyext.typeobject import is_tp_new_wrapper
+
+        if (isinstance(w_newdescr, W_PyCFunctionObject) and
+                w_newtype is not self and
+                is_tp_new_wrapper(self.space, w_newdescr.ml)):
+            w_bestbase = find_best_base(self.bases_w)
+            if w_bestbase is not None:
+                w_newtype, w_newdescr = w_bestbase.lookup_where('__new__')
+                return w_bestbase._really_hack_which_new_to_call(w_newtype,
+                                                                 w_newdescr)
+        return w_newtype, w_newdescr
 
     def descr_repr(self, space):
         w_mod = self.get_module()
@@ -1317,8 +1368,9 @@ def mro_error(space, orderlists):
 
 
 class TypeCache(SpaceCache):
+    @not_rpython
     def build(self, typedef):
-        "NOT_RPYTHON: initialization-time only."
+        "initialization-time only."
         from pypy.objspace.std.objectobject import W_ObjectObject
         from pypy.interpreter.typedef import GetSetProperty
         from rpython.rlib.objectmodel import instantiate

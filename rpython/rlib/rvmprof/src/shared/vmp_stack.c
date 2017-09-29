@@ -523,7 +523,7 @@ static void * libhandle = NULL;
 
 int vmp_native_enable(void) {
 #ifdef VMPROF_LINUX
-    if (!unw_get_reg) {
+    if (libhandle == NULL) {
         if ((libhandle = dlopen(LIBUNWIND, RTLD_LAZY | RTLD_LOCAL)) == NULL) {
             goto bail_out;
         }
@@ -570,6 +570,7 @@ void vmp_native_disable(void) {
             vmprof_error = dlerror();
             fprintf(stderr, "could not close libunwind at runtime. error: %s\n", vmprof_error);
         }
+        libhandle = NULL;
     }
 
     vmp_native_traces_enabled = 0;

@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.11.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.11.1", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -3838,6 +3838,7 @@ def test_unpack():
         assert result == samples
         for i in range(len(samples)):
             assert result[i] == p[i] and type(result[i]) is type(p[i])
+            assert (type(result[i]) is bool) == (type(samples[i]) is bool)
     #
     BInt = new_primitive_type("int")
     py.test.raises(TypeError, unpack, p)

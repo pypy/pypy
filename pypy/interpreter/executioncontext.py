@@ -1,7 +1,7 @@
 import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib import jit, rgc, objectmodel
 
 TICK_COUNTER_STEP = 100
@@ -423,8 +423,9 @@ class AbstractActionFlag(object):
             # to run at the next possible bytecode
             self.reset_ticker(-1)
 
+    @not_rpython
     def register_periodic_action(self, action, use_bytecode_counter):
-        """NOT_RPYTHON:
+        """
         Register the PeriodicAsyncAction action to be called whenever the
         tick counter becomes smaller than 0.  If 'use_bytecode_counter' is
         True, make sure that we decrease the tick counter at every bytecode.

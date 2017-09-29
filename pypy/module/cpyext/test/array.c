@@ -1864,10 +1864,12 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
     {
         int ii, nn;
+        PyObject *ret;
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
         int i = ((PyIntObject*)v)->ob_ival;
-        PyObject * ret = PyList_New(n*i);
+        Py_DECREF(v);
+        ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
             {
@@ -1880,10 +1882,12 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
     {
         int ii, nn;
+        PyObject *ret;
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
         int i = ((PyIntObject*)v)->ob_ival;
-        PyObject * ret = PyList_New(n*i);
+        Py_DECREF(v);
+        ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
             {
@@ -1916,34 +1920,44 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
     if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
     {
         int nn;
+        PyObject *ret;
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
         int i = ((PyIntObject*)v)->ob_ival;
-        PyObject * ret = PyList_New(n);
+        Py_DECREF(v);
+        ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             v = PyList_GetItem(obj1, nn);
             if (PyInt_Check(v))
                 PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
             else
+            {
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn, v);
+            }
         }
         return ret;
     }
     else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
     {
         int nn;
+        PyObject *ret;
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
         int i = ((PyIntObject*)v)->ob_ival;
-        PyObject * ret = PyList_New(n);
+        Py_DECREF(v);
+        ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             v = PyList_GetItem(obj2, nn);
             if (PyInt_Check(v))
                 PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
             else
+            {
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn, v);
+            }
         }
         return ret;
     }
@@ -2458,6 +2472,15 @@ create_and_release_buffer(PyObject *self, PyObject *obj)
     Py_RETURN_NONE;
 }
 
+static PyObject *
+same_dealloc(PyObject *self, PyObject *args)
+{
+    PyObject *obj1, *obj2;
+    if (!PyArg_ParseTuple(args, "OO", &obj1, &obj2)) {
+        return NULL;
+    }
+    return PyLong_FromLong(obj1->ob_type->tp_dealloc == obj2->ob_type->tp_dealloc);
+}
 
 /*********************** Install Module **************************/
 
@@ -2467,6 +2490,7 @@ static PyMethodDef a_methods[] = {
     {"readbuffer_as_string",   (PyCFunction)readbuffer_as_string, METH_VARARGS, NULL},
     {"get_releasebuffer_cnt",   (PyCFunction)get_releasebuffer_cnt, METH_NOARGS, NULL},
     {"create_and_release_buffer",   (PyCFunction)create_and_release_buffer, METH_O, NULL},
+    {"same_dealloc",   (PyCFunction)same_dealloc, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

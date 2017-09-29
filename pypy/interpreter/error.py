@@ -7,6 +7,7 @@ from errno import EINTR
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib import rstack, rstackovf
 
 from pypy.interpreter import debug
@@ -57,8 +58,9 @@ class OperationError(Exception):
                 self.match(space, space.w_KeyboardInterrupt))
         # note: an extra case is added in OpErrFmtNoArgs
 
+    @not_rpython
     def __str__(self):
-        "NOT_RPYTHON: Convenience for tracebacks."
+        "Convenience for tracebacks."
         s = self._w_value
         space = getattr(self.w_type, 'space', None)
         if space is not None:
@@ -107,15 +109,16 @@ class OperationError(Exception):
             if RECORD_INTERPLEVEL_TRACEBACK:
                 self.debug_excs.append(sys.exc_info())
 
+    @not_rpython
     def print_application_traceback(self, space, file=None):
-        "NOT_RPYTHON: Dump a standard application-level traceback."
+        "Dump a standard application-level traceback."
         if file is None:
             file = sys.stderr
         self.print_app_tb_only(file)
         print >> file, self.errorstr(space)
 
+    @not_rpython
     def print_app_tb_only(self, file):
-        "NOT_RPYTHON"
         tb = self._application_traceback
         if tb:
             import linecache
@@ -142,8 +145,9 @@ class OperationError(Exception):
                     print >> file, l
                 tb = tb.next
 
+    @not_rpython
     def print_detailed_traceback(self, space=None, file=None):
-        """NOT_RPYTHON: Dump a nice detailed interpreter- and
+        """Dump a nice detailed interpreter- and
         application-level traceback, useful to debug the interpreter."""
         if file is None:
             file = sys.stderr
