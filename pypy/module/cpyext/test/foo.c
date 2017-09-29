@@ -83,19 +83,32 @@ foo_classmeth(PyObject *cls)
     return cls;
 }
 
+// for CPython
+#ifndef PyMethodDescr_Check
+int PyMethodDescr_Check(PyObject* method)
+{
+    PyObject *meth = PyObject_GetAttrString((PyObject*)&PyList_Type, "append");
+    if (!meth) return 0;
+    int res = PyObject_TypeCheck(method, meth->ob_type);
+    Py_DECREF(meth);
+    return res;
+}
+#endif
+
 PyObject* make_classmethod(PyObject* method)
 {
     // adapted from __Pyx_Method_ClassMethod
-    if (PyObject_TypeCheck(method, &PyWrapperDescr_Type)) {
-        return PyClassMethod_New(method);
+    if (PyMethodDescr_Check(method)) {
+        PyMethodDescrObject *descr = (PyMethodDescrObject *)method;
+        PyTypeObject *d_type = descr->d_common.d_type;
+        return PyDescr_NewClassMethod(d_type, descr->d_method);
     }
     else if (PyMethod_Check(method)) {
         return PyClassMethod_New(PyMethod_GET_FUNCTION(method));
     }
     else {
-        PyMethodDescrObject *descr = (PyMethodDescrObject *)method;
-        PyTypeObject *d_type = descr->d_common.d_type;
-        return PyDescr_NewClassMethod(d_type, descr->d_method);
+        PyErr_SetString(PyExc_TypeError, "unknown method kind");
+        return NULL;
     }
 }
 
@@ -828,6 +841,8 @@ initfoo(void)
 
     fake_classmeth = PyDict_GetItemString((PyObject *)fooType.tp_dict, "fake_classmeth");
     classmeth = make_classmethod(fake_classmeth);
+    if (classmeth == NULL)
+        INITERROR;
     if (PyDict_SetItemString((PyObject *)fooType.tp_dict, "fake_classmeth", classmeth) < 0)
         INITERROR;
 
