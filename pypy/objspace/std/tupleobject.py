@@ -283,6 +283,9 @@ class W_TupleObject(W_AbstractTupleObject):
     def length(self):
         return len(self.wrappeditems)
 
+    def len_w(self, space):
+        return self.length()
+
     def descr_hash(self, space):
         if _unroll_condition(self):
             return self._descr_hash_unroll(space)

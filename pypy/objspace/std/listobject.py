@@ -308,6 +308,9 @@ class W_ListObject(W_Root):
     def length(self):
         return self.strategy.length(self)
 
+    def len_w(self, space):
+        return self.length()
+
     def getitem(self, index):
         """Returns the wrapped object that is found in the
         list at the given index. The index must be unwrapped.
