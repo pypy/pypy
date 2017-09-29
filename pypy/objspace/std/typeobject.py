@@ -682,14 +682,30 @@ class W_TypeObject(W_Root):
         #   it can fail if self.__base__ happens not to be the first base.
         #
         from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+
+        if isinstance(w_newdescr, W_PyCFunctionObject):
+            return self._really_hack_which_new_to_call(w_newtype, w_newdescr)
+        else:
+            return w_newtype, w_newdescr
+
+    def _really_hack_which_new_to_call(self, w_newtype, w_newdescr):
+        # This logic is moved in yet another helper function that
+        # is recursive.  We call this only if we see a
+        # W_PyCFunctionObject.  That's a performance optimization
+        # because in the common case, we won't call any function that
+        # contains the stack checks.
+        from pypy.module.cpyext.methodobject import W_PyCFunctionObject
         from pypy.module.cpyext.typeobject import is_tp_new_wrapper
 
         if (isinstance(w_newdescr, W_PyCFunctionObject) and
+                w_newtype is not self and
                 is_tp_new_wrapper(self.space, w_newdescr.ml)):
             w_bestbase = find_best_base(self.bases_w)
-            return w_bestbase.lookup_where('__new__')
-        else:
-            return w_newtype, w_newdescr
+            if w_bestbase is not None:
+                w_newtype, w_newdescr = w_bestbase.lookup_where('__new__')
+                return w_bestbase._really_hack_which_new_to_call(w_newtype,
+                                                                 w_newdescr)
+        return w_newtype, w_newdescr
 
     def descr_repr(self, space):
         w_mod = self.get_module()
