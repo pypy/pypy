@@ -1317,7 +1317,7 @@ class _SSLContext(W_Root):
 
         self = space.allocate_instance(_SSLContext, w_subtype)
         assert isinstance(self, _SSLContext)
-        rgc.add_memory_pressure(10 * 1024, self)
+        rgc.add_memory_pressure(10 * 1024 * 1024, self)
         self.ctx = ctx
         self.check_hostname = False
         self.register_finalizer(space)
