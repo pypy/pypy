@@ -83,6 +83,22 @@ foo_classmeth(PyObject *cls)
     return cls;
 }
 
+PyObject* make_classmethod(PyObject* method)
+{
+    // adapted from __Pyx_Method_ClassMethod
+    if (PyObject_TypeCheck(method, &PyWrapperDescr_Type)) {
+        return PyClassMethod_New(method);
+    }
+    else if (PyMethod_Check(method)) {
+        return PyClassMethod_New(PyMethod_GET_FUNCTION(method));
+    }
+    else {
+        PyMethodDescrObject *descr = (PyMethodDescrObject *)method;
+        PyTypeObject *d_type = descr->d_common.d_type;
+        return PyDescr_NewClassMethod(d_type, descr->d_method);
+    }
+}
+
 static PyObject *
 foo_unset(fooobject *self)
 {
@@ -95,6 +111,7 @@ static PyMethodDef foo_methods[] = {
     {"copy",      (PyCFunction)foo_copy,      METH_NOARGS,  NULL},
     {"create",    (PyCFunction)foo_create,    METH_NOARGS|METH_STATIC,  NULL},
     {"classmeth", (PyCFunction)foo_classmeth, METH_NOARGS|METH_CLASS,  NULL},
+    {"fake_classmeth", (PyCFunction)foo_classmeth, METH_NOARGS,  NULL},
     {"unset_string_member", (PyCFunction)foo_unset, METH_NOARGS, NULL},
     {NULL, NULL}                 /* sentinel */
 };
@@ -167,19 +184,19 @@ new_fooType(PyTypeObject * t, PyObject *args, PyObject *kwds)
     /* copied from numpy scalartypes.c for inherited classes */
     if (t->tp_bases && (PyTuple_GET_SIZE(t->tp_bases) > 1))
     {
-        PyTypeObject *sup; 
-        /* We are inheriting from a Python type as well so 
+        PyTypeObject *sup;
+        /* We are inheriting from a Python type as well so
            give it first dibs on conversion */
         sup = (PyTypeObject *)PyTuple_GET_ITEM(t->tp_bases, 1);
-        /* Prevent recursion */ 
-        if (new_fooType != sup->tp_new) 
+        /* Prevent recursion */
+        if (new_fooType != sup->tp_new)
         {
             o = sup->tp_new(t, args, kwds);
             return o;
         }
     }
     o = t->tp_alloc(t, 0);
-    return o;   
+    return o;
 };
 
 static PyMemberDef foo_members[] = {
@@ -717,7 +734,7 @@ static struct PyModuleDef moduledef = {
     "foo",
     "Module Doc",
     -1,
-    foo_functions, 
+    foo_functions,
     NULL,
     NULL,
     NULL,
@@ -751,6 +768,7 @@ initfoo(void)
 #endif
 {
     PyObject *d;
+    PyObject *fake_classmeth, *classmeth;
 #if PY_MAJOR_VERSION >= 3
     PyObject *module = PyModule_Create(&moduledef);
 #else
@@ -808,6 +826,10 @@ initfoo(void)
         INITERROR;
     gettype2 = PyObject_New(PyObject, &GetType2);
 
+    fake_classmeth = PyDict_GetItemString((PyObject *)fooType.tp_dict, "fake_classmeth");
+    classmeth = make_classmethod(fake_classmeth);
+    if (PyDict_SetItemString((PyObject *)fooType.tp_dict, "fake_classmeth", classmeth) < 0)
+        INITERROR;
 
     d = PyModule_GetDict(module);
     if (d == NULL)

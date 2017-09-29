@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -10,8 +10,7 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, bootstrap_function,
-    cpython_api, generic_cpy_call, CANNOT_FAIL,
-    PyTypeObjectPtr, slot_function, cts)
+    cpython_api, generic_cpy_call, CANNOT_FAIL, slot_function, cts)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
 
@@ -102,7 +101,7 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         return self.space.unwrap(self.descr_method_repr())
 
     def descr_method_repr(self):
-        w_objclass = self.w_objclass 
+        w_objclass = self.w_objclass
         assert isinstance(w_objclass, W_TypeObject)
         return self.space.newtext("<method '%s' of '%s' objects>" % (
             self.name, w_objclass.name))
@@ -110,7 +109,7 @@ class W_PyCMethodObject(W_PyCFunctionObject):
     def descr_call(self, space, __args__):
         args_w, kw_w = __args__.unpack()
         if len(args_w) < 1:
-            w_objclass = self.w_objclass 
+            w_objclass = self.w_objclass
             assert isinstance(w_objclass, W_TypeObject)
             raise oefmt(space.w_TypeError,
                 "descriptor '%8' of '%s' object needs an argument",
@@ -118,7 +117,7 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         w_instance = args_w[0]
         # XXX: needs a stricter test
         if not space.isinstance_w(w_instance, self.w_objclass):
-            w_objclass = self.w_objclass 
+            w_objclass = self.w_objclass
             assert isinstance(w_objclass, W_TypeObject)
             raise oefmt(space.w_TypeError,
                 "descriptor '%8' requires a '%s' object but received a '%T'",
@@ -323,11 +322,15 @@ def PyStaticMethod_New(space, w_func):
 def PyClassMethod_New(space, w_func):
     return ClassMethod(w_func)
 
-@cpython_api([PyTypeObjectPtr, lltype.Ptr(PyMethodDef)], PyObject)
+@cts.decl("""
+    PyObject *
+    PyDescr_NewClassMethod(PyTypeObject *type, PyMethodDef *method)""")
 def PyDescr_NewMethod(space, w_type, method):
     return W_PyCMethodObject(space, method, w_type)
 
-@cpython_api([PyObject, lltype.Ptr(PyMethodDef)], PyObject)
+@cts.decl("""
+    PyObject *
+    PyDescr_NewClassMethod(PyTypeObject *type, PyMethodDef *method)""")
 def PyDescr_NewClassMethod(space, w_type, method):
     return W_PyCClassMethodObject(space, method, w_type)
 
