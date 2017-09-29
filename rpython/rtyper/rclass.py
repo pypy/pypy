@@ -15,6 +15,7 @@ from rpython.rtyper.lltypesystem.lltype import (
     RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, Void, FuncType, Bool, Signed,
     functionptr, attachRuntimeTypeInfo)
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.rmodel import (
@@ -536,6 +537,9 @@ class InstanceRepr(Repr):
                 # the parent type
                 if not self.has_special_memory_pressure(self.rbase.object_type):
                     llfields.append(('special_memory_pressure', lltype.Signed))
+                    fields['special_memory_pressure'] = (
+                        'special_memory_pressure',
+                        self.rtyper.getrepr(lltype_to_annotation(lltype.Signed)))
 
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
@@ -677,6 +681,8 @@ class InstanceRepr(Repr):
         while base.classdef is not None:
             base = base.rbase
             for fieldname in base.fields:
+                if fieldname == 'special_memory_pressure':
+                    continue
                 try:
                     mangled, r = base._get_field(fieldname)
                 except KeyError:
@@ -731,6 +737,9 @@ class InstanceRepr(Repr):
                            resulttype=Ptr(self.object_type))
         ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)
+        if self.has_special_memory_pressure(self.object_type):
+            self.setfield(vptr, 'special_memory_pressure',
+                inputconst(lltype.Signed, 0), llops)
         # initialize instance attributes from their defaults from the class
         if self.classdef is not None:
             flds = self.allinstancefields.keys()
