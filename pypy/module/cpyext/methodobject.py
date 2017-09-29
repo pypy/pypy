@@ -10,7 +10,8 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, bootstrap_function,
-    cpython_api, generic_cpy_call, CANNOT_FAIL, slot_function, cts)
+    cpython_api, generic_cpy_call, CANNOT_FAIL, slot_function, cts,
+    build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
 
@@ -136,6 +137,10 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         ret = self.call(space, w_instance, w_args, w_kw)
         return ret
 
+# PyPy addition, for Cython
+_, _ = build_type_checkers("MethodDescr", W_PyCMethodObject)
+
+
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCFunction_Check(space, w_obj):
     from pypy.interpreter.function import BuiltinFunction
@@ -160,6 +165,7 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
         return self.getrepr(self.space,
                             "built-in method '%s' of '%s' object" %
                             (self.name, self.w_objclass.getname(self.space)))
+
 
 
 class W_PyCWrapperObject(W_Root):
