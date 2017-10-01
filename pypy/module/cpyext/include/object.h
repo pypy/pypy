@@ -47,8 +47,9 @@ we have it for compatibility with CPython.
 #define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
 #endif
 
+PyAPI_FUNC(void) Py_IncRef(PyObject *);
 PyAPI_FUNC(void) Py_DecRef(PyObject *);
-    
+
 #define Py_CLEAR(op)                        \
         do {                            	\
                 if (op) {			\

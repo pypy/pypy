@@ -332,13 +332,7 @@ def decref(space, obj):
         get_w_obj_and_decref(space, obj)
 
 
-@cpython_api([PyObject], lltype.Void)
-def Py_IncRef(space, obj):
-    incref(space, obj)
-
-## @cpython_api([PyObject], lltype.Void)
-## def Py_DecRef(space, obj):
-##     decref(space, obj)
+Py_IncRef = incref # XXX remove me and kill all the Py_IncRef usages from RPython
 Py_DecRef = decref # XXX remove me and kill all the Py_DecRef usages from RPython
 
 @cpython_api([PyObject], lltype.Void)
