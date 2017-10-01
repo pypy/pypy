@@ -768,7 +768,7 @@ class TypeSlot:
     def __init__(self, method_name, slot_name, function, wrapper1, wrapper2, doc):
         self.method_name = method_name
         self.slot_name = slot_name
-        self.slot_names = ("c_" + slot_name).split(".")
+        self.slot_names = tuple(("c_" + slot_name).split("."))
         self.slot_func = function
         self.wrapper_func = wrapper1
         self.wrapper_func_kwds = wrapper2
