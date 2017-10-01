@@ -243,6 +243,13 @@ def get_slot_tp_function(space, typedef, name):
         return api_func
 
 missing_slots={}
+def warn_missing_slot(space, method_name, slot_name, w_type):
+    if not we_are_translated():
+        if slot_name not in missing_slots:
+            missing_slots[slot_name] = w_type.getname(space)
+            print "missing slot %r/%r, discovered on %r" % (
+                method_name, slot_name, w_type.getname(space))
+
 def update_all_slots(space, w_type, pto):
     # fill slots in pto
     # Not very sure about it, but according to
@@ -278,11 +285,7 @@ def update_all_slots(space, w_type, pto):
 
         if not slot_func_helper:
             if not slot_apifunc:
-                if not we_are_translated():
-                    if slot_name not in missing_slots:
-                        missing_slots[slot_name] = w_type.getname(space)
-                        print "missing slot %r/%r, discovered on %r" % (
-                            method_name, slot_name, w_type.getname(space))
+                warn_missing_slot(space, method_name, slot_name, w_type)
                 continue
             slot_func_helper = slot_apifunc.get_llhelper(space)
         fill_slot(space, pto, w_type, slot_names, slot_func_helper)
@@ -290,7 +293,6 @@ def update_all_slots(space, w_type, pto):
 @specialize.arg(3)
 def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
     # XXX special case wrapper-functions and use a "specific" slot func
-
     if len(slot_names) == 1:
         if not getattr(pto, slot_names[0]):
             setattr(pto, slot_names[0], slot_func_helper)
