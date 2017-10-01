@@ -285,47 +285,50 @@ def update_all_slots(space, w_type, pto):
                             method_name, slot_name, w_type.getname(space))
                 continue
             slot_func_helper = slot_apifunc.get_llhelper(space)
+        fill_slot(space, pto, w_type, slot_names, slot_func_helper)
 
-        # XXX special case wrapper-functions and use a "specific" slot func
+@specialize.arg(3)
+def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
+    # XXX special case wrapper-functions and use a "specific" slot func
 
-        if len(slot_names) == 1:
-            if not getattr(pto, slot_names[0]):
-                setattr(pto, slot_names[0], slot_func_helper)
-        elif ((w_type is space.w_list or w_type is space.w_tuple) and
-              slot_names[0] == 'c_tp_as_number'):
-            # XXX hack - how can we generalize this? The problem is method
-            # names like __mul__ map to more than one slot, and we have no
-            # convenient way to indicate which slots CPython have filled
-            #
-            # We need at least this special case since Numpy checks that
-            # (list, tuple) do __not__ fill tp_as_number
-            pass
-        elif (space.issubtype_w(w_type, space.w_basestring) and
-                slot_names[0] == 'c_tp_as_number'):
-            # like above but for any str type
-            pass
-        else:
-            assert len(slot_names) == 2
-            struct = getattr(pto, slot_names[0])
-            if not struct:
-                #assert not space.config.translating
-                assert not pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
-                if slot_names[0] == 'c_tp_as_number':
-                    STRUCT_TYPE = PyNumberMethods
-                elif slot_names[0] == 'c_tp_as_sequence':
-                    STRUCT_TYPE = PySequenceMethods
-                elif slot_names[0] == 'c_tp_as_buffer':
-                    STRUCT_TYPE = PyBufferProcs
-                elif slot_names[0] == 'c_tp_as_mapping':
-                    STRUCT_TYPE = PyMappingMethods
-                else:
-                    raise AssertionError(
-                        "Structure not allocated: %s" % (slot_names[0],))
-                struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
-                setattr(pto, slot_names[0], struct)
+    if len(slot_names) == 1:
+        if not getattr(pto, slot_names[0]):
+            setattr(pto, slot_names[0], slot_func_helper)
+    elif ((w_type is space.w_list or w_type is space.w_tuple) and
+            slot_names[0] == 'c_tp_as_number'):
+        # XXX hack - how can we generalize this? The problem is method
+        # names like __mul__ map to more than one slot, and we have no
+        # convenient way to indicate which slots CPython have filled
+        #
+        # We need at least this special case since Numpy checks that
+        # (list, tuple) do __not__ fill tp_as_number
+        pass
+    elif (space.issubtype_w(w_type, space.w_basestring) and
+            slot_names[0] == 'c_tp_as_number'):
+        # like above but for any str type
+        pass
+    else:
+        assert len(slot_names) == 2
+        struct = getattr(pto, slot_names[0])
+        if not struct:
+            #assert not space.config.translating
+            assert not pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
+            if slot_names[0] == 'c_tp_as_number':
+                STRUCT_TYPE = PyNumberMethods
+            elif slot_names[0] == 'c_tp_as_sequence':
+                STRUCT_TYPE = PySequenceMethods
+            elif slot_names[0] == 'c_tp_as_buffer':
+                STRUCT_TYPE = PyBufferProcs
+            elif slot_names[0] == 'c_tp_as_mapping':
+                STRUCT_TYPE = PyMappingMethods
+            else:
+                raise AssertionError(
+                    "Structure not allocated: %s" % (slot_names[0],))
+            struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
+            setattr(pto, slot_names[0], struct)
 
-            if not getattr(struct, slot_names[1]):
-                setattr(struct, slot_names[1], slot_func_helper)
+        if not getattr(struct, slot_names[1]):
+            setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
     from pypy.module.cpyext.object import PyObject_HashNotImplemented
