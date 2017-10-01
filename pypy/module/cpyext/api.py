@@ -1038,7 +1038,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
     return wrapper_second_level
 
 
-def setup_init_functions(eci, prefix):
+def setup_init_functions(eci, prefix, space):
     # jump through hoops to avoid releasing the GIL during initialization
     # of the cpyext module.  The C functions are called with no wrapper,
     # but must not do anything like calling back PyType_Ready().  We
@@ -1055,6 +1055,7 @@ def setup_init_functions(eci, prefix):
     setdefenc = rffi.llexternal('_%s_setfilesystemdefaultencoding' % prefix,
                                 [rffi.CCHARP], lltype.Void,
                                 compilation_info=eci, _nowrapper=True)
+    @init_function
     def init_types(space):
         from pypy.module.cpyext.typeobject import py_type_ready
         from pypy.module.sys.interp_encoding import getfilesystemencoding
@@ -1063,13 +1064,23 @@ def setup_init_functions(eci, prefix):
         py_type_ready(space, get_capsule_type())
         s = space.text_w(getfilesystemencoding(space))
         setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
-    INIT_FUNCTIONS.append(init_types)
+
     from pypy.module.posix.interp_posix import add_fork_hook
     _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
                                   lltype.Void, compilation_info=eci)
     def reinit_tls(space):
         _reinit_tls()
     add_fork_hook('child', reinit_tls)
+
+    state = space.fromcache(State)
+    state.C._Py_Dealloc = rffi.llexternal('_Py_Dealloc',
+                                         [PyObject], lltype.Void,
+                                         compilation_info=eci,
+                                         _nowrapper=True)
+    _, state.C.set_marker = rffi.CExternVariable(
+                   Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
+                   eci, _nowrapper=True, c_type='Py_ssize_t')
+
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1190,7 +1201,7 @@ def build_bridge(space):
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
 
-    setup_init_functions(eci, prefix)
+    setup_init_functions(eci, prefix, space)
     return modulename.new(ext='')
 
 def attach_recursively(space, static_pyobjs, static_objs_w, attached_objs, i):
@@ -1521,7 +1532,7 @@ def setup_library(space):
                                         relax=True)
             deco(func.get_wrapper(space))
 
-    setup_init_functions(eci, prefix)
+    setup_init_functions(eci, prefix, space)
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(cts, trunk_include, use_micronumpy)
 

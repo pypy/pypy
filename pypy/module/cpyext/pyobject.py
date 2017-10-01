@@ -7,15 +7,16 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
-    PyVarObject)
+    PyVarObject, Py_ssize_t, init_function)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
 from rpython.rlib import rawrefcount, jit
 from rpython.rlib.debug import fatalerror
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 #________________________________________________________
@@ -316,6 +317,7 @@ def incref(space, obj):
 
 @specialize.ll()
 def decref(space, obj):
+    from pypy.module.cpyext.api import generic_cpy_call
     if is_pyobj(obj):
         obj = rffi.cast(PyObject, obj)
         if obj:
@@ -323,14 +325,14 @@ def decref(space, obj):
             assert obj.c_ob_pypy_link == 0 or obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
             obj.c_ob_refcnt -= 1
             if obj.c_ob_refcnt == 0:
-                _Py_Dealloc(space, obj)
+                state = space.fromcache(State)
+                generic_cpy_call(space, state.C._Py_Dealloc, obj)
             #else:
             #    w_obj = rawrefcount.to_obj(W_Root, ref)
             #    if w_obj is not None:
             #        assert obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
     else:
         get_w_obj_and_decref(space, obj)
-
 
 Py_IncRef = incref # XXX remove me and kill all the Py_IncRef usages from RPython
 Py_DecRef = decref # XXX remove me and kill all the Py_DecRef usages from RPython
@@ -343,14 +345,12 @@ def _Py_NewReference(space, obj):
     assert isinstance(w_type, W_TypeObject)
     get_typedescr(w_type.layout.typedef).realize(space, obj)
 
-@cpython_api([PyObject], lltype.Void)
-def _Py_Dealloc(space, obj):
-    from pypy.module.cpyext.api import generic_cpy_call
-    pto = obj.c_ob_type
-    #print >>sys.stderr, "Calling dealloc slot", pto.c_tp_dealloc, "of", obj, \
-    #      "'s type which is", rffi.charp2str(pto.c_tp_name)
-    rawrefcount.mark_deallocating(w_marker_deallocating, obj)
-    generic_cpy_call(space, pto.c_tp_dealloc, obj)
+@init_function
+def write_w_marker_deallocating(space):
+    if we_are_translated():
+        llptr = cast_instance_to_base_ptr(w_marker_deallocating)
+        state = space.fromcache(State)
+        state.C.set_marker(rffi.cast(Py_ssize_t, llptr))
 
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):

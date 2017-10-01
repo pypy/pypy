@@ -49,6 +49,8 @@ we have it for compatibility with CPython.
 
 PyAPI_FUNC(void) Py_IncRef(PyObject *);
 PyAPI_FUNC(void) Py_DecRef(PyObject *);
+extern Py_ssize_t _pypy_rawrefcount_w_marker_deallocating;
+PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
 
 #define Py_CLEAR(op)                        \
         do {                            	\
