@@ -156,6 +156,7 @@ class W_TypeObject(W_Root):
                           '_version_tag?',
                           'name?',
                           'mro_w?[*]',
+                          'hasmro?',
                           ]
 
     # wether the class has an overridden __getattribute__
@@ -1346,7 +1347,21 @@ def is_mro_purely_of_types(mro_w):
 # ____________________________________________________________
 
 def _issubtype(w_sub, w_type):
-    return w_type in w_sub.mro_w
+    if w_sub.hasmro:
+        return w_type in w_sub.mro_w
+    else:
+        return _issubtype_slow_and_wrong(w_sub, w_type)
+
+def _issubtype_slow_and_wrong(w_sub, w_type):
+    # This is only called in strange cases where w_sub is partially initialised,
+    # like from a custom MetaCls.mro(). Note that it's broken wrt. multiple
+    # inheritance, but that's what CPython does.
+    w_cls = w_sub
+    while w_cls:
+        if w_cls is w_type:
+            return True
+        w_cls = find_best_base(w_cls.bases_w)
+    return False
 
 @elidable_promote()
 def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
