@@ -1,6 +1,6 @@
 import py
 
-from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
+from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref, decref
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -24,7 +24,7 @@ class TestTupleObject(BaseApiTest):
     def test_tuple_realize_refuses_nulls(self, space, api):
         py_tuple = api.PyTuple_New(1)
         py.test.raises(FatalError, from_ref, space, py_tuple)
-        api.Py_DecRef(py_tuple)
+        decref(space, py_tuple)
 
     def test_tuple_resize(self, space, api):
         w_42 = space.wrap(42)
@@ -43,7 +43,7 @@ class TestTupleObject(BaseApiTest):
         assert space.int_w(space.len(w_tuple)) == 2
         assert space.int_w(space.getitem(w_tuple, space.wrap(0))) == 42
         assert space.int_w(space.getitem(w_tuple, space.wrap(1))) == 43
-        api.Py_DecRef(ar[0])
+        decref(space, ar[0])
 
         py_tuple = api.PyTuple_New(3)
         rffi.cast(PyTupleObject, py_tuple).c_ob_item[0] = make_ref(space, w_42)
@@ -59,7 +59,7 @@ class TestTupleObject(BaseApiTest):
         assert space.int_w(space.len(w_tuple)) == 10
         for i in range(10):
             assert space.int_w(space.getitem(w_tuple, space.wrap(i))) == 42 + i
-        api.Py_DecRef(ar[0])
+        decref(space, ar[0])
 
         lltype.free(ar, flavor='raw')
 
@@ -71,7 +71,7 @@ class TestTupleObject(BaseApiTest):
         w_tuple = from_ref(space, py_tuple)
         assert space.eq_w(w_tuple, space.newtuple([space.wrap(42),
                                                    space.wrap(43)]))
-        api.Py_DecRef(py_tuple)
+        decref(space, py_tuple)
 
     def test_getslice(self, space, api):
         w_tuple = space.newtuple([space.wrap(i) for i in range(10)])

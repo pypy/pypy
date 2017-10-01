@@ -336,9 +336,10 @@ def decref(space, obj):
 def Py_IncRef(space, obj):
     incref(space, obj)
 
-@cpython_api([PyObject], lltype.Void)
-def Py_DecRef(space, obj):
-    decref(space, obj)
+## @cpython_api([PyObject], lltype.Void)
+## def Py_DecRef(space, obj):
+##     decref(space, obj)
+Py_DecRef = decref # XXX remove me and kill all the Py_DecRef usages from RPython
 
 @cpython_api([PyObject], lltype.Void)
 def _Py_NewReference(space, obj):
