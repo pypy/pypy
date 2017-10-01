@@ -257,37 +257,35 @@ def update_all_slots(space, w_type, pto):
     # overwrite slots that are already set: these ones are probably
     # coming from a parent C type.
 
-    if w_type.is_heaptype():
-        typedef = None
-        search_dict_w = w_type.dict_w
-    else:
-        typedef = w_type.layout.typedef
-        search_dict_w = None
-
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
         slot_func_helper = None
-        if typedef is not None:
-            # built-in types: expose as many slots as possible, even
-            # if it happens to come from some parent class
-            slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
+        w_descr = w_type.dict_w.get(method_name, None)
+        if w_descr:
+            # use the slot_apifunc (userslots) to lookup at runtime
+            pass
+        elif len(slot_names) ==1:
+            # 'inherit' from tp_base
+            slot_func_helper = getattr(pto.c_tp_base, slot_names[0])
         else:
-            w_descr = search_dict_w.get(method_name, None)
-            if w_descr:
-                # use the slot_apifunc (userslots) to lookup at runtime
-                pass
-            elif len(slot_names) ==1:
-                # 'inherit' from tp_base
-                slot_func_helper = getattr(pto.c_tp_base, slot_names[0])
-            else:
-                struct = getattr(pto.c_tp_base, slot_names[0])
-                if struct:
-                    slot_func_helper = getattr(struct, slot_names[1])
+            struct = getattr(pto.c_tp_base, slot_names[0])
+            if struct:
+                slot_func_helper = getattr(struct, slot_names[1])
 
         if not slot_func_helper:
             if not slot_apifunc:
                 warn_missing_slot(space, method_name, slot_name, w_type)
                 continue
             slot_func_helper = slot_apifunc.get_llhelper(space)
+        fill_slot(space, pto, w_type, slot_names, slot_func_helper)
+
+def update_all_slots_builtin(space, w_type, pto):
+    typedef = w_type.layout.typedef
+    for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
+        slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
+        if not slot_apifunc:
+            warn_missing_slot(space, method_name, slot_name, w_type)
+            continue
+        slot_func_helper = slot_apifunc.get_llhelper(space)
         fill_slot(space, pto, w_type, slot_names, slot_func_helper)
 
 @specialize.arg(3)
@@ -788,7 +786,10 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
             pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
 
-    update_all_slots(space, w_type, pto)
+    if w_type.is_heaptype():
+        update_all_slots(space, w_type, pto)
+    else:
+        update_all_slots_builtin(space, w_type, pto)
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
         base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
