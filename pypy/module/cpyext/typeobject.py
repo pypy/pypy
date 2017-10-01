@@ -243,10 +243,10 @@ def update_all_slots(space, w_type, pto):
 
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
         slot_func_helper = None
-        if search_dict_w is None:
+        if typedef is not None:
             # built-in types: expose as many slots as possible, even
             # if it happens to come from some parent class
-            slot_apifunc = None # use get_slot_tp_function
+            slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
         else:
             # For heaptypes, w_type.layout.typedef will be object's typedef, and
             # get_slot_tp_function will fail
@@ -263,9 +263,6 @@ def update_all_slots(space, w_type, pto):
                     slot_func_helper = getattr(struct, slot_names[1])
 
         if not slot_func_helper:
-            if typedef is not None:
-                if slot_apifunc is None:
-                    slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
             if not slot_apifunc:
                 if not we_are_translated():
                     if slot_name not in missing_slots:
