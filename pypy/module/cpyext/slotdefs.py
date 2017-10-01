@@ -420,23 +420,6 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
 from rpython.rlib.nonconst import NonConstant
 
-SLOTS = {}
-
-@specialize.memo()
-def get_slot_tp_function(space, typedef, name):
-    """Return a description of the slot C function to use for the built-in
-    type for 'typedef'.  The 'name' is the slot name.  This is a memo
-    function that, after translation, returns one of a built-in finite set.
-    """
-    key = (typedef, name)
-    try:
-        return SLOTS[key]
-    except KeyError:
-        slot_func = build_slot_tp_function(space, typedef, name)
-        api_func = slot_func.api_func if slot_func else None
-        SLOTS[key] = api_func
-        return api_func
-
 def build_slot_tp_function(space, typedef, name):
     w_type = space.gettypeobject(typedef)
 
