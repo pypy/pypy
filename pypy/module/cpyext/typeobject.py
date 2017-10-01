@@ -765,7 +765,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     # dealloc
     if space.gettypeobject(w_type.layout.typedef) is w_type:
         # only for the exact type, like 'space.w_tuple' or 'space.w_list'
-        pto.c_tp_dealloc = typedescr.get_dealloc().get_llhelper(space)
+        pto.c_tp_dealloc = typedescr.get_dealloc(space)
     else:
         # for all subtypes, use base's dealloc (requires sorting in attach_all)
         pto.c_tp_dealloc = pto.c_tp_base.c_tp_dealloc
