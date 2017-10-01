@@ -2217,10 +2217,13 @@ def device_encoding(space, fd):
     if not (rposix.is_valid_fd(fd) and os.isatty(fd)):
         return space.w_None
     if _WIN32:
+        ccp = rwin32.GetConsoleOutputCP()
+        if ccp == 0:
+            return space.w_None
         if fd == 0:
-            return space.newtext('cp%d' % rwin32.GetConsoleCP())
+            return space.newtext('cp%d' % ccp)
         if fd in (1, 2):
-            return space.newtext('cp%d' % rwin32.GetConsoleOutputCP())
+            return space.newtext('cp%d' % ccp)
     from rpython.rlib import rlocale
     if rlocale.HAVE_LANGINFO:
         codeset = rlocale.nl_langinfo(rlocale.CODESET)
