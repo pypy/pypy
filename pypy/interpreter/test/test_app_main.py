@@ -1162,9 +1162,13 @@ class AppTestAppMain:
         import os
         old_sys_path = sys.path[:]
         sys.path.append(self.goal_dir)
+        if sys.platform == 'win32':
+            exename = 'pypy3-cw.exe'
+        else:
+            exename = 'pypy3-c'
         try:
             import app_main
-            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy3-c')
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', exename)
             app_main.setup_bootstrap_path(pypy_c)
             newpath = sys.path[:]
             # we get at least lib_pypy
@@ -1180,9 +1184,13 @@ class AppTestAppMain:
         import os
         old_sys_path = sys.path[:]
         sys.path.append(self.goal_dir)
+        if sys.platform == 'win32':
+            exename = 'pypy3-cw.exe'
+        else:
+            exename = 'pypy3-c'
         try:
             import app_main
-            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy3-c')
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', exename)
             app_main.entry_point(pypy_c, [self.foo_py])
             # assert it did not crash
         finally:
