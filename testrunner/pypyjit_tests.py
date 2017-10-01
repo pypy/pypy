@@ -12,7 +12,7 @@ os.environ['PYTHONPATH'] = rootdir
 os.environ['PYTEST_PLUGINS'] = ''
 
 if sys.platform == 'win32':
-    pypyopt = "--pypy=pypy/goal/pypy3-cw.exe"
+    pypyopt = "--pypy=pypy/goal/pypy3-c.exe"
 else:
     pypyopt = "--pypy=pypy/goal/pypy3-c"
 

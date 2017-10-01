@@ -1163,7 +1163,7 @@ class AppTestAppMain:
         old_sys_path = sys.path[:]
         sys.path.append(self.goal_dir)
         if sys.platform == 'win32':
-            exename = 'pypy3-cw.exe'
+            exename = 'pypy3-c.exe'
         else:
             exename = 'pypy3-c'
         try:
@@ -1185,7 +1185,7 @@ class AppTestAppMain:
         old_sys_path = sys.path[:]
         sys.path.append(self.goal_dir)
         if sys.platform == 'win32':
-            exename = 'pypy3-cw.exe'
+            exename = 'pypy3-c.exe'
         else:
             exename = 'pypy3-c'
         try:
