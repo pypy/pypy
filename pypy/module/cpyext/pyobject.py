@@ -28,7 +28,7 @@ class BaseCpyTypedescr(object):
 
     def get_dealloc(self, space):
         state = space.fromcache(State)
-        return cts.cast('destructor', state.C._PyPy_get_subtype_dealloc())
+        return state.C._PyPy_subtype_dealloc
 
     def allocate(self, space, w_type, itemcount=0, immortal=False):
         # typically called from PyType_GenericAlloc via typedescr.allocate

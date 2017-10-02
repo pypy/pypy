@@ -1,6 +1,7 @@
 #include "Python.h"
 
-static void subtype_dealloc(PyObject *obj)
+void
+_PyPy_subtype_dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
     PyTypeObject *base = pto;
@@ -11,12 +12,12 @@ static void subtype_dealloc(PyObject *obj)
        inheritance chain until base.c_tp_dealloc is exactly this_func, and then
        continue on up until they differ.
        */
-    while (base->tp_dealloc != &subtype_dealloc)
+    while (base->tp_dealloc != &_PyPy_subtype_dealloc)
     {
         base = base->tp_base;
         assert(base);
     }
-    while (base->tp_dealloc == &subtype_dealloc)
+    while (base->tp_dealloc == &_PyPy_subtype_dealloc)
     {
         base = base->tp_base;
         assert(base);
@@ -26,10 +27,4 @@ static void subtype_dealloc(PyObject *obj)
     /* XXX cpy decrefs the pto here but we do it in the base-dealloc
        hopefully this does not clash with the memory model assumed in
        extension modules */
-}
-
-PyAPI_FUNC(void *)
-_PyPy_get_subtype_dealloc(void)
-{
-    return &subtype_dealloc;
 }

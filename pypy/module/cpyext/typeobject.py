@@ -735,8 +735,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if not pto.c_tp_dealloc:
             # strange, but happens (ABCMeta)
             state = space.fromcache(State)
-            d = cts.cast('destructor', state.C._PyPy_get_subtype_dealloc())
-            pto.c_tp_dealloc = d
+            pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
 
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))
