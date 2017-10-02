@@ -817,7 +817,7 @@ def lltype2ctypes(llobj, normalize=True):
             if isinstance(T.TO, lltype.FuncType):
                 if hasattr(llobj._obj0, '_real_integer_addr'):
                     ctypes_func_type = get_ctypes_type(T)
-                    return ctypes.cast(llobj._obj0._real_integer_addr,
+                    return ctypes.cast(llobj._obj0._real_integer_addr(),
                                        ctypes_func_type)
                 # XXX a temporary workaround for comparison of lltype.FuncType
                 key = llobj._obj.__dict__.copy()
@@ -1044,7 +1044,7 @@ def ctypes2lltype(T, cobj):
                     _callable = get_ctypes_trampoline(T.TO, cobj)
                     return lltype.functionptr(T.TO, name,
                                               _callable=_callable,
-                                              _real_integer_addr=cobjkey)
+                                          _real_integer_addr=lambda: cobjkey)
             elif isinstance(T.TO, lltype.OpaqueType):
                 if T == llmemory.GCREF:
                     container = _llgcopaque(cobj)
@@ -1301,6 +1301,10 @@ class LL2CtypesCallable(object):
                 self.trampoline = get_ctypes_trampoline(self.FUNCTYPE, cfunc)
         # perform the call
         return self.trampoline(*argvalues)
+
+    def get_real_address(self):
+        cfunc = get_ctypes_callable(self.funcptr, self.calling_conv)
+        return ctypes.cast(cfunc, ctypes.c_void_p).value
 
 def get_ctypes_trampoline(FUNCTYPE, cfunc):
     RESULT = FUNCTYPE.RESULT
