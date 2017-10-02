@@ -7,7 +7,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
-    PyVarObject, Py_ssize_t, init_function)
+    PyVarObject, Py_ssize_t, init_function, cts)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -27,8 +27,8 @@ class BaseCpyTypedescr(object):
     W_BaseObject = W_ObjectObject
 
     def get_dealloc(self, space):
-        from pypy.module.cpyext.typeobject import subtype_dealloc
-        return subtype_dealloc.api_func.get_llhelper(space)
+        state = space.fromcache(State)
+        return cts.cast('destructor', state.C._PyPy_get_subtype_dealloc())
 
     def allocate(self, space, w_type, itemcount=0, immortal=False):
         # typically called from PyType_GenericAlloc via typedescr.allocate

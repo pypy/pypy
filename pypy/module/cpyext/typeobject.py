@@ -529,36 +529,6 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-@slot_function([PyObject], lltype.Void)
-def subtype_dealloc(space, obj):
-    pto = obj.c_ob_type
-    base = pto
-    this_func_ptr = llslot(space, subtype_dealloc)
-    w_obj = from_ref(space, rffi.cast(PyObject, base))
-    # This wrapper is created on a specific type, call it w_A.
-    # We wish to call the dealloc function from one of the base classes of w_A,
-    # the first of which is not this function itself.
-    # w_obj is an instance of w_A or one of its subclasses. So climb up the
-    # inheritance chain until base.c_tp_dealloc is exactly this_func, and then
-    # continue on up until they differ.
-    #print 'subtype_dealloc, start from', rffi.charp2str(base.c_tp_name)
-    while base.c_tp_dealloc != this_func_ptr:
-        base = base.c_tp_base
-        assert base
-        #print '                 ne move to', rffi.charp2str(base.c_tp_name)
-        w_obj = from_ref(space, rffi.cast(PyObject, base))
-    while base.c_tp_dealloc == this_func_ptr:
-        base = base.c_tp_base
-        assert base
-        #print '                 eq move to', rffi.charp2str(base.c_tp_name)
-        w_obj = from_ref(space, rffi.cast(PyObject, base))
-    #print '                   end with', rffi.charp2str(base.c_tp_name)
-    dealloc = base.c_tp_dealloc
-    # XXX call tp_del if necessary
-    generic_cpy_call(space, dealloc, obj)
-    # XXX cpy decrefs the pto here but we do it in the base-dealloc
-    # hopefully this does not clash with the memory model assumed in
-    # extension modules
 
 @slot_function([PyObject, Py_ssize_tP], lltype.Signed, error=CANNOT_FAIL)
 def bf_segcount(space, w_obj, ref):
@@ -764,7 +734,9 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         pto.c_tp_dealloc = pto.c_tp_base.c_tp_dealloc
         if not pto.c_tp_dealloc:
             # strange, but happens (ABCMeta)
-            pto.c_tp_dealloc = llslot(space, subtype_dealloc)
+            state = space.fromcache(State)
+            d = cts.cast('destructor', state.C._PyPy_get_subtype_dealloc())
+            pto.c_tp_dealloc = d
 
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))

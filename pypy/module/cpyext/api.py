@@ -1038,7 +1038,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
     return wrapper_second_level
 
 
-def setup_init_functions(eci, prefix, space):
+def setup_init_functions(eci, prefix):
     # jump through hoops to avoid releasing the GIL during initialization
     # of the cpyext module.  The C functions are called with no wrapper,
     # but must not do anything like calling back PyType_Ready().  We
@@ -1072,6 +1072,8 @@ def setup_init_functions(eci, prefix, space):
         _reinit_tls()
     add_fork_hook('child', reinit_tls)
 
+
+def attach_c_functions(space, eci):
     state = space.fromcache(State)
     state.C._Py_Dealloc = rffi.llexternal('_Py_Dealloc',
                                          [PyObject], lltype.Void,
@@ -1080,6 +1082,10 @@ def setup_init_functions(eci, prefix, space):
     _, state.C.set_marker = rffi.CExternVariable(
                    Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
                    eci, _nowrapper=True, c_type='Py_ssize_t')
+    # XXX meeeeeeeeessssss mmmmmmmmmmmmmmmeeeeeeeeeeeeeeeeeeeeeessssssssssss
+    state.C._PyPy_get_subtype_dealloc = rffi.llexternal(
+        '_PyPy_get_subtype_dealloc', [], rffi.VOIDP,
+        compilation_info=eci, _nowrapper=True)
 
 
 def init_function(func):
@@ -1150,6 +1156,7 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
 
+    attach_c_functions(space, eci)
     run_bootstrap_functions(space)
 
     # load the bridge, and init structure
@@ -1201,7 +1208,7 @@ def build_bridge(space):
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
 
-    setup_init_functions(eci, prefix, space)
+    setup_init_functions(eci, prefix)
     return modulename.new(ext='')
 
 def attach_recursively(space, static_pyobjs, static_objs_w, attached_objs, i):
@@ -1394,6 +1401,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "missing.c",
                          source_dir / "pymem.c",
                          source_dir / "object.c",
+                         source_dir / "typeobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):
@@ -1488,6 +1496,7 @@ def setup_library(space):
     eci = build_eci(code, use_micronumpy, translating=True)
     space.fromcache(State).install_dll(eci)
 
+    attach_c_functions(space, eci)
     run_bootstrap_functions(space)
 
     # emit uninitialized static data
@@ -1532,7 +1541,7 @@ def setup_library(space):
                                         relax=True)
             deco(func.get_wrapper(space))
 
-    setup_init_functions(eci, prefix, space)
+    setup_init_functions(eci, prefix)
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(cts, trunk_include, use_micronumpy)
 
