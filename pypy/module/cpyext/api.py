@@ -14,6 +14,7 @@ from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
         c_fdopen, c_fileno,
         c_fopen)# for tests
+from rpython.rlib import jit
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -1669,6 +1670,7 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     state.fixup_extension(w_mod, name, path)
     return w_mod
 
+@jit.dont_look_inside
 def exec_extension_module(space, w_mod):
     from pypy.module.cpyext.modsupport import exec_def
     if not space.config.objspace.usemodules.cpyext:
