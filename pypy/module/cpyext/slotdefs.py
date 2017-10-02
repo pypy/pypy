@@ -435,28 +435,11 @@ def slot_factory(tp_name):
     return decorate
 
 
-def build_slot_tp_function(space, typedef, name):
+def build_slot_tp_function(space, typedef, name, method_name):
     w_type = space.gettypeobject(typedef)
 
     handled = False
     # unary functions
-    for tp_name, attr in [('tp_as_number.c_nb_int', '__int__'),
-                          ('tp_as_number.c_nb_long', '__long__'),
-                          ('tp_as_number.c_nb_float', '__float__'),
-                          ('tp_as_number.c_nb_negative', '__neg__'),
-                          ('tp_as_number.c_nb_positive', '__pos__'),
-                          ('tp_as_number.c_nb_absolute', '__abs__'),
-                          ('tp_as_number.c_nb_invert', '__invert__'),
-                          ('tp_as_number.c_nb_index', '__index__'),
-                          ('tp_as_number.c_nb_hex', '__hex__'),
-                          ('tp_as_number.c_nb_oct', '__oct__'),
-                          ('tp_str', '__str__'),
-                          ('tp_repr', '__repr__'),
-                          ('tp_iter', '__iter__'),
-                          ]:
-        if name == tp_name:
-            return make_unary_slot(space, typedef, name, attr)
-
     for tp_name, attr in [('tp_hash', '__hash__'),
                           ('tp_as_sequence.c_sq_length', '__len__'),
                           ('tp_as_mapping.c_mp_length', '__len__'),
@@ -676,7 +659,7 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_function(get_fn, w_self, w_obj, w_value)
         slot_func = slot_tp_descr_get
     elif name in SLOT_FACTORIES:
-        return SLOT_FACTORIES[name](space, typedef)
+        return SLOT_FACTORIES[name](space, typedef, name, method_name)
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
@@ -697,8 +680,26 @@ def make_unary_slot(space, typedef, name, attr):
         return space.call_function(slot_fn, w_self)
     return slot_func
 
+
+UNARY_SLOTS = [
+    'tp_as_number.c_nb_int',
+    'tp_as_number.c_nb_long',
+    'tp_as_number.c_nb_float',
+    'tp_as_number.c_nb_negative',
+    'tp_as_number.c_nb_positive',
+    'tp_as_number.c_nb_absolute',
+    'tp_as_number.c_nb_invert',
+    'tp_as_number.c_nb_index',
+    'tp_as_number.c_nb_hex',
+    'tp_as_number.c_nb_oct',
+    'tp_str',
+    'tp_repr',
+    'tp_iter']
+for name in UNARY_SLOTS:
+    slot_factory(name)(make_unary_slot)
+
 @slot_factory('tp_descr_set')
-def make_tp_descr_set(space, typedef):
+def make_tp_descr_set(space, typedef, name, attr):
     w_type = space.gettypeobject(typedef)
     name = 'descr_set'
     set_fn = w_type.lookup('__set__')

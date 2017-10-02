@@ -228,7 +228,7 @@ def convert_member_defs(space, dict_w, members, w_type):
 
 SLOTS = {}
 @specialize.memo()
-def get_slot_tp_function(space, typedef, name):
+def get_slot_tp_function(space, typedef, name, method_name):
     """Return a description of the slot C function to use for the built-in
     type for 'typedef'.  The 'name' is the slot name.  This is a memo
     function that, after translation, returns one of a built-in finite set.
@@ -237,7 +237,7 @@ def get_slot_tp_function(space, typedef, name):
     try:
         return SLOTS[key]
     except KeyError:
-        slot_func = build_slot_tp_function(space, typedef, name)
+        slot_func = build_slot_tp_function(space, typedef, name, method_name)
         api_func = slot_func.api_func if slot_func else None
         SLOTS[key] = api_func
         return api_func
@@ -281,7 +281,7 @@ def update_all_slots(space, w_type, pto):
 def update_all_slots_builtin(space, w_type, pto):
     typedef = w_type.layout.typedef
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
-        slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
+        slot_apifunc = get_slot_tp_function(space, typedef, slot_name, method_name)
         if not slot_apifunc:
             warn_missing_slot(space, method_name, slot_name, w_type)
             continue
