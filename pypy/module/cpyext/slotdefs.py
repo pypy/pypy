@@ -427,8 +427,6 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
     return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
 
-from rpython.rlib.nonconst import NonConstant
-
 def build_slot_tp_function(space, typedef, name):
     w_type = space.gettypeobject(typedef)
 
@@ -678,26 +676,7 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_function(get_fn, w_self, w_obj, w_value)
         slot_func = slot_tp_descr_get
     elif name == 'tp_descr_set':
-        set_fn = w_type.lookup('__set__')
-        delete_fn = w_type.lookup('__delete__')
-        if set_fn is None and delete_fn is None:
-            return
-
-        @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_descr_set(space, w_self, w_obj, w_value):
-            if w_value is not None:
-                if set_fn is None:
-                    raise oefmt(space.w_TypeError,
-                                "%s object has no __set__", typedef.name)
-                space.call_function(set_fn, w_self, w_obj, w_value)
-            else:
-                if delete_fn is None:
-                    raise oefmt(space.w_TypeError,
-                                "%s object has no __delete__", typedef.name)
-                space.call_function(delete_fn, w_self, w_obj)
-            return 0
-        slot_func = slot_tp_descr_set
+        return make_tp_descr_set(space, typedef)
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
@@ -706,6 +685,29 @@ def build_slot_tp_function(space, typedef, name):
 
     return slot_func
 
+def make_tp_descr_set(space, typedef):
+    w_type = space.gettypeobject(typedef)
+    name = 'descr_set'
+    set_fn = w_type.lookup('__set__')
+    delete_fn = w_type.lookup('__delete__')
+    if set_fn is None and delete_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_descr_set(space, w_self, w_obj, w_value):
+        if w_value is not None:
+            if set_fn is None:
+                raise oefmt(space.w_TypeError,
+                            "%s object has no __set__", typedef.name)
+            space.call_function(set_fn, w_self, w_obj, w_value)
+        else:
+            if delete_fn is None:
+                raise oefmt(space.w_TypeError,
+                            "%s object has no __delete__", typedef.name)
+            space.call_function(delete_fn, w_self, w_obj)
+        return 0
+    return slot_tp_descr_set
 
 def slot_from___buffer__(space, typedef, buff_fn):
     name = 'bf_getbuffer'
