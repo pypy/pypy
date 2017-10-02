@@ -815,6 +815,10 @@ def lltype2ctypes(llobj, normalize=True):
             else:
                 container = llobj._obj
             if isinstance(T.TO, lltype.FuncType):
+                if hasattr(llobj._obj0, '_real_integer_addr'):
+                    ctypes_func_type = get_ctypes_type(T)
+                    return ctypes.cast(llobj._obj0._real_integer_addr,
+                                       ctypes_func_type)
                 # XXX a temporary workaround for comparison of lltype.FuncType
                 key = llobj._obj.__dict__.copy()
                 key['_TYPE'] = repr(key['_TYPE'])
@@ -1039,7 +1043,8 @@ def ctypes2lltype(T, cobj):
                     cobj = ctypes.cast(cobjkey, type(cobj))
                     _callable = get_ctypes_trampoline(T.TO, cobj)
                     return lltype.functionptr(T.TO, name,
-                                              _callable=_callable)
+                                              _callable=_callable,
+                                              _real_integer_addr=cobjkey)
             elif isinstance(T.TO, lltype.OpaqueType):
                 if T == llmemory.GCREF:
                     container = _llgcopaque(cobj)

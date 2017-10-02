@@ -1443,6 +1443,12 @@ class TestLL2Ctypes(object):
         assert seen[0]() == 42
         assert seen[1]() == 43
 
+    def test_keep_value_across_lltype_callable(self):
+        PtrF = lltype.Ptr(lltype.FuncType([], lltype.Void))
+        f = rffi.cast(PtrF, 42)
+        assert lltype.typeOf(f) == PtrF
+        assert rffi.cast(lltype.Signed, f) == 42
+
 
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
