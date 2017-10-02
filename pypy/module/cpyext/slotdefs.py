@@ -427,6 +427,14 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
     return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
 
+SLOT_FACTORIES = {}
+def slot_factory(tp_name):
+    def decorate(func):
+        SLOT_FACTORIES[tp_name] = func
+        return func
+    return decorate
+
+
 def build_slot_tp_function(space, typedef, name):
     w_type = space.gettypeobject(typedef)
 
@@ -675,8 +683,8 @@ def build_slot_tp_function(space, typedef, name):
                 w_obj = space.w_None
             return space.call_function(get_fn, w_self, w_obj, w_value)
         slot_func = slot_tp_descr_get
-    elif name == 'tp_descr_set':
-        return make_tp_descr_set(space, typedef)
+    elif name in SLOT_FACTORIES:
+        return SLOT_FACTORIES[name](space, typedef)
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
@@ -685,6 +693,7 @@ def build_slot_tp_function(space, typedef, name):
 
     return slot_func
 
+@slot_factory('tp_descr_set')
 def make_tp_descr_set(space, typedef):
     w_type = space.gettypeobject(typedef)
     name = 'descr_set'
@@ -708,6 +717,7 @@ def make_tp_descr_set(space, typedef):
             space.call_function(delete_fn, w_self, w_obj)
         return 0
     return slot_tp_descr_set
+
 
 def slot_from___buffer__(space, typedef, buff_fn):
     name = 'bf_getbuffer'
