@@ -455,15 +455,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_iter', '__iter__'),
                           ]:
         if name == tp_name:
-            slot_fn = w_type.lookup(attr)
-            if slot_fn is None:
-                return
-
-            @slot_function([PyObject], PyObject)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self):
-                return space.call_function(slot_fn, w_self)
-            handled = True
+            return make_unary_slot(space, typedef, name, attr)
 
     for tp_name, attr in [('tp_hash', '__hash__'),
                           ('tp_as_sequence.c_sq_length', '__len__'),
@@ -691,6 +683,18 @@ def build_slot_tp_function(space, typedef, name):
         # richcmpfunc(s)
         return
 
+    return slot_func
+
+def make_unary_slot(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
+        return
+
+    @slot_function([PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self):
+        return space.call_function(slot_fn, w_self)
     return slot_func
 
 @slot_factory('tp_descr_set')
