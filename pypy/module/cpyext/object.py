@@ -32,8 +32,8 @@ def PyObject_Realloc(space, ptr, size):
     # XXX FIXME
     return realloc(ptr, size)
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_Free(space, ptr):
+@cpython_api([rffi.VOIDP], lltype.Void, nowrapper=True)
+def PyObject_Free(ptr):
     lltype.free(ptr, flavor='raw')
 
 @cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
@@ -302,7 +302,7 @@ def PyObject_RichCompareBool(space, w_o1, w_o2, opid_int):
         if opid == Py_EQ:
             return 1
         if opid == Py_NE:
-            return 0 
+            return 0
     w_res = PyObject_RichCompare(space, w_o1, w_o2, opid_int)
     return int(space.is_true(w_res))
 

@@ -258,7 +258,8 @@ cpyext_namespace = NameManager('cpyext_')
 class ApiFunction(object):
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, cdecl=None, gil=None,
-                 result_borrowed=False, result_is_ll=False):
+                 result_borrowed=False, result_is_ll=False,
+                 nowrapper=False):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
@@ -270,8 +271,11 @@ class ApiFunction(object):
         # extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
         sig = pycode.cpython_code_signature(callable.func_code)
-        assert sig.argnames[0] == 'space'
-        self.argnames = sig.argnames[1:]
+        if nowrapper:
+            self.argnames = sig.argnames
+        else:
+            assert sig.argnames[0] == 'space'
+            self.argnames = sig.argnames[1:]
         if gil == 'pygilstate_ensure':
             assert self.argnames[-1] == 'previous_state'
             del self.argnames[-1]
@@ -280,6 +284,7 @@ class ApiFunction(object):
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll
+        self.nowrapper = nowrapper
         #
         def get_llhelper(space):
             return llhelper(self.functype, self.get_wrapper(space))
@@ -301,6 +306,8 @@ class ApiFunction(object):
         # This logic is obscure, because we try to avoid creating one
         # big wrapper() function for every callable.  Instead we create
         # only one per "signature".
+        if self.nowrapper:
+            return self.callable
 
         argtypesw = zip(self.argtypes,
                         [_name.startswith("w_") for _name in self.argnames])
@@ -432,7 +439,8 @@ class ApiFunction(object):
 
 DEFAULT_HEADER = 'pypy_decl.h'
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
-                gil=None, result_borrowed=False, result_is_ll=False):
+                gil=None, result_borrowed=False, result_is_ll=False,
+                nowrapper=False):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -457,7 +465,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         api_function = ApiFunction(
             argtypes, restype, func,
             error=_compute_error(error, restype), gil=gil,
-            result_borrowed=result_borrowed, result_is_ll=result_is_ll)
+            result_borrowed=result_borrowed, result_is_ll=result_is_ll,
+            nowrapper=nowrapper)
         FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
