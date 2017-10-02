@@ -657,6 +657,7 @@ def type_dealloc(space, obj):
         _dealloc(space, obj)
 
 
+# CCC port it to C
 def type_alloc(space, w_metatype, itemsize=0):
     metatype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_metatype))
     # Don't increase refcount for non-heaptypes
@@ -701,7 +702,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
 
     state = space.fromcache(State)
     pto.c_tp_free = state.C.PyObject_Free
-    pto.c_tp_alloc = llslot(space, PyType_GenericAlloc)
+    pto.c_tp_alloc = state.C.PyType_GenericAlloc
     builder = state.builder
     if ((pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE) != 0
             and builder.cpyext_type_init is None):
@@ -934,11 +935,6 @@ def PyType_IsSubtype(space, a, b):
     w_type1 = from_ref(space, rffi.cast(PyObject, a))
     w_type2 = from_ref(space, rffi.cast(PyObject, b))
     return int(abstract_issubclass_w(space, w_type1, w_type2)) #XXX correct?
-
-@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
-def PyType_GenericAlloc(space, type, nitems):
-    from pypy.module.cpyext.object import _PyObject_NewVar
-    return _PyObject_NewVar(space, type, nitems)
 
 @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject)
 def PyType_GenericNew(space, type, w_args, w_kwds):

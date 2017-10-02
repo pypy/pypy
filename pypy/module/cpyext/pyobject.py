@@ -30,6 +30,7 @@ class BaseCpyTypedescr(object):
         state = space.fromcache(State)
         return state.C._PyPy_subtype_dealloc
 
+    # CCC port to C
     def allocate(self, space, w_type, itemcount=0, immortal=False):
         # typically called from PyType_GenericAlloc via typedescr.allocate
         # this returns a PyObject with ob_refcnt == 1.

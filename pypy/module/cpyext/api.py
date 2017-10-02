@@ -597,7 +597,7 @@ SYMBOLS_C = [
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
-    'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del',
+    'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1082,6 +1082,11 @@ def attach_c_functions(space, eci, prefix):
     state.C.PyObject_Free = rffi.llexternal(
         mangle_name(prefix, 'PyObject_Free'),
         [rffi.VOIDP], lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True)
+    state.C.PyType_GenericAlloc = rffi.llexternal(
+        mangle_name(prefix, 'PyType_GenericAlloc'),
+        [PyTypeObjectPtr, Py_ssize_t], PyObject,
         compilation_info=eci,
         _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(

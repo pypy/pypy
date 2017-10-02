@@ -262,8 +262,16 @@ manually remove this flag though!
 	  ) & ~(SIZEOF_VOID_P - 1)		\
 	)
 
-#define PyObject_INIT PyObject_Init
-#define PyObject_INIT_VAR PyObject_InitVar
+        
+#define PyObject_INIT(op, typeobj) \
+    ( Py_TYPE(op) = (typeobj), ((PyObject *)(op))->ob_refcnt = 1,\
+      ((PyObject *)(op))->ob_pypy_link = 0, (op) )
+#define PyObject_INIT_VAR(op, typeobj, size) \
+    ( Py_SIZE(op) = (size), PyObject_INIT((op), (typeobj)) )
+
+
+PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
+
 /*
 #define PyObject_NEW(type, typeobj) \
 ( (type *) PyObject_Init( \

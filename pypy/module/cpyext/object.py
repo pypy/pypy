@@ -36,6 +36,7 @@ def PyObject_Realloc(space, ptr, size):
 def _PyObject_New(space, type):
     return _PyObject_NewVar(space, type, 0)
 
+# CCC port to C
 @cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def _PyObject_NewVar(space, type, itemcount):
     w_type = from_ref(space, rffi.cast(PyObject, type))

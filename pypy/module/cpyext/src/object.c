@@ -47,3 +47,9 @@ PyObject_GC_Del(void *obj)
 {
     free(obj);
 }
+
+PyObject *
+PyType_GenericAlloc(PyTypeObject *type, Py_ssize_t nitems)
+{
+    return _PyObject_NewVar(type, nitems);
+}
