@@ -686,8 +686,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     """
     Fills a newly allocated PyTypeObject from an existing type.
     """
-    from pypy.module.cpyext.object import PyObject_Free
-
     assert isinstance(w_type, W_TypeObject)
 
     pto = rffi.cast(PyTypeObjectPtr, py_obj)
@@ -701,9 +699,10 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     # buffer protocol
     setup_buffer_procs(space, w_type, pto)
 
-    pto.c_tp_free = llslot(space, PyObject_Free)
+    state = space.fromcache(State)
+    pto.c_tp_free = state.C.PyObject_Free
     pto.c_tp_alloc = llslot(space, PyType_GenericAlloc)
-    builder = space.fromcache(State).builder
+    builder = state.builder
     if ((pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE) != 0
             and builder.cpyext_type_init is None):
             # this ^^^ is not None only during startup of cpyext.  At that
@@ -734,7 +733,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         pto.c_tp_dealloc = pto.c_tp_base.c_tp_dealloc
         if not pto.c_tp_dealloc:
             # strange, but happens (ABCMeta)
-            state = space.fromcache(State)
             pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
 
     if builder.cpyext_type_init is not None:

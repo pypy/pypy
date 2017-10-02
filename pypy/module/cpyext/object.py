@@ -32,10 +32,6 @@ def PyObject_Realloc(space, ptr, size):
     # XXX FIXME
     return realloc(ptr, size)
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_Free(space, ptr):
-    lltype.free(ptr, flavor='raw')
-
 @cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
 def _PyObject_New(space, type):
     return _PyObject_NewVar(space, type, 0)
@@ -67,10 +63,6 @@ def _dealloc(space, obj):
 @cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
 def _PyObject_GC_New(space, type):
     return _PyObject_New(space, type)
-
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_GC_Del(space, obj):
-    PyObject_Free(space, obj)
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):

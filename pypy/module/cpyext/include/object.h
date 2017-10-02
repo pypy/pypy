@@ -323,12 +323,16 @@ PyAPI_FUNC(int) PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_AsWriteBuffer(PyObject *, void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_CheckReadBuffer(PyObject *);
 
+/* on CPython, these are in objimpl.h */
+
+PyAPI_FUNC(void) PyObject_Free(void *);
+PyAPI_FUNC(void) PyObject_GC_Del(void *);
+
 #define PyObject_MALLOC         PyObject_Malloc
 #define PyObject_REALLOC        PyObject_Realloc
 #define PyObject_FREE           PyObject_Free
 #define PyObject_Del            PyObject_Free
 #define PyObject_DEL            PyObject_Free
-
 
 
 /* PyPy internal ----------------------------------- */

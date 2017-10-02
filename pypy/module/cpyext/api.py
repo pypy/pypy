@@ -597,7 +597,7 @@ SYMBOLS_C = [
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
-    'Py_IncRef', 'Py_DecRef',
+    'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1073,12 +1073,17 @@ def setup_init_functions(eci, prefix):
     add_fork_hook('child', reinit_tls)
 
 
-def attach_c_functions(space, eci):
+def attach_c_functions(space, eci, prefix):
     state = space.fromcache(State)
     state.C._Py_Dealloc = rffi.llexternal('_Py_Dealloc',
                                          [PyObject], lltype.Void,
                                          compilation_info=eci,
                                          _nowrapper=True)
+    state.C.PyObject_Free = rffi.llexternal(
+        mangle_name(prefix, 'PyObject_Free'),
+        [rffi.VOIDP], lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
                    Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
                    eci, _nowrapper=True, c_type='Py_ssize_t')
@@ -1158,7 +1163,7 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
 
-    attach_c_functions(space, eci)
+    attach_c_functions(space, eci, prefix)
     run_bootstrap_functions(space)
 
     # load the bridge, and init structure
@@ -1498,7 +1503,7 @@ def setup_library(space):
     eci = build_eci(code, use_micronumpy, translating=True)
     space.fromcache(State).install_dll(eci)
 
-    attach_c_functions(space, eci)
+    attach_c_functions(space, eci, prefix)
     run_bootstrap_functions(space)
 
     # emit uninitialized static data

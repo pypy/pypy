@@ -35,3 +35,15 @@ _PyPy_object_dealloc(PyObject *obj)
     if (pto->tp_flags & Py_TPFLAGS_HEAPTYPE)
         Py_DECREF(pto);
 }
+
+void
+PyObject_Free(void *obj)
+{
+    free(obj);
+}
+
+void
+PyObject_GC_Del(void *obj)
+{
+    free(obj);
+}
