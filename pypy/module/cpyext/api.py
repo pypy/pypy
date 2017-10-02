@@ -1085,6 +1085,9 @@ def attach_c_functions(space, eci):
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
         '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
+    state.C._PyPy_object_dealloc = rffi.llexternal(
+        '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
 
 
 def init_function(func):

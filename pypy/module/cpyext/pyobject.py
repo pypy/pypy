@@ -106,9 +106,12 @@ def make_typedescr(typedef, **kw):
             def allocate(self, space, w_type, itemcount=0, immortal=False):
                 return tp_alloc(space, w_type, itemcount)
 
-        if tp_dealloc:
+        if hasattr(tp_dealloc, 'api_func'):
             def get_dealloc(self, space):
                 return tp_dealloc.api_func.get_llhelper(space)
+        elif tp_dealloc:
+            def get_dealloc(self, space):
+                return tp_dealloc
 
         if tp_attach:
             def attach(self, space, pyobj, w_obj, w_userdata=None):
@@ -124,10 +127,10 @@ def make_typedescr(typedef, **kw):
 
 @bootstrap_function
 def init_pyobject(space):
-    from pypy.module.cpyext.object import PyObject_dealloc
     # typedescr for the 'object' type
+    state = space.fromcache(State)
     make_typedescr(space.w_object.layout.typedef,
-                   dealloc=PyObject_dealloc)
+                   dealloc=state.C._PyPy_object_dealloc)
     # almost all types, which should better inherit from object.
     make_typedescr(None)
 

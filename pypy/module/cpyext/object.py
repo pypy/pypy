@@ -54,10 +54,6 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@slot_function([PyObject], lltype.Void)
-def PyObject_dealloc(space, obj):
-    return _dealloc(space, obj)
-
 def _dealloc(space, obj):
     # This frees an object after its refcount dropped to zero, so we
     # assert that it is really zero here.
