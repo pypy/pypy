@@ -74,7 +74,8 @@ def _PyObject_GC_New(space, type):
 
 @cpython_api([rffi.VOIDP], lltype.Void, no_gc=True)
 def PyObject_GC_Del(obj):
-    PyObject_Free(obj)
+    # like PyObject_Free
+    lltype.free(obj, flavor='raw')
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
