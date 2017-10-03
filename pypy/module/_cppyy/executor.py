@@ -224,7 +224,7 @@ class PyObjectExecutor(PtrTypeExecutor):
         result = rffi.cast(PyObject, lresult)
         w_obj = from_ref(space, result)
         if result:
-            Py_DecRef(space, result)
+            Py_DecRef(result)
         return w_obj
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
