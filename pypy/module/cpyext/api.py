@@ -41,6 +41,7 @@ from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
 from rpython.rlib import rstackovf
+from rpython.rlib import rgc
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.module.cpyext.cparser import CTypeSpace
 
@@ -259,7 +260,13 @@ class ApiFunction(object):
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, cdecl=None, gil=None,
                  result_borrowed=False, result_is_ll=False,
-                 nowrapper=False):
+                 no_gc=False):
+        """
+        no_gc=True means that this function is not allowed to do any operation
+        which involves the GC; as a consequence, we can avoid emitting the
+        wrapper. The net result is that calling this function from C is much
+        faster. This also implies @rgc.no_collect.
+        """
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
@@ -271,8 +278,9 @@ class ApiFunction(object):
         # extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
         sig = pycode.cpython_code_signature(callable.func_code)
-        if nowrapper:
+        if no_gc:
             self.argnames = sig.argnames
+            self.callable = rgc.no_collect(self.callable)
         else:
             assert sig.argnames[0] == 'space'
             self.argnames = sig.argnames[1:]
@@ -284,7 +292,7 @@ class ApiFunction(object):
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll
-        self.nowrapper = nowrapper
+        self.no_gc = no_gc
         #
         def get_llhelper(space):
             return llhelper(self.functype, self.get_wrapper(space))
@@ -306,7 +314,7 @@ class ApiFunction(object):
         # This logic is obscure, because we try to avoid creating one
         # big wrapper() function for every callable.  Instead we create
         # only one per "signature".
-        if self.nowrapper:
+        if self.no_gc:
             return self.callable
 
         argtypesw = zip(self.argtypes,
@@ -440,7 +448,7 @@ class ApiFunction(object):
 DEFAULT_HEADER = 'pypy_decl.h'
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                 gil=None, result_borrowed=False, result_is_ll=False,
-                nowrapper=False):
+                no_gc=False):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -466,7 +474,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             argtypes, restype, func,
             error=_compute_error(error, restype), gil=gil,
             result_borrowed=result_borrowed, result_is_ll=result_is_ll,
-            nowrapper=nowrapper)
+            no_gc=no_gc)
         FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func

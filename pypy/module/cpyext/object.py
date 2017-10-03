@@ -32,7 +32,7 @@ def PyObject_Realloc(space, ptr, size):
     # XXX FIXME
     return realloc(ptr, size)
 
-@cpython_api([rffi.VOIDP], lltype.Void, nowrapper=True)
+@cpython_api([rffi.VOIDP], lltype.Void, no_gc=True)
 def PyObject_Free(ptr):
     lltype.free(ptr, flavor='raw')
 
