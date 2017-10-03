@@ -385,7 +385,7 @@ def tp_new_wrapper(space, self, w_args, w_kwds):
         subtype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_subtype))
         w_obj = generic_cpy_call(space, tp_new, subtype, w_args, w_kwds)
     finally:
-        decref_w_obj(w_subtype)
+        decref_w_obj(space, w_subtype)
     return w_obj
 
 @specialize.memo()
