@@ -151,7 +151,7 @@ class W_TypeObject(W_Root):
                           'hasuserdel',
                           'weakrefable',
                           'hasdict',
-                          'layout',
+                          'layout?',
                           'terminator',
                           '_version_tag?',
                           'name?',
@@ -191,6 +191,7 @@ class W_TypeObject(W_Root):
         self.flag_sequence_bug_compat = False
         self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
 
+        self.layout = None  # the lines below may try to access self.layout
         if overridetypedef is not None:
             assert not force_new_layout
             layout = setup_builtin_type(self, overridetypedef)
@@ -493,6 +494,10 @@ class W_TypeObject(W_Root):
         if not isinstance(w_subtype, W_TypeObject):
             raise oefmt(space.w_TypeError,
                         "X is not a type object ('%T')", w_subtype)
+        if not w_subtype.layout:
+            raise oefmt(space.w_TypeError,
+                "%N.__new__(%N): uninitialized type %N may not be instantiated yet.",
+                self, w_subtype, w_subtype)
         if not w_subtype.issubtype(self):
             raise oefmt(space.w_TypeError,
                         "%N.__new__(%N): %N is not a subtype of %N",
