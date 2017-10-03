@@ -91,7 +91,7 @@ class CPyBuffer(BufferView):
                     finally:
                         lltype.free(fmt, flavor='raw')
                         lltype.free(pybuf, flavor='raw')
-                decref(self.space, self.pyobj)
+                decref(self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
             self.w_obj = None
         else:

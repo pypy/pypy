@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import (
-    PyObjectP, from_ref, make_ref, Py_DecRef)
+    PyObjectP, from_ref, make_ref, decref, decref_w_obj)
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.number import (
     PyIndex_Check, PyNumber_Check, PyNumber_Long, PyNumber_Int,
@@ -61,12 +61,12 @@ class TestIterator(BaseApiTest):
         assert PyNumber_Coerce(space, pp1, pp2) == 0
         assert space.str_w(space.repr(from_ref(space, pp1[0]))) == '123.0'
         assert space.str_w(space.repr(from_ref(space, pp2[0]))) == '456.789'
-        Py_DecRef(space, pp1[0])
-        Py_DecRef(space, pp2[0])
+        decref(pp1[0])
+        decref(pp2[0])
         lltype.free(pp1, flavor='raw')
         # Yes, decrement twice since we decoupled between w_obj* and pp*[0].
-        Py_DecRef(space, w_obj1)
-        Py_DecRef(space, w_obj2)
+        decref_w_obj(space, w_obj1)
+        decref_w_obj(space, w_obj2)
         lltype.free(pp2, flavor='raw')
 
     def test_number_coerce_ex(self, space):
@@ -84,10 +84,10 @@ class TestIterator(BaseApiTest):
 
         assert PyFloat_Check(space, w_res)
         assert space.unwrap(w_res) == 123.
-        Py_DecRef(space, pl)
-        Py_DecRef(space, pf)
-        Py_DecRef(space, ppl[0])
-        Py_DecRef(space, ppf[0])
+        decref(pl)
+        decref(pf)
+        decref(ppl[0])
+        decref(ppf[0])
         lltype.free(ppl, flavor='raw')
         lltype.free(ppf, flavor='raw')
 

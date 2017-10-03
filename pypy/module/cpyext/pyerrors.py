@@ -6,7 +6,7 @@ from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, from_ref, Py_DecRef)
+    PyObject, PyObjectP, make_ref, from_ref, decref, decref_w_obj)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from rpython.rlib import rposix, jit
@@ -84,9 +84,9 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
         state.clear_exception()
         return
     state.set_exception(OperationError(w_type, w_value))
-    Py_DecRef(space, w_type)
-    Py_DecRef(space, w_value)
-    Py_DecRef(space, w_traceback)
+    decref_w_obj(space, w_type)
+    decref_w_obj(space, w_value)
+    decref_w_obj(space, w_traceback)
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
@@ -108,8 +108,8 @@ def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
         w_evalue = space.w_None
     operr = OperationError(w_etype, w_evalue)
     operr.normalize_exception(space)
-    Py_DecRef(space, exc_p[0])
-    Py_DecRef(space, val_p[0])
+    decref(exc_p[0])
+    decref(val_p[0])
     exc_p[0] = make_ref(space, operr.w_type)
     val_p[0] = make_ref(space, operr.get_w_value(space))
 
@@ -419,9 +419,9 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
     #
     ec = space.getexecutioncontext()
     ec.set_sys_exc_info(operror)
-    Py_DecRef(space, w_type)
-    Py_DecRef(space, w_value)
-    Py_DecRef(space, w_traceback)
+    decref_w_obj(space, w_type)
+    decref_w_obj(space, w_value)
+    decref_w_obj(space, w_traceback)
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyOS_InterruptOccurred(space):

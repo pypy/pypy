@@ -4,7 +4,7 @@ from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, cpython_struct, 
     slot_function)
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, from_ref, Py_DecRef, make_typedescr)
+    PyObject, make_ref, from_ref, decref, make_typedescr)
 from pypy.module.cpyext.frameobject import PyFrameObject
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
@@ -44,7 +44,7 @@ def traceback_attach(space, py_obj, w_obj, w_userdata=None):
 @slot_function([PyObject], lltype.Void)
 def traceback_dealloc(space, py_obj):
     py_traceback = rffi.cast(PyTracebackObject, py_obj)
-    Py_DecRef(space, rffi.cast(PyObject, py_traceback.c_tb_next))
-    Py_DecRef(space, rffi.cast(PyObject, py_traceback.c_tb_frame))
+    decref(rffi.cast(PyObject, py_traceback.c_tb_next))
+    decref(rffi.cast(PyObject, py_traceback.c_tb_frame))
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)

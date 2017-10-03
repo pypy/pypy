@@ -10,7 +10,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import tupleobject
 
 from pypy.module.cpyext.tupleobject import PyTuple_Check, PyTuple_SetItem
-from pypy.module.cpyext.pyobject import decref
+from pypy.module.cpyext.pyobject import decref, decref_w_obj
 
 from pypy.module.cpyext.dictobject import PyDict_Check
 
@@ -258,7 +258,7 @@ class CPyListStrategy(ListStrategy):
         index = self._check_index(index, storage._length)
         py_old = storage._elems[index]
         storage._elems[index] = make_ref(w_list.space, w_obj)
-        decref(w_list.space, py_old)
+        decref(py_old)
 
     def length(self, w_list):
         storage = self.unerase(w_list.lstorage)
@@ -389,5 +389,5 @@ class CPyListStorage(object):
 
     def __del__(self):
         for i in range(self._length):
-            decref(self.space, self._elems[i])
+            decref(self._elems[i])
         lltype.free(self._elems, flavor='raw')

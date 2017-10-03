@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
+from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref, decref
 from pypy.module.cpyext.pytraceback import PyTracebackObject
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.baseobjspace import AppExecCache
@@ -39,6 +39,6 @@ class TestPyTracebackObject(BaseApiTest):
 
         assert lltype.normalizeptr(py_traceback) is None
 
-        api.Py_DecRef(py_obj)
+        decref(py_obj)
         # hack to allow the code object to be freed
         del space.fromcache(AppExecCache).content[src]

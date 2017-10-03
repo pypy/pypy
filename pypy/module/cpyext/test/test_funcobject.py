@@ -22,7 +22,7 @@ class TestFunctionObject(BaseApiTest):
                 space.gettypeobject(Function.typedef))
         assert "f" == space.unwrap(
             from_ref(space, rffi.cast(PyFunctionObject, ref).c_func_name))
-        decref(space, ref)
+        decref(ref)
 
     def test_method(self, space):
         w_method = space.appexec([], """():
@@ -56,7 +56,7 @@ class TestFunctionObject(BaseApiTest):
         assert "func" == space.unwrap(
             from_ref(space, rffi.cast(PyCodeObject, ref).c_co_name))
         assert 3 == rffi.cast(PyCodeObject, ref).c_co_argcount
-        decref(space, ref)
+        decref(ref)
 
     def test_co_flags(self, space):
         def get_flags(signature, body="pass"):
@@ -66,7 +66,7 @@ class TestFunctionObject(BaseApiTest):
             """ % (signature, body), cache=False)
             ref = make_ref(space, w_code)
             co_flags = rffi.cast(PyCodeObject, ref).c_co_flags
-            decref(space, ref)
+            decref(ref)
             return co_flags
         assert get_flags("x") == CO_NESTED | CO_OPTIMIZED | CO_NEWLOCALS
         assert get_flags("x", "exec x") == CO_NESTED | CO_NEWLOCALS
@@ -84,7 +84,7 @@ class TestFunctionObject(BaseApiTest):
         ref = make_ref(space, w_code)
         assert "filename" == space.unwrap(
             from_ref(space, rffi.cast(PyCodeObject, ref).c_co_filename))
-        decref(space, ref)
+        decref(ref)
         rffi.free_charp(filename)
         rffi.free_charp(funcname)
 

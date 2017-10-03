@@ -83,7 +83,7 @@ def memory_realize(space, obj):
 def memory_dealloc(space, py_obj):
     mem_obj = rffi.cast(PyMemoryViewObject, py_obj)
     if mem_obj.c_view.c_obj:
-        decref(space, mem_obj.c_view.c_obj)
+        decref(mem_obj.c_view.c_obj)
     mem_obj.c_view.c_obj = rffi.cast(PyObject, 0)
     _dealloc(space, py_obj)
 

@@ -140,7 +140,7 @@ class TestDictObject(BaseApiTest):
             lltype.free(ppos, flavor='raw')
             lltype.free(pkey, flavor='raw')
             lltype.free(pvalue, flavor='raw')
-        decref(space, py_type) # release borrowed references
+        decref(py_type) # release borrowed references
         # do something with w_copy ?
 
 class AppTestDictObject(AppTestCpythonExtensionBase):

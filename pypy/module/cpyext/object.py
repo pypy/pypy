@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, from_ref, Py_IncRef, Py_DecRef,
+    PyObject, PyObjectP, from_ref, Py_IncRef, decref,
     get_typedescr)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
@@ -66,7 +66,7 @@ def _dealloc(space, obj):
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
-        Py_DecRef(space, rffi.cast(PyObject, pto))
+        decref(rffi.cast(PyObject, pto))
 
 @cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
 def _PyObject_GC_New(space, type):

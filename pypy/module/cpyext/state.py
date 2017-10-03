@@ -65,7 +65,7 @@ class State:
                     if not ob:
                         break
                     print 'deallocating PyObject', ob
-                    decref(space, ob)
+                    decref(ob)
                 print 'dealloc_trigger DONE'
                 return "RETRY"
             rawrefcount.init(dealloc_trigger)
@@ -174,7 +174,7 @@ def _rawrefcount_perform(space):
         py_obj = rawrefcount.next_dead(PyObject)
         if not py_obj:
             break
-        decref(space, py_obj)
+        decref(py_obj)
 
 class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.

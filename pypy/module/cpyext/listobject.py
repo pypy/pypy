@@ -53,15 +53,15 @@ def PyList_SetItem(space, w_list, index, py_item):
     an item already in the list at the affected position.
     """
     if not isinstance(w_list, W_ListObject):
-        decref(space, py_item)
+        decref(py_item)
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
-        decref(space, py_item)
+        decref(py_item)
         raise oefmt(space.w_IndexError, "list assignment index out of range")
     storage = get_list_storage(space, w_list)
     py_old = storage._elems[index]
     storage._elems[index] = py_item
-    decref(w_list.space, py_old)
+    decref(py_old)
     return 0
 
 @cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_is_ll=True)

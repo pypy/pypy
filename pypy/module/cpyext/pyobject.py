@@ -16,6 +16,7 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rawrefcount, jit
 from rpython.rlib.debug import fatalerror
+from rpython.rlib import rgc
 
 
 #________________________________________________________
@@ -180,7 +181,7 @@ def track_reference(space, py_obj, w_obj):
     """
     Ties together a PyObject and an interpreter object.
     The PyObject's refcnt is increased by REFCNT_FROM_PYPY.
-    The reference in 'py_obj' is not stolen!  Remember to Py_DecRef()
+    The reference in 'py_obj' is not stolen!  Remember to decref()
     it is you need to.
     """
     # XXX looks like a PyObject_GC_TRACK
@@ -314,31 +315,33 @@ def get_w_obj_and_decref(space, obj):
 def incref(space, obj):
     make_ref(space, obj)
 
-@specialize.ll()
-def decref(space, obj):
-    if is_pyobj(obj):
-        obj = rffi.cast(PyObject, obj)
-        if obj:
-            assert obj.c_ob_refcnt > 0
-            assert obj.c_ob_pypy_link == 0 or obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
-            obj.c_ob_refcnt -= 1
-            if obj.c_ob_refcnt == 0:
-                _Py_Dealloc(obj)
-            #else:
-            #    w_obj = rawrefcount.to_obj(W_Root, ref)
-            #    if w_obj is not None:
-            #        assert obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
-    else:
-        get_w_obj_and_decref(space, obj)
+@rgc.no_collect
+def decref(obj):
+    assert is_pyobj(obj)
+    obj = rffi.cast(PyObject, obj)
+    if obj:
+        assert obj.c_ob_refcnt > 0
+        assert obj.c_ob_pypy_link == 0 or obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
+        obj.c_ob_refcnt -= 1
+        if obj.c_ob_refcnt == 0:
+            _Py_Dealloc(obj)
+        #else:
+        #    w_obj = rawrefcount.to_obj(W_Root, ref)
+        #    if w_obj is not None:
+        #        assert obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
 
+def decref_w_obj(space, obj):
+    get_w_obj_and_decref(space, obj)
 
 @cpython_api([PyObject], lltype.Void)
 def Py_IncRef(space, obj):
     incref(space, obj)
 
-@cpython_api([PyObject], lltype.Void)
-def Py_DecRef(space, obj):
-    decref(space, obj)
+# you should not call this function from RPython directly; call decref(), it's
+# slightly faster because it doesn't go through the unwrapper
+@cpython_api([PyObject], lltype.Void, no_gc=True)
+def Py_DecRef(obj):
+    decref(obj)
 
 @cpython_api([PyObject], lltype.Void)
 def _Py_NewReference(space, obj):

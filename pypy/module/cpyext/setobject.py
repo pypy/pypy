@@ -2,7 +2,7 @@ from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers)
-from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
+from pypy.module.cpyext.pyobject import (PyObject, PyObjectP,
     make_ref, from_ref)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, newset

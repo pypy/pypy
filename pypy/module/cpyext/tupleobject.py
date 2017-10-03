@@ -85,7 +85,7 @@ def tuple_attach(space, py_obj, w_obj, w_userdata=None):
             i -= 1
             ob = py_tup.c_ob_item[i]
             py_tup.c_ob_item[i] = lltype.nullptr(PyObject.TO)
-            decref(space, ob)
+            decref(ob)
         raise
 
 def tuple_realize(space, py_obj):
@@ -120,7 +120,7 @@ def tuple_dealloc(space, py_obj):
     py_tup = rffi.cast(PyTupleObject, py_obj)
     p = py_tup.c_ob_item
     for i in range(py_tup.c_ob_size):
-        decref(space, p[i])
+        decref(p[i])
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
@@ -133,22 +133,22 @@ def PyTuple_New(space, size):
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyTuple_SetItem(space, ref, index, py_obj):
     if not tuple_check_ref(space, ref):
-        decref(space, py_obj)
+        decref(py_obj)
         PyErr_BadInternalCall(space)
     tupleobj = rffi.cast(PyTupleObject, ref)
     size = tupleobj.c_ob_size
     if index < 0 or index >= size:
-        decref(space, py_obj)
+        decref(py_obj)
         raise oefmt(space.w_IndexError, "tuple assignment index out of range")
     old_ref = tupleobj.c_ob_item[index]
     if pyobj_has_w_obj(ref):
         # similar but not quite equal to ref.c_ob_refcnt != 1 on CPython
-        decref(space, py_obj)
+        decref(py_obj)
         raise oefmt(space.w_SystemError, "PyTuple_SetItem called on tuple after"
                                         " use of tuple")
     tupleobj.c_ob_item[index] = py_obj    # consumes a reference
     if old_ref:
-        decref(space, old_ref)
+        decref(old_ref)
     return 0
 
 @cpython_api([PyObject, Py_ssize_t], PyObject,
@@ -200,11 +200,11 @@ def _PyTuple_Resize(space, p_ref, newsize):
             incref(space, ob)
             newref.c_ob_item[i] = ob
     except:
-        decref(space, p_ref[0])
+        decref(p_ref[0])
         p_ref[0] = lltype.nullptr(PyObject.TO)
         raise
     finally:
-        decref(space, ref)
+        decref(ref)
     return 0
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
