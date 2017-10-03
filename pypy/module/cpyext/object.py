@@ -72,8 +72,8 @@ def _dealloc(space, obj):
 def _PyObject_GC_New(space, type):
     return _PyObject_New(space, type)
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_GC_Del(space, obj):
+@cpython_api([rffi.VOIDP], lltype.Void, no_gc=True)
+def PyObject_GC_Del(obj):
     PyObject_Free(obj)
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
