@@ -40,6 +40,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
+from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.module.cpyext.cparser import CTypeSpace
 
@@ -128,6 +129,11 @@ Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES Py_MAX_NDIMS
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE
 """.split()
+
+for name in ('INT', 'LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
+             'TYPE', 'STRING'): # 'STRING' -> 'BYTES' in py3
+    constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
+
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 globals().update(rffi_platform.configure(CConfig_constants))
@@ -443,6 +449,11 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         if func.__name__ in FUNCTIONS_BY_HEADER[header]:
             raise ValueError("%s already registered" % func.__name__)
         func._always_inline_ = 'try'
+        #
+        # XXX: should we @jit.dont_look_inside all the @cpython_api functions,
+        # or we should only disable some of them?
+        func._jit_look_inside_ = False
+        #
         api_function = ApiFunction(
             argtypes, restype, func,
             error=_compute_error(error, restype), gil=gil,
@@ -534,6 +545,7 @@ SYMBOLS_C = [
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
     'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyString_FromFormat', 'PyString_FromFormatV',
+    'PyUnicode_FromFormat', 'PyUnicode_FromFormatV',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
     '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
@@ -551,6 +563,7 @@ SYMBOLS_C = [
     'PyObject_GetBuffer', 'PyBuffer_Release',
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
     'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
+    '_Py_setfilesystemdefaultencoding',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
@@ -646,7 +659,11 @@ def build_exported_objects():
         'PyClass_Type': 'space.gettypeobject(W_ClassObject.typedef)',
         'PyStaticMethod_Type': 'space.gettypeobject(StaticMethod.typedef)',
         'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
-        'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
+        'PyClassMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCClassMethodObject.typedef)',
+        'PyGetSetDescr_Type': 'space.gettypeobject(cpyext.typeobject.W_GetSetPropertyEx.typedef)',
+        'PyMemberDescr_Type': 'space.gettypeobject(cpyext.typeobject.W_MemberDescr.typedef)',
+        'PyMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)',
+        'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCWrapperObject.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
@@ -740,6 +757,45 @@ def build_type_checkers(type_name, cls=None):
                 space.issubtype_w(w_obj_type, w_type))
 
     @cts.decl("int %sExact(void * obj)" % check_name, error=CANNOT_FAIL)
+    def check_exact(space, w_obj):
+        "Implements the Py_Xxx_CheckExact function"
+        w_obj_type = space.type(w_obj)
+        w_type = get_w_type(space)
+        return space.is_w(w_obj_type, w_type)
+
+    return check, check_exact
+
+def build_type_checkers_flags(type_name, cls=None, flagsubstr=None):
+    """
+    Builds two api functions: Py_XxxCheck() and Py_XxxCheckExact()
+    Does not export the functions, assumes they are macros in the *. files
+    check will try a fast path via pto flags
+    """
+    if cls is None:
+        attrname = "w_" + type_name.lower()
+        def get_w_type(space):
+            return getattr(space, attrname)
+    else:
+        def get_w_type(space):
+            return getattr(space, cls)
+    if flagsubstr is None:
+       tp_flag_str = 'Py_TPFLAGS_%s_SUBCLASS' % type_name.upper()
+    else:
+       tp_flag_str = 'Py_TPFLAGS_%s_SUBCLASS' % flagsubstr
+    check_name = "Py" + type_name + "_Check"
+    tp_flag = globals()[tp_flag_str]
+
+    @specialize.argtype(1)
+    def check(space, pto):
+        from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
+        "Implements the Py_Xxx_Check function"
+        if is_pyobj(pto):
+            return (pto.c_ob_type.c_tp_flags & tp_flag) == tp_flag
+        w_obj_type = space.type(pto)
+        w_type = get_w_type(space)
+        return (space.is_w(w_obj_type, w_type) or
+                space.issubtype_w(w_obj_type, w_type))
+
     def check_exact(space, w_obj):
         "Implements the Py_Xxx_CheckExact function"
         w_obj_type = space.type(w_obj)
@@ -940,6 +996,11 @@ def make_wrapper_second_level(space, argtypesw, restype,
                     message = str(e)
                 state.set_exception(OperationError(space.w_SystemError,
                                                    space.newtext(message)))
+            except rstackovf.StackOverflow as e:
+                rstackovf.check_stack_overflow()
+                failed = True
+                state.set_exception(OperationError(space.w_RuntimeError,
+                         space.newtext("maximum recursion depth exceeded")))
             else:
                 failed = False
 
@@ -994,11 +1055,17 @@ def setup_init_functions(eci, prefix):
     get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
                                        [], PyTypeObjectPtr,
                                        compilation_info=eci, _nowrapper=True)
+    setdefenc = rffi.llexternal('_%s_setfilesystemdefaultencoding' % prefix,
+                                [rffi.CCHARP], lltype.Void,
+                                compilation_info=eci, _nowrapper=True)
     def init_types(space):
         from pypy.module.cpyext.typeobject import py_type_ready
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
         py_type_ready(space, get_buffer_type())
         py_type_ready(space, get_cobject_type())
         py_type_ready(space, get_capsule_type())
+        s = space.text_w(getfilesystemencoding(space))
+        setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
     _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
@@ -1223,7 +1290,8 @@ def write_header(header_name, decls):
 #  error "PyPy does not support 64-bit on Windows.  Use Win32"
 #endif
 ''',
-        '#define Signed   long           /* xxx temporary fix */',
+        '#include "cpyext_object.h"',
+        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
         '#define Unsigned unsigned long  /* xxx temporary fix */',
         '',] + decls + [
         '',
@@ -1262,6 +1330,21 @@ def generate_decls_and_callbacks(db, prefix=''):
     decls = defaultdict(list)
     for decl in FORWARD_DECLS:
         decls[pypy_decl].append("%s;" % (decl,))
+    decls[pypy_decl].append("""
+/* hack for https://bugs.python.org/issue29943 */
+
+PyAPI_FUNC(int) %s(PySliceObject *arg0,
+                    Signed arg1, Signed *arg2,
+                    Signed *arg3, Signed *arg4, Signed *arg5);
+#ifdef __GNUC__
+__attribute__((__unused__))
+#endif
+static int PySlice_GetIndicesEx(PySliceObject *arg0, Py_ssize_t arg1,
+        Py_ssize_t *arg2, Py_ssize_t *arg3, Py_ssize_t *arg4,
+        Py_ssize_t *arg5) {
+    return %s(arg0, arg1, arg2, arg3,
+                arg4, arg5);
+}""" % ((mangle_name(prefix, 'PySlice_GetIndicesEx'),)*2))
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         header = decls[header_name]
@@ -1289,6 +1372,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "getargs.c",
                          source_dir / "abstract.c",
                          source_dir / "stringobject.c",
+                         source_dir / "unicodeobject.c",
                          source_dir / "mysnprintf.c",
                          source_dir / "pythonrun.c",
                          source_dir / "sysmodule.c",
@@ -1575,6 +1659,7 @@ def make_generic_cpy_call(FT, expect_null):
         assert cpyext_glob_tid_ptr[0] == 0
         cpyext_glob_tid_ptr[0] = tid
 
+        preexist_error = PyErr_Occurred(space)
         try:
             # Call the function
             result = call_external_function(func, *boxed_args)
@@ -1596,18 +1681,20 @@ def make_generic_cpy_call(FT, expect_null):
                     ret = None
 
             # Check for exception consistency
-            has_error = PyErr_Occurred(space) is not None
+            # XXX best attempt, will miss preexisting error that is
+            # overwritten with a new error of the same type
+            error = PyErr_Occurred(space)
+            has_new_error = (error is not None) and (error is not preexist_error)
             has_result = ret is not None
-            if has_error and has_result:
+            if not expect_null and has_new_error and has_result:
                 raise oefmt(space.w_SystemError,
                             "An exception was set, but function returned a "
                             "value")
-            elif not expect_null and not has_error and not has_result:
+            elif not expect_null and not has_new_error and not has_result:
                 raise oefmt(space.w_SystemError,
                             "Function returned a NULL result without setting "
                             "an exception")
-
-            if has_error:
+            elif has_new_error:
                 state = space.fromcache(State)
                 state.check_and_raise_exception()
 

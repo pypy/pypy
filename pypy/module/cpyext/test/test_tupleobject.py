@@ -24,6 +24,7 @@ class TestTupleObject(BaseApiTest):
     def test_tuple_realize_refuses_nulls(self, space, api):
         py_tuple = api.PyTuple_New(1)
         py.test.raises(FatalError, from_ref, space, py_tuple)
+        api.Py_DecRef(py_tuple)
 
     def test_tuple_resize(self, space, api):
         w_42 = space.wrap(42)
@@ -70,6 +71,7 @@ class TestTupleObject(BaseApiTest):
         w_tuple = from_ref(space, py_tuple)
         assert space.eq_w(w_tuple, space.newtuple([space.wrap(42),
                                                    space.wrap(43)]))
+        api.Py_DecRef(py_tuple)
 
     def test_getslice(self, space, api):
         w_tuple = space.newtuple([space.wrap(i) for i in range(10)])
@@ -174,6 +176,7 @@ class AppTestTuple(AppTestCpythonExtensionBase):
                 res = PyTuple_SetItem(tuple, 0, one);
                 if (res != 0)
                 {
+                    Py_DECREF(one);
                     Py_DECREF(tuple);
                     return NULL;
                 }
@@ -187,14 +190,13 @@ class AppTestTuple(AppTestCpythonExtensionBase):
                 /* Do something that uses the tuple, but does not incref */
                 t2 = PyTuple_GetSlice(tuple, 0, 1);
                 Py_DECREF(t2);
-                Py_INCREF(one);
                 res = PyTuple_SetItem(tuple, 0, one);
-                Py_DECREF(tuple);
                 if (res != 0)
                 {
-                    Py_DECREF(one);
+                    Py_DECREF(tuple);
                     return NULL;
                 }
+                Py_DECREF(tuple);
                 Py_INCREF(Py_None);
                 return Py_None;
              """),
@@ -205,4 +207,3 @@ class AppTestTuple(AppTestCpythonExtensionBase):
             raises(SystemError, module.set_after_use, s)
         else:
             module.set_after_use(s)
-

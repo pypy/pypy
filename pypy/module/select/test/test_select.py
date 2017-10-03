@@ -329,7 +329,7 @@ class AppTestSelectWithSockets(_AppTestSelect):
     }
 
     import os
-    if os.uname()[4] == 's390x':
+    if hasattr(os, 'uname') and os.uname()[4] == 's390x':
         py.test.skip("build bot for s390x cannot open sockets")
 
     def w_make_server(self):

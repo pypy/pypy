@@ -160,6 +160,10 @@ class TestAddressDeque:
 
             ll.foreach(callback, 42)
             assert seen == addrs
+            seen = []
+            ll.foreach(callback, 42, step=2)
+            assert seen == addrs[::2]
+
             for a in addrs:
                 b = ll.popleft()
                 assert a == b

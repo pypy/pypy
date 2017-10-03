@@ -226,11 +226,6 @@ def _Py_c_pow(space, num, exp):
     representation."""
     raise NotImplementedError
 
-@cpython_api([Py_complex], PyObject)
-def PyComplex_FromCComplex(space, v):
-    """Create a new Python complex number object from a C Py_complex value."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE, error=CANNOT_FAIL)
 def PyOS_ascii_strtod(space, nptr, endptr):
     """Convert a string to a double. This function behaves like the Standard C
@@ -658,18 +653,6 @@ def PyObject_GC_Resize(space, op, newsize):
 
     This function used an int type for newsize. This might
     require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_GC_TRACK(space, op):
-    """A macro version of PyObject_GC_Track().  It should not be used for
-    extension modules."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_GC_UNTRACK(space, op):
-    """A macro version of PyObject_GC_UnTrack().  It should not be used for
-    extension modules."""
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], PyObject)
@@ -1511,161 +1494,9 @@ def PyType_ClearCache(space):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyType_IS_GC(space, o):
-    """Return true if the type object includes support for the cycle detector; this
-    tests the type flag Py_TPFLAGS_HAVE_GC.
-    """
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyUnicode_ClearFreeList(space):
     """Clear the free list. Return the total number of freed items.
-    """
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyUnicode_FromFormat(space, format):
-    """Take a C printf()-style format string and a variable number of
-    arguments, calculate the size of the resulting Python unicode string and return
-    a string with the values formatted into it.  The variable arguments must be C
-    types and must correspond exactly to the format characters in the format
-    string.  The following format characters are allowed:
-
-    Format Characters
-
-    Type
-
-    Comment
-
-    %%
-
-    n/a
-
-    The literal % character.
-
-    %c
-
-    int
-
-    A single character,
-    represented as an C int.
-
-    %d
-
-    int
-
-    Exactly equivalent to
-    printf("%d").
-
-    %u
-
-    unsigned int
-
-    Exactly equivalent to
-    printf("%u").
-
-    %ld
-
-    long
-
-    Exactly equivalent to
-    printf("%ld").
-
-    %lu
-
-    unsigned long
-
-    Exactly equivalent to
-    printf("%lu").
-
-    %zd
-
-    Py_ssize_t
-
-    Exactly equivalent to
-    printf("%zd").
-
-    %zu
-
-    size_t
-
-    Exactly equivalent to
-    printf("%zu").
-
-    %i
-
-    int
-
-    Exactly equivalent to
-    printf("%i").
-
-    %x
-
-    int
-
-    Exactly equivalent to
-    printf("%x").
-
-    %s
-
-    char*
-
-    A null-terminated C character
-    array.
-
-    %p
-
-    void*
-
-    The hex representation of a C
-    pointer. Mostly equivalent to
-    printf("%p") except that
-    it is guaranteed to start with
-    the literal 0x regardless
-    of what the platform's
-    printf yields.
-
-    %U
-
-    PyObject*
-
-    A unicode object.
-
-    %V
-
-    PyObject*, char *
-
-    A unicode object (which may be
-    NULL) and a null-terminated
-    C character array as a second
-    parameter (which will be used,
-    if the first parameter is
-    NULL).
-
-    %S
-
-    PyObject*
-
-    The result of calling
-    PyObject_Unicode().
-
-    %R
-
-    PyObject*
-
-    The result of calling
-    PyObject_Repr().
-
-    An unrecognized format character causes all the rest of the format string to be
-    copied as-is to the result string, and any extra arguments discarded.
-    """
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, va_list], PyObject)
-def PyUnicode_FromFormatV(space, format, vargs):
-    """Identical to PyUnicode_FromFormat() except that it takes exactly two
-    arguments.
     """
     raise NotImplementedError
 

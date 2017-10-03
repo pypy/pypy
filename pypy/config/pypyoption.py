@@ -71,6 +71,8 @@ if sys.platform == "win32":
         working_modules.remove("_cppyy")  # not tested on win32
     if "faulthandler" in working_modules:
         working_modules.remove("faulthandler")  # missing details
+    if "_vmprof" in working_modules:
+        working_modules.remove("_vmprof")  # FIXME: missing details
 
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")

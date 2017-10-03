@@ -60,8 +60,8 @@ copyrighted by one or more of the following people and organizations:
   Wim Lavrijsen
   Eric van Riet Paap
   Richard Emslie
-  Alexander Schremmer
   Remi Meier
+  Alexander Schremmer
   Dan Villiom Podlaski Christiansen
   Lukas Diekmann
   Sven Hager
@@ -102,6 +102,7 @@ copyrighted by one or more of the following people and organizations:
   Michael Foord
   Stephan Diehl
   Stefano Rivera
+  Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
   Valentino Volonghi
@@ -110,14 +111,13 @@ copyrighted by one or more of the following people and organizations:
   Bob Ippolito
   Bruno Gola
   David Malcolm
-  Jean-Paul Calderone
   Squeaky
   Edd Barrett
   Timo Paulssen
   Marius Gedminas
+  Nicolas Truessel
   Alexandre Fayolle
   Simon Burton
-  Nicolas Truessel
   Martin Matusiak
   Laurence Tratt
   Wenzhu Man
@@ -156,6 +156,7 @@ copyrighted by one or more of the following people and organizations:
   Stefan H. Muller
   Tim Felgentreff
   Eugene Oden
+  Dodan Mihai
   Jeff Terrace
   Henry Mason
   Vasily Kuznetsov
@@ -182,11 +183,13 @@ copyrighted by one or more of the following people and organizations:
   Rocco Moretti
   Gintautas Miliauskas
   Lucian Branescu Mihaila
+  Mariano Anaya
   anatoly techtonik
-  Dodan Mihai
   Karl Bartel
+  Stefan Beyer
   Gabriel Lavoie
   Jared Grubb
+  Alecsandru Patrascu
   Olivier Dormond
   Wouter van Heyst
   Sebastian Pawluś
@@ -194,6 +197,7 @@ copyrighted by one or more of the following people and organizations:
   Victor Stinner
   Andrews Medina
   Aaron Iles
+  p_zieschang@yahoo.de
   Toby Watson
   Daniel Patrick
   Stuart Williams
@@ -204,6 +208,7 @@ copyrighted by one or more of the following people and organizations:
   Michael Cheng
   Mikael Schönenberg
   Stanislaw Halik
+  Mihnea Saracin
   Berkin Ilbeyi
   Gasper Zejn
   Faye Zhao
@@ -214,14 +219,12 @@ copyrighted by one or more of the following people and organizations:
   Jonathan David Riehl
   Beatrice During
   Alex Perry
-  p_zieschang@yahoo.de
   Robert Zaremba
   Alan McIntyre
   Alexander Sedov
   Vaibhav Sood
   Reuben Cummings
   Attila Gobi
-  Alecsandru Patrascu
   Christopher Pope
   Tristan Arthur
   Christian Tismer 
@@ -243,7 +246,6 @@ copyrighted by one or more of the following people and organizations:
   Jacek Generowicz
   Sylvain Thenault
   Jakub Stasiak
-  Stefan Beyer
   Andrew Dalke
   Alejandro J. Cura
   Vladimir Kryachko
@@ -275,6 +277,7 @@ copyrighted by one or more of the following people and organizations:
   Christoph Gerum
   Miguel de Val Borro
   Artur Lisiecki
+  afteryu
   Toni Mattis
   Laurens Van Houtven
   Bobby Impollonia
@@ -305,6 +308,7 @@ copyrighted by one or more of the following people and organizations:
   Anna Katrina Dominguez
   Kim Jin Su
   Amber Brown
+  Anthony Sottile
   Nate Bragg
   Ben Darnell
   Juan Francisco Cantero Hurtado
@@ -325,12 +329,14 @@ copyrighted by one or more of the following people and organizations:
   Mike Bayer
   Rodrigo Araújo
   Daniil Yarancev
+  Min RK
   OlivierBlanvillain
   Jonas Pfannschmidt
   Zearin
   Andrey Churin
   Dan Crosta
   reubano@gmail.com
+  Stanisław Halik
   Julien Phalip
   Roman Podoliaka
   Eli Stevens

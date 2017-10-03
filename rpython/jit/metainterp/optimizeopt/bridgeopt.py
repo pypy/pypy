@@ -84,7 +84,6 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
 
     # heap knowledge: we store triples of known heap fields in non-virtual
     # structs
-    # XXX could be extended to arrays
     if optimizer.optheap:
         triples_struct, triples_array = optimizer.optheap.serialize_optheap(available_boxes)
         # can only encode descrs that have a known index into

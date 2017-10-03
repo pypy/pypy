@@ -1,7 +1,7 @@
 =========================
-What's new in PyPy3 5.7+
+What's new in PyPy3 5.9+
 =========================
 
-.. this is the revision after release-pypy3.3-5.7.x was branched
-.. startrev: afbf09453369
+.. this is the revision after release-pypy3.5-5.9
+.. startrev: be41e3ac0a29
 
