@@ -353,7 +353,21 @@ class ApiFunction(object):
 
     def get_unwrapper(self):
         if self.no_gc:
-            return self.callable
+            @specialize.ll()
+            @rgc.no_collect
+            def unwrapper(*args):
+                # see "Handling of the GIL" above
+                tid = rthread.get_ident()
+                assert cpyext_glob_tid_ptr[0] == 0
+                cpyext_glob_tid_ptr[0] = tid
+                try:
+                    # Call the function
+                    return self.callable(*args)
+                finally:
+                    assert cpyext_glob_tid_ptr[0] == tid
+                    cpyext_glob_tid_ptr[0] = 0
+            return unwrapper
+
         names = self.argnames
         argtypesw = zip(self.argtypes,
                         [_name.startswith("w_") for _name in self.argnames])

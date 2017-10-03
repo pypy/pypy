@@ -323,7 +323,7 @@ def decref(space, obj):
             assert obj.c_ob_pypy_link == 0 or obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
             obj.c_ob_refcnt -= 1
             if obj.c_ob_refcnt == 0:
-                _Py_Dealloc(space, obj)
+                _Py_Dealloc(obj)
             #else:
             #    w_obj = rawrefcount.to_obj(W_Root, ref)
             #    if w_obj is not None:
@@ -348,14 +348,11 @@ def _Py_NewReference(space, obj):
     assert isinstance(w_type, W_TypeObject)
     get_typedescr(w_type.layout.typedef).realize(space, obj)
 
-@cpython_api([PyObject], lltype.Void)
-def _Py_Dealloc(space, obj):
-    from pypy.module.cpyext.api import generic_cpy_call
+@cpython_api([PyObject], lltype.Void, no_gc=True)
+def _Py_Dealloc(obj):
     pto = obj.c_ob_type
-    #print >>sys.stderr, "Calling dealloc slot", pto.c_tp_dealloc, "of", obj, \
-    #      "'s type which is", rffi.charp2str(pto.c_tp_name)
     rawrefcount.mark_deallocating(w_marker_deallocating, obj)
-    generic_cpy_call(space, pto.c_tp_dealloc, obj)
+    pto.c_tp_dealloc(obj)
 
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):
