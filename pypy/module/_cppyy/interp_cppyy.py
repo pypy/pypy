@@ -79,7 +79,7 @@ def scope_byname(space, name):
         if capi.c_is_namespace(space, opaque_handle):
             cppscope = W_CPPNamespaceDecl(space, final_name, opaque_handle)
         elif capi.c_has_complex_hierarchy(space, opaque_handle):
-            cppscope = W_CPPComplexClass(space, final_name, opaque_handle)
+            cppscope = W_CPPComplexClassDecl(space, final_name, opaque_handle)
         else:
             cppscope = W_CPPClassDecl(space, final_name, opaque_handle)
         state.cppscope_cache[name] = cppscope
