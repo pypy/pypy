@@ -520,13 +520,13 @@ def api_decl(cdef, cts, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
         return api_func_from_cdef(func, cdef, cts, error=error, header=header)
     return decorate
 
-def slot_function(argtypes, restype, error=_NOT_SPECIFIED):
+def slot_function(argtypes, restype, error=_NOT_SPECIFIED, no_gc=False):
     def decorate(func):
         func._always_inline_ = 'try'
         api_function = ApiFunction(
             argtypes, restype, func,
             error=_compute_error(error, restype),
-            c_name=func.__name__)
+            c_name=func.__name__, no_gc=no_gc)
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
         unwrapper.api_func = api_function

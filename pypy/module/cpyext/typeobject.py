@@ -543,11 +543,11 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-@slot_function([PyObject], lltype.Void)
-def subtype_dealloc(space, obj):
+@slot_function([PyObject], lltype.Void, no_gc=True)
+def subtype_dealloc(obj):
     pto = obj.c_ob_type
     base = pto
-    this_func_ptr = llslot(space, subtype_dealloc)
+    this_func_ptr = llslot(None, subtype_dealloc)
     # This wrapper is created on a specific type, call it w_A.
     # We wish to call the dealloc function from one of the base classes of w_A,
     # the first of which is not this function itself.
@@ -560,9 +560,8 @@ def subtype_dealloc(space, obj):
     while base.c_tp_dealloc == this_func_ptr:
         base = base.c_tp_base
         assert base
-    dealloc = base.c_tp_dealloc
     # XXX call tp_del if necessary
-    generic_cpy_call(space, dealloc, obj)
+    base.c_tp_dealloc(obj)
     # XXX cpy decrefs the pto here but we do it in the base-dealloc
     # hopefully this does not clash with the memory model assumed in
     # extension modules
