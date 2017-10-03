@@ -75,7 +75,7 @@ def encapsulator(T, flavor='raw', dealloc=None):
 
 def ThreadState_dealloc(ts, space):
     assert space is not None
-    Py_DecRef(ts.c_dict)
+    decref(ts.c_dict)
 ThreadStateCapsule = encapsulator(PyThreadState.TO,
                                   dealloc=ThreadState_dealloc)
 
@@ -319,7 +319,7 @@ def PyThreadState_Clear(space, tstate):
     interpreter lock must be held."""
     if not space.config.translation.thread:
         raise NoThreads
-    Py_DecRef(tstate.c_dict)
+    decref(tstate.c_dict)
     tstate.c_dict = lltype.nullptr(PyObject.TO)
     space.threadlocals.leave_thread(space)
     space.getexecutioncontext().cleanup_cpyext_state()
