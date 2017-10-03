@@ -41,7 +41,6 @@ from rpython.rlib import rawrefcount
 from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
 from rpython.rlib import rstackovf
-from rpython.rlib import rgc
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.module.cpyext.cparser import CTypeSpace
 
@@ -265,7 +264,7 @@ class ApiFunction(object):
         no_gc=True means that this function is not allowed to do any operation
         which involves the GC; as a consequence, we can avoid emitting the
         wrapper. The net result is that calling this function from C is much
-        faster. This also implies @rgc.no_collect.
+        faster.
         """
         self.argtypes = argtypes
         self.restype = restype
@@ -280,7 +279,6 @@ class ApiFunction(object):
         sig = pycode.cpython_code_signature(callable.func_code)
         if no_gc:
             self.argnames = sig.argnames
-            self.callable = rgc.no_collect(self.callable)
         else:
             assert sig.argnames[0] == 'space'
             self.argnames = sig.argnames[1:]
@@ -354,7 +352,6 @@ class ApiFunction(object):
     def get_unwrapper(self):
         if self.no_gc:
             @specialize.ll()
-            @rgc.no_collect
             def unwrapper(*args):
                 # see "Handling of the GIL" above
                 tid = rthread.get_ident()

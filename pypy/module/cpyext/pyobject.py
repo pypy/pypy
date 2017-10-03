@@ -16,7 +16,6 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rawrefcount, jit
 from rpython.rlib.debug import fatalerror
-from rpython.rlib import rgc
 
 
 #________________________________________________________
@@ -315,7 +314,6 @@ def get_w_obj_and_decref(space, obj):
 def incref(space, obj):
     make_ref(space, obj)
 
-@rgc.no_collect
 def decref(obj):
     assert is_pyobj(obj)
     obj = rffi.cast(PyObject, obj)
