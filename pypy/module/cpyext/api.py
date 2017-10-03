@@ -449,6 +449,11 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         if func.__name__ in FUNCTIONS_BY_HEADER[header]:
             raise ValueError("%s already registered" % func.__name__)
         func._always_inline_ = 'try'
+        #
+        # XXX: should we @jit.dont_look_inside all the @cpython_api functions,
+        # or we should only disable some of them?
+        func._jit_look_inside_ = False
+        #
         api_function = ApiFunction(
             argtypes, restype, func,
             error=_compute_error(error, restype), gil=gil,
@@ -558,6 +563,7 @@ SYMBOLS_C = [
     'PyObject_GetBuffer', 'PyBuffer_Release',
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
     'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
+    '_Py_setfilesystemdefaultencoding',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
@@ -653,7 +659,11 @@ def build_exported_objects():
         'PyClass_Type': 'space.gettypeobject(W_ClassObject.typedef)',
         'PyStaticMethod_Type': 'space.gettypeobject(StaticMethod.typedef)',
         'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
-        'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
+        'PyClassMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCClassMethodObject.typedef)',
+        'PyGetSetDescr_Type': 'space.gettypeobject(cpyext.typeobject.W_GetSetPropertyEx.typedef)',
+        'PyMemberDescr_Type': 'space.gettypeobject(cpyext.typeobject.W_MemberDescr.typedef)',
+        'PyMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)',
+        'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCWrapperObject.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
@@ -1045,11 +1055,17 @@ def setup_init_functions(eci, prefix):
     get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
                                        [], PyTypeObjectPtr,
                                        compilation_info=eci, _nowrapper=True)
+    setdefenc = rffi.llexternal('_%s_setfilesystemdefaultencoding' % prefix,
+                                [rffi.CCHARP], lltype.Void,
+                                compilation_info=eci, _nowrapper=True)
     def init_types(space):
         from pypy.module.cpyext.typeobject import py_type_ready
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
         py_type_ready(space, get_buffer_type())
         py_type_ready(space, get_cobject_type())
         py_type_ready(space, get_capsule_type())
+        s = space.text_w(getfilesystemencoding(space))
+        setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
     _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
@@ -1315,17 +1331,20 @@ def generate_decls_and_callbacks(db, prefix=''):
     for decl in FORWARD_DECLS:
         decls[pypy_decl].append("%s;" % (decl,))
     decls[pypy_decl].append("""
-        /* hack for https://bugs.python.org/issue29943 */
-        PyAPI_FUNC(int) %s(PySliceObject *arg0,
-                           Signed arg1, Signed *arg2,
-                           Signed *arg3, Signed *arg4, Signed *arg5);
-        static int PySlice_GetIndicesEx(PySliceObject *arg0, Py_ssize_t arg1,
-                Py_ssize_t *arg2, Py_ssize_t *arg3, Py_ssize_t *arg4,
-                Py_ssize_t *arg5) {
-            return %s(arg0, arg1, arg2, arg3,
-                      arg4, arg5);
-        }
-    """ % ((mangle_name(prefix, 'PySlice_GetIndicesEx'),)*2))
+/* hack for https://bugs.python.org/issue29943 */
+
+PyAPI_FUNC(int) %s(PySliceObject *arg0,
+                    Signed arg1, Signed *arg2,
+                    Signed *arg3, Signed *arg4, Signed *arg5);
+#ifdef __GNUC__
+__attribute__((__unused__))
+#endif
+static int PySlice_GetIndicesEx(PySliceObject *arg0, Py_ssize_t arg1,
+        Py_ssize_t *arg2, Py_ssize_t *arg3, Py_ssize_t *arg4,
+        Py_ssize_t *arg5) {
+    return %s(arg0, arg1, arg2, arg3,
+                arg4, arg5);
+}""" % ((mangle_name(prefix, 'PySlice_GetIndicesEx'),)*2))
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         header = decls[header_name]
