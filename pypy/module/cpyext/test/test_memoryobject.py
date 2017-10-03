@@ -72,7 +72,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
              """
              /* Create an approximation of the buffer for a 0d ndarray */
              Py_buffer buf;
-             PyObject *str = PyBytes_FromString("hello, world.");
+             PyObject *ret, *str = PyBytes_FromString("hello, world.");
              buf.buf = PyBytes_AsString(str);
              buf.obj = str;
              buf.readonly = 1;
@@ -80,7 +80,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
              buf.itemsize = 13;
              buf.ndim = 0;
              buf.shape = NULL;
-             PyObject* ret = PyMemoryView_FromBuffer(&buf);
+             ret = PyMemoryView_FromBuffer(&buf);
              return ret;
             """)])
         result = module.create_view()

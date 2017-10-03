@@ -258,6 +258,17 @@ class AppTestBuiltinApp:
         raises(TypeError, "super(D).__get__(12)")
         raises(TypeError, "super(D).__get__(C())")
 
+    def test_super_incomplete(self):
+        """
+        class M(type):
+            def mro(cls):
+                if cls.__mro__ is None:
+                    raises(AttributeError, lambda: super(cls, cls).xxx)
+                return type.mro(cls)
+        class A(metaclass=M):
+            pass
+        """
+
     def test_classmethods_various(self):
         class C(object):
             def foo(*a): return a
