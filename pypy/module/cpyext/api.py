@@ -352,6 +352,8 @@ class ApiFunction(object):
         return wrapper
 
     def get_unwrapper(self):
+        if self.no_gc:
+            return self.callable
         names = self.argnames
         argtypesw = zip(self.argtypes,
                         [_name.startswith("w_") for _name in self.argnames])
