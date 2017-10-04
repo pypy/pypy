@@ -18,8 +18,8 @@ class AppTestOVERLOADS:
         env = os.environ
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_overloads = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_class_based_overloads(self):
         """Test functions overloaded on different C++ clases"""
@@ -57,7 +57,7 @@ class AppTestOVERLOADS:
 
         c = c_overload()
         raises(TypeError, c.__dispatch__, 'get_int', 12)
-        raises(TypeError, c.__dispatch__, 'get_int', 'does_not_exist')
+        raises(LookupError, c.__dispatch__, 'get_int', 'does_not_exist')
         assert c.__dispatch__('get_int', 'a_overload*')(a_overload()) == 42
         assert c.__dispatch__('get_int', 'b_overload*')(b_overload()) == 13
 

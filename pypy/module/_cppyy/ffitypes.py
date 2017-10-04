@@ -12,9 +12,6 @@ from pypy.module._cffi_backend import newtype
 
 class State(object):
     def __init__(self, space):
-        self.library = None
-        self.capi_calls = {}
-
         nt = newtype     # module from _cffi_backend
 
         # builtin types

@@ -4,11 +4,10 @@ import types
 import sys
 
 
-# For now, keep namespaces and classes separate as namespaces are extensible
-# with info from multiple dictionaries and do not need to bother with meta
-# classes for inheritance. Both are python classes, though, and refactoring
-# may be in order at some point.
-class CPPScope(type):
+# Metaclasses are needed to store C++ static data members as properties. Since
+# the interp-level does not support metaclasses, they are created at app-level.
+# These are the metaclass base classes:
+class CPPMetaScope(type):
     def __getattr__(self, name):
         try:
             return get_pycppitem(self, name)  # will cache on self
@@ -16,14 +15,17 @@ class CPPScope(type):
             raise AttributeError("%s object has no attribute '%s' (details: %s)" %
                                  (self, name, str(e)))
 
-class CPPNamespace(CPPScope):
-    def __dir__(cls):
-        return cls._cpp_proxy.__dir__()
+class CPPMetaNamespace(CPPMetaScope):
+    def __dir__(self):
+        return self.__cppdecl__.__dir__()
 
-class CPPClass(CPPScope):
+class CPPMetaClass(CPPMetaScope):
     pass
 
-# class CPPInstance defined in _init_pythonify()
+# namespace base class (class base class defined in _init_pythonify)
+class CPPNamespace(object):
+    __metatype__ = CPPMetaNamespace
+
 
 class CPPTemplate(object):
     def __init__(self, name, scope=None):
@@ -88,46 +90,25 @@ def make_method(meth_name, cppol):
     return method
 
 
-def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
+def make_cppnamespace(scope, name, decl):
     # build up a representation of a C++ namespace (namespaces are classes)
 
-    # create a meta class to allow properties (for static data write access)
-    metans = type(CPPNamespace)(namespace_name+'_meta', (CPPNamespace,), {})
-
-    if cppns:
-        d = {"_cpp_proxy" : cppns}
-    else:
-        d = dict()
-        def cpp_proxy_loader(cls):
-            import _cppyy
-            cpp_proxy = _cppyy._scope_byname(cls.__name__ != '::' and cls.__name__ or '')
-            del cls.__class__._cpp_proxy
-            cls._cpp_proxy = cpp_proxy
-            return cpp_proxy
-        metans._cpp_proxy = property(cpp_proxy_loader)
+    # create a metaclass to allow properties (for static data write access)
+    import _cppyy
+    ns_meta = type(name+'_meta', (CPPMetaNamespace,), {})
 
     # create the python-side C++ namespace representation, cache in scope if given
-    pycppns = metans(namespace_name, (object,), d)
+    d = {"__cppdecl__" : decl, "__cppname__" : decl.__cppname__ }
+    pyns = ns_meta(name, (CPPNamespace,), d)
     if scope:
-        setattr(scope, namespace_name, pycppns)
+        setattr(scope, name, pyns)
 
-    if build_in_full:   # if False, rely on lazy build-up
-        # insert static methods into the "namespace" dictionary
-        for func_name in cppns.get_method_names():
-            cppol = cppns.get_overload(func_name)
-            pyfunc = make_static_function(func_name, cppol)
-            setattr(pycppns, func_name, pyfunc)
-
-        # add all data members to the dictionary of the class to be created, and
-        # static ones also to the meta class (needed for property setters)
-        for dm_name in cppns.get_datamember_names():
-            cppdm = cppns.get_datamember(dm_name)
-            setattr(pycppns, dm_name, cppdm)
-            setattr(metans, dm_name, cppdm)
-
-        modname = pycppns.__name__.replace('::', '.')
-        sys.modules['_cppyy.gbl.'+modname] = pycppns
-    return pycppns
+    # install as modules to allow importing from (note naming: cppyy)
+    modname = 'cppyy.gbl'
+    if scope:
+        modname = 'cppyy.gbl.'+pyns.__cppname__.replace('::', '.')
+    sys.modules[modname] = pyns
+    return pyns
 
 def _drop_cycles(bases):
     # TODO: figure this out, as it seems to be a PyPy bug?!
@@ -148,12 +129,12 @@ def make_new(class_name):
         return instance
     return __new__
 
-def make_pycppclass(scope, class_name, final_class_name, cppclass):
+def make_cppclass(scope, class_name, final_class_name, decl):
 
     # get a list of base classes for class creation
-    bases = [get_pycppclass(base) for base in cppclass.get_base_names()]
+    bases = [get_pycppclass(base) for base in decl.get_base_names()]
     if not bases:
-        bases = [CPPInstance,]
+        bases = [CPPClass,]
     else:
         # it's technically possible that the required class now has been built
         # if one of the base classes uses it in e.g. a function interface
@@ -162,50 +143,50 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
         except KeyError:
             pass
 
-    # prepare dictionary for meta class
+    # prepare dictionary for metaclass
     d_meta = {}
 
     # prepare dictionary for python-side C++ class representation
     def dispatch(self, name, signature):
-        cppol = cppclass.dispatch(name, signature)
+        cppol = decl.dispatch(name, signature)
         return types.MethodType(make_method(name, cppol), self, type(self))
-    d_class = {"_cpp_proxy"   : cppclass,
-         "__dispatch__" : dispatch,
+    d_class = {"__cppdecl__"   : decl,
+         "__cppname__"  : decl.__cppname__,
          "__new__"      : make_new(class_name),
          }
 
     # insert (static) methods into the class dictionary
-    for name in cppclass.get_method_names():
-        cppol = cppclass.get_overload(name)
+    for name in decl.get_method_names():
+        cppol = decl.get_overload(name)
         if cppol.is_static():
             d_class[name] = make_static_function(name, cppol)
         else:
             d_class[name] = make_method(name, cppol)
 
     # add all data members to the dictionary of the class to be created, and
-    # static ones also to the meta class (needed for property setters)
-    for name in cppclass.get_datamember_names():
-        cppdm = cppclass.get_datamember(name)
+    # static ones also to the metaclass (needed for property setters)
+    for name in decl.get_datamember_names():
+        cppdm = decl.get_datamember(name)
         d_class[name] = cppdm
         if cppdm.is_static():
             d_meta[name] = cppdm
 
-    # create a meta class to allow properties (for static data write access)
+    # create a metaclass to allow properties (for static data write access)
     metabases = [type(base) for base in bases]
-    metacpp = type(CPPClass)(class_name+'_meta', _drop_cycles(metabases), d_meta)
+    metacpp = type(CPPMetaScope)(class_name+'_meta', _drop_cycles(metabases), d_meta)
 
     # create the python-side C++ class
-    pycppclass = metacpp(class_name, _drop_cycles(bases), d_class)
+    pycls = metacpp(class_name, _drop_cycles(bases), d_class)
 
     # store the class on its outer scope
-    setattr(scope, final_class_name, pycppclass)
+    setattr(scope, final_class_name, pycls)
 
     # the call to register will add back-end specific pythonizations and thus
     # needs to run first, so that the generic pythonizations can use them
     import _cppyy
-    _cppyy._register_class(pycppclass)
-    _pythonize(pycppclass)
-    return pycppclass
+    _cppyy._register_class(pycls)
+    _pythonize(pycls)
+    return pycls
 
 def make_cpptemplatetype(scope, template_name):
     return CPPTemplate(template_name, scope)
@@ -225,11 +206,14 @@ def get_pycppitem(scope, name):
     # classes
     cppitem = _cppyy._scope_byname(true_name)
     if cppitem:
+        name = true_name
+        if scope != gbl:
+            name = true_name[len(scope.__cppname__)+2:]
         if cppitem.is_namespace():
-            pycppitem = make_cppnamespace(scope, true_name, cppitem)
+            pycppitem = make_cppnamespace(scope, name, cppitem)
             setattr(scope, name, pycppitem)
         else:
-            pycppitem = make_pycppclass(scope, true_name, name, cppitem)
+            pycppitem = make_cppclass(scope, name, true_name, cppitem)
 
     # templates
     if not cppitem:
@@ -241,7 +225,7 @@ def get_pycppitem(scope, name):
     # functions
     if not cppitem:
         try:
-            cppitem = scope._cpp_proxy.get_overload(name)
+            cppitem = scope.__cppdecl__.get_overload(name)
             pycppitem = make_static_function(name, cppitem)
             setattr(scope.__class__, name, pycppitem)
             pycppitem = getattr(scope, name)      # binds function as needed
@@ -251,7 +235,7 @@ def get_pycppitem(scope, name):
     # data
     if not cppitem:
         try:
-            cppdm = scope._cpp_proxy.get_datamember(name)
+            cppdm = scope.__cppdecl__.get_datamember(name)
             setattr(scope, name, cppdm)
             if cppdm.is_static():
                 setattr(scope.__class__, name, cppdm)
@@ -369,7 +353,7 @@ def _pythonize(pyclass):
                 while i != self.end():
                     yield i.__deref__()
                     i.__preinc__()
-                i.destruct()
+                i.__destruct__()
                 raise StopIteration
             pyclass.__iter__ = __iter__
         # else: rely on numbered iteration
@@ -403,17 +387,6 @@ def _pythonize(pyclass):
         pyclass.__getitem__ = getitem
         pyclass.__len__     = return2
 
-_loaded_dictionaries = {}
-def load_reflection_info(name):
-    """Takes the name of a library containing reflection info, returns a handle
-    to the loaded library."""
-    try:
-        return _loaded_dictionaries[name]
-    except KeyError:
-        import _cppyy
-        lib = _cppyy._load_dictionary(name)
-        _loaded_dictionaries[name] = lib
-        return lib
 
 def _init_pythonify():
     # _cppyy should not be loaded at the module level, as that will trigger a
@@ -421,11 +394,11 @@ def _init_pythonify():
     # at pypy-c startup, rather than on the "import _cppyy" statement
     import _cppyy
 
-    # root of all proxy classes: CPPInstance in pythonify exists to combine the
-    # CPPClass meta class with the interp-level CPPInstanceBase
-    global CPPInstance
-    class CPPInstance(_cppyy.CPPInstanceBase):
-        __metaclass__ = CPPClass
+    # root of all proxy classes: CPPClass in pythonify exists to combine the
+    # CPPMetaScope metaclass with the interp-level CPPClassBase
+    global CPPClass
+    class CPPClass(_cppyy.CPPClassBase):
+        __metaclass__ = CPPMetaScope
         pass
 
     # class generator callback
@@ -434,15 +407,14 @@ def _init_pythonify():
     # function generator callback
     _cppyy._set_function_generator(fngen_callback)
 
-    # user interface objects (note the two-step of not calling scope_byname here:
-    # creation of global functions may cause the creation of classes in the global
-    # namespace, so gbl must exist at that point to cache them)
+    # user interface objects
     global gbl
-    gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
-    gbl.__doc__ = "Global C++ namespace."
+    gbl = make_cppnamespace(None, 'gbl', _cppyy._scope_byname(''))
+    gbl.__module__  = 'cppyy'
+    gbl.__doc__     = 'Global C++ namespace.'
 
     # pre-create std to allow direct importing
-    gbl.std = make_cppnamespace(None, "std", None, False)
+    gbl.std = make_cppnamespace(gbl, 'std', _cppyy._scope_byname('std'))
 
     # install a type for enums to refer to
     # TODO: this is correct for C++98, not for C++11 and in general there will
@@ -454,10 +426,6 @@ def _init_pythonify():
 
     # install for user access
     _cppyy.gbl = gbl
-
-    # install as modules to allow importing from
-    sys.modules['_cppyy.gbl'] = gbl
-    sys.modules['_cppyy.gbl.std'] = gbl.std
 
 # user-defined pythonizations interface
 _pythonizations = {}
