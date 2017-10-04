@@ -548,7 +548,7 @@ def init_typeobject(space):
 def subtype_dealloc(obj):
     pto = obj.c_ob_type
     base = pto
-    this_func_ptr = ll_subtype_dealloc
+    this_func_ptr = subtype_dealloc.api_func.get_raw_llhelper()
     # This wrapper is created on a specific type, call it w_A.
     # We wish to call the dealloc function from one of the base classes of w_A,
     # the first of which is not this function itself.
@@ -567,9 +567,6 @@ def subtype_dealloc(obj):
     # hopefully this does not clash with the memory model assumed in
     # extension modules
 
-# XXX
-ll_subtype_dealloc = llhelper(subtype_dealloc.api_func.functype,
-                              subtype_dealloc.api_func.callable)
 
 @slot_function([PyObject, Py_ssize_tP], lltype.Signed, error=CANNOT_FAIL)
 def bf_segcount(space, w_obj, ref):

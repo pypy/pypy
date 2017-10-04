@@ -295,6 +295,11 @@ class ApiFunction(object):
         def get_llhelper(space):
             return llhelper(self.functype, self.get_wrapper(space))
         self.get_llhelper = get_llhelper
+        #
+        def get_raw_llhelper():
+            assert self.no_gc, 'Please call get_llhelper'
+            return llhelper(self.functype, self.callable)
+        self.get_raw_llhelper = get_raw_llhelper
 
     def _freeze_(self):
         return True
