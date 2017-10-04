@@ -54,19 +54,20 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@slot_function([PyObject], lltype.Void)
-def PyObject_dealloc(space, obj):
-    return _dealloc(space, obj)
-
-def _dealloc(space, obj):
+@slot_function([PyObject], lltype.Void, no_gc=True)
+def PyObject_dealloc(obj):
     # This frees an object after its refcount dropped to zero, so we
     # assert that it is really zero here.
     assert obj.c_ob_refcnt == 0
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
-    generic_cpy_call(space, pto.c_tp_free, obj_voidp)
+    pto.c_tp_free(obj_voidp)
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         decref(rffi.cast(PyObject, pto))
+
+def _dealloc(space, obj):
+    ll_PyObject_dealloc = PyObject_dealloc.api_func.get_raw_llhelper()
+    return generic_cpy_call(space, ll_PyObject_dealloc, obj)
 
 @cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
 def _PyObject_GC_New(space, type):
