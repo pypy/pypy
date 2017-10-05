@@ -115,7 +115,8 @@ def str_decode_ascii(s, slen, errors, final, errorhandler):
     try:
         rutf8.check_ascii(s, slen)
         return s, slen, len(s)
-    except rutf8.AsciiCheckError:
+    except rutf8.CheckError:
+        raise Exception("foo")
         return rutf8.str_decode_ascii(s, slen, errors, errorhandler)
 
 # XXX wrappers, think about speed
