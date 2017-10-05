@@ -32,14 +32,12 @@ class W_UnicodeObject(W_Root):
     _immutable_fields_ = ['_utf8']
 
     @enforceargs(utf8str=str)
-    def __init__(self, utf8str, length, ucs4str=None):
+    def __init__(self, utf8str, length):
         assert isinstance(utf8str, str)
         assert length >= 0
-        if ucs4str is not None:
-            assert isinstance(ucs4str, unicode)
         self._utf8 = utf8str
         self._length = length
-        self._ucs4 = ucs4str
+        self._index_storage = None
         if not we_are_translated():
             assert rutf8.check_utf8(utf8str, allow_surrogates=True) == length
 
@@ -636,12 +634,15 @@ class W_UnicodeObject(W_Root):
     descr_rmul = descr_mul
 
     def _getitem_result(self, space, index):
-        if self._ucs4 is None:
-            self._ucs4 = self._utf8.decode('utf-8')
-        try:
-            return W_UnicodeObject(self._ucs4[index].encode('utf-8'), 1)
-        except IndexError:
+        if index >= self._length:
             raise oefmt(space.w_IndexError, "string index out of range")
+        if self._index_storage is None:
+            self._index_storage = rutf8.create_utf8_index_storage(self._utf8,
+                self._length)
+        start = rutf8.codepoint_position_at_index(self._utf8,
+            self._index_storage, index)
+        end = rutf8.next_codepoint_pos(self._utf8, start)
+        return W_UnicodeObject(self._utf8[start:end], 1)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_rjust(self, space, width, w_fillchar):
