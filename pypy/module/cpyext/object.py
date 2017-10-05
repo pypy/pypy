@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, from_ref, Py_IncRef, decref,
+    PyObject, PyObjectP, from_ref, Py_IncRef, decref, incref,
     get_typedescr)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
@@ -40,19 +40,32 @@ def PyObject_Free(ptr):
 def _PyObject_New(space, type):
     return _PyObject_NewVar(space, type, 0)
 
+def _VAR_SIZE(typeobj, nitems):
+    # equivalent to _PyObject_VAR_SIZE
+    SIZEOF_VOID_P = rffi.sizeof(rffi.VOIDP)
+    return (typeobj.c_tp_basicsize +
+            nitems * typeobj.c_tp_itemsize +
+            (SIZEOF_VOID_P - 1)) & ~(SIZEOF_VOID_P - 1)
+
 @cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
-def _PyObject_NewVar(space, type, itemcount):
-    w_type = from_ref(space, rffi.cast(PyObject, type))
-    assert isinstance(w_type, W_TypeObject)
-    typedescr = get_typedescr(w_type.layout.typedef)
-    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
-    #py_obj.c_ob_refcnt = 0 --- will be set to 1 again by PyObject_Init{Var}
-    if type.c_tp_itemsize == 0:
-        w_obj = PyObject_Init(space, py_obj, type)
-    else:
-        py_objvar = rffi.cast(PyVarObject, py_obj)
-        w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
-    return py_obj
+def _PyObject_NewVar(space, tp, nitems):
+    size = _VAR_SIZE(tp, nitems)
+    assert size >= rffi.sizeof(PyObject.TO)
+    buf = lltype.malloc(rffi.VOIDP.TO, size,
+                        flavor='raw', zero=True,
+                        add_memory_pressure=True) # XXX add_memory_pressure?
+    pyobj = rffi.cast(PyObject, buf)
+    # XXX should we do this?
+    ## if (pyobj == NULL)
+    ##     return PyErr_NoMemory()
+    #
+    pyobj.c_ob_refcnt = 1 # why do we need this?
+    #
+    # XXX: incref tp? In the previous version, this was done by
+    # typedescr.alllocate(); however, CPython doesn't.
+    #incref(space, tp)
+    PyObject_InitVar(space, pyobj, tp, nitems)
+    return pyobj
 
 @slot_function([PyObject], lltype.Void, no_gc=True)
 def PyObject_dealloc(obj):
