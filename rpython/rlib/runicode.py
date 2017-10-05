@@ -95,17 +95,17 @@ def is_narrow_host():
 def default_unicode_error_decode(errors, encoding, msg, s,
                                  startingpos, endingpos):
     if errors == 'replace':
-        return u'\ufffd', endingpos
+        return u'\ufffd'.encode('utf8'), endingpos
     if errors == 'ignore':
-        return u'', endingpos
+        return '', endingpos
     raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
 
 def default_unicode_error_encode(errors, encoding, msg, u,
                                  startingpos, endingpos):
     if errors == 'replace':
-        return u'?', None, endingpos
+        return '?', None, endingpos
     if errors == 'ignore':
-        return u'', None, endingpos
+        return '', None, endingpos
     raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
 # ____________________________________________________________
