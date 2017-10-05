@@ -626,7 +626,7 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
 @unwrap_spec(utf8='utf8', errors='text_or_none')
 def charmap_encode(space, utf8, errors="strict", w_mapping=None):
     from pypy.interpreter.unicodehelper import EncodeWrapper
-    XXXXX
+    raise Exception("foo")
 
     if errors is None:
         errors = 'strict'
@@ -646,6 +646,7 @@ def charmap_encode(space, utf8, errors="strict", w_mapping=None):
 @unwrap_spec(chars='utf8')
 def charmap_build(space, chars):
     # XXX CPython sometimes uses a three-level trie
+    raise Exception("foo")
     XXXXXX
     w_charmap = space.newdict()
     pos = 0
