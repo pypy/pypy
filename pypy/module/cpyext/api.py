@@ -179,7 +179,7 @@ class CannotFail(object):
     pass
 CANNOT_FAIL = CannotFail()
 
-# The same function can be called in three different contexts:
+# The same function can be called in two different contexts:
 # (1) from C code
 # (2) from RPython code, for example in the implementation of another function
 #     or in tests.
