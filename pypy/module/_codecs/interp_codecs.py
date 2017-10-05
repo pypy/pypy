@@ -443,7 +443,7 @@ if hasattr(runicode, 'str_decode_mbcs'):
 # "allow_surrogates=True"
 @unwrap_spec(utf8='utf8', errors='text_or_none')
 def utf_8_encode(space, utf8, errors="strict"):
-    XXXX
+    raise Exception('foo')
     return space.newtuple([space.newbytes(utf8), space.newint(utf8len)])
 #@unwrap_spec(uni=unicode, errors='text_or_none')
 #def utf_8_encode(space, uni, errors="strict"):
