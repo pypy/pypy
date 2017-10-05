@@ -1280,8 +1280,9 @@ def unicode_encode_ucs1_helper(p, size, errors,
             collend = pos+1
             while collend < len(p) and ord(p[collend]) >= limit:
                 collend += 1
-            ru, rs, pos = errorhandler(errors, encoding, reason, p,
+            ru, pos = errorhandler(errors, encoding, reason, p,
                                        collstart, collend)
+            rs = None
             if rs is not None:
                 # py3k only
                 result.append(rs)

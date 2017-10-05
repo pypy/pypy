@@ -126,7 +126,7 @@ class DecodeWrapper(object):
         self.orig = handler
 
     def handle(self, errors, encoding, msg, s, pos, endpos):
-        s, p, lgt = self.orig(errors, encoding, msg, s, pos, endpos)
+        s, p = self.orig(errors, encoding, msg, s, pos, endpos)
         return s.decode("utf8"), p
 
 class EncodeWrapper(object):
@@ -134,8 +134,7 @@ class EncodeWrapper(object):
         self.orig = handler
 
     def handle(self, errors, encoding, msg, s, pos, endpos):
-        s, rs, p, lgt = self.orig(errors, encoding, msg, s.encode("utf8"), pos, endpos)
-        return s, rs, p
+        return self.orig(errors, encoding, msg, s.encode("utf8"), pos, endpos)
 
 # some irregular interfaces
 def str_decode_utf8(s, slen, errors, final, errorhandler):

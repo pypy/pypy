@@ -66,7 +66,7 @@ class CodecState(object):
                             "position %d from error handler out of bounds",
                             newpos)
             w_replace = space.convert_to_w_unicode(w_replace)
-            return w_replace._utf8, newpos, w_replace._length
+            return w_replace._utf8, newpos
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):
@@ -443,8 +443,7 @@ if hasattr(runicode, 'str_decode_mbcs'):
 # "allow_surrogates=True"
 @unwrap_spec(utf8='utf8', errors='text_or_none')
 def utf_8_encode(space, utf8, errors="strict"):
-    raise Exception('foo')
-    return space.newtuple([space.newbytes(utf8), space.newint(utf8len)])
+    return space.newtuple([space.newbytes(utf8), space.newint(rutf8.check_utf8(utf8))])
 #@unwrap_spec(uni=unicode, errors='text_or_none')
 #def utf_8_encode(space, uni, errors="strict"):
 #    if errors is None:

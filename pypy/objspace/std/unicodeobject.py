@@ -776,31 +776,28 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
 
 
 def encode_object(space, w_object, encoding, errors):
+    w_encoder = None
     if encoding is None:
         # Get the encoder functions as a wrapped object.
         # This lookup is cached.
         w_encoder = space.sys.get_w_default_encoder()
-    else:
-        if errors is None or errors == 'strict':
-            if encoding == 'ascii':
-                s = space.utf8_w(w_object)
-                try:
-                    rutf8.check_ascii(s)
-                except rutf8.CheckError as a:
-                    eh = unicodehelper.encode_error_handler(space)
-                    u_len = w_object._len()
-                    eh(None, "ascii", "ordinal not in range(128)", s, u_len,
-                        a.pos, a.pos + 1)
-                    assert False, "always raises"
-                return space.newbytes(s)
-            if encoding == 'utf-8':
-                u = space.utf8_w(w_object)
-                return space.newbytes(u)
-                # XXX is this enough?
-                #eh = unicodehelper.raise_unicode_exception_encode
-                #return space.newbytes(unicode_encode_utf_8(
-                #        u, len(u), None, errorhandler=eh,
-                #        allow_surrogates=True))
+    if errors is None or errors == 'strict':
+        if ((encoding is None and space.sys.defaultencoding == 'ascii') or
+             encoding == 'ascii'):
+            s = space.utf8_w(w_object)
+            try:
+                rutf8.check_ascii(s)
+            except rutf8.CheckError as a:
+                eh = unicodehelper.encode_error_handler(space)
+                u_len = w_object._len()
+                eh(None, "ascii", "ordinal not in range(128)", s, u_len,
+                    a.pos, a.pos + 1)
+                assert False, "always raises"
+            return space.newbytes(s)
+        if ((encoding is None and space.sys.defaultencoding == 'utf8') or
+             encoding == 'utf-8'):
+            return space.newbytes(space.utf8_w(w_object))
+    if w_encoder is None:
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
     if errors is None:
@@ -821,7 +818,6 @@ def decode_object(space, w_obj, encoding, errors):
         encoding = getdefaultencoding(space)
     if errors is None or errors == 'strict':
         if encoding == 'ascii':
-            # XXX error handling
             s = space.charbuf_w(w_obj)
             try:
                 rutf8.check_ascii(s)
