@@ -95,6 +95,8 @@ def prev_codepoint_pos(code, pos):
     """
     pos = r_uint(pos)
     pos -= 1
+    if pos >= len(code):     # for the case where pos - 1 == len(code):
+        return pos           # assume there is an extra '\x00' character
     chr1 = ord(code[pos])
     if chr1 <= 0x7F:
         return pos
@@ -347,6 +349,16 @@ def check_utf8(s, allow_surrogates=False):
     assert pos == len(s)
     return pos - continuation_bytes
 
+@jit.elidable
+def surrogate_in_utf8(value):
+    """Check if the UTF-8 byte string 'value' contains a surrogate.
+    The 'value' argument must be otherwise correctly formed for UTF-8.
+    """
+    for i in range(len(value) - 2):
+        if value[i] == '\xed' and value[i + 1] >= '\xa0':
+            return True
+    return False
+
 
 UTF8_INDEX_STORAGE = lltype.GcArray(lltype.Struct(
     'utf8_loc',
@@ -367,9 +379,9 @@ def create_utf8_index_storage(utf8, utf8len):
     """ Create an index storage which stores index of each 4th character
     in utf8 encoded unicode string.
     """
-    if len(utf8) == utf8len <= ASCII_INDEX_STORAGE_BLOCKS * 64:
+    if len(utf8) == utf8len < ASCII_INDEX_STORAGE_BLOCKS * 64:
         return ASCII_INDEX_STORAGE
-    arraysize = (utf8len + 63) // 64
+    arraysize = utf8len // 64 + 1
     storage = lltype.malloc(UTF8_INDEX_STORAGE, arraysize)
     baseindex = 0
     current = 0
@@ -377,10 +389,14 @@ def create_utf8_index_storage(utf8, utf8len):
         storage[current].baseindex = baseindex
         next = baseindex
         for i in range(16):
-            next = next_codepoint_pos(utf8, next)
+            if utf8len == 0:
+                next += 1      # assume there is an extra '\x00' character
+            else:
+                next = next_codepoint_pos(utf8, next)
             storage[current].ofs[i] = chr(next - baseindex)
             utf8len -= 4
-            if utf8len <= 0:
+            if utf8len < 0:
+                assert current + 1 == len(storage)
                 break
             next = next_codepoint_pos(utf8, next)
             next = next_codepoint_pos(utf8, next)

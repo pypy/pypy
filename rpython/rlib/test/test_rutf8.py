@@ -93,8 +93,17 @@ def test_utf8_index_storage(u):
                 ord(item))
 
 @given(strategies.text())
+@example(u'x' * 64 * 5)
+@example(u'x' * (64 * 5 - 1))
 def test_codepoint_position_at_index(u):
     index = rutf8.create_utf8_index_storage(u.encode('utf8'), len(u))
-    for i in range(len(u)):
+    for i in range(len(u) + 1):
         assert (rutf8.codepoint_position_at_index(u.encode('utf8'), index, i) ==
                 len(u[:i].encode('utf8')))
+
+@given(strategies.lists(strategies.characters()))
+def test_surrogate_in_utf8(unichars):
+    uni = u''.join(unichars).encode('utf-8')
+    result = rutf8.surrogate_in_utf8(uni)
+    expected = any(uch for uch in unichars if u'\ud800' <= uch <= u'\udfff')
+    assert result == expected
