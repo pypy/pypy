@@ -113,7 +113,7 @@ def utf8_encode_ascii(utf8, utf8len, errors, errorhandler):
 
 def str_decode_ascii(s, slen, errors, final, errorhandler):
     try:
-        rutf8.check_ascii(s, slen)
+        rutf8.check_ascii(s)
         return s, slen, len(s)
     except rutf8.CheckError:
         raise Exception("foo")
