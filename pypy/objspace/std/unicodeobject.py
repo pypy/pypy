@@ -86,26 +86,13 @@ class W_UnicodeObject(W_Root):
     def readbuf_w(self, space):
         # XXX for now
         from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
-        XXX - FIXME
-#<<<<<<< /home/arigo/hg/pypy/default/pypy/objspace/std/unicodeobject.py
-#        v = self._utf8.decode("utf8")
-#        builder = StringBuilder(len(v) * UNICODE_SIZE)
-#        for unich in v:
-#            pack_unichar(unich, builder)
-#        return StringBuffer(builder.build())
-#||||||| /tmp/unicodeobject~base.7TSwHV.py
-#        builder = StringBuilder(len(self._value) * UNICODE_SIZE)
-#        for unich in self._value:
-#            pack_unichar(unich, builder)
-#        return StringBuffer(builder.build())
-#=======
-#        buf = MutableStringBuffer(len(self._value) * UNICODE_SIZE)
-#        pos = 0
-#        for unich in self._value:
-#            pack_unichar(unich, buf, pos)
-#            pos += UNICODE_SIZE
-#        return StringBuffer(buf.finish())
-#>>>>>>> /tmp/unicodeobject~other.TRKznC.py
+        v = self._utf8.decode("utf8")
+        builder = MutableStringBuffer(len(v) * UNICODE_SIZE)
+        pos = 0
+        for unich in v:
+            pack_unichar(unich, builder, pos)
+            pos += UNICODE_SIZE
+        return StringBuffer(builder.finish())
 
     def writebuf_w(self, space):
         raise oefmt(space.w_TypeError,
@@ -798,11 +785,10 @@ def encode_object(space, w_object, encoding, errors):
                 s = space.utf8_w(w_object)
                 try:
                     rutf8.check_ascii(s)
-                except rutf8.AsciiCheckError as a:
-                    XXX  # must raise OperationError(w_UnicodeEncodeError)
-                    XXX  # maybe with eh = unicodehelper.encode_error_handler(space)?
-                    eh = unicodehelper.raise_unicode_exception_encode
-                    eh(None, "ascii", "ordinal not in range(128)", s,
+                except rutf8.CheckError as a:
+                    eh = unicodehelper.encode_error_handler(space)
+                    u_len = w_object._len()
+                    eh(None, "ascii", "ordinal not in range(128)", s, u_len,
                         a.pos, a.pos + 1)
                     assert False, "always raises"
                 return space.newbytes(s)

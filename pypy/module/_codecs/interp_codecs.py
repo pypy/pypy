@@ -39,7 +39,7 @@ class CodecState(object):
                 w_input = space.newbytes(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                w_input = space.newutf8(input, -1)
+                w_input = space.newutf8(input, rutf8.check_utf8(input))
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -73,13 +73,7 @@ class CodecState(object):
         return self._make_errorhandler(space, True)
 
     def make_encode_errorhandler(self, space):
-        errorhandler = self._make_errorhandler(space, False)
-        def encode_call_errorhandler(errors, encoding, reason, input, startpos,
-                                     endpos):
-            replace, newpos, lgt = errorhandler(errors, encoding, reason, input,
-                                           startpos, endpos)
-            return replace, None, newpos, lgt
-        return encode_call_errorhandler
+        return self._make_errorhandler(space, False)
 
     def get_unicodedata_handler(self, space):
         if self.unicodedata_handler:
@@ -384,6 +378,7 @@ def make_encoder_wrapper(name):
         state = space.fromcache(CodecState)
         func = getattr(unicodehelper, rname)
         utf8len = w_arg._length
+        # XXX deal with func() returning length or not
         result = func(w_arg._utf8, utf8len,
             errors, state.encode_error_handler)
         return space.newtuple([space.newbytes(result), space.newint(utf8len)])

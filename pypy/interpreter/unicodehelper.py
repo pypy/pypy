@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import runicode, rutf8
+from rpython.rlib.rstring import StringBuilder
 from pypy.module._codecs import interp_codecs
 
 @specialize.memo()
@@ -19,11 +20,11 @@ def decode_error_handler(space):
 @specialize.memo()
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
-    def raise_unicode_exception_encode(errors, encoding, msg, u,
+    def raise_unicode_exception_encode(errors, encoding, msg, u, u_len,
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
-                                             space.newunicode(u),
+                                             space.newutf8(u, u_len),
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
@@ -95,9 +96,20 @@ def decode_utf8(space, s):
 def utf8_encode_ascii(utf8, utf8len, errors, errorhandler):
     if len(utf8) == utf8len:
         return utf8
-    return rutf8.utf8_encode_ascii(utf8, errors, 'ascii',
-                                   'ordinal not in range (128)',
-                                   errorhandler)
+    assert False, "implement"
+    b = StringBuilder(utf8len)
+    i = 0
+    lgt = 0
+    while i < len(utf8):
+        c = ord(utf8[i])
+        if c <= 0x7F:
+            b.append(chr(c))
+            lgt += 1
+            i += 1
+        else:
+            utf8_repl, newpos, length = errorhandler(errors, 'ascii', 
+                'ordinal not in range (128)', utf8, lgt, lgt + 1)
+    return b.build(), lgt
 
 def str_decode_ascii(s, slen, errors, final, errorhandler):
     try:
