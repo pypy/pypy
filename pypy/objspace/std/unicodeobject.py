@@ -835,7 +835,7 @@ def decode_object(space, w_obj, encoding, errors):
             try:
                 lgt = rutf8.check_utf8(s, allow_surrogates=True)
             except rutf8.CheckError:
-                XXX
+                assert False, "fix in the future"
                 eh = unicodehelper.decode_error_handler(space)
                 eh(None, 'utf8', e.msg, s, e.startpos, e.endpos)
                 assert False, "has to raise"
