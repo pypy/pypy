@@ -37,7 +37,7 @@ class W_UnicodeObject(W_Root):
         assert length >= 0
         self._utf8 = utf8str
         self._length = length
-        self._index_storage = None
+        self._index_storage = rutf8.null_storage()
         if not we_are_translated():
             assert rutf8.check_utf8(utf8str, allow_surrogates=True) == length
 
@@ -521,6 +521,8 @@ class W_UnicodeObject(W_Root):
                 if keepends:
                     eol = pos
                     lgt += line_end_chars
+            assert eol >= 0
+            assert sol >= 0
             strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
         return space.newlist(strs_w)
 
@@ -636,7 +638,7 @@ class W_UnicodeObject(W_Root):
     def _getitem_result(self, space, index):
         if index >= self._length:
             raise oefmt(space.w_IndexError, "string index out of range")
-        if self._index_storage is None:
+        if self._index_storage == rutf8.null_storage():
             self._index_storage = rutf8.create_utf8_index_storage(self._utf8,
                 self._length)
         start = rutf8.codepoint_position_at_index(self._utf8,

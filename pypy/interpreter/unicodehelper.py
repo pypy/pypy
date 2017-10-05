@@ -70,7 +70,7 @@ def check_utf8(space, string):
     try:
         length = rutf8.check_utf8(string, allow_surrogates=True)
     except rutf8.CheckError as e:
-        XXX
+        raise Exception("foo")
         decode_error_handler(space)('strict', 'utf8', e.msg, string, e.startpos,
                                     e.endpos)
         raise False, "unreachable"

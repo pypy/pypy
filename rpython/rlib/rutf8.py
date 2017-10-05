@@ -18,7 +18,7 @@ extra code in the middle for error handlers and so on.
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper.lltypesystem import lltype
 
 
@@ -81,6 +81,7 @@ def next_codepoint_pos(code, pos):
     Assumes valid utf8.  'pos' must be before the end of the string.
     """
     chr1 = ord(code[pos])
+    assert pos >= 0
     if chr1 <= 0x7F:
         return pos + 1
     if chr1 <= 0xDF:
@@ -93,20 +94,24 @@ def prev_codepoint_pos(code, pos):
     """Gives the position of the previous codepoint.
     'pos' must not be zero.
     """
-    pos = r_uint(pos)
-    pos -= 1
+    pos -= 1 # ruint
     if pos >= len(code):     # for the case where pos - 1 == len(code):
+        assert pos >= 0
         return pos           # assume there is an extra '\x00' character
     chr1 = ord(code[pos])
     if chr1 <= 0x7F:
+        assert pos >= 0
         return pos
     pos -= 1
     if ord(code[pos]) >= 0xC0:
+        assert pos >= 0
         return pos
     pos -= 1
     if ord(code[pos]) >= 0xC0:
+        assert pos >= 0
         return pos
     pos -= 1
+    assert pos >= 0
     return pos
 
 def compute_length_utf8(s):
@@ -375,6 +380,9 @@ for _i in range(ASCII_INDEX_STORAGE_BLOCKS):
     for _j in range(16):
         ASCII_INDEX_STORAGE[_i].ofs[_j] = chr(_j * 4 + 1)
 
+def null_storage():
+    return lltype.nullptr(UTF8_INDEX_STORAGE)
+
 def create_utf8_index_storage(utf8, utf8len):
     """ Create an index storage which stores index of each 4th character
     in utf8 encoded unicode string.
@@ -421,6 +429,7 @@ def codepoint_position_at_index(utf8, storage, index):
     if index == 0:
         return prev_codepoint_pos(utf8, bytepos)
     elif index == 1:
+        assert bytepos >= 0
         return bytepos
     elif index == 2:
         return next_codepoint_pos(utf8, bytepos)

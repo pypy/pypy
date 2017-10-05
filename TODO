@@ -1,1 +1,2 @@
 * unskip tests in test_unicodeobject.py
+* rutf8.prev_codepoint_pos should use r_uint

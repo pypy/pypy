@@ -7,7 +7,7 @@ from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, not_rpython
-from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH
+from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH, intmask
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
@@ -32,7 +32,9 @@ def _incr(s, pos, isutf8):
     if isutf8:
         from rpython.rlib.rutf8 import next_codepoint_pos
         assert pos >= 0
-        return next_codepoint_pos(s, pos)
+        r = next_codepoint_pos(s, pos)
+        assert r >= 0
+        return r
     else:
         return pos + 1
 
@@ -42,7 +44,7 @@ def _decr(s, pos, isutf8):
         from rpython.rlib.rutf8 import prev_codepoint_pos
         if pos <= 0:
             return -1
-        return prev_codepoint_pos(s, pos)
+        return intmask(prev_codepoint_pos(s, pos))
     else:
         return pos - 1
 
