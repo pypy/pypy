@@ -1,8 +1,10 @@
 import os
 from rpython.rlib.rsiphash import siphash24, _siphash24, choosen_seed
 from rpython.rlib.rsiphash import initialize_from_env, enable_siphash24
+from rpython.rlib.rsiphash import ll_hash_string_siphash24
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rarithmetic import intmask
+from rpython.rtyper.annlowlevel import llstr, llunicode
 from rpython.rtyper.lltypesystem import llmemory, rffi
 from rpython.translator.c.test.test_genc import compile
 
@@ -38,13 +40,25 @@ def check(s):
                       test_misaligned_path=True):
         x = siphash24(s)
         y = _siphash24(llmemory.cast_ptr_to_adr(rffi.ptradd(q, 1)), len(s))
+        z = ll_hash_string_siphash24(llstr(s))
     rffi.free_charp(q)
     assert x == y
+    assert z == intmask(x)
     return x
 
 def test_siphash24():
     for expected, string in CASES:
         assert check(string) == expected
+
+def check_latin1(s, expected):
+    with choosen_seed(0x8a9f065a358479f4, 0x11cb1e9ee7f40e1f,
+                      test_misaligned_path=True):
+        z = ll_hash_string_siphash24(llunicode(s))
+    assert z == intmask(expected)
+
+def test_siphash24_latin1_unicode():
+    for expected, string in CASES:
+        check_latin1(string.decode('latin1'), expected)
 
 def test_fix_seed():
     old_val = os.environ.get('PYTHONHASHSEED', None)
