@@ -49,23 +49,35 @@ def _VAR_SIZE(typeobj, nitems):
 
 @cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def _PyObject_NewVar(space, tp, nitems):
-    size = _VAR_SIZE(tp, nitems)
-    assert size >= rffi.sizeof(PyObject.TO)
-    buf = lltype.malloc(rffi.VOIDP.TO, size,
-                        flavor='raw', zero=True,
-                        add_memory_pressure=True) # XXX add_memory_pressure?
-    pyobj = rffi.cast(PyObject, buf)
-    # XXX should we do this?
-    ## if (pyobj == NULL)
-    ##     return PyErr_NoMemory()
-    #
-    pyobj.c_ob_refcnt = 1 # why do we need this?
-    #
-    # XXX: incref tp? In the previous version, this was done by
-    # typedescr.alllocate(); however, CPython doesn't.
-    #incref(space, tp)
-    PyObject_InitVar(space, pyobj, tp, nitems)
-    return pyobj
+    w_type = from_ref(space, rffi.cast(PyObject, tp))
+    assert isinstance(w_type, W_TypeObject)
+    typedescr = get_typedescr(w_type.layout.typedef)
+    py_obj = typedescr.allocate(space, w_type, itemcount=nitems)
+    #py_obj.c_ob_refcnt = 0 --- will be set to 1 again by PyObject_Init{Var}
+    if tp.c_tp_itemsize == 0:
+        w_obj = PyObject_Init(space, py_obj, tp)
+    else:
+        py_objvar = rffi.cast(PyVarObject, py_obj)
+        w_obj = PyObject_InitVar(space, py_objvar, tp, nitems)
+    return py_obj
+
+    ## size = _VAR_SIZE(tp, nitems)
+    ## assert size >= rffi.sizeof(PyObject.TO)
+    ## buf = lltype.malloc(rffi.VOIDP.TO, size,
+    ##                     flavor='raw', zero=True,
+    ##                     add_memory_pressure=True) # XXX add_memory_pressure?
+    ## pyobj = rffi.cast(PyObject, buf)
+    ## # XXX should we do this?
+    ## ## if (pyobj == NULL)
+    ## ##     return PyErr_NoMemory()
+    ## #
+    ## pyobj.c_ob_refcnt = 1 # why do we need this?
+    ## #
+    ## # XXX: incref tp? In the previous version, this was done by
+    ## # typedescr.alllocate(); however, CPython doesn't.
+    ## #incref(space, tp)
+    ## PyObject_InitVar(space, pyobj, tp, nitems)
+    ## return pyobj
 
 @slot_function([PyObject], lltype.Void, no_gc=True)
 def PyObject_dealloc(obj):
