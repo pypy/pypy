@@ -52,6 +52,7 @@ def select_random_seed(s):
     """'s' is a string of length 16"""
     seed.k0l = _decode64(s)
     seed.k1l = _decode64(s[8:16])
+    _update_prebuilt_hashes()
 
 
 random_ctx = rurandom.init_urandom()
@@ -175,16 +176,22 @@ def ll_hash_string_siphash24(ll_s):
 
 
 @contextmanager
-def choosen_seed(new_k0, new_k1, test_misaligned_path=False):
+def choosen_seed(new_k0, new_k1, test_misaligned_path=False,
+                 test_prebuilt=False):
     """For tests."""
-    global misaligned_is_fine
-    old = seed.k0l, seed.k1l, misaligned_is_fine
+    global misaligned_is_fine, seed
+    old = seed, misaligned_is_fine
+    seed = Seed()
     seed.k0l = r_uint64(new_k0)
     seed.k1l = r_uint64(new_k1)
+    if test_prebuilt:
+        _update_prebuilt_hashes()
+    else:
+        seed.bound_prebuilt_size = 0
     if test_misaligned_path:
         misaligned_is_fine = False
     yield
-    seed.k0l, seed.k1l, misaligned_is_fine = old
+    seed, misaligned_is_fine = old
 
 magic0 = r_uint64(0x736f6d6570736575)
 magic1 = r_uint64(0x646f72616e646f6d)
@@ -220,6 +227,17 @@ def _siphash24(addr_in, size, SZ=1):
     """Takes an address pointer and a size.  Returns the hash as a r_uint64,
     which can then be casted to the expected type."""
 
+    if BIG_ENDIAN:
+        index = SZ - 1
+    else:
+        index = 0
+    if size < seed.bound_prebuilt_size:
+        if size <= 0:
+            return seed.hash_empty
+        else:
+            t = rarithmetic.intmask(llop.raw_load(rffi.UCHAR, addr_in, index))
+            return seed.hash_single[t]
+
     k0 = seed.k0l
     k1 = seed.k1l
     b = r_uint64(size) << 56
@@ -230,10 +248,6 @@ def _siphash24(addr_in, size, SZ=1):
 
     direct = (SZ == 1) and (misaligned_is_fine or
                  (rffi.cast(lltype.Signed, addr_in) & 7) == 0)
-    if BIG_ENDIAN:
-        index = SZ - 1
-    else:
-        index = 0
     if direct:
         assert SZ == 1
         while size >= 8:
@@ -311,3 +325,17 @@ def siphash24(s):
     """
     with rffi.scoped_nonmovingbuffer(s) as p:
         return _siphash24(llmemory.cast_ptr_to_adr(p), len(s))
+
+
+# Prebuilt hashes are precomputed here
+def _update_prebuilt_hashes():
+    seed.bound_prebuilt_size = 0
+    with lltype.scoped_alloc(rffi.CCHARP.TO, 1) as p:
+        addr = llmemory.cast_ptr_to_adr(p)
+        seed.hash_single = [r_uint64(0)] * 256
+        for i in range(256):
+            p[0] = chr(i)
+            seed.hash_single[i] = _siphash24(addr, 1)
+        seed.hash_empty = _siphash24(addr, 0)
+    seed.bound_prebuilt_size = 2
+_update_prebuilt_hashes()

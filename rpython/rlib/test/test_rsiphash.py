@@ -50,15 +50,19 @@ def test_siphash24():
     for expected, string in CASES:
         assert check(string) == expected
 
-def check_latin1(s, expected):
+def check_latin1(s, expected, test_prebuilt=False):
     with choosen_seed(0x8a9f065a358479f4, 0x11cb1e9ee7f40e1f,
-                      test_misaligned_path=True):
+                      test_misaligned_path=True, test_prebuilt=test_prebuilt):
         z = ll_hash_string_siphash24(llunicode(s))
     assert z == intmask(expected)
 
 def test_siphash24_latin1_unicode():
     for expected, string in CASES:
         check_latin1(string.decode('latin1'), expected)
+
+def test_siphash24_latin1_unicode_prebuilt():
+    for expected, string in CASES:
+        check_latin1(string.decode('latin1'), expected, test_prebuilt=True)
 
 def test_fix_seed():
     old_val = os.environ.get('PYTHONHASHSEED', None)
