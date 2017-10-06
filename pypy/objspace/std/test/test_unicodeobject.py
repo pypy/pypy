@@ -1010,6 +1010,9 @@ class AppTestUnicodeString:
         raises(TypeError, "str(b'', encoding=None)")
         raises(TypeError, 'u"".encode("utf-8", None)')
 
+    def test_encode_wrong_errors(self):
+        assert ''.encode(errors='some_wrong_name') == b''
+
     def test_casefold(self):
         assert u'hello'.casefold() == u'hello'
         assert u'hELlo'.casefold() == u'hello'

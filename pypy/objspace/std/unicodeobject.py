@@ -573,6 +573,8 @@ def encode_object(space, w_object, encoding, errors):
                     u, len(u), errors, errorhandler=eh))
 
     from pypy.module._codecs.interp_codecs import encode_text
+    if encoding is None:
+        encoding = space.sys.defaultencoding
     w_retval = encode_text(space, w_object, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_bytes):
         raise oefmt(space.w_TypeError,
