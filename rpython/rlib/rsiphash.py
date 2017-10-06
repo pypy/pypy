@@ -11,6 +11,7 @@ from rpython.rlib import rarithmetic, rurandom
 from rpython.rlib.objectmodel import not_rpython, always_inline
 from rpython.rlib.objectmodel import we_are_translated, dont_inline
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rgc, jit, rposix
 from rpython.rlib.rarithmetic import r_uint64, r_uint32, r_uint
 from rpython.rlib.rawstorage import misaligned_is_fine
@@ -26,9 +27,11 @@ if sys.byteorder == 'little':
         return x
     def _le32toh(x):
         return x
+    BIG_ENDIAN = False
 else:
     _le64toh = rarithmetic.byteswap
     _le32toh = rarithmetic.byteswap
+    BIG_ENDIAN = True
 
 def _decode64(s):
     return (r_uint64(ord(s[0])) |
@@ -151,23 +154,20 @@ def ll_hash_string_siphash24(ll_s):
     else:
         # NOTE: a latin-1 unicode string must have the same hash as the
         # corresponding byte string.  If the unicode is all within
-        # 0-255, then we need to allocate a byte buffer and copy the
-        # latin-1 encoding in it manually.  Note also that we give a
+        # 0-255, then we call _siphash24() with a special argument that
+        # will make it load only one byte for every unicode char.
+        # Note also that we give a
         # different hash result than CPython on ucs4 platforms, for
         # unicode strings where CPython uses 2 bytes per character.
+        addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
+        SZ = rffi.sizeof(rstr.UNICODE.chars.OF)
         for i in range(length):
             if ord(ll_s.chars[i]) > 0xFF:
-                addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
-                length *= rffi.sizeof(rstr.UNICODE.chars.OF)
+                length *= SZ
                 break
         else:
-            p = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
-            i = 0
-            while i < length:
-                p[i] = chr(ord(ll_s.chars[i]))
-                i += 1
-            x = _siphash24(llmemory.cast_ptr_to_adr(p), length)
-            lltype.free(p, flavor='raw')
+            x = _siphash24(addr, length, SZ)
+            keepalive_until_here(ll_s)
             return intmask(x)
     x = _siphash24(addr, length)
     keepalive_until_here(ll_s)
@@ -215,7 +215,8 @@ def _double_round(v0, v1, v2, v3):
 
 
 @rgc.no_collect
-def _siphash24(addr_in, size):
+@specialize.arg(2)
+def _siphash24(addr_in, size, SZ=1):
     """Takes an address pointer and a size.  Returns the hash as a r_uint64,
     which can then be casted to the expected type."""
 
@@ -227,10 +228,14 @@ def _siphash24(addr_in, size):
     v2 = k0 ^ magic2
     v3 = k1 ^ magic3
 
-    direct = (misaligned_is_fine or
+    direct = (SZ == 1) and (misaligned_is_fine or
                  (rffi.cast(lltype.Signed, addr_in) & 7) == 0)
-    index = 0
+    if BIG_ENDIAN:
+        index = SZ - 1
+    else:
+        index = 0
     if direct:
+        assert SZ == 1
         while size >= 8:
             mi = llop.raw_load(rffi.ULONGLONG, addr_in, index)
             mi = _le64toh(mi)
@@ -242,30 +247,30 @@ def _siphash24(addr_in, size):
     else:
         while size >= 8:
             mi = (
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index)) |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1)) << 8 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2)) << 16 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3)) << 24 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4)) << 32 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5)) << 40 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6)) << 48 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 7)) << 56
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index)) |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1*SZ)) << 8 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2*SZ)) << 16 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3*SZ)) << 24 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4*SZ)) << 32 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5*SZ)) << 40 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6*SZ)) << 48 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 7*SZ)) << 56
             )
             size -= 8
-            index += 8
+            index += 8*SZ
             v3 ^= mi
             v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
             v0 ^= mi
 
     t = r_uint64(0)
     if size == 7:
-        t = r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6)) << 48
+        t = r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6*SZ)) << 48
         size = 6
     if size == 6:
-        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5)) << 40
+        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5*SZ)) << 40
         size = 5
     if size == 5:
-        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4)) << 32
+        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4*SZ)) << 32
         size = 4
     if size == 4:
         if direct:
@@ -273,13 +278,13 @@ def _siphash24(addr_in, size):
             t |= r_uint64(v)
             size = 0
         else:
-            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3)) << 24
+            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3*SZ))<< 24
             size = 3
     if size == 3:
-        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2)) << 16
+        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2*SZ)) << 16
         size = 2
     if size == 2:
-        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1)) << 8
+        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1*SZ)) << 8
         size = 1
     if size == 1:
         t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index))
