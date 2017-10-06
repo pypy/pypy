@@ -1,7 +1,7 @@
 import py, os, sys
+from .support import setup_make
 
 from pypy.module._cppyy import interp_cppyy, executor
-from .support import setup_make
 
 
 currpath = py.path.local(__file__).dirpath()
@@ -16,16 +16,10 @@ class AppTestPYTHONIFY:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
-    def test01_load_dictionary_cache(self):
-        """Test whether loading a dictionary twice results in the same object."""
-        import _cppyy
-        lib2 = _cppyy.load_reflection_info(self.test_dct)
-        assert self.example01 is lib2
-
-    def test02_finding_classes(self):
+    def test01_finding_classes(self):
         """Test the lookup of a class, and its caching."""
         import _cppyy
         example01_class = _cppyy.gbl.example01
@@ -34,7 +28,7 @@ class AppTestPYTHONIFY:
 
         raises(AttributeError, '_cppyy.gbl.nonexistingclass')
 
-    def test03_calling_static_functions(self):
+    def test02_calling_static_functions(self):
         """Test calling of static methods."""
         import _cppyy, sys, math
         example01_class = _cppyy.gbl.example01
@@ -68,43 +62,40 @@ class AppTestPYTHONIFY:
 
         raises(TypeError, 'example01_class.staticStrcpy(1.)')   # TODO: this leaks
 
-    def test04_constructing_and_calling(self):
+    def test03_constructing_and_calling(self):
         """Test object and method calls."""
         import _cppyy
         example01_class = _cppyy.gbl.example01
-        #assert example01_class.getCount() == 0
+        assert example01_class.getCount() == 0
         instance = example01_class(7)
-        #assert example01_class.getCount() == 1
+        assert example01_class.getCount() == 1
         res = instance.addDataToInt(4)
-        return
         assert res == 11
         res = instance.addDataToInt(-4)
         assert res == 3
-        instance.destruct()
+        instance.__destruct__()
         assert example01_class.getCount() == 0
         raises(ReferenceError, 'instance.addDataToInt(4)')
-        return
 
         instance = example01_class(7)
         instance2 = example01_class(8)
         assert example01_class.getCount() == 2
-        instance.destruct()
+        instance.__destruct__()
         assert example01_class.getCount() == 1
-        instance2.destruct()
+        instance2.__destruct__()
         assert example01_class.getCount() == 0
 
-        t = self.example01
         instance = example01_class(13)
         res = instance.addDataToDouble(16)
         assert round(res-29, 8) == 0.
-        instance.destruct()
+        instance.__destruct__()
         instance = example01_class(-13)
         res = instance.addDataToDouble(16)
         assert round(res-3, 8) == 0.
+        instance.__destruct__()
 
-
-        t = self.example01
         instance = example01_class(42)
+        assert example01_class.getCount() == 1
 
         res = instance.addDataToAtoi("13")
         assert res == 55
@@ -117,10 +108,10 @@ class AppTestPYTHONIFY:
         res = instance.staticAddOneToInt(1)
         assert res == 2
 
-        instance.destruct()
+        instance.__destruct__()
         assert example01_class.getCount() == 0
 
-    def test05_passing_object_by_pointer(self):
+    def test04_passing_object_by_pointer(self):
         import _cppyy
         example01_class = _cppyy.gbl.example01
         payload_class = _cppyy.gbl.payload
@@ -139,11 +130,11 @@ class AppTestPYTHONIFY:
         e.setPayload(pl)
         assert round(pl.getData()-14., 8) == 0
 
-        pl.destruct()
-        e.destruct()
+        pl.__destruct__()
+        e.__destruct__()
         assert example01_class.getCount() == 0
 
-    def test06_returning_object_by_pointer(self):
+    def test05_returning_object_by_pointer(self):
         import _cppyy
         example01_class = _cppyy.gbl.example01
         payload_class = _cppyy.gbl.payload
@@ -159,11 +150,11 @@ class AppTestPYTHONIFY:
         pl2 = e.cyclePayload(pl)
         assert round(pl2.getData()-14., 8) == 0
 
-        pl.destruct()
-        e.destruct()
+        pl.__destruct__()
+        e.__destruct__()
         assert example01_class.getCount() == 0
 
-    def test07_returning_object_by_value(self):
+    def test06_returning_object_by_value(self):
         import _cppyy
         example01_class = _cppyy.gbl.example01
         payload_class = _cppyy.gbl.payload
@@ -173,19 +164,19 @@ class AppTestPYTHONIFY:
 
         pl2 = example01_class.staticCopyCyclePayload(pl, 38.)
         assert pl2.getData() == 38.
-        pl2.destruct()
+        pl2.__destruct__()
 
         e = example01_class(14)
 
         pl2 = e.copyCyclePayload(pl)
         assert round(pl2.getData()-14., 8) == 0
-        pl2.destruct()
+        pl2.__destruct__()
 
-        pl.destruct()
-        e.destruct()
+        pl.__destruct__()
+        e.__destruct__()
         assert example01_class.getCount() == 0
 
-    def test08_global_functions(self):
+    def test07_global_functions(self):
         import _cppyy
 
         assert _cppyy.gbl.globalAddOneToInt(3) == 4    # creation lookup
@@ -194,7 +185,7 @@ class AppTestPYTHONIFY:
         assert _cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
         assert _cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
 
-    def test09_memory(self):
+    def test08_memory(self):
         """Test proper C++ destruction by the garbage collector"""
 
         import _cppyy, gc
@@ -238,7 +229,7 @@ class AppTestPYTHONIFY:
 
         # TODO: need ReferenceError on touching pl_a
 
-    def test10_default_arguments(self):
+    def test09_default_arguments(self):
         """Test propagation of default function arguments"""
 
         import _cppyy
@@ -273,7 +264,7 @@ class AppTestPYTHONIFY:
             assert g(11., 2)           ==  2.
             assert g(11.)              == 11.
 
-    def test11_overload_on_arguments(self):
+    def test10_overload_on_arguments(self):
         """Test functions overloaded on arguments"""
 
         import _cppyy
@@ -284,14 +275,14 @@ class AppTestPYTHONIFY:
         assert e.overloadedAddDataToInt(4, 5)    == 10
         assert e.overloadedAddDataToInt(6, 7, 8) == 22
 
-    def test12_typedefs(self):
+    def test11_typedefs(self):
         """Test access and use of typedefs"""
 
         import _cppyy
 
         assert _cppyy.gbl.example01 == _cppyy.gbl.example01_t
 
-    def test13_underscore_in_class_name(self):
+    def test12_underscore_in_class_name(self):
         """Test recognition of '_' as part of a valid class name"""
 
         import _cppyy
@@ -303,7 +294,7 @@ class AppTestPYTHONIFY:
         assert hasattr(z, 'myint')
         assert z.gime_z_(z)
 
-    def test14_bound_unbound_calls(self):
+    def test13_bound_unbound_calls(self):
         """Test (un)bound method calls"""
 
         import _cppyy
@@ -317,7 +308,7 @@ class AppTestPYTHONIFY:
         e = _cppyy.gbl.example01(2)
         assert 5 == meth(e, 3)
 
-    def test15_installable_function(self):
+    def test14_installable_function(self):
        """Test installing and calling global C++ function as python method"""
 
        import _cppyy
@@ -328,10 +319,12 @@ class AppTestPYTHONIFY:
        assert 2 == e.fresh(1)
        assert 3 == e.fresh(2)
 
-    def test16_subclassing(self):
+    def test15_subclassing(self):
         """A sub-class on the python side should have that class as type"""
 
-        import _cppyy
+        import _cppyy, gc
+        gc.collect()
+
         example01 = _cppyy.gbl.example01
 
         assert example01.getCount() == 0
@@ -339,7 +332,7 @@ class AppTestPYTHONIFY:
         o = example01()
         assert type(o) == example01
         assert example01.getCount() == 1
-        o.destruct()
+        o.__destruct__()
         assert example01.getCount() == 0
 
         class MyClass1(example01):
@@ -351,7 +344,7 @@ class AppTestPYTHONIFY:
         assert isinstance(o, example01)
         assert example01.getCount() == 1
         assert o.myfunc() == 1
-        o.destruct()
+        o.__destruct__()
         assert example01.getCount() == 0
 
         class MyClass2(example01):
@@ -363,7 +356,7 @@ class AppTestPYTHONIFY:
         assert type(o) == MyClass2
         assert example01.getCount() == 1
         assert o.what == 'hi'
-        o.destruct()
+        o.__destruct__()
 
         assert example01.getCount() == 0
 
@@ -374,8 +367,8 @@ class AppTestPYTHONIFY_UI:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_pythonizations(self):
         """Test addition of user-defined pythonizations"""

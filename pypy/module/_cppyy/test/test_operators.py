@@ -1,15 +1,12 @@
 import py, os, sys
+from .support import setup_make
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("operatorsDict.so"))
 
 def setup_module(mod):
-    if sys.platform == 'win32':
-        py.test.skip("win32 not supported so far")
-    err = os.system("cd '%s' && make operatorsDict.so" % currpath)
-    if err:
-        raise OSError("'make' failed (see stderr)")
+    setup_make("operatorsDict.so")
 
 class AppTestOPERATORS:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
@@ -18,8 +15,8 @@ class AppTestOPERATORS:
         cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_operators = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def teardown_method(self, meth):
         import gc

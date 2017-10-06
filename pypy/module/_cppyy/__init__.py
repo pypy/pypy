@@ -1,12 +1,10 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
-    "This module provides runtime bindings to C++ code for which reflection\n\
-    info has been generated. Current supported back-ends are Reflex and CINT.\n\
-    See http://doc.pypy.org/en/latest/cppyy.html for full details."
+    "This module brigdes the cppyy frontend with its backend, through PyPy.\n\
+    See http://cppyy.readthedocs.io/en/latest for full details."
 
     interpleveldefs = {
-        '_load_dictionary'       : 'interp_cppyy.load_dictionary',
         '_resolve_name'          : 'interp_cppyy.resolve_name',
         '_scope_byname'          : 'interp_cppyy.scope_byname',
         '_template_byname'       : 'interp_cppyy.template_byname',
@@ -15,14 +13,13 @@ class Module(MixedModule):
         '_set_function_generator': 'interp_cppyy.set_function_generator',
         '_register_class'        : 'interp_cppyy.register_class',
         '_get_nullptr'           : 'interp_cppyy.get_nullptr',
-        'CPPInstanceBase'        : 'interp_cppyy.W_CPPInstance',
+        'CPPClassBase'           : 'interp_cppyy.W_CPPClass',
         'addressof'              : 'interp_cppyy.addressof',
         'bind_object'            : 'interp_cppyy.bind_object',
     }
 
     appleveldefs = {
         '_init_pythonify'        : 'pythonify._init_pythonify',
-        'load_reflection_info'   : 'pythonify.load_reflection_info',
         'add_pythonization'      : 'pythonify.add_pythonization',
         'Template'               : 'pythonify.CPPTemplate',
     }
