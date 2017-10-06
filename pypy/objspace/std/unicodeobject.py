@@ -38,8 +38,8 @@ class W_UnicodeObject(W_Root):
         self._utf8 = utf8str
         self._length = length
         self._index_storage = rutf8.null_storage()
-        if not we_are_translated():
-            assert rutf8.check_utf8(utf8str, allow_surrogates=True) == length
+        #if not we_are_translated():
+        #    assert rutf8.check_utf8(utf8str, allow_surrogates=True) == length
 
     def __repr__(self):
         """representation for debugging purposes"""

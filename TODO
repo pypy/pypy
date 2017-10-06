@@ -1,2 +1,3 @@
 * unskip tests in test_unicodeobject.py
 * rutf8.prev_codepoint_pos should use r_uint
+* elidable in rutf8.check_utf8, WTF is wrong with that

@@ -6,6 +6,10 @@ from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 from rpython.tool.algo import bitstring
 
 
+class UnsupportedFieldExc(Exception):
+    pass
+
+
 class EffectInfo(object):
     _cache = {}
 
@@ -313,7 +317,10 @@ def effectinfo_from_writeanalyze(effects, cpu,
                 return
             if getattr(T.OF, fieldname) is lltype.Void:
                 return
-            descr = cpu.interiorfielddescrof(T, fieldname)
+            try:
+                descr = cpu.interiorfielddescrof(T, fieldname)
+            except UnsupportedFieldExc:
+                return
             descrs_interiorfields.append(descr)
 
         # a read or a write to an interiorfield, inside an array of

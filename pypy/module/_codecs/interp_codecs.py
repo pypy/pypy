@@ -66,7 +66,7 @@ class CodecState(object):
                             "position %d from error handler out of bounds",
                             newpos)
             w_replace = space.convert_to_w_unicode(w_replace)
-            return w_replace._utf8, newpos
+            return w_replace._utf8.decode('utf8'), newpos
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):

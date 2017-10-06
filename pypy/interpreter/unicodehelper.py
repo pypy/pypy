@@ -126,8 +126,7 @@ class DecodeWrapper(object):
         self.orig = handler
 
     def handle(self, errors, encoding, msg, s, pos, endpos):
-        s, p = self.orig(errors, encoding, msg, s, pos, endpos)
-        return s.decode("utf8"), p
+        return self.orig(errors, encoding, msg, s, pos, endpos)
 
 class EncodeWrapper(object):
     def __init__(self, handler):
@@ -145,7 +144,8 @@ def str_decode_utf8(s, slen, errors, final, errorhandler):
 
 def str_decode_unicode_escape(s, slen, errors, final, errorhandler, ud_handler):
     w = DecodeWrapper(errorhandler)
-    u, pos = runicode.str_decode_unicode_escape(s, slen, errors, final, w.handle,
+    u, pos = runicode.str_decode_unicode_escape(s, slen, errors, final,
+                                                w.handle,
                                                 ud_handler)
     return u.encode('utf8'), pos, len(u)
 
@@ -159,7 +159,7 @@ def setup_new_encoders(encoding):
         return getattr(runicode, encoder_call_name)(u, len(u), errors,
                        w.handle)
     def decoder(s, slen, errors, final, errorhandler):
-        w = DecodeWrapper(errorhandler)
+        w = DecodeWrapper((errorhandler))
         u, pos = getattr(runicode, decoder_name)(s, slen, errors, final, w.handle)
         return u.encode('utf8'), pos, len(u)
     encoder.__name__ = encoder_name

@@ -191,7 +191,7 @@ class CheckError(Exception):
     def __init__(self, pos):
         self.pos = pos
 
-@jit.elidable
+#@jit.elidable
 def check_ascii(s):
     for i in range(len(s)):
         if ord(s[i]) > 0x7F:
@@ -289,12 +289,14 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
             (ordch1 == 0xf4 and ordch2 > 0x8f))
 
 
-@jit.elidable
+#@jit.elidable
 def check_utf8(s, allow_surrogates=False):
     """Check that 's' is a utf-8-encoded byte string.
     Returns the length (number of chars) or raise CheckError.
     Note that surrogates are not handled specially here.
     """
+    import pdb
+    pdb.set_trace()
     pos = 0
     continuation_bytes = 0
     while pos < len(s):
@@ -416,6 +418,7 @@ def create_utf8_index_storage(utf8, utf8len):
         break
     return storage
 
+@jit.dont_look_inside
 def codepoint_position_at_index(utf8, storage, index):
     """ Return byte index of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE.  The index must be smaller than
@@ -436,6 +439,7 @@ def codepoint_position_at_index(utf8, storage, index):
     else:
         return next_codepoint_pos(utf8, next_codepoint_pos(utf8, bytepos))
 
+@jit.dont_look_inside
 def codepoint_at_index(utf8, storage, index):
     """ Return codepoint of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE
