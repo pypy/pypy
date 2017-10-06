@@ -404,7 +404,7 @@ class Window(object):
         return val
 
     def get_wch(self, *args):
-        wch = ffi.new("int[1]")
+        wch = ffi.new("wint_t[1]")
         if len(args) == 0:
             val = lib.wget_wch(self._win, wch)
         elif len(args) == 2:
