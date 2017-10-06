@@ -179,23 +179,22 @@ class CannotFail(object):
     pass
 CANNOT_FAIL = CannotFail()
 
-# The same function can be called in three different contexts:
+# The same function can be called in two different contexts:
 # (1) from C code
-# (2) in the test suite, though the "api" object
-# (3) from RPython code, for example in the implementation of another function.
+# (2) from RPython code, for example in the implementation of another function
+#     or in tests.
 #
-# In contexts (2) and (3), a function declaring a PyObject argument type will
+# In context (2), a function declaring a PyObject argument type will
 # receive a wrapped pypy object if the parameter name starts with 'w_', a
-# reference (= rffi pointer) otherwise; conversion is automatic.  Context (2)
-# only allows calls with a wrapped object.
+# reference (= rffi pointer) otherwise; conversion is automatic.
 #
 # Functions with a PyObject return type should return a wrapped object.
 #
-# Functions may raise exceptions.  In context (3), the exception flows normally
-# through the calling function.  In context (1) and (2), the exception is
+# Functions may raise exceptions.  In context (2), the exception flows normally
+# through the calling function.  In context (1), the exception is
 # caught; if it is an OperationError, it is stored in the thread state; other
-# exceptions generate a OperationError(w_SystemError); and the funtion returns
-# the error value specifed in the API.
+# exceptions generate a OperationError(w_SystemError); and the function returns
+# the error value specified in the API.
 #
 # Handling of the GIL
 # -------------------
