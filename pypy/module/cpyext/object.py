@@ -51,33 +51,41 @@ def _VAR_SIZE(typeobj, nitems):
 def _PyObject_NewVar(space, tp, nitems):
     w_type = from_ref(space, rffi.cast(PyObject, tp))
     assert isinstance(w_type, W_TypeObject)
-    typedescr = get_typedescr(w_type.layout.typedef)
-    py_obj = typedescr.allocate(space, w_type, itemcount=nitems)
-    #py_obj.c_ob_refcnt = 0 --- will be set to 1 again by PyObject_Init{Var}
-    if tp.c_tp_itemsize == 0:
-        w_obj = PyObject_Init(space, py_obj, tp)
+    if w_type is space.w_type:
+        # XXX: integrate this logic with the one below
+        typedescr = get_typedescr(w_type.layout.typedef)
+        pyobj = typedescr.allocate(space, w_type, itemcount=nitems)
     else:
-        py_objvar = rffi.cast(PyVarObject, py_obj)
+        # std case: do the same logic as BaseCpyTypedescr.allocate
+        # CPython doesn't do this: investigate whether we can remove
+        flags = rffi.cast(lltype.Signed, tp.c_tp_flags)
+        if flags & Py_TPFLAGS_HEAPTYPE:
+            Py_IncRef(space, w_type)
+        #
+        size = _VAR_SIZE(tp, nitems)
+        assert size >= rffi.sizeof(PyObject.TO)
+        # XXX: zero=True? add_memory_pressure?
+        buf = lltype.malloc(rffi.VOIDP.TO, size,
+                            flavor='raw', zero=True,
+                            add_memory_pressure=True)
+        pyobj = rffi.cast(PyObject, buf)
+        # XXX CPython does this
+        ## if (pyobj == NULL)
+        ##     return PyErr_NoMemory()
+        pyobj.c_ob_refcnt = 1
+        if tp.c_tp_itemsize:
+            pyvarobj = rffi.cast(PyVarObject, pyobj)
+            pyvarobj.c_ob_size = nitems
+        pyobj.c_ob_refcnt = 1
+        #pyobj.c_ob_pypy_link should get assigned very quickly
+        pyobj.c_ob_type = tp
+    #
+    if tp.c_tp_itemsize == 0:
+        w_obj = PyObject_Init(space, pyobj, tp)
+    else:
+        py_objvar = rffi.cast(PyVarObject, pyobj)
         w_obj = PyObject_InitVar(space, py_objvar, tp, nitems)
-    return py_obj
-
-    ## size = _VAR_SIZE(tp, nitems)
-    ## assert size >= rffi.sizeof(PyObject.TO)
-    ## buf = lltype.malloc(rffi.VOIDP.TO, size,
-    ##                     flavor='raw', zero=True,
-    ##                     add_memory_pressure=True) # XXX add_memory_pressure?
-    ## pyobj = rffi.cast(PyObject, buf)
-    ## # XXX should we do this?
-    ## ## if (pyobj == NULL)
-    ## ##     return PyErr_NoMemory()
-    ## #
-    ## pyobj.c_ob_refcnt = 1 # why do we need this?
-    ## #
-    ## # XXX: incref tp? In the previous version, this was done by
-    ## # typedescr.alllocate(); however, CPython doesn't.
-    ## #incref(space, tp)
-    ## PyObject_InitVar(space, pyobj, tp, nitems)
-    ## return pyobj
+    return pyobj
 
 @slot_function([PyObject], lltype.Void, no_gc=True)
 def PyObject_dealloc(obj):
