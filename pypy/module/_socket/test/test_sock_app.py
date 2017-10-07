@@ -574,6 +574,22 @@ class AppTestSocket:
         import _socket
         raises(_socket.error, _socket.dup, 123456)
 
+    def test_recvmsg_issue2649(self):
+        import _socket as socket
+        listener = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(('::1', 1234))
+
+        s = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        IPV6_RECVERR = 25
+        s.setsockopt(socket.IPPROTO_IPV6, IPV6_RECVERR, 1)
+
+        s.sendto(b'x', ('::1', 1234))
+        try:
+            queue = s.recvmsg(1024, 1024, socket.MSG_ERRQUEUE)
+        except BlockingIOError as e:
+            assert True
+
     def test_buffer(self):
         # Test that send/sendall/sendto accept a buffer as arg
         import _socket, os
