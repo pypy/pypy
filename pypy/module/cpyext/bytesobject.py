@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref,
+    make_typedescr, get_typedescr, as_pyobj, get_w_obj_and_decref,
     pyobj_has_w_obj)
 from pypy.objspace.std.bytesobject import W_BytesObject
 

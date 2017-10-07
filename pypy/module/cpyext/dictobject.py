@@ -9,7 +9,7 @@ from pypy.module.cpyext.api import (
     bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
         make_typedescr, track_reference, create_ref, from_ref, decref,
-        Py_IncRef)
+        incref)
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 

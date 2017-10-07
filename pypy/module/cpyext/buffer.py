@@ -188,7 +188,7 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     view.c_len = length
     view.c_obj = obj
     if obj:
-        incref(space, obj)
+        incref(obj)
     view.c_itemsize = 1
     rffi.setintfield(view, 'c_readonly', readonly)
     rffi.setintfield(view, 'c_ndim', 1)

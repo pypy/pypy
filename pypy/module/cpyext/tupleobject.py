@@ -197,7 +197,7 @@ def _PyTuple_Resize(space, p_ref, newsize):
             to_cp = newsize
         for i in range(to_cp):
             ob = oldref.c_ob_item[i]
-            incref(space, ob)
+            incref(ob)
             newref.c_ob_item[i] = ob
     except:
         decref(p_ref[0])

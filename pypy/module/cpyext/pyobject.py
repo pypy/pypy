@@ -25,7 +25,7 @@ def _allocate_generic_object(space, pytype, itemcount, immortal=False):
     # Don't increase refcount for non-heaptypes
     flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
     if flags & Py_TPFLAGS_HEAPTYPE:
-        Py_IncRef(space, pytype)
+        incref(pytype)
 
     size = pytype.c_tp_basicsize
     if pytype.c_tp_itemsize:
@@ -309,9 +309,12 @@ def get_w_obj_and_decref(space, obj):
         keepalive_until_here(w_obj)
     return w_obj
 
+def incref(obj):
+    assert is_pyobj(obj)
+    pyobj = rffi.cast(PyObject, obj)
+    pyobj.c_ob_refcnt += 1
 
-@specialize.ll()
-def incref(space, obj):
+def incref_w_obj(space, obj):
     make_ref(space, obj)
 
 def decref(obj):
@@ -331,12 +334,15 @@ def decref(obj):
 def decref_w_obj(space, obj):
     get_w_obj_and_decref(space, obj)
 
-@cpython_api([PyObject], lltype.Void)
-def Py_IncRef(space, obj):
-    incref(space, obj)
 
-# you should not call this function from RPython directly; call decref(), it's
-# slightly faster because it doesn't go through the unwrapper
+# you should not call Py_IncRef and Py_DecRef from RPython directly; call
+# incref() and decref: they are slightly faster because they don't go through
+# the unwrapper
+
+@cpython_api([PyObject], lltype.Void, no_gc=True)
+def Py_IncRef(obj):
+    incref(obj)
+
 @cpython_api([PyObject], lltype.Void, no_gc=True)
 def Py_DecRef(obj):
     decref(obj)
