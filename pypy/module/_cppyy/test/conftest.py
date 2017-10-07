@@ -4,7 +4,7 @@ import py, sys
 def pytest_runtest_setup(item):
     if py.path.local.sysfind('genreflex') is None:
         import pypy.module._cppyy.capi.loadable_capi as lcapi
-        if 'dummy' in lcapi.reflection_library:
+        if 'dummy' in lcapi.backend_library:
             # run only tests that are covered by the dummy backend and tests
             # that do not rely on reflex
             import os
@@ -33,7 +33,7 @@ def pytest_configure(config):
         import pypy.module._cppyy.capi.loadable_capi as lcapi
         try:
             import ctypes
-            ctypes.CDLL(lcapi.reflection_library)
+            ctypes.CDLL(lcapi.backend_library)
         except Exception as e:
             if config.option.runappdirect:
                 return       # "can't run dummy tests in -A"
@@ -71,4 +71,4 @@ def pytest_configure(config):
                     return
                 raise
 
-            lcapi.reflection_library = str(soname)
+            lcapi.backend_library = str(soname)
