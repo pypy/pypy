@@ -68,9 +68,10 @@ def new_empty_unicode(space, length):
 
 def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
-    set_wsize(py_obj, len(space.unicode_w(w_obj)))
+    value = space.unicode_w(w_obj)
+    set_wsize(py_obj, len(value)
     set_wbuffer(py_obj, lltype.nullptr(rffi.CWCHARP.TO))
-    _readify(space, py_obj, w_obj._value)
+    _readify(space, py_obj, value)
 
 def unicode_realize(space, py_obj):
     """
