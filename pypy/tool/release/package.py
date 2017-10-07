@@ -270,6 +270,15 @@ using another platform..."""
 
 def package(*args, **kwds):
     import argparse
+
+    class NegateAction(argparse.Action):
+        def __init__(self, option_strings, dest, nargs=0, **kwargs):
+            super(NegateAction, self).__init__(option_strings, dest, nargs,
+                                               **kwargs)
+
+        def __call__(self, parser, ns, values, option):
+            setattr(ns, self.dest, option[2:4] != 'no')
+
     if sys.platform == 'win32':
         pypy_exe = 'pypy3.exe'
     else:
@@ -300,9 +309,12 @@ def package(*args, **kwds):
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
         help='use as pypy3 exe instead of pypy/goal/pypy3-c')
-    parser.add_argument('--embedded-dependencies', dest='embed_dependencies',
-        action='store_true',
-        help='embed dependencies for distribution')
+    parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
+                        dest='embed_dependencies',
+                        action=NegateAction,
+                        default=sys.platform == 'darwin',
+                        help='whether to embed dependencies for distribution '
+                        '(default on OS X)')
     options = parser.parse_args(args)
 
     if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
