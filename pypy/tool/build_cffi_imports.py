@@ -1,5 +1,5 @@
 from __future__ import print_function
-import sys, shutil, os
+import sys, shutil, os, tempfile, hashlib
 from os.path import join
 
 class MissingDependenciesError(Exception):
@@ -25,10 +25,14 @@ cffi_build_scripts = {
 # for distribution, we may want to fetch dependencies not provided by
 # the OS, such as a recent openssl/libressl or liblzma/xz.
 cffi_dependencies = {
-    'lzma': ('https://tukaani.org/xz/xz-5.2.3.tar.gz', []),
-    'ssl': ('http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-2.6.0.tar.gz',
+    'lzma': ('https://tukaani.org/xz/xz-5.2.3.tar.gz',
+             '71928b357d0a09a12a4b4c5fafca8c31c19b0e7d3b8ebb19622e96f26dbf28cb',
+             []),
+    'ssl': ('http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-2.6.2.tar.gz',
+            'b029d2492b72a9ba5b5fcd9f3d602c9fd0baa087912f2aaecc28f52f567ec478',
             ['--without-openssldir']),
-    '_gdbm': ('ftp://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
+    '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
+              '9d252cbd7d793f7b12bcceaddda98d257c14f4d1890d851c386c37207000a253',
               ['--without-readline']),
 }
 
@@ -47,11 +51,20 @@ def _unpack_tarfile(filename, extract_dir):
     finally:
         tarobj.close()
 
+def _sha256(filename):
+    dgst = hashlib.sha256()
 
-def _build_dependency(name, destdir):
+    with open(filename, 'rb') as fp:
+        dgst.update(fp.read())
+    return dgst.hexdigest()
+
+
+def _build_dependency(name, destdir, patches=[]):
     import multiprocessing
     import shutil
     import subprocess
+
+    from rpython.tool.runsubprocess import run_subprocess
 
     try:
         from urllib.request import urlretrieve
@@ -59,27 +72,45 @@ def _build_dependency(name, destdir):
         from urllib import urlretrieve
 
     try:
-        url, args = cffi_dependencies[name]
+        url, dgst, args = cffi_dependencies[name]
     except KeyError:
         return 0, None, None
 
-    archive = os.path.join(destdir, url.rsplit('/', 1)[-1])
+    archive_dir = os.path.join(tempfile.gettempdir(), 'pypy-archives')
+
+    if not os.path.isdir(archive_dir):
+        os.makedirs(archive_dir)
+
+    archive = os.path.join(archive_dir, url.rsplit('/', 1)[-1])
 
     # next, fetch the archive to disk, if needed
-    if not os.path.exists(archive):
+    if not os.path.exists(archive) or _sha256(archive) != dgst:
+        print('fetching archive', url, file=sys.stderr)
         urlretrieve(url, archive)
 
     # extract the archive into our destination directory
+    print('unpacking archive', archive, file=sys.stderr)
     _unpack_tarfile(archive, destdir)
 
-    # configure & build it
     sources = os.path.join(
         destdir,
         os.path.basename(archive)[:-7],
     )
 
-    from rpython.tool.runsubprocess import run_subprocess
+    # apply any patches
+    if patches:
+        for patch in patches:
+            print('applying patch', patch, file=sys.stderr)
+            status, stdout, stderr = run_subprocess(
+                '/usr/bin/patch', ['-p1', '-i', patch], cwd=sources,
+            )
 
+            if status != 0:
+                return status, stdout, stderr
+
+    print('configuring', sources, file=sys.stderr)
+
+    # configure & build it
     status, stdout, stderr = run_subprocess(
         './configure',
         [
@@ -93,6 +124,8 @@ def _build_dependency(name, destdir):
 
     if status != 0:
         return status, stdout, stderr
+
+    print('building', sources, file=sys.stderr)
 
     status, stdout, stderr = run_subprocess(
         'make',
@@ -130,8 +163,9 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies:
-            destdir = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                                   'dest')
+            curdir = os.path.abspath(os.path.dirname(__file__))
+            destdir = os.path.join(curdir, 'dest')
+
             shutil.rmtree(destdir, ignore_errors=True)
             os.makedirs(destdir)
 
