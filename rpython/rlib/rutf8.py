@@ -290,16 +290,18 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
 
 
 #@jit.elidable
-def check_utf8(s, allow_surrogates=False):
+def check_utf8(s, allow_surrogates=False, force_len=-1):
     """Check that 's' is a utf-8-encoded byte string.
     Returns the length (number of chars) or raise CheckError.
     Note that surrogates are not handled specially here.
     """
-    import pdb
-    pdb.set_trace()
     pos = 0
     continuation_bytes = 0
-    while pos < len(s):
+    if force_len == -1:
+        end = len(s)
+    else:
+        end = force_len
+    while pos < end:
         ordch1 = ord(s[pos])
         pos += 1
         # fast path for ASCII
@@ -310,7 +312,7 @@ def check_utf8(s, allow_surrogates=False):
             raise CheckError(pos - 1)
 
         if ordch1 <= 0xDF:
-            if pos >= len(s):
+            if pos >= end:
                 raise CheckError(pos - 1)
             ordch2 = ord(s[pos])
             pos += 1
@@ -322,7 +324,7 @@ def check_utf8(s, allow_surrogates=False):
             continue
 
         if ordch1 <= 0xEF:
-            if (pos + 2) > len(s):
+            if (pos + 2) > end:
                 raise CheckError(pos - 1)
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
@@ -336,7 +338,7 @@ def check_utf8(s, allow_surrogates=False):
             continue
 
         if ordch1 <= 0xF4:
-            if (pos + 3) > len(s):
+            if (pos + 3) > end:
                 raise CheckError(pos - 1)
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
@@ -353,7 +355,7 @@ def check_utf8(s, allow_surrogates=False):
 
         raise CheckError(pos - 1)
 
-    assert pos == len(s)
+    assert pos == end
     return pos - continuation_bytes
 
 @jit.elidable

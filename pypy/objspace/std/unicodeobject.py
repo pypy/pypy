@@ -117,6 +117,7 @@ class W_UnicodeObject(W_Root):
     def _new_from_list(self, value):
         u = u''.join(value)
         return W_UnicodeObject(u.encode('utf8'), len(u))
+
     def _empty(self):
         return W_UnicodeObject.EMPTY
 
@@ -411,6 +412,23 @@ class W_UnicodeObject(W_Root):
                 raise oefmt(space.w_TypeError,
                             "character mapping must be in range(0x110000)")
         return W_UnicodeObject(result.build(), result_length)
+
+    def descr_find(self, space, w_sub, w_start=None, w_end=None):
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
+
+        w_sub = self.convert_arg_to_w_unicode(space, w_sub)
+        # XXX for now just create index
+        storage = self._get_index_storage()
+        start_index = rutf8.codepoint_position_at_index(self._utf8, storage,
+                                                        start)
+        end_index = rutf8.codepoint_position_at_index(self._utf8, storage, end)
+
+        res_index = value.find(w_sub._utf8, start_index, end_index)
+        if res_index == -1:
+            return space.newint(-1)
+
+        res = rutf8.check_utf8(self._utf8, force_len=res_index) # can't raise
+        return space.newint(res)
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
@@ -732,14 +750,17 @@ class W_UnicodeObject(W_Root):
 
     descr_rmul = descr_mul
 
-    def _getitem_result(self, space, index):
-        if index >= self._length:
-            raise oefmt(space.w_IndexError, "string index out of range")
+    def _get_index_storage(self):
         if self._index_storage == rutf8.null_storage():
             self._index_storage = rutf8.create_utf8_index_storage(self._utf8,
                 self._length)
-        start = rutf8.codepoint_position_at_index(self._utf8,
-            self._index_storage, index)
+        return self._index_storage
+
+    def _getitem_result(self, space, index):
+        if index >= self._length:
+            raise oefmt(space.w_IndexError, "string index out of range")
+        storage = self._get_index_storage()
+        start = rutf8.codepoint_position_at_index(self._utf8, storage, index)
         end = rutf8.next_codepoint_pos(self._utf8, start)
         return W_UnicodeObject(self._utf8[start:end], 1)
 
