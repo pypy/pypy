@@ -1114,6 +1114,9 @@ def attach_c_functions(space, eci, prefix):
     state.C._PyPy_get_PyType_Type = rffi.llexternal(
         '_PyPy_get_PyType_Type', [], PyTypeObjectPtr,
         compilation_info=eci, _nowrapper=True)
+    state.C._PyPy_get_PyExc_MemoryError = rffi.llexternal(
+        '_PyPy_get_PyExc_MemoryError', [], PyObject,
+        compilation_info=eci, _nowrapper=True)
 
 
 def init_function(func):
@@ -1217,11 +1220,12 @@ def build_bridge(space):
                                     ctypes.c_void_p).value
         else:
             if name.startswith('PyExc_'):
-                # we already have the pointer
+                # PyExc_* are C variables of type PyObject*
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, in_dll)
             else:
-                # we have a structure, get its address
+                # the other global names actual C structures (NOT pointers to
+                # C structs, as PyExc_*)
                 in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
             builder.prepare(py_obj, w_obj)
@@ -1428,7 +1432,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythread.c",
                          source_dir / "missing.c",
                          source_dir / "pymem.c",
-                         source_dir / "typeobject.c",
+                         source_dir / "_pypy_internal.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

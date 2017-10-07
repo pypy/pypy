@@ -330,7 +330,6 @@ PyAPI_FUNC(int) PyObject_CheckReadBuffer(PyObject *);
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
 #define PyObject_Length PyObject_Size
 #define _PyObject_GC_Del PyObject_GC_Del
-PyAPI_FUNC(PyTypeObject*) _PyPy_get_PyType_Type(void);
 
 #ifdef __cplusplus
 }

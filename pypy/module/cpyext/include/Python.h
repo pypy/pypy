@@ -130,6 +130,8 @@
 
 /* Missing definitions */
 #include "missing.h"
+#include "_pypy_internal.h"
+
 
 /* The declarations of most API functions are generated in a separate file */
 /* Don't include them while building PyPy, RPython also generated signatures
