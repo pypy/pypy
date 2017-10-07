@@ -426,7 +426,7 @@ class W_UnicodeObject(W_Root):
             if start > 0:
                 start_index = rutf8.codepoint_position_at_index(self._utf8,
                     storage, start)
-            if end != self.length:
+            if end != self._length:
                 end_index = rutf8.codepoint_position_at_index(self._utf8,
                     storage, end)
 
