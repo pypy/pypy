@@ -57,7 +57,7 @@ def _PyObject_NewVar(space, tp, nitems):
         metatype = rffi.cast(PyTypeObjectPtr, tp)
         pyobj = ll_type_alloc(metatype, nitems)
     else:
-        return _allocate_generic_object(tp, nitems)
+        pyobj = _allocate_generic_object(tp, nitems)
     #
     if tp.c_tp_itemsize == 0:
         w_obj = PyObject_Init(space, pyobj, tp)
