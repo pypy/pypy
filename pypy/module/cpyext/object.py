@@ -51,12 +51,11 @@ def _VAR_SIZE(typeobj, nitems):
 @cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def _PyObject_NewVar(space, tp, nitems):
     from pypy.module.cpyext.pyobject import _allocate_generic_object
+    from pypy.module.cpyext.typeobject import ll_type_alloc
     state = space.fromcache(State)
     if tp == state.C._PyPy_get_PyType_Type():
-        w_type = from_ref(space, rffi.cast(PyObject, tp))
-        assert isinstance(w_type, W_TypeObject)
-        typedescr = get_typedescr(w_type.layout.typedef)
-        pyobj = typedescr.allocate(space, w_type, itemcount=nitems)
+        metatype = rffi.cast(PyTypeObjectPtr, tp)
+        pyobj = ll_type_alloc(metatype, nitems)
     else:
         return _allocate_generic_object(tp, nitems)
     #

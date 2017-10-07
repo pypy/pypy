@@ -702,7 +702,9 @@ def type_alloc(space, w_metatype, itemsize=0):
         flags = rffi.cast(lltype.Signed, metatype.c_tp_flags)
         if not flags & Py_TPFLAGS_HEAPTYPE:
             decref_w_obj(space, w_metatype)
+    return ll_type_alloc(metatype, itemsize)
 
+def ll_type_alloc(metatype, itemsize=0):
     heaptype = lltype.malloc(PyHeapTypeObject.TO,
                              flavor='raw', zero=True,
                              add_memory_pressure=True)
@@ -717,7 +719,6 @@ def type_alloc(space, w_metatype, itemsize=0):
     pto.c_tp_as_buffer = heaptype.c_as_buffer
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
-
     return rffi.cast(PyObject, heaptype)
 
 def type_attach(space, py_obj, w_type, w_userdata=None):
