@@ -23,6 +23,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
+from pypy.objspace.std.sliceobject import unwrap_start_stop
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
@@ -414,7 +415,7 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject(result.build(), result_length)
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
-        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
+        start, end = unwrap_start_stop(space, self._length, w_start, w_end)
 
         w_sub = self.convert_arg_to_w_unicode(space, w_sub)
         # XXX for now just create index
@@ -429,7 +430,7 @@ class W_UnicodeObject(W_Root):
                 end_index = rutf8.codepoint_position_at_index(self._utf8,
                     storage, end)
 
-        res_index = value.find(w_sub._utf8, start_index, end_index)
+        res_index = self._utf8.find(w_sub._utf8, start_index, end_index)
         if res_index == -1:
             return space.newint(-1)
 
