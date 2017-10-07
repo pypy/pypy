@@ -41,12 +41,6 @@ def PyObject_Free(ptr):
 def _PyObject_New(space, type):
     return _PyObject_NewVar(space, type, 0)
 
-def _VAR_SIZE(typeobj, nitems):
-    # equivalent to _PyObject_VAR_SIZE
-    SIZEOF_VOID_P = rffi.sizeof(rffi.VOIDP)
-    return (typeobj.c_tp_basicsize +
-            nitems * typeobj.c_tp_itemsize +
-            (SIZEOF_VOID_P - 1)) & ~(SIZEOF_VOID_P - 1)
 
 @cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def _PyObject_NewVar(space, tp, nitems):
