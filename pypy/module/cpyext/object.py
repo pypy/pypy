@@ -58,7 +58,7 @@ def _PyObject_NewVar(space, tp, nitems):
         typedescr = get_typedescr(w_type.layout.typedef)
         pyobj = typedescr.allocate(space, w_type, itemcount=nitems)
     else:
-        return _allocate_generic_object(space, tp, nitems)
+        return _allocate_generic_object(tp, nitems)
     #
     if tp.c_tp_itemsize == 0:
         w_obj = PyObject_Init(space, pyobj, tp)

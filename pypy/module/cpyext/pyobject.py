@@ -21,7 +21,7 @@ from rpython.rlib.debug import fatalerror
 #________________________________________________________
 # type description
 
-def _allocate_generic_object(space, pytype, itemcount, immortal=False):
+def _allocate_generic_object(pytype, itemcount, immortal=False):
     # Don't increase refcount for non-heaptypes
     flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
     if flags & Py_TPFLAGS_HEAPTYPE:
@@ -58,7 +58,7 @@ class BaseCpyTypedescr(object):
         pytype = as_pyobj(space, w_type)
         pytype = rffi.cast(PyTypeObjectPtr, pytype)
         assert pytype
-        return _allocate_generic_object(space, pytype, itemcount, immortal)
+        return _allocate_generic_object(pytype, itemcount, immortal)
 
     def attach(self, space, pyobj, w_obj, w_userdata=None):
         pass
