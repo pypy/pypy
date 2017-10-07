@@ -52,7 +52,7 @@ def _VAR_SIZE(typeobj, nitems):
 def _PyObject_NewVar(space, tp, nitems):
     from pypy.module.cpyext.pyobject import _allocate_generic_object
     state = space.fromcache(State)
-    if tp is state.C._PyPy_get_PyType_Type():
+    if tp == state.C._PyPy_get_PyType_Type():
         w_type = from_ref(space, rffi.cast(PyObject, tp))
         assert isinstance(w_type, W_TypeObject)
         typedescr = get_typedescr(w_type.layout.typedef)
