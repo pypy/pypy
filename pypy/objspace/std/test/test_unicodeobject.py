@@ -1,4 +1,5 @@
 
+# -*- encoding: utf-8 -*-
 import py
 import sys
 
@@ -725,7 +726,9 @@ class AppTestUnicodeString:
         assert u'abc'.rfind('', 4) == -1
 
     def test_find_index_str_unicode(self):
-        assert 'abcdefghiabc'.find(u'bc') == 1
+        assert u'abcdefghiabc'.find(u'bc') == 1
+        assert u'ab\u0105b\u0107'.find('b', 2) == 3
+        assert u'ab\u0105b\u0107'.find('b', 0, 1) == -1
         assert 'abcdefghiabc'.rfind(u'abc') == 9
         raises(UnicodeDecodeError, '\x80'.find, u'')
         raises(UnicodeDecodeError, '\x80'.rfind, u'')
