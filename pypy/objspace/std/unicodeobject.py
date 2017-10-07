@@ -418,10 +418,16 @@ class W_UnicodeObject(W_Root):
 
         w_sub = self.convert_arg_to_w_unicode(space, w_sub)
         # XXX for now just create index
-        storage = self._get_index_storage()
-        start_index = rutf8.codepoint_position_at_index(self._utf8, storage,
-                                                        start)
-        end_index = rutf8.codepoint_position_at_index(self._utf8, storage, end)
+        start_index = 0
+        end_index = len(self._utf8)
+        if start > 0 or end != self._length:
+            storage = self._get_index_storage()
+            if start > 0:
+                start_index = rutf8.codepoint_position_at_index(self._utf8,
+                    storage, start)
+            if end != self.length:
+                end_index = rutf8.codepoint_position_at_index(self._utf8,
+                    storage, end)
 
         res_index = value.find(w_sub._utf8, start_index, end_index)
         if res_index == -1:
