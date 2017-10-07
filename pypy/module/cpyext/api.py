@@ -1108,6 +1108,14 @@ def setup_init_functions(eci, prefix):
         _reinit_tls()
     add_fork_hook('child', reinit_tls)
 
+
+def attach_c_functions(space, eci, prefix):
+    state = space.fromcache(State)
+    state.C._PyPy_get_PyType_Type = rffi.llexternal(
+        '_PyPy_get_PyType_Type', [], PyTypeObjectPtr,
+        compilation_info=eci, _nowrapper=True)
+
+
 def init_function(func):
     INIT_FUNCTIONS.append(func)
     return func
@@ -1176,6 +1184,7 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
 
+    attach_c_functions(space, eci, prefix)
     run_bootstrap_functions(space)
 
     # load the bridge, and init structure
@@ -1419,6 +1428,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythread.c",
                          source_dir / "missing.c",
                          source_dir / "pymem.c",
+                         source_dir / "typeobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):
@@ -1513,6 +1523,7 @@ def setup_library(space):
     eci = build_eci(code, use_micronumpy, translating=True)
     space.fromcache(State).install_dll(eci)
 
+    attach_c_functions(space, eci, prefix)
     run_bootstrap_functions(space)
 
     # emit uninitialized static data

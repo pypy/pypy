@@ -14,6 +14,7 @@ class State:
         self.programname = lltype.nullptr(rffi.CCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
         self.builder = None
+        self.C = CNamespace()
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
@@ -166,6 +167,11 @@ class State:
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy
         return w_mod
+
+
+class CNamespace:
+    def _freeze_(self):
+        return True
 
 
 def _rawrefcount_perform(space):

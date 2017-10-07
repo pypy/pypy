@@ -9,6 +9,7 @@ from pypy.module.cpyext.pyobject import (
     get_typedescr)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
+from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.error import OperationError, oefmt
 import pypy.module.__builtin__.operation as operation
@@ -50,11 +51,10 @@ def _VAR_SIZE(typeobj, nitems):
 @cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def _PyObject_NewVar(space, tp, nitems):
     from pypy.module.cpyext.pyobject import _allocate_generic_object
-    
-    w_type = from_ref(space, rffi.cast(PyObject, tp))
-    assert isinstance(w_type, W_TypeObject)
-    if w_type is space.w_type:
-        # XXX: integrate this logic with the one below
+    state = space.fromcache(State)
+    if tp is state.C._PyPy_get_PyType_Type():
+        w_type = from_ref(space, rffi.cast(PyObject, tp))
+        assert isinstance(w_type, W_TypeObject)
         typedescr = get_typedescr(w_type.layout.typedef)
         pyobj = typedescr.allocate(space, w_type, itemcount=nitems)
     else:
