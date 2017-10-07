@@ -5,6 +5,7 @@ from rpython.rlib.objectmodel import (
     enforceargs, newlist_hint, specialize, we_are_translated)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
+from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder,\
      replace_count
 from rpython.rlib.runicode import make_unicode_escape_function
@@ -349,6 +350,28 @@ class W_UnicodeObject(W_Root):
     def descr_rmod(self, space, w_values):
         return mod_format(space, w_values, self, do_unicode=True)
 
+    def descr_title(self, space):
+        if len(self._utf8) == 0:
+            return self
+        return W_UnicodeObject(self.title(self._utf8), self._len())
+
+    @jit.elidable
+    def title(self, value):
+        input = self._utf8
+        builder = StringBuilder(len(input))
+        i = 0
+        previous_is_cased = False
+        while i < len(input):
+            ch = rutf8.codepoint_at_pos(input, i)
+            i = rutf8.next_codepoint_pos(input, i)
+            if not previous_is_cased:
+                ch = unicodedb.totitle(ch)
+            else:
+                ch = unicodedb.tolower(ch)
+            rutf8.unichr_as_utf8_append(builder, ch)
+            previous_is_cased = unicodedb.iscased(ch)
+        return builder.build()
+
     def descr_translate(self, space, w_table):
         input = self._utf8
         result = StringBuilder(len(input))
@@ -388,6 +411,30 @@ class W_UnicodeObject(W_Root):
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
                                                     w_errors)
         return encode_object(space, self, encoding, errors)
+
+    @unwrap_spec(tabsize=int)
+    def descr_expandtabs(self, space, tabsize=8):
+        value = self._utf8
+        if not value:
+            return self._empty()
+
+        splitted = value.split('\t')
+
+        try:
+            if tabsize > 0:
+                ovfcheck(len(splitted) * tabsize)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "new string is too long")
+        expanded = oldtoken = splitted.pop(0)
+        newlen = self._len() - len(splitted)
+
+        for token in splitted:
+            dist = self._tabindent(oldtoken, tabsize)
+            expanded += ' ' * dist + token
+            newlen += dist
+            oldtoken = token
+
+        return W_UnicodeObject(expanded, newlen)
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
@@ -436,6 +483,27 @@ class W_UnicodeObject(W_Root):
             if not cased and unicodedb.islower(uchar):
                 cased = True
             i = rutf8.next_codepoint_pos(val, i)
+        return space.newbool(cased)
+
+    def descr_istitle(self, space):
+        cased = False
+        previous_is_cased = False
+        val = self._utf8
+        i = 0
+        while i < len(val):
+            uchar = rutf8.codepoint_at_pos(val, i)
+            i = rutf8.next_codepoint_pos(val, i)
+            if unicodedb.isupper(uchar) or unicodedb.istitle(uchar):
+                if previous_is_cased:
+                    return space.w_False
+                previous_is_cased = True
+                cased = True
+            elif unicodedb.islower(uchar):
+                if not previous_is_cased:
+                    return space.w_False
+                cased = True
+            else:
+                previous_is_cased = False
         return space.newbool(cased)
 
     def descr_isupper(self, space):

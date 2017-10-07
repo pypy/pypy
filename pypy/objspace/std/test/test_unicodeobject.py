@@ -230,6 +230,7 @@ class AppTestUnicodeString:
         assert u"bROWN fOX".title() == u"Brown Fox"
         assert u"Brown Fox".title() == u"Brown Fox"
         assert u"bro!wn fox".title() == u"Bro!Wn Fox"
+        assert u"brow\u4321n fox".title() == u"Brow\u4321N Fox"
 
     def test_istitle(self):
         assert u"".istitle() == False
