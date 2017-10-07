@@ -84,6 +84,7 @@
 #include "pyconfig.h"
 
 #include "object.h"
+#include "typeslots.h"
 #include "abstract.h"
 #include "pymath.h"
 #include "pyport.h"
@@ -113,7 +114,6 @@
 #include "descrobject.h"
 #include "tupleobject.h"
 #include "dictobject.h"
-#include "intobject.h"
 #include "longobject.h"
 #include "listobject.h"
 #include "longobject.h"
@@ -127,6 +127,7 @@
 #include "pycapsule.h"
 #include "bytesobject.h"
 #include "sliceobject.h"
+#include "genobject.h"
 #include "datetime.h"
 #include "pystate.h"
 #include "fileobject.h"

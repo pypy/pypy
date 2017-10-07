@@ -5,9 +5,15 @@ back to cryptography. PyPy vendors it's own copy of the cffi backend thus
 it renames the compiled shared object to _pypy_openssl.so (which means
 that cryptography can ship their own cffi backend)
 
-NOTE: currently, we have changed ``_cffi_src/openssl/callbacks.py`` to
-not rely on the CPython C API, and ``_cffi_src/utils.py`` for issue #2575
-(29c9a89359e4).  (The first change is now backported.)
+NOTE: currently, we have the following changes:
+
+* ``_cffi_src/openssl/callbacks.py`` to not rely on the CPython C API
+  (this change is now backported)
+
+* ``_cffi_src/utils.py`` for issue #2575 (29c9a89359e4)
+
+* ``_cffi_src/openssl/x509_vfy.py`` for issue #2605 (ca4d0c90f5a1)
+
 
 # Tests?
 

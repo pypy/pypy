@@ -5,9 +5,15 @@ sys.path.insert(0, str(ROOT))
 
 import time
 from pypy.interpreter.error import OperationError
-from pypy.module._pypyjson.interp_decoder import loads
+from pypy.module._pypyjson.interp_decoder import loads, JSONDecoder
 from rpython.rlib.objectmodel import specialize, dont_inline
 
+def _create_dict(self, d):
+    w_res = W_Dict()
+    w_res.dictval = d
+    return w_res
+
+JSONDecoder._create_dict = _create_dict
 
 ## MSG = open('msg.json').read()
 
@@ -65,9 +71,13 @@ class FakeSpace(object):
     def isinstance_w(self, w_x, w_type):
         return isinstance(w_x, w_type)
 
-    def str_w(self, w_x):
+    def bytes_w(self, w_x):
         assert isinstance(w_x, W_String)
         return w_x.strval
+
+    def unicode_w(self, w_x):
+        assert isinstance(w_x, W_Unicode)
+        return w_x.unival
 
     @dont_inline
     def call_method(self, obj, name, arg):
@@ -83,13 +93,17 @@ class FakeSpace(object):
         assert isinstance(key, W_Unicode)
         d.dictval[key.unival] = value
 
-    def wrapunicode(self, x):
+    def newunicode(self, x):
         return W_Unicode(x)
 
-    def wrapint(self, x):
+    def newtext(self, x):
+        return W_String(x)
+    newbytes = newtext
+
+    def newint(self, x):
         return W_Int(x)
 
-    def wrapfloat(self, x):
+    def newfloat(self, x):
         return W_Float(x)
 
     @specialize.argtype(1)

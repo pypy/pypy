@@ -521,7 +521,12 @@ class AppTestSocket:
         import _socket
         s = _socket.socket()
         assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 0
-        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 2) == b'\x00\x00'
+        ret = s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 2)
+        if len(ret) == 1:
+            # win32 returns a byte-as-bool
+            assert ret == b'\x00'
+        else:
+            assert ret == b'\x00\x00'
         s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
         assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
         s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
@@ -531,7 +536,11 @@ class AppTestSocket:
         import _socket
         s = _socket.socket()
         buf = s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1024)
-        assert buf == b'\x00' * 4
+        if len(buf) == 1:
+            # win32 returns a byte-as-bool
+            assert buf == b'\x00'
+        else:
+            assert buf == b'\x00' * 4
         raises(_socket.error, s.getsockopt,
                _socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1025)
         raises(_socket.error, s.getsockopt,
@@ -551,14 +560,14 @@ class AppTestSocket:
         s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
 
     def test_dup(self):
-        import _socket as socket, posix
+        import _socket as socket, os
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('localhost', 0))
         fd = socket.dup(s.fileno())
         assert s.fileno() != fd
-        assert posix.get_inheritable(s.fileno()) is False
-        assert posix.get_inheritable(fd) is False
-        posix.close(fd)
+        assert os.get_inheritable(s.fileno()) is False
+        assert os.get_inheritable(fd) is False
+        os.close(fd)
         s.close()
 
     def test_dup_error(self):
@@ -673,18 +682,18 @@ class AppTestSocket:
         raises(ValueError, _socket.socket, fileno=-1)
 
     def test_socket_non_inheritable(self):
-        import _socket, posix
+        import _socket, os
         s1 = _socket.socket()
-        assert posix.get_inheritable(s1.fileno()) is False
+        assert os.get_inheritable(s1.fileno()) is False
         s1.close()
 
     def test_socketpair_non_inheritable(self):
-        import _socket, posix
+        import _socket, os
         if not hasattr(_socket, 'socketpair'):
             skip("no socketpair")
         s1, s2 = _socket.socketpair()
-        assert posix.get_inheritable(s1.fileno()) is False
-        assert posix.get_inheritable(s2.fileno()) is False
+        assert os.get_inheritable(s1.fileno()) is False
+        assert os.get_inheritable(s2.fileno()) is False
         s1.close()
         s2.close()
 
@@ -878,12 +887,12 @@ class AppTestSocketTCP:
 
 
     def test_accept_non_inheritable(self):
-        import _socket, posix
+        import _socket, os
         cli = _socket.socket()
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
-        assert posix.get_inheritable(fileno) is False
-        posix.close(fileno)
+        assert os.get_inheritable(fileno) is False
+        os.close(fileno)
         cli.close()
 
     def test_recv_into_params(self):

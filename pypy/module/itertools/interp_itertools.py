@@ -310,8 +310,7 @@ W_FilterFalse.typedef = TypeDef(
 
 islice_ignore_items_driver = jit.JitDriver(name='islice_ignore_items',
                                            greens=['tp'],
-                                           reds=['num', 'w_islice',
-                                                 'w_iterator'])
+                                           reds=['w_islice', 'w_iterator'])
 
 class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
@@ -325,7 +324,7 @@ class W_ISlice(W_Root):
             w_stop = w_startstop
         elif num_args <= 2:
             if space.is_w(w_startstop, space.w_None):
-                start = -1
+                start = 0
             else:
                 start = self.arg_int_w(w_startstop, 0,
                  "Indicies for islice() must be None or non-negative integers")
@@ -352,9 +351,10 @@ class W_ISlice(W_Root):
         else:
             step = 1
 
-        self.ignore = step - 1
-        self.start = start
+        self.count = 0
+        self.next = start
         self.stop = stop
+        self.step = step
 
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
@@ -372,70 +372,52 @@ class W_ISlice(W_Root):
         return self
 
     def next_w(self):
-        if self.start >= 0:               # first call only
-            ignore = self.start
-            self.start = -1
-        else:                             # all following calls
-            ignore = self.ignore
-        stop = self.stop
-        if stop >= 0:
-            if stop <= ignore:
-                self.stop = 0   # reset the state so that a following next_w()
-                                # has no effect any more
-                if stop > 0:
-                    self._ignore_items(stop)
-                self.iterable = None
-                raise OperationError(self.space.w_StopIteration,
-                                     self.space.w_None)
-            self.stop = stop - (ignore + 1)
-        if ignore > 0:
-            self._ignore_items(ignore)
         if self.iterable is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        self._ignore_items()
+        stop = self.stop
+        if 0 <= stop <= self.count:
+            self.iterable = None
+            raise OperationError(self.space.w_StopIteration,
+                                    self.space.w_None)
         try:
-            return self.space.next(self.iterable)
+            item = self.space.next(self.iterable)
         except OperationError as e:
             if e.match(self.space, self.space.w_StopIteration):
                 self.iterable = None
             raise
+        self.count += 1
+        oldnext = self.next
+        self.next += self.step
+        if self.next < oldnext or self.next > stop >= 0:
+            self.next = stop
+        return item
 
-    def _ignore_items(self, num):
+    def _ignore_items(self):
         w_iterator = self.iterable
-        if w_iterator is None:
-            raise OperationError(self.space.w_StopIteration, self.space.w_None)
-
         tp = self.space.type(w_iterator)
         while True:
-            islice_ignore_items_driver.jit_merge_point(tp=tp,
-                                                       num=num,
-                                                       w_islice=self,
-                                                       w_iterator=w_iterator)
+            islice_ignore_items_driver.jit_merge_point(
+                tp=tp, w_islice=self, w_iterator=w_iterator)
+            if self.count >= self.next:
+                break
             try:
                 self.space.next(w_iterator)
             except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.iterable = None
                 raise
-            num -= 1
-            if num <= 0:
-                break
+            self.count += 1
 
     def descr_reduce(self, space):
         if self.iterable is None:
             return space.newtuple([
                 space.type(self),
                 space.newtuple([space.iter(space.newlist([])),
-                                space.newint(0),
-                                space.newint(0),
-                                space.newint(1),
-                            ]),
+                                space.newint(0)]),
+                space.newint(0),
             ])
-        start = self.start
         stop = self.stop
-        if start == -1:
-            w_start = space.w_None
-        else:
-            w_start = space.newint(start)
         if stop == -1:
             w_stop = space.w_None
         else:
@@ -443,10 +425,14 @@ class W_ISlice(W_Root):
         return space.newtuple([
             space.type(self),
             space.newtuple([self.iterable,
-                            w_start,
+                            space.newint(self.next),
                             w_stop,
-                            space.newint(self.ignore + 1)]),
+                            space.newint(self.step)]),
+            space.newint(self.count),
         ])
+
+    def descr_setstate(self, space, w_state):
+        self.count = space.int_w(w_state)
 
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
     r = space.allocate_instance(W_ISlice, w_subtype)
@@ -459,6 +445,7 @@ W_ISlice.typedef = TypeDef(
         __iter__ = interp2app(W_ISlice.iter_w),
         __next__ = interp2app(W_ISlice.next_w),
         __reduce__ = interp2app(W_ISlice.descr_reduce),
+        __setstate__ = interp2app(W_ISlice.descr_setstate),
         __doc__  = """Make an iterator that returns selected elements from the
     iterable.  If start is non-zero, then elements from the iterable
     are skipped until start is reached. Afterward, elements are

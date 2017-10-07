@@ -1,12 +1,15 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, cts,
-    parse_dir, bootstrap_function, generic_cpy_call, slot_function)
+    METH_NOARGS, METH_O,
+    parse_dir, bootstrap_function, generic_cpy_call,
+    generic_cpy_call_dont_convert_result, slot_function)
 from pypy.module.cpyext.pyobject import PyObject, as_pyobj, make_typedescr
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
-    PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New)
+    PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New,
+    W_PyCFunctionObjectNoArgs, W_PyCFunctionObjectSingleObject)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import oefmt
@@ -142,25 +145,35 @@ def exec_def(space, w_mod, mod_as_pyobj):
     mod = rffi.cast(PyModuleObject, mod_as_pyobj)
     moddef = mod.c_md_def
     cur_slot = rffi.cast(rffi.CArrayPtr(PyModuleDef_Slot), moddef.c_m_slots)
+    if moddef.c_m_size >= 0 and not mod.c_md_state:
+        # Always set md_state, to use as marker for exec_extension_module()
+        # (cf. CPython's PyModule_ExecDef)
+        mod.c_md_state = lltype.malloc(
+            rffi.VOIDP.TO, moddef.c_m_size, flavor='raw', zero=True)
     while cur_slot and rffi.cast(lltype.Signed, cur_slot[0].c_slot):
         if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == 2:
             execf = rffi.cast(execfunctype, cur_slot[0].c_value)
-            res = generic_cpy_call(space, execf, w_mod)
-            has_error = PyErr_Occurred(space) is not None
+            res = generic_cpy_call_dont_convert_result(space, execf, w_mod)
+            state = space.fromcache(State)
             if rffi.cast(lltype.Signed, res):
-                if has_error:
-                    state = space.fromcache(State)
-                    state.check_and_raise_exception()
-                else:
-                    raise oefmt(space.w_SystemError,
-                                "execution of module %S failed without "
-                                "setting an exception", w_mod.w_name)
-            if has_error:
+                state.check_and_raise_exception()
                 raise oefmt(space.w_SystemError,
-                            "execution of module %S raised unreported "
-                            "exception", w_mod.w_name)
+                            "execution of module %S failed without "
+                            "setting an exception", w_mod.w_name)
+            else:
+                if state.clear_exception():
+                    raise oefmt(space.w_SystemError,
+                                "execution of module %S raised unreported "
+                                "exception", w_mod.w_name)
         cur_slot = rffi.ptradd(cur_slot, 1)
 
+def _create_pyc_function_object(space, method, w_self, w_name, flags):
+    flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
+    if flags == METH_NOARGS:
+        return W_PyCFunctionObjectNoArgs(space, method, w_self, w_name)
+    if flags == METH_O:
+        return W_PyCFunctionObjectSingleObject(space, method, w_self, w_name)
+    return W_PyCFunctionObject(space, method, w_self, w_name)
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
     w_name = space.newtext_or_none(name)
@@ -180,7 +193,8 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                     raise oefmt(space.w_ValueError,
                             "module functions cannot set METH_CLASS or "
                             "METH_STATIC")
-                w_obj = W_PyCFunctionObject(space, method, w_self, w_name)
+                w_obj = _create_pyc_function_object(space, method, w_self,
+                                                    w_name, flags)
             else:
                 if methodname in dict_w and not (flags & METH_COEXIST):
                     continue

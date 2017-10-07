@@ -10,7 +10,7 @@ except ImportError:
 
 from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype
@@ -1318,8 +1318,8 @@ def get_fork_hooks(where):
     else:
         assert False, "Unknown fork hook"
 
+@not_rpython
 def add_fork_hook(where, hook):
-    "NOT_RPYTHON"
     get_fork_hooks(where).append(hook)
 
 add_fork_hook('child', ExecutionContext._mark_thread_disappeared)
@@ -2218,9 +2218,15 @@ def device_encoding(space, fd):
         return space.w_None
     if _WIN32:
         if fd == 0:
-            return space.newtext('cp%d' % rwin32.GetConsoleCP())
-        if fd in (1, 2):
-            return space.newtext('cp%d' % rwin32.GetConsoleOutputCP())
+            ccp = rwin32.GetConsoleCP()
+        elif fd in (1, 2):
+            ccp = rwin32.GetConsoleOutputCP()
+        else:
+            ccp = 0
+        # GetConsoleCP() and GetConsoleOutputCP() return 0 if the
+        # application has no console.
+        if ccp != 0:
+            return space.newtext('cp%d' % ccp)
     from rpython.rlib import rlocale
     if rlocale.HAVE_LANGINFO:
         codeset = rlocale.nl_langinfo(rlocale.CODESET)

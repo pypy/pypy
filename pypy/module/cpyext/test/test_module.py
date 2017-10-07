@@ -134,3 +134,117 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         """
         raises(SystemError, self.import_module, name='multiphase', body=body,
                init=init)
+
+class AppTestMultiPhase2(AppTestCpythonExtensionBase):
+    def setup_class(cls):
+        cls.w_name = cls.space.wrap('multiphase2')
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+
+    def test_multiphase2(self):
+        import sys
+        from importlib import machinery, util
+        module = self.import_module(name=self.name)
+        finder = machinery.FileFinder(None)
+        spec = util.find_spec(self.name)
+        assert spec
+        assert module.__name__ == self.name
+        #assert module.__file__ == spec.origin
+        assert module.__package__ == ''
+        raises(AttributeError, 'module.__path__')
+        assert module is sys.modules[self.name]
+        assert isinstance(module.__loader__, machinery.ExtensionFileLoader)
+
+    def test_functionality(self):
+        import types
+        module = self.import_module(name=self.name)
+        assert isinstance(module, types.ModuleType)
+        ex = module.Example()
+        assert ex.demo('abcd') == 'abcd'
+        assert ex.demo() is None
+        raises(AttributeError, 'ex.abc')
+        ex.abc = 0
+        assert ex.abc == 0
+        assert module.foo(9, 9) == 18
+        assert isinstance(module.Str(), str)
+        assert module.Str(1) + '23' == '123'
+        raises(module.error, 'raise module.error()')
+        assert module.int_const == 1969
+        assert module.str_const == 'something different'
+
+    def test_reload(self):
+        import importlib
+        module = self.import_module(name=self.name)
+        ex_class = module.Example
+        # Simulate what importlib.reload() does, without recomputing the spec
+        module.__spec__.loader.exec_module(module)
+        assert ex_class is module.Example
+
+    def w_load_from_name(self, name, origin=None, use_prefix=True):
+        from importlib import machinery, util
+        if not origin:
+            module = self.import_module(name=self.name)
+            origin = module.__loader__.path
+        if use_prefix:
+            name = '_testmultiphase_' + name
+        loader = machinery.ExtensionFileLoader(name, origin)
+        spec = util.spec_from_loader(name, loader)
+        module = util.module_from_spec(spec)
+        loader.exec_module(module)
+        return module
+
+    def test_bad_modules(self):
+        # XXX: not a very good test, since most internal issues in cpyext
+        # cause SystemErrors.
+        module = self.import_module(name=self.name)
+        origin = module.__loader__.path
+        for name in [
+                'bad_slot_large',
+                'bad_slot_negative',
+                'create_int_with_state',
+                'negative_size',
+                'create_null',
+                'create_raise',
+                'create_unreported_exception',
+                'nonmodule_with_exec_slots',
+                'exec_err',
+                'exec_raise',
+                'exec_unreported_exception',
+                ]:
+            raises(SystemError, self.load_from_name, name, origin)
+
+    def test_export_null(self):
+        excinfo = raises(SystemError, self.load_from_name, 'export_null')
+        assert "initialization" in excinfo.value.args[0]
+        assert "without raising" in excinfo.value.args[0]
+
+    def test_export_uninit(self):
+        excinfo = raises(SystemError, self.load_from_name, 'export_uninitialized')
+        assert "init function" in excinfo.value.args[0]
+        assert "uninitialized object" in excinfo.value.args[0]
+
+    def test_export_raise(self):
+        excinfo = raises(SystemError, self.load_from_name, 'export_raise')
+        assert "bad export function" == excinfo.value.args[0]
+
+    def test_export_unreported(self):
+        excinfo = raises(SystemError, self.load_from_name, 'export_unreported_exception')
+        assert "initialization" in excinfo.value.args[0]
+        assert "unreported exception" in excinfo.value.args[0]
+
+    def test_unloadable_nonascii(self):
+        name = u"fo\xf3"
+        excinfo = raises(ImportError, self.load_from_name, name)
+        assert excinfo.value.name == '_testmultiphase_' + name
+
+    def test_nonascii(self):
+        module = self.import_module(name=self.name)
+        origin = module.__loader__.path
+        cases = [
+            ('_testmultiphase_zkou\u0161ka_na\u010dten\xed', 'Czech'),
+            ('\uff3f\u30a4\u30f3\u30dd\u30fc\u30c8\u30c6\u30b9\u30c8',
+             'Japanese'),
+            ]
+        for name, lang in cases:
+            module = self.load_from_name(name, origin=origin, use_prefix=False)
+            assert module.__name__ == name
+            assert module.__doc__ == "Module named in %s" % lang

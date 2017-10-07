@@ -9,7 +9,6 @@ IDTAG_INT     = 1
 IDTAG_LONG    = 3
 IDTAG_FLOAT   = 5
 IDTAG_COMPLEX = 7
-IDTAG_METHOD  = 9
 IDTAG_SPECIAL = 11    # -1 - (-maxunicode-1): unichar
                       # 0 - 255: char
                       # 256: empty string

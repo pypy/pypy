@@ -639,7 +639,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         addresses_of_static_ptrs = (
             self.layoutbuilder.addresses_of_static_ptrs_in_nongc +
             self.layoutbuilder.addresses_of_static_ptrs)
-        log.info("found %s static roots" % (len(addresses_of_static_ptrs), ))
+        if len(addresses_of_static_ptrs) == 1:
+            log.info("found 1 static root")
+        else:
+            log.info("found %s static roots" % (len(addresses_of_static_ptrs), ))
         ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
                                                len(addresses_of_static_ptrs),
                                                immortal=True)

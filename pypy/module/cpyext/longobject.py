@@ -1,13 +1,12 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
-    cpython_api, PyObject, build_type_checkers, Py_ssize_t,
+    cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
     CONST_STRING, ADDR, CANNOT_FAIL)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rbigint import rbigint
 
-
-PyLong_Check, PyLong_CheckExact = build_type_checkers("Long", "w_int")
+PyLong_Check, PyLong_CheckExact = build_type_checkers_flags("Long")
 
 @cpython_api([lltype.Signed], PyObject)
 def PyLong_FromLong(space, val):
@@ -167,7 +166,7 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
 @cpython_api([lltype.Float], PyObject)
 def PyLong_FromDouble(space, val):
     """Return a new PyLongObject object from v, or NULL on failure."""
-    return space.int(space.newfloat(val))
+    return space.long(space.newfloat(val))
 
 @cpython_api([PyObject], lltype.Float, error=-1.0)
 def PyLong_AsDouble(space, w_long):
@@ -192,7 +191,7 @@ def PyLong_FromString(space, str, pend, base):
     w_base = space.newint(rffi.cast(lltype.Signed, base))
     if pend:
         pend[0] = rffi.ptradd(str, len(s))
-    return space.call_function(space.w_int, w_str, w_base)
+    return space.call_function(space.w_long, w_str, w_base)
 
 @cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.INT_real], PyObject)
 def PyLong_FromUnicode(space, u, length, base):
@@ -202,8 +201,12 @@ def PyLong_FromUnicode(space, u, length, base):
     for the conversion.  The radix must be in the range [2, 36]; if it is
     out of range, ValueError will be raised."""
     w_value = space.newunicode(rffi.wcharpsize2unicode(u, length))
+    return PyLong_FromUnicodeObject(space, w_value, base)
+
+@cpython_api([PyObject, rffi.INT_real], PyObject)
+def PyLong_FromUnicodeObject(space, w_value, base):
     w_base = space.newint(rffi.cast(lltype.Signed, base))
-    return space.call_function(space.w_int, w_value, w_base)
+    return space.call_function(space.w_long, w_value, w_base)
 
 @cpython_api([rffi.VOIDP], PyObject)
 def PyLong_FromVoidPtr(space, p):

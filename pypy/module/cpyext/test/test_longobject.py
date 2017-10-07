@@ -272,6 +272,19 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         # A string with arabic digits. 'BAD' is after the 6th character.
         assert module.from_unicode(u'  1\u0662\u0663\u0664BAD') == (1234, 4660)
 
+    def test_fromunicodeobject(self):
+        module = self.import_extension('foo', [
+            ("from_unicodeobject", "METH_O",
+             """
+                 return Py_BuildValue("NN",
+                     PyLong_FromUnicodeObject(args, 10),
+                     PyLong_FromUnicodeObject(args, 16));
+             """),
+            ])
+        # A string with arabic digits.
+        assert (module.from_unicodeobject(u'  1\u0662\u0663\u0664')
+                == (1234, 4660))
+
     def test_aslong(self):
         module = self.import_extension('foo', [
             ("as_long", "METH_O",
@@ -329,6 +342,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     ret = obj->ob_type->tp_as_number->nb_power(obj, one, one);
                 else
                     ret = PyLong_FromLong(-1);
+                Py_DECREF(one);
                 Py_DECREF(obj);
                 return ret;
              """)])

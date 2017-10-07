@@ -48,7 +48,7 @@ class FakeResidualCallControl:
     def guess_call_kind(self, op):
         return 'residual'
     def getcalldescr(self, op, oopspecindex=None, extraeffect=None,
-                     extradescr=None):
+                     extradescr=None, calling_graph=None):
         return 'calldescr'
     def calldescr_canraise(self, calldescr):
         return True
@@ -106,7 +106,7 @@ class FakeBuiltinCallControl:
     def guess_call_kind(self, op):
         return 'builtin'
     def getcalldescr(self, op, oopspecindex=None, extraeffect=None,
-                     extradescr=None):
+                     extradescr=None, calling_graph=None):
         assert oopspecindex is not None    # in this test
         EI = effectinfo.EffectInfo
         if oopspecindex != EI.OS_ARRAYCOPY:

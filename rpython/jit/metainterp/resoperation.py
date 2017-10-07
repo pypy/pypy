@@ -400,7 +400,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return rop.can_raise(self.getopnum())
 
     def is_foldable_guard(self):
-        return rop.is_foldable_guard(self.getopnun())
+        return rop.is_foldable_guard(self.getopnum())
 
     def is_primitive_array_access(self):
         """ Indicates that this operations loads/stores a

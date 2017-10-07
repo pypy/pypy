@@ -845,6 +845,9 @@ class RSocket(object):
     @jit.dont_look_inside
     def getsockopt_int(self, level, option):
         flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        # some win32 calls use only a byte to represent a bool
+        # zero out so the result is correct anyway
+        flag_p[0] = rffi.cast(rffi.INT, 0)
         try:
             flagsize_p = lltype.malloc(_c.socklen_t_ptr.TO, flavor='raw')
             try:
@@ -963,6 +966,126 @@ class RSocket(object):
                 return (read_bytes, address)
             raise self.error_handler()
 
+    @jit.dont_look_inside
+    def recvmsg(self, message_size, ancbufsize = 0, flags = 0):
+        """
+        Receive up to message_size bytes from a message. Also receives ancillary data.
+        Returns the message, ancillary, flag and address of the sender.
+        :param message_size: Maximum size of the message to be received
+        :param ancbufsize:  Maximum size of the ancillary data to be received
+        :param flags: Receive flag. For more details, please check the Unix manual
+        :return: a tuple consisting of the message, the ancillary data, return flag and the address.
+        """
+        if message_size < 0:
+            raise RSocketError("Invalid message size")
+        if ancbufsize < 0:
+            raise RSocketError("invalid ancillary data buffer length")
+
+        self.wait_for_data(False)
+        address, addr_p, addrlen_p  = self._addrbuf()
+        len_of_msgs = lltype.malloc(rffi.SIGNEDPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False)
+        messages = lltype.malloc(rffi.CCHARPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
+        messages[0] = lltype.malloc(rffi.CCHARP.TO, message_size,flavor='raw',track_allocation=True,nonmovable=False)
+        rffi.c_memset(messages[0], 0, message_size)
+        no_of_messages  = lltype.malloc(rffi.SIGNEDP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
+        no_of_messages[0] = rffi.cast(rffi.SIGNED, 0)
+        size_of_anc = lltype.malloc(rffi.SIGNEDP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
+        size_of_anc[0] = rffi.cast(rffi.SIGNED,0)
+        levels = lltype.malloc(rffi.SIGNEDPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False)
+        types = lltype.malloc(rffi.SIGNEDPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False)
+        file_descr = lltype.malloc(rffi.CCHARPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
+        descr_per_anc = lltype.malloc(rffi.SIGNEDPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False)
+        retflag = lltype.malloc(rffi.SIGNEDP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
+        retflag[0] = rffi.cast(rffi.SIGNED,0)
+
+        # a mask for the SIGNEDP's that need to be cast to int. (long default)
+        reply = _c.recvmsg(self.fd, rffi.cast(lltype.Signed,message_size),
+                           rffi.cast(lltype.Signed,ancbufsize),rffi.cast(lltype.Signed,flags),
+                           addr_p, addrlen_p, len_of_msgs, messages, no_of_messages,size_of_anc,
+                           levels, types,file_descr,descr_per_anc,retflag)
+        if reply >= 0:
+            anc_size  = rffi.cast(rffi.SIGNED,size_of_anc[0])
+            returnflag  = rffi.cast(rffi.SIGNED,retflag[0])
+            addrlen = rffi.cast(rffi.SIGNED,addrlen_p[0])
+
+            retmsg = rffi.charpsize2str(messages[0],reply)
+
+            offset = 0
+            list_of_tuples = []
+
+            pre_anc = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw', track_allocation=True, nonmovable=False)
+            for i in range(anc_size):
+                level = rffi.cast(rffi.SIGNED, levels[0][i])
+                type = rffi.cast(rffi.SIGNED, types[0][i])
+                bytes_in_anc = rffi.cast(rffi.SIGNED, descr_per_anc[0][i])
+                pre_anc[0] = lltype.malloc(rffi.CCHARP.TO, bytes_in_anc,flavor='raw',track_allocation=True,nonmovable=False)
+                _c.memcpy_from_CCHARP_at_offset(file_descr[0], pre_anc,rffi.cast(rffi.SIGNED,offset), bytes_in_anc)
+                anc = rffi.charpsize2str(pre_anc[0],bytes_in_anc)
+                tup = (level,type, anc)
+                list_of_tuples.append(tup)
+                offset += bytes_in_anc
+                lltype.free(pre_anc[0], flavor='raw')
+
+            if addrlen:
+                address.addrlen = addrlen
+            else:
+                address.unlock()
+                address = None
+
+            rettup = (retmsg,list_of_tuples,returnflag,address)
+
+            if address is not None:
+                address.unlock()
+            # free underlying complexity first
+            _c.freeccharp(file_descr)
+            _c.freesignedp(len_of_msgs)
+            _c.freesignedp(levels)
+            _c.freesignedp(types)
+            _c.freesignedp(descr_per_anc)
+
+            lltype.free(messages[0], flavor='raw')
+            lltype.free(pre_anc,flavor='raw')
+            lltype.free(messages,flavor='raw')
+            lltype.free(file_descr,flavor='raw')
+            lltype.free(len_of_msgs,flavor='raw')
+            lltype.free(no_of_messages, flavor='raw')
+            lltype.free(size_of_anc, flavor='raw')
+            lltype.free(levels, flavor='raw')
+            lltype.free(types, flavor='raw')
+            lltype.free(descr_per_anc, flavor='raw')
+            lltype.free(retflag, flavor='raw')
+            lltype.free(addrlen_p,flavor='raw')
+
+            return rettup
+        else:
+
+            #in case of failure the underlying complexity has already been freed
+            lltype.free(messages[0], flavor='raw')
+            lltype.free(messages, flavor='raw')
+            lltype.free(file_descr, flavor='raw')
+            lltype.free(len_of_msgs, flavor='raw')
+            lltype.free(no_of_messages, flavor='raw')
+            lltype.free(size_of_anc, flavor='raw')
+            lltype.free(levels, flavor='raw')
+            lltype.free(types, flavor='raw')
+            lltype.free(descr_per_anc, flavor='raw')
+            lltype.free(retflag, flavor='raw')
+            lltype.free(addrlen_p, flavor='raw')
+
+            if address is not None:
+                address.unlock()
+            if _c.geterrno() == _c.EINTR:
+                raise last_error()
+            if (reply == -10000):
+                raise RSocketError("Invalid message size")
+            if (reply == -10001):
+                raise RSocketError("Invalid ancillary data buffer length")
+            if (reply == -10002):
+                raise RSocketError("received malformed or improperly truncated ancillary data")
+            raise last_error()
+
+
+
     def send_raw(self, dataptr, length, flags=0):
         """Send data from a CCHARP buffer."""
         self.wait_for_data(True)
@@ -1008,6 +1131,86 @@ class RSocket(object):
         if res < 0:
             raise self.error_handler()
         return res
+
+    @jit.dont_look_inside
+    def sendmsg(self, messages, ancillary=None, flags=0, address=None):
+        """
+        Send data and ancillary on a socket. For use of ancillary data, please check the Unix manual.
+        Work on connectionless sockets via the address parameter.
+        :param messages: a message that is a list of strings
+        :param ancillary: data to be sent separate from the message body. Needs to be a list of tuples.
+                            E.g. [(level,type, bytes),...]. Default None.
+        :param flags: the flag to be set for sendmsg. Please check the Unix manual regarding values. Default 0
+        :param address: address of the recepient. Useful for when sending on connectionless sockets. Default None
+        :return: Bytes sent from the message
+        """
+        need_to_free_address = True
+        if address is None:
+            need_to_free_address = False
+            addr = lltype.nullptr(_c.sockaddr)
+            addrlen = 0
+        else:
+            addr = address.lock()
+            addrlen = address.addrlen
+
+        no_of_messages = len(messages)
+        messages_ptr = lltype.malloc(rffi.CCHARPP.TO,no_of_messages+1,flavor='raw',track_allocation=True,nonmovable=False)
+        messages_length_ptr = lltype.malloc(rffi.SIGNEDP.TO,no_of_messages,flavor='raw',zero=True, track_allocation=True,nonmovable=False)
+        counter = 0
+        for message in messages:
+            messages_ptr[counter] = rffi.str2charp(message)
+            messages_length_ptr[counter] = rffi.cast(rffi.SIGNED, len(message))
+            counter += 1
+        messages_ptr[counter] = lltype.nullptr(rffi.CCHARP.TO)
+        if ancillary is not None:
+            size_of_ancillary = len(ancillary)
+        else:
+            size_of_ancillary = 0
+        levels = lltype.malloc(rffi.SIGNEDP.TO, size_of_ancillary,flavor='raw',zero=True, track_allocation=True,nonmovable=False)
+        types = lltype.malloc(rffi.SIGNEDP.TO, size_of_ancillary,flavor='raw',zero=True, track_allocation=True,nonmovable=False)
+        desc_per_ancillary = lltype.malloc(rffi.SIGNEDP.TO, size_of_ancillary,flavor='raw',zero=True, track_allocation=True,nonmovable=False)
+        file_descr = lltype.malloc(rffi.CCHARPP.TO, size_of_ancillary,flavor='raw', track_allocation=True,nonmovable=False)
+        if ancillary is not None:
+            counter = 0
+            for level, type, content in ancillary:
+                assert isinstance(type,int)
+                assert isinstance(level, int)
+                levels[counter] = rffi.cast(rffi.SIGNED,level)
+                types[counter] = rffi.cast(rffi.SIGNED,type)
+                desc_per_ancillary[counter] = rffi.cast(rffi.SIGNED, (len(content)))
+                file_descr[counter] = rffi.str2charp(content, track_allocation=True)
+                counter +=1
+        else:
+            size_of_ancillary = 0
+        snd_no_msgs = rffi.cast(rffi.SIGNED, no_of_messages)
+        snd_anc_size =rffi.cast(rffi.SIGNED, size_of_ancillary)
+
+
+        bytes_sent = _c.sendmsg(self.fd, addr, addrlen, messages_length_ptr, messages_ptr, snd_no_msgs,levels,types,file_descr,desc_per_ancillary,snd_anc_size,flags)
+
+
+        if need_to_free_address:
+            address.unlock()
+        for i in range(len(messages)):
+            lltype.free(messages_ptr[i], flavor='raw', track_allocation=True)
+        lltype.free(messages_ptr, flavor='raw', track_allocation=True)
+        lltype.free(messages_length_ptr, flavor='raw', track_allocation=True)
+
+        if size_of_ancillary > 0:
+            for i in range(len(ancillary)):
+                lltype.free(file_descr[i], flavor='raw', track_allocation=True)
+        lltype.free(desc_per_ancillary, flavor='raw', track_allocation=True)
+        lltype.free(types, flavor='raw', track_allocation=True)
+        lltype.free(levels, flavor='raw', track_allocation=True)
+        lltype.free(file_descr, flavor='raw', track_allocation=True)
+
+        self.wait_for_data(True)
+        if (bytes_sent < 0) and (bytes_sent!=-1000) and (bytes_sent!=-1001) and (bytes_sent!=-1002):
+            raise last_error()
+
+        return bytes_sent
+
+
 
     def setblocking(self, block):
         if block:
@@ -1189,6 +1392,31 @@ if hasattr(_c, 'socketpair'):
             sock_set_inheritable(fd1, False)
         return (make_socket(fd0, family, type, proto, SocketClass),
                 make_socket(fd1, family, type, proto, SocketClass))
+
+if _c.HAVE_SENDMSG:
+    def CMSG_LEN( demanded_len):
+        """
+        Socket method to determine the optimal byte size of the ancillary.
+        Recommended to be used when computing the ancillary size for recvmsg.
+        :param demanded_len: an integer with the minimum size required.
+        :return: an integer with the minimum memory needed for the required size. The value is not memory alligned
+        """
+        if demanded_len < 0:
+            return 0
+        result = _c.CMSG_LEN(demanded_len)
+        return result
+
+    def CMSG_SPACE( demanded_size):
+        """
+        Socket method to determine the optimal byte size of the ancillary.
+        Recommended to be used when computing the ancillary size for recvmsg.
+        :param demanded_size: an integer with the minimum size required.
+        :return: an integer with the minimum memory needed for the required size. The value is memory alligned
+        """
+        if demanded_size < 0:
+            return 0
+        result = _c.CMSG_SPACE(demanded_size)
+        return result
 
 if _c.WIN32:
     def dup(fd, inheritable=True):

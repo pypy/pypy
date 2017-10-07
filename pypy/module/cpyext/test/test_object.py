@@ -8,7 +8,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.object import (
     PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
     PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
-    PyObject_GetItem, PyObject_RichCompareBool,
+    PyObject_GetItem, 
     PyObject_IsInstance, PyObject_IsSubclass, PyObject_AsFileDescriptor,
     PyObject_Hash)
 
@@ -135,7 +135,18 @@ class TestObject(BaseApiTest):
 
         w_i = space.wrap(1)
         with raises_w(space, SystemError):
-            PyObject_RichCompareBool(space, w_i, w_i, 123456)
+            api.PyObject_RichCompareBool(w_i, w_i, 123456)
+
+    def test_RichCompareNanlike(self, space,api):
+        w_obj = space.appexec([], """():
+            class Nanlike(object):
+                def __eq__(self, other):
+                    raise RuntimeError('unreachable')
+            return Nanlike()""")
+        res = api.PyObject_RichCompareBool(w_obj, w_obj, Py_EQ)
+        assert res == 1
+        res = api.PyObject_RichCompareBool(w_obj, w_obj, Py_NE)
+        assert res == 0
 
     def test_IsInstance(self, space, api):
         assert api.PyObject_IsInstance(space.wrap(1), space.w_int) == 1
@@ -288,13 +299,20 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  if (fp == NULL)
                      Py_RETURN_NONE;
                  ret = PyObject_Print(obj, fp, Py_PRINT_RAW);
-                 fclose(fp);
-                 if (ret < 0)
+                 if (ret < 0) {
+                     fclose(fp);
                      return NULL;
+                 }
+                 ret = PyObject_Print(NULL, fp, Py_PRINT_RAW);
+                 if (ret < 0) {
+                     fclose(fp);
+                     return NULL;
+                 }
+                 fclose(fp);
                  Py_RETURN_TRUE;
              """)])
         assert module.dump(self.tmpname, None)
-        assert open(self.tmpname).read() == 'None'
+        assert open(self.tmpname).read() == 'None<nil>'
 
     def test_issue1970(self):
         module = self.import_extension('foo', [
@@ -342,6 +360,27 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert type(module.asbytes(sub1(b''))) is bytes
         assert type(module.asbytes(sub2(b''))) is sub2
 
+    def test_LengthHint(self):
+        import operator
+        class WithLen:
+            def __len__(self):
+                return 1
+            def __length_hint__(self):
+                return 42
+        class NoLen:
+            def __length_hint__(self):
+                return 2
+        module = self.import_extension('test_LengthHint', [
+            ('length_hint', 'METH_VARARGS',
+             """
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 Py_ssize_t i = PyLong_AsSsize_t(PyTuple_GET_ITEM(args, 1));
+                 return PyLong_FromSsize_t(PyObject_LengthHint(obj, i));
+             """)])
+        assert module.length_hint(WithLen(), 5) == operator.length_hint(WithLen(), 5) == 1
+        assert module.length_hint(NoLen(), 5) == operator.length_hint(NoLen(), 5) == 2
+        assert module.length_hint(object(), 5) == operator.length_hint(object(), 5) == 5
+
     def test_add_memory_pressure(self):
         self.reset_memory_pressure()    # for the potential skip
         module = self.import_extension('foo', [
@@ -377,7 +416,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         Py_buffer passed to it.
         """
         module = self.import_extension('foo', [
-                ("fillinfo", "METH_VARARGS",
+                ("fillinfo", "METH_NOARGS",
                  """
     Py_buffer buf;
     PyObject *str = PyBytes_FromString("hello, world.");
@@ -429,7 +468,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         object.
         """
         module = self.import_extension('foo', [
-                ("fillinfo", "METH_VARARGS",
+                ("fillinfo", "METH_NOARGS",
                  """
     Py_buffer buf;
     PyObject *str = PyBytes_FromString("hello, world.");
@@ -475,7 +514,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         PyBuffer_FillInfo fails if WRITABLE is passed but object is readonly.
         """
         module = self.import_extension('foo', [
-                ("fillinfo", "METH_VARARGS",
+                ("fillinfo", "METH_NOARGS",
                  """
     Py_buffer buf;
     PyObject *str = PyBytes_FromString("hello, world.");
@@ -502,7 +541,7 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
         decremented by PyBuffer_Release.
         """
         module = self.import_extension('foo', [
-                ("release", "METH_VARARGS",
+                ("release", "METH_NOARGS",
                  """
     Py_buffer buf;
     buf.obj = PyBytes_FromString("release me!");
@@ -522,3 +561,19 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
                  """)])
         assert module.release() is None
 
+
+class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
+    def test_richcomp_nan(self):
+        module = self.import_extension('foo', [
+               ("comp_eq", "METH_VARARGS",
+                """
+                PyObject *a = PyTuple_GetItem(args, 0);
+                PyObject *b = PyTuple_GetItem(args, 1);
+                int res = PyObject_RichCompareBool(a, b, Py_EQ);
+                return PyLong_FromLong(res);  
+                """),])
+        a = float('nan')
+        b = float('nan')
+        assert a is b
+        res = module.comp_eq(a, b)
+        assert res == 1

@@ -15,9 +15,9 @@ my_execute_frame = _decorator(PyFrame.execute_frame)
 
 
 class __extend__(PyFrame):
-    def execute_frame(self, w_inputvalue=None, operr=None):
+    def execute_frame(self, in_generator=None, w_arg_or_err=None):
         # indirection for the optional arguments
-        return my_execute_frame(self, w_inputvalue, operr)
+        return my_execute_frame(self, in_generator, w_arg_or_err)
 
 
 def _safe(s):
@@ -69,11 +69,6 @@ def enable(space, fileno, period, memory, lines, native, real_time):
         rvmprof.enable(fileno, period, memory, native, real_time)
     except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
-
-def write_all_code_objects(space):
-    """ Needed on cpython, just empty function here
-    """
-    pass
 
 def disable(space):
     """Disable vmprof.  Remember to close the file descriptor afterwards

@@ -77,24 +77,26 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
             assert mod.isSameFunction(mod.getarg_O)
         raises(SystemError, mod.isSameFunction, 1)
 
-class TestPyCMethodObject(BaseApiTest):
-    def test_repr(self, space, api):
-        """
-        W_PyCMethodObject has a repr string which describes it as a method
-        and gives its name and the name of its class.
-        """
-        def func(space, w_self, w_args):
-            return space.w_None
-        c_func = ApiFunction([PyObject, PyObject], PyObject, func)
-        func.api_func = c_func
-        ml = lltype.malloc(PyMethodDef, flavor='raw', zero=True)
-        namebuf = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp('func'))
-        ml.c_ml_name = namebuf
-        ml.c_ml_meth = rffi.cast(PyCFunction, c_func.get_llhelper(space))
-
-        method = api.PyDescr_NewMethod(space.w_unicode, ml)
-        assert repr(method).startswith(
-            "<built-in method 'func' of 'str' object ")
-
-        rffi.free_charp(namebuf)
-        lltype.free(ml, flavor='raw')
+    def test_check(self):
+        mod = self.import_extension('foo', [
+            ('check', 'METH_O',
+            '''
+                return PyLong_FromLong(PyCFunction_Check(args));
+            '''),
+            ])
+        from math import degrees
+        assert mod.check(degrees) == 1
+        assert mod.check(list) == 0
+        assert mod.check(sorted) == 1
+        def func():
+            pass
+        class A(object):
+            def meth(self):
+                pass
+            @staticmethod
+            def stat():
+                pass
+        assert mod.check(func) == 0
+        assert mod.check(A) == 0
+        assert mod.check(A.meth) == 0
+        assert mod.check(A.stat) == 0

@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.11.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.11.1", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -2099,7 +2099,8 @@ def test_wchar():
     if sys.platform.startswith("linux"):
         BWChar = new_primitive_type("wchar_t")
         assert sizeof(BWChar) == 4
-        assert int(cast(BWChar, -1)) == -1        # signed, on linux
+        # wchar_t is often signed on Linux, but not always (e.g. on ARM)
+        assert int(cast(BWChar, -1)) in (-1, 4294967295)
 
 def test_char16():
     BChar16 = new_primitive_type("char16_t")
@@ -3838,6 +3839,7 @@ def test_unpack():
         assert result == samples
         for i in range(len(samples)):
             assert result[i] == p[i] and type(result[i]) is type(p[i])
+            assert (type(result[i]) is bool) == (type(samples[i]) is bool)
     #
     BInt = new_primitive_type("int")
     py.test.raises(TypeError, unpack, p)
@@ -3902,9 +3904,11 @@ def test_char_pointer_conversion():
     BCharP = new_pointer_type(new_primitive_type("char"))
     BIntP = new_pointer_type(new_primitive_type("int"))
     BVoidP = new_pointer_type(new_void_type())
+    BUCharP = new_pointer_type(new_primitive_type("unsigned char"))
     z1 = cast(BCharP, 0)
     z2 = cast(BIntP, 0)
     z3 = cast(BVoidP, 0)
+    z4 = cast(BUCharP, 0)
     with warnings.catch_warnings(record=True) as w:
         newp(new_pointer_type(BIntP), z1)    # warn
         assert len(w) == 1
@@ -3917,6 +3921,12 @@ def test_char_pointer_conversion():
         newp(new_pointer_type(BCharP), z3)   # fine
         assert len(w) == 2
         newp(new_pointer_type(BIntP), z3)    # fine
+        assert len(w) == 2
+        newp(new_pointer_type(BCharP), z4)   # fine (ignore signedness here)
+        assert len(w) == 2
+        newp(new_pointer_type(BUCharP), z1)  # fine (ignore signedness here)
+        assert len(w) == 2
+        newp(new_pointer_type(BUCharP), z3)  # fine
         assert len(w) == 2
     # check that the warnings are associated with lines in this file
     assert w[1].lineno == w[0].lineno + 4

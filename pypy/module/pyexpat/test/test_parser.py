@@ -210,6 +210,30 @@ class AppTestPyexpat:
             p.ParseFile(fake_reader)
             assert fake_reader.read_count == 4
 
+
+    def test_exception(self):
+        """
+        lib-python/3/test_pyexpat.py:HandlerExceptionTest.test_exception port
+        without the fragile traceback inspection.
+        """
+        import pyexpat as expat
+
+        def StartElementHandler(name, attrs):
+            raise RuntimeError(name)
+
+        parser = expat.ParserCreate()
+        parser.StartElementHandler = StartElementHandler
+
+        try:
+            parser.Parse(b"<a><b><c/></b></a>", 1)
+            self.fail()
+        except RuntimeError as e:
+            assert e.args[0] == 'a', (
+                "Expected RuntimeError for element 'a', but" + \
+                " found %r" % e.args[0]
+            )
+
+
 class AppTestPyexpat2:
     spaceconfig = dict(usemodules=['_rawffi', 'pyexpat', 'itertools',
                                    '_socket', 'time', 'struct', 'binascii',

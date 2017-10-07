@@ -10,6 +10,10 @@ try:
 except ImportError:
     OrderedDict = dict # too bad
 
+SAVE_DEFAULT_REGS = 0
+SAVE_GCREF_REGS = 2
+SAVE_ALL_REGS = 1
+
 class TempVar(AbstractValue):
     def __init__(self):
         pass
@@ -552,10 +556,11 @@ class RegisterManager(object):
             self.reg_bindings[result_v] = loc
             return loc
         if v not in self.reg_bindings:
+            # v not in a register. allocate one for result_v and move v there
             prev_loc = self.frame_manager.loc(v)
-            loc = self.force_allocate_reg(v, forbidden_vars)
+            loc = self.force_allocate_reg(result_v, forbidden_vars)
             self.assembler.regalloc_mov(prev_loc, loc)
-        assert v in self.reg_bindings
+            return loc
         if self.longevity[v][1] > self.position:
             # we need to find a new place for variable v and
             # store result in the same place
@@ -585,7 +590,8 @@ class RegisterManager(object):
                                                  force_store, save_all_regs)
 
     def spill_or_move_registers_before_call(self, save_sublist,
-                                            force_store=[], save_all_regs=0):
+                                            force_store=[],
+                                            save_all_regs=SAVE_DEFAULT_REGS):
         """Spill or move some registers before a call.
 
         By default, this means: for every register in 'save_sublist',
@@ -601,8 +607,9 @@ class RegisterManager(object):
         valid, but only *if they are in self.save_around_call_regs,*
         not if they are callee-saved registers!
 
-        'save_all_regs' can be 0 (default set of registers), 1 (do that
-        for all registers), or 2 (default + gc ptrs).
+        'save_all_regs' can be SAVE_DEFAULT_REGS (default set of registers),
+        SAVE_ALL_REGS (do that for all registers), or SAVE_GCREF_REGS (default
+        + gc ptrs).
 
         Overview of what we do (the implementation does it differently,
         for the same result):
@@ -650,11 +657,11 @@ class RegisterManager(object):
                 new_free_regs.append(reg)
                 continue
 
-            if save_all_regs == 1:
+            if save_all_regs == SAVE_ALL_REGS:
                 # we need to spill all registers in this mode
                 self._bc_spill(v, new_free_regs)
                 #
-            elif save_all_regs == 2 and v.type == REF:
+            elif save_all_regs == SAVE_GCREF_REGS and v.type == REF:
                 # we need to spill all GC ptrs in this mode
                 self._bc_spill(v, new_free_regs)
                 #

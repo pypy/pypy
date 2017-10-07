@@ -4,7 +4,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import generic_cpy_call
 from pypy.module.cpyext.pyobject import make_ref, from_ref
-from pypy.module.cpyext.typeobject import PyTypeObjectPtr
+from pypy.module.cpyext.typeobject import cts, PyTypeObjectPtr
 
 import sys
 import pytest
@@ -124,6 +124,22 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name="foo")
         obj = module.fooType.classmeth()
         assert obj is module.fooType
+
+    def test_methoddescr(self):
+        module = self.import_module(name='foo')
+        descr = module.fooType.copy
+        assert type(descr).__name__ == 'method_descriptor'
+        assert str(descr) in ("<method 'copy' of 'foo.foo' objects>",
+            "<method 'copy' of 'foo' objects>")
+        assert repr(descr) in ("<method 'copy' of 'foo.foo' objects>",
+            "<method 'copy' of 'foo' objects>")
+        raises(TypeError, descr, None)
+
+    def test_cython_fake_classmethod(self):
+        module = self.import_module(name='foo')
+        print(module.fooType.fake_classmeth)
+        print(type(module.fooType.fake_classmeth))
+        assert module.fooType.fake_classmeth() is module.fooType
 
     def test_new(self):
         # XXX cpython segfaults but if run singly (with -k test_new) this passes
@@ -501,6 +517,9 @@ class TestTypes(BaseApiTest):
             return _numpypy.multiarray.dtype('int64').type(2)""")
         ref = make_ref(space, w_obj)
         api.Py_DecRef(ref)
+
+    def test_typeslots(self, space):
+        assert cts.macros['Py_tp_doc'] == 56
 
 class AppTestSlots(AppTestCpythonExtensionBase):
     def setup_class(cls):
@@ -1046,7 +1065,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_call_tp_dealloc(self):
         module = self.import_extension('foo', [
-            ("fetchFooType", "METH_VARARGS",
+            ("fetchFooType", "METH_NOARGS",
              """
                 PyObject *o;
                 o = PyObject_New(PyObject, &Foo_Type);
@@ -1064,7 +1083,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Py_DECREF(e);
                 return o;
              """),
-            ("getCounter", "METH_VARARGS",
+            ("getCounter", "METH_NOARGS",
              """
                 return PyLong_FromLong(foo_counter);
              """)], prologue="""
@@ -1302,6 +1321,52 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert Asize == Bsize
         assert Asize > basesize
 
+    def test_multiple_inheritance_bug1(self):
+        module = self.import_extension('foo', [
+           ("get_type", "METH_NOARGS",
+            '''
+                Py_INCREF(&Foo_Type);
+                return (PyObject *)&Foo_Type;
+            '''
+            ), ("forty_two", "METH_O",
+            '''
+                return PyLong_FromLong(42);
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            static PyObject *dummy_new(PyTypeObject *t, PyObject *a,
+                                       PyObject *k)
+            {
+                abort();   /* never actually called in CPython */
+            }
+            ''', more_init = '''
+                Foo_Type.tp_base = (PyTypeObject *)PyExc_Exception;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_new = dummy_new;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        Foo = module.get_type()
+        class A(Foo, SyntaxError):
+            pass
+        assert A.__base__ is SyntaxError
+        A(42)    # assert is not aborting
+
+        class Bar(Exception):
+            __new__ = module.forty_two
+
+        class B(Bar, SyntaxError):
+            pass
+
+        assert B() == 42
+
+        # aaaaa even more hackiness
+        class C(A):
+            pass
+        C(42)   # assert is not aborting
+
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
@@ -1331,3 +1396,50 @@ class AppTestHashable(AppTestCpythonExtensionBase):
         # this is equivalent to
         from collections import Hashable
         assert not isinstance(obj, Hashable)
+
+
+class AppTestFlags(AppTestCpythonExtensionBase):
+    def test_has_subclass_flag(self):
+        module = self.import_extension('foo', [
+           ("test_flags", "METH_VARARGS",
+            '''
+                long long in_flag, my_flag;
+                PyObject * obj;
+                if (!PyArg_ParseTuple(args, "OL", &obj, &in_flag))
+                    return NULL;
+                if (!PyType_Check(obj))
+                {
+                    PyErr_SetString(PyExc_ValueError, "input must be type");
+                    return NULL;
+                }
+                my_flag = ((PyTypeObject*)obj)->tp_flags;
+                if ((my_flag & in_flag) != in_flag)
+                    return PyLong_FromLong(-1);
+                if (!PyType_CheckExact(obj)) {
+                    if ((my_flag & Py_TPFLAGS_TYPE_SUBCLASS) == Py_TPFLAGS_TYPE_SUBCLASS)
+                        return PyLong_FromLong(-2);
+                }
+                return PyLong_FromLong(0);
+            '''),])
+        # copied from object.h
+        Py_TPFLAGS_LONG_SUBCLASS = (1<<24)
+        Py_TPFLAGS_LIST_SUBCLASS = (1<<25)
+        Py_TPFLAGS_TUPLE_SUBCLASS = (1<<26)
+        Py_TPFLAGS_BYTES_SUBCLASS = (1<<27)
+        Py_TPFLAGS_UNICODE_SUBCLASS = (1<<28)
+        Py_TPFLAGS_DICT_SUBCLASS = (1<<29)
+        Py_TPFLAGS_BASE_EXC_SUBCLASS = (1<<30)
+        Py_TPFLAGS_TYPE_SUBCLASS = (1<<31)
+        for t,f in ((int, Py_TPFLAGS_LONG_SUBCLASS),
+                    (list, Py_TPFLAGS_LIST_SUBCLASS),
+                    (tuple, Py_TPFLAGS_TUPLE_SUBCLASS),
+                    (bytes, Py_TPFLAGS_BYTES_SUBCLASS),
+                    (str, Py_TPFLAGS_UNICODE_SUBCLASS),
+                    (dict, Py_TPFLAGS_DICT_SUBCLASS),
+                    (Exception, Py_TPFLAGS_BASE_EXC_SUBCLASS),
+                    (type, Py_TPFLAGS_TYPE_SUBCLASS),
+                   ):
+            assert module.test_flags(t, f) == 0
+        class MyList(list):
+            pass
+        assert module.test_flags(MyList, Py_TPFLAGS_LIST_SUBCLASS) == 0

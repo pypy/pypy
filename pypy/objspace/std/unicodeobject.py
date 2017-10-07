@@ -573,10 +573,14 @@ def encode_object(space, w_object, encoding, errors):
                     u, len(u), errors, errorhandler=eh))
 
     from pypy.module._codecs.interp_codecs import encode_text
+    if encoding is None:
+        encoding = space.sys.defaultencoding
     w_retval = encode_text(space, w_object, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_bytes):
         raise oefmt(space.w_TypeError,
-                    "encoder did not return a bytes object (type '%T')",
+                    "'%s' encoder returned '%T' instead of 'bytes'; "
+                    "use codecs.encode() to encode to arbitrary types",
+                    encoding,
                     w_retval)
     return w_retval
 
@@ -604,7 +608,9 @@ def decode_object(space, w_obj, encoding, errors):
     w_retval = decode_text(space, w_obj, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_unicode):
         raise oefmt(space.w_TypeError,
-                    "decoder did not return a bytes object (type '%T')",
+                    "'%s' decoder returned '%T' instead of 'str'; "
+                    "use codecs.decode() to decode to arbitrary types",
+                    encoding,
                     w_retval)
     return w_retval
 

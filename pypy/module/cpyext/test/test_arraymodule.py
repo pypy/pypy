@@ -1,3 +1,4 @@
+import pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.conftest import option
 
@@ -11,6 +12,9 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert arr.itemsize == 4
         assert arr[2] == 3
         assert len(arr.buffer_info()) == 2
+        exc = raises(TypeError, module.array.append)
+        errstr = str(exc.value)
+        assert errstr.startswith("descriptor 'append' of")
         arr.append(4)
         assert arr.tolist() == [1, 2, 3, 4]
         assert len(arr) == 4
@@ -98,6 +102,19 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module.switch_multiply()
         res = [1, 2, 3] * arr
         assert res == [2, 4, 6]
+
+    @pytest.mark.xfail
+    def test_subclass_dealloc(self):
+        module = self.import_module(name='array')
+        class Sub(module.array):
+            pass
+
+        arr = Sub('i', [2])
+        module.readbuffer_as_string(arr)
+        class A(object):
+            pass
+        assert not module.same_dealloc(arr, module.array('i', [2]))
+        assert module.same_dealloc(arr, A())
 
     def test_string_buf(self):
         module = self.import_module(name='array')

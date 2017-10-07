@@ -1,16 +1,15 @@
 import sys
-import weakref
 
 import pytest
 
-from pypy.tool.cpyext.extbuild import (
-    SystemCompilationInfo, HERE, get_sys_info_app)
+from pypy.tool.cpyext.extbuild import SystemCompilationInfo, HERE
 from pypy.interpreter.gateway import unwrap_spec, interp2app
-from rpython.rtyper.lltypesystem import lltype, ll2ctypes
+from pypy.interpreter.error import OperationError
+from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
+from pypy.module.cpyext.api import cts
+from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext.pyobject import Py_DecRef
-from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
 from rpython.tool.udir import udir
@@ -24,6 +23,10 @@ def PyPy_Crash1(space):
 @api.cpython_api([], lltype.Signed, error=-1)
 def PyPy_Crash2(space):
     1/0
+
+@api.cpython_api([api.PyObject], api.PyObject, result_is_ll=True)
+def PyPy_Noop(space, pyobj):
+    return pyobj
 
 class TestApi:
     def test_signature(self):
@@ -78,13 +81,58 @@ def get_cpyext_info(space):
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
-    return #ZZZ
-    state = self.space.fromcache(RefcountState)
-    self.frozen_refcounts = {}
-    for w_obj, obj in state.py_objects_w2r.iteritems():
-        self.frozen_refcounts[w_obj] = obj.c_ob_refcnt
-    #state.print_refcounts()
-    self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
+
+def preload(space, name):
+    from pypy.module.cpyext.pyobject import make_ref
+    if '.' not in name:
+        w_obj = space.builtin.getdictvalue(space, name)
+    else:
+        module, localname = name.rsplit('.', 1)
+        code = "(): import {module}; return {module}.{localname}"
+        code = code.format(**locals())
+        w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
+def preload_expr(space, expr):
+    from pypy.module.cpyext.pyobject import make_ref
+    code = "(): return {}".format(expr)
+    w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
+def is_interned_string(space, w_obj):
+    try:
+        u = space.unicode_w(w_obj)
+    except OperationError:
+        return False
+    return space.interned_strings.get(u) is not None
+
+def is_allowed_to_leak(space, obj):
+    from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+    try:
+        w_obj = from_ref(space, cts.cast('PyObject*', obj._as_ptr()))
+    except:
+        return False
+    if isinstance(w_obj, W_PyCFunctionObject):
+        return True
+    # It's OK to "leak" some interned strings: if the pyobj is created by
+    # the test, but the w_obj is referred to from elsewhere.
+    return is_interned_string(space, w_obj)
+
+def _get_w_obj(space, c_obj):
+    return from_ref(space, cts.cast('PyObject*', c_obj._as_ptr()))
+
+class CpyextLeak(leakfinder.MallocMismatch):
+    def __str__(self):
+        lines = [leakfinder.MallocMismatch.__str__(self), '']
+        lines.append(
+            "These objects are attached to the following W_Root objects:")
+        for c_obj in self.args[0]:
+            try:
+                lines.append("  %s" % (_get_w_obj(self.args[1], c_obj),))
+            except:
+                pass
+        return '\n'.join(lines)
+
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
@@ -92,80 +140,39 @@ class LeakCheckingTest(object):
                                    'itertools', 'time', 'binascii', 'mmap',
                                    ])
 
-    enable_leak_checking = True
+    @classmethod
+    def preload_builtins(cls, space):
+        """
+        Eagerly create pyobjs for various builtins so they don't look like
+        leaks.
+        """
+        for name in [
+                'buffer', 'mmap.mmap',
+                'types.FunctionType', 'types.CodeType',
+                'types.TracebackType', 'types.FrameType']:
+            preload(space, name)
+        for expr in ['type(str.join)']:
+            preload_expr(space, expr)
 
-    @staticmethod
-    def cleanup_references(space):
-        return #ZZZ
-        state = space.fromcache(RefcountState)
-
-        import gc; gc.collect()
-        # Clear all lifelines, objects won't resurrect
-        for w_obj, obj in state.lifeline_dict._dict.items():
-            if w_obj not in state.py_objects_w2r:
-                state.lifeline_dict.set(w_obj, None)
-            del obj
-        import gc; gc.collect()
-
-
-        for w_obj in state.non_heaptypes_w:
-            Py_DecRef(space, w_obj)
-        state.non_heaptypes_w[:] = []
-        state.reset_borrowed_references()
-
-    def check_and_print_leaks(self):
-        rawrefcount._collect()
-        # check for sane refcnts
-        import gc
-
-        if 1:  #ZZZ  not self.enable_leak_checking:
+    def cleanup(self):
+        self.space.getexecutioncontext().cleanup_cpyext_state()
+        for _ in range(5):
+            rawrefcount._collect()
+            self.space.user_del_action._run_finalizers()
+        try:
+            # set check=True to actually enable leakfinder
             leakfinder.stop_tracking_allocations(check=False)
-            return False
+        except leakfinder.MallocMismatch as e:
+            result = e.args[0]
+            filtered_result = {}
+            for obj, value in result.iteritems():
+                if not is_allowed_to_leak(self.space, obj):
+                    filtered_result[obj] = value
+            if filtered_result:
+                raise CpyextLeak(filtered_result, self.space)
+        assert not self.space.finalizer_queue.next_dead()
 
-        leaking = False
-        state = self.space.fromcache(RefcountState)
-        gc.collect()
-        lost_objects_w = identity_dict()
-        lost_objects_w.update((key, None) for key in self.frozen_refcounts.keys())
 
-        for w_obj, obj in state.py_objects_w2r.iteritems():
-            base_refcnt = self.frozen_refcounts.get(w_obj)
-            delta = obj.c_ob_refcnt
-            if base_refcnt is not None:
-                delta -= base_refcnt
-                lost_objects_w.pop(w_obj)
-            if delta != 0:
-                leaking = True
-                print >>sys.stderr, "Leaking %r: %i references" % (w_obj, delta)
-                try:
-                    weakref.ref(w_obj)
-                except TypeError:
-                    lifeline = None
-                else:
-                    lifeline = state.lifeline_dict.get(w_obj)
-                if lifeline is not None:
-                    refcnt = lifeline.pyo.c_ob_refcnt
-                    if refcnt > 0:
-                        print >>sys.stderr, "\tThe object also held by C code."
-                    else:
-                        referrers_repr = []
-                        for o in gc.get_referrers(w_obj):
-                            try:
-                                repr_str = repr(o)
-                            except TypeError as e:
-                                repr_str = "%s (type of o is %s)" % (str(e), type(o))
-                            referrers_repr.append(repr_str)
-                        referrers = ", ".join(referrers_repr)
-                        print >>sys.stderr, "\tThe object is referenced by these objects:", \
-                                referrers
-        for w_obj in lost_objects_w:
-            print >>sys.stderr, "Lost object %r" % (w_obj, )
-            leaking = True
-        # the actual low-level leak checking is done by pypy.tool.leakfinder,
-        # enabled automatically by pypy.conftest.
-        return leaking
-
-@pytest.mark.xfail(reason="Skipped until other tests in this file are unskipped")
 class AppTestApi(LeakCheckingTest):
     def setup_class(cls):
         from rpython.rlib.clibffi import get_libc_name
@@ -173,8 +180,6 @@ class AppTestApi(LeakCheckingTest):
             cls.libc = get_libc_name()
         else:
             cls.w_libc = cls.space.wrap(get_libc_name())
-        state = cls.space.fromcache(RefcountState)
-        state.non_heaptypes_w[:] = []
 
     def setup_method(self, meth):
         if not self.runappdirect:
@@ -183,25 +188,11 @@ class AppTestApi(LeakCheckingTest):
     def teardown_method(self, meth):
         if self.runappdirect:
             return
-        self.space.getexecutioncontext().cleanup_cpyext_state()
-        self.cleanup_references(self.space)
-        # XXX: like AppTestCpythonExtensionBase.teardown_method:
-        # find out how to disable check_and_print_leaks() if the
-        # test failed
-        assert not self.check_and_print_leaks(), (
-            "Test leaks or loses object(s).  You should also check if "
-            "the test actually passed in the first place; if it failed "
-            "it is likely to reach this place.")
+        self.cleanup()
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_only_import(self):
         import cpyext
-
-    @pytest.mark.skipif(only_pypy, reason='pypy only test')
-    def test_load_error(self):
-        import cpyext
-        raises(ImportError, cpyext.load_module, "missing.file", "foo")
-        raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
 
     def test_dllhandle(self):
         import sys
@@ -219,6 +210,7 @@ def _unwrap_include_dirs(space, w_include_dirs):
 def debug_collect(space):
     rawrefcount._collect()
 
+
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
@@ -228,13 +220,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         cls.w_runappdirect = space.wrap(cls.runappdirect)
         if not cls.runappdirect:
             cls.sys_info = get_cpyext_info(space)
-            space.getbuiltinmodule("cpyext")
-            # 'import os' to warm up reference counts
-            w_import = space.builtin.getdictvalue(space, '__import__')
-            space.call_function(w_import, space.wrap("os"))
-            #state = cls.space.fromcache(RefcountState) ZZZ
-            #state.non_heaptypes_w[:] = []
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
+            cls.preload_builtins(space)
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
                     include_dirs=None, PY_SSIZE_T_CLEAN=False):
@@ -359,7 +346,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.space.call_method(self.space.sys.get("stdout"), "flush")
 
         freeze_refcnts(self)
-        #self.check_and_print_leaks()
 
     def unimport_module(self, name):
         """
@@ -371,17 +357,14 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def teardown_method(self, func):
         if self.runappdirect:
+            self.w_debug_collect()
             return
+        debug_collect(self.space)
         for name in self.imported_module_names:
             self.unimport_module(name)
-        self.space.getexecutioncontext().cleanup_cpyext_state()
-        self.cleanup_references(self.space)
-        # XXX: find out how to disable check_and_print_leaks() if the
-        # test failed...
-        assert not self.check_and_print_leaks(), (
-            "Test leaks or loses object(s).  You should also check if "
-            "the test actually passed in the first place; if it failed "
-            "it is likely to reach this place.")
+        self.cleanup()
+        state = self.space.fromcache(State)
+        assert not state.operror
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
@@ -418,7 +401,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
 
     def test_export_docstring(self):
-        import sys
         body = """
         PyDoc_STRVAR(foo_pi_doc, "Return pi.");
         PyObject* foo_pi(PyObject* self, PyObject *args)
@@ -517,7 +499,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
 
     def test_export_function2(self):
-        import sys
         body = """
         static PyObject* my_objects[1];
         static PyObject* foo_cached_pi(PyObject* self, PyObject *args)
@@ -690,6 +671,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         body = """
         PyAPI_FUNC(PyObject*) PyPy_Crash1(void);
         PyAPI_FUNC(long) PyPy_Crash2(void);
+        PyAPI_FUNC(PyObject*) PyPy_Noop(PyObject*);
         static PyObject* foo_crash1(PyObject* self, PyObject *args)
         {
             return PyPy_Crash1();
@@ -713,9 +695,27 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             int a = PyPy_Crash2();
             return PyFloat_FromDouble(a);
         }
+        static PyObject* foo_noop(PyObject* self, PyObject* args)
+        {
+            Py_INCREF(args);
+            return PyPy_Noop(args);
+        }
+        static PyObject* foo_set(PyObject* self, PyObject *args)
+        {
+            PyErr_SetString(PyExc_TypeError, "clear called with no error");
+            if (PyLong_Check(args)) {
+                Py_INCREF(args);
+                return args;
+            }
+            return NULL;
+        }
         static PyObject* foo_clear(PyObject* self, PyObject *args)
         {
             PyErr_Clear();
+            if (PyLong_Check(args)) {
+                Py_INCREF(args);
+                return args;
+            }
             return NULL;
         }
         static PyMethodDef methods[] = {
@@ -723,7 +723,9 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "crash2", foo_crash2, METH_NOARGS },
             { "crash3", foo_crash3, METH_NOARGS },
             { "crash4", foo_crash4, METH_NOARGS },
-            { "clear",  foo_clear, METH_NOARGS },
+            { "clear",  foo_clear,  METH_O },
+            { "set",    foo_set,    METH_O },
+            { "noop",   foo_noop,   METH_O },
             { NULL }
         };
         static struct PyModuleDef moduledef = {
@@ -735,15 +737,46 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         };
         """
         module = self.import_module(name='foo', body=body)
+
         # uncaught interplevel exceptions are turned into SystemError
-        raises(SystemError, module.crash1)
-        raises(SystemError, module.crash2)
-        # caught exception
+        expected = "ZeroDivisionError('integer division or modulo by zero',)"
+        exc = raises(SystemError, module.crash1)
+        assert exc.value.args[0] == expected
+
+        exc = raises(SystemError, module.crash2)
+        assert exc.value.args[0] == expected
+
+        # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
-        # An exception was set, but function returned a value
-        raises(SystemError, module.crash4)
-        # No exception set, but NULL returned
-        raises(SystemError, module.clear)
+
+        expected = 'An exception was set, but function returned a value'
+        # PyPy only incompatibility/extension
+        exc = raises(SystemError, module.crash4)
+        assert exc.value.args[0] == expected
+
+        # An exception was set by the previous call, it can pass
+        # cleanly through a call that doesn't check error state
+        assert module.noop(1) == 1
+
+        # clear the exception but return NULL, signalling an error
+        expected = 'Function returned a NULL result without setting an exception'
+        exc = raises(SystemError, module.clear, None)
+        assert exc.value.args[0] == expected
+
+        # Set an exception and return NULL
+        raises(TypeError, module.set, None)
+
+        # clear any exception and return a value
+        assert module.clear(1) == 1
+
+        # Set an exception, but return non-NULL
+        expected = 'An exception was set, but function returned a value'
+        exc = raises(SystemError, module.set, 1)
+        assert exc.value.args[0] == expected
+
+
+        # Clear the exception and return a value, all is OK
+        assert module.clear(1) == 1
 
     def test_new_exception(self):
         mod = self.import_extension('foo', [

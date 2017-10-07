@@ -420,29 +420,15 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
 from rpython.rlib.nonconst import NonConstant
 
-SLOTS = {}
-
-@specialize.memo()
-def get_slot_tp_function(space, typedef, name):
-    """Return a description of the slot C function to use for the built-in
-    type for 'typedef'.  The 'name' is the slot name.  This is a memo
-    function that, after translation, returns one of a built-in finite set.
-    """
-    key = (typedef, name)
-    try:
-        return SLOTS[key]
-    except KeyError:
-        slot_func = build_slot_tp_function(space, typedef, name)
-        api_func = slot_func.api_func if slot_func else None
-        SLOTS[key] = api_func
-        return api_func
-
 def build_slot_tp_function(space, typedef, name):
     w_type = space.gettypeobject(typedef)
 
     handled = False
     # unary functions
-    for tp_name, attr in [('tp_as_number.c_nb_int', '__int__'),
+    for tp_name, attr in [('tp_as_async.c_am_await', '__await__'),
+                          ('tp_as_async.c_am_anext', '__anext__'),
+                          ('tp_as_async.c_am_aiter', '__aiter__'),
+                          ('tp_as_number.c_nb_int', '__int__'),
                           ('tp_as_number.c_nb_long', '__long__'),
                           ('tp_as_number.c_nb_float', '__float__'),
                           ('tp_as_number.c_nb_negative', '__neg__'),
@@ -455,7 +441,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_iter', '__iter__'),
                           ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
 
@@ -470,7 +456,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_mapping.c_mp_length', '__len__'),
                          ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
             @slot_function([PyObject], lltype.Signed, error=-1)
@@ -497,7 +483,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_mapping.c_mp_subscript', '__getitem__'),
                           ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
 
@@ -514,7 +500,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_sequence.c_sq_inplace_repeat', '__imul__'),
                           ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
 
@@ -528,7 +514,7 @@ def build_slot_tp_function(space, typedef, name):
     for tp_name, attr in [('tp_as_number.c_nb_power', '__pow__'),
                           ]:
         if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
+            slot_fn = w_type.lookup(attr)
             if slot_fn is None:
                 return
 
@@ -541,10 +527,10 @@ def build_slot_tp_function(space, typedef, name):
     for tp_name, attr in [('tp_as_mapping.c_mp_ass_subscript', '__setitem__'),
                          ]:
         if name == tp_name:
-            slot_ass = w_type.getdictvalue(space, attr)
+            slot_ass = w_type.lookup(attr)
             if slot_ass is None:
                 return
-            slot_del = w_type.getdictvalue(space, '__delitem__')
+            slot_del = w_type.lookup('__delitem__')
             if slot_del is None:
                 return
 
@@ -562,10 +548,10 @@ def build_slot_tp_function(space, typedef, name):
     for tp_name, attr in [('tp_as_sequence.c_sq_ass_item', '__setitem__'),
                          ]:
         if name == tp_name:
-            slot_ass = w_type.getdictvalue(space, attr)
+            slot_ass = w_type.lookup(attr)
             if slot_ass is None:
                 return
-            slot_del = w_type.getdictvalue(space, '__delitem__')
+            slot_del = w_type.lookup('__delitem__')
             if slot_del is None:
                 return
 
@@ -582,8 +568,8 @@ def build_slot_tp_function(space, typedef, name):
     if handled:
         pass
     elif name == 'tp_setattro':
-        setattr_fn = w_type.getdictvalue(space, '__setattr__')
-        delattr_fn = w_type.getdictvalue(space, '__delattr__')
+        setattr_fn = w_type.lookup('__setattr__')
+        delattr_fn = w_type.lookup('__delattr__')
         if setattr_fn is None:
             return
 
@@ -598,7 +584,7 @@ def build_slot_tp_function(space, typedef, name):
             return 0
         slot_func = slot_tp_setattro
     elif name == 'tp_getattro':
-        getattr_fn = w_type.getdictvalue(space, '__getattribute__')
+        getattr_fn = w_type.lookup('__getattribute__')
         if getattr_fn is None:
             return
 
@@ -609,7 +595,7 @@ def build_slot_tp_function(space, typedef, name):
         slot_func = slot_tp_getattro
 
     elif name == 'tp_call':
-        call_fn = w_type.getdictvalue(space, '__call__')
+        call_fn = w_type.lookup('__call__')
         if call_fn is None:
             return
 
@@ -622,7 +608,7 @@ def build_slot_tp_function(space, typedef, name):
         slot_func = slot_tp_call
 
     elif name == 'tp_iternext':
-        iternext_fn = w_type.getdictvalue(space, '__next__')
+        iternext_fn = w_type.lookup('__next__')
         if iternext_fn is None:
             return
 
@@ -638,7 +624,7 @@ def build_slot_tp_function(space, typedef, name):
         slot_func = slot_tp_iternext
 
     elif name == 'tp_init':
-        init_fn = w_type.getdictvalue(space, '__init__')
+        init_fn = w_type.lookup('__init__')
         if init_fn is None:
             return
 
@@ -651,7 +637,7 @@ def build_slot_tp_function(space, typedef, name):
             return 0
         slot_func = slot_tp_init
     elif name == 'tp_new':
-        new_fn = w_type.getdictvalue(space, '__new__')
+        new_fn = w_type.lookup('__new__')
         if new_fn is None:
             return
 
@@ -663,7 +649,7 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_args(space.get(new_fn, w_self), args)
         slot_func = slot_tp_new
     elif name == 'tp_as_buffer.c_bf_getbuffer':
-        buff_fn = w_type.getdictvalue(space, '__buffer__')
+        buff_fn = w_type.lookup('__buffer__')
         if buff_fn is not None:
             buff_w = slot_from___buffer__(space, typedef, buff_fn)
         elif typedef.buffer:
@@ -672,7 +658,7 @@ def build_slot_tp_function(space, typedef, name):
             return
         slot_func = buff_w
     elif name == 'tp_descr_get':
-        get_fn = w_type.getdictvalue(space, '__get__')
+        get_fn = w_type.lookup('__get__')
         if get_fn is None:
             return
 
@@ -684,8 +670,8 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_function(get_fn, w_self, w_obj, w_value)
         slot_func = slot_tp_descr_get
     elif name == 'tp_descr_set':
-        set_fn = w_type.getdictvalue(space, '__set__')
-        delete_fn = w_type.getdictvalue(space, '__delete__')
+        set_fn = w_type.lookup('__set__')
+        delete_fn = w_type.lookup('__delete__')
         if set_fn is None and delete_fn is None:
             return
 
@@ -782,7 +768,7 @@ class TypeSlot:
     def __init__(self, method_name, slot_name, function, wrapper1, wrapper2, doc):
         self.method_name = method_name
         self.slot_name = slot_name
-        self.slot_names = ("c_" + slot_name).split(".")
+        self.slot_names = tuple(("c_" + slot_name).split("."))
         self.slot_func = function
         self.wrapper_func = wrapper1
         self.wrapper_func_kwds = wrapper2

@@ -9,7 +9,7 @@ extern "C" {
 
 #define PyExceptionClass_Check(x)                                       \
     ((PyType_Check((x)) &&                                              \
-      PyObject_IsSubclass((x), PyExc_BaseException)))
+      PyType_FastSubclass((PyTypeObject*)(x), Py_TPFLAGS_BASE_EXC_SUBCLASS)))
 
 #define PyExceptionInstance_Check(x)                                    \
     (PyObject_IsSubclass((PyObject *)Py_TYPE(x), PyExc_BaseException))

@@ -154,6 +154,67 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.test_unicode_format(1, "xyz")
         assert res == "bla 1 ble xyz\n"
 
+    def test_fromkind(self):
+        module = self.import_extension('foo', [
+            ('from_ucs1', 'METH_O',
+             """
+             char* p;
+             Py_ssize_t size;
+             if (PyBytes_AsStringAndSize(args, &p, &size) < 0)
+                return NULL;
+             return PyUnicode_FromKindAndData(PyUnicode_1BYTE_KIND, p, size);
+             """),
+            ('from_ucs2', 'METH_O',
+             """
+             char* p;
+             Py_ssize_t size;
+             if (PyBytes_AsStringAndSize(args, &p, &size) < 0)
+                return NULL;
+             return PyUnicode_FromKindAndData(PyUnicode_2BYTE_KIND, p, size/2);
+             """),
+            ('from_ucs4', 'METH_O',
+             """
+             char* p;
+             Py_ssize_t size;
+             if (PyBytes_AsStringAndSize(args, &p, &size) < 0)
+                return NULL;
+             return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, p, size/4);
+             """)])
+        res = module.from_ucs1(b'spam')
+        assert res == 'spam'
+        s = "späm"
+        b = s.encode('utf-16')[2:]  # Skip the BOM
+        s2 = module.from_ucs2(b)
+        assert module.from_ucs2(b) == s
+        s = "x\N{PILE OF POO}x"
+        b = s.encode('utf-32')[4:]  # Skip the BOM
+        assert module.from_ucs4(b) == s
+
+    def test_substring(self):
+        module = self.import_extension('foo', [
+            ("slice_start", "METH_VARARGS",
+             '''
+             PyObject* text;
+             Py_ssize_t start, length;
+             if (!PyArg_ParseTuple(args, "On", &text, &start))
+                return NULL;
+             if (PyUnicode_READY(text) == -1) return NULL;
+             if (!PyUnicode_1BYTE_DATA(text)) {
+                // Don't segfault, just fail the test.
+                Py_RETURN_NONE;
+             }
+             length = PyUnicode_GET_LENGTH(text);
+             if (start > length) return PyLong_FromSsize_t(start);
+             return PyUnicode_FromKindAndData(PyUnicode_KIND(text),
+                 PyUnicode_1BYTE_DATA(text) + start*PyUnicode_KIND(text),
+                 length-start);
+             ''')])
+        s = u'aАbБcСdД'
+        assert module.slice_start(s, 2) == 'bБcСdД'
+        # s = u'xx\N{PILE OF POO}'
+        s = u'xx\U0001F4A9'
+        assert module.slice_start(s, 2) == u'\U0001F4A9'
+
     def test_aswidecharstring(self):
         module = self.import_extension('foo', [
             ("aswidecharstring", "METH_O",
@@ -789,6 +850,17 @@ class TestUnicode(BaseApiTest):
                 PyUnicode_Splitlines(space, w_str, 0)))
         assert r"['a\n', 'b\n', 'c\n', 'd']" == space.unwrap(space.repr(
                 PyUnicode_Splitlines(space, w_str, 1)))
+
+    def test_substring_api(self, space):
+        w_str = space.wrap(u"abcd")
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 1, 3)) == u"bc"
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 0, 4)) == u"abcd"
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 0, 9)) == u"abcd"
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 1, 4)) == u"bcd"
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 2, 2)) == u""
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 5, 4)) == u""
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 5, 3)) == u""
+        assert space.unwrap(PyUnicode_Substring(space, w_str, 4, 3)) == u""
 
     def test_Ready(self, space):
         w_str = space.wrap(u'abc')  # ASCII

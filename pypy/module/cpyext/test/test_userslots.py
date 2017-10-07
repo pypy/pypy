@@ -190,9 +190,10 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                     0,                  /* tp_basicsize*/
                     0                  /* tp_itemsize */
                 };
-            ''', more_init='''
-                PyObject * mod1 = PyImport_ImportModule("datetime");
+                PyObject * mod1;
                 PyObject * dt;
+            ''', more_init='''
+                mod1 = PyImport_ImportModule("datetime");
                 if (mod1 == NULL) INITERROR;
                 dt = PyUnicode_FromString("datetime");
                 datetime_cls = (PyTypeObject*)PyObject_GetAttr(mod1, dt);

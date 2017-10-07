@@ -623,6 +623,9 @@ class AppTestPartialEvaluation:
                "surrogatepass")
         raises(UnicodeDecodeError, b"abc\xed\xa0z".decode, "utf-8",
                "surrogatepass")
+        assert u'\ud8ae'.encode('utf_16_be', 'surrogatepass') == b'\xd8\xae'
+        assert (u'\U0000d8ae'.encode('utf-32-be', 'surrogatepass') ==
+                b'\x00\x00\xd8\xae')
 
     def test_badandgoodsurrogatepassexceptions(self):
         import codecs

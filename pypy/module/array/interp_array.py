@@ -138,6 +138,29 @@ def compare_arrays(space, arr1, arr2, comp_op):
         return space.w_True
     return space.w_False
 
+index_count_jd = jit.JitDriver(
+    greens = ['count', 'arrclass', 'tp_item'],
+    reds = 'auto', name = 'array.index_or_count')
+
+def index_count_array(arr, w_val, count=False):
+    space = arr.space
+    tp_item = space.type(w_val)
+    arrclass = arr.__class__
+    cnt = 0
+    for i in range(arr.len):
+        index_count_jd.jit_merge_point(
+            tp_item=tp_item, count=count,
+            arrclass=arrclass)
+        w_item = arr.w_getitem(space, i)
+        if space.eq_w(w_item, w_val):
+            if count:
+                cnt += 1
+            else:
+                return i
+    if count:
+        return cnt
+    return -1
+
 UNICODE_ARRAY = lltype.Ptr(lltype.Array(lltype.UniChar,
                                         hints={'nolength': True}))
 
@@ -274,17 +297,12 @@ class W_ArrayBase(W_Root):
         """
         self.extend(w_x)
 
-    def descr_count(self, space, w_val):
+    def descr_count(self, space, w_x):
         """ count(x)
 
         Return number of occurrences of x in the array.
         """
-        cnt = 0
-        for i in range(self.len):
-            # XXX jitdriver
-            w_item = self.w_getitem(space, i)
-            if space.eq_w(w_item, w_val):
-                cnt += 1
+        cnt = index_count_array(self, w_x, count=True)
         return space.newint(cnt)
 
     def descr_index(self, space, w_x):
@@ -292,10 +310,9 @@ class W_ArrayBase(W_Root):
 
         Return index of first occurrence of x in the array.
         """
-        for i in range(self.len):
-            w_item = self.w_getitem(space, i)
-            if space.eq_w(w_item, w_x):
-                return space.newint(i)
+        res = index_count_array(self, w_x, count=False)
+        if res >= 0:
+            return space.newint(res)
         raise oefmt(space.w_ValueError, "array.index(x): x not in list")
 
     def descr_reverse(self, space):
@@ -801,7 +818,9 @@ W_ArrayBase.typedef = TypeDef(
 
 class TypeCode(object):
     def __init__(self, itemtype, unwrap, canoverflow=False, signed=False,
-                 method='__int__'):
+                 method='__int__', errorname=None):
+        if errorname is None:
+            errorname = unwrap[:-2]
         self.itemtype = itemtype
         self.bytes = rffi.sizeof(itemtype)
         self.arraytype = lltype.Array(itemtype, hints={'nolength': True})
@@ -812,6 +831,7 @@ class TypeCode(object):
         self.canoverflow = canoverflow
         self.w_class = None
         self.method = method
+        self.errorname = errorname
 
     def _freeze_(self):
         # hint for the annotator: track individual constant instances
@@ -838,9 +858,9 @@ types = {
     'i': TypeCode(rffi.INT,           'int_w', True, True),
     'I': _UINTTypeCode,
     'l': TypeCode(rffi.LONG,          'int_w', True, True),
-    'L': TypeCode(rffi.ULONG,         'bigint_w.touint'),
-    'q': TypeCode(rffi.LONGLONG,      'bigint_w.tolonglong', True, True),
-    'Q': TypeCode(rffi.ULONGLONG,     'bigint_w.toulonglong', True),
+    'L': TypeCode(rffi.ULONG,         'bigint_w.touint', errorname="integer"),
+    'q': TypeCode(rffi.LONGLONG,      'bigint_w.tolonglong', True, True, errorname="integer"),
+    'Q': TypeCode(rffi.ULONGLONG,     'bigint_w.toulonglong', True, errorname="integer"),
     'f': TypeCode(lltype.SingleFloat, 'float_w', method='__float__'),
     'd': TypeCode(lltype.Float,       'float_w', method='__float__'),
     }
@@ -970,7 +990,7 @@ def make_array(mytype):
                     except OperationError as e:
                         if e.async(space):
                             raise
-                        msg = "array item must be " + mytype.unwrap[:-2]
+                        msg = "array item must be " + mytype.errorname
                         raise OperationError(space.w_TypeError,
                                              space.newtext(msg))
                 else:

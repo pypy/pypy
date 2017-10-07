@@ -73,13 +73,26 @@ def _init_posix():
     g['CCSHARED'] = "-fPIC"
     g['LDSHARED'] = "cc -pthread -shared"
     g['EXT_SUFFIX'] = so_ext
-    g['SHLIB_SUFFIX'] = so_ext
+    g['SHLIB_SUFFIX'] = ".so"
     g['SO'] = so_ext  # deprecated in Python 3, for backward compatibility
     g['AR'] = "ar"
     g['ARFLAGS'] = "rc"
     g['EXE'] = ""
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['VERSION'] = get_python_version()
+
+    if sys.platform[:6] == "darwin":
+        import platform
+        if platform.machine() == 'i386':
+            if platform.architecture()[0] == '32bit':
+                arch = 'i386'
+            else:
+                arch = 'x86_64'
+        else:
+            # just a guess
+            arch = platform.machine()
+        g['LDSHARED'] += ' -undefined dynamic_lookup'
+        g['CC'] += ' -arch %s' % (arch,)
 
     global _config_vars
     _config_vars = g

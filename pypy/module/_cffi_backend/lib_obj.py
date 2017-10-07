@@ -203,6 +203,10 @@ class W_LibObject(W_Root):
                     return self.space.gettypeobject(Module.typedef)
                 if is_getattr and attr == '__name__':
                     return self.space.newtext("%s.lib" % self.libname)
+                if is_getattr and attr == '__loader__':
+                    return self.space.w_None    # PyPy/CPython 3.x only
+                if is_getattr and attr == '__spec__':
+                    return self.space.w_None    # PyPy/CPython 3.x only
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",
