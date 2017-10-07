@@ -267,7 +267,7 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         decref(py_dict.c__tmpkeys)
         w_keys = space.call_method(space.w_dict, "keys", w_dict)
         py_dict.c__tmpkeys = create_ref(space, w_keys)
-        Py_IncRef(space, py_dict.c__tmpkeys)
+        incref(py_dict.c__tmpkeys)
     else:
         if not py_dict.c__tmpkeys:
             # pos should have been 0, cannot fail so return 0
