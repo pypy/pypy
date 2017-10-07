@@ -25,7 +25,7 @@ def _allocate_generic_object(pytype, itemcount, immortal=False):
     # Don't increase refcount for non-heaptypes
     flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
     if flags & Py_TPFLAGS_HEAPTYPE:
-        incref(pytype)
+        incref(rffi.cast(PyObject, pytype))
 
     size = pytype.c_tp_basicsize
     if pytype.c_tp_itemsize:
