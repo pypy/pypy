@@ -6,8 +6,9 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.rstring import StringBuilder, split, rsplit, UnicodeBuilder,\
-     replace_count
+from rpython.rlib.rstring import (
+    StringBuilder, split, rsplit, UnicodeBuilder, replace_count, startswith,
+    endswith)
 from rpython.rlib.runicode import make_unicode_escape_function
 from rpython.rlib import rutf8, jit
 
@@ -137,6 +138,10 @@ class W_UnicodeObject(W_Root):
         # Always return true because we always need to copy the other
         # operand(s) before we can do comparisons
         return True
+
+    @staticmethod
+    def _op_utf8(space, w_other, strict=None):
+        return W_UnicodeObject.convert_arg_to_w_unicode(space, w_other, strict)._utf8
 
     @staticmethod
     def _op_val(space, w_other, strict=None):
@@ -520,8 +525,17 @@ class W_UnicodeObject(W_Root):
             i = rutf8.next_codepoint_pos(val, i)
         return space.newbool(cased)
 
-    def _starts_ends_overflow(self, prefix):
-        return len(prefix) == 0
+    def _startswith(self, space, value, w_prefix, start, end):
+        prefix = self._op_utf8(space, w_prefix)
+        if start > len(value):
+            return len(prefix) == 0
+        return startswith(value, prefix, start, end)
+
+    def _endswith(self, space, value, w_prefix, start, end):
+        prefix = self._op_utf8(space, w_prefix)
+        if start > len(value):
+            return len(prefix) == 0
+        return endswith(value, prefix, start, end)
 
     def descr_add(self, space, w_other):
         try:
@@ -643,6 +657,21 @@ class W_UnicodeObject(W_Root):
         res = rsplit(value, by, maxsplit, isutf8=True)
 
         return space.newlist_utf8(res)
+
+    def descr_capitalize(self, space):
+        value = self._utf8
+        if len(value) == 0:
+            return self._empty()
+
+        builder = StringBuilder(len(value))
+        uchar = rutf8.codepoint_at_pos(value, 0)
+        i = rutf8.next_codepoint_pos(value, 0)
+        rutf8.unichr_as_utf8_append(builder, unicodedb.toupper(uchar))
+        while i < len(value):
+            uchar = rutf8.codepoint_at_pos(value, i)
+            i = rutf8.next_codepoint_pos(value, i)
+            rutf8.unichr_as_utf8_append(builder, unicodedb.tolower(uchar))
+        return W_UnicodeObject(builder.build(), self._len())
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):
