@@ -49,6 +49,8 @@ def _VAR_SIZE(typeobj, nitems):
 
 @cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def _PyObject_NewVar(space, tp, nitems):
+    from pypy.module.cpyext.pyobject import _allocate_generic_object
+    
     w_type = from_ref(space, rffi.cast(PyObject, tp))
     assert isinstance(w_type, W_TypeObject)
     if w_type is space.w_type:
@@ -56,29 +58,7 @@ def _PyObject_NewVar(space, tp, nitems):
         typedescr = get_typedescr(w_type.layout.typedef)
         pyobj = typedescr.allocate(space, w_type, itemcount=nitems)
     else:
-        # std case: do the same logic as BaseCpyTypedescr.allocate
-        # CPython doesn't do this: investigate whether we can remove
-        flags = rffi.cast(lltype.Signed, tp.c_tp_flags)
-        if flags & Py_TPFLAGS_HEAPTYPE:
-            Py_IncRef(space, w_type)
-        #
-        size = _VAR_SIZE(tp, nitems)
-        assert size >= rffi.sizeof(PyObject.TO)
-        # XXX: zero=True? add_memory_pressure?
-        buf = lltype.malloc(rffi.VOIDP.TO, size,
-                            flavor='raw', zero=True,
-                            add_memory_pressure=True)
-        pyobj = rffi.cast(PyObject, buf)
-        # XXX CPython does this
-        ## if (pyobj == NULL)
-        ##     return PyErr_NoMemory()
-        pyobj.c_ob_refcnt = 1
-        if tp.c_tp_itemsize:
-            pyvarobj = rffi.cast(PyVarObject, pyobj)
-            pyvarobj.c_ob_size = nitems
-        pyobj.c_ob_refcnt = 1
-        #pyobj.c_ob_pypy_link should get assigned very quickly
-        pyobj.c_ob_type = tp
+        return _allocate_generic_object(space, tp, nitems)
     #
     if tp.c_tp_itemsize == 0:
         w_obj = PyObject_Init(space, pyobj, tp)

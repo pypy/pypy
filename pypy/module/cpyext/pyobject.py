@@ -21,6 +21,29 @@ from rpython.rlib.debug import fatalerror
 #________________________________________________________
 # type description
 
+def _allocate_generic_object(space, pytype, itemcount, immortal=False):
+    # Don't increase refcount for non-heaptypes
+    flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
+    if flags & Py_TPFLAGS_HEAPTYPE:
+        Py_IncRef(space, pytype)
+
+    size = pytype.c_tp_basicsize
+    if pytype.c_tp_itemsize:
+        size += itemcount * pytype.c_tp_itemsize
+    assert size >= rffi.sizeof(PyObject.TO)
+    buf = lltype.malloc(rffi.VOIDP.TO, size,
+                        flavor='raw', zero=True,
+                        add_memory_pressure=True, immortal=immortal)
+    pyobj = rffi.cast(PyObject, buf)
+    if pytype.c_tp_itemsize:
+        pyvarobj = rffi.cast(PyVarObject, pyobj)
+        pyvarobj.c_ob_size = itemcount
+    pyobj.c_ob_refcnt = 1
+    #pyobj.c_ob_pypy_link should get assigned very quickly
+    pyobj.c_ob_type = pytype
+    return pyobj
+    
+
 class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
     W_BaseObject = W_ObjectObject
@@ -32,33 +55,10 @@ class BaseCpyTypedescr(object):
     def allocate(self, space, w_type, itemcount=0, immortal=False):
         # typically called from PyType_GenericAlloc via typedescr.allocate
         # this returns a PyObject with ob_refcnt == 1.
-
         pytype = as_pyobj(space, w_type)
         pytype = rffi.cast(PyTypeObjectPtr, pytype)
         assert pytype
-        # Don't increase refcount for non-heaptypes
-        flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
-        if flags & Py_TPFLAGS_HEAPTYPE:
-            Py_IncRef(space, w_type)
-
-        if pytype:
-            size = pytype.c_tp_basicsize
-        else:
-            size = rffi.sizeof(self.basestruct)
-        if pytype.c_tp_itemsize:
-            size += itemcount * pytype.c_tp_itemsize
-        assert size >= rffi.sizeof(PyObject.TO)
-        buf = lltype.malloc(rffi.VOIDP.TO, size,
-                            flavor='raw', zero=True,
-                            add_memory_pressure=True, immortal=immortal)
-        pyobj = rffi.cast(PyObject, buf)
-        if pytype.c_tp_itemsize:
-            pyvarobj = rffi.cast(PyVarObject, pyobj)
-            pyvarobj.c_ob_size = itemcount
-        pyobj.c_ob_refcnt = 1
-        #pyobj.c_ob_pypy_link should get assigned very quickly
-        pyobj.c_ob_type = pytype
-        return pyobj
+        return _allocate_generic_object(space, pytype, itemcount, immortal)
 
     def attach(self, space, pyobj, w_obj, w_userdata=None):
         pass
