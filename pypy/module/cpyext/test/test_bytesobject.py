@@ -104,7 +104,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """),
             ('alloc_rw', "METH_NOARGS",
              '''
-                PyObject *obj = _PyObject_NewVar(&PyBytes_Type, 10);
+                PyObject *obj = (PyObject*)_PyObject_NewVar(&PyBytes_Type, 10);
                 memcpy(PyBytes_AS_STRING(obj), "works", 6);
                 return (PyObject*)obj;
              '''),
