@@ -36,24 +36,16 @@ def PyObject_Realloc(space, ptr, size):
 def _PyPy_Free(ptr):
     lltype.free(ptr, flavor='raw')
 
-@cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
-def _PyObject_New(space, type):
-    return _PyObject_NewVar(space, type, 0)
+@c_only([Py_ssize_t], rffi.VOIDP)
+def _PyPy_Malloc(size):
+    # XXX: the malloc inside BaseCpyTypedescr.allocate and
+    # typeobject.type_alloc specify zero=True, so this is why we use it also
+    # here. However, CPython does a simple non-initialized malloc, so we
+    # should investigate whether we can remove zero=True as well
+    return lltype.malloc(rffi.VOIDP.TO, size,
+                         flavor='raw', zero=True,
+                         add_memory_pressure=True)
 
-# CCC port to C
-@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
-def _PyObject_NewVar(space, type, itemcount):
-    w_type = from_ref(space, rffi.cast(PyObject, type))
-    assert isinstance(w_type, W_TypeObject)
-    typedescr = get_typedescr(w_type.layout.typedef)
-    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
-    #py_obj.c_ob_refcnt = 0 --- will be set to 1 again by PyObject_Init{Var}
-    if type.c_tp_itemsize == 0:
-        w_obj = PyObject_Init(space, py_obj, type)
-    else:
-        py_objvar = rffi.cast(PyVarObject, py_obj)
-        w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
-    return py_obj
 
 def _dealloc(space, obj):
     # This frees an object after its refcount dropped to zero, so we
@@ -64,10 +56,6 @@ def _dealloc(space, obj):
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         Py_DecRef(space, rffi.cast(PyObject, pto))
-
-@cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
-def _PyObject_GC_New(space, type):
-    return _PyObject_New(space, type)
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
@@ -173,6 +161,7 @@ def PyObject_DelItem(space, w_obj, w_key):
     space.delitem(w_obj, w_key)
     return 0
 
+# CCC port to C
 @cpython_api([PyObject, PyTypeObjectPtr], PyObject, result_is_ll=True)
 def PyObject_Init(space, obj, type):
     """Initialize a newly-allocated object op with its type and initial
@@ -187,6 +176,7 @@ def PyObject_Init(space, obj, type):
     obj.c_ob_refcnt = 1
     return obj
 
+# CCC port to C
 @cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def PyObject_InitVar(space, py_obj, type, size):
     """This does everything PyObject_Init() does, and also initializes the

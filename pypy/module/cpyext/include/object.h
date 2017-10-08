@@ -342,6 +342,10 @@ PyAPI_FUNC(void) PyObject_GC_Del(void *);
 #define PyObject_Del            PyObject_Free
 #define PyObject_DEL            PyObject_Free
 
+PyAPI_FUNC(PyObject *) _PyObject_New(PyTypeObject *);
+PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
+
 
 /* PyPy internal ----------------------------------- */
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
