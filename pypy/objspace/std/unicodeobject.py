@@ -412,24 +412,51 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject(result.build(), result_length)
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
-        start, end = unwrap_start_stop(space, self._length, w_start, w_end)
-
         w_sub = self.convert_arg_to_w_unicode(space, w_sub)
-        # XXX for now just create index
-        start_index = 0
-        end_index = len(self._utf8)
-        if start > 0 or end != self._length:
-            storage = self._get_index_storage()
-            if start > 0:
-                start_index = rutf8.codepoint_position_at_index(self._utf8,
-                    storage, start)
-            if end != self._length:
-                end_index = rutf8.codepoint_position_at_index(self._utf8,
-                    storage, end)
+        start_index, end_index = self._unwrap_and_compute_idx_params(
+            space, w_start, w_end)
 
         res_index = self._utf8.find(w_sub._utf8, start_index, end_index)
         if res_index == -1:
             return space.newint(-1)
+
+        res = rutf8.check_utf8(self._utf8, force_len=res_index) # can't raise
+        return space.newint(res)
+
+    def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
+        w_sub = self.convert_arg_to_w_unicode(space, w_sub)
+        start_index, end_index = self._unwrap_and_compute_idx_params(
+            space, w_start, w_end)
+
+        res_index = self._utf8.rfind(w_sub._utf8, start_index, end_index)
+        if res_index == -1:
+            return space.newint(-1)
+
+        res = rutf8.check_utf8(self._utf8, force_len=res_index) # can't raise
+        return space.newint(res)
+
+    def descr_index(self, space, w_sub, w_start=None, w_end=None):
+        w_sub = self.convert_arg_to_w_unicode(space, w_sub)
+        start_index, end_index = self._unwrap_and_compute_idx_params(
+            space, w_start, w_end)
+
+        res_index = self._utf8.find(w_sub._utf8, start_index, end_index)
+        if res_index == -1:
+            raise oefmt(space.w_ValueError,
+                        "substring not found in string.index")
+
+        res = rutf8.check_utf8(self._utf8, force_len=res_index) # can't raise
+        return space.newint(res)
+
+    def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
+        w_sub = self.convert_arg_to_w_unicode(space, w_sub)
+        start_index, end_index = self._unwrap_and_compute_idx_params(
+            space, w_start, w_end)
+
+        res_index = self._utf8.rfind(w_sub._utf8, start_index, end_index)
+        if res_index == -1:
+            raise oefmt(space.w_ValueError,
+                        "substring not found in string.rindex")
 
         res = rutf8.check_utf8(self._utf8, force_len=res_index) # can't raise
         return space.newint(res)
@@ -548,7 +575,7 @@ class W_UnicodeObject(W_Root):
         return space.newbool(cased)
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
-        start, end = unwrap_start_stop(space, self._length, w_start, w_end)
+        start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)
         value = self._utf8
         if space.isinstance_w(w_prefix, space.w_tuple):
             return self._startswith_tuple(space, value, w_prefix, start, end)
@@ -562,7 +589,7 @@ class W_UnicodeObject(W_Root):
         return startswith(value, prefix, start, end)
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
-        start, end = unwrap_start_stop(space, self._length, w_start, w_end)
+        start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)
         value = self._utf8
         if space.isinstance_w(w_suffix, space.w_tuple):
             return self._endswith_tuple(space, value, w_suffix, start, end)
@@ -739,10 +766,49 @@ class W_UnicodeObject(W_Root):
 
         return W_UnicodeObject(centered, self._len() + d)
 
+    def descr_count(self, space, w_sub, w_start=None, w_end=None):
+        value = self._utf8
+        start_index, end_index = self._unwrap_and_compute_idx_params(
+            space, w_start, w_end)
+        sub = self.convert_arg_to_w_unicode(space, w_sub)._utf8
+        return space.newint(value.count(sub, start_index, end_index))
+
     def descr_contains(self, space, w_sub):
         value = self._utf8
         w_other = self.convert_arg_to_w_unicode(space, w_sub)
         return space.newbool(value.find(w_other._utf8) >= 0)
+
+    def descr_partition(self, space, w_sub):
+        value = self._utf8
+        sub = self.convert_arg_to_w_unicode(space, w_sub)
+        sublen = sub._len()
+        if sublen == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
+
+        pos = value.find(sub._utf8)
+
+        if pos == -1:
+            return space.newtuple([self, self._empty(), self._empty()])
+        else:
+            return space.newtuple(
+                [self._sliced(space, value, 0, pos, self), w_sub,
+                 self._sliced(space, value, pos + sublen, len(value), self)])
+
+    def descr_rpartition(self, space, w_sub):
+        value = self._utf8
+        sub = self.convert_arg_to_w_unicode(space, w_sub)
+        sublen = sub._len()
+        if sublen == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
+
+        pos = value.rfind(sub._utf8)
+
+        if pos == -1:
+            return space.newtuple([self._empty(), self._empty(), self])
+        else:
+            return space.newtuple(
+                [self._sliced(space, value, 0, pos, self), w_sub,
+                 self._sliced(space, value, pos + sublen, len(value), self)])
 
 
     @unwrap_spec(count=int)
@@ -786,12 +852,37 @@ class W_UnicodeObject(W_Root):
         return self._index_storage
 
     def _getitem_result(self, space, index):
-        if index >= self._length:
+        if index < 0:
+            index += self._length
+        if index < 0 or index >= self._length:
             raise oefmt(space.w_IndexError, "string index out of range")
         storage = self._get_index_storage()
         start = rutf8.codepoint_position_at_index(self._utf8, storage, index)
         end = rutf8.next_codepoint_pos(self._utf8, start)
         return W_UnicodeObject(self._utf8[start:end], 1)
+
+    def _unwrap_and_compute_idx_params(self, space, w_start, w_end):
+        start, end = unwrap_start_stop(space, self._length, w_start, w_end)
+        # XXX for now just create index
+        start_index = 0
+        end_index = len(self._utf8)
+        if start > 0 or end != self._length:
+            storage = self._get_index_storage()
+            if start > 0:
+                # :-(
+                if start > self._length:
+                    start_index = start
+                else:
+                    start_index = rutf8.codepoint_position_at_index(
+                        self._utf8, storage, start)
+            if end != self._length:
+                # :-(
+                if end > self._length:
+                    end_index = end
+                else:
+                    end_index = rutf8.codepoint_position_at_index(
+                        self._utf8, storage, end)
+        return (start_index, end_index)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_rjust(self, space, width, w_fillchar):

@@ -489,60 +489,44 @@ class StringMethods(object):
             builder.append(self._lower(value[i]))
         return self._new(builder.build())
 
+    # This is not used for W_UnicodeObject.
     def descr_partition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         value = self._val(space)
 
-        if self._use_rstr_ops(space, w_sub):
-            sub = self._op_val(space, w_sub)
-            sublen = len(sub)
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
+        sub = _get_buffer(space, w_sub)
+        sublen = sub.getlength()
+        if sublen == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
 
-            pos = value.find(sub)
-        else:
-            sub = _get_buffer(space, w_sub)
-            sublen = sub.getlength()
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
-
-            pos = find(value, sub, 0, len(value))
-            if pos != -1 and isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
+        pos = find(value, sub, 0, len(value))
+        if pos != -1 and isinstance(self, W_BytearrayObject):
+            w_sub = self._new_from_buffer(sub)
 
         if pos == -1:
-            if isinstance(self, W_BytearrayObject):
-                self = self._new(value)
+            self = self._new(value)
             return space.newtuple([self, self._empty(), self._empty()])
         else:
             return space.newtuple(
                 [self._sliced(space, value, 0, pos, self), w_sub,
                  self._sliced(space, value, pos + sublen, len(value), self)])
 
+    # This is not used for W_UnicodeObject.
     def descr_rpartition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         value = self._val(space)
 
-        if self._use_rstr_ops(space, w_sub):
-            sub = self._op_val(space, w_sub)
-            sublen = len(sub)
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
+        sub = _get_buffer(space, w_sub)
+        sublen = sub.getlength()
+        if sublen == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
 
-            pos = value.rfind(sub)
-        else:
-            sub = _get_buffer(space, w_sub)
-            sublen = sub.getlength()
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
-
-            pos = rfind(value, sub, 0, len(value))
-            if pos != -1 and isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
+        pos = rfind(value, sub, 0, len(value))
+        if pos != -1 and isinstance(self, W_BytearrayObject):
+            w_sub = self._new_from_buffer(sub)
 
         if pos == -1:
-            if isinstance(self, W_BytearrayObject):
-                self = self._new(value)
+            self = self._new(value)
             return space.newtuple([self._empty(), self._empty(), self])
         else:
             return space.newtuple(
