@@ -21,9 +21,10 @@ from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
+from pypy.objspace.std.sliceobject import (
+    unwrap_start_stop, normalize_simple_slice)
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
-from pypy.objspace.std.sliceobject import unwrap_start_stop
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
@@ -140,10 +141,6 @@ class W_UnicodeObject(W_Root):
         # Always return true because we always need to copy the other
         # operand(s) before we can do comparisons
         return True
-
-    @staticmethod
-    def _op_utf8(space, w_other, strict=None):
-        return W_UnicodeObject.convert_arg_to_w_unicode(space, w_other, strict)._utf8
 
     @staticmethod
     def _op_val(space, w_other, strict=None):
@@ -550,14 +547,30 @@ class W_UnicodeObject(W_Root):
             i = rutf8.next_codepoint_pos(val, i)
         return space.newbool(cased)
 
+    def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
+        start, end = unwrap_start_stop(space, self._length, w_start, w_end)
+        value = self._utf8
+        if space.isinstance_w(w_prefix, space.w_tuple):
+            return self._startswith_tuple(space, value, w_prefix, start, end)
+        return space.newbool(self._startswith(space, value, w_prefix, start,
+                                              end))
+
     def _startswith(self, space, value, w_prefix, start, end):
-        prefix = self._op_utf8(space, w_prefix)
+        prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
         if start > len(value):
             return len(prefix) == 0
         return startswith(value, prefix, start, end)
 
+    def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
+        start, end = unwrap_start_stop(space, self._length, w_start, w_end)
+        value = self._utf8
+        if space.isinstance_w(w_suffix, space.w_tuple):
+            return self._endswith_tuple(space, value, w_suffix, start, end)
+        return space.newbool(self._endswith(space, value, w_suffix, start,
+                                            end))
+
     def _endswith(self, space, value, w_prefix, start, end):
-        prefix = self._op_utf8(space, w_prefix)
+        prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
         if start > len(value):
             return len(prefix) == 0
         return endswith(value, prefix, start, end)
@@ -682,6 +695,15 @@ class W_UnicodeObject(W_Root):
         res = rsplit(value, by, maxsplit, isutf8=True)
 
         return space.newlist_utf8(res)
+
+    def descr_getslice(self, space, w_start, w_stop):
+        selfvalue = self._utf8
+        start, stop = normalize_simple_slice(
+            space, self._len(), w_start, w_stop)
+        if start == stop:
+            return self._empty()
+        else:
+            return self._sliced(space, selfvalue, start, stop, self)
 
     def descr_capitalize(self, space):
         value = self._utf8
