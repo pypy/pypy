@@ -262,6 +262,10 @@ class BaseApiFunction(object):
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         self.callable = callable
         self.cdecl = None    # default
+        #
+        def get_llhelper(space):
+            return llhelper(self.functype, self.get_wrapper(space))
+        self.get_llhelper = get_llhelper
 
     def get_api_decl(self, name, c_writer):
         restype = self.get_c_restype(c_writer)
@@ -335,10 +339,6 @@ class ApiFunction(BaseApiFunction):
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll
-        #
-        def get_llhelper(space):
-            return llhelper(self.functype, self.get_wrapper(space))
-        self.get_llhelper = get_llhelper
 
     def _freeze_(self):
         return True
@@ -478,12 +478,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
 class COnlyApiFunction(BaseApiFunction):
     API_VISIBILITY = "extern %s"
 
-    def __init__(self, *args, **kwds):
-        BaseApiFunction.__init__(self, *args, **kwds)
-        #
-        def get_llhelper(space):
-            return llhelper(self.functype, self.callable)
-        self.get_llhelper = get_llhelper
+    def get_wrapper(self, space):
+        return self.callable
 
     def __call__(self, *args):
         raise TypeError("the function %s should not be directly "
