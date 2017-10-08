@@ -36,16 +36,18 @@ _PyPy_object_dealloc(PyObject *obj)
         Py_DECREF(pto);
 }
 
+extern void _PyPy_Free(void *ptr);
+
 void
 PyObject_Free(void *obj)
 {
-    free(obj);
+    _PyPy_Free(obj);
 }
 
 void
 PyObject_GC_Del(void *obj)
 {
-    free(obj);
+    _PyPy_Free(obj);
 }
 
 PyObject *

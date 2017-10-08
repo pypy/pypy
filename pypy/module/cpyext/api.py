@@ -255,14 +255,69 @@ cpyext_glob_tid_ptr = lltype.malloc(rffi.CArray(lltype.Signed), 1,
 
 cpyext_namespace = NameManager('cpyext_')
 
-class ApiFunction(object):
-    def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
-                 c_name=None, cdecl=None, gil=None,
-                 result_borrowed=False, result_is_ll=False):
+class BaseApiFunction(object):
+    def __init__(self, argtypes, restype, callable):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         self.callable = callable
+        self.cdecl = None    # default
+
+    def get_api_decl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        res = self.API_VISIBILITY % (restype,)
+        return "{res} {name}({args});".format(**locals())
+
+    def get_c_restype(self, c_writer):
+        if self.cdecl:
+            return self.cdecl.tp.result.get_c_name()
+        return c_writer.gettype(self.restype).replace('@', '').strip()
+
+    def get_c_args(self, c_writer):
+        if self.cdecl:
+            args = [tp.get_c_name('arg%d' % i) for i, tp in
+                enumerate(self.cdecl.tp.args)]
+            return ', '.join(args) or "void"
+        args = []
+        for i, argtype in enumerate(self.argtypes):
+            if argtype is CONST_STRING:
+                arg = 'const char *@'
+            elif argtype is CONST_STRINGP:
+                arg = 'const char **@'
+            elif argtype is CONST_WSTRING:
+                arg = 'const wchar_t *@'
+            else:
+                arg = c_writer.gettype(argtype)
+            arg = arg.replace('@', 'arg%d' % (i,)).strip()
+            args.append(arg)
+        args = ', '.join(args) or "void"
+        return args
+
+    def get_ptr_decl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        return "{restype} (*{name})({args});".format(**locals())
+
+    def get_ctypes_impl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        callargs = ', '.join('arg%d' % (i,)
+                            for i in range(len(self.argtypes)))
+        if self.restype is lltype.Void:
+            body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+        else:
+            body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+        return '%s %s(%s)\n%s' % (restype, name, args, body)
+
+
+class ApiFunction(BaseApiFunction):
+    API_VISIBILITY = "PyAPI_FUNC(%s)"
+
+    def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
+                 c_name=None, cdecl=None, gil=None,
+                 result_borrowed=False, result_is_ll=False):
+        BaseApiFunction.__init__(self, argtypes, restype, callable)
         self.error_value = error
         self.c_name = c_name
         self.cdecl = cdecl
@@ -383,52 +438,6 @@ class ApiFunction(object):
                 keepalive_until_here(*keepalives)
         return unwrapper
 
-    def get_c_restype(self, c_writer):
-        if self.cdecl:
-            return self.cdecl.tp.result.get_c_name()
-        return c_writer.gettype(self.restype).replace('@', '').strip()
-
-    def get_c_args(self, c_writer):
-        if self.cdecl:
-            args = [tp.get_c_name('arg%d' % i) for i, tp in
-                enumerate(self.cdecl.tp.args)]
-            return ', '.join(args) or "void"
-        args = []
-        for i, argtype in enumerate(self.argtypes):
-            if argtype is CONST_STRING:
-                arg = 'const char *@'
-            elif argtype is CONST_STRINGP:
-                arg = 'const char **@'
-            elif argtype is CONST_WSTRING:
-                arg = 'const wchar_t *@'
-            else:
-                arg = c_writer.gettype(argtype)
-            arg = arg.replace('@', 'arg%d' % (i,)).strip()
-            args.append(arg)
-        args = ', '.join(args) or "void"
-        return args
-
-    def get_api_decl(self, name, c_writer):
-        restype = self.get_c_restype(c_writer)
-        args = self.get_c_args(c_writer)
-        return "PyAPI_FUNC({restype}) {name}({args});".format(**locals())
-
-    def get_ptr_decl(self, name, c_writer):
-        restype = self.get_c_restype(c_writer)
-        args = self.get_c_args(c_writer)
-        return "{restype} (*{name})({args});".format(**locals())
-
-    def get_ctypes_impl(self, name, c_writer):
-        restype = self.get_c_restype(c_writer)
-        args = self.get_c_args(c_writer)
-        callargs = ', '.join('arg%d' % (i,)
-                            for i in range(len(self.argtypes)))
-        if self.restype is lltype.Void:
-            body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
-        else:
-            body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
-        return '%s %s(%s)\n%s' % (restype, name, args, body)
-
 
 DEFAULT_HEADER = 'pypy_decl.h'
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
@@ -464,6 +473,30 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         unwrapper.api_func = api_function
         INTERPLEVEL_API[func.__name__] = unwrapper  # used in tests
         return unwrapper
+    return decorate
+
+class COnlyApiFunction(BaseApiFunction):
+    API_VISIBILITY = "extern %s"
+
+    def __init__(self, *args, **kwds):
+        BaseApiFunction.__init__(self, *args, **kwds)
+        #
+        def get_llhelper(space):
+            return llhelper(self.functype, self.callable)
+        self.get_llhelper = get_llhelper
+
+    def __call__(self, *args):
+        raise TypeError("the function %s should not be directly "
+                        "called from RPython, but only from C" % (self.func,))
+
+def c_only(argtypes, restype):
+    def decorate(func):
+        header = DEFAULT_HEADER
+        if func.__name__ in FUNCTIONS_BY_HEADER[header]:
+            raise ValueError("%s already registered" % func.__name__)
+        api_function = COnlyApiFunction(argtypes, restype, func)
+        FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
+        return api_function
     return decorate
 
 def api_func_from_cdef(func, cdef, cts,

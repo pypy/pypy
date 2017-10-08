@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
     PyVarObject, size_t, slot_function,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, FILEP, fwrite)
+    Py_GE, CONST_STRING, FILEP, fwrite, c_only)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, Py_IncRef, Py_DecRef,
     get_typedescr)
@@ -31,6 +31,10 @@ def PyObject_Realloc(space, ptr, size):
                          add_memory_pressure=True)
     # XXX FIXME
     return realloc(ptr, size)
+
+@c_only([rffi.VOIDP], lltype.Void)
+def _PyPy_Free(ptr):
+    lltype.free(ptr, flavor='raw')
 
 @cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
 def _PyObject_New(space, type):
