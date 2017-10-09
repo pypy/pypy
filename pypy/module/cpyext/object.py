@@ -161,31 +161,6 @@ def PyObject_DelItem(space, w_obj, w_key):
     space.delitem(w_obj, w_key)
     return 0
 
-# CCC port to C
-@cpython_api([PyObject, PyTypeObjectPtr], PyObject, result_is_ll=True)
-def PyObject_Init(space, obj, type):
-    """Initialize a newly-allocated object op with its type and initial
-    reference.  Returns the initialized object.  If type indicates that the
-    object participates in the cyclic garbage detector, it is added to the
-    detector's set of observed objects. Other fields of the object are not
-    affected."""
-    if not obj:
-        PyErr_NoMemory(space)
-    obj.c_ob_type = type
-    obj.c_ob_pypy_link = 0
-    obj.c_ob_refcnt = 1
-    return obj
-
-# CCC port to C
-@cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
-def PyObject_InitVar(space, py_obj, type, size):
-    """This does everything PyObject_Init() does, and also initializes the
-    length information for a variable-size object."""
-    if not py_obj:
-        PyErr_NoMemory(space)
-    py_obj.c_ob_size = size
-    return PyObject_Init(space, rffi.cast(PyObject, py_obj), type)
-
 @cpython_api([PyObject], PyObject)
 def PyObject_Type(space, w_obj):
     """When o is non-NULL, returns a type object corresponding to the object type

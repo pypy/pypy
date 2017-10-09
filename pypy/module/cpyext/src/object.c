@@ -128,3 +128,23 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
     else
         return PyObject_InitVar((PyVarObject*)py_obj, type, nitems);
 }
+
+PyObject *
+PyObject_Init(PyObject *obj, PyTypeObject *type)
+{
+    if (!obj)
+        PyErr_NoMemory();
+    obj->ob_type = type;
+    obj->ob_pypy_link = 0;
+    obj->ob_refcnt = 1;
+    return obj;
+}
+
+PyVarObject *
+PyObject_InitVar(PyVarObject *obj, PyTypeObject *type, Py_ssize_t size)
+{
+    if (!obj)
+        PyErr_NoMemory();
+    obj->ob_size = size;
+    return PyObject_Init((PyObject*)obj, type);
+}
