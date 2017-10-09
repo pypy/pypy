@@ -39,7 +39,6 @@ def int_alloc(typedescr, space, w_type, itemcount):
     else:
         return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
 
-# CCC kill this?
 def int_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyIntObject with the given int object. The
@@ -48,7 +47,6 @@ def int_attach(space, py_obj, w_obj, w_userdata=None):
     py_int = rffi.cast(PyIntObject, py_obj)
     py_int.c_ob_ival = space.int_w(w_obj)
 
-# CCC kill this?
 def int_realize(space, obj):
     intval = rffi.cast(lltype.Signed, rffi.cast(PyIntObject, obj).c_ob_ival)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
