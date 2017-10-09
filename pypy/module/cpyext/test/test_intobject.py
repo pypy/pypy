@@ -66,6 +66,21 @@ class TestIntObject(BaseApiTest):
         assert p_x == p_y
         decref(space, p_y)
 
+    def test_freelist_int_subclass(self, space):
+        w_MyInt = space.appexec([], """():
+            class MyInt(int):
+                pass
+            return MyInt""")
+        w_x = space.call_function(w_MyInt, space.newint(12345678))
+        w_y = space.call_function(w_MyInt, space.newint(87654321))
+        p_x = make_ref(space, w_x)
+        decref(space, p_x)
+        p_y = make_ref(space, w_y)
+        # now the address is different because the freelist does not work for
+        # int subclasses
+        assert p_x != p_y
+        decref(space, p_y)
+
     def test_coerce(self, space):
         w_obj = space.appexec([], """():
             class Coerce(object):
