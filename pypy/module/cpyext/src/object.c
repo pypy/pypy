@@ -70,25 +70,6 @@ PyObject * _PyObject_GC_New(PyTypeObject *type)
 
 
 static PyObject *
-_type_alloc(PyTypeObject *metatype)
-{
-    PyHeapTypeObject *heaptype = (PyHeapTypeObject*)_PyPy_Malloc(sizeof(PyHeapTypeObject));
-    PyTypeObject *pto = &heaptype->ht_type;
-
-    pto->ob_refcnt = 1;
-    pto->ob_pypy_link = 0;
-    pto->ob_type = metatype;
-    pto->tp_flags |= Py_TPFLAGS_HEAPTYPE;
-    pto->tp_as_number = &heaptype->as_number;
-    pto->tp_as_sequence = &heaptype->as_sequence;
-    pto->tp_as_mapping = &heaptype->as_mapping;
-    pto->tp_as_buffer = &heaptype->as_buffer;
-    pto->tp_basicsize = -1; /* hopefully this makes malloc bail out */
-    pto->tp_itemsize = 0;
-    return (PyObject*)heaptype;
-}
-
-static PyObject *
 _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
 {
     if (type->tp_flags & Py_TPFLAGS_HEAPTYPE)
@@ -99,7 +80,9 @@ _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
         size += nitems * type->tp_itemsize;
 
     PyObject *pyobj = (PyObject*)_PyPy_Malloc(size);
-    
+    if (pyobj == NULL)
+        return NULL;
+
     if (type->tp_itemsize)
         ((PyVarObject*)pyobj)->ob_size = nitems;
 
@@ -117,12 +100,7 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
        current cpyext logic here, and fix it when the migration to C is
        completed
     */
-    PyObject *py_obj;
-    if (type == &PyType_Type)
-        py_obj = _type_alloc(type);
-    else
-        py_obj = _generic_alloc(type, nitems);
-
+    PyObject *py_obj = _generic_alloc(type, nitems);
     if (!py_obj)
         return (PyVarObject*)PyErr_NoMemory();
     

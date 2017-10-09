@@ -99,6 +99,7 @@ def make_typedescr(typedef, **kw):
     assert not kw, "Extra arguments to make_typedescr"
 
     null_dealloc = lltype.nullptr(lltype.FuncType([PyObject], lltype.Void))
+    assert not isinstance(tp_basestruct, lltype.Ptr), "should pass .TO"
 
     class CpyTypedescr(BaseCpyTypedescr):
         basestruct = tp_basestruct

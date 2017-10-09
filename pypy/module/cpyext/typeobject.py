@@ -523,7 +523,7 @@ class W_PyCTypeObject(W_TypeObject):
 @bootstrap_function
 def init_typeobject(space):
     make_typedescr(space.w_type.layout.typedef,
-                   basestruct=PyTypeObject,
+                   basestruct=PyHeapTypeObject.TO,
                    alloc=type_alloc,
                    attach=type_attach,
                    realize=type_realize,
