@@ -72,7 +72,7 @@ PyObject * _PyObject_GC_New(PyTypeObject *type)
 static PyObject *
 _type_alloc(PyTypeObject *metatype)
 {
-    PyHeapTypeObject *heaptype = (PyHeapTypeObject*)_PyPy_Malloc(sizeof(PyTypeObject));
+    PyHeapTypeObject *heaptype = (PyHeapTypeObject*)_PyPy_Malloc(sizeof(PyHeapTypeObject));
     PyTypeObject *pto = &heaptype->ht_type;
 
     pto->ob_refcnt = 1;
