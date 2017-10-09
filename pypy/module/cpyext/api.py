@@ -1677,7 +1677,7 @@ def generic_cpy_call_expect_null(space, func, *args):
 
 @specialize.memo()
 def make_generic_cpy_call(FT, expect_null):
-    from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
+    from pypy.module.cpyext.pyobject import is_pyobj, make_ref, decref
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
     from pypy.module.cpyext.pyerrors import PyErr_Occurred
     unrolling_arg_types = unrolling_iterable(enumerate(FT.ARGS))
@@ -1705,15 +1705,17 @@ def make_generic_cpy_call(FT, expect_null):
     @specialize.ll()
     def generic_cpy_call(space, func, *args):
         boxed_args = ()
-        keepalives = ()
+        to_decref = ()
         assert len(args) == len(FT.ARGS)
         for i, ARG in unrolling_arg_types:
             arg = args[i]
+            _pyobj = None
             if is_PyObject(ARG):
                 if not is_pyobj(arg):
-                    keepalives += (arg,)
-                    arg = as_pyobj(space, arg)
+                    arg = make_ref(space, arg)
+                    _pyobj = arg
             boxed_args += (arg,)
+            to_decref += (_pyobj,)
 
         # see "Handling of the GIL" above
         tid = rthread.get_ident()
@@ -1727,7 +1729,11 @@ def make_generic_cpy_call(FT, expect_null):
         finally:
             assert cpyext_glob_tid_ptr[0] == tid
             cpyext_glob_tid_ptr[0] = 0
-            keepalive_until_here(*keepalives)
+            for i, ARG in unrolling_arg_types:
+                # note that this loop is nicely unrolled statically by RPython
+                _pyobj = to_decref[i]
+                if _pyobj is not None:
+                    decref(space, _pyobj)
 
         if is_PyObject(RESULT_TYPE):
             if not is_pyobj(result):
