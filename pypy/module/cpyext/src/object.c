@@ -123,6 +123,9 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
     else
         py_obj = _generic_alloc(type, nitems);
 
+    if (!py_obj)
+        return (PyVarObject*)PyErr_NoMemory();
+    
     if (type->tp_itemsize == 0)
         return PyObject_Init(py_obj, type);
     else
@@ -132,8 +135,6 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
 PyObject *
 PyObject_Init(PyObject *obj, PyTypeObject *type)
 {
-    if (!obj)
-        PyErr_NoMemory();
     obj->ob_type = type;
     obj->ob_pypy_link = 0;
     obj->ob_refcnt = 1;
@@ -143,8 +144,6 @@ PyObject_Init(PyObject *obj, PyTypeObject *type)
 PyVarObject *
 PyObject_InitVar(PyVarObject *obj, PyTypeObject *type, Py_ssize_t size)
 {
-    if (!obj)
-        PyErr_NoMemory();
     obj->ob_size = size;
     return PyObject_Init((PyObject*)obj, type);
 }
