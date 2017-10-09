@@ -1,13 +1,17 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.intobject import (
-    PyInt_Check, PyInt_AsLong, PyInt_AS_LONG, PyInt_FromLong,
+    PyInt_Check, PyInt_AsLong, PyInt_AS_LONG,
     PyInt_AsUnsignedLong, PyInt_AsUnsignedLongMask,
     PyInt_AsUnsignedLongLongMask)
+from pypy.module.cpyext.pyobject import (decref, make_ref,
+                                         get_w_obj_and_decref)
+from pypy.module.cpyext.state import State
 import sys
 
 class TestIntObject(BaseApiTest):
     def test_intobject(self, space):
+        state = space.fromcache(State)
         assert PyInt_Check(space, space.wrap(3))
         assert PyInt_Check(space, space.w_True)
         assert not PyInt_Check(space, space.wrap((1, 2, 3)))
@@ -16,7 +20,8 @@ class TestIntObject(BaseApiTest):
             y = PyInt_AS_LONG(space, space.wrap(i))
             assert x == i
             assert y == i
-            w_x = PyInt_FromLong(space, x + 1)
+            py_x = state.C.PyInt_FromLong(x + 1)
+            w_x = get_w_obj_and_decref(space, py_x)
             assert space.type(w_x) is space.w_int
             assert space.eq_w(w_x, space.wrap(i + 1))
 
@@ -39,6 +44,14 @@ class TestIntObject(BaseApiTest):
                 == sys.maxint)
         assert (PyInt_AsUnsignedLongLongMask(space, space.wrap(10 ** 30))
                 == 10 ** 30 % (2 ** 64))
+
+    def test_freelist_direct(self, space):
+        state = space.fromcache(State)
+        p_x = state.C.PyInt_FromLong(12345678)
+        decref(space, p_x)
+        p_y = state.C.PyInt_FromLong(87654321)
+        assert p_x == p_y
+        decref(space, p_y)
 
     def test_coerce(self, space):
         w_obj = space.appexec([], """():

@@ -628,7 +628,7 @@ SYMBOLS_C = [
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
     'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar', '_PyObject_GC_New',
-    'PyObject_Init', 'PyObject_InitVar',
+    'PyObject_Init', 'PyObject_InitVar', 'PyInt_FromLong',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1120,9 +1120,17 @@ def attach_c_functions(space, eci, prefix):
         [PyTypeObjectPtr, Py_ssize_t], PyObject,
         compilation_info=eci,
         _nowrapper=True)
+    state.C.PyInt_FromLong = rffi.llexternal(
+        mangle_name(prefix, 'PyInt_FromLong'),
+        [rffi.LONG], PyObject,
+        compilation_info=eci,
+        _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
                    Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
                    eci, _nowrapper=True, c_type='Py_ssize_t')
+    state.C._PyPy_int_dealloc = rffi.llexternal(
+        '_PyPy_int_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
         '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
@@ -1445,6 +1453,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pymem.c",
                          source_dir / "object.c",
                          source_dir / "typeobject.c",
+                         source_dir / "intobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

@@ -106,7 +106,7 @@ def make_typedescr(typedef, **kw):
 
         if tp_alloc:
             def allocate(self, space, w_type, itemcount=0, immortal=False):
-                return tp_alloc(space, w_type, itemcount)
+                return tp_alloc(self, space, w_type, itemcount)
 
         if hasattr(tp_dealloc, 'api_func'):
             def get_dealloc(self, space):
