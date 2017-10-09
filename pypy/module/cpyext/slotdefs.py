@@ -13,7 +13,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     readbufferproc, getbufferproc, ssizessizeobjargproc)
-from pypy.module.cpyext.pyobject import make_ref, decref, from_ref
+from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
@@ -90,26 +90,29 @@ def wrap_binaryfunc(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
 
+def _get_ob_type(space, w_obj):
+    # please ensure that w_obj stays alive
+    ob_type = as_pyobj(space, space.type(w_obj))
+    return rffi.cast(PyTypeObjectPtr, ob_type)
+
 def wrap_binaryfunc_l(space, w_self, w_args, func):
     func_binary = rffi.cast(binaryfunc, func)
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
-    ref = make_ref(space, w_self)
-    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+    ob_type = _get_ob_type(w_self)
+    if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
         not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
-    decref(space, ref)
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
 
 def wrap_binaryfunc_r(space, w_self, w_args, func):
     func_binary = rffi.cast(binaryfunc, func)
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
-    ref = make_ref(space, w_self)
-    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+    ob_type = _get_ob_type(w_self)
+    if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
         not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
-    decref(space, ref)
     return generic_cpy_call(space, func_binary, args_w[0], w_self)
 
 def wrap_ternaryfunc(space, w_self, w_args, func):
@@ -127,11 +130,10 @@ def wrap_ternaryfunc_r(space, w_self, w_args, func):
     func_ternary = rffi.cast(ternaryfunc, func)
     check_num_argsv(space, w_args, 1, 2)
     args_w = space.fixedview(w_args)
-    ref = make_ref(space, w_self)
-    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+    ob_type = _get_ob_type(w_self)
+    if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
         not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
-    decref(space, ref)
     arg3 = space.w_None
     if len(args_w) > 1:
         arg3 = args_w[1]
@@ -323,12 +325,10 @@ def wrap_hashfunc(space, w_self, w_args, func):
 
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
-    py_obj = make_ref(space, w_self)
-    py_type = py_obj.c_ob_type
+    py_type = _get_ob_type(space, w_self)
     rbp = rffi.cast(rffi.VOIDP, 0)
     if py_type.c_tp_as_buffer:
         rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-    decref(space, py_obj)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
         index = rffi.cast(Py_ssize_t, 0)
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
@@ -341,9 +341,7 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
 
 def wrap_getwritebuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
-    py_obj = make_ref(space, w_self)
-    py_type = py_obj.c_ob_type
-    decref(space, py_obj)
+    py_type = _get_ob_type(space, w_self)
     rbp = rffi.cast(rffi.VOIDP, 0)
     if py_type.c_tp_as_buffer:
         rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
@@ -359,12 +357,10 @@ def wrap_getwritebuffer(space, w_self, w_args, func):
 
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
-    py_obj = make_ref(space, w_self)
-    py_type = py_obj.c_ob_type
+    py_type = _get_ob_type(space, w_self)
     rbp = rffi.cast(rffi.VOIDP, 0)
     if py_type.c_tp_as_buffer:
         rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-    decref(space, py_obj)
     with lltype.scoped_alloc(Py_buffer) as pybuf:
         _flags = 0
         if space.len_w(w_args) > 0:
