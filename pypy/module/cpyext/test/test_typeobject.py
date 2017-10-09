@@ -353,12 +353,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 PyObject* name = PyString_FromString("mymodule");
                 PyObject *obj = PyType_Type.tp_alloc(&PyType_Type, 0);
                 PyHeapTypeObject *type = (PyHeapTypeObject*)obj;
-                if ((type->ht_type.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0)
-                {
-                    PyErr_SetString(PyExc_ValueError,
-                                    "Py_TPFLAGS_HEAPTYPE not set");
-                    return NULL;
-                }
+                /* this is issue #2434: logic from pybind11 */
+                type->ht_type.tp_flags |= Py_TPFLAGS_HEAPTYPE;
                 type->ht_type.tp_name = ((PyTypeObject*)args)->tp_name;
                 PyType_Ready(&type->ht_type);
                 ret = PyObject_SetAttrString((PyObject*)&type->ht_type,
