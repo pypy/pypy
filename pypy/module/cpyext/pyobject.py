@@ -279,10 +279,7 @@ class Entry(ExtRegistryEntry):
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 @specialize.ll()
-def make_ref(space, obj, w_userdata=None, immortal=False):
-    """Increment the reference counter of the PyObject and return it.
-    Can be called with either a PyObject or a W_Root.
-    """
+def get_pyobj_and_incref(space, obj, w_userdata=None, immortal=False):
     if is_pyobj(obj):
         pyobj = rffi.cast(PyObject, obj)
         at_least = 1
@@ -295,6 +292,12 @@ def make_ref(space, obj, w_userdata=None, immortal=False):
         keepalive_until_here(obj)
     return pyobj
 
+@specialize.ll()
+def make_ref(space, obj, w_userdata=None, immortal=False):
+    """Increment the reference counter of the PyObject and return it.
+    Can be called with either a PyObject or a W_Root.
+    """
+    return get_pyobj_and_incref(space, obj, w_userdata, immortal=False)
 
 @specialize.ll()
 def get_w_obj_and_decref(space, obj):
@@ -318,7 +321,7 @@ def get_w_obj_and_decref(space, obj):
 
 @specialize.ll()
 def incref(space, obj):
-    make_ref(space, obj)
+    get_pyobj_and_incref(space, obj)
 
 @specialize.ll()
 def decref(space, obj):
