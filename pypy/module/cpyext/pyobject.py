@@ -297,6 +297,12 @@ def make_ref(space, obj, w_userdata=None, immortal=False):
     """Increment the reference counter of the PyObject and return it.
     Can be called with either a PyObject or a W_Root.
     """
+    if not is_pyobj(obj):
+        w_obj = obj
+        if w_obj is not None and space.type(w_obj) is space.w_int:
+            state = space.fromcache(State)
+            intval = space.int_w(w_obj)
+            return state.C.PyInt_FromLong(intval)
     return get_pyobj_and_incref(space, obj, w_userdata, immortal=False)
 
 @specialize.ll()

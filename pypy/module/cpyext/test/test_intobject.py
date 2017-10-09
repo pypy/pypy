@@ -50,6 +50,19 @@ class TestIntObject(BaseApiTest):
         p_x = state.C.PyInt_FromLong(12345678)
         decref(space, p_x)
         p_y = state.C.PyInt_FromLong(87654321)
+        # check that the address is the same, i.e. that the freelist did its
+        # job
+        assert p_x == p_y
+        decref(space, p_y)
+
+    def test_freelist_make_ref(self, space):
+        w_x = space.newint(12345678)
+        w_y = space.newint(87654321)
+        p_x = make_ref(space, w_x)
+        decref(space, p_x)
+        p_y = make_ref(space, w_y)
+        # check that the address is the same: note that w_x does NOT keep p_x
+        # alive, because in make_ref we have a special case for ints
         assert p_x == p_y
         decref(space, p_y)
 
