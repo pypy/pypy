@@ -2,6 +2,7 @@
 
 import py
 import sys, random
+import struct
 from rpython.rlib import runicode
 
 from hypothesis import given, settings, strategies
@@ -266,11 +267,12 @@ class TestDecoding(UnicodeTests):
         assert replace_with(u'rep', None) == '\x00<\x00r\x00e\x00p\x00>'
         assert replace_with(None, '\xca\xfe') == '\x00<\xca\xfe\x00>'
 
-    def test_utf32_surrogates(self):
+    @py.test.mark.parametrize('unich',[u"\ud800", u"\udc80"])
+    def test_utf32_surrogates(self, unich):
         assert runicode.unicode_encode_utf_32_be(
-            u"\ud800", 1, None) == '\x00\x00\xd8\x00'
+            unich, 1, None) == struct.pack('>i', ord(unich))
         py.test.raises(UnicodeEncodeError, runicode.unicode_encode_utf_32_be,
-                       u"\ud800", 1, None, allow_surrogates=False)
+                       unich, 1, None, allow_surrogates=False)
         def replace_with(ru, rs):
             def errorhandler(errors, enc, msg, u, startingpos, endingpos):
                 if errors == 'strict':
@@ -278,7 +280,7 @@ class TestDecoding(UnicodeTests):
                                              endingpos, msg)
                 return ru, rs, endingpos
             return runicode.unicode_encode_utf_32_be(
-                u"<\ud800>", 3, None,
+                u"<%s>" % unich, 3, None,
                 errorhandler, allow_surrogates=False)
         assert replace_with(u'rep', None) == u'<rep>'.encode('utf-32-be')
         assert replace_with(None, '\xca\xfe\xca\xfe') == '\x00\x00\x00<\xca\xfe\xca\xfe\x00\x00\x00>'
@@ -432,7 +434,7 @@ class TestUTF8Decoding(UnicodeTests):
             assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 'ignore',
                         final=True) == (u'aaaabbbb', len(seq) + 8))
             assert (self.decoder(seq, len(seq), 'custom', final=True,
-                        errorhandler=self.custom_replace) == 
+                        errorhandler=self.custom_replace) ==
                         (FOO * len(seq), len(seq)))
             assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 'custom',
                         final=True, errorhandler=self.custom_replace) ==
@@ -628,7 +630,7 @@ class TestUTF8Decoding(UnicodeTests):
                                   msg='invalid continuation byte')
             assert self.decoder(seq, len(seq), 'replace', final=True
                                 ) == (res, len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8,
                                  'replace', final=True) ==
                         (u'aaaa' + res + u'bbbb', len(seq) + 8))
             res = res.replace(FFFD, u'')
