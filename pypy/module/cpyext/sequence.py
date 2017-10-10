@@ -128,7 +128,7 @@ def PySequence_DelSlice(space, w_obj, start, end):
     space.delslice(w_obj, space.newint(start), space.newint(end))
     return 0
 
-@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject)
+@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_is_ll=True)
 def PySequence_ITEM(space, w_obj, i):
     """Return the ith element of o or NULL on failure. Macro form of
     PySequence_GetItem() but without checking that
@@ -153,7 +153,7 @@ def PySequence_ITEM(space, w_obj, i):
         return py_res
     return make_ref(space, space.getitem(w_obj, space.newint(i)))
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t], PyObject, result_is_ll=True)
 def PySequence_GetItem(space, w_obj, i):
     """Return the ith element of o, or NULL on failure. This is the equivalent of
     the Python expression o[i]."""

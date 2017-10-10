@@ -433,9 +433,15 @@ class ApiFunction(BaseApiFunction):
                     arg = input_arg
                 newargs += (arg, )
             try:
-                return self.callable(space, *newargs)
+                result = self.callable(space, *newargs)
             finally:
                 keepalive_until_here(*keepalives)
+            #
+            # this is just a sanity check to ensure that we don't forget to
+            # specify result_is_ll=True
+            if self.restype == PyObject:
+                assert self.result_is_ll == is_pyobj(result)
+            return result
         return unwrapper
 
 
