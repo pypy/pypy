@@ -137,6 +137,9 @@ def PySequence_ITEM(space, w_obj, i):
 
     This function used an int type for i. This might require
     changes in your code for properly supporting 64-bit systems."""
+    # XXX we should call Py*_GET_ITEM() instead of Py*_GetItem()
+    # from here, but we cannot because we are also called from
+    # PySequence_GetItem()
     if isinstance(w_obj, tupleobject.W_TupleObject):
         from pypy.module.cpyext.tupleobject import PyTuple_GetItem
         py_obj = as_pyobj(space, w_obj)
@@ -145,9 +148,9 @@ def PySequence_ITEM(space, w_obj, i):
         keepalive_until_here(w_obj)
         return py_res
     if isinstance(w_obj, W_ListObject):
-        from pypy.module.cpyext.listobject import PyList_GET_ITEM
+        from pypy.module.cpyext.listobject import PyList_GetItem
         py_obj = as_pyobj(space, w_obj)
-        py_res = PyList_GET_ITEM(space, py_obj, i)
+        py_res = PyList_GetItem(space, py_obj, i)
         incref(space, py_res)
         keepalive_until_here(w_obj)
         return py_res

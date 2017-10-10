@@ -5,6 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.sequence import (
     PySequence_Fast, PySequence_Contains, PySequence_Index,
     PySequence_GetItem, PySequence_SetItem, PySequence_DelItem)
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 
 import pytest
 
@@ -134,9 +135,11 @@ class TestSequence(BaseApiTest):
     def test_getitem(self, space, api):
         thelist = [8, 7, 6, 5, 4, 3, 2, 1]
         w_l = space.wrap(thelist)
-        result = api.PySequence_GetItem(w_l, 4)
+        py_result = api.PySequence_GetItem(w_l, 4)
+        result = get_w_obj_and_decref(space, py_result)
         assert space.is_true(space.eq(result, space.wrap(4)))
-        result = api.PySequence_ITEM(w_l, 4)
+        py_result = api.PySequence_ITEM(w_l, 4)
+        result = get_w_obj_and_decref(space, py_result)
         assert space.is_true(space.eq(result, space.wrap(4)))
         with raises_w(space, IndexError):
             PySequence_GetItem(space, w_l, 9000)
