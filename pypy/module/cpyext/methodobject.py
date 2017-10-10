@@ -14,7 +14,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, slot_function, cts,
     build_type_checkers)
 from pypy.module.cpyext.pyobject import (
-    Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
+    decref, from_ref, make_ref, as_pyobj, make_typedescr)
 
 PyMethodDef = cts.gettype('PyMethodDef')
 PyCFunction = cts.gettype('PyCFunction')
@@ -38,8 +38,8 @@ def cfunction_attach(space, py_obj, w_obj, w_userdata=None):
 @slot_function([PyObject], lltype.Void)
 def cfunction_dealloc(space, py_obj):
     py_func = rffi.cast(PyCFunctionObject, py_obj)
-    Py_DecRef(space, py_func.c_m_self)
-    Py_DecRef(space, py_func.c_m_module)
+    decref(space, py_func.c_m_self)
+    decref(space, py_func.c_m_module)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 

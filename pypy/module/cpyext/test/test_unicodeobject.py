@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.unicodeobject import (
     Py_UNICODE, PyUnicodeObject, new_empty_unicode)
 from pypy.module.cpyext.api import PyObjectP, PyObject
-from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
+from pypy.module.cpyext.pyobject import decref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 from pypy.module.cpyext.unicodeobject import *
@@ -220,7 +220,7 @@ class TestUnicode(BaseApiTest):
 
         res = PyUnicode_FromStringAndSize(space, s, 4)
         w_res = from_ref(space, res)
-        Py_DecRef(space, res)
+        decref(space, res)
         assert space.unwrap(w_res) == u'sp\x09m'
         rffi.free_charp(s)
 
@@ -243,7 +243,7 @@ class TestUnicode(BaseApiTest):
         assert py_uni.c_length == 10
         assert py_uni.c_str[1] == 'b'
         assert py_uni.c_str[10] == '\x00'
-        Py_DecRef(space, ar[0])
+        decref(space, ar[0])
         lltype.free(ar, flavor='raw')
 
     def test_AsUTF8String(self, space):

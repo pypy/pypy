@@ -41,7 +41,7 @@ class BaseCpyTypedescr(object):
         # Don't increase refcount for non-heaptypes
         flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
         if flags & Py_TPFLAGS_HEAPTYPE:
-            Py_IncRef(space, w_type)
+            incref(space, pytype)
 
         if pytype:
             size = pytype.c_tp_basicsize
@@ -186,7 +186,7 @@ def track_reference(space, py_obj, w_obj):
     """
     Ties together a PyObject and an interpreter object.
     The PyObject's refcnt is increased by REFCNT_FROM_PYPY.
-    The reference in 'py_obj' is not stolen!  Remember to Py_DecRef()
+    The reference in 'py_obj' is not stolen!  Remember to decref()
     it is you need to.
     """
     # XXX looks like a PyObject_GC_TRACK
@@ -244,8 +244,8 @@ def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
     use keepalive_until_here(w_obj) some time later.**  In case of
     doubt, use the safer make_ref().
     """
+    assert not is_pyobj(w_obj)
     if w_obj is not None:
-        assert not is_pyobj(w_obj)
         py_obj = rawrefcount.from_obj(PyObject, w_obj)
         if not py_obj:
             py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
@@ -278,46 +278,36 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
-@specialize.ll()
-def get_pyobj_and_incref(space, obj, w_userdata=None, immortal=False):
-    if is_pyobj(obj):
-        pyobj = rffi.cast(PyObject, obj)
-        at_least = 1
-    else:
-        pyobj = as_pyobj(space, obj, w_userdata, immortal=immortal)
-        at_least = rawrefcount.REFCNT_FROM_PYPY
-    if pyobj:
-        assert pyobj.c_ob_refcnt >= at_least
+def get_pyobj_and_incref(space, w_obj, w_userdata=None, immortal=False):
+    pyobj = as_pyobj(space, w_obj, w_userdata, immortal=immortal)
+    if pyobj:  # != NULL
+        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
         pyobj.c_ob_refcnt += 1
-        keepalive_until_here(obj)
+        keepalive_until_here(w_obj)
     return pyobj
 
-@specialize.ll()
-def make_ref(space, obj, w_userdata=None, immortal=False):
-    """Increment the reference counter of the PyObject and return it.
-    Can be called with either a PyObject or a W_Root.
+def make_ref(space, w_obj, w_userdata=None, immortal=False):
+    """Turn the W_Root into a corresponding PyObject.  You should
+    decref the returned PyObject later.  Note that it is often the
+    case, but not guaranteed, that make_ref() returns always the
+    same PyObject for the same W_Root; for example, integers.
     """
-    if not is_pyobj(obj):
-        w_obj = obj
-        if w_obj is not None and space.type(w_obj) is space.w_int:
-            state = space.fromcache(State)
-            intval = space.int_w(w_obj)
-            return state.C.PyInt_FromLong(intval)
-    return get_pyobj_and_incref(space, obj, w_userdata, immortal=False)
+    assert not is_pyobj(w_obj)
+    if w_obj is not None and space.type(w_obj) is space.w_int:
+        state = space.fromcache(State)
+        intval = space.int_w(w_obj)
+        return state.C.PyInt_FromLong(intval)
+    return get_pyobj_and_incref(space, w_obj, w_userdata, immortal=False)
 
 @specialize.ll()
-def get_w_obj_and_decref(space, obj):
+def get_w_obj_and_decref(space, pyobj):
     """Decrement the reference counter of the PyObject and return the
-    corresponding W_Root object (so the reference count is at least
-    REFCNT_FROM_PYPY and cannot be zero).  Can be called with either
-    a PyObject or a W_Root.
+    corresponding W_Root object (so the reference count after the decref
+    is at least REFCNT_FROM_PYPY and cannot be zero).
     """
-    if is_pyobj(obj):
-        pyobj = rffi.cast(PyObject, obj)
-        w_obj = from_ref(space, pyobj)
-    else:
-        w_obj = obj
-        pyobj = as_pyobj(space, w_obj)
+    assert is_pyobj(pyobj)
+    pyobj = rffi.cast(PyObject, pyobj)
+    w_obj = from_ref(space, pyobj)
     if pyobj:
         pyobj.c_ob_refcnt -= 1
         assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
@@ -326,30 +316,30 @@ def get_w_obj_and_decref(space, obj):
 
 
 @specialize.ll()
-def incref(space, obj):
-    get_pyobj_and_incref(space, obj)
+def incref(space, pyobj):
+    assert is_pyobj(pyobj)
+    pyobj = rffi.cast(PyObject, pyobj)
+    assert pyobj.c_ob_refcnt >= 1
+    pyobj.c_ob_refcnt += 1
 
 @specialize.ll()
-def decref(space, obj):
+def decref(space, pyobj):
     from pypy.module.cpyext.api import generic_cpy_call
-    if is_pyobj(obj):
-        obj = rffi.cast(PyObject, obj)
-        if obj:
-            assert obj.c_ob_refcnt > 0
-            assert obj.c_ob_pypy_link == 0 or obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
-            obj.c_ob_refcnt -= 1
-            if obj.c_ob_refcnt == 0:
-                state = space.fromcache(State)
-                generic_cpy_call(space, state.C._Py_Dealloc, obj)
-            #else:
-            #    w_obj = rawrefcount.to_obj(W_Root, ref)
-            #    if w_obj is not None:
-            #        assert obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
-    else:
-        get_w_obj_and_decref(space, obj)
+    assert is_pyobj(pyobj)
+    pyobj = rffi.cast(PyObject, pyobj)
+    if pyobj:
+        assert pyobj.c_ob_refcnt > 0
+        assert (pyobj.c_ob_pypy_link == 0 or
+                pyobj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY)
+        pyobj.c_ob_refcnt -= 1
+        if pyobj.c_ob_refcnt == 0:
+            state = space.fromcache(State)
+            generic_cpy_call(space, state.C._Py_Dealloc, pyobj)
+        #else:
+        #    w_obj = rawrefcount.to_obj(W_Root, ref)
+        #    if w_obj is not None:
+        #        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
 
-Py_IncRef = incref # XXX remove me and kill all the Py_IncRef usages from RPython
-Py_DecRef = decref # XXX remove me and kill all the Py_DecRef usages from RPython
 
 @cpython_api([PyObject], lltype.Void)
 def _Py_NewReference(space, obj):

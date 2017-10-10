@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
     CANNOT_FAIL, Py_ssize_t, Py_ssize_tP, PyObjectFields, slot_function)
 from pypy.module.cpyext.pyobject import (
-    Py_DecRef, PyObject, make_ref, make_typedescr)
+    decref, PyObject, make_ref, make_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.sliceobject import W_SliceObject
@@ -41,9 +41,9 @@ def slice_dealloc(space, py_obj):
     """Frees allocated PyBytesObject resources.
     """
     py_slice = rffi.cast(PySliceObject, py_obj)
-    Py_DecRef(space, py_slice.c_start)
-    Py_DecRef(space, py_slice.c_stop)
-    Py_DecRef(space, py_slice.c_step)
+    decref(space, py_slice.c_start)
+    decref(space, py_slice.c_stop)
+    decref(space, py_slice.c_step)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 

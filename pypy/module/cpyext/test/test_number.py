@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import (
-    PyObjectP, from_ref, make_ref, Py_DecRef)
+    PyObjectP, from_ref, make_ref, decref)
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.number import (
     PyIndex_Check, PyNumber_Check, PyNumber_Long, PyNumber_Int,
@@ -66,10 +66,10 @@ class TestIterator(BaseApiTest):
         #
         # We need to decref twice because PyNumber_Coerce does an incref and
         # possibly changes the content of pp1 and pp2
-        Py_DecRef(space, p1)
-        Py_DecRef(space, pp1[0])
-        Py_DecRef(space, p2)
-        Py_DecRef(space, pp2[0])
+        decref(space, p1)
+        decref(space, pp1[0])
+        decref(space, p2)
+        decref(space, pp2[0])
         lltype.free(pp1, flavor='raw')
         lltype.free(pp2, flavor='raw')
 
@@ -88,10 +88,10 @@ class TestIterator(BaseApiTest):
 
         assert PyFloat_Check(space, w_res)
         assert space.unwrap(w_res) == 123.
-        Py_DecRef(space, pl)
-        Py_DecRef(space, pf)
-        Py_DecRef(space, ppl[0])
-        Py_DecRef(space, ppf[0])
+        decref(space, pl)
+        decref(space, pf)
+        decref(space, ppl[0])
+        decref(space, ppf[0])
         lltype.free(ppl, flavor='raw')
         lltype.free(ppf, flavor='raw')
 
