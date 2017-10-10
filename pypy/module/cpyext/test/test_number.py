@@ -54,19 +54,23 @@ class TestIterator(BaseApiTest):
     def test_coerce(self, space):
         w_obj1 = space.wrap(123)
         w_obj2 = space.wrap(456.789)
+        p1 = make_ref(space, w_obj1)
+        p2 = make_ref(space, w_obj2)
         pp1 = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        pp1[0] = make_ref(space, w_obj1)
+        pp1[0] = p1
         pp2 = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        pp2[0] = make_ref(space, w_obj2)
+        pp2[0] = p2
         assert PyNumber_Coerce(space, pp1, pp2) == 0
         assert space.str_w(space.repr(from_ref(space, pp1[0]))) == '123.0'
         assert space.str_w(space.repr(from_ref(space, pp2[0]))) == '456.789'
+        #
+        # We need to decref twice because PyNumber_Coerce does an incref and
+        # possibly changes the content of pp1 and pp2
+        Py_DecRef(space, p1)
         Py_DecRef(space, pp1[0])
+        Py_DecRef(space, p2)
         Py_DecRef(space, pp2[0])
         lltype.free(pp1, flavor='raw')
-        # Yes, decrement twice since we decoupled between w_obj* and pp*[0].
-        Py_DecRef(space, w_obj1)
-        Py_DecRef(space, w_obj2)
         lltype.free(pp2, flavor='raw')
 
     def test_number_coerce_ex(self, space):
