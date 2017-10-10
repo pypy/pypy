@@ -522,12 +522,6 @@ class TestTypes(BaseApiTest):
         assert w_obj is None
         assert api.PyErr_Occurred() is None
 
-    def test_ndarray_ref(self, space, api):
-        w_obj = space.appexec([], """():
-            import _numpypy
-            return _numpypy.multiarray.dtype('int64').type(2)""")
-        ref = make_ref(space, w_obj)
-        decref(space, ref)
 
 class AppTestSlots(AppTestCpythonExtensionBase):
     def setup_class(cls):
