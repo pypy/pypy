@@ -169,7 +169,7 @@ diff -Naur libressl-2.6.2.orig/crypto/x509/x509_vfy.c libressl-2.6.2/crypto/x509
 diff -Naur libressl-2.6.2.orig/crypto/x509/x509_vfy_apple.c libressl-2.6.2/crypto/x509/x509_vfy_apple.c
 --- libressl-2.6.2.orig/crypto/x509/x509_vfy_apple.c	1970-01-01 01:00:00.000000000 +0100
 +++ libressl-2.6.2/crypto/x509/x509_vfy_apple.c	2017-10-07 14:05:16.000000000 +0200
-@@ -0,0 +1,229 @@
+@@ -0,0 +1,225 @@
 +/*
 + * Copyright (c) 2009 Apple Inc. All Rights Reserved.
 + *
@@ -260,11 +260,9 @@ diff -Naur libressl-2.6.2.orig/crypto/x509/x509_vfy_apple.c libressl-2.6.2/crypt
 +            int nhosts = sk_OPENSSL_STRING_num(param->id->hosts);
 +
 +            if (nhosts != 1) {
-+                fprintf(stderr, "got %d hosts?\n", nhosts);
 +                hostname = NULL;
 +
 +            } else {
-+                fprintf(stderr, "got a host!\n");
 +                hostname = to_string(sk_OPENSSL_STRING_value(param->id->hosts, 0));
 +                CFShow(hostname);
 +            }
@@ -365,13 +363,11 @@ diff -Naur libressl-2.6.2.orig/crypto/x509/x509_vfy_apple.c libressl-2.6.2/crypt
 +    SecTrustResultType result = 0;
 +
 +    if (SecTrustEvaluate(trust, &result) != errSecSuccess || result != kSecTrustResultUnspecified) {
-+        fprintf(stderr, "Not trusted! %d\n", result);
 +        CFRelease(certArray);
 +        ctx->error = X509_V_ERR_CERT_UNTRUSTED;
 +        return 0;
 +    }
 +
-+    fprintf(stderr, "OK!\n");
 +    CFRelease(certArray);
 +    ctx->error = 0;
 +    return 1;
