@@ -274,12 +274,13 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
                 PyTypeObject * common_type;
                 PyObject *foo, **objects;
                 PyObject * seq = PyTuple_GetItem(args, 0);
-                /* XXX assert it is a tuple */
                 if (seq == NULL)
                     Py_RETURN_NONE;
                 foo = PySequence_Fast(seq, "some string");
                 objects = PySequence_Fast_ITEMS(foo);
-                size = PySequence_Fast_GET_SIZE(seq);
+                if (objects == NULL)
+                    return NULL;
+                size = PySequence_Fast_GET_SIZE(foo);
                 common_type = size > 0 ? Py_TYPE(objects[0]) : NULL;
                 for (i = 1; i < size; ++i) {
                     if (Py_TYPE(objects[i]) != common_type) {
@@ -288,10 +289,18 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
                     }
                 }
                 Py_DECREF(foo);
+                if (common_type == NULL)
+                    return PyBool_FromLong(0);
                 Py_DECREF(common_type);
                 return PyBool_FromLong(1);
              """)])
         s = [1, 2, 3, 4]
+        assert module.test_fast_sequence(s[0:-1])
+        assert module.test_fast_sequence(s[::-1])
+        s = (1, 2, 3, 4)
+        assert module.test_fast_sequence(s[0:-1])
+        assert module.test_fast_sequence(s[::-1])
+        s = "1234"
         assert module.test_fast_sequence(s[0:-1])
         assert module.test_fast_sequence(s[::-1])
 

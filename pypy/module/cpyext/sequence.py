@@ -104,6 +104,11 @@ def PySequence_Fast_ITEMS(space, w_obj):
         cpy_strategy = space.fromcache(CPyListStrategy)
         if w_obj.strategy is cpy_strategy:
             return w_obj.get_raw_items() # asserts it's a cpyext strategy
+    elif isinstance(w_obj, tupleobject.W_TupleObject):
+        from pypy.module.cpyext.tupleobject import PyTupleObject
+        py_obj = as_pyobj(space, w_obj)
+        py_tuple = rffi.cast(PyTupleObject, py_obj)
+        return rffi.cast(PyObjectP, py_tuple.c_ob_item)
     raise oefmt(space.w_TypeError,
                 "PySequence_Fast_ITEMS called but object is not the result of "
                 "PySequence_Fast")
