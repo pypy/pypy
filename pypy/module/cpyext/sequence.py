@@ -49,9 +49,8 @@ def PySequence_Fast(space, w_obj, m):
     converted to a sequence, and raises a TypeError, raise a new TypeError with
     m as the message text. If the conversion otherwise, fails, reraise the
     original exception"""
-    # CCC test and enable these two lines:
-    #if isinstance(w_obj, tupleobject.W_TupleObject):
-    #    return w_obj
+    if isinstance(w_obj, tupleobject.W_TupleObject):
+        return w_obj   # CCC avoid the double conversion that occurs here
     if isinstance(w_obj, W_ListObject):
         # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM
         w_obj.convert_to_cpy_strategy(space)
@@ -63,6 +62,7 @@ def PySequence_Fast(space, w_obj, m):
             raise OperationError(space.w_TypeError, space.newtext(rffi.charp2str(m)))
         raise e
 
+# CCC this should be written as a C macro
 @cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_borrowed=True)
 def PySequence_Fast_GET_ITEM(space, w_obj, index):
     """Return the ith element of o, assuming that o was returned by
