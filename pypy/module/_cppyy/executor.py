@@ -220,11 +220,11 @@ class PyObjectExecutor(PtrTypeExecutor):
 
     def wrap_result(self, space, lresult):
         space.getbuiltinmodule("cpyext")
-        from pypy.module.cpyext.pyobject import PyObject, from_ref, make_ref, Py_DecRef
+        from pypy.module.cpyext.pyobject import PyObject, from_ref, make_ref, decref
         result = rffi.cast(PyObject, lresult)
         w_obj = from_ref(space, result)
         if result:
-            Py_DecRef(space, result)
+            decref(space, result)
         return w_obj
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
