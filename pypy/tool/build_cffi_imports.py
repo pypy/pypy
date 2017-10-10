@@ -130,7 +130,7 @@ def _build_dependency(name, destdir, patches=[]):
     status, stdout, stderr = run_subprocess(
         'make',
         [
-            '-s', '-j' + str(multiprocessing.cpu_count() + 1),
+            '-s', '-j' + str(multiprocessing.cpu_count()),
             'install', 'DESTDIR={}/'.format(destdir),
         ],
         cwd=sources,
