@@ -1,11 +1,13 @@
 
 from rpython.rlib import rerased, jit
+from rpython.rlib.objectmodel import keepalive_until_here
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.listobject import (
     ListStrategy, UNROLL_CUTOFF, W_ListObject, ObjectListStrategy)
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t, PyObject, PyObjectP)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
+from pypy.module.cpyext.pyobject import as_pyobj, incref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import tupleobject
 
@@ -47,6 +49,9 @@ def PySequence_Fast(space, w_obj, m):
     converted to a sequence, and raises a TypeError, raise a new TypeError with
     m as the message text. If the conversion otherwise, fails, reraise the
     original exception"""
+    # CCC test and enable these two lines:
+    #if isinstance(w_obj, tupleobject.W_TupleObject):
+    #    return w_obj
     if isinstance(w_obj, W_ListObject):
         # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM
         w_obj.convert_to_cpy_strategy(space)
@@ -132,7 +137,21 @@ def PySequence_ITEM(space, w_obj, i):
 
     This function used an int type for i. This might require
     changes in your code for properly supporting 64-bit systems."""
-    return space.getitem(w_obj, space.newint(i))
+    if isinstance(w_obj, tupleobject.W_TupleObject):
+        from pypy.module.cpyext.tupleobject import PyTuple_GetItem
+        py_obj = as_pyobj(space, w_obj)
+        py_res = PyTuple_GetItem(space, py_obj, i)
+        incref(space, py_res)
+        keepalive_until_here(w_obj)
+        return py_res
+    if isinstance(w_obj, W_ListObject):
+        from pypy.module.cpyext.listobject import PyList_GET_ITEM
+        py_obj = as_pyobj(space, w_obj)
+        py_res = PyList_GET_ITEM(space, py_obj, i)
+        incref(space, py_res)
+        keepalive_until_here(w_obj)
+        return py_res
+    return make_ref(space, space.getitem(w_obj, space.newint(i)))
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
 def PySequence_GetItem(space, w_obj, i):

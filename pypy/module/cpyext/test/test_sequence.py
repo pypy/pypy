@@ -156,6 +156,29 @@ class TestSequence(BaseApiTest):
         result = api.PySequence_Index(w_gen, w_tofind)
         assert result == 4
 
+    def test_sequence_getitem(self, space, api):
+        # PySequence_GetItem() is defined to return a new reference.
+        # When it happens to be called on a list or tuple, it returns
+        # a new reference that is also kept alive by the fact that it
+        # lives in the list/tuple.  Some code like PyArg_ParseTuple()
+        # relies on this fact: it decrefs the result of
+        # PySequence_GetItem() but then expects it to stay alive.  Meh.
+        # Here, we check that we try hard not to break this kind of
+        # code: if written naively, it could return a fresh PyIntObject,
+        # for example.
+        w1 = space.wrap((41, 42, 43))
+        p1 = api.PySequence_GetItem(w1, 1)
+        p2 = api.PySequence_GetItem(w1, 1)
+        assert p1 == p2
+        assert p1.c_ob_refcnt > 1
+        #
+        w1 = space.wrap([41, 42, 43])
+        p1 = api.PySequence_GetItem(w1, 1)
+        p2 = api.PySequence_GetItem(w1, 1)
+        assert p1 == p2
+        assert p1.c_ob_refcnt > 1
+
+
 class AppTestSetObject(AppTestCpythonExtensionBase):
     def test_sequence_macro_cast(self):
         module = self.import_extension('foo', [
