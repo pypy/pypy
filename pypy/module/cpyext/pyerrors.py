@@ -6,7 +6,7 @@ from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, from_ref, decref)
+    PyObject, PyObjectP, make_ref, from_ref, decref, get_w_obj_and_decref)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from rpython.rlib import rposix, jit
@@ -80,9 +80,10 @@ def PyErr_Restore(space, py_type, py_value, py_traceback):
     error indicator temporarily; use PyErr_Fetch() to save the current
     exception state."""
     state = space.fromcache(State)
-    w_type = get_w_obj_and_decref(py_type)
-    w_value = get_w_obj_and_decref(py_value)
-    w_traceback = get_w_obj_and_decref(py_traceback) #XXX do something with that
+    w_type = get_w_obj_and_decref(space, py_type)
+    w_value = get_w_obj_and_decref(space, py_value)
+    w_traceback = get_w_obj_and_decref(space, py_traceback)
+    # XXX do something with w_traceback
     if w_type is None:
         state.clear_exception()
         return
@@ -406,9 +407,9 @@ def PyErr_SetExcInfo(space, py_type, py_value, py_traceback):
        restore the exception state temporarily.  Use
        :c:func:`PyErr_GetExcInfo` to read the exception state.
     """
-    w_type = get_w_obj_and_decref(py_type)
-    w_value = get_w_obj_and_decref(py_value)
-    w_traceback = get_w_obj_and_decref(py_traceback)
+    w_type = get_w_obj_and_decref(space, py_type)
+    w_value = get_w_obj_and_decref(space, py_value)
+    w_traceback = get_w_obj_and_decref(space, py_traceback)
     if w_value is None or space.is_w(w_value, space.w_None):
         operror = None
     else:

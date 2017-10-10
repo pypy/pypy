@@ -32,7 +32,7 @@ class TestMemoryViewObject(BaseApiTest):
             assert space.eq_w(space.getattr(w_mv, w_f),
                               space.getattr(w_memoryview, w_f))
         decref(space, ref)
-        decref(space, w_memoryview)
+        decref(space, c_memoryview)
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
