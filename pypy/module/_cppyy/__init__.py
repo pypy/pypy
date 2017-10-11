@@ -17,6 +17,7 @@ class Module(MixedModule):
         'addressof'              : 'interp_cppyy.addressof',
         '_bind_object'           : 'interp_cppyy._bind_object',
         'bind_object'            : 'interp_cppyy.bind_object',
+        'move'                   : 'interp_cppyy.move',
     }
 
     appleveldefs = {

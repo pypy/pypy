@@ -15,6 +15,10 @@ from pypy.module._cffi_backend import ctypefunc
 from pypy.module._cppyy import converter, executor, ffitypes, helper
 
 
+INSTANCE_FLAGS_PYTHON_OWNS = 0x0001
+INSTANCE_FLAGS_IS_REF      = 0x0002
+INSTANCE_FLAGS_IS_R_VALUE  = 0x0004
+
 class FastCallNotPossible(Exception):
     pass
 
@@ -1001,9 +1005,9 @@ W_CPPComplexClassDecl.typedef.acceptable_as_base_class = False
 
 
 class W_CPPClass(W_Root):
-    _attrs_ = ['space', 'clsdecl', '_rawobject', 'isref', 'python_owns',
+    _attrs_ = ['space', 'clsdecl', '_rawobject', 'flags',
                'finalizer_registered']
-    _immutable_fields_ = ['clsdecl', 'isref']
+    _immutable_fields_ = ['clsdecl']
 
     finalizer_registered = False
 
@@ -1014,35 +1018,42 @@ class W_CPPClass(W_Root):
         assert not isref or rawobject
         self._rawobject = rawobject
         assert not isref or not python_owns
-        self.isref = isref
-        self.python_owns = python_owns
-        self._opt_register_finalizer()
+        self.flags = 0
+        if isref:
+            self.flags |= INSTANCE_FLAGS_IS_REF
+        if python_owns:
+            self.flags |= INSTANCE_FLAGS_PYTHON_OWNS
+            self._opt_register_finalizer()
 
     def _opt_register_finalizer(self):
-        if self.python_owns and not self.finalizer_registered \
-               and not hasattr(self.space, "fake"):
+        if not self.finalizer_registered and not hasattr(self.space, "fake"):
+            assert self.flags & INSTANCE_FLAGS_PYTHON_OWNS
             self.register_finalizer(self.space)
             self.finalizer_registered = True
 
     def _nullcheck(self):
-        if not self._rawobject or (self.isref and not self.get_rawobject()):
+        if not self._rawobject or \
+               ((self.flags & INSTANCE_FLAGS_IS_REF) and not self.get_rawobject()):
             raise oefmt(self.space.w_ReferenceError,
                         "trying to access a NULL pointer")
 
     # allow user to determine ownership rules on a per object level
     def fget_python_owns(self, space):
-        return space.newbool(self.python_owns)
+        return space.newbool(self.flags & INSTANCE_FLAGS_PYTHON_OWNS)
 
     @unwrap_spec(value=bool)
     def fset_python_owns(self, space, value):
-        self.python_owns = space.is_true(value)
-        self._opt_register_finalizer()
+        if space.is_true(value):
+            self.flags |= INSTANCE_FLAGS_PYTHON_OWNS
+            self._opt_register_finalizer()
+        else:
+            self.flags &= ~INSTANCE_FLAGS_PYTHON_OWNS
 
     def get_cppthis(self, calling_scope):
         return self.clsdecl.get_cppthis(self, calling_scope)
 
     def get_rawobject(self):
-        if not self.isref:
+        if not (self.flags & INSTANCE_FLAGS_IS_REF):
             return self._rawobject
         else:
             ptrptr = rffi.cast(rffi.VOIDPP, self._rawobject)
@@ -1104,7 +1115,8 @@ class W_CPPClass(W_Root):
         return self.space.not_(self.instance__eq__(w_other))
 
     def instance__nonzero__(self):
-        if not self._rawobject or (self.isref and not self.get_rawobject()):
+        if not self._rawobject or \
+               ((self.flags & INSTANCE_FLAGS_IS_REF) and not self.get_rawobject()):
             return self.space.w_False
         return self.space.w_True
 
@@ -1130,13 +1142,13 @@ class W_CPPClass(W_Root):
                                (self.clsdecl.name, rffi.cast(rffi.ULONG, self.get_rawobject())))
 
     def destruct(self):
-        if self._rawobject and not self.isref:
+        if self._rawobject and not (self.flags & INSTANCE_FLAGS_IS_REF):
             memory_regulator.unregister(self)
             capi.c_destruct(self.space, self.clsdecl, self._rawobject)
             self._rawobject = capi.C_NULL_OBJECT
 
     def _finalize_(self):
-        if self.python_owns:
+        if self.flags & INSTANCE_FLAGS_PYTHON_OWNS:
             self.destruct()
 
 W_CPPClass.typedef = TypeDef(
@@ -1272,3 +1284,9 @@ def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
                         "no such class: %s", space.text_w(w_pycppclass))
     return _bind_object(space, w_obj, w_clsdecl, owns, cast)
 
+def move(space, w_obj):
+    """Casts the given instance into an C++-style rvalue."""
+    obj = space.interp_w(W_CPPClass, w_obj, can_be_None=True)
+    if obj:
+        obj.flags |= INSTANCE_FLAGS_IS_R_VALUE
+    return w_obj

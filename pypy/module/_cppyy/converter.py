@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
-from rpython.rlib import rfloat
+from rpython.rlib import rfloat, rawrefcount
 
 from pypy.module._rawffi.interp_rawffi import letter2tp
 from pypy.module._rawffi.array import W_Array, W_ArrayInstance
@@ -495,6 +495,10 @@ class InstanceRefConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         from pypy.module._cppyy.interp_cppyy import W_CPPClass
         if isinstance(w_obj, W_CPPClass):
+            from pypy.module._cppyy.interp_cppyy import INSTANCE_FLAGS_IS_R_VALUE
+            if w_obj.flags & INSTANCE_FLAGS_IS_R_VALUE:
+                # reject moves as all are explicit
+                raise ValueError("lvalue expected")
             if capi.c_is_subtype(space, w_obj.clsdecl, self.clsdecl):
                 rawobject = w_obj.get_rawobject()
                 offset = capi.c_base_offset(space, w_obj.clsdecl, self.clsdecl, rawobject, 1)
@@ -517,6 +521,17 @@ class InstanceRefConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
+
+class InstanceMoveConverter(InstanceRefConverter):
+    def _unwrap_object(self, space, w_obj):
+        # moving is same as by-ref, but have to check that move is allowed
+        from pypy.module._cppyy.interp_cppyy import W_CPPClass, INSTANCE_FLAGS_IS_R_VALUE
+        if isinstance(w_obj, W_CPPClass):
+            if w_obj.flags & INSTANCE_FLAGS_IS_R_VALUE:
+                w_obj.flags &= ~INSTANCE_FLAGS_IS_R_VALUE
+                return InstanceRefConverter._unwrap_object(self, space, w_obj)
+        raise oefmt(space.w_ValueError, "object is not an rvalue")
+
 
 class InstanceConverter(InstanceRefConverter):
 
@@ -719,6 +734,8 @@ def get_converter(space, name, default):
             return InstancePtrConverter(space, clsdecl)
         elif compound == "&":
             return InstanceRefConverter(space, clsdecl)
+        elif compound == "&&":
+            return InstanceMoveConverter(space, clsdecl)
         elif compound == "**":
             return InstancePtrPtrConverter(space, clsdecl)
         elif compound == "":

@@ -434,6 +434,9 @@ def _init_pythonify():
     # pre-create std to allow direct importing
     gbl.std = make_cppnamespace(gbl, 'std', _cppyy._scope_byname('std'))
 
+    # add move cast
+    gbl.std.move = _cppyy.move
+
     # install a type for enums to refer to
     # TODO: this is correct for C++98, not for C++11 and in general there will
     # be the same issue for all typedef'd builtin types

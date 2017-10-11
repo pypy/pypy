@@ -1,5 +1,6 @@
 dicts = advancedcppDict.so \
         advancedcpp2Dict.so \
+        cpp11featuresDict.so \
         crossingDict.so \
         datatypesDict.so \
         example01Dict.so \
