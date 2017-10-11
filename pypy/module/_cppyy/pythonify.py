@@ -439,11 +439,12 @@ def _init_pythonify():
     # be the same issue for all typedef'd builtin types
     setattr(gbl, 'internal_enum_type_t', int)
 
-    # install nullptr as a unique reference
-    setattr(gbl, 'nullptr', _cppyy._get_nullptr())
-
     # install for user access
     _cppyy.gbl = gbl
+
+    # install nullptr as a unique reference
+    _cppyy.nullptr = _cppyy._get_nullptr()
+
 
 # user-defined pythonizations interface
 _pythonizations = {}

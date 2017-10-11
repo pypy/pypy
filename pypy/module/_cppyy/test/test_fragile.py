@@ -93,7 +93,7 @@ class AppTestFRAGILE:
         # 0, None, and nullptr allowed
         assert _cppyy.addressof(0)                  == 0
         assert _cppyy.addressof(None)               == 0
-        assert _cppyy.addressof(_cppyy.gbl.nullptr) == 0
+        assert _cppyy.addressof(_cppyy.nullptr)     == 0
 
     def test05_wrong_this(self):
         """Test that using an incorrect self argument raises"""
