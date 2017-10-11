@@ -15,8 +15,7 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
 from rpython.rlib import rawrefcount, jit
-from rpython.rlib.debug import fatalerror
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.debug import ll_assert, fatalerror
 
 
 #________________________________________________________
@@ -249,6 +248,11 @@ def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
         py_obj = rawrefcount.from_obj(PyObject, w_obj)
         if not py_obj:
             py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
+        #
+        # Try to crash here, instead of randomly, if we don't keep w_obj alive
+        ll_assert(py_obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY,
+                  "Bug in cpyext: The W_Root object was garbage-collected "
+                  "while being converted to PyObject.")
         return py_obj
     else:
         return lltype.nullptr(PyObject.TO)
