@@ -104,7 +104,7 @@ def scope_byname(space, final_scoped_name):
 
 @unwrap_spec(final_scoped_name='text')
 def is_template(space, final_scoped_name):
-    return space.wrap(capi.c_is_template(space, final_scoped_name))
+    return space.newbool(capi.c_is_template(space, final_scoped_name))
 
 def std_string_name(space):
     return space.newtext(capi.std_string_name)
