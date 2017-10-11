@@ -35,7 +35,7 @@ def int_alloc(typedescr, space, w_type, itemcount):
         # value. However, it's just easier to call PyInt_FromLong with a dummy
         # value; make sure it's big enough to avoid the smallint optimization
         # (if it will ever be enabled)
-        return state.C.PyInt_FromLong(0xDEADBEEF)
+        return state.C.PyInt_FromLong(0x0DEADBEE)
     else:
         return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
 
