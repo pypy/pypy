@@ -1039,7 +1039,7 @@ class W_CPPClass(W_Root):
 
     # allow user to determine ownership rules on a per object level
     def fget_python_owns(self, space):
-        return space.newbool(self.flags & INSTANCE_FLAGS_PYTHON_OWNS)
+        return space.newbool(bool(self.flags & INSTANCE_FLAGS_PYTHON_OWNS))
 
     @unwrap_spec(value=bool)
     def fset_python_owns(self, space, value):
