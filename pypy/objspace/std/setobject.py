@@ -47,9 +47,9 @@ class W_BaseSetObject(W_Root):
     def delweakref(self):
         self._lifeline_ = None
 
-    def switch_to_object_strategy(self):
+    def switch_to_object_strategy(self, space):
         d = self.strategy.getdict_w(self)
-        self.strategy = strategy = self.space.fromcache(ObjectSetStrategy)
+        self.strategy = strategy = space.fromcache(ObjectSetStrategy)
         self.sstorage = strategy.erase(d)
 
     def switch_to_empty_strategy(self):
@@ -912,14 +912,14 @@ class AbstractUnwrappedSetStrategy(object):
             d = self.unerase(w_set.sstorage)
             d[self.unwrap(w_key)] = None
         else:
-            w_set.switch_to_object_strategy()
+            w_set.switch_to_object_strategy(self.space)
             w_set.add(w_key)
 
     def remove(self, w_set, w_item):
         d = self.unerase(w_set.sstorage)
         if not self.is_correct_type(w_item):
             #XXX check type of w_item and immediately return False in some cases
-            w_set.switch_to_object_strategy()
+            w_set.switch_to_object_strategy(self.space)
             return w_set.remove(w_item)
 
         key = self.unwrap(w_item)
@@ -949,7 +949,7 @@ class AbstractUnwrappedSetStrategy(object):
     def has_key(self, w_set, w_key):
         if not self.is_correct_type(w_key):
             #XXX check type of w_item and immediately return False in some cases
-            w_set.switch_to_object_strategy()
+            w_set.switch_to_object_strategy(self.space)
             return w_set.has_key(w_key)
         d = self.unerase(w_set.sstorage)
         return self.unwrap(w_key) in d
@@ -1205,7 +1205,7 @@ class AbstractUnwrappedSetStrategy(object):
             return
         if w_other.length() == 0:
             return
-        w_set.switch_to_object_strategy()
+        w_set.switch_to_object_strategy(self.space)
         w_set.update(w_other)
 
     def popitem(self, w_set):
