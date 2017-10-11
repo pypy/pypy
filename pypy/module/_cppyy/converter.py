@@ -495,9 +495,9 @@ class InstanceRefConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         from pypy.module._cppyy.interp_cppyy import W_CPPClass
         if isinstance(w_obj, W_CPPClass):
-            if capi.c_is_subtype(space, w_obj.cppclass, self.clsdecl):
+            if capi.c_is_subtype(space, w_obj.clsdecl, self.clsdecl):
                 rawobject = w_obj.get_rawobject()
-                offset = capi.c_base_offset(space, w_obj.cppclass, self.clsdecl, rawobject, 1)
+                offset = capi.c_base_offset(space, w_obj.clsdecl, self.clsdecl, rawobject, 1)
                 obj_address = capi.direct_ptradd(rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
         raise oefmt(space.w_TypeError,
@@ -527,7 +527,7 @@ class InstanceConverter(InstanceRefConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
-        return interp_cppyy.wrap_cppobject(space, address, self.clsdecl, do_cast=False)
+        return interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False)
 
     def to_memory(self, space, w_obj, w_value, offset):
         self._is_abstract(space)
@@ -548,7 +548,7 @@ class InstancePtrConverter(InstanceRefConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
-        return interp_cppyy.wrap_cppobject(space, address, self.clsdecl, do_cast=False)
+        return interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False)
 
     def to_memory(self, space, w_obj, w_value, offset):
         address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
@@ -582,8 +582,8 @@ class InstancePtrPtrConverter(InstancePtrConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
-        return interp_cppyy.wrap_cppobject(space, address, self.clsdecl,
-                                           do_cast=False, is_ref=True)
+        return interp_cppyy.wrap_cppinstance(
+            space, address, self.clsdecl, do_cast=False, is_ref=True)
 
 class StdStringConverter(InstanceConverter):
 
@@ -606,7 +606,7 @@ class StdStringConverter(InstanceConverter):
             assign = self.clsdecl.get_overload("__assign__")
             from pypy.module._cppyy import interp_cppyy
             assign.call(
-                interp_cppyy.wrap_cppobject(space, address, self.clsdecl, do_cast=False), [w_value])
+                interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False), [w_value])
         except Exception:
             InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 

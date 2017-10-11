@@ -189,7 +189,7 @@ class AppTestFRAGILE:
             o = fragile.O()       # raises TypeError
             assert 0
         except TypeError as e:
-            assert "cannot instantiate abstract class 'O'" in str(e)
+            assert "cannot instantiate abstract class 'fragile::O'" in str(e)
 
     def test10_dir(self):
         """Test __dir__ method"""
@@ -239,7 +239,7 @@ class AppTestFRAGILE:
         assert _cppyy.gbl.fragile.nested1 is nested1
         assert nested1.__name__ == 'nested1'
         assert nested1.__module__ == 'cppyy.gbl.fragile'
-        assert nested1.__cppname__ == 'nested1'
+        assert nested1.__cppname__ == 'fragile::nested1'
 
         from cppyy.gbl.fragile.nested1 import A, nested2
         assert _cppyy.gbl.fragile.nested1.A is A
@@ -254,17 +254,17 @@ class AppTestFRAGILE:
         from cppyy.gbl.fragile.nested1.nested2 import A, nested3
         assert _cppyy.gbl.fragile.nested1.nested2.A is A
         assert A.__name__ == 'A'
-        assert A.__module__ == 'cppyy.gbl.fragile.nested1'
+        assert A.__module__ == 'cppyy.gbl.fragile.nested1.nested2'
         assert A.__cppname__ == 'fragile::nested1::nested2::A'
         assert _cppyy.gbl.fragile.nested1.nested2.nested3 is nested3
         assert A.__name__ == 'A'
-        assert A.__module__ == 'cppyy.gbl.fragile.nested1'
+        assert A.__module__ == 'cppyy.gbl.fragile.nested1.nested2'
         assert nested3.__cppname__ == 'fragile::nested1::nested2::nested3'
 
         from cppyy.gbl.fragile.nested1.nested2.nested3 import A
         assert _cppyy.gbl.fragile.nested1.nested2.nested3.A is nested3.A
         assert A.__name__ == 'A'
-        assert A.__module__ == 'cppyy.gbl.fragile.nested1'
+        assert A.__module__ == 'cppyy.gbl.fragile.nested1.nested2.nested3'
         assert A.__cppname__ == 'fragile::nested1::nested2::nested3::A'
 
     def test12_missing_casts(self):
