@@ -3,6 +3,7 @@ import pytest
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 from pypy.module.cpyext.api import (
     Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT)
 from pypy.module.cpyext.object import (
@@ -70,7 +71,8 @@ class TestObject(BaseApiTest):
     def test_getattr(self, space):
         charp1 = rffi.str2charp("__len__")
         charp2 = rffi.str2charp("not_real")
-        assert PyObject_GetAttrString(space, space.wrap(""), charp1)
+        assert get_w_obj_and_decref(space,
+            PyObject_GetAttrString(space, space.wrap(""), charp1))
 
         with raises_w(space, AttributeError):
             PyObject_GetAttrString(space, space.wrap(""), charp2)
@@ -79,17 +81,20 @@ class TestObject(BaseApiTest):
         rffi.free_charp(charp1)
         rffi.free_charp(charp2)
 
-        assert PyObject_GetAttr(space, space.wrap(""), space.wrap("__len__"))
+        assert get_w_obj_and_decref(space,
+            PyObject_GetAttr(space, space.wrap(""), space.wrap("__len__")))
         with raises_w(space, AttributeError):
             PyObject_DelAttr(space, space.wrap(""), space.wrap("__len__"))
 
     def test_getitem(self, space, api):
         w_t = space.wrap((1, 2, 3, 4, 5))
-        assert space.unwrap(api.PyObject_GetItem(w_t, space.wrap(3))) == 4
+        assert space.unwrap(get_w_obj_and_decref(space,
+            api.PyObject_GetItem(w_t, space.wrap(3)))) == 4
 
         w_d = space.newdict()
         space.setitem(w_d, space.wrap("a key!"), space.wrap(72))
-        assert space.unwrap(api.PyObject_GetItem(w_d, space.wrap("a key!"))) == 72
+        assert space.unwrap(get_w_obj_and_decref(space,
+            api.PyObject_GetItem(w_d, space.wrap("a key!")))) == 72
 
         assert api.PyObject_SetItem(w_d, space.wrap("key"), space.w_None) == 0
         assert space.getitem(w_d, space.wrap("key")) is space.w_None

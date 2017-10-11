@@ -286,6 +286,13 @@ def get_pyobj_and_incref(space, w_obj, w_userdata=None, immortal=False):
         keepalive_until_here(w_obj)
     return pyobj
 
+def hack_for_result_often_existing_obj(space, w_obj):
+    # Equivalent to get_pyobj_and_incref() and not to make_ref():
+    # it builds a PyObject from a W_Root, but ensures that the result
+    # gets attached to the original W_Root.  This is needed to work around
+    # some obscure abuses: https://github.com/numpy/numpy/issues/9850
+    return get_pyobj_and_incref(space, w_obj)
+
 def make_ref(space, w_obj, w_userdata=None, immortal=False):
     """Turn the W_Root into a corresponding PyObject.  You should
     decref the returned PyObject later.  Note that it is often the

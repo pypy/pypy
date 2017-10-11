@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
     Py_GE, CONST_STRING, FILEP, fwrite, c_only)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, incref, decref,
-    get_typedescr)
+    get_typedescr, hack_for_result_often_existing_obj)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
@@ -69,20 +69,22 @@ def PyObject_IsTrue(space, w_obj):
 def PyObject_Not(space, w_obj):
     return not space.is_true(w_obj)
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, result_is_ll=True)
 def PyObject_GetAttr(space, w_obj, w_name):
     """Retrieve an attribute named attr_name from object o. Returns the attribute
     value on success, or NULL on failure.  This is the equivalent of the Python
     expression o.attr_name."""
-    return space.getattr(w_obj, w_name)
+    w_res = space.getattr(w_obj, w_name)
+    return hack_for_result_often_existing_obj(space, w_res)
 
-@cpython_api([PyObject, CONST_STRING], PyObject)
+@cpython_api([PyObject, CONST_STRING], PyObject, result_is_ll=True)
 def PyObject_GetAttrString(space, w_obj, name_ptr):
     """Retrieve an attribute named attr_name from object o. Returns the attribute
     value on success, or NULL on failure. This is the equivalent of the Python
     expression o.attr_name."""
     name = rffi.charp2str(name_ptr)
-    return space.getattr(w_obj, space.newtext(name))
+    w_res = space.getattr(w_obj, space.newtext(name))
+    return hack_for_result_often_existing_obj(space, w_res)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyObject_HasAttr(space, w_obj, w_name):
@@ -141,11 +143,12 @@ def PyCallable_Check(space, w_obj):
     and 0 otherwise.  This function always succeeds."""
     return int(space.is_true(space.callable(w_obj)))
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, result_is_ll=True)
 def PyObject_GetItem(space, w_obj, w_key):
     """Return element of o corresponding to the object key or NULL on failure.
     This is the equivalent of the Python expression o[key]."""
-    return space.getitem(w_obj, w_key)
+    w_res = space.getitem(w_obj, w_key)
+    return hack_for_result_often_existing_obj(space, w_res)
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyObject_SetItem(space, w_obj, w_key, w_value):
