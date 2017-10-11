@@ -22,8 +22,8 @@ from pypy.module._cppyy import helper, capi, ffitypes
 
 
 def get_rawobject(space, w_obj):
-    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
-    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
+    from pypy.module._cppyy.interp_cppyy import W_CPPClass
+    cppinstance = space.interp_w(W_CPPClass, w_obj, can_be_None=True)
     if cppinstance:
         rawobject = cppinstance.get_rawobject()
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
@@ -31,15 +31,15 @@ def get_rawobject(space, w_obj):
     return capi.C_NULL_OBJECT
 
 def set_rawobject(space, w_obj, address):
-    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
-    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
+    from pypy.module._cppyy.interp_cppyy import W_CPPClass
+    cppinstance = space.interp_w(W_CPPClass, w_obj, can_be_None=True)
     if cppinstance:
         assert lltype.typeOf(cppinstance._rawobject) == capi.C_OBJECT
         cppinstance._rawobject = rffi.cast(capi.C_OBJECT, address)
 
 def get_rawobject_nonnull(space, w_obj):
-    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
-    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
+    from pypy.module._cppyy.interp_cppyy import W_CPPClass
+    cppinstance = space.interp_w(W_CPPClass, w_obj, can_be_None=True)
     if cppinstance:
         cppinstance._nullcheck()
         rawobject = cppinstance.get_rawobject()
@@ -484,24 +484,24 @@ class VoidPtrRefConverter(VoidPtrPtrConverter):
     typecode   = 'V'
 
 class InstanceRefConverter(TypeConverter):
-    _immutable_fields_ = ['typecode', 'cppclass']
+    _immutable_fields_ = ['typecode', 'clsdecl']
     typecode    = 'V'
 
-    def __init__(self, space, cppclass):
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass
-        assert isinstance(cppclass, W_CPPClass)
-        self.cppclass = cppclass
+    def __init__(self, space, clsdecl):
+        from pypy.module._cppyy.interp_cppyy import W_CPPClassDecl
+        assert isinstance(clsdecl, W_CPPClassDecl)
+        self.clsdecl = clsdecl
 
     def _unwrap_object(self, space, w_obj):
-        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
-        if isinstance(w_obj, W_CPPInstance):
-            if capi.c_is_subtype(space, w_obj.cppclass, self.cppclass):
+        from pypy.module._cppyy.interp_cppyy import W_CPPClass
+        if isinstance(w_obj, W_CPPClass):
+            if capi.c_is_subtype(space, w_obj.cppclass, self.clsdecl):
                 rawobject = w_obj.get_rawobject()
-                offset = capi.c_base_offset(space, w_obj.cppclass, self.cppclass, rawobject, 1)
+                offset = capi.c_base_offset(space, w_obj.cppclass, self.clsdecl, rawobject, 1)
                 obj_address = capi.direct_ptradd(rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
         raise oefmt(space.w_TypeError,
-                    "cannot pass %T as %s", w_obj, self.cppclass.name)
+                    "cannot pass %T as %s", w_obj, self.clsdecl.name)
 
     def cffi_type(self, space):
         state = space.fromcache(ffitypes.State)
@@ -527,7 +527,7 @@ class InstanceConverter(InstanceRefConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
-        return interp_cppyy.wrap_cppobject(space, address, self.cppclass, do_cast=False)
+        return interp_cppyy.wrap_cppobject(space, address, self.clsdecl, do_cast=False)
 
     def to_memory(self, space, w_obj, w_value, offset):
         self._is_abstract(space)
@@ -548,7 +548,7 @@ class InstancePtrConverter(InstanceRefConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
-        return interp_cppyy.wrap_cppobject(space, address, self.cppclass, do_cast=False)
+        return interp_cppyy.wrap_cppobject(space, address, self.clsdecl, do_cast=False)
 
     def to_memory(self, space, w_obj, w_value, offset):
         address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
@@ -574,15 +574,15 @@ class InstancePtrPtrConverter(InstancePtrConverter):
         raise FastCallNotPossible
 
     def finalize_call(self, space, w_obj, call_local):
-        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
-        assert isinstance(w_obj, W_CPPInstance)
+        from pypy.module._cppyy.interp_cppyy import W_CPPClass
+        assert isinstance(w_obj, W_CPPClass)
         r = rffi.cast(rffi.VOIDPP, call_local)
         w_obj._rawobject = rffi.cast(capi.C_OBJECT, r[0])
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
-        return interp_cppyy.wrap_cppobject(space, address, self.cppclass,
+        return interp_cppyy.wrap_cppobject(space, address, self.clsdecl,
                                            do_cast=False, is_ref=True)
 
 class StdStringConverter(InstanceConverter):
@@ -593,8 +593,8 @@ class StdStringConverter(InstanceConverter):
         InstanceConverter.__init__(self, space, cppclass)
 
     def _unwrap_object(self, space, w_obj):
-        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
-        if isinstance(w_obj, W_CPPInstance):
+        from pypy.module._cppyy.interp_cppyy import W_CPPClass
+        if isinstance(w_obj, W_CPPClass):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
             return capi.c_stdstring2stdstring(space, arg)
         else:
@@ -603,15 +603,15 @@ class StdStringConverter(InstanceConverter):
     def to_memory(self, space, w_obj, w_value, offset):
         try:
             address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-            assign = self.cppclass.get_overload("__assign__")
+            assign = self.clsdecl.get_overload("__assign__")
             from pypy.module._cppyy import interp_cppyy
             assign.call(
-                interp_cppyy.wrap_cppobject(space, address, self.cppclass, do_cast=False), [w_value])
+                interp_cppyy.wrap_cppobject(space, address, self.clsdecl, do_cast=False), [w_value])
         except Exception:
             InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 
     def free_argument(self, space, arg, call_local):
-        capi.c_destruct(space, self.cppclass, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
+        capi.c_destruct(space, self.clsdecl, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 class StdStringRefConverter(InstancePtrConverter):
     _immutable_fields_ = ['cppclass', 'typecode']
@@ -710,19 +710,19 @@ def get_converter(space, name, default):
 
     #   4) generalized cases (covers basically all user classes)
     from pypy.module._cppyy import interp_cppyy
-    cppclass = interp_cppyy.scope_byname(space, clean_name)
-    if cppclass:
+    scope_decl = interp_cppyy.scope_byname(space, clean_name)
+    if scope_decl:
         # type check for the benefit of the annotator
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass
-        cppclass = space.interp_w(W_CPPClass, cppclass, can_be_None=False)
+        from pypy.module._cppyy.interp_cppyy import W_CPPClassDecl
+        clsdecl = space.interp_w(W_CPPClassDecl, scope_decl, can_be_None=False)
         if compound == "*":
-            return InstancePtrConverter(space, cppclass)
+            return InstancePtrConverter(space, clsdecl)
         elif compound == "&":
-            return InstanceRefConverter(space, cppclass)
+            return InstanceRefConverter(space, clsdecl)
         elif compound == "**":
-            return InstancePtrPtrConverter(space, cppclass)
+            return InstancePtrPtrConverter(space, clsdecl)
         elif compound == "":
-            return InstanceConverter(space, cppclass)
+            return InstanceConverter(space, clsdecl)
     elif capi.c_is_enum(space, clean_name):
         return _converters['unsigned'](space, default)
 
@@ -867,27 +867,3 @@ def _add_aliased_converters():
     for c_type, alias in aliases:
         _converters[alias] = _converters[c_type]
 _add_aliased_converters()
-
-# ROOT-specific converters (TODO: this is a general use case and should grow
-# an API; putting it here is done only to circumvent circular imports)
-if capi.identify() == "CINT":
-
-    class TStringConverter(InstanceConverter):
-        def __init__(self, space, extra):
-            from pypy.module._cppyy import interp_cppyy
-            cppclass = interp_cppyy.scope_byname(space, "TString")
-            InstanceConverter.__init__(self, space, cppclass)
-
-        def _unwrap_object(self, space, w_obj):
-            from pypy.module._cppyy import interp_cppyy
-            if isinstance(w_obj, interp_cppyy.W_CPPInstance):
-                arg = InstanceConverter._unwrap_object(self, space, w_obj)
-                return capi.backend.c_TString2TString(space, arg)
-            else:
-                return capi.backend.c_charp2TString(space, space.text_w(w_obj))
-
-        def free_argument(self, space, arg, call_local):
-            capi.c_destruct(space, self.cppclass, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
-
-    _converters["TString"]        = TStringConverter
-    _converters["const TString&"] = TStringConverter
