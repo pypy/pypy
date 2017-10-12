@@ -73,7 +73,13 @@ class CodecState(object):
         return self._make_errorhandler(space, True)
 
     def make_encode_errorhandler(self, space):
-        return self._make_errorhandler(space, False)
+        errorhandler = self._make_errorhandler(space, False)
+        def encode_call_errorhandler(errors, encoding, reason, input, startpos,
+                                     endpos):
+            replace, newpos = errorhandler(errors, encoding, reason, input,
+                                           startpos, endpos)
+            return replace, None, newpos
+        return encode_call_errorhandler
 
     def get_unicodedata_handler(self, space):
         if self.unicodedata_handler:
