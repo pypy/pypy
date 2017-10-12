@@ -149,15 +149,15 @@ class AppTestDATATYPES:
         # integer types
         names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
         for i in range(len(names)):
-            exec 'c.m_%s = %d' % (names[i],i)
+            setattr(c, 'm_'+names[i], i)
             assert eval('c.get_%s()' % names[i]) == i
 
         for i in range(len(names)):
-            exec 'c.set_%s(%d)' % (names[i],2*i)
+            getattr(c, 'set_'+names[i])(2*i)
             assert eval('c.m_%s' % names[i]) == 2*i
 
         for i in range(len(names)):
-            exec 'c.set_%s_cr(%d)' % (names[i],3*i)
+            getattr(c, 'set_'+names[i]+'_cr')(3*i)
             assert eval('c.m_%s' % names[i]) == 3*i
 
         # float types through functions
@@ -182,11 +182,11 @@ class AppTestDATATYPES:
         atypes = ['h', 'H', 'i', 'I', 'l', 'L' ]
         for j in range(len(names)):
             b = array.array(atypes[j], a)
-            exec 'c.m_%s_array = b' % names[j]   # buffer copies
+            setattr(c, 'm_'+names[j]+'_array', b)     # buffer copies
             for i in range(self.N):
                 assert eval('c.m_%s_array[i]' % names[j]) == b[i]
 
-            exec 'c.m_%s_array2 = b' % names[j]  # pointer copies
+            setattr(c, 'm_'+names[j]+'_array2', b)    # pointer copies
             b[i] = 28
             for i in range(self.N):
                 assert eval('c.m_%s_array2[i]' % names[j]) == b[i]
@@ -241,10 +241,10 @@ class AppTestDATATYPES:
         assert isinstance(c, CppyyTestData)
 
         # char types
-        assert CppyyTestData.s_char    == 'c'
-        assert c.s_char                == 'c'
-        assert c.s_uchar               == 'u'
-        assert CppyyTestData.s_uchar   == 'u'
+        assert CppyyTestData.s_char     == 'c'
+        assert c.s_char                 == 'c'
+        assert c.s_uchar                == 'u'
+        assert CppyyTestData.s_uchar    == 'u'
 
         # integer types
         assert CppyyTestData.s_short    == -101
@@ -255,20 +255,20 @@ class AppTestDATATYPES:
         assert c.s_int                  == -202
         assert c.s_uint                 ==  202
         assert CppyyTestData.s_uint     ==  202
-        assert CppyyTestData.s_long     == -303L
-        assert c.s_long                 == -303L
-        assert c.s_ulong                ==  303L
-        assert CppyyTestData.s_ulong    ==  303L
-        assert CppyyTestData.s_llong    == -404L
-        assert c.s_llong                == -404L
-        assert c.s_ullong               ==  404L
-        assert CppyyTestData.s_ullong   ==  404L
+        assert CppyyTestData.s_long     == -303
+        assert c.s_long                 == -303
+        assert c.s_ulong                ==  303
+        assert CppyyTestData.s_ulong    ==  303
+        assert CppyyTestData.s_llong    == -404
+        assert c.s_llong                == -404
+        assert c.s_ullong               ==  404
+        assert CppyyTestData.s_ullong   ==  404
 
         # floating point types
-        assert round(CppyyTestData.s_float  + 606., 5)   == 0
-        assert round(c.s_float                + 606., 5) == 0
-        assert round(CppyyTestData.s_double + 707., 8)   == 0
-        assert round(c.s_double               + 707., 8) == 0
+        assert round(CppyyTestData.s_float  + 606., 5) == 0
+        assert round(c.s_float              + 606., 5) == 0
+        assert round(CppyyTestData.s_double + 707., 8) == 0
+        assert round(c.s_double             + 707., 8) == 0
 
         c.__destruct__()
 
@@ -282,56 +282,56 @@ class AppTestDATATYPES:
         assert isinstance(c, CppyyTestData)
 
         # char types
-        CppyyTestData.s_char          = 'a'
-        assert c.s_char                == 'a'
-        c.s_char                        = 'b'
-        assert CppyyTestData.s_char  == 'b'
-        CppyyTestData.s_uchar         = 'c'
-        assert c.s_uchar               == 'c'
-        c.s_uchar                       = 'd'
-        assert CppyyTestData.s_uchar == 'd'
+        CppyyTestData.s_char             = 'a'
+        assert c.s_char                 == 'a'
+        c.s_char                         = 'b'
+        assert CppyyTestData.s_char     == 'b'
+        CppyyTestData.s_uchar            = 'c'
+        assert c.s_uchar                == 'c'
+        c.s_uchar                        = 'd'
+        assert CppyyTestData.s_uchar    == 'd'
         raises(ValueError, setattr, CppyyTestData, 's_uchar', -1)
-        raises(ValueError, setattr, c,               's_uchar', -1)
+        raises(ValueError, setattr, c,             's_uchar', -1)
 
         # integer types
         c.s_short                        = -102
-        assert CppyyTestData.s_short  == -102
-        CppyyTestData.s_short          = -203
+        assert CppyyTestData.s_short    == -102
+        CppyyTestData.s_short            = -203
         assert c.s_short                == -203
         c.s_ushort                       =  127
-        assert CppyyTestData.s_ushort ==  127
-        CppyyTestData.s_ushort         =  227
+        assert CppyyTestData.s_ushort   ==  127
+        CppyyTestData.s_ushort           =  227
         assert c.s_ushort               ==  227
-        CppyyTestData.s_int            = -234
+        CppyyTestData.s_int              = -234
         assert c.s_int                  == -234
         c.s_int                          = -321
-        assert CppyyTestData.s_int    == -321
-        CppyyTestData.s_uint           = 1234
+        assert CppyyTestData.s_int      == -321
+        CppyyTestData.s_uint             = 1234
         assert c.s_uint                 == 1234
         c.s_uint                         = 4321
-        assert CppyyTestData.s_uint   == 4321
-        raises(ValueError, setattr, c,               's_uint', -1)
+        assert CppyyTestData.s_uint     == 4321
+        raises(ValueError, setattr, c,             's_uint', -1)
         raises(ValueError, setattr, CppyyTestData, 's_uint', -1)
-        CppyyTestData.s_long           = -87L
-        assert c.s_long                 == -87L
-        c.s_long                         = 876L
-        assert CppyyTestData.s_long   == 876L
-        CppyyTestData.s_ulong          = 876L
-        assert c.s_ulong                == 876L
-        c.s_ulong                        = 678L
-        assert CppyyTestData.s_ulong  == 678L
+        CppyyTestData.s_long             = -87
+        assert c.s_long                 == -87
+        c.s_long                         = 876
+        assert CppyyTestData.s_long     == 876
+        CppyyTestData.s_ulong            = 876
+        assert c.s_ulong                == 876
+        c.s_ulong                        = 678
+        assert CppyyTestData.s_ulong    == 678
         raises(ValueError, setattr, CppyyTestData, 's_ulong', -1)
-        raises(ValueError, setattr, c,               's_ulong', -1)
+        raises(ValueError, setattr, c,             's_ulong', -1)
 
         # floating point types
-        CppyyTestData.s_float                    = -3.1415
-        assert round(c.s_float, 5 )               == -3.1415
+        CppyyTestData.s_float                      = -3.1415
+        assert round(c.s_float, 5)                == -3.1415
         c.s_float                                  =  3.1415
-        assert round(CppyyTestData.s_float, 5 ) ==  3.1415
+        assert round(CppyyTestData.s_float, 5)    ==  3.1415
         import math
         c.s_double                                 = -math.pi
-        assert CppyyTestData.s_double           == -math.pi
-        CppyyTestData.s_double                   =  math.pi
+        assert CppyyTestData.s_double             == -math.pi
+        CppyyTestData.s_double                     =  math.pi
         assert c.s_double                         ==  math.pi
 
         c.__destruct__()
