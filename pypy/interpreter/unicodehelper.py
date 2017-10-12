@@ -102,28 +102,20 @@ def decode_utf8(space, s):
 def utf8_encode_ascii(utf8, utf8len, errors, errorhandler):
     if len(utf8) == utf8len:
         return utf8
-    assert False, "implement"
-    b = StringBuilder(utf8len)
-    i = 0
-    lgt = 0
-    while i < len(utf8):
-        c = ord(utf8[i])
-        if c <= 0x7F:
-            b.append(chr(c))
-            lgt += 1
-            i += 1
-        else:
-            utf8_repl, newpos, length = errorhandler(errors, 'ascii', 
-                'ordinal not in range (128)', utf8, lgt, lgt + 1)
-    return b.build()
+    # No Way At All to emulate the calls to the error handler in
+    # less than three pages, so better not.
+    u = utf8.decode("utf8")
+    w = EncodeWrapper(errorhandler)
+    return runicode.unicode_encode_ascii(u, len(u), errors, w.handle)
 
 def str_decode_ascii(s, slen, errors, final, errorhandler):
     try:
         rutf8.check_ascii(s)
         return s, slen, len(s)
     except rutf8.CheckError:
-        raise Exception("foo")
-        return rutf8.str_decode_ascii(s, slen, errors, errorhandler)
+        w = DecodeWrapper((errorhandler))
+        u, pos = runicode.str_decode_ascii(s, slen, errors, final, w.handle)
+        return u.encode('utf8'), pos, len(u)
 
 # XXX wrappers, think about speed
 
