@@ -297,6 +297,8 @@ class GetSetProperty(W_Root):
         if (space.is_w(w_obj, space.w_None)
             and not space.is_w(w_cls, space.type(space.w_None))):
             #print self, w_obj, w_cls
+            if space.is_w(w_cls, space.w_None):
+                raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
             return self
         else:
             try:

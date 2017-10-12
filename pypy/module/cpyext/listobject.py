@@ -2,14 +2,14 @@
 from rpython.rlib.objectmodel import always_inline
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, Py_ssize_t,
-                                    build_type_checkers)
+                                    build_type_checkers_flags)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.pyobject import decref, incref, PyObject, make_ref
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import oefmt
 
 
-PyList_Check, PyList_CheckExact = build_type_checkers("List")
+PyList_Check, PyList_CheckExact = build_type_checkers_flags("List")
 
 @cpython_api([Py_ssize_t], PyObject)
 def PyList_New(space, len):

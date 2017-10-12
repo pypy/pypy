@@ -116,10 +116,10 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
     if check_int_or_float:
         for w_obj in list_w:
             if type(w_obj) is W_IntObject:
-                if longlong2float.can_encode_int32(space.int_w(w_obj)):
+                if longlong2float.can_encode_int32(w_obj.int_w(space)):
                     continue    # ok
             elif type(w_obj) is W_FloatObject:
-                if longlong2float.can_encode_float(space.float_w(w_obj)):
+                if longlong2float.can_encode_float(w_obj.float_w(space)):
                     continue    # ok
             break
         else:

@@ -288,7 +288,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_int_is_true_is_zero(self):
-        py.test.skip("XXX implement me")
         ops = """
         [i0]
         i1 = int_is_true(i0)
@@ -301,6 +300,22 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i0]
         i1 = int_is_true(i0)
         guard_true(i1) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i2 = int_is_zero(i0)
+        guard_false(i2) []
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i2 = int_is_zero(i0)
+        guard_false(i2) []
         jump(i0)
         """
         self.optimize_loop(ops, expected)
@@ -1946,6 +1961,55 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i0)
         """
         self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(0, i0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(i0, 0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(1, i0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(i0, 1)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
     def test_fold_constant_partial_ops_float(self):
         ops = """

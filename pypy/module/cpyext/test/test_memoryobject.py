@@ -125,52 +125,6 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         ten = foo.test_buffer(arr)
         assert ten == 10
 
-    @pytest.mark.skipif(only_pypy, reason='pypy only test')
-    def test_buffer_info(self):
-        try:
-            from _numpypy import multiarray as np
-        except ImportError:
-            skip('pypy built without _numpypy')
-        module = self.import_module(name='buffer_test')
-        get_buffer_info = module.get_buffer_info
-        raises(ValueError, get_buffer_info, np.arange(5)[::2], ('SIMPLE',))
-        arr = np.zeros((1, 10), order='F')
-        shape, strides = get_buffer_info(arr, ['F_CONTIGUOUS'])
-        assert strides[0] == 8
-        arr = np.zeros((10, 1), order='C')
-        shape, strides = get_buffer_info(arr, ['C_CONTIGUOUS'])
-        assert strides[-1] == 8
-        dt1 = np.dtype(
-             [('a', 'b'), ('b', 'i'),
-              ('sub0', np.dtype('b,i')),
-              ('sub1', np.dtype('b,i')),
-              ('sub2', np.dtype('b,i')),
-              ('sub3', np.dtype('b,i')),
-              ('sub4', np.dtype('b,i')),
-              ('sub5', np.dtype('b,i')),
-              ('sub6', np.dtype('b,i')),
-              ('sub7', np.dtype('b,i')),
-              ('c', 'i')],
-             )
-        x = np.arange(dt1.itemsize, dtype='int8').view(dt1)
-        # pytest can catch warnings from v2.8 and up, we ship 2.5
-        import warnings
-        warnings.filterwarnings("error")
-        try:
-            try:
-                y = get_buffer_info(x, ['SIMPLE'])
-            except UserWarning as e:
-                pass
-            else:
-                assert False ,"PyPy-specific UserWarning not raised" \
-                          " on too long format string"
-        finally:
-            warnings.resetwarnings()
-        # calling get_buffer_info on x creates a memory leak,
-        # which is detected as an error at test teardown:
-        # Exception TypeError: "'NoneType' object is not callable"
-        #         in <bound method ConcreteArray.__del__ ...> ignored
-
     def test_releasebuffer(self):
         module = self.import_extension('foo', [
             ("create_test", "METH_NOARGS",
@@ -240,3 +194,55 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         self.debug_collect()
         assert module.get_cnt() == 0
         assert module.get_dealloc_cnt() == 1
+
+class AppTestBufferInfo(AppTestCpythonExtensionBase):
+    spaceconfig = AppTestCpythonExtensionBase.spaceconfig.copy()
+    spaceconfig['usemodules'].append('micronumpy')
+
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
+    def test_buffer_info(self):
+        try:
+            from _numpypy import multiarray as np
+        except ImportError:
+            skip('pypy built without _numpypy')
+        module = self.import_module(name='buffer_test')
+        get_buffer_info = module.get_buffer_info
+        raises(ValueError, get_buffer_info, np.arange(5)[::2], ('SIMPLE',))
+        arr = np.zeros((1, 10), order='F')
+        shape, strides = get_buffer_info(arr, ['F_CONTIGUOUS'])
+        assert strides[0] == 8
+        arr = np.zeros((10, 1), order='C')
+        shape, strides = get_buffer_info(arr, ['C_CONTIGUOUS'])
+        assert strides[-1] == 8
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'),
+              ('sub0', np.dtype('b,i')),
+              ('sub1', np.dtype('b,i')),
+              ('sub2', np.dtype('b,i')),
+              ('sub3', np.dtype('b,i')),
+              ('sub4', np.dtype('b,i')),
+              ('sub5', np.dtype('b,i')),
+              ('sub6', np.dtype('b,i')),
+              ('sub7', np.dtype('b,i')),
+              ('c', 'i')],
+             )
+        x = np.arange(dt1.itemsize, dtype='int8').view(dt1)
+        # pytest can catch warnings from v2.8 and up, we ship 2.5
+        import warnings
+        warnings.filterwarnings("error")
+        try:
+            try:
+                y = get_buffer_info(x, ['SIMPLE'])
+            except UserWarning as e:
+                pass
+            else:
+                assert False ,"PyPy-specific UserWarning not raised" \
+                          " on too long format string"
+        finally:
+            warnings.resetwarnings()
+        # calling get_buffer_info on x creates a memory leak,
+        # which is detected as an error at test teardown:
+        # Exception TypeError: "'NoneType' object is not callable"
+        #         in <bound method ConcreteArray.__del__ ...> ignored
+
+

@@ -14,8 +14,8 @@ from pypy.objspace.std.objectobject import W_ObjectObject
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rlib import rawrefcount
-from rpython.rlib.debug import fatalerror
+from rpython.rlib import rawrefcount, jit
+from rpython.rlib.debug import ll_assert, fatalerror
 
 
 #________________________________________________________
@@ -25,9 +25,9 @@ class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
     W_BaseObject = W_ObjectObject
 
-    def get_dealloc(self):
+    def get_dealloc(self, space):
         from pypy.module.cpyext.typeobject import subtype_dealloc
-        return subtype_dealloc.api_func
+        return subtype_dealloc.api_func.get_llhelper(space)
 
     def allocate(self, space, w_type, itemcount=0, immortal=False):
         # typically called from PyType_GenericAlloc via typedescr.allocate
@@ -106,8 +106,8 @@ def make_typedescr(typedef, **kw):
                 return tp_alloc(space, w_type, itemcount)
 
         if tp_dealloc:
-            def get_dealloc(self):
-                return tp_dealloc.api_func
+            def get_dealloc(self, space):
+                return tp_dealloc.api_func.get_llhelper(space)
 
         if tp_attach:
             def attach(self, space, pyobj, w_obj, w_userdata=None):
@@ -151,6 +151,7 @@ def get_typedescr(typedef):
 class InvalidPointerException(Exception):
     pass
 
+@jit.dont_look_inside
 def create_ref(space, w_obj, w_userdata=None, immortal=False):
     """
     Allocates a PyObject, and fills its fields with info from the given
@@ -190,6 +191,7 @@ def track_reference(space, py_obj, w_obj):
 
 w_marker_deallocating = W_Root()
 
+@jit.dont_look_inside
 def from_ref(space, ref):
     """
     Finds the interpreter object corresponding to the given reference.  If the
@@ -227,6 +229,7 @@ def from_ref(space, ref):
     assert isinstance(w_type, W_TypeObject)
     return get_typedescr(w_type.layout.typedef).realize(space, ref)
 
+@jit.dont_look_inside
 def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
     """
     Returns a 'PyObject *' representing the given intepreter object.
@@ -240,6 +243,11 @@ def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
         py_obj = rawrefcount.from_obj(PyObject, w_obj)
         if not py_obj:
             py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
+        #
+        # Try to crash here, instead of randomly, if we don't keep w_obj alive
+        ll_assert(py_obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY,
+                  "Bug in cpyext: The W_Root object was garbage-collected "
+                  "while being converted to PyObject.")
         return py_obj
     else:
         return lltype.nullptr(PyObject.TO)

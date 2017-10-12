@@ -119,8 +119,15 @@ lzma (PyPy3 only)
 
 To run untranslated tests, you need the Boehm garbage collector libgc.
 
-On Debian and Ubuntu, this is the command to install all build-time
-dependencies::
+On recent Debian and Ubuntu (16.04 onwards), this is the command to install
+all build-time dependencies::
+
+    apt-get install gcc make libffi-dev pkg-config zlib1g-dev libbz2-dev \
+    libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev \
+    tk-dev libgc-dev python-cffi \
+    liblzma-dev libncursesw5-dev     # these two only needed on PyPy3
+
+On older Debian and Ubuntu (12.04-14.04)::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
     libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
@@ -142,12 +149,23 @@ On SLES11::
     xz-devel # For lzma on PyPy3.
     (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
 
-On Mac OS X, most of these build-time dependencies are installed alongside
+On Mac OS X::
+
+Most of these build-time dependencies are installed alongside
 the Developer Tools. However, note that in order for the installation to
 find them you may need to run::
 
     xcode-select --install
 
+An exception is OpenSSL, which is no longer provided with the operating
+system. It can be obtained via Homebrew (with ``$ brew install openssl``),
+but it will not be available on the system path by default. The easiest
+way to enable it for building pypy is to set an environment variable::
+
+    export PKG_CONFIG_PATH=$(brew --prefix)/opt/openssl/lib/pkgconfig
+
+After setting this, translation (described next) will find the OpenSSL libs
+as expected.
 
 Run the translation
 -------------------
@@ -180,18 +198,18 @@ If everything works correctly this will:
    entire pypy interpreter. This step is currently singe threaded, and RAM
    hungry. As part of this step,  the chain creates a large number of C code
    files and a Makefile to compile them in a
-   directory controlled by the ``PYPY_USESSION_DIR`` environment variable.  
+   directory controlled by the ``PYPY_USESSION_DIR`` environment variable.
 2. Create an executable ``pypy-c`` by running the Makefile. This step can
-   utilize all possible cores on the machine.  
-3. Copy the needed binaries to the current directory.  
-4. Generate c-extension modules for any cffi-based stdlib modules.  
+   utilize all possible cores on the machine.
+3. Copy the needed binaries to the current directory.
+4. Generate c-extension modules for any cffi-based stdlib modules.
 
 
 The resulting executable behaves mostly like a normal Python
 interpreter (see :doc:`cpython_differences`), and is ready for testing, for
 use as a base interpreter for a new virtualenv, or for packaging into a binary
 suitable for installation on another machine running the same OS as the build
-machine. 
+machine.
 
 Note that step 4 is merely done as a convenience, any of the steps may be rerun
 without rerunning the previous steps.
@@ -248,7 +266,7 @@ pre-compiling them, normal users will get errors:
 
 * PyPy 2.5.1 or earlier: normal users would see permission errors.
   Installers need to run ``pypy -c "import gdbm"`` and other similar
-  commands at install time; the exact list is in 
+  commands at install time; the exact list is in
   :source:`pypy/tool/release/package.py <package.py>`.  Users
   seeing a broken installation of PyPy can fix it after-the-fact if they
   have sudo rights, by running once e.g. ``sudo pypy -c "import gdbm``.

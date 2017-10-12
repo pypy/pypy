@@ -1,4 +1,5 @@
 import py, os, sys
+from .support import setup_make
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -14,11 +15,7 @@ currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("crossingDict.so"))
 
 def setup_module(mod):
-    if sys.platform == 'win32':
-        py.test.skip("win32 not supported so far")
-    err = os.system("cd '%s' && make crossingDict.so" % currpath)
-    if err:
-        raise OSError("'make' failed (see stderr)")
+    setup_make("crossingDict.so")
 
 # from pypy/module/cpyext/test/test_cpyext.py; modified to accept more external
 # symbols and called directly instead of import_module
@@ -145,8 +142,8 @@ class AppTestCrossing:
     def test02_crossing_dict(self):
         """Test availability of all needed classes in the dict"""
 
-        import _cppyy
-        _cppyy.load_reflection_info(self.test_dct)
+        import _cppyy, ctypes
+        lib = ctypes.CDLL(self.test_dct, ctypes.RTLD_GLOBAL)
 
         assert _cppyy.gbl.crossing == _cppyy.gbl.crossing
         crossing = _cppyy.gbl.crossing

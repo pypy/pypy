@@ -146,6 +146,7 @@ class Field(object):
             obj._buffer.__setattr__(self.name, arg)
 
 
+
 def _set_shape(tp, rawfields, is_union=False):
     tp._ffistruct_ = _rawffi.Structure(rawfields, is_union,
                                       getattr(tp, '_pack_', 0))
@@ -240,19 +241,27 @@ class StructOrUnionMeta(_CDataMeta):
         res.__dict__['_index'] = -1
         return res
 
-
 class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
         from _ctypes import union
-        self = super(_CData, cls).__new__(cls)
-        if ('_abstract_' in cls.__dict__ or cls is Structure 
+        if ('_abstract_' in cls.__dict__ or cls is Structure
                                          or cls is union.Union):
             raise TypeError("abstract class")
         if hasattr(cls, '_swappedbytes_'):
-            raise NotImplementedError("missing in PyPy: structure/union with "
-                                      "swapped (non-native) byte ordering")
+            fields = [None] * len(cls._fields_)
+            for i in range(len(cls._fields_)):
+                if cls._fields_[i][1] == cls._fields_[i][1].__dict__.get('__ctype_be__', None):
+                    swapped = cls._fields_[i][1].__dict__.get('__ctype_le__', cls._fields_[i][1])
+                else:
+                    swapped = cls._fields_[i][1].__dict__.get('__ctype_be__', cls._fields_[i][1])
+                if len(cls._fields_[i]) < 3:
+                    fields[i] = (cls._fields_[i][0], swapped)
+                else:
+                    fields[i] = (cls._fields_[i][0], swapped, cls._fields_[i][2])
+            names_and_fields(cls, fields, _CData, cls.__dict__.get('_anonymous_', None))
+        self = super(_CData, cls).__new__(cls)
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
         return self

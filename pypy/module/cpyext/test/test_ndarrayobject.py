@@ -26,6 +26,8 @@ def iarray(space, shape, order=NPY.CORDER):
 NULL = lltype.nullptr(rffi.VOIDP.TO)
 
 class TestNDArrayObject(BaseApiTest):
+    spaceconfig = AppTestCpythonExtensionBase.spaceconfig.copy()
+    spaceconfig['usemodules'].append('micronumpy')
 
     def test_Check(self, space, api):
         a = array(space, [10, 5, 3])

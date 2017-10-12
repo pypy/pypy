@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.classdict import ClassDictStrategy
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
+    cpython_api, CANNOT_FAIL, build_type_checkers_flags, Py_ssize_t,
     Py_ssize_tP, CONST_STRING, PyObjectFields, cpython_struct,
     bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
@@ -66,7 +66,7 @@ def dict_dealloc(space, py_obj):
 def PyDict_New(space):
     return space.newdict()
 
-PyDict_Check, PyDict_CheckExact = build_type_checkers("Dict")
+PyDict_Check, PyDict_CheckExact = build_type_checkers_flags("Dict")
 
 @cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
@@ -258,14 +258,19 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     if w_dict is None:
         return 0
     if not space.isinstance_w(w_dict, space.w_dict):
-        return 0 
+        return 0
     pos = ppos[0]
     py_obj = as_pyobj(space, w_dict)
     py_dict = rffi.cast(PyDictObject, py_obj)
     if pos == 0:
         # Store the current keys in the PyDictObject.
+        from pypy.objspace.std.listobject import W_ListObject
         decref(space, py_dict.c__tmpkeys)
         w_keys = space.call_method(space.w_dict, "keys", w_dict)
+        # w_keys must use the object strategy in order to keep the keys alive
+        if not isinstance(w_keys, W_ListObject):
+            return 0     # XXX should not call keys() above
+        w_keys.switch_to_object_strategy()
         py_dict.c__tmpkeys = create_ref(space, w_keys)
         Py_IncRef(space, py_dict.c__tmpkeys)
     else:
@@ -278,10 +283,10 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         decref(space, py_dict.c__tmpkeys)
         py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
         return 0
-    w_key = space.listview(w_keys)[pos]
+    w_key = space.listview(w_keys)[pos]  # fast iff w_keys uses object strat
     w_value = space.getitem(w_dict, w_key)
     if pkey:
-        pkey[0]   = as_pyobj(space, w_key)
+        pkey[0] = as_pyobj(space, w_key)
     if pvalue:
         pvalue[0] = as_pyobj(space, w_value)
     return 1

@@ -283,6 +283,7 @@ class _SSLSocket(W_Root):
         sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
         self.ssl = libssl_SSL_new(w_ctx.ctx)  # new ssl struct
 
+        rgc.add_memory_pressure(6 * 1024)
         self.register_finalizer(space)
 
         index = compute_unique_id(self)
@@ -996,9 +997,6 @@ def _get_aia_uri(space, certificate, nid):
         libssl_AUTHORITY_INFO_ACCESS_free(info)
 
 def _get_crl_dp(space, certificate):
-    if OPENSSL_VERSION_NUMBER >= 0x10001000:
-        # Calls x509v3_cache_extensions and sets up crldp
-        libssl_X509_check_ca(certificate)
     dps = rffi.cast(stack_st_DIST_POINT, libssl_X509_get_ext_d2i(
         certificate, NID_crl_distribution_points, None, None))
     if not dps:
@@ -1020,8 +1018,7 @@ def _get_crl_dp(space, certificate):
                 s_uri = rffi.charpsize2str(uri.c_data, length)
                 cdp_w.append(space.newtext(s_uri))
     finally:
-        if OPENSSL_VERSION_NUMBER < 0x10001000:
-            libssl_sk_DIST_POINT_free(dps)
+        libssl_CRL_DIST_POINTS_free(dps)
     return space.newtuple(cdp_w[:])
 
 def checkwait(space, w_sock, writing):

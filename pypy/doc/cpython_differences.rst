@@ -429,7 +429,8 @@ Miscellaneous
 
 * the ``__builtins__`` name is always referencing the ``__builtin__`` module,
   never a dictionary as it sometimes is in CPython. Assigning to
-  ``__builtins__`` has no effect.
+  ``__builtins__`` has no effect.  (For usages of tools like
+  RestrictedPython, see `issue #2653`_.)
 
 * directly calling the internal magic methods of a few built-in types
   with invalid arguments may have a slightly different result.  For
@@ -535,7 +536,12 @@ Miscellaneous
   or ``float`` subtypes. Currently PyPy does not support the
   ``__class__`` attribute assignment for any non heaptype subtype.
 
+* In PyPy, module and class dictionaries are optimized under the assumption
+  that deleting attributes from them are rare. Because of this, e.g.
+  ``del foo.bar`` where ``foo`` is a module (or class) that contains the
+  function ``bar``, is significantly slower than CPython.
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
-
+.. _`issue #2653`: https://bitbucket.org/pypy/pypy/issues/2653/

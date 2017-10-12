@@ -299,11 +299,23 @@ def test_elidable_kinds():
     def f4(n, m):
         return compute_hash(str(n) + str(m))
 
+    T = rffi.CArrayPtr(rffi.TIME_T)
+    external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
+
+    def effect():
+        return external(lltype.nullptr(T.TO))
+
+    @jit.elidable
+    def f5(n, m):
+        effect()
+        return 1
+
     def f(n, m):
         a = f1(n, m)
         b = f2(n, m)
         c = f3(n, m)
         d = f4(n, m)
+        f5(n, m)
         enable_siphash24()
         return a + len(b) + c + d
 
@@ -323,25 +335,33 @@ def test_elidable_kinds():
         call_descr = cc.getcalldescr(call_op)
         assert call_descr.extrainfo.extraeffect == expected
 
+    call_op = f_graph.startblock.operations[4]
+    assert call_op.opname == 'direct_call'
+    excinfo = py.test.raises(Exception, cc.getcalldescr, call_op)
+    lines = excinfo.value.args[0].splitlines()
+    assert "f5" in lines[2]
+    assert "effect" in lines[3]
+    assert "random effects" in lines[-1]
+
 def test_raise_elidable_no_result():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
     l = []
     @jit.elidable
     def f1(n, m):
         l.append(n)
-    def f(n, m):
+    def fancy_graph_name(n, m):
         f1(n, m)
         return n + m
 
-    rtyper = support.annotate(f, [7, 9])
+    rtyper = support.annotate(fancy_graph_name, [7, 9])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
     cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
     res = cc.find_all_graphs(FakePolicy())
-    [f_graph] = [x for x in res if x.func is f]
+    [f_graph] = [x for x in res if x.func is fancy_graph_name]
     call_op = f_graph.startblock.operations[0]
     assert call_op.opname == 'direct_call'
-    with py.test.raises(Exception):
-        call_descr = cc.getcalldescr(call_op)
+    x = py.test.raises(Exception, cc.getcalldescr, call_op, calling_graph=f_graph)
+    assert "fancy_graph_name" in str(x.value)
 
 def test_can_or_cannot_collect():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU

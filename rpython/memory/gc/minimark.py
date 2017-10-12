@@ -1399,8 +1399,15 @@ class MiniMarkGC(MovingGCBase):
                         if cardbyte & 1:
                             if interval_stop > length:
                                 interval_stop = length
-                                ll_assert(cardbyte <= 1 and bytes == 0,
-                                          "premature end of object")
+                                #--- the sanity check below almost always
+                                #--- passes, except in situations like
+                                #--- test_writebarrier_before_copy_manually\
+                                #    _copy_card_bits
+                                #ll_assert(cardbyte <= 1 and bytes == 0,
+                                #          "premature end of object")
+                                ll_assert(bytes == 0, "premature end of object")
+                                if interval_stop <= interval_start:
+                                    break
                             self.trace_and_drag_out_of_nursery_partial(
                                 obj, interval_start, interval_stop)
                         #
@@ -1779,6 +1786,11 @@ class MiniMarkGC(MovingGCBase):
         self.prebuilt_root_objects.foreach(callback, arg)
         MovingGCBase.enumerate_all_roots(self, callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
+
+    def enum_live_with_finalizers(self, callback, arg):
+        self.probably_young_objects_with_finalizers.foreach(callback, arg, 2)
+        self.old_objects_with_finalizers.foreach(callback, arg, 2)
+    enum_live_with_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
     @staticmethod
     def _collect_obj(obj, objects_to_trace):
