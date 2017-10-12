@@ -633,8 +633,10 @@ SYMBOLS_C = [
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
     'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
-    '_PyObject_New', '_PyObject_NewVar', '_PyObject_GC_New',
+    '_PyObject_New', '_PyObject_NewVar',
+    '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar', 'PyInt_FromLong',
+    'PyTuple_New',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1135,12 +1137,20 @@ def attach_c_functions(space, eci, prefix):
         [rffi.LONG], PyObject,
         compilation_info=eci,
         _nowrapper=True)
-    _, state.C.set_marker = rffi.CExternVariable(
-                   Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
-                   eci, _nowrapper=True, c_type='Py_ssize_t')
     state.C._PyPy_int_dealloc = rffi.llexternal(
         '_PyPy_int_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
+    state.C.PyTuple_New = rffi.llexternal(
+        mangle_name(prefix, 'PyTuple_New'),
+        [Py_ssize_t], PyObject,
+        compilation_info=eci,
+        _nowrapper=True)
+    state.C._PyPy_tuple_dealloc = rffi.llexternal(
+        '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+    _, state.C.set_marker = rffi.CExternVariable(
+                   Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
+                   eci, _nowrapper=True, c_type='Py_ssize_t')
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
         '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
@@ -1258,7 +1268,6 @@ def build_bridge(space):
                 in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
             builder.prepare(py_obj, w_obj)
-    builder.attach_all(space)
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
@@ -1269,6 +1278,12 @@ def build_bridge(space):
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
 
+    # we need to call this *after* the init code above, because it might
+    # indirectly call some functions which are attached to pypyAPI (e.g., we
+    # if do tuple_attach of the prebuilt empty tuple, we need to call
+    # _PyPy_Malloc)
+    builder.attach_all(space)
+    
     setup_init_functions(eci, prefix)
     return modulename.new(ext='')
 
@@ -1464,6 +1479,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "object.c",
                          source_dir / "typeobject.c",
                          source_dir / "intobject.c",
+                         source_dir / "tupleobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

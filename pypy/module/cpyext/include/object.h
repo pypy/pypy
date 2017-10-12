@@ -290,6 +290,9 @@ PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
 #define PyObject_GC_New(type, typeobj) \
                 ( (type *) _PyObject_GC_New(typeobj) )
 
+#define PyObject_GC_NewVar(type, typeobj, n) \
+                ( (type *) _PyObject_GC_NewVar((typeobj), (n)) )
+ 
 /* A dummy PyGC_Head, just to please some tests. Don't use it! */
 typedef union _gc_head {
     char dummy;
@@ -345,6 +348,7 @@ PyAPI_FUNC(void) PyObject_GC_Del(void *);
 PyAPI_FUNC(PyObject *) _PyObject_New(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
 PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
+PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
 
 PyAPI_FUNC(PyObject *) PyObject_Init(PyObject *, PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) PyObject_InitVar(PyVarObject *,

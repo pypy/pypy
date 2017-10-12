@@ -68,6 +68,10 @@ PyObject * _PyObject_GC_New(PyTypeObject *type)
     return _PyObject_New(type);
 }
 
+PyVarObject * _PyObject_GC_NewVar(PyTypeObject *type, Py_ssize_t nitems)
+{
+    return _PyObject_NewVar(type, nitems);
+}
 
 static PyObject *
 _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
