@@ -43,7 +43,7 @@ def ord_accepts_surrogate(u):
         if len(u) == 1:
             return ord(u[0])
         raise TypeError
-        
+
 if MAXUNICODE > sys.maxunicode:
     # A version of unichr which allows codes outside the BMP
     # even on narrow unicode builds.
@@ -340,14 +340,13 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None,
     #
     # See also unicode_encode_utf8sp().
     #
+    if errorhandler is None:
+        errorhandler = default_unicode_error_encode
     return unicode_encode_utf_8_elidable(s, size, errors, errorhandler,
                                          allow_surrogates=allow_surrogates)
 
 def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                               allow_surrogates=False):
-    # XXX hack
-    if errorhandler is None:
-        errorhandler = default_unicode_error_encode
     assert(size >= 0)
     result = StringBuilder(size)
     pos = 0
@@ -1282,9 +1281,8 @@ def unicode_encode_ucs1_helper(p, size, errors,
             collend = pos+1
             while collend < len(p) and ord(p[collend]) >= limit:
                 collend += 1
-            ru, pos = errorhandler(errors, encoding, reason, p,
+            ru, rs, pos = errorhandler(errors, encoding, reason, p,
                                        collstart, collend)
-            rs = None
             if rs is not None:
                 # py3k only
                 result.append(rs)
@@ -1333,8 +1331,8 @@ def str_decode_charmap(s, size, errors, final=False,
         c = mapping.get(ch, ERROR_CHAR)
         if c == ERROR_CHAR:
             r, pos = errorhandler(errors, "charmap",
-                                       "character maps to <undefined>",
-                                       s,  pos, pos + 1)
+                                  "character maps to <undefined>",
+                                  s,  pos, pos + 1)
             result.append(r)
             continue
         result.append(c)
