@@ -194,8 +194,13 @@ class CPPMethod(object):
         # check number of given arguments against required (== total - defaults)
         args_expected = len(self.arg_defs)
         args_given = len(args_w)
-        if args_expected < args_given or args_given < self.args_required:
-            raise oefmt(self.space.w_TypeError, "wrong number of arguments")
+
+        if args_given < self.args_required:
+            raise oefmt(self.space.w_TypeError,
+                "takes at least %d arguments (%d given)", self.args_required, args_given)
+        elif args_expected < args_given:
+            raise oefmt(self.space.w_TypeError,
+                "takes at most %d arguments (%d given)", args_expected, args_given)
 
         # initial setup of converters, executors, and libffi (if available)
         if self.converters is None:
@@ -381,8 +386,11 @@ class CPPMethod(object):
             conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_i), loc_i)
         capi.c_deallocate_function_args(self.space, args)
 
-    def signature(self):
-        return capi.c_method_signature(self.space, self.scope, self.index)
+    def signature(self, show_formalargs=True):
+        return capi.c_method_signature(self.space, self.scope, self.index, show_formalargs)
+
+    def prototype(self, show_formalargs=True):
+        return capi.c_method_prototype(self.space, self.scope, self.index, show_formalargs)
 
     def priority(self):
         total_arg_priority = 0
@@ -396,7 +404,7 @@ class CPPMethod(object):
             lltype.free(self.cif_descr, flavor='raw')
 
     def __repr__(self):
-        return "CPPMethod: %s" % self.signature()
+        return "CPPMethod: %s" % self.prototype()
 
     def _freeze_(self):
         assert 0, "you should never have a pre-built instance of this!"
@@ -412,7 +420,7 @@ class CPPFunction(CPPMethod):
         return capi.C_NULL_OBJECT
 
     def __repr__(self):
-        return "CPPFunction: %s" % self.signature()
+        return "CPPFunction: %s" % self.prototype()
 
 
 class CPPTemplatedCall(CPPMethod):
@@ -445,7 +453,7 @@ class CPPTemplatedCall(CPPMethod):
         return CPPMethod.call(self, cppthis, args_w)
 
     def __repr__(self):
-        return "CPPTemplatedCall: %s" % self.signature()
+        return "CPPTemplatedCall: %s" % self.prototype()
 
 
 class CPPConstructor(CPPMethod):
@@ -467,7 +475,7 @@ class CPPConstructor(CPPMethod):
         return CPPMethod.call(self, cppthis, args_w)
 
     def __repr__(self):
-        return "CPPConstructor: %s" % self.signature()
+        return "CPPConstructor: %s" % self.prototype()
 
 
 class CPPSetItem(CPPMethod):
@@ -554,12 +562,12 @@ class W_CPPOverload(W_Root):
                     w_exc_type = e.w_type
                 elif all_same_type and not e.match(self.space, w_exc_type):
                     all_same_type = False
-                errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
+                errmsg += '\n  '+cppyyfunc.prototype()+' =>\n'
                 errmsg += '    '+e.errorstr(self.space)
             except Exception as e:
                 # can not special case this for non-overloaded functions as we anyway need an
                 # OperationError error down from here
-                errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
+                errmsg += '\n  '+cppyyfunc.prototype()+' =>\n'
                 errmsg += '    Exception: '+str(e)
 
         if all_same_type and w_exc_type is not None:
@@ -567,20 +575,20 @@ class W_CPPOverload(W_Root):
         else:
             raise OperationError(self.space.w_TypeError, self.space.newtext(errmsg))
 
-    def signature(self):
-        sig = self.functions[0].signature()
+    def prototype(self):
+        sig = self.functions[0].prototype()
         for i in range(1, len(self.functions)):
-            sig += '\n'+self.functions[i].signature()
+            sig += '\n'+self.functions[i].prototype()
         return self.space.newtext(sig)
 
     def __repr__(self):
-        return "W_CPPOverload(%s)" % [f.signature() for f in self.functions]
+        return "W_CPPOverload(%s)" % [f.prototype() for f in self.functions]
 
 W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
     is_static = interp2app(W_CPPOverload.is_static),
     call = interp2app(W_CPPOverload.call),
-    signature = interp2app(W_CPPOverload.signature),
+    prototype = interp2app(W_CPPOverload.prototype),
 )
 
 
@@ -609,13 +617,13 @@ class W_CPPConstructorOverload(W_CPPOverload):
             memory_regulator.register(cppinstance)
 
     def __repr__(self):
-        return "W_CPPConstructorOverload(%s)" % [f.signature() for f in self.functions]
+        return "W_CPPConstructorOverload(%s)" % [f.prototype() for f in self.functions]
 
 W_CPPConstructorOverload.typedef = TypeDef(
     'CPPConstructorOverload',
     is_static = interp2app(W_CPPConstructorOverload.is_static),
     call = interp2app(W_CPPConstructorOverload.call),
-    signature = interp2app(W_CPPOverload.signature),
+    prototype = interp2app(W_CPPOverload.prototype),
 )
 
 
@@ -760,7 +768,7 @@ class W_CPPScopeDecl(W_Root):
         overload = self.get_overload(name)
         sig = '(%s)' % signature
         for f in overload.functions:
-            if 0 < f.signature().find(sig):
+            if f.signature(False) == sig:
                 return W_CPPOverload(self.space, self, [f])
         raise oefmt(self.space.w_LookupError, "no overload matches signature")
 

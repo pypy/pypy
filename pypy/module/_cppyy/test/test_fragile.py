@@ -163,20 +163,23 @@ class AppTestFRAGILE:
             assert 0
         except TypeError as e:
             assert "fragile::D::check()" in str(e)
-            assert "TypeError: wrong number of arguments" in str(e)
+            assert "TypeError: takes at most 0 arguments (1 given)" in str(e)
+            assert "TypeError: takes at least 2 arguments (1 given)" in str(e)
 
         try:
             d.overload(None)      # raises TypeError
             assert 0
         except TypeError as e:
+            # TODO: pypy-c does not indicate which argument failed to convert, CPython does
+            # likewise there are still minor differences in descriptiveness of messages
             assert "fragile::D::overload()" in str(e)
-            assert "TypeError: wrong number of arguments" in str(e)
+            assert "TypeError: takes at most 0 arguments (1 given)" in str(e)
             assert "fragile::D::overload(fragile::no_such_class*)" in str(e)
-            assert "TypeError: no converter available for 'fragile::no_such_class*'" in str(e)
-            assert "fragile::D::overload(char, int)" in str(e)
-            assert "TypeError: expected string, got NoneType object" in str(e)
-            assert "fragile::D::overload(int, fragile::no_such_class*)" in str(e)
-            assert "TypeError: expected integer, got NoneType object" in str(e)
+            #assert "no converter available for 'fragile::no_such_class*'" in str(e)
+            assert "void fragile::D::overload(char, int i = 0)" in str(e)
+            #assert "char or small int type expected" in str(e)
+            assert "void fragile::D::overload(int, fragile::no_such_class* p = 0)" in str(e)
+            #assert "int/long conversion expects an integer object" in str(e)
 
         j = fragile.J()
         assert fragile.J.method1.__doc__ == j.method1.__doc__

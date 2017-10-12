@@ -116,7 +116,7 @@ def make_static_function(func_name, cppol):
     def function(*args):
         return cppol.call(None, *args)
     function.__name__ = func_name
-    function.__doc__ = cppol.signature()
+    function.__doc__ = cppol.prototype()
     return staticmethod(function)
 
 
@@ -165,7 +165,7 @@ def make_method(meth_name, cppol):
     def method(self, *args):
         return cppol.call(self, *args)
     method.__name__ = meth_name
-    method.__doc__ = cppol.signature()
+    method.__doc__ = cppol.prototype()
     return method
 
 def make_cppclass(scope, cl_name, decl):
