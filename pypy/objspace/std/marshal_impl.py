@@ -403,7 +403,7 @@ def marshal_unicode(space, w_unicode, m):
 @unmarshaller(TYPE_UNICODE)
 def unmarshal_unicode(space, u, tc):
     arg = u.get_str()
-    length = unicodehelper.check_utf8(space, arg)
+    length = unicodehelper.check_utf8_or_raise(space, arg)
     return space.newutf8(arg, length)
 
 @marshaller(W_SetObject)

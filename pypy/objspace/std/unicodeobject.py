@@ -1106,22 +1106,11 @@ def decode_object(space, w_obj, encoding, errors):
     if errors is None or errors == 'strict':
         if encoding == 'ascii':
             s = space.charbuf_w(w_obj)
-            try:
-                rutf8.check_ascii(s)
-            except rutf8.CheckError as e:
-                unicodehelper.decode_error_handler(space)(None,
-                    'ascii', "ordinal not in range(128)", s, e.pos, e.pos+1)
-                assert False
+            unicodehelper.check_ascii_or_raise(space, s)
             return space.newutf8(s, len(s))
         if encoding == 'utf-8':
             s = space.charbuf_w(w_obj)
-            try:
-                lgt = rutf8.check_utf8(s, allow_surrogates=True)
-            except rutf8.CheckError:
-                assert False, "fix in the future"
-                eh = unicodehelper.decode_error_handler(space)
-                eh(None, 'utf8', e.msg, s, e.startpos, e.endpos)
-                assert False, "has to raise"
+            lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
     w_codecs = space.getbuiltinmodule("_codecs")
     w_decode = space.getattr(w_codecs, space.newtext("decode"))
@@ -1176,11 +1165,7 @@ def unicode_from_string(space, w_bytes):
     if encoding != 'ascii':
         return unicode_from_encoded_object(space, w_bytes, encoding, "strict")
     s = space.bytes_w(w_bytes)
-    try:
-        rutf8.check_ascii(s)
-    except rutf8.CheckError:
-        # raising UnicodeDecodeError is messy, "please crash for me"
-        return unicode_from_encoded_object(space, w_bytes, "ascii", "strict")
+    unicodehelper.check_ascii_or_raise(space, s)
     return W_UnicodeObject(s, len(s))
 
 

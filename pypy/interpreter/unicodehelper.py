@@ -62,7 +62,16 @@ def decode_raw_unicode_escape(space, string):
     # XXX argh.  we want each surrogate to be encoded separately
     return ''.join([u.encode('utf8') for u in result_u]), len(result_u)
 
-def check_utf8(space, string):
+def check_ascii_or_raise(space, string):
+    try:
+        rutf8.check_ascii(string)
+    except rutf8.CheckError as e:
+        decode_error_handler(space)('strict', 'ascii',
+                                    'ordinal not in range(128)', string,
+                                    e.pos, e.pos + 1)
+        assert False, "unreachable"
+
+def check_utf8_or_raise(space, string):
     # Surrogates are accepted and not treated specially at all.
     # If there happen to be two 3-bytes encoding a pair of surrogates,
     # you still get two surrogate unicode characters in the result.
@@ -70,13 +79,13 @@ def check_utf8(space, string):
     try:
         length = rutf8.check_utf8(string, allow_surrogates=True)
     except rutf8.CheckError as e:
-        raise Exception("foo")
-        decode_error_handler(space)('strict', 'utf8', e.msg, string, e.startpos,
-                                    e.endpos)
-        raise False, "unreachable"
+        decode_error_handler(space)('strict', 'utf8', 'invalid utf-8', string,
+                                    e.pos, e.pos + 1)
+        assert False, "unreachable"
     return length
 
 def encode_utf8(space, uni):
+    # DEPRECATED
     # Note that this function never raises UnicodeEncodeError,
     # since surrogates are allowed, either paired or lone.
     # A paired surrogate is considered like the non-BMP character
@@ -87,11 +96,8 @@ def encode_utf8(space, uni):
         allow_surrogates=True)
 
 def decode_utf8(space, s):
-    u, _ = runicode.str_decode_utf_8(s, len(s),
-        "strict", final=True,
-        errorhandler=decode_error_handler(space),
-        allow_surrogates=True)
-    return u.encode('utf8'), len(u)
+    # DEPRECATED
+    return (s, check_utf8_or_raise(space, s))
 
 def utf8_encode_ascii(utf8, utf8len, errors, errorhandler):
     if len(utf8) == utf8len:
@@ -109,7 +115,7 @@ def utf8_encode_ascii(utf8, utf8len, errors, errorhandler):
         else:
             utf8_repl, newpos, length = errorhandler(errors, 'ascii', 
                 'ordinal not in range (128)', utf8, lgt, lgt + 1)
-    return b.build(), lgt
+    return b.build()
 
 def str_decode_ascii(s, slen, errors, final, errorhandler):
     try:
