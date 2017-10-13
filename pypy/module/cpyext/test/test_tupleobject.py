@@ -1,6 +1,6 @@
 import py
 
-from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref, decref
+from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref, decref, as_pyobj
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -26,6 +26,31 @@ class TestTupleObject(BaseApiTest):
         py_tuple = state.C.PyTuple_New(1)
         py.test.raises(FatalError, from_ref, space, py_tuple)
         decref(space, py_tuple)
+
+    def test_freelist(self, space, api):
+        state = space.fromcache(State)
+        # check that we don't cache the empty tuple
+        py_a = state.C.PyTuple_New(0)
+        py_b = state.C.PyTuple_New(0)
+        assert py_a != py_b
+        assert py_a.c_ob_refcnt == 1
+        assert py_b.c_ob_refcnt == 1
+        decref(space, py_a)
+        decref(space, py_b)
+        #
+        # check that the freelist is working
+        py_c = state.C.PyTuple_New(0)
+        assert py_c == py_b
+        decref(space, py_c)
+
+    def test_empty_tuple_as_pyobj(self, space, api):
+        state = space.fromcache(State)
+        w_a = space.newtuple([])
+        w_b = space.newtuple([])
+        assert w_a is not w_b
+        py_a = as_pyobj(space, w_a)
+        py_b = as_pyobj(space, w_b)
+        assert py_a != py_b
 
     def test_tuple_resize(self, space, api):
         state = space.fromcache(State)

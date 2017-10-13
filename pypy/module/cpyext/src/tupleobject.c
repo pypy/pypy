@@ -1,5 +1,13 @@
 
-/* Tuple object implementation, stolen&adapted from CPython */
+/* Tuple object implementation, stolen&adapted from CPython.  
+
+   One important difference is that CPython caches the empty tuple separately
+   and always return the very same object, while we always return a fresh one.
+   The reasons is that space.newtuple([]) always return different objects, and
+   we want to ensure that the following is always true:
+
+       w_a != w_b ==> as_pyobj(w_b) != as_pyobj(w_b)
+ */
 
 #include "Python.h"
 
@@ -12,9 +20,6 @@
 #endif
 
 #if PyTuple_MAXSAVESIZE > 0
-/* Entries 1 up to PyTuple_MAXSAVESIZE are free lists, entry 0 is the empty
-   tuple () of which at most one instance will be allocated.
-*/
 static PyTupleObject *free_list[PyTuple_MAXSAVESIZE];
 static int numfree[PyTuple_MAXSAVESIZE];
 #endif
@@ -29,11 +34,6 @@ PyTuple_New(register Py_ssize_t size)
         return NULL;
     }
 #if PyTuple_MAXSAVESIZE > 0
-    if (size == 0 && free_list[0]) {
-        op = free_list[0];
-        Py_INCREF(op);
-        return (PyObject *) op;
-    }
     if (size < PyTuple_MAXSAVESIZE && (op = free_list[size]) != NULL) {
         free_list[size] = (PyTupleObject *) op->ob_item[0];
         numfree[size]--;
@@ -56,13 +56,6 @@ PyTuple_New(register Py_ssize_t size)
     }
     for (i=0; i < size; i++)
         op->ob_item[i] = NULL;
-#if PyTuple_MAXSAVESIZE > 0
-    if (size == 0) {
-        free_list[0] = op;
-        ++numfree[0];
-        Py_INCREF(op);          /* extra INCREF so that this is never freed */
-    }
-#endif
     _PyObject_GC_TRACK(op);
     return (PyObject *) op;
 }
@@ -76,7 +69,7 @@ _PyPy_tuple_dealloc(register PyObject *_op)
     register Py_ssize_t len =  Py_SIZE(op);
     PyObject_GC_UnTrack(op);
     Py_TRASHCAN_SAFE_BEGIN(op)
-    if (len > 0) {
+    if (len >= 0) {
         i = len;
         while (--i >= 0)
             Py_XDECREF(op->ob_item[i]);
