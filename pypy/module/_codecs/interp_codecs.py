@@ -487,7 +487,8 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
-    assert False, "fix in the future"
+    from pypy.interpreter.unicodehelper import DecodeWrapper
+
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -502,14 +503,16 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     if final:
         consumed = 0
     res, consumed, byteorder = runicode.str_decode_utf_16_helper(
-        data, len(data), errors, final, state.decode_error_handler, byteorder)
+        data, len(data), errors, final,
+        DecodeWrapper(state.decode_error_handler).handle, byteorder)
     return space.newtuple([space.newunicode(res), space.newint(consumed),
                            space.newint(byteorder)])
 
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
-    assert False, "fix in the future"
+    from pypy.interpreter.unicodehelper import DecodeWrapper
+
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
     if byteorder == 0:
@@ -522,7 +525,8 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     if final:
         consumed = 0
     res, consumed, byteorder = runicode.str_decode_utf_32_helper(
-        data, len(data), errors, final, state.decode_error_handler, byteorder)
+        data, len(data), errors, final,
+        DecodeWrapper(state.decode_error_handler).handle, byteorder)
     return space.newtuple([space.newunicode(res), space.newint(consumed),
                            space.newint(byteorder)])
 
