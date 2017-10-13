@@ -59,21 +59,6 @@ def tuple_alloc(typedescr, space, w_type, itemcount):
     else:
         return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
 
-def new_empty_tuple(space, length):
-    """
-    Allocate a PyTupleObject and its array of PyObject *, but without a
-    corresponding interpreter object.  The array may be mutated, until
-    tuple_realize() is called.  Refcount of the result is 1.
-    """
-    assert False, 'kill this?'
-    typedescr = get_typedescr(space.w_tuple.layout.typedef)
-    py_obj = typedescr.allocate(space, space.w_tuple, length)
-    py_tup = rffi.cast(PyTupleObject, py_obj)
-    p = py_tup.c_ob_item
-    for i in range(py_tup.c_ob_size):
-        p[i] = lltype.nullptr(PyObject.TO)
-    return py_obj
-
 def tuple_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyTupleObject with the given tuple object. The
@@ -124,22 +109,6 @@ def tuple_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-## @slot_function([PyObject], lltype.Void)
-## def tuple_dealloc(space, py_obj):
-##     """Frees allocated PyTupleObject resources.
-##     """
-##     py_tup = rffi.cast(PyTupleObject, py_obj)
-##     p = py_tup.c_ob_item
-##     for i in range(py_tup.c_ob_size):
-##         decref(space, p[i])
-##     from pypy.module.cpyext.object import _dealloc
-##     _dealloc(space, py_obj)
-
-#_______________________________________________________________________
-
-## @cpython_api([Py_ssize_t], PyObject, result_is_ll=True)
-## def PyTuple_New(space, size):
-##     return new_empty_tuple(space, size)
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyTuple_SetItem(space, ref, index, py_obj):
@@ -194,12 +163,13 @@ def _PyTuple_Resize(space, p_ref, newsize):
     this function. If the object referenced by *p is replaced, the original
     *p is destroyed.  On failure, returns -1 and sets *p to NULL, and
     raises MemoryError or SystemError."""
+    state = space.fromcache(State)
     ref = p_ref[0]
     if not tuple_check_ref(space, ref):
         PyErr_BadInternalCall(space)
     oldref = rffi.cast(PyTupleObject, ref)
     oldsize = oldref.c_ob_size
-    p_ref[0] = new_empty_tuple(space, newsize)
+    p_ref[0] = state.C.PyTuple_New(newsize)
     newref = rffi.cast(PyTupleObject, p_ref[0])
     try:
         if oldsize < newsize:
