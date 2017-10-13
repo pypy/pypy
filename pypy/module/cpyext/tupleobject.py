@@ -7,6 +7,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, decref, incref,
     track_reference, make_typedescr, get_typedescr, pyobj_has_w_obj)
+from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
 
@@ -36,10 +37,12 @@ cpython_struct("PyTupleObject", PyTupleObjectFields, PyTupleObjectStruct)
 @bootstrap_function
 def init_tupleobject(space):
     "Type description of PyTupleObject"
+    state = space.fromcache(State)
     make_typedescr(space.w_tuple.layout.typedef,
                    basestruct=PyTupleObject.TO,
                    attach=tuple_attach,
-                   dealloc=tuple_dealloc,
+                   alloc=tuple_alloc,
+                   dealloc=state.C._PyPy_tuple_dealloc,
                    realize=tuple_realize)
 
 PyTuple_Check, PyTuple_CheckExact = build_type_checkers_flags("Tuple")
@@ -49,12 +52,20 @@ def tuple_check_ref(space, ref):
     return (w_type is space.w_tuple or
             space.issubtype_w(w_type, space.w_tuple))
 
+def tuple_alloc(typedescr, space, w_type, itemcount):
+    state = space.fromcache(State)
+    if w_type is space.w_tuple:
+        return state.C.PyTuple_New(itemcount)
+    else:
+        return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
+
 def new_empty_tuple(space, length):
     """
     Allocate a PyTupleObject and its array of PyObject *, but without a
     corresponding interpreter object.  The array may be mutated, until
     tuple_realize() is called.  Refcount of the result is 1.
     """
+    assert False, 'kill this?'
     typedescr = get_typedescr(space.w_tuple.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_tuple, length)
     py_tup = rffi.cast(PyTupleObject, py_obj)
@@ -113,22 +124,22 @@ def tuple_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@slot_function([PyObject], lltype.Void)
-def tuple_dealloc(space, py_obj):
-    """Frees allocated PyTupleObject resources.
-    """
-    py_tup = rffi.cast(PyTupleObject, py_obj)
-    p = py_tup.c_ob_item
-    for i in range(py_tup.c_ob_size):
-        decref(space, p[i])
-    from pypy.module.cpyext.object import _dealloc
-    _dealloc(space, py_obj)
+## @slot_function([PyObject], lltype.Void)
+## def tuple_dealloc(space, py_obj):
+##     """Frees allocated PyTupleObject resources.
+##     """
+##     py_tup = rffi.cast(PyTupleObject, py_obj)
+##     p = py_tup.c_ob_item
+##     for i in range(py_tup.c_ob_size):
+##         decref(space, p[i])
+##     from pypy.module.cpyext.object import _dealloc
+##     _dealloc(space, py_obj)
 
 #_______________________________________________________________________
 
-@cpython_api([Py_ssize_t], PyObject, result_is_ll=True)
-def PyTuple_New(space, size):
-    return new_empty_tuple(space, size)
+## @cpython_api([Py_ssize_t], PyObject, result_is_ll=True)
+## def PyTuple_New(space, size):
+##     return new_empty_tuple(space, size)
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyTuple_SetItem(space, ref, index, py_obj):
