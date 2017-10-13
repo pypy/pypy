@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (
     cpython_api, Py_ssize_t, build_type_checkers_flags,
     PyVarObjectFields, cpython_struct, bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, from_ref, decref, incref,
+    PyObject, PyObjectP, make_ref, from_ref, decref, incref, BaseCpyTypedescr,
     track_reference, make_typedescr, get_typedescr, pyobj_has_w_obj)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
