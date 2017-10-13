@@ -90,13 +90,9 @@ class AppTestTuple(AppTestCpythonExtensionBase):
              """
                 PyObject *item = PyTuple_New(0);
                 PyObject *t = PyTuple_New(1);
-#ifdef PYPY_VERSION
-                // PyPy starts even empty tuples with a refcount of 1.
-                const int initial_item_refcount = 1;
-#else
-                // CPython can cache ().
-                const int initial_item_refcount = item->ob_refcnt;
-#endif  // PYPY_VERSION
+                // the empty tuple is cached, so we can't assume its refcnt is 1
+                const Py_ssize_t initial_item_refcount = item->ob_refcnt;
+
                 if (t->ob_refcnt != 1 || item->ob_refcnt != initial_item_refcount) {
                     PyErr_SetString(PyExc_SystemError, "bad initial refcnt");
                     return NULL;
