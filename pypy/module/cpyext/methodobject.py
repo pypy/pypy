@@ -100,6 +100,7 @@ class W_PyCFunctionObject(W_Root):
 class W_PyCFunctionObject_NOARGS(W_PyCFunctionObject):
     # METH_NOARGS
 
+    # CCC I think we can condense descr_call and call into one, can't we?
     def descr_call(self, space):
         return self.call(space, None, None, None)
 
@@ -113,6 +114,7 @@ class W_PyCFunctionObject_NOARGS(W_PyCFunctionObject):
 class W_PyCFunctionObject_O(W_PyCFunctionObject):
     # METH_O
 
+    # CCC I think we can condense descr_call and call into one, can't we?
     def descr_call(self, space, w_o):
         return self.call(space, None, w_o, None)
 
@@ -121,6 +123,15 @@ class W_PyCFunctionObject_O(W_PyCFunctionObject):
             w_self = self.w_self
         func = self.ml.c_ml_meth
         return generic_cpy_call(space, func, w_self, w_o)
+
+class W_PyCFunctionObject_VARARGS(W_PyCFunctionObject):
+    # METH_VARARGS
+
+    def descr_call(self, space, args_w):
+        w_self = self.w_self
+        func = self.ml.c_ml_meth
+        w_args = space.newtuple(args_w)
+        return generic_cpy_call(space, func, w_self, w_args)
 
 class W_PyCMethodObject(W_PyCFunctionObject):
     w_self = None
@@ -324,6 +335,16 @@ W_PyCFunctionObject_O.typedef = TypeDef(
         wrapfn="newtext_or_none"),
     )
 W_PyCFunctionObject_O.typedef.acceptable_as_base_class = False
+
+W_PyCFunctionObject_VARARGS.typedef = TypeDef(
+    'builtin_function_or_method', W_PyCFunctionObject.typedef,
+    __call__ = interp2app(W_PyCFunctionObject_VARARGS.descr_call),
+    __doc__ = GetSetProperty(W_PyCFunctionObject_VARARGS.get_doc),
+    __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject_VARARGS),
+    __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject_VARARGS,
+        wrapfn="newtext_or_none"),
+    )
+W_PyCFunctionObject_VARARGS.typedef.acceptable_as_base_class = False
 
 W_PyCMethodObject.typedef = TypeDef(
     'method_descriptor',

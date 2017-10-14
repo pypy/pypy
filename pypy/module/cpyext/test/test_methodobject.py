@@ -65,15 +65,19 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         mod = self.import_extension('MyModule', [
             ('getarg_VARARGS', 'METH_VARARGS',
              '''
-             PyObject * i;
-             i = PyLong_FromLong((long)PyObject_Length(args));
-             Py_INCREF(i);
-             return i;
+             return Py_BuildValue("Ol", args, args->ob_refcnt);
              '''
              ),
             ])
-        assert mod.getarg_VARARGS() == 0
-        assert mod.getarg_VARARGS(1) == 1
+        tup, _ = mod.getarg_VARARGS()
+        assert tup == ()
+        #
+        tup, _ = mod.getarg_VARARGS(1)
+        assert tup == (1,)
+        #
+        tup, _ = mod.getarg_VARARGS(1, 2, 3)
+        assert tup == (1, 2, 3)
+        #
         raises(TypeError, mod.getarg_VARARGS, k=1)
 
     def test_func_attributes(self):
