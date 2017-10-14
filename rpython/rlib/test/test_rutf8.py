@@ -85,6 +85,19 @@ def test_utf8_in_chars(ch, txt):
     r = (ch in txt)
     assert r == response
 
+@given(strategies.text(), strategies.integers(min_value=0),
+                          strategies.integers(min_value=0))
+def test_codepoints_in_utf8(u, start, len1):
+    end = start + len1
+    if end > len(u):
+        extra = end - len(u)
+    else:
+        extra = 0
+    count = rutf8.codepoints_in_utf8(u.encode('utf8'),
+                                     len(u[:start].encode('utf8')),
+                                     len(u[:end].encode('utf8')) + extra)
+    assert count == len(u[start:end])
+
 @given(strategies.text())
 def test_utf8_index_storage(u):
     index = rutf8.create_utf8_index_storage(u.encode('utf8'), len(u))

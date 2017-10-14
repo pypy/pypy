@@ -2,6 +2,8 @@
 # -*- encoding: utf-8 -*-
 import py
 import sys
+from hypothesis import given, strategies, settings, example
+from pypy.interpreter.error import OperationError
 
 
 class TestUnicodeObject:
@@ -34,6 +36,49 @@ class TestUnicodeObject:
         w_new = space.call_method(
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
+
+    @given(strategies.text(), strategies.integers(min_value=0, max_value=10),
+                              strategies.integers(min_value=-1, max_value=10))
+    def test_hypo_index_find(self, u, start, len1):
+        if start + len1 < 0:
+            return   # skip this case
+        v = u[start : start + len1]
+        space = self.space
+        w_u = space.wrap(u)
+        w_v = space.wrap(v)
+        expected = u.find(v, start, start + len1)
+        try:
+            w_index = space.call_method(w_u, 'index', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+        except OperationError as e:
+            if not e.match(space, space.w_ValueError):
+                raise
+            assert expected == -1
+        else:
+            assert space.int_w(w_index) == expected >= 0
+
+        w_index = space.call_method(w_u, 'find', w_v,
+                                    space.newint(start),
+                                    space.newint(start + len1))
+        assert space.int_w(w_index) == expected
+
+        rexpected = u.rfind(v, start, start + len1)
+        try:
+            w_index = space.call_method(w_u, 'rindex', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+        except OperationError as e:
+            if not e.match(space, space.w_ValueError):
+                raise
+            assert rexpected == -1
+        else:
+            assert space.int_w(w_index) == rexpected >= 0
+
+        w_index = space.call_method(w_u, 'rfind', w_v,
+                                    space.newint(start),
+                                    space.newint(start + len1))
+        assert space.int_w(w_index) == rexpected
 
 
 class AppTestUnicodeStringStdOnly:
@@ -698,6 +743,7 @@ class AppTestUnicodeString:
     def test_index(self):
         assert u"rrarrrrrrrrra".index(u'a', 4, None) == 12
         assert u"rrarrrrrrrrra".index(u'a', None, 6) == 2
+        assert u"\u1234\u4321\u5678".index(u'\u5678', 1) == 2
 
     def test_rindex(self):
         from sys import maxint
@@ -707,6 +753,7 @@ class AppTestUnicodeString:
         assert u'abcdefghiabc'.rindex(u'abc', 0, -1) == 0
         assert u'abcdefghiabc'.rindex(u'abc', -4*maxint, 4*maxint) == 9
         assert u'rrarrrrrrrrra'.rindex(u'a', 4, None) == 12
+        assert u"\u1234\u5678".rindex(u'\u5678') == 1
 
         raises(ValueError, u'abcdefghiabc'.rindex, u'hib')
         raises(ValueError, u'defghiabc'.rindex, u'def', 1)
@@ -721,6 +768,7 @@ class AppTestUnicodeString:
         assert u'abcdefghiabc'.rfind(u'') == 12
         assert u'abcdefghiabc'.rfind(u'abcd') == 0
         assert u'abcdefghiabc'.rfind(u'abcz') == -1
+        assert u"\u1234\u5678".rfind(u'\u5678') == 1
 
     def test_rfind_corner_case(self):
         assert u'abc'.rfind('', 4) == -1
@@ -736,6 +784,7 @@ class AppTestUnicodeString:
         assert 'abcdefghiabc'.rindex(u'abc') == 9
         raises(UnicodeDecodeError, '\x80'.index, u'')
         raises(UnicodeDecodeError, '\x80'.rindex, u'')
+        assert u"\u1234\u5678".find(u'\u5678') == 1
 
     def test_count(self):
         assert u"".count(u"x") ==0

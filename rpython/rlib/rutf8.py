@@ -15,11 +15,12 @@ need their own copy-pasted copy of some of the logic here, with
 extra code in the middle for error handlers and so on.
 """
 
+import sys
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 def unichr_as_utf8(code, allow_surrogates=False):
@@ -290,17 +291,16 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
 
 
 #@jit.elidable
-def check_utf8(s, allow_surrogates, force_len=-1):
+def check_utf8(s, allow_surrogates):
     """Check that 's' is a utf-8-encoded byte string.
     Returns the length (number of chars) or raise CheckError.
-    Note that surrogates are not handled specially here.
+    If allow_surrogates is False, then also raise if we see any.
+    Note also codepoints_in_utf8(), which also computes the length
+    faster by assuming that 's' is valid utf-8.
     """
     pos = 0
     continuation_bytes = 0
-    if force_len == -1:
-        end = len(s)
-    else:
-        end = force_len
+    end = len(s)
     while pos < end:
         ordch1 = ord(s[pos])
         pos += 1
@@ -357,6 +357,23 @@ def check_utf8(s, allow_surrogates, force_len=-1):
 
     assert pos == end
     return pos - continuation_bytes
+
+@jit.elidable
+def codepoints_in_utf8(value, start=0, end=sys.maxint):
+    """Return the number of codepoints in the UTF-8 byte string
+    'value[start:end]'.  Assumes 0 <= start <= len(value) and start <= end.
+    """
+    if end > len(value):
+        end = len(value)
+    assert 0 <= start <= end
+    length = 0
+    for i in range(start, end):
+        # we want to count the number of chars not between 0x80 and 0xBF;
+        # we do that by casting the char to a signed integer
+        signedchar = rffi.cast(rffi.SIGNEDCHAR, ord(value[i]))
+        if rffi.cast(lltype.Signed, signedchar) >= -0x40:
+            length += 1
+    return length
 
 @jit.elidable
 def surrogate_in_utf8(value):
