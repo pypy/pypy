@@ -112,8 +112,8 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              '''
              ),
             ])
-        assert mod.isCFunction(mod.getarg_O) == "getarg_O"
-        assert mod.getModule(mod.getarg_O) == 'MyModule'
+        assert mod.isCFunction(mod.getModule) == "getModule"
+        assert mod.getModule(mod.getModule) == 'MyModule'
         if self.runappdirect:  # XXX: fails untranslated
             assert mod.isSameFunction(mod.getModule)
         raises(SystemError, mod.isSameFunction, 1)
