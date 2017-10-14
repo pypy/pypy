@@ -98,6 +98,11 @@ class W_PyCFunctionObject(W_Root):
             return space.w_None
 
 class W_PyCFunctionObject_NOARGS(W_PyCFunctionObject):
+    # METH_NOARGS
+
+    def descr_call(self, space):
+        return self.call(space, None, None, None)
+
     def call(self, space, w_self, w_args, w_kw):
         # Call the C function
         if w_self is None:
@@ -106,6 +111,11 @@ class W_PyCFunctionObject_NOARGS(W_PyCFunctionObject):
         return generic_cpy_call(space, func, w_self, None)
 
 class W_PyCFunctionObject_O(W_PyCFunctionObject):
+    # METH_O
+
+    def descr_call(self, space, w_o):
+        return self.call(space, None, w_o, None)
+
     def call(self, space, w_self, w_o, w_kw):
         if w_self is None:
             w_self = self.w_self
@@ -241,16 +251,6 @@ def cwrapper_descr_call(space, w_self, __args__):
         space.setitem(w_kw, space.newtext(key), w_obj)
     return self.call(space, w_self, w_args, w_kw)
 
-def cfunction_descr_call_noargs(space, w_self):
-    # special case for calling with flags METH_NOARGS
-    self = space.interp_w(W_PyCFunctionObject_NOARGS, w_self)
-    return self.call(space, None, None, None)
-
-def cfunction_descr_call_single_object(space, w_self, w_o):
-    # special case for calling with flags METH_O
-    self = space.interp_w(W_PyCFunctionObject_O, w_self)
-    return self.call(space, None, w_o, None)
-
 @jit.dont_look_inside
 def cfunction_descr_call(space, w_self, __args__):
     # specialize depending on the W_PyCFunctionObject
@@ -307,7 +307,7 @@ W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
 W_PyCFunctionObject_NOARGS.typedef = TypeDef(
     'builtin_function_or_method', W_PyCFunctionObject.typedef,
-    __call__ = interp2app(cfunction_descr_call_noargs),
+    __call__ = interp2app(W_PyCFunctionObject_NOARGS.descr_call),
     __doc__ = GetSetProperty(W_PyCFunctionObject_NOARGS.get_doc),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject_NOARGS),
     __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject_NOARGS,
@@ -317,7 +317,7 @@ W_PyCFunctionObject_NOARGS.typedef.acceptable_as_base_class = False
 
 W_PyCFunctionObject_O.typedef = TypeDef(
     'builtin_function_or_method', W_PyCFunctionObject.typedef,
-    __call__ = interp2app(cfunction_descr_call_single_object),
+    __call__ = interp2app(W_PyCFunctionObject_O.descr_call),
     __doc__ = GetSetProperty(W_PyCFunctionObject_O.get_doc),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject_O),
     __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject_O,
