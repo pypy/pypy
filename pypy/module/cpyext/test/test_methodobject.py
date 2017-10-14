@@ -8,14 +8,9 @@ from pypy.module.cpyext.methodobject import (
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 class AppTestMethodObject(AppTestCpythonExtensionBase):
-    def test_call_METH(self):
+
+    def test_call_METH_NOARGS(self):
         mod = self.import_extension('MyModule', [
-            ('getarg_O', 'METH_O',
-             '''
-             Py_INCREF(args);
-             return args;
-             '''
-             ),
             ('getarg_NO', 'METH_NOARGS',
              '''
              if(args) {
@@ -28,6 +23,27 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              }
              '''
              ),
+            ])
+        assert mod.getarg_NO() is None
+        raises(TypeError, mod.getarg_NO, 1)
+        raises(TypeError, mod.getarg_NO, 1, 1)
+
+    def test_call_METH_O(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_O', 'METH_O',
+             '''
+             Py_INCREF(args);
+             return args;
+             '''
+             ),
+            ])
+        assert mod.getarg_O(1) == 1
+        assert mod.getarg_O.__name__ == "getarg_O"
+        raises(TypeError, mod.getarg_O)
+        raises(TypeError, mod.getarg_O, 1, 1)
+
+    def test_call_METH_OLDARGS(self):
+        mod = self.import_extension('MyModule', [
             ('getarg_OLD', 'METH_OLDARGS',
              '''
              if(args) {
@@ -40,6 +56,28 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              }
              '''
              ),
+            ])
+        assert mod.getarg_OLD(1) == 1
+        assert mod.getarg_OLD() is None
+        assert mod.getarg_OLD(1, 2) == (1, 2)
+
+    def test_call_METH_VARARGS(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_VARARGS', 'METH_VARARGS',
+             '''
+             PyObject * i;
+             i = PyLong_FromLong((long)PyObject_Length(args));
+             Py_INCREF(i);
+             return i;
+             '''
+             ),
+            ])
+        assert mod.getarg_VARARGS() == 0
+        assert mod.getarg_VARARGS(1) == 1
+        raises(TypeError, mod.getarg_VARARGS, k=1)
+
+    def test_func_attributes(self):
+        mod = self.import_extension('MyModule', [
             ('isCFunction', 'METH_O',
              '''
              if(PyCFunction_Check(args)) {
@@ -67,30 +105,17 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              '''
              PyCFunction ptr = PyCFunction_GetFunction(args);
              if (!ptr) return NULL;
-             if (ptr == (PyCFunction)MyModule_getarg_O)
+             if (ptr == (PyCFunction)MyModule_getModule)
                  Py_RETURN_TRUE;
              else
                  Py_RETURN_FALSE;
              '''
              ),
             ])
-        assert mod.getarg_O(1) == 1
-        assert mod.getarg_O.__name__ == "getarg_O"
-        raises(TypeError, mod.getarg_O)
-        raises(TypeError, mod.getarg_O, 1, 1)
-
-        assert mod.getarg_NO() is None
-        raises(TypeError, mod.getarg_NO, 1)
-        raises(TypeError, mod.getarg_NO, 1, 1)
-
-        assert mod.getarg_OLD(1) == 1
-        assert mod.getarg_OLD() is None
-        assert mod.getarg_OLD(1, 2) == (1, 2)
-
         assert mod.isCFunction(mod.getarg_O) == "getarg_O"
         assert mod.getModule(mod.getarg_O) == 'MyModule'
         if self.runappdirect:  # XXX: fails untranslated
-            assert mod.isSameFunction(mod.getarg_O)
+            assert mod.isSameFunction(mod.getModule)
         raises(SystemError, mod.isSameFunction, 1)
 
     def test_check(self):
