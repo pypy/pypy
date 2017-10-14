@@ -6,7 +6,7 @@ from pypy.module.cpyext.sequence import (
     PySequence_Fast, PySequence_Contains, PySequence_Index,
     PySequence_GetItem, PySequence_SetItem, PySequence_DelItem)
 from pypy.module.cpyext.pyobject import get_w_obj_and_decref
-
+from pypy.module.cpyext.state import State
 import pytest
 
 class TestSequence(BaseApiTest):
@@ -108,6 +108,7 @@ class TestSequence(BaseApiTest):
             PySequence_Contains(space, space.w_None, space.wrap(2))
 
     def test_setitem(self, space, api):
+        state = space.fromcache(State)
         w_value = space.wrap(42)
 
         l = api.PyList_New(1)
@@ -117,7 +118,7 @@ class TestSequence(BaseApiTest):
         with raises_w(space, IndexError):
             PySequence_SetItem(space, l, 3, w_value)
 
-        t = api.PyTuple_New(1)
+        t = state.C.PyTuple_New(1)
         api.PyTuple_SetItem(t, 0, l)
         with raises_w(space, TypeError):
             PySequence_SetItem(space, t, 0, w_value)
