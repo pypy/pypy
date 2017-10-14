@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 
-UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'.encode("utf8")
+UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'
 
 
 class EncodeDecodeError(Exception):
@@ -148,17 +148,16 @@ def multibytecodec_decerror(decodebuf, e, errors,
     if errors == "strict":
         raise EncodeDecodeError(start, end, reason)
     elif errors == "ignore":
-        replace = ""
-        lgt = 0
+        replace = u""
     elif errors == "replace":
         replace = UNICODE_REPLACEMENT_CHARACTER
-        lgt = 1
     else:
         assert errorcb
-        replace, end, lgt = errorcb(errors, namecb, reason,
+        replace, end = errorcb(errors, namecb, reason,
                                stringdata, start, end)
-    with rffi.scoped_nonmoving_unicodebuffer(replace.decode("utf8")) as inbuf:
-        r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, lgt, end)
+        # 'replace' is RPython unicode here
+    with rffi.scoped_nonmoving_unicodebuffer(replace) as inbuf:
+        r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, len(replace), end)
     if r == MBERR_NOMEMORY:
         raise MemoryError
 
@@ -257,7 +256,7 @@ def multibytecodec_encerror(encodebuf, e, errors,
             replace = "?"
     else:
         assert errorcb
-        retu, rets, end, lgt = errorcb(errors, namecb, reason,
+        retu, rets, end = errorcb(errors, namecb, reason,
                                   unicodedata.encode("utf8"), start, end)
         if rets is not None:
             # py3k only

@@ -96,24 +96,25 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
             c_codecs.pypy_cjk_enc_free(self.encodebuf)
             self.encodebuf = lltype.nullptr(c_codecs.ENCODEBUF_P.TO)
 
-    @unwrap_spec(utf8object='utf8', final=bool)
-    def encode_w(self, utf8object, objlen, final=False):
-        object = utf8object.decode('utf8')
+    @unwrap_spec(object='utf8', final=bool)
+    def encode_w(self, object, final=False):
+        u_object = object.decode('utf8')
         space = self.space
         state = space.fromcache(CodecState)
         if len(self.pending) > 0:
-            object = self.pending + object
+            u_object = self.pending + u_object
         try:
-            output = c_codecs.encodeex(self.encodebuf, object, self.errors,
+            output = c_codecs.encodeex(self.encodebuf, u_object, self.errors,
                                        state.encode_error_handler, self.name,
                                        get_ignore_error(final))
         except c_codecs.EncodeDecodeError as e:
-            raise wrap_unicodeencodeerror(space, e, utf8object, self.name)
+            raise wrap_unicodeencodeerror(space, e, object, len(u_object),
+                                          self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
         pos = c_codecs.pypy_cjk_enc_inbuf_consumed(self.encodebuf)
-        assert 0 <= pos <= len(object)
-        self.pending = object[pos:]
+        assert 0 <= pos <= len(u_object)
+        self.pending = u_object[pos:]
         return space.newbytes(output)
 
 
