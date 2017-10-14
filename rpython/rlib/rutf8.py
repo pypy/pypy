@@ -290,7 +290,7 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
 
 
 #@jit.elidable
-def check_utf8(s, allow_surrogates=False, force_len=-1):
+def check_utf8(s, allow_surrogates, force_len=-1):
     """Check that 's' is a utf-8-encoded byte string.
     Returns the length (number of chars) or raise CheckError.
     Note that surrogates are not handled specially here.
@@ -424,8 +424,8 @@ def create_utf8_index_storage(utf8, utf8len):
 def codepoint_position_at_index(utf8, storage, index):
     """ Return byte index of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE.  The index must be smaller than
-    the utf8 length: if needed, check explicitly before calling this
-    function.
+    or equal to the utf8 length: if needed, check explicitly before calling
+    this function.
     """
     current = index >> 6
     ofs = ord(storage[current].ofs[(index >> 2) & 0x0F])

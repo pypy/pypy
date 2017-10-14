@@ -39,7 +39,8 @@ class CodecState(object):
                 w_input = space.newbytes(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                w_input = space.newutf8(input, rutf8.check_utf8(input))
+                length = rutf8.check_utf8(input, allow_surrogates=True)
+                w_input = space.newutf8(input, length)
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -447,7 +448,8 @@ if hasattr(runicode, 'str_decode_mbcs'):
 # "allow_surrogates=True"
 @unwrap_spec(utf8='utf8', errors='text_or_none')
 def utf_8_encode(space, utf8, errors="strict"):
-    return space.newtuple([space.newbytes(utf8), space.newint(rutf8.check_utf8(utf8))])
+    length = rutf8.check_utf8(utf8, allow_surrogates=True)
+    return space.newtuple([space.newbytes(utf8), space.newint(length)])
 #@unwrap_spec(uni=unicode, errors='text_or_none')
 #def utf_8_encode(space, uni, errors="strict"):
 #    if errors is None:
@@ -472,7 +474,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
     state = space.fromcache(CodecState)
     # call the fast version for checking
     try:
-        lgt = rutf8.check_utf8(string)
+        lgt = rutf8.check_utf8(string, allow_surrogates=True)
     except rutf8.CheckError as e:
         # XXX do the way around runicode - we can optimize it later if we
         # decide we care about obscure cases

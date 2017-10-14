@@ -317,7 +317,8 @@ class StdObjSpace(ObjSpace):
         for utf in lst:
             assert utf is not None
             assert isinstance(utf, str)
-            res_w.append(self.newutf8(utf, rutf8.check_utf8(utf)))
+            length = rutf8.check_utf8(utf, allow_surrogates=True)
+            res_w.append(self.newutf8(utf, length))
         return self.newlist(res_w)
 
     def newlist_int(self, list_i):

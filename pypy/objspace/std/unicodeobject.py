@@ -435,7 +435,8 @@ class W_UnicodeObject(W_Root):
         if res_index == -1:
             return space.newint(-1)
 
-        res = rutf8.check_utf8(self._utf8, force_len=res_index) # can't raise
+        res = rutf8.check_utf8(self._utf8, allow_surrogates=True,
+                               force_len=res_index) # can't raise
         return space.newint(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
@@ -447,7 +448,8 @@ class W_UnicodeObject(W_Root):
         if res_index == -1:
             return space.newint(-1)
 
-        res = rutf8.check_utf8(self._utf8, force_len=res_index) # can't raise
+        res = rutf8.check_utf8(self._utf8, allow_surrogates=True,
+                               force_len=res_index) # can't raise
         return space.newint(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
@@ -460,7 +462,8 @@ class W_UnicodeObject(W_Root):
             raise oefmt(space.w_ValueError,
                         "substring not found in string.index")
 
-        res = rutf8.check_utf8(self._utf8, force_len=res_index) # can't raise
+        res = rutf8.check_utf8(self._utf8, allow_surrogates=True,
+                               force_len=res_index) # can't raise
         return space.newint(res)
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
@@ -473,7 +476,8 @@ class W_UnicodeObject(W_Root):
             raise oefmt(space.w_ValueError,
                         "substring not found in string.rindex")
 
-        res = rutf8.check_utf8(self._utf8, force_len=res_index) # can't raise
+        res = rutf8.check_utf8(self._utf8, allow_surrogates=True,
+                               force_len=res_index) # can't raise
         return space.newint(res)
 
     @specialize.arg(2)
