@@ -599,8 +599,8 @@ class W_UnicodeObject(W_Root):
 
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
-        if start > len(value):
-            return len(prefix) == 0
+        if len(prefix) == 0:
+            return True
         return startswith(value, prefix, start, end)
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
@@ -613,8 +613,8 @@ class W_UnicodeObject(W_Root):
 
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
-        if start > len(value):
-            return len(prefix) == 0
+        if len(prefix) == 0:
+            return True
         return endswith(value, prefix, start, end)
 
     def descr_add(self, space, w_other):
@@ -925,26 +925,20 @@ class W_UnicodeObject(W_Root):
             return space.newint(res)
 
     def _unwrap_and_compute_idx_params(self, space, w_start, w_end):
+        # unwrap start and stop indices, optimized for the case where
+        # start == 0 and end == self._length.  Note that 'start' and
+        # 'end' are measured in codepoints whereas 'start_index' and
+        # 'end_index' are measured in bytes.
         start, end = unwrap_start_stop(space, self._length, w_start, w_end)
-        # XXX for now just create index
         start_index = 0
         end_index = len(self._utf8)
-        if start > 0 or end != self._length:
-            storage = self._get_index_storage()
-            if start > 0:
-                # :-(
-                if start > self._length:
-                    start_index = start
-                else:
-                    start_index = rutf8.codepoint_position_at_index(
-                        self._utf8, storage, start)
-            if end != self._length:
-                # :-(
-                if end > self._length:
-                    end_index = end
-                else:
-                    end_index = rutf8.codepoint_position_at_index(
-                        self._utf8, storage, end)
+        if start > 0:
+            if start > self._length:
+                start_index = end_index
+            else:
+                start_index = self._index_to_byte(start)
+        if end < self._length:
+            end_index = self._index_to_byte(end)
         return (start_index, end_index)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))

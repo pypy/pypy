@@ -80,6 +80,28 @@ class TestUnicodeObject:
                                     space.newint(start + len1))
         assert space.int_w(w_index) == rexpected
 
+        expected = u.startswith(v, start)
+        w_res = space.call_method(w_u, 'startswith', w_v,
+                                  space.newint(start))
+        assert w_res is space.newbool(expected)
+
+        expected = u.startswith(v, start, start + len1)
+        w_res = space.call_method(w_u, 'startswith', w_v,
+                                  space.newint(start),
+                                  space.newint(start + len1))
+        assert w_res is space.newbool(expected)
+
+        expected = u.endswith(v, start)
+        w_res = space.call_method(w_u, 'endswith', w_v,
+                                  space.newint(start))
+        assert w_res is space.newbool(expected)
+
+        expected = u.endswith(v, start, start + len1)
+        w_res = space.call_method(w_u, 'endswith', w_v,
+                                  space.newint(start),
+                                  space.newint(start + len1))
+        assert w_res is space.newbool(expected)
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
@@ -475,6 +497,9 @@ class AppTestUnicodeString:
         assert u''.startswith(u'a') is False
         assert u'x'.startswith(u'xx') is False
         assert u'y'.startswith(u'xx') is False
+        assert u'\u1234\u5678\u4321'.startswith(u'\u1234') is True
+        assert u'\u1234\u5678\u4321'.startswith(u'\u1234\u4321') is False
+        assert u'\u1234'.startswith(u'', 1, 0) is True
 
     def test_startswith_more(self):
         assert u'ab'.startswith(u'a', 0) is True
