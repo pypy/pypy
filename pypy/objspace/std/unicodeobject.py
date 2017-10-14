@@ -893,10 +893,11 @@ class W_UnicodeObject(W_Root):
     descr_rmul = descr_mul
 
     def _get_index_storage(self):
-        if self._index_storage == rutf8.null_storage():
-            self._index_storage = rutf8.create_utf8_index_storage(self._utf8,
-                self._length)
-        return self._index_storage
+        storage = jit.conditional_call_elidable(self._index_storage,
+                    rutf8.create_utf8_index_storage, self._utf8, self._length)
+        if not jit.isconstant(self):
+            self._index_storage = storage
+        return storage
 
     def _getitem_result(self, space, index):
         if index < 0:
