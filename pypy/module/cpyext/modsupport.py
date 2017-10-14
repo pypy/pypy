@@ -7,7 +7,7 @@ from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
     PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New,
-    W_PyCFunctionObjectNoArgs, W_PyCFunctionObjectSingleObject)
+    W_PyCFunctionObject_NOARGS, W_PyCFunctionObject_O)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import oefmt
@@ -84,9 +84,9 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
 def _create_pyc_function_object(space, method, w_self, w_name, flags):
     flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
     if flags == METH_NOARGS:
-        return W_PyCFunctionObjectNoArgs(space, method, w_self, w_name)
+        return W_PyCFunctionObject_NOARGS(space, method, w_self, w_name)
     if flags == METH_O:
-        return W_PyCFunctionObjectSingleObject(space, method, w_self, w_name)
+        return W_PyCFunctionObject_O(space, method, w_self, w_name)
     return W_PyCFunctionObject(space, method, w_self, w_name)
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
