@@ -69,14 +69,26 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              '''
              ),
             ])
-        tup, _ = mod.getarg_VARARGS()
+        # check that we pass the expected tuple of arguments AND that the
+        # recnt is 1. In particular, on PyPy refcnt==1 means that we created
+        # the PyObject tuple directly, without passing from a w_tuple; as
+        # such, the tuple will be immediately freed after the call, without
+        # having to wait until the GC runs.
+        #
+        tup, refcnt = mod.getarg_VARARGS()
         assert tup == ()
+        # the empty tuple is shared on CPython, so the refcnt will be >1. On
+        # PyPy it is not shared, though.
+        if not self.runappdirect:
+            assert refcnt == 1
         #
-        tup, _ = mod.getarg_VARARGS(1)
+        tup, refcnt = mod.getarg_VARARGS(1)
         assert tup == (1,)
+        assert refcnt == 1
         #
-        tup, _ = mod.getarg_VARARGS(1, 2, 3)
+        tup, refcnt = mod.getarg_VARARGS(1, 2, 3)
         assert tup == (1, 2, 3)
+        assert refcnt == 1
         #
         raises(TypeError, mod.getarg_VARARGS, k=1)
 

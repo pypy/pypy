@@ -15,6 +15,8 @@ from pypy.module.cpyext.api import (
     build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     decref, from_ref, make_ref, as_pyobj, make_typedescr)
+from pypy.module.cpyext.state import State
+from pypy.module.cpyext.tupleobject import PyTuple_SetItem
 
 PyMethodDef = cts.gettype('PyMethodDef')
 PyCFunction = cts.gettype('PyCFunction')
@@ -128,10 +130,18 @@ class W_PyCFunctionObject_VARARGS(W_PyCFunctionObject):
     # METH_VARARGS
 
     def descr_call(self, space, args_w):
+        state = space.fromcache(State)
         w_self = self.w_self
         func = self.ml.c_ml_meth
-        w_args = space.newtuple(args_w)
-        return generic_cpy_call(space, func, w_self, w_args)
+        n = len(args_w)
+        py_args = state.C.PyTuple_New(n)
+        for i, w_item in enumerate(args_w):
+            py_item = make_ref(space, w_item)
+            PyTuple_SetItem(space, py_args, i, py_item)
+        try:
+            return generic_cpy_call(space, func, w_self, py_args)
+        finally:
+            decref(space, py_args)
 
 class W_PyCMethodObject(W_PyCFunctionObject):
     w_self = None
