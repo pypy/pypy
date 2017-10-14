@@ -1,5 +1,7 @@
 import py
 import sys
+from hypothesis import given, strategies, settings, example
+from pypy.interpreter.error import OperationError
 
 
 class TestUnicodeObject:
@@ -31,6 +33,71 @@ class TestUnicodeObject:
         w_new = space.call_method(
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
+
+    @given(strategies.text(), strategies.integers(min_value=0, max_value=10),
+                              strategies.integers(min_value=-1, max_value=10))
+    def test_hypo_index_find(self, u, start, len1):
+        if start + len1 < 0:
+            return   # skip this case
+        v = u[start : start + len1]
+        space = self.space
+        w_u = space.wrap(u)
+        w_v = space.wrap(v)
+        expected = u.find(v, start, start + len1)
+        try:
+            w_index = space.call_method(w_u, 'index', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+        except OperationError as e:
+            if not e.match(space, space.w_ValueError):
+                raise
+            assert expected == -1
+        else:
+            assert space.int_w(w_index) == expected >= 0
+
+        w_index = space.call_method(w_u, 'find', w_v,
+                                    space.newint(start),
+                                    space.newint(start + len1))
+        assert space.int_w(w_index) == expected
+
+        rexpected = u.rfind(v, start, start + len1)
+        try:
+            w_index = space.call_method(w_u, 'rindex', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+        except OperationError as e:
+            if not e.match(space, space.w_ValueError):
+                raise
+            assert rexpected == -1
+        else:
+            assert space.int_w(w_index) == rexpected >= 0
+
+        w_index = space.call_method(w_u, 'rfind', w_v,
+                                    space.newint(start),
+                                    space.newint(start + len1))
+        assert space.int_w(w_index) == rexpected
+
+        expected = u.startswith(v, start)
+        w_res = space.call_method(w_u, 'startswith', w_v,
+                                  space.newint(start))
+        assert w_res is space.newbool(expected)
+
+        expected = u.startswith(v, start, start + len1)
+        w_res = space.call_method(w_u, 'startswith', w_v,
+                                  space.newint(start),
+                                  space.newint(start + len1))
+        assert w_res is space.newbool(expected)
+
+        expected = u.endswith(v, start)
+        w_res = space.call_method(w_u, 'endswith', w_v,
+                                  space.newint(start))
+        assert w_res is space.newbool(expected)
+
+        expected = u.endswith(v, start, start + len1)
+        w_res = space.call_method(w_u, 'endswith', w_v,
+                                  space.newint(start),
+                                  space.newint(start + len1))
+        assert w_res is space.newbool(expected)
 
 
 class AppTestUnicodeStringStdOnly:
