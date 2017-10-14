@@ -1025,8 +1025,9 @@ class EmptyListStrategy(ListStrategy):
             w_list.lstorage = strategy.erase(byteslist[:])
             return
 
-        unilist = space.listview_unicode(w_iterable)
-        if unilist is not None:
+        if False:
+          unilist = space.listview_unicode(w_iterable)
+          if unilist is not None:
             w_list.strategy = strategy = space.fromcache(UnicodeListStrategy)
             # need to copy because intlist can share with w_iterable
             w_list.lstorage = strategy.erase(unilist[:])
