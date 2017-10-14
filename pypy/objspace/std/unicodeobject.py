@@ -114,6 +114,7 @@ class W_UnicodeObject(W_Root):
         return space.newint(rutf8.codepoint_at_pos(self._utf8, 0))
 
     def _new(self, value):
+        assert isinstance(value, unicode)
         return W_UnicodeObject(value.encode('utf8'), len(value))
 
     def _new_from_list(self, value):
