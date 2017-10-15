@@ -1,6 +1,5 @@
 import py
 import sys
-from hypothesis import given, strategies, settings, example
 from pypy.interpreter.error import OperationError
 
 
@@ -34,13 +33,19 @@ class TestUnicodeObject:
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
 
-    @given(strategies.text(), strategies.integers(min_value=0, max_value=10),
-                              strategies.integers(min_value=-1, max_value=10))
-    def test_hypo_index_find(self, u, start, len1):
+
+try:
+    from hypothesis import given, strategies
+except ImportError:
+    pass
+else:
+    @given(u=strategies.text(),
+           start=strategies.integers(min_value=0, max_value=10),
+           len1=strategies.integers(min_value=-1, max_value=10))
+    def test_hypo_index_find(u, start, len1, space):
         if start + len1 < 0:
             return   # skip this case
         v = u[start : start + len1]
-        space = self.space
         w_u = space.wrap(u)
         w_v = space.wrap(v)
         expected = u.find(v, start, start + len1)
