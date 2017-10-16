@@ -65,7 +65,10 @@ PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
 
-#define _Py_NewReference(ob) (((PyObject *)(ob))->ob_refcnt = 1)
+#define _Py_NewReference(op)                                        \
+    ( ((PyObject *)(op))->ob_refcnt = 1,                            \
+      ((PyObject *)(op))->ob_pypy_link = 0 )
+
 #define _Py_ForgetReference(ob) /* nothing */
 
 #define Py_None (&_Py_NoneStruct)

@@ -52,6 +52,31 @@ class TestTupleObject(BaseApiTest):
         py_b = as_pyobj(space, w_b)
         assert py_a != py_b
 
+    def test_PyTuple_New_initialize_pypy_link(self, space, api):
+        from rpython.rlib.rawrefcount import _collect
+        state = space.fromcache(State)
+        # see object.c:_pypy_rawrefcount_w_marker_deallocating
+        MARKER = 0xDEADFFF
+        #
+        # first: create a pytuple, attach a w_obj, decref the pytuple and let
+        # the GC to collect the w_obj: this way, c_ob_pypy_link is set to
+        # w_marker_deallocating
+        py_a = state.C.PyTuple_New(0)
+        assert py_a.c_ob_pypy_link == 0
+        w_a = from_ref(space, py_a)
+        assert py_a.c_ob_pypy_link != 0
+        decref(space, py_a)
+        w_a = None
+        _collect()
+        assert py_a.c_ob_pypy_link == MARKER
+        #
+        # second: create another tuple, which will reuse the same memory as
+        # before thanks to the freelist. Check that c_ob_pypy_link has been
+        # initialized to 0.
+        py_b = state.C.PyTuple_New(0)
+        assert py_b == py_a
+        assert py_b.c_ob_pypy_link == 0
+
     def test_tuple_resize(self, space, api):
         state = space.fromcache(State)
         w_42 = space.wrap(42)
