@@ -40,6 +40,7 @@ compositions = [
 
 @pytest.mark.parametrize('NF1, NF2, NF3', compositions)
 @example(s=u'---\uafb8\u11a7---')  # issue 2289
+@example(s=u'\ufacf')
 @settings(max_examples=1000)
 @given(s=st.text())
 def test_composition(s, space, NF1, NF2, NF3):
