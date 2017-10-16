@@ -17,7 +17,16 @@ Py_DecRef(PyObject *o)
     Py_XDECREF(o);
 }
 
-Py_ssize_t _pypy_rawrefcount_w_marker_deallocating;  /* set from pyobject.py */
+/* 
+ * The actual value of this variable will be the address of
+ * pyobject.w_marker_deallocating, and will be set by
+ * pyobject.write_w_marker_deallocating().
+ *
+ * The value set here is used only as a marker by tests (because during the
+ * tests we cannot call set_marker(), so we need to set a special value
+ * directly here)
+ */
+Py_ssize_t _pypy_rawrefcount_w_marker_deallocating = 0xDEADFFF;
 
 void
 _Py_Dealloc(PyObject *obj)
