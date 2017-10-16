@@ -748,17 +748,6 @@ class UnicodeDocstrings:
         interpreted as in slice notation.
         """
 
-    def decode():
-        """S.decode(encoding=None, errors='strict') -> string or unicode
-
-        Decode S using the codec registered for encoding. encoding defaults
-        to the default encoding. errors may be given to set a different error
-        handling scheme. Default is 'strict' meaning that encoding errors raise
-        a UnicodeDecodeError. Other possible values are 'ignore' and 'replace'
-        as well as any other name registered with codecs.register_error that is
-        able to handle UnicodeDecodeErrors.
-        """
-
     def encode():
         """S.encode(encoding=None, errors='strict') -> string or unicode
 
