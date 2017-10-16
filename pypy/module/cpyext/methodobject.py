@@ -16,7 +16,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import (
     decref, from_ref, make_ref, as_pyobj, make_typedescr)
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext.tupleobject import PyTuple_SetItem
+from pypy.module.cpyext.tupleobject import tuple_from_args_w
 
 PyMethodDef = cts.gettype('PyMethodDef')
 PyCFunction = cts.gettype('PyCFunction')
@@ -133,11 +133,7 @@ class W_PyCFunctionObject_VARARGS(W_PyCFunctionObject):
         state = space.fromcache(State)
         w_self = self.w_self
         func = self.ml.c_ml_meth
-        n = len(args_w)
-        py_args = state.C.PyTuple_New(n)
-        for i, w_item in enumerate(args_w):
-            py_item = make_ref(space, w_item)
-            PyTuple_SetItem(space, py_args, i, py_item)
+        py_args = tuple_from_args_w(space, args_w)
         try:
             return generic_cpy_call(space, func, w_self, py_args)
         finally:

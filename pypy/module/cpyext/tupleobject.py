@@ -113,6 +113,14 @@ def tuple_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
+def tuple_from_args_w(space, args_w):
+    state = space.fromcache(State)
+    n = len(args_w)
+    py_tuple = state.C.PyTuple_New(n) # XXX: check for errors?
+    py_tuple = rffi.cast(PyTupleObject, py_tuple)
+    for i, w_obj in enumerate(args_w):
+        py_tuple.c_ob_item[i] = make_ref(space, w_obj)
+    return rffi.cast(PyObject, py_tuple)
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyTuple_SetItem(space, ref, index, py_obj):

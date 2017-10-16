@@ -6,7 +6,8 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.debug import FatalError
 from pypy.module.cpyext.tupleobject import (
-    PyTupleObject, PyTuple_Check, PyTuple_SetItem, PyTuple_Size)
+    PyTupleObject, PyTuple_Check, PyTuple_SetItem, PyTuple_Size,
+    tuple_from_args_w)
 from pypy.module.cpyext.state import State
 
 class TestTupleObject(BaseApiTest):
@@ -76,6 +77,16 @@ class TestTupleObject(BaseApiTest):
         py_b = state.C.PyTuple_New(0)
         assert py_b == py_a
         assert py_b.c_ob_pypy_link == 0
+
+    def test_tuple_from_args_w(self, space, api):
+        args_w = [space.newint(i) for i in (40, 41, 42)]
+        py_tuple = tuple_from_args_w(space, args_w)
+        assert py_tuple.c_ob_refcnt == 1
+        assert api.PyTuple_Size(py_tuple) == 3
+        py_items = [api.PyTuple_GetItem(py_tuple, i) for i in range(3)]
+        items = [api.PyInt_AsLong(py_obj) for py_obj in py_items]
+        assert items == [40, 41, 42]
+        decref(space, py_tuple)
 
     def test_tuple_resize(self, space, api):
         state = space.fromcache(State)
