@@ -436,9 +436,11 @@ class CallBuilder32(CallBuilderX86):
         self.subtract_esp_aligned(stack_depth - self.stack_max)
         #
         p = 0
+        num_moves = 0
         for i in range(n):
             loc = arglocs[i]
             if isinstance(loc, RegLoc):
+                num_moves += 1
                 if loc.is_xmm:
                     self.mc.MOVSD_sx(p, loc.value)
                 else:
@@ -449,11 +451,14 @@ class CallBuilder32(CallBuilderX86):
             loc = arglocs[i]
             if not isinstance(loc, RegLoc):
                 if loc.get_width() == 8:
+                    num_moves += 2
                     self.mc.MOVSD(xmm0, loc)
                     self.mc.MOVSD_sx(p, xmm0.value)
                 elif isinstance(loc, ImmedLoc):
+                    num_moves += 1
                     self.mc.MOV_si(p, loc.value)
                 else:
+                    num_moves += 2
                     self.mc.MOV(eax, loc)
                     self.mc.MOV_sr(p, eax.value)
             p += loc.get_width()
@@ -461,7 +466,7 @@ class CallBuilder32(CallBuilderX86):
         #
         if not self.fnloc_is_immediate:    # the last "argument" pushed above
             self.fnloc = RawEspLoc(p - WORD, INT)
-
+        self.num_moves = num_moves
 
     def emit_raw_call(self):
         if stdcall_or_cdecl and self.is_call_release_gil:

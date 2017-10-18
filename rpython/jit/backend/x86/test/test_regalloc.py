@@ -4,6 +4,7 @@ import pytest
 
 from rpython.jit.backend.llsupport.test import test_regalloc_integration
 from rpython.jit.backend.x86.assembler import Assembler386
+from rpython.jit.backend.x86.arch import IS_X86_64
 
 class LogEntry(object):
     def __init__(self, position, name, *args):
@@ -59,7 +60,7 @@ class LoggingAssembler(Assembler386):
         self._log("jump", self._regalloc.final_jump_op.getdescr()._x86_arglocs)
         return Assembler386.closing_jump(self, jump_target_descr)
 
-class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
+class BaseTestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
     def setup_class(cls):
         cls.cpu.assembler = LoggingAssembler(cls.cpu, False)
         cls.cpu.assembler.setup_once()
@@ -74,6 +75,7 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
     def filter_log_moves(self):
         return [entry for entry in self.log if entry.name == "mov"]
 
+class TestCheckRegistersExplicitly(BaseTestCheckRegistersExplicitly):
     def test_unused(self):
         ops = '''
         [i0, i1, i2, i3]
@@ -120,22 +122,6 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # two moves are needed from the stack frame to registers for arguments
         # i0 and i1, one for the result to the stack
         assert len(self.filter_log_moves()) == 3
-
-    def test_call_use_argument_twice(self):
-        ops = '''
-        [i0, i1, i2, i3]
-        i7 = int_add(i0, i1)
-        i8 = int_add(i2, 13)
-        i9 = call_i(ConstClass(f2ptr), i7, i7, descr=f2_calldescr)
-        i10 = int_is_true(i9)
-        guard_true(i10) [i8]
-        finish(i9)
-        '''
-        self.interpret(ops, [5, 6, 7, 8])
-        # two moves are needed from the stack frame to registers for arguments
-        # i0 and i1, one for the result to the stack
-        # one for the copy to the other argument register
-        assert len(self.filter_log_moves()) == 4
 
     @pytest.mark.skip("later")
     def test_same_stack_entry_many_times(self):
@@ -226,39 +212,6 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         # make sure that the arguments of the third op are not swapped (since
         # that would break coalescing between i7 and i9)
         assert op.args[1][0] is add1.args[-1]
-
-    def test_coalescing_float(self):
-        ops = '''
-        [f0, f1, f3]
-        f7 = float_add(f0, f1)
-        f8 = float_add(f7, f3)
-        f9 = call_f(ConstClass(ffptr), f8, 1.0, descr=ff_calldescr)
-        i10 = float_ne(f9, 0.0)
-        guard_true(i10) []
-        finish(f9)
-        '''
-        self.interpret(ops, [5.0, 6.0, 8.0])
-        assert len(self.filter_log_moves()) == 3
-
-    def test_malloc(self, monkeypatch):
-        ops = '''
-        [i0]
-        i1 = int_add(i0, 1) # this is using ecx or edx because it fits
-        i6 = int_add(i0, 6) # this is using ecx or edx because it fits
-        i2 = int_add(i6, i1)
-        p0 = call_malloc_nursery(16)
-        gc_store(p0, 0, 83944, 8)
-        gc_store(p0, 8, i2, 8)
-        i10 = int_is_true(i2)
-        guard_true(i10) [p0, i0]
-        finish(p0)
-        '''
-        monkeypatch.setattr(self.cpu.gc_ll_descr, "get_nursery_top_addr", lambda: 61)
-        monkeypatch.setattr(self.cpu.gc_ll_descr, "get_nursery_free_addr", lambda: 68)
-        self.interpret(ops, [0], run=False)
-        # 2 moves, because the call_malloc_nursery hints prevent using ecx and
-        # edx for any of the integer results
-        assert len(self.filter_log_moves()) == 2
 
     def test_jump_hinting(self):
         self.targettoken._ll_loop_code = 0
@@ -365,6 +318,60 @@ class TestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegalloc):
         self.interpret(ops, [0], run=False)
         # 4 moves, three for args, one for result
         assert len(self.filter_log_moves()) == 4
+
+class TestCheckRegistersExplicitly64(BaseTestCheckRegistersExplicitly):
+    def setup_class(self):
+        if not IS_X86_64:
+            pytest.skip("needs 64 bit")
+
+    def test_call_use_argument_twice(self):
+        ops = '''
+        [i0, i1, i2, i3]
+        i7 = int_add(i0, i1)
+        i8 = int_add(i2, 13)
+        i9 = call_i(ConstClass(f2ptr), i7, i7, descr=f2_calldescr)
+        i10 = int_is_true(i9)
+        guard_true(i10) [i8]
+        finish(i9)
+        '''
+        self.interpret(ops, [5, 6, 7, 8])
+        # two moves are needed from the stack frame to registers for arguments
+        # i0 and i1, one for the result to the stack
+        # one for the copy to the other argument register
+        assert len(self.filter_log_moves()) == 4
+
+    def test_coalescing_float(self):
+        ops = '''
+        [f0, f1, f3]
+        f7 = float_add(f0, f1)
+        f8 = float_add(f7, f3)
+        f9 = call_f(ConstClass(ffptr), f8, 1.0, descr=ff_calldescr)
+        i10 = float_ne(f9, 0.0)
+        guard_true(i10) []
+        finish(f9)
+        '''
+        self.interpret(ops, [5.0, 6.0, 8.0])
+        assert len(self.filter_log_moves()) == 3
+
+    def test_malloc(self, monkeypatch):
+        ops = '''
+        [i0]
+        i1 = int_add(i0, 1) # this is using ecx or edx because it fits
+        i6 = int_add(i0, 6) # this is using ecx or edx because it fits
+        i2 = int_add(i6, i1)
+        p0 = call_malloc_nursery(16)
+        gc_store(p0, 0, 83944, 8)
+        gc_store(p0, 8, i2, 8)
+        i10 = int_is_true(i2)
+        guard_true(i10) [p0, i0]
+        finish(p0)
+        '''
+        monkeypatch.setattr(self.cpu.gc_ll_descr, "get_nursery_top_addr", lambda: 61)
+        monkeypatch.setattr(self.cpu.gc_ll_descr, "get_nursery_free_addr", lambda: 68)
+        self.interpret(ops, [0], run=False)
+        # 2 moves, because the call_malloc_nursery hints prevent using ecx and
+        # edx for any of the integer results
+        assert len(self.filter_log_moves()) == 2
 
     def test_dict_lookup(self, monkeypatch):
         monkeypatch.setattr(self.cpu.gc_ll_descr, "get_nursery_top_addr", lambda: 61)
