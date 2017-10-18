@@ -70,6 +70,17 @@ class AppTestLong:
         a = x // 10000000L
         assert a == 3L
 
+    def test_int_floordiv(self):
+        x = 3000L
+        a = x // 1000
+        assert a == 3L
+
+        x = 3000L
+        a = x // -1000
+        assert a == -3L
+
+
+
     def test_numerator_denominator(self):
         assert (1L).numerator == 1L
         assert (1L).denominator == 1L
@@ -208,6 +219,11 @@ class AppTestLong:
         check_division(x, y)
         raises(ZeroDivisionError, "x // 0L")
 
+    def test_int_divmod(self):
+        q, r = divmod(100L, 11)
+        assert q == 9L
+        assert r == 1L
+        
     def test_format(self):
         assert repr(12345678901234567890) == '12345678901234567890L'
         assert str(12345678901234567890) == '12345678901234567890'
@@ -386,3 +402,4 @@ class AppTestLong:
         n = "a" * size
         expected = (2 << (size * 4)) // 3
         assert long(n, 16) == expected
+

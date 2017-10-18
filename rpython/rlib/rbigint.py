@@ -781,7 +781,34 @@ class rbigint(object):
 
     def div(self, other):
         return self.floordiv(other)
+        
+    @jit.elidable
+    def int_floordiv(self, b):
+        if not int_in_valid_range(b):
+            # Fallback to long.
+            return self.mul(rbigint.fromint(b))
+        
+        digit = abs(b)
+        assert digit > 0
 
+        if self.sign == 1 and b > 0:
+            if digit == 1:
+                return self
+            """elif digit & (digit - 1) == 0:
+                return self.rshift(ptwotable[digit])
+            """
+        div, mod = _divrem1(self, digit)
+
+        if mod != 0 and self.sign * (-1 if b < 0 else 1) == -1:
+            if div.sign == 0:
+                return ONENEGATIVERBIGINT
+            div = div.int_add(1)
+        div.sign = self.sign * (-1 if b < 0 else 1)
+        return div
+
+    def int_div(self, other):
+        return self.int_floordiv(other)
+        
     @jit.elidable
     def mod(self, other):
         if self.sign == 0:
@@ -887,6 +914,30 @@ class rbigint(object):
             div = div.int_sub(1)
         return div, mod
 
+    @jit.elidable
+    def int_divmod(v, w):
+        """ Divmod with int """
+
+        if w == 0:
+            raise ZeroDivisionError("long division or modulo by zero")
+
+        wsign = (-1 if w < 0 else 1)
+        if not int_in_valid_range(w) or v.sign != wsign:
+            # Divrem1 doesn't deal with the sign difference. Instead of having yet another copy,
+            # Just fallback.
+            return v.divmod(rbigint.fromint(w))
+
+        digit = abs(w)
+        assert digit > 0
+
+        div, mod = _divrem1(v, digit)
+        mod = rbigint.fromint(mod)
+        
+        mod.sign = wsign
+        div.sign = v.sign * wsign
+
+        return div, mod
+        
     @jit.elidable
     def pow(a, b, c=None):
         negativeOutput = False  # if x<0 return negative output
