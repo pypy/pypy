@@ -491,18 +491,17 @@ class W_LongObject(W_AbstractLongObject):
                         "long division or modulo by zero")
         return newlong(space, z)
 
-    def _int_floordiv(self, space, w_other):
+    def _floordiv(self, space, w_other):
         try:
-            z = self.num.int_floordiv(w_other)
+            z = self.num.floordiv(w_other.asbigint())
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
         return newlong(space, z)
-    descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv, _int_floordiv)
+    descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
 
     _div = func_with_new_name(_floordiv, '_div')
-    _int_div = func_with_new_name(_int_floordiv, '_int_div')
-    descr_div, descr_rdiv = _make_descr_binop(_div, _int_div)
+    descr_div, descr_rdiv = _make_descr_binop(_div)
 
     def _mod(self, space, w_other):
         try:
@@ -528,16 +527,7 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
         return space.newtuple([newlong(space, div), newlong(space, mod)])
-        
-    def _int_divmod(self, space, w_other):
-        try:
-            div, mod = self.num.int_divmod(w_other)
-        except ZeroDivisionError:
-            raise oefmt(space.w_ZeroDivisionError,
-                        "long division or modulo by zero")
-        return space.newtuple([newlong(space, div), newlong(space, mod)])
-        
-    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod, _int_divmod)
+    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
 
 
 def newlong(space, bigint):
