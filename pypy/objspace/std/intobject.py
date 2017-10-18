@@ -268,7 +268,7 @@ def _pow(space, iv, iw, iz):
     return ix
 
 
-def _pow_ovf2long(space, iv, iw, w_modulus):
+def _pow_ovf2long(space, iv, iw, iw_obj, w_modulus):
     if space.is_none(w_modulus) and _recover_with_smalllong(space):
         from pypy.objspace.std.smalllongobject import _pow as _pow_small
         try:
@@ -279,8 +279,8 @@ def _pow_ovf2long(space, iv, iw, w_modulus):
             pass
     from pypy.objspace.std.longobject import W_LongObject
     w_iv = W_LongObject.fromint(space, iv)
-    w_iw = W_LongObject.fromint(space, iw)
-    return w_iv.descr_pow(space, w_iw, w_modulus)
+
+    return w_iv.descr_pow(space, iw_obj, w_modulus)
 
 
 def _make_ovf2long(opname, ovf2small=None):
@@ -292,17 +292,16 @@ def _make_ovf2long(opname, ovf2small=None):
         if _recover_with_smalllong(space):
             if ovf2small:
                 return ovf2small(space, x, y)
-            # Assume a generic operation without an explicit ovf2small
+            # Assume a generic operation without an explicit #iovf2small
             # handler
             from pypy.objspace.std.smalllongobject import W_SmallLongObject
             a = r_longlong(x)
             b = r_longlong(y)
             return W_SmallLongObject(op(a, b))
-	
+
         from pypy.objspace.std.longobject import W_LongObject
         w_x = W_LongObject.fromint(space, x)
-        #w_y = W_LongObject.fromint(space, y)
-	
+
         return getattr(w_x, 'descr_' + opname)(space, y_obj)
 
     return ovf2long
@@ -472,12 +471,12 @@ class W_IntObject(W_AbstractIntObject):
             # can't return NotImplemented (space.pow doesn't do full
             # ternary, i.e. w_modulus.__zpow__(self, w_exponent)), so
             # handle it ourselves
-            return _pow_ovf2long(space, x, y, w_modulus)
+            return _pow_ovf2long(space, x, y, w_exponent, w_modulus)
 
         try:
             result = _pow(space, x, y, z)
         except (OverflowError, ValueError):
-            return _pow_ovf2long(space, x, y, w_modulus)
+            return _pow_ovf2long(space, x, y, w_exponent, w_modulus)
         return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
