@@ -283,6 +283,7 @@ class _SSLSocket(W_Root):
         sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
         self.ssl = libssl_SSL_new(w_ctx.ctx)  # new ssl struct
 
+        rgc.add_memory_pressure(6 * 1024)
         self.register_finalizer(space)
 
         index = compute_unique_id(self)
@@ -1315,7 +1316,7 @@ class _SSLContext(W_Root):
         if not ctx:
             raise ssl_error(space, "failed to allocate SSL context")
 
-        rgc.add_memory_pressure(10 * 1024)
+        rgc.add_memory_pressure(10 * 1024 * 1024)
         self = space.allocate_instance(_SSLContext, w_subtype)
         self.ctx = ctx
         self.check_hostname = False

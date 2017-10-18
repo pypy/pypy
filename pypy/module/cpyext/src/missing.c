@@ -27,3 +27,7 @@ int _Py_QnewFlag = 0;
 int Py_Py3kWarningFlag = 0;
 int Py_HashRandomizationFlag = 0;
 
+const char *Py_FileSystemDefaultEncoding;  /* filled when cpyext is imported */
+void _Py_setfilesystemdefaultencoding(const char *enc) {
+    Py_FileSystemDefaultEncoding = enc;
+}

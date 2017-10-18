@@ -145,6 +145,9 @@ def llexternal(name, args, result, _callable=None,
         # Also, _nowrapper functions cannot release the GIL, by default.
         invoke_around_handlers = not sandboxsafe and not _nowrapper
 
+    if _nowrapper and isinstance(_callable, ll2ctypes.LL2CtypesCallable):
+        kwds['_real_integer_addr'] = _callable.get_real_address
+
     if random_effects_on_gcobjs not in (False, True):
         random_effects_on_gcobjs = (
             invoke_around_handlers or   # because it can release the GIL
