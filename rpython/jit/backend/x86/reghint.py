@@ -14,8 +14,11 @@ from rpython.jit.backend.llsupport.regalloc import (SAVE_DEFAULT_REGS,
      SAVE_GCREF_REGS, SAVE_ALL_REGS)
 
 from rpython.jit.backend.x86.regalloc import (
+    X86RegisterManager, X86XMMRegisterManager,
     X86_64_RegisterManager, X86_64_XMMRegisterManager, compute_gc_level
-    )
+)
+
+from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 
 # tell the register allocator hints about which variables should be placed in
 # what registers (those are just hints, the register allocator will try its
@@ -153,33 +156,43 @@ for name, value in X86RegisterHints.__dict__.iteritems():
         num = getattr(rop, name.upper())
         oplist[num] = value
 
+class CallHints32(object):
+    RegisterManager = X86RegisterManager
+    XMMRegisterManager = X86XMMRegisterManager
+
+    def _block_non_caller_save(self, position, save_all_regs, hinted_gpr=None, hinted_xmm=None):
+        if hinted_gpr is None:
+            hinted_gpr = []
+        if hinted_xmm is None:
+            hinted_xmm = []
+        # block all remaining registers that are not caller save
+
+        # XXX the case save_all_regs == SAVE_GCREF_REGS
+        # (save callee-save regs + gc ptrs) is no expressible atm
+        if save_all_regs == SAVE_ALL_REGS:
+            regs = self.RegisterManager.all_regs
+        else:
+            regs = self.RegisterManager.save_around_call_regs
+        for reg in regs:
+            if reg not in hinted_gpr:
+                self.longevity.fixed_register(position, reg)
+        for reg in self.XMMRegisterManager.all_regs:
+            if reg not in hinted_xmm:
+                self.longevity.fixed_register(position, reg)
+
+    def hint(self, position, args, argtypes, save_all_regs):
+        self._block_non_caller_save(position, save_all_regs)
 
 
-class CallHints64(object):
-
+class CallHints64(CallHints32):
     ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
     ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
 
+    RegisterManager = X86_64_RegisterManager
+    XMMRegisterManager = X86_64_XMMRegisterManager
 
     def __init__(self, longevity):
         self.longevity = longevity
-
-    def _unused_gpr(self):
-        i = self.next_arg_gpr
-        self.next_arg_gpr = i + 1
-        try:
-            res = self.ARGUMENTS_GPR[i]
-        except IndexError:
-            return None
-        return res
-
-    def _unused_xmm(self):
-        i = self.next_arg_xmm
-        self.next_arg_xmm = i + 1
-        try:
-            return self.ARGUMENTS_XMM[i]
-        except IndexError:
-            return None
 
     def hint(self, position, args, argtypes, save_all_regs):
         hinted_xmm = []
@@ -205,17 +218,10 @@ class CallHints64(object):
                         hinted_gpr.append(tgt)
                         hinted_args.append(arg)
                     next_arg_gpr += 1
-        # block all remaining registers that are not caller save
+        self._block_non_caller_save(position, save_all_regs, hinted_gpr, hinted_xmm)
 
-        # XXX the case save_all_regs == SAVE_GCREF_REGS
-        # (save callee-save regs + gc ptrs) is no expressible atm
-        if save_all_regs == SAVE_ALL_REGS:
-            regs = X86_64_RegisterManager.all_regs
-        else:
-            regs = X86_64_RegisterManager.save_around_call_regs
-        for reg in regs:
-            if reg not in hinted_gpr:
-                self.longevity.fixed_register(position, reg)
-        for reg in X86_64_XMMRegisterManager.all_regs:
-            if reg not in hinted_xmm:
-                self.longevity.fixed_register(position, reg)
+
+if IS_X86_32:
+    CallHints = CallHints32
+if IS_X86_64:
+    CallHints = CallHints64
