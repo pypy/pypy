@@ -287,7 +287,7 @@ def _make_ovf2long(opname, ovf2small=None):
     op = getattr(operator, opname, None)
     assert op or ovf2small
 
-    def ovf2long(space, x, y):
+    def ovf2long(space, x, y, y_obj):
         """Handle overflowing to smalllong or long"""
         if _recover_with_smalllong(space):
             if ovf2small:
@@ -298,11 +298,12 @@ def _make_ovf2long(opname, ovf2small=None):
             a = r_longlong(x)
             b = r_longlong(y)
             return W_SmallLongObject(op(a, b))
-
+	
         from pypy.objspace.std.longobject import W_LongObject
         w_x = W_LongObject.fromint(space, x)
-        w_y = W_LongObject.fromint(space, y)
-        return getattr(w_x, 'descr_' + opname)(space, w_y)
+        #w_y = W_LongObject.fromint(space, y)
+	
+        return getattr(w_x, 'descr_' + opname)(space, y_obj)
 
     return ovf2long
 
@@ -521,7 +522,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     z = ovfcheck(op(x, y))
                 except OverflowError:
-                    return ovf2long(space, x, y)
+                    return ovf2long(space, x, y, w_other)
             else:
                 z = op(x, y)
             return wrapint(space, z)
@@ -543,7 +544,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     z = ovfcheck(op(y, x))
                 except OverflowError:
-                    return ovf2long(space, y, x)
+                    return ovf2long(space, y, x, w_other)
             else:
                 z = op(y, x)
             return wrapint(space, z)
@@ -574,7 +575,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     return func(space, x, y)
                 except OverflowError:
-                    return ovf2long(space, x, y)
+                    return ovf2long(space, x, y, w_other)
             else:
                 return func(space, x, y)
 
@@ -589,7 +590,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     return func(space, y, x)
                 except OverflowError:
-                    return ovf2long(space, y, x)
+                    return ovf2long(space, y, x, w_other)
             else:
                 return func(space, y, x)
 
