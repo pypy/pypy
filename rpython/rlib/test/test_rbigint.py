@@ -64,6 +64,29 @@ class TestRLong(object):
                 r2 = op1 // op2
                 assert r1.tolong() == r2
 
+    def test_int_floordiv(self):
+        x = 1000L
+        r = rbigint.fromlong(x)
+        r2 = r.int_floordiv(10)
+        assert r2.tolong() == 100L
+
+        assert py.test.raises(ZeroDivisionError, r.int_floordiv, 0)
+
+        # Error pointed out by Armin Rigo
+        n = sys.maxint+1
+        r = rbigint.fromlong(n)
+        assert r.int_floordiv(int(-n)).tolong() == -1L
+        
+        for x in (1, 1000, sys.maxint):
+            r = rbigint.fromlong(x)
+            rn = rbigint.fromlong(-x)
+            res = r.int_floordiv(x)
+            res2 = r.int_floordiv(-x)
+            res3 = rn.int_floordiv(x)
+            assert res.tolong() == 1L
+            assert res2.tolong() == -1L
+            assert res3.tolong() == -1L        
+
     def test_truediv(self):
         for op1 in gen_signs(long_vals_not_too_big):
             for op2 in gen_signs(long_vals):
