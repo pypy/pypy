@@ -395,10 +395,14 @@ class W_LongObject(W_AbstractLongObject):
         methname = opname + '_' if opname in ('and', 'or') else opname
         descr_rname = 'descr_r' + opname
         op = getattr(rbigint, methname)
+        intop = getattr(rbigint, 'int_' + methname)
 
         @func_renamer('descr_' + opname)
-        @delegate_other
         def descr_binop(self, space, w_other):
+            if isinstance(w_other, W_AbstractIntObject):
+                return W_LongObject(intop(self.num, w_other.int_w(space)))
+            elif not isinstance(w_other, W_AbstractLongObject):
+                return space.w_NotImplemented
             return W_LongObject(op(self.num, w_other.asbigint()))
 
         @func_renamer(descr_rname)
