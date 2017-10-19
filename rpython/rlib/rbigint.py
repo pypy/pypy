@@ -748,8 +748,6 @@ class rbigint(object):
             return rbigint(self._digits[:asize], self.sign * bsign, asize)
         elif digit & (digit - 1) == 0:
             result = self.lqshift(ptwotable[digit])
-        elif digit == 10:
-            result = self.lqshift(3).add(self.lqshift(1))
         elif asize == 1:
             res = self.widedigit(0) * digit
             carry = res >> SHIFT
