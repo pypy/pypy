@@ -108,6 +108,7 @@ _load_unsigned_digit._always_inline_ = True
 
 NULLDIGIT = _store_digit(0)
 ONEDIGIT = _store_digit(1)
+NULLDIGITS = [NULLDIGIT]
 
 def _check_digits(l):
     for x in l:
@@ -139,7 +140,7 @@ class rbigint(object):
     _immutable_ = True
     _immutable_fields_ = ["_digits"]
 
-    def __init__(self, digits=[NULLDIGIT], sign=0, size=0):
+    def __init__(self, digits=NULLDIGITS, sign=0, size=0):
         if not we_are_translated():
             _check_digits(digits)
         make_sure_not_resized(digits)
@@ -742,9 +743,13 @@ class rbigint(object):
         bsign = -1 if b < 0 else 1
 
         if digit == 1:
-            if self.sign == bsign:
+            if bsign == 1:
                 return self
-            return rbigint(self._digits[:self.numdigits()], self.sign * bsign, asize)
+            return rbigint(self._digits[:asize], self.sign * bsign, asize)
+        elif digit & (digit - 1) == 0:
+            result = self.lqshift(ptwotable[digit])
+        elif digit == 10:
+            result = self.lqshift(3).add(self.lqshift(1))
         elif asize == 1:
             res = self.widedigit(0) * digit
             carry = res >> SHIFT
@@ -752,9 +757,6 @@ class rbigint(object):
                 return rbigint([_store_digit(res & MASK), _store_digit(carry)], self.sign * bsign, 2)
             else:
                 return rbigint([_store_digit(res & MASK)], self.sign * bsign, 1)
-
-        elif digit & (digit - 1) == 0:
-            result = self.lqshift(ptwotable[digit])
         else:
             result = _muladd1(self, digit)
 
@@ -1395,7 +1397,7 @@ class rbigint(object):
             self.size = i
         if self.numdigits() == 1 and self._digits[0] == NULLDIGIT:
             self.sign = 0
-            self._digits = [NULLDIGIT]
+            self._digits = NULLDIGITS
 
     _normalize._always_inline_ = True
 
@@ -1486,7 +1488,7 @@ def args_from_rarith_int1(x):
     if x > 0:
         return digits_from_nonneg_long(x), 1
     elif x == 0:
-        return [NULLDIGIT], 0
+        return NULLDIGITS, 0
     elif x != most_neg_value_of_same_type(x):
         # normal case
         return digits_from_nonneg_long(-x), -1
@@ -1504,7 +1506,7 @@ def args_from_rarith_int(x):
 def args_from_long(x):
     if x >= 0:
         if x == 0:
-            return [NULLDIGIT], 0
+            return NULLDIGITS, 0
         else:
             return digits_from_nonneg_long(x), 1
     else:
@@ -1766,8 +1768,8 @@ def _kmul_split(n, size):
     size_lo = min(size_n, size)
 
     # We use "or" her to avoid having a check where list can be empty in _normalize.
-    lo = rbigint(n._digits[:size_lo] or [NULLDIGIT], 1)
-    hi = rbigint(n._digits[size_lo:n.size] or [NULLDIGIT], 1)
+    lo = rbigint(n._digits[:size_lo] or NULLDIGITS, 1)
+    hi = rbigint(n._digits[size_lo:n.size] or NULLDIGITS, 1)
     lo._normalize()
     hi._normalize()
     return hi, lo

@@ -28,8 +28,8 @@ long_vals = long_vals_not_too_big + [
 
 class TestRLong(object):
     def test_simple(self):
-        for op1 in [-2, -1, 0, 1, 2, 50]:
-            for op2 in [-2, -1, 0, 1, 2, 50]:
+        for op1 in [-2, -1, 0, 1, 2, 10, 50]:
+            for op2 in [-2, -1, 0, 1, 2, 10, 50]:
                 rl_op1 = rbigint.fromint(op1)
                 rl_op2 = rbigint.fromint(op2)
                 for op in "add sub mul".split():
