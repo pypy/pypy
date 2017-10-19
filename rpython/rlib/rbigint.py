@@ -927,20 +927,29 @@ class rbigint(object):
             raise ZeroDivisionError("long division or modulo by zero")
 
         wsign = (-1 if w < 0 else 1)
-        if not int_in_valid_range(w) or v.sign != wsign:
-            # Divrem1 doesn't deal with the sign difference. Instead of having yet another copy,
+        if not int_in_valid_range(w) or (wsign == -1 and v.sign != wsign):
             # Just fallback.
             return v.divmod(rbigint.fromint(w))
-
+            
+        
         digit = abs(w)
         assert digit > 0
 
         div, mod = _divrem1(v, digit)
-        mod = rbigint.fromint(mod * wsign)
-        
-        #mod.sign = wsign
-        div.sign = v.sign * wsign
 
+        div.sign = v.sign * wsign
+            
+        
+        
+        if v.sign != wsign:
+            if div.sign == 0:
+                div = NEGATIVERBIGINT
+            else:
+                div = div.int_sub(1)
+            mod = w - mod
+            
+        mod = rbigint.fromint(wsign * mod)
+        
         return div, mod
         
     @jit.elidable
@@ -994,9 +1003,7 @@ class rbigint(object):
         elif a.sign == 0:
             return NULLRBIGINT
         elif size_b == 1:
-            if b._digits[0] == NULLDIGIT:
-                return ONERBIGINT if a.sign == 1 else ONENEGATIVERBIGINT
-            elif b._digits[0] == ONEDIGIT:
+            if b._digits[0] == ONEDIGIT:
                 return a
             elif a.numdigits() == 1:
                 adigit = a.digit(0)
@@ -1083,6 +1090,89 @@ class rbigint(object):
             z = z.sub(c)
         return z
 
+    @jit.elidable
+    def int_pow(a, b, c=None):
+        negativeOutput = False  # if x<0 return negative output
+
+        # 5-ary values.  If the exponent is large enough, table is
+        # precomputed so that table[i] == a**i % c for i in range(32).
+        # python translation: the table is computed when needed.
+
+        if b < 0:  # if exponent is negative
+            if c is not None:
+                raise TypeError(
+                    "pow() 2nd argument "
+                    "cannot be negative when 3rd argument specified")
+            # XXX failed to implement
+            raise ValueError("bigint pow() too negative")
+
+        if c is not None:
+            if c.sign == 0:
+                raise ValueError("pow() 3rd argument cannot be 0")
+
+            # if modulus < 0:
+            #     negativeOutput = True
+            #     modulus = -modulus
+            if c.sign < 0:
+                negativeOutput = True
+                c = c.neg()
+
+            # if modulus == 1:
+            #     return 0
+            if c.numdigits() == 1 and c._digits[0] == ONEDIGIT:
+                return NULLRBIGINT
+
+            # Reduce base by modulus in some cases:
+            # 1. If base < 0.  Forcing the base non-neg makes things easier.
+            # 2. If base is obviously larger than the modulus.  The "small
+            #    exponent" case later can multiply directly by base repeatedly,
+            #    while the "large exponent" case multiplies directly by base 31
+            #    times.  It can be unboundedly faster to multiply by
+            #    base % modulus instead.
+            # We could _always_ do this reduction, but mod() isn't cheap,
+            # so we only do it when it buys something.
+            if a.sign < 0 or a.numdigits() > c.numdigits():
+                a = a.mod(c)
+
+        elif b == 0:
+            return ONERBIGINT
+        elif a.sign == 0:
+            return NULLRBIGINT
+
+        if b == 1:
+            return a
+        elif a.numdigits() == 1:
+            adigit = a.digit(0)
+            if adigit == 1:
+                if a.sign == -1 and b % 2:
+                    return ONENEGATIVERBIGINT
+                return ONERBIGINT
+            elif adigit & (adigit - 1) == 0:
+                ret = a.lshift(((b-1)*(ptwotable[adigit]-1)) + b-1)
+                if a.sign == -1 and not b % 2:
+                    ret.sign = 1
+                return ret
+
+        # At this point a, b, and c are guaranteed non-negative UNLESS
+        # c is NULL, in which case a may be negative. */
+
+        z = rbigint([ONEDIGIT], 1, 1)
+
+        # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
+        # into helper function result = _help_mult(x, y, c)
+        # Left-to-right binary exponentiation (HAC Algorithm 14.79)
+        # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
+        j = 1 << (SHIFT-1)
+        while j != 0:
+            z = _help_mult(z, z, c)
+            if b & j:
+                z = _help_mult(z, a, c)
+            j >>= 1
+
+        if negativeOutput and z.sign != 0:
+            z = z.sub(c)
+        return z
+        
     @jit.elidable
     def neg(self):
         return rbigint(self._digits, -self.sign, self.numdigits())

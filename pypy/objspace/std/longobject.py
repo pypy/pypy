@@ -309,27 +309,45 @@ class W_LongObject(W_AbstractLongObject):
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_modulus=None):
         if isinstance(w_exponent, W_AbstractIntObject):
-            w_exponent = w_exponent.descr_long(space)
+            exp_int = w_exponent.int_w(space)
+            sign = 0
+            use_int = True
+            if exp_int > 0:
+                sign = 1
+            elif exp_int < 0:
+                sign = -1
         elif not isinstance(w_exponent, W_AbstractLongObject):
             return space.w_NotImplemented
-
+        else:
+            exp_bigint = w_exponent.asbigint()
+            sign = exp_bigint.sign
+            use_int = False
+            
         if space.is_none(w_modulus):
-            if w_exponent.asbigint().sign < 0:
+            if sign < 0:
                 self = self.descr_float(space)
                 w_exponent = w_exponent.descr_float(space)
                 return space.pow(self, w_exponent, space.w_None)
-            return W_LongObject(self.num.pow(w_exponent.asbigint()))
+            if use_int:
+                return W_LongObject(self.num.int_pow(exp_int))
+            else:
+                return W_LongObject(self.num.pow(exp_bigint))
+                
         elif isinstance(w_modulus, W_AbstractIntObject):
             w_modulus = w_modulus.descr_long(space)
+            
         elif not isinstance(w_modulus, W_AbstractLongObject):
             return space.w_NotImplemented
 
-        if w_exponent.asbigint().sign < 0:
+        if sign < 0:
             raise oefmt(space.w_TypeError,
                         "pow() 2nd argument cannot be negative when 3rd "
                         "argument specified")
         try:
-            result = self.num.pow(w_exponent.asbigint(), w_modulus.asbigint())
+            if use_int:
+                result = self.num.int_pow(exp_int, w_modulus.asbigint())
+            else:
+                result = self.num.pow(exp_bigint, w_modulus.asbigint())
         except ValueError:
             raise oefmt(space.w_ValueError, "pow 3rd argument cannot be 0")
         return W_LongObject(result)

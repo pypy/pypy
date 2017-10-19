@@ -164,6 +164,13 @@ class TestRLong(object):
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
 
+    def test_int_pow(self):
+        for op1 in gen_signs(long_vals_not_too_big[:-2]):
+            for op2 in [0, 1, 2, 8, 9, 10, 11]:
+                rl_op1 = rbigint.fromlong(op1)
+                r1 = rl_op1.int_pow(op2)
+                r2 = op1 ** op2
+                assert r1.tolong() == r2
     def test_touint(self):
         result = r_uint(sys.maxint + 42)
         rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))
@@ -781,6 +788,20 @@ class TestInternalFunctions(object):
                 assert div.tolong() == _div
                 assert rem.tolong() == _rem
 
+    def test_int_divmod(self):
+         x = 12345678901234567890L
+         for i in range(10):
+             y = randint(0, 1 << 12)
+             for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
+                 sx *= x
+                 sy *= y
+                 f1 = rbigint.fromlong(sx)
+                 div, rem = f1.int_divmod(sy)
+                 _div, _rem = divmod(sx, sy)
+                 print sx, sy, " | ", div.tolong(), rem.tolong()
+                 assert div.tolong() == _div
+                 assert rem.tolong() == _rem
+         
     # testing Karatsuba stuff
     def test__v_iadd(self):
         f1 = bigint([lobj.MASK] * 10, 1)
