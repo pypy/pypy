@@ -742,6 +742,8 @@ class rbigint(object):
         bsign = -1 if b < 0 else 1
 
         if digit == 1:
+            if self.sign == bsign:
+                return self
             return rbigint(self._digits[:self.numdigits()], self.sign * bsign, asize)
         elif asize == 1:
             res = self.widedigit(0) * digit
