@@ -939,7 +939,7 @@ class rbigint(object):
             
         if v.sign != wsign:
             if div.sign == 0:
-                div = NEGATIVERBIGINT
+                div = ONENEGATIVERBIGINT
             else:
                 div = div.int_sub(1)
             mod = w - mod

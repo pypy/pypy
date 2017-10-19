@@ -308,10 +308,12 @@ class W_LongObject(W_AbstractLongObject):
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_modulus=None):
+        exp_int = 0
+        exp_bigint = None
+        sign = 0
+        
         if isinstance(w_exponent, W_AbstractIntObject):
             exp_int = w_exponent.int_w(space)
-            sign = 0
-            use_int = True
             if exp_int > 0:
                 sign = 1
             elif exp_int < 0:
@@ -321,14 +323,13 @@ class W_LongObject(W_AbstractLongObject):
         else:
             exp_bigint = w_exponent.asbigint()
             sign = exp_bigint.sign
-            use_int = False
             
         if space.is_none(w_modulus):
             if sign < 0:
                 self = self.descr_float(space)
                 w_exponent = w_exponent.descr_float(space)
                 return space.pow(self, w_exponent, space.w_None)
-            if use_int:
+            if not exp_bigint:
                 return W_LongObject(self.num.int_pow(exp_int))
             else:
                 return W_LongObject(self.num.pow(exp_bigint))
@@ -344,7 +345,7 @@ class W_LongObject(W_AbstractLongObject):
                         "pow() 2nd argument cannot be negative when 3rd "
                         "argument specified")
         try:
-            if use_int:
+            if not exp_bigint:
                 result = self.num.int_pow(exp_int, w_modulus.asbigint())
             else:
                 result = self.num.pow(exp_bigint, w_modulus.asbigint())
