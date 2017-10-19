@@ -931,16 +931,12 @@ class rbigint(object):
             # Just fallback.
             return v.divmod(rbigint.fromint(w))
             
-        
         digit = abs(w)
         assert digit > 0
 
         div, mod = _divrem1(v, digit)
-
         div.sign = v.sign * wsign
             
-        
-        
         if v.sign != wsign:
             if div.sign == 0:
                 div = NEGATIVERBIGINT
