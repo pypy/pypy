@@ -746,8 +746,6 @@ class rbigint(object):
             if bsign == 1:
                 return self
             return rbigint(self._digits[:asize], self.sign * bsign, asize)
-        elif digit & (digit - 1) == 0:
-            result = self.lqshift(ptwotable[digit])
         elif asize == 1:
             res = self.widedigit(0) * digit
             carry = res >> SHIFT
@@ -755,6 +753,8 @@ class rbigint(object):
                 return rbigint([_store_digit(res & MASK), _store_digit(carry)], self.sign * bsign, 2)
             else:
                 return rbigint([_store_digit(res & MASK)], self.sign * bsign, 1)
+        elif digit & (digit - 1) == 0:
+            result = self.lqshift(ptwotable[digit])
         else:
             result = _muladd1(self, digit)
 
