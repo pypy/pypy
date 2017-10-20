@@ -574,10 +574,6 @@ def run_command_line(interactive,
             except ValueError:
                 pass      # ignore "2 is not a valid file descriptor"
 
-    if we_are_translated():
-        import __pypy__
-        __pypy__.save_module_content_for_future_reload(sys)
-
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
 
