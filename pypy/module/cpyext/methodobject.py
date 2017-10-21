@@ -56,6 +56,9 @@ class W_PyCFunctionObject(W_Root):
         self.w_module = w_module
 
     def descr_call(self, space, __args__):
+        return self.call(space, self.w_self, __args__)
+
+    def call(self, space, w_self, __args__):
         flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
         length = len(__args__.arguments_w)
@@ -63,10 +66,10 @@ class W_PyCFunctionObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
         if flags & METH_KEYWORDS:
-            return self.call_keywords(space, self.w_self, __args__)
+            return self.call_keywords(space, w_self, __args__)
         elif flags & METH_NOARGS:
             if length == 0:
-                return self.call_noargs(space, self.w_self, __args__)
+                return self.call_noargs(space, w_self, __args__)
             raise oefmt(space.w_TypeError,
                         "%s() takes no arguments", self.name)
         elif flags & METH_O:
@@ -74,11 +77,11 @@ class W_PyCFunctionObject(W_Root):
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
-            return self.call_o(space, self.w_self, __args__)
+            return self.call_o(space, w_self, __args__)
         elif flags & METH_VARARGS:
-            return self.call_varargs(space, self.w_self, __args__)
+            return self.call_varargs(space, w_self, __args__)
         else:
-            return self.call_oldargs(space, self.w_self, __args__)
+            return self.call_oldargs(space, w_self, __args__)
 
     def call_noargs(self, space, w_self, __args__):
         func = self.ml.c_ml_meth
@@ -199,14 +202,13 @@ class W_PyCMethodObject(W_PyCFunctionObject):
             self.name, w_objclass.name))
 
     def descr_call(self, space, __args__):
-        args_w, kw_w = __args__.unpack()
-        if len(args_w) < 1:
+        if len(__args__.arguments_w) == 0:
             w_objclass = self.w_objclass
             assert isinstance(w_objclass, W_TypeObject)
             raise oefmt(space.w_TypeError,
                 "descriptor '%s' of '%s' object needs an argument",
                 self.name, w_objclass.name)
-        w_instance = args_w[0]
+        w_instance = __args__.arguments_w[0]
         # XXX: needs a stricter test
         if not space.isinstance_w(w_instance, self.w_objclass):
             w_objclass = self.w_objclass
@@ -214,12 +216,10 @@ class W_PyCMethodObject(W_PyCFunctionObject):
             raise oefmt(space.w_TypeError,
                 "descriptor '%s' requires a '%s' object but received a '%T'",
                 self.name, w_objclass.name, w_instance)
-        w_args = space.newtuple(args_w[1:])
-        w_kw = space.newdict()
-        for key, w_obj in kw_w.items():
-            space.setitem(w_kw, space.newtext(key), w_obj)
-        ret = self.call(space, w_instance, w_args, w_kw)
-        return ret
+        #
+        # CCC: we can surely do better than this
+        __args__ = __args__.replace_arguments(__args__.arguments_w[1:])
+        return self.call(space, w_instance, __args__)
 
 # PyPy addition, for Cython
 _, _ = build_type_checkers("MethodDescr", W_PyCMethodObject)
