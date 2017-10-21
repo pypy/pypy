@@ -92,6 +92,21 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         #
         raises(TypeError, mod.getarg_VARARGS, k=1)
 
+    def test_call_METH_KEYWORDS(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_KW', 'METH_VARARGS | METH_KEYWORDS',
+             '''
+             if (!kwargs) kwargs = Py_None;
+             return Py_BuildValue("OO", args, kwargs);
+             '''
+             ),
+            ])
+        assert mod.getarg_KW(1) == ((1,), None)
+        assert mod.getarg_KW(1, 2) == ((1, 2), None)
+        assert mod.getarg_KW(a=3, b=4) == ((), {'a': 3, 'b': 4})
+        assert mod.getarg_KW(1, 2, a=3, b=4) == ((1, 2), {'a': 3, 'b': 4})
+        assert mod.getarg_KW.__name__ == "getarg_KW"
+
     def test_func_attributes(self):
         mod = self.import_extension('MyModule', [
             ('isCFunction', 'METH_O',

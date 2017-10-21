@@ -114,14 +114,18 @@ def make_methods(functions, modname):
     codes = []
     for funcname, flags, code in functions:
         cfuncname = "%s_%s" % (modname, funcname)
+        if 'METH_KEYWORDS' in flags:
+            signature = '(PyObject *self, PyObject *args, PyObject *kwargs)'
+        else:
+            signature = '(PyObject *self, PyObject *args)'
         methods_table.append(
-            "{\"%s\", %s, %s}," % (funcname, cfuncname, flags))
+            "{\"%s\", (PyCFunction)%s, %s}," % (funcname, cfuncname, flags))
         func_code = """
-        static PyObject* %s(PyObject* self, PyObject* args)
-        {
-        %s
-        }
-        """ % (cfuncname, code)
+        static PyObject* {cfuncname}{signature}
+        {{
+        {code}
+        }}
+        """.format(cfuncname=cfuncname, signature=signature, code=code)
         codes.append(func_code)
 
     body = "\n".join(codes) + """
