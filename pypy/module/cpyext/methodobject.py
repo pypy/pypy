@@ -198,6 +198,16 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
     def __repr__(self):
         return self.space.unwrap(self.descr_method_repr())
 
+    def descr_call(self, space, __args__):
+        if len(__args__.arguments_w) == 0:
+            raise oefmt(space.w_TypeError,
+                "descriptor '%s' of '%s' object needs an argument",
+                self.name, self.w_objclass.getname(space))
+        w_instance = __args__.arguments_w[0] # XXX typecheck missing
+        # CCC: we can surely do better than this
+        __args__ = __args__.replace_arguments(__args__.arguments_w[1:])
+        return self.call(space, w_instance, __args__)
+
     def descr_method_repr(self):
         return self.getrepr(self.space,
                             "built-in method '%s' of '%s' object" %
@@ -263,22 +273,6 @@ def cwrapper_descr_call(space, w_self, __args__):
         space.setitem(w_kw, space.newtext(key), w_obj)
     return self.call(space, w_self, w_args, w_kw)
 
-@jit.dont_look_inside
-def cclassmethod_descr_call(space, w_self, __args__):
-    self = space.interp_w(W_PyCFunctionObject, w_self)
-    args_w, kw_w = __args__.unpack()
-    if len(args_w) < 1:
-        raise oefmt(space.w_TypeError,
-            "descriptor '%s' of '%s' object needs an argument",
-            self.name, self.w_objclass.getname(space))
-    w_instance = args_w[0] # XXX typecheck missing
-    w_args = space.newtuple(args_w[1:])
-    w_kw = space.newdict()
-    for key, w_obj in kw_w.items():
-        space.setitem(w_kw, space.newtext(key), w_obj)
-    ret = self.call(space, w_instance, w_args, w_kw)
-    return ret
-
 def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
     asking_for_bound = (space.is_none(w_cls) or
                         not space.is_w(w_obj, space.w_None) or
@@ -318,7 +312,7 @@ W_PyCMethodObject.typedef.acceptable_as_base_class = False
 W_PyCClassMethodObject.typedef = TypeDef(
     'classmethod',
     __get__ = interp2app(cclassmethod_descr_get),
-    __call__ = interp2app(cclassmethod_descr_call),
+    __call__ = interp2app(W_PyCClassMethodObject.descr_call),
     __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject,
         wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass',
