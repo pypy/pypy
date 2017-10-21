@@ -6,9 +6,7 @@ from pypy.module.cpyext.pyobject import PyObject, as_pyobj
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
-    PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New,
-    W_PyCFunctionObject_NOARGS, W_PyCFunctionObject_O,
-    W_PyCFunctionObject_VARARGS)
+    PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import oefmt
@@ -82,16 +80,6 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
                       space.newtext(rffi.charp2str(doc)))
     return w_mod   # borrowed result kept alive in PyImport_AddModule()
 
-def _create_pyc_function_object(space, method, w_self, w_name, flags):
-    ## flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
-    ## if flags == METH_NOARGS:
-    ##     return W_PyCFunctionObject_NOARGS(space, method, w_self, w_name)
-    ## if flags == METH_O:
-    ##     return W_PyCFunctionObject_O(space, method, w_self, w_name)
-    ## if flags == METH_VARARGS:
-    ##     return W_PyCFunctionObject_VARARGS(space, method, w_self, w_name)
-    return W_PyCFunctionObject(space, method, w_self, w_name)
-
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
     w_name = space.newtext_or_none(name)
     methods = rffi.cast(rffi.CArrayPtr(PyMethodDef), methods)
@@ -110,8 +98,7 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                     raise oefmt(space.w_ValueError,
                             "module functions cannot set METH_CLASS or "
                             "METH_STATIC")
-                w_obj = _create_pyc_function_object(space, method, w_self,
-                                                    w_name, flags)
+                w_obj = W_PyCFunctionObject(space, method, w_self, w_name)
             else:
                 if methodname in dict_w and not (flags & METH_COEXIST):
                     continue
