@@ -103,7 +103,10 @@ class W_PyCFunctionObject_NOARGS(W_PyCFunctionObject):
     # METH_NOARGS
 
     # CCC I think we can condense descr_call and call into one, can't we?
-    def descr_call(self, space):
+    def descr_call(self, space, __args__):
+        if len(__args__.arguments_w) != 0:
+            raise oefmt(space.w_TypeError,
+                        "%s() takes no arguments", self.name)
         return self.call(space, None, None, None)
 
     def call(self, space, w_self, w_args, w_kw):
@@ -117,7 +120,11 @@ class W_PyCFunctionObject_O(W_PyCFunctionObject):
     # METH_O
 
     # CCC I think we can condense descr_call and call into one, can't we?
-    def descr_call(self, space, w_o):
+    def descr_call(self, space, __args__):
+        if len(__args__.arguments_w) != 1:
+            raise oefmt(space.w_TypeError,
+                        "%s() takes exactly one argument", self.name)
+        w_o = __args__.arguments_w[0]
         return self.call(space, None, w_o, None)
 
     def call(self, space, w_self, w_o, w_kw):
