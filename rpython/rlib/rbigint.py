@@ -27,6 +27,7 @@ if SUPPORT_INT128:
     else:
         UDIGIT_MASK = longlongmask
     LONG_TYPE = rffi.__INT128_T
+    ULONG_TYPE = rffi.__UINT128_T
     if LONG_BIT > SHIFT:
         STORE_TYPE = lltype.Signed
         UNSIGNED_TYPE = lltype.Unsigned
@@ -40,7 +41,8 @@ else:
     STORE_TYPE = lltype.Signed
     UNSIGNED_TYPE = lltype.Unsigned
     LONG_TYPE = rffi.LONGLONG
-
+    ULONG_TYPE = rffi.ULONGLONG
+    
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
 
@@ -97,6 +99,9 @@ def _mask_digit(x):
 def _widen_digit(x):
     return rffi.cast(LONG_TYPE, x)
 
+def _unsigned_widen_digit(x):
+    return rffi.cast(ULONG_TYPE, x)
+    
 @specialize.argtype(0)
 def _store_digit(x):
     return rffi.cast(STORE_TYPE, x)
@@ -139,15 +144,16 @@ class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
     _immutable_ = True
     _immutable_fields_ = ["_digits"]
-
+    
     def __init__(self, digits=NULLDIGITS, sign=0, size=0):
         if not we_are_translated():
             _check_digits(digits)
         make_sure_not_resized(digits)
         self._digits = digits
-        assert size >= 0
         
+        assert size >= 0
         self.size = size or len(digits)
+        
         self.sign = sign
 
     # __eq__ and __ne__ method exist for testingl only, they are not RPython!
@@ -172,6 +178,12 @@ class rbigint(object):
         return _widen_digit(self._digits[x])
     widedigit._always_inline_ = True
 
+    def uwidedigit(self, x):
+        """Return the x'th digit, as a long long int if needed
+        to have enough room to contain two digits."""
+        return _unsigned_widen_digit(self._digits[x])
+    uwidedigit._always_inline_ = True
+    
     def udigit(self, x):
         """Return the x'th digit, as an unsigned int."""
         return _load_unsigned_digit(self._digits[x])
@@ -701,9 +713,9 @@ class rbigint(object):
             if a._digits[0] == NULLDIGIT:
                 return NULLRBIGINT
             elif a._digits[0] == ONEDIGIT:
-                return rbigint(b._digits[:b.numdigits()], a.sign * b.sign, b.numdigits())
+                return rbigint(b._digits[:bsize], a.sign * b.sign, bsize)
             elif bsize == 1:
-                res = b.widedigit(0) * a.widedigit(0)
+                res = b.uwidedigit(0) * a.uwidedigit(0)
                 carry = res >> SHIFT
                 if carry:
                     return rbigint([_store_digit(res & MASK), _store_digit(carry)], a.sign * b.sign, 2)
@@ -740,6 +752,7 @@ class rbigint(object):
 
         asize = self.numdigits()
         digit = abs(b)
+        
         bsign = -1 if b < 0 else 1
 
         if digit == 1:
@@ -747,7 +760,8 @@ class rbigint(object):
                 return self
             return rbigint(self._digits[:asize], self.sign * bsign, asize)
         elif asize == 1:
-            res = self.widedigit(0) * digit
+            udigit = r_uint(digit)
+            res = self.uwidedigit(0) * udigit
             carry = res >> SHIFT
             if carry:
                 return rbigint([_store_digit(res & MASK), _store_digit(carry)], self.sign * bsign, 2)
@@ -839,7 +853,7 @@ class rbigint(object):
                     rem = self.widedigit(size)
                     size -= 1
                     while size >= 0:
-                        rem = ((rem << SHIFT) + self.widedigit(size)) % digit
+                        rem = ((rem << SHIFT) | self.digit(size)) % digit
                         size -= 1
                 else:
                     rem = self.digit(0) % digit
@@ -880,7 +894,7 @@ class rbigint(object):
                     rem = self.widedigit(size)
                     size -= 1
                     while size >= 0:
-                        rem = ((rem << SHIFT) + self.widedigit(size)) % digit
+                        rem = ((rem << SHIFT) | self.digit(size)) % digit
                         size -= 1
                 else:
                     rem = self.digit(0) % digit
@@ -1210,10 +1224,10 @@ class rbigint(object):
         oldsize = self.numdigits()
         newsize = oldsize + wordshift + 1
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
-        accum = _widen_digit(0)
+        accum = _unsigned_widen_digit(0)
         j = 0
         while j < oldsize:
-            accum += self.widedigit(j) << remshift
+            accum += self.uwidedigit(j) << remshift
             z.setdigit(wordshift, accum)
             accum >>= SHIFT
             wordshift += 1
@@ -1235,10 +1249,10 @@ class rbigint(object):
         oldsize = self.numdigits()
 
         z = rbigint([NULLDIGIT] * (oldsize + 1), self.sign, (oldsize + 1))
-        accum = _widen_digit(0)
+        accum = _unsigned_widen_digit(0)
         i = 0
         while i < oldsize:
-            accum += self.widedigit(i) << int_other
+            accum += self.uwidedigit(i) << int_other
             z.setdigit(i, accum)
             accum >>= SHIFT
             i += 1
@@ -1267,9 +1281,9 @@ class rbigint(object):
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
         while i < newsize:
-            newdigit = (self.digit(wordshift) >> loshift)
+            newdigit = (self.udigit(wordshift) >> loshift)
             if i+1 < newsize:
-                newdigit |= (self.digit(wordshift+1) << hishift)
+                newdigit |= (self.udigit(wordshift+1) << hishift)
             z.setdigit(i, newdigit)
             i += 1
             wordshift += 1
@@ -1661,11 +1675,11 @@ def _x_mul(a, b, digit=0):
         z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
         i = UDIGIT_TYPE(0)
         while i < size_a:
-            f = a.widedigit(i)
+            f = a.uwidedigit(i)
             pz = i << 1
             pa = i + 1
 
-            carry = z.widedigit(pz) + f * f
+            carry = z.uwidedigit(pz) + f * f
             z.setdigit(pz, carry)
             pz += 1
             carry >>= SHIFT
@@ -1675,18 +1689,18 @@ def _x_mul(a, b, digit=0):
             # pyramid it appears.  Same as adding f<<1 once.
             f <<= 1
             while pa < size_a:
-                carry += z.widedigit(pz) + a.widedigit(pa) * f
+                carry += z.uwidedigit(pz) + a.uwidedigit(pa) * f
                 pa += 1
                 z.setdigit(pz, carry)
                 pz += 1
                 carry >>= SHIFT
             if carry:
-                carry += z.widedigit(pz)
+                carry += z.uwidedigit(pz)
                 z.setdigit(pz, carry)
                 pz += 1
                 carry >>= SHIFT
             if carry:
-                z.setdigit(pz, z.widedigit(pz) + carry)
+                z.setdigit(pz, z.uwidedigit(pz) + carry)
             assert (carry >> SHIFT) == 0
             i += 1
         z._normalize()
@@ -1707,10 +1721,10 @@ def _x_mul(a, b, digit=0):
     size_a1 = UDIGIT_TYPE(size_a - 1)
     size_b1 = UDIGIT_TYPE(size_b - 1)
     while i < size_a1:
-        f0 = a.widedigit(i)
-        f1 = a.widedigit(i + 1)
+        f0 = a.uwidedigit(i)
+        f1 = a.uwidedigit(i + 1)
         pz = i
-        carry = z.widedigit(pz) + b.widedigit(0) * f0
+        carry = z.uwidedigit(pz) + b.uwidedigit(0) * f0
         z.setdigit(pz, carry)
         pz += 1
         carry >>= SHIFT
@@ -1722,14 +1736,14 @@ def _x_mul(a, b, digit=0):
             # b.widedigit(j + 1) * f0 < (2**(B-1) - 1)**2; so
             # carry + z.widedigit(pz) + b.widedigit(j + 1) * f0 +
             # b.widedigit(j) * f1 < 2**(2*B - 1) - 2**B < 2**LONG)BIT - 1
-            carry += z.widedigit(pz) + b.widedigit(j + 1) * f0 + \
-                     b.widedigit(j) * f1
+            carry += z.uwidedigit(pz) + b.uwidedigit(j + 1) * f0 + \
+                     b.uwidedigit(j) * f1
             z.setdigit(pz, carry)
             pz += 1
             carry >>= SHIFT
             j += 1
         # carry < 2**(B + 1) - 2
-        carry += z.widedigit(pz) + b.widedigit(size_b1) * f1
+        carry += z.uwidedigit(pz) + b.uwidedigit(size_b1) * f1
         z.setdigit(pz, carry)
         pz += 1
         carry >>= SHIFT
@@ -1740,17 +1754,17 @@ def _x_mul(a, b, digit=0):
         i += 2
     if size_a & 1:
         pz = size_a1
-        f = a.widedigit(pz)
+        f = a.uwidedigit(pz)
         pb = 0
-        carry = _widen_digit(0)
+        carry = _unsigned_widen_digit(0)
         while pb < size_b:
-            carry += z.widedigit(pz) + b.widedigit(pb) * f
+            carry += z.uwidedigit(pz) + b.uwidedigit(pb) * f
             pb += 1
             z.setdigit(pz, carry)
             pz += 1
             carry >>= SHIFT
         if carry:
-            z.setdigit(pz, z.widedigit(pz) + carry)
+            z.setdigit(pz, z.uwidedigit(pz) + carry)
     z._normalize()
     return z
 
@@ -1767,7 +1781,7 @@ def _kmul_split(n, size):
 
     # We use "or" her to avoid having a check where list can be empty in _normalize.
     lo = rbigint(n._digits[:size_lo] or NULLDIGITS, 1)
-    hi = rbigint(n._digits[size_lo:n.size] or NULLDIGITS, 1)
+    hi = rbigint(n._digits[size_lo:size_n] or NULLDIGITS, 1)
     lo._normalize()
     hi._normalize()
     return hi, lo
@@ -1980,7 +1994,7 @@ def _inplace_divrem1(pout, pin, n, size=0):
         size = pin.numdigits()
     size -= 1
     while size >= 0:
-        rem = (rem << SHIFT) | pin.widedigit(size)
+        rem = (rem << SHIFT) | pin.digit(size)
         hi = rem // n
         pout.setdigit(size, hi)
         rem -= hi * n
@@ -2057,14 +2071,15 @@ def _v_isub(x, xofs, m, y, n):
 def _muladd1(a, n, extra=0):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
-
+    assert n > 0
+    
     size_a = a.numdigits()
     z = rbigint([NULLDIGIT] * (size_a+1), 1)
     assert extra & MASK == extra
-    carry = _widen_digit(extra)
+    carry = _unsigned_widen_digit(extra)
     i = 0
     while i < size_a:
-        carry += a.widedigit(i) * n
+        carry += a.uwidedigit(i) * n
         z.setdigit(i, carry)
         carry >>= SHIFT
         i += 1
@@ -2081,7 +2096,7 @@ def _v_lshift(z, a, m, d):
     assert 0 <= d and d < SHIFT
     i = 0
     while i < m:
-        acc = a.widedigit(i) << d | carry
+        acc = a.uwidedigit(i) << d | carry
         z.setdigit(i, acc)
         carry = acc >> SHIFT
         i += 1
@@ -2093,14 +2108,14 @@ def _v_rshift(z, a, m, d):
         * result in z[0:m], and return the d bits shifted out of the bottom.
     """
 
-    carry = _widen_digit(0)
-    acc = _widen_digit(0)
+    carry = _unsigned_widen_digit(0)
+    acc = _unsigned_widen_digit(0)
     mask = (1 << d) - 1
 
     assert 0 <= d and d < SHIFT
     i = m-1
     while i >= 0:
-        acc = (carry << SHIFT) | a.widedigit(i)
+        acc = (carry << SHIFT) | a.uwidedigit(i)
         carry = acc & mask
         z.setdigit(i, acc >> d)
         i -= 1

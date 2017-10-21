@@ -460,11 +460,9 @@ class W_LongObject(W_AbstractLongObject):
                     return space.w_NotImplemented
                 return func(self, space, w_other)
         else:
-            @delegate_other
             @func_renamer('descr_' + opname)
             def descr_binop(self, space, w_other):
                 return func(self, space, w_other)
-        @delegate_other
         @func_renamer('descr_r' + opname)
         def descr_rbinop(self, space, w_other):
             if not isinstance(w_other, W_LongObject):

@@ -113,6 +113,7 @@
 #define OP_ULLONG_RSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 						r = (x) >> (y)
 #define OP_LLLONG_RSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, 128); r = (x) >> (y)
+#define OP_ULLLONG_RSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, 128); r = (x) >> (y)
 
 /* left-shift of a signed value: C99 makes the result undefined if the
    value is negative.  Force the left-shift to occur on unsigned instead. */
@@ -127,6 +128,8 @@
 							r = (x) << (y)
 #define OP_ULLONG_LSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 							r = (x) << (y)
+#define OP_ULLLONG_LSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, 128); \
+                                                        r = (x) << (y)
 
 /* floor division */
 
@@ -135,6 +138,7 @@
 #define OP_LLONG_FLOORDIV(x,y,r)  r = (x) / (y)
 #define OP_ULLONG_FLOORDIV(x,y,r) r = (x) / (y)
 #define OP_LLLONG_FLOORDIV(x,y,r)  r = (x) / (y)
+#define OP_ULLLONG_FLOORDIV(x,y,r)  r = (x) / (y)
 
 /* modulus */
 
@@ -143,6 +147,7 @@
 #define OP_LLONG_MOD(x,y,r)   r = (x) % (y)
 #define OP_ULLONG_MOD(x,y,r)  r = (x) % (y)
 #define OP_LLLONG_MOD(x,y,r)   r = (x) % (y)
+#define OP_ULLLONG_MOD(x,y,r)   r = (x) % (y)
 
 /* bit operations */
 
@@ -253,3 +258,19 @@ RPY_EXTERN long long op_llong_mul_ovf(long long a, long long b);
 #define OP_ULLONG_AND OP_LLONG_AND
 #define OP_ULLONG_OR OP_LLONG_OR
 #define OP_ULLONG_XOR OP_LLONG_XOR
+
+#define OP_ULLLONG_IS_TRUE OP_LLONG_IS_TRUE
+#define OP_ULLLONG_INVERT  OP_LLONG_INVERT
+#define OP_ULLLONG_ADD OP_LLONG_ADD
+#define OP_ULLLONG_SUB OP_LLONG_SUB
+#define OP_ULLLONG_MUL OP_LLONG_MUL
+#define OP_ULLLONG_LT OP_LLONG_LT
+#define OP_ULLLONG_LE OP_LLONG_LE
+#define OP_ULLLONG_EQ OP_LLONG_EQ
+#define OP_ULLLONG_NE OP_LLONG_NE
+#define OP_ULLLONG_GT OP_LLONG_GT
+#define OP_ULLLONG_GE OP_LLONG_GE
+#define OP_ULLLONG_AND OP_LLONG_AND
+#define OP_ULLLONG_OR OP_LLONG_OR
+#define OP_ULLLONG_XOR OP_LLONG_XOR
+

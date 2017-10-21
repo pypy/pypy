@@ -263,3 +263,4 @@ define_c_primitive(rffi.LONGLONG, 'long long', 'LL')
 define_c_primitive(rffi.ULONGLONG, 'unsigned long long', 'ULL')
 if SUPPORT_INT128:
     define_c_primitive(rffi.__INT128_T, '__int128_t', 'LL') # Unless it's a 128bit platform, LL is the biggest
+    define_c_primitive(rffi.__UINT128_T, '__uint128_t', 'ULL')
