@@ -637,18 +637,18 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_reimport_builtin(self):
         import imp, sys, time
-        oldpath = sys.path
-        time.tzname = "<test_reimport_builtin removed this>"
+        old_sleep = time.sleep
+        time.sleep = "<test_reimport_builtin removed this>"
 
         del sys.modules['time']
         import time as time1
         assert sys.modules['time'] is time1
 
-        assert time.tzname == "<test_reimport_builtin removed this>"
+        assert time.sleep == "<test_reimport_builtin removed this>"
 
-        imp.reload(time1)   # don't leave a broken time.tzname behind
+        imp.reload(time1)   # don't leave a broken time.sleep behind
         import time
-        assert time.tzname != "<test_reimport_builtin removed this>"
+        assert time.sleep is old_sleep
 
     def test_reload_infinite(self):
         import infinite_reload
