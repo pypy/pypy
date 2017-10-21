@@ -601,25 +601,15 @@ class AppTestImport(BaseFSEncodeTest):
         import pkg.a, imp
         imp.reload(pkg.a)
 
-    def test_reload_builtin(self):
-        import sys, imp
-        oldpath = sys.path
-        try:
-            del sys.settrace
-        except AttributeError:
-            pass
-
-        imp.reload(sys)
-
-        assert sys.path is oldpath
-        assert 'settrace' not in dir(sys)    # at least on CPython 3.5.2
-
     def test_reload_builtin_doesnt_clear(self):
         import imp
         import sys
         sys.foobar = "baz"
-        imp.reload(sys)
-        assert sys.foobar == "baz"
+        try:
+            imp.reload(sys)
+            assert sys.foobar == "baz"
+        finally:
+            del sys.foobar
 
     def test_reimport_builtin_simple_case_1(self):
         import sys, time
