@@ -46,31 +46,27 @@ def cfunction_dealloc(space, py_obj):
     _dealloc(space, py_obj)
 
 class W_PyCFunctionObject(W_Root):
-    # TODO create a slightly different class depending on the c_ml_flags
+    # CCC: make c_ml_flags an immutable_field, to constant-fold the checks
+    # inside descr_call?
+    
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
         self.name = rffi.charp2str(rffi.cast(rffi.CCHARP,self.ml.c_ml_name))
         self.w_self = w_self
         self.w_module = w_module
 
-    def call(self, space, w_self, w_args, w_kw):
-        # Call the C function
-        if w_self is None:
-            w_self = self.w_self
+    def descr_call(self, space, __args__):
         flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
-        if not flags & METH_KEYWORDS and space.is_true(w_kw):
+        length = len(__args__.arguments_w)
+        if not flags & METH_KEYWORDS and __args__.keywords:
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
-
-        func = self.ml.c_ml_meth
-        length = space.int_w(space.len(w_args))
         if flags & METH_KEYWORDS:
-            func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
-            return generic_cpy_call(space, func, w_self, w_args, w_kw)
+            return self.call_keywords(space, self.w_self, __args__)
         elif flags & METH_NOARGS:
             if length == 0:
-                return generic_cpy_call(space, func, w_self, None)
+                return self.call_noargs(space, self.w_self, __args__)
             raise oefmt(space.w_TypeError,
                         "%s() takes no arguments", self.name)
         elif flags & METH_O:
@@ -78,19 +74,46 @@ class W_PyCFunctionObject(W_Root):
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
-            w_arg = space.getitem(w_args, space.newint(0))
-            return generic_cpy_call(space, func, w_self, w_arg)
+            return self.call_o(space, self.w_self, __args__)
         elif flags & METH_VARARGS:
-            return generic_cpy_call(space, func, w_self, w_args)
-        else: # METH_OLDARGS, the really old style
-            size = length
-            if size == 1:
-                w_arg = space.getitem(w_args, space.newint(0))
-            elif size == 0:
-                w_arg = None
-            else:
-                w_arg = w_args
-            return generic_cpy_call(space, func, w_self, w_arg)
+            return self.call_varargs(space, self.w_self, __args__)
+        else:
+            return self.call_oldargs(space, self.w_self, __args__)
+
+    def call_noargs(self, space, w_self, __args__):
+        func = self.ml.c_ml_meth
+        return generic_cpy_call(space, func, w_self, None)
+
+    def call_o(self, space, w_self, __args__):
+        func = self.ml.c_ml_meth
+        w_o = __args__.arguments_w[0]        
+        return generic_cpy_call(space, func, w_self, w_o)
+
+    def call_varargs(self, space, w_self, __args__):
+        state = space.fromcache(State)
+        func = self.ml.c_ml_meth
+        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        try:
+            return generic_cpy_call(space, func, w_self, py_args)
+        finally:
+            decref(space, py_args)
+
+    def call_keywords(self, space, w_self, __args__):
+        import pdb;pdb.set_trace()
+        func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
+        return generic_cpy_call(space, func, w_self, w_args, w_kw)
+
+    def call_oldargs(self, space, w_self, __args__):
+        func = self.ml.c_ml_meth
+        length = len(__args__.arguments_w)
+        if length == 0:
+            w_args = None
+        elif length == 1:
+            w_args = __args__.arguments_w[0]
+        else:
+            # CCC: create a py_tuple
+            w_args = space.newtuple(__args__.arguments_w)
+        return generic_cpy_call(space, func, w_self, w_args)
 
     def get_doc(self, space):
         doc = self.ml.c_ml_doc
@@ -276,19 +299,6 @@ def cwrapper_descr_call(space, w_self, __args__):
     return self.call(space, w_self, w_args, w_kw)
 
 @jit.dont_look_inside
-def cfunction_descr_call(space, w_self, __args__):
-    # specialize depending on the W_PyCFunctionObject
-    self = space.interp_w(W_PyCFunctionObject, w_self)
-    args_w, kw_w = __args__.unpack()
-    # XXX __args__.unpack is slow
-    w_args = space.newtuple(args_w)
-    w_kw = space.newdict()
-    for key, w_obj in kw_w.items():
-        space.setitem(w_kw, space.newtext(key), w_obj)
-    ret = self.call(space, None, w_args, w_kw)
-    return ret
-
-@jit.dont_look_inside
 def cclassmethod_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
@@ -321,7 +331,7 @@ def cclassmethod_descr_get(space, w_function, w_obj, w_cls=None):
 
 W_PyCFunctionObject.typedef = TypeDef(
     'builtin_function_or_method',
-    __call__ = interp2app(cfunction_descr_call),
+    __call__ = interp2app(W_PyCFunctionObject.descr_call),
     __doc__ = GetSetProperty(W_PyCFunctionObject.get_doc),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject),
     __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject,

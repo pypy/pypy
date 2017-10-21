@@ -83,13 +83,13 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     return w_mod   # borrowed result kept alive in PyImport_AddModule()
 
 def _create_pyc_function_object(space, method, w_self, w_name, flags):
-    flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
-    if flags == METH_NOARGS:
-        return W_PyCFunctionObject_NOARGS(space, method, w_self, w_name)
-    if flags == METH_O:
-        return W_PyCFunctionObject_O(space, method, w_self, w_name)
-    if flags == METH_VARARGS:
-        return W_PyCFunctionObject_VARARGS(space, method, w_self, w_name)
+    ## flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
+    ## if flags == METH_NOARGS:
+    ##     return W_PyCFunctionObject_NOARGS(space, method, w_self, w_name)
+    ## if flags == METH_O:
+    ##     return W_PyCFunctionObject_O(space, method, w_self, w_name)
+    ## if flags == METH_VARARGS:
+    ##     return W_PyCFunctionObject_VARARGS(space, method, w_self, w_name)
     return W_PyCFunctionObject(space, method, w_self, w_name)
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
