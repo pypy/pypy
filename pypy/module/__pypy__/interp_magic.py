@@ -145,6 +145,10 @@ def locals_to_fast(space, w_frame):
     assert isinstance(w_frame, PyFrame)
     w_frame.locals2fast()
 
+@unwrap_spec(w_module=MixedModule)
+def save_module_content_for_future_reload(space, w_module):
+    w_module.save_module_content_for_future_reload()
+
 def set_code_callback(space, w_callable):
     cache = space.fromcache(CodeHookCache)
     if space.is_none(w_callable):

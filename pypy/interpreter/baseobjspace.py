@@ -515,8 +515,9 @@ class ObjSpace(object):
                 # patcher relies on this behaviour.
                 w_mod2 = Module(self, w_name)
                 self.setitem(w_modules, w_name, w_mod2)
-                w_dict = w_mod.getdict(self)  # unlazy
-                self.call_method(w_mod2.getdict(self), 'update', w_dict)
+                w_mod.getdict(self)  # unlazy w_initialdict
+                self.call_method(w_mod2.getdict(self), 'update',
+                                 w_mod.w_initialdict)
                 return w_mod2
             self.setitem(w_modules, w_name, w_mod)
             w_mod.init(self)
