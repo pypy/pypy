@@ -378,7 +378,10 @@ def tp_new_wrapper(space, self, w_args, w_kwds):
     args_w = space.fixedview(w_args)
     w_subtype = args_w[0]
     w_args = space.newtuple(args_w[1:])
-    if not space.is_true(w_kwds):
+    # CCC: is this check still needed? I think we can safely remove it now
+    # that we manually handle __args__ inside W_PyCFunctionObject.descr_call,
+    # but we need to double check
+    if w_kwds and not space.is_true(w_kwds):
         w_kwds = None
 
     subtype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_subtype))
