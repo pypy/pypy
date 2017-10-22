@@ -188,11 +188,10 @@ def PyCFunction_Check(space, w_obj):
     return isinstance(w_obj, BuiltinFunction)
 
 class W_PyCClassMethodObject(W_PyCFunctionObject):
-    w_self = None
+
     def __init__(self, space, ml, w_type):
+        W_PyCFunctionObject.__init__(self, space, ml, w_self=None)
         self.space = space
-        self.ml = ml
-        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP, ml.c_ml_name))
         self.w_objclass = w_type
 
     def __repr__(self):
