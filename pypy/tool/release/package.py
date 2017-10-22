@@ -312,7 +312,7 @@ def package(*args, **kwds):
     parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
                         dest='embed_dependencies',
                         action=NegateAction,
-                        default=sys.platform == 'darwin',
+                        default=(sys.platform == 'darwin'),
                         help='whether to embed dependencies for distribution '
                         '(default on OS X)')
     options = parser.parse_args(args)
