@@ -46,12 +46,12 @@ def cfunction_dealloc(space, py_obj):
     _dealloc(space, py_obj)
 
 class W_PyCFunctionObject(W_Root):
-    # CCC: make c_ml_flags an immutable_field, to constant-fold the checks
-    # inside descr_call?
-    
+    _immutable_fields_ = ["flags"]
+
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
         self.name = rffi.charp2str(rffi.cast(rffi.CCHARP,self.ml.c_ml_name))
+        self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         self.w_self = w_self
         self.w_module = w_module
 
@@ -59,8 +59,7 @@ class W_PyCFunctionObject(W_Root):
         return self.call(space, self.w_self, __args__)
 
     def call(self, space, w_self, __args__):
-        flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
-        flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
+        flags = self.flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST)
         length = len(__args__.arguments_w)
         if not flags & METH_KEYWORDS and __args__.keywords:
             raise oefmt(space.w_TypeError,
