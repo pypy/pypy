@@ -240,9 +240,12 @@ good work that needs to be finished:
 
 **matplotlib** https://github.com/matplotlib/matplotlib
 
-    TODO: the tkagg backend does not work, which makes tests fail on downstream
-    projects like Pandas, SciPy. It uses id(obj) as a c-pointer to obj in 
-    tkagg.py, which requires refactoring
+    Status: using the matplotlib branch of PyPy and the tkagg-cffi branch of
+    matplotlib from https://github.com/mattip/matplotlib/tree/tkagg-cffi, the
+    tkagg backend can function.
+
+    TODO: the matplotlib branch passes numpy arrays by value (copying all the
+    data), this proof-of-concept needs help to become completely compliant
 
 **wxPython** https://bitbucket.org/amauryfa/wxpython-cffi
 

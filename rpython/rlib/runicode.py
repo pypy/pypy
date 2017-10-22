@@ -877,32 +877,31 @@ def unicode_encode_utf_32_helper(s, size, errors,
         ch = ord(s[pos])
         pos += 1
         ch2 = 0
-        if 0xD800 <= ch < 0xDC00:
-            if not allow_surrogates:
-                ru, rs, pos = errorhandler(errors, public_encoding_name,
-                                           'surrogates not allowed',
-                                           s, pos-1, pos)
-                if rs is not None:
-                    # py3k only
-                    if len(rs) % 4 != 0:
-                        errorhandler('strict', public_encoding_name,
-                                     'surrogates not allowed',
-                                     s, pos-1, pos)
-                    result.append(rs)
-                    continue
-                for ch in ru:
-                    if ord(ch) < 0xD800:
-                        _STORECHAR32(result, ord(ch), byteorder)
-                    else:
-                        errorhandler('strict', public_encoding_name,
-                                     'surrogates not allowed',
-                                     s, pos-1, pos)
+        if not allow_surrogates and 0xD800 <= ch < 0xE000:
+            ru, rs, pos = errorhandler(errors, public_encoding_name,
+                                        'surrogates not allowed',
+                                        s, pos-1, pos)
+            if rs is not None:
+                # py3k only
+                if len(rs) % 4 != 0:
+                    errorhandler('strict', public_encoding_name,
+                                    'surrogates not allowed',
+                                    s, pos-1, pos)
+                result.append(rs)
                 continue
-            elif MAXUNICODE < 65536 and pos < size:
-                ch2 = ord(s[pos])
-                if 0xDC00 <= ch2 < 0xE000:
-                    ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000;
-                    pos += 1
+            for ch in ru:
+                if ord(ch) < 0xD800:
+                    _STORECHAR32(result, ord(ch), byteorder)
+                else:
+                    errorhandler('strict', public_encoding_name,
+                                    'surrogates not allowed',
+                                    s, pos-1, pos)
+            continue
+        if 0xD800 <= ch < 0xDC00 and MAXUNICODE < 65536 and pos < size:
+            ch2 = ord(s[pos])
+            if 0xDC00 <= ch2 < 0xE000:
+                ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000;
+                pos += 1
         _STORECHAR32(result, ch, byteorder)
 
     return result.build()
