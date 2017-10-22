@@ -121,13 +121,15 @@ class W_PyCFunctionObject(W_Root):
         func = self.ml.c_ml_meth
         length = len(__args__.arguments_w)
         if length == 0:
-            w_args = None
+            py_args = lltype.nullptr(PyObject.TO)
         elif length == 1:
-            w_args = __args__.arguments_w[0]
+            py_args = make_ref(space, __args__.arguments_w[0])
         else:
-            # CCC: create a py_tuple
-            w_args = space.newtuple(__args__.arguments_w)
-        return generic_cpy_call(space, func, w_self, w_args)
+            py_args = tuple_from_args_w(space, __args__.arguments_w)
+        try:
+            return generic_cpy_call(space, func, w_self, py_args)
+        finally:
+            decref(space, py_args)
 
     def get_doc(self, space):
         doc = self.ml.c_ml_doc
