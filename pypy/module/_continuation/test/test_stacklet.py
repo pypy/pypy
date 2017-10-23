@@ -340,37 +340,37 @@ class AppTestStacklet(BaseAppTest):
         import sys
         from _continuation import continulet
         #
-        def g(c):
+        def bar(c):
             c.switch(sys._getframe(0))
             c.switch(sys._getframe(0).f_back)
             c.switch(sys._getframe(1))
             c.switch(sys._getframe(1).f_back)
-            assert sys._getframe(2) is f3.f_back
+            assert sys._getframe(2) is f3_foo.f_back
             c.switch(sys._getframe(2))
-        def f(c):
-            g(c)
+        def foo(c):
+            bar(c)
         #
-        c = continulet(f)
-        f1 = c.switch()
-        assert f1.f_code.co_name == 'g'
-        f2 = c.switch()
-        assert f2.f_code.co_name == 'f'
-        f3 = c.switch()
-        assert f3 is f2
-        assert f1.f_back is f3
+        c = continulet(foo)
+        f1_bar = c.switch()
+        assert f1_bar.f_code.co_name == 'bar'
+        f2_foo = c.switch()
+        assert f2_foo.f_code.co_name == 'foo'
+        f3_foo = c.switch()
+        assert f3_foo is f2_foo
+        assert f1_bar.f_back is f3_foo
         def main():
-            f4 = c.switch()
-            assert f4.f_code.co_name == 'main', repr(f4.f_code.co_name)
-            assert f3.f_back is f1    # not running, so a loop
+            f4_main = c.switch()
+            assert f4_main.f_code.co_name == 'main'
+            assert f3_foo.f_back is f1_bar    # not running, so a loop
         def main2():
-            f5 = c.switch()
-            assert f5.f_code.co_name == 'main2', repr(f5.f_code.co_name)
-            assert f3.f_back is f1    # not running, so a loop
+            f5_main2 = c.switch()
+            assert f5_main2.f_code.co_name == 'main2'
+            assert f3_foo.f_back is f1_bar    # not running, so a loop
         main()
         main2()
         res = c.switch()
         assert res is None
-        assert f3.f_back is None
+        assert f3_foo.f_back is None
 
     def test_traceback_is_complete(self):
         import sys
