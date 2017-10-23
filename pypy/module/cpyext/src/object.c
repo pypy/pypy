@@ -85,14 +85,16 @@ PyVarObject * _PyObject_GC_NewVar(PyTypeObject *type, Py_ssize_t nitems)
 static PyObject *
 _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
 {
+    Py_ssize_t size;
+    PyObject *pyobj;
     if (type->tp_flags & Py_TPFLAGS_HEAPTYPE)
         Py_INCREF(type);
 
-    Py_ssize_t size = type->tp_basicsize;
+    size = type->tp_basicsize;
     if (type->tp_itemsize)
         size += nitems * type->tp_itemsize;
 
-    PyObject *pyobj = (PyObject*)_PyPy_Malloc(size);
+    pyobj = (PyObject*)_PyPy_Malloc(size);
     if (pyobj == NULL)
         return NULL;
 
