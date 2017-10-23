@@ -291,13 +291,13 @@ class AppTestStacklet(BaseAppTest):
         from _continuation import continulet
         #
         seen = []
-
+        #
         def t1(c1):
             seen.append(3)
             res = c1.switch()
             seen.append(6)
             return res
-
+        #
         def s1(c1, n):
             seen.append(2)
             assert n == 123
