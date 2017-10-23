@@ -290,30 +290,51 @@ class AppTestStacklet(BaseAppTest):
     def test_random_switching(self):
         from _continuation import continulet
         #
+        seen = []
+
         def t1(c1):
-            return c1.switch()
+            seen.append(3)
+            res = c1.switch()
+            seen.append(6)
+            return res
+
         def s1(c1, n):
+            seen.append(2)
             assert n == 123
             c2 = t1(c1)
-            return c1.switch('a') + 1
+            seen.append(7)
+            res = c1.switch('a') + 1
+            seen.append(10)
+            return res
         #
         def s2(c2, c1):
+            seen.append(5)
             res = c1.switch(c2)
+            seen.append(8)
             assert res == 'a'
-            return c2.switch('b') + 2
+            res = c2.switch('b') + 2
+            seen.append(12)
+            return res
         #
         def f():
+            seen.append(1)
             c1 = continulet(s1, 123)
             c2 = continulet(s2, c1)
             c1.switch()
+            seen.append(4)
             res = c2.switch()
+            seen.append(9)
             assert res == 'b'
             res = c1.switch(1000)
+            seen.append(11)
             assert res == 1001
-            return c2.switch(2000)
+            res = c2.switch(2000)
+            seen.append(13)
+            return res
         #
         res = f()
         assert res == 2002
+        assert seen == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
     def test_f_back(self):
         import sys
