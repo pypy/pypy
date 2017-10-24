@@ -164,6 +164,11 @@ class TestRLong(object):
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
 
+                r3 = rl_op1.int_pow(op2, rbigint.fromint(1000))
+                r4 = pow(op1, op2, 1000)
+                print op1, op2
+                assert r3.tolong() == r4
+
     def test_int_pow(self):
         for op1 in gen_signs(long_vals_not_too_big[:-2]):
             for op2 in [0, 1, 2, 8, 9, 10, 11]:
@@ -171,6 +176,12 @@ class TestRLong(object):
                 r1 = rl_op1.int_pow(op2)
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
+
+                r3 = rl_op1.int_pow(op2, rbigint.fromint(1000))
+                r4 = pow(op1, op2, 1000)
+                print op1, op2
+                assert r3.tolong() == r4
+                
     def test_touint(self):
         result = r_uint(sys.maxint + 42)
         rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))

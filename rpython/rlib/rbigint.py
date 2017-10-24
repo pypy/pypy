@@ -982,7 +982,9 @@ class rbigint(object):
 
         size_b = b.numdigits()
 
-        if c is not None:
+        if b.sign == 0:
+            return ONERBIGINT
+        elif c is not None:
             if c.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
@@ -1009,15 +1011,12 @@ class rbigint(object):
             # so we only do it when it buys something.
             if a.sign < 0 or a.numdigits() > c.numdigits():
                 a = a.mod(c)
-
-        elif b.sign == 0:
-            return ONERBIGINT
         elif a.sign == 0:
             return NULLRBIGINT
         elif size_b == 1:
             if b._digits[0] == ONEDIGIT:
                 return a
-            elif a.numdigits() == 1:
+            elif a.numdigits() == 1 and c is None:
                 adigit = a.digit(0)
                 digit = b.digit(0)
                 if adigit == 1:
@@ -1118,7 +1117,10 @@ class rbigint(object):
             # XXX failed to implement
             raise ValueError("bigint pow() too negative")
 
-        if c is not None:
+        assert b >= 0
+        if b == 0:
+            return ONERBIGINT
+        elif c is not None:
             if c.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
@@ -1145,13 +1147,9 @@ class rbigint(object):
             # so we only do it when it buys something.
             if a.sign < 0 or a.numdigits() > c.numdigits():
                 a = a.mod(c)
-
-        elif b == 0:
-            return ONERBIGINT
         elif a.sign == 0:
             return NULLRBIGINT
-
-        if b == 1:
+        elif b == 1:
             return a
         elif a.numdigits() == 1:
             adigit = a.digit(0)
@@ -1175,6 +1173,7 @@ class rbigint(object):
         # Left-to-right binary exponentiation (HAC Algorithm 14.79)
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
         j = 1 << (SHIFT-1)
+        
         while j != 0:
             z = _help_mult(z, z, c)
             if b & j:
