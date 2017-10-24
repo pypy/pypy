@@ -143,7 +143,7 @@ class Entry(extregistry.ExtRegistryEntry):
 class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
     _immutable_ = True
-    _immutable_fields_ = ["_digits"]
+    _immutable_fields_ = ["_digits", "size", "sign"]
     
     def __init__(self, digits=NULLDIGITS, sign=0, size=0):
         if not we_are_translated():
@@ -1033,7 +1033,7 @@ class rbigint(object):
         # At this point a, b, and c are guaranteed non-negative UNLESS
         # c is NULL, in which case a may be negative. */
 
-        z = rbigint([ONEDIGIT], 1, 1)
+        z = ONERBIGINT
 
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
@@ -1168,7 +1168,7 @@ class rbigint(object):
         # At this point a, b, and c are guaranteed non-negative UNLESS
         # c is NULL, in which case a may be negative. */
 
-        z = rbigint([ONEDIGIT], 1, 1)
+        z = ONERBIGINT
 
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
