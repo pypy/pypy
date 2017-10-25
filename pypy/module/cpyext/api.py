@@ -577,6 +577,7 @@ SYMBOLS_C = [
     'PyComplex_AsCComplex', 'PyComplex_FromCComplex',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
+    'PyBuffer_GetPointer', 'PyBuffer_ToContiguous', 'PyBuffer_FromContiguous',
 
     'PyOS_getsig', 'PyOS_setsig',
     'PyThread_get_thread_ident', 'PyThread_allocate_lock', 'PyThread_free_lock',
