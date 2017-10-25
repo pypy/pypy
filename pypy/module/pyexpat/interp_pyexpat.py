@@ -811,7 +811,7 @@ Return a new XML parser object."""
                     w_encoding)
 
     if space.is_none(w_namespace_separator):
-        namespace_separator = 0
+        namespace_separator = -1
     elif space.isinstance_w(w_namespace_separator, space.w_text):
         separator = space.text_w(w_namespace_separator)
         if len(separator) == 0:
@@ -834,7 +834,7 @@ Return a new XML parser object."""
     elif space.is_w(w_intern, space.w_None):
         w_intern = None
 
-    if namespace_separator:
+    if namespace_separator >= 0:
         xmlparser = XML_ParserCreateNS(
             encoding,
             rffi.cast(rffi.CHAR, namespace_separator))
