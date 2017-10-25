@@ -1080,7 +1080,7 @@ class Statement(object):
         if '\0' in sql:
             raise ValueError("the query contains a null character")
 
-        first_word = sql.lstrip().split(" ")[0].upper()
+        first_word = sql.lstrip().split()[0].upper()
         if first_word == "":
             self._type = _STMT_TYPE_INVALID
         elif first_word == "SELECT":
