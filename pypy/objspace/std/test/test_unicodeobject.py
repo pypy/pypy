@@ -323,6 +323,16 @@ class AppTestUnicodeString:
         assert not u'\u01c5abc'.islower()
         assert not u'\u01c5ABC'.isupper()
 
+    def test_lower_upper(self):
+        assert u'a'.lower() == u'a'
+        assert u'A'.lower() == u'a'
+        assert u'\u0105'.lower() == u'\u0105'
+        assert u'\u0104'.lower() == u'\u0105'
+        assert u'a'.upper() == u'A'
+        assert u'A'.upper() == u'A'
+        assert u'\u0105'.upper() == u'\u0104'
+        assert u'\u0104'.upper() == u'\u0104'
+
     def test_capitalize(self):
         assert u"brown fox".capitalize() == u"Brown fox"
         assert u' hello '.capitalize() == u' hello '

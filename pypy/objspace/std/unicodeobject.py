@@ -182,15 +182,6 @@ class W_UnicodeObject(W_Root):
     def _islinebreak(self, s, pos):
         return rutf8.islinebreak(s, pos)
 
-    def _upper(self, ch):
-        return unichr(unicodedb.toupper(ord(ch)))
-
-    def _lower(self, ch):
-        return unichr(unicodedb.tolower(ord(ch)))
-
-    def _title(self, ch):
-        return unichr(unicodedb.totitle(ord(ch)))
-
     def _newlist_unwrapped(self, space, lst):
         assert False, "should not be called"
         return space.newlist_unicode(lst)
@@ -509,6 +500,15 @@ class W_UnicodeObject(W_Root):
         from pypy.objspace.std.newformat import unicode_template_formatter
         tformat = unicode_template_formatter(space, space.unicode_w(self))
         return tformat.formatter_field_name_split()
+
+    def descr_lower(self, space):
+        builder = StringBuilder(len(self._utf8))
+        pos = 0
+        while pos < len(self._utf8):
+            lower = unicodedb.tolower(rutf8.codepoint_at_pos(self._utf8, pos))
+            rutf8.unichr_as_utf8_append(builder, lower) # XXX allow surrogates?
+            pos = rutf8.next_codepoint_pos(self._utf8, pos)
+        return W_UnicodeObject(builder.build(), self._len())
 
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
