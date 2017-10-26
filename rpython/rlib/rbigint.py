@@ -849,6 +849,7 @@ class rbigint(object):
             else:
                 # Perform
                 size = self.numdigits() - 1
+                
                 if size > 0:
                     rem = self.widedigit(size)
                     size -= 1
@@ -856,7 +857,7 @@ class rbigint(object):
                         rem = ((rem << SHIFT) | self.digit(size)) % digit
                         size -= 1
                 else:
-                    rem = self.digit(0) % digit
+                    rem = self.widedigit(0) % digit
 
                 if rem == 0:
                     return NULLRBIGINT
@@ -2091,7 +2092,7 @@ def _v_lshift(z, a, m, d):
         * result in z[0:m], and return the d bits shifted out of the top.
     """
 
-    carry = 0
+    carry = _unsigned_widen_digit(0)
     assert 0 <= d and d < SHIFT
     i = 0
     while i < m:

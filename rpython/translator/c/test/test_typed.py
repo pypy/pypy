@@ -955,6 +955,20 @@ class TestTypedTestCase(object):
         res = f(217)
         assert res == 305123851
 
+    def test_uint128(self):
+        if not hasattr(rffi, '__UINT128_T'):
+            py.test.skip("no '__uint128_t'")
+        def func(n):
+            x = rffi.cast(getattr(rffi, '__UINT128_T'), n)
+            x *= x
+            x *= x
+            x *= x
+            x *= x
+            return intmask(x >> 96)
+        f = self.getcompiled(func, [int])
+        res = f(217)
+        assert res == 305123851
+
     def test_bool_2(self):
         def func(n):
             x = rffi.cast(lltype.Bool, n)
