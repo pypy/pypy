@@ -797,7 +797,7 @@ class W_UnicodeObject(W_Root):
 
         pos = value.find(sub._utf8)
 
-        if pos == -1:
+        if pos < 0:
             return space.newtuple([self, self._empty(), self._empty()])
         else:
             lgt = rutf8.check_utf8(value, True, stop=pos)
@@ -815,7 +815,7 @@ class W_UnicodeObject(W_Root):
 
         pos = value.rfind(sub._utf8)
 
-        if pos == -1:
+        if pos < 0:
             return space.newtuple([self._empty(), self._empty(), self])
         else:
             lgt = rutf8.check_utf8(value, True, stop=pos)
