@@ -756,7 +756,16 @@ class W_UnicodeObject(W_Root):
         if start == stop:
             return self._empty()
         else:
-            return self._sliced(space, selfvalue, start, stop, self)
+            return self._unicode_sliced(space, start, stop)
+
+    def _unicode_sliced(self, space, start, stop):
+        # XXX maybe some heuristic, like first slice does not create
+        #     full index, but second does?
+        assert start >= 0
+        assert stop >= 0
+        byte_start = self._index_to_byte(start)
+        byte_stop = self._index_to_byte(stop)
+        return W_UnicodeObject(self._utf8[byte_start:byte_stop], stop - start)
 
     def descr_capitalize(self, space):
         value = self._utf8
