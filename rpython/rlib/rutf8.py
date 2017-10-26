@@ -16,10 +16,11 @@ extra code in the middle for error handlers and so on.
 """
 
 import sys
-from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.objectmodel import enforceargs, we_are_translated
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -478,3 +479,100 @@ def codepoint_at_index(utf8, storage, index):
     if index == 2:
         bytepos = next_codepoint_pos(utf8, bytepos)
     return codepoint_at_pos(utf8, bytepos)
+
+def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None):
+    @jit.elidable
+    def unicode_escape(s):
+        size = len(s)
+        result = StringBuilder(size)
+
+        if quotes:
+            if prefix:
+                result.append(prefix)
+            if s.find('\'') != -1 and s.find('\"') == -1:
+                quote = ord('\"')
+                result.append('"')
+            else:
+                quote = ord('\'')
+                result.append('\'')
+        else:
+            quote = 0
+
+            if size == 0:
+                return ''
+
+        pos = 0
+        while pos < size:
+            oc = codepoint_at_pos(s, pos)
+            ch = s[pos]
+
+            # Escape quotes
+            if quotes and (oc == quote or ch == '\\'):
+                result.append('\\')
+                next_pos = next_codepoint_pos(s, pos)
+                result.append_slice(s, pos, next_pos)
+                pos = next_pos
+                continue
+
+            # The following logic is enabled only if MAXUNICODE == 0xffff, or
+            # for testing on top of a host Python where sys.maxunicode == 0xffff
+            if (not we_are_translated() and sys.maxunicode == 0xFFFF and
+                0xD800 <= oc < 0xDC00 and pos + 3 < size):
+                # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
+                pos += 3
+                oc2 = codepoint_at_pos(s, pos)
+
+                if 0xDC00 <= oc2 <= 0xDFFF:
+                    ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
+                    char_escape_helper(result, ucs)
+                    pos += 3
+                    continue
+                # Fall through: isolated surrogates are copied as-is
+                pos -= 3
+
+            # Map special whitespace to '\t', \n', '\r'
+            if ch == '\t':
+                result.append('\\t')
+            elif ch == '\n':
+                result.append('\\n')
+            elif ch == '\r':
+                result.append('\\r')
+            elif ch == '\\':
+                result.append('\\\\')
+
+            # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
+            elif pass_printable and not (oc <= 0x10ffff and unicodedb.isprintable(oc)):
+                char_escape_helper(result, oc)
+            elif not pass_printable and (oc < 32 or oc >= 0x7F):
+                char_escape_helper(result, oc)
+
+            # Copy everything else as-is
+            else:
+                if oc < 128:
+                    result.append(ch)
+                else:
+                    next_pos = next_codepoint_pos(s, pos)
+                    result.append_slice(s, pos, next_pos)
+            pos = next_codepoint_pos(s, pos)
+
+        if quotes:
+            result.append(chr(quote))
+        return result.build()
+
+    TABLE = '0123456789abcdef'
+
+    def char_escape_helper(result, char):
+        if char >= 0x10000 or char < 0:
+            result.append("\\U")
+            zeros = 8
+        elif char >= 0x100:
+            result.append("\\u")
+            zeros = 4
+        else:
+            result.append("\\x")
+            zeros = 2
+        for i in range(zeros-1, -1, -1):
+            result.append(TABLE[(char >> (4 * i)) & 0x0f])
+
+    return unicode_escape #, char_escape_helper
+

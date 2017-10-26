@@ -126,10 +126,6 @@ class W_UnicodeObject(W_Root):
         return True
 
     @staticmethod
-    def _op_val(space, w_other, strict=None):
-        return W_UnicodeObject.convert_arg_to_w_unicode(space, w_other, strict)._utf8.decode('utf8')
-
-    @staticmethod
     def convert_arg_to_w_unicode(space, w_other, strict=None):
         if isinstance(w_other, W_UnicodeObject):
             return w_other
@@ -237,10 +233,7 @@ class W_UnicodeObject(W_Root):
         return w_newobj
 
     def descr_repr(self, space):
-        chars = self._utf8.decode('utf8')
-        size = len(chars)
-        s = _repr_function(chars, size, "strict")
-        return space.newtext(s)
+        return space.newtext(_repr_function(self._utf8))
 
     def descr_str(self, space):
         return encode_object(space, self, None, None)
@@ -1752,5 +1745,5 @@ def unicode_to_decimal_w(space, w_unistr):
     return ''.join(result)
 
 
-_repr_function, _ = make_unicode_escape_function(
-    pass_printable=False, unicode_output=False, quotes=True, prefix='u')
+_repr_function = rutf8.make_utf8_escape_function(
+    pass_printable=False, quotes=True, prefix='u')

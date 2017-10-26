@@ -114,6 +114,13 @@ def test_codepoint_position_at_index(u):
         assert (rutf8.codepoint_position_at_index(u.encode('utf8'), index, i) ==
                 len(u[:i].encode('utf8')))
 
+repr_func = rutf8.make_utf8_escape_function(prefix='u', pass_printable=False,
+                                            quotes=True)
+
+@given(strategies.text())
+def test_repr(u):
+    assert repr(u) == repr_func(u.encode('utf8'))
+
 @given(strategies.lists(strategies.characters()))
 def test_surrogate_in_utf8(unichars):
     uni = u''.join(unichars).encode('utf-8')
