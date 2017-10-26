@@ -113,29 +113,11 @@ class W_UnicodeObject(W_Root):
                          "found", self._len())
         return space.newint(rutf8.codepoint_at_pos(self._utf8, 0))
 
-    def _new(self, value):
-        assert isinstance(value, unicode)
-        return W_UnicodeObject(value.encode('utf8'), len(value))
-
-    def _new_from_list(self, value):
-        u = u''.join(value)
-        return W_UnicodeObject(u.encode('utf8'), len(u))
-
     def _empty(self):
         return W_UnicodeObject.EMPTY
 
     def _len(self):
-        #if self._length == -1:
-        #    self._length = self._compute_length()
         return self._length
-
-    def _compute_length(self):
-        return rutf8.compute_length_utf8(self._utf8)
-
-    def _val(self, space):
-        #import pdb
-        #pdb.set_trace()
-        return self._utf8.decode('utf8')
 
     @staticmethod
     def _use_rstr_ops(space, w_other):
