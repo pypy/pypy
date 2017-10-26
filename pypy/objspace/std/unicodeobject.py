@@ -825,9 +825,11 @@ class W_UnicodeObject(W_Root):
         if pos == -1:
             return space.newtuple([self, self._empty(), self._empty()])
         else:
+            lgt = rutf8.check_utf8(value, True, stop=pos)
             return space.newtuple(
-                [self._sliced(space, value, 0, pos, self), w_sub,
-                 self._sliced(space, value, pos + sublen, len(value), self)])
+                [W_UnicodeObject(value[0:pos], lgt), w_sub,
+                 W_UnicodeObject(value[pos + len(sub._utf8):len(value)],
+                    self._len() - lgt - sublen)])
 
     def descr_rpartition(self, space, w_sub):
         value = self._utf8
@@ -841,10 +843,11 @@ class W_UnicodeObject(W_Root):
         if pos == -1:
             return space.newtuple([self._empty(), self._empty(), self])
         else:
+            lgt = rutf8.check_utf8(value, True, stop=pos)
             return space.newtuple(
-                [self._sliced(space, value, 0, pos, self), w_sub,
-                 self._sliced(space, value, pos + sublen, len(value), self)])
-
+                [W_UnicodeObject(value[0:pos], lgt), w_sub,
+                 W_UnicodeObject(value[pos + len(sub._utf8):len(value)],
+                    self._len() - lgt - sublen)])
 
     @unwrap_spec(count=int)
     def descr_replace(self, space, w_old, w_new, count=-1):

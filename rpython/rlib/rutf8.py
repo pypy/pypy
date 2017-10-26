@@ -291,16 +291,19 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
 
 
 #@jit.elidable
-def check_utf8(s, allow_surrogates):
+def check_utf8(s, allow_surrogates, start=0, stop=-1):
     """Check that 's' is a utf-8-encoded byte string.
     Returns the length (number of chars) or raise CheckError.
     If allow_surrogates is False, then also raise if we see any.
     Note also codepoints_in_utf8(), which also computes the length
     faster by assuming that 's' is valid utf-8.
     """
-    pos = 0
+    pos = start
     continuation_bytes = 0
-    end = len(s)
+    if stop < 0:
+        end = len(s)
+    else:
+        end = stop
     while pos < end:
         ordch1 = ord(s[pos])
         pos += 1
