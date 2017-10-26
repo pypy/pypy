@@ -21,7 +21,7 @@ from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.sliceobject import (
+from pypy.objspace.std.sliceobject import (W_SliceObject,
     unwrap_start_stop, normalize_simple_slice)
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
@@ -724,8 +724,36 @@ class W_UnicodeObject(W_Root):
 
         return space.newlist_utf8(res)
 
+    def descr_getitem(self, space, w_index):
+        if isinstance(w_index, W_SliceObject):
+            length = self._len()
+            start, stop, step, sl = w_index.indices4(space, length)
+            if sl == 0:
+                return self._empty()
+            elif step == 1:
+                assert start >= 0 and stop >= 0
+                return self._unicode_sliced(space, start, stop)
+            else:
+                return self._getitem_slice_slowpath(space, start, step, sl)
+
+        index = space.getindex_w(w_index, space.w_IndexError, "string index")
+        return self._getitem_result(space, index)
+
+    def _getitem_slice_slowpath(self, space, start, step, sl):
+        # XXX same comment as in _unicode_sliced
+        builder = StringBuilder(step * sl)
+        byte_pos = self._index_to_byte(start)
+        i = 0
+        while True:
+            next_pos = rutf8.next_codepoint_pos(self._utf8, byte_pos)
+            builder.append(self._utf8[byte_pos:next_pos])
+            if i == sl - 1:
+                break
+            i += 1
+            byte_pos = self._index_to_byte(start + i * step)
+        return W_UnicodeObject(builder.build(), sl)
+
     def descr_getslice(self, space, w_start, w_stop):
-        selfvalue = self._utf8
         start, stop = normalize_simple_slice(
             space, self._len(), w_start, w_stop)
         if start == stop:

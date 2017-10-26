@@ -907,16 +907,31 @@ class AppTestUnicodeString:
 
     def test_getslice(self):
         assert u'123456'.__getslice__(1, 5) == u'2345'
-        s = u"abc"
-        assert s[:] == "abc"
-        assert s[1:] == "bc"
-        assert s[:2] == "ab"
-        assert s[1:2] == "b"
-        assert s[-2:] == "bc"
-        assert s[:-1] == "ab"
-        assert s[-2:2] == "b"
-        assert s[1:-1] == "b"
-        assert s[-2:-1] == "b"
+        s = u"\u0105b\u0107"
+        assert s[:] == u"\u0105b\u0107"
+        assert s[1:] == u"b\u0107"
+        assert s[:2] == u"\u0105b"
+        assert s[1:2] == u"b"
+        assert s[-2:] == u"b\u0107"
+        assert s[:-1] == u"\u0105b"
+        assert s[-2:2] == u"b"
+        assert s[1:-1] == u"b"
+        assert s[-2:-1] == u"b"
+
+    def test_getitem_slice(self):
+        assert u'123456'.__getitem__(slice(1, 5)) == u'2345'
+        s = u"\u0105b\u0107"
+        assert s[slice(3)] == u"\u0105b\u0107"
+        assert s[slice(1, 3)] == u"b\u0107"
+        assert s[slice(2)] == u"\u0105b"
+        assert s[slice(1,2)] == u"b"
+        assert s[slice(-2,3)] == u"b\u0107"
+        assert s[slice(-1)] == u"\u0105b"
+        assert s[slice(-2,2)] == u"b"
+        assert s[slice(1,-1)] == u"b"
+        assert s[slice(-2,-1)] == u"b"
+        assert u"abcde"[::2] == u"ace"
+        assert u"\u0105\u0106\u0107abcd"[::2] == u"\u0105\u0107bd"
 
     def test_no_len_on_str_iter(self):
         iterable = u"hello"
