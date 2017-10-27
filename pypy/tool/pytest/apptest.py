@@ -90,7 +90,7 @@ if 1:
         import os
         try:
             if isinstance(func, str):
-                if func.startswith((' ', os.linesep)):
+                if func.startswith((' ', os.linesep, '\n')):
                     # it's probably an indented block, so we prefix if True:
                     # to avoid SyntaxError
                     func = "if True:\n" + func
