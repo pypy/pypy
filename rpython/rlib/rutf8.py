@@ -193,11 +193,19 @@ class CheckError(Exception):
     def __init__(self, pos):
         self.pos = pos
 
-#@jit.elidable
 def check_ascii(s):
+    res = _check_ascii(s)
+    if res < 0:
+        return
+    raise CheckError(res)
+
+
+@jit.elidable
+def _check_ascii(s):
     for i in range(len(s)):
         if ord(s[i]) > 0x7F:
-            raise CheckError(i)
+            return i
+    return -1
 
 def islinebreak(s, pos):
     chr1 = ord(s[pos])
@@ -291,7 +299,6 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
             (ordch1 == 0xf4 and ordch2 > 0x8f))
 
 
-#@jit.elidable
 def check_utf8(s, allow_surrogates, start=0, stop=-1):
     """Check that 's' is a utf-8-encoded byte string.
     Returns the length (number of chars) or raise CheckError.
@@ -299,6 +306,13 @@ def check_utf8(s, allow_surrogates, start=0, stop=-1):
     Note also codepoints_in_utf8(), which also computes the length
     faster by assuming that 's' is valid utf-8.
     """
+    res = _check_utf8(s, allow_surrogates, start, stop)
+    if res >= 0:
+        return res
+    raise CheckError(~res)
+
+@jit.elidable
+def _check_utf8(s, allow_surrogates, start, stop):
     pos = start
     continuation_bytes = 0
     if stop < 0:
@@ -313,37 +327,37 @@ def check_utf8(s, allow_surrogates, start=0, stop=-1):
             continue
 
         if ordch1 <= 0xC1:
-            raise CheckError(pos - 1)
+            return ~(pos - 1)
 
         if ordch1 <= 0xDF:
             if pos >= end:
-                raise CheckError(pos - 1)
+                return ~(pos - 1)
             ordch2 = ord(s[pos])
             pos += 1
 
             if _invalid_byte_2_of_2(ordch2):
-                raise CheckError(pos - 2)
+                return ~(pos - 2)
             # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
             continuation_bytes += 1
             continue
 
         if ordch1 <= 0xEF:
             if (pos + 2) > end:
-                raise CheckError(pos - 1)
+                return ~(pos - 1)
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
             pos += 2
 
             if (_invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates) or
                 _invalid_byte_3_of_3(ordch3)):
-                raise CheckError(pos - 3)
+                return ~(pos - 3)
             # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
             continuation_bytes += 2
             continue
 
         if ordch1 <= 0xF4:
             if (pos + 3) > end:
-                raise CheckError(pos - 1)
+                return ~(pos - 1)
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
             ordch4 = ord(s[pos + 2])
@@ -352,14 +366,15 @@ def check_utf8(s, allow_surrogates, start=0, stop=-1):
             if (_invalid_byte_2_of_4(ordch1, ordch2) or
                 _invalid_byte_3_of_4(ordch3) or
                 _invalid_byte_4_of_4(ordch4)):
-                raise CheckError(pos - 4)
+                return ~(pos - 4)
             # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
             continuation_bytes += 3
             continue
 
-        raise CheckError(pos - 1)
+        return ~(pos - 1)
 
     assert pos == end
+    assert pos - continuation_bytes >= 0
     return pos - continuation_bytes
 
 @jit.elidable

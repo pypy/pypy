@@ -952,6 +952,23 @@ class TestLLtypeUnicode(TestLLtype):
         self.check_simple_loop({'guard_true': 1, 'int_add': 1,
                                 'int_lt': 1, 'jump': 1})
 
+    def test_check_ascii(self):
+        from rpython.rlib.rutf8 import check_ascii
+        jitdriver = JitDriver(greens=['x', 'y'], reds=['z'])
+        def f(x, y):
+            z = 0
+            while z < 10:
+                jitdriver.jit_merge_point(x=x, y=y, z=z)
+                if x > 0:
+                    s = "abc"
+                else:
+                    s = "def"
+                check_ascii(s)
+                z += 1
+            return 0
+        self.meta_interp(f, [222, 3333])
+        self.check_simple_loop(call_i=0)
+
     def test_string_hashing(self):
         def f(i):
             s = str(i)
