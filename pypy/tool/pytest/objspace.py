@@ -79,7 +79,9 @@ class TinyObjSpace(object):
         body = body.lstrip()
         assert body.startswith('(')
         src = py.code.Source("def anonymous" + body)
-        return (src, args)
+        d = {}
+        exec src.compile() in d
+        return d['anonymous'](*args)
 
     def wrap(self, obj):
         if isinstance(obj, str):
