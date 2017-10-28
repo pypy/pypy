@@ -2,3 +2,4 @@
 * rutf8.prev_codepoint_pos should use r_uint
 * find a better way to run "find" without creating the index storage,
   if one is not already readily available
+* fix _pypyjson
