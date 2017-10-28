@@ -279,7 +279,8 @@ class TestFastPathJIT(LLJitMixin):
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "cppmethod"])
         def f():
             cls  = interp_cppyy.scope_byname(space, "example01")
-            inst = cls.get_overload("example01").call(None, [FakeInt(0)])
+            inst = interp_cppyy._bind_object(space, FakeInt(0), cls, True)
+            cls.get_overload("__init__").call(inst, [FakeInt(0)])
             cppmethod = cls.get_overload(method_name)
             assert isinstance(inst, interp_cppyy.W_CPPClass)
             i = 10
