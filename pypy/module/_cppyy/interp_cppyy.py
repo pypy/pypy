@@ -623,7 +623,21 @@ W_CPPConstructorOverload.typedef = TypeDef(
     'CPPConstructorOverload',
     is_static = interp2app(W_CPPConstructorOverload.is_static),
     call = interp2app(W_CPPConstructorOverload.call),
-    prototype = interp2app(W_CPPOverload.prototype),
+    prototype = interp2app(W_CPPConstructorOverload.prototype),
+)
+
+
+class W_CPPTemplateOverload(W_CPPOverload):
+    @unwrap_spec(args_w='args_w')
+    def __getitem__(self, args_w):
+        pass
+
+    def __repr__(self):
+        return "W_CPPTemplateOverload(%s)" % [f.prototype() for f in self.functions]
+
+W_CPPTemplateOverload.typedef = TypeDef(
+    'CPPTemplateOverload',
+    __getitem__ = interp2app(W_CPPTemplateOverload.call),
 )
 
 
@@ -636,6 +650,9 @@ class W_CPPBoundMethod(W_Root):
 
     def __call__(self, args_w):
         return self.method.bound_call(self.cppthis, args_w)
+
+    def __repr__(self):
+        return "W_CPPBoundMethod(%s)" % [f.prototype() for f in self.functions]
 
 W_CPPBoundMethod.typedef = TypeDef(
     'CPPBoundMethod',
@@ -667,7 +684,7 @@ class W_CPPDataMember(W_Root):
     def get(self, w_cppinstance, w_pycppclass):
         cppinstance = self.space.interp_w(W_CPPClass, w_cppinstance, can_be_None=True)
         if not cppinstance:
-            raise oefmt(self.space.w_ReferenceError,
+            raise oefmt(self.space.w_AttributeError,
                         "attribute access requires an instance")
         offset = self._get_offset(cppinstance)
         return self.converter.from_memory(self.space, w_cppinstance, w_pycppclass, offset)
@@ -675,7 +692,7 @@ class W_CPPDataMember(W_Root):
     def set(self, w_cppinstance, w_value):
         cppinstance = self.space.interp_w(W_CPPClass, w_cppinstance, can_be_None=True)
         if not cppinstance:
-            raise oefmt(self.space.w_ReferenceError,
+            raise oefmt(self.space.w_AttributeError,
                         "attribute access requires an instance")
         offset = self._get_offset(cppinstance)
         self.converter.to_memory(self.space, w_cppinstance, w_value, offset)
@@ -1161,7 +1178,7 @@ class W_CPPClass(W_Root):
 
 W_CPPClass.typedef = TypeDef(
     'CPPClass',
-    _python_owns = GetSetProperty(W_CPPClass.fget_python_owns, W_CPPClass.fset_python_owns),
+    __python_owns__ = GetSetProperty(W_CPPClass.fget_python_owns, W_CPPClass.fset_python_owns),
     __init__ = interp2app(W_CPPClass.instance__init__),
     __eq__ = interp2app(W_CPPClass.instance__eq__),
     __ne__ = interp2app(W_CPPClass.instance__ne__),
@@ -1262,7 +1279,7 @@ def _addressof(space, w_obj):
     except TypeError:
         pass
     # attempt to get address of C++ instance
-    return rffi.cast(rffi.INTPTR_T, converter.get_rawobject(space, w_obj))
+    return rffi.cast(rffi.INTPTR_T, converter.get_rawobject(space, w_obj, False))
 
 @unwrap_spec(w_obj=W_Root)
 def addressof(space, w_obj):

@@ -71,7 +71,9 @@ class AppTestFRAGILE:
 
         e = fragile.E()
         raises(TypeError, e.overload, None)
-        raises(TypeError, getattr, e, 'm_pp_no_such')
+        # allowing access to e.m_pp_no_such is debatable, but it provides a raw pointer
+        # which may be useful ...
+        assert e.m_pp_no_such[0] == 0xdead
 
     def test04_wrong_arg_addressof(self):
         """Test addressof() error reporting"""
@@ -90,10 +92,7 @@ class AppTestFRAGILE:
         _cppyy.addressof(f)
         raises(TypeError, _cppyy.addressof, o)
         raises(TypeError, _cppyy.addressof, 1)
-        # 0, None, and nullptr allowed
-        assert _cppyy.addressof(0)                  == 0
-        assert _cppyy.addressof(None)               == 0
-        assert _cppyy.addressof(_cppyy.nullptr)     == 0
+        # see also test08_void_pointer_passing in test_advancedcpp.py
 
     def test05_wrong_this(self):
         """Test that using an incorrect self argument raises"""

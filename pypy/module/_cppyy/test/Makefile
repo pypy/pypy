@@ -7,7 +7,8 @@ dicts = advancedcppDict.so \
         fragileDict.so \
         operatorsDict.so \
         overloadsDict.so \
-        stltypesDict.so
+        stltypesDict.so \
+        templatesDict.so
 
 all : $(dicts)
 

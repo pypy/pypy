@@ -1,5 +1,4 @@
 import py, os, sys
-import subprocess
 
 from pypy.module._cppyy import interp_cppyy, executor
 from .support import setup_make
@@ -165,8 +164,8 @@ class AppTestCPPYY:
 
         e1 = self.instantiate(t, 7)
         assert t.get_overload("getCount").call(None) == 1
-        assert e1._python_owns == True
-        e1._python_owns = False
+        assert e1.__python_owns__ == True
+        e1.__python_owns__ = False
         e1 = None
         gc.collect()
         assert t.get_overload("getCount").call(None) == 1
