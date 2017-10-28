@@ -478,12 +478,14 @@ getting the advantage of providing document type information to the parser.
             # I suppose this is a valid utf8, but there is noone to check
             # and noone to catch an error either
             try:
-                rutf8.str_check_utf8(s, len(s), final=True)
-                return space.newutf8(s, -1)
-            except rutf8.Utf8CheckError as e:
+                lgt = rutf8.check_utf8(s, True)
+                return space.newutf8(s, lgt)
+            except rutf8.CheckError:
                 from pypy.interpreter import unicodehelper
-                unicodehelper.decode_error_handler(space)('strict', 'utf-8',
-                    e.msg, s, e.startpos, e.endpos)
+                # get the correct error msg
+                unicodehelper.str_decode_utf8(s, len(s), 'string', True,
+                    unicodehelper.decode_error_handler(space))
+                assert False, "always raises"
         else:
             return space.newtext(s)
 
