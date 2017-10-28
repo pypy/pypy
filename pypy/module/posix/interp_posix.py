@@ -2468,3 +2468,16 @@ def sched_get_priority_min(space, policy):
             wrap_oserror(space, e, eintr_retry=True)
         else:
            return space.newint(s)
+
+@unwrap_spec(fd=c_int, cmd=c_int, length=r_longlong)
+def lockf(space, fd, cmd, length):
+    """apply, test or remove a POSIX lock on an 
+    open file.
+    """
+    while True:
+        try:
+            s = rposix.lockf(fd, cmd, length)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+           return space.newint(s)

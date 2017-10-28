@@ -1331,6 +1331,17 @@ class AppTestPosix:
             posix.close(fd)
             s2.close()
             s1.close()
+            
+        def test_os_lockf(self):
+            posix, os = self.posix, self.os
+            fd = os.open(self.path2 + 'test_os_lockf', os.O_WRONLY | os.O_CREAT)
+            try:
+                os.write(fd, b'test')
+                os.lseek(fd, 0, 0)
+                posix.lockf(fd, posix.F_LOCK, 4)
+                posix.lockf(fd, posix.F_ULOCK, 4)
+            finally:
+                os.close(fd)
 
     def test_urandom(self):
         os = self.posix

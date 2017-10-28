@@ -237,6 +237,12 @@ corresponding Unix manual entries for more information on calls."""
             if getattr(rposix, _name) is not None:
                 interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
 
+    if sys.platform.startswith('linux'):
+        interpleveldefs['lockf'] = 'interp_posix.lockf'
+        for _name in ['F_LOCK', 'F_TLOCK', 'F_ULOCK', 'F_TEST']:
+            if getattr(rposix, _name) is not None:
+                interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)

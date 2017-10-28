@@ -276,6 +276,10 @@ class CConfig:
     SCHED_OTHER = rffi_platform.DefinedConstantInteger('SCHED_OTHER')
     SCHED_BATCH = rffi_platform.DefinedConstantInteger('SCHED_BATCH')
     O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
+    F_LOCK = rffi_platform.DefinedConstantInteger('F_LOCK')
+    F_TLOCK = rffi_platform.DefinedConstantInteger('F_TLOCK')
+    F_ULOCK = rffi_platform.DefinedConstantInteger('F_ULOCK')
+    F_TEST = rffi_platform.DefinedConstantInteger('F_TEST')
     OFF_T = rffi_platform.SimpleType('off_t')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
@@ -547,6 +551,14 @@ if not _WIN32:
             error = widen(error)
             if error != 0:
                 raise OSError(error, 'posix_fadvise failed')
+
+    c_lockf = external('lockf',
+            [rffi.INT, rffi.INT , OFF_T], rffi.INT,
+            save_err=rffi.RFFI_SAVE_ERRNO)
+    @enforceargs(int, None, None)
+    def lockf(fd, cmd, length):
+        validate_fd(fd)
+        return handle_posix_error('lockf', c_lockf(fd, cmd, length))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
