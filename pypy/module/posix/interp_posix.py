@@ -2468,3 +2468,13 @@ def sched_get_priority_min(space, policy):
             wrap_oserror(space, e, eintr_retry=True)
         else:
            return space.newint(s)
+
+def sched_yield(space):
+    """ Voluntarily relinquish the CPU"""
+    while True:
+        try:
+            res = rposix.sched_yield()
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
