@@ -729,7 +729,12 @@ class AppTestNetlink:
     def setup_class(cls):
         if not hasattr(os, 'getpid'):
             pytest.skip("AF_NETLINK needs os.getpid()")
-        w_ok = space.appexec([], "(): import _socket; " +
+        
+        if cls.runappdirect:
+            import _socket
+            w_ok = hasattr(_socket, 'AF_NETLINK')
+        else:
+            w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_NETLINK')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_NETLINK on this platform")
@@ -737,7 +742,8 @@ class AppTestNetlink:
 
     def test_connect_to_kernel_netlink_routing_socket(self):
         import _socket, os
-        s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM, _socket.NETLINK_ROUTE)
+        s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM,
+                           _socket.NETLINK_ROUTE)
         assert s.getsockname() == (0, 0)
         s.bind((0, 0))
         a, b = s.getsockname()
@@ -749,7 +755,11 @@ class AppTestPacket:
     def setup_class(cls):
         if not hasattr(os, 'getuid') or os.getuid() != 0:
             pytest.skip("AF_PACKET needs to be root for testing")
-        w_ok = space.appexec([], "(): import _socket; " +
+        if cls.runappdirect:
+            import _socket
+            w_ok = hasattr(_socket, 'AF_PACKET')
+        else:
+            w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_PACKET')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_PACKET on this platform")

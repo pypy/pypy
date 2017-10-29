@@ -79,9 +79,7 @@ class TinyObjSpace(object):
         body = body.lstrip()
         assert body.startswith('(')
         src = py.code.Source("def anonymous" + body)
-        d = {}
-        exec src.compile() in d
-        return d['anonymous'](*args)
+        return (src, args)
 
     def wrap(self, obj):
         if isinstance(obj, str):
@@ -102,6 +100,8 @@ class TinyObjSpace(object):
         return list(itr)
 
     def is_true(self, obj):
+        if isinstance(obj, tuple) and isinstance(obj[0], py.code.Source):
+            raise ValueError('bool(appexec object) unknown')
         return bool(obj)
 
     def is_none(self, obj):
