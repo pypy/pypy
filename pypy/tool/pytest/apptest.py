@@ -239,7 +239,7 @@ class AppTestFunction(py.test.collect.Function):
         space = gettestobjspace()
         filename = self._getdynfilename(target)
         func = app2interp_temp(src, filename=filename)
-        print "executing", func
+        # print "executing", func
         self.execute_appex(space, func, space)
 
     def repr_failure(self, excinfo):

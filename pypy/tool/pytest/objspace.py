@@ -100,6 +100,8 @@ class TinyObjSpace(object):
         return list(itr)
 
     def is_true(self, obj):
+        if isinstance(obj, tuple) and isinstance(obj[0], py.code.Source):
+            raise ValueError('bool(appexec object) unknown')
         return bool(obj)
 
     def is_none(self, obj):
