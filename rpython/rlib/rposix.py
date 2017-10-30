@@ -472,7 +472,7 @@ def write(fd, data):
 def close(fd):
     validate_fd(fd)
     handle_posix_error('close', c_close(fd))
-    
+
 c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
                    [rffi.INT, rffi.LONGLONG, rffi.INT], rffi.LONGLONG,
                    macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -505,7 +505,7 @@ if not _WIN32:
         with rffi.scoped_alloc_buffer(count) as buf:
             void_buf = rffi.cast(rffi.VOIDP, buf.raw)
             return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
-            
+
     @enforceargs(int, None, None)
     def pwrite(fd, data, offset):
         count = len(data)
