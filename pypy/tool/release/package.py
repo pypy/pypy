@@ -83,7 +83,11 @@ def create_package(basedir, options, _fake=False):
     if not _fake and not pypy_runs(pypy_c):
         raise OSError("Running %r failed!" % (str(pypy_c),))
     if not options.no_cffi:
-        failures = create_cffi_import_libraries(str(pypy_c), options, str(basedir))
+        failures = create_cffi_import_libraries(
+            str(pypy_c), options, str(basedir),
+            embed_dependencies=options.embed_dependencies,
+        )
+
         for key, module in failures:
             print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
                 You can either install development headers package,
@@ -266,6 +270,15 @@ using another platform..."""
 
 def package(*args, **kwds):
     import argparse
+
+    class NegateAction(argparse.Action):
+        def __init__(self, option_strings, dest, nargs=0, **kwargs):
+            super(NegateAction, self).__init__(option_strings, dest, nargs,
+                                               **kwargs)
+
+        def __call__(self, parser, ns, values, option):
+            setattr(ns, self.dest, option[2:4] != 'no')
+
     if sys.platform == 'win32':
         pypy_exe = 'pypy3.exe'
     else:
@@ -296,12 +309,20 @@ def package(*args, **kwds):
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
         help='use as pypy3 exe instead of pypy/goal/pypy3-c')
+    parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
+                        dest='embed_dependencies',
+                        action=NegateAction,
+                        default=(sys.platform == 'darwin'),
+                        help='whether to embed dependencies for distribution '
+                        '(default on OS X)')
     options = parser.parse_args(args)
 
     if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
         options.nostrip = True
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
         options.no_tk = True
+    if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
+        options.embed_dependencies = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
