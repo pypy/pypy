@@ -2491,4 +2491,3 @@ def sched_yield(space):
             wrap_oserror(space, e, eintr_retry=True)
         else:
             return space.newint(res)
->>>>>>> other
