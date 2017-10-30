@@ -11,3 +11,6 @@ Add sched_yield posix attribute
 .. branch: py3.5-appexec
 Raise if space.is_true(space.appexec()) used in app level tests, fix tests
 that did this
+
+.. branch: py3.5-mac-embedding
+Download and patch dependencies when building cffi-based stdlib modules

@@ -810,11 +810,6 @@ def test_os_sched_priority_max_greater_than_min():
     assert isinstance(low, int) == True
     assert isinstance(high, int) == True
     assert  high > low
-    
-@rposix_requires('sched_yield')
-def test_sched_yield():
-    if sys.platform != 'win32':
-        rposix.sched_yield()
 
 @rposix_requires('sched_yield')
 def test_sched_yield():

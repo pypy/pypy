@@ -1864,7 +1864,7 @@ if not _WIN32:
 
     def sched_yield():
         return handle_posix_error('sched_yield', c_sched_yield())
-        
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
