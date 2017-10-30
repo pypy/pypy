@@ -290,66 +290,87 @@ class AppTestStacklet(BaseAppTest):
     def test_random_switching(self):
         from _continuation import continulet
         #
+        seen = []
+        #
         def t1(c1):
-            return c1.switch()
+            seen.append(3)
+            res = c1.switch()
+            seen.append(6)
+            return res
+        #
         def s1(c1, n):
+            seen.append(2)
             assert n == 123
             c2 = t1(c1)
-            return c1.switch('a') + 1
+            seen.append(7)
+            res = c1.switch('a') + 1
+            seen.append(10)
+            return res
         #
         def s2(c2, c1):
+            seen.append(5)
             res = c1.switch(c2)
+            seen.append(8)
             assert res == 'a'
-            return c2.switch('b') + 2
+            res = c2.switch('b') + 2
+            seen.append(12)
+            return res
         #
         def f():
+            seen.append(1)
             c1 = continulet(s1, 123)
             c2 = continulet(s2, c1)
             c1.switch()
+            seen.append(4)
             res = c2.switch()
+            seen.append(9)
             assert res == 'b'
             res = c1.switch(1000)
+            seen.append(11)
             assert res == 1001
-            return c2.switch(2000)
+            res = c2.switch(2000)
+            seen.append(13)
+            return res
         #
         res = f()
         assert res == 2002
+        assert seen == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
     def test_f_back(self):
         import sys
         from _continuation import continulet
         #
-        def g(c):
+        def bar(c):
             c.switch(sys._getframe(0))
             c.switch(sys._getframe(0).f_back)
             c.switch(sys._getframe(1))
             c.switch(sys._getframe(1).f_back)
-            assert sys._getframe(2) is f3.f_back
+            assert sys._getframe(2) is f3_foo.f_back
             c.switch(sys._getframe(2))
-        def f(c):
-            g(c)
+        def foo(c):
+            bar(c)
         #
-        c = continulet(f)
-        f1 = c.switch()
-        assert f1.f_code.co_name == 'g'
-        f2 = c.switch()
-        assert f2.f_code.co_name == 'f'
-        f3 = c.switch()
-        assert f3 is f2
-        assert f1.f_back is f3
+        c = continulet(foo)
+        f1_bar = c.switch()
+        assert f1_bar.f_code.co_name == 'bar'
+        f2_foo = c.switch()
+        assert f2_foo.f_code.co_name == 'foo'
+        f3_foo = c.switch()
+        assert f3_foo is f2_foo
+        assert f1_bar.f_back is f3_foo
         def main():
-            f4 = c.switch()
-            assert f4.f_code.co_name == 'main', repr(f4.f_code.co_name)
-            assert f3.f_back is f1    # not running, so a loop
+            f4_main = c.switch()
+            assert f4_main.f_code.co_name == 'main'
+            assert f3_foo.f_back is f1_bar    # not running, so a loop
         def main2():
-            f5 = c.switch()
-            assert f5.f_code.co_name == 'main2', repr(f5.f_code.co_name)
-            assert f3.f_back is f1    # not running, so a loop
+            f5_main2 = c.switch()
+            assert f5_main2.f_code.co_name == 'main2'
+            assert f3_foo.f_back is f1_bar    # not running, so a loop
         main()
         main2()
         res = c.switch()
         assert res is None
-        assert f3.f_back is None
+        assert f3_foo.f_back is None
 
     def test_traceback_is_complete(self):
         import sys

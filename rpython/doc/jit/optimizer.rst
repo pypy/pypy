@@ -42,10 +42,9 @@ to compare the Python code that constructed the trace::
 There are better ways to compute the sum from ``[0..100]``, but it gives a better intuition on how
 traces are constructed than ``sum(range(101))``.
 Note that the trace syntax is the one used in the test suite. It is also very
-similar to traces printed at runtime by PYPYLOG_. The first line gives the input variables, the
-second line is a ``label`` operation, the last one is the backwards ``jump`` operation.
-
-.. _PYPYLOG: logging.html
+similar to traces printed at runtime by :doc:`PYPYLOG <../logging>`. The first
+line gives the input variables, the second line is a ``label`` operation, the
+last one is the backwards ``jump`` operation.
 
 These instructions mentioned earlier are special:
 
