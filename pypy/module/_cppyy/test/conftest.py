@@ -4,7 +4,7 @@ import py, sys
 def pytest_runtest_setup(item):
     if py.path.local.sysfind('genreflex') is None:
         import pypy.module._cppyy.capi.loadable_capi as lcapi
-        if 'dummy' in lcapi.reflection_library:
+        if 'dummy' in lcapi.backend_library:
             # run only tests that are covered by the dummy backend and tests
             # that do not rely on reflex
             import os
@@ -14,10 +14,10 @@ def pytest_runtest_setup(item):
                 py.test.skip("genreflex is not installed")
             import re
             if tst == 'test_pythonify.py' and \
-                not re.search("AppTestPYTHONIFY.test0[1-6]", item.location[2]):
+                not re.search("AppTestPYTHONIFY.test0[1-5]", item.location[2]):
                 py.test.skip("genreflex is not installed")
             elif tst == 'test_datatypes.py' and \
-                not re.search("AppTestDATATYPES.test0[1-8]", item.location[2]):
+                not re.search("AppTestDATATYPES.test0[1-7]", item.location[2]):
                 py.test.skip("genreflex is not installed")
 
 def pytest_ignore_collect(path, config):
@@ -33,7 +33,7 @@ def pytest_configure(config):
         import pypy.module._cppyy.capi.loadable_capi as lcapi
         try:
             import ctypes
-            ctypes.CDLL(lcapi.reflection_library)
+            ctypes.CDLL(lcapi.backend_library)
         except Exception as e:
             if config.option.runappdirect:
                 return       # "can't run dummy tests in -A"
@@ -71,4 +71,4 @@ def pytest_configure(config):
                     return
                 raise
 
-            lcapi.reflection_library = str(soname)
+            lcapi.backend_library = str(soname)

@@ -2436,6 +2436,10 @@ class CAPITest(unittest.TestCase):
     # Test PyUnicode_FromFormat()
     def test_from_format(self):
         support.import_module('ctypes')
+        try:
+            from ctypes import pythonapi
+        except ImportError:
+            self.skipTest( "no pythonapi in ctypes")
         from ctypes import (
             pythonapi, py_object, sizeof,
             c_int, c_long, c_longlong, c_ssize_t,

@@ -2,6 +2,7 @@ import sys, unittest, struct, math, ctypes
 from binascii import hexlify
 
 from ctypes import *
+from test.support import impl_detail
 
 def bin(s):
     return hexlify(memoryview(s)).decode().upper()
@@ -22,6 +23,7 @@ class Test(unittest.TestCase):
             setattr(bits, "i%s" % i, 1)
             dump(bits)
 
+    @impl_detail("slots are irrelevant on PyPy", pypy=False)
     def test_slots(self):
         class BigPoint(BigEndianStructure):
             __slots__ = ()

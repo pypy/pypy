@@ -2218,9 +2218,15 @@ def device_encoding(space, fd):
         return space.w_None
     if _WIN32:
         if fd == 0:
-            return space.newtext('cp%d' % rwin32.GetConsoleCP())
-        if fd in (1, 2):
-            return space.newtext('cp%d' % rwin32.GetConsoleOutputCP())
+            ccp = rwin32.GetConsoleCP()
+        elif fd in (1, 2):
+            ccp = rwin32.GetConsoleOutputCP()
+        else:
+            ccp = 0
+        # GetConsoleCP() and GetConsoleOutputCP() return 0 if the
+        # application has no console.
+        if ccp != 0:
+            return space.newtext('cp%d' % ccp)
     from rpython.rlib import rlocale
     if rlocale.HAVE_LANGINFO:
         codeset = rlocale.nl_langinfo(rlocale.CODESET)
@@ -2463,6 +2469,15 @@ def sched_get_priority_min(space, policy):
         else:
            return space.newint(s)
 
+def sched_yield(space):
+    """ Voluntarily relinquish the CPU"""
+    while True:
+        try:
+            res = rposix.sched_yield()
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
 
 def fspath(space, w_path):
     """

@@ -307,6 +307,18 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.utf8('xyz') == b'xyz'
         assert module.utf8('café') == 'café'.encode('utf-8')
 
+    def test_ready(self):
+        module = self.import_extension('foo', [
+            ("unsafe_len", "METH_O",
+             """
+                Py_ssize_t size = PyUnicode_GET_LENGTH(args);
+                return PyLong_FromSsize_t(size);
+             """)])
+        assert module.unsafe_len(u"abc") == 3
+        assert module.unsafe_len(u"café") == 4
+        assert module.unsafe_len(u'aАbБcСdД') == 8
+        assert module.unsafe_len(u"café\U0001F4A9") == 5
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
@@ -863,30 +875,31 @@ class TestUnicode(BaseApiTest):
         assert space.unwrap(PyUnicode_Substring(space, w_str, 4, 3)) == u""
 
     def test_Ready(self, space):
-        w_str = space.wrap(u'abc')  # ASCII
-        py_str = as_pyobj(space, w_str)
+        def as_py_uni(val):
+            py_obj = new_empty_unicode(space, len(val))
+            set_wbuffer(py_obj, rffi.unicode2wcharp(val))
+            return py_obj
+
+        py_str = as_py_uni(u'abc')  # ASCII
         assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, w_str)
+        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 1
         assert get_ascii(py_str) == 1
 
-        w_str = space.wrap(u'café')  # latin1
-        py_str = as_pyobj(space, w_str)
+        py_str = as_py_uni(u'café')  # latin1
         assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, w_str)
+        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 1
         assert get_ascii(py_str) == 0
 
-        w_str = space.wrap(u'Росси́я')  # UCS2
-        py_str = as_pyobj(space, w_str)
+        py_str = as_py_uni(u'Росси́я')  # UCS2
         assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, w_str)
+        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 2
         assert get_ascii(py_str) == 0
 
-        w_str = space.wrap(u'***\U0001f4a9***')  # UCS4
-        py_str = as_pyobj(space, w_str)
+        py_str = as_py_uni(u'***\U0001f4a9***')  # UCS4
         assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, w_str)
+        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 4
         assert get_ascii(py_str) == 0

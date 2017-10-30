@@ -1,15 +1,5 @@
 #include "stltypes.h"
 
-#define STLTYPES_EXPLICIT_INSTANTIATION_WITH_COMPS(STLTYPE, TTYPE)              \
-namespace __gnu_cxx {                                                           \
-template bool operator==(const std::STLTYPE< TTYPE >::iterator&,                \
-                         const std::STLTYPE< TTYPE >::iterator&);               \
-template bool operator!=(const std::STLTYPE< TTYPE >::iterator&,                \
-                         const std::STLTYPE< TTYPE >::iterator&);               \
-}
-
-//- explicit instantiations of used comparisons
-STLTYPES_EXPLICIT_INSTANTIATION_WITH_COMPS(vector, int)
 
 //- class with lots of std::string handling
 stringy_class::stringy_class(const char* s) : m_string(s) {}

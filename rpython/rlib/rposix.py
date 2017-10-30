@@ -1851,6 +1851,8 @@ if not _WIN32:
                               rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_sched_get_priority_min = external('sched_get_priority_min', [rffi.INT],
                              rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+    if not _WIN32:
+        c_sched_yield = external('sched_yield', [], rffi.INT)
 
     @enforceargs(int)
     def sched_get_priority_max(policy):
@@ -1860,9 +1862,9 @@ if not _WIN32:
     def sched_get_priority_min(policy):
         return handle_posix_error('sched_get_priority_min', c_sched_get_priority_min(policy))
 
-
-
-
+    def sched_yield():
+        return handle_posix_error('sched_yield', c_sched_yield())
+        
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,

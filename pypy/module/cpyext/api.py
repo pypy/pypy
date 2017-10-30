@@ -14,6 +14,7 @@ from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
         c_fdopen, c_fileno,
         c_fopen)# for tests
+from rpython.rlib import jit
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -453,6 +454,11 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         if func.__name__ in FUNCTIONS_BY_HEADER[header]:
             raise ValueError("%s already registered" % func.__name__)
         func._always_inline_ = 'try'
+        #
+        # XXX: should we @jit.dont_look_inside all the @cpython_api functions,
+        # or we should only disable some of them?
+        func._jit_look_inside_ = False
+        #
         api_function = ApiFunction(
             argtypes, restype, func,
             error=_compute_error(error, restype), gil=gil,
@@ -576,6 +582,7 @@ SYMBOLS_C = [
     'PyComplex_AsCComplex', 'PyComplex_FromCComplex',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
+    'PyBuffer_GetPointer', 'PyBuffer_ToContiguous', 'PyBuffer_FromContiguous',
 
     'PyImport_ImportModuleLevel',
 
@@ -669,6 +676,10 @@ def build_exported_objects():
         'PySlice_Type': 'space.gettypeobject(W_SliceObject.typedef)',
         'PyStaticMethod_Type': 'space.gettypeobject(StaticMethod.typedef)',
         'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
+        'PyClassMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCClassMethodObject.typedef)',
+        'PyGetSetDescr_Type': 'space.gettypeobject(cpyext.typeobject.W_GetSetPropertyEx.typedef)',
+        'PyMemberDescr_Type': 'space.gettypeobject(cpyext.typeobject.W_MemberDescr.typedef)',
+        'PyMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)',
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCWrapperObject.typedef)',
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
         }.items():
@@ -1660,6 +1671,7 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     state.fixup_extension(w_mod, name, path)
     return w_mod
 
+@jit.dont_look_inside
 def exec_extension_module(space, w_mod):
     from pypy.module.cpyext.modsupport import exec_def
     if not space.config.objspace.usemodules.cpyext:

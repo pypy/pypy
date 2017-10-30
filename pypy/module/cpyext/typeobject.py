@@ -29,7 +29,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, Py_DecRef, as_pyobj, incref)
 from pypy.module.cpyext.slotdefs import (
-    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
+    slotdefs_for_tp_slots, slotdefs_for_wrappers, build_slot_tp_function,
     llslot)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
@@ -226,7 +226,30 @@ def convert_member_defs(space, dict_w, members, w_type):
             dict_w[name] = w_descr
             i += 1
 
+SLOTS = {}
+@specialize.memo()
+def get_slot_tp_function(space, typedef, name):
+    """Return a description of the slot C function to use for the built-in
+    type for 'typedef'.  The 'name' is the slot name.  This is a memo
+    function that, after translation, returns one of a built-in finite set.
+    """
+    key = (typedef, name)
+    try:
+        return SLOTS[key]
+    except KeyError:
+        slot_func = build_slot_tp_function(space, typedef, name)
+        api_func = slot_func.api_func if slot_func else None
+        SLOTS[key] = api_func
+        return api_func
+
 missing_slots={}
+def warn_missing_slot(space, method_name, slot_name, w_type):
+    if not we_are_translated():
+        if slot_name not in missing_slots:
+            missing_slots[slot_name] = w_type.getname(space)
+            print "missing slot %r/%r, discovered on %r" % (
+                method_name, slot_name, w_type.getname(space))
+
 def update_all_slots(space, w_type, pto):
     # fill slots in pto
     # Not very sure about it, but according to
@@ -234,88 +257,79 @@ def update_all_slots(space, w_type, pto):
     # overwrite slots that are already set: these ones are probably
     # coming from a parent C type.
 
-    if w_type.is_heaptype():
-        typedef = None
-        search_dict_w = w_type.dict_w
-    else:
-        typedef = w_type.layout.typedef
-        search_dict_w = None
-
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
         slot_func_helper = None
-        if search_dict_w is None:
-            # built-in types: expose as many slots as possible, even
-            # if it happens to come from some parent class
-            slot_apifunc = None # use get_slot_tp_function
+        w_descr = w_type.dict_w.get(method_name, None)
+        if w_descr:
+            # use the slot_apifunc (userslots) to lookup at runtime
+            pass
+        elif len(slot_names) ==1:
+            # 'inherit' from tp_base
+            slot_func_helper = getattr(pto.c_tp_base, slot_names[0])
         else:
-            # For heaptypes, w_type.layout.typedef will be object's typedef, and
-            # get_slot_tp_function will fail
-            w_descr = search_dict_w.get(method_name, None)
-            if w_descr:
-                # use the slot_apifunc (userslots) to lookup at runtime
-                pass
-            elif len(slot_names) ==1:
-                # 'inherit' from tp_base
-                slot_func_helper = getattr(pto.c_tp_base, slot_names[0])
-            else:
-                struct = getattr(pto.c_tp_base, slot_names[0])
-                if struct:
-                    slot_func_helper = getattr(struct, slot_names[1])
+            struct = getattr(pto.c_tp_base, slot_names[0])
+            if struct:
+                slot_func_helper = getattr(struct, slot_names[1])
 
         if not slot_func_helper:
-            if typedef is not None:
-                if slot_apifunc is None:
-                    slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
             if not slot_apifunc:
-                if not we_are_translated():
-                    if slot_name not in missing_slots:
-                        missing_slots[slot_name] = w_type.getname(space)
-                        print "missing slot %r/%r, discovered on %r" % (
-                            method_name, slot_name, w_type.getname(space))
+                warn_missing_slot(space, method_name, slot_name, w_type)
                 continue
             slot_func_helper = slot_apifunc.get_llhelper(space)
+        fill_slot(space, pto, w_type, slot_names, slot_func_helper)
 
-        # XXX special case wrapper-functions and use a "specific" slot func
+def update_all_slots_builtin(space, w_type, pto):
+    typedef = w_type.layout.typedef
+    for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
+        slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
+        if not slot_apifunc:
+            warn_missing_slot(space, method_name, slot_name, w_type)
+            continue
+        slot_func_helper = slot_apifunc.get_llhelper(space)
+        fill_slot(space, pto, w_type, slot_names, slot_func_helper)
 
-        if len(slot_names) == 1:
-            if not getattr(pto, slot_names[0]):
-                setattr(pto, slot_names[0], slot_func_helper)
-        elif ((w_type is space.w_list or w_type is space.w_tuple) and
-              slot_names[0] == 'c_tp_as_number'):
-            # XXX hack - how can we generalize this? The problem is method
-            # names like __mul__ map to more than one slot, and we have no
-            # convenient way to indicate which slots CPython have filled
-            #
-            # We need at least this special case since Numpy checks that
-            # (list, tuple) do __not__ fill tp_as_number
-            pass
-        elif ((space.issubtype_w(w_type, space.w_bytes) or
-                space.issubtype_w(w_type, space.w_unicode)) and
-                slot_names[0] == 'c_tp_as_number'):
-            # like above but for any str type
-            pass
-        else:
-            assert len(slot_names) == 2
-            struct = getattr(pto, slot_names[0])
-            if not struct:
-                #assert not space.config.translating
-                assert not pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
-                if slot_names[0] == 'c_tp_as_number':
-                    STRUCT_TYPE = PyNumberMethods
-                elif slot_names[0] == 'c_tp_as_sequence':
-                    STRUCT_TYPE = PySequenceMethods
-                elif slot_names[0] == 'c_tp_as_buffer':
-                    STRUCT_TYPE = PyBufferProcs
-                elif slot_names[0] == 'c_tp_as_mapping':
-                    STRUCT_TYPE = PyMappingMethods
-                else:
-                    raise AssertionError(
-                        "Structure not allocated: %s" % (slot_names[0],))
-                struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
-                setattr(pto, slot_names[0], struct)
+@specialize.arg(3)
+def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
+    # XXX special case wrapper-functions and use a "specific" slot func
+    if len(slot_names) == 1:
+        if not getattr(pto, slot_names[0]):
+            setattr(pto, slot_names[0], slot_func_helper)
+    elif ((w_type is space.w_list or w_type is space.w_tuple) and
+            slot_names[0] == 'c_tp_as_number'):
+        # XXX hack - how can we generalize this? The problem is method
+        # names like __mul__ map to more than one slot, and we have no
+        # convenient way to indicate which slots CPython have filled
+        #
+        # We need at least this special case since Numpy checks that
+        # (list, tuple) do __not__ fill tp_as_number
+        pass
+    elif ((space.issubtype_w(w_type, space.w_bytes) or
+            space.issubtype_w(w_type, space.w_unicode)) and
+            slot_names[0] == 'c_tp_as_number'):
+        # like above but for any str type
+        pass
+    else:
+        assert len(slot_names) == 2
+        struct = getattr(pto, slot_names[0])
+        if not struct:
+            #assert not space.config.translating
+            assert not pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
+            if slot_names[0] == 'c_tp_as_number':
+                STRUCT_TYPE = PyNumberMethods
+            elif slot_names[0] == 'c_tp_as_sequence':
+                STRUCT_TYPE = PySequenceMethods
+            elif slot_names[0] == 'c_tp_as_buffer':
+                STRUCT_TYPE = PyBufferProcs
+            elif slot_names[0] == 'c_tp_as_mapping':
+                STRUCT_TYPE = PyMappingMethods
+            else:
+                raise AssertionError(
+                    "Structure not allocated: %s" % (slot_names[0],))
+            struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
+            setattr(pto, slot_names[0], struct)
 
-            if not getattr(struct, slot_names[1]):
-                setattr(struct, slot_names[1], slot_func_helper)
+        if not getattr(struct, slot_names[1]):
+            setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
     from pypy.module.cpyext.object import PyObject_HashNotImplemented
@@ -395,6 +409,7 @@ def setup_new_method_def(space):
     ptr = get_new_method_def(space)
     ptr.c_ml_meth = rffi.cast(PyCFunction, llslot(space, tp_new_wrapper))
 
+@jit.dont_look_inside
 def is_tp_new_wrapper(space, ml):
     return ml.c_ml_meth == rffi.cast(PyCFunction, llslot(space, tp_new_wrapper))
 
@@ -529,25 +544,18 @@ def subtype_dealloc(space, obj):
     pto = obj.c_ob_type
     base = pto
     this_func_ptr = llslot(space, subtype_dealloc)
-    w_obj = from_ref(space, rffi.cast(PyObject, base))
     # This wrapper is created on a specific type, call it w_A.
     # We wish to call the dealloc function from one of the base classes of w_A,
     # the first of which is not this function itself.
     # w_obj is an instance of w_A or one of its subclasses. So climb up the
     # inheritance chain until base.c_tp_dealloc is exactly this_func, and then
     # continue on up until they differ.
-    #print 'subtype_dealloc, start from', rffi.charp2str(base.c_tp_name)
     while base.c_tp_dealloc != this_func_ptr:
         base = base.c_tp_base
         assert base
-        #print '                 ne move to', rffi.charp2str(base.c_tp_name)
-        w_obj = from_ref(space, rffi.cast(PyObject, base))
     while base.c_tp_dealloc == this_func_ptr:
         base = base.c_tp_base
         assert base
-        #print '                 eq move to', rffi.charp2str(base.c_tp_name)
-        w_obj = from_ref(space, rffi.cast(PyObject, base))
-    #print '                   end with', rffi.charp2str(base.c_tp_name)
     dealloc = base.c_tp_dealloc
     # XXX call tp_del if necessary
     generic_cpy_call(space, dealloc, obj)
@@ -671,7 +679,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     # dealloc
     if space.gettypeobject(w_type.layout.typedef) is w_type:
         # only for the exact type, like 'space.w_tuple' or 'space.w_list'
-        pto.c_tp_dealloc = typedescr.get_dealloc().get_llhelper(space)
+        pto.c_tp_dealloc = typedescr.get_dealloc(space)
     else:
         # for all subtypes, use base's dealloc (requires sorting in attach_all)
         pto.c_tp_dealloc = pto.c_tp_base.c_tp_dealloc
@@ -692,7 +700,10 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
             pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
 
-    update_all_slots(space, w_type, pto)
+    if w_type.is_heaptype():
+        update_all_slots(space, w_type, pto)
+    else:
+        update_all_slots_builtin(space, w_type, pto)
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
         base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
@@ -902,7 +913,7 @@ def _parse_typeslots():
     return unrolling_iterable(TABLE)
 SLOT_TABLE = _parse_typeslots()
 
-def fill_slot(ht, slotnum, ptr):
+def fill_ht_slot(ht, slotnum, ptr):
     for num, membername, slotname, TARGET in SLOT_TABLE:
         if num == slotnum:
             setattr(getattr(ht, membername), slotname, rffi.cast(TARGET, ptr))
@@ -977,7 +988,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
             # Processed above
             i += 1
             continue
-        fill_slot(res, slot, slotdef.c_pfunc)
+        fill_ht_slot(res, slot, slotdef.c_pfunc)
         # XXX: need to make a copy of the docstring slot, which usually
         # points to a static string literal
         i += 1

@@ -1962,6 +1962,55 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(0, i0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(i0, 0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(1, i0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(i0, 1)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+
     def test_fold_constant_partial_ops_float(self):
         ops = """
         [f0]

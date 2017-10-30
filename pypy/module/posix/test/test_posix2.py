@@ -975,6 +975,12 @@ class AppTestPosix:
             assert isinstance(high, int) == True
             assert  high > low
 
+    if hasattr(rposix, 'sched_yield'):
+        def test_sched_yield(self):
+            os = self.posix
+            #Always suceeds on Linux
+            os.sched_yield() 
+
     def test_write_buffer(self):
         os = self.posix
         fd = os.open(self.path2 + 'test_write_buffer',

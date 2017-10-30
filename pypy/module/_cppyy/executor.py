@@ -285,8 +285,8 @@ def get_executor(space, name):
     cppclass = interp_cppyy.scope_byname(space, clean_name)
     if cppclass:
         # type check for the benefit of the annotator
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass
-        cppclass = space.interp_w(W_CPPClass, cppclass, can_be_None=False)
+        from pypy.module._cppyy.interp_cppyy import W_CPPClassDecl
+        cppclass = space.interp_w(W_CPPClassDecl, cppclass, can_be_None=False)
         if compound == '':
             return InstanceExecutor(space, cppclass)
         elif compound == '*' or compound == '&':

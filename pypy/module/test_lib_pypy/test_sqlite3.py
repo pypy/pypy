@@ -228,6 +228,14 @@ class BaseTestSQLite:
         cur.execute("create table test(a)")
         cur.executemany("insert into test values (?)", [[1], [2], [3]])
         assert cur.lastrowid is None
+        # issue 2682
+        cur.execute('''insert
+                    into test 
+                    values (?)
+                    ''', (1, ))
+        assert cur.lastrowid is not None
+        cur.execute('''insert\t into test values (?) ''', (1, ))
+        assert cur.lastrowid is not None
 
     def test_authorizer_bad_value(self, con):
         def authorizer_cb(action, arg1, arg2, dbname, source):

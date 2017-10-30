@@ -8,9 +8,14 @@ from _ctypes.basics import CArgObject, as_ffi_pointer
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
-        if cls == (_CData,): # this is the Array class defined below
-            return res
 
+        if cls == (_CData,): # this is the Array class defined below
+            res._ffiarray = None
+            return res
+        if not hasattr(res, '_length_') or not isinstance(res._length_, int):
+            raise AttributeError(
+                "class must define a '_length_' attribute, "
+                "which must be a positive integer")
         ffiarray = res._ffiarray = _rawffi.Array(res._type_._ffishape_)
         subletter = getattr(res._type_, '_type_', None)
         if subletter == 'c':
@@ -55,7 +60,7 @@ class ArrayMeta(_CDataMeta):
                 for i in range(len(val)):
                     target[i] = val[i]
                 if len(val) < self._length_:
-                    target[len(val)] = '\x00'
+                    target[len(val)] = u'\x00'
             res.value = property(getvalue, setvalue)
 
         res._ffishape_ = (ffiarray, res._length_)
@@ -164,7 +169,7 @@ def array_slice_getitem(self, index):
     if letter == 'c':
         return b"".join(l)
     if letter == 'u':
-        return "".join(l)
+        return u"".join(l)
     return l
 
 class Array(_CData, metaclass=ArrayMeta):

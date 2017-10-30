@@ -573,6 +573,8 @@ def encode_object(space, w_object, encoding, errors):
                     u, len(u), errors, errorhandler=eh))
 
     from pypy.module._codecs.interp_codecs import encode_text
+    if encoding is None:
+        encoding = space.sys.defaultencoding
     w_retval = encode_text(space, w_object, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_bytes):
         raise oefmt(space.w_TypeError,
@@ -744,17 +746,6 @@ class UnicodeDocstrings:
         Return the number of non-overlapping occurrences of substring sub in
         Unicode string S[start:end].  Optional arguments start and end are
         interpreted as in slice notation.
-        """
-
-    def decode():
-        """S.decode(encoding=None, errors='strict') -> string or unicode
-
-        Decode S using the codec registered for encoding. encoding defaults
-        to the default encoding. errors may be given to set a different error
-        handling scheme. Default is 'strict' meaning that encoding errors raise
-        a UnicodeDecodeError. Other possible values are 'ignore' and 'replace'
-        as well as any other name registered with codecs.register_error that is
-        able to handle UnicodeDecodeErrors.
         """
 
     def encode():

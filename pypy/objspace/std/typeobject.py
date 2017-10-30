@@ -151,11 +151,12 @@ class W_TypeObject(W_Root):
                           'hasuserdel',
                           'weakrefable',
                           'hasdict',
-                          'layout',
+                          'layout?',
                           'terminator',
                           '_version_tag?',
                           'name?',
                           'mro_w?[*]',
+                          'hasmro?',
                           ]
 
     # wether the class has an overridden __getattribute__
@@ -190,6 +191,7 @@ class W_TypeObject(W_Root):
         self.flag_sequence_bug_compat = False
         self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
 
+        self.layout = None  # the lines below may try to access self.layout
         if overridetypedef is not None:
             assert not force_new_layout
             layout = setup_builtin_type(self, overridetypedef)
@@ -492,6 +494,10 @@ class W_TypeObject(W_Root):
         if not isinstance(w_subtype, W_TypeObject):
             raise oefmt(space.w_TypeError,
                         "X is not a type object ('%T')", w_subtype)
+        if not w_subtype.layout:
+            raise oefmt(space.w_TypeError,
+                "%N.__new__(%N): uninitialized type %N may not be instantiated yet.",
+                self, w_subtype, w_subtype)
         if not w_subtype.issubtype(self):
             raise oefmt(space.w_TypeError,
                         "%N.__new__(%N): %N is not a subtype of %N",
@@ -682,14 +688,30 @@ class W_TypeObject(W_Root):
         #   it can fail if self.__base__ happens not to be the first base.
         #
         from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+
+        if isinstance(w_newdescr, W_PyCFunctionObject):
+            return self._really_hack_which_new_to_call(w_newtype, w_newdescr)
+        else:
+            return w_newtype, w_newdescr
+
+    def _really_hack_which_new_to_call(self, w_newtype, w_newdescr):
+        # This logic is moved in yet another helper function that
+        # is recursive.  We call this only if we see a
+        # W_PyCFunctionObject.  That's a performance optimization
+        # because in the common case, we won't call any function that
+        # contains the stack checks.
+        from pypy.module.cpyext.methodobject import W_PyCFunctionObject
         from pypy.module.cpyext.typeobject import is_tp_new_wrapper
 
         if (isinstance(w_newdescr, W_PyCFunctionObject) and
+                w_newtype is not self and
                 is_tp_new_wrapper(self.space, w_newdescr.ml)):
             w_bestbase = find_best_base(self.bases_w)
-            return w_bestbase.lookup_where('__new__')
-        else:
-            return w_newtype, w_newdescr
+            if w_bestbase is not None:
+                w_newtype, w_newdescr = w_bestbase.lookup_where('__new__')
+                return w_bestbase._really_hack_which_new_to_call(w_newtype,
+                                                                 w_newdescr)
+        return w_newtype, w_newdescr
 
     def descr_repr(self, space):
         w_mod = self.get_module()
@@ -1330,7 +1352,21 @@ def is_mro_purely_of_types(mro_w):
 # ____________________________________________________________
 
 def _issubtype(w_sub, w_type):
-    return w_type in w_sub.mro_w
+    if w_sub.hasmro:
+        return w_type in w_sub.mro_w
+    else:
+        return _issubtype_slow_and_wrong(w_sub, w_type)
+
+def _issubtype_slow_and_wrong(w_sub, w_type):
+    # This is only called in strange cases where w_sub is partially initialised,
+    # like from a custom MetaCls.mro(). Note that it's broken wrt. multiple
+    # inheritance, but that's what CPython does.
+    w_cls = w_sub
+    while w_cls:
+        if w_cls is w_type:
+            return True
+        w_cls = find_best_base(w_cls.bases_w)
+    return False
 
 @elidable_promote()
 def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
