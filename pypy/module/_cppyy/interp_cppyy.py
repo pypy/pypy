@@ -174,7 +174,7 @@ class CPPMethod(object):
 
     @staticmethod
     def unpack_cppthis(space, w_cppinstance, declaring_scope):
-        cppinstance = space.interp_w(W_CPPClass, w_cppinstance, can_be_None=False)
+        cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
         cppinstance._nullcheck()
         return cppinstance.get_cppthis(declaring_scope)
 
@@ -611,7 +611,7 @@ class W_CPPConstructorOverload(W_CPPOverload):
                         self.scope.name)
         w_result = W_CPPOverload.call(self, w_cppinstance, args_w)
         newthis = rffi.cast(capi.C_OBJECT, self.space.uint_w(w_result))
-        cppinstance = self.space.interp_w(W_CPPClass, w_cppinstance, can_be_None=True)
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if cppinstance is not None:
             cppinstance._rawobject = newthis
             memory_regulator.register(cppinstance)
@@ -682,7 +682,7 @@ class W_CPPDataMember(W_Root):
         return offset
 
     def get(self, w_cppinstance, w_pycppclass):
-        cppinstance = self.space.interp_w(W_CPPClass, w_cppinstance, can_be_None=True)
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if not cppinstance:
             raise oefmt(self.space.w_AttributeError,
                         "attribute access requires an instance")
@@ -690,7 +690,7 @@ class W_CPPDataMember(W_Root):
         return self.converter.from_memory(self.space, w_cppinstance, w_pycppclass, offset)
 
     def set(self, w_cppinstance, w_value):
-        cppinstance = self.space.interp_w(W_CPPClass, w_cppinstance, can_be_None=True)
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if not cppinstance:
             raise oefmt(self.space.w_AttributeError,
                         "attribute access requires an instance")
@@ -1029,7 +1029,7 @@ W_CPPComplexClassDecl.typedef = TypeDef(
 W_CPPComplexClassDecl.typedef.acceptable_as_base_class = False
 
 
-class W_CPPClass(W_Root):
+class W_CPPInstance(W_Root):
     _attrs_ = ['space', 'clsdecl', '_rawobject', 'flags',
                'finalizer_registered']
     _immutable_fields_ = ['clsdecl']
@@ -1109,8 +1109,8 @@ class W_CPPClass(W_Root):
         # find a global overload in gbl, in __gnu_cxx (for iterators), or in the
         # scopes of the argument classes (TODO: implement that last option)
         try:
-            # TODO: expecting w_other to be an W_CPPClass is too limiting
-            other = self.space.interp_w(W_CPPClass, w_other, can_be_None=False)
+            # TODO: expecting w_other to be an W_CPPInstance is too limiting
+            other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
             for name in ["", "__gnu_cxx", "__1"]:
                 nss = scope_byname(self.space, name)
                 meth_idx = capi.c_get_global_operator(
@@ -1132,7 +1132,7 @@ class W_CPPClass(W_Root):
 
         # fallback 2: direct pointer comparison (the class comparison is needed since
         # the first data member in a struct and the struct have the same address)
-        other = self.space.interp_w(W_CPPClass, w_other, can_be_None=False)  # TODO: factor out
+        other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)  # TODO: factor out
         iseq = (self._rawobject == other._rawobject) and (self.clsdecl == other.clsdecl)
         return self.space.newbool(iseq)
 
@@ -1176,19 +1176,19 @@ class W_CPPClass(W_Root):
         if self.flags & INSTANCE_FLAGS_PYTHON_OWNS:
             self.destruct()
 
-W_CPPClass.typedef = TypeDef(
-    'CPPClass',
-    __python_owns__ = GetSetProperty(W_CPPClass.fget_python_owns, W_CPPClass.fset_python_owns),
-    __init__ = interp2app(W_CPPClass.instance__init__),
-    __eq__ = interp2app(W_CPPClass.instance__eq__),
-    __ne__ = interp2app(W_CPPClass.instance__ne__),
-    __nonzero__ = interp2app(W_CPPClass.instance__nonzero__),
-    __len__ = interp2app(W_CPPClass.instance__len__),
-    __cmp__ = interp2app(W_CPPClass.instance__cmp__),
-    __repr__ = interp2app(W_CPPClass.instance__repr__),
-    __destruct__ = interp2app(W_CPPClass.destruct),
+W_CPPInstance.typedef = TypeDef(
+    'CPPInstance',
+    __python_owns__ = GetSetProperty(W_CPPInstance.fget_python_owns, W_CPPInstance.fset_python_owns),
+    __init__ = interp2app(W_CPPInstance.instance__init__),
+    __eq__ = interp2app(W_CPPInstance.instance__eq__),
+    __ne__ = interp2app(W_CPPInstance.instance__ne__),
+    __nonzero__ = interp2app(W_CPPInstance.instance__nonzero__),
+    __len__ = interp2app(W_CPPInstance.instance__len__),
+    __cmp__ = interp2app(W_CPPInstance.instance__cmp__),
+    __repr__ = interp2app(W_CPPInstance.instance__repr__),
+    __destruct__ = interp2app(W_CPPInstance.destruct),
 )
-W_CPPClass.typedef.acceptable_as_base_class = True
+W_CPPInstance.typedef.acceptable_as_base_class = True
 
 
 class MemoryRegulator:
@@ -1200,7 +1200,7 @@ class MemoryRegulator:
     # Note that for now, the associated test carries an m_padding to make
     # a difference in the addresses.
     def __init__(self):
-        self.objects = rweakref.RWeakValueDictionary(int, W_CPPClass)
+        self.objects = rweakref.RWeakValueDictionary(int, W_CPPInstance)
 
     def register(self, obj):
         if not obj._rawobject:
@@ -1266,8 +1266,8 @@ def wrap_cppinstance(space, rawobject, clsdecl,
             return obj
 
     # fresh creation
-    w_cppinstance = space.allocate_instance(W_CPPClass, w_pycppclass)
-    cppinstance = space.interp_w(W_CPPClass, w_cppinstance, can_be_None=False)
+    w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
+    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
     cppinstance.__init__(space, clsdecl, rawobject, is_ref, python_owns)
     memory_regulator.register(cppinstance)
     return w_cppinstance
@@ -1311,7 +1311,7 @@ def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
 
 def move(space, w_obj):
     """Casts the given instance into an C++-style rvalue."""
-    obj = space.interp_w(W_CPPClass, w_obj, can_be_None=True)
+    obj = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if obj:
         obj.flags |= INSTANCE_FLAGS_IS_R_VALUE
     return w_obj

@@ -22,8 +22,8 @@ from pypy.module._cppyy import helper, capi, ffitypes
 
 
 def get_rawobject(space, w_obj, can_be_None=True):
-    from pypy.module._cppyy.interp_cppyy import W_CPPClass
-    cppinstance = space.interp_w(W_CPPClass, w_obj, can_be_None=can_be_None)
+    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=can_be_None)
     if cppinstance:
         rawobject = cppinstance.get_rawobject()
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
@@ -31,15 +31,15 @@ def get_rawobject(space, w_obj, can_be_None=True):
     return capi.C_NULL_OBJECT
 
 def set_rawobject(space, w_obj, address):
-    from pypy.module._cppyy.interp_cppyy import W_CPPClass
-    cppinstance = space.interp_w(W_CPPClass, w_obj, can_be_None=True)
+    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if cppinstance:
         assert lltype.typeOf(cppinstance._rawobject) == capi.C_OBJECT
         cppinstance._rawobject = rffi.cast(capi.C_OBJECT, address)
 
 def get_rawobject_nonnull(space, w_obj):
-    from pypy.module._cppyy.interp_cppyy import W_CPPClass
-    cppinstance = space.interp_w(W_CPPClass, w_obj, can_be_None=True)
+    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if cppinstance:
         cppinstance._nullcheck()
         rawobject = cppinstance.get_rawobject()
@@ -502,8 +502,8 @@ class InstanceRefConverter(TypeConverter):
         self.clsdecl = clsdecl
 
     def _unwrap_object(self, space, w_obj):
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass
-        if isinstance(w_obj, W_CPPClass):
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+        if isinstance(w_obj, W_CPPInstance):
             from pypy.module._cppyy.interp_cppyy import INSTANCE_FLAGS_IS_R_VALUE
             if w_obj.flags & INSTANCE_FLAGS_IS_R_VALUE:
                 # reject moves as all are explicit
@@ -534,8 +534,8 @@ class InstanceRefConverter(TypeConverter):
 class InstanceMoveConverter(InstanceRefConverter):
     def _unwrap_object(self, space, w_obj):
         # moving is same as by-ref, but have to check that move is allowed
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass, INSTANCE_FLAGS_IS_R_VALUE
-        if isinstance(w_obj, W_CPPClass):
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance, INSTANCE_FLAGS_IS_R_VALUE
+        if isinstance(w_obj, W_CPPInstance):
             if w_obj.flags & INSTANCE_FLAGS_IS_R_VALUE:
                 w_obj.flags &= ~INSTANCE_FLAGS_IS_R_VALUE
                 return InstanceRefConverter._unwrap_object(self, space, w_obj)
@@ -598,8 +598,8 @@ class InstancePtrPtrConverter(InstancePtrConverter):
         raise FastCallNotPossible
 
     def finalize_call(self, space, w_obj, call_local):
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass
-        assert isinstance(w_obj, W_CPPClass)
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+        assert isinstance(w_obj, W_CPPInstance)
         r = rffi.cast(rffi.VOIDPP, call_local)
         w_obj._rawobject = rffi.cast(capi.C_OBJECT, r[0])
 
@@ -617,8 +617,8 @@ class StdStringConverter(InstanceConverter):
         InstanceConverter.__init__(self, space, cppclass)
 
     def _unwrap_object(self, space, w_obj):
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass
-        if isinstance(w_obj, W_CPPClass):
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+        if isinstance(w_obj, W_CPPInstance):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
             return capi.c_stdstring2stdstring(space, arg)
         else:

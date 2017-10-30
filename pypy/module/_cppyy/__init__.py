@@ -13,7 +13,7 @@ class Module(MixedModule):
         '_set_function_generator': 'interp_cppyy.set_function_generator',
         '_register_class'        : 'interp_cppyy.register_class',
         '_get_nullptr'           : 'interp_cppyy.get_nullptr',
-        'CPPClassBase'           : 'interp_cppyy.W_CPPClass',
+        'CPPInstanceBase'        : 'interp_cppyy.W_CPPInstance',
         'addressof'              : 'interp_cppyy.addressof',
         '_bind_object'           : 'interp_cppyy._bind_object',
         'bind_object'            : 'interp_cppyy.bind_object',

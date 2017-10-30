@@ -282,7 +282,7 @@ class TestFastPathJIT(LLJitMixin):
             inst = interp_cppyy._bind_object(space, FakeInt(0), cls, True)
             cls.get_overload("__init__").call(inst, [FakeInt(0)])
             cppmethod = cls.get_overload(method_name)
-            assert isinstance(inst, interp_cppyy.W_CPPClass)
+            assert isinstance(inst, interp_cppyy.W_CPPInstance)
             i = 10
             while i > 0:
                 drv.jit_merge_point(inst=inst, cppmethod=cppmethod, i=i)
