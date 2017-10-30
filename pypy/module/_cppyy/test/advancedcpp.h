@@ -59,7 +59,7 @@ public:
 class a_class {                    // for esoteric inheritance testing
 public:
     a_class() { m_a = 1; m_da = 1.1; }
-    ~a_class() {}
+    virtual ~a_class() {}
     virtual int get_value() = 0;
 
 public:
@@ -221,6 +221,7 @@ double pass_double_through_const_ref(const double& d);
 //===========================================================================
 class some_abstract_class {        // to test abstract class handling
 public:
+    virtual ~some_abstract_class() {}
     virtual void a_virtual_method() = 0;
 };
 
