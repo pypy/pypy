@@ -140,6 +140,7 @@ class ArenaCollection(object):
         # the total memory used, counting every block in use, without
         # the additional bookkeeping stuff.
         self.total_memory_used = r_uint(0)
+        self.total_memory_alloced = r_uint(0)
 
 
     def _new_page_ptr_list(self, length):

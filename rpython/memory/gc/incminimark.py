@@ -2923,6 +2923,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         from rpython.memory.gc import inspector
 
         if stats_no == rgc.TOTAL_MEMORY:
+            return intmask(self.get_total_memory_used() + self.nursery_size)
+        elif stats_no == rgc.TOTAL_ALLOCATED_MEMORY:
             return 0
         elif stats_no == rgc.TOTAL_MEMORY_PRESSURE:
             return inspector.count_memory_pressure(self)

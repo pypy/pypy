@@ -650,7 +650,7 @@ def cast_gcref_to_int(gcref):
     else:
         return id(gcref._x)
 
-TOTAL_MEMORY, TOTAL_MEMORY_PRESSURE = range(2)
+TOTAL_MEMORY, TOTAL_ALLOCATED_MEMORY, TOTAL_MEMORY_PRESSURE = range(3)
 
 @not_rpython
 def get_stats(stat_no):

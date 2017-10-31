@@ -174,10 +174,13 @@ def get_typeids_list(space):
 class W_GcStats(W_Root):
     def __init__(self):
         self.total_memory_pressure = rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
+        self.total_gc_memory = rgc.get_stats(rgc.TOTAL_MEMORY)
 
 W_GcStats.typedef = TypeDef("GcStats",
     total_memory_pressure=interp_attrproperty("total_memory_pressure",
         cls=W_GcStats, wrapfn="newint"),
+    total_gc_memory=interp_attrproperty("total_gc_memory",
+        cls=W_GcStats, wrapfn="newint")
 )
 
 def get_stats(space):
