@@ -12,24 +12,27 @@ else:
 BIGENDIAN = sys.byteorder == "big"
 
 def pack_unichar(unich, buf, pos):
+    pack_codepoint(ord(unich), buf, pos)
+
+def pack_codepoint(unich, buf, pos):
     if UNICODE_SIZE == 2:
         if BIGENDIAN:
-            buf.setitem(pos,   chr(ord(unich) >> 8))
-            buf.setitem(pos+1, chr(ord(unich) & 0xFF))
+            buf.setitem(pos,   chr(unich >> 8))
+            buf.setitem(pos+1, chr(unich & 0xFF))
         else:
-            buf.setitem(pos,   chr(ord(unich) & 0xFF))
-            buf.setitem(pos+1, chr(ord(unich) >> 8))
+            buf.setitem(pos,   chr(unich & 0xFF))
+            buf.setitem(pos+1, chr(unich >> 8))
     else:
         if BIGENDIAN:
-            buf.setitem(pos,   chr(ord(unich) >> 24))
-            buf.setitem(pos+1, chr((ord(unich) >> 16) & 0xFF))
-            buf.setitem(pos+2, chr((ord(unich) >> 8) & 0xFF))
-            buf.setitem(pos+3, chr(ord(unich) & 0xFF))
+            buf.setitem(pos,   chr(unich >> 24))
+            buf.setitem(pos+1, chr((unich >> 16) & 0xFF))
+            buf.setitem(pos+2, chr((unich >> 8) & 0xFF))
+            buf.setitem(pos+3, chr(unich & 0xFF))
         else:
-            buf.setitem(pos,   chr(ord(unich) & 0xFF))
-            buf.setitem(pos+1, chr((ord(unich) >> 8) & 0xFF))
-            buf.setitem(pos+2, chr((ord(unich) >> 16) & 0xFF))
-            buf.setitem(pos+3, chr(ord(unich) >> 24))
+            buf.setitem(pos,   chr(unich & 0xFF))
+            buf.setitem(pos+1, chr((unich >> 8) & 0xFF))
+            buf.setitem(pos+2, chr((unich >> 16) & 0xFF))
+            buf.setitem(pos+3, chr(unich >> 24))
 
 def unpack_unichar(rawstring):
     assert len(rawstring) == UNICODE_SIZE

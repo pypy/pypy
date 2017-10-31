@@ -87,13 +87,15 @@ class W_UnicodeObject(W_Root):
 
     def readbuf_w(self, space):
         # XXX for now
-        from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
-        v = self._utf8.decode("utf8")
-        builder = MutableStringBuffer(len(v) * UNICODE_SIZE)
+        from rpython.rlib.rstruct.unichar import pack_codepoint, UNICODE_SIZE
+        builder = MutableStringBuffer(self._len() * UNICODE_SIZE)
         pos = 0
-        for unich in v:
-            pack_unichar(unich, builder, pos)
+        i = 0
+        while i < len(self._utf8):
+            unich = rutf8.codepoint_at_pos(self._utf8, i)
+            pack_codepoint(unich, builder, pos)
             pos += UNICODE_SIZE
+            i = rutf8.next_codepoint_pos(self._utf8, i)
         return StringBuffer(builder.finish())
 
     def writebuf_w(self, space):
