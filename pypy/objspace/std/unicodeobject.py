@@ -1746,21 +1746,22 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    unistr = w_unistr._utf8.decode("utf8")
-    # XXX speed up
+    unistr = w_unistr._utf8
     result = ['\0'] * len(unistr)
     digits = ['0', '1', '2', '3', '4',
               '5', '6', '7', '8', '9']
-    for i in xrange(len(unistr)):
-        uchr = ord(unistr[i])
-        if unicodedb.isspace(uchr):
-            result[i] = ' '
+    i = 0
+    res_pos = 0
+    while i < len(unistr):
+        uchr = rutf8.codepoint_at_pos(unistr, i)
+        if rutf8.isspace(unistr, i):
+            result[res_pos] = ' '
             continue
         try:
-            result[i] = digits[unicodedb.decimal(uchr)]
+            result[res_pos] = digits[unicodedb.decimal(uchr)]
         except KeyError:
             if 0 < uchr < 256:
-                result[i] = chr(uchr)
+                result[res_pos] = chr(uchr)
             else:
                 w_encoding = space.newtext('decimal')
                 w_start = space.newint(i)
@@ -1770,6 +1771,8 @@ def unicode_to_decimal_w(space, w_unistr):
                                      space.newtuple([w_encoding, w_unistr,
                                                      w_start, w_end,
                                                      w_reason]))
+        i = rutf8.next_codepoint_pos(unistr, i)
+        res_pos += 1
     return ''.join(result)
 
 
