@@ -1,7 +1,8 @@
+from rpython.conftest import option
+from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.all import backend_optimizations
-from rpython.conftest import option
 
 class TestCanRaise(object):
     def translate(self, func, sig):
@@ -253,3 +254,48 @@ class TestCanRaise(object):
         ra.do_ignore_memory_error()     # but it's potentially a KeyError
         result = ra.analyze_direct_call(graphof(t, h))
         assert result
+
+    def test_charp2str(self):
+        def f(a):
+            return len(rffi.charp2str(a))
+
+        t, ra = self.translate(f, [rffi.CCHARP])
+        ra.do_ignore_memory_error()
+        result = ra.analyze_direct_call(graphof(t, f))
+        assert not result # ignore AssertionError
+
+    def test_calls_raise_not_impl(self):
+        def raising():
+            raise NotImplementedError
+
+        def not_raising():
+            pass
+
+        def f(a):
+            if a == 15:
+                raising()
+            else:
+                not_raising()
+
+        t, ra = self.translate(f, [int])
+        ra.do_ignore_memory_error()
+        result = ra.analyze_direct_call(graphof(t, f))
+        assert not result # ignore AssertionError
+
+    def test_calls_raise_assertion_error(self):
+        def raising():
+            assert False
+
+        def not_raising():
+            pass
+
+        def f(a):
+            if a == 15:
+                raising()
+            else:
+                not_raising()
+
+        t, ra = self.translate(f, [int])
+        ra.do_ignore_memory_error()
+        result = ra.analyze_direct_call(graphof(t, f))
+        assert not result # ignore AssertionError
