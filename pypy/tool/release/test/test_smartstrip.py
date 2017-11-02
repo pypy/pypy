@@ -42,6 +42,9 @@ class TestSmarStrip(object):
         smartstrip(exe, keep_debug=True)
         debug = tmpdir.join("myprog.debug")
         assert debug.check(file=True)
+        perm = debug.stat().mode & 0777
+        assert perm & 0111 == 0 # 'x' bit not set
+        #
         info = info_symbol(exe, "foo")
         assert info == "foo in section .text of %s" % exe
         #
