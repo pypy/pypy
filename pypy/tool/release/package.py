@@ -213,8 +213,9 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        for source, target in binaries:
-            smartstrip(bindir.join(target), keep_debug=options.keep_debug)
+        if not _fake:
+            for source, target in binaries:
+                smartstrip(bindir.join(target), keep_debug=options.keep_debug)
         #
         if USE_ZIPFILE_MODULE:
             import zipfile
