@@ -194,9 +194,9 @@ class AppTestZipimport:
         m0 = ord(self.test_pyc[0])
         m0 ^= 0x04
         test_pyc = chr(m0) + self.test_pyc[1:]
-        self.writefile("uu.pyc", test_pyc)
+        self.writefile("xxbad_pyc.pyc", test_pyc)
         raises(zipimport.ZipImportError,
-               "__import__('uu', globals(), locals(), [])")
+               "__import__('xxbad_pyc', globals(), locals(), [])")
         assert 'uu' not in sys.modules
 
     def test_force_py(self):
@@ -204,9 +204,9 @@ class AppTestZipimport:
         m0 = ord(self.test_pyc[0])
         m0 ^= 0x04
         test_pyc = chr(m0) + self.test_pyc[1:]
-        self.writefile("uu.pyc", test_pyc)
-        self.writefile("uu.py", "def f(x): return x")
-        mod = __import__("uu", globals(), locals(), [])
+        self.writefile("xxforce_py.pyc", test_pyc)
+        self.writefile("xxforce_py.py", "def f(x): return x")
+        mod = __import__("xxforce_py", globals(), locals(), [])
         assert mod.f(3) == 3
 
     def test_sys_modules(self):
