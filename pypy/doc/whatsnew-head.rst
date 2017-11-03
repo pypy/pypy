@@ -17,3 +17,6 @@ separate file, instead of just stripping them away. Use it in packaging
 .. branch: bsd-patches
 Fix failures on FreeBSD, contributed by David Naylor as patches on the issue
 tracker (issues 2694, 2695, 2696, 2697)
+
+.. branch: run-extra-tests
+Run extra_tests/ in buildbot
