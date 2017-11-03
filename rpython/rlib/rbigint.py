@@ -2168,12 +2168,13 @@ def _x_divrem(v1, w1):
         if j >= size_v:
             vtop = 0
         else:
-            vtop = v.widedigit(j)
-        assert vtop <= wm1
-        vv = (vtop << SHIFT) | v.widedigit(abs(j-1))
+            vtop = v.widedigit(j) << SHIFT
+        #assert vtop <= wm1
+        vv = vtop | v.widedigit(abs(j-1))
         q = vv / wm1
-        r = vv - wm1 * q
-        while wm2 * q > ((r << SHIFT) | v.widedigit(abs(j-2))):
+        r = vv % wm1 # This seems to be slightly faster than on widen digits than vv - wm1 * q.
+        vj2 = v.widedigit(abs(j-2))
+        while wm2 * q > ((r << SHIFT) | vj2):
             q -= 1
             r += wm1
 
