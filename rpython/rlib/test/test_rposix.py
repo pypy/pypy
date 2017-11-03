@@ -816,3 +816,14 @@ def test_sched_yield():
     if sys.platform != 'win32':
         rposix.sched_yield()
 
+@rposix_requires('lockf')
+def test_os_lockf():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY | os.O_CREAT, 0777)
+    try:
+        os.write(fd, b'test')
+        os.lseek(fd, 0, 0)
+        rposix.lockf(fd, rposix.F_LOCK, 4)
+        rposix.lockf(fd, rposix.F_ULOCK, 4)
+    finally:
+        os.close(fd)
