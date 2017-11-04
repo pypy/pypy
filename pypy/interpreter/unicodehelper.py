@@ -20,11 +20,13 @@ def decode_error_handler(space):
 @specialize.memo()
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
-    def raise_unicode_exception_encode(errors, encoding, msg, w_u,
+    def raise_unicode_exception_encode(errors, encoding, msg, u, u_len,
                                        startingpos, endingpos):
+        # XXX fix once we stop using runicode.py
+        flag = _get_flag(u.decode('utf8'))
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
-                                             w_u,
+                                             space.newutf8(u, u_len, flag),
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))

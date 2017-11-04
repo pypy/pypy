@@ -1,3 +1,6 @@
+
+from rpython.rlib import rutf8
+
 from pypy.module._collections.interp_deque import W_Deque
 from pypy.module.itertools.interp_itertools import W_Repeat
 
@@ -71,7 +74,8 @@ class TestLengthHint:
         self._test_length_hint(self.space.wrap('P' * self.SIZE))
 
     def test_unicode(self):
-        self._test_length_hint(self.space.wrap(u'Y' * self.SIZE))
+        self._test_length_hint(self.space.newutf8('Y' * self.SIZE, self.SIZE,
+                                                  rutf8.FLAG_ASCII))
 
     def test_tuple(self):
         self._test_length_hint(self.space.wrap(tuple(self.ITEMS)))

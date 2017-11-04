@@ -1,5 +1,7 @@
 from py.test import raises
 
+from rpython.rlib import rutf8
+
 class AppTest_IndexProtocol:
     def setup_class(self):
         w_oldstyle = self.space.appexec([], """():
@@ -263,7 +265,8 @@ class AppTest_StringTestCase(SeqTestCase, StringTestCase):
 class AppTest_UnicodeTestCase(SeqTestCase, StringTestCase):
     def setup_method(self, method):
         SeqTestCase.setup_method(self, method)
-        self.w_seq = self.space.wrap(u"this is a test")
+        self.w_seq = self.space.newutf8("this is a test", len("this is a test"),
+                                        rutf8.FLAG_ASCII)
         self.w_const = self.space.appexec([], """(): return unicode""")
 
 

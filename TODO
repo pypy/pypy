@@ -8,3 +8,4 @@
 * better flag handling in split/splitlines maybe?
 * find all the fast-paths that we want to do with utf8 (we only do
   utf-8 now, not UTF8 or utf8) for decode/encode
+* encode_error_handler has XXX

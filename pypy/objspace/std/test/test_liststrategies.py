@@ -22,7 +22,7 @@ class TestW_ListStrategies(TestW_ListObject):
                           BytesListStrategy)
         #assert isinstance(W_ListObject(space, [w(u'a'), w(u'b')]).strategy,
         #                  UnicodeListStrategy)
-        assert isinstance(W_ListObject(space, [w(u'a'), wb('b')]).strategy,
+        assert isinstance(W_ListObject(space, [space.newutf8('a', 1, 0), wb('b')]).strategy,
                           ObjectListStrategy) # mixed unicode and bytes
 
     def test_empty_to_any(self):

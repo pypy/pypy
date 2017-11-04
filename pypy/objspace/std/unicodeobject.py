@@ -1834,7 +1834,7 @@ def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
     unistr = w_unistr._utf8
-    result = ['\0'] * len(unistr)
+    result = ['\0'] * w_unistr._length
     digits = ['0', '1', '2', '3', '4',
               '5', '6', '7', '8', '9']
     i = 0
@@ -1843,6 +1843,8 @@ def unicode_to_decimal_w(space, w_unistr):
         uchr = rutf8.codepoint_at_pos(unistr, i)
         if rutf8.isspace(unistr, i):
             result[res_pos] = ' '
+            res_pos += 1
+            i = rutf8.next_codepoint_pos(unistr, i)
             continue
         try:
             result[res_pos] = digits[unicodedb.decimal(uchr)]

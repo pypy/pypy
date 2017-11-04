@@ -17,7 +17,7 @@ class AppTestObject:
         cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
         def w_unwrap_wrap_unicode(space, w_obj):
-            return space.newutf8(space.utf8_w(w_obj), w_obj._length)
+            return space.newutf8(space.utf8_w(w_obj), w_obj._length, w_obj._get_flag())
         cls.w_unwrap_wrap_unicode = space.wrap(gateway.interp2app(w_unwrap_wrap_unicode))
         def w_unwrap_wrap_str(space, w_obj):
             return space.wrap(space.str_w(w_obj))
