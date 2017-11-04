@@ -74,11 +74,12 @@ def wrap_unicodedecodeerror(space, e, input, name):
             space.newtext(e.reason)]))
 
 def wrap_unicodeencodeerror(space, e, input, inputlen, name):
+    flag = 13
     raise OperationError(
         space.w_UnicodeEncodeError,
         space.newtuple([
             space.newtext(name),
-            space.newutf8(input, inputlen),
+            space.newutf8(input, inputlen, flag),
             space.newint(e.start),
             space.newint(e.end),
             space.newtext(e.reason)]))
