@@ -675,10 +675,10 @@ class TestW_ListStrategies(TestW_ListObject):
             w_l4 = space.call_method(w_u, "rsplit", space.wrap(" "))
         finally:
             del space.newlist
-        assert space.listview_unicode(w_l) == [u"a", u"b", u"c"]
-        assert space.listview_unicode(w_l2) == [u"a", u"b", u"c"]
-        assert space.listview_unicode(w_l3) == [u"a", u"b", u"c"]
-        assert space.listview_unicode(w_l4) == [u"a", u"b", u"c"]
+        assert space.listview_utf8(w_l) == [u"a", u"b", u"c"]
+        assert space.listview_utf8(w_l2) == [u"a", u"b", u"c"]
+        assert space.listview_utf8(w_l3) == [u"a", u"b", u"c"]
+        assert space.listview_utf8(w_l4) == [u"a", u"b", u"c"]
 
     def test_pop_without_argument_is_fast(self):
         space = self.space
@@ -722,7 +722,7 @@ class TestW_ListStrategies(TestW_ListObject):
     def test_listview_unicode_list(self):
         space = self.space
         w_l = W_ListObject(space, [space.wrap(u"a"), space.wrap(u"b")])
-        assert self.space.listview_unicode(w_l) == [u"a", u"b"]
+        assert self.space.listview_utf8(w_l) == [u"a", u"b"]
 
     def test_listview_int_list(self):
         space = self.space

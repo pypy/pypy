@@ -309,19 +309,10 @@ class StdObjSpace(ObjSpace):
 
     newlist_text = newlist_bytes
 
-    def newlist_unicode(self, list_u):
-        xxx
-        return self.newlist(list_u)
-        return W_ListObject.newlist_unicode(self, list_u)
-
-    def newlist_utf8(self, lst):
-        res_w = []
-        for utf in lst:
-            assert utf is not None
-            assert isinstance(utf, str)
-            length, flag = rutf8.check_utf8(utf, allow_surrogates=True)
-            res_w.append(self.newutf8(utf, length, flag))
-        return self.newlist(res_w)
+    def newlist_utf8(self, list_u, is_ascii):
+        if is_ascii:
+            return W_ListObject.newlist_utf8(self, list_u)
+        return ObjSpace.newlist_utf8(self, list_u, False)
 
     def newlist_int(self, list_i):
         return W_ListObject.newlist_int(self, list_i)
@@ -515,9 +506,9 @@ class StdObjSpace(ObjSpace):
         if type(w_obj) is W_ListObject:
             return w_obj.getitems_utf8()
         if type(w_obj) is W_DictObject:
-            return w_obj.listview_unicode()
+            return w_obj.listview_utf8()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
-            return w_obj.listview_unicode()
+            return w_obj.listview_utf8()
         if (isinstance(w_obj, W_UnicodeObject) and self._uni_uses_no_iter(w_obj)
             and w_obj.is_ascii()):
             return w_obj.listview_utf8()

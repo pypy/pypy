@@ -3,7 +3,7 @@ import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit, types
+from rpython.rlib import jit, types, rutf8
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -1084,8 +1084,12 @@ class ObjSpace(object):
     def newlist_bytes(self, list_s):
         return self.newlist([self.newbytes(s) for s in list_s])
 
-    def newlist_unicode(self, list_u):
-        return self.newlist([self.newunicode(u) for u in list_u])
+    def newlist_utf8(self, list_u, is_ascii):
+        l_w = [None] * len(list_u)
+        for i, item in enumerate(list_u):
+            length, flag = rutf8.check_utf8(item, True)
+            l_w[i] = self.newutf8(item, length, flag)
+        return self.newlist(l_w)
 
     def newlist_int(self, list_i):
         return self.newlist([self.newint(i) for i in list_i])

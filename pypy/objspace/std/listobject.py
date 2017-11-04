@@ -196,7 +196,7 @@ class W_ListObject(W_Root):
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
     @staticmethod
-    def newlist_unicode(space, list_u):
+    def newlist_utf8(space, list_u):
         strategy = space.fromcache(UnicodeListStrategy)
         storage = strategy.erase(list_u)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)

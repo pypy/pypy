@@ -42,7 +42,6 @@ class TestW_SetStrategies:
         assert s1.strategy is self.space.fromcache(ObjectSetStrategy)
 
     def test_switch_to_unicode(self):
-        py.test.skip("disabled")
         s = W_SetObject(self.space, self.wrapped([]))
         s.add(self.space.wrap(u"six"))
         assert s.strategy is self.space.fromcache(UnicodeSetStrategy)

@@ -1,6 +1,6 @@
 """The builtin dict implementation"""
 
-from rpython.rlib import jit, rerased, objectmodel
+from rpython.rlib import jit, rerased, objectmodel, rutf8
 from rpython.rlib.debug import mark_dict_non_null
 from rpython.rlib.objectmodel import newlist_hint, r_dict, specialize
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
@@ -441,7 +441,7 @@ def _add_indirections():
                     popitem delitem clear \
                     length w_keys values items \
                     iterkeys itervalues iteritems \
-                    listview_bytes listview_unicode listview_int \
+                    listview_bytes listview_utf8 listview_int \
                     view_as_kwargs".split()
 
     def make_method(method):
@@ -593,7 +593,7 @@ class DictStrategy(object):
     def listview_bytes(self, w_dict):
         return None
 
-    def listview_unicode(self, w_dict):
+    def listview_utf8(self, w_dict):
         return None
 
     def listview_int(self, w_dict):
@@ -640,7 +640,7 @@ class EmptyDictStrategy(DictStrategy):
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_bytes_strategy(w_dict)
             return
-        elif type(w_key) is self.space.UnicodeObjectCls:
+        elif type(w_key) is self.space.UnicodeObjectCls and w_key.is_ascii():
             self.switch_to_unicode_strategy(w_dict)
             return
         w_type = self.space.type(w_key)
@@ -1197,14 +1197,14 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.newunicode(unwrapped)
+        return self.space.newutf8(unwrapped, len(unwrapped), rutf8.FLAG_ASCII)
 
     def unwrap(self, wrapped):
-        return self.space.unicode_w(wrapped)
+        return self.space.utf8_w(wrapped)
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_unicode)
+        return type(w_obj) is space.UnicodeObjectCls and w_obj.is_ascii()
 
     def get_empty_storage(self):
         res = {}
@@ -1232,14 +1232,14 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##     assert key is not None
     ##     return self.unerase(w_dict.dstorage).get(key, None)
 
-    def listview_unicode(self, w_dict):
+    def listview_utf8(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
 
     ## def w_keys(self, w_dict):
     ##     return self.space.newlist_bytes(self.listview_bytes(w_dict))
 
     def wrapkey(space, key):
-        return space.newunicode(key)
+        return space.newutf8(key, len(key), rutf8.FLAG_ASCII)
 
     ## @jit.look_inside_iff(lambda self, w_dict:
     ##                      w_dict_unrolling_heuristic(w_dict))

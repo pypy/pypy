@@ -196,10 +196,6 @@ class W_UnicodeObject(W_Root):
     def _islinebreak(self, s, pos):
         return rutf8.islinebreak(s, pos)
 
-    def _newlist_unwrapped(self, space, lst):
-        assert False, "should not be called"
-        return space.newlist_unicode(lst)
-
     @staticmethod
     @unwrap_spec(w_string=WrappedDefault(""))
     def descr_new(space, w_unicodetype, w_string, w_encoding=None,
@@ -503,11 +499,11 @@ class W_UnicodeObject(W_Root):
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
         l = space.listview_utf8(w_list)
-        if l is not None:
-            xxxx
+        if l is not None and self.is_ascii():
             if len(l) == 1:
-                return space.newunicode(l[0])
-            return space.newunicode(self._utf8).join(l)
+                return space.newutf8(l[0], len(l[0]), rutf8.FLAG_ASCII)
+            s = self._utf8.join(l)
+            return space.newutf8(s, len(s), rutf8.FLAG_ASCII)
         return self._StringMethods_descr_join(space, w_list)
 
     def _join_return_one(self, space, w_obj):
@@ -755,14 +751,14 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         if space.is_none(w_sep):
             res = split(value, maxsplit=maxsplit, isutf8=True)
-            return space.newlist_utf8(res)
+            return space.newlist_utf8(res, self.is_ascii())
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
         res = split(value, by, maxsplit, isutf8=True)
 
-        return space.newlist_utf8(res)
+        return space.newlist_utf8(res, self.is_ascii())
 
     @unwrap_spec(maxsplit=int)
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
@@ -770,14 +766,14 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         if space.is_none(w_sep):
             res = rsplit(value, maxsplit=maxsplit, isutf8=True)
-            return space.newlist_utf8(res)
+            return space.newlist_utf8(res, self.is_ascii())
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
             raise oefmt(space.w_ValueError, "empty separator")
         res = rsplit(value, by, maxsplit, isutf8=True)
 
-        return space.newlist_utf8(res)
+        return space.newlist_utf8(res, self.is_ascii())
 
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):

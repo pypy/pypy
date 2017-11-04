@@ -142,11 +142,10 @@ class TestW_DictObject(object):
         assert self.space.listview_bytes(w_d) == ["a", "b"]
 
     def test_listview_unicode_dict(self):
-        py.test.skip("listview_unicode disabled")
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(2))])
-        assert self.space.listview_unicode(w_d) == [u"a", u"b"]
+        assert self.space.listview_utf8(w_d) == ["a", "b"]
 
     def test_listview_int_dict(self):
         w = self.space.wrap

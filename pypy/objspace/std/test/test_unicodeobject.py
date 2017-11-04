@@ -28,7 +28,7 @@ class TestUnicodeObject:
 
     def test_listview_unicode(self):
         w_str = self.space.newutf8('abcd', 4, rutf8.FLAG_ASCII)
-        assert self.space.listview_unicode(w_str) == list(u"abcd")
+        assert self.space.listview_utf8(w_str) == list("abcd")
 
     def test_new_shortcut(self):
         space = self.space
