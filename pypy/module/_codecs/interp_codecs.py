@@ -39,8 +39,8 @@ class CodecState(object):
                 w_input = space.newbytes(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                length = rutf8.check_utf8(input, allow_surrogates=True)
-                w_input = space.newutf8(input, length)
+                length, flag = rutf8.check_utf8(input, allow_surrogates=True)
+                w_input = space.newutf8(input, length, flag)
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -189,7 +189,7 @@ def strict_errors(space, w_exc):
 def ignore_errors(space, w_exc):
     check_exception(space, w_exc)
     w_end = space.getattr(w_exc, space.newtext('end'))
-    return space.newtuple([space.newutf8('', 0), w_end])
+    return space.newtuple([space.newutf8('', 0, rutf8.FLAG_ASCII), w_end])
 
 REPLACEMENT = u'\ufffd'.encode('utf8')
 
@@ -200,13 +200,13 @@ def replace_errors(space, w_exc):
     size = space.int_w(w_end) - space.int_w(w_start)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         text = '?' * size
-        return space.newtuple([space.newutf8(text, size), w_end])
+        return space.newtuple([space.newutf8(text, size, rutf8.FLAG_ASCII), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         text = REPLACEMENT
-        return space.newtuple([space.newutf8(text, 1), w_end])
+        return space.newtuple([space.newutf8(text, 1, rutf8.FLAG_REGULAR), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeTranslateError):
         text = REPLACEMENT * size
-        return space.newtuple([space.newutf8(text, size), w_end])
+        return space.newtuple([space.newutf8(text, size, rutf8.FLAG_REGULAR), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -403,9 +403,9 @@ def make_decoder_wrapper(name):
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
         func = getattr(unicodehelper, rname)
-        result, consumed, length = func(string, len(string), errors,
-                                final, state.decode_error_handler)
-        return space.newtuple([space.newutf8(result, length),
+        result, consumed, length, flag = func(string, len(string), errors,
+                                              final, state.decode_error_handler)
+        return space.newtuple([space.newutf8(result, length, flag),
                                space.newint(consumed)])
     wrap_decoder.func_name = rname
     globals()[name] = wrap_decoder
@@ -448,7 +448,7 @@ if hasattr(runicode, 'str_decode_mbcs'):
 # "allow_surrogates=True"
 @unwrap_spec(utf8='utf8', errors='text_or_none')
 def utf_8_encode(space, utf8, errors="strict"):
-    length = rutf8.check_utf8(utf8, allow_surrogates=True)
+    length, _ = rutf8.check_utf8(utf8, allow_surrogates=True)
     return space.newtuple([space.newbytes(utf8), space.newint(length)])
 #@unwrap_spec(uni=unicode, errors='text_or_none')
 #def utf_8_encode(space, uni, errors="strict"):
@@ -474,16 +474,17 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
     state = space.fromcache(CodecState)
     # call the fast version for checking
     try:
-        lgt = rutf8.check_utf8(string, allow_surrogates=True)
+        lgt, flag = rutf8.check_utf8(string, allow_surrogates=True)
     except rutf8.CheckError as e:
         # XXX do the way around runicode - we can optimize it later if we
         # decide we care about obscure cases
+        xxx
         res, consumed, lgt = unicodehelper.str_decode_utf8(string, len(string),
             errors, final, state.decode_error_handler)
         return space.newtuple([space.newutf8(res, lgt),
                                space.newint(consumed)])
     else:
-        return space.newtuple([space.newutf8(string, lgt),
+        return space.newtuple([space.newutf8(string, lgt, flag),
                                space.newint(len(string))])
 
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,

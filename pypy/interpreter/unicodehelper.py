@@ -20,11 +20,11 @@ def decode_error_handler(space):
 @specialize.memo()
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
-    def raise_unicode_exception_encode(errors, encoding, msg, u, u_len,
+    def raise_unicode_exception_encode(errors, encoding, msg, w_u,
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
-                                             space.newutf8(u, u_len),
+                                             w_u,
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
@@ -41,6 +41,21 @@ def encode(space, w_data, encoding=None, errors='strict'):
     from pypy.objspace.std.unicodeobject import encode_object
     return encode_object(space, w_data, encoding, errors)
 
+def _has_surrogate(u):
+    for c in u:
+        if 0xDB80 <= ord(c) <= 0xCBFF or 0xD800 <= ord(c) <= 0xDB7F:
+            return True
+    return False
+
+def _get_flag(u):
+    flag = rutf8.FLAG_ASCII
+    for c in u:
+        if 0xDB80 <= ord(c) <= 0xCBFF or 0xD800 <= ord(c) <= 0xDB7F:
+            return rutf8.FLAG_HAS_SURROGATES
+        if ord(c) >= 0x80:
+            flag = rutf8.FLAG_REGULAR
+    return flag
+
 # These functions take and return unwrapped rpython strings and unicodes
 def decode_unicode_escape(space, string):
     state = space.fromcache(interp_codecs.CodecState)
@@ -52,7 +67,14 @@ def decode_unicode_escape(space, string):
         final=True, errorhandler=DecodeWrapper(decode_error_handler(space)).handle,
         unicodedata_handler=unicodedata_handler)
     # XXX argh.  we want each surrogate to be encoded separately
-    return ''.join([u.encode('utf8') for u in result_u]), len(result_u)
+    utf8 = ''.join([u.encode('utf8') for u in result_u])
+    if rutf8.first_non_ascii_char(utf8) == -1:
+        flag = rutf8.FLAG_ASCII
+    elif _has_surrogate(result_u):
+        flag = rutf8.FLAG_HAS_SURROGATES
+    else:
+        flag = rutf8.FLAG_REGULAR
+    return utf8, len(result_u), flag
 
 def decode_raw_unicode_escape(space, string):
     # XXX pick better length, maybe
@@ -61,7 +83,14 @@ def decode_raw_unicode_escape(space, string):
         string, len(string), "strict",
         final=True, errorhandler=DecodeWrapper(decode_error_handler(space)).handle)
     # XXX argh.  we want each surrogate to be encoded separately
-    return ''.join([u.encode('utf8') for u in result_u]), len(result_u)
+    utf8 = ''.join([u.encode('utf8') for u in result_u])
+    if rutf8.first_non_ascii_char(utf8) == -1:
+        flag = rutf8.FLAG_ASCII
+    elif _has_surrogate(result_u):
+        flag = rutf8.FLAG_HAS_SURROGATES
+    else:
+        flag = rutf8.FLAG_REGULAR
+    return utf8, len(result_u), flag
 
 def check_ascii_or_raise(space, string):
     try:
@@ -78,12 +107,12 @@ def check_utf8_or_raise(space, string):
     # you still get two surrogate unicode characters in the result.
     # These are the Python2 rules; Python3 differs.
     try:
-        length = rutf8.check_utf8(string, allow_surrogates=True)
+        length, flag = rutf8.check_utf8(string, allow_surrogates=True)
     except rutf8.CheckError as e:
         decode_error_handler(space)('strict', 'utf8', 'invalid utf-8', string,
                                     e.pos, e.pos + 1)
         assert False, "unreachable"
-    return length
+    return length, flag
 
 def encode_utf8(space, uni):
     # DEPRECATED
@@ -116,7 +145,7 @@ def str_decode_ascii(s, slen, errors, final, errorhandler):
     except rutf8.CheckError:
         w = DecodeWrapper((errorhandler))
         u, pos = runicode.str_decode_ascii(s, slen, errors, final, w.handle)
-        return u.encode('utf8'), pos, len(u)
+        return u.encode('utf8'), pos, len(u), _get_flag(u)
 
 # XXX wrappers, think about speed
 
@@ -139,14 +168,14 @@ def str_decode_utf8(s, slen, errors, final, errorhandler):
     w = DecodeWrapper(errorhandler)
     u, pos = runicode.str_decode_utf_8_impl(s, slen, errors, final, w.handle,
         runicode.allow_surrogate_by_default)
-    return u.encode('utf8'), pos, len(u)
+    return u.encode('utf8'), pos, len(u), _get_flag(u)
 
 def str_decode_unicode_escape(s, slen, errors, final, errorhandler, ud_handler):
     w = DecodeWrapper(errorhandler)
     u, pos = runicode.str_decode_unicode_escape(s, slen, errors, final,
                                                 w.handle,
                                                 ud_handler)
-    return u.encode('utf8'), pos, len(u)
+    return u.encode('utf8'), pos, len(u), _get_flag(u)
 
 def setup_new_encoders(encoding):
     encoder_name = 'utf8_encode_' + encoding
@@ -160,7 +189,7 @@ def setup_new_encoders(encoding):
     def decoder(s, slen, errors, final, errorhandler):
         w = DecodeWrapper((errorhandler))
         u, pos = getattr(runicode, decoder_name)(s, slen, errors, final, w.handle)
-        return u.encode('utf8'), pos, len(u)
+        return u.encode('utf8'), pos, len(u), _get_flag(u)
     encoder.__name__ = encoder_name
     decoder.__name__ = decoder_name
     if encoder_name not in globals():

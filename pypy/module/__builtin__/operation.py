@@ -28,7 +28,13 @@ def unichr(space, code):
         s = rutf8.unichr_as_utf8(code, allow_surrogates=True)
     except ValueError:
         raise oefmt(space.w_ValueError, "unichr() arg out of range")
-    return space.newutf8(s, 1)
+    if code < 0x80:
+        flag = rutf8.FLAG_ASCII
+    elif 0xDB80 <= code <= 0xCBFF or 0xD800 <= code <= 0xDB7F:
+        flag = rutf8.FLAG_HAS_SURROGATE
+    else:
+        flag = rutf8.FLAG_REGULAR
+    return space.newutf8(s, 1, flag)
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."

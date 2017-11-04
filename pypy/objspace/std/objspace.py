@@ -317,8 +317,8 @@ class StdObjSpace(ObjSpace):
         for utf in lst:
             assert utf is not None
             assert isinstance(utf, str)
-            length = rutf8.check_utf8(utf, allow_surrogates=True)
-            res_w.append(self.newutf8(utf, length))
+            length, flag = rutf8.check_utf8(utf, allow_surrogates=True)
+            res_w.append(self.newutf8(utf, length, flag))
         return self.newlist(res_w)
 
     def newlist_int(self, list_i):
@@ -369,10 +369,10 @@ class StdObjSpace(ObjSpace):
             return self.w_None
         return self.newtext(s)
 
-    def newutf8(self, utf8s, length):
+    def newutf8(self, utf8s, length, flag):
         assert utf8s is not None
         assert isinstance(utf8s, str)
-        return W_UnicodeObject(utf8s, length)
+        return W_UnicodeObject(utf8s, length, flag)
 
     def newfilename(self, s):
         assert isinstance(s, str) # on pypy3, this decodes the byte string

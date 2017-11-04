@@ -305,14 +305,14 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
 def check_utf8(s, allow_surrogates, start=0, stop=-1):
     """Check that 's' is a utf-8-encoded byte string.
 
-    Returns the length (number of chars) and flags or raise CheckError.
+    Returns the length (number of chars) and flag or raise CheckError.
     If allow_surrogates is False, then also raise if we see any.
     Note also codepoints_in_utf8(), which also computes the length
     faster by assuming that 's' is valid utf-8.
     """
-    res, flags = _check_utf8(s, allow_surrogates, start, stop)
+    res, flag = _check_utf8(s, allow_surrogates, start, stop)
     if res >= 0:
-        return res, flags
+        return res, flag
     raise CheckError(~res)
 
 @jit.elidable
@@ -416,12 +416,13 @@ def surrogate_in_utf8(value):
     return False
 
 
-UTF8_INDEX_STORAGE = lltype.GcArray(lltype.Struct(
-    'utf8_loc',
-    ('baseindex', lltype.Signed),
+UTF8_INDEX_STORAGE = lltype.GcStruct('utf8_loc',
     ('flag', lltype.Signed),
-    ('ofs', lltype.FixedSizeArray(lltype.Char, 16))
-    ))
+    ('contents', lltype.Ptr(lltype.GcArray(lltype.Struct(
+    'utf8_loc_elem',
+    ('baseindex', lltype.Signed),
+    ('ofs', lltype.FixedSizeArray(lltype.Char, 16)))
+    ))))
 
 FLAG_REGULAR = 0
 FLAG_HAS_SURROGATES = 1
@@ -429,43 +430,47 @@ FLAG_ASCII = 2
 # note that we never need index storage if we're pure ascii, but it's useful
 # for passing into W_UnicodeObject.__init__
 
-ASCII_INDEX_STORAGE_BLOCKS = 5
-ASCII_INDEX_STORAGE = lltype.malloc(UTF8_INDEX_STORAGE,
-                                    ASCII_INDEX_STORAGE_BLOCKS,
-                                    immortal=True)
-for _i in range(ASCII_INDEX_STORAGE_BLOCKS):
-    ASCII_INDEX_STORAGE[_i].baseindex = _i * 64
-    for _j in range(16):
-        ASCII_INDEX_STORAGE[_i].ofs[_j] = chr(_j * 4 + 1)
+#ASCII_INDEX_STORAGE_BLOCKS = 5
+#ASCII_INDEX_STORAGE = lltype.malloc(UTF8_INDEX_STORAGE.contents.TO,
+#                                    ASCII_INDEX_STORAGE_BLOCKS,
+#                                    immortal=True)
+#for _i in range(ASCII_INDEX_STORAGE_BLOCKS):
+#    ASCII_INDEX_STORAGE[_i].baseindex = _i * 64
+#    for _j in range(16):
+#        ASCII_INDEX_STORAGE[_i].ofs[_j] = chr(_j * 4 + 1)
 
 def null_storage():
     return lltype.nullptr(UTF8_INDEX_STORAGE)
 
-UTF8_IS_ASCII = lltype.malloc(UTF8_INDEX_STORAGE, 0, immortal=True)
-UTF8_HAS_SURROGATES = lltype.malloc(UTF8_INDEX_STORAGE, 0, immortal=True)
+UTF8_IS_ASCII = lltype.malloc(UTF8_INDEX_STORAGE, immortal=True)
+UTF8_IS_ASCII.contents = lltype.nullptr(UTF8_INDEX_STORAGE.contents.TO)
+UTF8_HAS_SURROGATES = lltype.malloc(UTF8_INDEX_STORAGE, immortal=True)
+UTF8_HAS_SURROGATES.contents = lltype.nullptr(UTF8_INDEX_STORAGE.contents.TO)
 
 def create_utf8_index_storage(utf8, utf8len):
     """ Create an index storage which stores index of each 4th character
     in utf8 encoded unicode string.
     """
-    if len(utf8) == utf8len < ASCII_INDEX_STORAGE_BLOCKS * 64:
-        return ASCII_INDEX_STORAGE
+#    if len(utf8) == utf8len < ASCII_INDEX_STORAGE_BLOCKS * 64:
+#        return ASCII_INDEX_STORAGE
     arraysize = utf8len // 64 + 1
-    storage = lltype.malloc(UTF8_INDEX_STORAGE, arraysize)
+    storage = lltype.malloc(UTF8_INDEX_STORAGE)
+    contents = lltype.malloc(UTF8_INDEX_STORAGE.contents.TO, arraysize)
+    storage.contents = contents
     baseindex = 0
     current = 0
     while True:
-        storage[current].baseindex = baseindex
+        contents[current].baseindex = baseindex
         next = baseindex
         for i in range(16):
             if utf8len == 0:
                 next += 1      # assume there is an extra '\x00' character
             else:
                 next = next_codepoint_pos(utf8, next)
-            storage[current].ofs[i] = chr(next - baseindex)
+            contents[current].ofs[i] = chr(next - baseindex)
             utf8len -= 4
             if utf8len < 0:
-                assert current + 1 == len(storage)
+                assert current + 1 == len(contents)
                 break
             next = next_codepoint_pos(utf8, next)
             next = next_codepoint_pos(utf8, next)
@@ -485,8 +490,8 @@ def codepoint_position_at_index(utf8, storage, index):
     this function.
     """
     current = index >> 6
-    ofs = ord(storage[current].ofs[(index >> 2) & 0x0F])
-    bytepos = storage[current].baseindex + ofs
+    ofs = ord(storage.contents[current].ofs[(index >> 2) & 0x0F])
+    bytepos = storage.contents[current].baseindex + ofs
     index &= 0x3
     if index == 0:
         return prev_codepoint_pos(utf8, bytepos)
@@ -504,8 +509,8 @@ def codepoint_at_index(utf8, storage, index):
     storage of type UTF8_INDEX_STORAGE
     """
     current = index >> 6
-    ofs = ord(storage[current].ofs[(index >> 2) & 0x0F])
-    bytepos = storage[current].baseindex + ofs
+    ofs = ord(storage.contents[current].ofs[(index >> 2) & 0x0F])
+    bytepos = storage.contents[current].baseindex + ofs
     index &= 0x3
     if index == 0:
         return codepoint_before_pos(utf8, bytepos)

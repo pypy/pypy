@@ -1764,8 +1764,10 @@ class ObjSpace(object):
         return self.realutf8_w(w_obj).decode('utf8')
 
     def newunicode(self, u):
+        from pypy.interpreter import unicodehelper
         assert isinstance(u, unicode)
-        return self.newutf8(u.encode("utf8"), len(u))
+        # XXX let's disallow that
+        return self.newutf8(u.encode("utf8"), len(u), unicodehelper._get_flag(u))
 
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
