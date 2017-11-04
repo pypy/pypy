@@ -28,6 +28,7 @@ def test_check_ascii(s):
     else:
         assert not raised
 
+@settings(max_examples=10000)
 @given(strategies.binary(), strategies.booleans())
 def test_check_utf8(s, allow_surrogates):
     _test_check_utf8(s, allow_surrogates)
@@ -37,19 +38,32 @@ def test_check_utf8_valid(u, allow_surrogates):
     _test_check_utf8(u.encode('utf-8'), allow_surrogates)
 
 def _test_check_utf8(s, allow_surrogates):
+    def _has_surrogates(s):
+        for u in s.decode('utf8'):
+            if 0xD800 <= ord(u) <= 0xDB7F:
+                return True
+            if 0xDC00 <= ord(u) <= 0xDBFF:
+                return True
+        return False
+
     try:
         u, _ = runicode.str_decode_utf_8(s, len(s), None, final=True,
                                          allow_surrogates=allow_surrogates)
         valid = True
     except UnicodeDecodeError as e:
         valid = False
-    try:
-        length = rutf8.check_utf8(s, allow_surrogates)
-    except rutf8.CheckError:
+    length, flag = rutf8._check_utf8(s, allow_surrogates, 0, len(s))
+    if length < 0:
         assert not valid
+        assert ~(length) == e.start
     else:
         assert valid
         assert length == len(u)
+        if flag == rutf8.FLAG_ASCII:
+            s.decode('ascii') # assert did not raise
+        elif flag == rutf8.FLAG_HAS_SURROGATES:
+            assert allow_surrogates
+            assert _has_surrogates(s)
 
 @given(strategies.characters())
 def test_next_pos(uni):

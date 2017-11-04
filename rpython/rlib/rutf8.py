@@ -194,14 +194,14 @@ class CheckError(Exception):
         self.pos = pos
 
 def check_ascii(s):
-    res = _check_ascii(s)
+    res = first_non_ascii_char(s)
     if res < 0:
         return
     raise CheckError(res)
 
 
 @jit.elidable
-def _check_ascii(s):
+def first_non_ascii_char(s):
     for i in range(len(s)):
         if ord(s[i]) > 0x7F:
             return i
@@ -286,6 +286,9 @@ _invalid_byte_3_of_3 = _invalid_cont_byte
 _invalid_byte_3_of_4 = _invalid_cont_byte
 _invalid_byte_4_of_4 = _invalid_cont_byte
 
+def _surrogate_bytes(ch1, ch2):
+    return ch1 == 0xed and ch2 > 0x9f
+
 @enforceargs(allow_surrogates=bool)
 def _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
     return (ordch2>>6 != 0x2 or    # 0b10
@@ -301,20 +304,22 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
 
 def check_utf8(s, allow_surrogates, start=0, stop=-1):
     """Check that 's' is a utf-8-encoded byte string.
-    Returns the length (number of chars) or raise CheckError.
+
+    Returns the length (number of chars) and flags or raise CheckError.
     If allow_surrogates is False, then also raise if we see any.
     Note also codepoints_in_utf8(), which also computes the length
     faster by assuming that 's' is valid utf-8.
     """
-    res = _check_utf8(s, allow_surrogates, start, stop)
+    res, flags = _check_utf8(s, allow_surrogates, start, stop)
     if res >= 0:
-        return res
+        return res, flags
     raise CheckError(~res)
 
 @jit.elidable
 def _check_utf8(s, allow_surrogates, start, stop):
     pos = start
     continuation_bytes = 0
+    flag = FLAG_ASCII
     if stop < 0:
         end = len(s)
     else:
@@ -326,38 +331,44 @@ def _check_utf8(s, allow_surrogates, start, stop):
         if ordch1 <= 0x7F:
             continue
 
+        if flag == FLAG_ASCII:
+            flag = FLAG_REGULAR
+
         if ordch1 <= 0xC1:
-            return ~(pos - 1)
+            return ~(pos - 1), 0
 
         if ordch1 <= 0xDF:
             if pos >= end:
-                return ~(pos - 1)
+                return ~(pos - 1), 0
             ordch2 = ord(s[pos])
             pos += 1
 
             if _invalid_byte_2_of_2(ordch2):
-                return ~(pos - 2)
+                return ~(pos - 2), 0
             # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
             continuation_bytes += 1
             continue
 
         if ordch1 <= 0xEF:
             if (pos + 2) > end:
-                return ~(pos - 1)
+                return ~(pos - 1), 0
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
             pos += 2
 
             if (_invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates) or
                 _invalid_byte_3_of_3(ordch3)):
-                return ~(pos - 3)
+                return ~(pos - 3), 0
+
+            if allow_surrogates and _surrogate_bytes(ordch1, ordch2):
+                flag = FLAG_HAS_SURROGATES
             # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
             continuation_bytes += 2
             continue
 
         if ordch1 <= 0xF4:
             if (pos + 3) > end:
-                return ~(pos - 1)
+                return ~(pos - 1), 0
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
             ordch4 = ord(s[pos + 2])
@@ -366,16 +377,16 @@ def _check_utf8(s, allow_surrogates, start, stop):
             if (_invalid_byte_2_of_4(ordch1, ordch2) or
                 _invalid_byte_3_of_4(ordch3) or
                 _invalid_byte_4_of_4(ordch4)):
-                return ~(pos - 4)
+                return ~(pos - 4), 0
             # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
             continuation_bytes += 3
             continue
 
-        return ~(pos - 1)
+        return ~(pos - 1), 0
 
     assert pos == end
     assert pos - continuation_bytes >= 0
-    return pos - continuation_bytes
+    return pos - continuation_bytes, flag
 
 @jit.elidable
 def codepoints_in_utf8(value, start=0, end=sys.maxint):
@@ -408,8 +419,15 @@ def surrogate_in_utf8(value):
 UTF8_INDEX_STORAGE = lltype.GcArray(lltype.Struct(
     'utf8_loc',
     ('baseindex', lltype.Signed),
+    ('flag', lltype.Signed),
     ('ofs', lltype.FixedSizeArray(lltype.Char, 16))
     ))
+
+FLAG_REGULAR = 0
+FLAG_HAS_SURROGATES = 1
+FLAG_ASCII = 2
+# note that we never need index storage if we're pure ascii, but it's useful
+# for passing into W_UnicodeObject.__init__
 
 ASCII_INDEX_STORAGE_BLOCKS = 5
 ASCII_INDEX_STORAGE = lltype.malloc(UTF8_INDEX_STORAGE,
@@ -422,6 +440,9 @@ for _i in range(ASCII_INDEX_STORAGE_BLOCKS):
 
 def null_storage():
     return lltype.nullptr(UTF8_INDEX_STORAGE)
+
+UTF8_IS_ASCII = lltype.malloc(UTF8_INDEX_STORAGE, 0, immortal=True)
+UTF8_HAS_SURROGATES = lltype.malloc(UTF8_INDEX_STORAGE, 0, immortal=True)
 
 def create_utf8_index_storage(utf8, utf8len):
     """ Create an index storage which stores index of each 4th character
