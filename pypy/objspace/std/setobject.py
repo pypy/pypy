@@ -1591,7 +1591,7 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(byteslist)
         return
 
-    unicodelist = space.listview_unicode(w_iterable)
+    unicodelist = space.listview_utf8(w_iterable)
     if unicodelist is not None:
         strategy = space.fromcache(UnicodeSetStrategy)
         w_set.strategy = strategy

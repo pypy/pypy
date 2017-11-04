@@ -10,7 +10,7 @@ http://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.htm
 import operator
 import sys
 
-from rpython.rlib import debug, jit, rerased
+from rpython.rlib import debug, jit, rerased, rutf8
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
     import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
@@ -95,10 +95,11 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         else:
             return space.fromcache(BytesListStrategy)
 
-    elif False and type(w_firstobj) is W_UnicodeObject: # disable unicode list strat
+    elif type(w_firstobj) is W_UnicodeObject and w_firstobj.is_ascii():
         # check for all-unicodes
         for i in range(1, len(list_w)):
-            if type(list_w[i]) is not W_UnicodeObject:
+            item = list_w[i]
+            if type(item) is not W_UnicodeObject or not item.is_ascii():
                 break
         else:
             return space.fromcache(UnicodeListStrategy)
@@ -196,7 +197,6 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def newlist_unicode(space, list_u):
-        xxxx
         strategy = space.fromcache(UnicodeListStrategy)
         storage = strategy.erase(list_u)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
@@ -349,10 +349,10 @@ class W_ListObject(W_Root):
         not use the list strategy, return None."""
         return self.strategy.getitems_bytes(self)
 
-    def getitems_unicode(self):
+    def getitems_utf8(self):
         """Return the items in the list as unwrapped unicodes. If the list does
         not use the list strategy, return None."""
-        return self.strategy.getitems_unicode(self)
+        return self.strategy.getitems_utf8(self)
 
     def getitems_int(self):
         """Return the items in the list as unwrapped ints. If the list does not
@@ -813,7 +813,7 @@ class ListStrategy(object):
     def getitems_bytes(self, w_list):
         return None
 
-    def getitems_unicode(self, w_list):
+    def getitems_utf8(self, w_list):
         return None
 
     def getitems_int(self, w_list):
@@ -954,8 +954,8 @@ class EmptyListStrategy(ListStrategy):
             strategy = self.space.fromcache(IntegerListStrategy)
         elif type(w_item) is W_BytesObject:
             strategy = self.space.fromcache(BytesListStrategy)
-        #elif type(w_item) is W_UnicodeObject:
-        #    strategy = self.space.fromcache(UnicodeListStrategy)
+        elif type(w_item) is W_UnicodeObject and w_item.is_ascii():
+            strategy = self.space.fromcache(UnicodeListStrategy)
         elif type(w_item) is W_FloatObject:
             strategy = self.space.fromcache(FloatListStrategy)
         else:
@@ -1025,9 +1025,8 @@ class EmptyListStrategy(ListStrategy):
             w_list.lstorage = strategy.erase(byteslist[:])
             return
 
-        if False:
-          unilist = space.listview_unicode(w_iterable)
-          if unilist is not None:
+        unilist = space.listview_utf8(w_iterable)
+        if unilist is not None:
             w_list.strategy = strategy = space.fromcache(UnicodeListStrategy)
             # need to copy because intlist can share with w_iterable
             w_list.lstorage = strategy.erase(unilist[:])
@@ -1995,11 +1994,11 @@ class BytesListStrategy(ListStrategy):
 class UnicodeListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
-    _none_value = u""
+    _none_value = ""
 
     def wrap(self, stringval):
         assert stringval is not None
-        return self.space.newunicode(stringval)
+        return self.space.newutf8(stringval, len(stringval), rutf8.FLAG_ASCII)
 
     def unwrap(self, w_string):
         return self.space.utf8_w(w_string)
@@ -2009,7 +2008,7 @@ class UnicodeListStrategy(ListStrategy):
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
-        return type(w_obj) is W_UnicodeObject
+        return type(w_obj) is W_UnicodeObject and w_obj.is_ascii()
 
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(UnicodeListStrategy)
@@ -2021,7 +2020,7 @@ class UnicodeListStrategy(ListStrategy):
         if reverse:
             l.reverse()
 
-    def getitems_unicode(self, w_list):
+    def getitems_utf8(self, w_list):
         return self.unerase(w_list.lstorage)
 
 # _______________________________________________________

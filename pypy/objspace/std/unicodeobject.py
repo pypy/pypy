@@ -116,7 +116,7 @@ class W_UnicodeObject(W_Root):
 
     charbuf_w = str_w
 
-    def listview_unicode(self):
+    def listview_utf8(self):
         assert self.is_ascii()
         return _create_list_from_unicode(self._utf8)
 
@@ -502,9 +502,9 @@ class W_UnicodeObject(W_Root):
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
-        l = space.listview_unicode(w_list)
+        l = space.listview_utf8(w_list)
         if l is not None:
-            assert False, "unreachable"
+            xxxx
             if len(l) == 1:
                 return space.newunicode(l[0])
             return space.newunicode(self._utf8).join(l)

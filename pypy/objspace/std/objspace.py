@@ -164,7 +164,9 @@ class StdObjSpace(ObjSpace):
         if isinstance(x, str):
             return self.newtext(x)
         if isinstance(x, unicode):
-            return self.newutf8(x.encode('utf8'), len(x), rutf8.FLAG_REGULAR)
+            from pypy.interpreter import unicodehelper
+            return self.newutf8(x.encode('utf8'), len(x),
+                                unicodehelper._get_flag(x))
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
@@ -507,20 +509,20 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_bytes()
         return None
 
-    def listview_unicode(self, w_obj):
+    def listview_utf8(self, w_obj):
         # note: uses exact type checking for objects with strategies,
         # and isinstance() for others.  See test_listobject.test_uses_custom...
         if type(w_obj) is W_ListObject:
-            return w_obj.getitems_unicode()
+            return w_obj.getitems_utf8()
         if type(w_obj) is W_DictObject:
             return w_obj.listview_unicode()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_unicode()
         if (isinstance(w_obj, W_UnicodeObject) and self._uni_uses_no_iter(w_obj)
             and w_obj.is_ascii()):
-            return w_obj.listview_unicode()
+            return w_obj.listview_utf8()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-            return w_obj.getitems_unicode()
+            return w_obj.getitems_utf8()
         return None
 
     def listview_int(self, w_obj):

@@ -1054,7 +1054,7 @@ class ObjSpace(object):
         """
         return None
 
-    def listview_unicode(self, w_list):
+    def listview_utf8(self, w_list):
         """ Return a list of unwrapped unicode out of a list of unicode. If the
         argument is not a list or does not contain only unicode, return None.
         May return None anyway.
