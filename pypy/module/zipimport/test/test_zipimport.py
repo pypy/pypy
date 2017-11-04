@@ -197,7 +197,7 @@ class AppTestZipimport:
         self.writefile("xxbad_pyc.pyc", test_pyc)
         raises(zipimport.ZipImportError,
                "__import__('xxbad_pyc', globals(), locals(), [])")
-        assert 'uu' not in sys.modules
+        assert 'xxbad_pyc' not in sys.modules
 
     def test_force_py(self):
         import sys
