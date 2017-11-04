@@ -1288,10 +1288,10 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return True
 
     def unwrap(self, w_item):
-        return self.space.unicode_w(w_item)
+        return self.space.utf8_w(w_item)
 
     def wrap(self, item):
-        return self.space.newunicode(item)
+        return self.space.newutf8(item, len(item), rutf8.FLAG_ASCII)
 
     def iter(self, w_set):
         return UnicodeIteratorImplementation(self.space, self, w_set)
