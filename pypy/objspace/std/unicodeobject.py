@@ -48,6 +48,9 @@ class W_UnicodeObject(W_Root):
         else:
             assert flag == rutf8.FLAG_REGULAR
             self._index_storage = rutf8.null_storage()
+        lgt, flag_check = rutf8.check_utf8(utf8str, True)
+        assert lgt == length
+        assert flag == flag_check
         # the storage can be one of:
         # - null, unicode with no surrogates
         # - rutf8.UTF8_HAS_SURROGATES
