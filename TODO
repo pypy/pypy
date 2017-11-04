@@ -5,7 +5,5 @@
 * fix cpyext
 * write the correct jit_elidable in _get_index_storage
 * better flag handling in split/splitlines maybe?
-* find all the fast-paths that we want to do with utf8 (we only do
-  utf-8 now, not UTF8 or utf8) for decode/encode
 * encode_error_handler has XXX
-* reenable list strategies for ascii-only unicode
+* remove assertions from W_UnicodeObject.__init__ if all the builders pass
