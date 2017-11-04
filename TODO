@@ -1,4 +1,3 @@
-* unskip tests in test_unicodeobject.py
 * rutf8.prev_codepoint_pos should use r_uint
 * find a better way to run "find" without creating the index storage,
   if one is not already readily available
@@ -9,3 +8,4 @@
 * find all the fast-paths that we want to do with utf8 (we only do
   utf-8 now, not UTF8 or utf8) for decode/encode
 * encode_error_handler has XXX
+* reenable list strategies for ascii-only unicode

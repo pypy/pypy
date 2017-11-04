@@ -30,8 +30,8 @@ def unichr(space, code):
         raise oefmt(space.w_ValueError, "unichr() arg out of range")
     if code < 0x80:
         flag = rutf8.FLAG_ASCII
-    elif 0xDB80 <= code <= 0xCBFF or 0xD800 <= code <= 0xDB7F:
-        flag = rutf8.FLAG_HAS_SURROGATE
+    elif 0xD800 <= code <= 0xDFFF:
+        flag = rutf8.FLAG_HAS_SURROGATES
     else:
         flag = rutf8.FLAG_REGULAR
     return space.newutf8(s, 1, flag)

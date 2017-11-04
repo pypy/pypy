@@ -45,14 +45,14 @@ def encode(space, w_data, encoding=None, errors='strict'):
 
 def _has_surrogate(u):
     for c in u:
-        if 0xDB80 <= ord(c) <= 0xCBFF or 0xD800 <= ord(c) <= 0xDB7F:
+        if 0xD800 <= ord(c) <= 0xDFFF:
             return True
     return False
 
 def _get_flag(u):
     flag = rutf8.FLAG_ASCII
     for c in u:
-        if 0xDB80 <= ord(c) <= 0xCBFF or 0xD800 <= ord(c) <= 0xDB7F:
+        if 0xD800 <= ord(c) <= 0xDFFF:
             return rutf8.FLAG_HAS_SURROGATES
         if ord(c) >= 0x80:
             flag = rutf8.FLAG_REGULAR
@@ -143,7 +143,7 @@ def utf8_encode_ascii(utf8, utf8len, errors, errorhandler):
 def str_decode_ascii(s, slen, errors, final, errorhandler):
     try:
         rutf8.check_ascii(s)
-        return s, slen, len(s)
+        return s, slen, len(s), rutf8.FLAG_ASCII
     except rutf8.CheckError:
         w = DecodeWrapper((errorhandler))
         u, pos = runicode.str_decode_ascii(s, slen, errors, final, w.handle)

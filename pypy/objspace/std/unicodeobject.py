@@ -93,6 +93,8 @@ class W_UnicodeObject(W_Root):
         return space.text_w(space.str(self))
 
     def utf8_w(self, space):
+        if self._has_surrogates():
+            return rutf8.reencode_utf8_with_surrogates(self._utf8)
         return self._utf8
 
     def readbuf_w(self, space):
@@ -115,8 +117,8 @@ class W_UnicodeObject(W_Root):
     charbuf_w = str_w
 
     def listview_unicode(self):
-        XXX # fix at some point
-        return _create_list_from_unicode(self._value)
+        assert self.is_ascii()
+        return _create_list_from_unicode(self._utf8)
 
     def ord(self, space):
         if self._len() != 1:
@@ -410,7 +412,7 @@ class W_UnicodeObject(W_Root):
                                 "or unicode")
             try:
                 if codepoint >= 0x80:
-                    flag = self._combine_flags(flag, rutf8.FLAG_NORMAL)
+                    flag = self._combine_flags(flag, rutf8.FLAG_REGULAR)
                 rutf8.unichr_as_utf8_append(result, codepoint,
                                             allow_surrogates=True)
                 result_length += 1
@@ -632,7 +634,7 @@ class W_UnicodeObject(W_Root):
         return rutf8.FLAG_REGULAR
 
     def _get_flag(self):
-        if self._is_ascii():
+        if self.is_ascii():
             return rutf8.FLAG_ASCII
         elif self._has_surrogates():
             return rutf8.FLAG_HAS_SURROGATES
@@ -977,7 +979,7 @@ class W_UnicodeObject(W_Root):
         end = rutf8.next_codepoint_pos(self._utf8, start)
         return W_UnicodeObject(self._utf8[start:end], 1, self._get_flag())
 
-    def _is_ascii(self):
+    def is_ascii(self):
         return self._index_storage is rutf8.UTF8_IS_ASCII
 
     def _has_surrogates(self):
@@ -986,7 +988,8 @@ class W_UnicodeObject(W_Root):
                  self._index_storage.flag == rutf8.FLAG_HAS_SURROGATES))
 
     def _index_to_byte(self, index):
-        if self._is_ascii():
+        if self.is_ascii():
+            assert index >= 0
             return index
         return rutf8.codepoint_position_at_index(
             self._utf8, self._get_index_storage(), index)
@@ -1195,7 +1198,7 @@ def encode_object(space, w_object, encoding, errors):
                 assert False, "always raises"
             return space.newbytes(s)
         if ((encoding is None and space.sys.defaultencoding == 'utf8') or
-             encoding == 'utf-8'):
+             encoding == 'utf-8' or encoding == 'utf8'):
             return space.newbytes(space.utf8_w(w_object))
     if w_encoder is None:
         from pypy.module._codecs.interp_codecs import lookup_codec

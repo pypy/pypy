@@ -40,9 +40,7 @@ def test_check_utf8_valid(u, allow_surrogates):
 def _test_check_utf8(s, allow_surrogates):
     def _has_surrogates(s):
         for u in s.decode('utf8'):
-            if 0xD800 <= ord(u) <= 0xDB7F:
-                return True
-            if 0xDC00 <= ord(u) <= 0xDBFF:
+            if 0xD800 <= ord(u) <= 0xDFFF:
                 return True
         return False
 

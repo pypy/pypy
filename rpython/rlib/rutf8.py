@@ -388,6 +388,34 @@ def _check_utf8(s, allow_surrogates, start, stop):
     assert pos - continuation_bytes >= 0
     return pos - continuation_bytes, flag
 
+def reencode_utf8_with_surrogates(utf8):
+    """ Receiving valid UTF8 which contains surrogates, combine surrogate
+    pairs into correct UTF8 with pairs collpased. This is a rare case
+    and you should not be using surrogate pairs in the first place,
+    so the performance here is a bit secondary
+    """
+    s = StringBuilder(len(utf8))
+    stop = len(utf8)
+    i = 0
+    while i < stop:
+        uchr = codepoint_at_pos(utf8, i)
+        if 0xD800 <= uchr <= 0xDBFF:
+            high = uchr
+            i = next_codepoint_pos(utf8, i)
+            if i >= stop:
+                unichr_as_utf8_append(s, uchr, True)
+                break
+            low = codepoint_at_pos(utf8, i)
+            if 0xDC00 <= low <= 0xDFFF:
+                uchr = 0x10000 + (high - 0xD800) * 0x400 + (low - 0xDC00)
+                i = next_codepoint_pos(utf8, i)                
+            # else not really a surrogate pair, just append high
+        else:
+            i = next_codepoint_pos(utf8, i)
+        unichr_as_utf8_append(s, uchr, True)
+    return s.build()
+
+
 @jit.elidable
 def codepoints_in_utf8(value, start=0, end=sys.maxint):
     """Return the number of codepoints in the UTF-8 byte string
