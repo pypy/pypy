@@ -141,10 +141,6 @@ def test_enable():
     fn = compile(f, [], gcpolicy="minimark")
     assert fn() == 0
     try:
-        import vmprof
-    except ImportError:
-        py.test.skip("vmprof unimportable")
-    else:
         check_profile(tmpfilename)
     finally:
         assert os.path.exists(tmpfilename)
@@ -231,10 +227,6 @@ def test_native():
     fn = compile(f, [], gcpolicy="incminimark", lldebug=True)
     assert fn() == 0
     try:
-        import vmprof
-    except ImportError:
-        py.test.skip("vmprof unimportable")
-    else:
         check_profile(tmpfilename)
     finally:
         assert os.path.exists(tmpfilename)
