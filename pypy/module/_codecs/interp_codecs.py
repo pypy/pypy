@@ -475,12 +475,11 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
     # call the fast version for checking
     try:
         lgt, flag = rutf8.check_utf8(string, allow_surrogates=True)
-    except rutf8.CheckError as e:
+    except rutf8.CheckError:
         # XXX do the way around runicode - we can optimize it later if we
         # decide we care about obscure cases
-        res, consumed, lgt = unicodehelper.str_decode_utf8(string, len(string),
-            errors, final, state.decode_error_handler)
-        flag = unicodehelper._get_flag(res.decode("utf8"))
+        res, consumed, lgt, flag = unicodehelper.str_decode_utf8(string,
+            len(string), errors, final, state.decode_error_handler)
         return space.newtuple([space.newutf8(res, lgt, flag),
                                space.newint(consumed)])
     else:
@@ -695,12 +694,11 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
-    result, consumed, lgt = unicodehelper.str_decode_unicode_escape(
+    result, consumed, lgt, flag = unicodehelper.str_decode_unicode_escape(
         string, len(string), errors,
         final, state.decode_error_handler,
         unicode_name_handler)
 
-    flag = unicodehelper._get_flag(result.decode('utf8'))
     return space.newtuple([space.newutf8(result, lgt, flag), space.newint(consumed)])
 
 # ____________________________________________________________

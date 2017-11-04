@@ -69,7 +69,7 @@ def decode_unicode_escape(space, string):
         final=True, errorhandler=DecodeWrapper(decode_error_handler(space)).handle,
         unicodedata_handler=unicodedata_handler)
     # XXX argh.  we want each surrogate to be encoded separately
-    utf8 = ''.join([u.encode('utf8') for u in result_u])
+    utf8 = result_u.encode('utf8')
     if rutf8.first_non_ascii_char(utf8) == -1:
         flag = rutf8.FLAG_ASCII
     elif _has_surrogate(result_u):
