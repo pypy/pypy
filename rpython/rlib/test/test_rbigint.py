@@ -598,6 +598,33 @@ class Test_rbigint(object):
                     res3 = f1.abs_rshift_and_mask(r_ulonglong(y), mask)
                     assert res3 == (abs(x) >> y) & mask
 
+    def test_qshift(self):
+        for x in range(10):
+            for y in range(1, 161, 16):
+                num = (x << y) + x
+                f1 = rbigint.fromlong(num)
+                nf1 = rbigint.fromlong(-num)
+                
+                for z in range(1, 31):
+                    res1 = f1.lqshift(z).tolong() 
+                    res2 = f1.rqshift(z).tolong() 
+                    res3 = nf1.lqshift(z).tolong() 
+                    res4 = nf1.rqshift(z).tolong() 
+                    
+                    assert res1 == num << z
+                    assert res2 == num >> z
+                    assert res3 == -num << z
+                    assert res4 == -num >> z
+                    
+        # Large digit
+        for x in range((1 << SHIFT) - 10, (1 << SHIFT) + 10):
+            f1 = rbigint.fromlong(x)
+            nf1 = rbigint.fromlong(-x)
+            assert f1.rqshift(SHIFT).tolong() == x >> SHIFT 
+            assert nf1.rqshift(SHIFT).tolong() == -x >> SHIFT
+            assert f1.rqshift(SHIFT+1).tolong() == x >> (SHIFT+1)
+            assert nf1.rqshift(SHIFT+1).tolong() == -x >> (SHIFT+1)
+                    
     def test_from_list_n_bits(self):
         for x in ([3L ** 30L, 5L ** 20L, 7 ** 300] +
                   [1L << i for i in range(130)] +

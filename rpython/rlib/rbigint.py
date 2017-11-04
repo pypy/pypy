@@ -787,7 +787,7 @@ class rbigint(object):
             if digit == 1:
                 return rbigint(self._digits[:self.numdigits()], 1, self.numdigits())
             elif digit and digit & (digit - 1) == 0:
-                return self.rshift(ptwotable[digit])
+                return self.rqshift(ptwotable[digit])
 
         div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
@@ -816,7 +816,7 @@ class rbigint(object):
             if digit == 1:
                 return self
             elif digit & (digit - 1) == 0:
-                return self.rshift(ptwotable[digit])
+                return self.rqshift(ptwotable[digit])
             
         div, mod = _divrem1(self, digit)
 
@@ -1267,30 +1267,84 @@ class rbigint(object):
             raise ValueError("negative shift count")
         elif int_other == 0:
             return self
+        invert = False
         if self.sign == -1 and not dont_invert:
-            a = self.invert().rshift(int_other)
-            return a.invert()
+            first = self.digit(0)
+            if first == 0:
+                a = self.invert().rshift(int_other)
+                return a.invert()
+            invert = True
 
         wordshift = int_other / SHIFT
+        loshift = int_other % SHIFT
         newsize = self.numdigits() - wordshift
         if newsize <= 0:
-            return NULLRBIGINT
+            if invert:
+                return ONENEGATIVERBIGINT
+            else:
+                return NULLRBIGINT
 
-        loshift = int_other % SHIFT
+        
         hishift = SHIFT - loshift
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
         while i < newsize:
-            newdigit = (self.udigit(wordshift) >> loshift)
+            digit = self.udigit(wordshift)
+            if i == 0 and invert and wordshift == 0:
+                digit -= 1
+            newdigit = (digit >> loshift)
             if i+1 < newsize:
                 newdigit |= (self.udigit(wordshift+1) << hishift)
             z.setdigit(i, newdigit)
             i += 1
             wordshift += 1
+        if invert:
+            z.setdigit(0, z.digit(0)+1)
         z._normalize()
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
 
+    @jit.elidable
+    def rqshift(self, int_other):
+        wordshift = int_other / SHIFT
+        loshift = int_other % SHIFT
+        newsize = self.numdigits() - wordshift
+
+        invert = False
+        if self.sign == -1:
+            first = self.digit(0)
+            if first == 0:
+                a = self.invert().rqshift(int_other)
+                return a.invert()
+            invert = True
+            
+        if newsize <= 0:
+            if invert:
+                return ONENEGATIVERBIGINT
+            else:
+                return NULLRBIGINT
+                
+        
+        hishift = SHIFT - loshift
+        z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
+        i = 0
+        inverted = False
+        while i < newsize:
+            digit = self.udigit(wordshift)
+            if invert and i == 0 and wordshift == 0:
+                digit -= 1
+            newdigit = (digit >> loshift)
+            if i+1 < newsize:
+                newdigit |= (self.udigit(wordshift+1) << hishift)
+            z.setdigit(i, newdigit)
+            i += 1
+            wordshift += 1
+        if invert:
+            z.setdigit(0, z.digit(0)+1)      
+        z._normalize()
+        return z
+    rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
+    
     @jit.elidable
     def abs_rshift_and_mask(self, bigshiftcount, mask):
         assert isinstance(bigshiftcount, r_ulonglong)
