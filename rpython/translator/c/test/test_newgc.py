@@ -9,7 +9,8 @@ import py
 
 from rpython.conftest import option
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import keepalive_until_here, compute_hash, compute_identity_hash, r_dict
+from rpython.rlib.objectmodel import (
+    assert_, keepalive_until_here, compute_hash, compute_identity_hash, r_dict)
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -107,7 +108,7 @@ class UsingFrameworkTest(object):
             funcstr = funcsstr[num]
             if funcstr:
                 return funcstr(arg)
-            assert 0, 'unreachable'
+            assert_(0, 'unreachable')
         cls.funcsstr = funcsstr
         cls.c_allfuncs = staticmethod(cls._makefunc_str_int(allfuncs))
         cls.allfuncs = staticmethod(allfuncs)
@@ -516,7 +517,7 @@ class UsingFrameworkTest(object):
                 if i & 1 == 0:
                     a = A()
                     a.index = i
-                assert a is not None
+                assert_(a is not None)
                 weakrefs.append(weakref.ref(a))
                 if i % 7 == 6:
                     keepalive.append(a)
@@ -525,9 +526,9 @@ class UsingFrameworkTest(object):
             for i in range(n):
                 a = weakrefs[i]()
                 if i % 7 == 6:
-                    assert a is not None
+                    assert_(a is not None)
                 if a is not None:
-                    assert a.index == i & ~1
+                    assert_(a.index == i & ~1)
                 else:
                     count_free += 1
             return count_free
@@ -585,10 +586,10 @@ class UsingFrameworkTest(object):
             for n in range(len(dlist)):
                 d = dlist[n]
                 keys = keyslist[n]
-                assert len(d) == len(keys)
+                assert_(len(d) == len(keys))
                 i = 0
                 while i < len(keys):
-                    assert d[keys[i]] == i
+                    assert_(d[keys[i]] == i)
                     i += 1
             return 42
         return fn
@@ -701,13 +702,13 @@ class UsingFrameworkTest(object):
         def does_stuff():
             fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
             count = os.write(fd, "hello world\n")
-            assert count == len("hello world\n")
+            assert_(count == len("hello world\n"))
             os.close(fd)
             fd = os.open(filename, os.O_RDONLY, 0777)
             result = os.lseek(fd, 1, 0)
-            assert result == 1
+            assert_(result == 1)
             data = os.read(fd, 500)
-            assert data == "ello world\n"
+            assert_(data == "ello world\n")
             os.close(fd)
             return 0
 
@@ -870,7 +871,7 @@ class UsingFrameworkTest(object):
                 # ^^^ likely to trigger a collection
                 xr = xr.prev
                 i += 1
-            assert xr is None
+            assert_(xr is None)
 
         def check(xr, n, step):
             "Check that the identity hashes are still correct."
@@ -882,7 +883,7 @@ class UsingFrameworkTest(object):
                     raise ValueError
                 xr = xr.prev
                 i += 1
-            assert xr is None
+            assert_(xr is None)
 
         def h(n):
             x3 = g(3)
@@ -947,7 +948,7 @@ class UsingFrameworkTest(object):
             for i in range(20):
                 x.append((1, lltype.malloc(S)))
             for i in range(50):
-                assert l2[i] == (40 + i) * 3
+                assert_(l2[i] == (40 + i) * 3)
             return 0
 
         return fn
@@ -965,7 +966,7 @@ class UsingFrameworkTest(object):
             rgc.ll_arraycopy(l, l2, 40, 0, 50)
             rgc.collect()
             for i in range(50):
-                assert l2[i] == l[40 + i]
+                assert_(l2[i] == l[40 + i])
             return 0
 
         return fn
@@ -985,7 +986,7 @@ class UsingFrameworkTest(object):
                     found = True
                 if x == lltype.cast_opaque_ptr(llmemory.GCREF, s.u):
                     os.write(2, "s.u should not be found!\n")
-                    assert False
+                    assert_(False)
             return found == 1
 
         def fn():
@@ -994,7 +995,7 @@ class UsingFrameworkTest(object):
             found = g(s)
             if not found:
                 os.write(2, "not found!\n")
-                assert False
+                assert_(False)
             s.u.x = 42
             return 0
 
@@ -1013,8 +1014,8 @@ class UsingFrameworkTest(object):
             gcref1 = lltype.cast_opaque_ptr(llmemory.GCREF, s)
             gcref2 = lltype.cast_opaque_ptr(llmemory.GCREF, s.u)
             lst = rgc.get_rpy_referents(gcref1)
-            assert gcref2 in lst
-            assert gcref1 not in lst
+            assert_(gcref2 in lst)
+            assert_(gcref1 not in lst)
             s.u.x = 42
             return 0
 
@@ -1030,7 +1031,7 @@ class UsingFrameworkTest(object):
 
         def check(gcref, expected):
             result = rgc._is_rpy_instance(gcref)
-            assert result == expected
+            assert_(result == expected)
 
         def fn():
             s = lltype.malloc(S)
@@ -1060,21 +1061,21 @@ class UsingFrameworkTest(object):
         def fn():
             foo = Foo()
             gcref1 = rgc.cast_instance_to_gcref(foo)
-            assert rgc.try_cast_gcref_to_instance(Foo,    gcref1) is foo
-            assert rgc.try_cast_gcref_to_instance(FooBar, gcref1) is None
-            assert rgc.try_cast_gcref_to_instance(Biz,    gcref1) is None
+            assert_(rgc.try_cast_gcref_to_instance(Foo, gcref1) is foo)
+            assert_(rgc.try_cast_gcref_to_instance(FooBar, gcref1) is None)
+            assert_(rgc.try_cast_gcref_to_instance(Biz, gcref1) is None)
 
             foobar = FooBar()
             gcref2 = rgc.cast_instance_to_gcref(foobar)
-            assert rgc.try_cast_gcref_to_instance(Foo,    gcref2) is foobar
-            assert rgc.try_cast_gcref_to_instance(FooBar, gcref2) is foobar
-            assert rgc.try_cast_gcref_to_instance(Biz,    gcref2) is None
+            assert_(rgc.try_cast_gcref_to_instance(Foo, gcref2) is foobar)
+            assert_(rgc.try_cast_gcref_to_instance(FooBar, gcref2) is foobar)
+            assert_(rgc.try_cast_gcref_to_instance(Biz, gcref2) is None)
 
             s = lltype.malloc(S)
             gcref3 = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-            assert rgc.try_cast_gcref_to_instance(Foo,    gcref3) is None
-            assert rgc.try_cast_gcref_to_instance(FooBar, gcref3) is None
-            assert rgc.try_cast_gcref_to_instance(Biz,    gcref3) is None
+            assert_(rgc.try_cast_gcref_to_instance(Foo, gcref3) is None)
+            assert_(rgc.try_cast_gcref_to_instance(FooBar, gcref3) is None)
+            assert_(rgc.try_cast_gcref_to_instance(Biz, gcref3) is None)
 
             return 0
 
@@ -1101,13 +1102,13 @@ class UsingFrameworkTest(object):
             a = lltype.malloc(A, 1000)
             gcref1 = lltype.cast_opaque_ptr(llmemory.GCREF, s)
             int1 = rgc.get_rpy_memory_usage(gcref1)
-            assert 8 <= int1 <= 32
+            assert_(8 <= int1 <= 32)
             gcref2 = lltype.cast_opaque_ptr(llmemory.GCREF, s.u)
             int2 = rgc.get_rpy_memory_usage(gcref2)
-            assert 4 * 9 <= int2 <= 8 * 12
+            assert_(4 * 9 <= int2 <= 8 * 12)
             gcref3 = lltype.cast_opaque_ptr(llmemory.GCREF, a)
             int3 = rgc.get_rpy_memory_usage(gcref3)
-            assert 4 * 1001 <= int3 <= 8 * 1010
+            assert_(4 * 1001 <= int3 <= 8 * 1010)
             return 0
 
         return fn
@@ -1133,10 +1134,10 @@ class UsingFrameworkTest(object):
             int3 = rgc.get_rpy_type_index(gcref3)
             gcref4 = lltype.cast_opaque_ptr(llmemory.GCREF, s2)
             int4 = rgc.get_rpy_type_index(gcref4)
-            assert int1 != int2
-            assert int1 != int3
-            assert int2 != int3
-            assert int1 == int4
+            assert_(int1 != int2)
+            assert_(int1 != int3)
+            assert_(int2 != int3)
+            assert_(int1 == int4)
             return 0
 
         return fn
@@ -1216,8 +1217,8 @@ class UsingFrameworkTest(object):
             os.close(fd)
             #
             a = rgc.get_typeids_list()
-            assert len(a) > 1
-            assert 0 < rffi.cast(lltype.Signed, a[1]) < 10000
+            assert_(len(a) > 1)
+            assert_(0 < rffi.cast(lltype.Signed, a[1]) < 10000)
             return 0
 
         return fn
@@ -1240,20 +1241,20 @@ class UsingFrameworkTest(object):
             a2 = A()
             if not rgc.has_gcflag_extra():
                 return 0     # cannot test it then
-            assert rgc.get_gcflag_extra(a1) == False
-            assert rgc.get_gcflag_extra(a2) == False
+            assert_(rgc.get_gcflag_extra(a1) == False)
+            assert_(rgc.get_gcflag_extra(a2) == False)
             rgc.toggle_gcflag_extra(a1)
-            assert rgc.get_gcflag_extra(a1) == True
-            assert rgc.get_gcflag_extra(a2) == False
+            assert_(rgc.get_gcflag_extra(a1) == True)
+            assert_(rgc.get_gcflag_extra(a2) == False)
             rgc.toggle_gcflag_extra(a2)
-            assert rgc.get_gcflag_extra(a1) == True
-            assert rgc.get_gcflag_extra(a2) == True
+            assert_(rgc.get_gcflag_extra(a1) == True)
+            assert_(rgc.get_gcflag_extra(a2) == True)
             rgc.toggle_gcflag_extra(a1)
-            assert rgc.get_gcflag_extra(a1) == False
-            assert rgc.get_gcflag_extra(a2) == True
+            assert_(rgc.get_gcflag_extra(a1) == False)
+            assert_(rgc.get_gcflag_extra(a2) == True)
             rgc.toggle_gcflag_extra(a2)
-            assert rgc.get_gcflag_extra(a1) == False
-            assert rgc.get_gcflag_extra(a2) == False
+            assert_(rgc.get_gcflag_extra(a1) == False)
+            assert_(rgc.get_gcflag_extra(a2) == False)
             return 0
         return fn
 
@@ -1271,11 +1272,11 @@ class UsingFrameworkTest(object):
 
         def fn():
             s = lltype.malloc(S, zero=True)
-            assert s.x == 0
+            assert_(s.x == 0)
             s2 = lltype.malloc(S2, zero=True)
-            assert s2.parent.x == 0
+            assert_(s2.parent.x == 0)
             a = lltype.malloc(A, 3, zero=True)
-            assert a[2] == 0
+            assert_(a[2] == 0)
             # XXX not supported right now in gctransform/framework.py:
             #b = lltype.malloc(B, 3, zero=True)
             #assert len(b.y) == 3
@@ -1307,7 +1308,7 @@ class UsingFrameworkTest(object):
     def test_long_chain_of_instances(self):
         res = self.run("long_chain_of_instances")
         assert res == 1500
-        
+
 
 class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
@@ -1475,7 +1476,7 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
 
     def define_nursery_hash_base(cls):
         from rpython.rlib.debug import debug_print
-        
+
         class A:
             pass
         def fn():
@@ -1492,7 +1493,7 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
             debug_print("objects", len(objects))
             for i in range(len(objects)):
                 debug_print(i)
-                assert compute_identity_hash(objects[i]) == hashes[i]
+                assert_(compute_identity_hash(objects[i]) == hashes[i])
                 debug_print("storing in dict")
                 unique[hashes[i]] = None
                 debug_print("done")
@@ -1528,10 +1529,10 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
         def check(lst):
             hashes = []
             for i, (s, a) in enumerate(lst):
-                assert a.x == i
+                assert_(a.x == i)
                 rgc.ll_write_final_null_char(s)
             for i, (s, a) in enumerate(lst):
-                assert a.x == i     # check it was not overwritten
+                assert_(a.x == i)     # check it was not overwritten
         def fn():
             check(prebuilt)
             lst1 = []
@@ -1733,7 +1734,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             assert popen.wait() in (-6, 134)     # aborted
             # note: it seems that on some systems we get 134 and on
             # others we get -6.  Bash is supposed to translate the
-            # SIGABRT (signal 6) from the subprocess into the exit 
+            # SIGABRT (signal 6) from the subprocess into the exit
             # code 128+6, but I guess it may not always do so.
             assert 'out of memory:' in child_stderr
             return '42'
