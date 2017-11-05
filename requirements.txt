@@ -1,4 +1,5 @@
 cffi>=1.4.0
+vmprof>=0.4.10  # required to parse log files in rvmprof tests
 
 # hypothesis is used for test generation on untranslated tests
 hypothesis
