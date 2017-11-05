@@ -7,6 +7,7 @@
 import weakref
 from rpython.annotator.bookkeeper import analyzer_for
 from rpython.annotator.model import SomeInteger, SomeObject, SomeString, s_Bool
+from rpython.annotator.model import SomeBool
 from rpython.rlib.objectmodel import Symbolic, specialize
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lltype import SomePtr
@@ -936,14 +937,15 @@ class _gctransformed_wref(lltype._container):
 
 # ____________________________________________________________
 
-def raw_malloc(size):
+def raw_malloc(size, zero=False):
     if not isinstance(size, AddressOffset):
         raise NotImplementedError(size)
-    return size._raw_malloc([], zero=False)
+    return size._raw_malloc([], zero=zero)
 
 @analyzer_for(raw_malloc)
-def ann_raw_malloc(s_size):
+def ann_raw_malloc(s_size, s_zero=None):
     assert isinstance(s_size, SomeInteger)  # XXX add noneg...?
+    assert s_zero is None or isinstance(s_zero, SomeBool)
     return SomeAddress()
 
 

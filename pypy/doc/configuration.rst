@@ -188,4 +188,6 @@ toolchain, have two separate sets of options. The translation toolchain options
 can be found on the ``config`` attribute of all ``TranslationContext``
 instances and are described in :source:`rpython/config/translationoption.py`. The interpreter options
 are attached to the object space, also under the name ``config`` and are
-described in :source:`pypy/config/pypyoption.py`.
+described in :source:`pypy/config/pypyoption.py`. Both set of options are
+documented in the :doc:`config/index` section.
+

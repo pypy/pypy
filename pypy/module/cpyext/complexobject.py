@@ -29,7 +29,7 @@ def init_complexobject(space):
                    attach=complex_attach,
                    realize=complex_realize)
 
-def complex_attach(space, py_obj, w_obj):
+def complex_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyComplexObject with the given complex object. The
     value must not be modified.

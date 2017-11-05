@@ -1,6 +1,6 @@
 from rpython.translator.c.test.test_genc import compile
 import pypy.module.cpyext.api
-from pypy.module.cpyext.api import cpython_api
+from pypy.module.cpyext.api import slot_function
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.objectmodel import specialize
@@ -19,7 +19,7 @@ def test_llhelper(monkeypatch):
 
     @specialize.memo()
     def get_tp_function(space, typedef):
-        @cpython_api([], lltype.Signed, error=-1, header=None)
+        @slot_function([], lltype.Signed, error=-1)
         def slot_tp_function(space):
             return typedef.value
 

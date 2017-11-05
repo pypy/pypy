@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror2
 def wrap_streamerror(space, e, w_filename=None):
     if isinstance(e, StreamError):
         return OperationError(space.w_ValueError,
-                              space.wrap(e.message))
+                              space.newtext(e.message))
     elif isinstance(e, OSError):
         return wrap_oserror_as_ioerror(space, e, w_filename)
     else:

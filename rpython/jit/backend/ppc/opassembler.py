@@ -666,7 +666,7 @@ class CallOpAssembler(object):
         jmp_adr = self.mc.get_relative_pos()
         self.mc.trap()        # patched later to a 'bc'
 
-        self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap())
+        self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap([resloc]))
 
         # save away r3, r4, r5, r6, r12 into the jitframe
         should_be_saved = [

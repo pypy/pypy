@@ -230,7 +230,7 @@ def _exc_info(space, err):
 def pypyraises(space, w_ExpectedException, w_expr, __args__):
     """A built-in function providing the equivalent of py.test.raises()."""
     args_w, kwds_w = __args__.unpack()
-    if space.isinstance_w(w_expr, space.w_str):
+    if space.isinstance_w(w_expr, space.w_text):
         if args_w:
             raise oefmt(space.w_TypeError,
                         "raises() takes no argument after a string expression")

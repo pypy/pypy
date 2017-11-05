@@ -43,6 +43,12 @@ class TestLoader:
                 cdll.LoadLibrary(lib)
                 CDLL(lib)
 
+    def test__handle(self):
+        lib = find_library("c")
+        if lib:
+            cdll = CDLL(lib)
+            assert type(cdll._handle) in (int, long)
+
     if os.name in ("nt", "ce"):
         def test_load_library(self):
             if is_resource_enabled("printing"):

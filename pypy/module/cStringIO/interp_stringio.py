@@ -26,7 +26,7 @@ class W_InputOutputType(W_Root):
 
     def descr_getvalue(self):
         self.check_closed()
-        return self.space.wrap(self.getvalue())
+        return self.space.newtext(self.getvalue())
 
     def descr_isatty(self):
         self.check_closed()
@@ -38,17 +38,17 @@ class W_InputOutputType(W_Root):
         line = self.readline()
         if len(line) == 0:
             raise OperationError(space.w_StopIteration, space.w_None)
-        return space.wrap(line)
+        return space.newtext(line)
 
     @unwrap_spec(n=int)
     def descr_read(self, n=-1):
         self.check_closed()
-        return self.space.wrap(self.read(n))
+        return self.space.newtext(self.read(n))
 
     @unwrap_spec(size=int)
     def descr_readline(self, size=-1):
         self.check_closed()
-        return self.space.wrap(self.readline(size))
+        return self.space.newtext(self.readline(size))
 
     @unwrap_spec(size=int)
     def descr_readlines(self, size=0):
@@ -58,7 +58,7 @@ class W_InputOutputType(W_Root):
             line = self.readline()
             if len(line) == 0:
                 break
-            lines_w.append(self.space.wrap(line))
+            lines_w.append(self.space.newtext(line))
             if size > 0:
                 size -= len(line)
                 if size <= 0:
@@ -76,7 +76,7 @@ class W_InputOutputType(W_Root):
 
     def descr_tell(self):
         self.check_closed()
-        return self.space.wrap(self.tell())
+        return self.space.newint(self.tell())
 
     # abstract methods
     def close(self):                  assert False, "abstract"
@@ -178,15 +178,15 @@ class W_OutputType(W_InputOutputType):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
-            self.write(space.str_w(w_line))
+            self.write(space.text_w(w_line))
 
 # ____________________________________________________________
 
 def descr_closed(self, space):
-    return space.wrap(self.is_closed())
+    return space.newbool(self.is_closed())
 
 def descr_softspace(self, space):
-    return space.wrap(self.softspace)
+    return space.newint(self.softspace)
 
 def descr_setsoftspace(self, space, w_newvalue):
     self.softspace = space.int_w(w_newvalue)
@@ -236,7 +236,7 @@ W_OutputType.typedef = TypeDef(
 
 def StringIO(space, w_string=None):
     if space.is_none(w_string):
-        return space.wrap(W_OutputType(space))
+        return W_OutputType(space)
     else:
         string = space.getarg_w('s*', w_string).as_str()
-        return space.wrap(W_InputType(space, string))
+        return W_InputType(space, string)

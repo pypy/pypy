@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem import lltype, rstr, llmemory
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, is_valid_int
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.debug import fatalerror
 from rpython.jit.metainterp.history import check_descr
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
@@ -250,6 +251,25 @@ def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
     else:
         return BoxInt(cpu.bh_raw_load_i(addr, offset, arraydescr))
 
+def do_gc_store_indexed(cpu, _, addrbox, indexbox, valuebox, scalebox,
+                        base_ofsbox, bytesbox, arraydescr):
+    addr = addrbox.getref_base()
+    index = indexbox.getint()
+    scale = scalebox.getint()
+    base_ofs = base_ofsbox.getint()
+    bytes = bytesbox.getint()
+    if arraydescr.is_array_of_pointers():
+        raise AssertionError("cannot store GC pointers in gc_store_indexed for now")
+    elif arraydescr.is_array_of_floats():
+        floatval = valuebox.getfloatstorage()
+        cpu.bh_gc_store_indexed_f(addr, index, floatval, scale, base_ofs, bytes,
+                                  arraydescr)
+    else:
+        intval = valuebox.getint()
+        cpu.bh_gc_store_indexed_i(addr, index, intval, scale, base_ofs, bytes,
+                                  arraydescr)
+
+
 def exec_new_with_vtable(cpu, descr):
     return cpu.bh_new_with_vtable(descr)
 
@@ -320,6 +340,10 @@ def do_copyunicodecontent(cpu, _, srcbox, dstbox,
 
 def do_keepalive(cpu, _, x):
     pass
+
+def do_assert_not_none(cpu, _, box):
+    if not box.getref_base():
+        fatalerror("found during JITting: ll_assert_not_none() failed")
 
 # ____________________________________________________________
 

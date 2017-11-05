@@ -197,7 +197,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         f13 = float_add(f12, f11)
         """)
         savings = self.savings(loop1)
-        assert savings == 2
+        assert savings == -2
 
     @py.test.mark.parametrize("bytes,s", [(4,0),(8,0)])
     def test_sum_float_to_int(self, bytes, s):

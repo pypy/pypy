@@ -1,0 +1,10 @@
+<lcgdict>
+
+  <namespace name="std" />
+
+  <class name="just_a_class" />
+
+  <class name="std::string" />
+  <class name="stringy_class" />
+
+</lcgdict>

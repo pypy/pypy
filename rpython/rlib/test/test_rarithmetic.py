@@ -675,3 +675,11 @@ def test_fallback_paths():
     assert a ^ r_uint32(42) == "a^42"
     assert r_uint32(42) ** a == "42**a"
     assert a ** r_uint32(42) == "a**42"
+
+def test_ovfcheck_int32():
+    assert ovfcheck_int32_add(-2**30, -2**30) == -2**31
+    py.test.raises(OverflowError, ovfcheck_int32_add, 2**30, 2**30)
+    assert ovfcheck_int32_sub(-2**30, 2**30) == -2**31
+    py.test.raises(OverflowError, ovfcheck_int32_sub, 2**30, -2**30)
+    assert ovfcheck_int32_mul(-2**16, 2**15) == -2**31
+    py.test.raises(OverflowError, ovfcheck_int32_mul, -2**16, -2**15)

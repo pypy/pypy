@@ -14,6 +14,7 @@ from rpython.translator.c.support import log
 from rpython.translator.gensupp import uniquemodulename, NameManager
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
+
 _CYGWIN = sys.platform == 'cygwin'
 
 _CPYTHON_RE = py.std.re.compile('^Python 2.[567]')
@@ -33,29 +34,6 @@ def get_recent_cpython_executable():
     return python
 
 
-class ProfOpt(object):
-    #XXX assuming gcc style flags for now
-    name = "profopt"
-
-    def __init__(self, compiler):
-        self.compiler = compiler
-
-    def first(self):
-        return self.build('-fprofile-generate')
-
-    def probe(self, exe, args):
-        # 'args' is a single string typically containing spaces
-        # and quotes, which represents several arguments.
-        self.compiler.platform.execute(exe, args)
-
-    def after(self):
-        return self.build('-fprofile-use')
-
-    def build(self, option):
-        eci = ExternalCompilationInfo(compile_extra=[option],
-                                      link_extra=[option])
-        return self.compiler._build(eci)
-
 class CCompilerDriver(object):
     def __init__(self, platform, cfiles, eci, outputfilename=None,
                  profbased=False):
@@ -65,7 +43,7 @@ class CCompilerDriver(object):
         self.cfiles = cfiles
         self.eci = eci
         self.outputfilename = outputfilename
-        self.profbased = profbased
+        # self.profbased = profbased
 
     def _build(self, eci=ExternalCompilationInfo(), shared=False):
         outputfilename = self.outputfilename
@@ -78,22 +56,6 @@ class CCompilerDriver(object):
         return self.platform.compile(self.cfiles, self.eci.merge(eci),
                                      outputfilename=outputfilename,
                                      standalone=not shared)
-
-    def build(self, shared=False):
-        if self.profbased:
-            return self._do_profbased()
-        return self._build(shared=shared)
-
-    def _do_profbased(self):
-        ProfDriver, args = self.profbased
-        profdrv = ProfDriver(self)
-        dolog = getattr(log, profdrv.name)
-        dolog(args)
-        exename = profdrv.first()
-        dolog('Gathering profile data from: %s %s' % (
-            str(exename), args))
-        profdrv.probe(exename, args)
-        return profdrv.after()
 
 class CBuilder(object):
     c_source_filename = None
@@ -156,6 +118,10 @@ class CBuilder(object):
         for obj in exports.EXPORTS_obj2name.keys():
             db.getcontainernode(obj)
         exports.clear()
+
+        for ll_func in db.translator._call_at_startup:
+            db.get(ll_func)
+
         db.complete()
 
         self.collect_compilation_info(db)
@@ -255,27 +221,6 @@ class CStandaloneBuilder(CBuilder):
     _entrypoint_wrapper = None
     make_entrypoint_wrapper = True    # for tests
 
-    def getprofbased(self):
-        profbased = None
-        if self.config.translation.instrumentctl is not None:
-            profbased = self.config.translation.instrumentctl
-        else:
-            # xxx handling config.translation.profopt is a bit messy, because
-            # it could be an empty string (not to be confused with None) and
-            # because noprofopt can be used as an override.
-            profopt = self.config.translation.profopt
-            if profopt is not None and not self.config.translation.noprofopt:
-                profbased = (ProfOpt, profopt)
-        return profbased
-
-    def has_profopt(self):
-        profbased = self.getprofbased()
-        retval = (profbased and isinstance(profbased, tuple)
-                and profbased[0] is ProfOpt)
-        if retval and self.translator.platform.name == 'msvc':
-            raise ValueError('Cannot do profile based optimization on MSVC,'
-                    'it is not supported in free compiler version')
-        return retval
 
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
@@ -387,6 +332,8 @@ class CStandaloneBuilder(CBuilder):
         shared = self.config.translation.shared
 
         extra_opts = []
+        if self.config.translation.profopt:
+            extra_opts += ["profopt"]
         if self.config.translation.make_jobs != 1:
             extra_opts += ['-j', str(self.config.translation.make_jobs)]
         if self.config.translation.lldebug:
@@ -414,13 +361,12 @@ class CStandaloneBuilder(CBuilder):
             headers_to_precompile=headers_to_precompile,
             no_precompile_cfiles = module_files,
             shared=self.config.translation.shared,
-            icon=self.config.translation.icon)
+            profopt = self.config.translation.profopt,
+            config=self.config)
 
-        if self.has_profopt():
-            profopt = self.config.translation.profopt
-            mk.definition('ABS_TARGET', str(targetdir.join('$(TARGET)')))
-            mk.definition('DEFAULT_TARGET', 'profopt')
-            mk.definition('PROFOPT', profopt)
+        if exe_name is None:
+            short =  targetdir.basename
+            exe_name = targetdir.join(short)
 
         rules = [
             ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
@@ -429,15 +375,103 @@ class CStandaloneBuilder(CBuilder):
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(DEFAULT_TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
-            ]
-        if self.has_profopt():
+        ]
+
+        # added a new target for profopt, because it requires -lgcov to compile successfully when -shared is used as an argument
+        # Also made a difference between translating with shared or not, because this affects profopt's target
+
+        if self.config.translation.profopt:
+            if self.config.translation.profoptargs is None:
+                raise Exception("No profoptargs specified, neither in the command line, nor in the target. If the target is not PyPy, please specify profoptargs")
+
+            # Set the correct PGO params based on OS and CC
+            profopt_gen_flag = ""
+            profopt_use_flag = ""
+            profopt_merger = ""
+            profopt_file = ""
+            llvm_profdata = ""
+
+            cc = self.translator.platform.cc
+
+            # Locate llvm-profdata
+            if "clang" in cc:
+                clang_bin = cc
+                path = os.environ.get("PATH").split(":")
+                profdata_found = False
+
+                # Try to find it in $PATH (Darwin and Linux)
+                for dir in path:
+                    bin = "%s/llvm-profdata" % dir
+                    if os.path.isfile(bin):
+                        llvm_profdata = bin
+                        profdata_found = True
+                        break
+
+                # If not found, try to find it where clang is actually installed (Darwin and Linux)
+                if not profdata_found:
+                    # If the full path is not given, find where clang is located
+                    if not os.path.isfile(clang_bin):
+                        for dir in path:
+                            bin = "%s/%s" % (dir, cc)
+                            if os.path.isfile(bin):
+                                clang_bin = bin
+                                break
+                    # Some systems install clang elsewhere as a symlink to the real path,
+                    # which is where the related llvm tools are located.
+                    if os.path.islink(clang_bin):
+                        clang_bin = os.path.realpath(clang_bin)  # the real clang binary
+                    # llvm-profdata must be in the same directory as clang
+                    llvm_profdata = "%s/llvm-profdata" % os.path.dirname(clang_bin)
+                    profdata_found = os.path.isfile(llvm_profdata)
+
+                # If not found, and Darwin is used, try to find it in the development environment
+                # More: https://apple.stackexchange.com/questions/197053/
+                if not profdata_found and sys.platform == 'darwin':
+                    code = os.system("/usr/bin/xcrun -find llvm-profdata 2>/dev/null")
+                    if code == 0:
+                        llvm_profdata = "/usr/bin/xcrun llvm-profdata"
+                        profdata_found = True
+
+                # If everything failed, throw Exception, sorry
+                if not profdata_found:
+                    raise Exception(
+                        "Error: Cannot perform profopt build because llvm-profdata was not found in PATH. "
+                        "Please add it to PATH and run the translation again.")
+
+            # Set the PGO flags
+            if "clang" in cc:
+                # Any changes made here should be reflected in the GCC+Darwin case below
+                profopt_gen_flag = "-fprofile-instr-generate"
+                profopt_use_flag = "-fprofile-instr-use=code.profclangd"
+                profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
+                profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
+            elif "gcc" in cc:
+                if sys.platform == 'darwin':
+                    profopt_gen_flag = "-fprofile-instr-generate"
+                    profopt_use_flag = "-fprofile-instr-use=code.profclangd"
+                    profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
+                    profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
+                else:
+                    profopt_gen_flag = "-fprofile-generate"
+                    profopt_use_flag = "-fprofile-use -fprofile-correction"
+                    profopt_merger = "true"
+                    profopt_file = ""
+
+            if self.config.translation.shared:
+                mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
+                         ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov', '$(MAKE) postcompile BIN=$(PROFOPT_TARGET)'])
+            else:
+                mk.definition('PROFOPT_TARGET', '$(TARGET)')
+
             rules.append(
                 ('profopt', '', [
-                '$(MAKENOPROF)',
-                '$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)" $(TARGET)',
-                'cd $(RPYDIR)/translator/goal && $(ABS_TARGET) $(PROFOPT)',
-                '$(MAKE) clean_noprof',
-                '$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)" $(TARGET)']))
+                    '$(MAKE) CFLAGS="%s -fPIC $(CFLAGS)"  LDFLAGS="%s $(LDFLAGS)" $(PROFOPT_TARGET)' % (profopt_gen_flag, profopt_gen_flag),
+                    '%s %s %s ' % (profopt_file, exe_name, self.config.translation.profoptargs),
+                    '%s' % (profopt_merger),
+                    '$(MAKE) clean_noprof',
+                    '$(MAKE) CFLAGS="%s -fPIC $(CFLAGS)"  LDFLAGS="%s $(LDFLAGS)" $(PROFOPT_TARGET)' % (profopt_use_flag, profopt_use_flag),
+                ]))
+
         for rule in rules:
             mk.rule(*rule)
 
@@ -821,6 +855,9 @@ def gen_startupcode(f, database):
         if lines:
             for line in lines:
                 print >> f, '\t'+line
+
+    for ll_init in database.translator._call_at_startup:
+        print >> f, '\t%s();\t/* call_at_startup */' % (database.get(ll_init),)
 
     print >> f, '}'
 

@@ -3,7 +3,7 @@ import sys
 import py
 
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython, we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
@@ -244,6 +244,10 @@ def look_inside_iff(predicate):
     return inner
 
 def oopspec(spec):
+    """ The JIT compiler won't look inside this decorated function,
+        but instead during translation, rewrites it according to the handler in
+        rpython/jit/codewriter/jtransform.py.
+    """
     def decorator(func):
         func.oopspec = spec
         return func
@@ -637,8 +641,6 @@ class JitDriver(object):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
-        if get_unique_id is not None:
-            assert is_recursive, "get_unique_id and is_recursive must be specified at the same time"
         for v in self.virtualizables:
             assert v in self.reds
         # if reds are automatic, they won't be passed to jit_merge_point, so
@@ -653,6 +655,7 @@ class JitDriver(object):
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
         self.get_location = get_location
+        self.has_unique_id = (get_unique_id is not None)
         if get_unique_id is None:
             get_unique_id = lambda *args: 0
         self.get_unique_id = get_unique_id
@@ -1141,6 +1144,9 @@ def record_exact_class(value, cls):
     """
     Assure the JIT that value is an instance of cls. This is a precise
     class check, like a guard_class.
+
+    See also debug.ll_assert_not_none(x), which asserts that x is not None
+    and also assures the JIT that it is the case.
     """
     assert type(value) is cls
 
@@ -1221,7 +1227,8 @@ def conditional_call_elidable(value, function, *args):
         x = jit.conditional_call_elidable(self.cache, _compute_and_cache, ...)
 
     """
-    if we_are_jitted():
+    if we_are_translated() and we_are_jitted():
+        #^^^ the occasional test patches we_are_jitted() to True
         return _jit_conditional_call_value(value, function, *args)
     else:
         if isinstance(value, int):

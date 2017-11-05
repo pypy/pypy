@@ -150,6 +150,14 @@ class AppTestWeakref(object):
         assert not (ref1 == [])
         assert ref1 != []
 
+    def test_ne(self):
+        import _weakref
+        class X(object):
+            pass
+        ref1 = _weakref.ref(X())
+        assert ref1.__eq__(X()) is NotImplemented
+        assert ref1.__ne__(X()) is NotImplemented
+
     def test_getweakrefs(self):
         import _weakref, gc
         class A(object):

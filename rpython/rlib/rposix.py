@@ -205,6 +205,18 @@ if os.name == 'nt':
         if not is_valid_fd(fd):
             from errno import EBADF
             raise OSError(EBADF, 'Bad file descriptor')
+
+    def _bound_for_write(fd, count):
+        if count > 32767 and c_isatty(fd):
+            # CPython Issue #11395, PyPy Issue #2636: the Windows console
+            # returns an error (12: not enough space error) on writing into
+            # stdout if stdout mode is binary and the length is greater than
+            # 66,000 bytes (or less, depending on heap usage).  Can't easily
+            # test that, because we need 'fd' to be non-redirected...
+            count = 32767
+        elif count > 0x7fffffff:
+            count = 0x7fffffff
+        return count
 else:
     def is_valid_fd(fd):
         return 1
@@ -212,6 +224,9 @@ else:
     @enforceargs(int)
     def validate_fd(fd):
         pass
+
+    def _bound_for_write(fd, count):
+        return count
 
 def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
@@ -234,9 +249,13 @@ else:
         _ptyh = 'pty.h'
     includes = ['unistd.h',  'sys/types.h', 'sys/wait.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
+                'sys/resource.h',
+                'sched.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
-    if sys.platform.startswith('freebsd'):
+    if sys.platform.startswith('linux'):
+        includes.append('sys/sysmacros.h')
+    if sys.platform.startswith('freebsd') or sys.platform.startswith('openbsd'):
         includes.append('sys/ttycom.h')
     libraries = ['util']
 eci = ExternalCompilationInfo(
@@ -249,11 +268,25 @@ class CConfig:
     SEEK_SET = rffi_platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = rffi_platform.DefinedConstantInteger('SEEK_CUR')
     SEEK_END = rffi_platform.DefinedConstantInteger('SEEK_END')
+    PRIO_PROCESS = rffi_platform.DefinedConstantInteger('PRIO_PROCESS')
+    PRIO_PGRP = rffi_platform.DefinedConstantInteger('PRIO_PGRP')
+    PRIO_USER = rffi_platform.DefinedConstantInteger('PRIO_USER')
+    SCHED_FIFO = rffi_platform.DefinedConstantInteger('SCHED_FIFO')
+    SCHED_RR = rffi_platform.DefinedConstantInteger('SCHED_RR')
+    SCHED_OTHER = rffi_platform.DefinedConstantInteger('SCHED_OTHER')
+    SCHED_BATCH = rffi_platform.DefinedConstantInteger('SCHED_BATCH')
     O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
+    F_LOCK = rffi_platform.DefinedConstantInteger('F_LOCK')
+    F_TLOCK = rffi_platform.DefinedConstantInteger('F_TLOCK')
+    F_ULOCK = rffi_platform.DefinedConstantInteger('F_ULOCK')
+    F_TEST = rffi_platform.DefinedConstantInteger('F_TEST')
+    OFF_T = rffi_platform.SimpleType('off_t')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
     HAVE_D_TYPE = rffi_platform.Has('DT_UNKNOWN')
+    HAVE_FALLOCATE = rffi_platform.Has('posix_fallocate')
+    HAVE_FADVISE = rffi_platform.Has('posix_fadvise')
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
@@ -261,6 +294,7 @@ class CConfig:
     if not _WIN32:
         UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
         GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
+        ID_T = rffi_platform.SimpleType('id_t', rffi.UINT)
         TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
 
         TMS = rffi_platform.Struct(
@@ -434,6 +468,7 @@ def read(fd, count):
 def write(fd, data):
     count = len(data)
     validate_fd(fd)
+    count = _bound_for_write(fd, count)
     with rffi.scoped_nonmovingbuffer(data) as buf:
         return handle_posix_error('write', c_write(fd, buf, count))
 
@@ -457,6 +492,73 @@ def lseek(fd, pos, how):
         elif how == 2:
             how = SEEK_END
     return handle_posix_error('lseek', c_lseek(fd, pos, how))
+
+if not _WIN32:
+    c_pread = external('pread',
+                      [rffi.INT, rffi.VOIDP, rffi.SIZE_T , OFF_T], rffi.SSIZE_T,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
+    c_pwrite = external('pwrite',
+                       [rffi.INT, rffi.VOIDP, rffi.SIZE_T, OFF_T], rffi.SSIZE_T,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @enforceargs(int, int, None)
+    def pread(fd, count, offset):
+        if count < 0:
+            raise OSError(errno.EINVAL, None)
+        validate_fd(fd)
+        with rffi.scoped_alloc_buffer(count) as buf:
+            void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+            return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
+
+    @enforceargs(int, None, None)
+    def pwrite(fd, data, offset):
+        count = len(data)
+        validate_fd(fd)
+        with rffi.scoped_nonmovingbuffer(data) as buf:
+            return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
+
+    if HAVE_FALLOCATE:
+        c_posix_fallocate = external('posix_fallocate',
+                                     [rffi.INT, OFF_T, OFF_T], rffi.INT,
+                                     save_err=rffi.RFFI_SAVE_ERRNO)
+
+        @enforceargs(int, None, None)
+        def posix_fallocate(fd, offset, length):
+            validate_fd(fd)
+            return handle_posix_error('posix_fallocate', c_posix_fallocate(fd, offset, length))
+
+    if HAVE_FADVISE:
+        class CConfig:
+            _compilation_info_ = eci
+            POSIX_FADV_WILLNEED = rffi_platform.DefinedConstantInteger('POSIX_FADV_WILLNEED')
+            POSIX_FADV_NORMAL = rffi_platform.DefinedConstantInteger('POSIX_FADV_NORMAL')
+            POSIX_FADV_SEQUENTIAL = rffi_platform.DefinedConstantInteger('POSIX_FADV_SEQUENTIAL')
+            POSIX_FADV_RANDOM= rffi_platform.DefinedConstantInteger('POSIX_FADV_RANDOM')
+            POSIX_FADV_NOREUSE = rffi_platform.DefinedConstantInteger('POSIX_FADV_NOREUSE')
+            POSIX_FADV_DONTNEED = rffi_platform.DefinedConstantInteger('POSIX_FADV_DONTNEED')
+
+        config = rffi_platform.configure(CConfig)
+        globals().update(config)
+
+        c_posix_fadvise = external('posix_fadvise',
+                                   [rffi.INT, OFF_T, OFF_T, rffi.INT], rffi.INT,
+                                   save_err=rffi.RFFI_SAVE_ERRNO)
+
+        @enforceargs(int, None, None, int)
+        def posix_fadvise(fd, offset, length, advice):
+            validate_fd(fd)
+            error = c_posix_fadvise(fd, offset, length, advice)
+            error = widen(error)
+            if error != 0:
+                raise OSError(error, 'posix_fadvise failed')
+
+    c_lockf = external('lockf',
+            [rffi.INT, rffi.INT , OFF_T], rffi.INT,
+            save_err=rffi.RFFI_SAVE_ERRNO)
+    @enforceargs(int, None, None)
+    def lockf(fd, cmd, length):
+        validate_fd(fd)
+        return handle_posix_error('lockf', c_lockf(fd, cmd, length))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -1222,9 +1324,17 @@ c_symlink = external('symlink', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
 @replace_os_function('link')
 @specialize.argtype(0, 1)
 def link(oldpath, newpath):
-    oldpath = _as_bytes0(oldpath)
-    newpath = _as_bytes0(newpath)
-    handle_posix_error('link', c_link(oldpath, newpath))
+    if not _WIN32:
+        oldpath = _as_bytes0(oldpath)
+        newpath = _as_bytes0(newpath)
+        handle_posix_error('link', c_link(oldpath, newpath))
+    else:
+        traits = _preferred_traits(oldpath)
+        win32traits = make_win32_traits(traits)
+        oldpath = traits.as_str0(oldpath)
+        newpath = traits.as_str0(newpath)
+        if not win32traits.CreateHardLink(newpath, oldpath, None):
+            raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('symlink')
 @specialize.argtype(0, 1)
@@ -1734,6 +1844,39 @@ if not _WIN32:
     def setresgid(rgid, egid, sgid):
         handle_posix_error('setresgid', c_setresgid(rgid, egid, sgid))
 
+    c_getpriority = external('getpriority', [rffi.INT, ID_T], rffi.INT,
+                             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_setpriority = external('setpriority', [rffi.INT, ID_T, rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def getpriority(which, who):
+        result = widen(c_getpriority(which, who))
+        error = get_saved_errno()
+        if error != 0:
+            raise OSError(error, 'getpriority failed')
+        return result
+
+    def setpriority(which, who, prio):
+        handle_posix_error('setpriority', c_setpriority(which, who, prio))
+
+    c_sched_get_priority_max = external('sched_get_priority_max', [rffi.INT],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_get_priority_min = external('sched_get_priority_min', [rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+    if not _WIN32:
+        c_sched_yield = external('sched_yield', [], rffi.INT)
+
+    @enforceargs(int)
+    def sched_get_priority_max(policy):
+        return handle_posix_error('sched_get_priority_max', c_sched_get_priority_max(policy))
+
+    @enforceargs(int)
+    def sched_get_priority_min(policy):
+        return handle_posix_error('sched_get_priority_min', c_sched_get_priority_min(policy))
+
+    def sched_yield():
+        return handle_posix_error('sched_yield', c_sched_yield())
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
@@ -1778,25 +1921,23 @@ def uname():
     finally:
         lltype.free(l_utsbuf, flavor='raw')
 
-# These are actually macros on some/most systems
-c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT)
-c_major = external('major', [rffi.INT], rffi.INT)
-c_minor = external('minor', [rffi.INT], rffi.INT)
+if sys.platform != 'win32':
+    # These are actually macros on some/most systems
+    c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True)
+    c_major = external('major', [rffi.INT], rffi.INT, macro=True)
+    c_minor = external('minor', [rffi.INT], rffi.INT, macro=True)
 
-@replace_os_function('makedev')
-@jit.dont_look_inside
-def makedev(maj, min):
-    return c_makedev(maj, min)
+    @replace_os_function('makedev')
+    def makedev(maj, min):
+        return c_makedev(maj, min)
 
-@replace_os_function('major')
-@jit.dont_look_inside
-def major(dev):
-    return c_major(dev)
+    @replace_os_function('major')
+    def major(dev):
+        return c_major(dev)
 
-@replace_os_function('minor')
-@jit.dont_look_inside
-def minor(dev):
-    return c_minor(dev)
+    @replace_os_function('minor')
+    def minor(dev):
+        return c_minor(dev)
 
 #___________________________________________________________________
 
@@ -1974,8 +2115,10 @@ if HAVE_FEXECVE:
         raise OSError(get_saved_errno(), "execve failed")
 
 if HAVE_LINKAT:
-    c_linkat = external('linkat',
-        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT)
+    c_linkat = external(
+        'linkat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
 
     def linkat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD,
             follow_symlinks=True):
@@ -1990,7 +2133,8 @@ if HAVE_LINKAT:
         handle_posix_error('linkat', error)
 
 if HAVE_FUTIMENS:
-    c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT)
+    c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
     def futimens(fd, atime, atime_ns, mtime, mtime_ns):
         l_times = lltype.malloc(TIMESPEC2P.TO, 2, flavor='raw')
@@ -2003,8 +2147,10 @@ if HAVE_FUTIMENS:
         handle_posix_error('futimens', error)
 
 if HAVE_UTIMENSAT:
-    c_utimensat = external('utimensat',
-        [rffi.INT, rffi.CCHARP, TIMESPEC2P, rffi.INT], rffi.INT)
+    c_utimensat = external(
+        'utimensat',
+        [rffi.INT, rffi.CCHARP, TIMESPEC2P, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
 
     def utimensat(pathname, atime, atime_ns, mtime, mtime_ns,
             dir_fd=AT_FDCWD, follow_symlinks=True):
@@ -2408,3 +2554,22 @@ if not _WIN32:
     def set_status_flags(fd, flags):
         res = c_set_status_flags(fd, flags)
         handle_posix_error('set_status_flags', res)
+
+if not _WIN32:
+    sendfile_eci = ExternalCompilationInfo(includes=["sys/sendfile.h"])
+    _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
+    c_sendfile = rffi.llexternal('sendfile',
+            [rffi.INT, rffi.INT, _OFF_PTR_T, rffi.SIZE_T],
+            rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
+            compilation_info=sendfile_eci)
+
+    def sendfile(out_fd, in_fd, offset, count):
+        with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_offset:
+            p_offset[0] = rffi.cast(OFF_T, offset)
+            res = c_sendfile(out_fd, in_fd, p_offset, count)
+        return handle_posix_error('sendfile', res)
+
+    def sendfile_no_offset(out_fd, in_fd, count):
+        """Passes offset==NULL; not support on all OSes"""
+        res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
+        return handle_posix_error('sendfile', res)

@@ -484,6 +484,9 @@ class SomeException(SomeObject):
     def __init__(self, classdefs):
         self.classdefs = classdefs
 
+    def can_be_none(self):
+        return False
+
     def as_SomeInstance(self):
         return unionof(*[SomeInstance(cdef) for cdef in self.classdefs])
 

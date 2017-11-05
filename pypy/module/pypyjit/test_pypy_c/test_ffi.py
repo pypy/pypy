@@ -110,38 +110,6 @@ class Test__ffi(BaseTestPyPyC):
         loops = log.loops_by_id('sleep')
         assert len(loops) == 1 # make sure that we actually JITted the loop
 
-    def test_ctypes_call(self):
-        from rpython.rlib.test.test_clibffi import get_libm_name
-        def main(libm_name):
-            import ctypes
-            libm = ctypes.CDLL(libm_name)
-            fabs = libm.fabs
-            fabs.argtypes = [ctypes.c_double]
-            fabs.restype = ctypes.c_double
-            x = -4
-            i = 0
-            while i < 300:
-                x = fabs(x)
-                x = x - 100
-                i += 1
-            return fabs._ptr.getaddr(), x
-
-        libm_name = get_libm_name(sys.platform)
-        log = self.run(main, [libm_name], import_site=True)
-        fabs_addr, res = log.result
-        assert res == -4.0
-        loop, = log.loops_by_filename(self.filepath)
-        ops = loop.allops()
-        opnames = log.opnames(ops)
-        assert opnames.count('new_with_vtable') == 1 # only the virtualref
-        py.test.skip("XXX re-optimize _ffi for the JIT?")
-        assert opnames.count('call_release_gil') == 1
-        idx = opnames.index('call_release_gil')
-        call = ops[idx]
-        assert (call.args[0] == 'ConstClass(fabs)' or    # e.g. OS/X
-                int(call.args[0]) == fabs_addr)
-
-
     def test__ffi_struct(self):
         def main():
             from _rawffi.alt import _StructDescr, Field, types
@@ -423,7 +391,7 @@ class Test__ffi(BaseTestPyPyC):
         guard_false(i114, descr=...)
         --TICK--
         i123 = arraylen_gc(p67, descr=<ArrayP .>)
-        i119 = call_i(ConstClass(_ll_1_raw_malloc_varsize_zero__Signed), 6, descr=<Calli . i EF=5 OS=110>)
+        i119 = call_i(ConstClass(_ll_1_raw_malloc_varsize_zero_mpressure__Signed), 6, descr=<Calli . i EF=5 OS=110>)
         check_memory_error(i119)
         raw_store(i119, 0, i160, descr=<ArrayS 2>)
         raw_store(i119, 2, i160, descr=<ArrayS 2>)

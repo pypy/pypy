@@ -20,6 +20,23 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         hop.genop('debug_assert', vlist)
 
+def ll_assert_not_none(x):
+    """assert x is not None"""
+    assert x is not None, "ll_assert_not_none(%r)" % (x,)
+    return x
+
+class Entry(ExtRegistryEntry):
+    _about_ = ll_assert_not_none
+
+    def compute_result_annotation(self, s_x):
+        return s_x.nonnoneify()
+
+    def specialize_call(self, hop):
+        [v0] = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
+        hop.genop('debug_assert_not_none', [v0])
+        return v0
+
 class FatalError(Exception):
     pass
 

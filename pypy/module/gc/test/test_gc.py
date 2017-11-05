@@ -70,6 +70,19 @@ class AppTestGC(object):
         gc.enable()
         assert gc.isenabled()
 
+    def test_gc_collect_overrides_gc_disable(self):
+        import gc
+        deleted = []
+        class X(object):
+            def __del__(self):
+                deleted.append(1)
+        assert gc.isenabled()
+        gc.disable()
+        X()
+        gc.collect()
+        assert deleted == [1]
+        gc.enable()
+
 
 class AppTestGcDumpHeap(object):
     pytestmark = py.test.mark.xfail(run=False)

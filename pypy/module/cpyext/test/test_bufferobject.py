@@ -63,4 +63,3 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
         a = array.array('c', 'text')
         b = buffer(a)
         assert module.roundtrip(b) == 'text'
-        

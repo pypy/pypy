@@ -131,7 +131,6 @@ class TestString(BaseTestPyPyC):
             guard_no_exception(descr=...)
             p95 = call_r(..., descr=<Callr . r EF=5>)     # ll_build
             guard_no_exception(descr=...)
-            guard_nonnull(p95, descr=...)
             i96 = strlen(p95)
             i97 = int_add_ovf(i71, i96)
             guard_no_overflow(descr=...)
@@ -210,10 +209,8 @@ class TestString(BaseTestPyPyC):
         guard_not_invalidated(descr=...)
         p80 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i47, descr=<Callr . i EF=3>)
         guard_no_exception(descr=...)
-        guard_nonnull(p80, descr=...)
         p53 = call_r(ConstClass(fast_str_decode_ascii), p80, descr=<Callr . r EF=4>)
         guard_no_exception(descr=...)
-        guard_nonnull(p53, descr=...)
         --TICK--
         jump(..., descr=...)
         """)

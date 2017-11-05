@@ -29,7 +29,7 @@ def test_doc_version():
     content = open(p).read()
     #
     v = cffi.__version__
-    assert ("version = '%s'\n" % v[:3]) in content
+    assert ("version = '%s'\n" % v[:4]) in content
     assert ("release = '%s'\n" % v) in content
 
 def test_doc_version_file():
@@ -37,7 +37,7 @@ def test_doc_version_file():
     v = cffi.__version__.replace('+', '')
     p = os.path.join(parent, 'doc', 'source', 'installation.rst')
     content = open(p).read()
-    assert ("cffi/cffi-%s.tar.gz" % v) in content
+    assert (" package version %s:" % v) in content
 
 def test_setup_version():
     parent = os.path.dirname(os.path.dirname(cffi.__file__))

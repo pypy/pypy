@@ -347,19 +347,20 @@ typer_for(enumerate)(rrange.rtype_builtin_enumerate)
 # annotation of low-level types
 
 @typer_for(lltype.malloc)
-def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
-                 i_add_memory_pressure=None, i_nonmovable=None):
+def rtype_malloc(hop, i_flavor=None, i_immortal=None, i_zero=None,
+        i_track_allocation=None, i_add_memory_pressure=None, i_nonmovable=None):
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
     kwds_v = parse_kwds(
         hop,
         (i_flavor, lltype.Void),
+        (i_immortal, None),
         (i_zero, None),
         (i_track_allocation, None),
         (i_add_memory_pressure, None),
         (i_nonmovable, None))
-    (v_flavor, v_zero, v_track_allocation,
+    (v_flavor, v_immortal, v_zero, v_track_allocation,
      v_add_memory_pressure, v_nonmovable) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
@@ -574,10 +575,14 @@ def rtype_runtime_type_info(hop):
 # memory addresses
 
 @typer_for(llmemory.raw_malloc)
-def rtype_raw_malloc(hop):
-    v_size, = hop.inputargs(lltype.Signed)
+def rtype_raw_malloc(hop, i_zero=None):
+    v_size = hop.inputarg(lltype.Signed, arg=0)
+    v_zero, = parse_kwds(hop, (i_zero, None))
+    if v_zero is None:
+        v_zero = hop.inputconst(lltype.Bool, False)
     hop.exception_cannot_occur()
-    return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
+    return hop.genop('raw_malloc', [v_size, v_zero],
+                     resulttype=llmemory.Address)
 
 @typer_for(llmemory.raw_malloc_usage)
 def rtype_raw_malloc_usage(hop):

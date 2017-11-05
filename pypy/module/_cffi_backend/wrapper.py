@@ -8,6 +8,7 @@ from rpython.rlib import jit
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.cdataobj import W_CDataPtrToStructOrUnion
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+from pypy.module._cffi_backend.ctypeptr import W_CTypePointer
 from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
 from pypy.module._cffi_backend import allocator
@@ -83,8 +84,9 @@ class W_FunctionWrapper(W_Root):
                 #
                 ctype._call(self.fnptr, args_w)    # returns w_None
                 #
-                assert isinstance(w_result_cdata, W_CDataPtrToStructOrUnion)
-                return w_result_cdata.structobj
+                ctyperesptr = w_result_cdata.ctype
+                assert isinstance(ctyperesptr, W_CTypePointer)
+                return w_result_cdata._do_getitem(ctyperesptr, 0)
             else:
                 args_w = args_w[:]
                 prepare_args(space, rawfunctype, args_w, 0)
@@ -93,12 +95,12 @@ class W_FunctionWrapper(W_Root):
 
     def descr_repr(self, space):
         doc = self.rawfunctype.repr_fn_type(self.ffi, self.fnname)
-        return space.wrap("<FFIFunctionWrapper '%s'>" % (doc,))
+        return space.newtext("<FFIFunctionWrapper '%s'>" % (doc,))
 
     def descr_get_doc(self, space):
         doc = self.rawfunctype.repr_fn_type(self.ffi, self.fnname)
         doc = '%s;\n\nCFFI C function from %s.lib' % (doc, self.modulename)
-        return space.wrap(doc)
+        return space.newtext(doc)
 
     def descr_get(self, space, w_obj, w_type=None):
         # never bind anything, but a __get__ is still present so that
@@ -109,13 +111,14 @@ class W_FunctionWrapper(W_Root):
 @jit.unroll_safe
 def prepare_args(space, rawfunctype, args_w, start_index):
     # replaces struct/union arguments with ptr-to-struct/union arguments
+    # as well as complex numbers
     locs = rawfunctype.nostruct_locs
     fargs = rawfunctype.nostruct_ctype.fargs
     for i in range(start_index, len(locs)):
         if locs[i] != 'A':
             continue
         w_arg = args_w[i]
-        farg = fargs[i]      # <ptr to struct/union>
+        farg = fargs[i]      # <ptr to struct/union/complex>
         assert isinstance(farg, W_CTypePtrOrArray)
         if isinstance(w_arg, W_CData) and w_arg.ctype is farg.ctitem:
             # fast way: we are given a W_CData "struct", so just make
@@ -138,8 +141,8 @@ W_FunctionWrapper.typedef = TypeDef(
         'FFIFunctionWrapper',
         __repr__ = interp2app(W_FunctionWrapper.descr_repr),
         __call__ = interp2app(W_FunctionWrapper.descr_call),
-        __name__ = interp_attrproperty('fnname', cls=W_FunctionWrapper),
-        __module__ = interp_attrproperty('modulename', cls=W_FunctionWrapper),
+        __name__ = interp_attrproperty('fnname', cls=W_FunctionWrapper, wrapfn="newtext"),
+        __module__ = interp_attrproperty('modulename', cls=W_FunctionWrapper, wrapfn="newtext"),
         __doc__ = GetSetProperty(W_FunctionWrapper.descr_get_doc),
         __get__ = interp2app(W_FunctionWrapper.descr_get),
         )

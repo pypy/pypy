@@ -20,15 +20,15 @@ class W_SHA(W_Root):
         self.update(string)
 
     def digest_w(self):
-        return self.space.wrap(self.digest())
+        return self.space.newbytes(self.digest())
 
     def hexdigest_w(self):
-        return self.space.wrap(self.hexdigest())
+        return self.space.newtext(self.hexdigest())
 
     def copy_w(self):
         clone = W_SHA(self.space)
         clone._copyfrom(self)
-        return self.space.wrap(clone)
+        return clone
 
 
 @unwrap_spec(initialdata='bufferstr')

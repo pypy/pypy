@@ -40,7 +40,7 @@ def PyIter_Next(space, w_obj):
 def PyIter_Check(space, w_obj):
     """Return true if the object o supports the iterator protocol."""
     try:
-        w_attr = space.getattr(space.type(w_obj), space.wrap("next"))
+        w_attr = space.getattr(space.type(w_obj), space.newtext("next"))
     except:
         return False
     else:

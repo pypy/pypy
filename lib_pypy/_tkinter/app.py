@@ -119,7 +119,7 @@ class TkApp(object):
                              tklib.TCL_GLOBAL_ONLY)
 
         # This is used to get the application class for Tk 4.1 and up
-        argv0 = className.lower()
+        argv0 = className.lower().encode('ascii')
         tklib.Tcl_SetVar(self.interp, "argv0", argv0,
                          tklib.TCL_GLOBAL_ONLY)
 

@@ -1,8 +1,7 @@
 from __future__ import with_statement
 
 import math
-import sys
-
+import sys, os
 import py
 
 from rpython.rlib.rstackovf import StackOverflow
@@ -584,7 +583,7 @@ class TestTypedTestCase(object):
                         current_object_addr_as_int(d2),
                         compute_hash(c),
                         compute_hash(d),
-                        compute_hash(("Hi", None, (7.5, 2, d)))))
+                        compute_hash(("Hi", None, (7.5, 2)))))
 
         f = self.getcompiled(fn, [])
         res = f()
@@ -594,8 +593,75 @@ class TestTypedTestCase(object):
         if res[0] != res[1]:
             assert res[0] == -res[1] - 1
         assert res[2] != compute_hash(c)     # likely
-        assert res[3] == compute_hash(d)
-        assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
+        assert res[3] != compute_hash(d)     # likely *not* preserved
+        assert res[4] == compute_hash(("Hi", None, (7.5, 2)))
+        # ^^ true as long as we're using the default 'fnv' hash for strings
+        #    and not e.g. siphash24
+
+    def _test_hash_string(self, algo):
+        s = "hello"
+        u = u"world"
+        v = u"\u1234\u2318+\u2bcd\u2102"
+        hash_s = compute_hash(s)
+        hash_u = compute_hash(u)
+        hash_v = compute_hash(v)
+        assert hash_s == compute_hash(u"hello")   # same hash because it's
+        assert hash_u == compute_hash("world")    #    a latin-1 unicode
+        #
+        def fn(length):
+            if algo == "siphash24":
+                from rpython.rlib import rsiphash
+                rsiphash.enable_siphash24()
+            assert length >= 1
+            return str((compute_hash(s),
+                        compute_hash(u),
+                        compute_hash(v),
+                        compute_hash(s[0] + s[1:length]),
+                        compute_hash(u[0] + u[1:length]),
+                        compute_hash(v[0] + v[1:length]),
+                        ))
+
+        assert fn(5) == str((hash_s, hash_u, hash_v, hash_s, hash_u, hash_v))
+
+        f = self.getcompiled(fn, [int])
+        res = f(5)
+        res = [int(a) for a in res[1:-1].split(",")]
+        if algo == "fnv":
+            assert res[0] == hash_s
+            assert res[1] == hash_u
+            assert res[2] == hash_v
+        else:
+            assert res[0] != hash_s
+            assert res[1] != hash_u
+            assert res[2] != hash_v
+        assert res[3] == res[0]
+        assert res[4] == res[1]
+        assert res[5] == res[2]
+
+    def test_hash_string_fnv(self):
+        self._test_hash_string("fnv")
+
+    def test_hash_string_siphash24(self):
+        self._test_hash_string("siphash24")
+
+    def test_iterkeys_with_hash_on_prebuilt_dict(self):
+        from rpython.rlib import objectmodel
+        prebuilt_d = {"hello": 10, "world": 20}
+        #
+        def fn(n):
+            from rpython.rlib import rsiphash
+            rsiphash.enable_siphash24()
+            #assert str(n) not in prebuilt_d <- this made the test pass,
+            #       before the fix which was that iterkeys_with_hash()
+            #       didn't do the initial rehashing on its own
+            for key, h in objectmodel.iterkeys_with_hash(prebuilt_d):
+                print key, h
+                assert h == compute_hash(key)
+            return 42
+
+        f = self.getcompiled(fn, [int])
+        res = f(0)
+        assert res == 42
 
     def test_list_basic_ops(self):
         def list_basic_ops(i, j):

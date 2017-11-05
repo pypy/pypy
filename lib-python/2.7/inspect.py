@@ -155,9 +155,8 @@ def isfunction(object):
 def isgeneratorfunction(object):
     """Return true if the object is a user-defined generator function.
 
-    Generator function objects provides same attributes as functions.
-
-    See help(isfunction) for attributes listing."""
+    Generator function objects provide the same attributes as functions.
+    See help(isfunction) for a list of attributes."""
     return bool((isfunction(object) or ismethod(object)) and
                 object.func_code.co_flags & CO_GENERATOR)
 
@@ -204,7 +203,7 @@ def isframe(object):
         f_locals        local namespace seen by this frame
         f_restricted    0 or 1 if frame is in restricted execution mode
         f_trace         tracing function for this frame, or None"""
-    return isinstance(object, types.FrameType)
+    return isinstance(object, (types.FrameType, types.FakeFrameType))
 
 def iscode(object):
     """Return true if the object is a code object.

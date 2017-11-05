@@ -9,7 +9,7 @@ import py
 
 from rpython.conftest import option
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import keepalive_until_here, compute_hash, compute_identity_hash
+from rpython.rlib.objectmodel import keepalive_until_here, compute_hash, compute_identity_hash, r_dict
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -562,6 +562,41 @@ class UsingFrameworkTest(object):
         res = self.run('prebuilt_weakref')
         assert res == self.run_orig('prebuilt_weakref')
 
+    def define_prebuilt_dicts_of_all_sizes(self):
+        class X:
+            pass
+        dlist = []
+        keyslist = []
+        def keq(x, y):
+            return x is y
+        def khash(x):
+            return compute_hash(x)
+        for size in ([random.randrange(0, 260) for i in range(10)] +
+                     [random.randrange(260, 60000)]):
+            print 'PREBUILT DICTIONARY OF SIZE', size
+            keys = [X() for j in range(size)]
+            d = r_dict(keq, khash)
+            for j in range(size):
+                d[keys[j]] = j
+            dlist.append(d)
+            keyslist.append(keys)
+
+        def fn():
+            for n in range(len(dlist)):
+                d = dlist[n]
+                keys = keyslist[n]
+                assert len(d) == len(keys)
+                i = 0
+                while i < len(keys):
+                    assert d[keys[i]] == i
+                    i += 1
+            return 42
+        return fn
+
+    def test_prebuilt_dicts_of_all_sizes(self):
+        res = self.run('prebuilt_dicts_of_all_sizes')
+        assert res == 42
+
     def define_framework_malloc_raw(cls):
         A = lltype.Struct('A', ('value', lltype.Signed))
 
@@ -780,7 +815,7 @@ class UsingFrameworkTest(object):
         c = C()
         d = D()
         h_d = compute_hash(d)     # force to be cached on 'd', but not on 'c'
-        h_t = compute_hash(("Hi", None, (7.5, 2, d)))
+        h_t = compute_hash(("Hi", None, (7.5, 2)))
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('a', lltype.Array(lltype.Signed)))
         s = lltype.malloc(S, 15, zero=True)
@@ -789,10 +824,10 @@ class UsingFrameworkTest(object):
         def f():
             if compute_hash(c) != compute_identity_hash(c):
                 return 12
-            if compute_hash(d) != h_d:
+            if compute_hash(d) == h_d:     # likely *not* preserved
                 return 13
-            if compute_hash(("Hi", None, (7.5, 2, d))) != h_t:
-                return 14
+            if compute_hash(("Hi", None, (7.5, 2))) != h_t:
+                return 14   # ^^ true as long as we're not using e.g. siphash24
             c2 = C()
             h_c2 = compute_hash(c2)
             if compute_hash(c2) != h_c2:
@@ -1695,7 +1730,11 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                      (ulimitv, ' '.join(args),)]
             popen = subprocess.Popen(args1, stderr=subprocess.PIPE)
             _, child_stderr = popen.communicate()
-            assert popen.wait() == 134     # aborted
+            assert popen.wait() in (-6, 134)     # aborted
+            # note: it seems that on some systems we get 134 and on
+            # others we get -6.  Bash is supposed to translate the
+            # SIGABRT (signal 6) from the subprocess into the exit 
+            # code 128+6, but I guess it may not always do so.
             assert 'out of memory:' in child_stderr
             return '42'
         #
@@ -1704,6 +1743,38 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             print ulimitv
             res = self.run("limited_memory_linux", -1, runner=myrunner)
             assert res == 42
+
+    def define_ignore_finalizer(cls):
+        class X(object):
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = X
+            def finalizer_trigger(self):
+                pass
+        queue = FQ()
+        def g():
+            x1 = X()
+            x2 = X()
+            queue.register_finalizer(x1)
+            queue.register_finalizer(x2)
+            rgc.may_ignore_finalizer(x1)
+        g._dont_inline_ = True
+        def f():
+            g()
+            rgc.collect()
+            seen = 0
+            while True:
+                obj = queue.next_dead()
+                if obj is None:
+                    break
+                seen += 1
+            return seen
+        assert f() == 2    # untranslated: may_ignore_finalizer() is ignored
+        return f
+
+    def test_ignore_finalizer(self):
+        res = self.run("ignore_finalizer")
+        assert res == 1    # translated: x1 is removed from the list
 
 
 # ____________________________________________________________________

@@ -42,6 +42,9 @@ class OptSimplify(Optimization):
         #     but it's a bit hard to implement robustly if heap.py is also run
         pass
 
+    def optimize_ASSERT_NOT_NONE(self, op):
+        pass
+
     def optimize_RECORD_EXACT_CLASS(self, op):
         pass
 

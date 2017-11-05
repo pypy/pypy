@@ -11,7 +11,8 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # Expose these here (public interface)
 from rpython.rtyper.debug import (
-    ll_assert, FatalError, fatalerror, fatalerror_notb, debug_print_traceback)
+    ll_assert, FatalError, fatalerror, fatalerror_notb, debug_print_traceback,
+    ll_assert_not_none)
 
 
 class DebugLog(list):
@@ -440,13 +441,91 @@ static void pypy__allow_attach(void) {
             except OSError as e:
                 os.write(2, "Could not start GDB: %s" % (
                     os.strerror(e.errno)))
-                raise SystemExit
+                os._exit(1)
         else:
             time.sleep(1)  # give the GDB time to attach
 
 else:
+    def make_vs_attach_eci():
+        # The COM interface to the Debugger has to be compiled as a .cpp file by
+        # Visual C. So we generate the source and then add a commandline switch
+        # to treat this source file as C++
+        import os
+        eci = ExternalCompilationInfo(post_include_bits=["""
+#ifdef __cplusplus
+extern "C" {
+#endif
+RPY_EXPORTED void AttachToVS();
+#ifdef __cplusplus
+}
+#endif
+                                      """],
+                                      separate_module_sources=["""
+#import "libid:80cc9f66-e7d8-4ddd-85b6-d9e6cd0e93e2" version("8.0") lcid("0") raw_interfaces_only named_guids
+extern "C" RPY_EXPORTED void AttachToVS() {
+    CoInitialize(0);
+    HRESULT hr;
+    CLSID Clsid;
+
+    CLSIDFromProgID(L"VisualStudio.DTE", &Clsid);
+    IUnknown *Unknown;
+    if (FAILED(GetActiveObject(Clsid, 0, &Unknown))) {
+        puts("Could not attach to Visual Studio (is it not running?");
+        return;
+    }
+
+    EnvDTE::_DTE *Interface;
+    hr = Unknown->QueryInterface(&Interface);
+    if (FAILED(GetActiveObject(Clsid, 0, &Unknown))) {
+        puts("Could not open COM interface to Visual Studio (no permissions?)");
+        return;
+    }
+
+    EnvDTE::Debugger *Debugger;
+    puts("Waiting for Visual Studio Debugger to become idle");
+    while (FAILED(Interface->get_Debugger(&Debugger)));
+
+    EnvDTE::Processes *Processes;
+    while (FAILED(Debugger->get_LocalProcesses(&Processes)));
+
+    long Count = 0;
+    if (FAILED(Processes->get_Count(&Count))) {
+        puts("Cannot query Process count");
+    }
+
+    for (int i = 0; i <= Count; i++) {
+        EnvDTE::Process *Process;
+        if (FAILED(Processes->Item(variant_t(i), &Process))) {
+            continue;
+        }
+
+        long ProcessID;
+        while (FAILED(Process->get_ProcessID(&ProcessID)));
+
+        if (ProcessID == GetProcessId(GetCurrentProcess())) {
+            printf("Found process ID %d\\n", ProcessID);
+            Process->Attach();
+            Debugger->Break(false);
+            CoUninitialize();
+            return;
+        }
+    }
+}
+                                      """]
+        )
+        eci = eci.convert_sources_to_files()
+        d = eci._copy_attributes()
+        cfile = d['separate_module_files'][0]
+        cppfile = cfile.replace(".c", "_vsdebug.cpp")
+        os.rename(cfile, cppfile)
+        d['separate_module_files'] = [cppfile]
+        return ExternalCompilationInfo(**d)
+
+    ll_attach = rffi.llexternal("AttachToVS", [], lltype.Void,
+                                compilation_info=make_vs_attach_eci())
     def impl_attach_gdb():
-        print "Don't know how to attach GDB on Windows"
+        #ll_attach()
+        print "AttachToVS is disabled at the moment (compilation failure)"
 
 register_external(attach_gdb, [], result=None,
                   export_name="impl_attach_gdb", llimpl=impl_attach_gdb)

@@ -7,15 +7,18 @@ import Tkinter as tk
 import unittest
 from idlelib import PyShell
 
+
 class PasteTest(unittest.TestCase):
     '''Test pasting into widgets that allow pasting.
 
     On X11, replacing selections requires tk fix.
     '''
+
     @classmethod
     def setUpClass(cls):
         requires('gui')
         cls.root = root = tk.Tk()
+        root.withdraw()
         PyShell.fix_x11_paste(root)
         cls.text = tk.Text(root)
         cls.entry = tk.Entry(root)
