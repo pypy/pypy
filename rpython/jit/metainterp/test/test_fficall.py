@@ -6,6 +6,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.longlong import is_longlong, is_64_bit
+from rpython.rlib.objectmodel import assert_
 from rpython.rlib import jit
 from rpython.rlib import jit_libffi
 from rpython.rlib.jit_libffi import (types, CIF_DESCRIPTION, FFI_TYPE_PP,
@@ -31,11 +32,11 @@ class FakeFFI(object):
     Context manager to monkey patch jit_libffi with our custom "libffi-like"
     function
     """
-    
+
     def __init__(self, fake_call_impl_any):
         self.fake_call_impl_any = fake_call_impl_any
         self.monkey = monkeypatch()
-        
+
     def __enter__(self, *args):
         self.monkey.setattr(jit_libffi, 'jit_ffi_call_impl_any', self.fake_call_impl_any)
 
@@ -61,7 +62,7 @@ class FfiCallTests(object):
                 if (lltype.typeOf(exp_a) == rffi.ULONG and
                     lltype.typeOf(a) == lltype.Signed):
                     a = rffi.cast(rffi.ULONG, a)
-                assert a == exp_a
+                assert_(a == exp_a)
             return rvalue
         FUNC = lltype.FuncType([lltype.typeOf(avalue) for avalue in avalues],
                                lltype.typeOf(rvalue))
@@ -88,7 +89,7 @@ class FfiCallTests(object):
                       lltype.typeOf(avalue) is rffi.UCHAR):
                     got = intmask(got)
                     avalue = intmask(avalue)
-                assert got == avalue
+                assert_(got == avalue)
                 ofs += 16
             write_to_ofs = 0
             if rvalue is not None:
@@ -312,7 +313,7 @@ class FfiCallTests(object):
                 # call_release_gil was simply lost and when guard_not_forced
                 # failed, and the value of "res" was unpredictable.
                 # See commit b84ff38f34bd and subsequents.
-                assert res == n*2
+                assert_(res == n*2)
                 jit.virtual_ref_finish(vref, xy)
                 exctx.topframeref = jit.vref_None
                 n += 1
@@ -322,7 +323,7 @@ class FfiCallTests(object):
             assert f() == 100
             res = self.meta_interp(f, [])
             assert res == 100
-        
+
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
     def test_jit_ffi_vref(self):
@@ -349,7 +350,7 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
             #
             jit_ffi_prep_cif(cd)
             #
-            assert rffi.sizeof(rffi.DOUBLE) == 8
+            assert_(rffi.sizeof(rffi.DOUBLE) == 8)
             exb = lltype.malloc(rffi.DOUBLEP.TO, 8, flavor='raw')
             exb[2] = 1.23
             jit_ffi_call(cd, math_sin, rffi.cast(rffi.CCHARP, exb))

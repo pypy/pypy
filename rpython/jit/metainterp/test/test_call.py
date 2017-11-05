@@ -1,4 +1,4 @@
-
+from rpython.rlib.objectmodel import assert_
 from rpython.jit.metainterp.test.support import LLJitMixin, noConst
 from rpython.rlib import jit
 
@@ -146,8 +146,8 @@ class CallTest(object):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, p=p, m=m)
                 myjitdriver.jit_merge_point(n=n, p=p, m=m)
-                assert p > -1
-                assert p < 1
+                assert_(p > -1)
+                assert_(p < 1)
                 n -= jit.conditional_call_elidable(p, externfn, n)
             return n
         res = self.meta_interp(f, [21, 5, 0])
@@ -165,8 +165,8 @@ class CallTest(object):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, p=p, m=m)
                 myjitdriver.jit_merge_point(n=n, p=p, m=m)
-                assert p > -1
-                assert p < 1
+                assert_(p > -1)
+                assert_(p < 1)
                 n0 = n
                 n -= jit.conditional_call_elidable(p, externfn, n0)
                 n -= jit.conditional_call_elidable(p, externfn, n0)

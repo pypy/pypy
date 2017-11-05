@@ -3,6 +3,7 @@ import sys
 import py
 import weakref
 
+from rpython.rlib.objectmodel import assert_
 from rpython.rlib import rgc
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp import history
@@ -121,7 +122,7 @@ class BasicTests:
                     res += ovfcheck(x * x)
                     y -= 1
                 except OverflowError:
-                    assert 0
+                    assert_(0)
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 1323
@@ -157,7 +158,7 @@ class BasicTests:
                 try:
                     res += ovfcheck(x * x) + b
                 except OverflowError:
-                    assert 0
+                    assert_(0)
                 y -= 1
             return res
         res = self.meta_interp(f, [6, 7])
@@ -793,7 +794,7 @@ class BasicTests:
                     return llop.int_between(lltype.Bool, arg1, arg2, arg3)
             """ % locals()).compile() in loc
             res = self.interp_operations(loc['f'], [5, 6, 7])
-            assert res == expect_result
+            assert_(res == expect_result)
             self.check_operations_history(expect_operations)
         #
         check('n', 'm', 'p', True,  int_sub=2, uint_lt=1)
@@ -997,7 +998,7 @@ class BasicTests:
             while i < 10:
                 myjitdriver.can_enter_jit(i=i, t=t)
                 myjitdriver.jit_merge_point(i=i, t=t)
-                assert i > 0
+                assert_(i > 0)
                 t += int_c_div(100, i) - int_c_mod(100, i)
                 i += 1
             return t
@@ -1220,7 +1221,7 @@ class BasicTests:
         # to the backend at all: ZeroDivisionError
         #
         def f(n):
-            assert n >= 0
+            assert_(n >= 0)
             try:
                 return ovfcheck(5 % n)
             except ZeroDivisionError:
@@ -1231,7 +1232,7 @@ class BasicTests:
         assert res == -666
         #
         def f(n):
-            assert n >= 0
+            assert_(n >= 0)
             try:
                 return ovfcheck(6 // n)
             except ZeroDivisionError:
@@ -1350,7 +1351,7 @@ class BasicTests:
             else:
                 obj = A()
                 obj.a = 17
-            assert isinstance(obj, B)
+            assert_(isinstance(obj, B))
             return obj.a
         res = self.interp_operations(fn, [1])
         assert res == 1
@@ -1922,8 +1923,8 @@ class BasicTests:
             a2 = f(A(x), y)
             b1 = f(B(x), y)
             b2 = f(B(x), y)
-            assert a1.val == a2.val
-            assert b1.val == b2.val
+            assert_(a1.val == a2.val)
+            assert_(b1.val == b2.val)
             return a1.val + b1.val
         res = self.meta_interp(g, [6, 7])
         assert res == 6*8 + 6**8
@@ -1966,8 +1967,8 @@ class BasicTests:
             a2 = f(A(x), y)
             b1 = f(B(x), y)
             b2 = f(B(x), y)
-            assert a1.val == a2.val
-            assert b1.val == b2.val
+            assert_(a1.val == a2.val)
+            assert_(b1.val == b2.val)
             return a1.val + b1.val
         res = self.meta_interp(g, [6, 20])
         assert res == g(6, 20)
@@ -2001,16 +2002,16 @@ class BasicTests:
         def g(x, y):
             a1 = f(A(x), y, A(x))
             a2 = f(A(x), y, A(x))
-            assert a1.val == a2.val
+            assert_(a1.val == a2.val)
             b1 = f(B(x), y, B(x))
             b2 = f(B(x), y, B(x))
-            assert b1.val == b2.val
+            assert_(b1.val == b2.val)
             c1 = f(B(x), y, A(x))
             c2 = f(B(x), y, A(x))
-            assert c1.val == c2.val
+            assert_(c1.val == c2.val)
             d1 = f(A(x), y, B(x))
             d2 = f(A(x), y, B(x))
-            assert d1.val == d2.val
+            assert_(d1.val == d2.val)
             return a1.val + b1.val + c1.val + d1.val
         res = self.meta_interp(g, [3, 14])
         assert res == g(3, 14)
@@ -2041,7 +2042,7 @@ class BasicTests:
         def g(x, y):
             c1 = f(A(x), y, B(x))
             c2 = f(A(x), y, B(x))
-            assert c1.val == c2.val
+            assert_(c1.val == c2.val)
             return c1.val
         res = self.meta_interp(g, [3, 16])
         assert res == g(3, 16)
@@ -2068,7 +2069,7 @@ class BasicTests:
         def g(x, y):
             a1 = f(A(x), y, A(x))
             a2 = f(A(x), y, A(x))
-            assert a1.val == a2.val
+            assert_(a1.val == a2.val)
             return a1.val
         res = self.meta_interp(g, [3, 14])
         assert res == g(3, 14)
@@ -2093,7 +2094,7 @@ class BasicTests:
         def g(x, y):
             a1 = f(A(x), y)
             a2 = f(A(x), y)
-            assert a1.val == a2.val
+            assert_(a1.val == a2.val)
             return a1.val
         res = self.meta_interp(g, [6, 14])
         assert res == g(6, 14)
@@ -2120,7 +2121,7 @@ class BasicTests:
         def g(x, y):
             a1 = f(A(x), y)
             a2 = f(A(x), y)
-            assert a1.val == a2.val
+            assert_(a1.val == a2.val)
             return a1.val
         res = self.meta_interp(g, [6, 14])
         assert res == g(6, 14)
@@ -2156,8 +2157,8 @@ class BasicTests:
             a2 = f(A(x), y)
             b1 = f(B(x), y)
             b2 = f(B(x), y)
-            assert a1.val == a2.val
-            assert b1.val == b2.val
+            assert_(a1.val == a2.val)
+            assert_(b1.val == b2.val)
             return a1.val + b1.val
         res = self.meta_interp(g, [3, 23])
         assert res == 7068153
@@ -2730,7 +2731,7 @@ class BasicTests:
                 try:
                     sa += ovfcheck(i + i)
                 except OverflowError:
-                    assert 0
+                    assert_(0)
                 node1 = A(i)
                 i += 1
         assert self.meta_interp(f, [20, 7]) == f(20, 7)
@@ -2762,7 +2763,7 @@ class BasicTests:
                     sa += 1
                 else:
                     sa += 2
-                    assert  -100 < i < 100
+                    assert_(-100 < i < 100)
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
@@ -2783,7 +2784,7 @@ class BasicTests:
                     sa += 1
                 else:
                     sa += 2
-                    assert  -100 <= node.val <= 100
+                    assert_(-100 <= node.val <= 100)
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
@@ -3863,13 +3864,13 @@ class BaseLLtypeTests(BasicTests):
         def f(x):
             a = make(x)
             if x > 0:
-                assert isinstance(a, A)
+                assert_(isinstance(a, A))
                 z = a.f()
             elif x < 0:
-                assert isinstance(a, B)
+                assert_(isinstance(a, B))
                 z = a.f()
             else:
-                assert isinstance(a, C)
+                assert_(isinstance(a, C))
                 z = a.f()
             return z + a.g()
         res1 = f(6)
@@ -4285,7 +4286,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                     return x > x or x > x
                 if cmp == 'ge':
                     return x >= x and x >= x
-                assert 0
+                assert_(0)
             return f
 
         def make_str(cmp):
@@ -4295,7 +4296,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                     return x is x or x is x
                 if cmp == 'ne':
                     return x is not x and x is not x
-                assert 0
+                assert_(0)
             return f
 
         def make_object(cmp):
@@ -4307,7 +4308,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                     return x is x
                 if cmp == 'ne':
                     return x is not x
-                assert 0
+                assert_(0)
             return f
 
         for cmp in 'eq ne lt le gt ge'.split():

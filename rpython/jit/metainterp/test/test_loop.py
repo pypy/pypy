@@ -1,19 +1,20 @@
 import py
-from rpython.rlib.jit import JitDriver, hint, set_param, dont_look_inside,\
-     elidable
-from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.jit import (
+    JitDriver, set_param, dont_look_inside, elidable)
+from rpython.rlib.objectmodel import compute_hash, assert_
+from rpython.rlib.rerased import new_erasing_pair
+from rpython.rtyper.lltypesystem import lltype
+
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
-from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp import history
 
 class LoopTest(object):
     enable_opts = ''
 
     automatic_promotion_result = {
-        'int_add' : 6, 'int_gt' : 1, 'guard_false' : 1, 'jump' : 1,
-        'guard_value' : 3
+        'int_add': 6, 'int_gt': 1, 'guard_false': 1, 'jump': 1,
+        'guard_value': 3
     }
 
     def meta_interp(self, f, args, policy=None, backendopt=False):
@@ -26,7 +27,8 @@ class LoopTest(object):
         return f(*args)
 
     def test_simple_loop(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        myjitdriver = JitDriver(greens=[], reds=['x', 'y', 'res'])
+
         def f(x, y):
             res = 0
             while y > 0:
@@ -40,7 +42,8 @@ class LoopTest(object):
         self.check_trace_count(1)
 
     def test_loop_with_delayed_setfield(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res', 'a'])
+        myjitdriver = JitDriver(greens=[], reds=['x', 'y', 'res', 'a'])
+
         class A(object):
             def __init__(self):
                 self.x = 3
@@ -67,7 +70,7 @@ class LoopTest(object):
     def test_loop_with_two_paths(self):
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rtyper.lltypesystem.lloperation import llop
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        myjitdriver = JitDriver(greens=[], reds=['x', 'y', 'res'])
 
         def l(y, x, t):
             llop.debug_print(lltype.Void, y, x, t)
@@ -96,7 +99,7 @@ class LoopTest(object):
             self.check_trace_count(2)
 
     def test_alternating_loops(self):
-        myjitdriver = JitDriver(greens = [], reds = ['pattern'])
+        myjitdriver = JitDriver(greens=[], reds=['pattern'])
         def f(pattern):
             while pattern > 0:
                 myjitdriver.can_enter_jit(pattern=pattern)
@@ -114,7 +117,7 @@ class LoopTest(object):
             self.check_trace_count(2)
 
     def test_interp_simple(self):
-        myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])
+        myjitdriver = JitDriver(greens=['i'], reds=['x', 'y'])
         bytecode = "bedca"
         def f(x, y):
             i = 0
@@ -139,7 +142,7 @@ class LoopTest(object):
         self.check_trace_count(0)
 
     def test_green_prevents_loop(self):
-        myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])
+        myjitdriver = JitDriver(greens=['i'], reds=['x', 'y'])
         bytecode = "+--+++++----"
         def f(x, y):
             i = 0
@@ -158,7 +161,7 @@ class LoopTest(object):
         self.check_trace_count(0)
 
     def test_interp_single_loop(self):
-        myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])
+        myjitdriver = JitDriver(greens=['i'], reds=['x', 'y'])
         bytecode = "abcd"
         def f(x, y):
             i = 0
@@ -201,7 +204,7 @@ class LoopTest(object):
                 assert found == 1
 
     def test_interp_many_paths(self):
-        myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
+        myjitdriver = JitDriver(greens=['i'], reds=['x', 'node'])
         NODE = self._get_NODE()
         bytecode = "xxxxxxxb"
         def f(node):
@@ -240,7 +243,7 @@ class LoopTest(object):
         oldlimit = sys.getrecursionlimit()
         try:
             sys.setrecursionlimit(10000)
-            myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
+            myjitdriver = JitDriver(greens=['i'], reds=['x', 'node'])
             NODE = self._get_NODE()
             bytecode = "xxxxxxxb"
 
@@ -281,7 +284,7 @@ class LoopTest(object):
             sys.setrecursionlimit(oldlimit)
 
     def test_nested_loops(self):
-        myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])
+        myjitdriver = JitDriver(greens=['i'], reds=['x', 'y'])
         bytecode = "abc<de"
         def f(x, y):
             i = 0
@@ -317,7 +320,7 @@ class LoopTest(object):
         assert res == expected
 
     def test_loop_in_bridge1(self):
-        myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y', 'res'])
+        myjitdriver = JitDriver(greens=['i'], reds=['x', 'y', 'res'])
         bytecode = "abs>cxXyY"
         def f(y):
             res = x = 0
@@ -375,7 +378,7 @@ class LoopTest(object):
         #           x = x + (i&j)
         #       i = i + 1
 
-        myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'j', 'n', 'x'])
+        myjitdriver = JitDriver(greens=['pos'], reds=['i', 'j', 'n', 'x'])
         bytecode = "IzJxji"
         def f(n, threshold):
             set_param(myjitdriver, 'threshold', threshold)
@@ -422,7 +425,7 @@ class LoopTest(object):
                 self.val = val
             def add(self, val):
                 return A(self.val + val)
-        myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'j', 'n', 'x'])
+        myjitdriver = JitDriver(greens=['pos'], reds=['i', 'j', 'n', 'x'])
         bytecode = "IzJxji"
         def f(nval, threshold):
             set_param(myjitdriver, 'threshold', threshold)
@@ -464,7 +467,7 @@ class LoopTest(object):
             assert res == expected
 
     def test_two_bridged_loops(self):
-        myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'n', 's', 'x'])
+        myjitdriver = JitDriver(greens=['pos'], reds=['i', 'n', 's', 'x'])
         bytecode = "zI7izI8i"
         def f(n, s):
             i = x = 0
@@ -510,7 +513,7 @@ class LoopTest(object):
 
 
     def test_two_bridged_loops_classes(self):
-        myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'n', 'x', 's'])
+        myjitdriver = JitDriver(greens=['pos'], reds=['i', 'n', 'x', 's'])
         class A(object):
             pass
         bytecode = "I7i"
@@ -554,10 +557,10 @@ class LoopTest(object):
 
 
     def test_three_nested_loops(self):
-        myjitdriver = JitDriver(greens = ['i'], reds = ['x'])
+        myjitdriver = JitDriver(greens=['i'], reds=['x'])
         bytecode = ".+357"
         def f(x):
-            assert x >= 0
+            assert_(x >= 0)
             i = 0
             while i < len(bytecode):
                 myjitdriver.jit_merge_point(i=i, x=x)
@@ -590,7 +593,7 @@ class LoopTest(object):
         assert res == expected
 
     def test_unused_loop_constant(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'z'])
+        myjitdriver = JitDriver(greens=[], reds=['x', 'y', 'z'])
         def f(x, y, z):
             while z > 0:
                 myjitdriver.can_enter_jit(x=x, y=y, z=z)
@@ -603,7 +606,7 @@ class LoopTest(object):
         assert res == expected
 
     def test_loop_unicode(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+        myjitdriver = JitDriver(greens=[], reds=['n', 'x'])
         def f(n):
             x = u''
             while n > 13:
@@ -617,7 +620,7 @@ class LoopTest(object):
         assert res == expected
 
     def test_loop_string(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+        myjitdriver = JitDriver(greens=[], reds=['n', 'x'])
         def f(n):
             x = ''
             while n > 13:
@@ -632,7 +635,7 @@ class LoopTest(object):
         assert res == expected
 
     def test_adapt_bridge_to_merge_point(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'z'])
+        myjitdriver = JitDriver(greens=[], reds=['x', 'z'])
 
         class Z(object):
             def __init__(self, elem):
@@ -812,7 +815,7 @@ class LoopTest(object):
         self.check_trace_count(2)
 
     def test_path_with_operations_not_from_start(self):
-        jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z'])
+        jitdriver = JitDriver(greens=['k'], reds=['n', 'z'])
 
         def f(n):
             k = 0
@@ -831,11 +834,11 @@ class LoopTest(object):
                 n -= 1
             return 42
 
-        res = self.meta_interp(f, [200])
+        self.meta_interp(f, [200])
 
 
     def test_path_with_operations_not_from_start_2(self):
-        jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z', 'stuff'])
+        jitdriver = JitDriver(greens=['k'], reds=['n', 'z', 'stuff'])
 
         class Stuff(object):
             def __init__(self, n):
@@ -869,7 +872,8 @@ class LoopTest(object):
         BASE = lltype.GcStruct('BASE')
         A = lltype.GcStruct('A', ('parent', BASE), ('val', lltype.Signed))
         B = lltype.GcStruct('B', ('parent', BASE), ('charval', lltype.Char))
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'j', 'sa', 'p'])
+        myjitdriver = JitDriver(greens=[], reds=['n', 'm', 'i', 'j', 'sa', 'p'])
+
         def f(n, m, j):
             i = sa = 0
             pa = lltype.malloc(A)
@@ -888,22 +892,22 @@ class LoopTest(object):
                     pb = lltype.cast_pointer(lltype.Ptr(B), p)
                     sa += ord(pb.charval)
                 sa += 100
-                assert n>0 and m>0
+                assert_(n > 0 and m > 0)
                 i += j
             return sa
         # This is detected as invalid by the codewriter, for now
         py.test.raises(NotImplementedError, self.meta_interp, f, [20, 10, 1])
 
     def test_unerased_pointers_in_short_preamble(self):
-        from rpython.rlib.rerased import new_erasing_pair
-        from rpython.rtyper.lltypesystem import lltype
         class A(object):
             def __init__(self, val):
                 self.val = val
         erase_A, unerase_A = new_erasing_pair('A')
         erase_TP, unerase_TP = new_erasing_pair('TP')
         TP = lltype.GcArray(lltype.Signed)
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'j', 'sa', 'p'])
+        myjitdriver = JitDriver(
+            greens=[], reds=['n', 'm', 'i', 'j', 'sa', 'p'])
+
         def f(n, m, j):
             i = sa = 0
             p = erase_A(A(7))
@@ -918,14 +922,13 @@ class LoopTest(object):
                 else:
                     sa += unerase_TP(p)[0]
                 sa += A(i).val
-                assert n>0 and m>0
+                assert_(n > 0 and m > 0)
                 i += j
             return sa
         res = self.meta_interp(f, [20, 10, 1])
         assert res == f(20, 10, 1)
 
     def test_boxed_unerased_pointers_in_short_preamble(self):
-        from rpython.rlib.rerased import new_erasing_pair
         from rpython.rtyper.lltypesystem import lltype
         class A(object):
             def __init__(self, val):
@@ -940,7 +943,7 @@ class LoopTest(object):
         erase_A, unerase_A = new_erasing_pair('A')
         erase_TP, unerase_TP = new_erasing_pair('TP')
         TP = lltype.GcArray(lltype.Signed)
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'sa', 'p'])
+        myjitdriver = JitDriver(greens=[], reds=['n', 'm', 'i', 'sa', 'p'])
         def f(n, m):
             i = sa = 0
             p = Box(erase_A(A(7)))
@@ -1011,7 +1014,6 @@ class LoopTest(object):
         class C(object):
             pass
 
-        from rpython.rlib.rerased import new_erasing_pair
         b_erase, b_unerase = new_erasing_pair("B")
         c_erase, c_unerase = new_erasing_pair("C")
 
@@ -1044,7 +1046,6 @@ class LoopTest(object):
     def test_unroll_issue_3(self):
         py.test.skip("decide")
 
-        from rpython.rlib.rerased import new_erasing_pair
         b_erase, b_unerase = new_erasing_pair("B")    # list of ints
         c_erase, c_unerase = new_erasing_pair("C")    # list of Nones
 
@@ -1075,7 +1076,7 @@ class LoopTest(object):
         assert res == 420
 
     def test_not_too_many_bridges(self):
-        jitdriver = JitDriver(greens = [], reds = 'auto')
+        jitdriver = JitDriver(greens=[], reds='auto')
 
         def f(i):
             s = 0
@@ -1097,7 +1098,7 @@ class LoopTest(object):
 
     def test_sharing_guards(self):
         py.test.skip("unimplemented")
-        driver = JitDriver(greens = [], reds = 'auto')
+        driver = JitDriver(greens=[], reds='auto')
 
         def f(i):
             s = 0
@@ -1145,7 +1146,7 @@ class LoopTest(object):
                     v = reverse(W_Cons(pc + 1, W_Cons(pc + 2, W_Cons(pc + 3, W_Cons(pc + 4, W_Nil())))))
                     pc = pc + 1
                 repetitions += 1
-        
+
         self.meta_interp(entry_point, [])
 
 

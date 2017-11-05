@@ -1,6 +1,6 @@
 import py
 from rpython.rlib.jit import JitDriver, dont_look_inside
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, assert_
 from rpython.rlib import rgc
 from rpython.jit.metainterp.test.support import LLJitMixin
 
@@ -30,7 +30,7 @@ class DelTests:
                            'jump': 1})
 
     def test_class_of_allocated(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
+        myjitdriver = JitDriver(greens=[], reds=['n', 'x'])
         class Foo:
             def __del__(self):
                 pass
@@ -49,16 +49,15 @@ class DelTests:
                 myjitdriver.jit_merge_point(x=x, n=n)
                 x = X()
                 y = Y()
-                assert x.f() == 456
-                assert y.f() == 123
+                assert_(x.f() == 456)
+                assert_(y.f() == 123)
                 n -= 1
             return 42
         res = self.meta_interp(f, [20])
         assert res == 42
 
     def test_instantiate_with_or_without_del(self):
-        import gc
-        mydriver = JitDriver(reds = ['n', 'x'], greens = [])
+        mydriver = JitDriver(reds=['n', 'x'], greens=[])
         class Base: pass
         class A(Base): foo = 72
         class B(Base):

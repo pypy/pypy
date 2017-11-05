@@ -1,8 +1,8 @@
+from collections import OrderedDict
 import py
+from rpython.rlib.objectmodel import assert_, r_dict, compute_hash
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.jit import JitDriver
-from rpython.rlib import objectmodel
-from collections import OrderedDict
 
 class DictTests:
     @staticmethod
@@ -104,7 +104,7 @@ class DictTests:
             return (x & 1) == (y & 1)
 
         def f(n):
-            dct = objectmodel.r_dict(eq, key)
+            dct = r_dict(eq, key)
             total = n
             while total:
                 myjitdriver.jit_merge_point(total=total, dct=dct)
@@ -145,7 +145,7 @@ class DictTests:
             return (x & 1) == (y & 1)
 
         def f(n):
-            dct = objectmodel.r_dict(eq, key)
+            dct = r_dict(eq, key)
             total = n
             while total:
                 myjitdriver.jit_merge_point(total=total, dct=dct)
@@ -169,13 +169,13 @@ class DictTests:
         def eq_func(a, b):
             return a.value == b.value
         def hash_func(x):
-            return objectmodel.compute_hash(x.value)
+            return compute_hash(x.value)
 
         def f(n):
             d = None
             while n > 0:
                 myjitdriver.jit_merge_point(n=n, d=d)
-                d = objectmodel.r_dict(eq_func, hash_func)
+                d = r_dict(eq_func, hash_func)
                 y = Wrapper(str(n))
                 d[y] = n - 1
                 n = d[y]
@@ -331,7 +331,7 @@ class DictTests:
             return (x % 2) == (y % 2)
 
         def f(n):
-            dct = objectmodel.r_dict(eq, key)
+            dct = r_dict(eq, key)
             total = n
             x = 44444
             y = 55555
@@ -398,7 +398,7 @@ class TestLLOrderedDict(DictTests, LLJitMixin):
             d[2] = 6
             d[1] = 4
             lst = d.items()
-            assert len(lst) == 4
+            assert_(len(lst) == 4)
             return (    lst[0][0] +       10*lst[0][1] +
                     100*lst[1][0] +     1000*lst[1][1] +
                   10000*lst[3][0] +   100000*lst[2][1] +

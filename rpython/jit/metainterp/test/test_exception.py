@@ -2,7 +2,7 @@ import py, sys
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, assert_
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -633,11 +633,11 @@ class ExceptionTests:
                 try:
                     rescall(i)
                 except KeyError:
-                    assert i < 10
+                    assert_(i < 10)
                 except ValueError:
-                    assert i >= 20
+                    assert_(i >= 20)
                 else:
-                    assert 10 <= i < 20
+                    assert_(10 <= i < 20)
                 i += 1
             return i
         res = self.meta_interp(f, [0], inline=True)

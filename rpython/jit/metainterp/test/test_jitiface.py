@@ -1,19 +1,18 @@
 
-import py
-from rpython.rlib.jit import JitDriver, JitHookInterface, Counters, dont_look_inside
+from rpython.rlib.objectmodel import assert_
+from rpython.rlib.jit import (
+    JitDriver, JitHookInterface, Counters, dont_look_inside)
 from rpython.rlib import jit_hooks
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import JitPolicy
-from rpython.jit.metainterp.resoperation import rop
-from rpython.rtyper.annlowlevel import hlstr, cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.metainterp.jitprof import Profiler, EmptyProfiler
-from rpython.jit.codewriter.policy import JitPolicy
 
 
 class JitHookInterfaceTests(object):
     # !!!note!!! - don't subclass this from the backend. Subclass the LL
     # class later instead
-    
+
     def test_abort_quasi_immut(self):
         reasons = []
 
@@ -71,7 +70,7 @@ class JitHookInterfaceTests(object):
 
         iface = MyJitIface()
 
-        driver = JitDriver(greens = ['n', 'm'], reds = ['i'])
+        driver = JitDriver(greens=['n', 'm'], reds=['i'])
 
         def loop(n, m):
             i = 0
@@ -94,7 +93,7 @@ class JitHookInterfaceTests(object):
 
     def test_on_compile_bridge(self):
         called = []
-        
+
         class MyJitIface(JitHookInterface):
             def after_compile(self, di):
                 called.append("compile")
@@ -104,8 +103,8 @@ class JitHookInterfaceTests(object):
 
             def before_compile_bridge(self, di):
                 called.append("before_compile_bridge")
-            
-        driver = JitDriver(greens = ['n', 'm'], reds = ['i'])
+
+        driver = JitDriver(greens=['n', 'm'], reds=['i'])
 
         def loop(n, m):
             i = 0
@@ -120,7 +119,7 @@ class JitHookInterfaceTests(object):
         assert called == ["compile", "before_compile_bridge", "compile_bridge"]
 
     def test_get_stats(self):
-        driver = JitDriver(greens = [], reds = ['i', 's'])
+        driver = JitDriver(greens=[], reds=['i', 's'])
 
         def loop(i):
             s = 0
@@ -134,31 +133,33 @@ class JitHookInterfaceTests(object):
 
         def main():
             loop(30)
-            assert jit_hooks.stats_get_counter_value(None,
-                                           Counters.TOTAL_COMPILED_LOOPS) == 1
-            assert jit_hooks.stats_get_counter_value(None,
-                                           Counters.TOTAL_COMPILED_BRIDGES) == 1
-            assert jit_hooks.stats_get_counter_value(None,
-                                                     Counters.TRACING) == 2
-            assert jit_hooks.stats_get_times_value(None, Counters.TRACING) >= 0
+            assert_(jit_hooks.stats_get_counter_value(
+                None, Counters.TOTAL_COMPILED_LOOPS) == 1)
+            assert_(jit_hooks.stats_get_counter_value(
+                None, Counters.TOTAL_COMPILED_BRIDGES) == 1)
+            assert_(jit_hooks.stats_get_counter_value(
+                None, Counters.TRACING) == 2)
+            assert_(jit_hooks.stats_get_times_value(
+                None, Counters.TRACING) >= 0)
 
         self.meta_interp(main, [], ProfilerClass=Profiler)
 
     def test_get_stats_empty(self):
-        driver = JitDriver(greens = [], reds = ['i'])
+        driver = JitDriver(greens=[], reds=['i'])
         def loop(i):
             while i > 0:
                 driver.jit_merge_point(i=i)
                 i -= 1
         def main():
             loop(30)
-            assert jit_hooks.stats_get_counter_value(None,
-                                           Counters.TOTAL_COMPILED_LOOPS) == 0
-            assert jit_hooks.stats_get_times_value(None, Counters.TRACING) == 0
+            assert_(jit_hooks.stats_get_counter_value(
+                None, Counters.TOTAL_COMPILED_LOOPS) == 0)
+            assert_(jit_hooks.stats_get_times_value(
+                None, Counters.TRACING) == 0)
         self.meta_interp(main, [], ProfilerClass=EmptyProfiler)
 
     def test_get_jitcell_at_key(self):
-        driver = JitDriver(greens = ['s'], reds = ['i'], name='jit')
+        driver = JitDriver(greens=['s'], reds=['i'], name='jit')
 
         def loop(i, s):
             while i > s:
@@ -167,17 +168,17 @@ class JitHookInterfaceTests(object):
 
         def main(s):
             loop(30, s)
-            assert jit_hooks.get_jitcell_at_key("jit", s)
-            assert not jit_hooks.get_jitcell_at_key("jit", s + 1)
+            assert_(jit_hooks.get_jitcell_at_key("jit", s))
+            assert_(not jit_hooks.get_jitcell_at_key("jit", s + 1))
             jit_hooks.trace_next_iteration("jit", s + 1)
             loop(s + 3, s + 1)
-            assert jit_hooks.get_jitcell_at_key("jit", s + 1)
+            assert_(jit_hooks.get_jitcell_at_key("jit", s + 1))
 
         self.meta_interp(main, [5])
         self.check_jitcell_token_count(2)
 
     def test_get_jitcell_at_key_ptr(self):
-        driver = JitDriver(greens = ['s'], reds = ['i'], name='jit')
+        driver = JitDriver(greens=['s'], reds=['i'], name='jit')
 
         class Green(object):
             pass
@@ -193,17 +194,17 @@ class JitHookInterfaceTests(object):
             g1_ptr = cast_instance_to_gcref(g1)
             g2_ptr = cast_instance_to_gcref(g2)
             loop(10, g1)
-            assert jit_hooks.get_jitcell_at_key("jit", g1_ptr)
-            assert not jit_hooks.get_jitcell_at_key("jit", g2_ptr)
+            assert_(jit_hooks.get_jitcell_at_key("jit", g1_ptr))
+            assert_(not jit_hooks.get_jitcell_at_key("jit", g2_ptr))
             jit_hooks.trace_next_iteration("jit", g2_ptr)
             loop(2, g2)
-            assert jit_hooks.get_jitcell_at_key("jit", g2_ptr)
+            assert_(jit_hooks.get_jitcell_at_key("jit", g2_ptr))
 
         self.meta_interp(main, [5])
         self.check_jitcell_token_count(2)
 
     def test_dont_trace_here(self):
-        driver = JitDriver(greens = ['s'], reds = ['i', 'k'], name='jit')
+        driver = JitDriver(greens=['s'], reds=['i', 'k'], name='jit')
 
         def loop(i, s):
             k = 4
@@ -228,10 +229,10 @@ class JitHookInterfaceTests(object):
         self.check_resops(call_assembler_n=8)
 
     def test_trace_next_iteration_hash(self):
-        driver = JitDriver(greens = ['s'], reds = ['i'], name="name")
+        driver = JitDriver(greens=['s'], reds=['i'], name="name")
         class Hashes(object):
             check = False
-            
+
             def __init__(self):
                 self.l = []
                 self.t = []
@@ -281,9 +282,9 @@ class JitHookInterfaceTests(object):
 
 class LLJitHookInterfaceTests(JitHookInterfaceTests):
     # use this for any backend, instead of the super class
-    
+
     def test_ll_get_stats(self):
-        driver = JitDriver(greens = [], reds = ['i', 's'])
+        driver = JitDriver(greens=[], reds=['i', 's'])
 
         def loop(i):
             s = 0
@@ -292,7 +293,7 @@ class LLJitHookInterfaceTests(JitHookInterfaceTests):
                 if i % 2:
                     s += 1
                 i -= 1
-                s+= 2
+                s += 2
             return s
 
         def main(b):
@@ -300,27 +301,27 @@ class LLJitHookInterfaceTests(JitHookInterfaceTests):
             loop(30)
             l = jit_hooks.stats_get_loop_run_times(None)
             if b:
-                assert len(l) == 4
+                assert_(len(l) == 4)
                 # completely specific test that would fail each time
                 # we change anything major. for now it's 4
                 # (loop, bridge, 2 entry points)
-                assert l[0].type == 'e'
-                assert l[0].number == 0
-                assert l[0].counter == 4
-                assert l[1].type == 'l'
-                assert l[1].counter == 4
-                assert l[2].type == 'l'
-                assert l[2].counter == 23
-                assert l[3].type == 'b'
-                assert l[3].number == 4
-                assert l[3].counter == 11
+                assert_(l[0].type == 'e')
+                assert_(l[0].number == 0)
+                assert_(l[0].counter == 4)
+                assert_(l[1].type == 'l')
+                assert_(l[1].counter == 4)
+                assert_(l[2].type == 'l')
+                assert_(l[2].counter == 23)
+                assert_(l[3].type == 'b')
+                assert_(l[3].number == 4)
+                assert_(l[3].counter == 11)
             else:
-                assert len(l) == 0
+                assert_(len(l) == 0)
         self.meta_interp(main, [True], ProfilerClass=Profiler)
         # this so far does not work because of the way setup_once is done,
         # but fine, it's only about untranslated version anyway
         #self.meta_interp(main, [False], ProfilerClass=Profiler)
-        
+
 
 class TestJitHookInterface(JitHookInterfaceTests, LLJitMixin):
     pass

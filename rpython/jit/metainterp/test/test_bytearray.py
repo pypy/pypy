@@ -1,13 +1,14 @@
 import py
+from rpython.rlib.objectmodel import assert_
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.rlib.jit import JitDriver, dont_look_inside
+from rpython.rlib.jit import dont_look_inside
 
 class TestByteArray(LLJitMixin):
 
     def test_getitem(self):
         x = bytearray("foobar")
         def fn(n):
-            assert n >= 0
+            assert_(n >= 0)
             return x[n]
         res = self.interp_operations(fn, [3])
         assert res == ord('b')
@@ -31,7 +32,7 @@ class TestByteArray(LLJitMixin):
         def make_me():
             return bytearray("foobar")
         def fn(n):
-            assert n >= 0
+            assert_(n >= 0)
             x = make_me()
             x[n] = 3
             return x[3] + 1000 * x[4]
