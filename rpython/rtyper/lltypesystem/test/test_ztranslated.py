@@ -1,4 +1,5 @@
 import gc
+from rpython.rlib.objectmodel import assert_
 from rpython.translator.c.test.test_genc import compile
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
@@ -8,7 +9,7 @@ from rpython.rlib import rgc
 def debug_assert(boolresult, msg):
     if not boolresult:
         llop.debug_print(lltype.Void, "\n\nassert failed: %s\n\n" % msg)
-        assert boolresult
+        assert_(boolresult)
 
 def use_str():
     mystr = b'abc'

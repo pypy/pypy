@@ -1,6 +1,7 @@
 import py
 
 from rpython.annotator import model as annmodel
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
 from rpython.conftest import option
 from rpython.rtyper.annlowlevel import (annotate_lowlevel_helper,
@@ -456,7 +457,7 @@ def test_llhelper():
         s.y = y
         fptr = llhelper(F, f)
         gptr = llhelper(G, g)
-        assert typeOf(fptr) == F
+        assert_(typeOf(fptr) == F)
         return fptr(s, z)+fptr(s, z*2)+gptr(s)
 
     res = interpret(h, [8, 5, 2])
@@ -478,7 +479,7 @@ def test_llhelper_multiple_functions():
         s.x = x
         s.y = y
         fptr = llhelper(F, myfuncs[z])
-        assert typeOf(fptr) == F
+        assert_(typeOf(fptr) == F)
         return fptr(s)
 
     res = interpret(h, [80, 5, 0])

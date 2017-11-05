@@ -1,10 +1,10 @@
 import py
-import random
 from collections import OrderedDict
 
 from hypothesis import settings, given, strategies
 from hypothesis.stateful import run_state_machine_as_test
 
+from rpython.rlib.objectmodel import assert_, r_ordereddict
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem import rordereddict, rstr
 from rpython.rlib.rarithmetic import intmask
@@ -387,7 +387,7 @@ class TestOrderedRDict(BaseTestRDict):
 
     @staticmethod
     def new_r_dict(myeq, myhash):
-        return objectmodel.r_ordereddict(myeq, myhash)
+        return r_ordereddict(myeq, myhash)
 
     def test_two_dicts_with_different_value_types(self):
         def func(i):
@@ -406,14 +406,14 @@ class TestOrderedRDict(BaseTestRDict):
             d1['key2'] = 'value2'
             for i in range(20):
                 objectmodel.move_to_end(d1, 'key1')
-                assert d1.keys() == ['key2', 'key1']
+                assert_(d1.keys() == ['key2', 'key1'])
                 objectmodel.move_to_end(d1, 'key2')
-                assert d1.keys() == ['key1', 'key2']
+                assert_(d1.keys() == ['key1', 'key2'])
             for i in range(20):
                 objectmodel.move_to_end(d1, 'key2', last=False)
-                assert d1.keys() == ['key2', 'key1']
+                assert_(d1.keys() == ['key2', 'key1'])
                 objectmodel.move_to_end(d1, 'key1', last=False)
-                assert d1.keys() == ['key1', 'key2']
+                assert_(d1.keys() == ['key1', 'key2'])
         func()
         self.interpret(func, [])
 

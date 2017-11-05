@@ -4,6 +4,7 @@ import py
 
 from rpython.flowspace.model import summary
 from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.lltypesystem.lltype import (typeOf, Signed, getRuntimeTypeInfo,
     identityhash)
 from rpython.rtyper.error import TyperError
@@ -1248,13 +1249,13 @@ class TestRclass(BaseRtypingTest):
                 self.data[i] = v
 
             def __getslice__(self, start, stop):
-                assert start >= 0
-                assert stop >= 0
+                assert_(start >= 0)
+                assert_(stop >= 0)
                 return self.data[start:stop]
 
             def __setslice__(self, start, stop, v):
-                assert start >= 0
-                assert stop >= 0
+                assert_(start >= 0)
+                assert_(stop >= 0)
                 i = 0
                 for n in range(start, stop):
                     self.data[n] = v[i]

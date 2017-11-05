@@ -3,11 +3,13 @@ import re
 
 import py
 
+from rpython.rlib.objectmodel import assert_, newlist_hint, resizelist_hint
 from rpython.rtyper.debug import ll_assert
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.llinterp import LLException, LLAssertFailure
 from rpython.rtyper.lltypesystem import rlist as ll_rlist
-from rpython.rtyper.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
+from rpython.rtyper.lltypesystem.rlist import (
+    ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist)
 from rpython.rtyper.rint import signed_repr
 from rpython.rtyper.rlist import *
 from rpython.rtyper.test.tool import BaseRtypingTest
@@ -959,7 +961,7 @@ class TestRlist(BaseRtypingTest):
             x = l.pop()
             x = l.pop()
             x = l2.pop()
-            return str(x)+";"+str(l)
+            return str(x) + ";" + str(l)
         res = self.ll_to_string(self.interpret(fn, []))
         res = res.replace('rpython.rtyper.test.test_rlist.', '')
         res = re.sub(' at 0x[a-z0-9]+', '', res)
@@ -1167,7 +1169,7 @@ class TestRlist(BaseRtypingTest):
             lst = [fr, fr]
             lst.append(fr)
             del lst[1]
-            assert lst[0] is fr
+            assert_(lst[0] is fr)
             return len(lst)
         res = self.interpret(f, [])
         assert res == 2
@@ -1202,9 +1204,9 @@ class TestRlist(BaseRtypingTest):
     def test_list_equality(self):
         def dummyfn(n):
             lst = [12] * n
-            assert lst == [12, 12, 12]
+            assert_(lst == [12, 12, 12])
             lst2 = [[12, 34], [5], [], [12, 12, 12], [5]]
-            assert lst in lst2
+            assert_(lst in lst2)
         self.interpret(dummyfn, [3])
 
     def test_list_remove(self):
@@ -1214,7 +1216,6 @@ class TestRlist(BaseRtypingTest):
             return len(l)
         res = self.interpret(dummyfn, [1, 0])
         assert res == 0
-
 
     def test_getitem_exc_1(self):
         def f(x):
@@ -1339,7 +1340,7 @@ class TestRlist(BaseRtypingTest):
     def test_charlist_extension_2(self):
         def f(n, i):
             s = 'hello%d' % n
-            assert 0 <= i <= len(s)
+            assert_(0 <= i <= len(s))
             l = ['a', 'b']
             l += s[i:]
             return ''.join(l)
@@ -1349,7 +1350,7 @@ class TestRlist(BaseRtypingTest):
     def test_unicharlist_extension_2(self):
         def f(n, i):
             s = 'hello%d' % n
-            assert 0 <= i <= len(s)
+            assert_(0 <= i <= len(s))
             l = [u'a', u'b']
             l += s[i:]
             return ''.join([chr(ord(c)) for c in l])
@@ -1359,7 +1360,7 @@ class TestRlist(BaseRtypingTest):
     def test_extend_a_non_char_list_2(self):
         def f(n, i):
             s = 'hello%d' % n
-            assert 0 <= i <= len(s)
+            assert_(0 <= i <= len(s))
             l = ['foo', 'bar']
             l += s[i:]      # NOT SUPPORTED for now if l is not a list of chars
             return ''.join(l)
@@ -1368,7 +1369,7 @@ class TestRlist(BaseRtypingTest):
     def test_charlist_extension_3(self):
         def f(n, i, j):
             s = 'hello%d' % n
-            assert 0 <= i <= j <= len(s)
+            assert_(0 <= i <= j <= len(s))
             l = ['a', 'b']
             l += s[i:j]
             return ''.join(l)
@@ -1378,7 +1379,7 @@ class TestRlist(BaseRtypingTest):
     def test_unicharlist_extension_3(self):
         def f(n, i, j):
             s = 'hello%d' % n
-            assert 0 <= i <= j <= len(s)
+            assert_(0 <= i <= j <= len(s))
             l = [u'a', u'b']
             l += s[i:j]
             return ''.join([chr(ord(c)) for c in l])
@@ -1491,8 +1492,6 @@ class TestRlist(BaseRtypingTest):
                    ("y[*]" in immutable_fields)
 
     def test_hints(self):
-        from rpython.rlib.objectmodel import newlist_hint
-
         strings = ['abc', 'def']
         def f(i):
             z = strings[i]
@@ -1569,8 +1568,8 @@ class TestRlist(BaseRtypingTest):
     def test_no_unneeded_refs(self):
         def fndel(p, q):
             lis = ["5", "3", "99"]
-            assert q >= 0
-            assert p >= 0
+            assert_(q >= 0)
+            assert_(p >= 0)
             del lis[p:q]
             return lis
         def fnpop(n):
@@ -1677,7 +1676,6 @@ class TestRlist(BaseRtypingTest):
 
     def test_extend_was_not_overallocating(self):
         from rpython.rlib import rgc
-        from rpython.rlib.objectmodel import resizelist_hint
         from rpython.rtyper.lltypesystem import lltype
         old_arraycopy = rgc.ll_arraycopy
         try:

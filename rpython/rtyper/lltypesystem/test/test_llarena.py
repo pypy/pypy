@@ -1,5 +1,6 @@
 import py, os
 
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llarena
 from rpython.rtyper.lltypesystem.llarena import (arena_malloc, arena_reset,
     arena_reserve, arena_free, round_up_for_allocation, ArenaError,
@@ -143,12 +144,12 @@ def test_look_inside_object():
     b = a + round_up_for_allocation(llmemory.sizeof(lltype.Char))
     arena_reserve(b, precomputed_size)
     (b + llmemory.offsetof(SX, 'x')).signed[0] = 123
-    assert llmemory.cast_adr_to_ptr(b, SPTR).x == 123
+    assert_(llmemory.cast_adr_to_ptr(b, SPTR).x == 123)
     llmemory.cast_adr_to_ptr(b, SPTR).x += 1
-    assert (b + llmemory.offsetof(SX, 'x')).signed[0] == 124
+    assert_((b + llmemory.offsetof(SX, 'x')).signed[0] == 124)
     arena_reset(a, myarenasize, True)
     arena_reserve(b, round_up_for_allocation(llmemory.sizeof(SX)))
-    assert llmemory.cast_adr_to_ptr(b, SPTR).x == 0
+    assert_(llmemory.cast_adr_to_ptr(b, SPTR).x == 0)
     arena_free(a)
     return 42
 
@@ -334,7 +335,7 @@ class TestStandalone(test_standalone.StandaloneTests):
             arena_reserve(a, llmemory.sizeof(S))
             p = llmemory.cast_adr_to_ptr(a + 23432, lltype.Ptr(S))
             p.x = 123
-            assert p.x == 123
+            assert_(p.x == 123)
             arena_protect(a, 65536, True)
             result = 0
             if testrun == 1:

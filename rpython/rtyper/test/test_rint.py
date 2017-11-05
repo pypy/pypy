@@ -1,10 +1,12 @@
 import py
-import sys, operator
+import sys
+import operator
+
 from rpython.translator.translator import TranslationContext
+from rpython.rlib.objectmodel import assert_, compute_hash
 from rpython.rtyper.test import snippet
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import ovfcheck, r_int64, intmask, int_between
-from rpython.rlib import objectmodel
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.flowspace.model import summary
 
@@ -392,16 +394,16 @@ class TestRint(BaseRtypingTest):
 
     def test_int_py_div_nonnegargs(self):
         def f(x, y):
-            assert x >= 0
-            assert y >= 0
+            assert_(x >= 0)
+            assert_(y >= 0)
             return x // y
         res = self.interpret(f, [1234567, 123])
         assert res == 1234567 // 123
 
     def test_int_py_mod_nonnegargs(self):
         def f(x, y):
-            assert x >= 0
-            assert y >= 0
+            assert_(x >= 0)
+            assert_(y >= 0)
             return x % y
         res = self.interpret(f, [1234567, 123])
         assert res == 1234567 % 123
@@ -418,7 +420,7 @@ class TestRint(BaseRtypingTest):
 
     def test_hash(self):
         def f(x):
-            return objectmodel.compute_hash(x)
+            return compute_hash(x)
         res = self.interpret(f, [123456789])
         assert res == 123456789
         res = self.interpret(f, [r_int64(123456789012345678)])

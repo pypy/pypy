@@ -1,6 +1,7 @@
-from __future__ import with_statement
 import py
 import sys
+
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.lltypesystem.lltype import typeOf, Void, malloc, free
 from rpython.rtyper.llinterp import LLInterpreter, LLException, log
 from rpython.rtyper.rmodel import inputconst
@@ -571,7 +572,7 @@ def test_scoped_allocator():
         with scoped_alloc(T, 1) as array:
             array[0] = -42
             x = array[0]
-        assert x == -42
+        assert_(x == -42)
 
     res = interpret(f, [])
 

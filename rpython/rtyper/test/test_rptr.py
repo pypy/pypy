@@ -6,9 +6,11 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomePtr
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.rtyper.rtyper import RPythonTyper
+from rpython.rtyper.test.test_llinterp import interpret
 
 
 # ____________________________________________________________
@@ -50,7 +52,6 @@ def test_runtime_type_info():
     assert s == annmodel.SomeTuple([SomePtr(lltype.Ptr(lltype.RuntimeTypeInfo)),
                                     annmodel.SomeBool()])
 
-from rpython.rtyper.test.test_llinterp import interpret, gengraph
 
 def test_adtmeths():
     policy = LowLevelAnnotatorPolicy()
@@ -86,7 +87,6 @@ def test_adtmeths():
     assert lltype.typeOf(a) == lltype.Ptr(A)
     assert len(a) == 10
 
-
     def f():
         a = A.h_alloc(10)
         return a.h_length()
@@ -104,15 +104,15 @@ def test_odd_ints():
     S = lltype.GcStruct('S', ('t', T))
     PT = lltype.Ptr(T)
     PS = lltype.Ptr(S)
+
     def fn(n):
         s = lltype.cast_int_to_ptr(PS, n)
-        assert lltype.typeOf(s) == PS
-        assert lltype.cast_ptr_to_int(s) == n
+        assert_(lltype.typeOf(s) == PS)
+        assert_(lltype.cast_ptr_to_int(s) == n)
         t = lltype.cast_pointer(PT, s)
-        assert lltype.typeOf(t) == PT
-        assert lltype.cast_ptr_to_int(t) == n
-        assert s == lltype.cast_pointer(PS, t)
-
+        assert_(lltype.typeOf(t) == PT)
+        assert_(lltype.cast_ptr_to_int(t) == n)
+        assert_(s == lltype.cast_pointer(PS, t))
     interpret(fn, [11521])
 
 def test_odd_ints_opaque():
@@ -120,12 +120,13 @@ def test_odd_ints_opaque():
     Q = lltype.GcOpaqueType('Q')
     PT = lltype.Ptr(T)
     PQ = lltype.Ptr(Q)
+
     def fn(n):
         t = lltype.cast_int_to_ptr(PT, n)
-        assert lltype.typeOf(t) == PT
-        assert lltype.cast_ptr_to_int(t) == n
+        assert_(lltype.typeOf(t) == PT)
+        assert_(lltype.cast_ptr_to_int(t) == n)
         o = lltype.cast_opaque_ptr(PQ, t)
-        assert lltype.cast_ptr_to_int(o) == n
+        assert_(lltype.cast_ptr_to_int(o) == n)
 
     fn(13)
     interpret(fn, [11521])
@@ -384,6 +385,7 @@ def test_interior_ptr_len():
 
 def test_interior_ptr_with_setitem():
     T = lltype.GcStruct("T", ('s', lltype.Array(lltype.Signed)))
+
     def f():
         t = lltype.malloc(T, 1)
         t.s[0] = 1
@@ -393,18 +395,21 @@ def test_interior_ptr_with_setitem():
 
 def test_isinstance_ptr():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
+
     def f(n):
         x = isinstance(lltype.Signed, lltype.Ptr)
         return x + (lltype.typeOf(x) is lltype.Ptr(S)) + len(n)
+
     def lltest():
         f([])
         return f([1])
     s, t = ll_rtype(lltest, [])
-    assert s.is_constant() == False
+    assert s.is_constant() is False
 
 def test_staticadtmeths():
     ll_func = lltype.staticAdtMethod(lambda x: x + 42)
     S = lltype.GcStruct('S', adtmeths={'ll_func': ll_func})
+
     def f():
         return lltype.malloc(S).ll_func(5)
     s, t = ll_rtype(f, [])

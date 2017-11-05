@@ -2,21 +2,23 @@ import sys
 from contextlib import contextmanager
 import signal
 
-from rpython.translator.translator import TranslationContext
-from rpython.annotator.model import (
-    SomeInteger, SomeString, SomeChar, SomeUnicodeString, SomeUnicodeCodePoint)
-from rpython.annotator.dictdef import DictKey, DictValue
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.lltypesystem import rdict
-from rpython.rtyper.test.tool import BaseRtypingTest
-from rpython.rlib.objectmodel import r_dict
-from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
-
 import py
 from hypothesis import settings
 from hypothesis.strategies import (
     builds, sampled_from, binary, just, integers, text, characters, tuples)
 from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
+
+from rpython.translator.translator import TranslationContext
+from rpython.annotator.model import (
+    SomeInteger, SomeString, SomeChar, SomeUnicodeString, SomeUnicodeCodePoint)
+from rpython.annotator.dictdef import DictKey, DictValue
+from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
+from rpython.rlib.objectmodel import assert_
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import rdict
+from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rlib.objectmodel import r_dict
+
 
 def ann2strategy(s_value):
     if isinstance(s_value, SomeChar):
@@ -192,7 +194,7 @@ class BaseTestRDict(BaseRtypingTest):
             for value in d.itervalues():
                 k2 = k2 * value
             for key, value in d.iteritems():
-                assert d[key] == value
+                assert_(d[key] == value)
                 k3 = k3 * value
             return k1 + k2 + k3
         res = self.interpret(func, [])
@@ -702,15 +704,15 @@ class BaseTestRDict(BaseRtypingTest):
             d[5] = 2
             d[6] = 3
             k1, v1 = d.popitem()
-            assert len(d) == 1
+            assert_(len(d) == 1)
             k2, v2 = d.popitem()
             try:
                 d.popitem()
             except KeyError:
                 pass
             else:
-                assert 0, "should have raised KeyError"
-            assert len(d) == 0
+                assert_(0, "should have raised KeyError")
+            assert_(len(d) == 0)
             return k1*1000 + v1*100 + k2*10 + v2
 
         res = self.interpret(func, [])
@@ -960,15 +962,15 @@ class BaseTestRDict(BaseRtypingTest):
             d[5] = 2
             d[6] = 3
             k1, v1 = d.popitem()
-            assert len(d) == 1
+            assert_(len(d) == 1)
             k2, v2 = d.popitem()
             try:
                 d.popitem()
             except KeyError:
                 pass
             else:
-                assert 0, "should have raised KeyError"
-            assert len(d) == 0
+                assert_(0, "should have raised KeyError")
+            assert_(len(d) == 0)
             return k1*1000 + v1*100 + k2*10 + v2
 
         res = self.interpret(func, [])

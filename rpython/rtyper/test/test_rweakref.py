@@ -1,5 +1,7 @@
-import py, weakref
+import weakref
+
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.test.tool import BaseRtypingTest
 
@@ -68,9 +70,9 @@ class TestRweakref(BaseRtypingTest):
                 r = w2
             return r() is not None
         res = self.interpret(f, [1])
-        assert res == False
+        assert res is False
         res = self.interpret(f, [0])
-        assert res == True
+        assert res is True
 
     def test_multiple_prebuilt_dead_weakrefs(self):
         class A:
@@ -95,22 +97,22 @@ class TestRweakref(BaseRtypingTest):
                     r = w1
                 else:
                     r = w3
-                assert r() is None
+                assert_(r() is None)
             else:
                 if n < -5:
                     r = w2
                 else:
                     r = w4
-                assert r() is not None
+                assert_(r() is not None)
             return r() is not None
         res = self.interpret(f, [1])
-        assert res == False
+        assert res is False
         res = self.interpret(f, [0])
-        assert res == True
+        assert res is True
         res = self.interpret(f, [100])
-        assert res == False
+        assert res is False
         res = self.interpret(f, [-100])
-        assert res == True
+        assert res is True
 
     def test_pbc_null_weakref(self):
         class A:
@@ -124,12 +126,12 @@ class TestRweakref(BaseRtypingTest):
         assert self.interpret(fn, [1]) is True
 
     def test_ll_weakref(self):
-        S = lltype.GcStruct('S', ('x',lltype.Signed))
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
         def g():
             s = lltype.malloc(S)
             w = llmemory.weakref_create(s)
-            assert llmemory.weakref_deref(lltype.Ptr(S), w) == s
-            assert llmemory.weakref_deref(lltype.Ptr(S), w) == s
+            assert_(llmemory.weakref_deref(lltype.Ptr(S), w) == s)
+            assert_(llmemory.weakref_deref(lltype.Ptr(S), w) == s)
             return w   # 's' is forgotten here
         def f():
             w = g()
@@ -152,7 +154,7 @@ class TestRWeakrefDisabled(BaseRtypingTest):
         def fn(i):
             w = g()
             rgc.collect()
-            assert w() is not None
+            assert_(w() is not None)
             return mylist[i] is None
 
         assert self.interpret(fn, [0], rweakref=False) is False

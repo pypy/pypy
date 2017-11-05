@@ -1,6 +1,7 @@
 
 import py
 import sys
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.lltypesystem.rffi import *
 from rpython.rtyper.lltypesystem.rffi import _keeper_for_type # crap
 from rpython.rlib.rposix import get_saved_errno, set_saved_errno
@@ -611,9 +612,9 @@ class TestRffiInternals:
             p1bis = make(X1)
             p2bis = make(X2)
             structcopy(p1bis, p1)
-            assert p1bis.a == 5
-            assert p1bis.x2.x == 456
-            assert p1bis.p == p2
+            assert_(p1bis.a == 5)
+            assert_(p1bis.x2.x == 456)
+            assert_(p1bis.p == p2)
             structcopy(p2bis, p2)
             res = p2bis.x
             lltype.free(p2bis, flavor='raw')
@@ -697,11 +698,11 @@ class TestRffiInternals:
         def f():
             raw = str2charp("XxxZy")
             n = str2chararray("abcdef", raw, 4)
-            assert raw[0] == 'a'
-            assert raw[1] == 'b'
-            assert raw[2] == 'c'
-            assert raw[3] == 'd'
-            assert raw[4] == 'y'
+            assert_(raw[0] == 'a')
+            assert_(raw[1] == 'b')
+            assert_(raw[2] == 'c')
+            assert_(raw[3] == 'd')
+            assert_(raw[4] == 'y')
             lltype.free(raw, flavor='raw')
             return n
 
@@ -796,9 +797,9 @@ def test_ptradd():
     for i in xrange(len(data)):
         a[i] = data[i]
     a2 = ptradd(a, 2)
-    assert lltype.typeOf(a2) == lltype.typeOf(a) == lltype.Ptr(ARRAY_OF_CHAR)
+    assert_(lltype.typeOf(a2) == lltype.typeOf(a) == lltype.Ptr(ARRAY_OF_CHAR))
     for i in xrange(len(data) - 2):
-        assert a2[i] == a[i + 2]
+        assert_(a2[i] == a[i + 2])
     lltype.free(a, flavor='raw')
 
 def test_ptradd_interpret():

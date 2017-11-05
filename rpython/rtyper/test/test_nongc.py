@@ -1,10 +1,10 @@
 import py
 
+from rpython.rlib.objectmodel import assert_, free_non_gc_object
 from rpython.annotator import model as annmodel
-from rpython.rtyper.llannotation import SomeAddress
 from rpython.annotator.annrpython import RPythonAnnotator
+from rpython.rtyper.llannotation import SomeAddress
 from rpython.rtyper.rtyper import RPythonTyper
-from rpython.rlib.objectmodel import free_non_gc_object
 from rpython.rtyper.test.test_llinterp import interpret as llinterpret
 
 def interpret(f, args):
@@ -100,13 +100,13 @@ def test_isinstance():
         if i == 0:
             pass
         elif i == 1:
-            assert isinstance(o, A)
+            assert_(isinstance(o, A))
             free_non_gc_object(o)
         elif i == 2:
-            assert isinstance(o, B)
+            assert_(isinstance(o, B))
             free_non_gc_object(o)
         else:
-            assert isinstance(o, C)
+            assert_(isinstance(o, C))
             free_non_gc_object(o)
         return res
 

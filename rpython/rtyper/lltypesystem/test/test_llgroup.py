@@ -1,3 +1,4 @@
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.lltypesystem.llgroup import *
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.test.test_llinterp import interpret
@@ -76,37 +77,37 @@ def build_test():
     #
     def f():
         p = llop.get_group_member(lltype.Ptr(test.S1), grpptr, test.g1a)
-        assert p == test.p1a
+        assert_(p == test.p1a)
         p = llop.get_group_member(lltype.Ptr(test.S1), grpptr, test.g1b)
-        assert p == test.p1b
+        assert_(p == test.p1b)
         p = llop.get_group_member(lltype.Ptr(test.S2), grpptr, test.g2a)
-        assert p == test.p2a
+        assert_(p == test.p2a)
         p = llop.get_group_member(lltype.Ptr(test.S2), grpptr, test.g2b)
-        assert p == test.p2b
+        assert_(p == test.p2b)
         #
         p = llop.get_next_group_member(lltype.Ptr(test.S2), grpptr,
                                        test.g1a, llmemory.sizeof(test.S1))
-        assert p == test.p2a
+        assert_(p == test.p2a)
         p = llop.get_next_group_member(lltype.Ptr(test.S2), grpptr,
                                        test.g2a, llmemory.sizeof(test.S2))
-        assert p == test.p2b
+        assert_(p == test.p2b)
         p = llop.get_next_group_member(lltype.Ptr(test.S1), grpptr,
                                        test.g2b, llmemory.sizeof(test.S2))
-        assert p == test.p1b
+        assert_(p == test.p1b)
         #
         expected = [123, 456]
         for i in range(2):
             p = llop.get_group_member(lltype.Ptr(test.S1), grpptr, g1x[i])
-            assert p.x == expected[i]
+            assert_(p.x == expected[i])
         #
         for i in range(2):
             s = llop.extract_ushort(HALFWORD, cslist[i])
             p = llop.get_group_member(lltype.Ptr(test.S1), grpptr, s)
-            assert p == test.p1b
-        assert cslist[0] & ~MASK == 0x45 << HALFSHIFT
-        assert cslist[1] & ~MASK == 0x41 << HALFSHIFT
-        assert cslist[0] >> HALFSHIFT == 0x45
-        assert cslist[1] >> (HALFSHIFT+1) == 0x41 >> 1
+            assert_(p == test.p1b)
+        assert_(cslist[0] & ~MASK == 0x45 << HALFSHIFT)
+        assert_(cslist[1] & ~MASK == 0x41 << HALFSHIFT)
+        assert_(cslist[0] >> HALFSHIFT == 0x45)
+        assert_(cslist[1] >> (HALFSHIFT+1) == 0x41 >> 1)
         #
         return 42
     return f

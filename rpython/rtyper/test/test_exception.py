@@ -1,5 +1,6 @@
 import py
 
+from rpython.rlib.objectmodel import assert_
 from rpython.translator.translator import TranslationContext
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.llinterp import LLException

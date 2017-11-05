@@ -2,6 +2,7 @@ import py
 
 from rpython.annotator import model as annmodel
 from rpython.annotator import specialize
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.lltypesystem.lltype import typeOf
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
@@ -1604,7 +1605,7 @@ class TestRPBC(BaseRtypingTest):
             try:
                 o.m()
             except KeyError:
-                assert 0
+                raise ValueError
             return B().m()
 
         self.interpret_raises(KeyError, f, [7])
@@ -1717,7 +1718,7 @@ class TestRPBC(BaseRtypingTest):
         def cb2():
             pass
         def g(cb, result):
-            assert (cb is None) == (result == 0)
+            assert_((cb is None) == (result == 0))
         def h(cb):
             cb()
         def f():

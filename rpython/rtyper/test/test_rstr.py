@@ -4,6 +4,7 @@ import py
 
 from rpython.flowspace.model import summary
 from rpython.annotator.model import AnnotatorError
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.lltypesystem.lltype import typeOf, Signed, malloc
 from rpython.rtyper.lltypesystem.rstr import LLHelpers, STR
 from rpython.rtyper.rstr import AbstractLLHelpers
@@ -357,20 +358,24 @@ class AbstractTestRstr(BaseRtypingTest):
 
     def test_find_with_start(self):
         const = self.const
+
         def fn(i):
-            assert i >= 0
+            assert_(i >= 0)
             return const('ababcabc').find(const('abc'), i)
+
         for i in range(9):
             res = self.interpret(fn, [i])
             assert res == fn(i)
 
     def test_find_with_start_end(self):
         const = self.const
+
         def fn(i, j):
-            assert i >= 0
-            assert j >= 0
+            assert_(i >= 0)
+            assert_(j >= 0)
             return (const('ababcabc').find(const('abc'), i, j) +
                     const('ababcabc').find(const('b'), i, j) * 100)
+
         for (i, j) in [(1,7), (2,6), (3,7), (3,8), (4,99), (7, 99)]:
             res = self.interpret(fn, [i, j])
             assert res == fn(i, j)
@@ -388,14 +393,16 @@ class AbstractTestRstr(BaseRtypingTest):
 
     def test_find_empty_string(self):
         const = self.const
+
         def f(i):
-            assert i >= 0
+            assert_(i >= 0)
             s = const("abc")
             x = s.find(const(''))
             x+= s.find(const(''), i)*10
             x+= s.find(const(''), i, i)*100
             x+= s.find(const(''), i, i+1)*1000
             return x
+
         for i, expected in enumerate([0, 1110, 2220, 3330, -1110, -1110]):
             res = self.interpret(f, [i])
             assert res == expected
@@ -418,14 +425,16 @@ class AbstractTestRstr(BaseRtypingTest):
 
     def test_rfind_empty_string(self):
         const = self.const
+
         def f(i):
-            assert i >= 0
+            assert_(i >= 0)
             s = const("abc")
             x = s.rfind(const(''))
             x+= s.rfind(const(''), i)*10
             x+= s.rfind(const(''), i, i)*100
             x+= s.rfind(const(''), i, i+1)*1000
             return x
+
         for i, expected in enumerate([1033, 2133, 3233, 3333, 3-1110, 3-1110]):
             res = self.interpret(f, [i])
             assert res == expected
@@ -557,7 +566,7 @@ class AbstractTestRstr(BaseRtypingTest):
 
         def fn(i):
             c = ["a", "b", "c"]
-            assert i >= 0
+            assert_(i >= 0)
             return const('').join(c[i:])
         res = self.interpret(fn, [0])
         assert self.ll_to_string(res) == const("abc")

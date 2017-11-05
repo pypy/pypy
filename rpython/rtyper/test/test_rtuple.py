@@ -1,11 +1,11 @@
 import py
+from rpython.rlib.objectmodel import assert_, compute_hash
 from rpython.rtyper.rtuple import TUPLE_TYPE, TupleRepr
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool
 from rpython.rtyper.rbool import bool_repr
 from rpython.rtyper.rint import signed_repr
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.error import TyperError
-from rpython.rlib.objectmodel import compute_hash
 from rpython.translator.translator import TranslationContext
 
 
@@ -290,7 +290,7 @@ class TestRtuple(BaseRtypingTest):
             res = []
             for x in lst:
                 res.append(list(x))
-            assert res[0] == res[1] == res[2] == []
+            assert_(res[0] == res[1] == res[2] == [])
         self.interpret(f, [])
 
     def test_slice(self):
@@ -299,14 +299,14 @@ class TestRtuple(BaseRtypingTest):
             return t[1:] + t[:-1] + t[12:] + t[0:2]
         def f(n):
             res = g(n)
-            assert len(res) == 6
-            assert res[0] == "hello"
-            assert res[1] == n
-            assert res[2] == 1.5
-            assert res[3] == "hello"
-            assert res[4] == 1.5
-            assert res[5] == "hello"
-        self.interpret(f, [9])
+            assert_(len(res) == 6)
+            assert_(res[0] == "hello")
+            assert_(res[1] == n)
+            assert_(res[2] == 1.5)
+            assert_(res[3] == "hello")
+            assert_(res[4] == 1.5)
+            assert_(res[5] == "hello")
+        res = self.interpret(f, [9])
 
     def test_tuple_eq(self):
         def f(n):
@@ -350,8 +350,8 @@ class TestRtuple(BaseRtypingTest):
 
     def test_tuple_str(self):
         def f(n):
-            assert str(()) == "()"
-            assert str((n,)) == "(%d,)" % n
-            assert str((n, 6)) == "(%d, 6)" % n
-            assert str(((n,),)) == "((%d,),)" % n
+            assert_(str(()) == "()")
+            assert_(str((n,)) == "(%d,)" % n)
+            assert_(str((n, 6)) == "(%d, 6)" % n)
+            assert_(str(((n,),)) == "((%d,),)" % n)
         self.interpret(f, [3])
