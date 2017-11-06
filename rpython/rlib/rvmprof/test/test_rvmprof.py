@@ -7,57 +7,57 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi, lltype
 
+class RVMProfTest:
 
-def test_vmprof_execute_code_1():
+    class MyCode: pass
 
-    class MyCode:
-        pass
-    try:
-        rvmprof.register_code_object_class(MyCode, lambda code: 'some code')
-    except rvmprof.VMProfPlatformUnsupported:
-        pass
+    def setup_method(self, meth):
+        self.register()
+        self.rpy_entry_point = compile(self.entry_point, [])
 
-    @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
-    def main(code, num):
-        print num
-        return 42
+    def register(self):
+        try:
+            rvmprof.register_code_object_class(self.MyCode,
+                                               lambda code: 'some code')
+        except rvmprof.VMProfPlatformUnsupported as e:
+            py.test.skip(str(e))
 
-    def f():
-        res = main(MyCode(), 5)
+
+class TestExecuteCode(RVMProfTest):
+
+    def entry_point(self):
+        res = self.main(self.MyCode(), 5)
         assert res == 42
         return 0
 
-    assert f() == 0
-    fn = compile(f, [])
-    assert fn() == 0
-
-
-def test_vmprof_execute_code_2():
-
-    class MyCode:
-        pass
-    try:
-        rvmprof.register_code_object_class(MyCode, lambda code: 'some code')
-    except rvmprof.VMProfPlatformUnsupported:
-        pass
-
-    class A:
-        pass
-
-    @rvmprof.vmprof_execute_code("xcode2", lambda num, code: code,
-                                 result_class=A)
-    def main(num, code):
+    @rvmprof.vmprof_execute_code("xcode1", lambda self, code, num: code)
+    def main(self, code, num):
         print num
-        return A()
+        return 42
 
-    def f():
-        a = main(7, MyCode())
-        assert isinstance(a, A)
+    def test(self):
+        assert self.entry_point() == 0
+        assert self.rpy_entry_point() == 0
+
+
+class TestResultClass(RVMProfTest):
+
+    class A: pass
+
+    @rvmprof.vmprof_execute_code("xcode2", lambda self, num, code: code,
+                                 result_class=A)
+    def main(self, num, code):
+        print num
+        return self.A()
+
+    def entry_point(self):
+        a = self.main(7, self.MyCode())
+        assert isinstance(a, self.A)
         return 0
 
-    assert f() == 0
-    fn = compile(f, [])
-    assert fn() == 0
+    def test(self):
+        assert self.entry_point() == 0
+        assert self.rpy_entry_point() == 0
 
 
 def test_register_code():
@@ -82,7 +82,7 @@ def test_register_code():
         return 0
 
     assert f() == 0
-    fn = compile(f, [], gcpolicy="minimark")
+    fn = compile(f, []) #, gcpolicy="minimark")
     assert fn() == 0
 
 
@@ -193,6 +193,7 @@ def test_native():
         fd = os.open(tmpfilename, os.O_RDWR | os.O_CREAT, 0666)
         num = 10000
         period = 0.0001
+
         rvmprof.enable(fd, period, native=1)
         for i in range(num):
             res = main(code, 3)
