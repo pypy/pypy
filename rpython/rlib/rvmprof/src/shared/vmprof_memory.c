@@ -8,7 +8,7 @@
 #include <mach/task_info.h>
 
 static mach_port_t mach_task;
-#else
+#elif defined(VMPROF_UNIX)
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>

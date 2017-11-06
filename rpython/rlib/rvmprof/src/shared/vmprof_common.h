@@ -15,7 +15,9 @@
 #include <pthread.h>
 #endif
 
+#ifdef VMPROF_UNIX
 #include "vmprof_getpc.h"
+#endif
 
 #ifdef VMPROF_LINUX
 #include <syscall.h>
