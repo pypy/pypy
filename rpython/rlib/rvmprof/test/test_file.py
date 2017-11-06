@@ -5,19 +5,25 @@ from os.path import join
 RVMPROF = py.path.local(__file__).join('..', '..')
 
 def github_raw_file(repo, path, branch='master'):
-    return "https://raw.githubusercontent.com/{repo}/{branch}/{path}".format(**dict(
-                repo=repo, path=path, branch=branch
-            ))
+    url = "https://raw.githubusercontent.com/{repo}/{branch}/{path}"
+    return url.format(repo=repo, path=path, branch=branch)
 
+def get_list_of_files(shared):
+    files = list(shared.visit('*.[ch]'))
+    files.remove(shared.join('libbacktrace', 'config-x86_32.h'))
+    files.remove(shared.join('libbacktrace', 'config-x86_64.h'))
+    files.remove(shared.join('libbacktrace', 'gstdint.h'))
+    return files
 
 def test_same_file():
     shared = RVMPROF.join('src', 'shared')
-    files = shared.listdir('*.[ch]')
+    files = get_list_of_files(shared)
     assert files, 'cannot find any C file, probably the directory is wrong?'
     no_matches = []
     print
     for file in files:
-        url = github_raw_file("vmprof/vmprof-python", "src/%s" % file.basename)
+        path = file.relto(shared)
+        url = github_raw_file("vmprof/vmprof-python", "src/%s" % path)
         source = urllib2.urlopen(url).read()
         dest = file.read()
         shortname = file.relto(RVMPROF)
