@@ -60,30 +60,23 @@ class TestResultClass(RVMProfTest):
         assert self.rpy_entry_point() == 0
 
 
-def test_register_code():
-
-    class MyCode:
-        pass
-    try:
-        rvmprof.register_code_object_class(MyCode, lambda code: 'some code')
-    except rvmprof.VMProfPlatformUnsupported as e:
-        py.test.skip(str(e))
-
-    @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
-    def main(code, num):
+class TestRegisterCode(RVMProfTest):
+    
+    @rvmprof.vmprof_execute_code("xcode1", lambda self, code, num: code)
+    def main(self, code, num):
         print num
         return 42
 
-    def f():
-        code = MyCode()
+    def entry_point(self):
+        code = self.MyCode()
         rvmprof.register_code(code, lambda code: 'some code')
-        res = main(code, 5)
+        res = self.main(code, 5)
         assert res == 42
         return 0
 
-    assert f() == 0
-    fn = compile(f, []) #, gcpolicy="minimark")
-    assert fn() == 0
+    def test(self):
+        assert self.entry_point() == 0
+        assert self.rpy_entry_point() == 0
 
 
 def test_enable():
