@@ -8,7 +8,7 @@ import os
 import json
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-TARGET_BASENAME = 'pypy-c'
+TARGET_BASENAME = 'pypy3-c'
 
 def make_info_dict():
     target = TARGET_BASENAME
