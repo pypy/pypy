@@ -131,7 +131,7 @@ def test_enable():
 
     assert f() == 0
     assert os.path.exists(tmpfilename)
-    fn = compile(f, [], gcpolicy="minimark")
+    fn = compile(f, [])
     assert fn() == 0
     try:
         check_profile(tmpfilename)
