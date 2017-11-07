@@ -11,6 +11,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 @pytest.mark.usefixtures('init')
 class RVMProfTest(object):
 
+    ENTRY_POINT_ARGS = ()
+
     class MyCode(object):
         def __init__(self, name='py:code:0:noname'):
             self.name = name
@@ -21,7 +23,7 @@ class RVMProfTest(object):
     @pytest.fixture
     def init(self):
         self.register()
-        self.rpy_entry_point = compile(self.entry_point, [])
+        self.rpy_entry_point = compile(self.entry_point, self.ENTRY_POINT_ARGS)
 
     def register(self):
         try:
@@ -87,52 +89,49 @@ class TestRegisterCode(RVMProfTest):
         assert self.rpy_entry_point() == 0
 
 
-class TestEnable(RVMProfTest):
+class RVMProfSamplingTest(RVMProfTest):
 
     @pytest.fixture
     def init(self, tmpdir):
         self.tmpdir = tmpdir
         self.tmpfile = tmpdir.join('profile.vmprof')
         self.tmpfilename = str(self.tmpfile)
-        super(TestEnable, self).init()
+        super(RVMProfSamplingTest, self).init()
 
-    @rvmprof.vmprof_execute_code("xcode1", lambda self, code, num: code)
-    def main(self, code, num):
-        print num
-        s = 0
-        for i in range(num):
-            s += (i << 1)
-            if s % 2123423423 == 0:
-                print s
-        return s
-
-    def entry_point(self):
+    ENTRY_POINT_ARGS = (int, float)
+    def entry_point(self, count, period):
         if NonConstant(False):
             # Hack to give os.open() the correct annotation
             os.open('foo', 1, 1)
         code = self.MyCode('py:code:52:test_enable')
         rvmprof.register_code(code, self.MyCode.get_name)
         fd = os.open(self.tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
-        if we_are_translated():
-            num = 100000000
-            period = 0.0001
-        else:
-            num = 10000
-            period = 0.9
         rvmprof.enable(fd, period)
-        res = self.main(code, num)
-        #assert res == 499999500000
+        res = self.main(code, count)
         rvmprof.disable()
         os.close(fd)
-        return 0
+        return res
+
+
+class TestEnable(RVMProfSamplingTest):
+
+    @rvmprof.vmprof_execute_code("xcode1", lambda self, code, count: code)
+    def main(self, code, count):
+        print count
+        s = 0
+        for i in range(count):
+            s += (i << 1)
+            if s % 2123423423 == 0:
+                print s
+        return s
 
     def test(self):
         from vmprof import read_profile
-        assert self.entry_point() == 0
+        assert self.entry_point(10**4, 0.9) == 99990000
         assert self.tmpfile.check()
         self.tmpfile.remove()
         #
-        assert self.rpy_entry_point() == 0
+        assert self.rpy_entry_point(10**8, 0.0001) == 9999999900000000
         assert self.tmpfile.check()
         prof = read_profile(self.tmpfilename)
         tree = prof.get_tree()
