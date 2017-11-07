@@ -11,7 +11,12 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 @pytest.mark.usefixtures('init')
 class RVMProfTest(object):
 
-    class MyCode: pass
+    class MyCode(object):
+        def __init__(self, name='py:code:0:noname'):
+            self.name = name
+
+        def get_name(self):
+            return self.name
 
     @pytest.fixture
     def init(self):
@@ -19,11 +24,9 @@ class RVMProfTest(object):
         self.rpy_entry_point = compile(self.entry_point, [])
 
     def register(self):
-        def get_name(code):
-            return 'py:code:52:x'
-
         try:
-            rvmprof.register_code_object_class(self.MyCode, get_name)
+            rvmprof.register_code_object_class(self.MyCode,
+                                               self.MyCode.get_name)
         except rvmprof.VMProfPlatformUnsupported as e:
             py.test.skip(str(e))
 
@@ -104,14 +107,11 @@ class TestEnable(RVMProfTest):
         return s
 
     def entry_point(self):
-        def get_name(code):
-            return 'py:code:52:x'
-
         if NonConstant(False):
             # Hack to give os.open() the correct annotation
             os.open('foo', 1, 1)
-        code = self.MyCode()
-        rvmprof.register_code(code, get_name)
+        code = self.MyCode('py:code:52:test_enable')
+        rvmprof.register_code(code, self.MyCode.get_name)
         fd = os.open(self.tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
         if we_are_translated():
             num = 100000000
@@ -135,8 +135,9 @@ class TestEnable(RVMProfTest):
         assert self.rpy_entry_point() == 0
         assert self.tmpfile.check()
         prof = read_profile(self.tmpfilename)
-        assert prof.get_tree().name.startswith("py:")
-        assert prof.get_tree().count
+        tree = prof.get_tree()
+        assert tree.name == 'py:code:52:test_enable'
+        assert tree.count
 
 
 def test_native():
