@@ -1,4 +1,5 @@
 import py, os
+import pytest
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
@@ -7,18 +8,22 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi, lltype
 
-class RVMProfTest:
+@pytest.mark.usefixtures('init')
+class RVMProfTest(object):
 
     class MyCode: pass
 
-    def setup_method(self, meth):
+    @pytest.fixture
+    def init(self):
         self.register()
         self.rpy_entry_point = compile(self.entry_point, [])
 
     def register(self):
+        def get_name(code):
+            return 'py:code:52:x'
+
         try:
-            rvmprof.register_code_object_class(self.MyCode,
-                                               lambda code: 'some code')
+            rvmprof.register_code_object_class(self.MyCode, get_name)
         except rvmprof.VMProfPlatformUnsupported as e:
             py.test.skip(str(e))
 
@@ -79,19 +84,17 @@ class TestRegisterCode(RVMProfTest):
         assert self.rpy_entry_point() == 0
 
 
-def test_enable():
+class TestEnable(RVMProfTest):
 
-    class MyCode:
-        pass
-    def get_name(code):
-        return 'py:code:52:x'
-    try:
-        rvmprof.register_code_object_class(MyCode, get_name)
-    except rvmprof.VMProfPlatformUnsupported as e:
-        py.test.skip(str(e))
+    @pytest.fixture
+    def init(self, tmpdir):
+        self.tmpdir = tmpdir
+        self.tmpfile = tmpdir.join('profile.vmprof')
+        self.tmpfilename = str(self.tmpfile)
+        super(TestEnable, self).init()
 
-    @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
-    def main(code, num):
+    @rvmprof.vmprof_execute_code("xcode1", lambda self, code, num: code)
+    def main(self, code, num):
         print num
         s = 0
         for i in range(num):
@@ -100,15 +103,16 @@ def test_enable():
                 print s
         return s
 
-    tmpfilename = str(udir.join('test_rvmprof'))
+    def entry_point(self):
+        def get_name(code):
+            return 'py:code:52:x'
 
-    def f():
         if NonConstant(False):
             # Hack to give os.open() the correct annotation
             os.open('foo', 1, 1)
-        code = MyCode()
+        code = self.MyCode()
         rvmprof.register_code(code, get_name)
-        fd = os.open(tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
+        fd = os.open(self.tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
         if we_are_translated():
             num = 100000000
             period = 0.0001
@@ -116,28 +120,24 @@ def test_enable():
             num = 10000
             period = 0.9
         rvmprof.enable(fd, period)
-        res = main(code, num)
+        res = self.main(code, num)
         #assert res == 499999500000
         rvmprof.disable()
         os.close(fd)
         return 0
 
-    def check_profile(filename):
+    def test(self):
         from vmprof import read_profile
-
-        prof = read_profile(filename)
+        assert self.entry_point() == 0
+        assert self.tmpfile.check()
+        self.tmpfile.remove()
+        #
+        assert self.rpy_entry_point() == 0
+        assert self.tmpfile.check()
+        prof = read_profile(self.tmpfilename)
         assert prof.get_tree().name.startswith("py:")
         assert prof.get_tree().count
 
-    assert f() == 0
-    assert os.path.exists(tmpfilename)
-    fn = compile(f, [])
-    assert fn() == 0
-    try:
-        check_profile(tmpfilename)
-    finally:
-        assert os.path.exists(tmpfilename)
-        os.unlink(tmpfilename)
 
 def test_native():
     eci = ExternalCompilationInfo(compile_extra=['-g','-O0'],
