@@ -3,8 +3,6 @@ import pytest
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.nonconst import NonConstant
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi, lltype
 
@@ -100,9 +98,6 @@ class RVMProfSamplingTest(RVMProfTest):
 
     ENTRY_POINT_ARGS = (int, float)
     def entry_point(self, count, period):
-        if NonConstant(False):
-            # Hack to give os.open() the correct annotation
-            os.open('foo', 1, 1)
         code = self.MyCode('py:code:52:test_enable')
         rvmprof.register_code(code, self.MyCode.get_name)
         fd = os.open(self.tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
