@@ -915,12 +915,6 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     Py_DECREF(res);
-    if (Py_REFCNT(arg) != 1) {
-        PyErr_Format(TestError, "test_buildvalue_N: "
-                     "arg was not decrefed in successful "
-                     "Py_BuildValue(\"%s\")", fmt);
-        return -1;
-    }
 
     Py_INCREF(arg);
     res = Py_BuildValue(fmt, raise_error, NULL, arg);
@@ -930,12 +924,6 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     PyErr_Clear();
-    if (Py_REFCNT(arg) != 1) {
-        PyErr_Format(TestError, "test_buildvalue_N: "
-                     "arg was not decrefed in failed "
-                     "Py_BuildValue(\"%s\")", fmt);
-        return -1;
-    }
     Py_DECREF(arg);
     return 0;
 }
@@ -957,10 +945,6 @@ test_buildvalue_N(PyObject *self, PyObject *noargs)
     if (res != arg) {
         return raiseTestError("test_buildvalue_N",
                               "Py_BuildValue(\"N\") returned wrong result");
-    }
-    if (Py_REFCNT(arg) != 2) {
-        return raiseTestError("test_buildvalue_N",
-                              "arg was not decrefed in Py_BuildValue(\"N\")");
     }
     Py_DECREF(res);
     Py_DECREF(arg);
