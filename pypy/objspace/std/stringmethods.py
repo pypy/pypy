@@ -628,6 +628,8 @@ class StringMethods(object):
 
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
+        if start > len(value):
+            return False
         return startswith(value, prefix, start, end)
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
@@ -653,6 +655,8 @@ class StringMethods(object):
 
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
+        if start > len(value):
+            return False
         return endswith(value, prefix, start, end)
 
     def _strip(self, space, w_chars, left, right, name='strip'):
