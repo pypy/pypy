@@ -119,6 +119,7 @@ class RVMProfSamplingTest(RVMProfTest):
         max_diff = (a+b)/2.0 * tolerance
         return abs(a-b) < max_diff
 
+
 class TestEnable(RVMProfSamplingTest):
 
     @rvmprof.vmprof_execute_code("xcode1", lambda self, code, count: code)
@@ -142,66 +143,44 @@ class TestEnable(RVMProfSamplingTest):
         assert self.approx_equal(tree.count, 0.5/self.SAMPLING_INTERVAL)
 
 
-def test_native():
-    eci = ExternalCompilationInfo(compile_extra=['-g','-O0'],
-            separate_module_sources=["""
-            RPY_EXTERN int native_func(int d) {
-                int j = 0;
-                if (d > 0) {
-                    return native_func(d-1);
-                } else {
-                    for (int i = 0; i < 42000; i++) {
-                        j += d;
+class TestNative(RVMProfSamplingTest):
+
+    @pytest.fixture
+    def init(self, tmpdir):
+        eci = ExternalCompilationInfo(compile_extra=['-g','-O0'],
+                separate_module_sources=["""
+                RPY_EXTERN int native_func(int d) {
+                    int j = 0;
+                    if (d > 0) {
+                        return native_func(d-1);
+                    } else {
+                        for (int i = 0; i < 42000; i++) {
+                            j += 1;
+                        }
                     }
+                    return j;
                 }
-                return j;
-            }
-            """])
+                """])
+        self.native_func = rffi.llexternal("native_func", [rffi.INT], rffi.INT,
+                                           compilation_info=eci)
+        super(TestNative, self).init(tmpdir)
 
-    native_func = rffi.llexternal("native_func", [rffi.INT], rffi.INT,
-                                  compilation_info=eci)
-
-    class MyCode:
-        pass
-    def get_name(code):
-        return 'py:code:52:x'
-
-    try:
-        rvmprof.register_code_object_class(MyCode, get_name)
-    except rvmprof.VMProfPlatformUnsupported as e:
-        py.test.skip(str(e))
-
-    @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
-    def main(code, num):
-        if num > 0:
-            return main(code, num-1)
+    @rvmprof.vmprof_execute_code("xcode1", lambda self, code, count: code)
+    def main(self, code, count):
+        if count > 0:
+            return self.main(code, count-1)
         else:
-            return native_func(100)
+            return self.native_func(100)
 
-    tmpfilename = str(udir.join('test_rvmprof'))
-
-    def f():
-        if NonConstant(False):
-            # Hack to give os.open() the correct annotation
-            os.open('foo', 1, 1)
-        code = MyCode()
-        rvmprof.register_code(code, get_name)
-        fd = os.open(tmpfilename, os.O_RDWR | os.O_CREAT, 0666)
-        num = 10000
-        period = 0.0001
-
-        rvmprof.enable(fd, period, native=1)
-        for i in range(num):
-            res = main(code, 3)
-        rvmprof.disable()
-        os.close(fd)
-        return 0
-
-    def check_profile(filename):
+    def test(self):
+        # XXX: this test is known to fail since rev a4f077ba651c, but buildbot
+        # never ran it. FIXME.
         from vmprof import read_profile
         from vmprof.show import PrettyPrinter
-
-        prof = read_profile(filename)
+        assert self.rpy_entry_point(3, 0.5) == 42000
+        assert self.tmpfile.check()
+        #
+        prof = read_profile(self.tmpfilename)
         tree = prof.get_tree()
         p = PrettyPrinter()
         p._print_tree(tree)
@@ -220,12 +199,3 @@ def test_native():
                     del not_found[i]
                     break
         assert not_found == []
-
-    fn = compile(f, [], gcpolicy="incminimark", lldebug=True)
-    assert fn() == 0
-    try:
-        check_profile(tmpfilename)
-    finally:
-        assert os.path.exists(tmpfilename)
-        os.unlink(tmpfilename)
-
