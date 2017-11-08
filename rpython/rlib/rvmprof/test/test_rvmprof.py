@@ -25,11 +25,8 @@ class RVMProfTest(object):
         self.rpy_entry_point = compile(self.entry_point, self.ENTRY_POINT_ARGS)
 
     def register(self):
-        try:
-            rvmprof.register_code_object_class(self.MyCode,
-                                               self.MyCode.get_name)
-        except rvmprof.VMProfPlatformUnsupported as e:
-            py.test.skip(str(e))
+        rvmprof.register_code_object_class(self.MyCode,
+                                           self.MyCode.get_name)
 
 
 class TestExecuteCode(RVMProfTest):
