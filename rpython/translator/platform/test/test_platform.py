@@ -151,6 +151,6 @@ def test_is_host_build():
     assert platform.host == platform.platform
 
     assert platform.is_host_build()
-    platform.set_platform('maemo', None)
+    platform.set_platform('arm', None)
     assert platform.host != platform.platform
     assert not platform.is_host_build()
