@@ -1459,9 +1459,8 @@ class rbigint(object):
             i -= 1
         assert i > 0
 
-        if i != self.numdigits():
-            self.size = i
-        if self.numdigits() == 1 and self._digits[0] == NULLDIGIT:
+        self.size = i
+        if i == 1 and self._digits[0] == NULLDIGIT:
             self.sign = 0
             self._digits = NULLDIGITS
 
@@ -1940,103 +1939,6 @@ def _k_mul(a, b):
     ret._normalize()
     return ret
 
-""" (*) Why adding t3 can't "run out of room" above.
-
-Let f(x) mean the floor of x and c(x) mean the ceiling of x.  Some facts
-to start with:
-
-1. For any integer i, i = c(i/2) + f(i/2).  In particular,
-   bsize = c(bsize/2) + f(bsize/2).
-2. shift = f(bsize/2)
-3. asize <= bsize
-4. Since we call k_lopsided_mul if asize*2 <= bsize, asize*2 > bsize in this
-   routine, so asize > bsize/2 >= f(bsize/2) in this routine.
-
-We allocated asize + bsize result digits, and add t3 into them at an offset
-of shift.  This leaves asize+bsize-shift allocated digit positions for t3
-to fit into, = (by #1 and #2) asize + f(bsize/2) + c(bsize/2) - f(bsize/2) =
-asize + c(bsize/2) available digit positions.
-
-bh has c(bsize/2) digits, and bl at most f(size/2) digits.  So bh+hl has
-at most c(bsize/2) digits + 1 bit.
-
-If asize == bsize, ah has c(bsize/2) digits, else ah has at most f(bsize/2)
-digits, and al has at most f(bsize/2) digits in any case.  So ah+al has at
-most (asize == bsize ? c(bsize/2) : f(bsize/2)) digits + 1 bit.
-
-The product (ah+al)*(bh+bl) therefore has at most
-
-    c(bsize/2) + (asize == bsize ? c(bsize/2) : f(bsize/2)) digits + 2 bits
-
-and we have asize + c(bsize/2) available digit positions.  We need to show
-this is always enough.  An instance of c(bsize/2) cancels out in both, so
-the question reduces to whether asize digits is enough to hold
-(asize == bsize ? c(bsize/2) : f(bsize/2)) digits + 2 bits.  If asize < bsize,
-then we're asking whether asize digits >= f(bsize/2) digits + 2 bits.  By #4,
-asize is at least f(bsize/2)+1 digits, so this in turn reduces to whether 1
-digit is enough to hold 2 bits.  This is so since SHIFT=15 >= 2.  If
-asize == bsize, then we're asking whether bsize digits is enough to hold
-c(bsize/2) digits + 2 bits, or equivalently (by #1) whether f(bsize/2) digits
-is enough to hold 2 bits.  This is so if bsize >= 2, which holds because
-bsize >= KARATSUBA_CUTOFF >= 2.
-
-Note that since there's always enough room for (ah+al)*(bh+bl), and that's
-clearly >= each of ah*bh and al*bl, there's always enough room to subtract
-ah*bh and al*bl too.
-"""
-
-def _k_lopsided_mul(a, b):
-    # Not in use anymore, only account for like 1% performance. Perhaps if we
-    # Got rid of the extra list allocation this would be more effective.
-    """
-    b has at least twice the digits of a, and a is big enough that Karatsuba
-    would pay off *if* the inputs had balanced sizes.  View b as a sequence
-    of slices, each with a->ob_size digits, and multiply the slices by a,
-    one at a time.  This gives k_mul balanced inputs to work with, and is
-    also cache-friendly (we compute one double-width slice of the result
-    at a time, then move on, never bactracking except for the helpful
-    single-width slice overlap between successive partial sums).
-    """
-    asize = a.numdigits()
-    bsize = b.numdigits()
-    # nbdone is # of b digits already multiplied
-
-    assert asize > KARATSUBA_CUTOFF
-    assert 2 * asize <= bsize
-
-    # Allocate result space, and zero it out.
-    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
-
-    # Successive slices of b are copied into bslice.
-    #bslice = rbigint([0] * asize, 1)
-    # XXX we cannot pre-allocate, see comments below!
-    # XXX prevent one list from being created.
-    bslice = rbigint(sign=1)
-
-    nbdone = 0
-    while bsize > 0:
-        nbtouse = min(bsize, asize)
-
-        # Multiply the next slice of b by a.
-
-        #bslice.digits[:nbtouse] = b.digits[nbdone : nbdone + nbtouse]
-        # XXX: this would be more efficient if we adopted CPython's
-        # way to store the size, instead of resizing the list!
-        # XXX change the implementation, encoding length via the sign.
-        bslice._digits = b._digits[nbdone : nbdone + nbtouse]
-        bslice.size = nbtouse
-        product = _k_mul(a, bslice)
-
-        # Add into result.
-        _v_iadd(ret, nbdone, ret.numdigits() - nbdone,
-                product, product.numdigits())
-
-        bsize -= nbtouse
-        nbdone += nbtouse
-
-    ret._normalize()
-    return ret
-
 def _inplace_divrem1(pout, pin, n, size=0):
     """
     Divide bigint pin by non-zero digit n, storing quotient
@@ -2147,7 +2049,7 @@ def _v_lshift(z, a, m, d):
     """
 
     carry = _unsigned_widen_digit(0)
-    assert 0 <= d and d < SHIFT
+    #assert 0 <= d and d < SHIFT
     i = 0
     while i < m:
         acc = a.uwidedigit(i) << d | carry
@@ -2166,7 +2068,7 @@ def _v_rshift(z, a, m, d):
     acc = _unsigned_widen_digit(0)
     mask = (1 << d) - 1
 
-    assert 0 <= d and d < SHIFT
+    #assert 0 <= d and d < SHIFT
     i = m-1
     while i >= 0:
         acc = (carry << SHIFT) | a.uwidedigit(i)
