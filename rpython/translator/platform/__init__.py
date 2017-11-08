@@ -320,9 +320,7 @@ elif sys.platform == 'cygwin':
     else:
         host_factory = Cygwin64
 else:
-    # pray
-    from rpython.translator.platform.distutils_platform import DistutilsPlatform
-    host_factory = DistutilsPlatform
+    raise ValueError('unknown sys.platform "%s"', sys.platform)
 
 platform = host = host_factory()
 
@@ -335,9 +333,6 @@ def pick_platform(new_platform, cc):
     elif new_platform == 'arm':
         from rpython.translator.platform.arm import ARM
         return ARM(cc)
-    elif new_platform == 'distutils':
-        from rpython.translator.platform.distutils_platform import DistutilsPlatform
-        return DistutilsPlatform()
     else:
         raise ValueError("platform = %s" % (new_platform,))
 
