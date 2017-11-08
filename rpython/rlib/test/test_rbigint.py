@@ -616,7 +616,7 @@ class Test_rbigint(object):
                     assert res3 == -num << z
                     assert res4 == -num >> z
                     
-        # Large digit
+        # Large digit, also invertion test.
         for x in range((1 << SHIFT) - 10, (1 << SHIFT) + 10):
             f1 = rbigint.fromlong(x)
             nf1 = rbigint.fromlong(-x)
@@ -869,14 +869,6 @@ class TestInternalFunctions(object):
         f1 = bigint([lobj.MASK] * digs, 1)
         f2 = lobj._x_add(f1, bigint([1], 1))
         ret = lobj._k_mul(f1, f2)
-        assert ret.tolong() == f1.tolong() * f2.tolong()
-
-    def test__k_lopsided_mul(self):
-        digs_a = KARATSUBA_CUTOFF + 3
-        digs_b = 3 * digs_a
-        f1 = bigint([lobj.MASK] * digs_a, 1)
-        f2 = bigint([lobj.MASK] * digs_b, 1)
-        ret = lobj._k_lopsided_mul(f1, f2)
         assert ret.tolong() == f1.tolong() * f2.tolong()
 
     def test_longlong(self):
