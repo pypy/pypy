@@ -1,25 +1,27 @@
 from hypothesis import strategies as st
 from hypothesis import given, example
 
-@given(st.binary(), st.binary(), st.binary())
+st_bytestring = st.binary() | st.binary().map(bytearray)
+
+@given(st_bytestring, st_bytestring, st_bytestring)
 def test_find(u, prefix, suffix):
     s = prefix + u + suffix
     assert 0 <= s.find(u) <= len(prefix)
     assert s.find(u, len(prefix), len(s) - len(suffix)) == len(prefix)
 
-@given(st.binary(), st.binary(), st.binary())
+@given(st_bytestring, st_bytestring, st_bytestring)
 def test_index(u, prefix, suffix):
     s = prefix + u + suffix
     assert 0 <= s.index(u) <= len(prefix)
     assert s.index(u, len(prefix), len(s) - len(suffix)) == len(prefix)
 
-@given(st.binary(), st.binary(), st.binary())
+@given(st_bytestring, st_bytestring, st_bytestring)
 def test_rfind(u, prefix, suffix):
     s = prefix + u + suffix
     assert s.rfind(u) >= len(prefix)
     assert s.rfind(u, len(prefix), len(s) - len(suffix)) == len(prefix)
 
-@given(st.binary(), st.binary(), st.binary())
+@given(st_bytestring, st_bytestring, st_bytestring)
 def test_rindex(u, prefix, suffix):
     s = prefix + u + suffix
     assert s.rindex(u) >= len(prefix)
@@ -34,20 +36,20 @@ def adjust_indices(u, start, end):
         start = max(start + len(u), 0)
     return start, end
 
-@given(st.binary(), st.binary())
+@given(st_bytestring, st_bytestring)
 def test_startswith_basic(u, v):
     assert u.startswith(v) is (u[:len(v)] == v)
 
 @example(b'x', b'', 1)
 @example(b'x', b'', 2)
-@given(st.binary(), st.binary(), st.integers())
+@given(st_bytestring, st_bytestring, st.integers())
 def test_startswith_start(u, v, start):
     expected = u[start:].startswith(v) if v else (start <= len(u))
     assert u.startswith(v, start) is expected
 
 @example(b'x', b'', 1, 0)
 @example(b'xx', b'', -1, 0)
-@given(st.binary(), st.binary(), st.integers(), st.integers())
+@given(st_bytestring, st_bytestring, st.integers(), st.integers())
 def test_startswith_3(u, v, start, end):
     if v:
         expected = u[start:end].startswith(v)
@@ -56,7 +58,7 @@ def test_startswith_3(u, v, start, end):
         expected = start0 <= len(u) and start0 <= end0
     assert u.startswith(v, start, end) is expected
 
-@given(st.binary(), st.binary())
+@given(st_bytestring, st_bytestring)
 def test_endswith_basic(u, v):
     if len(v) > len(u):
         assert u.endswith(v) is False
@@ -65,14 +67,14 @@ def test_endswith_basic(u, v):
 
 @example(b'x', b'', 1)
 @example(b'x', b'', 2)
-@given(st.binary(), st.binary(), st.integers())
+@given(st_bytestring, st_bytestring, st.integers())
 def test_endswith_2(u, v, start):
     expected = u[start:].endswith(v) if v else (start <= len(u))
     assert u.endswith(v, start) is expected
 
 @example(b'x', b'', 1, 0)
 @example(b'xx', b'', -1, 0)
-@given(st.binary(), st.binary(), st.integers(), st.integers())
+@given(st_bytestring, st_bytestring, st.integers(), st.integers())
 def test_endswith_3(u, v, start, end):
     if v:
         expected = u[start:end].endswith(v)
