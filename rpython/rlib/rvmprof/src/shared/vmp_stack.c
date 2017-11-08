@@ -29,6 +29,7 @@ static int (*unw_get_proc_name)(unw_cursor_t *, char *, size_t, unw_word_t*) = N
 static int (*unw_is_signal_frame)(unw_cursor_t *) = NULL;
 static int (*unw_getcontext)(unw_context_t *) = NULL;
 #else
+#define UNW_LOCAL_ONLY
 #include <libunwind.h>
 #endif
 
