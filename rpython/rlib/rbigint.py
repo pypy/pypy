@@ -848,14 +848,14 @@ class rbigint(object):
                 mod = self.int_and_(digit - 1)
             else:
                 # Perform
-                size = self.numdigits() - 1
+                size = UDIGIT_TYPE(self.numdigits() - 1)
                 
                 if size > 0:
                     rem = self.widedigit(size)
-                    size -= 1
-                    while size >= 0:
-                        rem = ((rem << SHIFT) | self.digit(size)) % digit
+                    while size > 0:
                         size -= 1
+                        rem = ((rem << SHIFT) | self.digit(size)) % digit
+                        
                 else:
                     rem = self.widedigit(0) % digit
 
@@ -890,13 +890,13 @@ class rbigint(object):
                 mod = self.int_and_(digit - 1)
             else:
                 # Perform
-                size = self.numdigits() - 1
+                size = UDIGIT_TYPE(self.numdigits() - 1)
+                
                 if size > 0:
                     rem = self.widedigit(size)
-                    size -= 1
-                    while size >= 0:
-                        rem = ((rem << SHIFT) | self.digit(size)) % digit
+                    while size > 0:
                         size -= 1
+                        rem = ((rem << SHIFT) | self.digit(size)) % digit
                 else:
                     rem = self.digit(0) % digit
 
@@ -981,7 +981,7 @@ class rbigint(object):
             # XXX failed to implement
             raise ValueError("bigint pow() too negative")
 
-        size_b = b.numdigits()
+        size_b = UDIGIT_TYPE(b.numdigits())
 
         if b.sign == 0:
             return ONERBIGINT
@@ -1040,8 +1040,9 @@ class rbigint(object):
         if size_b <= FIVEARY_CUTOFF:
             # Left-to-right binary exponentiation (HAC Algorithm 14.79)
             # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-            size_b -= 1
-            while size_b >= 0:
+
+            while size_b > 0:
+                size_b -= 1
                 bi = b.digit(size_b)
                 j = 1 << (SHIFT-1)
                 while j != 0:
@@ -1049,7 +1050,7 @@ class rbigint(object):
                     if bi & j:
                         z = _help_mult(z, a, c)
                     j >>= 1
-                size_b -= 1
+                
 
         else:
             # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
@@ -1328,7 +1329,7 @@ class rbigint(object):
         hishift = SHIFT - loshift
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
-        inverted = False
+
         while i < newsize:
             digit = self.udigit(wordshift)
             if invert and i == 0 and wordshift == 0:
