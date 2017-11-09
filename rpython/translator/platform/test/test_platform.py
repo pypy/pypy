@@ -147,10 +147,13 @@ def test_equality():
 
 
 def test_is_host_build():
+    from platform import machine
     from rpython.translator import platform
     assert platform.host == platform.platform
 
     assert platform.is_host_build()
-    platform.set_platform('maemo', None)
-    assert platform.host != platform.platform
-    assert not platform.is_host_build()
+    # do we support non-host builds?
+    if machine().startswith('arm'):
+        platform.set_platform('arm', None)
+        assert platform.host != platform.platform
+        assert not platform.is_host_build()

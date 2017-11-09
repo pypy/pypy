@@ -4,7 +4,7 @@ from .infrastructure import sane_term
 
 
 @pytest.mark.skipif("os.name != 'posix' or 'darwin' in sys.platform or "
-                    "'kfreebsd' in sys.platform")
+                    "'freebsd' in sys.platform")
 def test_raw_input():
     import os
     import pty

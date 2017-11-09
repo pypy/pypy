@@ -955,7 +955,13 @@ char* cppyy_method_arg_default(
     return cppstring_to_cstring("");
 }
 
-char* cppyy_method_signature(cppyy_scope_t /* handle */, cppyy_index_t /* method_index */) {
+char* cppyy_method_signature(
+        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* show_formalargs */) {
+    return cppstring_to_cstring("");
+}
+
+char* cppyy_method_prototype(
+        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* show_formalargs */) {
     return cppstring_to_cstring("");
 }
 

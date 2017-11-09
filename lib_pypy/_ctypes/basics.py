@@ -176,6 +176,10 @@ class _CData(object):
     def _get_buffer_value(self):
         return self._buffer[0]
 
+    def _copy_to(self, addr):
+        target = type(self).from_address(addr)._buffer
+        target[0] = self._get_buffer_value()
+
     def _to_ffi_param(self):
         if self.__class__._is_pointer_like():
             return self._get_buffer_value()
