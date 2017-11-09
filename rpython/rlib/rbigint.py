@@ -167,6 +167,7 @@ class rbigint(object):
     def __ne__(self, other):
         return not (self == other)
 
+    @specialize.argtype(1)
     def digit(self, x):
         """Return the x'th digit, as an int."""
         return self._digits[x]
@@ -212,13 +213,15 @@ class rbigint(object):
         if intval < 0:
             sign = -1
             ival = -r_uint(intval)
+            carry = ival >> SHIFT
         elif intval > 0:
             sign = 1
             ival = r_uint(intval)
+            carry = 0
         else:
             return NULLRBIGINT
 
-        carry = ival >> SHIFT
+        
         if carry:
             return rbigint([_store_digit(ival & MASK),
                 _store_digit(carry)], sign, 2)
@@ -851,17 +854,17 @@ class rbigint(object):
                 size = UDIGIT_TYPE(self.numdigits() - 1)
                 
                 if size > 0:
-                    rem = self.widedigit(size)
+                    wrem = self.widedigit(size)
                     while size > 0:
                         size -= 1
-                        rem = ((rem << SHIFT) | self.digit(size)) % digit
-                        
+                        wrem = ((wrem << SHIFT) | self.digit(size)) % digit
+                    rem = _store_digit(wrem)
                 else:
-                    rem = self.widedigit(0) % digit
+                    rem = _store_digit(self.digit(0) % digit)
 
                 if rem == 0:
                     return NULLRBIGINT
-                mod = rbigint([_store_digit(rem)], -1 if self.sign < 0 else 1, 1)
+                mod = rbigint([rem], -1 if self.sign < 0 else 1, 1)
         else:
             div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
@@ -893,16 +896,17 @@ class rbigint(object):
                 size = UDIGIT_TYPE(self.numdigits() - 1)
                 
                 if size > 0:
-                    rem = self.widedigit(size)
+                    wrem = self.widedigit(size)
                     while size > 0:
                         size -= 1
-                        rem = ((rem << SHIFT) | self.digit(size)) % digit
+                        wrem = ((wrem << SHIFT) | self.digit(size)) % digit
+                    rem = _store_digit(wrem)
                 else:
-                    rem = self.digit(0) % digit
+                    rem = _store_digit(self.digit(0) % digit)
 
                 if rem == 0:
                     return NULLRBIGINT
-                mod = rbigint([_store_digit(rem)], -1 if self.sign < 0 else 1, 1)
+                mod = rbigint([rem], -1 if self.sign < 0 else 1, 1)
         else:
             raise ZeroDivisionError("long division or modulo by zero")
 
