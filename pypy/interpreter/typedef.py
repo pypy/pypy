@@ -16,7 +16,7 @@ class TypeDef(object):
     @not_rpython
     def __init__(self, __name, __base=None, __total_ordering__=None,
                  __buffer=None, __confirm_applevel_del__=False,
-                 variable_sized=False, **rawdict):
+                 _text_signature_=None, variable_sized=False, **rawdict):
         "initialization-time only"
         self.name = __name
         if __base is None:
@@ -36,6 +36,7 @@ class TypeDef(object):
             assert '__del__' not in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.get('__doc__', None)
+        self.text_signature = _text_signature_
         for base in bases:
             self.hasdict |= base.hasdict
             self.weakrefable |= base.weakrefable

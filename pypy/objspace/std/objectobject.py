@@ -280,6 +280,7 @@ def descr__dir__(space, w_obj):
     return space.call_function(space.w_list, _objectdir(space, w_obj))
 
 W_ObjectObject.typedef = TypeDef("object",
+    _text_signature_='()',
     __doc__ = "The most base type",
     __new__ = interp2app(descr__new__),
     __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True),
