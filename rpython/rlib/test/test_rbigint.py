@@ -144,7 +144,7 @@ class TestRLong(object):
                 rl_op2 = rbigint.fromlong(op2)
                 r1 = rl_op1.mod(rl_op2)
                 r2 = op1 % op2
-                print op1, op2
+                
                 assert r1.tolong() == r2
 
     def test_int_mod(self):

@@ -2049,7 +2049,7 @@ def _v_lshift(z, a, m, d):
         * result in z[0:m], and return the d bits shifted out of the top.
     """
 
-    carry = _unsigned_widen_digit(0)
+    carry = 0
     #assert 0 <= d and d < SHIFT
     i = 0
     while i < m:
@@ -2072,7 +2072,7 @@ def _v_rshift(z, a, m, d):
     #assert 0 <= d and d < SHIFT
     i = m-1
     while i >= 0:
-        acc = (carry << SHIFT) | a.uwidedigit(i)
+        acc = (carry << SHIFT) | a.udigit(i)
         carry = acc & mask
         z.setdigit(i, acc >> d)
         i -= 1
@@ -2127,10 +2127,10 @@ def _x_divrem(v1, w1):
         else:
             vtop = v.widedigit(j) << SHIFT
         #assert vtop <= wm1
-        vv = vtop | v.widedigit(abs(j-1))
+        vv = vtop | v.digit(abs(j-1))
         q = vv / wm1
         r = vv % wm1 # This seems to be slightly faster than on widen digits than vv - wm1 * q.
-        vj2 = v.widedigit(abs(j-2))
+        vj2 = v.digit(abs(j-2))
         while wm2 * q > ((r << SHIFT) | vj2):
             q -= 1
             r += wm1
