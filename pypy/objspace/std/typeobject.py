@@ -977,6 +977,7 @@ def descr_set__doc(space, w_type, w_value):
     w_type.setdictvalue(space, '__doc__', w_value)
 
 def type_get_txtsig(space, w_type):
+    w_type = _check(space, w_type)
     if w_type.text_signature is None:
         return space.w_None
     return space.newtext(w_type.text_signature)
