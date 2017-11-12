@@ -1753,12 +1753,12 @@ def _x_mul(a, b, digit=0):
                 pz += 1
                 carry >>= SHIFT
             if carry:
-                carry += z.uwidedigit(pz)
+                carry += z.udigit(pz)
                 z.setdigit(pz, carry)
                 pz += 1
                 carry >>= SHIFT
             if carry:
-                z.setdigit(pz, z.uwidedigit(pz) + carry)
+                z.setdigit(pz, z.udigit(pz) + carry)
             assert (carry >> SHIFT) == 0
             i += 1
         z._normalize()
@@ -1822,7 +1822,7 @@ def _x_mul(a, b, digit=0):
             pz += 1
             carry >>= SHIFT
         if carry:
-            z.setdigit(pz, z.uwidedigit(pz) + carry)
+            z.setdigit(pz, z.udigit(pz) + carry)
     z._normalize()
     return z
 
