@@ -453,6 +453,16 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         p = property(lambda: "never used", pset, pdel)
         assert module.tp_descr_set(p) is True
 
+    def test_text_signature(self):
+        module = self.import_module(name='docstrings')
+        assert module.SomeType.__text_signature__ == '()'
+        assert module.SomeType.__doc__ == 'A type with a signature'
+        if '__pypy__' in sys.modules:
+            assert module.HeapType.__text_signature__ == '()'
+        else:  # XXX: bug in CPython?
+            assert module.HeapType.__text_signature__ is None
+        assert module.HeapType.__doc__ == 'A type with a signature'
+
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
