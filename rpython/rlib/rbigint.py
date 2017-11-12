@@ -718,7 +718,7 @@ class rbigint(object):
             elif a._digits[0] == ONEDIGIT:
                 return rbigint(b._digits[:bsize], a.sign * b.sign, bsize)
             elif bsize == 1:
-                res = b.uwidedigit(0) * a.uwidedigit(0)
+                res = b.uwidedigit(0) * a.udigit(0)
                 carry = res >> SHIFT
                 if carry:
                     return rbigint([_store_digit(res & MASK), _store_digit(carry)], a.sign * b.sign, 2)
@@ -1949,13 +1949,13 @@ def _inplace_divrem1(pout, pin, n, size=0):
     Divide bigint pin by non-zero digit n, storing quotient
     in pout, and returning the remainder. It's OK for pin == pout on entry.
     """
-    rem = _widen_digit(0)
+    rem = _unsigned_widen_digit(0)
     assert n > 0 and n <= MASK
     if not size:
         size = pin.numdigits()
     size -= 1
     while size >= 0:
-        rem = (rem << SHIFT) | pin.digit(size)
+        rem = (rem << SHIFT) | pin.udigit(size)
         hi = rem // n
         pout.setdigit(size, hi)
         rem -= hi * n
