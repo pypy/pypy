@@ -2117,7 +2117,7 @@ def _x_divrem(v1, w1):
 
     wm1 = w.widedigit(abs(size_w-1))
     wm2 = w.widedigit(abs(size_w-2))
-
+    
     j = size_v - 1
     k -= 1
     while k >= 0:
@@ -2132,7 +2132,7 @@ def _x_divrem(v1, w1):
             vtop = v.widedigit(j) << SHIFT
 
         vv = vtop | v.digit(abs(j-1))
-        # These two hints to make division just as fast as doing it unsigned.
+        # Hints to make division just as fast as doing it unsigned. But avoids casting to get correct results.
         assert vv >= 0
         assert wm1 >= 1
         q = vv / wm1
