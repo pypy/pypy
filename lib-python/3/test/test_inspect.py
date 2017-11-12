@@ -769,7 +769,6 @@ class TestClassesAndFunctions(unittest.TestCase):
              kwonlydefaults_e={'dir_fd': None, 'follow_symlinks': True},
              formatted='(path, *, dir_fd=None, follow_symlinks=True)')
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_getfullagrspec_builtin_func(self):
@@ -778,7 +777,6 @@ class TestClassesAndFunctions(unittest.TestCase):
         spec = inspect.getfullargspec(builtin)
         self.assertEqual(spec.defaults[0], 'avocado')
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_getfullagrspec_builtin_func_no_signature(self):
@@ -1959,7 +1957,6 @@ class TestSignatureObject(unittest.TestCase):
                            ('kwargs', ..., int, "var_keyword")),
                           ...))
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_on_builtins(self):
@@ -2033,7 +2030,6 @@ class TestSignatureObject(unittest.TestCase):
         # Regression test for issue #20586
         test_callable(_testcapi.docstring_with_signature_but_no_doc)
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_on_decorated_builtins(self):
@@ -2056,7 +2052,6 @@ class TestSignatureObject(unittest.TestCase):
                                            follow_wrapped=False),
                          inspect.signature(wrapper_like))
 
-    @cpython_only
     def test_signature_on_builtins_no_signature(self):
         import _testcapi
         with self.assertRaisesRegex(ValueError,
@@ -3417,7 +3412,6 @@ class TestSignatureDefinitions(unittest.TestCase):
     # This test case provides a home for checking that particular APIs
     # have signatures available for introspection
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_builtins_have_signatures(self):
