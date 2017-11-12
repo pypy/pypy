@@ -476,7 +476,7 @@ def ll_lllong_py_div_zer(x, y):
 
 @jit.dont_look_inside
 def ll_ulllong_py_div(x, y):
-    return llop.ullong_floordiv(UnsignedLongLongLong, x, y)
+    return llop.ulllong_floordiv(UnsignedLongLongLong, x, y)
 
 def ll_ulllong_py_div_zer(x, y):
     if y == 0:
