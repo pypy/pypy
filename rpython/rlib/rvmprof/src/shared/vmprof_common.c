@@ -32,11 +32,20 @@ static pthread_t *threads = NULL;
 static size_t threads_size = 0;
 static size_t thread_count = 0;
 static size_t threads_size_step = 8;
-#endif
 
 int vmprof_get_itimer_type(void) {
     return itimer_type;
 }
+
+int vmprof_get_signal_type(void) {
+    return signal_type;
+}
+#endif
+
+#ifdef VMPROF_WINDOWS
+#include "vmprof_win.h"
+#endif
+
 
 int vmprof_is_enabled(void) {
     return is_enabled;
@@ -60,10 +69,6 @@ void vmprof_set_prepare_interval_usec(long value) {
 
 void vmprof_set_profile_interval_usec(long value) {
     profile_interval_usec = value;
-}
-
-int vmprof_get_signal_type(void) {
-    return signal_type;
 }
 
 char *vmprof_init(int fd, double interval, int memory,

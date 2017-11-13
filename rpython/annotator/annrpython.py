@@ -15,9 +15,33 @@ from rpython.annotator.model import (
     typeof, s_ImpossibleValue, SomeInstance, intersection, difference)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
+from collections import deque
 
 log = AnsiLogger("annrpython")
 
+
+class ShuffleDict(object):
+    def __init__(self):
+        self._d = {}
+        self.keys = deque()
+
+    def __setitem__(self, k, v):
+        if k in self._d:
+            self._d[k] = v
+        else:
+            self._d[k] = v
+            self.keys.append(k)
+
+    def __getitem__(self, k):
+        return self._d[k]
+
+    def popitem(self):
+        key = self.keys.popleft()
+        item = self._d.pop(key)
+        return (key, item)
+
+    def __nonzero__(self):
+        return bool(self._d)
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.
@@ -33,7 +57,7 @@ class RPythonAnnotator(object):
             translator = TranslationContext()
             translator.annotator = self
         self.translator = translator
-        self.pendingblocks = {}  # map {block: graph-containing-it}
+        self.pendingblocks = ShuffleDict()  # map {block: graph-containing-it}
         self.annotated = {}      # set of blocks already seen
         self.added_blocks = None # see processblock() below
         self.links_followed = {} # set of links that have ever been followed

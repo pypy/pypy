@@ -375,6 +375,11 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
     def test_export_function(self):
         import sys
+        if '__pypy__' in sys.modules:
+            from cpyext import is_cpyext_function
+        else:
+            import inspect
+            is_cpyext_function = inspect.isbuiltin
         body = """
         PyObject* foo_pi(PyObject* self, PyObject *args)
         {
@@ -396,6 +401,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert 'return_pi' in dir(module)
         assert module.return_pi is not None
+        assert is_cpyext_function(module.return_pi)
         assert module.return_pi() == 3.14
         assert module.return_pi.__module__ == 'foo'
 

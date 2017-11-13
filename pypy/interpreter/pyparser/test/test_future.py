@@ -193,3 +193,13 @@ def test_dummy_semicolons():
          'from __future__ import with_statement;')
     f = run(s, (2, 23))
     assert f == 0
+
+def test_future_doc_future():
+    # for some reason people do this :-[
+    s = '''
+from  __future__ import generators
+"Docstring"
+from  __future__ import division
+    '''
+    f = run(s, (4, 24))
+    assert f == 0
