@@ -32,6 +32,8 @@ from test import inspect_fodder2 as mod2
 from test.support import check_impl_detail
 
 from test.test_import import _ready_to_import
+if check_impl_detail():
+    import _pickle
 
 
 # Functions tested in this suite:
@@ -755,12 +757,12 @@ class TestClassesAndFunctions(unittest.TestCase):
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_getfullargspec_builtin_methods(self):
-        import _pickle
-        self.assertFullArgSpecEquals(_pickle.Pickler.dump,
-                                     args_e=['self', 'obj'], formatted='(self, obj)')
+        if check_impl_detail():
+            self.assertFullArgSpecEquals(_pickle.Pickler.dump,
+                                        args_e=['self', 'obj'], formatted='(self, obj)')
 
-        self.assertFullArgSpecEquals(_pickle.Pickler(io.BytesIO()).dump,
-                                     args_e=['self', 'obj'], formatted='(self, obj)')
+            self.assertFullArgSpecEquals(_pickle.Pickler(io.BytesIO()).dump,
+                                        args_e=['self', 'obj'], formatted='(self, obj)')
 
         self.assertFullArgSpecEquals(
              os.stat,
@@ -1961,7 +1963,6 @@ class TestSignatureObject(unittest.TestCase):
                      "Signature information for builtins requires docstrings")
     def test_signature_on_builtins(self):
         import _testcapi
-        import _pickle
 
         def test_unbound_method(o):
             """Use this to test unbound methods (things that should have a self)"""
@@ -1995,9 +1996,10 @@ class TestSignatureObject(unittest.TestCase):
 
         # normal method
         # (PyMethodDescr_Type, "method_descriptor")
-        test_unbound_method(_pickle.Pickler.dump)
-        d = _pickle.Pickler(io.StringIO())
-        test_callable(d.dump)
+        if check_impl_detail():
+            test_unbound_method(_pickle.Pickler.dump)
+            d = _pickle.Pickler(io.StringIO())
+            test_callable(d.dump)
 
         # static method
         test_callable(str.maketrans)
@@ -2627,10 +2629,10 @@ class TestSignatureObject(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "callable.*is not supported"):
             self.assertEqual(inspect.signature(D), None)
 
+    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_on_builtin_class(self):
-        import _pickle
         self.assertEqual(str(inspect.signature(_pickle.Pickler)),
                          '(file, protocol=None, fix_imports=True)')
 
@@ -2876,10 +2878,10 @@ class TestSignatureObject(unittest.TestCase):
         foo_sig = MySignature.from_callable(foo)
         self.assertTrue(isinstance(foo_sig, MySignature))
 
+    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_from_callable_builtin_obj(self):
-        import _pickle
         class MySignature(inspect.Signature): pass
         sig = MySignature.from_callable(_pickle.Pickler)
         self.assertTrue(isinstance(sig, MySignature))
