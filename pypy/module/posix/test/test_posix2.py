@@ -378,16 +378,21 @@ class AppTestPosix:
 
     def test_times(self):
         """
-        posix.times() should return a five-tuple giving float-representations
-        (seconds, effectively) of the four fields from the underlying struct
-        tms and the return value.
+        posix.times() should return a posix.times_result object giving 
+        float-representations (seconds, effectively) of the four fields from 
+        the underlying struct tms and the return value.
         """
         result = self.posix.times()
-        assert isinstance(result, tuple)
+        assert isinstance(self.posix.times(), self.posix.times_result)
+        assert isinstance(self.posix.times(), tuple)
         assert len(result) == 5
         for value in result:
             assert isinstance(value, float)
-
+        assert isinstance(result.user, float)
+        assert isinstance(result.system, float)
+        assert isinstance(result.children_user, float)
+        assert isinstance(result.children_system, float)
+        assert isinstance(result.elapsed, float)
 
     def test_strerror(self):
         assert isinstance(self.posix.strerror(0), str)
