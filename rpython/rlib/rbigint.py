@@ -1314,38 +1314,22 @@ class rbigint(object):
         wordshift = int_other / SHIFT
         loshift = int_other % SHIFT
         newsize = self.numdigits() - wordshift
-
-        invert = False
-        if self.sign == -1:
-            first = self.digit(0)
-            if first == 0:
-                a = self.invert().rqshift(int_other)
-                return a.invert()
-            invert = True
             
         if newsize <= 0:
-            if invert:
-                return ONENEGATIVERBIGINT
-            else:
-                return NULLRBIGINT
+            return NULLRBIGINT
                 
-        
         hishift = SHIFT - loshift
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
 
         while i < newsize:
             digit = self.udigit(wordshift)
-            if invert and i == 0 and wordshift == 0:
-                digit -= 1
             newdigit = (digit >> loshift)
             if i+1 < newsize:
                 newdigit |= (self.udigit(wordshift+1) << hishift)
             z.setdigit(i, newdigit)
             i += 1
-            wordshift += 1
-        if invert:
-            z.setdigit(0, z.digit(0)+1)      
+            wordshift += 1 
         z._normalize()
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
