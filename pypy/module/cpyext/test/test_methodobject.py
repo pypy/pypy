@@ -104,8 +104,10 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         class A(object): pass
         A.f = mod.f
         A.g = lambda: 42
+        # Unbound method
         assert A.f() == 42
         raises(TypeError, A.g)
+        # Bound method
         assert A().f() == 42
         raises(TypeError, A().g)
 

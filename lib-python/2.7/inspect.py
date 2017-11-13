@@ -40,6 +40,10 @@ import tokenize
 import linecache
 from operator import attrgetter
 from collections import namedtuple
+try:
+    from cpyext import is_cpyext_function as _is_cpyext_function
+except ImportError:
+    _is_cpyext_function = lambda obj: False
 
 # These constants are from Include/code.h.
 CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS = 0x1, 0x2, 0x4, 0x8
@@ -230,7 +234,7 @@ def isbuiltin(object):
         __doc__         documentation string
         __name__        original name of this function or method
         __self__        instance to which a method is bound, or None"""
-    return isinstance(object, types.BuiltinFunctionType)
+    return isinstance(object, types.BuiltinFunctionType) or _is_cpyext_function(object)
 
 def isroutine(object):
     """Return true if the object is any kind of function or method."""
