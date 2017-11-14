@@ -788,8 +788,8 @@ class rbigint(object):
         if self.sign == 1 and other.numdigits() == 1 and other.sign == 1:
             digit = other.digit(0)
             if digit == 1:
-                return rbigint(self._digits[:self.numdigits()], 1, self.numdigits())
-            elif digit and digit & (digit - 1) == 0:
+                return self
+            elif digit & (digit - 1) == 0:
                 return self.rqshift(ptwotable[digit])
 
         div, mod = _divrem(self, other)
