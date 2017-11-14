@@ -2023,7 +2023,7 @@ class TestSignatureObject(unittest.TestCase):
 
         # This doesn't work now.
         # (We don't have a valid signature for "type" in 3.4)
-        with self.assertRaisesRegex(ValueError, "no signature found"):
+        with self.assertRaisesRegex(ValueError, "signature"):
             class ThisWorksNow:
                 __call__ = type
             test_callable(ThisWorksNow())
