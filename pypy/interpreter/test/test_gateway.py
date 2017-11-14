@@ -18,7 +18,7 @@ class FakeFunc(object):
 
 
 class TestBuiltinCode:
-    def test_signature(self):
+    def test_signature(self, space):
         def c(space, w_x, w_y, hello_w):
             pass
         code = gateway.BuiltinCode(c, unwrap_spec=[gateway.ObjSpace,
@@ -53,6 +53,8 @@ class TestBuiltinCode:
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace,
                                                    "kwonly", W_Root])
         assert code.signature() == Signature([], kwonlyargnames=['x'])
+        assert space.int_w(space.getattr(
+            code, space.newtext('co_kwonlyargcount'))) == 1
 
 
     def test_call(self):

@@ -538,6 +538,9 @@ def fget_co_varnames(space, code): # unwrapping through unwrap_spec
 def fget_co_argcount(space, code): # unwrapping through unwrap_spec
     return space.newint(code.signature().num_argnames())
 
+def fget_co_kwonlyargcount(space, code): # unwrapping through unwrap_spec
+    return space.newint(code.signature().num_kwonlyargnames())
+
 def fget_zero(space, code):
     return space.newint(0)
 
@@ -597,7 +600,7 @@ BuiltinCode.typedef = TypeDef('builtin-code',
     co_name = interp_attrproperty('co_name', cls=BuiltinCode, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=BuiltinCode),
     co_argcount = GetSetProperty(fget_co_argcount, cls=BuiltinCode),
-    co_kwonlyargcount = GetSetProperty(fget_zero, cls=BuiltinCode),
+    co_kwonlyargcount = GetSetProperty(fget_co_kwonlyargcount, cls=BuiltinCode),
     co_flags = GetSetProperty(fget_co_flags, cls=BuiltinCode),
     co_consts = GetSetProperty(fget_co_consts, cls=BuiltinCode),
     )
