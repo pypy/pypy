@@ -2818,8 +2818,6 @@ make_memoryview_from_NULL_pointer(PyObject *self)
     return PyMemoryView_FromBuffer(&info);
 }
 
-#ifndef PYPY_VERSION
-
 static PyObject *
 test_from_contiguous(PyObject* self, PyObject *noargs)
 {
@@ -2869,7 +2867,6 @@ test_from_contiguous(PyObject* self, PyObject *noargs)
 
     Py_RETURN_NONE;
 }
-#endif  /* PYPY_VERSION */
 
 #if (defined(__linux__) || defined(__FreeBSD__)) && defined(__GNUC__) && !defined(PYPY_VERSION)
 extern PyTypeObject _PyBytesIOBuffer_Type;
@@ -3907,9 +3904,7 @@ static PyMethodDef TestMethods[] = {
     {"test_string_to_double", (PyCFunction)test_string_to_double, METH_NOARGS},
     {"test_unicode_compare_with_ascii", (PyCFunction)test_unicode_compare_with_ascii, METH_NOARGS},
     {"test_capsule", (PyCFunction)test_capsule, METH_NOARGS},
-#ifndef PYPY_VERSION
     {"test_from_contiguous", (PyCFunction)test_from_contiguous, METH_NOARGS},
-#endif
 #if (defined(__linux__) || defined(__FreeBSD__)) && defined(__GNUC__) && !defined(PYPY_VERSION)
     {"test_pep3118_obsolete_write_locks", (PyCFunction)test_pep3118_obsolete_write_locks, METH_NOARGS},
 #endif

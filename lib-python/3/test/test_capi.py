@@ -29,8 +29,9 @@ Py_DEBUG = hasattr(sys, 'gettotalrefcount')
 skips = []
 if support.check_impl_detail(pypy=True):
     skips += [
-            'test_widechar',
-            ]
+        'test_lazy_hash_inheritance',
+        'test_capsule',
+    ]
 
 def testfunction(self):
     """some doc"""
