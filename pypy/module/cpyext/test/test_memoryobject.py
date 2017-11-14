@@ -255,3 +255,13 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
              """)])
         mv = module.new()
         assert mv.tobytes() == b'hell'
+
+    def test_FromBuffer_NULL(self):
+        module = self.import_extension('foo', [
+            ('new', 'METH_NOARGS', """
+            Py_buffer info;
+            if (PyBuffer_FillInfo(&info, NULL, NULL, 1, 1, PyBUF_FULL_RO) < 0)
+                return NULL;
+            return PyMemoryView_FromBuffer(&info);
+             """)])
+        raises(ValueError, module.new)
