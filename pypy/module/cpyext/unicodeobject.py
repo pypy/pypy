@@ -505,12 +505,19 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
 
 @cpython_api([PyObject], PyObject)
 def PyUnicode_FromObject(space, w_obj):
-    """Shortcut for PyUnicode_FromEncodedObject(obj, NULL, "strict") which is used
-    throughout the interpreter whenever coercion to Unicode is needed."""
+    """Copy an instance of a Unicode subtype to a new true Unicode object if
+    necessary. If obj is already a true Unicode object (not a subtype), return
+    the reference with incremented refcount.
+
+    Objects other than Unicode or its subtypes will cause a TypeError.
+    """
     if space.is_w(space.type(w_obj), space.w_unicode):
         return w_obj
-    else:
+    elif space.isinstance_w(w_obj, space.w_unicode):
         return space.call_function(space.w_unicode, w_obj)
+    else:
+        raise oefmt(space.w_TypeError,
+                    "Can't convert '%T' object to str implicitly", w_obj)
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):

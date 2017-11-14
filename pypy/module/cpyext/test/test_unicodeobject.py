@@ -319,6 +319,20 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.unsafe_len(u'aАbБcСdД') == 8
         assert module.unsafe_len(u"café\U0001F4A9") == 5
 
+    def test_FromObject(self):
+        module = self.import_extension('foo', [
+            ("from_object", "METH_O",
+             """
+                return PyUnicode_FromObject(args);
+             """)])
+        class my_str(str): pass
+        assert module.from_object('abc') == 'abc'
+        res = module.from_object(my_str('abc'))
+        assert type(res) is str
+        assert res == 'abc'
+        raises(TypeError, module.from_object, b'abc')
+        raises(TypeError, module.from_object, 42)
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
@@ -500,6 +514,12 @@ class TestUnicode(BaseApiTest):
             assert ret == Py_CLEANUP_SUPPORTED
             assert space.isinstance_w(from_ref(space, result[0]), space.w_bytes)
             assert PyUnicode_FSDecoder(space, None, result) == 1
+        # Input is invalid
+        w_input = space.newint(42)
+        with lltype.scoped_alloc(PyObjectP.TO, 1) as result:
+            with pytest.raises(OperationError):
+                PyUnicode_FSConverter(space, w_input, result)
+
 
     def test_IS(self, space):
         for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
