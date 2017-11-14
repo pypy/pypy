@@ -333,6 +333,29 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         raises(TypeError, module.from_object, b'abc')
         raises(TypeError, module.from_object, 42)
 
+    def test_widechar(self):
+        module = self.import_extension('foo', [
+            ("make_wide", "METH_NOARGS",
+             """
+            #if defined(SIZEOF_WCHAR_T) && (SIZEOF_WCHAR_T == 4)
+                const wchar_t wtext[2] = {(wchar_t)0x10ABCDu};
+                size_t wtextlen = 1;
+                const wchar_t invalid[1] = {(wchar_t)0x110000u};
+            #else
+                const wchar_t wtext[3] = {(wchar_t)0xDBEAu, (wchar_t)0xDFCDu};
+                size_t wtextlen = 2;
+            #endif
+                return PyUnicode_FromWideChar(wtext, wtextlen);
+             """),
+            ("make_utf8", "METH_NOARGS",
+             """
+            return PyUnicode_FromString("\\xf4\\x8a\\xaf\\x8d");
+             """)])
+        wide = module.make_wide()
+        utf8 = module.make_utf8()
+        print(repr(wide), repr(utf8))
+        assert wide == utf8
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
