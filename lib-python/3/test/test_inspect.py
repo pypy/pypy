@@ -816,7 +816,9 @@ class TestClassesAndFunctions(unittest.TestCase):
 
         attrs = attrs_wo_objs(A)
 
-        self.assertIn(('__new__', 'method', object), attrs, 'missing __new__')
+        # changed in PyPy
+        self.assertIn(('__new__', 'static method', object), attrs, 'missing __new__')
+
         self.assertIn(('__init__', 'method', object), attrs, 'missing __init__')
 
         self.assertIn(('s', 'static method', A), attrs, 'missing static method')
