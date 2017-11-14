@@ -1,3 +1,4 @@
+from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_MAX_FMT, Py_MAX_NDIMS, build_type_checkers,
     Py_ssize_tP, cts, parse_dir, bootstrap_function, Py_bufferP, slot_function)
