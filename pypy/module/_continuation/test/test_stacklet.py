@@ -336,6 +336,47 @@ class AppTestStacklet(BaseAppTest):
         assert res == 2002
         assert seen == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
+    def test_xxx(self):
+        import sys
+        from _continuation import continulet
+        #
+        def stack(f=None):
+            """
+            get the call-stack of the caller or the specified frame
+            """
+            if f is None:
+                f = sys._getframe(1)
+            res = []
+            seen = set()
+            while f:
+                if f in seen:
+                    # frame loop
+                    res.append('...')
+                    break
+                seen.add(f)
+                res.append(f.f_code.co_name)
+                f = f.f_back
+            print res
+            return res
+
+        def bar(c):
+            f = sys._getframe(0)
+            print 'bar 1'
+            c.switch(f)
+            print 'bar 2'
+        def foo(c):
+            bar(c)
+
+        print
+        c = continulet(foo)
+        print 'test 1'
+        f = c.switch()
+        print 'test 2'
+        xxx = c.switch()
+        print 'xxx', xxx
+        #stack()
+        #stack(f)
+
     def test_f_back(self):
         import sys
         from _continuation import continulet

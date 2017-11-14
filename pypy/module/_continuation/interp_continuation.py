@@ -41,13 +41,16 @@ class W_Continulet(W_Root):
         bottomframe.locals_cells_stack_w[3] = w_kwds
         bottomframe.last_exception = get_cleared_operation_error(space)
         self.bottomframe = bottomframe
+        self.topframe = sthread.ec.topframeref # XXX?
         #
         global_state.origin = self
         self.sthread = sthread
+        pstack(self, 'descr_init')
         h = sthread.new(new_stacklet_callback)
         post_switch(sthread, h)
 
     def switch(self, w_to):
+        #import pdb;pdb.set_trace()
         sthread = self.sthread
         to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
         if to is not None and to.sthread is None:
@@ -76,9 +79,11 @@ class W_Continulet(W_Root):
         global_state.origin = self
         if to is None:
             # simple switch: going to self.h
+            #print 'simple switch'
             global_state.destination = self
         else:
             # double switch: the final destination is to.h
+            #print 'double switch'
             global_state.destination = to
         #
         h = sthread.switch(global_state.destination.h)
@@ -217,6 +222,23 @@ global_state = GlobalState()
 global_state.clear()
 
 
+def pstack(cont, message=''):
+    return
+    if message:
+        print message
+    if isinstance(cont, jit.DirectJitVRef):
+        f = cont()
+    else:
+        f = cont.bottomframe
+    i = 0
+    while f:
+        print '   ', f.pycode.co_name
+        f = f.f_backref()
+        i += 1
+        if i == 10:
+            break
+    print
+
 def new_stacklet_callback(h, arg):
     self = global_state.origin
     self.h = h
@@ -225,6 +247,7 @@ def new_stacklet_callback(h, arg):
         frame = self.bottomframe
         w_result = frame.execute_frame()
     except Exception as e:
+        #import pdb;pdb.xpm()
         global_state.propagate_exception = e
     else:
         global_state.w_value = w_result
@@ -236,15 +259,32 @@ def new_stacklet_callback(h, arg):
 def post_switch(sthread, h):
     origin = global_state.origin
     self = global_state.destination
+    #import pdb;pdb.set_trace()
     global_state.origin = None
     global_state.destination = None
     self.h, origin.h = origin.h, h
     #
     current = sthread.ec.topframeref
-    sthread.ec.topframeref = self.bottomframe.f_backref
-    self.bottomframe.f_backref = origin.bottomframe.f_backref
-    origin.bottomframe.f_backref = current
+    print '==== SWITCH ===='
+    pstack(sthread.ec.topframeref, 'sthread.ec.topframeref')
+    pstack(self, 'self')
+
+    # ORGINAL
+    ## sthread.ec.topframeref = self.bottomframe.f_backref
+    ## self.bottomframe.f_backref = origin.bottomframe.f_backref
+    ## origin.bottomframe.f_backref = current
+
+    # antocuni
+    sthread.ec.topframeref = self.topframe
+    self.topframe = origin.topframe
+    origin.topframe = current
+
     #
+    print 'swap'
+    pstack(sthread.ec.topframeref, 'sthread.ec.topframeref')
+    pstack(self, 'self')
+    print '==== END SWITCH ===='
+    print
     return get_result()
 
 def get_result():
