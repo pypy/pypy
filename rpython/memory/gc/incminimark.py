@@ -1184,6 +1184,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """
         return self.ac.total_memory_used + self.rawmalloced_total_size
 
+    def get_total_memory_alloced(self):
+        """ Return the total memory allocated
+        """
+        return self.ac.total_memory_alloced + self.rawmalloced_total_size
+
     def threshold_reached(self, extra=0):
         return (self.next_major_collection_threshold -
                 float(self.get_total_memory_used())) < float(extra)
@@ -2925,7 +2930,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if stats_no == rgc.TOTAL_MEMORY:
             return intmask(self.get_total_memory_used() + self.nursery_size)
         elif stats_no == rgc.TOTAL_ALLOCATED_MEMORY:
-            return 0
+            return intmask(self.get_total_memory_alloced() + self.nursery_size)
         elif stats_no == rgc.TOTAL_MEMORY_PRESSURE:
             return inspector.count_memory_pressure(self)
         return 0
