@@ -10,6 +10,8 @@ except CompilationError as e:
 from rpython.config.translationoption import DEFL_ROOTFINDER_WITHJIT
 from rpython.rlib import rrandom, rgc
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import rvmprof
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.c.test.test_standalone import StandaloneTests
 
@@ -273,7 +275,23 @@ def call_qsort_rec(r):
         llmemory.raw_free(raw)
 
 
+# <vmprof-hack>
+# bah, we need to make sure that vmprof_execute_code is annotated, else
+# rvmprof.c does not compile correctly
+class FakeVMProfCode(object):
+    pass
+rvmprof.register_code_object_class(FakeVMProfCode, lambda code: 'name')
+@rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
+def fake_vmprof_main(code, num):
+    return 42
+# </vmprof-hack>
+
 def entry_point(argv):
+    # <vmprof-hack>
+    if NonConstant(False):
+        fake_vmprof_main(FakeVMProfCode(), 42)
+    # </vmprof-hack>
+    #
     seed = 0
     if len(argv) > 1:
         seed = int(argv[1])
