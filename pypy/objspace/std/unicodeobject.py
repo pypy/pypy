@@ -9,7 +9,6 @@ from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import (
     StringBuilder, split, rsplit, UnicodeBuilder, replace_count, startswith,
     endswith)
-from rpython.rlib.runicode import make_unicode_escape_function
 from rpython.rlib import rutf8, jit
 
 from pypy.interpreter import unicodehelper
@@ -48,9 +47,16 @@ class W_UnicodeObject(W_Root):
         else:
             assert flag == rutf8.FLAG_REGULAR
             self._index_storage = rutf8.null_storage()
+        # XXX checking, remove before any performance measurments
+        #     ifdef not_running_in_benchmark
         lgt, flag_check = rutf8.check_utf8(utf8str, True)
         assert lgt == length
-        assert flag == flag_check
+        if flag_check == rutf8.FLAG_ASCII:
+            # there are cases where we copy part of REULAR that happens
+            # to be ascii
+            assert flag in (rutf8.FLAG_ASCII, rutf8.FLAG_REGULAR)
+        else:
+            assert flag == flag_check
         # the storage can be one of:
         # - null, unicode with no surrogates
         # - rutf8.UTF8_HAS_SURROGATES
@@ -351,7 +357,7 @@ class W_UnicodeObject(W_Root):
             elif unicodedb.islower(ch):
                 ch = unicodedb.toupper(ch)
             if ch >= 0x80:
-                flag = self._combine_flags(flag, rutf8.FLAG_REGULAR)
+                flag = unicodehelper.combine_flags(flag, rutf8.FLAG_REGULAR)
             rutf8.unichr_as_utf8_append(builder, ch)
         return W_UnicodeObject(builder.build(), self._length, flag)
 
@@ -376,7 +382,7 @@ class W_UnicodeObject(W_Root):
             else:
                 ch = unicodedb.tolower(ch)
             if ch >= 0x80:
-                flag = self._combine_flags(flag, rutf8.FLAG_REGULAR)
+                flag = unicodehelper.combine_flags(flag, rutf8.FLAG_REGULAR)
             rutf8.unichr_as_utf8_append(builder, ch)
             previous_is_cased = unicodedb.iscased(ch)
         return builder.build(), flag
@@ -402,7 +408,7 @@ class W_UnicodeObject(W_Root):
                     codepoint = space.int_w(w_newval)
                 elif isinstance(w_newval, W_UnicodeObject):
                     result.append(w_newval._utf8)
-                    flag = self._combine_flags(flag, w_newval._get_flag())
+                    flag = unicodehelper.combine_flags(flag, w_newval._get_flag())
                     result_length += w_newval._length
                     continue
                 else:
@@ -411,7 +417,7 @@ class W_UnicodeObject(W_Root):
                                 "or unicode")
             try:
                 if codepoint >= 0x80:
-                    flag = self._combine_flags(flag, rutf8.FLAG_REGULAR)
+                    flag = unicodehelper.combine_flags(flag, rutf8.FLAG_REGULAR)
                 rutf8.unichr_as_utf8_append(result, codepoint,
                                             allow_surrogates=True)
                 result_length += 1
@@ -535,7 +541,7 @@ class W_UnicodeObject(W_Root):
         while pos < len(self._utf8):
             lower = unicodedb.tolower(rutf8.codepoint_at_pos(self._utf8, pos))
             if lower >= 0x80:
-                flag = self._combine_flags(flag, rutf8.FLAG_REGULAR)
+                flag = unicodehelper.combine_flags(flag, rutf8.FLAG_REGULAR)
             rutf8.unichr_as_utf8_append(builder, lower) # XXX allow surrogates?
             pos = rutf8.next_codepoint_pos(self._utf8, pos)
         return W_UnicodeObject(builder.build(), self._len(), flag)
@@ -623,15 +629,6 @@ class W_UnicodeObject(W_Root):
             return True
         return endswith(value, prefix, start, end)
 
-    @staticmethod
-    def _combine_flags(self_flag, other_flag):
-        if self_flag == rutf8.FLAG_ASCII and other_flag == rutf8.FLAG_ASCII:
-            return rutf8.FLAG_ASCII
-        elif (self_flag == rutf8.FLAG_HAS_SURROGATES or
-              other_flag == rutf8.FLAG_HAS_SURROGATES):
-            return rutf8.FLAG_HAS_SURROGATES
-        return rutf8.FLAG_REGULAR
-
     def _get_flag(self):
         if self.is_ascii():
             return rutf8.FLAG_ASCII
@@ -646,7 +643,7 @@ class W_UnicodeObject(W_Root):
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        flag = self._combine_flags(self._get_flag(), w_other._get_flag())
+        flag = unicodehelper.combine_flags(self._get_flag(), w_other._get_flag())
         return W_UnicodeObject(self._utf8 + w_other._utf8,
                                self._len() + w_other._len(), flag)
 
@@ -671,7 +668,7 @@ class W_UnicodeObject(W_Root):
             # XXX Maybe the extra copy here is okay? It was basically going to
             #     happen anyway, what with being placed into the builder
             w_u = self.convert_arg_to_w_unicode(space, w_s)
-            flag = self._combine_flags(flag, w_u._get_flag())
+            flag = unicodehelper.combine_flags(flag, w_u._get_flag())
             unwrapped.append(w_u._utf8)
             lgt += w_u._length
             prealloc_size += len(unwrapped[i])
@@ -723,7 +720,7 @@ class W_UnicodeObject(W_Root):
             uchar = rutf8.codepoint_at_pos(value, i)
             uchar = unicodedb.toupper(uchar)
             if uchar >= 0x80:
-                flag = self._combine_flags(flag, rutf8.FLAG_REGULAR)
+                flag = unicodehelper.combine_flags(flag, rutf8.FLAG_REGULAR)
             i = rutf8.next_codepoint_pos(value, i)
             rutf8.unichr_as_utf8_append(builder, uchar)
         return W_UnicodeObject(builder.build(), self._length, flag)
@@ -837,14 +834,14 @@ class W_UnicodeObject(W_Root):
         ch = unicodedb.toupper(uchar)
         rutf8.unichr_as_utf8_append(builder, ch)
         if ch >= 0x80:
-            flag = self._combine_flags(flag, rutf8.FLAG_REGULAR)
+            flag = unicodehelper.combine_flags(flag, rutf8.FLAG_REGULAR)
         while i < len(value):
             uchar = rutf8.codepoint_at_pos(value, i)
             i = rutf8.next_codepoint_pos(value, i)
             ch = unicodedb.tolower(uchar)
             rutf8.unichr_as_utf8_append(builder, ch)
             if ch >= 0x80:
-                flag = self._combine_flags(flag, rutf8.FLAG_REGULAR)
+                flag = unicodehelper.combine_flags(flag, rutf8.FLAG_REGULAR)
         return W_UnicodeObject(builder.build(), self._len(), flag)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
@@ -930,7 +927,7 @@ class W_UnicodeObject(W_Root):
         except OverflowError:
             raise oefmt(space.w_OverflowError, "replace string is too long")
 
-        flag = self._combine_flags(self._get_flag(), w_by._get_flag())
+        flag = unicodehelper.combine_flags(self._get_flag(), w_by._get_flag())
         newlength = self._length + replacements * (w_by._length - w_sub._length)
         return W_UnicodeObject(res, newlength, flag)
 
@@ -1052,7 +1049,7 @@ class W_UnicodeObject(W_Root):
         if w_fillchar._len() != 1:
             raise oefmt(space.w_TypeError,
                         "rjust() argument 2 must be a single character")
-        flag = self._combine_flags(self._get_flag(), w_fillchar._get_flag())
+        flag = unicodehelper.combine_flags(self._get_flag(), w_fillchar._get_flag())
         d = width - lgt
         if d > 0:
             if len(w_fillchar._utf8) == 1:
@@ -1071,7 +1068,7 @@ class W_UnicodeObject(W_Root):
         if w_fillchar._len() != 1:
             raise oefmt(space.w_TypeError,
                         "ljust() argument 2 must be a single character")
-        flag = self._combine_flags(self._get_flag(), w_fillchar._get_flag())
+        flag = unicodehelper.combine_flags(self._get_flag(), w_fillchar._get_flag())
         d = width - self._len()
         if d > 0:
             if len(w_fillchar._utf8) == 1:

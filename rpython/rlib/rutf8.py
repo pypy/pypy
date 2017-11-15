@@ -452,6 +452,13 @@ UTF8_INDEX_STORAGE = lltype.GcStruct('utf8_loc',
     ('ofs', lltype.FixedSizeArray(lltype.Char, 16)))
     ))))
 
+def unichr_to_flag(ch):
+    if ch <= 0x7F:
+        return FLAG_ASCII
+    elif 0xD800 <= ch <= 0xDFFF:
+        return FLAG_HAS_SURROGATES
+    return FLAG_REGULAR
+
 FLAG_REGULAR = 0
 FLAG_HAS_SURROGATES = 1
 FLAG_ASCII = 2

@@ -37,6 +37,7 @@ class CodecState(object):
             if decode:
                 w_cls = space.w_UnicodeDecodeError
                 w_input = space.newbytes(input)
+                length = len(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
                 length, flag = rutf8.check_utf8(input, allow_surrogates=True)
@@ -61,17 +62,13 @@ class CodecState(object):
             w_replace, w_newpos = space.fixedview(w_res, 2)
             newpos = space.int_w(w_newpos)
             if newpos < 0:
-                newpos = len(input) + newpos
-            if newpos < 0 or newpos > len(input):
+                newpos = length + newpos
+            if newpos < 0 or newpos > length:
                 raise oefmt(space.w_IndexError,
                             "position %d from error handler out of bounds",
                             newpos)
             w_replace = space.convert_to_w_unicode(w_replace)
-            replace = w_replace._utf8.decode('utf8')
-            if decode:
-                return replace, newpos
-            else:
-                return replace, None, newpos
+            return w_replace._utf8, newpos
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):
@@ -384,8 +381,7 @@ def make_encoder_wrapper(name):
         func = getattr(unicodehelper, rname)
         utf8len = w_arg._length
         # XXX deal with func() returning length or not
-        result = func(w_arg._utf8, utf8len,
-            errors, state.encode_error_handler)
+        result = func(w_arg._utf8, errors, state.encode_error_handler)
         return space.newtuple([space.newbytes(result), space.newint(utf8len)])
     wrap_encoder.func_name = rname
     globals()[name] = wrap_encoder
@@ -403,7 +399,7 @@ def make_decoder_wrapper(name):
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
         func = getattr(unicodehelper, rname)
-        result, consumed, length, flag = func(string, len(string), errors,
+        result, consumed, length, flag = func(string, errors,
                                               final, state.decode_error_handler)
         return space.newtuple([space.newutf8(result, length, flag),
                                space.newint(consumed)])
@@ -476,8 +472,6 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
     try:
         lgt, flag = rutf8.check_utf8(string, allow_surrogates=True)
     except rutf8.CheckError:
-        # XXX do the way around runicode - we can optimize it later if we
-        # decide we care about obscure cases
         res, consumed, lgt, flag = unicodehelper.str_decode_utf8(string,
             len(string), errors, final, state.decode_error_handler)
         return space.newtuple([space.newutf8(res, lgt, flag),
@@ -695,7 +689,7 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
     unicode_name_handler = state.get_unicodedata_handler(space)
 
     result, consumed, lgt, flag = unicodehelper.str_decode_unicode_escape(
-        string, len(string), errors,
+        string, errors,
         final, state.decode_error_handler,
         unicode_name_handler)
 
