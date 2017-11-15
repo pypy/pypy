@@ -8,6 +8,28 @@ class AppTestStacklet(BaseAppTest):
         cls.w_translated = cls.space.wrap(
             os.path.join(os.path.dirname(__file__),
                          'test_translated.py'))
+        cls.w_stack = cls.space.appexec([], """():
+            import sys
+            def stack(f=None):
+                '''
+                get the call-stack of the caller or the specified frame
+                '''
+                if f is None:
+                    f = sys._getframe(1)
+                res = []
+                seen = set()
+                while f:
+                    if f in seen:
+                        # frame cycle (shouldn't happen)
+                        res.append('...')
+                        break
+                    seen.add(f)
+                    res.append(f.f_code.co_name)
+                    f = f.f_back
+                #print res
+                return res
+            return stack
+       """)
 
     def test_new_empty(self):
         from _continuation import continulet
@@ -336,70 +358,31 @@ class AppTestStacklet(BaseAppTest):
         assert res == 2002
         assert seen == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
-    def test_xxx(self):
+    def test_f_back_no_cycles(self):
         import sys
         from _continuation import continulet
+        stack = self.stack
         #
-        def stack(f=None):
-            """
-            get the call-stack of the caller or the specified frame
-            """
-            if f is None:
-                f = sys._getframe(1)
-            res = []
-            seen = set()
-            while f:
-                if f in seen:
-                    # frame loop
-                    res.append('...')
-                    break
-                seen.add(f)
-                res.append(f.f_code.co_name)
-                f = f.f_back
-            print res
-            return res
-
         def bar(c):
             f = sys._getframe(0)
-            print 'bar 1'
+            assert stack() == ['bar', 'foo', 'test_f_back_no_cycles']
             c.switch(f)
-            print 'bar 2'
+            assert stack() == ['bar', 'foo', 'test_f_back_no_cycles']
         def foo(c):
             bar(c)
-
-        print
+        #
         c = continulet(foo)
-        print 'test 1'
+        assert stack() == ['test_f_back_no_cycles']
         f = c.switch()
-        print 'test 2'
-        xxx = c.switch()
-        print 'xxx', xxx
-        #stack()
-        #stack(f)
+        assert stack() == ['test_f_back_no_cycles']
+        assert stack(f) == ['bar', 'foo']
+        c.switch()
 
     def test_f_back(self):
         import sys
         from _continuation import continulet
+        stack = self.stack
         #
-        def stack(f=None):
-            """
-            get the call-stack of the caller or the specified frame
-            """
-            if f is None:
-                f = sys._getframe(1)
-            res = []
-            seen = set()
-            while f:
-                if f in seen:
-                    # frame loop
-                    res.append('...')
-                    break
-                seen.add(f)
-                res.append(f.f_code.co_name)
-                f = f.f_back
-            #print res
-            return res
-
         def bar(c):
             assert stack() == ['bar', 'foo', 'test_f_back']
             c.switch(sys._getframe(0))
@@ -436,6 +419,7 @@ class AppTestStacklet(BaseAppTest):
             f5_main2 = c.switch()
             assert f5_main2.f_code.co_name == 'main2'
             assert f3_foo.f_back is f1_bar    # not running, so a loop
+            assert stack() == ['main2', 'test_f_back']
             assert stack(f1_bar) == ['bar', 'foo', '...']
         #
         main()
