@@ -280,7 +280,7 @@ def call_qsort_rec(r):
 # rvmprof.c does not compile correctly
 class FakeVMProfCode(object):
     pass
-rvmprof.register_code_object_class(MyCode, lambda code: 'name')
+rvmprof.register_code_object_class(FakeVMProfCode, lambda code: 'name')
 @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
 def fake_vmprof_main(code, num):
     return 42
