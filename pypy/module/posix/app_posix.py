@@ -122,6 +122,19 @@ if osname == 'posix':
 else:
     _validate_fd = validate_fd
 
+
+class times_result(metaclass=structseqtype):
+
+    name = "posix.times_result"
+    __module__ = "posix"
+
+    user = structseqfield(0, "user time")
+    system = structseqfield(1, "system time")
+    children_user = structseqfield(2, "user time of children")
+    children_system = structseqfield(3, "system time of children")
+    elapsed = structseqfield(4, "elapsed time since an arbitray point in the past")
+
+
 if osname == 'posix':
     def wait():
         """ wait() -> (pid, status)

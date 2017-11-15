@@ -18,6 +18,7 @@ corresponding Unix manual entries for more information on calls."""
         'error': 'app_posix.error',
         'stat_result': 'app_posix.stat_result',
         'statvfs_result': 'app_posix.statvfs_result',
+        'times_result': 'app_posix.times_result',
         'uname_result': 'app_posix.uname_result',
         'urandom': 'app_posix.urandom',
         'terminal_size': 'app_posix.terminal_size',

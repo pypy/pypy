@@ -684,11 +684,17 @@ def times(space):
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     else:
-        return space.newtuple([space.newfloat(times[0]),
-                               space.newfloat(times[1]),
-                               space.newfloat(times[2]),
-                               space.newfloat(times[3]),
-                               space.newfloat(times[4])])
+        w_keywords = space.newdict()
+        w_tuple = space.newtuple([space.newfloat(times[0]),
+                                  space.newfloat(times[1]),
+                                  space.newfloat(times[2]),
+                                  space.newfloat(times[3]),
+                                  space.newfloat(times[4])])
+
+        w_times_result = space.getattr(space.getbuiltinmodule(os.name),
+                                       space.newtext('times_result'))
+        return space.call_function(w_times_result, w_tuple, w_keywords)
+
 
 @unwrap_spec(command='fsencode')
 def system(space, command):
