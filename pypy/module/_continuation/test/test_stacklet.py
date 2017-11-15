@@ -378,6 +378,34 @@ class AppTestStacklet(BaseAppTest):
         assert stack(f) == ['bar', 'foo']
         c.switch()
 
+    def test_f_back_proper_chaining(self):
+        import sys
+        from _continuation import continulet
+        stack = self.stack
+        #
+        seen = []
+        def bar(c):
+            seen.append(2)
+            assert stack() == ['bar', 'foo', 'test_f_back_proper_chaining']
+            c.switch()
+            seen.append(5)
+            assert stack() == ['bar', 'foo', 'main',
+                               'test_f_back_proper_chaining']
+        def foo(c):
+            bar(c)
+        def main(c):
+            seen.append(4)
+            assert stack() == ['main', 'test_f_back_proper_chaining']
+            c.switch()
+            seen.append(6)
+
+        c = continulet(foo)
+        seen.append(1)
+        c.switch()
+        seen.append(3)
+        f = main(c)
+        assert seen == [1, 2, 3, 4, 5, 6]
+
     def test_f_back(self):
         import sys
         from _continuation import continulet
