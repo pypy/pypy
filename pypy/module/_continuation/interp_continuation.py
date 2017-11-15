@@ -17,6 +17,8 @@ class W_Continulet(W_Root):
         # states:
         #  - not init'ed: self.sthread == None
         #  - normal:      self.sthread != None, not is_empty_handle(self.h)
+        #      * running: self.bottomframe.f_backref is not vref_None
+        #      * paused:  self.bottomframe.f_backref is vref_None
         #  - finished:    self.sthread != None, is_empty_handle(self.h)
 
     def check_sthread(self):
@@ -275,8 +277,7 @@ def post_switch(sthread, h):
     self.h, origin.h = origin.h, h
     #
     current = sthread.ec.topframeref
-    lo
-    g('==== SWITCH ====')
+    log('==== SWITCH ====')
     pstack(sthread.ec.topframeref, 'sthread.ec.topframeref')
     pstack(self, 'self')
 
@@ -285,15 +286,20 @@ def post_switch(sthread, h):
         self.bottomframe.f_backref = origin.bottomframe.f_backref
         origin.bottomframe.f_backref = current
     else:
-        # antocuni
         sthread.ec.topframeref = self.topframeref
         self.topframeref = origin.topframeref
+        self.bottomframe.f_backref = origin.bottomframe.f_backref
         origin.topframeref = current
+        if origin.bottomframe.f_backref is jit.vref_None:
+            # paused ==> running: build the f_back link
+            origin.bottomframe.f_backref = current
+        else:
+            # running ==> paused: break the f_back link
+            origin.bottomframe.f_backref = jit.vref_None
     #
     log('swap')
     pstack(sthread.ec.topframeref, 'sthread.ec.topframeref')
-    pstack(self
-    , 'self')
+    pstack(self, 'self')
     log('==== END SWITCH ====')
     log()
     return get_result()

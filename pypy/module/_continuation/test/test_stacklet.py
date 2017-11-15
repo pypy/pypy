@@ -406,27 +406,27 @@ class AppTestStacklet(BaseAppTest):
         f = main(c)
         assert seen == [1, 2, 3, 4, 5, 6]
 
-    def test_f_back(self):
+    def test_f_back_complex(self):
         import sys
         from _continuation import continulet
         stack = self.stack
         #
         def bar(c):
-            assert stack() == ['bar', 'foo', 'test_f_back']
+            assert stack() == ['bar', 'foo', 'test_f_back_complex']
             c.switch(sys._getframe(0))
             c.switch(sys._getframe(0).f_back)
             c.switch(sys._getframe(1))
             #
-            assert stack() == ['bar', 'foo', 'main', 'test_f_back']
+            assert stack() == ['bar', 'foo', 'main', 'test_f_back_complex']
             c.switch(sys._getframe(1).f_back)
             #
-            assert stack() == ['bar', 'foo', 'main2', 'test_f_back']
+            assert stack() == ['bar', 'foo', 'main2', 'test_f_back_complex']
             assert sys._getframe(2) is f3_foo.f_back
             c.switch(sys._getframe(2))
         def foo(c):
             bar(c)
         #
-        assert stack() == ['test_f_back']
+        assert stack() == ['test_f_back_complex']
         c = continulet(foo)
         f1_bar = c.switch()
         assert f1_bar.f_code.co_name == 'bar'
@@ -439,16 +439,16 @@ class AppTestStacklet(BaseAppTest):
         def main():
             f4_main = c.switch()
             assert f4_main.f_code.co_name == 'main'
-            assert f3_foo.f_back is f1_bar    # not running, so a loop
-            assert stack() == ['main', 'test_f_back']
-            assert stack(f1_bar) == ['bar', 'foo', '...']
+            assert f3_foo.f_back is None    # not running
+            assert stack() == ['main', 'test_f_back_complex']
+            assert stack(f1_bar) == ['bar', 'foo']
         #
         def main2():
             f5_main2 = c.switch()
             assert f5_main2.f_code.co_name == 'main2'
-            assert f3_foo.f_back is f1_bar    # not running, so a loop
-            assert stack() == ['main2', 'test_f_back']
-            assert stack(f1_bar) == ['bar', 'foo', '...']
+            assert f3_foo.f_back is None    # not running
+            assert stack() == ['main2', 'test_f_back_complex']
+            assert stack(f1_bar) == ['bar', 'foo']
         #
         main()
         main2()
