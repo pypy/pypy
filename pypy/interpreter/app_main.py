@@ -579,6 +579,8 @@ def run_command_line(interactive,
         __pypy__.save_module_content_for_future_reload(sys)
 
     mainmodule = type(sys)('__main__')
+    mainmodule.__loader__ = sys.__loader__
+    mainmodule.__builtins__ = os.__builtins__
     sys.modules['__main__'] = mainmodule
 
     if not no_site:
