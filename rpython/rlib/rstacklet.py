@@ -41,13 +41,13 @@ class StackletThread(object):
     def switch(self, stacklet):
         if DEBUG:
             debug.remove(stacklet)
-        rvmprof.stop_sampling(space=None) # XXX
+        rvmprof.stop_sampling()
         x = cintf.save_rvmprof_stack()
         try:
             h = self._gcrootfinder.switch(stacklet)
         finally:
             cintf.restore_rvmprof_stack(x)
-            rvmprof.start_sampling(space=None) # XXX
+            rvmprof.start_sampling()
         if DEBUG:
             debug.add(h)
         return h
