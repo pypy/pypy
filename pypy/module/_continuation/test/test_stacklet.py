@@ -372,9 +372,9 @@ class AppTestStacklet(BaseAppTest):
         #
         def bar(c):
             f = sys._getframe(0)
-            assert stack() == ['bar', 'foo', 'test_f_back_no_cycles']
+            assert stack() == ['bar', 'foo']
             c.switch(f)
-            assert stack() == ['bar', 'foo', 'test_f_back_no_cycles']
+            assert stack() == ['bar', 'foo']
         def foo(c):
             bar(c)
         #
@@ -391,17 +391,13 @@ class AppTestStacklet(BaseAppTest):
         stack = self.stack
         #
         def bar(c):
-            assert stack() == ['bar', 'foo', 'test_f_back_complex']
+            assert stack() == ['bar', 'foo']
             c.switch(sys._getframe(0))
             c.switch(sys._getframe(0).f_back)
             c.switch(sys._getframe(1))
             #
-            assert stack() == ['bar', 'foo', 'main', 'test_f_back_complex']
+            assert stack() == ['bar', 'foo']
             c.switch(sys._getframe(1).f_back)
-            #
-            assert stack() == ['bar', 'foo', 'main2', 'test_f_back_complex']
-            assert sys._getframe(2) is f3_foo.f_back
-            c.switch(sys._getframe(2))
         def foo(c):
             bar(c)
         #
@@ -416,21 +412,13 @@ class AppTestStacklet(BaseAppTest):
         assert f1_bar.f_back is f3_foo
         #
         def main():
-            f4_main = c.switch()
-            assert f4_main.f_code.co_name == 'main'
+            f4_None = c.switch()
+            assert f4_None is None
             assert f3_foo.f_back is None    # not running
             assert stack() == ['main', 'test_f_back_complex']
             assert stack(f1_bar) == ['bar', 'foo']
         #
-        def main2():
-            f5_main2 = c.switch()
-            assert f5_main2.f_code.co_name == 'main2'
-            assert f3_foo.f_back is None    # not running
-            assert stack() == ['main2', 'test_f_back_complex']
-            assert stack(f1_bar) == ['bar', 'foo']
-        #
         main()
-        main2()
         res = c.switch()
         assert res is None
         assert f3_foo.f_back is None
