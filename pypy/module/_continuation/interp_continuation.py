@@ -280,8 +280,7 @@ def permute(space, args_w):
     #
     if len(contlist) > 1:
         otherh = contlist[-1].h
-        otherb = contlist[-1].bottomframe.f_backref
+        otherb = contlist[-1].backframeref
         for cont in contlist:
             otherh, cont.h = cont.h, otherh
-            b = cont.bottomframe
-            otherb, b.f_backref = b.f_backref, otherb
+            otherb, cont.backframeref = cont.backframeref, otherb

@@ -714,24 +714,31 @@ class AppTestStacklet(BaseAppTest):
         import sys
         from _continuation import continulet, permute
         #
-        def f1(c1):
-            res = c1.switch()
-            assert res == "ok"
-            return "done"
+        def a(c):
+            seen.append(2)
+            res = c.switch()
+            assert res == 'b'
+            seen.append(6)
+            return 'a'
+        def b(c):
+            seen.append(3)
+            c.switch()
+            seen.append(5)
+            return 'b'
         #
-        def f2(c2):
-            assert sys._getframe(1).f_code.co_name == 'main'
-            permute(c1, c2)
-            assert sys._getframe(1).f_code.co_name == 'f1'
-            return "ok"
-        #
-        c1 = continulet(f1)
-        c2 = continulet(f2)
-        def main():
-            c1.switch()
-            res = c2.switch()
-            assert res == "done"
-        main()
+        seen = []
+        c1 = continulet(a)
+        c2 = continulet(b)
+        seen.append(1)
+        c1.switch()
+        c2.switch()
+        seen.append(4)
+        permute(c1, c2)
+        res = c1.switch()
+        assert res == 'a'
+        assert not c2.is_pending()
+        seen.append(7)
+        assert seen == [1, 2, 3, 4, 5, 6, 7]
 
     def test_permute_noninitialized(self):
         from _continuation import continulet, permute
