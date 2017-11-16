@@ -8,6 +8,35 @@ class AppTestStacklet(BaseAppTest):
         cls.w_translated = cls.space.wrap(
             os.path.join(os.path.dirname(__file__),
                          'test_translated.py'))
+        cls.w_stack = cls.space.appexec([], """():
+            import sys
+            def stack(f=None):
+                '''
+                get the call-stack of the caller or the specified frame
+                '''
+                if f is None:
+                    f = sys._getframe(1)
+                res = []
+                seen = set()
+                while f:
+                    if f in seen:
+                        # frame cycle
+                        res.append('...')
+                        break
+                    if f.f_code.co_name == 'runtest':
+                        # if we are running with -A, cut all the stack above
+                        # the test function
+                        break
+                    seen.add(f)
+                    res.append(f.f_code.co_name)
+                    f = f.f_back
+                #print res
+                return res
+            return stack
+       """)
+        if cls.runappdirect:
+            # make sure that "self.stack" does not pass the self
+            cls.w_stack = staticmethod(cls.w_stack.im_func)
 
     def test_new_empty(self):
         from _continuation import continulet
@@ -339,26 +368,8 @@ class AppTestStacklet(BaseAppTest):
     def test_f_back(self):
         import sys
         from _continuation import continulet
+        stack = self.stack
         #
-        def stack(f=None):
-            """
-            get the call-stack of the caller or the specified frame
-            """
-            if f is None:
-                f = sys._getframe(1)
-            res = []
-            seen = set()
-            while f:
-                if f in seen:
-                    # frame loop
-                    res.append('...')
-                    break
-                seen.add(f)
-                res.append(f.f_code.co_name)
-                f = f.f_back
-            #print res
-            return res
-
         def bar(c):
             assert stack() == ['bar', 'foo', 'test_f_back']
             c.switch(sys._getframe(0))
