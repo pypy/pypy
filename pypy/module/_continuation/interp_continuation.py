@@ -1,6 +1,7 @@
 from rpython.rlib.rstacklet import StackletThread
 from rpython.rlib import jit
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
@@ -30,17 +31,9 @@ class W_Continulet(W_Root):
             raise geterror(self.space, "continulet already __init__ialized")
         sthread = build_sthread(self.space)
         #
-        # hackish: build the frame "by hand", passing it the correct arguments
         space = self.space
-        w_args, w_kwds = __args__.topacked()
-        bottomframe = space.createframe(get_entrypoint_pycode(space),
-                                        get_w_module_dict(space), None)
-        bottomframe.locals_cells_stack_w[0] = self
-        bottomframe.locals_cells_stack_w[1] = w_callable
-        bottomframe.locals_cells_stack_w[2] = w_args
-        bottomframe.locals_cells_stack_w[3] = w_kwds
-        bottomframe.last_exception = get_cleared_operation_error(space)
-        self.bottomframe = bottomframe
+        self.w_callable = w_callable
+        self.__args__ = __args__.prepend(self)
         #
         global_state.origin = self
         self.sthread = sthread
@@ -221,9 +214,14 @@ def new_stacklet_callback(h, arg):
     self = global_state.origin
     self.h = h
     global_state.clear()
+    self.backframeref = self.sthread.ec.topframeref
+    self.sthread.ec.topframeref = jit.vref_None
     try:
-        frame = self.bottomframe
-        w_result = frame.execute_frame()
+        w_res = self.descr_switch()
+        if w_res is not self.space.w_None:
+            raise oefmt(self.space.w_TypeError,
+                        "can't send non-None value to a just-started continulet")
+        w_result = self.space.call_args(self.w_callable, self.__args__)
     except Exception as e:
         global_state.propagate_exception = e
     else:
@@ -241,9 +239,9 @@ def post_switch(sthread, h):
     self.h, origin.h = origin.h, h
     #
     current = sthread.ec.topframeref
-    sthread.ec.topframeref = self.bottomframe.f_backref
-    self.bottomframe.f_backref = origin.bottomframe.f_backref
-    origin.bottomframe.f_backref = current
+    sthread.ec.topframeref = self.backframeref
+    self.backframeref = origin.backframeref
+    origin.backframeref = current
     #
     return get_result()
 
