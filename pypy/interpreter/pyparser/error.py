@@ -23,8 +23,8 @@ class SyntaxError(Exception):
                     try:
                         with open(filename) as f:
                             for _ in range(lineno):
-                                f.read()
-                            return f.read()
+                                f.readline()
+                            return f.readline()
                     except:  # we can't allow any exceptions here!
                         return None""")
         elif self.text is not None:
