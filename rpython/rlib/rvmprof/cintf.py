@@ -62,13 +62,16 @@ eci_kwds = dict(
         SHARED.join('compat.c'),
         SHARED.join('machine.c'),
         SHARED.join('vmp_stack.c'),
-        SHARED.join('vmprof_mt.c'),
         SHARED.join('vmprof_memory.c'),
         SHARED.join('vmprof_common.c'),
         # symbol table already in separate_module_files
     ] + separate_module_files,
     post_include_bits=[],
     compile_extra=compile_extra
+    )
+if sys.platform.startswith('linux'):
+    eci_kwds['separate_module_files'].append(
+        SHARED.join('vmprof_mt.c'),
     )
 global_eci = ExternalCompilationInfo(**eci_kwds)
 
