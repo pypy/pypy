@@ -199,7 +199,6 @@ def check_ascii(s):
         return
     raise CheckError(res)
 
-
 @jit.elidable
 def first_non_ascii_char(s):
     for i in range(len(s)):

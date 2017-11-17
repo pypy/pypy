@@ -473,7 +473,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
         lgt, flag = rutf8.check_utf8(string, allow_surrogates=True)
     except rutf8.CheckError:
         res, consumed, lgt, flag = unicodehelper.str_decode_utf8(string,
-            len(string), errors, final, state.decode_error_handler)
+            errors, final, state.decode_error_handler)
         return space.newtuple([space.newutf8(res, lgt, flag),
                                space.newint(consumed)])
     else:
