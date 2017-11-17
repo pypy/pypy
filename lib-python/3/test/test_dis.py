@@ -146,6 +146,7 @@ def bug1333982(x=[]):
               1)
     pass
 
+# PyPy change: JUMP_IF_NOT_DEBUG
 dis_bug1333982 = """\
 %3d           0 JUMP_IF_NOT_DEBUG       35 (to 38)
               3 LOAD_CONST               1 (0)
