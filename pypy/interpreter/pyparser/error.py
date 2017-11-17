@@ -22,7 +22,7 @@ class SyntaxError(Exception):
                 """(filename, lineno):
                     try:
                         with open(filename) as f:
-                            for _ in range(lineno):
+                            for _ in range(lineno - 1):
                                 f.readline()
                             return f.readline()
                     except:  # we can't allow any exceptions here!
