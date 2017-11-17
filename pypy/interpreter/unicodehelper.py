@@ -94,24 +94,20 @@ def check_ascii_or_raise(space, string):
                                     e.pos, e.pos + 1)
         assert False, "unreachable"
 
-def check_utf8_or_raise(space, string):
+def check_utf8_or_raise(space, string, start=0, end=-1):
     # Surrogates are accepted and not treated specially at all.
     # If there happen to be two 3-bytes encoding a pair of surrogates,
     # you still get two surrogate unicode characters in the result.
     # These are the Python2 rules; Python3 differs.
     try:
-        length, flag = rutf8.check_utf8(string, allow_surrogates=True)
+        length, flag = rutf8.check_utf8(string, True, start, end)
     except rutf8.CheckError as e:
         # convert position into unicode position
-        lgt, flags = rutf8.check_utf8(string, True, stop=e.pos)
+        lgt, flags = rutf8.check_utf8(string, True, start, stop=e.pos)
         decode_error_handler(space)('strict', 'utf8', 'invalid utf-8', string,
-                                    lgt, lgt + 1)
+                                    start + lgt, start + lgt + 1)
         assert False, "unreachable"
     return length, flag
-
-def decode_utf8(space, s):
-    # DEPRECATED
-    return (s, check_utf8_or_raise(space, s))
 
 def str_decode_ascii(s, errors, final, errorhandler):
     try:
@@ -185,13 +181,6 @@ class EncodeWrapper(object):
 
     def handle(self, errors, encoding, msg, s, pos, endpos):
         return self.orig(errors, encoding, msg, s.encode("utf8"), pos, endpos)
-
-#def str_decode_unicode_escape(s, slen, errors, final, errorhandler, ud_handler):
-#    w = DecodeWrapper(errorhandler)
-#    u, pos = runicode.str_decode_unicode_escape(s, slen, errors, final,
-#                                                w.handle,
-#                                                ud_handler)
-#    return u.encode('utf8'), pos, len(u), _get_flag(u)
 
 def setup_new_encoders_legacy(encoding):
     encoder_name = 'utf8_encode_' + encoding
@@ -370,6 +359,8 @@ def str_decode_utf8(s, errors, final, errorhandler):
     lgt, flag = rutf8.check_utf8(r, True)
     return r, pos - continuation_bytes, lgt, flag
 
+hexdigits = "0123456789ABCDEFabcdef"
+
 def hexescape(builder, s, pos, digits,
               encoding, errorhandler, message, errors):
     chr = 0
@@ -377,9 +368,9 @@ def hexescape(builder, s, pos, digits,
         endinpos = pos
         while endinpos < len(s) and s[endinpos] in hexdigits:
             endinpos += 1
-        uuu
-        res, size, pos = errorhandler(errors, encoding,
-                                message, s, pos-2, endinpos)
+        res, pos = errorhandler(errors, encoding,
+                                 message, s, pos-2, endinpos)
+        size, flag = rutf8.check_utf8(res, True)
         builder.append(res)
     else:
         try:
@@ -821,8 +812,8 @@ def str_decode_utf_7(s, errors, final=False,
                 base64buffer = 0
 
         elif _utf7_DECODE_DIRECT(ord(ch)): # character decodes at itself
-            xxx
-            result.append(unichr(ord(ch)))
+            result.append(ch)
+            outsize += 1
             pos += 1
         else:
             yyy
