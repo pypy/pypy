@@ -89,11 +89,11 @@ class DictDef(object):
         self.force_non_null = force_non_null
 
     def read_key(self, position_key):
-        self.dictkey.read_locations[position_key] = True
+        self.dictkey.read_locations.add(position_key)
         return self.dictkey.s_value
 
     def read_value(self, position_key):
-        self.dictvalue.read_locations[position_key] = True
+        self.dictvalue.read_locations.add(position_key)
         return self.dictvalue.s_value
 
     def same_as(self, other):
