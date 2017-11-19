@@ -320,7 +320,7 @@ def test_simple_udp():
     s2.bind(INETAddress('127.0.0.1', INADDR_ANY))
     addr2 = s2.getsockname()
 
-    s1.sendto('?', 0, addr2)
+    s1.sendto('?', 1, 0, addr2)
     buf = s2.recv(100)
     assert buf == '?'
     s2.connect(addr)

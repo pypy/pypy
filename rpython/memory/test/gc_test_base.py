@@ -995,6 +995,31 @@ class GCTest(object):
 
         self.interpret(fn, [])
 
+    def test_writebarrier_before_copy_manually_copy_card_bits(self):
+        S = lltype.GcStruct('S', ('x', lltype.Char))
+        TP = lltype.GcArray(lltype.Ptr(S))
+        def fn():
+            l1 = lltype.malloc(TP, 65)
+            l2 = lltype.malloc(TP, 33)
+            for i in range(65):
+                l1[i] = lltype.malloc(S)
+            l = lltype.malloc(TP, 100)
+            i = 0
+            while i < 65:
+                l[i] = l1[i]
+                i += 1
+            rgc.ll_arraycopy(l, l2, 0, 0, 33)
+            x = []
+            # force minor collect
+            t = (1, lltype.malloc(S))
+            for i in range(20):
+                x.append(t)
+            for i in range(33):
+                assert l2[i] == l[i]
+            return 0
+
+        self.interpret(fn, [])
+
     def test_stringbuilder(self):
         def fn():
             s = StringBuilder(4)

@@ -11,6 +11,7 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import rstack
 from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
     cast_object_to_ptr)
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
@@ -415,6 +416,8 @@ class WarmEnterState(object):
             if not confirm_enter_jit(*args):
                 return
             jitcounter.decay_all_counters()
+            if rstack.stack_almost_full():
+                return
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
             metainterp = MetaInterp(metainterp_sd, jitdriver_sd)

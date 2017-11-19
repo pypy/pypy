@@ -16,7 +16,6 @@ class AbstractCPU(object):
     # Boxes and Consts are BoxFloats and ConstFloats.
     supports_singlefloats = False
     supports_guard_gc_type = False
-    supports_cond_call_value = False
 
     propagate_exception_descr = None
 

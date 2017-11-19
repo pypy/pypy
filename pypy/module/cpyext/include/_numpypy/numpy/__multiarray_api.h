@@ -11,6 +11,7 @@ typedef struct {
 #define NUMPY_IMPORT_ARRAY_RETVAL
 #endif
 
-#define import_array() {return NUMPY_IMPORT_ARRAY_RETVAL;}
+/* on pypy import_array never fails, so it's just an empty macro */
+#define import_array()
 
 

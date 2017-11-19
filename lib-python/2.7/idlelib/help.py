@@ -26,6 +26,7 @@ show_idlehelp - Create HelpWindow.  Called in EditorWindow.help_dialog.
 """
 from HTMLParser import HTMLParser
 from os.path import abspath, dirname, isdir, isfile, join
+from platform import python_version
 from Tkinter import Tk, Toplevel, Frame, Text, Scrollbar, Menu, Menubutton
 import tkFont as tkfont
 from idlelib.configHandler import idleConf
@@ -150,7 +151,8 @@ class HelpParser(HTMLParser):
             self.text.insert('end', d, (self.tags, self.chartags))
 
     def handle_charref(self, name):
-        self.text.insert('end', unichr(int(name)))
+        if self.show:
+            self.text.insert('end', unichr(int(name)))
 
 
 class HelpText(Text):
@@ -268,7 +270,7 @@ def show_idlehelp(parent):
     if not isfile(filename):
         # try copy_strip, present message
         return
-    HelpWindow(parent, filename, 'IDLE Help')
+    HelpWindow(parent, filename, 'IDLE Help (%s)' % python_version())
 
 if __name__ == '__main__':
     from idlelib.idle_test.htest import run

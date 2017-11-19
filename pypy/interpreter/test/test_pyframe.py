@@ -67,8 +67,12 @@ class AppTestPyFrame:
 
     def test_f_lineno_set(self):
         def tracer(f, *args):
+            def y(f, *args):
+                return y
             def x(f, *args):
                 f.f_lineno += 1
+                return y  # "return None" should have the same effect, but see
+                          # test_local_trace_function_returning_None_ignored
             return x
 
         open    # force fetching of this name now
@@ -580,3 +584,48 @@ class AppTestPyFrame:
             pass
         sys.settrace(None)
         assert seen == ['call', 'exception', 'return']
+
+    def test_generator_trace_stopiteration(self):
+        import sys
+        def f():
+            yield 5
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        def trace_func(frame, event, *args):
+            print('TRACE:', frame, event, args)
+            seen.append(event)
+            return trace_func
+        def g():
+            for x in gen:
+                never_entered
+        sys.settrace(trace_func)
+        g()
+        sys.settrace(None)
+        print 'seen:', seen
+        # on Python 3 we get an extra 'exception' when 'for' catches
+        # StopIteration
+        assert seen == ['call', 'line', 'call', 'return', 'return']
+
+    def test_local_trace_function_returning_None_ignored(self):
+        # behave the same as CPython does, and in contradiction with
+        # the documentation.
+        def tracer(f, event, arg):
+            assert event == 'call'
+            return local_tracer
+
+        seen = []
+        def local_tracer(f, event, arg):
+            seen.append(event)
+            return None     # but 'local_tracer' will be called again
+
+        def function():
+            a = 1
+            a = 2
+            a = 3
+
+        import sys
+        sys.settrace(tracer)
+        function()
+        sys.settrace(None)
+        assert seen == ["line", "line", "line", "return"]

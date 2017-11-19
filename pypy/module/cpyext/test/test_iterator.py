@@ -1,5 +1,8 @@
+import pytest
+from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
+from pypy.module.cpyext.iterator import PyIter_Next
 
 
 class TestIterator(BaseApiTest):
@@ -14,13 +17,12 @@ class TestIterator(BaseApiTest):
         assert space.unwrap(api.PyIter_Next(w_iter)) == 1
         assert space.unwrap(api.PyIter_Next(w_iter)) == 2
         assert space.unwrap(api.PyIter_Next(w_iter)) == 3
-        assert api.PyIter_Next(w_iter) is None
-        assert not api.PyErr_Occurred()
+        assert PyIter_Next(space, w_iter) is None
 
-    def test_iternext_error(self,space, api):
-        assert api.PyIter_Next(space.w_None) is None
-        assert api.PyErr_Occurred() is space.w_TypeError
-        api.PyErr_Clear()
+    def test_iternext_error(self, space):
+        with pytest.raises(OperationError) as excinfo:
+            PyIter_Next(space, space.w_None)
+        assert excinfo.value.w_type is space.w_TypeError
 
 
 class AppTestIterator(AppTestCpythonExtensionBase):
@@ -31,6 +33,11 @@ class AppTestIterator(AppTestCpythonExtensionBase):
                 PyObject *obj;
                 obj = PyObject_New(PyObject, &Foo_Type);
                 return obj;
+            '''
+            ),
+           ("get_dictproxy", "METH_O",
+            '''
+                return PyDictProxy_New(args);
             '''
             ),
            ("check", "METH_O",
@@ -73,6 +80,10 @@ class AppTestIterator(AppTestCpythonExtensionBase):
         assert not operator.isSequenceType(obj)
         assert operator.isMappingType(obj)
         #
+        assert module.check(obj) == 2
+        # make sure dictionaries return false for PySequence_Check
+        assert module.check({'a': 1}) == 2
+        obj = module.get_dictproxy({'a': 10})
         assert module.check(obj) == 2
 
     def test_iterable_nonmapping_object(self):

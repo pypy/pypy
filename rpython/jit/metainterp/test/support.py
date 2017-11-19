@@ -19,7 +19,8 @@ def _get_jitcodes(testself, CPUClass, func, values,
                   supports_floats=True,
                   supports_longlong=False,
                   supports_singlefloats=False,
-                  translationoptions={}, **kwds):
+                  translationoptions={},
+                  backendopt_inline_threshold=0, **kwds):
     from rpython.jit.codewriter import support
 
     class FakeJitCell(object):
@@ -59,7 +60,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         FakeWarmRunnerState.enable_opts = {}
 
     func._jit_unroll_safe_ = True
-    rtyper = support.annotate(func, values,
+    rtyper = support.annotate(func, values, inline=backendopt_inline_threshold,
                               translationoptions=translationoptions)
     graphs = rtyper.annotator.translator.graphs
     testself.all_graphs = graphs

@@ -2,7 +2,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, build_type_checkers, bootstrap_function,
+    cpython_api, cpython_struct, build_type_checkers_flags, bootstrap_function,
     PyObject, PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
@@ -24,7 +24,7 @@ def init_intobject(space):
                    attach=int_attach,
                    realize=int_realize)
 
-def int_attach(space, py_obj, w_obj):
+def int_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyIntObject with the given int object. The
     value must not be modified.
@@ -40,7 +40,7 @@ def int_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
-PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")
+PyInt_Check, PyInt_CheckExact = build_type_checkers_flags("Int")
 
 @cpython_api([], lltype.Signed, error=CANNOT_FAIL)
 def PyInt_GetMax(space):
@@ -53,7 +53,7 @@ def PyInt_FromLong(space, ival):
     """Create a new integer object with a value of ival.
 
     """
-    return space.wrap(ival)
+    return space.newint(ival)
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyInt_AsLong(space, w_obj):
@@ -127,8 +127,8 @@ def PyInt_FromSize_t(space, ival):
     LONG_MAX, a long integer object is returned.
     """
     if ival <= LONG_MAX:
-        return space.wrap(intmask(ival))
-    return space.wrap(ival)
+        return space.newint(intmask(ival))
+    return space.newint(ival)
 
 @cpython_api([Py_ssize_t], PyObject)
 def PyInt_FromSsize_t(space, ival):
@@ -136,7 +136,7 @@ def PyInt_FromSsize_t(space, ival):
     than LONG_MAX or smaller than LONG_MIN, a long integer object is
     returned.
     """
-    return space.wrap(ival)
+    return space.newint(ival)
 
 @cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject)
 def PyInt_FromString(space, str, pend, base):
@@ -154,8 +154,8 @@ def PyInt_FromString(space, str, pend, base):
     returned.  If overflow warnings are not being suppressed, NULL will be
     returned in this case."""
     s = rffi.charp2str(str)
-    w_str = space.wrap(s)
-    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    w_str = space.newtext(s)
+    w_base = space.newint(rffi.cast(lltype.Signed, base))
     if pend:
         pend[0] = rffi.ptradd(str, len(s))
     return space.call_function(space.w_int, w_str, w_base)

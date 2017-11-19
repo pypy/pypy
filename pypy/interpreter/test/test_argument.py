@@ -93,9 +93,12 @@ class DummySpace(object):
 
     def wrap(self, obj):
         return obj
+    newtext = wrap
 
     def str_w(self, s):
         return str(s)
+    def text_w(self, s):
+        return self.str_w(s)
 
     def len(self, x):
         return len(x)
@@ -120,8 +123,8 @@ class DummySpace(object):
             raise OperationError(AttributeError, name)
         return method(*args)
 
-    def lookup_in_type_where(self, cls, name):
-        return 'hopefully not needed', getattr(cls, name)
+    def lookup_in_type(self, cls, name):
+        return getattr(cls, name)
 
     def get_and_call_function(self, w_descr, w_obj, *args):
         return w_descr.__get__(w_obj)(*args)

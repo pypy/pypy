@@ -3,11 +3,13 @@ import py
 
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.flowspace.model import Block, Link, Variable, SpaceOperation
+from rpython.flowspace.model import Block, Link, Variable
 from rpython.flowspace.model import checkgraph
 from rpython.flowspace.operation import op
 from rpython.annotator import model as annmodel
 from rpython.flowspace.argument import Signature
+from rpython.annotator.model import SomePBC, SomeImpossibleValue, SomeBool
+from rpython.annotator.model import unionof
 
 def flatten_star_args(funcdesc, args_s):
     argnames, vararg, kwarg = funcdesc.signature
@@ -127,7 +129,6 @@ class MemoTable(object):
     def finish(self):
         if self.do_not_process:
             return
-        from rpython.annotator.model import unionof
         assert self.graph is None, "MemoTable already finished"
         # list of which argument positions can take more than one value
         example_args, example_value = self.table.iteritems().next()
@@ -246,34 +247,36 @@ class MemoTable(object):
             args_s.append(unionof(*values_s))
         annotator.addpendinggraph(self.graph, args_s)
 
+def all_values(s):
+    """Return the exhaustive list of possible values matching annotation `s`.
 
-def memo(funcdesc, arglist_s):
-    from rpython.annotator.model import SomePBC, SomeImpossibleValue, SomeBool
-    from rpython.annotator.model import unionof
+    Raises `AnnotatorError` if no such (reasonably small) finite list exists.
+    """
+    if s.is_constant():
+        return [s.const]
+    elif isinstance(s, SomePBC):
+        values = []
+        assert not s.can_be_None, "memo call: cannot mix None and PBCs"
+        for desc in s.descriptions:
+            if desc.pyobj is None:
+                raise annmodel.AnnotatorError(
+                    "memo call with a class or PBC that has no "
+                    "corresponding Python object (%r)" % (desc,))
+            values.append(desc.pyobj)
+        return values
+    elif isinstance(s, SomeImpossibleValue):
+        return []
+    elif isinstance(s, SomeBool):
+        return [False, True]
+    else:
+        raise annmodel.AnnotatorError("memo call: argument must be a class "
+                                        "or a frozen PBC, got %r" % (s,))
+
+def memo(funcdesc, args_s):
     # call the function now, and collect possible results
-    argvalues = []
-    for s in arglist_s:
-        if s.is_constant():
-            values = [s.const]
-        elif isinstance(s, SomePBC):
-            values = []
-            assert not s.can_be_None, "memo call: cannot mix None and PBCs"
-            for desc in s.descriptions:
-                if desc.pyobj is None:
-                    raise annmodel.AnnotatorError(
-                        "memo call with a class or PBC that has no "
-                        "corresponding Python object (%r)" % (desc,))
-                values.append(desc.pyobj)
-        elif isinstance(s, SomeImpossibleValue):
-            return s    # we will probably get more possible args later
-        elif isinstance(s, SomeBool):
-            values = [False, True]
-        else:
-            raise annmodel.AnnotatorError("memo call: argument must be a class "
-                                          "or a frozen PBC, got %r" % (s,))
-        argvalues.append(values)
+
     # the list of all possible tuples of arguments to give to the memo function
-    possiblevalues = cartesian_product(argvalues)
+    possiblevalues = cartesian_product([all_values(s_arg) for s_arg in args_s])
 
     # a MemoTable factory -- one MemoTable per family of arguments that can
     # be called together, merged via a UnionFind.

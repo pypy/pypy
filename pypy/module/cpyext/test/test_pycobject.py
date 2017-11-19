@@ -3,8 +3,6 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class AppTestStringObject(AppTestCpythonExtensionBase):
     def test_pycobject_import(self):
-        if self.runappdirect:
-            py.test.xfail('segfault')
         module = self.import_extension('foo', [
             ("set_ptr", "METH_O",
              """
@@ -15,7 +13,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  if (PyErr_Occurred()) return NULL;
                  module = PyImport_ImportModule("foo");
                  PyModule_AddObject(module, "_ptr", pointer);
-                 Py_DECREF(pointer);  /* XXX <--- anti-workaround */
                  Py_DECREF(module);
                  if (PyErr_Occurred()) return NULL;
                  Py_RETURN_NONE;

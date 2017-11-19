@@ -1,6 +1,7 @@
 import weakref
 from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
     descr_get_dict)
@@ -51,7 +52,7 @@ class Local(W_Root):
         # call __init__
         try:
             w_type = space.type(self)
-            w_init = space.getattr(w_type, space.wrap("__init__"))
+            w_init = space.getattr(w_type, space.newtext("__init__"))
             space.call_obj_args(w_init, self, self.initargs)
         except:
             # failed, forget w_dict and propagate the exception
@@ -74,18 +75,20 @@ class Local(W_Root):
         return w_dict
 
     def descr_local__new__(space, w_subtype, __args__):
+        from pypy.objspace.std.typeobject import _precheck_for_new
+        w_subtype = _precheck_for_new(space, w_subtype)
+        if __args__.arguments_w or __args__.keywords:
+            w_parent_init, _ = space.lookup_in_type_where(w_subtype, '__init__')
+            if w_parent_init is space.w_object:
+                raise oefmt(space.w_TypeError,
+                            "Initialization arguments are not supported")
         local = space.allocate_instance(Local, w_subtype)
         Local.__init__(local, space, __args__)
-        return space.wrap(local)
-
-    def descr_local__init__(self, space):
-        # No arguments allowed
-        pass
+        return local
 
 Local.typedef = TypeDef("thread._local",
                         __doc__ = "Thread-local data",
                         __new__ = interp2app(Local.descr_local__new__.im_func),
-                        __init__ = interp2app(Local.descr_local__init__),
                         __dict__ = GetSetProperty(descr_get_dict, cls=Local),
                         )
 

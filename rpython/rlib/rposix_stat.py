@@ -600,9 +600,31 @@ def lstat(path):
         path = traits.as_str0(path)
         return win32_xstat(traits, path, traverse=False)
 
+@specialize.argtype(0)
+def stat3(path):
+    # On Windows, the algorithm behind os.stat() changed a lot between
+    # Python 2 and Python 3.  This is the Python 3 version.
+    if not _WIN32:
+        return stat(path)
+    else:
+        traits = _preferred_traits(path)
+        path = traits.as_str0(path)
+        return win32_xstat3(traits, path, traverse=True)
+
+@specialize.argtype(0)
+def lstat3(path):
+    # On Windows, the algorithm behind os.lstat() changed a lot between
+    # Python 2 and Python 3.  This is the Python 3 version.
+    if not _WIN32:
+        return lstat(path)
+    else:
+        traits = _preferred_traits(path)
+        path = traits.as_str0(path)
+        return win32_xstat3(traits, path, traverse=False)
+
 if rposix.HAVE_FSTATAT:
     from rpython.rlib.rposix import AT_FDCWD, AT_SYMLINK_NOFOLLOW
-    c_fstatat = rffi.llexternal('fstatat',
+    c_fstatat = rffi.llexternal('fstatat64' if _LINUX else 'fstatat',
         [rffi.INT, rffi.CCHARP, STAT_STRUCT, rffi.INT], rffi.INT,
         compilation_info=compilation_info,
         save_err=rffi.RFFI_SAVE_ERRNO, macro=True)
@@ -658,6 +680,45 @@ if _WIN32:
             return win32_attribute_data_to_stat(win32traits, data)
 
     @specialize.arg(0)
+    def win32_xstat3(traits, path, traverse=False):
+        # This is the Python3 version of os.stat() or lstat().
+        # XXX 'traverse' is ignored, and everything related to
+        # the "reparse points" is missing
+        win32traits = make_win32_traits(traits)
+
+        hFile = win32traits.CreateFile(path,
+            win32traits.FILE_READ_ATTRIBUTES,
+            0,
+            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+            win32traits.OPEN_EXISTING,
+            win32traits.FILE_ATTRIBUTE_NORMAL |
+                win32traits.FILE_FLAG_BACKUP_SEMANTICS |
+                0,  # win32traits.FILE_FLAG_OPEN_REPARSE_POINT,
+            rwin32.NULL_HANDLE)
+
+        if hFile == rwin32.INVALID_HANDLE_VALUE:
+            errcode = rwin32.GetLastError_saved()
+            if (errcode != win32traits.ERROR_ACCESS_DENIED and
+                errcode != win32traits.ERROR_SHARING_VIOLATION):
+                raise WindowsError(errcode, "os_stat failed")
+
+            with lltype.scoped_alloc(
+                    win32traits.WIN32_FILE_ATTRIBUTE_DATA) as data:
+                if win32_attributes_from_dir(win32traits, path, data) == 0:
+                    raise WindowsError(rwin32.GetLastError_saved(),
+                                       "win32_attributes_from_dir failed")
+                return win32_attribute_data_to_stat(win32traits, data)
+
+        with lltype.scoped_alloc(
+                win32traits.BY_HANDLE_FILE_INFORMATION, zero=True) as data:
+            res = win32traits.GetFileInformationByHandle(hFile, data)
+            errcode = rwin32.GetLastError_saved()
+            rwin32.CloseHandle(hFile)
+            if res == 0:
+                raise WindowsError(errcode, "GetFileInformationByHandle failed")
+            return win32_by_handle_info_to_stat(win32traits, data)
+
+    @specialize.arg(0)
     def win32_attributes_to_mode(win32traits, attributes):
         m = 0
         attributes = intmask(attributes)
@@ -687,6 +748,7 @@ if _WIN32:
 
         return make_stat_result(result)
 
+    @specialize.arg(0)
     def win32_by_handle_info_to_stat(win32traits, info):
         # similar to the one above
         st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
@@ -697,10 +759,11 @@ if _WIN32:
 
         # specific to fstat()
         st_ino = make_longlong(info.c_nFileIndexHigh, info.c_nFileIndexLow)
+        st_dev = info.c_dwVolumeSerialNumber
         st_nlink = info.c_nNumberOfLinks
 
         result = (st_mode,
-                  st_ino, 0, st_nlink, 0, 0,
+                  st_ino, st_dev, st_nlink, 0, 0,
                   st_size,
                   atime, mtime, ctime,
                   extra_atime, extra_mtime, extra_ctime)
@@ -724,4 +787,3 @@ if _WIN32:
             return 1
         finally:
             lltype.free(filedata, flavor='raw')
-

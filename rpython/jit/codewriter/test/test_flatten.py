@@ -73,7 +73,7 @@ class FakeCallControl:
     def guess_call_kind(self, op):
         return 'residual'
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
-                     extraeffect=None, extradescr=None):
+                     extraeffect=None, extradescr=None, calling_graph=None):
         try:
             name = op.args[0].value._obj._name
             if 'cannot_raise' in name or name.startswith('cast_'):
@@ -402,7 +402,7 @@ class TestFlatten:
 
         self.encoding_test(f, [65], """
         raise $<* struct object>
-        """)
+        """, transform=True)
 
     def test_exc_raise_2(self):
         def g(i):
@@ -465,6 +465,14 @@ class TestFlatten:
             L1:
             int_return $True
         """, transform=True)
+
+    def test_assert_disappears(self):
+        def f(i):
+            assert i > 5
+            return i
+        self.encoding_test(f, [7], """
+            int_return %i0
+        """)
 
     def test_int_floordiv_ovf_zer(self):
         def f(i, j):

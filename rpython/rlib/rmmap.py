@@ -507,6 +507,8 @@ class MMap(object):
         return rffi.ptradd(self.data, offset)
 
     def getslice(self, start, length):
+        if length < 0:
+            return ''
         return rffi.charpsize2str(self.getptr(start), length)
 
     def setslice(self, start, newdata):
@@ -549,8 +551,9 @@ class MMap(object):
             if not has_mremap:
                 raise RValueError("mmap: resizing not available--no mremap()")
 
-            # resize the underlying file first
-            os.ftruncate(self.fd, self.offset + newsize)
+            # resize the underlying file first, if there is one
+            if self.fd >= 0:
+                os.ftruncate(self.fd, self.offset + newsize)
 
             # now resize the mmap
             newdata = c_mremap(self.getptr(0), self.size, newsize,

@@ -1,7 +1,0 @@
-<lcgdict>
-
-  <namespace name="crossing" />
-
-  <class pattern="crossing::[A-Z]" />
-
-</lcgdict>

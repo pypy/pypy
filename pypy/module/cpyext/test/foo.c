@@ -36,14 +36,14 @@ typedef struct {
     Py_ssize_t foo_ssizet;
 } fooobject;
 
-static PyTypeObject footype;
+static PyTypeObject fooType;
 
 static fooobject *
 newfooobject(void)
 {
     fooobject *foop;
 
-    foop = PyObject_New(fooobject, &footype);
+    foop = PyObject_New(fooobject, &fooType);
     if (foop == NULL)
         return NULL;
 
@@ -83,6 +83,35 @@ foo_classmeth(PyObject *cls)
     return cls;
 }
 
+// for CPython
+#ifndef PyMethodDescr_Check
+int PyMethodDescr_Check(PyObject* method)
+{
+    PyObject *meth = PyObject_GetAttrString((PyObject*)&PyList_Type, "append");
+    if (!meth) return 0;
+    int res = PyObject_TypeCheck(method, meth->ob_type);
+    Py_DECREF(meth);
+    return res;
+}
+#endif
+
+PyObject* make_classmethod(PyObject* method)
+{
+    // adapted from __Pyx_Method_ClassMethod
+    if (PyMethodDescr_Check(method)) {
+        PyMethodDescrObject *descr = (PyMethodDescrObject *)method;
+        PyTypeObject *d_type = descr->d_type;
+        return PyDescr_NewClassMethod(d_type, descr->d_method);
+    }
+    else if (PyMethod_Check(method)) {
+        return PyClassMethod_New(PyMethod_GET_FUNCTION(method));
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError, "unknown method kind");
+        return NULL;
+    }
+}
+
 static PyObject *
 foo_unset(fooobject *self)
 {
@@ -95,6 +124,7 @@ static PyMethodDef foo_methods[] = {
     {"copy",      (PyCFunction)foo_copy,      METH_NOARGS,  NULL},
     {"create",    (PyCFunction)foo_create,    METH_NOARGS|METH_STATIC,  NULL},
     {"classmeth", (PyCFunction)foo_classmeth, METH_NOARGS|METH_CLASS,  NULL},
+    {"fake_classmeth", (PyCFunction)foo_classmeth, METH_NOARGS,  NULL},
     {"unset_string_member", (PyCFunction)foo_unset, METH_NOARGS, NULL},
     {NULL, NULL}                 /* sentinel */
 };
@@ -160,6 +190,28 @@ foo_setattro(fooobject *self, PyObject *name, PyObject *value)
     return PyObject_GenericSetAttr((PyObject *)self, name, value);
 }
 
+static PyObject *
+new_fooType(PyTypeObject * t, PyObject *args, PyObject *kwds)
+{
+    PyObject * o;
+    /* copied from numpy scalartypes.c for inherited classes */
+    if (t->tp_bases && (PyTuple_GET_SIZE(t->tp_bases) > 1))
+    {
+        PyTypeObject *sup;
+        /* We are inheriting from a Python type as well so
+           give it first dibs on conversion */
+        sup = (PyTypeObject *)PyTuple_GET_ITEM(t->tp_bases, 1);
+        /* Prevent recursion */
+        if (new_fooType != sup->tp_new)
+        {
+            o = sup->tp_new(t, args, kwds);
+            return o;
+        }
+    }
+    o = t->tp_alloc(t, 0);
+    return o;
+};
+
 static PyMemberDef foo_members[] = {
     {"int_member", T_INT, offsetof(fooobject, foo), 0,
      "A helpful docstring."},
@@ -194,7 +246,7 @@ static PyMemberDef foo_members[] = {
 
 PyDoc_STRVAR(foo_doc, "foo is for testing.");
 
-static PyTypeObject footype = {
+static PyTypeObject fooType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "foo.foo",               /*tp_name*/
     sizeof(fooobject),       /*tp_size*/
@@ -592,7 +644,7 @@ PyTypeObject SimplePropertyType = {
 
     0,          /*tp_init*/
     0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
-    0,          /*tp_new*/
+    PyType_GenericNew, /*tp_new*/
     0,          /*tp_free  Low-level free-memory routine */
     0,          /*tp_is_gc For PyObject_IS_GC */
     0,          /*tp_bases*/
@@ -648,6 +700,34 @@ static PyObject * is_TupleLike(PyObject *self, PyObject * t)
     return PyInt_FromLong(tf);
 }
 
+static PyTypeObject GetType1 = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "foo.GetType1",          /*tp_name*/
+    sizeof(PyObject),        /*tp_size*/
+};
+static PyTypeObject GetType2 = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "foo.GetType2",          /*tp_name*/
+    sizeof(PyObject),        /*tp_size*/
+};
+static PyObject *gettype1, *gettype2;
+
+static PyObject *gettype1_getattr(PyObject *self, char *name)
+{
+    char buf[200];
+    strcpy(buf, "getattr:");
+    strcat(buf, name);
+    return PyString_FromString(buf);
+}
+static PyObject *gettype2_getattro(PyObject *self, PyObject *name)
+{
+    char buf[200];
+    strcpy(buf, "getattro:");
+    strcat(buf, PyString_AS_STRING(name));
+    return PyString_FromString(buf);
+}
+
+
 /* List of functions exported by this module */
 
 static PyMethodDef foo_functions[] = {
@@ -664,7 +744,7 @@ static struct PyModuleDef moduledef = {
     "foo",
     "Module Doc",
     -1,
-    foo_functions, 
+    foo_functions,
     NULL,
     NULL,
     NULL,
@@ -698,6 +778,7 @@ initfoo(void)
 #endif
 {
     PyObject *d;
+    PyObject *fake_classmeth, *classmeth;
 #if PY_MAJOR_VERSION >= 3
     PyObject *module = PyModule_Create(&moduledef);
 #else
@@ -706,13 +787,14 @@ initfoo(void)
     if (module == NULL)
         INITERROR;
 
-    footype.tp_new = PyType_GenericNew;
-
     UnicodeSubtype.tp_base = &PyUnicode_Type;
     UnicodeSubtype2.tp_base = &UnicodeSubtype;
     MetaType.tp_base = &PyType_Type;
 
-    if (PyType_Ready(&footype) < 0)
+    fooType.tp_new = &new_fooType;
+    InitErrType.tp_new = PyType_GenericNew;
+
+    if (PyType_Ready(&fooType) < 0)
         INITERROR;
     if (PyType_Ready(&UnicodeSubtype) < 0)
         INITERROR;
@@ -725,8 +807,6 @@ initfoo(void)
     if (PyType_Ready(&SimplePropertyType) < 0)
         INITERROR;
 
-    SimplePropertyType.tp_new = PyType_GenericNew;
-    InitErrType.tp_new = PyType_GenericNew;
 
     Py_TYPE(&CustomType) = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
@@ -744,11 +824,29 @@ initfoo(void)
     if (PyType_Ready(&TupleLike) < 0)
         INITERROR;
 
+    GetType1.tp_flags = Py_TPFLAGS_DEFAULT;
+    GetType1.tp_getattr = &gettype1_getattr;
+    if (PyType_Ready(&GetType1) < 0)
+        INITERROR;
+    gettype1 = PyObject_New(PyObject, &GetType1);
+
+    GetType2.tp_flags = Py_TPFLAGS_DEFAULT;
+    GetType2.tp_getattro = &gettype2_getattro;
+    if (PyType_Ready(&GetType2) < 0)
+        INITERROR;
+    gettype2 = PyObject_New(PyObject, &GetType2);
+
+    fake_classmeth = PyDict_GetItemString((PyObject *)fooType.tp_dict, "fake_classmeth");
+    classmeth = make_classmethod(fake_classmeth);
+    if (classmeth == NULL)
+        INITERROR;
+    if (PyDict_SetItemString((PyObject *)fooType.tp_dict, "fake_classmeth", classmeth) < 0)
+        INITERROR;
 
     d = PyModule_GetDict(module);
     if (d == NULL)
         INITERROR;
-    if (PyDict_SetItemString(d, "fooType", (PyObject *)&footype) < 0)
+    if (PyDict_SetItemString(d, "fooType", (PyObject *)&fooType) < 0)
         INITERROR;
     if (PyDict_SetItemString(d, "UnicodeSubtype", (PyObject *) &UnicodeSubtype) < 0)
         INITERROR;
@@ -765,6 +863,10 @@ initfoo(void)
     if (PyDict_SetItemString(d, "Custom", (PyObject *) &CustomType) < 0)
         INITERROR;
     if (PyDict_SetItemString(d, "TupleLike", (PyObject *) &TupleLike) < 0)
+        INITERROR;
+    if (PyDict_SetItemString(d, "gettype1", gettype1) < 0)
+        INITERROR;
+    if (PyDict_SetItemString(d, "gettype2", gettype2) < 0)
         INITERROR;
 #if PY_MAJOR_VERSION >=3
     return module;

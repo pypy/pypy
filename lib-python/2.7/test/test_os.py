@@ -580,6 +580,7 @@ HAVE_GETENTROPY = (sysconfig.get_config_var('HAVE_GETENTROPY') == 1)
                  "getentropy() does not use a file descriptor")
 class URandomFDTests(unittest.TestCase):
     @unittest.skipUnless(resource, "test requires the resource module")
+    @test_support.impl_detail(pypy=False)    # on Linux, may use getrandom()
     def test_urandom_failure(self):
         # Check urandom() failing when it is not able to open /dev/random.
         # We spawn a new process to make the test more robust (if getrlimit()
@@ -638,7 +639,7 @@ class TestInvalidFD(unittest.TestCase):
     singles = ["fchdir", "fdopen", "dup", "fdatasync", "fstat",
                "fstatvfs", "fsync", "tcgetpgrp", "ttyname"]
     #singles.append("close")
-    #We omit close because it doesn'r raise an exception on some platforms
+    #We omit close because it doesn't raise an exception on some platforms
     def get_single(f):
         def helper(self):
             if  hasattr(os, f):
@@ -653,7 +654,7 @@ class TestInvalidFD(unittest.TestCase):
         except OSError as e:
             self.assertEqual(e.errno, errno.EBADF)
         else:
-            self.fail("%r didn't raise a OSError with a bad file descriptor"
+            self.fail("%r didn't raise an OSError with a bad file descriptor"
                       % f)
 
     @unittest.skipUnless(hasattr(os, 'isatty'), 'test needs os.isatty()')

@@ -4,6 +4,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp import compile, resume
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
+from rpython.jit.metainterp.history import ConstPtr
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import build_opt_chain
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
@@ -3558,6 +3559,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1]
         i2 = call_i(i1, descr=writevalue3descr)
         jump(p1, i1)
+        """
+        self.optimize_loop(ops, expected, expected_preamble=expected_preamble)
+
+    def test_residual_call_still_forces_immutable_writes_though(self):
+        ops = """
+        [p1]
+        setfield_gc(p1, 6, descr=valuedescr3)
+        i2 = call_i(5, descr=writevalue3descr)
+        jump(p1)
+        """
+        expected_preamble = """
+        [p1]
+        setfield_gc(p1, 6, descr=valuedescr3)
+        i2 = call_i(5, descr=writevalue3descr)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        setfield_gc(p1, 6, descr=valuedescr3)
+        i2 = call_i(5, descr=writevalue3descr)
+        jump(p1)
         """
         self.optimize_loop(ops, expected, expected_preamble=expected_preamble)
 
@@ -7540,6 +7562,33 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
+    def test_guards_before_getfields_in_short_preamble_removetypeptr(self, monkeypatch):
+        monkeypatch.setattr(self.cpu, "remove_gctypeptr", True)
+        ops = """
+        [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
+        p2 = getfield_gc_r(p1, descr=nextdescr)
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        expected = """
+        [p0, p1]
+        jump(p0, p1)
+        """
+        short = """
+        [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
+        p2 = getfield_gc_r(p1, descr=nextdescr)
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+
+
     def test_forced_virtual_pure_getfield(self):
         ops = """
         [p0]
@@ -8673,6 +8722,75 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1)
         """
         self.optimize_loop(ops, expected)
+
+    def test_cond_call_with_a_constant_i(self):
+        ops = """
+        [p1]
+        i2 = cond_call_value_i(0, 123, p1, descr=plaincalldescr)
+        escape_n(i2)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i2 = call_i(123, p1, descr=plaincalldescr)
+        escape_n(i2)
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cond_call_with_a_constant_i2(self):
+        ops = """
+        [p1]
+        i2 = cond_call_value_i(12, 123, p1, descr=plaincalldescr)
+        escape_n(i2)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        escape_n(12)
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cond_call_r1(self):
+        ops = """
+        [p1]
+        p2 = cond_call_value_r(p1, 123, p1, descr=plain_r_calldescr)
+        jump(p2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_cond_call_r2(self):
+        ops = """
+        [p1]
+        guard_nonnull(p1) []
+        p2 = cond_call_value_r(p1, 123, p1, descr=plain_r_calldescr)
+        p3 = escape_r(p2)
+        jump(p3)
+        """
+        expected = """
+        [p1]
+        guard_nonnull(p1) []
+        p3 = escape_r(p1)
+        jump(p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cond_call_r3(self):
+        arg_consts = [ConstInt(i) for i in (123, 4, 5, 6)]
+        call_pure_results = {tuple(arg_consts): ConstPtr(self.myptr)}
+        ops = """
+        [p1]
+        p2 = cond_call_value_r(p1, 123, 4, 5, 6, descr=plain_r_calldescr)
+        p3 = escape_r(p2)
+        jump(p3)
+        """
+        expected = """
+        [p1]
+        p3 = escape_r(ConstPtr(myptr))
+        jump(p3)
+        """
+        self.optimize_loop(ops, expected, call_pure_results=call_pure_results)
 
     def test_hippyvm_unroll_bug(self):
         ops = """

@@ -516,13 +516,13 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
     ne = eq
 
     def lt((tup1, tup2)):
-        raise Exception("unsupported: (...) < (...)")
+        raise AnnotatorError("unsupported: (...) < (...)")
     def le((tup1, tup2)):
-        raise Exception("unsupported: (...) <= (...)")
+        raise AnnotatorError("unsupported: (...) <= (...)")
     def gt((tup1, tup2)):
-        raise Exception("unsupported: (...) > (...)")
+        raise AnnotatorError("unsupported: (...) > (...)")
     def ge((tup1, tup2)):
-        raise Exception("unsupported: (...) >= (...)")
+        raise AnnotatorError("unsupported: (...) >= (...)")
 
 
 class __extend__(pairtype(SomeDict, SomeDict)):
@@ -531,6 +531,8 @@ class __extend__(pairtype(SomeDict, SomeDict)):
         assert dic1.__class__ == dic2.__class__
         return dic1.__class__(dic1.dictdef.union(dic2.dictdef))
 
+    def ne((dic1, dic2)):
+        raise AnnotatorError("dict != dict not implemented")
 
 def _dict_can_only_throw_keyerror(s_dct, *ignore):
     if s_dct.dictdef.dictkey.custom_eq_hash:

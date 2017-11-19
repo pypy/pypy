@@ -2,13 +2,13 @@
 """ Register allocation scheme.
 """
 
-import os, sys
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import CallDescr, unpack_arraydescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      RegisterManager, TempVar, compute_vars_longevity, is_comparison_or_ovf_op,
-     valid_addressing_size, get_scale)
+     valid_addressing_size, get_scale, SAVE_DEFAULT_REGS, SAVE_GCREF_REGS,
+     SAVE_ALL_REGS)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
     IS_X86_64, DEFAULT_FRAME_BYTES)
@@ -23,12 +23,11 @@ from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     ConstFloat, INT, REF, FLOAT, VECTOR, TargetToken, AbstractFailDescr)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resume import AccumInfo
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.x86.regloc import AddressLoc
@@ -435,9 +434,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def consider_guard_not_invalidated(self, op):
         mc = self.assembler.mc
-        n = mc.get_relative_pos()
+        n = mc.get_relative_pos(break_basic_block=False)
         self.perform_guard(op, [], None)
-        assert n == mc.get_relative_pos()
+        assert n == mc.get_relative_pos(break_basic_block=False)
         # ensure that the next label is at least 5 bytes farther than
         # the current position.  Otherwise, when invalidating the guard,
         # we would overwrite randomly the next label's position.
@@ -799,25 +798,29 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # we need to save registers on the stack:
         #
         #  - at least the non-callee-saved registers
+        #    (gc_level == SAVE_DEFAULT_REGS)
         #
-        #  - if gc_level > 0, we save also the callee-saved registers that
-        #    contain GC pointers
+        #  - if gc_level == SAVE_GCREF_REGS we save also the callee-saved
+        #    registers that contain GC pointers
         #
-        #  - gc_level == 2 for CALL_MAY_FORCE or CALL_ASSEMBLER.  We
+        #  - gc_level == SAVE_ALL_REGS for CALL_MAY_FORCE or CALL_ASSEMBLER.  We
         #    have to save all regs anyway, in case we need to do
         #    cpu.force().  The issue is that grab_frame_values() would
         #    not be able to locate values in callee-saved registers.
         #
-        save_all_regs = gc_level == 2
+        if gc_level == SAVE_ALL_REGS:
+            save_all_regs = SAVE_ALL_REGS
+        else:
+            save_all_regs = SAVE_DEFAULT_REGS
         self.xrm.before_call(save_all_regs=save_all_regs)
-        if gc_level == 1:
+        if gc_level == SAVE_GCREF_REGS:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
-            # we save all the registers for shadowstack and asmgcc for now
+            # we save all the GCREF registers for shadowstack and asmgcc for now
             # --- for asmgcc too: we can't say "register x is a gc ref"
             # without distinguishing call sites, which we don't do any
             # more for now.
             if gcrootmap: # and gcrootmap.is_shadow_stack:
-                save_all_regs = 2
+                save_all_regs = SAVE_GCREF_REGS
         self.rm.before_call(save_all_regs=save_all_regs)
         if op.type != 'v':
             if op.type == FLOAT:
@@ -841,11 +844,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         #
         effectinfo = calldescr.get_extra_info()
         if guard_not_forced:
-            gc_level = 2
+            gc_level = SAVE_ALL_REGS
         elif effectinfo is None or effectinfo.check_can_collect():
-            gc_level = 1
+            gc_level = SAVE_GCREF_REGS
         else:
-            gc_level = 0
+            gc_level = SAVE_DEFAULT_REGS
         #
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
@@ -909,7 +912,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def _consider_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)
-        self._call(op, locs, gc_level=2)
+        self._call(op, locs, gc_level=SAVE_ALL_REGS)
     consider_call_assembler_i = _consider_call_assembler
     consider_call_assembler_r = _consider_call_assembler
     consider_call_assembler_f = _consider_call_assembler
@@ -948,11 +951,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # If this also contains args[0], this returns the current
         # location too.
         arglocs = [self.loc(args[i]) for i in range(2, len(args))]
-        gcmap = self.get_gcmap()
 
         if op.type == 'v':
             # a plain COND_CALL.  Calls the function when args[0] is
             # true.  Often used just after a comparison operation.
+            gcmap = self.get_gcmap()
             self.load_condition_into_cc(op.getarg(0))
             resloc = None
         else:
@@ -969,6 +972,22 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             resloc = self.rm.force_result_in_reg(op, args[0],
                                                  forbidden_vars=args[2:])
 
+            # Get the gcmap here, possibly including the spilled
+            # location, and always excluding the 'resloc' register.
+            # Some more details: the only interesting case is the case
+            # where we're doing the call (if we are not, the gcmap is
+            # not used); and in this case, the gcmap must include the
+            # spilled location (it contains a valid GC pointer to fix
+            # during the call if a GC occurs), and never 'resloc'
+            # (it will be overwritten with the result of the call, which
+            # is not computed yet if a GC occurs).
+            #
+            # (Note that the spilled value is always NULL at the moment
+            # if the call really occurs, but it's not worth the effort to
+            # not list it in the gcmap and get crashes if we tweak
+            # COND_CALL_VALUE_R in the future)
+            gcmap = self.get_gcmap([resloc])
+
             # Test the register for the result.
             self.assembler.test_location(resloc)
             self.assembler.guard_success_cc = rx86.Conditions['Z']
@@ -982,7 +1001,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
-        # hint: try to move unrelated registers away from eax and edx now
+        # hint: try to move unrelated registers away from ecx and edx now
         self.rm.spill_or_move_registers_before_call([ecx, edx])
         # the result will be in ecx
         self.rm.force_allocate_reg(op, selected_reg=ecx)
@@ -1289,7 +1308,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.rm.possibly_free_var(tmpbox_high)
 
     def compute_hint_frame_locations(self, operations):
-        # optimization only: fill in the 'hint_frame_locations' dictionary
+        # optimization only: fill in the 'hint_frame_pos' dictionary
         # of 'fm' based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
         op = operations[-1]
@@ -1304,7 +1323,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self._compute_hint_frame_locations_from_descr(descr)
         #else:
         #   The loop ends in a JUMP going back to a LABEL in the same loop.
-        #   We cannot fill 'hint_frame_locations' immediately, but we can
+        #   We cannot fill 'hint_frame_pos' immediately, but we can
         #   wait until the corresponding consider_label() to know where the
         #   we would like the boxes to be after the jump.
 

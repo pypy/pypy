@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
 from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
-     OpHelpers
+     OpHelpers, AbstractResOp
 from rpython.rlib.rarithmetic import highest_bit
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper import rclass
@@ -104,14 +104,14 @@ class OptRewrite(Optimization):
             return
         elif b2.is_constant():
             val = b2.lower
-            if val == -1 or b1.lower >= 0 \
-                and b1.upper <= val & ~(val + 1):
+            if val == -1 or (b1.bounded() and b1.lower >= 0
+                                          and b1.upper <= val & ~(val + 1)):
                 self.make_equal_to(op, op.getarg(0))
                 return
         elif b1.is_constant():
             val = b1.lower
-            if val == -1 or b2.lower >= 0 \
-                and b2.upper <= val & ~(val + 1):
+            if val == -1 or (b2.bounded() and b2.lower >= 0
+                                          and b2.upper <= val & ~(val + 1)):
                 self.make_equal_to(op, op.getarg(1))
                 return
 
@@ -490,6 +490,11 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_TRUE(self, op):
         box = self.get_box_replacement(op.getarg(0))
+        if (isinstance(box, AbstractResOp) and
+                box.getopnum() == rop.INT_IS_TRUE):
+            # we can't use the (current) range analysis for this because
+            # "anything but 0" is not a valid range
+            self.pure_from_args(rop.INT_IS_ZERO, [box.getarg(0)], CONST_0)
         self.make_constant(box, CONST_1)
 
     def optimize_GUARD_FALSE(self, op):
@@ -497,7 +502,15 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_FALSE(self, op):
         box = self.get_box_replacement(op.getarg(0))
+        if (isinstance(box, AbstractResOp) and
+                box.getopnum() == rop.INT_IS_ZERO):
+            # we can't use the (current) range analysis for this because
+            # "anything but 0" is not a valid range
+            self.pure_from_args(rop.INT_IS_TRUE, [box.getarg(0)], CONST_1)
         self.make_constant(box, CONST_0)
+
+    def optimize_ASSERT_NOT_NONE(self, op):
+        self.make_nonnull(op.getarg(0))
 
     def optimize_RECORD_EXACT_CLASS(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
@@ -595,6 +608,19 @@ class OptRewrite(Optimization):
             opnum = OpHelpers.call_for_type(op.type)
             op = op.copy_and_change(opnum, args=op.getarglist()[1:])
         return self.emit(op)
+
+    def optimize_COND_CALL_VALUE_I(self, op):
+        # look if we know the nullness of the first argument
+        info = self.getnullness(op.getarg(0))
+        if info == INFO_NONNULL:
+            self.make_equal_to(op, op.getarg(0))
+            self.last_emitted_operation = REMOVED
+            return
+        if info == INFO_NULL:
+            opnum = OpHelpers.call_pure_for_type(op.type)
+            op = self.replace_op_with(op, opnum, args=op.getarglist()[1:])
+        return self.emit(op)
+    optimize_COND_CALL_VALUE_R = optimize_COND_CALL_VALUE_I
 
     def _optimize_nullness(self, op, box, expect_nonnull):
         info = self.getnullness(box)

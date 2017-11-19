@@ -1,28 +1,30 @@
 import py
 
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
-from pypy.module.cpyext.tupleobject import PyTupleObject
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.debug import FatalError
+from pypy.module.cpyext.tupleobject import (
+    PyTupleObject, PyTuple_Check, PyTuple_SetItem, PyTuple_Size)
 
 
 class TestTupleObject(BaseApiTest):
 
-    def test_tupleobject(self, space, api):
-        assert not api.PyTuple_Check(space.w_None)
-        assert api.PyTuple_SetItem(space.w_None, 0, space.w_None) == -1
+    def test_tupleobject(self, space):
+        assert not PyTuple_Check(space, space.w_None)
+        with raises_w(space, SystemError):
+            PyTuple_SetItem(space, space.w_None, 0, space.w_None)
         atuple = space.newtuple([space.wrap(0), space.wrap(1),
                                  space.wrap('yay')])
-        assert api.PyTuple_Size(atuple) == 3
-        #assert api.PyTuple_GET_SIZE(atuple) == 3  --- now a C macro
-        raises(TypeError, api.PyTuple_Size(space.newlist([])))
-        api.PyErr_Clear()
+        assert PyTuple_Size(space, atuple) == 3
+        with raises_w(space, SystemError):
+            PyTuple_Size(space, space.newlist([]))
 
     def test_tuple_realize_refuses_nulls(self, space, api):
         py_tuple = api.PyTuple_New(1)
         py.test.raises(FatalError, from_ref, space, py_tuple)
+        api.Py_DecRef(py_tuple)
 
     def test_tuple_resize(self, space, api):
         w_42 = space.wrap(42)
@@ -69,6 +71,7 @@ class TestTupleObject(BaseApiTest):
         w_tuple = from_ref(space, py_tuple)
         assert space.eq_w(w_tuple, space.newtuple([space.wrap(42),
                                                    space.wrap(43)]))
+        api.Py_DecRef(py_tuple)
 
     def test_getslice(self, space, api):
         w_tuple = space.newtuple([space.wrap(i) for i in range(10)])
@@ -154,5 +157,53 @@ class AppTestTuple(AppTestCpythonExtensionBase):
 
     def test_tuple_subclass(self):
         module = self.import_module(name='foo')
-        a = module.TupleLike([1, 2, 3])
+        a = module.TupleLike(range(100, 400, 100))
         assert module.is_TupleLike(a) == 1
+        assert isinstance(a, tuple)
+        assert issubclass(type(a), tuple)
+        assert list(a) == range(100, 400, 100)
+        assert list(a) == range(100, 400, 100)
+        assert list(a) == range(100, 400, 100)
+
+    def test_setitem(self):
+        module = self.import_extension('foo', [
+            ("set_after_use", "METH_O",
+             """
+                PyObject *t2, *tuple = PyTuple_New(1);
+                PyObject * one = PyLong_FromLong(1);
+                int res;
+                Py_INCREF(one);
+                res = PyTuple_SetItem(tuple, 0, one);
+                if (res != 0)
+                {
+                    Py_DECREF(one);
+                    Py_DECREF(tuple);
+                    return NULL;
+                }
+                Py_INCREF(args);
+                res = PyTuple_SetItem(tuple, 0, args);
+                if (res != 0)
+                {
+                    Py_DECREF(tuple);
+                    return NULL;
+                }
+                /* Do something that uses the tuple, but does not incref */
+                t2 = PyTuple_GetSlice(tuple, 0, 1);
+                Py_DECREF(t2);
+                res = PyTuple_SetItem(tuple, 0, one);
+                if (res != 0)
+                {
+                    Py_DECREF(tuple);
+                    return NULL;
+                }
+                Py_DECREF(tuple);
+                Py_INCREF(Py_None);
+                return Py_None;
+             """),
+            ])
+        import sys
+        s = 'abc'
+        if '__pypy__' in sys.builtin_module_names:
+            raises(SystemError, module.set_after_use, s)
+        else:
+            module.set_after_use(s)

@@ -1,7 +1,7 @@
 #ifndef NDARRAYTYPES_H
 #define NDARRAYTYPES_H
 
-#include "numpy/npy_common.h"
+#include "npy_common.h"
 //#include "npy_endian.h"
 //#include "npy_cpu.h"
 //#include "utils.h"

@@ -6,11 +6,11 @@ from rpython.jit.backend.x86.vector_ext import TempVector
 from rpython.jit.backend.x86.test import test_basic
 from rpython.jit.backend.x86.test.test_assembler import \
         (TestRegallocPushPop as BaseTestAssembler)
-from rpython.jit.metainterp.test import test_vector
+from rpython.jit.metainterp.test import test_zvector
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.backend.detect_cpu import getcpuclass
 
-class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
+class TestBasic(test_basic.Jit386Mixin, test_zvector.VectorizeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
     def setup_method(self, method):

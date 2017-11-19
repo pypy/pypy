@@ -1,0 +1,17 @@
+<lcgdict>
+
+  <class pattern="CppyyTest*" />
+  <class name="FourVector" />
+
+  <enum name="EFruit" />
+
+  <function pattern="get_*" />
+  <function pattern="set_*" />
+  <function pattern="is_*" />
+
+  <variable name="N" />
+
+  <variable name="g_int" />
+  <variable name="g_pod" />
+
+</lcgdict>

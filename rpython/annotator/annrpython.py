@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import types
 from collections import defaultdict
+from contextlib import contextmanager
 
 from rpython.tool.ansi_print import AnsiLogger
 from rpython.tool.pairtype import pair
@@ -14,9 +15,33 @@ from rpython.annotator.model import (
     typeof, s_ImpossibleValue, SomeInstance, intersection, difference)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
+from collections import deque
 
 log = AnsiLogger("annrpython")
 
+
+class ShuffleDict(object):
+    def __init__(self):
+        self._d = {}
+        self.keys = deque()
+
+    def __setitem__(self, k, v):
+        if k in self._d:
+            self._d[k] = v
+        else:
+            self._d[k] = v
+            self.keys.append(k)
+
+    def __getitem__(self, k):
+        return self._d[k]
+
+    def popitem(self):
+        key = self.keys.popleft()
+        item = self._d.pop(key)
+        return (key, item)
+
+    def __nonzero__(self):
+        return bool(self._d)
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.
@@ -32,7 +57,7 @@ class RPythonAnnotator(object):
             translator = TranslationContext()
             translator.annotator = self
         self.translator = translator
-        self.pendingblocks = {}  # map {block: graph-containing-it}
+        self.pendingblocks = ShuffleDict()  # map {block: graph-containing-it}
         self.annotated = {}      # set of blocks already seen
         self.added_blocks = None # see processblock() below
         self.links_followed = {} # set of links that have ever been followed
@@ -84,7 +109,8 @@ class RPythonAnnotator(object):
 
         self._setup_union_hacks()  # XXX
 
-        flowgraph, inputs_s = self.get_call_parameters(function, args_s, policy)
+        with self.using_policy(policy):
+            flowgraph, inputs_s = self.get_call_parameters(function, args_s)
 
         if main_entry_point:
             self.translator.entry_point_graph = flowgraph
@@ -95,37 +121,39 @@ class RPythonAnnotator(object):
             self.translator.config.translation.check_str_without_nul)
         annmodel.TLS.allow_bad_unions = self.allow_bad_unions
 
-    def get_call_parameters(self, function, args_s, policy):
-        desc = self.bookkeeper.getdesc(function)
-        prevpolicy = self.policy
-        self.policy = policy
-        self.bookkeeper.enter(None)
-        try:
+    def get_call_parameters(self, function, args_s):
+        with self.bookkeeper.at_position(None):
+            desc = self.bookkeeper.getdesc(function)
             return desc.get_call_parameters(args_s)
-        finally:
-            self.bookkeeper.leave()
-            self.policy = prevpolicy
 
     def annotate_helper(self, function, args_s, policy=None):
         if policy is None:
             from rpython.annotator.policy import AnnotatorPolicy
             policy = AnnotatorPolicy()
             self._setup_union_hacks()  # XXX
-        graph, inputcells = self.get_call_parameters(function, args_s, policy)
-        self.build_graph_types(graph, inputcells, complete_now=False)
-        self.complete_helpers(policy)
+        with self.using_policy(policy):
+            graph, inputcells = self.get_call_parameters(function, args_s)
+            self.build_graph_types(graph, inputcells, complete_now=False)
+            self.complete_helpers()
         return graph
 
-    def complete_helpers(self, policy):
-        saved = self.policy, self.added_blocks
-        self.policy = policy
+    def complete_helpers(self):
+        saved = self.added_blocks
+        self.added_blocks = {}
         try:
-            self.added_blocks = {}
             self.complete()
             # invoke annotation simplifications for the new blocks
             self.simplify(block_subset=self.added_blocks)
         finally:
-            self.policy, self.added_blocks = saved
+            self.added_blocks = saved
+
+    @contextmanager
+    def using_policy(self, policy):
+        """A context manager that temporarily replaces the annotator policy"""
+        old_policy = self.policy
+        self.policy = policy
+        yield
+        self.policy = old_policy
 
     def build_graph_types(self, flowgraph, inputcells, complete_now=True):
         checkgraph(flowgraph)
@@ -231,6 +259,12 @@ class RPythonAnnotator(object):
             v = graph.getreturnvar()
             if v.annotation is None:
                 self.setbinding(v, s_ImpossibleValue)
+            v = graph.exceptblock.inputargs[1]
+            if v.annotation is not None and v.annotation.can_be_none():
+                raise annmodel.AnnotatorError(
+                    "%r is found by annotation to possibly raise None, "
+                    "but the None was not suppressed by the flow space" %
+                        (graph,))
 
     def validate(self):
         """Check that the annotation results are valid"""
@@ -279,21 +313,15 @@ class RPythonAnnotator(object):
     #___ interface for annotator.bookkeeper _______
 
     def recursivecall(self, graph, whence, inputcells):
-        if isinstance(whence, tuple):
+        if whence is not None:
             parent_graph, parent_block, parent_index = whence
             tag = parent_block, parent_index
             self.translator.update_call_graph(parent_graph, graph, tag)
-        # self.notify[graph.returnblock] is a dictionary of call
-        # points to this func which triggers a reflow whenever the
-        # return block of this graph has been analysed.
-        callpositions = self.notify.setdefault(graph.returnblock, {})
-        if whence is not None:
-            if callable(whence):
-                def callback():
-                    whence(self, graph)
-            else:
-                callback = whence
-            callpositions[callback] = True
+            # self.notify[graph.returnblock] is a set of call
+            # points to this func which triggers a reflow whenever the
+            # return block of this graph has been analysed.
+            returnpositions = self.notify.setdefault(graph.returnblock, set())
+            returnpositions.add(whence)
 
         # generalize the function's input arguments
         self.addpendingblock(graph, graph.startblock, inputcells)
@@ -544,12 +572,8 @@ class RPythonAnnotator(object):
                 self.follow_link(graph, link, constraints)
 
         if block in self.notify:
-            # reflow from certain positions when this block is done
-            for callback in self.notify[block]:
-                if isinstance(callback, tuple):
-                    self.reflowfromposition(callback) # callback is a position
-                else:
-                    callback()
+            for position in self.notify[block]:
+                self.reflowfromposition(position)
 
 
     def follow_link(self, graph, link, constraints):

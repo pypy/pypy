@@ -2,7 +2,7 @@ from rpython.rlib.buffer import StringBuffer, SubBuffer
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
-    cpython_api, Py_ssize_t, cpython_struct, bootstrap_function,
+    cpython_api, Py_ssize_t, cpython_struct, bootstrap_function, slot_function,
     PyObjectFields, PyObject)
 from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef, make_ref
 from pypy.module.array.interp_array import ArrayBuffer
@@ -31,7 +31,7 @@ def init_bufferobject(space):
                    dealloc=buffer_dealloc,
                    realize=buffer_realize)
 
-def buffer_attach(space, py_obj, w_obj):
+def buffer_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyBufferObject with the given (str) buffer object.
     """
@@ -56,9 +56,9 @@ def buffer_attach(space, py_obj, w_obj):
         py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(buf.value))
         py_buf.c_b_size = buf.getlength()
     elif isinstance(buf, ArrayBuffer):
-        w_base = buf.array
+        w_base = buf.w_array
         py_buf.c_b_base = make_ref(space, w_base)
-        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.array._charbuf_start())
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.w_array._charbuf_start())
         py_buf.c_b_size = buf.getlength()
     else:
         raise oefmt(space.w_NotImplementedError, "buffer flavor not supported")
@@ -72,7 +72,7 @@ def buffer_realize(space, py_obj):
                 "Don't know how to realize a buffer")
 
 
-@cpython_api([PyObject], lltype.Void, header=None)
+@slot_function([PyObject], lltype.Void)
 def buffer_dealloc(space, py_obj):
     py_buf = rffi.cast(PyBufferObject, py_obj)
     if py_buf.c_b_base:

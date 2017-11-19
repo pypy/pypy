@@ -21,7 +21,7 @@ if sys.platform == 'win32':
                 win32api.CloseHandle(proch)
             except pywintypes.error, e:
                 pass
-    #Try to avoid opeing a dialog box if one of the tests causes a system error
+    #Try to avoid opening a dialog box if one of the tests causes a system error
     import ctypes
     winapi = ctypes.windll.kernel32
     SetErrorMode = winapi.SetErrorMode

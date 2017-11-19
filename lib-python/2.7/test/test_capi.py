@@ -26,7 +26,6 @@ class CAPITest(unittest.TestCase):
 skips = []
 if support.check_impl_detail(pypy=True):
     skips += [
-            'test_broken_memoryview',
             'test_buildvalue_N',
             'test_capsule',
             'test_lazy_hash_inheritance',

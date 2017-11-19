@@ -48,7 +48,7 @@ class MultiArrayModule(MixedModule):
 class UMathModule(MixedModule):
     appleveldefs = {}
     interpleveldefs = {
-        'FLOATING_POINT_SUPPORT': 'space.wrap(1)',
+        'FLOATING_POINT_SUPPORT': 'space.newint(1)',
         'frompyfunc': 'ufuncs.frompyfunc',
         }
     # ufuncs

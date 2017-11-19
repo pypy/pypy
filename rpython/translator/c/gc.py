@@ -443,6 +443,45 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         from rpython.memory.gctransform import shadowstack
         return shadowstack.ShadowStackFrameworkGCTransformer(translator)
 
+    def enter_roots_frame(self, funcgen, (c_gcdata, c_numcolors)):
+        numcolors = c_numcolors.value
+        # XXX hard-code the field name here
+        gcpol_ss = '%s->gcd_inst_root_stack_top' % funcgen.expr(c_gcdata)
+        #
+        yield ('typedef struct { void %s; } pypy_ss_t;'
+                   % ', '.join(['*s%d' % i for i in range(numcolors)]))
+        yield 'pypy_ss_t *ss;'
+        funcgen.gcpol_ss = gcpol_ss
+
+    def OP_GC_PUSH_ROOTS(self, funcgen, op):
+        raise Exception("gc_push_roots should be removed by postprocess_graph")
+
+    def OP_GC_POP_ROOTS(self, funcgen, op):
+        raise Exception("gc_pop_roots should be removed by postprocess_graph")
+
+    def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
+        return 'ss = (pypy_ss_t *)%s; %s = (void *)(ss+1);' % (
+            funcgen.gcpol_ss, funcgen.gcpol_ss)
+
+    def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):
+        return '%s = (void *)ss;' % funcgen.gcpol_ss
+
+    def OP_GC_SAVE_ROOT(self, funcgen, op):
+        num = op.args[0].value
+        exprvalue = funcgen.expr(op.args[1])
+        return 'ss->s%d = (void *)%s;\t/* gc_save_root */' % (num, exprvalue)
+
+    def OP_GC_RESTORE_ROOT(self, funcgen, op):
+        num = op.args[0].value
+        exprvalue = funcgen.expr(op.args[1])
+        typename = funcgen.db.gettype(op.args[1].concretetype)
+        result = '%s = (%s)ss->s%d;' % (exprvalue, cdecl(typename, ''), num)
+        if isinstance(op.args[1], Constant):
+            return '/* %s\t* gc_restore_root */' % result
+        else:
+            return '%s\t/* gc_restore_root */' % result
+
+
 class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
     def gettransformer(self, translator):

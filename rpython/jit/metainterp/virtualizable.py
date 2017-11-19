@@ -2,7 +2,6 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.jit.metainterp.warmstate import wrap, unwrap
-from rpython.jit.metainterp.resumecode import numb_next_item
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rvirtualizable
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -127,24 +126,21 @@ class VirtualizableInfo(object):
                 size += 1
             return size
 
-        def write_from_resume_data_partial(virtualizable, reader, index, numb):
+        def write_from_resume_data_partial(virtualizable, reader):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # Load values from the reader (see resume.py) described by
             # the list of numbers 'nums', and write them in their proper
             # place in the 'virtualizable'.
             for FIELDTYPE, fieldname in unroll_static_fields:
-                item, index = numb_next_item(numb, index)
-                x = reader.load_value_of_type(FIELDTYPE, item)
+                x = reader.load_next_value_of_type(FIELDTYPE)
                 setattr(virtualizable, fieldname, x)
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
                 for j in range(getlength(lst)):
-                    item, index = numb_next_item(numb, index)                    
-                    x = reader.load_value_of_type(ARRAYITEMTYPE, item)
+                    x = reader.load_next_value_of_type(ARRAYITEMTYPE)
                     setarrayitem(lst, j, x)
-            return index
 
-        def load_list_of_boxes(virtualizable, reader, vable_box, numb, index):
+        def load_list_of_boxes(virtualizable, reader, vable_box):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # Uses 'virtualizable' only to know the length of the arrays;
             # does not write anything into it.  The returned list is in
@@ -152,17 +148,15 @@ class VirtualizableInfo(object):
             # the virtualizable itself.
             boxes = []
             for FIELDTYPE, fieldname in unroll_static_fields:
-                item, index = numb_next_item(numb, index)
-                box = reader.decode_box_of_type(FIELDTYPE, item)
+                box = reader.next_box_of_type(FIELDTYPE)
                 boxes.append(box)
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
                 for j in range(getlength(lst)):
-                    item, index = numb_next_item(numb, index)                    
-                    box = reader.decode_box_of_type(ARRAYITEMTYPE, item)
+                    box = reader.next_box_of_type(ARRAYITEMTYPE)
                     boxes.append(box)
             boxes.append(vable_box)
-            return boxes, index
+            return boxes
 
         def check_boxes(virtualizable, boxes):
             virtualizable = cast_gcref_to_vtype(virtualizable)

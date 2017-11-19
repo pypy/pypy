@@ -1162,32 +1162,32 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.vectorize(loop,1)
         self.assert_equal(loop, self.parse_loop(opt))
 
-    def test_accumulate_basic(self):
-        trace = """
-        [p0, i0, f0]
-        f1 = raw_load_f(p0, i0, descr=floatarraydescr)
-        f2 = float_add(f0, f1)
-        i1 = int_add(i0, 8)
-        i2 = int_lt(i1, 100)
-        guard_true(i2) [p0, i0, f2]
-        jump(p0, i1, f2)
-        """
-        trace_opt = """
-        [p0, i0, f0]
-        v6[0xf64] = vec_f()
-        v7[2xf64] = vec_float_xor(v6[0xf64], v6[0xf64])
-        v2[2xf64] = vec_pack_f(v7[2xf64], f0, 0, 1)
-        label(p0, i0, v2[2xf64])
-        i1 = int_add(i0, 16)
-        i2 = int_lt(i1, 100)
-        guard_true(i2) [p0, i0, v2[2xf64]]
-        v1[2xf64] = vec_load_f(p0, i0, 1, 0, descr=floatarraydescr)
-        v3[2xf64] = vec_float_add(v2[2xf64], v1[2xf64])
-        jump(p0, i1, v3[2xf64])
-        """
-        loop = self.parse_loop(trace)
-        opt = self.vectorize(loop)
-        self.assert_equal(loop, self.parse_loop(trace_opt))
+    #def test_accumulate_basic(self):
+    #    trace = """
+    #    [p0, i0, f0]
+    #    f1 = raw_load_f(p0, i0, descr=floatarraydescr)
+    #    f2 = float_add(f0, f1)
+    #    i1 = int_add(i0, 8)
+    #    i2 = int_lt(i1, 100)
+    #    guard_true(i2) [p0, i0, f2]
+    #    jump(p0, i1, f2)
+    #    """
+    #    trace_opt = """
+    #    [p0, i0, f0]
+    #    v6[0xf64] = vec_f()
+    #    v7[2xf64] = vec_float_xor(v6[0xf64], v6[0xf64])
+    #    v2[2xf64] = vec_pack_f(v7[2xf64], f0, 0, 1)
+    #    label(p0, i0, v2[2xf64])
+    #    i1 = int_add(i0, 16)
+    #    i2 = int_lt(i1, 100)
+    #    guard_true(i2) [p0, i0, v2[2xf64]]
+    #    v1[2xf64] = vec_load_f(p0, i0, 1, 0, descr=floatarraydescr)
+    #    v3[2xf64] = vec_float_add(v2[2xf64], v1[2xf64])
+    #    jump(p0, i1, v3[2xf64])
+    #    """
+    #    loop = self.parse_loop(trace)
+    #    opt = self.vectorize(loop)
+    #    self.assert_equal(loop, self.parse_loop(trace_opt))
 
     def test_element_f45_in_guard_failargs(self):
         trace = self.parse_loop("""

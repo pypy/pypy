@@ -40,6 +40,22 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
         else:
             rawfields.append((f[0], f[1]._ffishape_))
 
+    # hack for duplicate field names
+    already_seen = set()
+    names1 = names
+    names = []
+    for f in names1:
+        if f not in already_seen:
+            names.append(f)
+            already_seen.add(f)
+    already_seen = set()
+    for i in reversed(range(len(rawfields))):
+        if rawfields[i][0] in already_seen:
+            rawfields[i] = (('$DUP%d$%s' % (i, rawfields[i][0]),)
+                            + rawfields[i][1:])
+        already_seen.add(rawfields[i][0])
+    # /hack
+
     _set_shape(self, rawfields, self._is_union)
 
     fields = {}
@@ -128,6 +144,7 @@ class Field(object):
             memmove(dest, arg, fieldtype._fficompositesize_)
         else:
             obj._buffer.__setattr__(self.name, arg)
+
 
 
 def _set_shape(tp, rawfields, is_union=False):
@@ -224,14 +241,27 @@ class StructOrUnionMeta(_CDataMeta):
         res.__dict__['_index'] = -1
         return res
 
-
 class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
-        self = super(_CData, cls).__new__(cls)
-        if '_abstract_' in cls.__dict__:
+        from _ctypes import union
+        if ('_abstract_' in cls.__dict__ or cls is Structure
+                                         or cls is union.Union):
             raise TypeError("abstract class")
+        if hasattr(cls, '_swappedbytes_'):
+            fields = [None] * len(cls._fields_)
+            for i in range(len(cls._fields_)):
+                if cls._fields_[i][1] == cls._fields_[i][1].__dict__.get('__ctype_be__', None):
+                    swapped = cls._fields_[i][1].__dict__.get('__ctype_le__', cls._fields_[i][1])
+                else:
+                    swapped = cls._fields_[i][1].__dict__.get('__ctype_be__', cls._fields_[i][1])
+                if len(cls._fields_[i]) < 3:
+                    fields[i] = (cls._fields_[i][0], swapped)
+                else:
+                    fields[i] = (cls._fields_[i][0], swapped, cls._fields_[i][2])
+            names_and_fields(cls, fields, _CData, cls.__dict__.get('_anonymous_', None))
+        self = super(_CData, cls).__new__(cls)
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
         return self
@@ -260,6 +290,11 @@ class StructOrUnion(_CData):
 
     def _get_buffer_value(self):
         return self._buffer.buffer
+
+    def _copy_to(self, addr):
+        from ctypes import memmove
+        origin = self._get_buffer_value()
+        memmove(addr, origin, self._fficompositesize_)
 
     def _to_ffi_param(self):
         return self._buffer

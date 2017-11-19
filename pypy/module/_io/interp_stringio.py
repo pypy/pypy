@@ -28,11 +28,11 @@ class W_StringIO(W_TextIOBase):
 
         if (newline is not None and newline != u"" and newline != u"\n" and
             newline != u"\r" and newline != u"\r\n"):
-            # Not using oefmt() because I don't know how to ues it
+            # Not using oefmt() because I don't know how to use it
             # with unicode
             raise OperationError(space.w_ValueError,
                 space.mod(
-                    space.wrap("illegal newline value: %s"), space.wrap(newline)
+                    space.newtext("illegal newline value: %s"), w_newline
                 )
             )
         if newline is not None:
@@ -45,7 +45,7 @@ class W_StringIO(W_TextIOBase):
             self.w_decoder = space.call_function(
                 space.gettypefor(W_IncrementalNewlineDecoder),
                 space.w_None,
-                space.wrap(int(self.readtranslate))
+                space.newint(int(self.readtranslate))
             )
 
         if not space.is_none(w_initvalue):
@@ -58,9 +58,9 @@ class W_StringIO(W_TextIOBase):
         if self.readnl is None:
             w_readnl = space.w_None
         else:
-            w_readnl = space.str(space.wrap(self.readnl))
+            w_readnl = space.str(space.newunicode(self.readnl)) # YYY
         return space.newtuple([
-            w_initialval, w_readnl, space.wrap(self.pos), w_dict
+            w_initialval, w_readnl, space.newint(self.pos), w_dict
         ])
 
     def descr_setstate(self, space, w_state):
@@ -105,7 +105,7 @@ class W_StringIO(W_TextIOBase):
         if self.buf is None:
             if message is None:
                 message = "I/O operation on closed file"
-            raise OperationError(space.w_ValueError, space.wrap(message))
+            raise OperationError(space.w_ValueError, space.newtext(message))
 
     def resize_buffer(self, newlength):
         if len(self.buf) > newlength:
@@ -139,7 +139,7 @@ class W_StringIO(W_TextIOBase):
 
         if self.writenl:
             w_decoded = space.call_method(
-                w_decoded, "replace", space.wrap("\n"), space.wrap(self.writenl)
+                w_decoded, "replace", space.newtext("\n"), space.newunicode(self.writenl)
             )
 
         string = space.unicode_w(w_decoded)
@@ -147,7 +147,7 @@ class W_StringIO(W_TextIOBase):
 
         if size:
             self.write(string)
-        return space.wrap(orig_size)
+        return space.newint(orig_size)
 
     def read_w(self, space, w_size=None):
         self._check_closed(space)
@@ -155,21 +155,21 @@ class W_StringIO(W_TextIOBase):
         start = self.pos
         available = len(self.buf) - start
         if available <= 0:
-            return space.wrap(u"")
+            return space.newunicode(u"")
         if size >= 0 and size <= available:
             end = start + size
         else:
             end = len(self.buf)
         assert 0 <= start <= end
         self.pos = end
-        return space.wrap(u''.join(self.buf[start:end]))
+        return space.newunicode(u''.join(self.buf[start:end]))
 
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
 
         if self.pos >= len(self.buf):
-            return space.wrap(u"")
+            return space.newunicode(u"")
 
         start = self.pos
         if limit < 0 or limit > len(self.buf) - self.pos:
@@ -190,7 +190,7 @@ class W_StringIO(W_TextIOBase):
             endpos = end
         assert endpos >= 0
         self.pos = endpos
-        return space.wrap(u"".join(self.buf[start:endpos]))
+        return space.newunicode(u"".join(self.buf[start:endpos]))
 
     @unwrap_spec(pos=int, mode=int)
     def seek_w(self, space, pos, mode=0):
@@ -212,7 +212,7 @@ class W_StringIO(W_TextIOBase):
 
         assert pos >= 0
         self.pos = pos
-        return space.wrap(pos)
+        return space.newint(pos)
 
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
@@ -227,11 +227,11 @@ class W_StringIO(W_TextIOBase):
         if size < len(self.buf):
             self.resize_buffer(size)
 
-        return space.wrap(size)
+        return space.newint(size)
 
     def getvalue_w(self, space):
         self._check_closed(space)
-        return space.wrap(u''.join(self.buf))
+        return space.newunicode(u''.join(self.buf))
 
     def readable_w(self, space):
         self._check_closed(space)
@@ -249,7 +249,7 @@ class W_StringIO(W_TextIOBase):
         self.buf = None
 
     def closed_get_w(self, space):
-        return space.wrap(self.buf is None)
+        return space.newbool(self.buf is None)
 
     def line_buffering_get_w(self, space):
         return space.w_False
@@ -257,7 +257,7 @@ class W_StringIO(W_TextIOBase):
     def newlines_get_w(self, space):
         if self.w_decoder is None:
             return space.w_None
-        return space.getattr(self.w_decoder, space.wrap("newlines"))
+        return space.getattr(self.w_decoder, space.newtext("newlines"))
 
 
 W_StringIO.typedef = TypeDef(

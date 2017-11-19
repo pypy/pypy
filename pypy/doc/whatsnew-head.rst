@@ -1,22 +1,28 @@
-==========================
-What's new in PyPy2.7 5.6+
-==========================
+===========================
+What's new in PyPy2.7 5.10+
+===========================
 
-.. this is a revision shortly after release-pypy2.7-v5.6
-.. startrev: 7e9787939641
+.. this is a revision shortly after release-pypy2.7-v5.9.0
+.. startrev:d56dadcef996
 
-.. branch: rpython-error-to-systemerror
+.. branch: cppyy-packaging
+Cleanup and improve cppyy packaging
 
-Any uncaught RPython exception (from a PyPy bug) is turned into an
-app-level SystemError.  This should improve the lot of users hitting an
-uncaught RPython error.
+.. branch: docs-osx-brew-openssl
 
-.. branch: union-side-effects-2
+.. branch: keep-debug-symbols
+Add a smartstrip tool, which can optionally keep the debug symbols in a
+separate file, instead of just stripping them away. Use it in packaging
 
-Try to improve the consistency of RPython annotation unions.
+.. branch: bsd-patches
+Fix failures on FreeBSD, contributed by David Naylor as patches on the issue
+tracker (issues 2694, 2695, 2696, 2697)
 
-.. branch: pytest-2.9.2
+.. branch: run-extra-tests
+Run extra_tests/ in buildbot
 
-.. branch: clean-exported-state
+.. branch: vmprof-0.4.10
+Upgrade the _vmprof backend to vmprof 0.4.10
 
-Clean-ups in the jit optimizeopt
+.. branch: fix-vmprof-stacklet-switch
+Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)

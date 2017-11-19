@@ -5,8 +5,8 @@
 #include "src/stacklet/stacklet.h"
 
 #include <stddef.h>
-#include <assert.h>
 #include <string.h>
+#include <stdio.h>
 
 /************************************************************
  * platform specific code
@@ -16,6 +16,7 @@
  * can redefine it to upwards growing, 1.
  */
 #define STACK_DIRECTION 0   
+#define STATIC_NOINLINE   __attribute__((noinline)) static
 
 #include "src/stacklet/slp_platformselect.h"
 
@@ -34,7 +35,7 @@
 /************************************************************/
 
 struct stacklet_s {
-    /* The portion of the real stack claimed by this paused tealet. */
+    /* The portion of the real stack claimed by this paused stacklet. */
     char *stack_start;                /* the "near" end of the stack */
     char *stack_stop;                 /* the "far" end of the stack */
 
@@ -56,11 +57,6 @@ struct stacklet_s {
     stacklet_thread_handle stack_thrd;  /* the thread where the stacklet is */
 };
 
-void *(*_stacklet_switchstack)(void*(*)(void*, void*),
-                               void*(*)(void*, void*), void*) = NULL;
-void (*_stacklet_initialstub)(struct stacklet_thread_s *,
-                              stacklet_run_fn, void *) = NULL;
-
 struct stacklet_thread_s {
     struct stacklet_s *g_stack_chain_head;  /* NULL <=> running main */
     char *g_current_stack_stop;
@@ -68,6 +64,19 @@ struct stacklet_thread_s {
     struct stacklet_s *g_source;
     struct stacklet_s *g_target;
 };
+
+#define _check(x)  do { if (!(x)) _check_failed(#x); } while (0)
+
+static void _check_failed(const char *check)
+{
+    fprintf(stderr, "FATAL: stacklet: %s failed\n", check);
+    abort();
+}
+
+static void check_valid(struct stacklet_s *g)
+{
+    _check(g->stack_saved >= 0);
+}
 
 /***************************************************************/
 
@@ -96,7 +105,8 @@ static void g_save(struct stacklet_s* g, char* stop
      */
     ptrdiff_t sz1 = g->stack_saved;
     ptrdiff_t sz2 = stop - g->stack_start;
-    assert(stop <= g->stack_stop);
+    check_valid(g);
+    _check(stop <= g->stack_stop);
 
     if (sz2 > sz1) {
         char *c = (char *)(g + 1);
@@ -146,11 +156,13 @@ static void g_clear_stack(struct stacklet_s *g_target,
 {
     struct stacklet_s *current = thrd->g_stack_chain_head;
     char *target_stop = g_target->stack_stop;
+    check_valid(g_target);
 
-    /* save and unlink tealets that are completely within
+    /* save and unlink stacklets that are completely within
        the area to clear. */
     while (current != NULL && current->stack_stop <= target_stop) {
         struct stacklet_s *prev = current->stack_prev;
+        check_valid(current);
         current->stack_prev = NULL;
         if (current != g_target) {
             /* don't bother saving away g_target, because
@@ -222,20 +234,31 @@ static void *g_restore_state(void *new_stack_pointer, void *rawthrd)
     struct stacklet_thread_s *thrd = (struct stacklet_thread_s *)rawthrd;
     struct stacklet_s *g = thrd->g_target;
     ptrdiff_t stack_saved = g->stack_saved;
+    check_valid(g);
 
-    assert(new_stack_pointer == g->stack_start);
+    _check(new_stack_pointer == g->stack_start);
 #if STACK_DIRECTION == 0
     memcpy(g->stack_start, g+1, stack_saved);
 #else
     memcpy(g->stack_start - stack_saved, g+1, stack_saved);
 #endif
     thrd->g_current_stack_stop = g->stack_stop;
+    g->stack_saved = -13;   /* debugging */
     free(g);
     return EMPTY_STACKLET_HANDLE;
 }
 
-static void g_initialstub(struct stacklet_thread_s *thrd,
-                          stacklet_run_fn run, void *run_arg)
+STATIC_NOINLINE
+void *_stacklet_switchstack(void *(*save_state)(void*, void*),
+                            void *(*restore_state)(void*, void*),
+                            void *extra)
+{
+    return slp_switch(save_state, restore_state, extra);
+}
+
+STATIC_NOINLINE
+void g_initialstub(struct stacklet_thread_s *thrd,
+                   stacklet_run_fn run, void *run_arg)
 {
     struct stacklet_s *result;
 
@@ -250,10 +273,11 @@ static void g_initialstub(struct stacklet_thread_s *thrd,
         result = run(thrd->g_source, run_arg);
 
         /* Then switch to 'result'. */
+        check_valid(result);
         thrd->g_target = result;
         _stacklet_switchstack(g_destroy_state, g_restore_state, thrd);
 
-        assert(!"stacklet: we should not return here");
+        _check_failed("we should not return here");
         abort();
     }
     /* The second time it returns. */
@@ -264,13 +288,6 @@ static void g_initialstub(struct stacklet_thread_s *thrd,
 stacklet_thread_handle stacklet_newthread(void)
 {
     struct stacklet_thread_s *thrd;
-
-    if (_stacklet_switchstack == NULL) {
-        /* set up the following global with an indirection, which is needed
-           to prevent any inlining */
-        _stacklet_initialstub = g_initialstub;
-        _stacklet_switchstack = slp_switch;
-    }
 
     thrd = malloc(sizeof(struct stacklet_thread_s));
     if (thrd != NULL)
@@ -287,12 +304,12 @@ stacklet_handle stacklet_new(stacklet_thread_handle thrd,
                              stacklet_run_fn run, void *run_arg)
 {
     long stackmarker;
-    assert((char *)NULL < (char *)&stackmarker);
+    _check((char *)NULL < (char *)&stackmarker);
     if (thrd->g_current_stack_stop <= (char *)&stackmarker)
         thrd->g_current_stack_stop = ((char *)&stackmarker) + 1;
 
     thrd->g_current_stack_marker = (char *)&stackmarker;
-    _stacklet_initialstub(thrd, run, run_arg);
+    g_initialstub(thrd, run, run_arg);
     return thrd->g_source;
 }
 
@@ -300,6 +317,7 @@ stacklet_handle stacklet_switch(stacklet_handle target)
 {
     long stackmarker;
     stacklet_thread_handle thrd = target->stack_thrd;
+    check_valid(target);
     if (thrd->g_current_stack_stop <= (char *)&stackmarker)
         thrd->g_current_stack_stop = ((char *)&stackmarker) + 1;
 
@@ -310,6 +328,7 @@ stacklet_handle stacklet_switch(stacklet_handle target)
 
 void stacklet_destroy(stacklet_handle target)
 {
+    check_valid(target);
     if (target->stack_prev != NULL) {
         /* 'target' appears to be in the chained list 'unsaved_stack',
            so remove it from there.  Note that if 'thrd' was already
@@ -319,12 +338,15 @@ void stacklet_destroy(stacklet_handle target)
            we don't even read 'stack_thrd', already deallocated. */
         stacklet_thread_handle thrd = target->stack_thrd;
         struct stacklet_s **pp = &thrd->g_stack_chain_head;
-        for (; *pp != NULL; pp = &(*pp)->stack_prev)
+        for (; *pp != NULL; pp = &(*pp)->stack_prev) {
+            check_valid(*pp);
             if (*pp == target) {
                 *pp = target->stack_prev;
                 break;
             }
+        }
     }
+    target->stack_saved = -11;   /* debugging */
     free(target);
 }
 
@@ -334,6 +356,7 @@ char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
   long delta;
   if (context == NULL)
     return ptr;
+  check_valid(context);
   delta = p - context->stack_start;
   if (((unsigned long)delta) < ((unsigned long)context->stack_saved)) {
       /* a pointer to a saved away word */
@@ -345,8 +368,8 @@ char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
       /* out-of-stack pointer!  it's only ok if we are the main stacklet
          and we are reading past the end, because the main stacklet's
          stack stop is not exactly known. */
-      assert(delta >= 0);
-      assert(((long)context->stack_stop) & 1);
+      _check(delta >= 0);
+      _check(((long)context->stack_stop) & 1);
   }
   return ptr;
 }

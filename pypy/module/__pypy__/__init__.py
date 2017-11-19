@@ -6,6 +6,8 @@ from rpython.rlib import rtime
 
 
 class BuildersModule(MixedModule):
+    """ Module containing string and unicode builders """
+
     appleveldefs = {}
 
     interpleveldefs = {
@@ -34,6 +36,8 @@ class ThreadModule(MixedModule):
 
 
 class IntOpModule(MixedModule):
+    """ Module for integer operations that have two-complement overflow
+    behaviour instead of overflowing to longs """
     appleveldefs = {}
     interpleveldefs = {
         'int_add':         'interp_intop.int_add',
@@ -55,6 +59,8 @@ class OsModule(MixedModule):
 
 
 class Module(MixedModule):
+    """ PyPy specific "magic" functions. A lot of them are experimental and
+    subject to change, many are internal. """
     appleveldefs = {
     }
 
@@ -79,6 +85,9 @@ class Module(MixedModule):
         'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
         'reversed_dict'             : 'interp_dict.reversed_dict',
+        'dict_popitem_first'        : 'interp_dict.dict_popitem_first',
+        'delitem_if_value_is'       : 'interp_dict.delitem_if_value_is',
+        'move_to_end'               : 'interp_dict.move_to_end',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'specialized_zip_2_lists'   : 'interp_magic.specialized_zip_2_lists',
         'set_debug'                 : 'interp_magic.set_debug',
@@ -88,6 +97,7 @@ class Module(MixedModule):
                           'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
         '_promote'                   : 'interp_magic._promote',
+        'stack_almost_full'         : 'interp_magic.stack_almost_full',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

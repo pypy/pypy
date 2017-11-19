@@ -11,7 +11,7 @@ r_uint   an unsigned integer which has no overflow
 intmask  mask a possibly long value when running on CPython
          back to a signed int value
 ovfcheck check on CPython whether the result of a signed
-         integer operation did overflow
+         integer operation did overflow (add, sub, mul)
 ovfcheck_float_to_int
          convert to an integer or raise OverflowError
 ovfcheck_float_to_longlong
@@ -25,6 +25,10 @@ widen(x)
          lltype.Unsigned, widen it to lltype.Signed.
          Useful because the translator doesn't support
          arithmetic on the smaller types.
+ovfcheck_int32_add/sub/mul(x, y)
+         perform an add/sub/mul between two regular integers,
+         but assumes that they fit inside signed 32-bit ints
+         and raises OverflowError if the result no longer does
 
 These are meant to be erased by translation, r_uint
 in the process should mark unsigned values, ovfcheck should
@@ -168,6 +172,7 @@ def is_valid_int(r):
 def ovfcheck(r):
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
+    # Nowadays, only supports '+', '-' or '*' as the operation.
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
     assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
@@ -794,6 +799,47 @@ def byteswap(arg):
     if T == lltype.Float:
         return longlong2float(rffi.cast(rffi.LONGLONG, res))
     return rffi.cast(T, res)
+
+if sys.maxint == 2147483647:
+    def ovfcheck_int32_add(x, y):
+        return ovfcheck(x + y)
+    def ovfcheck_int32_sub(x, y):
+        return ovfcheck(x - y)
+    def ovfcheck_int32_mul(x, y):
+        return ovfcheck(x * y)
+else:
+    def ovfcheck_int32_add(x, y):
+        """x and y are assumed to fit inside the 32-bit rffi.INT;
+        raises OverflowError if the result doesn't fit rffi.INT"""
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        x = rffi.cast(lltype.Signed, x)
+        y = rffi.cast(lltype.Signed, y)
+        z = x + y
+        if z != rffi.cast(lltype.Signed, rffi.cast(rffi.INT, z)):
+            raise OverflowError
+        return z
+
+    def ovfcheck_int32_sub(x, y):
+        """x and y are assumed to fit inside the 32-bit rffi.INT;
+        raises OverflowError if the result doesn't fit rffi.INT"""
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        x = rffi.cast(lltype.Signed, x)
+        y = rffi.cast(lltype.Signed, y)
+        z = x - y
+        if z != rffi.cast(lltype.Signed, rffi.cast(rffi.INT, z)):
+            raise OverflowError
+        return z
+
+    def ovfcheck_int32_mul(x, y):
+        """x and y are assumed to fit inside the 32-bit rffi.INT;
+        raises OverflowError if the result doesn't fit rffi.INT"""
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        x = rffi.cast(lltype.Signed, x)
+        y = rffi.cast(lltype.Signed, y)
+        z = x * y
+        if z != rffi.cast(lltype.Signed, rffi.cast(rffi.INT, z)):
+            raise OverflowError
+        return z
 
 
 # String parsing support

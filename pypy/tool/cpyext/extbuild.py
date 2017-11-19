@@ -204,6 +204,10 @@ def _build(cfilenames, outputfilename, compile_extra, link_extra,
         pass
     from distutils.ccompiler import new_compiler
     from distutils import sysconfig
+
+    # XXX for Darwin running old versions of CPython 2.7.x
+    sysconfig.get_config_vars()
+
     compiler = new_compiler(force=1)
     sysconfig.customize_compiler(compiler)  # XXX
     objects = []
@@ -240,13 +244,13 @@ def get_sys_info_app(base_dir):
     if sys.platform == 'win32':
         compile_extra = ["/we4013"]
         link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
-    elif sys.platform == 'darwin':
-        compile_extra = link_extra = None
-        pass
     elif sys.platform.startswith('linux'):
         compile_extra = [
             "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
         link_extra = None
+    else:
+        compile_extra = link_extra = None
+        pass
     return ExtensionCompiler(
         builddir_base=base_dir,
         include_extra=[get_python_inc()],

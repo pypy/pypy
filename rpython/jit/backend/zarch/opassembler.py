@@ -374,10 +374,12 @@ class CallOpAssembler(object):
     _COND_CALL_SAVE_REGS = [r.r11, r.r2, r.r3, r.r4, r.r5]
 
     def emit_cond_call(self, op, arglocs, regalloc):
+        resloc = arglocs[0]
+        arglocs = arglocs[1:]
+
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
         assert fcond.value != c.cond_none.value
-        fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
         self.mc.reserve_cond_jump() # patched later to a relative branch
@@ -388,7 +390,7 @@ class CallOpAssembler(object):
                 if reg in self._COND_CALL_SAVE_REGS]
         self._push_core_regs_to_jitframe(self.mc, should_be_saved)
 
-        self.push_gcmap(self.mc, regalloc.get_gcmap())
+        self.push_gcmap(self.mc, regalloc.get_gcmap([resloc]))
         #
         # load the 0-to-4 arguments into these registers, with the address of
         # the function to call into r11
@@ -411,6 +413,8 @@ class CallOpAssembler(object):
         self.mc.BASR(r.r14, r.r14)
         # restoring the registers saved above, and doing pop_gcmap(), is left
         # to the cond_call_slowpath helper.  We never have any result value.
+        if resloc is not None:
+            self.mc.LGR(resloc, r.SCRATCH2)
         relative_target = self.mc.currpos() - jmp_adr
         pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
         pmc.BRCL(fcond, l.imm(relative_target))
@@ -418,6 +422,9 @@ class CallOpAssembler(object):
         # might be overridden again to skip over the following
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr, fcond
+
+    emit_cond_call_value_i = emit_cond_call
+    emit_cond_call_value_r = emit_cond_call
 
 class AllocOpAssembler(object):
     _mixin_ = True

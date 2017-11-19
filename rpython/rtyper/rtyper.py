@@ -846,28 +846,29 @@ class LowLevelOpList(list):
         rtyper = self.rtyper
         args_s = []
         newargs_v = []
-        for v in args_v:
-            if v.concretetype is Void:
-                s_value = rtyper.annotation(v)
-                if s_value is None:
-                    s_value = annmodel.s_None
-                if not s_value.is_constant():
-                    raise TyperError("non-constant variable of type Void")
-                if not isinstance(s_value, (annmodel.SomePBC, annmodel.SomeNone)):
-                    raise TyperError("non-PBC Void argument: %r", (s_value,))
-                args_s.append(s_value)
-            else:
-                args_s.append(lltype_to_annotation(v.concretetype))
-            newargs_v.append(v)
+        with rtyper.annotator.using_policy(rtyper.lowlevel_ann_policy):
+            for v in args_v:
+                if v.concretetype is Void:
+                    s_value = rtyper.annotation(v)
+                    if s_value is None:
+                        s_value = annmodel.s_None
+                    if not s_value.is_constant():
+                        raise TyperError("non-constant variable of type Void")
+                    if not isinstance(s_value, (annmodel.SomePBC, annmodel.SomeNone)):
+                        raise TyperError("non-PBC Void argument: %r", (s_value,))
+                    args_s.append(s_value)
+                else:
+                    args_s.append(lltype_to_annotation(v.concretetype))
+                newargs_v.append(v)
 
-        self.rtyper.call_all_setups()  # compute ForwardReferences now
+            self.rtyper.call_all_setups()  # compute ForwardReferences now
 
-        # hack for bound methods
-        if hasattr(ll_function, 'im_func'):
-            bk = rtyper.annotator.bookkeeper
-            args_s.insert(0, bk.immutablevalue(ll_function.im_self))
-            newargs_v.insert(0, inputconst(Void, ll_function.im_self))
-            ll_function = ll_function.im_func
+            # hack for bound methods
+            if hasattr(ll_function, 'im_func'):
+                bk = rtyper.annotator.bookkeeper
+                args_s.insert(0, bk.immutablevalue(ll_function.im_self))
+                newargs_v.insert(0, inputconst(Void, ll_function.im_self))
+                ll_function = ll_function.im_func
 
         graph = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s,
                                          rtyper.lowlevel_ann_policy)
