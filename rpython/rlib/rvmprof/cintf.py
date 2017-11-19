@@ -69,7 +69,7 @@ eci_kwds = dict(
     post_include_bits=[],
     compile_extra=compile_extra
     )
-if sys.platform.startswith('linux'):
+if sys.platform != 'win32':
     eci_kwds['separate_module_files'].append(
         SHARED.join('vmprof_mt.c'),
     )
