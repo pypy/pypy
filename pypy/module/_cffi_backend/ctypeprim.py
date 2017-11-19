@@ -580,9 +580,9 @@ class W_CTypePrimitiveComplex(W_CTypePrimitive):
         #
         imag = 0.0
         if space.isinstance_w(w_ob, space.w_bytes):
-            real = self.cast_str(w_ob)
+            real = float(self.cast_str(w_ob))
         elif space.isinstance_w(w_ob, space.w_unicode):
-            real = self.cast_unicode(w_ob)
+            real = float(self.cast_unicode(w_ob))
         else:
             real, imag = space.unpackcomplex(w_ob)
         w_cdata = cdataobj.W_CDataMem(space, self)
