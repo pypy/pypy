@@ -158,7 +158,7 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
                 res.append(chr(oc))
                 i += 1
             else:
-                r, pos = errorhandler(errors, 'latin1', 
+                r, pos = errorhandler(errors, 'latin1',
                                       'ordinal not in range(256)', s, cur,
                                       cur + 1)
                 res.append(r)
@@ -189,7 +189,7 @@ def utf8_encode_ascii(utf8, errors, errorhandler):
             res.append(r)
         else:
             res.append(chr(ch))
-            i = rutf8.next_codepoint_pos(utf8, i)    
+            i = rutf8.next_codepoint_pos(utf8, i)
             pos += 1
 
     s = res.build()
@@ -318,7 +318,7 @@ def str_decode_utf8(s, errors, final, errorhandler):
     assert pos - continuation_bytes >= 0
     r = res.build()
     lgt, flag = rutf8.check_utf8(r, True)
-    return r, pos - continuation_bytes, lgt, flag
+    return r, pos, lgt, flag
 
 hexdigits = "0123456789ABCDEFabcdef"
 
@@ -362,7 +362,7 @@ def hexescape(builder, s, pos, digits,
                     flag = rutf8.FLAG_REGULAR
                 pos += digits
                 size = 1
-                
+
     return pos, size, flag
 
 def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):

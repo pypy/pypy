@@ -1,30 +1,35 @@
+from hypothesis import given, strategies
+
+from rpython.rlib import rutf8
+
 from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
+from pypy.interpreter import unicodehelper as uh
 
 def decode_utf8(u):
     return str_decode_utf8(u, True, "strict", None)
 
 def test_decode_utf8():
-    assert decode_utf8("abc") == ("abc", 3)
-    assert decode_utf8("\xe1\x88\xb4") == ("\xe1\x88\xb4", 1)
-    assert decode_utf8("\xed\xa0\x80") == ("\xed\xa0\x80", 1)
-    assert decode_utf8("\xed\xb0\x80") == ("\xed\xb0\x80", 1)
+    assert decode_utf8("abc") == ("abc", 3, 3, rutf8.FLAG_ASCII)
+    assert decode_utf8("\xe1\x88\xb4") == ("\xe1\x88\xb4", 3, 1, rutf8.FLAG_REGULAR)
+    assert decode_utf8("\xed\xa0\x80") == ("\xed\xa0\x80", 3, 1, rutf8.FLAG_HAS_SURROGATES)
+    assert decode_utf8("\xed\xb0\x80") == ("\xed\xb0\x80", 3, 1, rutf8.FLAG_HAS_SURROGATES)
     assert decode_utf8("\xed\xa0\x80\xed\xb0\x80") == (
-        "\xed\xa0\x80\xed\xb0\x80", 2)
-    assert decode_utf8("\xf0\x90\x80\x80") == ("\xf0\x90\x80\x80", 1)
+        "\xed\xa0\x80\xed\xb0\x80", 6, 2, rutf8.FLAG_HAS_SURROGATES)
+    assert decode_utf8("\xf0\x90\x80\x80") == ("\xf0\x90\x80\x80", 4, 1, rutf8.FLAG_REGULAR)
 
 def test_utf8_encode_ascii():
-    assert utf8_encode_ascii("abc", 3, "??", "??") == "abc"
+    assert utf8_encode_ascii("abc", "??", "??") == "abc"
     def eh(errors, encoding, reason, p, start, end):
         lst.append((errors, encoding, p, start, end))
         return "<FOO>", end
     lst = []
     input = u"\u1234".encode("utf8")
-    assert utf8_encode_ascii(input, 1, "??", eh) == "<FOO>"
+    assert utf8_encode_ascii(input, "??", eh) == "<FOO>"
     assert lst == [("??", "ascii", input, 0, 1)]
     lst = []
     input = u"\u1234\u5678abc\u8765\u4321".encode("utf8")
-    assert utf8_encode_ascii(input, 7, "??", eh) == "<FOO>abc<FOO>"
+    assert utf8_encode_ascii(input, "??", eh) == "<FOO>abc<FOO>"
     assert lst == [("??", "ascii", input, 0, 2),
                    ("??", "ascii", input, 5, 7)]
 
@@ -46,3 +51,7 @@ def test_str_decode_ascii():
                    ("??", "ascii", input, 1, 2),
                    ("??", "ascii", input, 5, 6),
                    ("??", "ascii", input, 6, 7)]
+
+@given(strategies.binary())
+def test_unicode_raw_escape(s):
+    uh.utf8_encode_raw_unicode_escape(s, 'strict')
