@@ -15,33 +15,9 @@ from rpython.annotator.model import (
     typeof, s_ImpossibleValue, SomeInstance, intersection, difference)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
-from collections import deque
 
 log = AnsiLogger("annrpython")
 
-
-class ShuffleDict(object):
-    def __init__(self):
-        self._d = {}
-        self.keys = deque()
-
-    def __setitem__(self, k, v):
-        if k in self._d:
-            self._d[k] = v
-        else:
-            self._d[k] = v
-            self.keys.append(k)
-
-    def __getitem__(self, k):
-        return self._d[k]
-
-    def popitem(self):
-        key = self.keys.popleft()
-        item = self._d.pop(key)
-        return (key, item)
-
-    def __nonzero__(self):
-        return bool(self._d)
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.
@@ -57,7 +33,7 @@ class RPythonAnnotator(object):
             translator = TranslationContext()
             translator.annotator = self
         self.translator = translator
-        self.pendingblocks = ShuffleDict()  # map {block: graph-containing-it}
+        self.genpendingblocks=[{}] # [{block: graph-containing-it}] * generation
         self.annotated = {}      # set of blocks already seen
         self.added_blocks = None # see processblock() below
         self.links_followed = {} # set of links that have ever been followed
@@ -81,7 +57,7 @@ class RPythonAnnotator(object):
         self.errors = []
 
     def __getstate__(self):
-        attrs = """translator pendingblocks annotated links_followed
+        attrs = """translator genpendingblocks annotated links_followed
         notify bookkeeper frozen policy added_blocks""".split()
         ret = self.__dict__.copy()
         for key, value in ret.items():
@@ -212,19 +188,47 @@ class RPythonAnnotator(object):
             else:
                 self.mergeinputargs(graph, block, cells)
             if not self.annotated[block]:
-                self.pendingblocks[block] = graph
+                self.schedulependingblock(graph, block)
+
+    def schedulependingblock(self, graph, block):
+        # 'self.genpendingblocks' is a list of dictionaries which is
+        # logically equivalent to just one dictionary.  But we keep a
+        # 'generation' number on each block (=key), and whenever we
+        # process a block, we increase its generation number.  The
+        # block is added to the 'genpendingblocks' indexed by its
+        # generation number.  See complete_pending_blocks() below.
+        generation = getattr(block, 'generation', 0)
+        self.genpendingblocks[generation][block] = graph
 
     def complete_pending_blocks(self):
-        while self.pendingblocks:
-            block, graph = self.pendingblocks.popitem()
-            self.processblock(graph, block)
+        while True:
+            # Find the first of the dictionaries in 'self.genpendingblocks'
+            # which is not empty
+            gen = 0
+            for pendingblocks in self.genpendingblocks:
+                if pendingblocks:
+                    break
+                gen += 1
+            else:
+                return    # all empty => done
+
+            gen += 1   # next generation number
+            if len(self.genpendingblocks) == gen:
+                self.genpendingblocks.append({})
+
+            # Process all blocks at this level
+            # (if any gets re-inserted, it will be into the next level)
+            while pendingblocks:
+                block, graph = pendingblocks.popitem()
+                block.generation = gen
+                self.processblock(graph, block)
 
     def complete(self):
         """Process pending blocks until none is left."""
         while True:
             self.complete_pending_blocks()
             self.policy.no_more_blocks_to_annotate(self)
-            if not self.pendingblocks:
+            if not any(self.genpendingblocks):
                 break   # finished
         # make sure that the return variables of all graphs is annotated
         if self.added_blocks is not None:
@@ -410,7 +414,7 @@ class RPythonAnnotator(object):
     def reflowpendingblock(self, graph, block):
         assert not self.frozen
         assert graph not in self.fixed_graphs
-        self.pendingblocks[block] = graph
+        self.schedulependingblock(graph, block)
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
         self.blocked_blocks[block] = (graph, None)
