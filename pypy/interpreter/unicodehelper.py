@@ -158,6 +158,7 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
                 res.append(chr(oc))
                 i += 1
             else:
+                XXX
                 r, pos = errorhandler(errors, 'latin1',
                                       'ordinal not in range(256)', s, cur,
                                       cur + 1)
@@ -179,10 +180,15 @@ def utf8_encode_ascii(utf8, errors, errorhandler):
     pos = 0
     while i < len(utf8):
         ch = rutf8.codepoint_at_pos(utf8, i)
-        if ch >= 0x7F:
+        if ch > 0x7F:
+            endpos = pos + 1
+            end_i = rutf8.next_codepoint_pos(utf8, i)
+            while end_i < len(utf8) and rutf8.codepoint_at_pos(utf8, end_i) > 0x7F:
+                endpos += 1
+                end_i = rutf8.next_codepoint_pos(utf8, end_i)
             msg = "ordinal not in range(128)"
             r, newpos = errorhandler(errors, 'ascii', msg, utf8,
-                pos, pos + 1)
+                pos, endpos)
             for _ in range(newpos - pos):
                 i = rutf8.next_codepoint_pos(utf8, i)
             pos = newpos
@@ -603,13 +609,13 @@ def utf8_encode_raw_unicode_escape(s, errors, errorhandler=None):
     result = StringBuilder(size)
     pos = 0
     while pos < size:
-        oc = ord(s[pos])
+        oc = rutf8.codepoint_at_pos(s, pos)
 
         if oc < 0x100:
             result.append(chr(oc))
         else:
             raw_unicode_escape_helper(result, oc)
-        pos += 1
+        pos = rutf8.next_codepoint_pos(s, pos)
 
     return result.build()
 

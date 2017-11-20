@@ -33,25 +33,33 @@ def test_utf8_encode_ascii():
     assert lst == [("??", "ascii", input, 0, 2),
                    ("??", "ascii", input, 5, 7)]
 
+@given(strategies.text())
+def test_utf8_encode_ascii_2(u):
+    def eh(errors, encoding, reason, p, start, end):
+        return "?" * (end - start), end
+
+    assert utf8_encode_ascii(u.encode("utf8"), "replace", eh) == u.encode("ascii", "replace")
+
 def test_str_decode_ascii():
-    assert str_decode_ascii("abc", 3, "??", True, "??") == ("abc", 3, 3)
+    assert str_decode_ascii("abc", "??", True, "??") == ("abc", 3, 3, rutf8.FLAG_ASCII)
     def eh(errors, encoding, reason, p, start, end):
         lst.append((errors, encoding, p, start, end))
-        return u"\u1234\u5678", end
+        return u"\u1234\u5678".encode("utf8"), end
     lst = []
     input = "\xe8"
     exp = u"\u1234\u5678".encode("utf8")
-    assert str_decode_ascii(input, 1, "??", True, eh) == (exp, 1, 2)
+    assert str_decode_ascii(input, "??", True, eh) == (exp, 1, 2, rutf8.FLAG_REGULAR)
     assert lst == [("??", "ascii", input, 0, 1)]
     lst = []
     input = "\xe8\xe9abc\xea\xeb"
-    assert str_decode_ascii(input, 7, "??", True, eh) == (
-        exp + exp + "abc" + exp + exp, 7, 11)
+    assert str_decode_ascii(input, "??", True, eh) == (
+        exp + exp + "abc" + exp + exp, 7, 11, rutf8.FLAG_REGULAR)
     assert lst == [("??", "ascii", input, 0, 1),
                    ("??", "ascii", input, 1, 2),
                    ("??", "ascii", input, 5, 6),
                    ("??", "ascii", input, 6, 7)]
 
-@given(strategies.binary())
-def test_unicode_raw_escape(s):
-    uh.utf8_encode_raw_unicode_escape(s, 'strict')
+@given(strategies.text())
+def test_unicode_raw_escape(u):
+    r = uh.utf8_encode_raw_unicode_escape(u.encode("utf8"), 'strict')
+    assert r == u.encode("raw-unicode-escape")

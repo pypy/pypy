@@ -71,6 +71,9 @@ class CodecState(object):
                 raise oefmt(space.w_IndexError,
                             "position %d from error handler out of bounds",
                             newpos)
+            if newpos < startpos:
+                raise oefmt(space.w_IndexError,
+                    "position %d from error handler did not progress", newpos)
             w_replace = space.convert_to_w_unicode(w_replace)
             return w_replace._utf8, newpos
         return call_errorhandler
