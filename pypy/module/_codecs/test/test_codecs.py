@@ -15,7 +15,6 @@ class AppTestCodecs:
                          'utf-32', 'utf-32-le', 'utf-32-be',
                          'raw_unicode_escape',
                          'unicode_escape', 'unicode_internal'):
-            print encoding
             assert unicode(u.encode(encoding),encoding) == u
 
     def test_ucs4(self):

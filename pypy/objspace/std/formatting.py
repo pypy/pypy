@@ -432,8 +432,7 @@ def make_formatter_subclass(do_unicode):
 
         def fmt_s(self, w_value):
             space = self.space
-            got_unicode = space.isinstance_w(w_value,
-                                                         space.w_unicode)
+            got_unicode = space.isinstance_w(w_value, space.w_unicode)
             if not do_unicode:
                 if got_unicode:
                     raise NeedUnicodeFormattingError

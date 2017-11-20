@@ -1,7 +1,6 @@
 from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import UnicodeBuilder
-from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -563,14 +562,14 @@ class Charmap_Decode:
 
         if space.isinstance_w(w_ch, space.w_unicode):
             # Charmap may return a unicode string
-            return space.unicode_w(w_ch)
+            return space.utf8_w(w_ch)
         elif space.isinstance_w(w_ch, space.w_int):
             # Charmap may return a number
             x = space.int_w(w_ch)
             if not 0 <= x <= 0x10FFFF:
                 raise oefmt(space.w_TypeError,
                     "character mapping must be in range(0x110000)")
-            return code_to_unichr(x)
+            return rutf8.unichr_as_utf8(x)
         elif space.is_w(w_ch, space.w_None):
             # Charmap may return None
             return errorchar
@@ -614,12 +613,13 @@ class Charmap_Encode:
 
 @unwrap_spec(string='bufferstr', errors='text_or_none')
 def charmap_decode(space, string, errors="strict", w_mapping=None):
-    from pypy.interpreter.unicodehelper import DecodeWrapper
+    from pypy.interpreter import unicodehelper
 
     if errors is None:
         errors = 'strict'
     if len(string) == 0:
-        return space.newtuple([space.newunicode(u''), space.newint(0)])
+        return space.newtuple([space.newutf8('', 0, rutf8.FLAG_ASCII),
+                               space.newint(0)])
 
     if space.is_none(w_mapping):
         mapping = None
@@ -628,14 +628,14 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
 
     final = True
     state = space.fromcache(CodecState)
-    result, consumed = runicode.str_decode_charmap(
-        string, len(string), errors,
-        final, DecodeWrapper(state.decode_error_handler).handle, mapping)
-    return space.newtuple([space.newunicode(result), space.newint(consumed)])
+    result, consumed, lgt, flag = unicodehelper.str_decode_charmap(
+        string, errors, final, state.decode_error_handler, mapping)
+    return space.newtuple([space.newutf8(result, lgt, flag),
+                           space.newint(consumed)])
 
 @unwrap_spec(utf8='utf8', errors='text_or_none')
 def charmap_encode(space, utf8, errors="strict", w_mapping=None):
-    from pypy.interpreter.unicodehelper import EncodeWrapper
+    from pypy.interpreter import unicodehelper
 
     if errors is None:
         errors = 'strict'
@@ -645,10 +645,8 @@ def charmap_encode(space, utf8, errors="strict", w_mapping=None):
         mapping = Charmap_Encode(space, w_mapping)
 
     state = space.fromcache(CodecState)
-    uni = utf8.decode('utf8')
-    result = runicode.unicode_encode_charmap(
-        uni, len(uni), errors,
-        EncodeWrapper(state.encode_error_handler).handle, mapping)
+    result = unicodehelper.unicode_encode_charmap(
+        utf8, errors, state.encode_error_handler, mapping)
     return space.newtuple([space.newbytes(result), space.newint(len(uni))])
 
 
@@ -707,7 +705,7 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
 
 @unwrap_spec(errors='text_or_none')
 def unicode_internal_decode(space, w_string, errors="strict"):
-    from pypy.interpreter.unicodehelper import DecodeWrapper
+    from pypy.interpreter import unicodehelper
 
     if errors is None:
         errors = 'strict'
@@ -718,14 +716,16 @@ def unicode_internal_decode(space, w_string, errors="strict"):
     string = space.readbuf_w(w_string).as_str()
 
     if len(string) == 0:
-        return space.newtuple([space.newunicode(u''), space.newint(0)])
+        return space.newtuple([space.newutf8('', 0, rutf8.FLAG_ASCII),
+                               space.newint(0)])
 
     final = True
     state = space.fromcache(CodecState)
-    result, consumed = runicode.str_decode_unicode_internal(
-        string, len(string), errors,
-        final, DecodeWrapper(state.decode_error_handler).handle)
-    return space.newtuple([space.newunicode(result), space.newint(consumed)])
+    result, consumed, lgt, flag = unicodehelper.str_decode_unicode_internal(
+        string, errors,
+        final, state.decode_error_handler)
+    return space.newtuple([space.newutf8(result, lgt, flag),
+                           space.newint(consumed)])
 
 # ____________________________________________________________
 # support for the "string escape" codec

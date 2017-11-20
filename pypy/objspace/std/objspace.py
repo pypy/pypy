@@ -164,9 +164,9 @@ class StdObjSpace(ObjSpace):
         if isinstance(x, str):
             return self.newtext(x)
         if isinstance(x, unicode):
-            from pypy.interpreter import unicodehelper
-            return self.newutf8(x.encode('utf8'), len(x),
-                                unicodehelper._get_flag(x))
+            x = x.encode('utf8')
+            lgt, flag = rutf8.check_utf8(x, True)
+            return self.newutf8(x, lgt, flag)
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
