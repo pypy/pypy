@@ -2120,7 +2120,7 @@ def _x_divrem(v1, w1):
         assert vv >= 0
         assert wm1 >= 1
         q = vv / wm1
-        r = vv % wm1 # This seems to be slightly faster than on widen digits than vv - wm1 * q.
+        r = vv % wm1 # This seems to be slightly faster on widen digits than vv - wm1 * q.
         vj2 = v.digit(abs(j-2))
         while wm2 * q > ((r << SHIFT) | vj2):
             q -= 1
