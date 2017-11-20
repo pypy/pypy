@@ -23,13 +23,12 @@ def decode_error_handler(space):
 @specialize.memo()
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
-    def raise_unicode_exception_encode(errors, encoding, msg, u, u_len,
+    def raise_unicode_exception_encode(errors, encoding, msg, utf8,
                                        startingpos, endingpos):
-        # XXX fix once we stop using runicode.py
-        flag = _get_flag(u.decode('utf8'))
+        u_len, flag = rutf8.check_utf8(utf8)
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
-                                             space.newutf8(u, u_len, flag),
+                                             space.newutf8(utf8, u_len, flag),
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
@@ -578,12 +577,14 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
         digits = 4 if s[pos] == 'u' else 8
         message = "truncated \\uXXXX"
         pos += 1
-        pos = hexescape(result, s, pos, digits,
+        pos, _, _ = hexescape(result, s, pos, digits,
                         "rawunicodeescape", errorhandler, message, errors)
 
     r = result.build()
     lgt, flag = rutf8.check_utf8(r, True)
     return r, pos, lgt, flag
+
+_utf8_encode_unicode_escape = rutf8.make_utf8_escape_function()
 
 
 TABLE = '0123456789abcdef'
@@ -619,6 +620,9 @@ def utf8_encode_raw_unicode_escape(s, errors, errorhandler=None):
 
     return result.build()
 
+
+def utf8_encode_unicode_escape(s, errors):
+    return _utf8_encode_unicode_escape(s)
 
 # ____________________________________________________________
 # utf-7

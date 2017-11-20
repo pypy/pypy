@@ -63,3 +63,8 @@ def test_str_decode_ascii():
 def test_unicode_raw_escape(u):
     r = uh.utf8_encode_raw_unicode_escape(u.encode("utf8"), 'strict')
     assert r == u.encode("raw-unicode-escape")
+
+@given(strategies.text())
+def test_unicode_escape(u):
+    r = uh.utf8_encode_unicode_escape(u.encode("utf8"), "strict")
+    assert r == u.encode("unicode-escape")
