@@ -987,9 +987,7 @@ class rbigint(object):
 
         size_b = UDIGIT_TYPE(b.numdigits())
 
-        if b.sign == 0:
-            return ONERBIGINT
-        elif c is not None:
+        if c is not None:
             if c.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
@@ -1016,6 +1014,8 @@ class rbigint(object):
             # so we only do it when it buys something.
             if a.sign < 0 or a.numdigits() > c.numdigits():
                 a = a.mod(c)
+        elif b.sign == 0:
+            return ONERBIGINT
         elif a.sign == 0:
             return NULLRBIGINT
         elif size_b == 1:
@@ -1124,9 +1124,7 @@ class rbigint(object):
             raise ValueError("bigint pow() too negative")
 
         assert b >= 0
-        if b == 0:
-            return ONERBIGINT
-        elif c is not None:
+        if c is not None:
             if c.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
@@ -1153,6 +1151,8 @@ class rbigint(object):
             # so we only do it when it buys something.
             if a.sign < 0 or a.numdigits() > c.numdigits():
                 a = a.mod(c)
+        elif b == 0:
+            return ONERBIGINT
         elif a.sign == 0:
             return NULLRBIGINT
         elif b == 1:

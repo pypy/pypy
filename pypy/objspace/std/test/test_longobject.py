@@ -192,6 +192,12 @@ class AppTestLong:
         assert pow(x, 0L, 1L) == 0L
         assert pow(-1L, -1L) == -1.0
 
+    def test_int_pow(self):
+        x = 2L
+        assert pow(x, 2) == 4L
+        assert pow(x, 2, 2) == 0L
+        assert pow(x, 2, 3L) == 1L
+
     def test_getnewargs(self):
         assert  0L .__getnewargs__() == (0L,)
         assert  (-1L) .__getnewargs__() == (-1L,)

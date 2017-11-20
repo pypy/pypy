@@ -190,7 +190,12 @@ class TestRLong(object):
                 r4 = pow(op1, op2, 1000)
                 print op1, op2
                 assert r3.tolong() == r4
-                
+
+    def test_pow_raises(self):
+        r1 = rbigint.fromint(2)
+        r0 = rbigint.fromint(0)
+        py.test.raises(ValueError, r1.int_pow, 2, r0)
+        py.test.raises(ValueError, r1.pow, r1, r0)
     def test_touint(self):
         result = r_uint(sys.maxint + 42)
         rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))
