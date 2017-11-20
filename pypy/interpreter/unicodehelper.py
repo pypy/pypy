@@ -25,7 +25,7 @@ def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, utf8,
                                        startingpos, endingpos):
-        u_len, flag = rutf8.check_utf8(utf8)
+        u_len, flag = rutf8.check_utf8(utf8, True)
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
                                              space.newutf8(utf8, u_len, flag),
@@ -59,13 +59,6 @@ def _has_surrogate(u):
         if 0xD800 <= ord(c) <= 0xDFFF:
             return True
     return False
-
-def get_flag_from_code(oc):
-    if oc <= 0x7F:
-        return rutf8.FLAG_ASCII
-    if 0xD800 <= oc <= 0xDFFF:
-        return rutf8.FLAG_HAS_SURROGATES
-    return rutf8.FLAG_REGULAR
 
 # These functions take and return unwrapped rpython strings
 def decode_unicode_escape(space, string):
@@ -138,6 +131,24 @@ def str_decode_latin_1(s, errors, final, errorhandler):
     except rutf8.CheckError:
         return _str_decode_latin_1_slowpath(s, errors, final, errorhandler)
 
+def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
+    res = StringBuilder(len(s))
+    i = 0
+    while i < len(s):
+        if ord(s[i]) > 0x7F:
+            while i < len(s) and ord(s[i]) > 0x7F:
+                rutf8.unichr_as_utf8_append(res, ord(s[i]))
+                i += 1
+        else:
+            start = i
+            end = i + 1
+            while end < len(s) and ord(s[end]) <= 0x7F:
+                end += 1
+            res.append_slice(s, start, end)
+            i = end
+    # cannot be ASCII, cannot have surrogates, I believe
+    return res.build(), len(s), len(s), rutf8.FLAG_REGULAR
+
 def utf8_encode_latin_1(s, errors, errorhandler):
     try:
         rutf8.check_ascii(s)
@@ -159,7 +170,6 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
                 res.append(chr(oc))
                 i += 1
             else:
-                XXX
                 r, pos = errorhandler(errors, 'latin1',
                                       'ordinal not in range(256)', s, cur,
                                       cur + 1)
@@ -358,7 +368,7 @@ def hexescape(builder, s, pos, digits,
                 builder.append(res)
             else:
                 rutf8.unichr_as_utf8_append(builder, chr, True)
-                flag = get_flag_from_code(chr)
+                flag = rutf8.get_flag_from_code(chr)
                 pos += digits
                 size = 1
 
@@ -503,7 +513,7 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
                         continue
                     pos = look + 1
                     outsize += 1
-                    flag = combine_flags(flag, get_flag_from_code(code))
+                    flag = combine_flags(flag, rutf8.get_flag_from_code(code))
                     rutf8.unichr_as_utf8_append(builder, code)
                 else:
                     res, pos = errorhandler(errors, "unicodeescape",

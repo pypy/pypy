@@ -123,6 +123,13 @@ def compute_length_utf8(s):
             continuation_bytes += 1
     return len(s) - continuation_bytes
 
+def get_flag_from_code(oc):
+    if oc <= 0x7F:
+        return FLAG_ASCII
+    if 0xD800 <= oc <= 0xDFFF:
+        return FLAG_HAS_SURROGATES
+    return FLAG_REGULAR
+
 def codepoint_at_pos(code, pos):
     """ Give a codepoint in code at pos - assumes valid utf8, no checking!
     """
@@ -651,3 +658,30 @@ def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None):
 
     return unicode_escape #, char_escape_helper
 
+def decode_latin_1(s):
+    if len(s) == 0:
+        return s
+    if len(s) == 1 and ord(s[0]) <= 0x7F:
+        return s
+    try:
+        check_ascii(s)
+        return s
+    except CheckError:
+        return _decode_latin_1_slowpath(s)
+
+def _decode_latin_1_slowpath(s):
+    res = StringBuilder(len(s))
+    i = 0
+    while i < len(s):
+        if ord(s[i]) > 0x7F:
+            while i < len(s) and ord(s[i]) > 0x7F:
+                unichr_as_utf8_append(res, ord(s[i]))
+                i += 1
+        else:
+            start = i
+            end = i + 1
+            while end < len(s) and ord(s[end]) <= 0x7F:
+                end += 1
+            res.append_slice(s, start, end)
+            i = end
+    return res.build()

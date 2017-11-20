@@ -331,12 +331,11 @@ class W_UnicodeObject(W_Root):
     def descr__format__(self, space, w_format_spec):
         if not space.isinstance_w(w_format_spec, space.w_unicode):
             w_format_spec = space.call_function(space.w_unicode, w_format_spec)
-        spec = space.unicode_w(w_format_spec)
+        spec = space.utf8_w(w_format_spec)
         formatter = newformat.unicode_formatter(space, spec)
         self2 = unicode_from_object(space, self)
         assert isinstance(self2, W_UnicodeObject)
-        # XXX
-        return formatter.format_string(self2._utf8.decode("utf8"))
+        return formatter.format_string(self2._utf8)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=True)
@@ -526,12 +525,12 @@ class W_UnicodeObject(W_Root):
 
     def descr_formatter_parser(self, space):
         from pypy.objspace.std.newformat import unicode_template_formatter
-        tformat = unicode_template_formatter(space, space.unicode_w(self))
+        tformat = unicode_template_formatter(space, space.utf8_w(self))
         return tformat.formatter_parser()
 
     def descr_formatter_field_name_split(self, space):
         from pypy.objspace.std.newformat import unicode_template_formatter
-        tformat = unicode_template_formatter(space, space.unicode_w(self))
+        tformat = unicode_template_formatter(space, space.utf8_w(self))
         return tformat.formatter_field_name_split()
 
     def descr_lower(self, space):
@@ -1188,8 +1187,7 @@ def encode_object(space, w_object, encoding, errors):
                 rutf8.check_ascii(s)
             except rutf8.CheckError as a:
                 eh = unicodehelper.encode_error_handler(space)
-                u_len = w_object._len()
-                eh(None, "ascii", "ordinal not in range(128)", s, u_len,
+                eh(None, "ascii", "ordinal not in range(128)", s,
                     a.pos, a.pos + 1)
                 assert False, "always raises"
             return space.newbytes(s)
@@ -1260,7 +1258,7 @@ def unicode_from_object(space, w_obj):
         # test_unicode_conversion_with__str__
         if w_unicode_method is None:
             if space.isinstance_w(w_obj, space.w_unicode):
-                return space.newunicode(space.unicode_w(w_obj))
+                return unicodehelper.convert_arg_to_w_unicode(space, w_obj)
             w_unicode_method = space.lookup(w_obj, "__str__")
         if w_unicode_method is not None:
             w_res = space.get_and_call_function(w_unicode_method, w_obj)
