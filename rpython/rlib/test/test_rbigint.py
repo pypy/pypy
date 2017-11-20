@@ -70,6 +70,15 @@ class TestRLong(object):
         r2 = r.int_floordiv(10)
         assert r2.tolong() == 100L
 
+        for op1 in gen_signs(long_vals):
+            for op2 in gen_signs(long_vals):
+                if not op2 or op2 >= (1 << SHIFT) or op2 <= -(1 << SHIFT):
+                    continue
+                rl_op1 = rbigint.fromlong(op1)
+                r1 = rl_op1.int_floordiv(op2)
+                r2 = op1 // op2
+                assert r1.tolong() == r2
+                
         assert py.test.raises(ZeroDivisionError, r.int_floordiv, 0)
 
         # Error pointed out by Armin Rigo

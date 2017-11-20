@@ -613,6 +613,9 @@ class AppTestInt(object):
         assert type(x) is int
         assert str(x) == "0"
 
+    def test_rbinop_overflow(self):
+        x = int(321)
+        assert x.__rlshift__(333) == 1422567365923326114875084456308921708325401211889530744784729710809598337369906606315292749899759616L
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}

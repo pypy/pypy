@@ -589,7 +589,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     return func(space, y, x)
                 except OverflowError:
-                    return ovf2long(space, y, x, w_other)
+                    return ovf2long(space, y, x, self)
             else:
                 return func(space, y, x)
 
