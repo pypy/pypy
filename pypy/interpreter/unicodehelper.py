@@ -1,7 +1,9 @@
+import sys
+
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib import runicode, rutf8
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib import rutf8
+from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._codecs import interp_codecs
 
@@ -167,47 +169,6 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
         i += 1
     r = res.build()
     return r
-
-class DecodeWrapper(object):
-    def __init__(self, handler):
-        self.orig = handler
-
-    def handle(self, errors, encoding, msg, s, pos, endpos):
-        return self.orig(errors, encoding, msg, s, pos, endpos)
-
-class EncodeWrapper(object):
-    def __init__(self, handler):
-        self.orig = handler
-
-    def handle(self, errors, encoding, msg, s, pos, endpos):
-        return self.orig(errors, encoding, msg, s.encode("utf8"), pos, endpos)
-
-def setup_new_encoders_legacy(encoding):
-    encoder_name = 'utf8_encode_' + encoding
-    encoder_call_name = 'unicode_encode_' + encoding
-    decoder_name = 'str_decode_' + encoding
-    def encoder(utf8, errors, errorhandler):
-        u = utf8.decode("utf8")
-        w = EncodeWrapper(errorhandler)
-        return getattr(runicode, encoder_call_name)(u, len(u), errors,
-                       w.handle)
-    def decoder(s, slen, errors, final, errorhandler):
-        w = DecodeWrapper((errorhandler))
-        u, pos = getattr(runicode, decoder_name)(s, slen, errors, final, w.handle)
-        return u.encode('utf8'), pos, len(u), _get_flag(u)
-    encoder.__name__ = encoder_name
-    decoder.__name__ = decoder_name
-    if encoder_name not in globals():
-        globals()[encoder_name] = encoder
-    if decoder_name not in globals():
-        globals()[decoder_name] = decoder
-
-def setup():
-    for encoding in ['utf_16', 'utf_16_le', 'utf_16_be', 'utf_32_le', 'utf_32',
-                     'utf_32_be', 'unicode_internal']:
-        setup_new_encoders_legacy(encoding)
-
-setup()
 
 def utf8_encode_ascii(utf8, errors, errorhandler):
     """ Don't be confused - this is a slowpath for errors e.g. "ignore"
@@ -618,6 +579,41 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
     lgt, flag = rutf8.check_utf8(r, True)
     return r, pos, lgt, flag
 
+
+TABLE = '0123456789abcdef'
+
+def raw_unicode_escape_helper(result, char):
+    if char >= 0x10000 or char < 0:
+        result.append("\\U")
+        zeros = 8
+    elif char >= 0x100:
+        result.append("\\u")
+        zeros = 4
+    else:
+        result.append("\\x")
+        zeros = 2
+    for i in range(zeros-1, -1, -1):
+        result.append(TABLE[(char >> (4 * i)) & 0x0f])
+
+def utf8_encode_raw_unicode_escape(s, errors, errorhandler=None):
+    # errorhandler is not used: this function cannot cause Unicode errors
+    size = len(s)
+    if size == 0:
+        return ''
+    result = StringBuilder(size)
+    pos = 0
+    while pos < size:
+        oc = ord(s[pos])
+
+        if oc < 0x100:
+            result.append(chr(oc))
+        else:
+            raw_unicode_escape_helper(result, oc)
+        pos += 1
+
+    return result.build()
+
+
 # ____________________________________________________________
 # utf-7
 
@@ -896,3 +892,395 @@ def utf8_encode_utf_7(s, errors, errorhandler=None):
         result.append('-')
 
     return result.build()
+
+# ____________________________________________________________
+# utf-16
+
+BYTEORDER = sys.byteorder
+BYTEORDER2 = BYTEORDER[0] + 'e'      # either "le" or "be"
+assert BYTEORDER2 in ('le', 'be')
+
+def str_decode_utf_16(s, errors, final=True,
+                      errorhandler=None):
+    result, c, lgt, flag, _ = str_decode_utf_16_helper(s, errors, final,
+                                                         errorhandler, "native")
+    return result, c, lgt, flag
+
+def str_decode_utf_16_be(s, errors, final=True,
+                        errorhandler=None):
+    result, c, lgt, flag, _ = str_decode_utf_16_helper(s, errors, final,
+                                                         errorhandler, "big")
+    return result, c, lgt, flag
+
+def str_decode_utf_16_le(s, errors, final=True,
+                         errorhandler=None):
+    result, c, lgt, flag, _ = str_decode_utf_16_helper(s, errors, final,
+                                                         errorhandler, "little")
+    return result, c, lgt, flag
+
+def str_decode_utf_16_helper(s, errors, final=True,
+                             errorhandler=None,
+                             byteorder="native",
+                             public_encoding_name='utf16'):
+    size = len(s)
+    bo = 0
+
+    if BYTEORDER == 'little':
+        ihi = 1
+        ilo = 0
+    else:
+        ihi = 0
+        ilo = 1
+
+    #  Check for BOM marks (U+FEFF) in the input and adjust current
+    #  byte order setting accordingly. In native mode, the leading BOM
+    #  mark is skipped, in all other modes, it is copied to the output
+    #  stream as-is (giving a ZWNBSP character).
+    pos = 0
+    if byteorder == 'native':
+        if size >= 2:
+            bom = (ord(s[ihi]) << 8) | ord(s[ilo])
+            if BYTEORDER == 'little':
+                if bom == 0xFEFF:
+                    pos += 2
+                    bo = -1
+                elif bom == 0xFFFE:
+                    pos += 2
+                    bo = 1
+            else:
+                if bom == 0xFEFF:
+                    pos += 2
+                    bo = 1
+                elif bom == 0xFFFE:
+                    pos += 2
+                    bo = -1
+    elif byteorder == 'little':
+        bo = -1
+    else:
+        bo = 1
+    if size == 0:
+        return u'', 0, bo
+    if bo == -1:
+        # force little endian
+        ihi = 1
+        ilo = 0
+
+    elif bo == 1:
+        # force big endian
+        ihi = 0
+        ilo = 1
+
+    result = StringBuilder(size // 2)
+
+    #XXX I think the errors are not correctly handled here
+    while pos < size:
+        # remaining bytes at the end? (size should be even)
+        if len(s) - pos < 2:
+            if not final:
+                break
+            r, pos = errorhandler(errors, public_encoding_name,
+                                  "truncated data",
+                                  s, pos, len(s))
+            result.append(r)
+            if len(s) - pos < 2:
+                break
+        ch = (ord(s[pos + ihi]) << 8) | ord(s[pos + ilo])
+        pos += 2
+        if ch < 0xD800 or ch > 0xDFFF:
+            rutf8.unichr_as_utf8_append(result, ch)
+            continue
+        # UTF-16 code pair:
+        if len(s) - pos < 2:
+            pos -= 2
+            if not final:
+                break
+            errmsg = "unexpected end of data"
+            r, pos = errorhandler(errors, public_encoding_name,
+                                  errmsg, s, pos, len(s))
+            result.append(r)
+            if len(s) - pos < 2:
+                break
+        elif 0xD800 <= ch <= 0xDBFF:
+            ch2 = (ord(s[pos+ihi]) << 8) | ord(s[pos+ilo])
+            pos += 2
+            if 0xDC00 <= ch2 <= 0xDFFF:
+                ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000
+                rutf8.unichr_as_utf8_append(result, ch)
+                continue
+            else:
+                r, pos = errorhandler(errors, public_encoding_name,
+                                      "illegal UTF-16 surrogate",
+                                      s, pos - 4, pos - 2)
+                result.append(r)
+        else:
+            r, pos = errorhandler(errors, public_encoding_name,
+                                  "illegal encoding",
+                                  s, pos - 2, pos)
+            result.append(r)
+    r = result.build()
+    lgt, flag = rutf8.check_utf8(r, True)
+    return result.build(), pos, lgt, flag, bo
+
+def _STORECHAR(result, CH, byteorder):
+    hi = chr(((CH) >> 8) & 0xff)
+    lo = chr((CH) & 0xff)
+    if byteorder == 'little':
+        result.append(lo)
+        result.append(hi)
+    else:
+        result.append(hi)
+        result.append(lo)
+
+def unicode_encode_utf_16_helper(s, errors,
+                                 errorhandler=None,
+                                 allow_surrogates=True,
+                                 byteorder='little',
+                                 public_encoding_name='utf16'):
+    size = len(s)
+    if size == 0:
+        if byteorder == 'native':
+            result = StringBuilder(2)
+            _STORECHAR(result, 0xFEFF, BYTEORDER)
+            return result.build()
+        return ""
+
+    result = StringBuilder(size * 2 + 2)
+    if byteorder == 'native':
+        _STORECHAR(result, 0xFEFF, BYTEORDER)
+        byteorder = BYTEORDER
+
+    pos = 0
+    while pos < size:
+        ch = rutf8.codepoint_at_pos(s, pos)
+        pos = rutf8.next_codepoint_pos(s, pos)
+
+        if ch < 0xD800:
+            _STORECHAR(result, ch, byteorder)
+        elif ch >= 0x10000:
+            _STORECHAR(result, 0xD800 | ((ch-0x10000) >> 10), byteorder)
+            _STORECHAR(result, 0xDC00 | ((ch-0x10000) & 0x3FF), byteorder)
+        elif ch >= 0xE000 or allow_surrogates:
+            _STORECHAR(result, ch, byteorder)
+        else:
+            ru, pos = errorhandler(errors, public_encoding_name,
+                                   'surrogates not allowed',
+                                    s, pos-1, pos)
+            xxx
+            #if rs is not None:
+            #    # py3k only
+            #    if len(rs) % 2 != 0:
+            #        errorhandler('strict', public_encoding_name,
+            #                     'surrogates not allowed',
+            #                     s, pos-1, pos)
+            #    result.append(rs)
+            #    continue
+            for ch in ru:
+                if ord(ch) < 0xD800:
+                    _STORECHAR(result, ord(ch), byteorder)
+                else:
+                    errorhandler('strict', public_encoding_name,
+                                 'surrogates not allowed',
+                                 s, pos-1, pos)
+            continue
+
+    return result.build()
+
+def utf8_encode_utf_16(s, errors,
+                          errorhandler=None,
+                          allow_surrogates=True):
+    return unicode_encode_utf_16_helper(s, errors, errorhandler,
+                                        allow_surrogates, "native")
+
+def utf8_encode_utf_16_be(s, errors,
+                             errorhandler=None,
+                             allow_surrogates=True):
+    return unicode_encode_utf_16_helper(s, errors, errorhandler,
+                                        allow_surrogates, "big")
+
+def utf8_encode_utf_16_le(s, errors,
+                             errorhandler=None,
+                             allow_surrogates=True):
+    return unicode_encode_utf_16_helper(s, errors, errorhandler,
+                                        allow_surrogates, "little")
+
+# ____________________________________________________________
+# utf-32
+
+def str_decode_utf_32(s, errors, final=True,
+                      errorhandler=None):
+    result, c, lgt, flag, _ = str_decode_utf_32_helper(s, errors, final,
+                                                         errorhandler, "native")
+    return result, c, lgt, flag
+
+def str_decode_utf_32_be(s, errors, final=True,
+                         errorhandler=None):
+    result, c, lgt, flag, _ = str_decode_utf_32_helper(s, errors, final,
+                                                         errorhandler, "big")
+    return result, c, lgt, flag
+
+def str_decode_utf_32_le(s, errors, final=True,
+                         errorhandler=None):
+    result, c, lgt, flag, _ = str_decode_utf_32_helper(s, errors, final,
+                                                         errorhandler, "little")
+    return result, c, lgt, flag
+
+BOM32_DIRECT  = intmask(0x0000FEFF)
+BOM32_REVERSE = intmask(0xFFFE0000)
+
+def str_decode_utf_32_helper(s, errors, final=True,
+                             errorhandler=None,
+                             byteorder="native",
+                             public_encoding_name='utf32'):
+    bo = 0
+    size = len(s)
+
+    if BYTEORDER == 'little':
+        iorder = [0, 1, 2, 3]
+    else:
+        iorder = [3, 2, 1, 0]
+
+    #  Check for BOM marks (U+FEFF) in the input and adjust current
+    #  byte order setting accordingly. In native mode, the leading BOM
+    #  mark is skipped, in all other modes, it is copied to the output
+    #  stream as-is (giving a ZWNBSP character).
+    pos = 0
+    if byteorder == 'native':
+        if size >= 4:
+            bom = intmask(
+                (ord(s[iorder[3]]) << 24) | (ord(s[iorder[2]]) << 16) |
+                (ord(s[iorder[1]]) << 8)  | ord(s[iorder[0]]))
+            if BYTEORDER == 'little':
+                if bom == BOM32_DIRECT:
+                    pos += 4
+                    bo = -1
+                elif bom == BOM32_REVERSE:
+                    pos += 4
+                    bo = 1
+            else:
+                if bom == BOM32_DIRECT:
+                    pos += 4
+                    bo = 1
+                elif bom == BOM32_REVERSE:
+                    pos += 4
+                    bo = -1
+    elif byteorder == 'little':
+        bo = -1
+    else:
+        bo = 1
+    if size == 0:
+        return u'', 0, bo
+    if bo == -1:
+        # force little endian
+        iorder = [0, 1, 2, 3]
+
+    elif bo == 1:
+        # force big endian
+        iorder = [3, 2, 1, 0]
+
+    result = StringBuilder(size // 4)
+
+    while pos < size:
+        # remaining bytes at the end? (size should be divisible by 4)
+        if len(s) - pos < 4:
+            if not final:
+                break
+            r, pos = errorhandler(errors, public_encoding_name,
+                                  "truncated data",
+                                  s, pos, len(s))
+            result.append(r)
+            if len(s) - pos < 4:
+                break
+            continue
+        ch = ((ord(s[pos + iorder[3]]) << 24) | (ord(s[pos + iorder[2]]) << 16) |
+              (ord(s[pos + iorder[1]]) << 8)  | ord(s[pos + iorder[0]]))
+        if ch >= 0x110000:
+            r, pos = errorhandler(errors, public_encoding_name,
+                                  "codepoint not in range(0x110000)",
+                                  s, pos, len(s))
+            result.append(r)
+            continue
+
+        rutf8.unichr_as_utf8_append(result, ch)
+        pos += 4
+    r = result.build()
+    lgt, flag = rutf8.check_utf8(r, True)
+    return r, pos, lgt, flag, bo
+
+def _STORECHAR32(result, CH, byteorder):
+    c0 = chr(((CH) >> 24) & 0xff)
+    c1 = chr(((CH) >> 16) & 0xff)
+    c2 = chr(((CH) >> 8) & 0xff)
+    c3 = chr((CH) & 0xff)
+    if byteorder == 'little':
+        result.append(c3)
+        result.append(c2)
+        result.append(c1)
+        result.append(c0)
+    else:
+        result.append(c0)
+        result.append(c1)
+        result.append(c2)
+        result.append(c3)
+
+def unicode_encode_utf_32_helper(s, errors,
+                                 errorhandler=None,
+                                 allow_surrogates=True,
+                                 byteorder='little',
+                                 public_encoding_name='utf32'):
+    size = len(s)
+    if size == 0:
+        if byteorder == 'native':
+            result = StringBuilder(4)
+            _STORECHAR32(result, 0xFEFF, BYTEORDER)
+            return result.build()
+        return ""
+
+    result = StringBuilder(size * 4 + 4)
+    if byteorder == 'native':
+        _STORECHAR32(result, 0xFEFF, BYTEORDER)
+        byteorder = BYTEORDER
+
+    pos = 0
+    while pos < size:
+        ch = rutf8.codepoint_at_pos(s, pos)
+        pos = rutf8.next_codepoint_pos(s, pos)
+        ch2 = 0
+        if not allow_surrogates and 0xD800 <= ch < 0xE000:
+            ru, pos = errorhandler(errors, public_encoding_name,
+                                        'surrogates not allowed',
+                                        s, pos-1, pos)
+            XXX
+            if rs is not None:
+                # py3k only
+                if len(rs) % 4 != 0:
+                    errorhandler('strict', public_encoding_name,
+                                    'surrogates not allowed',
+                                    s, pos-1, pos)
+                result.append(rs)
+                continue
+            for ch in ru:
+                if ord(ch) < 0xD800:
+                    _STORECHAR32(result, ord(ch), byteorder)
+                else:
+                    errorhandler('strict', public_encoding_name,
+                                    'surrogates not allowed',
+                                    s, pos-1, pos)
+            continue
+        _STORECHAR32(result, ch, byteorder)
+
+    return result.build()
+
+def utf8_encode_utf_32(s, errors,
+                          errorhandler=None, allow_surrogates=True):
+    return unicode_encode_utf_32_helper(s, errors, errorhandler,
+                                        allow_surrogates, "native")
+
+def utf8_encode_utf_32_be(s, errors,
+                             errorhandler=None, allow_surrogates=True):
+    return unicode_encode_utf_32_helper(s, errors, errorhandler,
+                                        allow_surrogates, "big")
+
+def utf8_encode_utf_32_le(s, errors,
+                             errorhandler=None, allow_surrogates=True):
+    return unicode_encode_utf_32_helper(s, errors, errorhandler,
+                                        allow_surrogates, "little")

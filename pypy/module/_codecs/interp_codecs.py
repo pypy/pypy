@@ -30,6 +30,10 @@ class CodecState(object):
                               endpos):
             """Generic wrapper for calling into error handlers.
 
+            Note that error handler receives and returns position into
+            the unicode characters, not into the position of utf8 bytes,
+            so it needs to be converted by the codec
+
             Returns (unicode_or_none, str_or_none, newpos) as error
             handlers may return unicode or on Python 3, bytes.
             """

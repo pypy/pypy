@@ -1194,7 +1194,7 @@ def encode_object(space, w_object, encoding, errors):
                 assert False, "always raises"
             return space.newbytes(s)
         if ((encoding is None and space.sys.defaultencoding == 'utf8') or
-             encoding == 'utf-8' or encoding == 'utf8'):
+             encoding == 'utf-8' or encoding == 'utf8' or encoding == 'UTF-8'):
             return space.newbytes(space.utf8_w(w_object))
     if w_encoder is None:
         from pypy.module._codecs.interp_codecs import lookup_codec

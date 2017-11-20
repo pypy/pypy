@@ -15,6 +15,7 @@ class AppTestCodecs:
                          'utf-32', 'utf-32-le', 'utf-32-be',
                          'raw_unicode_escape',
                          'unicode_escape', 'unicode_internal'):
+            print encoding
             assert unicode(u.encode(encoding),encoding) == u
 
     def test_ucs4(self):
@@ -115,10 +116,10 @@ class AppTestCodecs:
         raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 0x110000})
         assert (charmap_decode("\x00\x01\x02", "strict",
                                {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
-                u"\U0010FFFFbc", 3)
+                (u"\U0010FFFFbc", 3))
         assert (charmap_decode("\x00\x01\x02", "strict",
                                {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
-                u"\U0010FFFFbc", 3)
+                (u"\U0010FFFFbc", 3))
 
     def test_escape_decode_errors(self):
         from _codecs import escape_decode as decode
