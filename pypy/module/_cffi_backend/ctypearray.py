@@ -63,11 +63,14 @@ class W_CTypeArray(W_CTypePtrOrArray):
             return (w_value, len(s) + 1)
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.module._cffi_backend import wchar_helper
-            u = space.unicode_w(w_value)
-            if self.ctitem.size == 2:
-                length = wchar_helper.unicode_size_as_char16(u)
+            w_u = space.convert_arg_to_w_unicode(w_value)
+            if self.citem.size == 4:
+                length = w_u._len()
             else:
-                length = wchar_helper.unicode_size_as_char32(u)
+                if not w_u._has_surrogates():
+                    length = w_u._len()
+                else:
+                    length = wchar_helper.unicode_size_as_char16(w_u._utf8, w_u._len())
             return (w_value, length + 1)
         else:
             explicitlength = space.getindex_w(w_value, space.w_OverflowError)

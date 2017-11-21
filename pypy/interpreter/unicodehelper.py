@@ -35,9 +35,7 @@ def encode_error_handler(space):
     return raise_unicode_exception_encode
 
 def convert_arg_to_w_unicode(space, w_arg, strict=None):
-    from pypy.objspace.std.unicodeobject import W_UnicodeObject
-    assert not hasattr(space, 'is_fake_objspace')
-    return W_UnicodeObject.convert_arg_to_w_unicode(space, w_arg, strict)
+    return space.convert_arg_to_w_unicode(w_arg)
 
 # ____________________________________________________________
 

@@ -91,11 +91,15 @@ class W_CTypePtrOrArray(W_CType):
             from pypy.module._cffi_backend import wchar_helper
             if not space.isinstance_w(w_ob, space.w_unicode):
                 raise self._convert_error("unicode or list or tuple", w_ob)
-            s = space.unicode_w(w_ob)
-            if self.ctitem.size == 2:
-                n = wchar_helper.unicode_size_as_char16(s)
+            w_u = space.convert_arg_to_w_unicode(w_ob)
+            if self.size == 4:
+                n = w_u._len()
             else:
-                n = wchar_helper.unicode_size_as_char32(s)
+                if not w_u._has_surrogates():
+                    n = w_u._len()
+                else:
+                    n = wchar_helper.unicode_size_as_char16(w_u._utf8,
+                                                            w_u._len())
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
                             "initializer unicode string is too long for '%s' "
@@ -328,11 +332,12 @@ class W_CTypePointer(W_CTypePtrBase):
             length = len(s) + 1
         elif space.isinstance_w(w_init, space.w_unicode):
             from pypy.module._cffi_backend import wchar_helper
-            u = space.unicode_w(w_init)
+            w_u = space.convert_arg_to_w_unicode(w_init)
             if self.ctitem.size == 2:
-                length = wchar_helper.unicode_size_as_char16(u)
+                length = wchar_helper.unicode_size_as_char16(w_u._utf8,
+                                                             w_u._len())
             else:
-                length = wchar_helper.unicode_size_as_char32(u)
+                length = w_u._len()
             length += 1
         elif self.is_file:
             result = self.prepare_file(w_init)

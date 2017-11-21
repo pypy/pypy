@@ -1,10 +1,12 @@
+from rpython.rlib import rutf8
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rtyper.annlowlevel import llunicode
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_unicode_to_raw
 
-SIZE_UNICODE = rffi.sizeof(lltype.UniChar)
+SIZE_UNICODE = 4
 
 
 if SIZE_UNICODE == 4:
@@ -48,7 +50,7 @@ class OutOfRange(Exception):
         self.ordinal = ordinal
 
 def _unicode_from_wchar(ptr, length):
-    return rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, ptr), length)
+    return rffi.wcharpsize2utf8(rffi.cast(rffi.CWCHARP, ptr), length)
 
 
 if SIZE_UNICODE == 2:
@@ -86,7 +88,7 @@ else:
     def unicode_from_char16(ptr, length):
         # 'ptr' is a pointer to 'length' 16-bit integers
         ptr = rffi.cast(rffi.USHORTP, ptr)
-        u = [u'\x00'] * length
+        u = StringBuilder(length)
         i = 0
         j = 0
         while j < length:
@@ -97,10 +99,9 @@ else:
                 if 0xDC00 <= ch2 <= 0xDFFF:
                     ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000
                     j += 1
-            u[i] = unichr(ch)
+            rutf8.unichr_as_utf8_append(u, ch)
             i += 1
-        del u[i:]
-        return u''.join(u)
+        return u.build()
 
 
 @specialize.ll()
@@ -121,22 +122,15 @@ def measure_length_32(ptr, maxlen=-1):
     return _measure_length(rffi.cast(rffi.UINTP, ptr), maxlen)
 
 
-def unicode_size_as_char16(u):
-    result = len(u)
-    if SIZE_UNICODE == 4:
-        for i in range(result):
-            if ord(u[i]) > 0xFFFF:
-                result += 1
+def unicode_size_as_char16(u, len):
+    result = len
+    i = 0
+    while i < len(u):
+        code = rutf8.codepoint_at_pos(u, i)
+        if code > 0xFFFF:
+            result += 1
+        i = rutf8.next_codepoint_pos(u, i)
     return result
-
-def unicode_size_as_char32(u):
-    result = len(u)
-    if SIZE_UNICODE == 2 and result > 1:
-        for i in range(result - 1):
-            if is_surrogate(u, i):
-                result -= 1
-    return result
-
 
 def _unicode_to_wchar(u, target_ptr, target_length, add_final_zero):
     # 'target_ptr' is a raw pointer to 'target_length' wchars;

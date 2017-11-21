@@ -5,7 +5,7 @@ Primitives.
 import sys
 
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rfficache
 
@@ -40,14 +40,15 @@ class W_CTypePrimitive(W_CType):
         return ord(s[0])
 
     def cast_unicode(self, w_ob):
+        import pdb
+        pdb.set_trace()
         space = self.space
-        s = space.unicode_w(w_ob)
-        try:
-            ordinal = wchar_helper.unicode_to_ordinal(s)
-        except ValueError:
+        w_u = space.convert_arg_to_w_unicode(w_ob)
+        if w_u._len() != 1:
             raise oefmt(space.w_TypeError,
                         "cannot cast unicode string of length %d to ctype '%s'",
-                        len(s), self.name)
+                        w_u._len(), self.name)
+        ordinal = rutf8.codepoint_at_pos(w_u._utf8, 0)
         return intmask(ordinal)
 
     def cast(self, w_ob):
@@ -175,8 +176,10 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
     def convert_to_object(self, cdata):
         if self.is_signed_wchar:
-            unichardata = rffi.cast(rffi.CWCHARP, cdata)
-            return self.space.newunicode(unichardata[0])
+            code = ord(rffi.cast(rffi.CWCHARP, cdata)[0])
+            return self.space.newutf8(
+                rutf8.unichr_as_utf8(code), 1,
+                rutf8.get_flag_from_code(code))
         else:
             value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
             try:
@@ -185,7 +188,8 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
                 raise oefmt(self.space.w_ValueError,
                             "char32_t out of range for "
                             "conversion to unicode: %s", hex(e.ordinal))
-            return self.space.newunicode(u)
+            return self.space.newutf8(rutf8.unichr_as_utf8(ord(u)), 1,
+                rutf8.get_flag_from_code(ord(u)))
 
     def string(self, cdataobj, maxlen):
         with cdataobj as ptr:
@@ -196,16 +200,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
         # returns a r_uint.  If self.size == 2, it is smaller than 0x10000
         space = self.space
         if space.isinstance_w(w_ob, space.w_unicode):
-            u = space.unicode_w(w_ob)
-            try:
-                ordinal = wchar_helper.unicode_to_ordinal(u)
-            except ValueError:
-                pass
-            else:
-                if self.size == 2 and ordinal > 0xffff:
-                    raise self._convert_error("single character <= 0xFFFF",
-                                              w_ob)
-                return ordinal
+            return rutf8.codepoint_at_pos(space.utf8_w(w_ob), 0)
         elif (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, W_CTypePrimitiveUniChar) and
                w_ob.ctype.size == self.size):

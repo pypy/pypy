@@ -1773,6 +1773,13 @@ class ObjSpace(object):
                         "characters")
         return rstring.assert_str0(result)
 
+    def convert_arg_to_w_unicode(self, w_obj, strict=None):
+        # XXX why convert_to_w_unicode does something slightly different?
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        assert not hasattr(self, 'is_fake_objspace')
+        return W_UnicodeObject.convert_arg_to_w_unicode(self, w_obj, strict)
+
+
     def realutf8_w(self, w_obj):
         # Like utf8_w(), but only works if w_obj is really of type
         # 'unicode'.  On Python 3 this is the same as utf8_w().
