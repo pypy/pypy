@@ -211,12 +211,16 @@ def utf8_encode_ascii(utf8, errors, errorhandler):
             r, newpos = errorhandler(errors, 'ascii', msg, utf8,
                 pos, endpos)
             for j in range(newpos - pos):
+                i = rutf8.next_codepoint_pos(utf8, i)
+
+            j = 0
+            while j < len(r):
                 c = rutf8.codepoint_at_pos(r, j)
                 if c > 0x7F:
                     errorhandler("strict", 'ascii',
                                  'ordinal not in range(128)', utf8,
-                                 pos, pos + 1)                
-                i = rutf8.next_codepoint_pos(utf8, i)
+                                 pos, pos + 1)  
+                j = rutf8.next_codepoint_pos(r, j)
             pos = newpos
             res.append(r)
         else:
@@ -382,8 +386,8 @@ def hexescape(builder, s, pos, digits,
                 size, flag = rutf8.check_utf8(res, True)
                 builder.append(res)
             else:
-                rutf8.unichr_as_utf8_append(builder, chr, True)
-                flag = rutf8.get_flag_from_code(chr)
+                rutf8.unichr_as_utf8_append(builder, intmask(chr), True)
+                flag = rutf8.get_flag_from_code(intmask(chr))
                 pos += digits
                 size = 1
 
@@ -755,27 +759,31 @@ def str_decode_utf_7(s, errors, final=False,
         if inShift: # in a base-64 section
             if _utf7_IS_BASE64(ord(ch)): #consume a base-64 character
                 base64buffer = (base64buffer << 6) | _utf7_FROM_BASE64(ch)
+                assert base64buffer >= 0
                 base64bits += 6
                 pos += 1
 
                 if base64bits >= 16:
                     # enough bits for a UTF-16 value
                     outCh = base64buffer >> (base64bits - 16)
+                    assert outCh >= 0
                     base64bits -= 16
                     base64buffer &= (1 << base64bits) - 1 # clear high bits
                     assert outCh <= 0xffff
                     if surrogate:
                         # expecting a second surrogate
                         if outCh >= 0xDC00 and outCh <= 0xDFFF:
-                            xxxx
-                            result.append(
-                                UNICHR((((surrogate & 0x3FF)<<10) |
-                                        (outCh & 0x3FF)) + 0x10000))
+                            code = (((surrogate & 0x3FF)<<10) |
+                                        (outCh & 0x3FF)) + 0x10000
+                            rutf8.unichr_as_utf8_append(result, code)
+                            outsize += 1
+                            flag = combine_flags(flag, rutf8.FLAG_REGULAR)
                             surrogate = 0
                             continue
                         else:
-                            YYYY
-                            result.append(unichr(surrogate))
+                            rutf8.unichr_as_utf8_append(result, surrogate)
+                            flag = rutf8.FLAG_HAS_SURROGATES
+                            outsize += 1
                             surrogate = 0
                             # Not done with outCh: falls back to next line
                     if outCh >= 0xD800 and outCh <= 0xDBFF:
@@ -784,6 +792,7 @@ def str_decode_utf_7(s, errors, final=False,
                     else:
                         flag = combine_flags(flag, rutf8.unichr_to_flag(outCh))
                         outsize += 1
+                        assert outCh >= 0
                         rutf8.unichr_as_utf8_append(result, outCh, True)
 
             else:

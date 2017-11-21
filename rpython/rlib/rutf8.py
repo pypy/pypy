@@ -19,7 +19,7 @@ import sys
 from rpython.rlib.objectmodel import enforceargs, we_are_translated
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -27,6 +27,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 def unichr_as_utf8(code, allow_surrogates=False):
     """Encode code (numeric value) as utf8 encoded string
     """
+    assert code >= 0
     code = r_uint(code)
     if code <= r_uint(0x7F):
         # Encode ASCII
