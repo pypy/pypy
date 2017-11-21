@@ -400,10 +400,12 @@ def get_new_method_def(space):
     lltype.render_immortal(ptr.c_ml_name)
     rffi.setintfield(ptr, 'c_ml_flags', METH_VARARGS | METH_KEYWORDS)
     ptr.c_ml_doc = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(
-        "T.__new__(S, ...) -> a new object with type S, a subtype of T"))
+        "Create and return a new object.  "
+        "See help(type) for accurate signature."))
     lltype.render_immortal(ptr.c_ml_doc)
     state.new_method_def = ptr
     return ptr
+
 
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)

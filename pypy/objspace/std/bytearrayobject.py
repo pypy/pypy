@@ -658,7 +658,7 @@ class BytearrayDocstrings:
         """x.__imul__(y) <==> x*=y"""
 
     def __init__():
-        """x.__init__(...) initializes x; see help(type(x)) for signature"""
+        """Initialize self.  See help(type(self)) for accurate signature."""
 
     def __iter__():
         """x.__iter__() <==> iter(x)"""

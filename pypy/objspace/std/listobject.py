@@ -301,7 +301,7 @@ class W_ListObject(W_Root):
         return self.strategy.find(self, w_item, start, end)
 
     def append(self, w_item):
-        """L.append(object) -- append object to end"""
+        """L.append(object) -> None -- append object to end"""
         self.strategy.append(self, w_item)
 
     def length(self):
@@ -403,8 +403,7 @@ class W_ListObject(W_Root):
         self.strategy.insert(self, index, w_item)
 
     def extend(self, w_iterable):
-        '''L.extend(iterable) -- extend list by appending
-        elements from the iterable'''
+        '''L.extend(iterable) -- extend list by appending elements from the iterable'''
         self.strategy.extend(self, w_iterable)
 
     def reverse(self):
@@ -420,13 +419,13 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def descr_new(space, w_listtype, __args__):
-        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+        "Create and return a new object.  See help(type) for accurate signature."
         w_obj = space.allocate_instance(W_ListObject, w_listtype)
         w_obj.clear(space)
         return w_obj
 
     def descr_init(self, space, __args__):
-        """x.__init__(...) initializes x; see help(type(x)) for signature"""
+        """Initialize self.  See help(type(self)) for accurate signature."""
         # this is on the silly side
         w_iterable, = __args__.parse_obj(
                 None, 'list', init_signature, init_defaults)
@@ -603,8 +602,7 @@ class W_ListObject(W_Root):
         self.reverse()
 
     def descr_count(self, space, w_value):
-        '''L.count(value) -> integer -- return number of
-        occurrences of value'''
+        '''L.count(value) -> integer -- return number of occurrences of value'''
         # needs to be safe against eq_w() mutating the w_list behind our back
         count = 0
         i = 0
@@ -623,8 +621,8 @@ class W_ListObject(W_Root):
 
     @unwrap_spec(index=int)
     def descr_pop(self, space, index=-1):
-        '''L.pop([index]) -> item -- remove and return item at
-        index (default last)'''
+        """L.pop([index]) -> item -- remove and return item at index (default last).
+Raises IndexError if list is empty or index is out of range."""
         length = self.length()
         if length == 0:
             raise oefmt(space.w_IndexError, "pop from empty list")
@@ -639,7 +637,7 @@ class W_ListObject(W_Root):
             raise oefmt(space.w_IndexError, "pop index out of range")
 
     def descr_clear(self, space):
-        '''L.clear() -- remove all items'''
+        """L.clear() -> None -- remove all items from L"""
         self.clear(space)
 
     def descr_copy(self, space):
@@ -647,7 +645,8 @@ class W_ListObject(W_Root):
         return self.clone()
 
     def descr_remove(self, space, w_value):
-        'L.remove(value) -- remove first occurrence of value'
+        """L.remove(value) -> None -- remove first occurrence of value.
+Raises ValueError if the value is not present."""
         # needs to be safe against eq_w() mutating the w_list behind our back
         try:
             i = self.find(w_value, 0, sys.maxint)
@@ -659,8 +658,8 @@ class W_ListObject(W_Root):
 
     @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(sys.maxint))
     def descr_index(self, space, w_value, w_start, w_stop):
-        '''L.index(value, [start, [stop]]) -> integer -- return
-        first index of value'''
+        """L.index(value, [start, [stop]]) -> integer -- return first index of value.
+Raises ValueError if the value is not present."""
         # needs to be safe against eq_w() mutating the w_list behind our back
         size = self.length()
         i, stop = unwrap_start_stop(space, size, w_start, w_stop)
@@ -673,8 +672,7 @@ class W_ListObject(W_Root):
 
     @unwrap_spec(reverse=int)
     def descr_sort(self, space, w_key=None, reverse=False):
-        """ L.sort(key=None, reverse=False) -- stable
-        sort *IN PLACE*"""
+        """L.sort(key=None, reverse=False) -> None -- stable sort *IN PLACE*"""
         has_key = not space.is_none(w_key)
 
         # create and setup a TimSort instance
