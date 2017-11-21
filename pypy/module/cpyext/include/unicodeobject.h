@@ -61,8 +61,7 @@ extern "C" {
    use PyUnicode_WRITE() and PyUnicode_READ(). */
 
 #define PyUnicode_AS_UNICODE(op) \
-    (assert(PyUnicode_Check(op)), \
-     (((PyASCIIObject *)(op))->wstr) ? (((PyASCIIObject *)(op))->wstr) : \
+     ((((PyASCIIObject *)(op))->wstr) ? (((PyASCIIObject *)(op))->wstr) : \
       PyUnicode_AsUnicode((PyObject *)(op)))
 
 #define PyUnicode_AS_DATA(op) \

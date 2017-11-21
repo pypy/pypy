@@ -356,6 +356,10 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         print(repr(wide), repr(utf8))
         assert wide == utf8
 
+    def test_invalid(self):
+        m = self.import_module('_widechar')
+        raises(ValueError, m.test_widechar)
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
