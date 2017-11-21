@@ -262,7 +262,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     }
 
     int depth = 0;
-    PY_STACK_FRAME_T * top_most_frame = frame;
+    //PY_STACK_FRAME_T * top_most_frame = frame;
     while ((depth + _per_loop()) <= max_depth) {
         unw_get_proc_info(&cursor, &pip);
 
@@ -400,7 +400,7 @@ int vmp_read_vmaps(const char * fname) {
     if (fd == NULL) {
         return 0;
     }
-    char * saveptr;
+    char * saveptr = NULL;
     char * line = NULL;
     char * he = NULL;
     char * name;

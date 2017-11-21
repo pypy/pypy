@@ -4,6 +4,9 @@
 #include <errno.h>
 
 #ifdef RPYTHON_VMPROF
+
+int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, intptr_t pc);
+
 #ifdef RPYTHON_LL2CTYPES
    /* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
 
@@ -193,7 +196,7 @@ PY_STACK_FRAME_T *get_vmprof_stack(void)
 #endif
 
 intptr_t vmprof_get_traceback(void *stack, void *ucontext,
-                              intptr_t *result_p, intptr_t result_length)
+                              void **result_p, intptr_t result_length)
 {
     int n;
     int enabled;
