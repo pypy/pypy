@@ -231,11 +231,14 @@ def check_utf8(space, s, ps, end):
     return s[pt:ps]
 
 def decode_utf8_recode(space, s, ps, end, recode_encoding):
-    lgt, flag = unicodehelper.check_utf8_or_raise(space, s, ps, end)
-    w_v = unicodehelper.encode(space, space.newutf8(s[ps:end], lgt, flag),
+    p = ps
+    while p < end and ord(s[p]) & 0x80:
+        p += 1
+    lgt, flag = unicodehelper.check_utf8_or_raise(space, s, ps, p)
+    w_v = unicodehelper.encode(space, space.newutf8(s[ps:p], lgt, flag),
                                recode_encoding)
     v = space.bytes_w(w_v)
-    return v, ps
+    return v, p
 
 def raise_app_valueerror(space, msg):
     raise OperationError(space.w_ValueError, space.newtext(msg))

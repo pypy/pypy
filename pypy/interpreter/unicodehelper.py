@@ -351,12 +351,12 @@ def hexescape(builder, s, pos, digits,
         try:
             chr = r_uint(int(s[pos:pos+digits], 16))
         except ValueError:
-            aaaa
             endinpos = pos
             while s[endinpos] in hexdigits:
                 endinpos += 1
             res, pos = errorhandler(errors, encoding,
                                     message, s, pos-2, endinpos)
+            size, flag = rutf8.check_utf8(res, True)
             builder.append(res)
         else:
             # when we get here, chr is a 32-bit unicode character
@@ -1392,7 +1392,7 @@ def str_decode_charmap(s, errors, final=False,
     while pos < size:
         ch = s[pos]
 
-        c = mapping.get(ch, ERROR_CHAR)
+        c = mapping.get(ord(ch), ERROR_CHAR)
         if c == ERROR_CHAR:
             r, pos = errorhandler(errors, "charmap",
                                   "character maps to <undefined>",
@@ -1407,20 +1407,17 @@ def str_decode_charmap(s, errors, final=False,
 
 def utf8_encode_charmap(s, errors, errorhandler=None,
                            mapping=None):
-    YYY
+    size = len(s)
     if mapping is None:
-        return unicode_encode_latin_1(s, size, errors,
-                                      errorhandler=errorhandler)
-
-    if errorhandler is None:
-        errorhandler = default_unicode_error_encode
+        return utf8_encode_latin_1(s, size, errors,
+                                   errorhandler=errorhandler)
 
     if size == 0:
         return ''
     result = StringBuilder(size)
     pos = 0
     while pos < size:
-        ch = s[pos]
+        ch = rutf8.codepoint_at_pos(s, pos)
 
         c = mapping.get(ch, '')
         if len(c) == 0:
@@ -1428,9 +1425,10 @@ def utf8_encode_charmap(s, errors, errorhandler=None,
             collend = pos + 1
             while collend < size and mapping.get(s[collend], '') == '':
                 collend += 1
-            ru, rs, pos = errorhandler(errors, "charmap",
-                                       "character maps to <undefined>",
-                                       s, pos, collend)
+            rs, pos = errorhandler(errors, "charmap",
+                                   "character maps to <undefined>",
+                                   s, pos, collend)
+            XXXX
             if rs is not None:
                 # py3k only
                 result.append(rs)
@@ -1445,6 +1443,6 @@ def utf8_encode_charmap(s, errors, errorhandler=None,
                 result.append(c2)
             continue
         result.append(c)
-        pos += 1
+        pos = rutf8.next_codepoint_pos(s, pos)
     return result.build()
 

@@ -551,10 +551,10 @@ class Charmap_Decode:
 
         # get the character from the mapping
         if self.mapping_w is not None:
-            w_ch = self.mapping_w[ord(ch)]
+            w_ch = self.mapping_w[ch]
         else:
             try:
-                w_ch = space.getitem(self.w_mapping, space.newint(ord(ch)))
+                w_ch = space.getitem(self.w_mapping, space.newint(ch))
             except OperationError as e:
                 if not e.match(space, space.w_LookupError):
                     raise
@@ -587,7 +587,7 @@ class Charmap_Encode:
 
         # get the character from the mapping
         try:
-            w_ch = space.getitem(self.w_mapping, space.newint(ord(ch)))
+            w_ch = space.getitem(self.w_mapping, space.newint(ch))
         except OperationError as e:
             if not e.match(space, space.w_LookupError):
                 raise
@@ -633,8 +633,8 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
     return space.newtuple([space.newutf8(result, lgt, flag),
                            space.newint(consumed)])
 
-@unwrap_spec(utf8='utf8', errors='text_or_none')
-def charmap_encode(space, utf8, errors="strict", w_mapping=None):
+@unwrap_spec(errors='text_or_none')
+def charmap_encode(space, w_unicode, errors="strict", w_mapping=None):
     from pypy.interpreter import unicodehelper
 
     if errors is None:
@@ -645,9 +645,10 @@ def charmap_encode(space, utf8, errors="strict", w_mapping=None):
         mapping = Charmap_Encode(space, w_mapping)
 
     state = space.fromcache(CodecState)
-    result = unicodehelper.unicode_encode_charmap(
-        utf8, errors, state.encode_error_handler, mapping)
-    return space.newtuple([space.newbytes(result), space.newint(len(uni))])
+    w_uni = unicodehelper.convert_arg_to_w_unicode(space, w_unicode)
+    result = unicodehelper.utf8_encode_charmap(
+        space.utf8_w(w_uni), errors, state.encode_error_handler, mapping)
+    return space.newtuple([space.newbytes(result), space.newint(w_uni._len())])
 
 
 @unwrap_spec(chars='utf8')
