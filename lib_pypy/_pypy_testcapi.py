@@ -8,7 +8,8 @@ def get_hashed_dir(cfile):
         content = fid.read()
     # from cffi's Verifier()
     key = '\x00'.join([sys.version[:3], content])
-    key += 'cpyext-gc-support-2'   # this branch requires recompilation!
+    # change the key to force recompilation
+    key += '2017-11-21'
     if sys.version_info >= (3,):
         key = key.encode('utf-8')
     k1 = hex(binascii.crc32(key[0::2]) & 0xffffffff)
