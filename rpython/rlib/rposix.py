@@ -1881,7 +1881,8 @@ if not _WIN32:
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO,
-                    macro=_MACRO_ON_POSIX)
+                    macro=_MACRO_ON_POSIX,
+                    compilation_info=ExternalCompilationInfo(includes=['unistd.h']))
 
 @replace_os_function('chroot')
 def chroot(path):

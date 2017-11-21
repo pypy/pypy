@@ -101,8 +101,8 @@ class TestImportLock:
         importhook(space, 'sys')
         assert importlock.count == 0
         # A new module
-        importhook(space, "time")
-        assert importlock.count == 1
+        importhook(space, 're')
+        assert importlock.count >= 9
         # Import it again
         previous_count = importlock.count
         importhook(space, "time")

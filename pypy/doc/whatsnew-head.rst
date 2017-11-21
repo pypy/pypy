@@ -20,3 +20,9 @@ tracker (issues 2694, 2695, 2696, 2697)
 
 .. branch: run-extra-tests
 Run extra_tests/ in buildbot
+
+.. branch: vmprof-0.4.10
+Upgrade the _vmprof backend to vmprof 0.4.10
+
+.. branch: fix-vmprof-stacklet-switch
+Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)
