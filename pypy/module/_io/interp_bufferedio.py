@@ -890,6 +890,7 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
             have = self._readahead()
             if have >= length:
                 rwbuffer.setslice(0, self.buffer[self.pos:self.pos + length])
+                self.pos += length
                 return space.newint(length)
             written = 0
             if have > 0:

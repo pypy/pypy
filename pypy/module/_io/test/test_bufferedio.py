@@ -214,6 +214,15 @@ class AppTestBufferedReader:
         assert n == 1
         assert buf[:n] == b'c'
 
+        bufio = _io.BufferedReader(MockIO(), buffer_size=20)
+        buf = bytearray(2)
+        bufio.peek(3)
+        assert bufio.readinto1(buf) == 2
+        assert buf == b'ab'
+        n = bufio.readinto1(buf)
+        assert n == 1
+        assert buf[:n] == b'c'
+
     def test_seek(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
