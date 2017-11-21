@@ -750,3 +750,9 @@ class AppTestPartialEvaluation:
         assert _codecs.unicode_escape_decode(b) == (u'', 0)
         assert _codecs.raw_unicode_escape_decode(b) == (u'', 0)
         assert _codecs.unicode_internal_decode(b) == (u'', 0)
+
+    def test_xmlcharrefreplace(self):
+        r = u'\u1234\u0080\u2345\u0079\u00AB'.encode('latin1', 'xmlcharrefreplace')
+        assert r == '&#4660;\x80&#9029;y\xab'
+        r = u'\u1234\u0080\u2345\u0079\u00AB'.encode('ascii', 'xmlcharrefreplace')
+        assert r == '&#4660;&#128;&#9029;y&#171;'

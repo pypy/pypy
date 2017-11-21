@@ -215,27 +215,30 @@ def replace_errors(space, w_exc):
                     "don't know how to handle %T in error callback", w_exc)
 
 def xmlcharrefreplace_errors(space, w_exc):
+    from pypy.interpreter import unicodehelper
+
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
+        space.realutf8_w(w_obj) # weeoes
+        w_obj = unicodehelper.convert_arg_to_w_unicode(space, w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
-        builder = UnicodeBuilder()
+        start = w_obj._index_to_byte(start)
+        end = w_obj._index_to_byte(end)        
+        builder = StringBuilder()
         pos = start
+        obj = w_obj._utf8
         while pos < end:
-            code = ord(obj[pos])
-            if (MAXUNICODE == 0xffff and 0xD800 <= code <= 0xDBFF and
-                       pos + 1 < end and 0xDC00 <= ord(obj[pos+1]) <= 0xDFFF):
-                code = (code & 0x03FF) << 10
-                code |= ord(obj[pos+1]) & 0x03FF
-                code += 0x10000
-                pos += 1
-            builder.append(u"&#")
-            builder.append(unicode(str(code)))
-            builder.append(u";")
-            pos += 1
-        return space.newtuple([space.newunicode(builder.build()), w_end])
+            code = rutf8.codepoint_at_pos(obj, pos)
+            builder.append("&#")
+            builder.append(str(code))
+            builder.append(";")
+            pos = rutf8.next_codepoint_pos(obj, pos)
+        r = builder.build()
+        lgt, flag = rutf8.check_utf8(r, True)
+        return space.newtuple([space.newutf8(r, lgt, flag), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
