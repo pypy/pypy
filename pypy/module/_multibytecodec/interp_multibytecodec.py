@@ -1,3 +1,6 @@
+
+from rpython.rlib import rutf8
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
@@ -18,13 +21,14 @@ class MultibyteCodec(W_Root):
         state = space.fromcache(CodecState)
         #
         try:
-            u_output = c_codecs.decode(self.codec, input, errors,
+            utf8_output = c_codecs.decode(self.codec, input, errors,
                                      state.decode_error_handler, self.name)
         except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodedecodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
-        return space.newtuple([space.newunicode(u_output),
+        lgt, flag = rutf8.check_utf8(utf8_output, True)
+        return space.newtuple([space.newutf8(utf8_output, lgt, flag),
                                space.newint(len(input))])
 
     @unwrap_spec(input='utf8', errors="text_or_none")
@@ -74,7 +78,7 @@ def wrap_unicodedecodeerror(space, e, input, name):
             space.newtext(e.reason)]))
 
 def wrap_unicodeencodeerror(space, e, input, inputlen, name):
-    flag = 13
+    _, flag = rutf8.check_utf8(input, True)
     raise OperationError(
         space.w_UnicodeEncodeError,
         space.newtuple([

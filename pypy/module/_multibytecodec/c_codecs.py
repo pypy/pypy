@@ -2,8 +2,9 @@ import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
+from rpython.rlib import rutf8
 
-UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'
+UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'.encode("utf8")
 
 
 class EncodeDecodeError(Exception):
@@ -126,7 +127,7 @@ def decodeex(decodebuf, stringdata, errors="strict", errorcb=None, namecb=None,
                                     errorcb, namecb, stringdata)
         src = pypy_cjk_dec_outbuf(decodebuf)
         length = pypy_cjk_dec_outlen(decodebuf)
-        return rffi.wcharpsize2unicode(src, length)
+        return rffi.wcharpsize2utf8(src, length)
 
 def multibytecodec_decerror(decodebuf, e, errors,
                             errorcb, namecb, stringdata):
@@ -148,7 +149,7 @@ def multibytecodec_decerror(decodebuf, e, errors,
     if errors == "strict":
         raise EncodeDecodeError(start, end, reason)
     elif errors == "ignore":
-        replace = u""
+        replace = ""
     elif errors == "replace":
         replace = UNICODE_REPLACEMENT_CHARACTER
     else:
@@ -156,8 +157,12 @@ def multibytecodec_decerror(decodebuf, e, errors,
         replace, end = errorcb(errors, namecb, reason,
                                stringdata, start, end)
         # 'replace' is RPython unicode here
-    with rffi.scoped_nonmoving_unicodebuffer(replace) as inbuf:
-        r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, len(replace), end)
+    lgt, _ = rutf8.check_utf8(replace, True)
+    inbuf = rffi.utf82wcharp(replace, lgt)
+    try:
+        r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, lgt, end)
+    finally:
+        lltype.free(inbuf, flavor='raw')
     if r == MBERR_NOMEMORY:
         raise MemoryError
 
@@ -256,6 +261,7 @@ def multibytecodec_encerror(encodebuf, e, errors,
             replace = "?"
     else:
         assert errorcb
+        XXX
         retu, rets, end = errorcb(errors, namecb, reason,
                                   unicodedata.encode("utf8"), start, end)
         if rets is not None:

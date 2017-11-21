@@ -841,8 +841,7 @@ def make_formatting_class(for_unicode):
                 prefix = "0x"
             as_str = value.format(LONG_DIGITS[:base], prefix)
             if self.is_unicode:
-                XXX
-                return as_str.decode("latin-1")
+                return rutf8.decode_latin_1(as_str)
             return as_str
 
         def _int_to_base(self, base, value):

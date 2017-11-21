@@ -74,8 +74,8 @@ def parsestr(space, encoding, s, unicode_literal=False):
     substr = s[ps : q]
     if rawmode or '\\' not in s[ps:]:
         if need_encoding:
-            utf, (lgt, flag) = unicodehelper.decode_utf8(space, substr)
-            w_u = space.newutf8(utf, lgt, flag)
+            lgt, flag = unicodehelper.check_utf8_or_raise(space, substr)
+            w_u = space.newutf8(substr, lgt, flag)
             w_v = unicodehelper.encode(space, w_u, encoding)
             return w_v
         else:

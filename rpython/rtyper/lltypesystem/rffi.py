@@ -1009,6 +1009,29 @@ def make_string_mappings(strtype):
  wcharp2unicoden, wcharpsize2unicode, unicode2wchararray, unicode2rawmem,
  ) = make_string_mappings(unicode)
 
+def wcharpsize2utf8(w, size):
+    """ Helper to convert WCHARP pointer to utf8 in one go.
+    Equivalent to wcharpsize2unicode().encode("utf8")
+    """
+    from rpython.rlib import rutf8
+
+    s = StringBuilder(size)
+    for i in range(size):
+        rutf8.unichr_as_utf8_append(s, ord(w[i]))
+    return s.build()
+
+def utf82wcharp(utf8, utf8len):
+    from rpython.rlib import rutf8
+
+    w = lltype.malloc(CWCHARP.TO, utf8len, flavor='raw')
+    i = 0
+    index = 0
+    while i < len(utf8):
+        w[index] = unichr(rutf8.codepoint_at_pos(utf8, i))
+        i = rutf8.next_codepoint_pos(utf8, i)
+        index += 1
+    return w
+
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
 

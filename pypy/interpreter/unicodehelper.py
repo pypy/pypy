@@ -1094,9 +1094,9 @@ def unicode_encode_utf_16_helper(s, errors,
         byteorder = BYTEORDER
 
     pos = 0
+    index = 0
     while pos < size:
         ch = rutf8.codepoint_at_pos(s, pos)
-        pos = rutf8.next_codepoint_pos(s, pos)
 
         if ch < 0xD800:
             _STORECHAR(result, ch, byteorder)
@@ -1106,26 +1106,26 @@ def unicode_encode_utf_16_helper(s, errors,
         elif ch >= 0xE000 or allow_surrogates:
             _STORECHAR(result, ch, byteorder)
         else:
-            ru, pos = errorhandler(errors, public_encoding_name,
+            ru, newindex = errorhandler(errors, public_encoding_name,
                                    'surrogates not allowed',
                                     s, pos-1, pos)
-            xxx
-            #if rs is not None:
-            #    # py3k only
-            #    if len(rs) % 2 != 0:
-            #        errorhandler('strict', public_encoding_name,
-            #                     'surrogates not allowed',
-            #                     s, pos-1, pos)
-            #    result.append(rs)
-            #    continue
-            for ch in ru:
+            for j in range(newindex - index):
+                pos = rutf8.next_codepoint_pos(s, pos)
+            j = 0
+            while j < len(ru):
+                ch = rutf8.codepoint_at_pos(ru, j)
                 if ord(ch) < 0xD800:
                     _STORECHAR(result, ord(ch), byteorder)
                 else:
                     errorhandler('strict', public_encoding_name,
                                  'surrogates not allowed',
                                  s, pos-1, pos)
+                j = rutf8.next_codepoint_pos(ru, j)
+            index = newindex
             continue
+
+        pos = rutf8.next_codepoint_pos(s, pos)
+        index += 1
 
     return result.build()
 
@@ -1285,32 +1285,30 @@ def unicode_encode_utf_32_helper(s, errors,
         byteorder = BYTEORDER
 
     pos = 0
+    index = 0
     while pos < size:
         ch = rutf8.codepoint_at_pos(s, pos)
         pos = rutf8.next_codepoint_pos(s, pos)
-        ch2 = 0
         if not allow_surrogates and 0xD800 <= ch < 0xE000:
-            ru, pos = errorhandler(errors, public_encoding_name,
+            ru, newindex = errorhandler(errors, public_encoding_name,
                                         'surrogates not allowed',
                                         s, pos-1, pos)
-            XXX
-            if rs is not None:
-                # py3k only
-                if len(rs) % 4 != 0:
-                    errorhandler('strict', public_encoding_name,
-                                    'surrogates not allowed',
-                                    s, pos-1, pos)
-                result.append(rs)
-                continue
-            for ch in ru:
+            for j in range(newindex - index):
+                pos = rutf8.next_codepoint_pos(s, pos)
+            j = 0
+            while j < len(ru):
+                ch = rutf8.codepoint_at_pos(ru, j)
                 if ord(ch) < 0xD800:
                     _STORECHAR32(result, ord(ch), byteorder)
                 else:
                     errorhandler('strict', public_encoding_name,
-                                    'surrogates not allowed',
-                                    s, pos-1, pos)
+                                 'surrogates not allowed',
+                                 s, pos-1, pos)
+                j = rutf8.next_codepoint_pos(ru, j)
+            index = newindex
             continue
         _STORECHAR32(result, ch, byteorder)
+        index += 1
 
     return result.build()
 
