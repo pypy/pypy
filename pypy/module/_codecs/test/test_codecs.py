@@ -592,11 +592,11 @@ class AppTestPartialEvaluation:
         def handler_unicodeinternal(exc):
             if not isinstance(exc, UnicodeDecodeError):
                 raise TypeError("don't know how to handle %r" % exc)
-            return (u"\x01", 1)
+            return (u"\x01", 4)
         codecs.register_error("test.hui", handler_unicodeinternal)
         res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "test.hui")
         if sys.maxunicode > 65535:
-            assert res == u"\u0000\u0001\u0000"   # UCS4 build
+            assert res == u"\u0000\u0001"   # UCS4 build
         else:
             assert res == u"\x00\x00\x01\x00\x00" # UCS2 build
 

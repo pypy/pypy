@@ -1,6 +1,6 @@
 from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
-from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -241,33 +241,42 @@ def xmlcharrefreplace_errors(space, w_exc):
                     "don't know how to handle %T in error callback", w_exc)
 
 def backslashreplace_errors(space, w_exc):
+    from pypy.interpreter import unicodehelper
+
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
+        space.realutf8_w(w_obj) # for errors
+        w_obj = unicodehelper.convert_arg_to_w_unicode(space, w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
-        builder = UnicodeBuilder()
+        start = w_obj._index_to_byte(start)
+        end = w_obj._index_to_byte(end)
+        builder = StringBuilder()
+        obj = w_obj._utf8
         pos = start
         while pos < end:
-            oc = ord(obj[pos])
+            oc = rutf8.codepoint_at_pos(obj, pos)
             num = hex(oc)
             if (oc >= 0x10000):
-                builder.append(u"\\U")
+                builder.append("\\U")
                 zeros = 8
             elif (oc >= 0x100):
-                builder.append(u"\\u")
+                builder.append("\\u")
                 zeros = 4
             else:
-                builder.append(u"\\x")
+                builder.append("\\x")
                 zeros = 2
             lnum = len(num)
             nb = zeros + 2 - lnum # num starts with '0x'
             if nb > 0:
-                builder.append_multiple_char(u'0', nb)
-            builder.append_slice(unicode(num), 2, lnum)
-            pos += 1
-        return space.newtuple([space.newunicode(builder.build()), w_end])
+                builder.append_multiple_char('0', nb)
+            builder.append_slice(num, 2, lnum)
+            pos = rutf8.next_codepoint_pos(obj, pos)
+        r = builder.build()
+        lgt, flag = rutf8.check_utf8(r, True)
+        return space.newtuple([space.newutf8(r, lgt, flag), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -489,7 +498,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
-    from pypy.interpreter.unicodehelper import DecodeWrapper
+    from pypy.interpreter.unicodehelper import str_decode_utf_16_helper
 
     if errors is None:
         errors = 'strict'
@@ -504,16 +513,17 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     consumed = len(data)
     if final:
         consumed = 0
-    res, consumed, byteorder = runicode.str_decode_utf_16_helper(
-        data, len(data), errors, final,
-        DecodeWrapper(state.decode_error_handler).handle, byteorder)
-    return space.newtuple([space.newunicode(res), space.newint(consumed),
+    res, consumed, lgt, flag, byteorder = str_decode_utf_16_helper(
+        data, errors, final,
+        state.decode_error_handler, byteorder)
+    return space.newtuple([space.newutf8(res, lgt, flag),
+                           space.newint(consumed),
                            space.newint(byteorder)])
 
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
-    from pypy.interpreter.unicodehelper import DecodeWrapper
+    from pypy.interpreter.unicodehelper import str_decode_utf_32_helper
 
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
@@ -526,10 +536,11 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     consumed = len(data)
     if final:
         consumed = 0
-    res, consumed, byteorder = runicode.str_decode_utf_32_helper(
-        data, len(data), errors, final,
-        DecodeWrapper(state.decode_error_handler).handle, byteorder)
-    return space.newtuple([space.newunicode(res), space.newint(consumed),
+    res, consumed, lgt, flag, byteorder = str_decode_utf_32_helper(
+        data, errors, final,
+        state.decode_error_handler, byteorder)
+    return space.newtuple([space.newutf8(res, lgt, flag),
+                           space.newint(consumed),
                            space.newint(byteorder)])
 
 # ____________________________________________________________

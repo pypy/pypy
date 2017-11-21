@@ -173,8 +173,13 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
                 r, pos = errorhandler(errors, 'latin1',
                                       'ordinal not in range(256)', s, cur,
                                       cur + 1)
-                res.append(r)
                 for j in range(pos - cur):
+                    c = rutf8.codepoint_at_pos(r, j)
+                    if c > 0xFF:
+                        errorhandler("strict", 'latin1',
+                                     'ordinal not in range(256)', s,
+                                     cur, cur + 1)
+                    res.append(chr(c))
                     i = rutf8.next_codepoint_pos(s, i)
                 cur = pos
         cur += 1
@@ -200,7 +205,12 @@ def utf8_encode_ascii(utf8, errors, errorhandler):
             msg = "ordinal not in range(128)"
             r, newpos = errorhandler(errors, 'ascii', msg, utf8,
                 pos, endpos)
-            for _ in range(newpos - pos):
+            for j in range(newpos - pos):
+                c = rutf8.codepoint_at_pos(r, j)
+                if c > 0x7F:
+                    errorhandler("strict", 'ascii',
+                                 'ordinal not in range(128)', utf8,
+                                 pos, pos + 1)                
                 i = rutf8.next_codepoint_pos(utf8, i)
             pos = newpos
             res.append(r)
@@ -364,7 +374,7 @@ def hexescape(builder, s, pos, digits,
                 message = "illegal Unicode character"
                 res, pos = errorhandler(errors, encoding,
                                         message, s, pos-2, pos+digits)
-                size, flag = rutf8.check_utf8(res)
+                size, flag = rutf8.check_utf8(res, True)
                 builder.append(res)
             else:
                 rutf8.unichr_as_utf8_append(builder, chr, True)
@@ -778,21 +788,25 @@ def str_decode_utf_7(s, errors, final=False,
                 if base64bits > 0: # left-over bits
                     if base64bits >= 6:
                         # We've seen at least one base-64 character
-                        aaa
                         pos += 1
                         msg = "partial character in shift sequence"
                         res, pos = errorhandler(errors, 'utf7',
                                                 msg, s, pos-1, pos)
+                        reslen, resflags = rutf8.check_utf8(res, True)
+                        outsize += reslen
+                        flag = combine_flags(flag, resflags)
                         result.append(res)
                         continue
                     else:
                         # Some bits remain; they should be zero
                         if base64buffer != 0:
-                            bbb
                             pos += 1
                             msg = "non-zero padding bits in shift sequence"
                             res, pos = errorhandler(errors, 'utf7',
                                                     msg, s, pos-1, pos)
+                            reslen, resflags = rutf8.check_utf8(res, True)
+                            outsize += reslen
+                            flag = combine_flags(flag, resflags)
                             result.append(res)
                             continue
 
@@ -826,11 +840,13 @@ def str_decode_utf_7(s, errors, final=False,
             outsize += 1
             pos += 1
         else:
-            yyy
             startinpos = pos
             pos += 1
             msg = "unexpected special character"
             res, pos = errorhandler(errors, 'utf7', msg, s, pos-1, pos)
+            reslen, resflags = rutf8.check_utf8(res, True)
+            outsize += reslen
+            flag = combine_flags(flag, resflags)
             result.append(res)
 
     # end of string
@@ -973,7 +989,7 @@ def str_decode_utf_16_helper(s, errors, final=True,
     else:
         bo = 1
     if size == 0:
-        return u'', 0, bo
+        return '', 0, 0, rutf8.FLAG_ASCII, bo
     if bo == -1:
         # force little endian
         ihi = 1
@@ -1182,7 +1198,7 @@ def str_decode_utf_32_helper(s, errors, final=True,
     else:
         bo = 1
     if size == 0:
-        return u'', 0, bo
+        return '', 0, 0, rutf8.FLAG_ASCII, bo
     if bo == -1:
         # force little endian
         iorder = [0, 1, 2, 3]
@@ -1409,40 +1425,43 @@ def utf8_encode_charmap(s, errors, errorhandler=None,
                            mapping=None):
     size = len(s)
     if mapping is None:
-        return utf8_encode_latin_1(s, size, errors,
-                                   errorhandler=errorhandler)
+        return utf8_encode_latin_1(s, errors, errorhandler=errorhandler)
 
     if size == 0:
         return ''
     result = StringBuilder(size)
     pos = 0
+    index = 0
     while pos < size:
         ch = rutf8.codepoint_at_pos(s, pos)
 
         c = mapping.get(ch, '')
         if len(c) == 0:
             # collect all unencodable chars. Important for narrow builds.
-            collend = pos + 1
-            while collend < size and mapping.get(s[collend], '') == '':
-                collend += 1
-            rs, pos = errorhandler(errors, "charmap",
+            collend = rutf8.next_codepoint_pos(s, pos)
+            endindex = index + 1
+            while collend < size and mapping.get(rutf8.codepoint_at_pos(s, collend), '') == '':
+                collend = rutf8.next_codepoint_pos(s, collend)
+                endindex += 1
+            rs, endindex = errorhandler(errors, "charmap",
                                    "character maps to <undefined>",
-                                   s, pos, collend)
-            XXXX
-            if rs is not None:
-                # py3k only
-                result.append(rs)
-                continue
-            for ch2 in ru:
-                c2 = mapping.get(ch2, '')
-                if len(c2) == 0:
+                                   s, index, endindex)
+            j = 0
+            for _ in range(endindex - index):
+                ch2 = rutf8.codepoint_at_pos(rs, j)
+                ch2 = mapping.get(ch2, '')
+                if not ch2:
                     errorhandler(
                         "strict", "charmap",
                         "character maps to <undefined>",
-                        s,  pos, pos + 1)
-                result.append(c2)
+                        s,  index, index + 1)
+                result.append(ch2)
+                index += 1
+                j = rutf8.next_codepoint_pos(rs, j)
+                pos = rutf8.next_codepoint_pos(s, pos)
             continue
         result.append(c)
+        index += 1
         pos = rutf8.next_codepoint_pos(s, pos)
     return result.build()
 
