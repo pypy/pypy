@@ -199,6 +199,19 @@ class AppTestBufferedReader:
             def readinto(self, buf):
                 buf[:3] = b"abc"
                 return 3
+
+            def writable(self):
+                return True
+
+            def write(self, b):
+                return len(b)
+
+            def seekable(self):
+                return True
+
+            def seek(self, pos, whence):
+                return 0
+
         bufio = _io.BufferedReader(MockIO(), buffer_size=5)
         buf = bytearray(10)
         bufio.read(2)
@@ -222,6 +235,15 @@ class AppTestBufferedReader:
         n = bufio.readinto1(buf)
         assert n == 1
         assert buf[:n] == b'c'
+
+        bufio = _io.BufferedRandom(MockIO(), buffer_size=10)
+        buf = bytearray(20)
+        bufio.peek(3)
+        assert bufio.readinto1(buf) == 6
+        assert buf[:6] == b'abcabc'
+
+        bufio = _io.BufferedWriter(MockIO(), buffer_size=10)
+        raises(_io.UnsupportedOperation, bufio.readinto1, bytearray(10))
 
     def test_seek(self):
         import _io

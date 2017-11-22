@@ -869,19 +869,14 @@ class BufferedMixin:
             finally:
                 self._reader_reset_buf()
 
-class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec(buffer_size=int)
-    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
-        self.state = STATE_ZERO
-        check_readable_w(space, w_raw)
+class BufferedReaderMixin(BufferedMixin):
+    _mixin_ = True
 
-        self.w_raw = w_raw
-        self.buffer_size = buffer_size
-        self.readable = True
+    def readinto_w(self, space, w_buffer):
+        return self._readinto(space, w_buffer, read_once=False)
 
-        self._init(space)
-        self._reader_reset_buf()
-        self.state = STATE_OK
+    def readinto1_w(self, space, w_buffer):
+        return self._readinto(space, w_buffer, read_once=True)
 
     def _readinto(self, space, w_buffer, read_once):
         rwbuffer = space.writebuf_w(w_buffer)
@@ -904,7 +899,8 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
                 self.pos = 0
                 if written + len(self.buffer) < length:
                     try:
-                        got = self._raw_read(space, rwbuffer, written, length - written)
+                        got = self._raw_read(
+                            space, rwbuffer, written, length - written)
                         written += got
                     except BlockingIOError:
                         got = 0
@@ -929,6 +925,19 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
             return space.newint(written)
 
 
+class W_BufferedReader(BufferedReaderMixin, W_BufferedIOBase):
+    @unwrap_spec(buffer_size=int)
+    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
+        self.state = STATE_ZERO
+        check_readable_w(space, w_raw)
+
+        self.w_raw = w_raw
+        self.buffer_size = buffer_size
+        self.readable = True
+
+        self._init(space)
+        self._reader_reset_buf()
+        self.state = STATE_OK
 
 W_BufferedReader.typedef = TypeDef(
     '_io.BufferedReader', W_BufferedIOBase.typedef,
@@ -939,6 +948,8 @@ W_BufferedReader.typedef = TypeDef(
     read = interp2app(W_BufferedReader.read_w),
     peek = interp2app(W_BufferedReader.peek_w),
     read1 = interp2app(W_BufferedReader.read1_w),
+    readinto = interp2app(W_BufferedReader.readinto_w),
+    readinto1 = interp2app(W_BufferedReader.readinto1_w),
     raw = interp_attrproperty_w("w_raw", cls=W_BufferedReader),
     readline = interp2app(W_BufferedReader.readline_w),
 
@@ -1100,7 +1111,7 @@ W_BufferedRWPair.typedef = TypeDef(
     **methods
 )
 
-class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
+class W_BufferedRandom(BufferedReaderMixin, W_BufferedIOBase):
     @unwrap_spec(buffer_size=int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
@@ -1128,6 +1139,8 @@ W_BufferedRandom.typedef = TypeDef(
     peek = interp2app(W_BufferedRandom.peek_w),
     read1 = interp2app(W_BufferedRandom.read1_w),
     readline = interp2app(W_BufferedRandom.readline_w),
+    readinto = interp2app(W_BufferedRandom.readinto_w),
+    readinto1 = interp2app(W_BufferedRandom.readinto1_w),
 
     write = interp2app(W_BufferedRandom.write_w),
     flush = interp2app(W_BufferedRandom.flush_w),
