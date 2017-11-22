@@ -1779,6 +1779,9 @@ class ObjSpace(object):
         assert not hasattr(self, 'is_fake_objspace')
         return W_UnicodeObject.convert_arg_to_w_unicode(self, w_obj, strict)
 
+    def utf8_len_w(self, w_obj):
+        w_obj = self.convert_arg_to_w_unicode(w_obj)
+        return w_obj._utf8, w_obj._len()
 
     def realutf8_w(self, w_obj):
         # Like utf8_w(), but only works if w_obj is really of type
