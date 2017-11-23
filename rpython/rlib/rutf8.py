@@ -16,9 +16,11 @@ extra code in the middle for error handlers and so on.
 """
 
 import sys
-from rpython.rlib.objectmodel import enforceargs, we_are_translated
+from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
+from rpython.rlib.signature import signature
+from rpython.rlib.types import char, none
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -315,6 +317,11 @@ def check_utf8(s, allow_surrogates, start=0, stop=-1):
     if res >= 0:
         return res, flag
     raise CheckError(~res)
+
+def get_utf8_length_flag(s):
+    """ Get the length and flag out of valid utf8. For now just calls check_utf8
+    """
+    return check_utf8(s, True)
 
 @jit.elidable
 def _check_utf8(s, allow_surrogates, start, stop):
@@ -654,6 +661,53 @@ def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None):
             result.append(TABLE[(char >> (4 * i)) & 0x0f])
 
     return unicode_escape #, char_escape_helper
+
+class Utf8StringBuilder(object):
+    def __init__(self, size=0):
+        self._s = StringBuilder(size)
+        self._lgt = 0
+        self._flag = FLAG_ASCII
+
+    def append(self, s):
+        # for strings
+        self._s.append(s)
+        newlgt, newflag = get_utf8_length_flag(s)
+        self._lgt += newlgt
+        self._flag = combine_flags(self._flag, newflag)
+
+    @signature(char(), returns=none())
+    def append_char(self, s):
+        # for characters, ascii
+        self._lgt += 1
+        self._s.append(s)
+
+    def append_code(self, code):
+        self._flag = combine_flags(self._flag, get_flag_from_code(code))
+        self._lgt += 1
+        unichr_as_utf8_append(self._s, code, True)
+
+    def build(self):
+        return self._s.build()
+
+    def get_flag(self):
+        return self._flag
+
+    def get_length(self):
+        return self._lgt
+
+class Utf8StringIterator(object):
+    def __init__(self, utf8s):
+        self._utf8 = utf8s
+        self._end = len(utf8s)
+        self._pos = 0
+
+    def done(self):
+        return self._pos == self._end
+
+    def next(self):
+        ret = codepoint_at_pos(self._utf8, self._pos)
+        self._pos = next_codepoint_pos(self._utf8, self._pos)
+        return ret
 
 def decode_latin_1(s):
     if len(s) == 0:

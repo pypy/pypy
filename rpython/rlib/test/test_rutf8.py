@@ -139,3 +139,39 @@ def test_surrogate_in_utf8(unichars):
     result = rutf8.surrogate_in_utf8(uni)
     expected = any(uch for uch in unichars if u'\ud800' <= uch <= u'\udfff')
     assert result == expected
+
+@given(strategies.text())
+def test_get_utf8_length_flag(u):
+    exp_lgt = len(u)
+    exp_flag = rutf8.FLAG_ASCII
+    for c in u:
+        if ord(c) > 0x7F:
+            exp_flag = rutf8.FLAG_REGULAR
+    lgt, flag = rutf8.get_utf8_length_flag(u.encode('utf8'))
+    assert lgt == exp_lgt
+    assert flag == exp_flag
+
+def test_utf8_string_builder():
+    s = rutf8.Utf8StringBuilder()
+    s.append("foo")
+    s.append_char("x")
+    assert s.get_flag() == rutf8.FLAG_ASCII
+    assert s.get_length() == 4
+    assert s.build() == "foox"
+    s.append(u"\u1234".encode("utf8"))
+    assert s.get_flag() == rutf8.FLAG_REGULAR
+    assert s.get_length() == 5
+    assert s.build().decode("utf8") == u"foox\u1234"
+    s.append("foo")
+    s.append_char("x")
+    assert s.get_flag() == rutf8.FLAG_REGULAR
+    assert s.get_length() == 9
+    assert s.build().decode("utf8") == u"foox\u1234foox"
+    s = rutf8.Utf8StringBuilder()
+    s.append_code(0x1234)
+    assert s.build().decode("utf8") == u"\u1234"
+    assert s.get_flag() == rutf8.FLAG_REGULAR
+    assert s.get_length() == 1
+    s.append_code(0xD800)
+    assert s.get_flag() == rutf8.FLAG_HAS_SURROGATES
+    assert s.get_length() == 2
