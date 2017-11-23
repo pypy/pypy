@@ -3,6 +3,7 @@ import sys
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rutf8
+from rpython.rlib.rutf8 import combine_flags
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._codecs import interp_codecs
@@ -42,14 +43,6 @@ def convert_arg_to_w_unicode(space, w_arg, strict=None):
 def encode(space, w_data, encoding=None, errors='strict'):
     from pypy.objspace.std.unicodeobject import encode_object
     return encode_object(space, w_data, encoding, errors)
-
-def combine_flags(one, two):
-    if one == rutf8.FLAG_ASCII and two == rutf8.FLAG_ASCII:
-        return rutf8.FLAG_ASCII
-    elif (one == rutf8.FLAG_HAS_SURROGATES or
-          two == rutf8.FLAG_HAS_SURROGATES):
-        return rutf8.FLAG_HAS_SURROGATES
-    return rutf8.FLAG_REGULAR
 
 
 def _has_surrogate(u):
@@ -788,7 +781,8 @@ def str_decode_utf_7(s, errors, final=False,
                         # first surrogate
                         surrogate = outCh
                     else:
-                        flag = combine_flags(flag, rutf8.unichr_to_flag(outCh))
+                        flag = combine_flags(flag,
+                                             rutf8.get_flag_from_code(outCh))
                         outsize += 1
                         assert outCh >= 0
                         rutf8.unichr_as_utf8_append(result, outCh, True)

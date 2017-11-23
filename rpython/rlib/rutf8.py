@@ -50,6 +50,7 @@ def unichr_as_utf8(code, allow_surrogates=False):
 def unichr_as_utf8_append(builder, code, allow_surrogates=False):
     """Encode code (numeric value) as utf8 encoded string
     and emit the result into the given StringBuilder.
+    Raises ValueError if the code is outside range(0x110000).
     """
     code = r_uint(code)
     if code <= r_uint(0x7F):
@@ -123,13 +124,6 @@ def compute_length_utf8(s):
         if 0x80 <= ord(s[i]) <= 0xBF:    # count the continuation bytes
             continuation_bytes += 1
     return len(s) - continuation_bytes
-
-def get_flag_from_code(oc):
-    if oc <= 0x7F:
-        return FLAG_ASCII
-    if 0xD800 <= oc <= 0xDFFF:
-        return FLAG_HAS_SURROGATES
-    return FLAG_REGULAR
 
 def codepoint_at_pos(code, pos):
     """ Give a codepoint in code at pos - assumes valid utf8, no checking!
@@ -453,22 +447,24 @@ def surrogate_in_utf8(value):
 
 UTF8_INDEX_STORAGE = lltype.GcStruct('utf8_loc',
     ('flag', lltype.Signed),
-    ('contents', lltype.Ptr(lltype.GcArray(lltype.Struct(
-    'utf8_loc_elem',
-    ('baseindex', lltype.Signed),
-    ('ofs', lltype.FixedSizeArray(lltype.Char, 16)))
-    ))))
+    ('contents', lltype.Ptr(lltype.GcArray(lltype.Struct('utf8_loc_elem',
+        ('baseindex', lltype.Signed),
+        ('ofs', lltype.FixedSizeArray(lltype.Char, 16)),
+    )))))
 
-def unichr_to_flag(ch):
-    if ch <= 0x7F:
+def get_flag_from_code(oc):
+    if oc <= 0x7F:
         return FLAG_ASCII
-    elif 0xD800 <= ch <= 0xDFFF:
+    if 0xD800 <= oc <= 0xDFFF:
         return FLAG_HAS_SURROGATES
     return FLAG_REGULAR
 
-FLAG_REGULAR = 0
-FLAG_HAS_SURROGATES = 1
-FLAG_ASCII = 2
+def combine_flags(one, two):
+    return one | two
+
+FLAG_ASCII          = 0     # no bits
+FLAG_REGULAR        = 1     # bit 0
+FLAG_HAS_SURROGATES = 3     # bit 0 and bit 1
 # note that we never need index storage if we're pure ascii, but it's useful
 # for passing into W_UnicodeObject.__init__
 
