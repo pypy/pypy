@@ -216,14 +216,7 @@ class W_TextIOBase(W_IOBase):
 
     def _find_line_ending(self, line, start, end):
         size = end - start
-        if self.readtranslate:
-            # Newlines are already translated, only search for \n
-            pos = line.find(u'\n', start, end)
-            if pos >= 0:
-                return pos + 1, 0
-            else:
-                return -1, size
-        elif self.readuniversal:
+        if self.readuniversal:
             # Universal newline search. Find any of \r, \r\n, \n
             # The decoder ensures that \r\n are not split in two pieces
             i = start
@@ -242,16 +235,22 @@ class W_TextIOBase(W_IOBase):
                         return i + 1, 0
                     else:
                         return i, 0
+        if self.readtranslate:
+            # Newlines are already translated, only search for \n
+            newline = u'\n'
         else:
             # Non-universal mode.
-            pos = line.find(self.readnl, start, end)
-            if pos >= 0:
-                return pos + len(self.readnl), 0
-            else:
-                pos = line.find(self.readnl[0], start, end)
-                if pos >= 0:
-                    return -1, pos - start
-                return -1, size
+            newline = self.readnl
+        end_scan = end - len(newline) + 1
+        for i in range(start, end_scan):
+            ch = line[i]
+            if ch == newline[0]:
+                for j in range(1, len(newline)):
+                    if line[i + j] != newline[j]:
+                        break
+                else:
+                    return i + len(newline), 0
+        return -1, end_scan
 
 
 W_TextIOBase.typedef = TypeDef(
