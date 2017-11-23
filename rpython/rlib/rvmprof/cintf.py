@@ -9,6 +9,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rthread, jit
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.config.translationoption import get_translation_config
 
 class VMProfPlatformUnsupported(Exception):
     pass
@@ -40,7 +41,7 @@ if sys.platform.startswith('linux'):
     compile_extra += ['-DVMPROF_UNIX']
     compile_extra += ['-DVMPROF_LINUX']
 elif sys.platform == 'win32':
-    compile_extra = ['-DRPYTHON_VMPROF', '-DVMPROF_WINDOWS']
+    compile_extra += ['-DVMPROF_WINDOWS']
     separate_module_files = [SHARED.join('vmprof_win.c')]
     _libs = []
 else:
@@ -120,15 +121,31 @@ def setup():
     vmprof_get_profile_path = rffi.llexternal("vmprof_get_profile_path", [rffi.CCHARP, lltype.Signed],
                                               lltype.Signed, compilation_info=eci,
                                               _nowrapper=True)
-    vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
-                                              rffi.INT, compilation_info=eci,
-                                              _nowrapper=True)
-    vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
-                                              lltype.Void, compilation_info=eci,
-                                              _nowrapper=True)
 
     return CInterface(locals())
 
+
+# this is always present, but compiles to no-op if RPYTHON_VMPROF is not
+# defined (i.e. if we don't actually use vmprof in the generated C)
+auto_eci = ExternalCompilationInfo(post_include_bits=["""
+#ifndef RPYTHON_VMPROF
+#  define vmprof_stop_sampling()    (-1)
+#  define vmprof_start_sampling()   ((void)0)
+#endif
+"""])
+
+if get_translation_config() is None:
+    # tests need the full eci here
+    _eci = global_eci
+else:
+    _eci = auto_eci
+
+vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
+                                       rffi.INT, compilation_info=_eci,
+                                       _nowrapper=True)
+vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
+                                        lltype.Void, compilation_info=_eci,
+                                        _nowrapper=True)
 
 
 class CInterface(object):
@@ -218,6 +235,7 @@ def jit_rvmprof_code(leaving, unique_id):
 # stacklet support
 
 def save_rvmprof_stack():
+    vmprof_stop_sampling()
     return vmprof_tl_stack.get_or_make_raw()
 
 def empty_rvmprof_stack():
@@ -225,6 +243,7 @@ def empty_rvmprof_stack():
 
 def restore_rvmprof_stack(x):
     vmprof_tl_stack.setraw(x)
+    vmprof_start_sampling()
 
 #
 # traceback support

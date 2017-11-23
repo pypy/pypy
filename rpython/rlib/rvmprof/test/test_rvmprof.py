@@ -144,7 +144,8 @@ class TestNative(RVMProfSamplingTest):
 
     @pytest.fixture
     def init(self, tmpdir):
-        eci = ExternalCompilationInfo(compile_extra=['-g','-O0'],
+        eci = ExternalCompilationInfo(compile_extra=['-g','-O0', '-Werror'],
+                post_include_bits = ['int native_func(int);'],
                 separate_module_sources=["""
                 RPY_EXTERN int native_func(int d) {
                     int j = 0;
