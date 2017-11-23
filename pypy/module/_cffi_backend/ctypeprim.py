@@ -40,16 +40,13 @@ class W_CTypePrimitive(W_CType):
         return ord(s[0])
 
     def cast_unicode(self, w_ob):
-        import pdb
-        pdb.set_trace()
         space = self.space
         w_u = space.convert_arg_to_w_unicode(w_ob)
         if w_u._len() != 1:
             raise oefmt(space.w_TypeError,
                         "cannot cast unicode string of length %d to ctype '%s'",
                         w_u._len(), self.name)
-        ordinal = rutf8.codepoint_at_pos(w_u._utf8, 0)
-        return intmask(ordinal)
+        return rutf8.codepoint_at_pos(w_u._utf8, 0)
 
     def cast(self, w_ob):
         from pypy.module._cffi_backend import ctypeptr
@@ -175,21 +172,19 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
                 return self.space.newint(value)    # r_uint => 'long' object
 
     def convert_to_object(self, cdata):
-        if self.is_signed_wchar:
-            code = ord(rffi.cast(rffi.CWCHARP, cdata)[0])
-            return self.space.newutf8(
-                rutf8.unichr_as_utf8(code), 1,
-                rutf8.get_flag_from_code(code))
-        else:
-            value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
-            try:
-                u = wchar_helper.ordinal_to_unicode(value)
-            except wchar_helper.OutOfRange as e:
-                raise oefmt(self.space.w_ValueError,
-                            "char32_t out of range for "
-                            "conversion to unicode: %s", hex(e.ordinal))
-            return self.space.newutf8(rutf8.unichr_as_utf8(ord(u)), 1,
-                rutf8.get_flag_from_code(ord(u)))
+        value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
+        try:
+            utf8 = rutf8.unichr_as_utf8(value, allow_surrogates=True)
+        except ValueError:
+            if self.is_signed_wchar:
+                s = hex(intmask(value))
+            else:
+                s = hex(value)
+            raise oefmt(self.space.w_ValueError,
+                        "%s out of range for conversion to unicode: %s",
+                        self.name, s)
+        flag = rutf8.get_flag_from_code(intmask(value))
+        return self.space.newutf8(utf8, 1, flag)
 
     def string(self, cdataobj, maxlen):
         with cdataobj as ptr:
@@ -200,7 +195,13 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
         # returns a r_uint.  If self.size == 2, it is smaller than 0x10000
         space = self.space
         if space.isinstance_w(w_ob, space.w_unicode):
-            return rutf8.codepoint_at_pos(space.utf8_w(w_ob), 0)
+            w_u = space.convert_arg_to_w_unicode(w_ob)
+            if w_u._len() != 1:
+                raise self._convert_error("single character", w_ob)
+            ordinal = rutf8.codepoint_at_pos(w_u._utf8, 0)
+            if self.size == 2 and ordinal > 0xFFFF:
+                raise self._convert_error("single character <= 0xFFFF", w_ob)
+            return r_uint(ordinal)
         elif (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, W_CTypePrimitiveUniChar) and
                w_ob.ctype.size == self.size):
@@ -214,15 +215,15 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
         if self.size == 2:
-            u = wchar_helper.unicode_from_char16(ptr, length)
+            utf8, lgt, flag = wchar_helper.utf8_from_char16(ptr, length)
         else:
             try:
-                u = wchar_helper.unicode_from_char32(ptr, length)
+                utf8, lgt, flag = wchar_helper.utf8_from_char32(ptr, length)
             except wchar_helper.OutOfRange as e:
                 raise oefmt(self.space.w_ValueError,
-                            "char32_t out of range for "
-                            "conversion to unicode: %s", hex(e.ordinal))
-        return self.space.newunicode(u)
+                            "%s out of range for conversion to unicode: %s",
+                            self.name, hex(e.ordinal))
+        return self.space.newutf8(utf8, lgt, flag)
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
