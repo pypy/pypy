@@ -299,6 +299,7 @@ class AppTestUnicodeString:
         assert u"Brown Fox".title() == u"Brown Fox"
         assert u"bro!wn fox".title() == u"Bro!Wn Fox"
         assert u"brow\u4321n fox".title() == u"Brow\u4321N Fox"
+        assert u'\ud800'.title() == u'\ud800'
 
     def test_istitle(self):
         assert u"".istitle() == False
@@ -328,10 +329,12 @@ class AppTestUnicodeString:
         assert u'A'.lower() == u'a'
         assert u'\u0105'.lower() == u'\u0105'
         assert u'\u0104'.lower() == u'\u0105'
+        assert u'\ud800'.lower() == u'\ud800'
         assert u'a'.upper() == u'A'
         assert u'A'.upper() == u'A'
         assert u'\u0105'.upper() == u'\u0104'
         assert u'\u0104'.upper() == u'\u0104'
+        assert u'\ud800'.upper() == u'\ud800'
 
     def test_capitalize(self):
         assert u"brown fox".capitalize() == u"Brown fox"
@@ -354,6 +357,8 @@ class AppTestUnicodeString:
         # check with Ll chars with no upper - nothing changes here
         assert (u'\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
                 u'\u019b\u1d00\u1d86\u0221\u1fb7')
+        assert u'\ud800'.capitalize() == u'\ud800'
+        assert u'xx\ud800'.capitalize() == u'Xx\ud800'
 
     def test_rjust(self):
         s = u"abc"
@@ -844,6 +849,7 @@ class AppTestUnicodeString:
 
     def test_swapcase(self):
         assert u'\xe4\xc4\xdf'.swapcase() == u'\xc4\xe4\xdf'
+        assert u'\ud800'.swapcase() == u'\ud800'
 
     def test_buffer(self):
         buf = buffer(u'XY')

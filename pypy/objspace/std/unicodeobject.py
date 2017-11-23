@@ -357,7 +357,7 @@ class W_UnicodeObject(W_Root):
                 ch = unicodedb.toupper(ch)
             if ch >= 0x80:
                 flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-            rutf8.unichr_as_utf8_append(builder, ch)
+            rutf8.unichr_as_utf8_append(builder, ch, allow_surrogates=True)
         return W_UnicodeObject(builder.build(), self._length, flag)
 
     def descr_title(self, space):
@@ -382,7 +382,7 @@ class W_UnicodeObject(W_Root):
                 ch = unicodedb.tolower(ch)
             if ch >= 0x80:
                 flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-            rutf8.unichr_as_utf8_append(builder, ch)
+            rutf8.unichr_as_utf8_append(builder, ch, allow_surrogates=True)
             previous_is_cased = unicodedb.iscased(ch)
         return builder.build(), flag
 
@@ -541,7 +541,7 @@ class W_UnicodeObject(W_Root):
             lower = unicodedb.tolower(rutf8.codepoint_at_pos(self._utf8, pos))
             if lower >= 0x80:
                 flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-            rutf8.unichr_as_utf8_append(builder, lower) # XXX allow surrogates?
+            rutf8.unichr_as_utf8_append(builder, lower, allow_surrogates=True)
             pos = rutf8.next_codepoint_pos(self._utf8, pos)
         return W_UnicodeObject(builder.build(), self._len(), flag)
 
@@ -721,7 +721,7 @@ class W_UnicodeObject(W_Root):
             if uchar >= 0x80:
                 flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
             i = rutf8.next_codepoint_pos(value, i)
-            rutf8.unichr_as_utf8_append(builder, uchar)
+            rutf8.unichr_as_utf8_append(builder, uchar, allow_surrogates=True)
         return W_UnicodeObject(builder.build(), self._length, flag)
 
     @unwrap_spec(width=int)
@@ -831,14 +831,14 @@ class W_UnicodeObject(W_Root):
         uchar = rutf8.codepoint_at_pos(value, 0)
         i = rutf8.next_codepoint_pos(value, 0)
         ch = unicodedb.toupper(uchar)
-        rutf8.unichr_as_utf8_append(builder, ch)
+        rutf8.unichr_as_utf8_append(builder, ch, allow_surrogates=True)
         if ch >= 0x80:
             flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
         while i < len(value):
             uchar = rutf8.codepoint_at_pos(value, i)
             i = rutf8.next_codepoint_pos(value, i)
             ch = unicodedb.tolower(uchar)
-            rutf8.unichr_as_utf8_append(builder, ch)
+            rutf8.unichr_as_utf8_append(builder, ch, allow_surrogates=True)
             if ch >= 0x80:
                 flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
         return W_UnicodeObject(builder.build(), self._len(), flag)
