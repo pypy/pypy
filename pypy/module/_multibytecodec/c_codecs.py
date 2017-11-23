@@ -197,19 +197,21 @@ pypy_cjk_enc_getcodec = llexternal('pypy_cjk_enc_getcodec',
 MBENC_FLUSH = 1
 MBENC_RESET = 2
 
-def encode(codec, unicodedata, errors="strict", errorcb=None, namecb=None):
+def encode(codec, unicodedata, length, errors="strict", errorcb=None,
+           namecb=None):
     encodebuf = pypy_cjk_enc_new(codec)
     if not encodebuf:
         raise MemoryError
     try:
-        return encodeex(encodebuf, unicodedata, errors, errorcb, namecb)
+        return encodeex(encodebuf, unicodedata, length, errors, errorcb, namecb)
     finally:
         pypy_cjk_enc_free(encodebuf)
 
-def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
+def encodeex(encodebuf, utf8data, length, errors="strict", errorcb=None,
              namecb=None, ignore_error=0):
-    inleft = len(unicodedata)
-    with rffi.scoped_nonmoving_unicodebuffer(unicodedata) as inbuf:
+    inleft = length
+    inbuf = rffi.utf82wcharp(utf8data, length)
+    try:
         if pypy_cjk_enc_init(encodebuf, inbuf, inleft) < 0:
             raise MemoryError
         if ignore_error == 0:
@@ -221,16 +223,18 @@ def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
             if r == 0 or r == ignore_error:
                 break
             multibytecodec_encerror(encodebuf, r, errors,
-                                    errorcb, namecb, unicodedata)
+                                    errorcb, namecb, utf8data)
         while flags & MBENC_RESET:
             r = pypy_cjk_enc_reset(encodebuf)
             if r == 0:
                 break
             multibytecodec_encerror(encodebuf, r, errors,
-                                    errorcb, namecb, unicodedata)
+                                    errorcb, namecb, utf8data)
         src = pypy_cjk_enc_outbuf(encodebuf)
         length = pypy_cjk_enc_outlen(encodebuf)
         return rffi.charpsize2str(src, length)
+    finally:
+        lltype.free(inbuf, flavor='raw')
 
 def multibytecodec_encerror(encodebuf, e, errors,
                             errorcb, namecb, unicodedata):
@@ -256,21 +260,16 @@ def multibytecodec_encerror(encodebuf, e, errors,
     elif errors == "replace":
         codec = pypy_cjk_enc_getcodec(encodebuf)
         try:
-            replace = encode(codec, u"?")
+            replace = encode(codec, "?", 1)
         except EncodeDecodeError:
             replace = "?"
     else:
         assert errorcb
-        XXX
-        retu, rets, end = errorcb(errors, namecb, reason,
-                                  unicodedata.encode("utf8"), start, end)
-        if rets is not None:
-            # py3k only
-            replace = rets
-        else:
-            assert retu is not None
-            codec = pypy_cjk_enc_getcodec(encodebuf)
-            replace = encode(codec, retu, "strict", errorcb, namecb)
+        rets, end = errorcb(errors, namecb, reason,
+                            unicodedata, start, end)
+        codec = pypy_cjk_enc_getcodec(encodebuf)
+        lgt, _ = rutf8.get_utf8_length_flag(rets)
+        replace = encode(codec, rets, lgt, "strict", errorcb, namecb)
     with rffi.scoped_nonmovingbuffer(replace) as inbuf:
         r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)
     if r == MBERR_NOMEMORY:
