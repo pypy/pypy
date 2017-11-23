@@ -620,11 +620,18 @@ class StringMethods(object):
     # This is overridden in unicodeobject, _startswith_tuple is not.
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
-        if start > len(value):
-            return False
+        if self._starts_ends_unicode:   # bug-to-bug compat
+            if len(prefix) == 0:
+                return True
+        else:
+            if start > len(value):
+                return False
         return startswith(value, prefix, start, end)
 
     # This is overridden in unicodeobject, _endswith_tuple is not.
+    _starts_ends_unicode = False  # bug-to-bug compat: this is for strings and
+                                  # bytearrays, but overridden for unicodes
+
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
@@ -641,8 +648,12 @@ class StringMethods(object):
     # This is overridden in unicodeobject, but _endswith_tuple is not.
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
-        if start > len(value):
-            return False
+        if self._starts_ends_unicode:   # bug-to-bug compat
+            if len(prefix) == 0:
+                return True
+        else:
+            if start > len(value):
+                return False
         return endswith(value, prefix, start, end)
 
     def _strip(self, space, w_chars, left, right, name='strip'):

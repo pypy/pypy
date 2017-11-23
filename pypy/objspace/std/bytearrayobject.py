@@ -388,6 +388,7 @@ class W_BytearrayObject(W_Root):
 
     @specialize.argtype(1)
     def _inplace_add(self, other):
+        resizelist_hint(self._data, len(self._data) + len(other))
         for i in range(len(other)):
             self._data.append(other[i])
 

@@ -286,7 +286,7 @@ class TimeoutTest(unittest.TestCase):
             self.assertEqual(u.fp._sock.fp._sock.gettimeout(), 120)
             u.close()
 
-    FTP_HOST = 'ftp://ftp.debian.org/debian/'
+    FTP_HOST = 'ftp://www.pythontest.net/'
 
     def test_ftp_basic(self):
         self.assertIsNone(socket.getdefaulttimeout())

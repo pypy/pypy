@@ -317,6 +317,31 @@ typedef union _gc_head {
 PyAPI_FUNC(int) PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_AsWriteBuffer(PyObject *, void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_CheckReadBuffer(PyObject *);
+PyAPI_FUNC(void *) PyBuffer_GetPointer(Py_buffer *view, Py_ssize_t *indices);
+/* Get the memory area pointed to by the indices for the buffer given.
+   Note that view->ndim is the assumed size of indices
+*/
+
+PyAPI_FUNC(int) PyBuffer_ToContiguous(void *buf, Py_buffer *view,
+                                   Py_ssize_t len, char fort);
+PyAPI_FUNC(int) PyBuffer_FromContiguous(Py_buffer *view, void *buf,
+                                     Py_ssize_t len, char fort);
+/* Copy len bytes of data from the contiguous chunk of memory
+   pointed to by buf into the buffer exported by obj.  Return
+   0 on success and return -1 and raise a PyBuffer_Error on
+   error (i.e. the object does not have a buffer interface or
+   it is not working).
+
+   If fort is 'F' and the object is multi-dimensional,
+   then the data will be copied into the array in
+   Fortran-style (first dimension varies the fastest).  If
+   fort is 'C', then the data will be copied into the array
+   in C-style (last dimension varies the fastest).  If fort
+   is 'A', then it does not matter and the copy will be made
+   in whatever way is more efficient.
+
+*/
+
 
 #define PyObject_MALLOC         PyObject_Malloc
 #define PyObject_REALLOC        PyObject_Realloc

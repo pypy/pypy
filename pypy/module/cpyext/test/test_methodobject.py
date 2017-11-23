@@ -93,6 +93,24 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
             assert mod.isSameFunction(mod.getarg_O)
         raises(SystemError, mod.isSameFunction, 1)
 
+    def test_function_as_method(self):
+        # Unlike user functions, builtins don't become methods
+        mod = self.import_extension('foo', [
+            ('f', 'METH_NOARGS',
+            '''
+                return PyLong_FromLong(42);
+            '''),
+            ])
+        class A(object): pass
+        A.f = mod.f
+        A.g = lambda: 42
+        # Unbound method
+        assert A.f() == 42
+        raises(TypeError, A.g)
+        # Bound method
+        assert A().f() == 42
+        raises(TypeError, A().g)
+
     def test_check(self):
         mod = self.import_extension('foo', [
             ('check', 'METH_O',
@@ -116,4 +134,3 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.check(A) == 0
         assert mod.check(A.meth) == 0
         assert mod.check(A.stat) == 0
- 

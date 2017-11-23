@@ -105,7 +105,7 @@ class TestImportLock:
         assert importlock.count == 0
         # A new module
         importhook(space, 're')
-        assert importlock.count == 9
+        assert importlock.count >= 9
         # Import it again
         previous_count = importlock.count
         importhook(space, 're')

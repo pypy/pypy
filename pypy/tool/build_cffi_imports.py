@@ -22,6 +22,12 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
 
     shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
                   ignore_errors=True)
+    # be sure pip, setuptools are installed in a fresh pypy
+    # allows proper functioning of cffi on win32 with newer vc compilers
+    # XXX move this to a build slave step?
+    status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
+    if status  != 0:
+        status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
     failures = []
     for key, module in sorted(cffi_build_scripts.items()):
         if module is None or getattr(options, 'no_' + key, False):

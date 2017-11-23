@@ -276,6 +276,10 @@ class CConfig:
     SCHED_OTHER = rffi_platform.DefinedConstantInteger('SCHED_OTHER')
     SCHED_BATCH = rffi_platform.DefinedConstantInteger('SCHED_BATCH')
     O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
+    F_LOCK = rffi_platform.DefinedConstantInteger('F_LOCK')
+    F_TLOCK = rffi_platform.DefinedConstantInteger('F_TLOCK')
+    F_ULOCK = rffi_platform.DefinedConstantInteger('F_ULOCK')
+    F_TEST = rffi_platform.DefinedConstantInteger('F_TEST')
     OFF_T = rffi_platform.SimpleType('off_t')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
@@ -472,7 +476,7 @@ def write(fd, data):
 def close(fd):
     validate_fd(fd)
     handle_posix_error('close', c_close(fd))
-    
+
 c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
                    [rffi.INT, rffi.LONGLONG, rffi.INT], rffi.LONGLONG,
                    macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -505,7 +509,7 @@ if not _WIN32:
         with rffi.scoped_alloc_buffer(count) as buf:
             void_buf = rffi.cast(rffi.VOIDP, buf.raw)
             return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
-            
+
     @enforceargs(int, None, None)
     def pwrite(fd, data, offset):
         count = len(data)
@@ -547,6 +551,14 @@ if not _WIN32:
             error = widen(error)
             if error != 0:
                 raise OSError(error, 'posix_fadvise failed')
+
+    c_lockf = external('lockf',
+            [rffi.INT, rffi.INT , OFF_T], rffi.INT,
+            save_err=rffi.RFFI_SAVE_ERRNO)
+    @enforceargs(int, None, None)
+    def lockf(fd, cmd, length):
+        validate_fd(fd)
+        return handle_posix_error('lockf', c_lockf(fd, cmd, length))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
                        macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -1851,6 +1863,8 @@ if not _WIN32:
                               rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_sched_get_priority_min = external('sched_get_priority_min', [rffi.INT],
                              rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+    if not _WIN32:
+        c_sched_yield = external('sched_yield', [], rffi.INT)
 
     @enforceargs(int)
     def sched_get_priority_max(policy):
@@ -1860,8 +1874,8 @@ if not _WIN32:
     def sched_get_priority_min(policy):
         return handle_posix_error('sched_get_priority_min', c_sched_get_priority_min(policy))
 
-
-
+    def sched_yield():
+        return handle_posix_error('sched_yield', c_sched_yield())
 
 #___________________________________________________________________
 

@@ -5,6 +5,7 @@ except ImportError:
     py.test.skip("to run on top of a translated pypy-c")
 
 import sys, random
+from rpython.tool.udir import udir
 
 # ____________________________________________________________
 
@@ -92,6 +93,33 @@ class AppTestWrapper:
         from pypy.conftest import option
         if not option.runappdirect:
             py.test.skip("meant only for -A run")
+        cls.w_vmprof_file = cls.space.wrap(str(udir.join('profile.vmprof')))
+
+    def test_vmprof(self):
+        """
+        The point of this test is to check that we do NOT segfault.  In
+        particular, we need to ensure that vmprof does not sample the stack in
+        the middle of a switch, else we read nonsense.
+        """
+        try:
+            import _vmprof
+        except ImportError:
+            py.test.skip("no _vmprof")
+        #
+        def switch_forever(c):
+            while True:
+                c.switch()
+        #
+        f = open(self.vmprof_file, 'w+b')
+        _vmprof.enable(f.fileno(), 1/250.0, False, False, False, False)
+        c = _continuation.continulet(switch_forever)
+        for i in range(10**7):
+            if i % 100000 == 0:
+                print i
+            c.switch()
+        _vmprof.disable()
+        f.close()
+
 
 def _setup():
     for _i in range(20):

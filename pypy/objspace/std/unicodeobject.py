@@ -1135,6 +1135,7 @@ class W_UnicodeObject(W_Root):
     def descr_getnewargs(self, space):
         return space.newtuple([W_UnicodeObject(self._utf8, self._length, self._get_flag())])
 
+    _starts_ends_unicode = True
 
 
 def wrapunicode(space, uni):
