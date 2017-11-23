@@ -1,7 +1,7 @@
 import sys
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize, always_inline, r_dict
-from rpython.rlib import rfloat, runicode
+from rpython.rlib import rfloat, runicode, rutf8
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter import unicodehelper
@@ -18,29 +18,6 @@ def neg_pow_10(x, exp):
     if exp >= len(NEG_POW_10):
         return 0.0
     return x * NEG_POW_10[exp]
-
-def strslice2unicode_latin1(s, start, end):
-    """
-    Convert s[start:end] to unicode. s is supposed to be an RPython string
-    encoded in latin-1, which means that the numeric value of each char is the
-    same as the corresponding unicode code point.
-
-    Internally it's implemented at the level of low-level helpers, to avoid
-    the extra copy we would need if we take the actual slice first.
-
-    No bound checking is done, use carefully.
-    """
-    from rpython.rtyper.annlowlevel import llstr, hlunicode
-    from rpython.rtyper.lltypesystem.rstr import malloc, UNICODE
-    from rpython.rtyper.lltypesystem.lltype import cast_primitive, UniChar
-    length = end-start
-    ll_s = llstr(s)
-    ll_res = malloc(UNICODE, length)
-    ll_res.hash = 0
-    for i in range(length):
-        ch = ll_s.chars[start+i]
-        ll_res.chars[i] = cast_primitive(UniChar, ch)
-    return hlunicode(ll_res)
 
 def slice_eq(a, b):
     (ll_chars1, start1, length1, _) = a
@@ -312,8 +289,7 @@ class JSONDecoder(object):
             bits |= ord(ch)
             if ch == '"':
                 self.pos = i
-                return self.space.newunicode(
-                        self._create_string(start, i - 1, bits))
+                return self._create_string(start, i - 1, bits)
             elif ch == '\\' or ch < '\x20':
                 self.pos = i-1
                 return self.decode_string_escaped(start)
@@ -322,12 +298,15 @@ class JSONDecoder(object):
         if bits & 0x80:
             # the 8th bit is set, it's an utf8 string
             content_utf8 = self.getslice(start, end)
-            return unicodehelper.decode_utf8(self.space, content_utf8)
+            lgt, flag = unicodehelper.check_utf8_or_raise(self.space,
+                                                          content_utf8)
+            return self.space.newutf8(content_utf8, lgt, flag)
         else:
             # ascii only, fast path (ascii is a strict subset of
             # latin1, and we already checked that all the chars are <
             # 128)
-            return strslice2unicode_latin1(self.s, start, end)
+            return self.space.newutf8(self.getslice(start, end),
+                                      end - start, rutf8.FLAG_ASCII)
 
     def decode_string_escaped(self, start):
         i = self.pos
@@ -340,9 +319,10 @@ class JSONDecoder(object):
             i += 1
             if ch == '"':
                 content_utf8 = builder.build()
-                content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
+                lgt, f = unicodehelper.check_utf8_or_raise(self.space,
+                                                           content_utf8)
                 self.pos = i
-                return self.space.newunicode(content_unicode)
+                return self.space.newutf8(content_utf8, lgt, f)
             elif ch == '\\':
                 i = self.decode_escape_sequence(i, builder)
             elif ch < '\x20':
