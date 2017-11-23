@@ -541,6 +541,10 @@ class W_TextIOWrapper(W_TextIOBase):
         self.decoded_chars_used += size
         return chars
 
+    def _has_data(self):
+        return (self.decoded_chars is not None and
+            self.decoded_chars_used < len(self.decoded_chars))
+
     def _read_chunk(self, space):
         """Read and decode the next chunk of data from the BufferedReader.
         The return value is True unless EOF was reached.  The decoded string
@@ -588,6 +592,19 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return not eof
 
+    def _ensure_data(self, space):
+        while not self._has_data():
+            try:
+                if not self._read_chunk(space):
+                    self._unset_decoded()
+                    self.snapshot = None
+                    return False
+            except OperationError as e:
+                if trap_eintr(space, e):
+                    continue
+                raise
+        return True
+
     def next_w(self, space):
         self._check_attached(space)
         self.telling = False
@@ -621,22 +638,12 @@ class W_TextIOWrapper(W_TextIOBase):
         builder = UnicodeBuilder(size)
 
         # Keep reading chunks until we have n characters to return
-        while True:
+        while remaining > 0:
+            if not self._ensure_data(space):
+                break
             data = self._get_decoded_chars(remaining)
             builder.append(data)
             remaining -= len(data)
-
-            if remaining <= 0: # Done
-                break
-
-            try:
-                if not self._read_chunk(space):
-                    # EOF
-                    break
-            except OperationError as e:
-                if trap_eintr(space, e):
-                    continue
-                raise
 
         return space.newunicode(builder.build())
 
@@ -653,20 +660,9 @@ class W_TextIOWrapper(W_TextIOBase):
 
         while True:
             # First, get some data if necessary
-            has_data = True
-            while not self.decoded_chars:
-                try:
-                    if not self._read_chunk(space):
-                        has_data = False
-                        break
-                except OperationError as e:
-                    if trap_eintr(space, e):
-                        continue
-                    raise
+            has_data = self._ensure_data(space)
             if not has_data:
                 # end of file
-                self._unset_decoded()
-                self.snapshot = None
                 start = endpos = offset_to_buffer = 0
                 break
 
