@@ -57,12 +57,13 @@ def _test_check_utf8(s, allow_surrogates):
         assert ~(length) == e.start
     else:
         assert valid
-        assert length == len(u)
         if flag == rutf8.FLAG_ASCII:
             s.decode('ascii') # assert did not raise
         elif flag == rutf8.FLAG_HAS_SURROGATES:
             assert allow_surrogates
             assert _has_surrogates(s)
+        if sys.maxunicode == 0x10FFFF or not _has_surrogates(s):
+            assert length == len(u)
 
 @given(strategies.characters())
 def test_next_pos(uni):
