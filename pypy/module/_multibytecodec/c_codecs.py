@@ -127,7 +127,7 @@ def decodeex(decodebuf, stringdata, errors="strict", errorcb=None, namecb=None,
                                     errorcb, namecb, stringdata)
         src = pypy_cjk_dec_outbuf(decodebuf)
         length = pypy_cjk_dec_outlen(decodebuf)
-        return rffi.wcharpsize2utf8(src, length)
+        return rffi.wcharpsize2utf8(src, length) # assumes no out-of-range chars
 
 def multibytecodec_decerror(decodebuf, e, errors,
                             errorcb, namecb, stringdata):
