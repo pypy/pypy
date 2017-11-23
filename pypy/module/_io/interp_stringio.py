@@ -184,9 +184,7 @@ class W_StringIO(W_TextIOBase):
             start,
             end
         )
-        if endpos >= 0:
-            endpos += start
-        else:
+        if endpos < 0:
             endpos = end
         assert endpos >= 0
         self.pos = endpos
