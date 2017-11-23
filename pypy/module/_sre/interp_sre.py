@@ -7,7 +7,8 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
-from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rutf8 import Utf8StringBuilder
 
 # ____________________________________________________________
 #
@@ -237,8 +238,8 @@ class W_SRE_Pattern(W_Root):
             filter_is_callable = True
         else:
             if space.isinstance_w(w_ptemplate, space.w_unicode):
-                filter_as_unicode = space.unicode_w(w_ptemplate)
-                literal = u'\\' not in filter_as_unicode
+                filter_as_unicode = space.utf8_w(w_ptemplate)
+                literal = '\\' not in filter_as_unicode
                 use_builder = (
                     space.isinstance_w(w_string, space.w_unicode) and literal)
             else:
@@ -267,7 +268,7 @@ class W_SRE_Pattern(W_Root):
         sublist_w = strbuilder = unicodebuilder = None
         if use_builder:
             if filter_as_unicode is not None:
-                unicodebuilder = UnicodeBuilder(ctx.end)
+                unicodebuilder = Utf8StringBuilder(ctx.end)
             else:
                 assert filter_as_string is not None
                 strbuilder = StringBuilder(ctx.end)
@@ -335,7 +336,9 @@ class W_SRE_Pattern(W_Root):
                 return space.newbytes(strbuilder.build()), n
             else:
                 assert unicodebuilder is not None
-                return space.newunicode(unicodebuilder.build()), n
+                return space.newutf8(unicodebuilder.build(),
+                                     unicodebuilder.get_length(),
+                                     unicodebuilder.get_flag()), n
         else:
             if space.isinstance_w(w_string, space.w_unicode):
                 w_emptystr = space.newunicode(u'')
