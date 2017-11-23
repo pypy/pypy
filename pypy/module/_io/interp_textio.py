@@ -653,11 +653,10 @@ class W_TextIOWrapper(W_TextIOBase):
         self._writeflush(space)
 
         limit = convert_size(space, w_limit)
-        chunked = 0
 
         line = None
         remaining = None
-        chunks = []
+        builder = StringBuilder()
 
         while True:
             # First, get some data if necessary
@@ -691,6 +690,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
             line_len = len(line)
             endpos, consumed = self._find_line_ending(line, start, line_len)
+            chunked = builder.getlength()
             if endpos >= 0:
                 if limit >= 0 and endpos >= start + limit - chunked:
                     endpos = start + limit - chunked
@@ -709,8 +709,8 @@ class W_TextIOWrapper(W_TextIOBase):
             # No line ending seen yet - put aside current data
             if endpos > start:
                 s = line[start:endpos]
-                chunks.append(s)
-                chunked += len(s)
+                builder.append(s)
+
             # There may be some remaining bytes we'll have to prepend to the
             # next chunk of data
             if endpos < line_len:
@@ -726,18 +726,12 @@ class W_TextIOWrapper(W_TextIOBase):
             self.decoded_chars_used = decoded_chars_used
             if start > 0 or endpos < len(line):
                 line = line[start:endpos]
-        if remaining:
-            chunks.append(remaining)
-            remaining = None
-        if chunks:
-            if line:
-                chunks.append(line)
-            line = ''.join(chunks)
+            builder.append(line)
+        elif remaining:
+            builder.append(remaining)
 
-        if line:
-            return space.new_from_utf8(line)
-        else:
-            return space.newutf8('', 0, FLAG_ASCII)
+        result = builder.build()
+        return space.new_from_utf8(result)
 
     # _____________________________________________________________
     # write methods
