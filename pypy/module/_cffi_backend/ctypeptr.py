@@ -92,28 +92,20 @@ class W_CTypePtrOrArray(W_CType):
             if not space.isinstance_w(w_ob, space.w_unicode):
                 raise self._convert_error("unicode or list or tuple", w_ob)
             w_u = space.convert_arg_to_w_unicode(w_ob)
-            if self.size == 4:
-                n = w_u._len()
+            s = w_u._utf8
+            if self.ctitem.size == 2:
+                n = wchar_helper.utf8_size_as_char16(s)
             else:
-                if not w_u._has_surrogates():
-                    n = w_u._len()
-                else:
-                    n = wchar_helper.unicode_size_as_char16(w_u._utf8,
-                                                            w_u._len())
+                n = w_u._len()
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
                             "initializer unicode string is too long for '%s' "
                             "(got %d characters)", self.name, n)
             add_final_zero = (n != self.length)
             if self.ctitem.size == 2:
-                try:
-                    wchar_helper.unicode_to_char16(s, cdata, n, add_final_zero)
-                except wchar_helper.OutOfRange as e:
-                    raise oefmt(self.space.w_ValueError,
-                                "unicode character ouf of range for "
-                                "conversion to char16_t: %s", hex(e.ordinal))
+                wchar_helper.utf8_to_char16(s, cdata, n, add_final_zero)
             else:
-                wchar_helper.unicode_to_char32(s, cdata, n, add_final_zero)
+                wchar_helper.utf8_to_char32(s, cdata, n, add_final_zero)
         else:
             raise self._convert_error("list or tuple", w_ob)
 
@@ -334,8 +326,7 @@ class W_CTypePointer(W_CTypePtrBase):
             from pypy.module._cffi_backend import wchar_helper
             w_u = space.convert_arg_to_w_unicode(w_init)
             if self.ctitem.size == 2:
-                length = wchar_helper.unicode_size_as_char16(w_u._utf8,
-                                                             w_u._len())
+                length = wchar_helper.utf8_size_as_char16(w_u._utf8)
             else:
                 length = w_u._len()
             length += 1

@@ -453,6 +453,7 @@ UTF8_INDEX_STORAGE = lltype.GcStruct('utf8_loc',
     )))))
 
 def get_flag_from_code(oc):
+    assert isinstance(oc, int)
     if oc <= 0x7F:
         return FLAG_ASCII
     if 0xD800 <= oc <= 0xDFFF:
