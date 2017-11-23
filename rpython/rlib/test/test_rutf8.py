@@ -155,7 +155,7 @@ def test_get_utf8_length_flag(unichars):
             exp_flag = rutf8.FLAG_HAS_SURROGATES
             break
     lgt, flag = rutf8.get_utf8_length_flag(''.join([c.encode('utf8') for c in u]))
-    if exp_flag != rutf8.FLAG_HAS_SURROGATES:
+    if exp_flag != rutf8.FLAG_HAS_SURROGATES or sys.maxunicode > 0xffff:
         assert lgt == exp_lgt
     assert flag == exp_flag
 
