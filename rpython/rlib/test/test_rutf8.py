@@ -138,7 +138,7 @@ def test_repr(u):
 @given(strategies.lists(strategies.characters()))
 @example([u'\ud800', u'\udc00'])
 def test_surrogate_in_utf8(unichars):
-    uni = u''.join(unichars).encode('utf-8')
+    uni = ''.join([u.encode('utf8') for u in unichars])
     result = rutf8.surrogate_in_utf8(uni)
     expected = any(uch for uch in unichars if u'\ud800' <= uch <= u'\udfff')
     assert result == expected
@@ -153,6 +153,7 @@ def test_get_utf8_length_flag(unichars):
             exp_flag = rutf8.FLAG_REGULAR
         if 0xD800 <= ord(c) <= 0xDFFF:
             exp_flag = rutf8.FLAG_HAS_SURROGATES
+            break
     lgt, flag = rutf8.get_utf8_length_flag(u.encode('utf8'))
     assert lgt == exp_lgt
     assert flag == exp_flag
