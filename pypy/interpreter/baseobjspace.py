@@ -272,7 +272,7 @@ class W_Root(object):
         self._typed_unwrap_error(space, "unicode")
 
     def convert_to_w_unicode(self, space):
-        self._typed_unwrap_error(space, "unicode")        
+        self._typed_unwrap_error(space, "unicode")
 
     def bytearray_list_of_chars_w(self, space):
         self._typed_unwrap_error(space, "bytearray")
@@ -1759,6 +1759,11 @@ class ObjSpace(object):
 
     def utf8_w(self, w_obj):
         return w_obj.utf8_w(self)
+
+    def unicode_w(self, w_obj):
+        # XXX: kill me!
+        return w_obj.utf8_w(self).decode('utf-8')
+
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
 
