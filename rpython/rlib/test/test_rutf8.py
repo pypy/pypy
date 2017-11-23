@@ -154,8 +154,9 @@ def test_get_utf8_length_flag(unichars):
         if 0xD800 <= ord(c) <= 0xDFFF:
             exp_flag = rutf8.FLAG_HAS_SURROGATES
             break
-    lgt, flag = rutf8.get_utf8_length_flag(u.encode('utf8'))
-    assert lgt == exp_lgt
+    lgt, flag = rutf8.get_utf8_length_flag(''.join([c.encode('utf8') for c in u]))
+    if exp_flag != rutf8.FLAG_HAS_SURROGATES:
+        assert lgt == exp_lgt
     assert flag == exp_flag
 
 def test_utf8_string_builder():
@@ -182,3 +183,11 @@ def test_utf8_string_builder():
     s.append_code(0xD800)
     assert s.get_flag() == rutf8.FLAG_HAS_SURROGATES
     assert s.get_length() == 2
+
+@given(strategies.text())
+def test_utf8_iterator(arg):
+    u = rutf8.Utf8StringIterator(arg.encode('utf8'))
+    l = []
+    while not u.done():
+        l.append(unichr(u.next()))
+    assert list(arg) == l
