@@ -97,7 +97,7 @@ class W_IncrementalNewlineDecoder(W_Root):
                 output_len -= 1
 
         if output_len == 0:
-            return space.newutf8("", 1, FLAG_ASCII)
+            return space.newutf8("", 0, FLAG_ASCII)
 
         # Record which newlines are read and do newline translation if
         # desired, all in one pass.
@@ -226,7 +226,7 @@ class W_TextIOBase(W_IOBase):
         if self.readtranslate:
 
             # Newlines are already translated, only search for \n
-            pos = line.find(u'\n', start, end)
+            pos = line.find('\n', start, end)
             if pos >= 0:
                 return pos - start + 1, 0
             else:
@@ -617,13 +617,13 @@ class W_TextIOWrapper(W_TextIOBase):
             w_bytes = space.call_method(self.w_buffer, "read")
             w_decoded = space.call_method(self.w_decoder, "decode", w_bytes, space.w_True)
             check_decoded(space, w_decoded)
-            w_result = space.newunicode(self._get_decoded_chars(-1))
+            w_result = space.new_from_utf8(self._get_decoded_chars(-1))
             w_final = space.add(w_result, w_decoded)
             self.snapshot = None
             return w_final
 
         remaining = size
-        builder = UnicodeBuilder(size)
+        builder = StringBuilder(size)
 
         # Keep reading chunks until we have n characters to return
         while True:
@@ -643,7 +643,7 @@ class W_TextIOWrapper(W_TextIOBase):
                     continue
                 raise
 
-        return space.newunicode(builder.build())
+        return space.new_from_utf8(builder.build())
 
     def readline_w(self, space, w_limit=None):
         self._check_attached(space)
@@ -731,12 +731,12 @@ class W_TextIOWrapper(W_TextIOBase):
         if chunks:
             if line:
                 chunks.append(line)
-            line = u''.join(chunks)
+            line = ''.join(chunks)
 
         if line:
-            return space.newunicode(line)
+            return space.new_from_utf8(line)
         else:
-            return space.newunicode(u'')
+            return space.newutf8('', 0, FLAG_ASCII)
 
     # _____________________________________________________________
     # write methods
@@ -759,8 +759,8 @@ class W_TextIOWrapper(W_TextIOBase):
             if text.find('\n') >= 0:
                 haslf = True
         if haslf and self.writetranslate and self.writenl:
-            w_text = space.call_method(w_text, "replace", space.newunicode(u'\n'),
-                                       space.newunicode(self.writenl))
+            w_text = space.call_method(w_text, "replace", space.new_from_utf8('\n'),
+                                       space.new_from_utf8(self.writenl))
             text = space.utf8_w(w_text)
 
         needflush = False
@@ -982,7 +982,7 @@ class W_TextIOWrapper(W_TextIOBase):
                 w_decoded = space.call_method(self.w_decoder, "decode",
                                               space.newbytes(input[i]))
                 check_decoded(space, w_decoded)
-                chars_decoded += len(space.unicode_w(w_decoded))
+                chars_decoded += space.len_w(w_decoded)
 
                 cookie.bytes_to_feed += 1
 
