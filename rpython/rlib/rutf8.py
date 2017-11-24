@@ -702,10 +702,12 @@ class Utf8StringIterator(object):
         self._end = len(utf8s)
         self._pos = 0
 
-    def done(self):
-        return self._pos == self._end
+    def __iter__(self):
+        return self
 
     def next(self):
+        if self._pos == self._end:
+            raise StopIteration
         ret = codepoint_at_pos(self._utf8, self._pos)
         self._pos = next_codepoint_pos(self._utf8, self._pos)
         return ret

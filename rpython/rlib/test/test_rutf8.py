@@ -188,6 +188,6 @@ def test_utf8_string_builder():
 def test_utf8_iterator(arg):
     u = rutf8.Utf8StringIterator(arg.encode('utf8'))
     l = []
-    while not u.done():
-        l.append(unichr(u.next()))
+    for c in u:
+        l.append(unichr(c))
     assert list(arg) == l
