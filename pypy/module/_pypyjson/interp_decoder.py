@@ -247,10 +247,11 @@ class JSONDecoder(object):
             self.pos = i+1
             return self.space.newdict()
 
-        d = {}
+        # XXX this should be improved to use an unwrapped dict
+        w_dict = self.space.newdict()
         while True:
             # parse a key: value
-            name = self.decode_key(i)
+            w_name = self.decode_key(i)
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':
@@ -259,13 +260,13 @@ class JSONDecoder(object):
             i = self.skip_whitespace(i)
             #
             w_value = self.decode_any(i)
-            d[name] = w_value
+            self.space.setitem(w_dict, w_name, w_value)
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             i += 1
             if ch == '}':
                 self.pos = i
-                return self._create_dict(d)
+                return w_dict
             elif ch == ',':
                 pass
             elif ch == '\0':
@@ -273,10 +274,6 @@ class JSONDecoder(object):
             else:
                 self._raise("Unexpected '%s' when decoding object (char %d)",
                             ch, i-1)
-
-    def _create_dict(self, d):
-        from pypy.objspace.std.dictmultiobject import from_unicode_key_dict
-        return from_unicode_key_dict(self.space, d)
 
     def decode_string(self, i):
         start = i
@@ -383,7 +380,7 @@ class JSONDecoder(object):
         return 0x10000 + (((highsurr - 0xd800) << 10) | (lowsurr - 0xdc00))
 
     def decode_key(self, i):
-        """ returns an unwrapped unicode """
+        """ returns a wrapped unicode """
         from rpython.rlib.rarithmetic import intmask
 
         i = self.skip_whitespace(i)
