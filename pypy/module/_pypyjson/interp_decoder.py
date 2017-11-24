@@ -369,8 +369,7 @@ class JSONDecoder(object):
             return # help the annotator to know that we'll never go beyond
                    # this point
         #
-        uchr = runicode.code_to_unichr(val)     # may be a surrogate pair again
-        utf8_ch = unicodehelper.encode_utf8(self.space, uchr)
+        utf8_ch = rutf8.unichr_as_utf8(val, allow_surrogates=True)
         builder.append(utf8_ch)
         return i
 
