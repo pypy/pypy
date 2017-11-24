@@ -498,12 +498,6 @@ class W_UnicodeObject(W_Root):
     def _join_return_one(self, space, w_obj):
         return space.is_w(space.type(w_obj), space.w_unicode)
 
-    def _join_check_item(self, space, w_obj):
-        if (space.isinstance_w(w_obj, space.w_bytes) or
-            space.isinstance_w(w_obj, space.w_unicode)):
-            return 0
-        return 1
-
     def descr_formatter_parser(self, space):
         from pypy.objspace.std.newformat import unicode_template_formatter
         tformat = unicode_template_formatter(space, space.utf8_w(self))
@@ -633,13 +627,11 @@ class W_UnicodeObject(W_Root):
         flag = self._get_flag()
         for i in range(size):
             w_s = list_w[i]
-            check_item = self._join_check_item(space, w_s)
-            if check_item == 1:
+            if not (space.isinstance_w(w_s, space.w_bytes) or
+                    space.isinstance_w(w_s, space.w_unicode)):
                 raise oefmt(space.w_TypeError,
-                            "sequence item %d: expected string, %T found",
+                            "sequence item %d: expected string or unicode, %T found",
                             i, w_s)
-            elif check_item == 2:
-                return self._join_autoconvert(space, list_w)
             # XXX Maybe the extra copy here is okay? It was basically going to
             #     happen anyway, what with being placed into the builder
             w_u = self.convert_arg_to_w_unicode(space, w_s)
