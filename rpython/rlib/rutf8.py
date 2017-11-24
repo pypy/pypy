@@ -687,6 +687,11 @@ class Utf8StringBuilder(object):
         self._lgt += 1
         unichr_as_utf8_append(self._s, code, True)
 
+    def append_utf8(self, utf8, length, flag):
+        self._flag = combine_flags(self._flag, flag)
+        self._lgt += length
+        self._s.append(utf8)
+
     def build(self):
         return self._s.build()
 

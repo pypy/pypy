@@ -175,6 +175,7 @@ def test_utf8_string_builder():
     assert s.get_flag() == rutf8.FLAG_REGULAR
     assert s.get_length() == 9
     assert s.build().decode("utf8") == u"foox\u1234foox"
+
     s = rutf8.Utf8StringBuilder()
     s.append_code(0x1234)
     assert s.build().decode("utf8") == u"\u1234"
@@ -183,6 +184,21 @@ def test_utf8_string_builder():
     s.append_code(0xD800)
     assert s.get_flag() == rutf8.FLAG_HAS_SURROGATES
     assert s.get_length() == 2
+
+    s = rutf8.Utf8StringBuilder()
+    s.append_utf8("abc", 3, rutf8.FLAG_ASCII)
+    assert s.get_flag() == rutf8.FLAG_ASCII
+    assert s.get_length() == 1
+    assert s.build().decode("utf8") == u"abc"
+
+    s.append_utf8(u"\u1234".encode("utf8"), 1, rutf8.FLAG_REGULAR)
+    assert s.build().decode("utf8") == u"abc\u1234"
+    assert s.get_flag() == rutf8.FLAG_REGULAR
+    assert s.get_length() == 4
+
+    s.append_code(0xD800)
+    assert s.get_flag() == rutf8.FLAG_HAS_SURROGATES
+    assert s.get_length() == 5
 
 @given(strategies.text())
 def test_utf8_iterator(arg):
