@@ -221,44 +221,49 @@ class W_TextIOBase(W_IOBase):
     def newlines_get_w(self, space):
         return space.w_None
 
-    def _find_line_ending(self, line, start, end):
-        size = end - start
-        if self.readuniversal:
-            # Universal newline search. Find any of \r, \r\n, \n
-            # The decoder ensures that \r\n are not split in two pieces
-            i = start
-            while True:
-                # Fast path for non-control chars.
-                while i < end and line[i] > '\r':
-                    i += 1
+    def _find_newline_universal(self, line, start, limit):
+        # Universal newline search. Find any of \r, \r\n, \n
+        # The decoder ensures that \r\n are not split in two pieces
+        limit = min(limit, len(line) - start)
+        end = start + limit
+        i = start
+        while i < end:
+            ch = line[i]
+            i += 1
+            if ch == '\n':
+                return i, True
+            if ch == '\r':
                 if i >= end:
-                    return -1, size
-                ch = line[i]
-                i += 1
-                if ch == '\n':
-                    return i, 0
-                if ch == '\r':
-                    if line[i] == '\n':
-                        return i + 1, 0
-                    else:
-                        return i, 0
+                    break
+                if line[i] == '\n':
+                    return i + 1, True
+                else:
+                    return i, True
+        return end, False
+
+    def _find_marker(self, marker, line, start, limit):
+        limit = min(limit, len(line) - start)
+        end = start + limit
+        for i in range(start, end - len(marker) + 1):
+            ch = line[i]
+            if ch == marker[0]:
+                for j in range(1, len(marker)):
+                    if line[i + j] != marker[j]:
+                        break  # from inner loop
+                else:
+                    return i + len(marker), True
+        return end - len(marker) + 1, False
+
+    def _find_line_ending(self, line, start, limit):
+        if self.readuniversal:
+            return self._find_newline_universal(line, start, limit)
         if self.readtranslate:
             # Newlines are already translated, only search for \n
             newline = '\n'
         else:
             # Non-universal mode.
             newline = self.readnl
-        end_scan = end - len(newline) + 1
-        for i in range(start, end_scan):
-            ch = line[i]
-            if ch == newline[0]:
-                for j in range(1, len(newline)):
-                    if line[i + j] != newline[j]:
-                        break
-                else:
-                    return i + len(newline), 0
-        return -1, end_scan
-
+        return self._find_marker(newline, line, start, limit)
 
 W_TextIOBase.typedef = TypeDef(
     '_io._TextIOBase', W_IOBase.typedef,
@@ -661,7 +666,7 @@ class W_TextIOWrapper(W_TextIOBase):
         limit = convert_size(space, w_limit)
 
         line = None
-        remaining = None
+        remnant = None
         builder = StringBuilder()
 
         while True:
@@ -669,61 +674,60 @@ class W_TextIOWrapper(W_TextIOBase):
             has_data = self._ensure_data(space)
             if not has_data:
                 # end of file
-                start = endpos = offset_to_buffer = 0
+                start = end_scan = 0
                 break
 
-            if not remaining:
-                line = self.decoded_chars
-                start = self.decoded_chars_used
-                offset_to_buffer = 0
-            else:
+            if remnant:
+                assert not self.readtranslate and self.readnl == '\r\n'
                 assert self.decoded_chars_used == 0
-                line = remaining + self.decoded_chars
-                start = 0
-                offset_to_buffer = len(remaining)
-                remaining = None
+                if remnant == '\r' and self.decoded_chars[0] == '\n':
+                    builder.append('\r\n')
+                    self.decoded_chars_used = 1
+                    line = remnant = None
+                    start = end_scan = 0
+                    break
+                else:
+                    builder.append(remnant)
+                    remnant = None
+                    continue
 
-            line_len = len(line)
-            endpos, consumed = self._find_line_ending(line, start, line_len)
-            chunked = builder.getlength()
-            if endpos >= 0:
-                if limit >= 0 and endpos >= start + limit - chunked:
-                    endpos = start + limit - chunked
-                    assert endpos >= 0
+            line = self.decoded_chars
+            start = self.decoded_chars_used
+            if limit > 0:
+                remaining = limit - builder.getlength()
+                assert remaining >= 0
+            else:
+                remaining = sys.maxint
+            end_scan, found = self._find_line_ending(line, start, remaining)
+            assert end_scan >= 0
+            if found:
                 break
-            assert consumed >= 0
 
-            # We can put aside up to `endpos`
-            endpos = consumed + start
-            if limit >= 0 and endpos >= start + limit - chunked:
+            if limit >= 0 and end_scan - start >= remaining:
                 # Didn't find line ending, but reached length limit
-                endpos = start + limit - chunked
-                assert endpos >= 0
                 break
 
             # No line ending seen yet - put aside current data
-            if endpos > start:
-                s = line[start:endpos]
+            if end_scan > start:
+                s = line[start:end_scan]
                 builder.append(s)
 
-            # There may be some remaining bytes we'll have to prepend to the
+            # There may be some remaining chars we'll have to prepend to the
             # next chunk of data
-            if endpos < line_len:
-                remaining = line[endpos:]
+            if end_scan < len(line):
+                remnant = line[end_scan:]
             line = None
             # We have consumed the buffer
             self._unset_decoded()
 
         if line:
             # Our line ends in the current buffer
-            decoded_chars_used = endpos - offset_to_buffer
-            assert decoded_chars_used >= 0
-            self.decoded_chars_used = decoded_chars_used
-            if start > 0 or endpos < len(line):
-                line = line[start:endpos]
+            self.decoded_chars_used = end_scan
+            if start > 0 or end_scan < len(line):
+                line = line[start:end_scan]
             builder.append(line)
-        elif remaining:
-            builder.append(remaining)
+        elif remnant:
+            builder.append(remnant)
 
         result = builder.build()
         return space.new_from_utf8(result)
