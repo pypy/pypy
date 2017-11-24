@@ -214,53 +214,49 @@ class W_TextIOBase(W_IOBase):
     def newlines_get_w(self, space):
         return space.w_None
 
-    def _find_newline_universal(self, line, start, end):
+    def _find_newline_universal(self, line, start, limit):
         # Universal newline search. Find any of \r, \r\n, \n
         # The decoder ensures that \r\n are not split in two pieces
+        limit = min(limit, len(line) - start)
+        end = start + limit
         i = start
         while i < end:
             ch = line[i]
             i += 1
             if ch == '\n':
-                return i
+                return i, 0
             if ch == '\r':
-                if start + i >= end:
-                    return i
+                if i >= end:
+                    break
                 if line[i] == '\n':
-                    return i + 1
+                    return i + 1, 0
                 else:
-                    return i
-        return -1
+                    return i, 0
+        return -1, end
 
-    def _find_marker(self, marker, line, start, end):
+    def _find_marker(self, marker, line, start, limit):
+        limit = min(limit, len(line) - start)
+        end = start + limit
         for i in range(start, end - len(marker) + 1):
             ch = line[i]
             if ch == marker[0]:
                 for j in range(1, len(marker)):
                     if line[i + j] != marker[j]:
-                        break
+                        break  # from inner loop
                 else:
-                    return i + len(marker)
-        return -1
+                    return i + len(marker), 0
+        return -1, end - len(marker) + 1
 
-    def _find_line_ending(self, line, start, end):
+    def _find_line_ending(self, line, start, limit):
         if self.readuniversal:
-            i = self._find_newline_universal(line, start, end)
-            if i < 0:
-                return i, end
-            else:
-                return i, 0
+            return self._find_newline_universal(line, start, limit)
         if self.readtranslate:
             # Newlines are already translated, only search for \n
             newline = u'\n'
         else:
             # Non-universal mode.
             newline = self.readnl
-        i = self._find_marker(newline, line, start, end)
-        if i < 0:
-            return i, end - len(newline) + 1
-        else:
-            return i, 0
+        return self._find_marker(newline, line, start, limit)
 
 W_TextIOBase.typedef = TypeDef(
     '_io._TextIOBase', W_IOBase.typedef,
@@ -671,35 +667,42 @@ class W_TextIOWrapper(W_TextIOBase):
             has_data = self._ensure_data(space)
             if not has_data:
                 # end of file
-                start = endpos = offset_to_buffer = 0
+                start = endpos = 0
                 break
 
-            if not remnant:
-                line = self.decoded_chars
-                start = self.decoded_chars_used
-                offset_to_buffer = 0
-            else:
+            if remnant:
+                assert not self.readtranslate and self.readnl == u'\r\n'
                 assert self.decoded_chars_used == 0
-                line = remnant + self.decoded_chars
-                start = 0
-                offset_to_buffer = len(remnant)
-                remnant = None
+                if remnant == u'\r' and self.decoded_chars[0] == u'\n':
+                    builder.append(u'\r\n')
+                    self.decoded_chars_used = 1
+                    line = remnant = None
+                    start = endpos = 0
+                    break
+                else:
+                    builder.append(remnant)
+                    remnant = None
+                    continue
+
+            line = self.decoded_chars
+            start = self.decoded_chars_used
 
             line_len = len(line)
-            endpos, end_scan = self._find_line_ending(line, start, line_len)
-            chunked = builder.getlength()
-            if endpos >= 0:
-                if limit >= 0 and endpos >= start + limit - chunked:
-                    endpos = start + limit - chunked
-                    assert endpos >= 0
-                break
-            assert end_scan >= 0
+            if limit > 0:
+                remaining = limit - builder.getlength()
+                assert remaining >= 0
+            else:
+                remaining = sys.maxint
+            endpos, end_scan = self._find_line_ending(line, start, remaining)
 
+            if endpos >= 0:
+                break
+
+            assert end_scan >= 0
             # We can put aside up to `end_scan`
-            if limit >= 0 and end_scan >= limit - chunked:
+            if limit >= 0 and end_scan - start >= remaining:
                 # Didn't find line ending, but reached length limit
-                endpos = start + limit - chunked
-                assert endpos >= 0
+                endpos = end_scan
                 break
 
             # No line ending seen yet - put aside current data
@@ -709,7 +712,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
             # There may be some remaining chars we'll have to prepend to the
             # next chunk of data
-            if end_scan < line_len:
+            if end_scan < len(line):
                 remnant = line[end_scan:]
             line = None
             # We have consumed the buffer
@@ -717,9 +720,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         if line:
             # Our line ends in the current buffer
-            decoded_chars_used = endpos - offset_to_buffer
-            assert decoded_chars_used >= 0
-            self.decoded_chars_used = decoded_chars_used
+            self.decoded_chars_used = endpos
             if start > 0 or endpos < len(line):
                 line = line[start:endpos]
             builder.append(line)
