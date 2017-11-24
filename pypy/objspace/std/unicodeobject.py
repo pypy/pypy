@@ -64,6 +64,11 @@ class W_UnicodeObject(W_Root):
         # - malloced object, which means it has index, then
         #   _index_storage.flags determines the kind
 
+    @staticmethod
+    def from_utf8builder(builder):
+        return W_UnicodeObject(
+            builder.build(), builder.get_length(), builder.get_flag())
+
     def __repr__(self):
         """representation for debugging purposes"""
         return "%s(%r)" % (self.__class__.__name__, self._utf8)
@@ -344,57 +349,38 @@ class W_UnicodeObject(W_Root):
         return mod_format(space, w_values, self, do_unicode=True)
 
     def descr_swapcase(self, space):
-        selfvalue = self._utf8
-        builder = StringBuilder(len(selfvalue))
-        flag = self._get_flag()
-        i = 0
-        while i < len(selfvalue):
-            ch = rutf8.codepoint_at_pos(selfvalue, i)
-            i = rutf8.next_codepoint_pos(selfvalue, i)
+        input = self._utf8
+        builder = rutf8.Utf8StringBuilder(len(input))
+        for ch in rutf8.Utf8StringIterator(input):
             if unicodedb.isupper(ch):
                 ch = unicodedb.tolower(ch)
             elif unicodedb.islower(ch):
                 ch = unicodedb.toupper(ch)
-            if ch >= 0x80:
-                flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-            rutf8.unichr_as_utf8_append(builder, ch, allow_surrogates=True)
-        return W_UnicodeObject(builder.build(), self._length, flag)
+            builder.append_code(ch)
+        return self.from_utf8builder(builder)
 
     def descr_title(self, space):
         if len(self._utf8) == 0:
             return self
-        utf8, flag = self.title_unicode(self._utf8)
-        return W_UnicodeObject(utf8, self._len(), flag)
+        return self.title_unicode(self._utf8)
 
     @jit.elidable
     def title_unicode(self, value):
         input = self._utf8
-        builder = StringBuilder(len(input))
-        i = 0
+        builder = rutf8.Utf8StringBuilder(len(input))
         previous_is_cased = False
-        flag = self._get_flag()
-        while i < len(input):
-            ch = rutf8.codepoint_at_pos(input, i)
-            i = rutf8.next_codepoint_pos(input, i)
+        for ch in rutf8.Utf8StringIterator(input):
             if not previous_is_cased:
                 ch = unicodedb.totitle(ch)
             else:
                 ch = unicodedb.tolower(ch)
-            if ch >= 0x80:
-                flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-            rutf8.unichr_as_utf8_append(builder, ch, allow_surrogates=True)
+            builder.append_code(ch)
             previous_is_cased = unicodedb.iscased(ch)
-        return builder.build(), flag
+        return self.from_utf8builder(builder)
 
     def descr_translate(self, space, w_table):
-        input = self._utf8
-        result = StringBuilder(len(input))
-        result_length = 0
-        flag = self._get_flag()
-        i = 0
-        while i < len(input):
-            codepoint = rutf8.codepoint_at_pos(input, i)
-            i = rutf8.next_codepoint_pos(input, i)
+        builder = rutf8.Utf8StringBuilder(len(self._utf8))
+        for codepoint in rutf8.Utf8StringIterator(self._utf8):
             try:
                 w_newval = space.getitem(w_table, space.newint(codepoint))
             except OperationError as e:
@@ -406,24 +392,19 @@ class W_UnicodeObject(W_Root):
                 elif space.isinstance_w(w_newval, space.w_int):
                     codepoint = space.int_w(w_newval)
                 elif isinstance(w_newval, W_UnicodeObject):
-                    result.append(w_newval._utf8)
-                    flag = rutf8.combine_flags(flag, w_newval._get_flag())
-                    result_length += w_newval._length
+                    builder.append_utf8(
+                        w_newval._utf8, w_newval._length, w_newval._get_flag())
                     continue
                 else:
                     raise oefmt(space.w_TypeError,
                                 "character mapping must return integer, None "
                                 "or unicode")
             try:
-                if codepoint >= 0x80:
-                    flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-                rutf8.unichr_as_utf8_append(result, codepoint,
-                                            allow_surrogates=True)
-                result_length += 1
+                builder.append_code(codepoint)
             except ValueError:
                 raise oefmt(space.w_TypeError,
                             "character mapping must be in range(0x110000)")
-        return W_UnicodeObject(result.build(), result_length, flag)
+        return self.from_utf8builder(builder)
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
         w_result = self._unwrap_and_search(space, w_sub, w_start, w_end)
@@ -534,16 +515,11 @@ class W_UnicodeObject(W_Root):
         return tformat.formatter_field_name_split()
 
     def descr_lower(self, space):
-        builder = StringBuilder(len(self._utf8))
-        pos = 0
-        flag = self._get_flag()
-        while pos < len(self._utf8):
-            lower = unicodedb.tolower(rutf8.codepoint_at_pos(self._utf8, pos))
-            if lower >= 0x80:
-                flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-            rutf8.unichr_as_utf8_append(builder, lower, allow_surrogates=True)
-            pos = rutf8.next_codepoint_pos(self._utf8, pos)
-        return W_UnicodeObject(builder.build(), self._len(), flag)
+        builder = rutf8.Utf8StringBuilder(len(self._utf8))
+        for ch in rutf8.Utf8StringIterator(self._utf8):
+            lower = unicodedb.tolower(ch)
+            builder.append_code(lower)
+        return self.from_utf8builder(builder)
 
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
@@ -711,18 +687,11 @@ class W_UnicodeObject(W_Root):
         return space.newlist(strs_w)
 
     def descr_upper(self, space):
-        value = self._utf8
-        builder = StringBuilder(len(value))
-        flag = self._get_flag()
-        i = 0
-        while i < len(value):
-            uchar = rutf8.codepoint_at_pos(value, i)
-            uchar = unicodedb.toupper(uchar)
-            if uchar >= 0x80:
-                flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-            i = rutf8.next_codepoint_pos(value, i)
-            rutf8.unichr_as_utf8_append(builder, uchar, allow_surrogates=True)
-        return W_UnicodeObject(builder.build(), self._length, flag)
+        builder = rutf8.Utf8StringBuilder(len(self._utf8))
+        for ch in rutf8.Utf8StringIterator(self._utf8):
+            ch = unicodedb.toupper(ch)
+            builder.append_code(ch)
+        return self.from_utf8builder(builder)
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):
@@ -826,22 +795,15 @@ class W_UnicodeObject(W_Root):
         if len(value) == 0:
             return self._empty()
 
-        flag = self._get_flag()
-        builder = StringBuilder(len(value))
-        uchar = rutf8.codepoint_at_pos(value, 0)
-        i = rutf8.next_codepoint_pos(value, 0)
+        builder = rutf8.Utf8StringBuilder(len(self._utf8))
+        it = rutf8.Utf8StringIterator(self._utf8)
+        uchar = it.next()
         ch = unicodedb.toupper(uchar)
-        rutf8.unichr_as_utf8_append(builder, ch, allow_surrogates=True)
-        if ch >= 0x80:
-            flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-        while i < len(value):
-            uchar = rutf8.codepoint_at_pos(value, i)
-            i = rutf8.next_codepoint_pos(value, i)
-            ch = unicodedb.tolower(uchar)
-            rutf8.unichr_as_utf8_append(builder, ch, allow_surrogates=True)
-            if ch >= 0x80:
-                flag = rutf8.combine_flags(flag, rutf8.FLAG_REGULAR)
-        return W_UnicodeObject(builder.build(), self._len(), flag)
+        builder.append_code(ch)
+        for ch in it:
+            ch = unicodedb.tolower(ch)
+            builder.append_code(ch)
+        return self.from_utf8builder(builder)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):
