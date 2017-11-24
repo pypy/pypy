@@ -176,13 +176,13 @@ class W_StringIO(W_TextIOBase):
             limit = len(self.buf) - self.pos
         assert limit >= 0
 
-        endpos, consumed = self._find_line_ending(
+        endpos, found = self._find_line_ending(
             # XXX: super inefficient, makes a copy of the entire contents.
             u"".join(self.buf),
             start,
             limit
         )
-        if endpos < 0:
+        if not found:
             endpos = start + limit
         assert endpos >= 0
         self.pos = endpos

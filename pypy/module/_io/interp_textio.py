@@ -224,15 +224,15 @@ class W_TextIOBase(W_IOBase):
             ch = line[i]
             i += 1
             if ch == '\n':
-                return i, 0
+                return i, True
             if ch == '\r':
                 if i >= end:
                     break
                 if line[i] == '\n':
-                    return i + 1, 0
+                    return i + 1, True
                 else:
-                    return i, 0
-        return -1, end
+                    return i, True
+        return end, False
 
     def _find_marker(self, marker, line, start, limit):
         limit = min(limit, len(line) - start)
@@ -244,8 +244,8 @@ class W_TextIOBase(W_IOBase):
                     if line[i + j] != marker[j]:
                         break  # from inner loop
                 else:
-                    return i + len(marker), 0
-        return -1, end - len(marker) + 1
+                    return i + len(marker), True
+        return end - len(marker) + 1, False
 
     def _find_line_ending(self, line, start, limit):
         if self.readuniversal:
@@ -667,7 +667,7 @@ class W_TextIOWrapper(W_TextIOBase):
             has_data = self._ensure_data(space)
             if not has_data:
                 # end of file
-                start = endpos = 0
+                start = end_scan = 0
                 break
 
             if remnant:
@@ -677,7 +677,7 @@ class W_TextIOWrapper(W_TextIOBase):
                     builder.append(u'\r\n')
                     self.decoded_chars_used = 1
                     line = remnant = None
-                    start = endpos = 0
+                    start = end_scan = 0
                     break
                 else:
                     builder.append(remnant)
@@ -686,23 +686,18 @@ class W_TextIOWrapper(W_TextIOBase):
 
             line = self.decoded_chars
             start = self.decoded_chars_used
-
-            line_len = len(line)
             if limit > 0:
                 remaining = limit - builder.getlength()
                 assert remaining >= 0
             else:
                 remaining = sys.maxint
-            endpos, end_scan = self._find_line_ending(line, start, remaining)
-
-            if endpos >= 0:
+            end_scan, found = self._find_line_ending(line, start, remaining)
+            assert end_scan >= 0
+            if found:
                 break
 
-            assert end_scan >= 0
-            # We can put aside up to `end_scan`
             if limit >= 0 and end_scan - start >= remaining:
                 # Didn't find line ending, but reached length limit
-                endpos = end_scan
                 break
 
             # No line ending seen yet - put aside current data
@@ -720,9 +715,9 @@ class W_TextIOWrapper(W_TextIOBase):
 
         if line:
             # Our line ends in the current buffer
-            self.decoded_chars_used = endpos
-            if start > 0 or endpos < len(line):
-                line = line[start:endpos]
+            self.decoded_chars_used = end_scan
+            if start > 0 or end_scan < len(line):
+                line = line[start:end_scan]
             builder.append(line)
         elif remnant:
             builder.append(remnant)
