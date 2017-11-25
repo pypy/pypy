@@ -32,6 +32,56 @@ class UnicodeIO(object):
         self.pos = end
         return u''.join(self.data[start:end])
 
+    def _convert_limit(self, limit):
+        if limit < 0 or limit > len(self.data) - self.pos:
+            limit = len(self.data) - self.pos
+        assert limit >= 0
+        return limit
+
+    def readline_universal(self, limit):
+        # Universal newline search. Find any of \r, \r\n, \n
+        limit = self._convert_limit(limit)
+        start = self.pos
+        end = start + limit
+        pos = start
+        while pos < end:
+            ch = self.data[pos]
+            pos += 1
+            if ch == '\n':
+                break
+            if ch == '\r':
+                if pos >= end:
+                    break
+                if self.data[pos] == '\n':
+                    pos += 1
+                    break
+                else:
+                    break
+        self.pos = pos
+        result = u''.join(self.data[start:pos])
+        return result
+
+    def readline(self, marker, limit):
+        start = self.pos
+        limit = self._convert_limit(limit)
+        end = start + limit
+        found = False
+        for pos in range(start, end - len(marker) + 1):
+            ch = self.data[pos]
+            if ch == marker[0]:
+                for j in range(1, len(marker)):
+                    if self.data[pos + j] != marker[j]:
+                        break  # from inner loop
+                else:
+                    pos += len(marker)
+                    found = True
+                    break
+        if not found:
+            pos = end
+        self.pos = pos
+        result = u''.join(self.data[start:pos])
+        return result
+
     def write(self, string):
         length = len(string)
         if self.pos + length > len(self.data):
@@ -180,26 +230,17 @@ class W_StringIO(W_TextIOBase):
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
+        if self.readuniversal:
+            result = self.buf.readline_universal(limit)
+        else:
+            if self.readtranslate:
+                # Newlines are already translated, only search for \n
+                newline = u'\n'
+            else:
+                newline = self.readnl
+            result = self.buf.readline(newline, limit)
+        return space.newunicode(result)
 
-        if self.buf.pos >= len(self.buf.data):
-            return space.newunicode(u"")
-
-        start = self.buf.pos
-        if limit < 0 or limit > len(self.buf.data) - self.buf.pos:
-            limit = len(self.buf.data) - self.buf.pos
-        assert limit >= 0
-
-        endpos, found = self._find_line_ending(
-            # XXX: super inefficient, makes a copy of the entire contents.
-            u"".join(self.buf.data),
-            start,
-            limit
-        )
-        if not found:
-            endpos = start + limit
-        assert endpos >= 0
-        self.buf.pos = endpos
-        return space.newunicode(u"".join(self.buf.data[start:endpos]))
 
     @unwrap_spec(pos=int, mode=int)
     def seek_w(self, space, pos, mode=0):
