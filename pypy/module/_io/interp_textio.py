@@ -11,7 +11,7 @@ from pypy.module._io.interp_iobase import W_IOBase, convert_size, trap_eintr
 from rpython.rlib.rarithmetic import intmask, r_uint, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.rutf8 import FLAG_ASCII, check_utf8
+from rpython.rlib.rutf8 import FLAG_ASCII, check_utf8, next_codepoint_pos
 
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -303,7 +303,7 @@ class DecodeBuffer(object):
 
     def set(self, space, w_decoded):
         check_decoded(space, w_decoded)
-        self.text = space.unicode_w(w_decoded)
+        self.text = space.utf8_w(w_decoded)
         self.pos = 0
 
     def reset(self):
@@ -312,7 +312,7 @@ class DecodeBuffer(object):
 
     def get_chars(self, size):
         if self.text is None:
-            return u""
+            return ""
 
         available = len(self.text) - self.pos
         if size < 0 or size > available:
@@ -341,7 +341,7 @@ class DecodeBuffer(object):
         if self.exhausted():
             raise StopIteration
         ch = self.text[self.pos]
-        self.pos += 1
+        self.pos = next_codepoint_pos(self.text, self.pos)
         return ch
 
     def peek_char(self):
@@ -362,16 +362,16 @@ class DecodeBuffer(object):
                 ch = self.next_char()
             except StopIteration:
                 return False
-            if ch == u'\n':
+            if ch == '\n':
                 return True
-            if ch == u'\r':
+            if ch == '\r':
                 if scanned >= limit:
                     return False
                 try:
                     ch = self.peek_char()
                 except StopIteration:
                     return False
-                if ch == u'\n':
+                if ch == '\n':
                     self.next_char()
                     return True
                 else:
@@ -388,11 +388,11 @@ class DecodeBuffer(object):
             except StopIteration:
                 return False
             scanned += 1
-            if ch == u'\r':
+            if ch == '\r':
                 if scanned >= limit:
                     return False
                 try:
-                    if self.peek_char() == u'\n':
+                    if self.peek_char() == '\n':
                         self.next_char()
                         return True
                 except StopIteration:
@@ -705,11 +705,11 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             if self.readtranslate:
                 # Newlines are already translated, only search for \n
-                newline = u'\n'
+                newline = '\n'
             else:
                 # Non-universal mode.
                 newline = self.readnl
-            if newline == u'\r\n':
+            if newline == '\r\n':
                 return self.decoded.find_crlf(limit)
             else:
                 return self.decoded.find_char(newline[0], limit)
