@@ -14,7 +14,8 @@ def text_with_newlines(draw):
        mode=st.sampled_from(['\r', '\n', '\r\n', '']),
        limit=st.integers(min_value=-1))
 def test_readline(txt, mode, limit):
-    textio = TextIOWrapper(BytesIO(txt.encode('utf-8')), newline=mode)
+    textio = TextIOWrapper(
+        BytesIO(txt.encode('utf-8')), encoding='utf-8', newline=mode)
     lines = []
     while True:
         line = textio.readline(limit)
