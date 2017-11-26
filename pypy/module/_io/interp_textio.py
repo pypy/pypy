@@ -214,45 +214,6 @@ class W_TextIOBase(W_IOBase):
     def newlines_get_w(self, space):
         return space.w_None
 
-    def _find_line_ending(self, line, start, end):
-        size = end - start
-        if self.readuniversal:
-            # Universal newline search. Find any of \r, \r\n, \n
-            # The decoder ensures that \r\n are not split in two pieces
-            i = start
-            while True:
-                # Fast path for non-control chars.
-                while i < end and line[i] > '\r':
-                    i += 1
-                if i >= end:
-                    return -1, size
-                ch = line[i]
-                i += 1
-                if ch == '\n':
-                    return i, 0
-                if ch == '\r':
-                    if line[i] == '\n':
-                        return i + 1, 0
-                    else:
-                        return i, 0
-        if self.readtranslate:
-            # Newlines are already translated, only search for \n
-            newline = u'\n'
-        else:
-            # Non-universal mode.
-            newline = self.readnl
-        end_scan = end - len(newline) + 1
-        for i in range(start, end_scan):
-            ch = line[i]
-            if ch == newline[0]:
-                for j in range(1, len(newline)):
-                    if line[i + j] != newline[j]:
-                        break
-                else:
-                    return i + len(newline), 0
-        return -1, end_scan
-
-
 W_TextIOBase.typedef = TypeDef(
     '_io._TextIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_TextIOBase),
@@ -343,6 +304,126 @@ class PositionSnapshot:
         self.input = input
 
 
+class DecodeBuffer(object):
+    def __init__(self, text=None):
+        self.text = text
+        self.pos = 0
+
+    def set(self, space, w_decoded):
+        check_decoded(space, w_decoded)
+        self.text = space.unicode_w(w_decoded)
+        self.pos = 0
+
+    def reset(self):
+        self.text = None
+        self.pos = 0
+
+    def get_chars(self, size):
+        if self.text is None:
+            return u""
+
+        available = len(self.text) - self.pos
+        if size < 0 or size > available:
+            size = available
+        assert size >= 0
+
+        if self.pos > 0 or size < available:
+            start = self.pos
+            end = self.pos + size
+            assert start >= 0
+            assert end >= 0
+            chars = self.text[start:end]
+        else:
+            chars = self.text
+
+        self.pos += size
+        return chars
+
+    def has_data(self):
+        return (self.text is not None and not self.exhausted())
+
+    def exhausted(self):
+        return self.pos >= len(self.text)
+
+    def next_char(self):
+        if self.exhausted():
+            raise StopIteration
+        ch = self.text[self.pos]
+        self.pos += 1
+        return ch
+
+    def peek_char(self):
+        # like next_char, but doesn't advance pos
+        if self.exhausted():
+            raise StopIteration
+        ch = self.text[self.pos]
+        return ch
+
+    def find_newline_universal(self, limit):
+        # Universal newline search. Find any of \r, \r\n, \n
+        # The decoder ensures that \r\n are not split in two pieces
+        if limit < 0:
+            limit = sys.maxint
+        scanned = 0
+        while scanned < limit:
+            try:
+                ch = self.next_char()
+            except StopIteration:
+                return False
+            if ch == u'\n':
+                return True
+            if ch == u'\r':
+                if scanned >= limit:
+                    return False
+                try:
+                    ch = self.peek_char()
+                except StopIteration:
+                    return False
+                if ch == u'\n':
+                    self.next_char()
+                    return True
+                else:
+                    return True
+        return False
+
+    def find_crlf(self, limit):
+        if limit < 0:
+            limit = sys.maxint
+        scanned = 0
+        while scanned < limit:
+            try:
+                ch = self.next_char()
+            except StopIteration:
+                return False
+            scanned += 1
+            if ch == u'\r':
+                if scanned >= limit:
+                    return False
+                try:
+                    if self.peek_char() == u'\n':
+                        self.next_char()
+                        return True
+                except StopIteration:
+                    # This is the tricky case: we found a \r right at the end
+                    self.pos -= 1
+                    return False
+        return False
+
+    def find_char(self, marker, limit):
+        if limit < 0:
+            limit = sys.maxint
+        scanned = 0
+        while scanned < limit:
+            try:
+                ch = self.next_char()
+            except StopIteration:
+                return False
+            if ch == marker:
+                return True
+            scanned += 1
+        return False
+
+
 def check_decoded(space, w_decoded):
     if not space.isinstance_w(w_decoded, space.w_unicode):
         msg = "decoder should return a string result, not '%T'"
@@ -356,8 +437,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self.w_encoder = None
         self.w_decoder = None
 
-        self.decoded_chars = None   # buffer for text returned from decoder
-        self.decoded_chars_used = 0 # offset into _decoded_chars for read()
+        self.decoded = DecodeBuffer()
         self.pending_bytes = None   # list of bytes objects waiting to be
                                     # written, or NULL
         self.chunk_size = 8192
@@ -546,44 +626,10 @@ class W_TextIOWrapper(W_TextIOBase):
     # _____________________________________________________________
     # read methods
 
-    def _unset_decoded(self):
-        self.decoded_chars = None
-        self.decoded_chars_used = 0
-
-    def _set_decoded(self, space, w_decoded):
-        check_decoded(space, w_decoded)
-        self.decoded_chars = space.unicode_w(w_decoded)
-        self.decoded_chars_used = 0
-
-    def _get_decoded_chars(self, size):
-        if self.decoded_chars is None:
-            return u""
-
-        available = len(self.decoded_chars) - self.decoded_chars_used
-        if size < 0 or size > available:
-            size = available
-        assert size >= 0
-
-        if self.decoded_chars_used > 0 or size < available:
-            start = self.decoded_chars_used
-            end = self.decoded_chars_used + size
-            assert start >= 0
-            assert end >= 0
-            chars = self.decoded_chars[start:end]
-        else:
-            chars = self.decoded_chars
-
-        self.decoded_chars_used += size
-        return chars
-
-    def _has_data(self):
-        return (self.decoded_chars is not None and
-            self.decoded_chars_used < len(self.decoded_chars))
-
     def _read_chunk(self, space):
         """Read and decode the next chunk of data from the BufferedReader.
         The return value is True unless EOF was reached.  The decoded string
-        is placed in self._decoded_chars (replacing its previous value).
+        is placed in self.decoded (replacing its previous value).
         The entire input chunk is sent to the decoder, though some of it may
         remain buffered in the decoder, yet to be converted."""
 
@@ -607,7 +653,7 @@ class W_TextIOWrapper(W_TextIOBase):
             dec_buffer = None
             dec_flags = 0
 
-        # Read a chunk, decode it, and put the result in self._decoded_chars
+        # Read a chunk, decode it, and put the result in self.decoded
         func_name = "read1" if self.has_read1 else "read"
         w_input = space.call_method(self.w_buffer, func_name,
                                     space.newint(self.chunk_size))
@@ -622,7 +668,7 @@ class W_TextIOWrapper(W_TextIOBase):
         eof = input_buf.getlength() == 0
         w_decoded = space.call_method(self.w_decoder, "decode",
                                       w_input, space.newbool(eof))
-        self._set_decoded(space, w_decoded)
+        self.decoded.set(space, w_decoded)
         if space.len_w(w_decoded) > 0:
             eof = False
 
@@ -635,10 +681,10 @@ class W_TextIOWrapper(W_TextIOBase):
         return not eof
 
     def _ensure_data(self, space):
-        while not self._has_data():
+        while not self.decoded.has_data():
             try:
                 if not self._read_chunk(space):
-                    self._unset_decoded()
+                    self.decoded.reset()
                     self.snapshot = None
                     return False
             except OperationError as e:
@@ -671,7 +717,7 @@ class W_TextIOWrapper(W_TextIOBase):
             w_bytes = space.call_method(self.w_buffer, "read")
             w_decoded = space.call_method(self.w_decoder, "decode", w_bytes, space.w_True)
             check_decoded(space, w_decoded)
-            w_result = space.newunicode(self._get_decoded_chars(-1))
+            w_result = space.newunicode(self.decoded.get_chars(-1))
             w_final = space.add(w_result, w_decoded)
             self.snapshot = None
             return w_final
@@ -683,11 +729,26 @@ class W_TextIOWrapper(W_TextIOBase):
         while remaining > 0:
             if not self._ensure_data(space):
                 break
-            data = self._get_decoded_chars(remaining)
+            data = self.decoded.get_chars(remaining)
             builder.append(data)
             remaining -= len(data)
 
         return space.newunicode(builder.build())
+
+    def _scan_line_ending(self, limit):
+        if self.readuniversal:
+            return self.decoded.find_newline_universal(limit)
+        else:
+            if self.readtranslate:
+                # Newlines are already translated, only search for \n
+                newline = u'\n'
+            else:
+                # Non-universal mode.
+                newline = self.readnl
+            if newline == u'\r\n':
+                return self.decoded.find_crlf(limit)
+            else:
+                return self.decoded.find_char(newline[0], limit)
 
     def readline_w(self, space, w_limit=None):
         self._check_attached(space)
@@ -695,71 +756,52 @@ class W_TextIOWrapper(W_TextIOBase):
         self._writeflush(space)
 
         limit = convert_size(space, w_limit)
-
-        line = None
-        remaining = None
+        remnant = None
         builder = UnicodeBuilder()
-
         while True:
             # First, get some data if necessary
             has_data = self._ensure_data(space)
             if not has_data:
                 # end of file
-                start = endpos = offset_to_buffer = 0
+                if remnant:
+                    builder.append(remnant)
                 break
 
-            if not remaining:
-                line = self.decoded_chars
-                start = self.decoded_chars_used
-                offset_to_buffer = 0
+            if remnant:
+                assert not self.readtranslate and self.readnl == u'\r\n'
+                assert self.decoded.pos == 0
+                if remnant == u'\r' and self.decoded.text[0] == u'\n':
+                    builder.append(u'\r\n')
+                    self.decoded.pos = 1
+                    remnant = None
+                    break
+                else:
+                    builder.append(remnant)
+                    remnant = None
+                    continue
+
+            if limit > 0:
+                remaining = limit - builder.getlength()
+                assert remaining >= 0
             else:
-                assert self.decoded_chars_used == 0
-                line = remaining + self.decoded_chars
-                start = 0
-                offset_to_buffer = len(remaining)
-                remaining = None
-
-            line_len = len(line)
-            endpos, consumed = self._find_line_ending(line, start, line_len)
-            chunked = builder.getlength()
-            if endpos >= 0:
-                if limit >= 0 and endpos >= start + limit - chunked:
-                    endpos = start + limit - chunked
-                    assert endpos >= 0
-                break
-            assert consumed >= 0
-
-            # We can put aside up to `endpos`
-            endpos = consumed + start
-            if limit >= 0 and endpos >= start + limit - chunked:
-                # Didn't find line ending, but reached length limit
-                endpos = start + limit - chunked
-                assert endpos >= 0
-                break
-
-            # No line ending seen yet - put aside current data
-            if endpos > start:
-                s = line[start:endpos]
+                remaining = -1
+            start = self.decoded.pos
+            assert start >= 0
+            found = self._scan_line_ending(remaining)
+            end_scan = self.decoded.pos
+            if end_scan > start:
+                s = self.decoded.text[start:end_scan]
                 builder.append(s)
 
-            # There may be some remaining bytes we'll have to prepend to the
-            # next chunk of data
-            if endpos < line_len:
-                remaining = line[endpos:]
-            line = None
-            # We have consumed the buffer
-            self._unset_decoded()
+            if found or (limit >= 0 and builder.getlength() >= limit):
+                break
 
-        if line:
-            # Our line ends in the current buffer
-            decoded_chars_used = endpos - offset_to_buffer
-            assert decoded_chars_used >= 0
-            self.decoded_chars_used = decoded_chars_used
-            if start > 0 or endpos < len(line):
-                line = line[start:endpos]
-            builder.append(line)
-        elif remaining:
-            builder.append(remaining)
+            # There may be some remaining chars we'll have to prepend to the
+            # next chunk of data
+            if not self.decoded.exhausted():
+                remnant = self.decoded.get_chars(-1)
+            # We have consumed the buffer
+            self.decoded.reset()
 
         result = builder.build()
         return space.newunicode(result)
@@ -903,7 +945,7 @@ class W_TextIOWrapper(W_TextIOBase):
                 self._unsupportedoperation(
                     space, "can't do nonzero end-relative seeks")
             space.call_method(self, "flush")
-            self._unset_decoded()
+            self.decoded.reset()
             self.snapshot = None
             if self.w_decoder:
                 space.call_method(self.w_decoder, "reset")
@@ -933,7 +975,7 @@ class W_TextIOWrapper(W_TextIOBase):
         # Seek back to the safe start point
         space.call_method(self.w_buffer, "seek", space.newint(cookie.start_pos))
 
-        self._unset_decoded()
+        self.decoded.reset()
         self.snapshot = None
 
         # Restore the decoder to its state from the safe start point.
@@ -954,13 +996,13 @@ class W_TextIOWrapper(W_TextIOBase):
 
             w_decoded = space.call_method(self.w_decoder, "decode",
                                           w_chunk, space.newbool(bool(cookie.need_eof)))
-            self._set_decoded(space, w_decoded)
+            self.decoded.set(space, w_decoded)
 
             # Skip chars_to_skip of the decoded characters
-            if len(self.decoded_chars) < cookie.chars_to_skip:
+            if len(self.decoded.text) < cookie.chars_to_skip:
                 raise oefmt(space.w_IOError,
                             "can't restore logical file position")
-            self.decoded_chars_used = cookie.chars_to_skip
+            self.decoded.pos = cookie.chars_to_skip
         else:
             self.snapshot = PositionSnapshot(cookie.dec_flags, "")
 
@@ -987,7 +1029,7 @@ class W_TextIOWrapper(W_TextIOBase):
         w_pos = space.call_method(self.w_buffer, "tell")
 
         if self.w_decoder is None or self.snapshot is None:
-            assert not self.decoded_chars
+            assert not self.decoded.text
             return w_pos
 
         cookie = PositionCookie(space.bigint_w(w_pos))
@@ -998,11 +1040,11 @@ class W_TextIOWrapper(W_TextIOBase):
         cookie.start_pos -= len(input)
 
         # How many decoded characters have been used up since the snapshot?
-        if not self.decoded_chars_used:
+        if not self.decoded.pos:
             # We haven't moved from the snapshot point.
             return space.newlong_from_rbigint(cookie.pack())
 
-        chars_to_skip = self.decoded_chars_used
+        chars_to_skip = self.decoded.pos
 
         # Starting from the snapshot position, we will walk the decoder
         # forward until it gives us enough decoded characters.
