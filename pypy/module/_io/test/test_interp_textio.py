@@ -1,6 +1,10 @@
-from hypothesis import given, strategies as st, assume
+import pytest
+try:
+    from hypothesis import given, strategies as st, assume
+except ImportError:
+    pytest.skip("hypothesis required")
 from pypy.module._io.interp_bytesio import W_BytesIO
-from pypy.module._io.interp_textio import W_TextIOWrapper
+from pypy.module._io.interp_textio import W_TextIOWrapper, DecodeBuffer
 
 LINESEP = ['', '\r', '\n', '\r\n']
 
@@ -31,3 +35,34 @@ def test_readline(space, txt, mode, limit):
         else:
             break
     assert u''.join(lines) == txt
+
+@given(st.text())
+def test_read_buffer(text):
+    buf = DecodeBuffer(text)
+    assert buf.get_chars(-1) == text
+    assert buf.exhausted()
+
+@given(st.text(), st.lists(st.integers(min_value=0)))
+def test_readn_buffer(text, sizes):
+    buf = DecodeBuffer(text)
+    strings = []
+    for n in sizes:
+        s = buf.get_chars(n)
+        if not buf.exhausted():
+            assert len(s) == n
+        else:
+            assert len(s) <= n
+        strings.append(s)
+    assert ''.join(strings) == text[:sum(sizes)]
+
+@given(st.text())
+def test_next_char(text):
+    buf = DecodeBuffer(text)
+    chars = []
+    try:
+        while True:
+            chars.append(buf.next_char())
+    except StopIteration:
+        pass
+    assert buf.exhausted()
+    assert u''.join(chars) == text

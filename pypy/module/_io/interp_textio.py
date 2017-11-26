@@ -290,8 +290,8 @@ class PositionSnapshot:
 
 
 class DecodeBuffer(object):
-    def __init__(self):
-        self.text = None
+    def __init__(self, text=None):
+        self.text = text
         self.pos = 0
 
     def set(self, space, w_decoded):
