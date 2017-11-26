@@ -11,7 +11,8 @@ from pypy.module._io.interp_iobase import W_IOBase, convert_size, trap_eintr
 from rpython.rlib.rarithmetic import intmask, r_uint, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.rutf8 import FLAG_ASCII, check_utf8, next_codepoint_pos
+from rpython.rlib.rutf8 import (
+    FLAG_ASCII, check_utf8, next_codepoint_pos, codepoints_in_utf8)
 
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -420,6 +421,7 @@ def check_decoded(space, w_decoded):
     if not space.isinstance_w(w_decoded, space.w_unicode):
         msg = "decoder should return a string result, not '%T'"
         raise oefmt(space.w_TypeError, msg, w_decoded)
+    return w_decoded
 
 
 class W_TextIOWrapper(W_TextIOBase):
@@ -945,13 +947,14 @@ class W_TextIOWrapper(W_TextIOBase):
 
             w_decoded = space.call_method(self.w_decoder, "decode",
                                           w_chunk, space.newbool(bool(cookie.need_eof)))
-            self.decoded.set(space, w_decoded)
+            w_decoded = check_decoded(space, w_decoded)
 
             # Skip chars_to_skip of the decoded characters
-            if len(self.decoded.text) < cookie.chars_to_skip:
+            if space.len_w(w_decoded) < cookie.chars_to_skip:
                 raise oefmt(space.w_IOError,
                             "can't restore logical file position")
-            self.decoded.pos = cookie.chars_to_skip
+            self.decoded.set(space, w_decoded)
+            self.decoded.pos = w_decoded._index_to_byte(cookie.chars_to_skip)
         else:
             self.snapshot = PositionSnapshot(cookie.dec_flags, "")
 
@@ -963,10 +966,8 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def tell_w(self, space):
         self._check_closed(space)
-
         if not self.seekable:
             raise oefmt(space.w_IOError, "underlying stream is not seekable")
-
         if not self.telling:
             raise oefmt(space.w_IOError,
                         "telling position disabled by next() call")
@@ -992,7 +993,8 @@ class W_TextIOWrapper(W_TextIOBase):
             # We haven't moved from the snapshot point.
             return space.newlong_from_rbigint(cookie.pack())
 
-        chars_to_skip = self.decoded.pos
+        chars_to_skip = codepoints_in_utf8(
+            self.decoded.text, end=self.decoded.pos)
 
         # Starting from the snapshot position, we will walk the decoder
         # forward until it gives us enough decoded characters.
@@ -1036,14 +1038,14 @@ class W_TextIOWrapper(W_TextIOBase):
                 # We didn't get enough decoded data; signal EOF to get more.
                 w_decoded = space.call_method(self.w_decoder, "decode",
                                               space.newbytes(""),
-                                              space.newint(1)) # final=1
+                                              space.newint(1))  # final=1
                 check_decoded(space, w_decoded)
-                chars_decoded += len(space.unicode_w(w_decoded))
+                chars_decoded += space.len_w(w_decoded)
                 cookie.need_eof = 1
 
                 if chars_decoded < chars_to_skip:
                     raise oefmt(space.w_IOError,
-                                "can't reconstruct logical file position")
+                        "can't reconstruct logical file position")
         finally:
             space.call_method(self.w_decoder, "setstate", w_saved_state)
 
