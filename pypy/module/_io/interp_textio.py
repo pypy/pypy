@@ -214,50 +214,6 @@ class W_TextIOBase(W_IOBase):
     def newlines_get_w(self, space):
         return space.w_None
 
-    def _find_newline_universal(self, line, start, limit):
-        # Universal newline search. Find any of \r, \r\n, \n
-        # The decoder ensures that \r\n are not split in two pieces
-        limit = min(limit, len(line) - start)
-        end = start + limit
-        i = start
-        while i < end:
-            ch = line[i]
-            i += 1
-            if ch == '\n':
-                return i, True
-            if ch == '\r':
-                if i >= end:
-                    break
-                if line[i] == '\n':
-                    return i + 1, True
-                else:
-                    return i, True
-        return end, False
-
-    def _find_marker(self, marker, line, start, limit):
-        limit = min(limit, len(line) - start)
-        end = start + limit
-        for i in range(start, end - len(marker) + 1):
-            ch = line[i]
-            if ch == marker[0]:
-                for j in range(1, len(marker)):
-                    if line[i + j] != marker[j]:
-                        break  # from inner loop
-                else:
-                    return i + len(marker), True
-        return end - len(marker) + 1, False
-
-    def _find_line_ending(self, line, start, limit):
-        if self.readuniversal:
-            return self._find_newline_universal(line, start, limit)
-        if self.readtranslate:
-            # Newlines are already translated, only search for \n
-            newline = u'\n'
-        else:
-            # Non-universal mode.
-            newline = self.readnl
-        return self._find_marker(newline, line, start, limit)
-
 W_TextIOBase.typedef = TypeDef(
     '_io._TextIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_TextIOBase),
@@ -369,7 +325,88 @@ class DecodeBuffer(object):
         return chars
 
     def has_data(self):
-        return (self.text is not None and self.pos < len(self.text))
+        return (self.text is not None and not self.exhausted())
+
+    def exhausted(self):
+        return self.pos >= len(self.text)
+
+    def next_char(self):
+        if self.exhausted():
+            raise StopIteration
+        ch = self.text[self.pos]
+        self.pos += 1
+        return ch
+
+    def peek_char(self):
+        # like next_char, but doesn't advance pos
+        if self.exhausted():
+            raise StopIteration
+        ch = self.text[self.pos]
+        return ch
+
+    def find_newline_universal(self, limit):
+        # Universal newline search. Find any of \r, \r\n, \n
+        # The decoder ensures that \r\n are not split in two pieces
+        if limit < 0:
+            limit = sys.maxint
+        scanned = 0
+        while scanned < limit:
+            try:
+                ch = self.next_char()
+            except StopIteration:
+                return False
+            if ch == u'\n':
+                return True
+            if ch == u'\r':
+                if scanned >= limit:
+                    return False
+                try:
+                    ch = self.peek_char()
+                except StopIteration:
+                    return False
+                if ch == u'\n':
+                    self.next_char()
+                    return True
+                else:
+                    return True
+        return False
+
+    def find_crlf(self, limit):
+        if limit < 0:
+            limit = sys.maxint
+        scanned = 0
+        while scanned < limit:
+            try:
+                ch = self.next_char()
+            except StopIteration:
+                return False
+            scanned += 1
+            if ch == u'\r':
+                if scanned >= limit:
+                    return False
+                try:
+                    if self.peek_char() == u'\n':
+                        self.next_char()
+                        return True
+                except StopIteration:
+                    # This is the tricky case: we found a \r right at the end
+                    self.pos -= 1
+                    return False
+        return False
+
+    def find_char(self, marker, limit):
+        if limit < 0:
+            limit = sys.maxint
+        scanned = 0
+        while scanned < limit:
+            try:
+                ch = self.next_char()
+            except StopIteration:
+                return False
+            if ch == marker:
+                return True
+            scanned += 1
+        return False
 
 
 def check_decoded(space, w_decoded):
@@ -655,23 +692,36 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return space.newunicode(builder.build())
 
+    def _scan_line_ending(self, limit):
+        if self.readuniversal:
+            return self.decoded.find_newline_universal(limit)
+        else:
+            if self.readtranslate:
+                # Newlines are already translated, only search for \n
+                newline = u'\n'
+            else:
+                # Non-universal mode.
+                newline = self.readnl
+            if newline == u'\r\n':
+                return self.decoded.find_crlf(limit)
+            else:
+                return self.decoded.find_char(newline[0], limit)
+
     def readline_w(self, space, w_limit=None):
         self._check_attached(space)
         self._check_closed(space)
         self._writeflush(space)
 
         limit = convert_size(space, w_limit)
-
-        line = None
         remnant = None
         builder = UnicodeBuilder()
-
         while True:
             # First, get some data if necessary
             has_data = self._ensure_data(space)
             if not has_data:
                 # end of file
-                start = end_scan = 0
+                if remnant:
+                    builder.append(remnant)
                 break
 
             if remnant:
@@ -680,51 +730,35 @@ class W_TextIOWrapper(W_TextIOBase):
                 if remnant == u'\r' and self.decoded.text[0] == u'\n':
                     builder.append(u'\r\n')
                     self.decoded.pos = 1
-                    line = remnant = None
-                    start = end_scan = 0
+                    remnant = None
                     break
                 else:
                     builder.append(remnant)
                     remnant = None
                     continue
 
-            line = self.decoded.text
-            start = self.decoded.pos
             if limit > 0:
                 remaining = limit - builder.getlength()
                 assert remaining >= 0
             else:
-                remaining = sys.maxint
-            end_scan, found = self._find_line_ending(line, start, remaining)
-            assert end_scan >= 0
-            if found:
-                break
-
-            if limit >= 0 and end_scan - start >= remaining:
-                # Didn't find line ending, but reached length limit
-                break
-
-            # No line ending seen yet - put aside current data
+                remaining = -1
+            start = self.decoded.pos
+            assert start >= 0
+            found = self._scan_line_ending(remaining)
+            end_scan = self.decoded.pos
             if end_scan > start:
-                s = line[start:end_scan]
+                s = self.decoded.text[start:end_scan]
                 builder.append(s)
+
+            if found or (limit >= 0 and builder.getlength() >= limit):
+                break
 
             # There may be some remaining chars we'll have to prepend to the
             # next chunk of data
-            if end_scan < len(line):
-                remnant = line[end_scan:]
-            line = None
+            if not self.decoded.exhausted():
+                remnant = self.decoded.get_chars(-1)
             # We have consumed the buffer
             self.decoded.reset()
-
-        if line:
-            # Our line ends in the current buffer
-            self.decoded.pos = end_scan
-            if start > 0 or end_scan < len(line):
-                line = line[start:end_scan]
-            builder.append(line)
-        elif remnant:
-            builder.append(remnant)
 
         result = builder.build()
         return space.newunicode(result)
