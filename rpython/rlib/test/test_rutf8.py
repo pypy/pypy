@@ -199,7 +199,7 @@ def test_utf8_string_builder():
     s = rutf8.Utf8StringBuilder()
     s.append_utf8("abc", 3, rutf8.FLAG_ASCII)
     assert s.get_flag() == rutf8.FLAG_ASCII
-    assert s.get_length() == 1
+    assert s.get_length() == 3
     assert s.build().decode("utf8") == u"abc"
 
     s.append_utf8(u"\u1234".encode("utf8"), 1, rutf8.FLAG_REGULAR)
