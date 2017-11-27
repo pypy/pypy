@@ -31,23 +31,23 @@ class MultibyteCodec(W_Root):
         return space.newtuple([space.newutf8(utf8_output, lgt, flag),
                                space.newint(len(input))])
 
-    @unwrap_spec(input='utf8', errors="text_or_none")
-    def encode(self, space, input, errors=None):
+    @unwrap_spec(errors="text_or_none")
+    def encode(self, space, w_input, errors=None):
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
+        input, length = space.utf8_len_w(w_input)
         #
-        u_input = input.decode('utf8')
         try:
-            output = c_codecs.encode(self.codec, u_input, errors,
+            output = c_codecs.encode(self.codec, input, length, errors,
                                      state.encode_error_handler, self.name)
         except c_codecs.EncodeDecodeError as e:
-            raise wrap_unicodeencodeerror(space, e, input, len(u_input),
+            raise wrap_unicodeencodeerror(space, e, input, length,
                                           self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
         return space.newtuple([space.newbytes(output),
-                               space.newint(len(u_input))])
+                               space.newint(length)])
 
 
 MultibyteCodec.typedef = TypeDef(

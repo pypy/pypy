@@ -687,6 +687,11 @@ class Utf8StringBuilder(object):
         self._lgt += 1
         unichr_as_utf8_append(self._s, code, True)
 
+    def append_utf8(self, utf8, length, flag):
+        self._flag = combine_flags(self._flag, flag)
+        self._lgt += length
+        self._s.append(utf8)
+
     def build(self):
         return self._s.build()
 
@@ -702,10 +707,12 @@ class Utf8StringIterator(object):
         self._end = len(utf8s)
         self._pos = 0
 
-    def done(self):
-        return self._pos == self._end
+    def __iter__(self):
+        return self
 
     def next(self):
+        if self._pos == self._end:
+            raise StopIteration
         ret = codepoint_at_pos(self._utf8, self._pos)
         self._pos = next_codepoint_pos(self._utf8, self._pos)
         return ret

@@ -10,10 +10,14 @@ def test_skip_whitespace():
     assert dec.skip_whitespace(8) == len(s)
     dec.close()
 
+class FakeSpace(object):
+    def newutf8(self, s, l, f):
+        return s
+
 def test_decode_key():
     s1 = "123" * 100
     s = ' "%s"   "%s" ' % (s1, s1)
-    dec = JSONDecoder('fake space', s)
+    dec = JSONDecoder(FakeSpace(), s)
     assert dec.pos == 0
     x = dec.decode_key(0)
     assert x == s1

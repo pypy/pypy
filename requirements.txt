@@ -1,5 +1,7 @@
 cffi>=1.4.0
-vmprof>=0.4.10  # required to parse log files in rvmprof tests
+
+# parse log files in rvmprof tests
+vmprof>=0.4.10; 'x86' in platform.machine #skip arm, s390x
 
 # hypothesis is used for test generation on untranslated tests
 hypothesis

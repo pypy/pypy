@@ -9,6 +9,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rthread, jit
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.config.translationoption import get_translation_config
 
 class VMProfPlatformUnsupported(Exception):
     pass
@@ -133,11 +134,17 @@ auto_eci = ExternalCompilationInfo(post_include_bits=["""
 #endif
 """])
 
+if get_translation_config() is None:
+    # tests need the full eci here
+    _eci = global_eci
+else:
+    _eci = auto_eci
+
 vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
-                                       rffi.INT, compilation_info=auto_eci,
+                                       rffi.INT, compilation_info=_eci,
                                        _nowrapper=True)
 vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
-                                        lltype.Void, compilation_info=auto_eci,
+                                        lltype.Void, compilation_info=_eci,
                                         _nowrapper=True)
 
 

@@ -10,6 +10,7 @@ from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import rutf8
 from rpython.rlib.objectmodel import specialize
 import rpython.rlib.rposix as rposix
 
@@ -416,13 +417,13 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         val = s[0]
         push_func(add_arg, argdesc, val)
     elif letter == 'u':
-        s = space.unicode_w(w_arg)
-        if len(s) != 1:
+        s, lgt = space.utf8_len_w(w_arg)
+        if lgt != 1:
             raise oefmt(space.w_TypeError,
                         "Expected unicode string of length one as wide "
                         "character")
-        val = s[0]
-        push_func(add_arg, argdesc, val)
+        val = rutf8.codepoint_at_pos(s, 0)
+        push_func(add_arg, argdesc, rffi.cast(rffi.WCHAR_T, val))
     else:
         for c in unroll_letters_for_numbers:
             if letter == c:

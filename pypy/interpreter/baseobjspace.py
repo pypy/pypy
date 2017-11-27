@@ -1760,10 +1760,6 @@ class ObjSpace(object):
     def utf8_w(self, w_obj):
         return w_obj.utf8_w(self)
 
-    def unicode_w(self, w_obj):
-        # XXX: kill me!
-        return w_obj.utf8_w(self).decode('utf-8')
-
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
 
