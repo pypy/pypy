@@ -567,6 +567,31 @@ def codepoint_at_index(utf8, storage, index):
         bytepos = next_codepoint_pos(utf8, bytepos)
     return codepoint_at_pos(utf8, bytepos)
 
+@jit.dont_look_inside
+def codepoint_index_at_byte_position(utf8, storage, bytepos):
+    """ Return the character index for which
+    codepoint_position_at_index(index) == bytepos.
+    This is a relatively slow operation in that it runs in a time
+    logarithmic in the length of the string, plus some constant that
+    is not tiny either.
+    """
+    index_min = 0
+    index_max = len(storage.contents) - 1
+    while index_min < index_max:
+        index_middle = (index_min + index_max + 1) // 2
+        base_bytepos = storage.contents[index_middle].baseindex
+        if bytepos < base_bytepos:
+            index_max = index_middle - 1
+        else:
+            index_min = index_middle
+    bytepos1 = storage.contents[index_min].baseindex
+    result = index_min << 6
+    while bytepos1 < bytepos:
+        bytepos1 = next_codepoint_pos(utf8, bytepos1)
+        result += 1
+    return result
+
+
 def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None):
     @jit.elidable
     def unicode_escape(s):

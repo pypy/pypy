@@ -128,6 +128,17 @@ def test_codepoint_position_at_index(u):
         assert (rutf8.codepoint_position_at_index(u.encode('utf8'), index, i) ==
                 len(u[:i].encode('utf8')))
 
+@given(strategies.text(average_size=140))
+@example(u'x' * 64 * 5)
+@example(u'x' * (64 * 5 - 1))
+def test_codepoint_index_at_byte_position(u):
+    storage = rutf8.create_utf8_index_storage(u.encode('utf8'), len(u))
+    for i in range(len(u) + 1):
+        bytepos = len(u[:i].encode('utf8'))
+        assert rutf8.codepoint_index_at_byte_position(
+                       u.encode('utf8'), storage, bytepos) == i
+
+
 repr_func = rutf8.make_utf8_escape_function(prefix='u', pass_printable=False,
                                             quotes=True)
 
