@@ -26,17 +26,20 @@ class FakeVMProf(object):
     def is_sampling_enabled(self):
         return self._ignore_signals == 0
 
+    def check_status(self):
+        """
+        To be called during test teardown
+        """
+        if self._ignore_signals != 1:
+            msg = ('Invalid value for fakevmprof._ignore_signals: expected 1, '
+                   'got %d. This probably means that you called '
+                   '{start,stop}_sampling() a wrong number of times')
+            raise ValueError, msg % self._ignore_signals
+
 
 @pytest.fixture
 def fakevmprof(request, monkeypatch):
     fake = FakeVMProf()
     monkeypatch.setattr(rvmprof.rvmprof, '_vmprof_instance', fake)
-    #
-    def check_status():
-        if fake._ignore_signals != 1:
-            msg = ('Invalid value for fakevmprof._ignore_signals: expected 1, '
-                   'got %d. This probably means that you called '
-                   '{start,stop}_sampling() a wrong number of times')
-            raise ValueError, msg % fake._ignore_signals
-    request.addfinalizer(check_status)
+    request.addfinalizer(fake.check_status)
     return fake

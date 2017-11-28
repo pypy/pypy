@@ -22,6 +22,10 @@ class TestFakeVMProf(object):
         #
         pytest.raises(AssertionError, "fake.start_sampling()")
     
+    def test_check_status(self):
+        fake = FakeVMProf()
+        fake.stop_sampling()
+        pytest.raises(ValueError, "fake.check_status()")
 
 
 class TestFixture(object):

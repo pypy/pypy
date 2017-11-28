@@ -1,4 +1,5 @@
 import os
+from rpython.rlib.rvmprof.test.support import fakevmprof
 from pypy.module._continuation.test.support import BaseAppTest
 
 
