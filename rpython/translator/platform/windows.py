@@ -10,21 +10,13 @@ import rpython
 rpydir = str(py.path.local(rpython.__file__).join('..'))
 
 def _get_compiler_type(cc, x64_flag):
-    import subprocess
     if not cc:
         cc = os.environ.get('CC','')
     if not cc:
         return MsvcPlatform(x64=x64_flag)
     elif cc.startswith('mingw') or cc == 'gcc':
         return MingwPlatform(cc)
-    else:
-        return MsvcPlatform(cc=cc, x64=x64_flag)
-    try:
-        subprocess.check_output([cc, '--version'])
-    except:
-        raise ValueError("Could not find compiler specified by cc option '%s',"
-                         " it must be a valid exe file on your path" % cc)
-    return MingwPlatform(cc)
+    return MsvcPlatform(cc=cc, x64=x64_flag)
 
 def Windows(cc=None):
     return _get_compiler_type(cc, False)
@@ -60,6 +52,10 @@ def _get_msvc_env(vsver, x64flag):
     vcvars = None
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
+        if x64flag:
+            vcvars = os.path.join(toolsdir, "vcvarsamd64.bat")
+        else:
+            vcvars = os.path.join(toolsdir, 'vsvars32.bat')
     except KeyError:
         # try to import from the registry, as done in setuptools
         # XXX works for 90 but is it generalizable?
