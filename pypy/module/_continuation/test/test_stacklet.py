@@ -1,5 +1,7 @@
+import pytest
 import os
 from rpython.rlib.rvmprof.test.support import fakevmprof
+from pypy.interpreter.gateway import interp2app
 from pypy.module._continuation.test.support import BaseAppTest
 
 
@@ -771,3 +773,41 @@ class AppTestStacklet(BaseAppTest):
 
         continulet.switch(c1, to=c2)
         raises(error, continulet.switch, c1, to=c2)
+
+
+@pytest.mark.usefixtures('init_method')
+class AppTestVMProf(BaseAppTest):
+
+    @pytest.fixture
+    def init_method(self, fakevmprof):
+        """
+        This is automaticaly re-initialized for every method
+        """
+        w = self.space.wrap
+        i2a = interp2app
+        def is_sampling_enabled(space):
+            return space.wrap(fakevmprof.is_sampling_enabled)
+        self.w_is_sampling_enabled = w(i2a(is_sampling_enabled))
+        #
+        def start_sampling(space):
+            fakevmprof.start_sampling()
+        self.w_start_sampling = w(i2a(start_sampling))
+        #
+        def stop_sampling(space):
+            fakevmprof.stop_sampling()
+        self.w_stop_sampling = w(i2a(stop_sampling))
+
+    def test_sampling_inside_callback(self):
+        from _continuation import continulet
+        #
+        def my_callback(c1):
+            assert self.is_sampling_enabled()
+            return 42
+        #
+        self.start_sampling()
+        assert self.is_sampling_enabled()
+        c = continulet(my_callback)
+        res = c.switch()
+        assert res == 42
+        assert self.is_sampling_enabled()
+        self.stop_sampling()

@@ -20,7 +20,7 @@ class FakeVMProf(object):
 
     # --- FakeVMProf specific API ---
     # this API is not part of rvmprof, but available only inside tests using
-    # fakervmprof
+    # fakevmprof
 
     @property
     def is_sampling_enabled(self):
