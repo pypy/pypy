@@ -212,6 +212,12 @@ class FakeObjSpace(ObjSpace):
     def newutf8(self, x, l, f):
         return w_some_obj()
 
+    def new_from_utf8(self, a):
+        return w_some_obj()
+
+    def newunicode(self, a):
+        return w_some_obj()
+
     newtext = newbytes
     newtext_or_none = newbytes
     newfilename = newbytes

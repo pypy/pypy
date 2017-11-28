@@ -367,6 +367,12 @@ class StdObjSpace(ObjSpace):
         assert isinstance(utf8s, str)
         return W_UnicodeObject(utf8s, length, flag)
 
+    def new_from_utf8(self, utf8s):
+        # XXX: kill me!
+        assert isinstance(utf8s, str)
+        length, flag = rutf8.check_utf8(utf8s, True)
+        return W_UnicodeObject(utf8s, length, flag)
+
     def newfilename(self, s):
         assert isinstance(s, str) # on pypy3, this decodes the byte string
         return W_BytesObject(s)   # with the filesystem encoding

@@ -27,7 +27,8 @@ def test_readline(space, txt, mode, limit):
         w_newline=space.newtext(mode))
     lines = []
     while True:
-        line = space.unicode_w(w_textio.readline_w(space, space.newint(limit)))
+        w_line = w_textio.readline_w(space, space.newint(limit))
+        line = space.utf8_w(w_line).decode('utf-8')
         if limit > 0:
             assert len(line) <= limit
         if line:
@@ -38,31 +39,27 @@ def test_readline(space, txt, mode, limit):
 
 @given(st.text())
 def test_read_buffer(text):
-    buf = DecodeBuffer(text)
-    assert buf.get_chars(-1) == text
+    buf = DecodeBuffer(text.encode('utf-8'))
+    assert buf.get_chars(-1) == text.encode('utf-8')
     assert buf.exhausted()
 
 @given(st.text(), st.lists(st.integers(min_value=0)))
 def test_readn_buffer(text, sizes):
-    buf = DecodeBuffer(text)
+    buf = DecodeBuffer(text.encode('utf-8'))
     strings = []
     for n in sizes:
         s = buf.get_chars(n)
         if not buf.exhausted():
-            assert len(s) == n
+            assert len(s.decode('utf-8')) == n
         else:
-            assert len(s) <= n
+            assert len(s.decode('utf-8')) <= n
         strings.append(s)
-    assert ''.join(strings) == text[:sum(sizes)]
+    assert ''.join(strings) == text[:sum(sizes)].encode('utf-8')
 
 @given(st.text())
 def test_next_char(text):
-    buf = DecodeBuffer(text)
-    chars = []
-    try:
-        while True:
-            chars.append(buf.next_char())
-    except StopIteration:
-        pass
+    buf = DecodeBuffer(text.encode('utf-8'))
+    for i in range(len(text)):
+        ch = buf.next_char()
+        assert ch == text[i].encode('utf-8')[0]
     assert buf.exhausted()
-    assert u''.join(chars) == text
