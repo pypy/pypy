@@ -1,3 +1,5 @@
+import pytest
+from rpython.rlib import rvmprof
 
 class FakeVMProf(object):
 
@@ -23,4 +25,13 @@ class FakeVMProf(object):
     @property
     def is_sampling_enabled(self):
         return self._ignore_signals == 0
+
+
+@pytest.fixture
+def fakevmprof(request, monkeypatch):
+    fake = FakeVMProf()
+    def _get_fake_vmprof():
+        return fake
+    monkeypatch.setattr(rvmprof.rvmprof, '_get_vmprof', _get_fake_vmprof)
+    return fake
 

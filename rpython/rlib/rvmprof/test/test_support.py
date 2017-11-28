@@ -1,5 +1,6 @@
 import pytest
-from rpython.rlib.rvmprof.test.support import FakeVMProf
+from rpython.rlib import rvmprof
+from rpython.rlib.rvmprof.test.support import FakeVMProf, fakevmprof
 
 class TestFakeVMProf(object):
 
@@ -21,3 +22,17 @@ class TestFakeVMProf(object):
         #
         pytest.raises(AssertionError, "fake.start_sampling()")
     
+
+
+class TestFixture(object):
+
+    def test_fixture(self, fakevmprof):
+        assert isinstance(fakevmprof, FakeVMProf)
+        assert rvmprof.rvmprof._get_vmprof() is fakevmprof
+        #
+        # tweak sampling using the "real" API, and check that we actually used
+        # the fake
+        rvmprof.start_sampling()
+        assert fakevmprof.is_sampling_enabled
+        rvmprof.stop_sampling()
+        assert not fakevmprof.is_sampling_enabled
