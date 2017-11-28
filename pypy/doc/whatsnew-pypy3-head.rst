@@ -14,3 +14,5 @@ that did this
 
 .. branch: py3.5-mac-embedding
 Download and patch dependencies when building cffi-based stdlib modules
+
+.. branch: os_lockf
