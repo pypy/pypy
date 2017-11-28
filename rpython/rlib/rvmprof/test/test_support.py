@@ -28,7 +28,7 @@ class TestFixture(object):
 
     def test_fixture(self, fakevmprof):
         assert isinstance(fakevmprof, FakeVMProf)
-        assert rvmprof.rvmprof._get_vmprof() is fakevmprof
+        assert rvmprof._get_vmprof() is fakevmprof
         #
         # tweak sampling using the "real" API, and check that we actually used
         # the fake

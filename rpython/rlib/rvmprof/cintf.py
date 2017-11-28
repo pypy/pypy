@@ -122,30 +122,14 @@ def setup():
                                               lltype.Signed, compilation_info=eci,
                                               _nowrapper=True)
 
+    vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
+                                           rffi.INT, compilation_info=eci,
+                                           _nowrapper=True)
+    vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
+                                            lltype.Void, compilation_info=eci,
+                                            _nowrapper=True)
+
     return CInterface(locals())
-
-
-# this is always present, but compiles to no-op if RPYTHON_VMPROF is not
-# defined (i.e. if we don't actually use vmprof in the generated C)
-auto_eci = ExternalCompilationInfo(post_include_bits=["""
-#ifndef RPYTHON_VMPROF
-#  define vmprof_stop_sampling()    (-1)
-#  define vmprof_start_sampling()   ((void)0)
-#endif
-"""])
-
-if get_translation_config() is None:
-    # tests need the full eci here
-    _eci = global_eci
-else:
-    _eci = auto_eci
-
-vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
-                                       rffi.INT, compilation_info=_eci,
-                                       _nowrapper=True)
-vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
-                                        lltype.Void, compilation_info=_eci,
-                                        _nowrapper=True)
 
 
 class CInterface(object):
