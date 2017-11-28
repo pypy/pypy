@@ -52,10 +52,6 @@ def _get_msvc_env(vsver, x64flag):
     vcvars = None
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
-        if x64flag:
-            vcvars = os.path.join(toolsdir, "vcvarsamd64.bat")
-        else:
-            vcvars = os.path.join(toolsdir, 'vsvars32.bat')
     except KeyError:
         # try to import from the registry, as done in setuptools
         # XXX works for 90 but is it generalizable?
@@ -69,7 +65,12 @@ def _get_msvc_env(vsver, x64flag):
             vcbindir = os.path.join(vcinstalldir, 'BIN')
             vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
         else:
-            vcvars = os.path.join(toolsdir, 'vsvars32.bat')
+            vcvars = os.path.join(toolsdir, 'vcvars32.bat')
+            if not os.path.exists(vcvars):
+                # even msdn does not know which to run
+                # see https://msdn.microsoft.com/en-us/library/1700bbwd(v=vs.90).aspx
+                # wich names both
+                vcvars = os.path.join(toolsdir, 'vsvars32.bat') 
 
     import subprocess
     try:
