@@ -27,7 +27,8 @@ def test_readline(space, txt, mode, limit):
         w_newline=space.newtext(mode))
     lines = []
     while True:
-        line = space.unicode_w(w_textio.readline_w(space, space.newint(limit)))
+        w_line = w_textio.readline_w(space, space.newint(limit))
+        line = space.utf8_w(w_line).decode('utf-8')
         if limit > 0:
             assert len(line) <= limit
         if line:
