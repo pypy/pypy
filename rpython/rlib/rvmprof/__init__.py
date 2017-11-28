@@ -60,3 +60,23 @@ def stop_sampling():
 
 def start_sampling():
     return _get_vmprof().start_sampling()
+
+# ----------------
+# stacklet support
+# ----------------
+#
+# Ideally, vmprof_tl_stack, VMPROFSTACK etc. should be part of "self.cintf":
+# not sure why they are a global. Eventually, we should probably fix all this
+# mess.
+from rpython.rlib.rvmprof.cintf import vmprof_tl_stack, VMPROFSTACK
+
+def save_stack():
+    stop_sampling()
+    return vmprof_tl_stack.get_or_make_raw()
+
+def empty_stack():
+    vmprof_tl_stack.setraw(lltype.nullptr(VMPROFSTACK))
+
+def restore_stack(x):
+    vmprof_tl_stack.setraw(x)
+    start_sampling()

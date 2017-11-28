@@ -216,20 +216,6 @@ def jit_rvmprof_code(leaving, unique_id):
         leave_code(s)
 
 #
-# stacklet support
-
-def save_rvmprof_stack():
-    vmprof_stop_sampling()
-    return vmprof_tl_stack.get_or_make_raw()
-
-def empty_rvmprof_stack():
-    vmprof_tl_stack.setraw(lltype.nullptr(VMPROFSTACK))
-
-def restore_rvmprof_stack(x):
-    vmprof_tl_stack.setraw(x)
-    vmprof_start_sampling()
-
-#
 # traceback support
 
 def get_rvmprof_stack():
