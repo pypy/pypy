@@ -168,6 +168,21 @@ class VMProf(object):
         if self.cintf.vmprof_register_virtual_function(name, uid, 500000) < 0:
             raise VMProfError("vmprof buffers full!  disk full or too slow")
 
+    def stop_sampling(self):
+        """
+        Temporarily stop the sampling of stack frames. Signals are still
+        delivered, but are ignored.
+        """
+        fd = self.cintf.vmprof_stop_sampling()
+        return rffi.cast(lltype.Signed, fd)
+
+    def start_sampling(self):
+        """
+        Undo the effect of stop_sampling
+        """
+        self.cintf.vmprof_start_sampling()
+
+
 def vmprof_execute_code(name, get_code_fn, result_class=None,
                         _hack_update_stack_untranslated=False):
     """Decorator to be used on the function that interprets a code object.
