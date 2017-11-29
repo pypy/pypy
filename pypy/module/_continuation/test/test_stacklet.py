@@ -798,6 +798,8 @@ class AppTestStacklet(BaseAppTest):
         raises(error, continulet.switch, c1, to=c2)
 
     def test_sampling_inside_callback(self):
+        if self.runappdirect:
+            skip("we can't run this until we have _vmprof.is_sampling_enabled")
         from _continuation import continulet
         #
         def my_callback(c1):
