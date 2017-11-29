@@ -799,6 +799,9 @@ class AppTestStacklet(BaseAppTest):
 
     def test_sampling_inside_callback(self):
         if self.runappdirect:
+            # see also
+            # extra_tests.test_vmprof_greenlet.test_sampling_inside_callback
+            # for a "translated" version of this test
             skip("we can't run this until we have _vmprof.is_sampling_enabled")
         from _continuation import continulet
         #
