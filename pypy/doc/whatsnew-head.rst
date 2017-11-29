@@ -25,4 +25,6 @@ Run extra_tests/ in buildbot
 Upgrade the _vmprof backend to vmprof 0.4.10
 
 .. branch: fix-vmprof-stacklet-switch
-Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)
+.. branch: fix-vmprof-stacklet-switch-2
+Fix vmprof+ continulet (i.e. greenelts, eventlet, gevent, ...)
+
