@@ -106,7 +106,7 @@ def find_msvc_env(x64flag=False):
         vcvers.insert(0, vsver)
     errs = []
     for vsver in vcvers: 
-        env, errstr = _get_msvc_env(vsver, x64flag)
+        env = _get_msvc_env(vsver, x64flag)
         if env is not None:
             return env
     log.error("Could not find a Microsoft Compiler")
