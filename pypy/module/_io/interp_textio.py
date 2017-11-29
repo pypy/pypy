@@ -353,6 +353,7 @@ class DecodeBuffer(object):
         while scanned < limit:
             try:
                 ch = self.next_char()
+                scanned += 1
             except StopIteration:
                 return False
             if ch == u'\n':
@@ -737,7 +738,7 @@ class W_TextIOWrapper(W_TextIOBase):
                     remnant = None
                     continue
 
-            if limit > 0:
+            if limit >= 0:
                 remaining = limit - builder.getlength()
                 assert remaining >= 0
             else:
