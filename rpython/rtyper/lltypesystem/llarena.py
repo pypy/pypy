@@ -332,9 +332,10 @@ def arena_mmap(nbytes):
     system, calling mmap()."""
     return arena_malloc(nbytes, True)
 
-def arena_munmap(arena_addr):
+def arena_munmap(arena_addr, nbytes):
     """Release an arena allocated with arena_mmap()."""
     arena_free(arena_addr)
+    assert nbytes == arena_addr.arena.nbytes
 
 
 def arena_reset(arena_addr, size, zero):
