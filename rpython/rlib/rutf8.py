@@ -86,8 +86,8 @@ def next_codepoint_pos(code, pos):
     """Gives the position of the next codepoint after pos.
     Assumes valid utf8.  'pos' must be before the end of the string.
     """
-    chr1 = ord(code[pos])
     assert pos >= 0
+    chr1 = ord(code[pos])
     if chr1 <= 0x7F:
         return pos + 1
     if chr1 <= 0xDF:
