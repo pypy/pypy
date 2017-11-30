@@ -558,6 +558,7 @@ register_external(arena_mmap, [int], llmemory.Address,
 
 def llimpl_arena_munmap(arena_addr, nbytes):
     from rpython.rlib import rmmap
+    assert nbytes >= 0
     rmmap.c_munmap_safe(rffi.cast(rmmap.PTR, arena_addr), nbytes)
 register_external(arena_munmap, [llmemory.Address, int], None,
                   'll_arena.arena_munmap',
