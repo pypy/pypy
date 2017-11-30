@@ -47,7 +47,7 @@ class W_ZipCache(W_Root):
     # THIS IS A TERRIBLE HACK TO BE CPYTHON COMPATIBLE
 
     def getitem(self, space, w_name):
-        return self._getitem(space, space.fsencode_w(w_name))
+        return self._getitem(space, space.text_w(w_name))
 
     def _getitem(self, space, name):
         try:
@@ -90,14 +90,14 @@ class W_ZipCache(W_Root):
     def iteritems(self, space):
         return space.iter(self.items(space))
 
-    @unwrap_spec(name='fsencode')
+    @unwrap_spec(name='text')
     def contains(self, space, name):
         return space.newbool(name in self.cache)
 
     def clear(self, space):
         self.cache = {}
 
-    @unwrap_spec(name='fsencode')
+    @unwrap_spec(name='text')
     def delitem(self, space, name):
         del self.cache[name]
 
@@ -221,7 +221,7 @@ class W_ZipImporter(W_Root):
         except KeyError:
             return False
 
-    @unwrap_spec(fullname='fsencode')
+    @unwrap_spec(fullname='text')
     def find_module(self, space, fullname, w_path=None):
         filename = self.make_filename(fullname)
         for _, _, ext in ENUMERATE_EXTS:
@@ -247,7 +247,7 @@ class W_ZipImporter(W_Root):
         return self.filename + os.path.sep + filename
 
     def load_module(self, space, w_fullname):
-        fullname = space.fsencode_w(w_fullname)
+        fullname = space.text_w(w_fullname)
         filename = self.make_filename(fullname)
         for compiled, is_package, ext in ENUMERATE_EXTS:
             fname = filename + ext
@@ -287,7 +287,7 @@ class W_ZipImporter(W_Root):
                     raise
         raise oefmt(get_error(space), "can't find module %R", w_fullname)
 
-    @unwrap_spec(filename='fsencode')
+    @unwrap_spec(filename='text')
     def get_data(self, space, filename):
         filename = self._find_relative_path(filename)
         try:
@@ -301,7 +301,7 @@ class W_ZipImporter(W_Root):
             raise zlib_error(space, e.msg)
 
     def get_code(self, space, w_fullname):
-        fullname = space.fsencode_w(w_fullname)
+        fullname = space.text_w(w_fullname)
         filename = self.make_filename(fullname)
         for compiled, _, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
@@ -325,7 +325,7 @@ class W_ZipImporter(W_Root):
                     "Cannot find source or code for %R in %R",
                     w_fullname, space.newfilename(self.name))
 
-    @unwrap_spec(fullname='fsencode')
+    @unwrap_spec(fullname='text')
     def get_source(self, space, fullname):
         filename = self.make_filename(fullname)
         found = False
@@ -348,7 +348,7 @@ class W_ZipImporter(W_Root):
                     space.newfilename(self.name))
 
     def get_filename(self, space, w_fullname):
-        fullname = space.fsencode_w(w_fullname)
+        fullname = space.text_w(w_fullname)
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
@@ -360,7 +360,7 @@ class W_ZipImporter(W_Root):
                     space.newfilename(self.name))
 
     def is_package(self, space, w_fullname):
-        fullname = space.fsencode_w(w_fullname)
+        fullname = space.text_w(w_fullname)
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
@@ -385,7 +385,7 @@ class W_ZipImporter(W_Root):
             return True, self.filename + os.path.sep + self.corr_zname(dirpath)
         return False, None
 
-    @unwrap_spec(fullname='fsencode')
+    @unwrap_spec(fullname='text')
     def find_loader(self, space, fullname, w_path=None):
         found, ns_portion = self._find_loader(space, fullname)
         if not found:
@@ -401,9 +401,9 @@ def descr_new_zipimporter(space, w_type, w_name):
     name = space.fsencode_w(w_name)
     ok = False
     parts_ends = [i for i in range(0, len(name))
-                    if name[i] == os.path.sep or name[i] == ZIPSEP]
+            if name[i] == os.path.sep or name[i] == ZIPSEP]
     parts_ends.append(len(name))
-    filename = "" # make annotator happy
+    filename = ""  # make annotator happy
     for i in parts_ends:
         filename = name[:i]
         if not filename:
