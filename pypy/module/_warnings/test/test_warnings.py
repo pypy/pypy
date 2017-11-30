@@ -65,3 +65,23 @@ class AppTestWarnings:
         _warnings.warn('test', UserWarning)
         globals()['__file__'] = None
         _warnings.warn('test', UserWarning)
+
+    def test_warn_unicode(self):
+        import _warnings, sys
+        old = sys.stderr
+        try:
+            class Grab:
+                def write(self, u):
+                    self.data.append(u)
+            sys.stderr = Grab()
+            sys.stderr.data = data = []
+            _warnings.warn_explicit("9238exbexn8", Warning,
+                                    "<string>", 1421, module_globals=globals())
+            assert isinstance(''.join(data), str)
+            _warnings.warn_explicit(u"\u1234\u5678", UserWarning,
+                                    "<str2>", 831, module_globals=globals())
+            assert isinstance(''.join(data), unicode)
+            assert ''.join(data).endswith(
+                             u'<str2>:831: UserWarning: \u1234\u5678\n')
+        finally:
+            sys.stderr = old

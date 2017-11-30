@@ -10,21 +10,13 @@ import rpython
 rpydir = str(py.path.local(rpython.__file__).join('..'))
 
 def _get_compiler_type(cc, x64_flag):
-    import subprocess
     if not cc:
         cc = os.environ.get('CC','')
     if not cc:
         return MsvcPlatform(x64=x64_flag)
     elif cc.startswith('mingw') or cc == 'gcc':
         return MingwPlatform(cc)
-    else:
-        return MsvcPlatform(cc=cc, x64=x64_flag)
-    try:
-        subprocess.check_output([cc, '--version'])
-    except:
-        raise ValueError("Could not find compiler specified by cc option '%s',"
-                         " it must be a valid exe file on your path" % cc)
-    return MingwPlatform(cc)
+    return MsvcPlatform(cc=cc, x64=x64_flag)
 
 def Windows(cc=None):
     return _get_compiler_type(cc, False)
@@ -74,6 +66,11 @@ def _get_msvc_env(vsver, x64flag):
             vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
         else:
             vcvars = os.path.join(toolsdir, 'vsvars32.bat')
+            if not os.path.exists(vcvars):
+                # even msdn does not know which to run
+                # see https://msdn.microsoft.com/en-us/library/1700bbwd(v=vs.90).aspx
+                # wich names both
+                vcvars = os.path.join(toolsdir, 'vcvars32.bat') 
 
     import subprocess
     try:
@@ -95,25 +92,21 @@ def _get_msvc_env(vsver, x64flag):
         key, value = line.split('=', 1)
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
             env[key.upper()] = value
-    ## log.msg("Updated environment with %s" % (vcvars,))
+    log.msg("Updated environment with %s" % (vcvars,))
     return env
 
 def find_msvc_env(x64flag=False):
+    vcvers = [140, 100, 90, 80, 71, 70]
     # First, try to get the compiler which served to compile python
     msc_pos = sys.version.find('MSC v.')
     if msc_pos != -1:
         msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
-        # 1300 -> 70, 1310 -> 71, 1400 -> 80, 1500 -> 90
+        # 1500 -> 90, 1900 -> 140
         vsver = (msc_ver / 10) - 60
+        vcvers.insert(0, vsver)
+    errs = []
+    for vsver in vcvers: 
         env = _get_msvc_env(vsver, x64flag)
-
-        if env is not None:
-            return env
-
-    # Then, try any other version
-    for vsver in (100, 90, 80, 71, 70): # All the versions I know
-        env = _get_msvc_env(vsver, x64flag)
-
         if env is not None:
             return env
     log.error("Could not find a Microsoft Compiler")

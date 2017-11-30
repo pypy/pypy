@@ -1,8 +1,12 @@
 import py, os, sys
+from .support import setup_make
+
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("advancedcppDict.so"))
 
+def setup_module(mod):
+    setup_make("advancedcppDict.so")
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -18,56 +22,56 @@ class AppTestADVANCEDCPP:
     def setup_class(cls):
         cls.w_test_dct = cls.space.newtext(test_dct)
         cls.w_advanced = cls.space.appexec([], """():
-            import _cppyy
-            return _cppyy.load_reflection_info(%r)""" % (test_dct, ))
+            import ctypes
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_default_arguments(self):
         """Test usage of default arguments"""
 
-        import _cppyy
+        import _cppyy as cppyy
         def test_defaulter(n, t):
-            defaulter = getattr(_cppyy.gbl, '%s_defaulter' % n)
+            defaulter = getattr(cppyy.gbl, '%s_defaulter' % n)
 
             d = defaulter()
             assert d.m_a == t(11)
             assert d.m_b == t(22)
             assert d.m_c == t(33)
-            d.destruct()
+            d.__destruct__()
 
             d = defaulter(0)
             assert d.m_a ==  t(0)
             assert d.m_b == t(22)
             assert d.m_c == t(33)
-            d.destruct()
+            d.__destruct__()
 
             d = defaulter(1, 2)
             assert d.m_a ==  t(1)
             assert d.m_b ==  t(2)
             assert d.m_c == t(33)
-            d.destruct()
+            d.__destruct__()
 
             d = defaulter(3, 4, 5)
             assert d.m_a ==  t(3)
             assert d.m_b ==  t(4)
             assert d.m_c ==  t(5)
-            d.destruct()
-        test_defaulter('short', int)
+            d.__destruct__()
+        test_defaulter('short',  int)
         test_defaulter('ushort', int)
-        test_defaulter('int', int)
-        test_defaulter('uint', int)
-        test_defaulter('long', long)
-        test_defaulter('ulong', long)
-        test_defaulter('llong', long)
+        test_defaulter('int',    int)
+        test_defaulter('uint',   int)
+        test_defaulter('long',   long)
+        test_defaulter('ulong',  long)
+        test_defaulter('llong',  long)
         test_defaulter('ullong', long)
-        test_defaulter('float', float)
+        test_defaulter('float',  float)
         test_defaulter('double', float)
 
     def test02_simple_inheritance(self):
         """Test binding of a basic inheritance structure"""
 
-        import _cppyy
-        base_class    = _cppyy.gbl.base_class
-        derived_class = _cppyy.gbl.derived_class
+        import _cppyy as cppyy
+        base_class    = cppyy.gbl.base_class
+        derived_class = cppyy.gbl.derived_class
 
         assert issubclass(derived_class, base_class)
         assert not issubclass(base_class, derived_class)
@@ -87,7 +91,7 @@ class AppTestADVANCEDCPP:
         assert b.m_db             == 11.11
         assert b.get_base_value() == 11.11
 
-        b.destruct()
+        b.__destruct__()
 
         d = derived_class()
         assert isinstance(d, derived_class)
@@ -114,13 +118,13 @@ class AppTestADVANCEDCPP:
         assert d.m_db                == 11.11
         assert d.get_base_value()    == 11.11
 
-        d.destruct()
+        d.__destruct__()
 
     def test03_namespaces(self):
         """Test access to namespaces and inner classes"""
 
-        import _cppyy
-        gbl = _cppyy.gbl
+        import _cppyy as cppyy
+        gbl = cppyy.gbl
 
         assert gbl.a_ns      is gbl.a_ns
         assert gbl.a_ns.d_ns is gbl.a_ns.d_ns
@@ -146,10 +150,10 @@ class AppTestADVANCEDCPP:
     def test03a_namespace_lookup_on_update(self):
         """Test whether namespaces can be shared across dictionaries."""
 
-        import _cppyy
-        gbl = _cppyy.gbl
+        import _cppyy as cppyy, ctypes
+        gbl = cppyy.gbl
 
-        lib2 = _cppyy.load_reflection_info("advancedcpp2Dict.so")
+        lib2 = ctypes.CDLL("./advancedcpp2Dict.so", ctypes.RTLD_GLOBAL)
 
         assert gbl.a_ns      is gbl.a_ns
         assert gbl.a_ns.d_ns is gbl.a_ns.d_ns
@@ -175,8 +179,8 @@ class AppTestADVANCEDCPP:
     def test04_template_types(self):
         """Test bindings of templated types"""
 
-        import _cppyy
-        gbl = _cppyy.gbl
+        import _cppyy as cppyy
+        gbl = cppyy.gbl
 
         assert gbl.T1 is gbl.T1
         assert gbl.T2 is gbl.T2
@@ -219,7 +223,7 @@ class AppTestADVANCEDCPP:
         t1 = gbl.T1(int)()
         assert t1.m_t1        == 1
         assert t1.get_value() == 1
-        t1.destruct()
+        t1.__destruct__()
 
         #-----
         t1 = gbl.T1(int)(11)
@@ -228,21 +232,21 @@ class AppTestADVANCEDCPP:
         t1.m_t1 = 111
         assert t1.get_value() == 111
         assert t1.m_t1        == 111
-        t1.destruct()
+        t1.__destruct__()
 
         #-----
         t2 = gbl.T2(gbl.T1(int))(gbl.T1(int)(32))
         t2.m_t2.m_t1 = 32
         assert t2.m_t2.get_value() == 32
         assert t2.m_t2.m_t1        == 32
-        t2.destruct()
+        t2.__destruct__()
 
 
     def test05_abstract_classes(self):
         """Test non-instatiatability of abstract classes"""
 
-        import _cppyy
-        gbl = _cppyy.gbl
+        import _cppyy as cppyy
+        gbl = cppyy.gbl
 
         raises(TypeError, gbl.a_class)
         raises(TypeError, gbl.some_abstract_class)
@@ -256,12 +260,12 @@ class AppTestADVANCEDCPP:
     def test06_datamembers(self):
         """Test data member access when using virtual inheritence"""
 
-        import _cppyy
-        a_class   = _cppyy.gbl.a_class
-        b_class   = _cppyy.gbl.b_class
-        c_class_1 = _cppyy.gbl.c_class_1
-        c_class_2 = _cppyy.gbl.c_class_2
-        d_class   = _cppyy.gbl.d_class
+        import _cppyy as cppyy
+        a_class   = cppyy.gbl.a_class
+        b_class   = cppyy.gbl.b_class
+        c_class_1 = cppyy.gbl.c_class_1
+        c_class_2 = cppyy.gbl.c_class_2
+        d_class   = cppyy.gbl.d_class
 
         assert issubclass(b_class, a_class)
         assert issubclass(c_class_1, a_class)
@@ -296,7 +300,7 @@ class AppTestADVANCEDCPP:
         b.m_db = 22.22
         assert b.m_db         == 22.22
 
-        b.destruct()
+        b.__destruct__()
 
         #-----
         c1 = c_class_1()
@@ -317,7 +321,7 @@ class AppTestADVANCEDCPP:
         assert c1.m_c         == 33
         assert c1.get_value() == 33
 
-        c1.destruct()
+        c1.__destruct__()
 
         #-----
         d = d_class()
@@ -345,13 +349,13 @@ class AppTestADVANCEDCPP:
         assert d.m_d          == 44
         assert d.get_value()  == 44
 
-        d.destruct()
+        d.__destruct__()
 
     def test07_pass_by_reference(self):
         """Test reference passing when using virtual inheritance"""
 
-        import _cppyy
-        gbl = _cppyy.gbl
+        import _cppyy as cppyy
+        gbl = cppyy.gbl
         b_class = gbl.b_class
         c_class = gbl.c_class_2
         d_class = gbl.d_class
@@ -361,7 +365,7 @@ class AppTestADVANCEDCPP:
         b.m_a, b.m_b = 11, 22
         assert gbl.get_a(b) == 11
         assert gbl.get_b(b) == 22
-        b.destruct()
+        b.__destruct__()
 
         #-----
         c = c_class()
@@ -369,7 +373,7 @@ class AppTestADVANCEDCPP:
         assert gbl.get_a(c) == 11
         assert gbl.get_b(c) == 22
         assert gbl.get_c(c) == 33
-        c.destruct()
+        c.__destruct__()
 
         #-----
         d = d_class()
@@ -378,76 +382,80 @@ class AppTestADVANCEDCPP:
         assert gbl.get_b(d) == 22
         assert gbl.get_c(d) == 33
         assert gbl.get_d(d) == 44
-        d.destruct()
+        d.__destruct__()
 
     def test08_void_pointer_passing(self):
         """Test passing of variants of void pointer arguments"""
 
-        import _cppyy
-        pointer_pass        = _cppyy.gbl.pointer_pass
-        some_concrete_class = _cppyy.gbl.some_concrete_class
+        import _cppyy as cppyy
+        pointer_pass        = cppyy.gbl.pointer_pass
+        some_concrete_class = cppyy.gbl.some_concrete_class
 
         pp = pointer_pass()
         o = some_concrete_class()
 
-        assert _cppyy.addressof(o) == pp.gime_address_ptr(o)
-        assert _cppyy.addressof(o) == pp.gime_address_ptr_ptr(o)
-        assert _cppyy.addressof(o) == pp.gime_address_ptr_ref(o)
+        assert cppyy.addressof(o) == pp.gime_address_ptr(o)
+        assert cppyy.addressof(o) == pp.gime_address_ptr_ptr(o)
+        assert cppyy.addressof(o) == pp.gime_address_ptr_ref(o)
 
         import array
-        addressofo = array.array('l', [_cppyy.addressof(o)])
-        assert addressofo.buffer_info()[0] == pp.gime_address_ptr_ptr(addressofo)
+        addressofo = array.array('l', [cppyy.addressof(o)])
+        assert addressofo[0] == pp.gime_address_ptr_ptr(addressofo)
 
         assert 0 == pp.gime_address_ptr(0)
-        assert 0 == pp.gime_address_ptr(None)
+        raises(TypeError, pp.gime_address_ptr, None)
 
-        ptr = _cppyy.bind_object(0, some_concrete_class)
-        assert _cppyy.addressof(ptr) == 0
+        ptr = cppyy.bind_object(0, some_concrete_class)
+        assert cppyy.addressof(ptr) == 0
         pp.set_address_ptr_ref(ptr)
-        assert _cppyy.addressof(ptr) == 0x1234
+        assert cppyy.addressof(ptr) == 0x1234
         pp.set_address_ptr_ptr(ptr)
-        assert _cppyy.addressof(ptr) == 0x4321
+        assert cppyy.addressof(ptr) == 0x4321
+
+        assert cppyy.addressof(cppyy.nullptr) == 0
+        raises(TypeError, cppyy.addressof, None)
+        assert cppyy.addressof(0)             == 0
 
     def test09_opaque_pointer_passing(self):
         """Test passing around of opaque pointers"""
 
-        import _cppyy
-        some_concrete_class = _cppyy.gbl.some_concrete_class
+        import _cppyy as cppyy
+        some_concrete_class = cppyy.gbl.some_concrete_class
 
         o = some_concrete_class()
 
         # TODO: figure out the PyPy equivalent of CObject (may have to do this
         # through the C-API from C++)
 
-        #cobj = _cppyy.as_cobject(o)
-        addr = _cppyy.addressof(o)
+        #cobj = cppyy.as_cobject(o)
+        addr = cppyy.addressof(o)
 
-        #assert o == _cppyy.bind_object(cobj, some_concrete_class)
-        #assert o == _cppyy.bind_object(cobj, type(o))
-        #assert o == _cppyy.bind_object(cobj, o.__class__)
-        #assert o == _cppyy.bind_object(cobj, "some_concrete_class")
-        assert _cppyy.addressof(o) == _cppyy.addressof(_cppyy.bind_object(addr, some_concrete_class))
-        assert o == _cppyy.bind_object(addr, some_concrete_class)
-        assert o == _cppyy.bind_object(addr, type(o))
-        assert o == _cppyy.bind_object(addr, o.__class__)
-        assert o == _cppyy.bind_object(addr, "some_concrete_class")
-        raises(TypeError, _cppyy.bind_object, addr, "does_not_exist")
-        raises(TypeError, _cppyy.bind_object, addr, 1)
+        #assert o == cppyy.bind_object(cobj, some_concrete_class)
+        #assert o == cppyy.bind_object(cobj, type(o))
+        #assert o == cppyy.bind_object(cobj, o.__class__)
+        #assert o == cppyy.bind_object(cobj, "some_concrete_class")
+        assert cppyy.addressof(o) == cppyy.addressof(cppyy.bind_object(addr, some_concrete_class))
+        assert o == cppyy.bind_object(addr, some_concrete_class)
+        assert o == cppyy.bind_object(addr, type(o))
+        assert o == cppyy.bind_object(addr, o.__class__)
+        assert o == cppyy.bind_object(addr, "some_concrete_class")
+        raises(TypeError, cppyy.bind_object, addr, "does_not_exist")
+        raises(TypeError, cppyy.bind_object, addr, 1)
 
     def test10_object_identity(self):
         """Test object identity"""
 
-        import _cppyy
-        some_concrete_class  = _cppyy.gbl.some_concrete_class
-        some_class_with_data = _cppyy.gbl.some_class_with_data
+        import _cppyy as cppyy
+        some_concrete_class  = cppyy.gbl.some_concrete_class
+        some_class_with_data = cppyy.gbl.some_class_with_data
 
         o = some_concrete_class()
-        addr = _cppyy.addressof(o)
+        addr = cppyy.addressof(o)
 
-        o2 = _cppyy.bind_object(addr, some_concrete_class)
+        o2 = cppyy.bind_object(addr, some_concrete_class)
         assert o is o2
 
-        o3 = _cppyy.bind_object(addr, some_class_with_data)
+        o3 = cppyy.bind_object(addr, some_class_with_data)
         assert not o is o3
 
         d1 = some_class_with_data()
@@ -462,19 +470,19 @@ class AppTestADVANCEDCPP:
         assert not dd1a is dd2
         assert not dd1b is dd2
 
-        d2.destruct()
-        d1.destruct()
+        d2.__destruct__()
+        d1.__destruct__()
 
     def test11_multi_methods(self):
         """Test calling of methods from multiple inheritance"""
 
-        import _cppyy
-        multi = _cppyy.gbl.multi
+        import _cppyy as cppyy
+        multi = cppyy.gbl.multi
 
-        assert _cppyy.gbl.multi1 is multi.__bases__[0]
-        assert _cppyy.gbl.multi2 is multi.__bases__[1]
+        assert cppyy.gbl.multi1 is multi.__bases__[0]
+        assert cppyy.gbl.multi2 is multi.__bases__[1]
 
-        dict_keys = multi.__dict__.keys()
+        dict_keys = list(multi.__dict__.keys())
         assert dict_keys.count('get_my_own_int') == 1
         assert dict_keys.count('get_multi1_int') == 0
         assert dict_keys.count('get_multi2_int') == 0
@@ -487,9 +495,9 @@ class AppTestADVANCEDCPP:
     def test12_actual_type(self):
         """Test that a pointer to base return does an auto-downcast"""
 
-        import _cppyy
-        base_class = _cppyy.gbl.base_class
-        derived_class = _cppyy.gbl.derived_class
+        import _cppyy as cppyy
+        base_class = cppyy.gbl.base_class
+        derived_class = cppyy.gbl.derived_class
 
         b = base_class()
         d = derived_class()
@@ -516,85 +524,70 @@ class AppTestADVANCEDCPP:
         assert not isinstance(voidp, base_class)
         assert not isinstance(voidp, derived_class)
 
-        d1 = _cppyy.bind_object(voidp, base_class, cast=True)
+        d1 = cppyy.bind_object(voidp, base_class, cast=True)
         assert isinstance(d1, derived_class)
         assert d1 is d
 
-        b1 = _cppyy.bind_object(voidp, base_class)
+        b1 = cppyy.bind_object(voidp, base_class)
         assert isinstance(b1, base_class)
-        assert _cppyy.addressof(b1) == _cppyy.addressof(d)
+        assert cppyy.addressof(b1) == cppyy.addressof(d)
         assert not (b1 is d)
 
     def test13_actual_type_virtual_multi(self):
         """Test auto-downcast in adverse inheritance situation"""
 
-        import _cppyy
+        import _cppyy as cppyy
 
-        c1 = _cppyy.gbl.create_c1()
-        assert type(c1) == _cppyy.gbl.c_class_1
+        c1 = cppyy.gbl.create_c1()
+        assert type(c1) == cppyy.gbl.c_class_1
         assert c1.m_c == 3
-        c1.destruct()
+        c1.__destruct__()
 
-        c2 = _cppyy.gbl.create_c2()
-        assert type(c2) == _cppyy.gbl.c_class_2
+        c2 = cppyy.gbl.create_c2()
+        assert type(c2) == cppyy.gbl.c_class_2
         assert c2.m_c == 3
-        c2.destruct()
+        c2.__destruct__()
 
     def test14_new_overloader(self):
         """Verify that class-level overloaded new/delete are called"""
 
-        import _cppyy
+        import _cppyy as cppyy
 
-        assert _cppyy.gbl.new_overloader.s_instances == 0
-        nl = _cppyy.gbl.new_overloader()
-        assert _cppyy.gbl.new_overloader.s_instances == 1
-        nl.destruct()
+        assert cppyy.gbl.new_overloader.s_instances == 0
+        nl = cppyy.gbl.new_overloader()
+        assert cppyy.gbl.new_overloader.s_instances == 1
+        nl.__destruct__()
 
         import gc
         gc.collect()
-        assert _cppyy.gbl.new_overloader.s_instances == 0
+        assert cppyy.gbl.new_overloader.s_instances == 0
 
     def test15_template_instantiation_with_vector_of_float(self):
         """Test template instantiation with a std::vector<float>"""
 
-        import _cppyy
+        import _cppyy as cppyy
 
         # the following will simply fail if there is a naming problem (e.g.
         # std::, allocator<int>, etc., etc.); note the parsing required ...
-        b = _cppyy.gbl.my_templated_class(_cppyy.gbl.std.vector(float))()
+        b = cppyy.gbl.my_templated_class(cppyy.gbl.std.vector(float))()
 
         for i in range(5):
             b.m_b.push_back(i)
             assert round(b.m_b[i], 5) == float(i)
 
-    def test16_template_member_functions(self):
-        """Test template member functions lookup and calls"""
-
-        import _cppyy
-
-        m = _cppyy.gbl.my_templated_method_class()
-
-        assert m.get_size('char')()   == m.get_char_size()
-        assert m.get_size(int)()      == m.get_int_size()
-        assert m.get_size(long)()     == m.get_long_size()
-        assert m.get_size(float)()    == m.get_float_size()
-        assert m.get_size('double')() == m.get_double_size()
-        assert m.get_size('my_templated_method_class')() == m.get_self_size()
-        assert m.get_size('my_typedef_t')() == m.get_self_size()
-
-    def test17_template_global_functions(self):
+    def test16_template_global_functions(self):
         """Test template global function lookup and calls"""
 
-        import _cppyy
+        import _cppyy as cppyy
 
-        f = _cppyy.gbl.my_templated_function
+        f = cppyy.gbl.my_templated_function
 
         assert f('c') == 'c'
         assert type(f('c')) == type('c')
         assert f(3.) == 3.
         assert type(f(4.)) == type(4.)
 
-    def test18_assign_to_return_byref( self ):
+    def test17_assign_to_return_byref( self ):
         """Test assignment to an instance returned by reference"""
 
         from _cppyy import gbl
@@ -610,7 +603,7 @@ class AppTestADVANCEDCPP:
         # assert len(a) == 1
         # assert a[0].m_i == 33
 
-    def test19_math_converters(self):
+    def test18_math_converters(self):
         """Test operator int/long/double incl. typedef"""
 
         from _cppyy import gbl
@@ -619,14 +612,14 @@ class AppTestADVANCEDCPP:
         a.m_i = 1234
         a.m_d = 4321.
 
-        assert int(a)  == 1234
-        assert int(a)  == a.m_i
-        assert long(a) == a.m_i
+        assert int(a)    == 1234
+        assert int(a)    == a.m_i
+        assert long(a)   == a.m_i
 
-        assert float(a) == 4321.
-        assert float(a) == a.m_d
+        assert float(a)  == 4321.
+        assert float(a)  == a.m_d
 
-    def test20_comparator(self):
+    def test19_comparator(self):
         """Check that the global operator!=/== is picked up"""
 
         from _cppyy import gbl
@@ -644,21 +637,22 @@ class AppTestADVANCEDCPP:
         assert a.__eq__(a) == False
         assert b.__eq__(b) == False
 
-    def test21_overload_order_with_proper_return(self):
+    def test20_overload_order_with_proper_return(self):
         """Test return type against proper overload w/ const and covariance"""
 
-        import _cppyy
+        import _cppyy as cppyy
 
-        assert _cppyy.gbl.overload_one_way().gime() == 1
-        assert _cppyy.gbl.overload_the_other_way().gime() == "aap"
+        assert cppyy.gbl.overload_one_way().gime() == 1
+        assert cppyy.gbl.overload_the_other_way().gime() == "aap"
 
-    def test22_access_to_global_variables(self):
+    def test21_access_to_global_variables(self):
         """Access global_variables_and_pointers"""
 
-        import _cppyy
+        import _cppyy as cppyy
 
-        assert _cppyy.gbl.my_global_double == 12.
-        assert len(_cppyy.gbl.my_global_array) == 500
+        assert cppyy.gbl.my_global_double == 12.
+        assert len(cppyy.gbl.my_global_array) == 500
+        assert cppyy.gbl.my_global_string == "aap  noot  mies"
         # TODO: currently fails b/c double** not understood as &double*
-        #assert _cppyy.gbl.my_global_ptr[0] == 1234.
+        #assert cppyy.gbl.my_global_ptr[0] == 1234.
 

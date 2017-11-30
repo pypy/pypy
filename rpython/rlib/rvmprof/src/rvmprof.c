@@ -12,6 +12,7 @@
 #endif
 
 
+#include "vmprof_common.h"
 
 #include "shared/vmprof_get_custom_offset.h"
 #ifdef VMPROF_UNIX
@@ -30,7 +31,7 @@ int IS_VMPROF_EVAL(void * ptr)
 }
 #endif
 
-long vmprof_get_profile_path(const char * buffer, long size)
+long vmprof_get_profile_path(char * buffer, long size)
 {
     return vmp_fd_to_path(vmp_profile_fileno(), buffer, size);
 }

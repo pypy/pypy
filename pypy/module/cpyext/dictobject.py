@@ -258,14 +258,19 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     if w_dict is None:
         return 0
     if not space.isinstance_w(w_dict, space.w_dict):
-        return 0 
+        return 0
     pos = ppos[0]
     py_obj = as_pyobj(space, w_dict)
     py_dict = rffi.cast(PyDictObject, py_obj)
     if pos == 0:
         # Store the current keys in the PyDictObject.
+        from pypy.objspace.std.listobject import W_ListObject
         decref(space, py_dict.c__tmpkeys)
         w_keys = space.call_method(space.w_dict, "keys", w_dict)
+        # w_keys must use the object strategy in order to keep the keys alive
+        if not isinstance(w_keys, W_ListObject):
+            return 0     # XXX should not call keys() above
+        w_keys.switch_to_object_strategy()
         py_dict.c__tmpkeys = create_ref(space, w_keys)
         Py_IncRef(space, py_dict.c__tmpkeys)
     else:
@@ -278,10 +283,10 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         decref(space, py_dict.c__tmpkeys)
         py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
         return 0
-    w_key = space.listview(w_keys)[pos]
+    w_key = space.listview(w_keys)[pos]  # fast iff w_keys uses object strat
     w_value = space.getitem(w_dict, w_key)
     if pkey:
-        pkey[0]   = as_pyobj(space, w_key)
+        pkey[0] = as_pyobj(space, w_key)
     if pvalue:
         pvalue[0] = as_pyobj(space, w_value)
     return 1

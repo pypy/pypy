@@ -293,7 +293,7 @@ class ArenaCollection(object):
         #
         # 'arena_base' points to the start of malloced memory; it might not
         # be a page-aligned address
-        arena_base = llarena.arena_malloc(self.arena_size, False)
+        arena_base = llarena.arena_mmap(self.arena_size)
         self.total_memory_alloced += self.arena_size
         if not arena_base:
             out_of_memory("out of memory: couldn't allocate the next arena")
@@ -397,8 +397,7 @@ class ArenaCollection(object):
                 if arena.nfreepages == arena.totalpages:
                     #
                     # The whole arena is empty.  Free it.
-                    llarena.arena_reset(arena.base, self.arena_size, 4)
-                    llarena.arena_free(arena.base)
+                    llarena.arena_munmap(arena.base, self.arena_size)
                     self.total_memory_alloced -= self.arena_size
                     lltype.free(arena, flavor='raw', track_allocation=False)
                     #

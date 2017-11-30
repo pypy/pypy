@@ -59,7 +59,7 @@ class AppTestPyexpat:
                 p.CharacterDataHandler = lambda s: data.append(s)
                 encoding = encoding_arg is None and 'utf-8' or encoding_arg
 
-                res = p.Parse(u"<xml>\u00f6</xml>".encode(encoding), isfinal=True)
+                res = p.Parse(u"<xml>\u00f6</xml>".encode(encoding), True)
                 assert res == 1
                 assert data == [u"\u00f6"]
 
@@ -187,6 +187,34 @@ class AppTestPyexpat:
             p = pyexpat.ParserCreate()
             p.ParseFile(fake_reader)
             assert fake_reader.read_count == 4
+
+    def test_entities(self):
+        import pyexpat
+        parser = pyexpat.ParserCreate(None, "")
+
+        def startElement(tag, attrs):
+            assert tag == 'http://www.w3.org/1999/02/22-rdf-syntax-ns#RDF'
+            assert attrs == {
+                'http://www.w3.org/XML/1998/namespacebase':
+                'http://www.semanticweb.org/jiba/ontologies/2017/0/test'}
+        parser.StartElementHandler = startElement
+        parser.Parse("""<?xml version="1.0"?>
+
+        <!DOCTYPE rdf:RDF [
+        <!ENTITY owl "http://www.w3.org/2002/07/owl#" >
+        <!ENTITY xsd "http://www.w3.org/2001/XMLSchema#" >
+        <!ENTITY rdfs "http://www.w3.org/2000/01/rdf-schema#" >
+        <!ENTITY rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#" >
+        ]>
+
+        <rdf:RDF xmlns="http://www.semanticweb.org/jiba/ontologies/2017/0/test#"
+          xml:base="http://www.semanticweb.org/jiba/ontologies/2017/0/test"
+          xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+          xmlns:owl="http://www.w3.org/2002/07/owl#"
+          xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+          xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        </rdf:RDF>
+        """, True)
 
 class AppTestPyexpat2:
     spaceconfig = dict(usemodules=['pyexpat', 'itertools', '_socket',

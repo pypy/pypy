@@ -19,14 +19,15 @@ extern "C" {
     RPY_EXTERN
     int cppyy_num_scopes(cppyy_scope_t parent);
     RPY_EXTERN
-    char* cppyy_scope_name(cppyy_scope_t parent, int iscope);
-
+    char* cppyy_scope_name(cppyy_scope_t parent, cppyy_index_t iscope);
     RPY_EXTERN
     char* cppyy_resolve_name(const char* cppitem_name);
     RPY_EXTERN
     cppyy_scope_t cppyy_get_scope(const char* scope_name);
     RPY_EXTERN
     cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj);
+    RPY_EXTERN
+    size_t cppyy_size_of(cppyy_type_t klass);
 
     /* memory management ------------------------------------------------------ */
     RPY_EXTERN
@@ -120,6 +121,8 @@ extern "C" {
     RPY_EXTERN
     char* cppyy_method_name(cppyy_scope_t scope, cppyy_index_t idx);
     RPY_EXTERN
+    char* cppyy_method_mangled_name(cppyy_scope_t scope, cppyy_index_t idx);
+    RPY_EXTERN
     char* cppyy_method_result_type(cppyy_scope_t scope, cppyy_index_t idx);
     RPY_EXTERN
     int cppyy_method_num_args(cppyy_scope_t scope, cppyy_index_t idx);
@@ -130,7 +133,9 @@ extern "C" {
     RPY_EXTERN
     char* cppyy_method_arg_default(cppyy_scope_t scope, cppyy_index_t idx, int arg_index);
     RPY_EXTERN
-    char* cppyy_method_signature(cppyy_scope_t scope, cppyy_index_t idx);
+    char* cppyy_method_signature(cppyy_scope_t scope, cppyy_index_t idx, int show_formalargs);
+    RPY_EXTERN
+    char* cppyy_method_prototype(cppyy_scope_t scope, cppyy_index_t idx, int show_formalargs);
 
     RPY_EXTERN
     int cppyy_method_is_template(cppyy_scope_t scope, cppyy_index_t idx);
@@ -147,7 +152,11 @@ extern "C" {
 
     /* method properties ------------------------------------------------------ */
     RPY_EXTERN
+    int cppyy_is_publicmethod(cppyy_type_t type, cppyy_index_t idx);
+    RPY_EXTERN
     int cppyy_is_constructor(cppyy_type_t type, cppyy_index_t idx);
+    RPY_EXTERN
+    int cppyy_is_destructor(cppyy_type_t type, cppyy_index_t idx);
     RPY_EXTERN
     int cppyy_is_staticmethod(cppyy_type_t type, cppyy_index_t idx);
 

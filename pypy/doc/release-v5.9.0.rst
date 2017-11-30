@@ -10,18 +10,24 @@ the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
 
-Only a handful of failing tests remain in NumPy and Pandas on PyPy2.7, issues
-that appeared as excessive memory use were cleared up and other incompatibilities
-were resolved.
+NumPy and Pandas now work on PyPy2.7 (together with Cython 0.27.1). Issues
+that appeared as excessive memory
+use were cleared up and other incompatibilities were resolved. The C-API
+compatibility layer does slow down code which crosses the python-c interface
+often, we have ideas on how it could be improved, and still recommend
+using pure python on PyPy or interfacing via CFFI_. Many other modules
+based on C-API exentions now work on PyPy as well.
 
-Cython 0.27 (released last week) should support more projects with PyPy, both
-on PyPy2.7 and PyPy3.5 beta.
+Cython 0.27.1 (released very recently) supports more projects with PyPy, both
+on PyPy2.7 and PyPy3.5 beta. Note version **0.27.1** is now the minimum
+version that supports this version of PyPy, due to some interactions with
+updated C-API interface code.
 
 We optimized the JSON parser for recurring string keys, which should decrease
 memory use to 50% and increase parsing speed by up to 15% for large JSON files
 with many repeating dictionary keys (which is quite common).
 
-CFFI_, which is part of the PyPy release, has been updated to 1.11,
+CFFI_, which is part of the PyPy release, has been updated to 1.11.1,
 improving an already great package for interfacing with C. CFFI now supports
 complex arguments in API mode, as well as ``char16_t`` and ``char32_t`` and has
 improved support for callbacks.
@@ -145,6 +151,7 @@ Note that these are also merged into PyPy 3.5
   * Issue 2590_: fix the bounds in the GC when allocating a lot of objects with finalizers
   * Replace magical NOT RPYTHON comment with a decorator
   * Implement ``socket.sendmsg()``/``.recvmsg()`` for py3.5
+  * Add ``memory_pressure`` for ``_SSLSocket`` objects
 
 * Degredations
 
@@ -163,7 +170,8 @@ Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
 
   * Add support for ``_PyNamespace_New``, ``PyMemoryView_FromMemory``, 
     ``Py_EnterRecursiveCall`` raising RecursionError, ``PyObject_LengthHint``,
-    ``PyUnicode_FromKindAndData``, ``PyDict_SetDefault``, ``PyGenObject``
+    ``PyUnicode_FromKindAndData``, ``PyDict_SetDefault``, ``PyGenObject``,
+    ``PyGenObject``, ``PyUnicode_Substring``, ``PyLong_FromUnicodeObject``
   * Implement ``PyType_FromSpec`` (PEP 384) and fix issues with PEP 489 support
   * Support the new version of ``os.stat()`` on win32
   * Use ``stat3()`` on Posix

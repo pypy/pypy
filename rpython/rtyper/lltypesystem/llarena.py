@@ -327,6 +327,17 @@ def arena_free(arena_addr):
     assert not arena_addr.arena.objectptrs
     arena_addr.arena.mark_freed()
 
+def arena_mmap(nbytes):
+    """Allocate and return a new arena, zero-initialized by the
+    system, calling mmap()."""
+    return arena_malloc(nbytes, True)
+
+def arena_munmap(arena_addr, nbytes):
+    """Release an arena allocated with arena_mmap()."""
+    arena_free(arena_addr)
+    assert nbytes == arena_addr.arena.nbytes
+
+
 def arena_reset(arena_addr, size, zero):
     """Free all objects in the arena, which can then be reused.
     This can also be used on a subrange of the arena.
@@ -528,6 +539,31 @@ register_external(arena_malloc, [int, int], llmemory.Address,
 register_external(arena_free, [llmemory.Address], None, 'll_arena.arena_free',
                   llimpl=llimpl_free,
                   llfakeimpl=arena_free,
+                  sandboxsafe=True)
+
+def llimpl_arena_mmap(nbytes):
+    from rpython.rlib import rmmap
+    flags = rmmap.MAP_PRIVATE | rmmap.MAP_ANONYMOUS
+    prot = rmmap.PROT_READ | rmmap.PROT_WRITE
+    p = rffi.cast(llmemory.Address, rmmap.c_mmap_safe(
+        lltype.nullptr(rmmap.PTR.TO), nbytes, prot, flags, -1, 0))
+    if p == rffi.cast(llmemory.Address, -1):
+        p = rffi.cast(llmemory.Address, 0)
+    return p
+register_external(arena_mmap, [int], llmemory.Address,
+                  'll_arena.arena_mmap',
+                  llimpl=llimpl_arena_mmap,
+                  llfakeimpl=arena_mmap,
+                  sandboxsafe=True)
+
+def llimpl_arena_munmap(arena_addr, nbytes):
+    from rpython.rlib import rmmap
+    assert nbytes >= 0
+    rmmap.c_munmap_safe(rffi.cast(rmmap.PTR, arena_addr), nbytes)
+register_external(arena_munmap, [llmemory.Address, int], None,
+                  'll_arena.arena_munmap',
+                  llimpl=llimpl_arena_munmap,
+                  llfakeimpl=arena_munmap,
                   sandboxsafe=True)
 
 def llimpl_arena_reset(arena_addr, size, zero):
