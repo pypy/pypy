@@ -729,7 +729,7 @@ def run_command_line(interactive,
                     SourceFileLoader, SourcelessFileLoader)
             if IS_WINDOWS:
                 filename = filename.lower()
-            if filename.endswith('.pyc') or filename.endswith('.pyo'):
+            if filename.endswith('.pyc'):
                 # We don't actually load via SourcelessFileLoader
                 # because '__main__' must not be listed inside
                 # 'importlib._bootstrap._module_locks' (it deadlocks

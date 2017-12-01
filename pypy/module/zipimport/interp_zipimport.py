@@ -18,10 +18,8 @@ ZIPSEP = '/'
 
 ENUMERATE_EXTS = unrolling_iterable(
     [(True, True, ZIPSEP + '__init__.pyc'),
-     (True, True, ZIPSEP + '__init__.pyo'),
      (False, True, ZIPSEP + '__init__.py'),
      (True, False, '.pyc'),
-     (True, False, '.pyo'),
      (False, False, '.py')])
 
 class Cache:

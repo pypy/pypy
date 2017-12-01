@@ -85,7 +85,7 @@ class AppTestImpModule:
                 assert suffix == '.py'
                 assert mode == 'r'
             elif type == imp.PY_COMPILED:
-                assert suffix in ('.pyc', '.pyo')
+                assert suffix == '.pyc'
                 assert mode == 'rb'
             elif type == imp.C_EXTENSION:
                 assert suffix.endswith(('.pyd', '.so'))

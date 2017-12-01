@@ -27,7 +27,7 @@ def get_magic(space):
 
 def get_tag(space):
     """get_tag() -> string
-    Return the magic tag for .pyc or .pyo files."""
+    Return the magic tag for .pyc files."""
     return space.newtext(importing.PYC_TAG)
 
 def get_file(space, w_file, filename, filemode):
