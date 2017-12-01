@@ -394,10 +394,19 @@ def get_file():
         assert z.get_code('ä')
         raises(ImportError, z.get_code, 'xx')
         mod = z.load_module('ä')
+        #assert z.load_module('ä') is mod
         assert z.get_filename('ä') == mod.__file__
         raises(ImportError, z.load_module, 'xx')
         raises(ImportError, z.get_filename, 'xx')
         assert z.archive == self.zipfile
+        # PyPy fix: check null byte behavior:
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(ImportError, z.is_package, 'ä\0 b')
+            raises(ImportError, z.get_source, 'ä\0 b')
+            raises(ImportError, z.get_code, 'ä\0 b')
+            raises(ImportError, z.load_module, 'ä\0 b')
+            raises(ImportError, z.get_filename, 'ä\0 b')
 
     def test_co_filename(self):
         self.writefile('mymodule.py', """
