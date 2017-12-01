@@ -83,6 +83,9 @@ class Error(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+class EndOfString(Exception):
+    pass
+
 class AbstractMatchContext(object):
     """Abstract base class"""
     _immutable_fields_ = ['pattern[*]', 'flags', 'end']
@@ -135,8 +138,12 @@ class AbstractMatchContext(object):
         """Similar to str()."""
         raise NotImplementedError
 
+    def debug_check_pos(self, pos):
+        pass
+
     def get_mark(self, gid):
-        return find_mark(self.match_marks, gid)
+        mark = find_mark(self.match_marks, gid)
+        return self.slowly_convert_byte_pos_to_index(mark)
 
     def flatten_marks(self):
         # for testing
@@ -317,7 +324,7 @@ class RepeatOneMatchResult(MatchResult):
             ctx.jitdriver_RepeatOne.jit_merge_point(
                 self=self, ptr=ptr, ctx=ctx, nextppos=nextppos)
             result = sre_match(ctx, nextppos, ptr, self.start_marks)
-            ptr -= 1
+            ptr = ctx.prev_or_minus1(ptr)
             if result is not None:
                 self.subresult = result
                 self.start_ptr = ptr
@@ -331,28 +338,31 @@ class MinRepeatOneMatchResult(MatchResult):
                       reds=['ptr', 'self', 'ctx'],
                       debugprint=(2, 0))   # indices in 'greens'
 
-    def __init__(self, nextppos, ppos3, maxptr, ptr, marks):
+    def __init__(self, nextppos, ppos3, max_count, ptr, marks):
         self.nextppos = nextppos
         self.ppos3 = ppos3
-        self.maxptr = maxptr
+        self.max_count = max_count
         self.start_ptr = ptr
         self.start_marks = marks
 
     def find_first_result(self, ctx):
         ptr = self.start_ptr
         nextppos = self.nextppos
+        max_count = self.max_count
         ppos3 = self.ppos3
-        while ptr <= self.maxptr:
+        while max_count >= 0:
             ctx.jitdriver_MinRepeatOne.jit_merge_point(
                 self=self, ptr=ptr, ctx=ctx, nextppos=nextppos, ppos3=ppos3)
             result = sre_match(ctx, nextppos, ptr, self.start_marks)
             if result is not None:
                 self.subresult = result
                 self.start_ptr = ptr
+                self.max_count = max_count
                 return self
             if not self.next_char_ok(ctx, ptr, ppos3):
                 break
-            ptr += 1
+            ptr = ctx.next(ptr)
+            max_count -= 1
 
     def find_next_result(self, ctx):
         ptr = self.start_ptr
@@ -520,6 +530,7 @@ def sre_match(ctx, ppos, ptr, marks):
     need all results; in that case we use the method move_to_next_result()
     of the MatchResult."""
     while True:
+        ctx.debug_check_pos(ptr)
         op = ctx.pat(ppos)
         ppos += 1
 
@@ -551,22 +562,25 @@ def sre_match(ctx, ppos, ptr, marks):
             # <ANY>
             if ptr >= ctx.end or rsre_char.is_linebreak(ctx.str(ptr)):
                 return
-            ptr += 1
+            ptr = ctx.next(ptr)
 
         elif op == OPCODE_ANY_ALL:
             # match anything
             # <ANY_ALL>
             if ptr >= ctx.end:
                 return
-            ptr += 1
+            ptr = ctx.next(ptr)
 
         elif op == OPCODE_ASSERT:
             # assert subpattern
             # <ASSERT> <0=skip> <1=back> <pattern>
-            ptr1 = ptr - ctx.pat(ppos+1)
+            try:
+                ptr1 = ctx.prev_n(ptr, ctx.pat(ppos+1), ctx.ZERO)
+            except EndOfString:
+                return
             saved = ctx.fullmatch_only
             ctx.fullmatch_only = False
-            stop = ptr1 < 0 or sre_match(ctx, ppos + 2, ptr1, marks) is None
+            stop = sre_match(ctx, ppos + 2, ptr1, marks) is None
             ctx.fullmatch_only = saved
             if stop:
                 return
@@ -576,14 +590,17 @@ def sre_match(ctx, ppos, ptr, marks):
         elif op == OPCODE_ASSERT_NOT:
             # assert not subpattern
             # <ASSERT_NOT> <0=skip> <1=back> <pattern>
-            ptr1 = ptr - ctx.pat(ppos+1)
-            saved = ctx.fullmatch_only
-            ctx.fullmatch_only = False
-            stop = (ptr1 >= 0 and sre_match(ctx, ppos + 2, ptr1, marks)
-                                      is not None)
-            ctx.fullmatch_only = saved
-            if stop:
-                return
+            try:
+                ptr1 = ctx.prev_n(ptr, ctx.pat(ppos+1), ctx.ZERO)
+            except EndOfString:
+                pass
+            else:
+                saved = ctx.fullmatch_only
+                ctx.fullmatch_only = False
+                stop = sre_match(ctx, ppos + 2, ptr1, marks) is not None
+                ctx.fullmatch_only = saved
+                if stop:
+                    return
             ppos += ctx.pat(ppos)
 
         elif op == OPCODE_AT:
@@ -661,7 +678,7 @@ def sre_match(ctx, ppos, ptr, marks):
         elif op == OPCODE_INFO:
             # optimization info block
             # <INFO> <0=skip> <1=flags> <2=min> ...
-            if (ctx.end - ptr) < ctx.pat(ppos+2):
+            if ctx.maximum_distance(ptr, ctx.end) < ctx.pat(ppos+2):
                 return
             ppos += ctx.pat(ppos)
 
@@ -674,7 +691,7 @@ def sre_match(ctx, ppos, ptr, marks):
             if ptr >= ctx.end or ctx.str(ptr) != ctx.pat(ppos):
                 return
             ppos += 1
-            ptr += 1
+            ptr = ctx.next(ptr)
 
         elif op == OPCODE_LITERAL_IGNORE:
             # match literal string, ignoring case
@@ -743,8 +760,9 @@ def sre_match(ctx, ppos, ptr, marks):
             # use the MAX_REPEAT operator.
             # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
             start = ptr
-            minptr = start + ctx.pat(ppos+1)
-            if minptr > ctx.end:
+            try:
+                minptr = ctx.next_n(start, ctx.pat(ppos+1), ctx.end)
+            except EndOfString:
                 return    # cannot match
             ptr = find_repetition_end(ctx, ppos+3, start, ctx.pat(ppos+2),
                                       marks)
@@ -765,7 +783,7 @@ def sre_match(ctx, ppos, ptr, marks):
             start = ptr
             min = ctx.pat(ppos+1)
             if min > 0:
-                minptr = ptr + min
+                min_count = ptr + min
                 if minptr > ctx.end:
                     return   # cannot match
                 # count using pattern min as the maximum
@@ -773,14 +791,12 @@ def sre_match(ctx, ppos, ptr, marks):
                 if ptr < minptr:
                     return   # did not match minimum number of times
 
-            maxptr = ctx.end
+            max_count = sys.maxint
             max = ctx.pat(ppos+2)
             if max != rsre_char.MAXREPEAT:
-                maxptr1 = start + max
-                if maxptr1 <= maxptr:
-                    maxptr = maxptr1
+                max_count = max
             nextppos = ppos + ctx.pat(ppos)
-            result = MinRepeatOneMatchResult(nextppos, ppos+3, maxptr,
+            result = MinRepeatOneMatchResult(nextppos, ppos+3, max_count,
                                              ptr, marks)
             return result.find_first_result(ctx)
 
@@ -818,7 +834,7 @@ def match_repeated_ignore(ctx, ptr, oldptr, length):
 @specializectx
 def find_repetition_end(ctx, ppos, ptr, maxcount, marks):
     end = ctx.end
-    ptrp1 = ptr + 1
+    ptrp1 = ctx.next(ptr)
     # First get rid of the cases where we don't have room for any match.
     if maxcount <= 0 or ptrp1 > end:
         return ptr
@@ -904,7 +920,7 @@ def _make_fre(checkerfn):
                 ctx.jitdriver_MatchIn.jit_merge_point(ctx=ctx, ptr=ptr,
                                                       end=end, ppos=ppos)
                 if ptr < end and checkerfn(ctx, ptr, ppos):
-                    ptr += 1
+                    ptr = ctx.next(ptr)
                 else:
                     return ptr
     elif checkerfn == match_IN_IGNORE:
@@ -927,7 +943,7 @@ def _make_fre(checkerfn):
         @specializectx
         def fre(ctx, ptr, end, ppos):
             while ptr < end and checkerfn(ctx, ptr, ppos):
-                ptr += 1
+                ptr = ctx.next(ptr)
             return ptr
     fre = func_with_new_name(fre, 'fre_' + checkerfn.__name__)
     return fre
