@@ -1,3 +1,5 @@
+import os
+import stat
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -9,8 +11,6 @@ from pypy.module.zlib.interp_zlib import zlib_error
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rzipfile import RZipFile, BadZipfile
 from rpython.rlib.rzlib import RZlibError
-import os
-import stat
 
 ZIPSEP = '/'
 # note that zipfiles always use slash, but for OSes with other
@@ -145,7 +145,7 @@ class W_ZipImporter(W_Root):
             return fname
 
     def import_py_file(self, space, modname, filename, buf, pkgpath):
-        w_mod = Module(space, space.newfilename(modname))
+        w_mod = Module(space, space.newtext(modname))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, space.newtext('__loader__'), self)
         importing._prepare_module(space, w_mod, real_name, pkgpath)
