@@ -120,13 +120,6 @@ def prev_codepoint_pos(code, pos):
     assert pos >= 0
     return pos
 
-def compute_length_utf8(s):
-    continuation_bytes = 0
-    for i in range(len(s)):
-        if 0x80 <= ord(s[i]) <= 0xBF:    # count the continuation bytes
-            continuation_bytes += 1
-    return len(s) - continuation_bytes
-
 def codepoint_at_pos(code, pos):
     """ Give a codepoint in code at pos - assumes valid utf8, no checking!
     """

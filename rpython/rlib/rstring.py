@@ -253,7 +253,7 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
         else:
             assert isutf8
             from rpython.rlib import rutf8
-            cnt = rutf8.compute_length_utf8(input) + 1
+            cnt = rutf8.codepoints_in_utf8(input) + 1
 
         if cnt > maxsplit and maxsplit > 0:
             cnt = maxsplit
