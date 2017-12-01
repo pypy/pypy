@@ -1,7 +1,7 @@
 import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
-from rpython.rlib.rstring import replace, startswith, endswith
+from rpython.rlib.rstring import replace, startswith, endswith, replace_count
 from rpython.rlib.rstring import find, rfind, count
 from rpython.rlib.buffer import StringBuffer
 from rpython.rtyper.test.tool import BaseRtypingTest
@@ -93,9 +93,13 @@ def test_string_replace():
     def check_replace(value, sub, *args, **kwargs):
         result = kwargs['res']
         assert replace(value, sub, *args) == result
-
         assert replace(list(value), sub, *args) == list(result)
-        
+        count = value.count(sub)
+        if len(args) >= 2:
+            count = min(count, args[1])
+        assert replace_count(value, sub, *args) == (result, count)
+        assert replace_count(value, sub, *args, isutf8=True) == (result, count)
+
     check_replace('one!two!three!', '!', '@', 1, res='one@two!three!')
     check_replace('one!two!three!', '!', '', res='onetwothree')
     check_replace('one!two!three!', '!', '@', 2, res='one@two@three!')
