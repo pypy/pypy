@@ -273,7 +273,8 @@ class IntBound(AbstractInfo):
         return r
 
     def contains(self, val):
-        assert not isinstance(val, long)
+        if not we_are_translated():
+            assert not isinstance(val, long)
         if not isinstance(val, int):
             if ((not self.has_lower or self.lower == MININT) and
                 not self.has_upper or self.upper == MAXINT):
