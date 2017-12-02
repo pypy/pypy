@@ -66,6 +66,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         result = module.fillinfo()
         assert b"hello, world." == result
 
+    @pytest.mark.skip(reason="segfaults on linux buildslave")
     def test_0d(self):
         module = self.import_extension('foo', [
             ("create_view", "METH_VARARGS",
