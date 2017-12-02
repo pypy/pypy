@@ -35,7 +35,8 @@ class UnicodeIO(object):
     def _convert_limit(self, limit):
         if limit < 0 or limit > len(self.data) - self.pos:
             limit = len(self.data) - self.pos
-        assert limit >= 0
+            if limit < 0:  # happens when self.pos > len(self.data)
+                limit = 0
         return limit
 
     def readline_universal(self, limit):
