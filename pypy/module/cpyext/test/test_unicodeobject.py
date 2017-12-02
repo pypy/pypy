@@ -504,9 +504,9 @@ class TestUnicode(BaseApiTest):
 
     def test_encode_fsdefault(self, space):
         w_u = space.wrap(u'späm')
-        w_s = PyUnicode_EncodeFSDefault(space, w_u)
-        if w_s is None:
-            PyErr_Clear(space)
+        try:
+            w_s = PyUnicode_EncodeFSDefault(space, w_u)
+        except OperationError:
             py.test.skip("Requires a unicode-aware fsencoding")
         with rffi.scoped_str2charp(space.str_w(w_s)) as encoded:
             w_decoded = PyUnicode_DecodeFSDefaultAndSize(space, encoded, space.len_w(w_s))
@@ -623,8 +623,11 @@ class TestUnicode(BaseApiTest):
     def test_fromobject(self, space):
         w_u = space.wrap(u'a')
         assert PyUnicode_FromObject(space, w_u) is w_u
-        assert space.unwrap(
-            PyUnicode_FromObject(space, space.newbytes('test'))) == "b'test'"
+        with raises_w(space, TypeError):
+            PyUnicode_FromObject(space, space.newbytes('test'))
+        with raises_w(space, TypeError):
+            PyUnicode_FromObject(space, space.newint(42))
+
 
     def test_decode(self, space):
         b_text = rffi.str2charp('caf\x82xx')
