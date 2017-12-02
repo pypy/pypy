@@ -454,6 +454,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert module.tp_descr_set(p) is True
 
     def test_text_signature(self):
+        import sys
         module = self.import_module(name='docstrings')
         assert module.SomeType.__text_signature__ == '()'
         assert module.SomeType.__doc__ == 'A type with a signature'
