@@ -210,14 +210,26 @@ class IntBound(AbstractInfo):
 
     def mod_bound(self, other):
         r = IntUnbounded()
-        if other.is_constant():
-            val = other.getint()
-            if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
-                r.make_ge(IntBound(0, 0))
-                r.make_lt(IntBound(val, val))
-            else:               # with Python's modulo:  neg < (x % neg) <= 0
-                r.make_gt(IntBound(val, val))
-                r.make_le(IntBound(0, 0))
+        if not other.has_upper and not other.has_lower:
+            return r # nothing known about other
+        if other.known_nonnegative():
+            # with Python's modulo:  0 <= (x % pos) < pos
+            r.make_ge(IntBound(0, 0))
+            if other.has_upper:
+                r.make_lt(IntBound(other.upper, other.upper))
+        elif other.has_upper and other.upper <= 0:
+            # with Python's modulo:  neg < (x % neg) <= 0
+            r.make_le(IntBound(0, 0))
+            if other.has_lower:
+                r.make_gt(IntBound(other.lower, other.lower))
+        else:
+            # the interval straddles 0, so we know this:
+            # other.lower < x % other < other.upper
+            if other.has_upper:
+                r.make_lt(IntBound(other.upper, other.upper))
+            if other.has_lower:
+                r.make_gt(IntBound(other.lower, other.lower))
+            pass
         return r
 
     def lshift_bound(self, other):
