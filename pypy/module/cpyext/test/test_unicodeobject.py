@@ -700,8 +700,8 @@ class TestUnicode(BaseApiTest):
                     value = 1
                 else:
                     value = 0
-                pendian = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-                pendian[0] = rffi.cast(rffi.INT, value)
+                pendian = lltype.malloc(INT_realP.TO, 1, flavor='raw')
+                pendian[0] = rffi.cast(rffi.INT_real, value)
             else:
                 pendian = None
 
@@ -736,8 +736,8 @@ class TestUnicode(BaseApiTest):
                     value = 1
                 else:
                     value = 0
-                pendian = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-                pendian[0] = rffi.cast(rffi.INT, value)
+                pendian = lltype.malloc(INT_realP.TO, 1, flavor='raw')
+                pendian[0] = rffi.cast(rffi.INT_real, value)
             else:
                 pendian = None
 
