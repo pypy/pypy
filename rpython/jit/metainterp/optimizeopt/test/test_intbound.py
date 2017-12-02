@@ -5,7 +5,7 @@ from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck
 
-from hypothesis import given, strategies
+from hypothesis import given, strategies, settings
 
 special_values = (
     range(-100, 100) +
@@ -23,7 +23,7 @@ special_values = strategies.sampled_from(
 ints = strategies.builds(
     int, # strategies.integers sometimes returns a long?
     special_values | strategies.integers(
-    min_value=int(-sys.maxint-1), max_value=sys.maxint))
+        min_value=int(-sys.maxint-1), max_value=sys.maxint))
 
 ints_or_none = strategies.none() | ints
 
@@ -39,7 +39,7 @@ def bound(a, b):
         return IntBound(a, b)
 
 def const(a):
-    return bound(a,a)
+    return bound(a, a)
 
 
 def build_bound_with_contained_number(a, b, c):
@@ -334,6 +334,67 @@ def test_mod_bound():
                     if b1.contains(n1) and b2.contains(n2):
                         if n2 != 0:
                             assert b3.contains(n1 % n2)   # Python-style div
+
+def test_mod_bound_explicit():
+    # % positive
+    a = bound(1, 5).mod_bound(bound(1, 5))
+    assert a.contains(0)
+    assert a.contains(4)
+    assert not a.contains(-1)
+    assert not a.contains(5)
+
+    a = bound(1, 5).mod_bound(bound(1, None))
+    assert a.contains(0)
+    assert a.contains(4)
+    assert not a.contains(-1)
+    assert a.contains(100000)
+
+    # % negative
+    a = bound(1, 5).mod_bound(bound(-6, -1))
+    assert a.contains(0)
+    assert a.contains(-5)
+    assert not a.contains(-6)
+    assert not a.contains(1)
+
+    a = bound(1, 5).mod_bound(bound(None, -1))
+    assert a.contains(0)
+    assert a.contains(-5)
+    assert a.contains(-60000)
+    assert not a.contains(1)
+
+    # % neither
+    a = bound(1, 5).mod_bound(bound(-6, 10))
+    assert a.contains(0)
+    assert a.contains(-5)
+    assert a.contains(9)
+    assert not a.contains(-6)
+    assert not a.contains(10)
+
+    a = bound(1, 5).mod_bound(bound(None, 5))
+    assert a.contains(0)
+    assert a.contains(4)
+    assert a.contains(-5)
+    assert a.contains(-60000)
+    assert not a.contains(5)
+
+    a = bound(1, 5).mod_bound(bound(None, 0))
+    assert a.contains(0)
+    assert a.contains(-5)
+    assert a.contains(-60000)
+    assert not a.contains(1)
+
+    a = bound(1, 5).mod_bound(bound(-4, None))
+    assert a.contains(0)
+    assert a.contains(-3)
+    assert a.contains(60000)
+    assert not a.contains(-4)
+
+    a = bound(1, 5).mod_bound(bound(0, None))
+    assert a.contains(0)
+    assert a.contains(5)
+    assert a.contains(60000)
+    assert not a.contains(-1)
+
 
 def test_sub_bound():
     for _, _, b1 in some_bounds():
