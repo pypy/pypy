@@ -1194,13 +1194,17 @@ def fast_search(ctx):
     if string_position >= ctx.end:
         return False
     prefix_len = ctx.pat(5)
-    assert prefix_len >= 0
+    assert prefix_len > 0
     i = 0
     j = 0
-    past_start_positions = [0] * (prefix_len - 1)
+    past_start_positions = [0] * prefix_len
     while True:
         ctx.jitdriver_FastSearch.jit_merge_point(ctx=ctx,
                 string_position=string_position, i=i, prefix_len=prefix_len)
+        past_start_positions[j] = string_position
+        j += 1
+        if j == prefix_len:
+            j = 0
         char_ord = ctx.str(string_position)
         if char_ord != ctx.pat(7 + i):
             if i > 0:
@@ -1224,10 +1228,9 @@ def fast_search(ctx):
                     if prefix_skip == prefix_len:
                         ptr = ctx.next(ptr)
                 else:
-                    assert prefix_skip < prefix_len - 1
                     j_prefix_skip = j + prefix_skip
-                    if j_prefix_skip >= prefix_len - 1:
-                        j_prefix_skip -= (prefix_len - 1)
+                    if j_prefix_skip >= prefix_len:
+                        j_prefix_skip -= prefix_len
                     ptr = past_start_positions[j_prefix_skip]
                 #flags = ctx.pat(2)
                 #if flags & rsre_char.SRE_INFO_LITERAL:
@@ -1243,10 +1246,6 @@ def fast_search(ctx):
                     return True
                 overlap_offset = prefix_len + (7 - 1)
                 i = ctx.pat(overlap_offset + i)
-        past_start_positions[j] = string_position
         string_position = ctx.next(string_position)
         if string_position >= ctx.end:
             return False
-        j += 1
-        if j == prefix_len - 1:
-            j = 0
