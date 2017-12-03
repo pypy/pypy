@@ -1,6 +1,6 @@
 import re, py
 from rpython.rlib.rsre.test.test_match import get_code, get_code_and_re
-from rpython.rlib.rsre.test.support import search, match
+from rpython.rlib.rsre.test.support import search, match, Position
 
 
 class TestSearch:
@@ -109,10 +109,10 @@ class TestSearch:
 
     def test_group_7(self):
         r_code7, r7 = get_code_and_re(r'<abc>((a)?(b))*</abc>')
-        match = r7.match('<abc>bbbabbbb</abc>')
-        assert match.span(1) == (12, 13)
-        assert match.span(3) == (12, 13)
-        assert match.span(2) == (8, 9)
+        m = r7.match('<abc>bbbabbbb</abc>')
+        assert m.span(1) == (12, 13)
+        assert m.span(3) == (12, 13)
+        assert m.span(2) == (8, 9)
         res = match(r_code7, '<abc>bbbabbbb</abc>')
         assert (res.get_mark(0), res.get_mark(1)) == (12, 13)
         assert (res.get_mark(4), res.get_mark(5)) == (12, 13)
@@ -120,10 +120,10 @@ class TestSearch:
 
     def test_group_branch_repeat_complex_case(self):
         r_code8, r8 = get_code_and_re(r'<abc>((a)|(b))*</abc>')
-        match = r8.match('<abc>ab</abc>')
-        assert match.span(1) == (6, 7)
-        assert match.span(3) == (6, 7)
-        assert match.span(2) == (5, 6)
+        m = r8.match('<abc>ab</abc>')
+        assert m.span(1) == (6, 7)
+        assert m.span(3) == (6, 7)
+        assert m.span(2) == (5, 6)
         res = match(r_code8, '<abc>ab</abc>')
         assert (res.get_mark(0), res.get_mark(1)) == (6, 7)
         assert (res.get_mark(4), res.get_mark(5)) == (6, 7)
@@ -131,17 +131,17 @@ class TestSearch:
 
     def test_minuntil_lastmark_restore(self):
         r_code9, r9 = get_code_and_re(r'(x|yz)+?(y)??c')
-        match = r9.match('xyzxc')
-        assert match.span(1) == (3, 4)
-        assert match.span(2) == (-1, -1)
+        m = r9.match('xyzxc')
+        assert m.span(1) == (3, 4)
+        assert m.span(2) == (-1, -1)
         res = match(r_code9, 'xyzxc')
         assert (res.get_mark(0), res.get_mark(1)) == (3, 4)
         assert (res.get_mark(2), res.get_mark(3)) == (-1, -1)
 
     def test_minuntil_bug(self):
         r_code9, r9 = get_code_and_re(r'((x|yz)+?(y)??c)*')
-        match = r9.match('xycxyzxc')
-        assert match.span(2) == (6, 7)
+        m = r9.match('xycxyzxc')
+        assert m.span(2) == (6, 7)
         #assert match.span(3) == (1, 2) --- bug of CPython
         res = match(r_code9, 'xycxyzxc')
         assert (res.get_mark(2), res.get_mark(3)) == (6, 7)
@@ -205,7 +205,8 @@ class TestSearch:
                     assert match is not None
                     assert match.span() == (ik, ik)
                     assert res is not None
-                    assert res.match_start == ik and res.match_end == ik
+                    assert res.match_start == Position(ik)
+                    assert res.match_end == Position(ik)
                 else:
                     assert match is None
                     assert res is None
