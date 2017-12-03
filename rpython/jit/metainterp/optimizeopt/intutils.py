@@ -49,7 +49,7 @@ class IntBound(AbstractInfo):
     # Returns True if the bound was updated
     def make_le(self, other):
         if other.has_upper:
-            self.make_le_const(other.upper)
+            return self.make_le_const(other.upper)
         return False
 
     def make_lt(self, other):

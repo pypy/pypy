@@ -207,6 +207,7 @@ class OptIntBounds(Optimization):
         r = self.getintbound(op)
         b = b1.lshift_bound(b2)
         r.intersect(b)
+        print op, r
         # intbound.lshift_bound checks for an overflow and if the
         # lshift can be proven not to overflow sets b.has_upper and
         # b.has_lower
