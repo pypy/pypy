@@ -62,18 +62,22 @@ class OptIntBounds(Optimization):
     postprocess_GUARD_FALSE = _postprocess_guard_true_false_value
     postprocess_GUARD_VALUE = _postprocess_guard_true_false_value
 
-    def optimize_INT_OR_or_XOR(self, op):
+    def optimize_INT_OR(self, op):
         v1 = self.get_box_replacement(op.getarg(0))
         v2 = self.get_box_replacement(op.getarg(1))
         if v1 is v2:
-            if op.getopnum() == rop.INT_OR:
-                self.make_equal_to(op, v1)
-            else:
-                self.make_constant_int(op, 0)
+            self.make_equal_to(op, v1)
             return None
         return self.emit(op)
 
-    def postprocess_INT_OR_or_XOR(self, op):
+    def optimize_INT_XOR(self, op):
+        v1 = self.get_box_replacement(op.getarg(0))
+        v2 = self.get_box_replacement(op.getarg(1))
+        if v1 is v2:
+            self.make_constant_int(op, 0)
+        return self.emit(op)
+
+    def postprocess_INT_OR(self, op):
         v1 = self.get_box_replacement(op.getarg(0))
         b1 = self.getintbound(v1)
         v2 = self.get_box_replacement(op.getarg(1))
@@ -81,11 +85,13 @@ class OptIntBounds(Optimization):
         b = b1.or_bound(b2)
         self.getintbound(op).intersect(b)
 
-    optimize_INT_OR = optimize_INT_OR_or_XOR
-    optimize_INT_XOR = optimize_INT_OR_or_XOR
-
-    postprocess_INT_OR = postprocess_INT_OR_or_XOR
-    postprocess_INT_XOR = postprocess_INT_OR_or_XOR
+    def postprocess_INT_XOR(self, op):
+        v1 = self.get_box_replacement(op.getarg(0))
+        b1 = self.getintbound(v1)
+        v2 = self.get_box_replacement(op.getarg(1))
+        b2 = self.getintbound(v2)
+        b = b1.xor_bound(b2)
+        self.getintbound(op).intersect(b)
 
     def optimize_INT_AND(self, op):
         return self.emit(op)
