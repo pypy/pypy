@@ -51,10 +51,12 @@ class TestLogParser(BaseTestPyPyC):
                 # do not care for _optimize_charset or _mk_bitmap
                 continue
             assert loop.count > 0
-            if ' is_prime, ' in loop.comment:
+            if 'is_prime' in loop.comment:
                 is_prime_loops.append(loop)
-            elif ' fn_with_bridges, ' in loop.comment:
+            elif 'fn_with_bridges' in loop.comment:
                 fn_with_bridges_loops.append(loop)
+            elif 'tuple.contains' in loop.comment:
+                pass
             else:
                 assert ' bridge ' in loop.comment
                 key = mangle_descr(loop.descr)
