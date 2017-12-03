@@ -22,7 +22,7 @@ class TestImport(BaseApiTest):
                                          space.wrap('__name__'))) == 'foobar'
 
     def test_getmoduledict(self, space, api):
-        testmod = "contextlib"
+        testmod = "imghdr"
         w_pre_dict = PyImport_GetModuleDict(space, )
         assert not space.contains_w(w_pre_dict, space.wrap(testmod))
 
