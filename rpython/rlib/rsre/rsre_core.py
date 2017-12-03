@@ -997,9 +997,11 @@ def sre_at(ctx, atcode, ptr):
         return ptr == ctx.ZERO
 
     elif atcode == AT_BEGINNING_LINE:
-        if ptr <= ctx.ZERO:
+        try:
+            prevptr = ctx.prev(ptr)
+        except EndOfString:
             return True
-        return rsre_char.is_linebreak(ctx.str(ctx.prev(ptr)))
+        return rsre_char.is_linebreak(ctx.str(prevptr))
 
     elif atcode == AT_BOUNDARY:
         return at_boundary(ctx, ptr)
@@ -1034,18 +1036,26 @@ def sre_at(ctx, atcode, ptr):
 def _make_boundary(word_checker):
     @specializectx
     def at_boundary(ctx, ptr):
-        if ctx.end == 0:
+        if ctx.end == ctx.ZERO:
             return False
-        prevptr = ptr - 1
-        that = prevptr >= 0 and word_checker(ctx.str(prevptr))
+        try:
+            prevptr = ctx.prev(ptr)
+        except EndOfString:
+            that = False
+        else:
+            that = word_checker(ctx.str(prevptr))
         this = ptr < ctx.end and word_checker(ctx.str(ptr))
         return this != that
     @specializectx
     def at_non_boundary(ctx, ptr):
-        if ctx.end == 0:
+        if ctx.end == ctx.ZERO:
             return False
-        prevptr = ptr - 1
-        that = prevptr >= 0 and word_checker(ctx.str(prevptr))
+        try:
+            prevptr = ctx.prev(ptr)
+        except EndOfString:
+            that = False
+        else:
+            that = word_checker(ctx.str(prevptr))
         this = ptr < ctx.end and word_checker(ctx.str(ptr))
         return this == that
     return at_boundary, at_non_boundary
@@ -1127,7 +1137,7 @@ def regular_search(ctx, base):
         if sre_match(ctx, base, start, None) is not None:
             ctx.match_start = start
             return True
-        start += 1
+        start = ctx.next(start)
     return False
 
 install_jitdriver_spec("LiteralSearch",
@@ -1144,11 +1154,12 @@ def literal_search(ctx, base):
     while start < ctx.end:
         ctx.jitdriver_LiteralSearch.jit_merge_point(ctx=ctx, start=start,
                                           base=base, character=character)
+        start1 = ctx.next(start)
         if ctx.str(start) == character:
-            if sre_match(ctx, base, start + 1, None) is not None:
+            if sre_match(ctx, base, start1, None) is not None:
                 ctx.match_start = start
                 return True
-        start += 1
+        start = start1
     return False
 
 install_jitdriver_spec("CharsetSearch",
