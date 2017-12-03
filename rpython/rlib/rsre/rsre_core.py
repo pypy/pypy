@@ -1196,15 +1196,9 @@ def fast_search(ctx):
     prefix_len = ctx.pat(5)
     assert prefix_len > 0
     i = 0
-    j = 0
-    past_start_positions = [0] * prefix_len
     while True:
         ctx.jitdriver_FastSearch.jit_merge_point(ctx=ctx,
                 string_position=string_position, i=i, prefix_len=prefix_len)
-        past_start_positions[j] = string_position
-        j += 1
-        if j == prefix_len:
-            j = 0
         char_ord = ctx.str(string_position)
         if char_ord != ctx.pat(7 + i):
             if i > 0:
@@ -1215,23 +1209,14 @@ def fast_search(ctx):
             i += 1
             if i == prefix_len:
                 # found a potential match
-
-                # This would be 'start = string_position + 1 - prefix_len'
-                # but it's probably faster to record the 'prefix_len'
-                # most recent locations, for utf8
-                start = past_start_positions[j]
-                assert start >= ctx.ZERO
+                # start = string_position + 1 - prefix_len: computed later
+                ptr = string_position
                 prefix_skip = ctx.pat(6)
-                if prefix_skip >= prefix_len - 1:
-                    assert prefix_skip <= prefix_len
-                    ptr = string_position
-                    if prefix_skip == prefix_len:
-                        ptr = ctx.next(ptr)
+                if prefix_skip == prefix_len:
+                    ptr = ctx.next(ptr)
                 else:
-                    j_prefix_skip = j + prefix_skip
-                    if j_prefix_skip >= prefix_len:
-                        j_prefix_skip -= prefix_len
-                    ptr = past_start_positions[j_prefix_skip]
+                    assert prefix_skip < prefix_len
+                    ptr = ctx.prev_n(ptr, prefix_len-1 - prefix_skip, ctx.ZERO)
                 #flags = ctx.pat(2)
                 #if flags & rsre_char.SRE_INFO_LITERAL:
                 #    # matched all of pure literal pattern
@@ -1242,6 +1227,7 @@ def fast_search(ctx):
                 pattern_offset = ctx.pat(1) + 1
                 ppos_start = pattern_offset + 2 * prefix_skip
                 if sre_match(ctx, ppos_start, ptr, None) is not None:
+                    start = ctx.prev_n(ptr, prefix_skip, ctx.ZERO)
                     ctx.match_start = start
                     return True
                 overlap_offset = prefix_len + (7 - 1)
