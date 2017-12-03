@@ -455,6 +455,20 @@ def test_xor_bound():
                         assert b3.contains(n1 ^ n2)
 
 
+def test_invert_bound_explicit():
+    r = bound(-6, 12)
+    c = r.invert_bound()
+    assert c.upper == ~-6
+    assert c.lower == ~12
+    assert c.has_upper and c.has_lower
+
+def test_invert_bound():
+    for _, _, b1 in some_bounds():
+        b2 = b1.invert_bound()
+        for n in nbr:
+            if b1.contains(n):
+                assert b2.contains(~n)
+
 def test_next_pow2_m1():
     assert next_pow2_m1(0) == 0
     assert next_pow2_m1(1) == 1
@@ -549,3 +563,9 @@ def test_xor_bound_random(t1, t2):
     b3 = b1.xor_bound(b2)
     r = n1 ^ n2
     assert b3.contains(r)
+
+@given(bound_with_contained_number)
+def test_invert_bound_random(t1):
+    b1, n1 = t1
+    b2 = b1.invert_bound()
+    assert b2.contains(~n1)

@@ -3447,6 +3447,57 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_invert_bound(self):
+        ops = """
+        [i0]
+        i1 = int_gt(i0, -5)
+        guard_true(i1) []
+        i2 = int_lt(i0, 100)
+        guard_true(i2) []
+        i3 = int_invert(i0)
+        i4 = int_gt(i3, -101)
+        guard_true(i4) []
+        i5 = int_lt(i3, 4)
+        guard_true(i5) []
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_gt(i0, -5)
+        guard_true(i1) []
+        i2 = int_lt(i0, 100)
+        guard_true(i2) []
+        i3 = int_invert(i0)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_invert_bound_backwards(self):
+        ops = """
+        [i0]
+        i3 = int_invert(i0)
+        i4 = int_gt(i3, -101)
+        guard_true(i4) []
+        i5 = int_lt(i3, 4)
+        guard_true(i5) []
+
+        i1 = int_gt(i0, -5)
+        guard_true(i1) []
+        i2 = int_lt(i0, 100)
+        guard_true(i2) []
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i3 = int_invert(i0)
+        i4 = int_gt(i3, -101)
+        guard_true(i4) []
+        i5 = int_lt(i3, 4)
+        guard_true(i5) []
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_int_add_sub_constants_inverse(self):
         py.test.skip("reenable")
         import sys

@@ -324,6 +324,15 @@ class IntBound(AbstractInfo):
                 r.make_ge_const(0)
         return r
 
+    def invert_bound(self):
+        r = IntUnbounded()
+        if self.has_upper:
+            r.has_lower = True
+            r.lower = ~self.upper
+        if self.has_lower:
+            r.has_upper = True
+            r.upper = ~self.lower
+        return r
 
     def contains(self, val):
         if not we_are_translated():

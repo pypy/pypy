@@ -62,6 +62,15 @@ class OptIntBounds(Optimization):
     postprocess_GUARD_FALSE = _postprocess_guard_true_false_value
     postprocess_GUARD_VALUE = _postprocess_guard_true_false_value
 
+    def optimize_INT_INVERT(self, op):
+        return self.emit(op)
+
+    def postprocess_INT_INVERT(self, op):
+        v1 = self.get_box_replacement(op.getarg(0))
+        b1 = self.getintbound(v1)
+        b = b1.invert_bound()
+        self.getintbound(op).intersect(b)
+
     def optimize_INT_OR(self, op):
         v1 = self.get_box_replacement(op.getarg(0))
         v2 = self.get_box_replacement(op.getarg(1))
@@ -681,6 +690,13 @@ class OptIntBounds(Optimization):
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
         b = r.rshift_bound(b2)
+        if b1.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
+
+    def propagate_bounds_INT_INVERT(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        r = self.getintbound(op)
+        b = r.invert_bound()
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 
