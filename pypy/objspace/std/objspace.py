@@ -377,6 +377,13 @@ class StdObjSpace(ObjSpace):
         assert isinstance(s, str) # on pypy3, this decodes the byte string
         return W_BytesObject(s)   # with the filesystem encoding
 
+    def newunicode(self, unistr):
+        # XXX: kill me!
+        assert isinstance(unistr, unicode)
+        utf8s = unistr.encode("utf-8")
+        length, flag = rutf8.check_utf8(utf8s, True)
+        return self.newutf8(utf8s, length, flag)
+
     def type(self, w_obj):
         jit.promote(w_obj.__class__)
         return w_obj.getclass(self)
