@@ -311,10 +311,10 @@ def check_utf8(s, allow_surrogates, start=0, stop=-1):
         return res, flag
     raise CheckError(~res)
 
-def get_utf8_length_flag(s):
+def get_utf8_length_flag(s, start=0, end=-1):
     """ Get the length and flag out of valid utf8. For now just calls check_utf8
     """
-    return check_utf8(s, True)
+    return check_utf8(s, True, start, end)
 
 @jit.elidable
 def _check_utf8(s, allow_surrogates, start, stop):
@@ -691,6 +691,12 @@ class Utf8StringBuilder(object):
         # for strings
         self._s.append(s)
         newlgt, newflag = get_utf8_length_flag(s)
+        self._lgt += newlgt
+        self._flag = combine_flags(self._flag, newflag)
+
+    def append_slice(self, s, start, end):
+        self._s.append_slice(s, start, end)
+        newlgt, newflag = get_utf8_length_flag(s, start, end)
         self._lgt += newlgt
         self._flag = combine_flags(self._flag, newflag)
 
