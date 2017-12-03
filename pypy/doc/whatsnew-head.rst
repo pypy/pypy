@@ -26,3 +26,6 @@ Upgrade the _vmprof backend to vmprof 0.4.10
 
 .. branch: fix-vmprof-stacklet-switch
 Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)
+
+.. branch: win32-vcvars
+
