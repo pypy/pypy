@@ -340,7 +340,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             #if defined(SIZEOF_WCHAR_T) && (SIZEOF_WCHAR_T == 4)
                 const wchar_t wtext[2] = {(wchar_t)0x10ABCDu};
                 size_t wtextlen = 1;
-                const wchar_t invalid[1] = {(wchar_t)0x110000u};
             #else
                 const wchar_t wtext[3] = {(wchar_t)0xDBEAu, (wchar_t)0xDFCDu};
                 size_t wtextlen = 2;
