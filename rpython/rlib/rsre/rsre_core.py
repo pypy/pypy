@@ -324,7 +324,10 @@ class RepeatOneMatchResult(MatchResult):
             ctx.jitdriver_RepeatOne.jit_merge_point(
                 self=self, ptr=ptr, ctx=ctx, nextppos=nextppos)
             result = sre_match(ctx, nextppos, ptr, self.start_marks)
-            ptr = ctx.prev_or_minus1(ptr)
+            try:
+                ptr = ctx.prev(ptr)
+            except EndOfString:
+                ptr = -1
             if result is not None:
                 self.subresult = result
                 self.start_ptr = ptr
@@ -440,12 +443,12 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
             min = ctx.pat(ppos+1)
             if enum is not None:
                 # matched one more 'item'.  record it and continue.
-                last_match_length = ctx.match_end - ptr
+                last_match_zero_length = (ctx.match_end == ptr)
                 self.pending = Pending(ptr, marks, enum, self.pending)
                 self.num_pending += 1
                 ptr = ctx.match_end
                 marks = ctx.match_marks
-                if last_match_length == 0 and self.num_pending >= min:
+                if last_match_zero_length and self.num_pending >= min:
                     # zero-width protection: after an empty match, if there
                     # are enough matches, don't try to match more.  Instead,
                     # fall through to trying to match 'tail'.
@@ -629,30 +632,30 @@ def sre_match(ctx, ppos, ptr, marks):
         elif op == OPCODE_GROUPREF:
             # match backreference
             # <GROUPREF> <groupnum>
-            startptr, length = get_group_ref(marks, ctx.pat(ppos))
-            if length < 0:
+            startptr, length_bytes = get_group_ref(ctx, marks, ctx.pat(ppos))
+            if length_bytes < 0:
                 return     # group was not previously defined
-            if not match_repeated(ctx, ptr, startptr, length):
+            if not match_repeated(ctx, ptr, startptr, length_bytes):
                 return     # no match
-            ptr += length
+            ptr = ctx.go_forward_by_bytes(ptr, length_bytes)
             ppos += 1
 
         elif op == OPCODE_GROUPREF_IGNORE:
             # match backreference
             # <GROUPREF> <groupnum>
-            startptr, length = get_group_ref(marks, ctx.pat(ppos))
-            if length < 0:
+            startptr, length_bytes = get_group_ref(ctx, marks, ctx.pat(ppos))
+            if length_bytes < 0:
                 return     # group was not previously defined
-            if not match_repeated_ignore(ctx, ptr, startptr, length):
+            ptr = match_repeated_ignore(ctx, ptr, startptr, length_bytes)
+            if ptr < ctx.ZERO:
                 return     # no match
-            ptr += length
             ppos += 1
 
         elif op == OPCODE_GROUPREF_EXISTS:
             # conditional match depending on the existence of a group
             # <GROUPREF_EXISTS> <group> <skip> codeyes <JUMP> codeno ...
-            _, length = get_group_ref(marks, ctx.pat(ppos))
-            if length >= 0:
+            _, length_bytes = get_group_ref(ctx, marks, ctx.pat(ppos))
+            if length_bytes >= 0:
                 ppos += 2                  # jump to 'codeyes'
             else:
                 ppos += ctx.pat(ppos+1)    # jump to 'codeno'
@@ -664,7 +667,7 @@ def sre_match(ctx, ppos, ptr, marks):
                                                              ctx.str(ptr)):
                 return
             ppos += ctx.pat(ppos)
-            ptr += 1
+            ptr = ctx.next(ptr)
 
         elif op == OPCODE_IN_IGNORE:
             # match set member (or non_member), ignoring case
@@ -673,7 +676,7 @@ def sre_match(ctx, ppos, ptr, marks):
                                                              ctx.lowstr(ptr)):
                 return
             ppos += ctx.pat(ppos)
-            ptr += 1
+            ptr = ctx.next(ptr)
 
         elif op == OPCODE_INFO:
             # optimization info block
@@ -699,7 +702,7 @@ def sre_match(ctx, ppos, ptr, marks):
             if ptr >= ctx.end or ctx.lowstr(ptr) != ctx.pat(ppos):
                 return
             ppos += 1
-            ptr += 1
+            ptr = ctx.next(ptr)
 
         elif op == OPCODE_MARK:
             # set mark
@@ -804,32 +807,36 @@ def sre_match(ctx, ppos, ptr, marks):
             raise Error("bad pattern code %d" % op)
 
 
-def get_group_ref(marks, groupnum):
+def get_group_ref(ctx, marks, groupnum):
     gid = groupnum * 2
     startptr = find_mark(marks, gid)
-    if startptr < 0:
+    if startptr < ctx.ZERO:
         return 0, -1
     endptr = find_mark(marks, gid + 1)
-    length = endptr - startptr     # < 0 if endptr < startptr (or if endptr=-1)
-    return startptr, length
+    length_bytes = ctx.bytes_difference(endptr, startptr)
+    #        < 0 if endptr < startptr (or if endptr=-1)
+    return startptr, length_bytes
 
 @specializectx
-def match_repeated(ctx, ptr, oldptr, length):
-    if ptr + length > ctx.end:
+def match_repeated(ctx, ptr, oldptr, length_bytes):
+    if ctx.bytes_difference(ctx.end, ptr) < length_bytes:
         return False
-    for i in range(length):
-        if ctx.str(ptr + i) != ctx.str(oldptr + i):
+    for i in range(length_bytes):
+        if ctx.get_single_byte(ptr, i) != ctx.get_single_byte(oldptr, i):
             return False
     return True
 
 @specializectx
-def match_repeated_ignore(ctx, ptr, oldptr, length):
-    if ptr + length > ctx.end:
-        return False
-    for i in range(length):
-        if ctx.lowstr(ptr + i) != ctx.lowstr(oldptr + i):
-            return False
-    return True
+def match_repeated_ignore(ctx, ptr, oldptr, length_bytes):
+    oldend = ctx.go_forward_by_bytes(oldptr, length_bytes)
+    while oldptr < oldend:
+        if ptr >= ctx.end:
+            return -1
+        if ctx.lowstr(ptr) != ctx.lowstr(oldptr):
+            return -1
+        ptr = ctx.next(ptr)
+        oldptr = ctx.next(oldptr)
+    return ptr
 
 @specializectx
 def find_repetition_end(ctx, ppos, ptr, maxcount, marks):
@@ -934,7 +941,7 @@ def _make_fre(checkerfn):
                 ctx.jitdriver_MatchInIgnore.jit_merge_point(ctx=ctx, ptr=ptr,
                                                             end=end, ppos=ppos)
                 if ptr < end and checkerfn(ctx, ptr, ppos):
-                    ptr += 1
+                    ptr = ctx.next(ptr)
                 else:
                     return ptr
     else:
@@ -996,9 +1003,8 @@ def sre_at(ctx, atcode, ptr):
         return at_non_boundary(ctx, ptr)
 
     elif atcode == AT_END:
-        remaining_chars = ctx.end - ptr
-        return remaining_chars <= 0 or (
-            remaining_chars == 1 and rsre_char.is_linebreak(ctx.str(ptr)))
+        return (ptr == ctx.end or
+            (ctx.next(ptr) == ctx.end and rsre_char.is_linebreak(ctx.str(ptr))))
 
     elif atcode == AT_END_LINE:
         return ptr == ctx.end or rsre_char.is_linebreak(ctx.str(ptr))

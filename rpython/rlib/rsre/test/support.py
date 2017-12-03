@@ -14,35 +14,27 @@ class Position(object):
     def __repr__(self):
         return '<Position %d>' % (self._p)
     def __cmp__(self, other):
-        if not isinstance(other, (Position, MinusOnePosition)):
-            raise TypeError("cannot compare %r with %r" % (self, other))
-        return cmp(self._p, other._p)
-
-class MinusOnePosition(object):
-    _p = -1
-    def __repr__(self):
-        return '<MinusOnePosition>'
-    def __cmp__(self, other):
-        if not isinstance(other, (Position, MinusOnePosition)):
-            raise TypeError("cannot compare %r with %r" % (self, other))
-        return cmp(self._p, other._p)
+        if isinstance(other, Position):
+            return cmp(self._p, other._p)
+        if type(other) is int and other == -1:
+            return cmp(self._p, -1)
+        raise TypeError("cannot compare %r with %r" % (self, other))
 
 
 class MatchContextForTests(StrMatchContext):
     """Concrete subclass for matching in a plain string, tweaked for tests"""
 
     ZERO = Position(0)
-    MINUS1 = MinusOnePosition()
     EXACT_DISTANCE = False
 
     def next(self, position):
         assert isinstance(position, Position)
         return Position(position._p + 1)
 
-    def prev_or_minus1(self, position):
+    def prev(self, position):
         assert isinstance(position, Position)
         if position._p == 0:
-            return self.MINUS1
+            raise EndOfString
         return Position(position._p - 1)
 
     def next_n(self, position, n, end_position):
@@ -88,6 +80,21 @@ class MatchContextForTests(StrMatchContext):
         assert isinstance(position_low, Position)
         assert isinstance(position_high, Position)
         return position_high._p - position_low._p + random.randrange(0, 10)
+
+    def bytes_difference(self, position1, position2):
+        assert isinstance(position1, Position)
+        assert isinstance(position2, Position)
+        return position1._p - position2._p
+
+    def get_single_byte(self, base_position, index):
+        assert isinstance(base_position, Position)
+        assert isinstance(index, int)
+        return ord(self._string[base_position._p + index])
+
+    def go_forward_by_bytes(self, base_position, index):
+        assert isinstance(base_position, Position)
+        assert isinstance(index, int)
+        return Position(base_position._p + index)
 
 
 def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
