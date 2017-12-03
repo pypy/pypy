@@ -1219,12 +1219,10 @@ def fast_search(ctx):
                 assert start >= ctx.ZERO
                 prefix_skip = ctx.pat(6)
                 if prefix_skip >= prefix_len - 1:
-                    try:
-                        ptr = ctx.next_n(string_position,
-                                         prefix_skip - (prefix_len - 1),
-                                         ctx.end)
-                    except EndOfString:
-                        ptr = -1
+                    assert prefix_skip <= prefix_len
+                    ptr = string_position
+                    if prefix_skip == prefix_len:
+                        ptr = ctx.next(ptr)
                 else:
                     assert prefix_skip < prefix_len - 1
                     j_prefix_skip = j + prefix_skip
@@ -1240,8 +1238,7 @@ def fast_search(ctx):
                 #    return True
                 pattern_offset = ctx.pat(1) + 1
                 ppos_start = pattern_offset + 2 * prefix_skip
-                if (ptr >= ctx.ZERO and
-                        sre_match(ctx, ppos_start, ptr, None) is not None):
+                if sre_match(ctx, ppos_start, ptr, None) is not None:
                     ctx.match_start = start
                     return True
                 overlap_offset = prefix_len + (7 - 1)
