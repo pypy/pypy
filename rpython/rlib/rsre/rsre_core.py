@@ -627,7 +627,7 @@ def sre_match(ctx, ppos, ptr, marks):
             if (ptr == ctx.end or
                 not rsre_char.category_dispatch(ctx.pat(ppos), ctx.str(ptr))):
                 return
-            ptr += 1
+            ptr = ctx.next(ptr)
             ppos += 1
 
         elif op == OPCODE_GROUPREF:
@@ -887,7 +887,7 @@ def general_find_repetition_end(ctx, ppos, ptr, maxcount, marks):
         if end1 <= end:
             end = end1
     while ptr < end and sre_match(ctx, ppos, ptr, marks) is not None:
-        ptr += 1
+        ptr = ctx.next(ptr)
     return ptr
 
 @specializectx
