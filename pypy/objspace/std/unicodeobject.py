@@ -49,14 +49,15 @@ class W_UnicodeObject(W_Root):
             self._index_storage = rutf8.null_storage()
         # XXX checking, remove before any performance measurments
         #     ifdef not_running_in_benchmark
-        lgt, flag_check = rutf8.check_utf8(utf8str, True)
-        assert lgt == length
-        if flag_check == rutf8.FLAG_ASCII:
-            # there are cases where we copy part of REULAR that happens
-            # to be ascii
-            assert flag in (rutf8.FLAG_ASCII, rutf8.FLAG_REGULAR)
-        else:
-            assert flag == flag_check
+        if not we_are_translated():
+            lgt, flag_check = rutf8.check_utf8(utf8str, True)
+            assert lgt == length
+            if flag_check == rutf8.FLAG_ASCII:
+                # there are cases where we copy part of REULAR that happens
+                # to be ascii
+                assert flag in (rutf8.FLAG_ASCII, rutf8.FLAG_REGULAR)
+            else:
+                assert flag == flag_check
         # the storage can be one of:
         # - null, unicode with no surrogates
         # - rutf8.UTF8_HAS_SURROGATES
@@ -1173,7 +1174,7 @@ def decode_object(space, w_obj, encoding, errors):
             s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)
             return space.newutf8(s, len(s), rutf8.FLAG_ASCII)
-        if encoding == 'utf-8':
+        if encoding == 'utf-8' or encoding == 'utf8':
             s = space.charbuf_w(w_obj)
             lgt, flag = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt, flag)
