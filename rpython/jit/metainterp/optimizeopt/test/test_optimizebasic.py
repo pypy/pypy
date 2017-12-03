@@ -3433,6 +3433,20 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_invert(self):
+        ops = """
+        [i0]
+        i2 = int_invert(i0)
+        i3 = int_invert(i2)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i2 = int_invert(i0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_int_add_sub_constants_inverse(self):
         py.test.skip("reenable")
         import sys

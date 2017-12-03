@@ -96,6 +96,10 @@ class OptRewrite(Optimization):
 
         return False
 
+    def optimize_INT_INVERT(self, op):
+        self.optimizer.pure_from_args(rop.INT_INVERT, [op], op.getarg(0))
+        return self.emit(op)
+
     def optimize_INT_AND(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
