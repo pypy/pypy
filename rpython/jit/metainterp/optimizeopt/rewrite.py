@@ -834,8 +834,6 @@ class OptRewrite(Optimization):
             self.make_constant_int(op, 0)
             self.last_emitted_operation = REMOVED
             return True
-        # This is Python's integer division: 'x // (2**shift)' can always
-        # be replaced with 'x >> shift', even for negative values of x
         if not b2.is_constant():
             return False
         val = b2.getint()
