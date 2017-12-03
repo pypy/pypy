@@ -130,7 +130,7 @@ def test_known():
                     assert b.known_lt(c)
 
 
-def test_make():                            
+def test_make():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
             lt = IntUnbounded()
@@ -169,7 +169,7 @@ def test_make():
                 assert not le.known_gt(c)
                 assert not le.known_ge(c)
 
-                
+
             ge = IntUnbounded()
             ge.make_ge(b1)
             ge.make_ge(b2)
@@ -192,13 +192,13 @@ def test_make():
                 else:
                     assert not gl.known_ge(c)
                     assert not gl.known_gt(c)
-                if  b2.known_le(c):
+                if b2.known_le(c):
                     assert gl.known_le(c)
                 else:
                     assert not gl.known_le(c)
                     assert not gl.known_lt(c)
 
-def test_intersect():                            
+def test_intersect():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
             b = copy(b1)
@@ -208,7 +208,7 @@ def test_intersect():
                     assert b.contains(n)
                 else:
                     assert not b.contains(n)
-                    
+
 def test_add():
     for _, _, b1 in some_bounds():
         for n1 in nbr:
