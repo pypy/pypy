@@ -56,6 +56,8 @@ class MatchContextForTests(StrMatchContext):
         return Position(r)
 
     def slowly_convert_byte_pos_to_index(self, position):
+        if type(position) is int and position == -1:
+            return -1
         assert isinstance(position, Position)
         return position._p
 
@@ -107,3 +109,6 @@ def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
         return ctx
     else:
         return None
+
+def fullmatch(pattern, string, start=0, end=sys.maxint, flags=0):
+    return match(pattern, string, start, end, flags, fullmatch=True)

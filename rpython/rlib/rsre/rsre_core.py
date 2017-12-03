@@ -149,7 +149,8 @@ class AbstractMatchContext(object):
         # for testing
         if self.match_marks_flat is None:
             self._compute_flattened_marks()
-        return self.match_marks_flat
+        return [self.slowly_convert_byte_pos_to_index(i)
+                for i in self.match_marks_flat]
 
     def _compute_flattened_marks(self):
         self.match_marks_flat = [self.match_start, self.match_end]
@@ -371,7 +372,7 @@ class MinRepeatOneMatchResult(MatchResult):
         ptr = self.start_ptr
         if not self.next_char_ok(ctx, ptr, self.ppos3):
             return
-        self.start_ptr = ptr + 1
+        self.start_ptr = ctx.next(ptr)
         return self.find_first_result(ctx)
 
     def next_char_ok(self, ctx, ptr, ppos):
@@ -717,7 +718,7 @@ def sre_match(ctx, ppos, ptr, marks):
             if ptr >= ctx.end or ctx.str(ptr) == ctx.pat(ppos):
                 return
             ppos += 1
-            ptr += 1
+            ptr = ctx.next(ptr)
 
         elif op == OPCODE_NOT_LITERAL_IGNORE:
             # match if it's not a literal string, ignoring case
@@ -725,7 +726,7 @@ def sre_match(ctx, ppos, ptr, marks):
             if ptr >= ctx.end or ctx.lowstr(ptr) == ctx.pat(ppos):
                 return
             ppos += 1
-            ptr += 1
+            ptr = ctx.next(ptr)
 
         elif op == OPCODE_REPEAT:
             # general repeat.  in this version of the re module, all the work
@@ -786,9 +787,10 @@ def sre_match(ctx, ppos, ptr, marks):
             start = ptr
             min = ctx.pat(ppos+1)
             if min > 0:
-                min_count = ptr + min
-                if minptr > ctx.end:
-                    return   # cannot match
+                try:
+                    minptr = ctx.next_n(ptr, min, ctx.end)
+                except EndOfString:
+                    return    # cannot match
                 # count using pattern min as the maximum
                 ptr = find_repetition_end(ctx, ppos+3, ptr, min, marks)
                 if ptr < minptr:
@@ -990,11 +992,12 @@ AT_UNI_NON_BOUNDARY = 11
 def sre_at(ctx, atcode, ptr):
     if (atcode == AT_BEGINNING or
         atcode == AT_BEGINNING_STRING):
-        return ptr == 0
+        return ptr == ctx.ZERO
 
     elif atcode == AT_BEGINNING_LINE:
-        prevptr = ptr - 1
-        return prevptr < 0 or rsre_char.is_linebreak(ctx.str(prevptr))
+        if ptr <= ctx.ZERO:
+            return True
+        return rsre_char.is_linebreak(ctx.str(ctx.prev(ptr)))
 
     elif atcode == AT_BOUNDARY:
         return at_boundary(ctx, ptr)
