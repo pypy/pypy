@@ -43,6 +43,8 @@ class UnicodeIO(object):
         # Universal newline search. Find any of \r, \r\n, \n
         limit = self._convert_limit(limit)
         start = self.pos
+        if start >= len(self.data):
+            return u''
         end = start + limit
         pos = start
         while pos < end:
@@ -65,6 +67,8 @@ class UnicodeIO(object):
     def readline(self, marker, limit):
         start = self.pos
         limit = self._convert_limit(limit)
+        if start >= len(self.data):
+            return u''
         end = start + limit
         found = False
         for pos in range(start, end - len(marker) + 1):
