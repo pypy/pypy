@@ -799,7 +799,8 @@ def sre_match(ctx, ppos, ptr, marks):
             max_count = sys.maxint
             max = ctx.pat(ppos+2)
             if max != rsre_char.MAXREPEAT:
-                max_count = max
+                max_count = max - min
+                assert max_count >= 0
             nextppos = ppos + ctx.pat(ppos)
             result = MinRepeatOneMatchResult(nextppos, ppos+3, max_count,
                                              ptr, marks)
@@ -868,9 +869,10 @@ def find_repetition_end(ctx, ppos, ptr, maxcount, marks):
     # Else we really need to count how many times it matches.
     if maxcount != rsre_char.MAXREPEAT:
         # adjust end
-        end1 = ptr + maxcount
-        if end1 <= end:
-            end = end1
+        try:
+            end = ctx.next_n(ptr, maxcount, end)
+        except EndOfString:
+            pass
     op = ctx.pat(ppos)
     for op1, fre in unroll_fre_checker:
         if op1 == op:
