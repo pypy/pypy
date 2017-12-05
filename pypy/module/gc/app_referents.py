@@ -52,8 +52,10 @@ def dump_rpy_heap(file):
 class GcStats(object):
     def __init__(self, s):
         self._s = s
-        for item in ('total_gc_memory', 'jit_backend_used', 'total_memory_pressure',
-                     'total_allocated_memory', 'jit_backend_allocated'):
+        for item in ('total_gc_memory', 'jit_backend_used',
+                     'total_memory_pressure',
+                     'total_allocated_memory', 'jit_backend_allocated',
+                     'peak_memory', 'peak_allocated_memory'):
             setattr(self, item, self._format(getattr(self._s, item)))
         self.memory_used_sum = self._format(self._s.total_gc_memory + self._s.total_memory_pressure +
                                             self._s.jit_backend_used)
@@ -68,21 +70,26 @@ class GcStats(object):
 
     def repr(self):
         return """Total memory consumed:
-GC used:            %s
+GC used:            %s (peak: %s)
 raw assembler used: %s
 memory pressure:    %s
 -----------------------------
 Total:              %s
 
 Total memory allocated:
-GC allocated:            %s
+GC allocated:            %s (peak: %s)
 raw assembler allocated: %s
 memory pressure:         %s
 -----------------------------
 Total:                   %s
-""" % (self.total_gc_memory, self.jit_backend_used, self.total_memory_pressure,
+""" % (self.total_gc_memory, self.peak_memory,
+       self.jit_backend_used,
+       self.total_memory_pressure,
        self.memory_used_sum,
-       self.total_allocated_memory, self.jit_backend_allocated, self.total_memory_pressure,
+
+       self.total_allocated_memory, self.peak_allocated_memory,
+       self.jit_backend_allocated,
+       self.total_memory_pressure,
        self.memory_allocated_sum)
 
 def get_stats():

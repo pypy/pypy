@@ -372,6 +372,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_rawmalloced_objects = self.AddressStack()
         self.raw_malloc_might_sweep = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
+        self.rawmalloced_peak_size = r_uint(0)
 
         self.gc_state = STATE_SCANNING
         #
@@ -997,6 +998,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Record the newly allocated object and its full malloced size.
             # The object is young or old depending on the argument.
             self.rawmalloced_total_size += r_uint(allocsize)
+            self.rawmalloced_peak_size = max(self.rawmalloced_total_size,
+                                             self.rawmalloced_peak_size)
             if alloc_young:
                 if not self.young_rawmalloced_objects:
                     self.young_rawmalloced_objects = self.AddressDict()
@@ -1188,6 +1191,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """ Return the total memory allocated
         """
         return self.ac.total_memory_alloced + self.rawmalloced_total_size
+
+    def get_peak_memory_alloced(self):
+        """ Return the peak memory ever allocated. The peaks
+        can be at different times, but we just don't worry for now
+        """
+        return self.ac.peak_memory_alloced + self.rawmalloced_peak_size
+
+    def get_peak_memory_used(self):
+        """ Return the peak memory GC felt ever responsible for
+        """
+        mem_allocated = max(self.ac.peak_memory_used,
+                            self.ac.total_memory_used)
+        return mem_allocated + self.rawmalloced_peak_size
 
     def threshold_reached(self, extra=0):
         return (self.next_major_collection_threshold -
@@ -2161,6 +2177,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
         self.rawmalloced_total_size += r_uint(raw_malloc_usage(totalsize))
+        self.rawmalloced_peak_size = max(self.rawmalloced_total_size,
+                                         self.rawmalloced_peak_size)
         self.old_rawmalloced_objects.append(arena + size_gc_header)
         return arena
 
@@ -2929,6 +2947,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         if stats_no == rgc.TOTAL_MEMORY:
             return intmask(self.get_total_memory_used() + self.nursery_size)
+        elif stats_no == rgc.PEAK_MEMORY:
+            return intmask(self.get_peak_memory_used() + self.nursery_size)
+        elif stats_no == rgc.PEAK_ALLOCATED_MEMORY:
+            return intmask(self.get_peak_memory_alloced() + self.nursery_size)
         elif stats_no == rgc.TOTAL_ALLOCATED_MEMORY:
             return intmask(self.get_total_memory_alloced() + self.nursery_size)
         elif stats_no == rgc.TOTAL_MEMORY_PRESSURE:

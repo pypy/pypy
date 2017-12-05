@@ -176,6 +176,8 @@ class W_GcStats(W_Root):
         self.total_memory_pressure = rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
         self.total_gc_memory = rgc.get_stats(rgc.TOTAL_MEMORY)
         self.total_allocated_memory = rgc.get_stats(rgc.TOTAL_ALLOCATED_MEMORY)
+        self.peak_memory = rgc.get_stats(rgc.PEAK_MEMORY)
+        self.peak_allocated_memory = rgc.get_stats(rgc.PEAK_ALLOCATED_MEMORY)
         self.jit_backend_allocated = jit_hooks.stats_asmmemmgr_allocated(None)
         self.jit_backend_used = jit_hooks.stats_asmmemmgr_used(None)
 
@@ -183,6 +185,10 @@ W_GcStats.typedef = TypeDef("GcStats",
     total_memory_pressure=interp_attrproperty("total_memory_pressure",
         cls=W_GcStats, wrapfn="newint"),
     total_gc_memory=interp_attrproperty("total_gc_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    peak_allocated_memory=interp_attrproperty("peak_allocated_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    peak_memory=interp_attrproperty("peak_memory",
         cls=W_GcStats, wrapfn="newint"),
     total_allocated_memory=interp_attrproperty("total_allocated_memory",
         cls=W_GcStats, wrapfn="newint"),
