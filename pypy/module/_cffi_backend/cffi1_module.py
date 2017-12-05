@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import jit
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.module import Module
@@ -15,7 +16,7 @@ VERSION_EXPORT = 0x0A03
 
 INITFUNCPTR = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
 
-
+@jit.dont_look_inside
 def load_cffi1_module(space, name, path, initptr):
     # This is called from pypy.module.cpyext.api.load_extension_module()
     from pypy.module._cffi_backend.call_python import get_ll_cffi_call_python

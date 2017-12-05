@@ -119,7 +119,7 @@ class TkApp(object):
                              tklib.TCL_GLOBAL_ONLY)
 
         # This is used to get the application class for Tk 4.1 and up
-        argv0 = className.lower()
+        argv0 = className.lower().encode('ascii')
         tklib.Tcl_SetVar(self.interp, "argv0", argv0,
                          tklib.TCL_GLOBAL_ONLY)
 
@@ -179,6 +179,9 @@ class TkApp(object):
             err = tklib.Tk_Init(self.interp)
             if err == tklib.TCL_ERROR:
                 self.raiseTclError()
+
+    def interpaddr(self):
+        return int(tkffi.cast('size_t', self.interp))
 
     def _var_invoke(self, func, *args, **kwargs):
         if self.threaded and self.thread_id != tklib.Tcl_GetCurrentThread():

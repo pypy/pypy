@@ -93,8 +93,8 @@ def get_profile_path(space):
     return space.newtext(path)
 
 def stop_sampling(space):
-    return space.newint(rvmprof.stop_sampling(space))
+    return space.newint(rvmprof.stop_sampling())
 
 def start_sampling(space):
-    rvmprof.start_sampling(space)
+    rvmprof.start_sampling()
     return space.w_None

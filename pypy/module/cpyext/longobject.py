@@ -224,8 +224,9 @@ def _PyLong_Sign(space, w_long):
     assert isinstance(w_long, W_LongObject)
     return w_long.num.sign
 
-UCHARP = rffi.CArrayPtr(rffi.UCHAR)
-@cpython_api([UCHARP, rffi.SIZE_T, rffi.INT_real, rffi.INT_real], PyObject)
+CONST_UCHARP = lltype.Ptr(lltype.Array(rffi.UCHAR, hints={'nolength': True,
+                                       'render_as_const': True}))
+@cpython_api([CONST_UCHARP, rffi.SIZE_T, rffi.INT_real, rffi.INT_real], PyObject)
 def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
     little_endian = rffi.cast(lltype.Signed, little_endian)
     signed = rffi.cast(lltype.Signed, signed)

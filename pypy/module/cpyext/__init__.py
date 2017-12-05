@@ -5,6 +5,7 @@ from pypy.module.cpyext import api
 class Module(MixedModule):
     interpleveldefs = {
         'load_module': 'api.load_extension_module',
+        'is_cpyext_function': 'interp_cpyext.is_cpyext_function',
     }
 
     appleveldefs = {
