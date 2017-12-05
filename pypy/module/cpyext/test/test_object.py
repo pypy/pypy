@@ -8,7 +8,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.object import (
     PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
     PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
-    PyObject_GetItem, 
+    PyObject_GetItem,
     PyObject_IsInstance, PyObject_IsSubclass, PyObject_AsFileDescriptor,
     PyObject_Hash)
 
@@ -570,7 +570,7 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
                 PyObject *a = PyTuple_GetItem(args, 0);
                 PyObject *b = PyTuple_GetItem(args, 1);
                 int res = PyObject_RichCompareBool(a, b, Py_EQ);
-                return PyLong_FromLong(res);  
+                return PyLong_FromLong(res);
                 """),])
         a = float('nan')
         b = float('nan')

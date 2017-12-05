@@ -29,12 +29,20 @@ def setup_module(mod):
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
-    bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+    if sys.platform == 'darwin':
+        # see issue https://bugs.python.org/issue31380
+        bytes_dir = udir.ensure('fixc5x9fier.txt', dir=True)
+        file_name = 'cafxe9'
+        surrogate_name = 'foo'
+    else:
+        bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+        file_name = 'caf\xe9'
+        surrogate_name = 'foo\x80'
     bytes_dir.join('somefile').write('who cares?')
-    bytes_dir.join('caf\xe9').write('who knows?')
+    bytes_dir.join(file_name).write('who knows?')
     mod.bytes_dir = bytes_dir
     # an escaped surrogate
-    mod.esurrogate_dir = udir.ensure('foo\x80', dir=True)
+    mod.esurrogate_dir = udir.ensure(surrogate_name, dir=True)
 
     # in applevel tests, os.stat uses the CPython os.stat.
     # Be sure to return times with full precision
