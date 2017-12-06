@@ -680,11 +680,13 @@ def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None):
     return unicode_escape #, char_escape_helper
 
 class Utf8StringBuilder(object):
+    @always_inline
     def __init__(self, size=0):
         self._s = StringBuilder(size)
         self._lgt = 0
         self._flag = FLAG_ASCII
 
+    @always_inline
     def append(self, s):
         # for strings
         self._s.append(s)
@@ -692,6 +694,7 @@ class Utf8StringBuilder(object):
         self._lgt += newlgt
         self._flag = combine_flags(self._flag, newflag)
 
+    @always_inline
     def append_slice(self, s, start, end):
         self._s.append_slice(s, start, end)
         newlgt, newflag = get_utf8_length_flag(s, start, end)
@@ -699,27 +702,33 @@ class Utf8StringBuilder(object):
         self._flag = combine_flags(self._flag, newflag)
 
     @signature(char(), returns=none())
+    @always_inline
     def append_char(self, s):
         # for characters, ascii
         self._lgt += 1
         self._s.append(s)
 
+    @always_inline
     def append_code(self, code):
         self._flag = combine_flags(self._flag, get_flag_from_code(code))
         self._lgt += 1
         unichr_as_utf8_append(self._s, code, True)
 
+    @always_inline
     def append_utf8(self, utf8, length, flag):
         self._flag = combine_flags(self._flag, flag)
         self._lgt += length
         self._s.append(utf8)
 
+    @always_inline
     def build(self):
         return self._s.build()
 
+    @always_inline
     def get_flag(self):
         return self._flag
 
+    @always_inline
     def get_length(self):
         return self._lgt
 
