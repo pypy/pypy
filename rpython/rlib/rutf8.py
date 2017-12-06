@@ -17,7 +17,7 @@ extra code in the middle for error handlers and so on.
 
 import sys
 from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
-from rpython.rlib.objectmodel import always_inline, dont_inline
+from rpython.rlib.objectmodel import always_inline, dont_inline, try_inline
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
 from rpython.rlib.signature import signature
@@ -50,7 +50,7 @@ def unichr_as_utf8(code, allow_surrogates=False):
                 chr((0x80 | (code & 0x3f))))
     raise ValueError
 
-@always_inline
+@try_inline
 def unichr_as_utf8_append(builder, code, allow_surrogates=False):
     """Encode code (numeric value) as utf8 encoded string
     and emit the result into the given StringBuilder.
@@ -737,7 +737,7 @@ class Utf8StringBuilder(object):
         self._lgt += 1
         self._s.append(s)
 
-    @always_inline
+    @try_inline
     def append_code(self, code):
         self._flag = combine_flags(self._flag, get_flag_from_code(code))
         self._lgt += 1
