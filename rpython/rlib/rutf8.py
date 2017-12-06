@@ -17,6 +17,7 @@ extra code in the middle for error handlers and so on.
 
 import sys
 from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
+from rpython.rlib.objectmodel import always_inline
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
 from rpython.rlib.signature import signature
@@ -734,6 +735,7 @@ class Utf8StringIterator(object):
     def __iter__(self):
         return self
 
+    @always_inline
     def next(self):
         if self._pos == self._end:
             raise StopIteration
