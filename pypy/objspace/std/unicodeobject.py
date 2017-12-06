@@ -524,16 +524,12 @@ class W_UnicodeObject(W_Root):
 
     def descr_islower(self, space):
         cased = False
-        val = self._utf8
-        i = 0
-        while i < len(val):
-            uchar = rutf8.codepoint_at_pos(val, i)
+        for uchar in rutf8.Utf8StringIterator(self._utf8):
             if (unicodedb.isupper(uchar) or
                 unicodedb.istitle(uchar)):
                 return space.w_False
             if not cased and unicodedb.islower(uchar):
                 cased = True
-            i = rutf8.next_codepoint_pos(val, i)
         return space.newbool(cased)
 
     def descr_istitle(self, space):
