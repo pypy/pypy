@@ -734,11 +734,43 @@ class Utf8StringIterator(object):
 
     @always_inline
     def next(self):
-        if self._pos == self._end:
+        pos = self._pos
+        if pos == self._end:
             raise StopIteration
-        ret = codepoint_at_pos(self._utf8, self._pos)
-        self._pos = next_codepoint_pos(self._utf8, self._pos)
-        return ret
+        #----- sane-looking version: ------
+        #ret = codepoint_at_pos(self._utf8, self._pos)
+        #self._pos = next_codepoint_pos(self._utf8, self._pos)
+        #return ret
+        #----- manually inlined version follows, with merged checks -----
+
+        code = self._utf8
+        ordch1 = ord(code[pos])
+        if ordch1 <= 0x7F:
+            self._pos = pos + 1
+            return ordch1
+
+        ordch2 = ord(code[pos+1])
+        if ordch1 <= 0xDF:
+            # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
+            self._pos = pos + 2
+            return (ordch1 << 6) + ordch2 - (
+                   (0xC0   << 6) + 0x80     )
+
+        ordch3 = ord(code[pos+2])
+        if ordch1 <= 0xEF:
+            # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
+            self._pos = pos + 3
+            return (ordch1 << 12) + (ordch2 << 6) + ordch3 - (
+                   (0xE0   << 12) + (0x80   << 6) + 0x80     )
+
+        ordch4 = ord(code[pos+3])
+        if True:
+            # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
+            self._pos = pos + 4
+            return (ordch1 << 18) + (ordch2 << 12) + (ordch3 << 6) + ordch4 - (
+                   (0xF0   << 18) + (0x80   << 12) + (0x80   << 6) + 0x80     )
+        assert False, "unreachable"
+
 
 def decode_latin_1(s):
     if len(s) == 0:
