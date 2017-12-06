@@ -131,23 +131,20 @@ def codepoint_at_pos(code, pos):
     ordch2 = ord(code[pos+1])
     if ordch1 <= 0xDF:
         # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
-        return (((ordch1 & 0x1F) << 6) +    # 0b00011111
-                 (ordch2 & 0x3F))           # 0b00111111
+        return (ordch1 << 6) + ordch2 - (
+               (0xC0   << 6) + 0x80     )
 
     ordch3 = ord(code[pos+2])
     if ordch1 <= 0xEF:
         # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
-        return (((ordch1 & 0x0F) << 12) +     # 0b00001111
-                ((ordch2 & 0x3F) << 6) +      # 0b00111111
-                (ordch3 & 0x3F))              # 0b00111111
+        return (ordch1 << 12) + (ordch2 << 6) + ordch3 - (
+               (0xE0   << 12) + (0x80   << 6) + 0x80     )
 
     ordch4 = ord(code[pos+3])
     if True:
         # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
-        return (((ordch1 & 0x07) << 18) +      # 0b00000111
-                ((ordch2 & 0x3F) << 12) +      # 0b00111111
-                ((ordch3 & 0x3F) << 6) +       # 0b00111111
-                (ordch4 & 0x3F))               # 0b00111111
+        return (ordch1 << 18) + (ordch2 << 12) + (ordch3 << 6) + ordch4 - (
+               (0xF0   << 18) + (0x80   << 12) + (0x80   << 6) + 0x80     )
     assert False, "unreachable"
 
 def codepoint_before_pos(code, pos):
