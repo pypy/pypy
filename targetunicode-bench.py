@@ -33,7 +33,7 @@ def main(argv):
     if len(argv) > 2 and argv[2] == "s":
         for i in range(int(argv[1])):
             res_l[0] = descr_upper_s(l[i % 100])
-    if len(argv) > 2 and argv[2] == "u":
+    elif len(argv) > 2 and argv[2] == "u":
         for i in range(int(argv[1])):
             res_l_2[0] = descr_upper_u(u_l[i % 100])
     else:
