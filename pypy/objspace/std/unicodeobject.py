@@ -449,10 +449,7 @@ class W_UnicodeObject(W_Root):
     def _is_generic_loop(self, space, v, func_name):
         func = getattr(self, func_name)
         val = self._utf8
-        i = 0
-        while i < len(val):
-            uchar = rutf8.codepoint_at_pos(val, i)
-            i = rutf8.next_codepoint_pos(val, i)
+        for uchar in rutf8.Utf8StringIterator(val):
             if not func(uchar):
                 return space.w_False
         return space.w_True
@@ -535,11 +532,7 @@ class W_UnicodeObject(W_Root):
     def descr_istitle(self, space):
         cased = False
         previous_is_cased = False
-        val = self._utf8
-        i = 0
-        while i < len(val):
-            uchar = rutf8.codepoint_at_pos(val, i)
-            i = rutf8.next_codepoint_pos(val, i)
+        for uchar in rutf8.Utf8StringIterator(self._utf8):
             if unicodedb.isupper(uchar) or unicodedb.istitle(uchar):
                 if previous_is_cased:
                     return space.w_False
@@ -555,16 +548,12 @@ class W_UnicodeObject(W_Root):
 
     def descr_isupper(self, space):
         cased = False
-        i = 0
-        val = self._utf8
-        while i < len(val):
-            uchar = rutf8.codepoint_at_pos(val, i)
+        for uchar in rutf8.Utf8StringIterator(self._utf8):
             if (unicodedb.islower(uchar) or
                 unicodedb.istitle(uchar)):
                 return space.w_False
             if not cased and unicodedb.isupper(uchar):
                 cased = True
-            i = rutf8.next_codepoint_pos(val, i)
         return space.newbool(cased)
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
