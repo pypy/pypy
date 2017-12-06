@@ -17,7 +17,7 @@ extra code in the middle for error handlers and so on.
 
 import sys
 from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
-from rpython.rlib.objectmodel import always_inline
+from rpython.rlib.objectmodel import always_inline, dont_inline
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
 from rpython.rlib.signature import signature
@@ -50,6 +50,7 @@ def unichr_as_utf8(code, allow_surrogates=False):
                 chr((0x80 | (code & 0x3f))))
     raise ValueError
 
+@always_inline
 def unichr_as_utf8_append(builder, code, allow_surrogates=False):
     """Encode code (numeric value) as utf8 encoded string
     and emit the result into the given StringBuilder.
@@ -59,13 +60,40 @@ def unichr_as_utf8_append(builder, code, allow_surrogates=False):
     if code <= r_uint(0x7F):
         # Encode ASCII
         builder.append(chr(code))
-        return
+    else:
+        # Encode non-ASCII, uses a function call
+        if allow_surrogates:
+            _nonascii_unichr_as_utf8_append(builder, code)
+        else:
+            _nonascii_unichr_as_utf8_append_nosurrogates(builder, code)
+
+@dont_inline
+def _nonascii_unichr_as_utf8_append(builder, code):
     if code <= r_uint(0x07FF):
         builder.append(chr((0xc0 | (code >> 6))))
         builder.append(chr((0x80 | (code & 0x3f))))
         return
     if code <= r_uint(0xFFFF):
-        if not allow_surrogates and 0xd800 <= code <= 0xdfff:
+        builder.append(chr((0xe0 | (code >> 12))))
+        builder.append(chr((0x80 | ((code >> 6) & 0x3f))))
+        builder.append(chr((0x80 | (code & 0x3f))))
+        return
+    if code <= r_uint(0x10FFFF):
+        builder.append(chr((0xf0 | (code >> 18))))
+        builder.append(chr((0x80 | ((code >> 12) & 0x3f))))
+        builder.append(chr((0x80 | ((code >> 6) & 0x3f))))
+        builder.append(chr((0x80 | (code & 0x3f))))
+        return
+    raise ValueError
+
+@dont_inline
+def _nonascii_unichr_as_utf8_append_nosurrogates(builder, code):
+    if code <= r_uint(0x07FF):
+        builder.append(chr((0xc0 | (code >> 6))))
+        builder.append(chr((0x80 | (code & 0x3f))))
+        return
+    if code <= r_uint(0xFFFF):
+        if 0xd800 <= code <= 0xdfff:
             raise ValueError
         builder.append(chr((0xe0 | (code >> 12))))
         builder.append(chr((0x80 | ((code >> 6) & 0x3f))))
@@ -78,6 +106,7 @@ def unichr_as_utf8_append(builder, code, allow_surrogates=False):
         builder.append(chr((0x80 | (code & 0x3f))))
         return
     raise ValueError
+
 
 # note - table lookups are really slow. Measured on various elements of obama
 #        chinese wikipedia, they're anywhere between 10% and 30% slower.
