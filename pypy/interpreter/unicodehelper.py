@@ -151,30 +151,30 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
     res = StringBuilder(len(s))
     cur = 0
     iter = rutf8.Utf8StringIterator(s)
-    try:
-        while True:
+    while True:
+        try:
             ch = iter.next()
-            if ch <= 0xFF:
-                res.append(chr(ch))
-                cur += 1
-            else:
-                r, pos = errorhandler(errors, 'latin1',
-                                      'ordinal not in range(256)', s, cur,
-                                      cur + 1)
+        except StopIteration:
+            break
+        if ch <= 0xFF:
+            res.append(chr(ch))
+            cur += 1
+        else:
+            r, pos = errorhandler(errors, 'latin1',
+                                  'ordinal not in range(256)', s, cur,
+                                  cur + 1)
 
-                for c in rutf8.Utf8StringIterator(r):
-                    if c > 0xFF:
-                        errorhandler("strict", 'latin1',
-                                     'ordinal not in range(256)', s,
-                                     cur, cur + 1)
-                    res.append(chr(c))
+            for c in rutf8.Utf8StringIterator(r):
+                if c > 0xFF:
+                    errorhandler("strict", 'latin1',
+                                 'ordinal not in range(256)', s,
+                                 cur, cur + 1)
+                res.append(chr(c))
 
-                for j in range(pos - cur - 1):
-                    iter.next()
+            for j in range(pos - cur - 1):
+                iter.next()
 
-                cur = pos
-    except StopIteration:
-        pass
+            cur = pos
     r = res.build()
     return r
 
