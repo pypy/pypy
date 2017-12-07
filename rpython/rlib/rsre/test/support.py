@@ -25,7 +25,6 @@ class MatchContextForTests(StrMatchContext):
     """Concrete subclass for matching in a plain string, tweaked for tests"""
 
     ZERO = Position(0)
-    EXACT_DISTANCE = False
 
     def next(self, position):
         assert isinstance(position, Position)

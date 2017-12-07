@@ -138,8 +138,40 @@ class AbstractMatchContext(object):
         """Similar to str()."""
         raise NotImplementedError
 
-    def debug_check_pos(self, pos):
-        pass
+    # The following methods are provided to be overriden in
+    # Utf8MatchContext.  The non-utf8 implementation is provided
+    # by the FixedMatchContext abstract subclass, in order to use
+    # the same @not_rpython safety trick as above.
+    @not_rpython
+    def next(self, position):
+        raise NotImplementedError
+    @not_rpython
+    def prev(self, position):
+        raise NotImplementedError
+    @not_rpython
+    def next_n(self, position, n):
+        raise NotImplementedError
+    @not_rpython
+    def prev_n(self, position, n, start_position):
+        raise NotImplementedError
+    @not_rpython
+    def slowly_convert_byte_pos_to_index(self, position):
+        raise NotImplementedError
+    @not_rpython
+    def debug_check_pos(self, position):
+        raise NotImplementedError
+    @not_rpython
+    def maximum_distance(self, position_low, position_high):
+        raise NotImplementedError
+    @not_rpython
+    def bytes_difference(self, position1, position2):
+        raise NotImplementedError
+    @not_rpython
+    def get_single_byte(self, base_position, index):
+        raise NotImplementedError
+    @not_rpython
+    def go_forward_by_bytes(self, base_position, index):
+        raise NotImplementedError
 
     def get_mark(self, gid):
         mark = find_mark(self.match_marks, gid)
@@ -186,13 +218,56 @@ class AbstractMatchContext(object):
     def fresh_copy(self, start):
         raise NotImplementedError
 
-class BufMatchContext(AbstractMatchContext):
+
+class FixedMatchContext(AbstractMatchContext):
+    """Abstract subclass to introduce the default implementation for
+    these position methods.  The Utf8 subclass doesn't inherit from here."""
+
+    ZERO = 0
+
+    def next(self, position):
+        return position + 1
+
+    def prev(self, position):
+        if position == 0:
+            raise EndOfString
+        return position - 1
+
+    def next_n(self, position, n, end_position):
+        position += n
+        if position > end_position:
+            raise EndOfString
+        return position
+
+    def prev_n(self, position, n, start_position):
+        position -= n
+        if position < start_position:
+            raise EndOfString
+        return position
+
+    def slowly_convert_byte_pos_to_index(self, position):
+        return position
+
+    def debug_check_pos(self, position):
+        pass
+
+    def maximum_distance(self, position_low, position_high):
+        return position_high - position_low
+
+    def bytes_difference(self, position1, position2):
+        return position1 - position2
+
+    def go_forward_by_bytes(self, base_position, index):
+        return base_position + index
+
+
+class BufMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a buffer."""
 
     _immutable_fields_ = ["_buffer"]
 
     def __init__(self, pattern, buf, match_start, end, flags):
-        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+        FixedMatchContext.__init__(self, pattern, match_start, end, flags)
         self._buffer = buf
 
     def str(self, index):
@@ -203,17 +278,20 @@ class BufMatchContext(AbstractMatchContext):
         c = self.str(index)
         return rsre_char.getlower(c, self.flags)
 
+    def get_single_byte(self, base_position, index):
+        return self.str(base_position + index)
+
     def fresh_copy(self, start):
         return BufMatchContext(self.pattern, self._buffer, start,
                                self.end, self.flags)
 
-class StrMatchContext(AbstractMatchContext):
+class StrMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a plain string."""
 
     _immutable_fields_ = ["_string"]
 
     def __init__(self, pattern, string, match_start, end, flags):
-        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+        FixedMatchContext.__init__(self, pattern, match_start, end, flags)
         self._string = string
         if not we_are_translated() and isinstance(string, unicode):
             self.flags |= rsre_char.SRE_FLAG_UNICODE   # for rsre_re.py
@@ -226,17 +304,20 @@ class StrMatchContext(AbstractMatchContext):
         c = self.str(index)
         return rsre_char.getlower(c, self.flags)
 
+    def get_single_byte(self, base_position, index):
+        return self.str(base_position + index)
+
     def fresh_copy(self, start):
         return StrMatchContext(self.pattern, self._string, start,
                                self.end, self.flags)
 
-class UnicodeMatchContext(AbstractMatchContext):
+class UnicodeMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a unicode string."""
 
     _immutable_fields_ = ["_unicodestr"]
 
     def __init__(self, pattern, unicodestr, match_start, end, flags):
-        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+        FixedMatchContext.__init__(self, pattern, match_start, end, flags)
         self._unicodestr = unicodestr
 
     def str(self, index):
@@ -246,6 +327,9 @@ class UnicodeMatchContext(AbstractMatchContext):
     def lowstr(self, index):
         c = self.str(index)
         return rsre_char.getlower(c, self.flags)
+
+    def get_single_byte(self, base_position, index):
+        return self.str(base_position + index)
 
     def fresh_copy(self, start):
         return UnicodeMatchContext(self.pattern, self._unicodestr, start,
