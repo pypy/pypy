@@ -229,9 +229,10 @@ class FixedMatchContext(AbstractMatchContext):
         return position + 1
 
     def prev(self, position):
-        if position == 0:
+        position -= 1
+        if position < 0:
             raise EndOfString
-        return position - 1
+        return position
 
     def next_n(self, position, n, end_position):
         position += n
