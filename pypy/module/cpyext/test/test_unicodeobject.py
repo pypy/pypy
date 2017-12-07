@@ -466,8 +466,8 @@ class TestUnicode(BaseApiTest):
 
     def test_encode_utf8(self, space):
         u = rffi.unicode2wcharp(u'sp\x09m')
-        w_s = PyUnicode_EncodeUTF8(space, u, 4, None)
-        assert space.unicode_w(w_s) == u'sp\x09m'.encode('utf-8')
+        w_b = PyUnicode_EncodeUTF8(space, u, 4, None)
+        assert space.bytes_w(w_b) == u'sp\x09m'.encode('utf-8')
         rffi.free_wcharp(u)
 
     def test_encode_decimal(self, space):
