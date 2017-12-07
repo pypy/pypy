@@ -165,8 +165,8 @@ class StdObjSpace(ObjSpace):
             return self.newtext(x)
         if isinstance(x, unicode):
             x = x.encode('utf8')
-            lgt, flag = rutf8.check_utf8(x, True)
-            return self.newutf8(x, lgt, flag)
+            lgt = rutf8.check_utf8(x, True)
+            return self.newutf8(x, lgt)
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
@@ -362,16 +362,10 @@ class StdObjSpace(ObjSpace):
             return self.w_None
         return self.newtext(s)
 
-    def newutf8(self, utf8s, length, flag):
+    def newutf8(self, utf8s, length):
         assert utf8s is not None
         assert isinstance(utf8s, str)
-        return W_UnicodeObject(utf8s, length, flag)
-
-    def new_from_utf8(self, utf8s):
-        # XXX: kill me!
-        assert isinstance(utf8s, str)
-        length, flag = rutf8.check_utf8(utf8s, True)
-        return W_UnicodeObject(utf8s, length, flag)
+        return W_UnicodeObject(utf8s, length)
 
     def newfilename(self, s):
         assert isinstance(s, str) # on pypy3, this decodes the byte string

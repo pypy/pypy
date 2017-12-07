@@ -66,8 +66,8 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
         pos = c_codecs.pypy_cjk_dec_inbuf_consumed(self.decodebuf)
         assert 0 <= pos <= len(object)
         self.pending = object[pos:]
-        lgt, flag = rutf8.get_utf8_length_flag(output)
-        return space.newutf8(output, lgt, flag)
+        lgt = rutf8.get_utf8_length_flag(output)
+        return space.newutf8(output, lgt)
 
 
 @unwrap_spec(errors="text_or_none")

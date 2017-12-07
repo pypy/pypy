@@ -478,8 +478,8 @@ getting the advantage of providing document type information to the parser.
             # I suppose this is a valid utf8, but there is noone to check
             # and noone to catch an error either
             try:
-                lgt, flag = rutf8.check_utf8(s, True)
-                return space.newutf8(s, lgt, flag)
+                lgt = rutf8.check_utf8(s, True)
+                return space.newutf8(s, lgt)
             except rutf8.CheckError:
                 from pypy.interpreter import unicodehelper
                 # get the correct error msg

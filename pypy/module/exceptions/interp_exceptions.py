@@ -78,7 +78,6 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rwin32
-from rpython.rlib.rutf8 import FLAG_ASCII
 
 
 def readwrite_attrproperty_w(name, cls):
@@ -127,7 +126,7 @@ class W_BaseException(W_Root):
             return space.call_function(space.w_unicode, w_as_str)
         lgt = len(self.args_w)
         if lgt == 0:
-            return space.newutf8("", 0, FLAG_ASCII)
+            return space.newutf8("", 0)
         if lgt == 1:
             return space.call_function(space.w_unicode, self.args_w[0])
         else:

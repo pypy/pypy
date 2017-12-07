@@ -43,8 +43,8 @@ class CodecState(object):
                 length = len(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                length, flag = rutf8.check_utf8(input, allow_surrogates=True)
-                w_input = space.newutf8(input, length, flag)
+                length = rutf8.check_utf8(input, allow_surrogates=True)
+                w_input = space.newutf8(input, length)
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -192,7 +192,7 @@ def strict_errors(space, w_exc):
 def ignore_errors(space, w_exc):
     check_exception(space, w_exc)
     w_end = space.getattr(w_exc, space.newtext('end'))
-    return space.newtuple([space.newutf8('', 0, rutf8.FLAG_ASCII), w_end])
+    return space.newtuple([space.newutf8('', 0), w_end])
 
 REPLACEMENT = u'\ufffd'.encode('utf8')
 
@@ -203,13 +203,13 @@ def replace_errors(space, w_exc):
     size = space.int_w(w_end) - space.int_w(w_start)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         text = '?' * size
-        return space.newtuple([space.newutf8(text, size, rutf8.FLAG_ASCII), w_end])
+        return space.newtuple([space.newutf8(text, size), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         text = REPLACEMENT
-        return space.newtuple([space.newutf8(text, 1, rutf8.FLAG_REGULAR), w_end])
+        return space.newtuple([space.newutf8(text, 1), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeTranslateError):
         text = REPLACEMENT * size
-        return space.newtuple([space.newutf8(text, size, rutf8.FLAG_REGULAR), w_end])
+        return space.newtuple([space.newutf8(text, size), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -237,8 +237,8 @@ def xmlcharrefreplace_errors(space, w_exc):
             builder.append(";")
             pos = rutf8.next_codepoint_pos(obj, pos)
         r = builder.build()
-        lgt, flag = rutf8.check_utf8(r, True)
-        return space.newtuple([space.newutf8(r, lgt, flag), w_end])
+        lgt = rutf8.check_utf8(r, True)
+        return space.newtuple([space.newutf8(r, lgt), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -278,8 +278,8 @@ def backslashreplace_errors(space, w_exc):
             builder.append_slice(num, 2, lnum)
             pos = rutf8.next_codepoint_pos(obj, pos)
         r = builder.build()
-        lgt, flag = rutf8.check_utf8(r, True)
-        return space.newtuple([space.newutf8(r, lgt, flag), w_end])
+        lgt = rutf8.check_utf8(r, True)
+        return space.newtuple([space.newutf8(r, lgt), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -417,9 +417,9 @@ def make_decoder_wrapper(name):
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
         func = getattr(unicodehelper, rname)
-        result, consumed, length, flag = func(string, errors,
+        result, consumed, length = func(string, errors,
                                               final, state.decode_error_handler)
-        return space.newtuple([space.newutf8(result, length, flag),
+        return space.newtuple([space.newutf8(result, length),
                                space.newint(consumed)])
     wrap_decoder.func_name = rname
     globals()[name] = wrap_decoder
@@ -488,14 +488,14 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
     state = space.fromcache(CodecState)
     # call the fast version for checking
     try:
-        lgt, flag = rutf8.check_utf8(string, allow_surrogates=True)
+        lgt = rutf8.check_utf8(string, allow_surrogates=True)
     except rutf8.CheckError:
-        res, consumed, lgt, flag = unicodehelper.str_decode_utf8(string,
+        res, consumed, lgt = unicodehelper.str_decode_utf8(string,
             errors, final, state.decode_error_handler)
-        return space.newtuple([space.newutf8(res, lgt, flag),
+        return space.newtuple([space.newutf8(res, lgt),
                                space.newint(consumed)])
     else:
-        return space.newtuple([space.newutf8(string, lgt, flag),
+        return space.newtuple([space.newutf8(string, lgt),
                                space.newint(len(string))])
 
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
@@ -516,10 +516,10 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     consumed = len(data)
     if final:
         consumed = 0
-    res, consumed, lgt, flag, byteorder = str_decode_utf_16_helper(
+    res, consumed, lgt, byteorder = str_decode_utf_16_helper(
         data, errors, final,
         state.decode_error_handler, byteorder)
-    return space.newtuple([space.newutf8(res, lgt, flag),
+    return space.newtuple([space.newutf8(res, lgt),
                            space.newint(consumed),
                            space.newint(byteorder)])
 
@@ -539,10 +539,10 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     consumed = len(data)
     if final:
         consumed = 0
-    res, consumed, lgt, flag, byteorder = str_decode_utf_32_helper(
+    res, consumed, lgt, byteorder = str_decode_utf_32_helper(
         data, errors, final,
         state.decode_error_handler, byteorder)
-    return space.newtuple([space.newutf8(res, lgt, flag),
+    return space.newtuple([space.newutf8(res, lgt),
                            space.newint(consumed),
                            space.newint(byteorder)])
 
@@ -632,7 +632,7 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
     if errors is None:
         errors = 'strict'
     if len(string) == 0:
-        return space.newtuple([space.newutf8('', 0, rutf8.FLAG_ASCII),
+        return space.newtuple([space.newutf8('', 0),
                                space.newint(0)])
 
     if space.is_none(w_mapping):
@@ -642,9 +642,9 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
 
     final = True
     state = space.fromcache(CodecState)
-    result, consumed, lgt, flag = unicodehelper.str_decode_charmap(
+    result, consumed, lgt = unicodehelper.str_decode_charmap(
         string, errors, final, state.decode_error_handler, mapping)
-    return space.newtuple([space.newutf8(result, lgt, flag),
+    return space.newtuple([space.newutf8(result, lgt),
                            space.newint(consumed)])
 
 @unwrap_spec(errors='text_or_none')
@@ -708,12 +708,12 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
-    result, consumed, lgt, flag = unicodehelper.str_decode_unicode_escape(
+    result, consumed, lgt = unicodehelper.str_decode_unicode_escape(
         string, errors,
         final, state.decode_error_handler,
         unicode_name_handler)
 
-    return space.newtuple([space.newutf8(result, lgt, flag), space.newint(consumed)])
+    return space.newtuple([space.newutf8(result, lgt), space.newint(consumed)])
 
 # ____________________________________________________________
 # Unicode-internal
@@ -731,15 +731,15 @@ def unicode_internal_decode(space, w_string, errors="strict"):
     string = space.readbuf_w(w_string).as_str()
 
     if len(string) == 0:
-        return space.newtuple([space.newutf8('', 0, rutf8.FLAG_ASCII),
+        return space.newtuple([space.newutf8('', 0),
                                space.newint(0)])
 
     final = True
     state = space.fromcache(CodecState)
-    result, consumed, lgt, flag = unicodehelper.str_decode_unicode_internal(
+    result, consumed, lgt = unicodehelper.str_decode_unicode_internal(
         string, errors,
         final, state.decode_error_handler)
-    return space.newtuple([space.newutf8(result, lgt, flag),
+    return space.newtuple([space.newutf8(result, lgt),
                            space.newint(consumed)])
 
 # ____________________________________________________________

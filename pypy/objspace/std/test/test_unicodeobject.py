@@ -27,12 +27,12 @@ class TestUnicodeObject:
         assert len(warnings) == 2
 
     def test_listview_unicode(self):
-        w_str = self.space.newutf8('abcd', 4, rutf8.FLAG_ASCII)
+        w_str = self.space.newutf8('abcd', 4)
         assert self.space.listview_utf8(w_str) == list("abcd")
 
     def test_new_shortcut(self):
         space = self.space
-        w_uni = self.space.newutf8('abcd', 4, rutf8.FLAG_ASCII)
+        w_uni = self.space.newutf8('abcd', 4)
         w_new = space.call_method(
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
@@ -44,8 +44,8 @@ class TestUnicodeObject:
             return   # skip this case
         v = u[start : start + len1]
         space = self.space
-        w_u = space.newutf8(u.encode('utf8'), len(u), rutf8.FLAG_REGULAR)
-        w_v = space.newutf8(v.encode('utf8'), len(v), rutf8.FLAG_REGULAR)
+        w_u = space.newutf8(u.encode('utf8'), len(u))
+        w_v = space.newutf8(v.encode('utf8'), len(v))
         expected = u.find(v, start, start + len1)
         try:
             w_index = space.call_method(w_u, 'index', w_v,

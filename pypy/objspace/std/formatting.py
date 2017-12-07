@@ -198,8 +198,8 @@ def make_formatter_subclass(do_unicode):
             if self.w_valuedict is None:
                 raise oefmt(space.w_TypeError, "format requires a mapping")
             if do_unicode:
-                lgt, flag = rutf8.check_utf8(key, True)
-                w_key = space.newutf8(key, lgt, flag)
+                lgt = rutf8.check_utf8(key, True)
+                w_key = space.newutf8(key, lgt)
             else:
                 w_key = space.newbytes(key)
             return space.getitem(self.w_valuedict, w_key)
@@ -513,8 +513,8 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
     # this can force strings, not sure if it's a problem or not
-    lgt, flag = rutf8.check_utf8(result, True)
-    return space.newutf8(result, lgt, flag)
+    lgt = rutf8.check_utf8(result, True)
+    return space.newutf8(result, lgt)
 
 def mod_format(space, w_format, w_values, do_unicode=False):
     if space.isinstance_w(w_values, space.w_tuple):

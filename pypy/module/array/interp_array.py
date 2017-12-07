@@ -1014,8 +1014,7 @@ def make_array(mytype):
                 return space.newbytes(item)
             elif mytype.typecode == 'u':
                 code = ord(item)
-                return space.newutf8(rutf8.unichr_as_utf8(code), 1,
-                          rutf8.get_flag_from_code(code))
+                return space.newutf8(rutf8.unichr_as_utf8(code), 1)
             assert 0, "unreachable"
 
         # interface

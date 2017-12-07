@@ -214,8 +214,8 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
         message = "%s:%d: %s: %s\n" % (space.utf8_w(w_filename), lineno,
                                         space.utf8_w(w_name),
                                         space.utf8_w(w_text))
-        lgt, flag = rutf8.check_utf8(message, True)
-        w_message = space.newutf8(message, lgt, flag)
+        lgt = rutf8.check_utf8(message, True)
+        w_message = space.newutf8(message, lgt)
     else:
         w_message = space.newtext(message)
     space.call_method(w_stderr, "write", w_message)

@@ -1197,7 +1197,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.newutf8(unwrapped, len(unwrapped), rutf8.FLAG_ASCII)
+        return self.space.newutf8(unwrapped, len(unwrapped))
 
     def unwrap(self, wrapped):
         return self.space.utf8_w(wrapped)
@@ -1239,7 +1239,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##     return self.space.newlist_bytes(self.listview_bytes(w_dict))
 
     def wrapkey(space, key):
-        return space.newutf8(key, len(key), rutf8.FLAG_ASCII)
+        return space.newutf8(key, len(key))
 
     ## @jit.look_inside_iff(lambda self, w_dict:
     ##                      w_dict_unrolling_heuristic(w_dict))
