@@ -1562,6 +1562,7 @@ def create_extension_module(space, w_spec):
     from rpython.rlib import rdynload
 
     w_name = space.getattr(w_spec, space.newtext("name"))
+    name = space.text_w(w_name)
     path = space.text_w(space.getattr(w_spec, space.newtext("origin")))
 
     if os.sep not in path:
@@ -1577,7 +1578,6 @@ def create_extension_module(space, w_spec):
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
     look_for = None
-    name = space.text_w(w_name)
     #
     if space.config.objspace.usemodules._cffi_backend:
         basename = name.split('.')[-1]
