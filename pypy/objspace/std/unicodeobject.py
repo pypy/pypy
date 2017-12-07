@@ -170,7 +170,8 @@ class W_UnicodeObject(W_Root):
     def _istitle(self, ch):
         return unicodedb.isupper(ch) or unicodedb.istitle(ch)
 
-    def _isspace(self, ch):
+    @staticmethod
+    def _isspace(ch):
         return unicodedb.isspace(ch)
 
     def _isalpha(self, ch):
@@ -188,8 +189,8 @@ class W_UnicodeObject(W_Root):
     def _iscased(self, ch):
         return unicodedb.iscased(ch)
 
-    def _islinebreak(self, s, pos):
-        return rutf8.islinebreak(s, pos)
+    def _islinebreak(self, ch):
+        return unicodedb.islinebreak(ch)
 
     @staticmethod
     @unwrap_spec(w_string=WrappedDefault(""))
@@ -610,7 +611,7 @@ class W_UnicodeObject(W_Root):
         while pos < length:
             sol = pos
             lgt = 0
-            while pos < length and not self._islinebreak(value, pos):
+            while pos < length and not self._islinebreak(rutf8.codepoint_at_pos(value, pos)):
                 pos = rutf8.next_codepoint_pos(value, pos)
                 lgt += 1
             eol = pos
@@ -792,7 +793,7 @@ class W_UnicodeObject(W_Root):
         if pos < 0:
             return space.newtuple([self, self._empty(), self._empty()])
         else:
-            lgt, _ = rutf8.check_utf8(value, True, stop=pos)
+            lgt = rutf8.check_utf8(value, True, stop=pos)
             return space.newtuple(
                 [W_UnicodeObject(value[0:pos], lgt), w_sub,
                  W_UnicodeObject(value[pos + len(sub._utf8):len(value)],
@@ -810,7 +811,7 @@ class W_UnicodeObject(W_Root):
         if pos < 0:
             return space.newtuple([self._empty(), self._empty(), self])
         else:
-            lgt, _ = rutf8.check_utf8(value, True, stop=pos)
+            lgt = rutf8.check_utf8(value, True, stop=pos)
             return space.newtuple(
                 [W_UnicodeObject(value[0:pos], lgt), w_sub,
                  W_UnicodeObject(value[pos + len(sub._utf8):len(value)],
@@ -1087,7 +1088,10 @@ def encode_object(space, w_object, encoding, errors):
             return space.newbytes(s)
         if ((encoding is None and space.sys.defaultencoding == 'utf8') or
              encoding == 'utf-8' or encoding == 'utf8' or encoding == 'UTF-8'):
-            return space.newbytes(space.utf8_w(w_object))
+            utf8 = space.utf8_w(w_object)
+            if rutf8.has_surrogates(utf8):
+                utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
+            return space.newbytes(utf8)
     if w_encoder is None:
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
@@ -1728,14 +1732,12 @@ def unicode_to_decimal_w(space, w_unistr):
     result = ['\0'] * w_unistr._length
     digits = ['0', '1', '2', '3', '4',
               '5', '6', '7', '8', '9']
-    i = 0
     res_pos = 0
-    while i < len(unistr):
-        uchr = rutf8.codepoint_at_pos(unistr, i)
-        if rutf8.isspace(unistr, i):
+    iter = rutf8.Utf8StringIterator(unistr)
+    for uchr in iter:
+        if W_UnicodeObject._isspace(uchr):
             result[res_pos] = ' '
             res_pos += 1
-            i = rutf8.next_codepoint_pos(unistr, i)
             continue
         try:
             result[res_pos] = digits[unicodedb.decimal(uchr)]
@@ -1744,14 +1746,14 @@ def unicode_to_decimal_w(space, w_unistr):
                 result[res_pos] = chr(uchr)
             else:
                 w_encoding = space.newtext('decimal')
-                w_start = space.newint(i)
-                w_end = space.newint(i+1)
+                pos = iter.get_pos()
+                w_start = space.newint(pos)
+                w_end = space.newint(pos+1)
                 w_reason = space.newtext('invalid decimal Unicode string')
                 raise OperationError(space.w_UnicodeEncodeError,
                                      space.newtuple([w_encoding, w_unistr,
                                                      w_start, w_end,
                                                      w_reason]))
-        i = rutf8.next_codepoint_pos(unistr, i)
         res_pos += 1
     return ''.join(result)
 

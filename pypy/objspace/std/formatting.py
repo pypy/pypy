@@ -330,8 +330,7 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             if do_unicode:
                 cp = rutf8.codepoint_at_pos(self.fmt, self.fmtpos - 1)
-                flag = rutf8.get_flag_from_code(cp)
-                w_s = space.newutf8(rutf8.unichr_as_utf8(cp), 1, flag)
+                w_s = space.newutf8(rutf8.unichr_as_utf8(cp), 1)
             else:
                 cp = ord(self.fmt[self.fmtpos - 1])
                 w_s = space.newbytes(chr(cp))

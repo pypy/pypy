@@ -410,6 +410,13 @@ def _check_utf8(s, allow_surrogates, start, stop):
     assert pos - continuation_bytes >= 0
     return pos - continuation_bytes
 
+def has_surrogates(utf8):
+    # XXX write a faster version maybe
+    for ch in Utf8StringIterator(utf8):
+        if 0xD800 <= ch <= 0xDBFF:
+            return True
+    return False
+
 def reencode_utf8_with_surrogates(utf8):
     """ Receiving valid UTF8 which contains surrogates, combine surrogate
     pairs into correct UTF8 with pairs collpased. This is a rare case
