@@ -466,18 +466,6 @@ def utf_8_encode(space, w_obj, errors="strict"):
     if rutf8.has_surrogates(utf8):
         utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
     return space.newtuple([space.newbytes(utf8), space.newint(lgt)])
-#@unwrap_spec(uni=unicode, errors='text_or_none')
-#def utf_8_encode(space, uni, errors="strict"):
-#    if errors is None:
-#        errors = 'strict'
-#    state = space.fromcache(CodecState)
-#    # NB. can't call unicode_encode_utf_8() directly because that's
-#    # an @elidable function nowadays.  Instead, we need the _impl().
-#    # (The problem is the errorhandler, which calls arbitrary Python.)
-#    result = runicode.unicode_encode_utf_8_impl(
-#        uni, len(uni), errors, state.encode_error_handler,
-#        allow_surrogates=True)
-#    return space.newtuple([space.newbytes(result), space.newint(len(uni))])
 
 @unwrap_spec(string='bufferstr', errors='text_or_none',
              w_final = WrappedDefault(False))
