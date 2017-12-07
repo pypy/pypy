@@ -741,6 +741,8 @@ class AppTestUnicodeString:
         assert u'\u20ac'.encode('utf-8') == '\xe2\x82\xac'
         assert u'\ud800\udc02'.encode('utf-8') == '\xf0\x90\x80\x82'
         assert u'\ud84d\udc56'.encode('utf-8') == '\xf0\xa3\x91\x96'
+        assert u'\ud800\udc02'.encode('uTf-8') == '\xf0\x90\x80\x82'
+        assert u'\ud84d\udc56'.encode('Utf8') == '\xf0\xa3\x91\x96'
         assert u'\ud800'.encode('utf-8') == '\xed\xa0\x80'
         assert u'\udc00'.encode('utf-8') == '\xed\xb0\x80'
         assert (u'\ud800\udc02'*1000).encode('utf-8') == '\xf0\x90\x80\x82'*1000
