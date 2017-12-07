@@ -1025,11 +1025,9 @@ def utf82wcharp(utf8, utf8len):
     from rpython.rlib import rutf8
 
     w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw')
-    i = 0
     index = 0
-    while i < len(utf8):
-        w[index] = unichr(rutf8.codepoint_at_pos(utf8, i))
-        i = rutf8.next_codepoint_pos(utf8, i)
+    for ch in rutf8.Utf8StringIterator(utf8):
+        w[index] = unichr(ch)
         index += 1
     w[index] = unichr(0)
     return w

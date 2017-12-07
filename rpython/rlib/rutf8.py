@@ -770,6 +770,12 @@ class Utf8StringIterator(object):
     def __iter__(self):
         return self
 
+    def get_pos(self):
+        return self._pos
+
+    def done(self):
+        return self._pos == self._end
+
     @always_inline
     def next(self):
         pos = self._pos
