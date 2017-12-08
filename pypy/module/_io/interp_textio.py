@@ -12,7 +12,8 @@ from rpython.rlib.rarithmetic import intmask, r_uint, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import (check_utf8, next_codepoint_pos,
-                                codepoints_in_utf8)
+                                codepoints_in_utf8, get_utf8_length,
+                                Utf8StringBuilder)
 
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -684,13 +685,15 @@ class W_TextIOWrapper(W_TextIOBase):
             w_bytes = space.call_method(self.w_buffer, "read")
             w_decoded = space.call_method(self.w_decoder, "decode", w_bytes, space.w_True)
             check_decoded(space, w_decoded)
-            w_result = space.new_from_utf8(self.decoded.get_chars(-1))
+            chars = self.decoded.get_chars(-1)
+            lgt = get_utf8_length(chars)
+            w_result = space.newutf8(chars, lgt)
             w_final = space.add(w_result, w_decoded)
             self.snapshot = None
             return w_final
 
         remaining = size
-        builder = StringBuilder(size)
+        builder = Utf8StringBuilder(size)
 
         # Keep reading chunks until we have n characters to return
         while remaining > 0:
@@ -700,7 +703,7 @@ class W_TextIOWrapper(W_TextIOBase):
             builder.append(data)
             remaining -= len(data)
 
-        return space.new_from_utf8(builder.build())
+        return space.newutf8(builder.build(), builder.get_length())
 
     def _scan_line_ending(self, limit):
         if self.readuniversal:
@@ -725,6 +728,7 @@ class W_TextIOWrapper(W_TextIOBase):
         limit = convert_size(space, w_limit)
         remnant = None
         builder = StringBuilder()
+        # XXX maybe use Utf8StringBuilder instead?
         while True:
             # First, get some data if necessary
             has_data = self._ensure_data(space)
@@ -771,7 +775,8 @@ class W_TextIOWrapper(W_TextIOBase):
             self.decoded.reset()
 
         result = builder.build()
-        return space.new_from_utf8(result)
+        lgt = get_utf8_length(result)
+        return space.newutf8(result, lgt)
 
     # _____________________________________________________________
     # write methods
@@ -794,8 +799,8 @@ class W_TextIOWrapper(W_TextIOBase):
             if text.find('\n') >= 0:
                 haslf = True
         if haslf and self.writetranslate and self.writenl:
-            w_text = space.call_method(w_text, "replace", space.new_from_utf8('\n'),
-                                       space.new_from_utf8(self.writenl))
+            w_text = space.call_method(w_text, "replace", space.newutf8('\n', 1),
+                                       space.newutf8(self.writenl, get_utf8_length(self.writenl)))
             text = space.utf8_w(w_text)
 
         needflush = False
