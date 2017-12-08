@@ -1,7 +1,7 @@
 import re, py
 from rpython.rlib.rsre.test.test_match import get_code, get_code_and_re
 from rpython.rlib.rsre.test import support
-from rpython.rlib.rsre import rsre_core
+from rpython.rlib.rsre import rsre_core, rsre_utf8
 
 
 class BaseTestSearch:
@@ -222,3 +222,8 @@ class TestSearchStr(BaseTestSearch):
     search = staticmethod(rsre_core.search)
     match = staticmethod(rsre_core.match)
     Position = staticmethod(lambda n: n)
+
+class TestSearchUtf8(BaseTestSearch):
+    search = staticmethod(rsre_utf8.utf8search)
+    match = staticmethod(rsre_utf8.utf8match)
+    Position = staticmethod(lambda n: n)   # NB. only for plain ascii

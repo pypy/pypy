@@ -142,6 +142,7 @@ class AbstractMatchContext(object):
     # Utf8MatchContext.  The non-utf8 implementation is provided
     # by the FixedMatchContext abstract subclass, in order to use
     # the same @not_rpython safety trick as above.
+    ZERO = 0
     @not_rpython
     def next(self, position):
         raise NotImplementedError
@@ -221,9 +222,8 @@ class AbstractMatchContext(object):
 
 class FixedMatchContext(AbstractMatchContext):
     """Abstract subclass to introduce the default implementation for
-    these position methods.  The Utf8 subclass doesn't inherit from here."""
-
-    ZERO = 0
+    these position methods.  The Utf8MatchContext subclass doesn't
+    inherit from here."""
 
     def next(self, position):
         return position + 1
