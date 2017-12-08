@@ -87,6 +87,13 @@ class AppTestSrePattern:
         assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
         assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
 
+    def test_findall_unicode(self):
+        import re
+        assert [u"\u1234"] == re.findall(u"\u1234", u"\u1000\u1234\u2000")
+        assert ["a", "u"] == re.findall("b(.)", "abalbus")
+        assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
+        assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
+
     def test_finditer(self):
         import re
         it = re.finditer("b(.)", "brabbel")

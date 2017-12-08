@@ -6,9 +6,8 @@ from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.rutf8 import Utf8StringBuilder
 
 # ____________________________________________________________
 #
@@ -110,11 +109,15 @@ class W_SRE_Pattern(W_Root):
         if endpos < pos:
             endpos = pos
         if space.isinstance_w(w_string, space.w_unicode):
-            unicodestr = space.unicode_w(w_string)
-            if pos > len(unicodestr):
-                pos = len(unicodestr)
-            if endpos > len(unicodestr):
-                endpos = len(unicodestr)
+            utf8str, length = space.utf8_len_w(w_string)
+            if pos >= length:
+                bytepos = len(utf8str)
+            else:
+                bytepos = rutf8.codepoint_at_index(..)
+
+                pos = length
+            if endpos >= length:
+                endpos = length
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
         elif space.isinstance_w(w_string, space.w_bytes):
