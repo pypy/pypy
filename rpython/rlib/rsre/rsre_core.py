@@ -207,13 +207,6 @@ class AbstractMatchContext(object):
             return (-1, -1)
         return (fmarks[groupnum], fmarks[groupnum+1])
 
-    def group(self, groupnum=0):
-        frm, to = self.span(groupnum)
-        if 0 <= frm <= to:
-            return self._string[frm:to]
-        else:
-            return None
-
     def fresh_copy(self, start):
         raise NotImplementedError
 

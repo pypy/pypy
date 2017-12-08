@@ -1,7 +1,7 @@
 import re, random, py
 from rpython.rlib.rsre import rsre_char
 from rpython.rlib.rsre.rpy import get_code, VERSION
-from rpython.rlib.rsre.test.support import match, fullmatch, Position
+from rpython.rlib.rsre.test.support import match, fullmatch, Position as P
 
 
 def get_code_and_re(regexp):
@@ -51,20 +51,20 @@ class TestMatch:
     def test_assert(self):
         r = get_code(r"abc(?=def)(.)")
         res = match(r, "abcdefghi")
-        assert res is not None and res.get_mark(1) == 4
+        assert res is not None and res.get_mark(1) == P(4)
         assert not match(r, "abcdeFghi")
 
     def test_assert_not(self):
         r = get_code(r"abc(?!def)(.)")
         res = match(r, "abcdeFghi")
-        assert res is not None and res.get_mark(1) == 4
+        assert res is not None and res.get_mark(1) == P(4)
         assert not match(r, "abcdefghi")
 
     def test_lookbehind(self):
         r = get_code(r"([a-z]*)(?<=de)")
         assert match(r, "ade")
         res = match(r, "adefg")
-        assert res is not None and res.get_mark(1) == 3
+        assert res is not None and res.get_mark(1) == P(3)
         assert not match(r, "abc")
         assert not match(r, "X")
         assert not match(r, "eX")
@@ -75,13 +75,13 @@ class TestMatch:
             assert res is not None
             return res.get_mark(1)
         r = get_code(r"([a-z]*)(?<!dd)")
-        assert found("ade") == 3
-        assert found("adefg") == 5
-        assert found("abcdd") == 4
-        assert found("abddd") == 3
-        assert found("adddd") == 2
-        assert found("ddddd") == 1
-        assert found("abXde") == 2
+        assert found("ade") == P(3)
+        assert found("adefg") == P(5)
+        assert found("abcdd") == P(4)
+        assert found("abddd") == P(3)
+        assert found("adddd") == P(2)
+        assert found("ddddd") == P(1)
+        assert found("abXde") == P(2)
 
     def test_at(self):
         r = get_code(r"abc$")
@@ -171,8 +171,8 @@ class TestMatch:
     def test_flatten_marks(self):
         r = get_code(r"a(b)c((d)(e))+$")
         res = match(r, "abcdedede")
-        assert res.flatten_marks() == [0, 9, 1, 2, 7, 9, 7, 8, 8, 9]
-        assert res.flatten_marks() == [0, 9, 1, 2, 7, 9, 7, 8, 8, 9]
+        assert res.flatten_marks() == map(P, [0, 9, 1, 2, 7, 9, 7, 8, 8, 9])
+        assert res.flatten_marks() == map(P, [0, 9, 1, 2, 7, 9, 7, 8, 8, 9])
 
     def test_bug1(self):
         # REPEAT_ONE inside REPEAT
@@ -198,14 +198,14 @@ class TestMatch:
         r = get_code(r"abc(?=(..)f)(.)")
         res = match(r, "abcdefghi")
         assert res is not None
-        assert res.span(2) == (3, 4)
-        assert res.span(1) == (3, 5)
+        assert res.span(2) == (P(3), P(4))
+        assert res.span(1) == (P(3), P(5))
 
     def test_assert_not_group(self):
         r = get_code(r"abc(?!(de)f)(.)")
         res = match(r, "abcdeFghi")
         assert res is not None
-        assert res.span(2) == (3, 4)
+        assert res.span(2) == (P(3), P(4))
         # this I definitely classify as Horrendously Implementation Dependent.
         # CPython answers (3, 5).
         assert res.span(1) == (-1, -1)
@@ -267,7 +267,7 @@ class TestMatch:
         print r
         m = match(r, "abbbbbbbbbcdef")
         assert m
-        assert m.match_end == Position(11)
+        assert m.match_end == P(11)
 
     def test_empty_maxuntil(self):
         r = get_code("\\{\\{((?:.*?)+)\\}\\}")

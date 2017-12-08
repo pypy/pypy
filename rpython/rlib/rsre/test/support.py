@@ -54,11 +54,18 @@ class MatchContextForTests(StrMatchContext):
             raise EndOfString
         return Position(r)
 
-    def slowly_convert_byte_pos_to_index(self, position):
+    def _real_pos(self, position):
         if type(position) is int and position == -1:
             return -1
         assert isinstance(position, Position)
         return position._p
+
+    def group(self, groupnum=0):
+        frm, to = self.span(groupnum)
+        if self.ZERO <= frm <= to:
+            return self._string[self._real_pos(frm):self._real_pos(to)]
+        else:
+            return None
 
     def str(self, position):
         assert isinstance(position, Position)
