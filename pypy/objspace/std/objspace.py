@@ -375,8 +375,8 @@ class StdObjSpace(ObjSpace):
         # XXX: kill me!
         assert isinstance(unistr, unicode)
         utf8s = unistr.encode("utf-8")
-        length, flag = rutf8.check_utf8(utf8s, True)
-        return self.newutf8(utf8s, length, flag)
+        length = rutf8.check_utf8(utf8s, True)
+        return self.newutf8(utf8s, length)
 
     def type(self, w_obj):
         jit.promote(w_obj.__class__)
