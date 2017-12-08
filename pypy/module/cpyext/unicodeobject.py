@@ -710,12 +710,17 @@ def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
     """Return 1 if substr matches str[start:end] at the given tail end
     (direction == -1 means to do a prefix match, direction == 1 a
     suffix match), 0 otherwise. Return -1 if an error occurred."""
+    space.utf8_w(w_str)  # type check
+    space.utf8_w(w_substr)
     w_start = space.newint(start)
     w_end = space.newint(end)
     if rffi.cast(lltype.Signed, direction) <= 0:
-        return space.call_method(w_str, "startswith", w_substr, w_start, w_end)
+        w_result = space.call_method(
+            w_str, "startswith", w_substr, w_start, w_end)
     else:
-        return space.call_method(w_str, "endswith", w_substr, w_start, w_end)
+        w_result = space.call_method(
+            w_str, "endswith", w_substr, w_start, w_end)
+    return space.int_w(w_result)
 
 @cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
 def PyUnicode_Count(space, w_str, w_substr, start, end):
