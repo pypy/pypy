@@ -575,8 +575,8 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
         digits = 4 if s[pos] == 'u' else 8
         message = "truncated \\uXXXX"
         pos += 1
-        pos, _, _ = hexescape(result, s, pos, digits,
-                        "rawunicodeescape", errorhandler, message, errors)
+        pos, _ = hexescape(result, s, pos, digits,
+                           "rawunicodeescape", errorhandler, message, errors)
 
     r = result.build()
     lgt = rutf8.check_utf8(r, True)
