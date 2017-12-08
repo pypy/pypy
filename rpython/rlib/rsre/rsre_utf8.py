@@ -1,3 +1,4 @@
+import sys
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rsre.rsre_core import AbstractMatchContext, EndOfString
@@ -7,9 +8,11 @@ from rpython.rlib import rutf8
 
 class Utf8MatchContext(AbstractMatchContext):
 
-    def __init__(self, pattern, utf8string, match_start, end, flags):
+    def __init__(self, pattern, utf8string, index_storage,
+                 match_start, end, flags):
         AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
         self._utf8 = utf8string
+        self._index_storage = index_storage
 
     def str(self, index):
         check_nonneg(index)
@@ -56,4 +59,32 @@ class Utf8MatchContext(AbstractMatchContext):
         return position
 
     def slowly_convert_byte_pos_to_index(self, position):
-        
+        return rutf8.codepoint_index_at_byte_position(
+            self._utf8, self._index_storage, position)
+
+    def debug_check_pos(self, position):
+        assert not (0x80 <= self._utf8[position] < 0xC0)   # continuation byte
+
+
+def utf8search(pattern, utf8string, index_storage=None, bytestart=0,
+               byteend=sys.maxint, flags=0):
+    # bytestart and byteend must be valid byte positions inside the
+    # utf8string.
+    from rpython.rlib.rsre.rsre_core import search_context
+
+    assert 0 <= bytestart <= len(utf8string)
+    assert 0 <= byteend
+    if byteend > len(utf8string):
+        byteend = len(utf8string)
+    if index_storage is None:     # should be restricted to tests only
+        length = rutf8.check_utf8(utf8string, allow_surrogates=True)
+        index_storage = rutf8.create_utf8_index_storage(utf8string, length)
+    ctx = Utf8MatchContext(pattern, utf8string, index_storage,
+                           bytestart, byteend, flags)
+    if search_context(ctx):
+        return ctx
+    else:
+        return None
+
+def utf8match(*args, **kwds):
+    NOT_IMPLEMENTED

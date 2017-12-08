@@ -55,6 +55,8 @@ def specializectx(func):
     specific subclass, calling 'func' is a direct call; if 'ctx' is only known
     to be of class AbstractMatchContext, calling 'func' is an indirect call.
     """
+    from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext
+
     assert func.func_code.co_varnames[0] == 'ctx'
     specname = '_spec_' + func.func_name
     while specname in _seen_specname:
@@ -65,7 +67,8 @@ def specializectx(func):
     specialized_methods = []
     for prefix, concreteclass in [('buf', BufMatchContext),
                                   ('str', StrMatchContext),
-                                  ('uni', UnicodeMatchContext)]:
+                                  ('uni', UnicodeMatchContext),
+                                  ('utf8', Utf8MatchContext)]:
         newfunc = func_with_new_name(func, prefix + specname)
         assert not hasattr(concreteclass, specname)
         setattr(concreteclass, specname, newfunc)

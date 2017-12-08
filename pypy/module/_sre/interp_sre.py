@@ -13,7 +13,7 @@ from rpython.rlib.rstring import StringBuilder
 #
 # Constants and exposed functions
 
-from rpython.rlib.rsre import rsre_core
+from rpython.rlib.rsre import rsre_core, rsre_utf8
 from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, getlower, set_unicode_db
 
 
@@ -40,7 +40,8 @@ def slice_w(space, ctx, start, end, w_default):
                                                         end-start))
         if isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string[start:end])
-        elif isinstance(ctx, rsre_core.UnicodeMatchContext):
+        elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
+            XXXXXXX
             s = ctx._unicodestr[start:end]
             lgt = rutf8.check_utf8(s, True)
             return space.newutf8(s, lgt)
@@ -103,7 +104,7 @@ class W_SRE_Pattern(W_Root):
         raise oefmt(space.w_TypeError, "cannot copy this pattern object")
 
     def make_ctx(self, w_string, pos=0, endpos=sys.maxint):
-        """Make a StrMatchContext, BufMatchContext or a UnicodeMatchContext for
+        """Make a StrMatchContext, BufMatchContext or a Utf8MatchContext for
         searching in the given w_string object."""
         space = self.space
         if pos < 0:
@@ -111,17 +112,26 @@ class W_SRE_Pattern(W_Root):
         if endpos < pos:
             endpos = pos
         if space.isinstance_w(w_string, space.w_unicode):
-            utf8str, length = space.utf8_len_w(w_string)
-            if pos >= length:
+            # xxx fish for the _index_storage
+            w_string = space.convert_arg_to_w_unicode(w_string)
+            utf8str = w_string._utf8
+            length = w_string._len()
+            index_storage = w_string._get_index_storage()
+            #
+            if pos <= 0:
+                bytepos = 0
+            elif pos >= length:
                 bytepos = len(utf8str)
             else:
-                bytepos = rutf8.codepoint_at_index(..)
-
-                pos = length
+                bytepos = rutf8.codepoint_at_index(utf8str, index_storage, pos)
             if endpos >= length:
-                endpos = length
-            return rsre_core.UnicodeMatchContext(self.code, unicodestr,
-                                                 pos, endpos, self.flags)
+                endbytepos = len(utf8str)
+            else:
+                endbytepos = rutf8.codepoint_at_index(utf8str, index_storage,
+                                                      endpos)
+            return rsre_utf8.Utf8MatchContext(
+                self.code, unicodestr, index_storage,
+                bytepos, endbytepos, self.flags)
         elif space.isinstance_w(w_string, space.w_bytes):
             str = space.bytes_w(w_string)
             if pos > len(str):
@@ -372,7 +382,8 @@ def _sub_append_slice(ctx, space, use_builder, sublist_w,
         if isinstance(ctx, rsre_core.StrMatchContext):
             assert strbuilder is not None
             return strbuilder.append_slice(ctx._string, start, end)
-        elif isinstance(ctx, rsre_core.UnicodeMatchContext):
+        elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
+            XXXXXXX
             assert unicodebuilder is not None
             return unicodebuilder.append_slice(ctx._unicodestr, start, end)
         assert 0, "unreachable"
@@ -578,7 +589,8 @@ class W_SRE_Match(W_Root):
             return space.newbytes(ctx._buffer.as_str())
         elif isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string)
-        elif isinstance(ctx, rsre_core.UnicodeMatchContext):
+        elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
+            XXXXXXXX
             lgt = rutf8.check_utf8(ctx._unicodestr, True)
             return space.newutf8(ctx._unicodestr, lgt)
         else:
