@@ -68,23 +68,41 @@ class Utf8MatchContext(AbstractMatchContext):
             return   # end of string is fine
         assert not (0x80 <= self._utf8[position] < 0xC0)   # continuation byte
 
+    def maximum_distance(self, position_low, position_high):
+        # may overestimate if there are non-ascii chars
+        return position_high - position_low
+
+
+def make_utf8_ctx(pattern, utf8string, bytestart, byteend, flags):
+    if bytestart < 0: bytestart = 0
+    elif bytestart > len(utf8string): bytestart = len(utf8string)
+    if byteend < 0: byteend = 0
+    elif byteend > len(utf8string): byteend = len(utf8string)
+    ctx = Utf8MatchContext(pattern, utf8string, bytestart, byteend, flags)
+    ctx.debug_check_pos(bytestart)
+    ctx.debug_check_pos(byteend)
+    return ctx
 
 def utf8search(pattern, utf8string, bytestart=0, byteend=sys.maxint, flags=0):
     # bytestart and byteend must be valid byte positions inside the
     # utf8string.
     from rpython.rlib.rsre.rsre_core import search_context
 
-    assert 0 <= bytestart <= len(utf8string)
-    assert 0 <= byteend
-    if byteend > len(utf8string):
-        byteend = len(utf8string)
-    ctx = Utf8MatchContext(pattern, utf8string, bytestart, byteend, flags)
-    ctx.debug_check_pos(bytestart)
-    ctx.debug_check_pos(byteend)
+    ctx = make_utf8_ctx(pattern, utf8string, bytestart, byteend, flags)
     if search_context(ctx):
         return ctx
     else:
         return None
 
-def utf8match(*args, **kwds):
-    NOT_IMPLEMENTED
+def utf8match(pattern, utf8string, bytestart=0, byteend=sys.maxint, flags=0,
+              fullmatch=False):
+    # bytestart and byteend must be valid byte positions inside the
+    # utf8string.
+    from rpython.rlib.rsre.rsre_core import match_context
+
+    ctx = make_utf8_ctx(pattern, utf8string, bytestart, byteend, flags)
+    ctx.fullmatch_only = fullmatch
+    if match_context(ctx):
+        return ctx
+    else:
+        return None
