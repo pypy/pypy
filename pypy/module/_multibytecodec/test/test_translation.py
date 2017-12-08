@@ -14,7 +14,7 @@ class TestTranslation(test_standalone.StandaloneTests):
             codecname, string = argv[1], argv[2]
             c = c_codecs.getcodec(codecname)
             u = c_codecs.decode(c, string)
-            lgt, _ = rutf8.get_utf8_length_flag(u)
+            lgt = rutf8.get_utf8_length(u)
             r = c_codecs.encode(c, u, lgt)
             print r
             return 0
