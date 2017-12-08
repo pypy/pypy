@@ -1,10 +1,11 @@
 import sys
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rutf8
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rstring import StringBuilder
+from rpython.rtyper.lltypesystem import rffi
 from pypy.module._codecs import interp_codecs
 
 @specialize.memo()
@@ -204,7 +205,7 @@ def utf8_encode_ascii(utf8, errors, errorhandler):
                 if c > 0x7F:
                     errorhandler("strict", 'ascii',
                                  'ordinal not in range(128)', utf8,
-                                 pos, pos + 1)  
+                                 pos, pos + 1)
                 j = rutf8.next_codepoint_pos(r, j)
             pos = newpos
             res.append(r)
@@ -529,6 +530,19 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
             outsize += 2
 
     return builder.build(), pos, outsize
+
+def wcharpsize2utf8(space, wcharp, size):
+    """Safe version of rffi.wcharpsize2utf8.
+
+    Raises app-level ValueError if any wchar value is outside the valid
+    codepoint range.
+    """
+    try:
+        return rffi.wcharpsize2utf8(wcharp, size)
+    except ValueError:
+        raise oefmt(space.w_ValueError,
+            "character is not in range [U+0000; U+10ffff]")
+
 
 # ____________________________________________________________
 # Raw unicode escape
