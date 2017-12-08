@@ -228,8 +228,7 @@ class ToAppLevelConverter(object):
             return space.newbytes(chr(ucharval))
         elif w_ffitype.is_unichar():
             wcharval = self.get_unichar(w_ffitype)
-            return space.newutf8(rutf8.unichr_as_utf8(wcharval), 1,
-                                 rutf8.get_flag_from_code(intmask(wcharval)))
+            return space.newutf8(rutf8.unichr_as_utf8(wcharval), 1)
         elif w_ffitype.is_double():
             return self._float(w_ffitype)
         elif w_ffitype.is_singlefloat():

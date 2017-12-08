@@ -11,8 +11,8 @@ from pypy.module._io.interp_iobase import W_IOBase, convert_size, trap_eintr
 from rpython.rlib.rarithmetic import intmask, r_uint, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.rutf8 import (
-    FLAG_ASCII, check_utf8, next_codepoint_pos, codepoints_in_utf8)
+from rpython.rlib.rutf8 import (check_utf8, next_codepoint_pos,
+                                codepoints_in_utf8)
 
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -31,22 +31,22 @@ class W_IncrementalNewlineDecoder(W_Root):
 
     def __init__(self, space):
         self.w_newlines_dict = {
-            SEEN_CR: space.newutf8("\r", 1, FLAG_ASCII),
-            SEEN_LF: space.newutf8("\n", 1, FLAG_ASCII),
-            SEEN_CRLF: space.newutf8("\r\n", 2, FLAG_ASCII),
+            SEEN_CR: space.newutf8("\r", 1),
+            SEEN_LF: space.newutf8("\n", 1),
+            SEEN_CRLF: space.newutf8("\r\n", 2),
             SEEN_CR | SEEN_LF: space.newtuple(
-                [space.newutf8("\r", 1, FLAG_ASCII),
-                 space.newutf8("\n", 1, FLAG_ASCII)]),
+                [space.newutf8("\r", 1),
+                 space.newutf8("\n", 1)]),
             SEEN_CR | SEEN_CRLF: space.newtuple(
-                [space.newutf8("\r", 1, FLAG_ASCII),
-                 space.newutf8("\r\n", 2, FLAG_ASCII)]),
+                [space.newutf8("\r", 1),
+                 space.newutf8("\r\n", 2)]),
             SEEN_LF | SEEN_CRLF: space.newtuple(
-                [space.newutf8("\n", 1, FLAG_ASCII),
-                 space.newutf8("\r\n", 2, FLAG_ASCII)]),
+                [space.newutf8("\n", 1),
+                 space.newutf8("\r\n", 2)]),
             SEEN_CR | SEEN_LF | SEEN_CRLF: space.newtuple(
-                [space.newutf8("\r", 1, FLAG_ASCII),
-                 space.newutf8("\n", 1, FLAG_ASCII),
-                 space.newutf8("\r\n", 2, FLAG_ASCII)]),
+                [space.newutf8("\r", 1),
+                 space.newutf8("\n", 1),
+                 space.newutf8("\r\n", 2)]),
             }
 
     @unwrap_spec(translate=int)
@@ -98,7 +98,7 @@ class W_IncrementalNewlineDecoder(W_Root):
                 output_len -= 1
 
         if output_len == 0:
-            return space.newutf8("", 0, FLAG_ASCII)
+            return space.newutf8("", 0)
 
         # Record which newlines are read and do newline translation if
         # desired, all in one pass.
@@ -153,8 +153,8 @@ class W_IncrementalNewlineDecoder(W_Root):
             output = builder.build()
 
         self.seennl |= seennl
-        lgt, flag = check_utf8(output, True)
-        return space.newutf8(output, lgt, flag)
+        lgt = check_utf8(output, True)
+        return space.newutf8(output, lgt)
 
     def reset_w(self, space):
         self.seennl = 0
@@ -361,6 +361,7 @@ class DecodeBuffer(object):
         while scanned < limit:
             try:
                 ch = self.next_char()
+                scanned += 1
             except StopIteration:
                 return False
             if ch == '\n':
@@ -746,7 +747,7 @@ class W_TextIOWrapper(W_TextIOBase):
                     remnant = None
                     continue
 
-            if limit > 0:
+            if limit >= 0:
                 remaining = limit - builder.getlength()
                 assert remaining >= 0
             else:

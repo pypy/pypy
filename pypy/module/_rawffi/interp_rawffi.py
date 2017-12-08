@@ -596,9 +596,9 @@ def wcharp2unicode(space, address, maxlength=-1):
         return space.w_None
     wcharp_addr = rffi.cast(rffi.CWCHARP, address)
     if maxlength == -1:
-        s = rffi.wcharp2unicode(wcharp_addr)
+        s = rffi.wcharp2utf8(wcharp_addr)
     else:
-        s = rffi.wcharp2unicoden(wcharp_addr, maxlength)
+        s = rffi.wcharpsize2utf8(wcharp_addr, maxlength)
     return space.newunicode(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)

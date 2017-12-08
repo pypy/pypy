@@ -38,30 +38,25 @@ def test_check_utf8(s, allow_surrogates):
 def test_check_utf8_valid(u, allow_surrogates):
     _test_check_utf8(u.encode('utf-8'), allow_surrogates)
 
-def _test_check_utf8(s, allow_surrogates):
-    def _has_surrogates(s):
-        for u in s.decode('utf8'):
-            if 0xD800 <= ord(u) <= 0xDFFF:
-                return True
-        return False
+def _has_surrogates(s):
+    for u in s.decode('utf8'):
+        if 0xD800 <= ord(u) <= 0xDFFF:
+            return True
+    return False
 
+def _test_check_utf8(s, allow_surrogates):
     try:
         u, _ = runicode.str_decode_utf_8(s, len(s), None, final=True,
                                          allow_surrogates=allow_surrogates)
         valid = True
     except UnicodeDecodeError as e:
         valid = False
-    length, flag = rutf8._check_utf8(s, allow_surrogates, 0, len(s))
+    length = rutf8._check_utf8(s, allow_surrogates, 0, len(s))
     if length < 0:
         assert not valid
         assert ~(length) == e.start
     else:
         assert valid
-        if flag == rutf8.FLAG_ASCII:
-            s.decode('ascii') # assert did not raise
-        elif flag == rutf8.FLAG_HAS_SURROGATES:
-            assert allow_surrogates
-            assert _has_surrogates(s)
         if sys.maxunicode == 0x10FFFF or not _has_surrogates(s):
             assert length == len(u)
 
@@ -155,60 +150,45 @@ def test_surrogate_in_utf8(unichars):
     assert result == expected
 
 @given(strategies.lists(strategies.characters()))
-def test_get_utf8_length_flag(unichars):
+def test_get_utf8_length(unichars):
     u = u''.join(unichars)
     exp_lgt = len(u)
-    exp_flag = rutf8.FLAG_ASCII
-    for c in u:
-        if ord(c) > 0x7F:
-            exp_flag = rutf8.FLAG_REGULAR
-        if 0xD800 <= ord(c) <= 0xDFFF:
-            exp_flag = rutf8.FLAG_HAS_SURROGATES
-            break
-    lgt, flag = rutf8.get_utf8_length_flag(''.join([c.encode('utf8') for c in u]))
-    if exp_flag != rutf8.FLAG_HAS_SURROGATES or sys.maxunicode > 0xffff:
+    s = ''.join([c.encode('utf8') for c in u])
+    lgt = rutf8.get_utf8_length(s)
+    if not _has_surrogates(s) or sys.maxunicode > 0xffff:
         assert lgt == exp_lgt
-    assert flag == exp_flag
 
 def test_utf8_string_builder():
     s = rutf8.Utf8StringBuilder()
     s.append("foo")
     s.append_char("x")
-    assert s.get_flag() == rutf8.FLAG_ASCII
     assert s.get_length() == 4
     assert s.build() == "foox"
     s.append(u"\u1234".encode("utf8"))
-    assert s.get_flag() == rutf8.FLAG_REGULAR
     assert s.get_length() == 5
     assert s.build().decode("utf8") == u"foox\u1234"
     s.append("foo")
     s.append_char("x")
-    assert s.get_flag() == rutf8.FLAG_REGULAR
     assert s.get_length() == 9
     assert s.build().decode("utf8") == u"foox\u1234foox"
 
     s = rutf8.Utf8StringBuilder()
     s.append_code(0x1234)
     assert s.build().decode("utf8") == u"\u1234"
-    assert s.get_flag() == rutf8.FLAG_REGULAR
     assert s.get_length() == 1
     s.append_code(0xD800)
-    assert s.get_flag() == rutf8.FLAG_HAS_SURROGATES
     assert s.get_length() == 2
 
     s = rutf8.Utf8StringBuilder()
-    s.append_utf8("abc", 3, rutf8.FLAG_ASCII)
-    assert s.get_flag() == rutf8.FLAG_ASCII
+    s.append_utf8("abc", 3)
     assert s.get_length() == 3
     assert s.build().decode("utf8") == u"abc"
 
-    s.append_utf8(u"\u1234".encode("utf8"), 1, rutf8.FLAG_REGULAR)
+    s.append_utf8(u"\u1234".encode("utf8"), 1)
     assert s.build().decode("utf8") == u"abc\u1234"
-    assert s.get_flag() == rutf8.FLAG_REGULAR
     assert s.get_length() == 4
 
     s.append_code(0xD800)
-    assert s.get_flag() == rutf8.FLAG_HAS_SURROGATES
     assert s.get_length() == 5
 
 @given(strategies.text())

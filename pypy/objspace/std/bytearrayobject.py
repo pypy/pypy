@@ -195,11 +195,11 @@ class W_BytearrayObject(W_Root):
         w_dict = self.getdict(space)
         if w_dict is None:
             w_dict = space.w_None
-        s, _, lgt, flag = str_decode_latin_1(''.join(self.getdata()), 'strict',
+        s, _, lgt = str_decode_latin_1(''.join(self.getdata()), 'strict',
             True, None)
         return space.newtuple([
             space.type(self), space.newtuple([
-                space.newutf8(s, lgt, flag), space.newtext('latin-1')]),
+                space.newutf8(s, lgt), space.newtext('latin-1')]),
             w_dict])
 
     @staticmethod

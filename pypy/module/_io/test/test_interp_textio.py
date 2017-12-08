@@ -1,41 +1,54 @@
 import pytest
 try:
-    from hypothesis import given, strategies as st, assume
+    from hypothesis import given, strategies as st
 except ImportError:
     pytest.skip("hypothesis required")
+import os
 from pypy.module._io.interp_bytesio import W_BytesIO
 from pypy.module._io.interp_textio import W_TextIOWrapper, DecodeBuffer
 
-LINESEP = ['', '\r', '\n', '\r\n']
+def translate_newlines(text):
+    text = text.replace(u'\r\n', u'\n')
+    text = text.replace(u'\r', u'\n')
+    return text.replace(u'\n', os.linesep)
 
 @st.composite
-def text_with_newlines(draw):
-    sep = draw(st.sampled_from(LINESEP))
-    lines = draw(st.lists(st.text(max_size=10), max_size=10))
-    return sep.join(lines)
+def st_readline(draw, st_nlines=st.integers(min_value=0, max_value=10)):
+    n_lines = draw(st_nlines)
+    fragments = []
+    limits = []
+    for _ in range(n_lines):
+        line = draw(st.text(st.characters(blacklist_characters=u'\r\n')))
+        fragments.append(line)
+        ending = draw(st.sampled_from([u'\n', u'\r', u'\r\n']))
+        fragments.append(ending)
+        limit = draw(st.integers(min_value=0, max_value=len(line) + 5))
+        limits.append(limit)
+        limits.append(-1)
+    return (u''.join(fragments), limits)
 
-@given(txt=text_with_newlines(),
-       mode=st.sampled_from(['\r', '\n', '\r\n', '']),
-       limit=st.integers(min_value=-1))
-def test_readline(space, txt, mode, limit):
-    assume(limit != 0)
+@given(data=st_readline(),
+       mode=st.sampled_from(['\r', '\n', '\r\n', '']))
+def test_readline(space, data, mode):
+    txt, limits = data
     w_stream = W_BytesIO(space)
     w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
     w_textio = W_TextIOWrapper(space)
     w_textio.descr_init(
-        space, w_stream, encoding='utf-8',
+        space, w_stream,
+        encoding='utf-8', w_errors=space.newtext('surrogatepass'),
         w_newline=space.newtext(mode))
     lines = []
-    while True:
+    for limit in limits:
         w_line = w_textio.readline_w(space, space.newint(limit))
         line = space.utf8_w(w_line).decode('utf-8')
-        if limit > 0:
+        if limit >= 0:
             assert len(line) <= limit
         if line:
             lines.append(line)
-        else:
+        elif limit:
             break
-    assert u''.join(lines) == txt
+    assert txt.startswith(u''.join(lines))
 
 @given(st.text())
 def test_read_buffer(text):

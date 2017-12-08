@@ -209,7 +209,7 @@ class FakeObjSpace(ObjSpace):
     def newbytes(self, x):
         return w_some_obj()
 
-    def newutf8(self, x, l, f):
+    def newutf8(self, x, l):
         return w_some_obj()
 
     def new_from_utf8(self, a):

@@ -41,7 +41,9 @@ def slice_w(space, ctx, start, end, w_default):
         if isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            return space.newunicode(ctx._unicodestr[start:end])
+            s = ctx._unicodestr[start:end]
+            lgt = rutf8.check_utf8(s, True)
+            return space.newutf8(s, lgt)
         else:
             # unreachable
             raise SystemError
@@ -340,11 +342,10 @@ class W_SRE_Pattern(W_Root):
             else:
                 assert unicodebuilder is not None
                 return space.newutf8(unicodebuilder.build(),
-                                     unicodebuilder.get_length(),
-                                     unicodebuilder.get_flag()), n
+                                     unicodebuilder.get_length()), n
         else:
             if space.isinstance_w(w_string, space.w_unicode):
-                w_emptystr = space.newunicode(u'')
+                w_emptystr = space.newutf8('', 0)
             else:
                 w_emptystr = space.newbytes('')
             w_item = space.call_method(w_emptystr, 'join',
@@ -578,7 +579,8 @@ class W_SRE_Match(W_Root):
         elif isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string)
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            return space.newunicode(ctx._unicodestr)
+            lgt = rutf8.check_utf8(ctx._unicodestr, True)
+            return space.newutf8(ctx._unicodestr, lgt)
         else:
             raise SystemError
 

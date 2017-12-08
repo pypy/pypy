@@ -600,9 +600,9 @@ class TestW_ListStrategies(TestW_ListObject):
     def test_unicode(self):
         l1 = W_ListObject(self.space, [self.space.newbytes("eins"), self.space.newbytes("zwei")])
         assert isinstance(l1.strategy, BytesListStrategy)
-        l2 = W_ListObject(self.space, [self.space.newutf8("eins", 4, 2), self.space.newutf8("zwei", 4, 2)])
+        l2 = W_ListObject(self.space, [self.space.newutf8("eins", 4), self.space.newutf8("zwei", 4)])
         assert isinstance(l2.strategy, UnicodeListStrategy)
-        l3 = W_ListObject(self.space, [self.space.newbytes("eins"), self.space.newutf8("zwei", 4, 2)])
+        l3 = W_ListObject(self.space, [self.space.newbytes("eins"), self.space.newutf8("zwei", 4)])
         assert isinstance(l3.strategy, ObjectListStrategy)
 
     def test_listview_bytes(self):

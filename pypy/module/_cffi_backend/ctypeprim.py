@@ -183,8 +183,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
             raise oefmt(self.space.w_ValueError,
                         "%s out of range for conversion to unicode: %s",
                         self.name, s)
-        flag = rutf8.get_flag_from_code(intmask(value))
-        return self.space.newutf8(utf8, 1, flag)
+        return self.space.newutf8(utf8, 1)
 
     def string(self, cdataobj, maxlen):
         with cdataobj as ptr:
@@ -215,15 +214,15 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
         if self.size == 2:
-            utf8, lgt, flag = wchar_helper.utf8_from_char16(ptr, length)
+            utf8, lgt = wchar_helper.utf8_from_char16(ptr, length)
         else:
             try:
-                utf8, lgt, flag = wchar_helper.utf8_from_char32(ptr, length)
+                utf8, lgt = wchar_helper.utf8_from_char32(ptr, length)
             except wchar_helper.OutOfRange as e:
                 raise oefmt(self.space.w_ValueError,
                             "%s out of range for conversion to unicode: %s",
                             self.name, hex(e.ordinal))
-        return self.space.newutf8(utf8, lgt, flag)
+        return self.space.newutf8(utf8, lgt)
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):

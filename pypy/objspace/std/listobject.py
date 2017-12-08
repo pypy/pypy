@@ -1998,7 +1998,7 @@ class UnicodeListStrategy(ListStrategy):
 
     def wrap(self, stringval):
         assert stringval is not None
-        return self.space.newutf8(stringval, len(stringval), rutf8.FLAG_ASCII)
+        return self.space.newutf8(stringval, len(stringval))
 
     def unwrap(self, w_string):
         return self.space.utf8_w(w_string)
