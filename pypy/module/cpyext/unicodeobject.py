@@ -3,7 +3,8 @@ from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.unicodehelper import wcharpsize2utf8
+from pypy.interpreter.unicodehelper import (
+    wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper)
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers_flags, cpython_api,
@@ -568,15 +569,11 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, length, byteorder = runicode.str_decode_utf_16_helper(
-        string, size, errors,
-        True, # final ? false for multiple passes?
-        None, # errorhandler
-        byteorder)
+    result, _,  length, byteorder = str_decode_utf_16_helper(
+        string, errors, final=True, errorhandler=None, byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
-
-    return space.newunicode(result)
+    return space.newutf8(result, length)
 
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, rffi.INTP], PyObject)
 def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
@@ -624,15 +621,11 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, length, byteorder = runicode.str_decode_utf_32_helper(
-        string, size, errors,
-        True, # final ? false for multiple passes?
-        None, # errorhandler
-        byteorder)
+    result, _,  length, byteorder = str_decode_utf_32_helper(
+        string, errors, final=True, errorhandler=None, byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
-
-    return space.newunicode(result)
+    return space.newutf8(result, length)
 
 @cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, CONST_STRING],
              rffi.INT_real, error=-1)
