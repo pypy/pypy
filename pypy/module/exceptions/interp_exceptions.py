@@ -126,7 +126,7 @@ class W_BaseException(W_Root):
             return space.call_function(space.w_unicode, w_as_str)
         lgt = len(self.args_w)
         if lgt == 0:
-            return space.newunicode(u"")
+            return space.newutf8("", 0)
         if lgt == 1:
             return space.call_function(space.w_unicode, self.args_w[0])
         else:
@@ -719,7 +719,7 @@ class W_UnicodeEncodeError(W_UnicodeError):
     def descr_init(self, space, w_encoding, w_object, w_start, w_end, w_reason):
         # typechecking
         space.realtext_w(w_encoding)
-        space.utf8_w(w_object)
+        space.realutf8_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
         space.realtext_w(w_reason)

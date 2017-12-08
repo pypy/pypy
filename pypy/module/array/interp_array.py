@@ -1,4 +1,4 @@
-from rpython.rlib import jit, rgc
+from rpython.rlib import jit, rgc, rutf8
 from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
@@ -451,7 +451,7 @@ class W_ArrayBase(W_Root):
         """
         if self.typecode == 'u':
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
-            return space.newunicode(rffi.wcharpsize2unicode(buf, self.len))
+            return space.newutf8(rffi.wcharpsize2utf8(buf, self.len), self.len)
         else:
             raise oefmt(space.w_ValueError,
                         "tounicode() may only be called on type 'u' arrays")
@@ -797,7 +797,7 @@ else:
          TypeCode(rffi.UINT,          'int_w', True)
 types = {
     'c': TypeCode(lltype.Char,        'bytes_w', method=''),
-    'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
+    'u': TypeCode(lltype.UniChar,     'utf8_len_w', method=''),
     'b': TypeCode(rffi.SIGNEDCHAR,    'int_w', True, True),
     'B': TypeCode(rffi.UCHAR,         'int_w', True),
     'h': TypeCode(rffi.SHORT,         'int_w', True, True),
@@ -895,11 +895,17 @@ def make_array(mytype):
                                 "unsigned %d-byte integer out of range",
                                 mytype.bytes)
                 return rffi.cast(mytype.itemtype, item)
-            if mytype.unwrap == 'bytes_w' or mytype.unwrap == 'unicode_w':
+            if mytype.unwrap == 'bytes_w':
                 if len(item) != 1:
                     raise oefmt(space.w_TypeError, "array item must be char")
                 item = item[0]
                 return rffi.cast(mytype.itemtype, item)
+            if mytype.unwrap == 'utf8_len_w':
+                utf8, lgt = item
+                if lgt != 1:
+                    raise oefmt(space.w_TypeError, "array item must be char")
+                uchar = rutf8.codepoint_at_pos(utf8, 0)
+                return rffi.cast(mytype.itemtype, uchar)
             #
             # "regular" case: it fits in an rpython integer (lltype.Signed)
             # or it is a float
@@ -1007,7 +1013,8 @@ def make_array(mytype):
             elif mytype.typecode == 'c':
                 return space.newbytes(item)
             elif mytype.typecode == 'u':
-                return space.newunicode(item)
+                code = ord(item)
+                return space.newutf8(rutf8.unichr_as_utf8(code), 1)
             assert 0, "unreachable"
 
         # interface

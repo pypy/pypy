@@ -26,14 +26,8 @@ def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
     if code < 0 or code > 0x10FFFF:
         raise oefmt(space.w_ValueError, "unichr() arg out of range")        
-    elif code < 0x80:
-        flag = rutf8.FLAG_ASCII
-    elif 0xD800 <= code <= 0xDFFF:
-        flag = rutf8.FLAG_HAS_SURROGATES
-    else:
-        flag = rutf8.FLAG_REGULAR
     s = rutf8.unichr_as_utf8(code, allow_surrogates=True)
-    return space.newutf8(s, 1, flag)
+    return space.newutf8(s, 1)
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."

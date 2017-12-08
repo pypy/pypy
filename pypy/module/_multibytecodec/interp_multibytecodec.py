@@ -27,8 +27,8 @@ class MultibyteCodec(W_Root):
             raise wrap_unicodedecodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
-        lgt, flag = rutf8.check_utf8(utf8_output, True)
-        return space.newtuple([space.newutf8(utf8_output, lgt, flag),
+        lgt = rutf8.get_utf8_length(utf8_output)
+        return space.newtuple([space.newutf8(utf8_output, lgt),
                                space.newint(len(input))])
 
     @unwrap_spec(errors="text_or_none")
@@ -78,12 +78,11 @@ def wrap_unicodedecodeerror(space, e, input, name):
             space.newtext(e.reason)]))
 
 def wrap_unicodeencodeerror(space, e, input, inputlen, name):
-    _, flag = rutf8.check_utf8(input, True)
     raise OperationError(
         space.w_UnicodeEncodeError,
         space.newtuple([
             space.newtext(name),
-            space.newutf8(input, inputlen, flag),
+            space.newutf8(input, inputlen),
             space.newint(e.start),
             space.newint(e.end),
             space.newtext(e.reason)]))

@@ -1,5 +1,9 @@
-from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rstring, runicode
+from rpython.tool.sourcetools import func_renamer
+
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers_flags, cpython_api,
@@ -13,8 +17,6 @@ from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
 from pypy.objspace.std import unicodeobject
-from rpython.rlib import rstring, runicode
-from rpython.tool.sourcetools import func_renamer
 import sys
 
 ## See comment in bytesobject.py.
@@ -61,10 +63,10 @@ def new_empty_unicode(space, length):
 def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    s = space.unicode_w(w_obj)
-    py_unicode.c_length = len(s)
+    s, length = space.utf8_len_w(w_obj)
+    py_unicode.c_length = length
     py_unicode.c_str = lltype.nullptr(rffi.CWCHARP.TO)
-    py_unicode.c_hash = space.hash_w(space.newunicode(s))
+    py_unicode.c_hash = space.hash_w(space.newutf8(s, length))
     py_unicode.c_defenc = lltype.nullptr(PyObject.TO)
 
 def unicode_realize(space, py_obj):
@@ -73,11 +75,12 @@ def unicode_realize(space, py_obj):
     be modified after this call.
     """
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
-    s = rffi.wcharpsize2unicode(py_uni.c_str, py_uni.c_length)
+    length = py_uni.c_length
+    s = wcharpsize2utf8(space, py_uni.c_str, length)
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
-    w_obj.__init__(s)
-    py_uni.c_hash = space.hash_w(space.newunicode(s))
+    w_obj.__init__(s, length)
+    py_uni.c_hash = space.hash_w(space.newutf8(s, length))
     track_reference(space, py_obj, w_obj)
     return w_obj
 
@@ -214,8 +217,8 @@ def PyUnicode_AS_UNICODE(space, ref):
     if not ref_unicode.c_str:
         # Copy unicode buffer
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
-        u = space.unicode_w(w_unicode)
-        ref_unicode.c_str = rffi.unicode2wcharp(u)
+        u, length = space.utf8_len_w(w_unicode)
+        ref_unicode.c_str = rffi.utf82wcharp(u, length)
     return ref_unicode.c_str
 
 @cpython_api([PyObject], rffi.CWCHARP)
@@ -335,8 +338,8 @@ def PyUnicode_FromUnicode(space, wchar_p, length):
     Therefore, modification of the resulting Unicode object is only allowed when u
     is NULL."""
     if wchar_p:
-        s = rffi.wcharpsize2unicode(wchar_p, length)
-        return make_ref(space, space.newunicode(s))
+        s = wcharpsize2utf8(space, wchar_p, length)
+        return make_ref(space, space.newutf8(s, length))
     else:
         return rffi.cast(PyObject, new_empty_unicode(space, length))
 
@@ -506,7 +509,8 @@ def make_conversion_functions(suffix, encoding):
         """Encode the Py_UNICODE buffer of the given size and return a
         Python string object.  Return NULL if an exception was raised
         by the codec."""
-        w_u = space.newunicode(rffi.wcharpsize2unicode(s, size))
+        u = wcharpsize2utf8(space, s, size)
+        w_u = space.newutf8(u, size)
         if errors:
             w_errors = space.newtext(rffi.charp2str(errors))
         else:
@@ -706,12 +710,12 @@ def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
     """Return 1 if substr matches str[start:end] at the given tail end
     (direction == -1 means to do a prefix match, direction == 1 a
     suffix match), 0 otherwise. Return -1 if an error occurred."""
-    str = space.unicode_w(w_str)
-    substr = space.unicode_w(w_substr)
+    w_start = space.newint(start)
+    w_end = space.newint(end)
     if rffi.cast(lltype.Signed, direction) <= 0:
-        return rstring.startswith(str, substr, start, end)
+        return space.call_method(w_str, "startswith", w_substr, w_start, w_end)
     else:
-        return rstring.endswith(str, substr, start, end)
+        return space.call_method(w_str, "endswith", w_substr, w_start, w_end)
 
 @cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
 def PyUnicode_Count(space, w_str, w_substr, start, end):

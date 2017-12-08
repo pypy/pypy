@@ -51,8 +51,8 @@ def make_template_formatting_class(for_unicode):
 
         if for_unicode:
             def wrap(self, u):
-                lgt, flag = rutf8.check_utf8(u, True)
-                return self.space.newutf8(u, lgt, flag)
+                lgt = rutf8.check_utf8(u, True)
+                return self.space.newutf8(u, lgt)
         else:
             def wrap(self, s):
                 return self.space.newbytes(s)
@@ -379,8 +379,8 @@ def format_method(space, w_string, args, is_unicode):
         template = unicode_template_formatter(space,
                                               space.utf8_w(w_string))
         r = template.build(args)
-        lgt, flag = rutf8.check_utf8(r, True)
-        return space.newutf8(r, lgt, flag)
+        lgt = rutf8.check_utf8(r, True)
+        return space.newutf8(r, lgt)
     else:
         template = str_template_formatter(space, space.bytes_w(w_string))
         return space.newbytes(template.build(args))
@@ -416,8 +416,8 @@ def make_formatting_class(for_unicode):
 
         if for_unicode:
             def wrap(self, u):
-                lgt, flag = rutf8.check_utf8(u, True)
-                return self.space.newutf8(u, lgt, flag)
+                lgt = rutf8.check_utf8(u, True)
+                return self.space.newutf8(u, lgt)
         else:
             def wrap(self, s):
                 return self.space.newbytes(s)

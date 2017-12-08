@@ -295,15 +295,15 @@ class JSONDecoder(object):
         if bits & 0x80:
             # the 8th bit is set, it's an utf8 string
             content_utf8 = self.getslice(start, end)
-            lgt, flag = unicodehelper.check_utf8_or_raise(self.space,
+            lgt = unicodehelper.check_utf8_or_raise(self.space,
                                                           content_utf8)
-            return self.space.newutf8(content_utf8, lgt, flag)
+            return self.space.newutf8(content_utf8, lgt)
         else:
             # ascii only, fast path (ascii is a strict subset of
             # latin1, and we already checked that all the chars are <
             # 128)
             return self.space.newutf8(self.getslice(start, end),
-                                      end - start, rutf8.FLAG_ASCII)
+                                      end - start)
 
     def decode_string_escaped(self, start):
         i = self.pos
@@ -316,10 +316,10 @@ class JSONDecoder(object):
             i += 1
             if ch == '"':
                 content_utf8 = builder.build()
-                lgt, f = unicodehelper.check_utf8_or_raise(self.space,
+                lgt = unicodehelper.check_utf8_or_raise(self.space,
                                                            content_utf8)
                 self.pos = i
-                return self.space.newutf8(content_utf8, lgt, f)
+                return self.space.newutf8(content_utf8, lgt)
             elif ch == '\\':
                 i = self.decode_escape_sequence(i, builder)
             elif ch < '\x20':

@@ -17,6 +17,7 @@ extra code in the middle for error handlers and so on.
 
 import sys
 from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
+from rpython.rlib.objectmodel import always_inline, dont_inline, try_inline
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit
 from rpython.rlib.signature import signature
@@ -49,6 +50,7 @@ def unichr_as_utf8(code, allow_surrogates=False):
                 chr((0x80 | (code & 0x3f))))
     raise ValueError
 
+@try_inline
 def unichr_as_utf8_append(builder, code, allow_surrogates=False):
     """Encode code (numeric value) as utf8 encoded string
     and emit the result into the given StringBuilder.
@@ -58,13 +60,40 @@ def unichr_as_utf8_append(builder, code, allow_surrogates=False):
     if code <= r_uint(0x7F):
         # Encode ASCII
         builder.append(chr(code))
-        return
+    else:
+        # Encode non-ASCII, uses a function call
+        if allow_surrogates:
+            _nonascii_unichr_as_utf8_append(builder, code)
+        else:
+            _nonascii_unichr_as_utf8_append_nosurrogates(builder, code)
+
+@dont_inline
+def _nonascii_unichr_as_utf8_append(builder, code):
     if code <= r_uint(0x07FF):
         builder.append(chr((0xc0 | (code >> 6))))
         builder.append(chr((0x80 | (code & 0x3f))))
         return
     if code <= r_uint(0xFFFF):
-        if not allow_surrogates and 0xd800 <= code <= 0xdfff:
+        builder.append(chr((0xe0 | (code >> 12))))
+        builder.append(chr((0x80 | ((code >> 6) & 0x3f))))
+        builder.append(chr((0x80 | (code & 0x3f))))
+        return
+    if code <= r_uint(0x10FFFF):
+        builder.append(chr((0xf0 | (code >> 18))))
+        builder.append(chr((0x80 | ((code >> 12) & 0x3f))))
+        builder.append(chr((0x80 | ((code >> 6) & 0x3f))))
+        builder.append(chr((0x80 | (code & 0x3f))))
+        return
+    raise ValueError
+
+@dont_inline
+def _nonascii_unichr_as_utf8_append_nosurrogates(builder, code):
+    if code <= r_uint(0x07FF):
+        builder.append(chr((0xc0 | (code >> 6))))
+        builder.append(chr((0x80 | (code & 0x3f))))
+        return
+    if code <= r_uint(0xFFFF):
+        if 0xd800 <= code <= 0xdfff:
             raise ValueError
         builder.append(chr((0xe0 | (code >> 12))))
         builder.append(chr((0x80 | ((code >> 6) & 0x3f))))
@@ -77,6 +106,7 @@ def unichr_as_utf8_append(builder, code, allow_surrogates=False):
         builder.append(chr((0x80 | (code & 0x3f))))
         return
     raise ValueError
+
 
 # note - table lookups are really slow. Measured on various elements of obama
 #        chinese wikipedia, they're anywhere between 10% and 30% slower.
@@ -130,23 +160,20 @@ def codepoint_at_pos(code, pos):
     ordch2 = ord(code[pos+1])
     if ordch1 <= 0xDF:
         # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
-        return (((ordch1 & 0x1F) << 6) +    # 0b00011111
-                 (ordch2 & 0x3F))           # 0b00111111
+        return (ordch1 << 6) + ordch2 - (
+               (0xC0   << 6) + 0x80     )
 
     ordch3 = ord(code[pos+2])
     if ordch1 <= 0xEF:
         # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
-        return (((ordch1 & 0x0F) << 12) +     # 0b00001111
-                ((ordch2 & 0x3F) << 6) +      # 0b00111111
-                (ordch3 & 0x3F))              # 0b00111111
+        return (ordch1 << 12) + (ordch2 << 6) + ordch3 - (
+               (0xE0   << 12) + (0x80   << 6) + 0x80     )
 
     ordch4 = ord(code[pos+3])
     if True:
         # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
-        return (((ordch1 & 0x07) << 18) +      # 0b00000111
-                ((ordch2 & 0x3F) << 12) +      # 0b00111111
-                ((ordch3 & 0x3F) << 6) +       # 0b00111111
-                (ordch4 & 0x3F))               # 0b00111111
+        return (ordch1 << 18) + (ordch2 << 12) + (ordch3 << 6) + ordch4 - (
+               (0xF0   << 18) + (0x80   << 12) + (0x80   << 6) + 0x80     )
     assert False, "unreachable"
 
 def codepoint_before_pos(code, pos):
@@ -301,26 +328,25 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
 def check_utf8(s, allow_surrogates, start=0, stop=-1):
     """Check that 's' is a utf-8-encoded byte string.
 
-    Returns the length (number of chars) and flag or raise CheckError.
+    Returns the length (number of chars) or raise CheckError.
     If allow_surrogates is False, then also raise if we see any.
     Note also codepoints_in_utf8(), which also computes the length
     faster by assuming that 's' is valid utf-8.
     """
-    res, flag = _check_utf8(s, allow_surrogates, start, stop)
+    res = _check_utf8(s, allow_surrogates, start, stop)
     if res >= 0:
-        return res, flag
+        return res
     raise CheckError(~res)
 
-def get_utf8_length_flag(s):
-    """ Get the length and flag out of valid utf8. For now just calls check_utf8
+def get_utf8_length(s, start=0, end=-1):
+    """ Get the length out of valid utf8. For now just calls check_utf8
     """
-    return check_utf8(s, True)
+    return check_utf8(s, True, start, end)
 
 @jit.elidable
 def _check_utf8(s, allow_surrogates, start, stop):
     pos = start
     continuation_bytes = 0
-    flag = FLAG_ASCII
     if stop < 0:
         end = len(s)
     else:
@@ -332,44 +358,39 @@ def _check_utf8(s, allow_surrogates, start, stop):
         if ordch1 <= 0x7F:
             continue
 
-        if flag == FLAG_ASCII:
-            flag = FLAG_REGULAR
-
         if ordch1 <= 0xC1:
-            return ~(pos - 1), 0
+            return ~(pos - 1)
 
         if ordch1 <= 0xDF:
             if pos >= end:
-                return ~(pos - 1), 0
+                return ~(pos - 1)
             ordch2 = ord(s[pos])
             pos += 1
 
             if _invalid_byte_2_of_2(ordch2):
-                return ~(pos - 2), 0
+                return ~(pos - 2)
             # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
             continuation_bytes += 1
             continue
 
         if ordch1 <= 0xEF:
             if (pos + 2) > end:
-                return ~(pos - 1), 0
+                return ~(pos - 1)
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
             pos += 2
 
             if (_invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates) or
                 _invalid_byte_3_of_3(ordch3)):
-                return ~(pos - 3), 0
+                return ~(pos - 3)
 
-            if allow_surrogates and _surrogate_bytes(ordch1, ordch2):
-                flag = FLAG_HAS_SURROGATES
             # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
             continuation_bytes += 2
             continue
 
         if ordch1 <= 0xF4:
             if (pos + 3) > end:
-                return ~(pos - 1), 0
+                return ~(pos - 1)
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
             ordch4 = ord(s[pos + 2])
@@ -378,16 +399,23 @@ def _check_utf8(s, allow_surrogates, start, stop):
             if (_invalid_byte_2_of_4(ordch1, ordch2) or
                 _invalid_byte_3_of_4(ordch3) or
                 _invalid_byte_4_of_4(ordch4)):
-                return ~(pos - 4), 0
+                return ~(pos - 4)
             # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
             continuation_bytes += 3
             continue
 
-        return ~(pos - 1), 0
+        return ~(pos - 1)
 
     assert pos == end
     assert pos - continuation_bytes >= 0
-    return pos - continuation_bytes, flag
+    return pos - continuation_bytes
+
+def has_surrogates(utf8):
+    # XXX write a faster version maybe
+    for ch in Utf8StringIterator(utf8):
+        if 0xD800 <= ch <= 0xDBFF:
+            return True
+    return False
 
 def reencode_utf8_with_surrogates(utf8):
     """ Receiving valid UTF8 which contains surrogates, combine surrogate
@@ -445,46 +473,13 @@ def surrogate_in_utf8(value):
     return False
 
 
-UTF8_INDEX_STORAGE = lltype.GcStruct('utf8_loc',
-    ('flag', lltype.Signed),
-    ('contents', lltype.Ptr(lltype.GcArray(lltype.Struct('utf8_loc_elem',
+UTF8_INDEX_STORAGE = lltype.GcArray(lltype.Struct('utf8_loc_elem',
         ('baseindex', lltype.Signed),
         ('ofs', lltype.FixedSizeArray(lltype.Char, 16)),
-    )))))
-
-def get_flag_from_code(oc):
-    assert isinstance(oc, int)
-    if oc <= 0x7F:
-        return FLAG_ASCII
-    if 0xD800 <= oc <= 0xDFFF:
-        return FLAG_HAS_SURROGATES
-    return FLAG_REGULAR
-
-def combine_flags(one, two):
-    return one | two
-
-FLAG_ASCII          = 0     # no bits
-FLAG_REGULAR        = 1     # bit 0
-FLAG_HAS_SURROGATES = 3     # bit 0 and bit 1
-# note that we never need index storage if we're pure ascii, but it's useful
-# for passing into W_UnicodeObject.__init__
-
-#ASCII_INDEX_STORAGE_BLOCKS = 5
-#ASCII_INDEX_STORAGE = lltype.malloc(UTF8_INDEX_STORAGE.contents.TO,
-#                                    ASCII_INDEX_STORAGE_BLOCKS,
-#                                    immortal=True)
-#for _i in range(ASCII_INDEX_STORAGE_BLOCKS):
-#    ASCII_INDEX_STORAGE[_i].baseindex = _i * 64
-#    for _j in range(16):
-#        ASCII_INDEX_STORAGE[_i].ofs[_j] = chr(_j * 4 + 1)
+    ))
 
 def null_storage():
     return lltype.nullptr(UTF8_INDEX_STORAGE)
-
-UTF8_IS_ASCII = lltype.malloc(UTF8_INDEX_STORAGE, immortal=True)
-UTF8_IS_ASCII.contents = lltype.nullptr(UTF8_INDEX_STORAGE.contents.TO)
-UTF8_HAS_SURROGATES = lltype.malloc(UTF8_INDEX_STORAGE, immortal=True)
-UTF8_HAS_SURROGATES.contents = lltype.nullptr(UTF8_INDEX_STORAGE.contents.TO)
 
 def create_utf8_index_storage(utf8, utf8len):
     """ Create an index storage which stores index of each 4th character
@@ -493,23 +488,21 @@ def create_utf8_index_storage(utf8, utf8len):
 #    if len(utf8) == utf8len < ASCII_INDEX_STORAGE_BLOCKS * 64:
 #        return ASCII_INDEX_STORAGE
     arraysize = utf8len // 64 + 1
-    storage = lltype.malloc(UTF8_INDEX_STORAGE)
-    contents = lltype.malloc(UTF8_INDEX_STORAGE.contents.TO, arraysize)
-    storage.contents = contents
+    storage = lltype.malloc(UTF8_INDEX_STORAGE, arraysize)
     baseindex = 0
     current = 0
     while True:
-        contents[current].baseindex = baseindex
+        storage[current].baseindex = baseindex
         next = baseindex
         for i in range(16):
             if utf8len == 0:
                 next += 1      # assume there is an extra '\x00' character
             else:
                 next = next_codepoint_pos(utf8, next)
-            contents[current].ofs[i] = chr(next - baseindex)
+            storage[current].ofs[i] = chr(next - baseindex)
             utf8len -= 4
             if utf8len < 0:
-                assert current + 1 == len(contents)
+                assert current + 1 == len(storage)
                 break
             next = next_codepoint_pos(utf8, next)
             next = next_codepoint_pos(utf8, next)
@@ -529,8 +522,8 @@ def codepoint_position_at_index(utf8, storage, index):
     this function.
     """
     current = index >> 6
-    ofs = ord(storage.contents[current].ofs[(index >> 2) & 0x0F])
-    bytepos = storage.contents[current].baseindex + ofs
+    ofs = ord(storage[current].ofs[(index >> 2) & 0x0F])
+    bytepos = storage[current].baseindex + ofs
     index &= 0x3
     if index == 0:
         return prev_codepoint_pos(utf8, bytepos)
@@ -548,8 +541,8 @@ def codepoint_at_index(utf8, storage, index):
     storage of type UTF8_INDEX_STORAGE
     """
     current = index >> 6
-    ofs = ord(storage.contents[current].ofs[(index >> 2) & 0x0F])
-    bytepos = storage.contents[current].baseindex + ofs
+    ofs = ord(storage[current].ofs[(index >> 2) & 0x0F])
+    bytepos = storage[current].baseindex + ofs
     index &= 0x3
     if index == 0:
         return codepoint_before_pos(utf8, bytepos)
@@ -569,15 +562,15 @@ def codepoint_index_at_byte_position(utf8, storage, bytepos):
     is not tiny either.
     """
     index_min = 0
-    index_max = len(storage.contents) - 1
+    index_max = len(storage) - 1
     while index_min < index_max:
         index_middle = (index_min + index_max + 1) // 2
-        base_bytepos = storage.contents[index_middle].baseindex
+        base_bytepos = storage[index_middle].baseindex
         if bytepos < base_bytepos:
             index_max = index_middle - 1
         else:
             index_min = index_middle
-    bytepos1 = storage.contents[index_min].baseindex
+    bytepos1 = storage[index_min].baseindex
     result = index_min << 6
     while bytepos1 < bytepos:
         bytepos1 = next_codepoint_pos(utf8, bytepos1)
@@ -682,40 +675,46 @@ def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None):
     return unicode_escape #, char_escape_helper
 
 class Utf8StringBuilder(object):
+    @always_inline
     def __init__(self, size=0):
         self._s = StringBuilder(size)
         self._lgt = 0
-        self._flag = FLAG_ASCII
 
+    @always_inline
     def append(self, s):
         # for strings
         self._s.append(s)
-        newlgt, newflag = get_utf8_length_flag(s)
+        newlgt = get_utf8_length(s)
         self._lgt += newlgt
-        self._flag = combine_flags(self._flag, newflag)
+
+    @always_inline
+    def append_slice(self, s, start, end):
+        self._s.append_slice(s, start, end)
+        newlgt = get_utf8_length(s, start, end)
+        self._lgt += newlgt
 
     @signature(char(), returns=none())
+    @always_inline
     def append_char(self, s):
         # for characters, ascii
         self._lgt += 1
         self._s.append(s)
 
+    @try_inline
     def append_code(self, code):
-        self._flag = combine_flags(self._flag, get_flag_from_code(code))
         self._lgt += 1
         unichr_as_utf8_append(self._s, code, True)
 
-    def append_utf8(self, utf8, length, flag):
-        self._flag = combine_flags(self._flag, flag)
+    @always_inline
+    def append_utf8(self, utf8, length):
         self._lgt += length
         self._s.append(utf8)
 
+    @always_inline
     def build(self):
         return self._s.build()
 
-    def get_flag(self):
-        return self._flag
-
+    @always_inline
     def get_length(self):
         return self._lgt
 
@@ -728,12 +727,51 @@ class Utf8StringIterator(object):
     def __iter__(self):
         return self
 
+    def get_pos(self):
+        return self._pos
+
+    def done(self):
+        return self._pos == self._end
+
+    @always_inline
     def next(self):
-        if self._pos == self._end:
+        pos = self._pos
+        if pos == self._end:
             raise StopIteration
-        ret = codepoint_at_pos(self._utf8, self._pos)
-        self._pos = next_codepoint_pos(self._utf8, self._pos)
-        return ret
+        #----- sane-looking version: ------
+        #ret = codepoint_at_pos(self._utf8, self._pos)
+        #self._pos = next_codepoint_pos(self._utf8, self._pos)
+        #return ret
+        #----- manually inlined version follows, with merged checks -----
+
+        code = self._utf8
+        ordch1 = ord(code[pos])
+        if ordch1 <= 0x7F:
+            self._pos = pos + 1
+            return ordch1
+
+        ordch2 = ord(code[pos+1])
+        if ordch1 <= 0xDF:
+            # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
+            self._pos = pos + 2
+            return (ordch1 << 6) + ordch2 - (
+                   (0xC0   << 6) + 0x80     )
+
+        ordch3 = ord(code[pos+2])
+        if ordch1 <= 0xEF:
+            # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
+            self._pos = pos + 3
+            return (ordch1 << 12) + (ordch2 << 6) + ordch3 - (
+                   (0xE0   << 12) + (0x80   << 6) + 0x80     )
+
+        ordch4 = ord(code[pos+3])
+        if True:
+            # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
+            self._pos = pos + 4
+            return (ordch1 << 18) + (ordch2 << 12) + (ordch3 << 6) + ordch4 - (
+                   (0xF0   << 18) + (0x80   << 12) + (0x80   << 6) + 0x80     )
+        assert False, "unreachable"
+
 
 def decode_latin_1(s):
     if len(s) == 0:

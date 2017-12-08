@@ -1,3 +1,5 @@
+from rpython.rlib.rutf8 import get_utf8_length
+
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
@@ -152,7 +154,7 @@ class W_StringIO(W_TextIOBase):
         if self.readnl is None:
             w_readnl = space.w_None
         else:
-            w_readnl = space.str(space.new_from_utf8(self.readnl))  # YYY
+            w_readnl = space.str(space.newutf8(self.readnl, get_utf8_length(self.readnl)))  # YYY
         return space.newtuple([
             w_initialval, w_readnl, space.newint(self.buf.pos), w_dict
         ])
@@ -215,7 +217,8 @@ class W_StringIO(W_TextIOBase):
         if self.writenl:
             w_decoded = space.call_method(
                 w_decoded, "replace",
-                space.newtext("\n"), space.new_from_utf8(self.writenl))
+                space.newtext("\n"), space.newutf8(self.writenl,
+                    get_utf8_length(self.writenl)))
         string = space.utf8_w(w_decoded)
         if string:
             self.buf.write(string)
@@ -225,7 +228,9 @@ class W_StringIO(W_TextIOBase):
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
-        return space.new_from_utf8(self.buf.read(size))
+        v = self.buf.read(size)
+        lgt = get_utf8_length(v)
+        return space.newutf8(v, lgt)
 
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
@@ -239,7 +244,8 @@ class W_StringIO(W_TextIOBase):
             else:
                 newline = self.readnl
             result = self.buf.readline(newline, limit)
-        return space.new_from_utf8(result)
+        resultlen = get_utf8_length(result)
+        return space.newutf8(result, resultlen)
 
 
     @unwrap_spec(pos=int, mode=int)
@@ -276,7 +282,9 @@ class W_StringIO(W_TextIOBase):
 
     def getvalue_w(self, space):
         self._check_closed(space)
-        return space.new_from_utf8(self.buf.getvalue())
+        v = self.buf.getvalue()
+        lgt = get_utf8_length(v)
+        return space.newutf8(v, lgt)
 
     def readable_w(self, space):
         self._check_closed(space)

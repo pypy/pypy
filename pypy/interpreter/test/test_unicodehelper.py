@@ -10,13 +10,13 @@ def decode_utf8(u):
     return str_decode_utf8(u, True, "strict", None)
 
 def test_decode_utf8():
-    assert decode_utf8("abc") == ("abc", 3, 3, rutf8.FLAG_ASCII)
-    assert decode_utf8("\xe1\x88\xb4") == ("\xe1\x88\xb4", 3, 1, rutf8.FLAG_REGULAR)
-    assert decode_utf8("\xed\xa0\x80") == ("\xed\xa0\x80", 3, 1, rutf8.FLAG_HAS_SURROGATES)
-    assert decode_utf8("\xed\xb0\x80") == ("\xed\xb0\x80", 3, 1, rutf8.FLAG_HAS_SURROGATES)
+    assert decode_utf8("abc") == ("abc", 3, 3)
+    assert decode_utf8("\xe1\x88\xb4") == ("\xe1\x88\xb4", 3, 1)
+    assert decode_utf8("\xed\xa0\x80") == ("\xed\xa0\x80", 3, 1)
+    assert decode_utf8("\xed\xb0\x80") == ("\xed\xb0\x80", 3, 1)
     assert decode_utf8("\xed\xa0\x80\xed\xb0\x80") == (
-        "\xed\xa0\x80\xed\xb0\x80", 6, 2, rutf8.FLAG_HAS_SURROGATES)
-    assert decode_utf8("\xf0\x90\x80\x80") == ("\xf0\x90\x80\x80", 4, 1, rutf8.FLAG_REGULAR)
+        "\xed\xa0\x80\xed\xb0\x80", 6, 2)
+    assert decode_utf8("\xf0\x90\x80\x80") == ("\xf0\x90\x80\x80", 4, 1)
 
 def test_utf8_encode_ascii():
     assert utf8_encode_ascii("abc", "??", "??") == "abc"
@@ -41,19 +41,19 @@ def test_utf8_encode_ascii_2(u):
     assert utf8_encode_ascii(u.encode("utf8"), "replace", eh) == u.encode("ascii", "replace")
 
 def test_str_decode_ascii():
-    assert str_decode_ascii("abc", "??", True, "??") == ("abc", 3, 3, rutf8.FLAG_ASCII)
+    assert str_decode_ascii("abc", "??", True, "??") == ("abc", 3, 3)
     def eh(errors, encoding, reason, p, start, end):
         lst.append((errors, encoding, p, start, end))
         return u"\u1234\u5678".encode("utf8"), end
     lst = []
     input = "\xe8"
     exp = u"\u1234\u5678".encode("utf8")
-    assert str_decode_ascii(input, "??", True, eh) == (exp, 1, 2, rutf8.FLAG_REGULAR)
+    assert str_decode_ascii(input, "??", True, eh) == (exp, 1, 2)
     assert lst == [("??", "ascii", input, 0, 1)]
     lst = []
     input = "\xe8\xe9abc\xea\xeb"
     assert str_decode_ascii(input, "??", True, eh) == (
-        exp + exp + "abc" + exp + exp, 7, 11, rutf8.FLAG_REGULAR)
+        exp + exp + "abc" + exp + exp, 7, 11)
     assert lst == [("??", "ascii", input, 0, 1),
                    ("??", "ascii", input, 1, 2),
                    ("??", "ascii", input, 5, 6),

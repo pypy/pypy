@@ -11,7 +11,7 @@ def test_skip_whitespace():
     dec.close()
 
 class FakeSpace(object):
-    def newutf8(self, s, l, f):
+    def newutf8(self, s, l):
         return s
 
 def test_decode_key():

@@ -19,16 +19,14 @@ def utf8_from_char32(ptr, length):
     ptr = rffi.cast(rffi.UINTP, ptr)
     u = StringBuilder(length)
     j = 0
-    flag = rutf8.FLAG_ASCII
     while j < length:
         ch = intmask(ptr[j])
         j += 1
-        flag = rutf8.combine_flags(flag, rutf8.get_flag_from_code(ch))
         try:
             rutf8.unichr_as_utf8_append(u, ch, allow_surrogates=True)
         except ValueError:
             raise OutOfRange(ch)
-    return u.build(), length, flag
+    return u.build(), length
 
 def utf8_from_char16(ptr, length):
     # 'ptr' is a pointer to 'length' 16-bit integers
@@ -36,7 +34,6 @@ def utf8_from_char16(ptr, length):
     u = StringBuilder(length)
     j = 0
     result_length = length
-    flag = rutf8.FLAG_ASCII
     while j < length:
         ch = intmask(ptr[j])
         j += 1
@@ -46,9 +43,8 @@ def utf8_from_char16(ptr, length):
                 ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000
                 j += 1
                 result_length -= 1
-        flag = rutf8.combine_flags(flag, rutf8.get_flag_from_code(ch))
         rutf8.unichr_as_utf8_append(u, ch, allow_surrogates=True)
-    return u.build(), result_length, flag
+    return u.build(), result_length
 
 
 @specialize.ll()

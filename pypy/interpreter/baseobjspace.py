@@ -1087,8 +1087,11 @@ class ObjSpace(object):
     def newlist_utf8(self, list_u, is_ascii):
         l_w = [None] * len(list_u)
         for i, item in enumerate(list_u):
-            length, flag = rutf8.check_utf8(item, True)
-            l_w[i] = self.newutf8(item, length, flag)
+            if not is_ascii:
+                length = rutf8.check_utf8(item, True)
+            else:
+                length = len(item)
+            l_w[i] = self.newutf8(item, length)
         return self.newlist(l_w)
 
     def newlist_int(self, list_i):
