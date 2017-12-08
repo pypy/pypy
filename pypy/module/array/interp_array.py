@@ -451,7 +451,7 @@ class W_ArrayBase(W_Root):
         """
         if self.typecode == 'u':
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
-            return space.newutf8(rffi.wcharpsize2unicode(buf, self.len))
+            return space.newutf8(rffi.wcharpsize2utf8(buf, self.len), self.len)
         else:
             raise oefmt(space.w_ValueError,
                         "tounicode() may only be called on type 'u' arrays")
