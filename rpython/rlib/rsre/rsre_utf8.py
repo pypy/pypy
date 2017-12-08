@@ -56,7 +56,7 @@ class Utf8MatchContext(AbstractMatchContext):
         for i in range(n):
             if upos <= r_uint(start_position):
                 raise EndOfString
-            upos = rutf8.next_codepoint_pos(self._utf8, upos)
+            upos = rutf8.prev_codepoint_pos(self._utf8, upos)
         position = intmask(upos)
         assert position >= 0
         return position
