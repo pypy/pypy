@@ -12,19 +12,22 @@ class BaseTestSearch:
         assert res is None
         res = self.search(r_code1, "fooahcdixxx")
         assert res is not None
-        assert res.span() == (5, 8)
+        P = self.P
+        assert res.span() == (P(5), P(8))
 
     def test_code2(self):
         r_code2 = get_code(r'<item>\s*<title>(.*?)</title>')
         res = self.search(r_code2, "foo bar <item>  <title>abc</title>def")
         assert res is not None
-        assert res.span() == (8, 34)
+        P = self.P
+        assert res.span() == (P(8), P(34))
 
     def test_pure_literal(self):
         r_code3 = get_code(r'foobar')
         res = self.search(r_code3, "foo bar foobar baz")
         assert res is not None
-        assert res.span() == (8, 14)
+        P = self.P
+        assert res.span() == (P(8), P(14))
 
     def test_code3(self):
         r_code1 = get_code(r'<item>\s*<title>(.*?)</title>')
@@ -79,34 +82,38 @@ class BaseTestSearch:
         r_code4 = get_code(r'<abc>(x.)</abc>')
         res = self.match(r_code4, '<abc>xa</abc>def')
         assert res is not None
-        assert res.get_mark(0) == 5
-        assert res.get_mark(1) == 7
+        P = self.P
+        assert res.get_mark(0) == P(5)
+        assert res.get_mark(1) == P(7)
 
     def test_max_until_groups(self):
         r_code4 = get_code(r'<abc>(x.)*xy</abc>')
         res = self.match(r_code4, '<abc>xaxbxy</abc>def')
         assert res is not None
-        assert res.get_mark(0) == 7
-        assert res.get_mark(1) == 9
+        P = self.P
+        assert res.get_mark(0) == P(7)
+        assert res.get_mark(1) == P(9)
 
     def test_group_branch(self):
         r_code5 = get_code(r'<abc>(ab|c)</abc>')
         res = self.match(r_code5, '<abc>ab</abc>def')
-        assert (res.get_mark(0), res.get_mark(1)) == (5, 7)
+        P = self.P
+        assert (res.get_mark(0), res.get_mark(1)) == (P(5), P(7))
         res = self.match(r_code5, '<abc>c</abc>def')
-        assert (res.get_mark(0), res.get_mark(1)) == (5, 6)
+        assert (res.get_mark(0), res.get_mark(1)) == (P(5), P(6))
         res = self.match(r_code5, '<abc>de</abc>def')
         assert res is None
 
     def test_group_branch_max_until(self):
         r_code6 = get_code(r'<abc>(ab|c)*a</abc>')
         res = self.match(r_code6, '<abc>ccabcccaba</abc>def')
-        assert (res.get_mark(0), res.get_mark(1)) == (12, 14)
+        P = self.P
+        assert (res.get_mark(0), res.get_mark(1)) == (P(12), P(14))
         r_code7 = get_code(r'<abc>((ab)|(c))*a</abc>')
         res = self.match(r_code7, '<abc>ccabcccaba</abc>def')
-        assert (res.get_mark(0), res.get_mark(1)) == (12, 14)
-        assert (res.get_mark(2), res.get_mark(3)) == (12, 14)
-        assert (res.get_mark(4), res.get_mark(5)) == (11, 12)
+        assert (res.get_mark(0), res.get_mark(1)) == (P(12), P(14))
+        assert (res.get_mark(2), res.get_mark(3)) == (P(12), P(14))
+        assert (res.get_mark(4), res.get_mark(5)) == (P(11), P(12))
 
     def test_group_7(self):
         r_code7, r7 = get_code_and_re(r'<abc>((a)?(b))*</abc>')
@@ -115,9 +122,10 @@ class BaseTestSearch:
         assert m.span(3) == (12, 13)
         assert m.span(2) == (8, 9)
         res = self.match(r_code7, '<abc>bbbabbbb</abc>')
-        assert (res.get_mark(0), res.get_mark(1)) == (12, 13)
-        assert (res.get_mark(4), res.get_mark(5)) == (12, 13)
-        assert (res.get_mark(2), res.get_mark(3)) == (8, 9)
+        P = self.P
+        assert (res.get_mark(0), res.get_mark(1)) == (P(12), P(13))
+        assert (res.get_mark(4), res.get_mark(5)) == (P(12), P(13))
+        assert (res.get_mark(2), res.get_mark(3)) == (P(8), P(9))
 
     def test_group_branch_repeat_complex_case(self):
         r_code8, r8 = get_code_and_re(r'<abc>((a)|(b))*</abc>')
@@ -126,9 +134,10 @@ class BaseTestSearch:
         assert m.span(3) == (6, 7)
         assert m.span(2) == (5, 6)
         res = self.match(r_code8, '<abc>ab</abc>')
-        assert (res.get_mark(0), res.get_mark(1)) == (6, 7)
-        assert (res.get_mark(4), res.get_mark(5)) == (6, 7)
-        assert (res.get_mark(2), res.get_mark(3)) == (5, 6)
+        P = self.P
+        assert (res.get_mark(0), res.get_mark(1)) == (P(6), P(7))
+        assert (res.get_mark(4), res.get_mark(5)) == (P(6), P(7))
+        assert (res.get_mark(2), res.get_mark(3)) == (P(5), P(6))
 
     def test_minuntil_lastmark_restore(self):
         r_code9, r9 = get_code_and_re(r'(x|yz)+?(y)??c')
@@ -136,7 +145,8 @@ class BaseTestSearch:
         assert m.span(1) == (3, 4)
         assert m.span(2) == (-1, -1)
         res = self.match(r_code9, 'xyzxc')
-        assert (res.get_mark(0), res.get_mark(1)) == (3, 4)
+        P = self.P
+        assert (res.get_mark(0), res.get_mark(1)) == (P(3), P(4))
         assert (res.get_mark(2), res.get_mark(3)) == (-1, -1)
 
     def test_minuntil_bug(self):
@@ -145,8 +155,9 @@ class BaseTestSearch:
         assert m.span(2) == (6, 7)
         #assert self.match.span(3) == (1, 2) --- bug of CPython
         res = self.match(r_code9, 'xycxyzxc')
-        assert (res.get_mark(2), res.get_mark(3)) == (6, 7)
-        assert (res.get_mark(4), res.get_mark(5)) == (1, 2)
+        P = self.P
+        assert (res.get_mark(2), res.get_mark(3)) == (P(6), P(7))
+        assert (res.get_mark(4), res.get_mark(5)) == (P(1), P(2))
 
     def test_empty_maxuntil(self):
         r_code, r = get_code_and_re(r'(a?)+y')
@@ -155,7 +166,8 @@ class BaseTestSearch:
         res = self.match(r_code, 'y')
         assert res
         res = self.match(r_code, 'aaayaaay')
-        assert res and res.span() == (0, 4)
+        P = self.P
+        assert res and res.span() == (P(0), P(4))
         #
         r_code, r = get_code_and_re(r'(a?){4,6}y')
         assert r.match('y')
@@ -175,8 +187,9 @@ class BaseTestSearch:
         assert r.match('XfooXbarX').span() == (0, 5)
         assert r.match('XfooXbarX').span(1) == (4, 4)
         res = self.match(r_code, 'XfooXbarX')
-        assert res.span() == (0, 5)
-        assert res.span(1) == (4, 4)
+        P = self.P
+        assert res.span() == (P(0), P(5))
+        assert res.span(1) == (P(4), P(4))
 
     def test_empty_minuntil(self):
         r_code, r = get_code_and_re(r'(a?)+?y')
@@ -206,8 +219,8 @@ class BaseTestSearch:
                     assert match is not None
                     assert match.span() == (ik, ik)
                     assert res is not None
-                    assert res.match_start == self.Position(ik)
-                    assert res.match_end == self.Position(ik)
+                    assert res.match_start == self.P(ik)
+                    assert res.match_end == self.P(ik)
                 else:
                     assert match is None
                     assert res is None
@@ -216,14 +229,14 @@ class BaseTestSearch:
 class TestSearchCustom(BaseTestSearch):
     search = staticmethod(support.search)
     match = staticmethod(support.match)
-    Position = support.Position
+    P = support.Position
 
 class TestSearchStr(BaseTestSearch):
     search = staticmethod(rsre_core.search)
     match = staticmethod(rsre_core.match)
-    Position = staticmethod(lambda n: n)
+    P = staticmethod(lambda n: n)
 
 class TestSearchUtf8(BaseTestSearch):
     search = staticmethod(rsre_utf8.utf8search)
     match = staticmethod(rsre_utf8.utf8match)
-    Position = staticmethod(lambda n: n)   # NB. only for plain ascii
+    P = staticmethod(lambda n: n)   # NB. only for plain ascii

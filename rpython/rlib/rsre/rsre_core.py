@@ -159,9 +159,6 @@ class AbstractMatchContext(object):
     def prev_n(self, position, n, start_position):
         raise NotImplementedError
     @not_rpython
-    def slowly_convert_byte_pos_to_index(self, position):
-        raise NotImplementedError
-    @not_rpython
     def debug_check_pos(self, position):
         raise NotImplementedError
     @not_rpython
@@ -178,15 +175,13 @@ class AbstractMatchContext(object):
         raise NotImplementedError
 
     def get_mark(self, gid):
-        mark = find_mark(self.match_marks, gid)
-        return self.slowly_convert_byte_pos_to_index(mark)
+        return find_mark(self.match_marks, gid)
 
     def flatten_marks(self):
         # for testing
         if self.match_marks_flat is None:
             self._compute_flattened_marks()
-        return [self.slowly_convert_byte_pos_to_index(i)
-                for i in self.match_marks_flat]
+        return self.match_marks_flat
 
     def _compute_flattened_marks(self):
         self.match_marks_flat = [self.match_start, self.match_end]
@@ -247,9 +242,6 @@ class FixedMatchContext(AbstractMatchContext):
         position -= n
         if position < start_position:
             raise EndOfString
-        return position
-
-    def slowly_convert_byte_pos_to_index(self, position):
         return position
 
     def debug_check_pos(self, position):
