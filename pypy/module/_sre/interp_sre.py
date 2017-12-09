@@ -198,7 +198,7 @@ class W_SRE_Pattern(W_Root):
             matchlist_w.append(w_item)
             reset_at = ctx.match_end
             if ctx.match_start == ctx.match_end:
-                reset_at = ctx.next(reset_at)
+                reset_at = ctx.next_indirect(reset_at)
             ctx.reset(reset_at)
         return space.newlist(matchlist_w)
 
@@ -223,7 +223,7 @@ class W_SRE_Pattern(W_Root):
             if ctx.match_start == ctx.match_end:     # zero-width match
                 if ctx.match_start == ctx.end:       # or end of string
                     break
-                ctx.reset(ctx.next(ctx.match_end))
+                ctx.reset(ctx.next_indirect(ctx.match_end))
                 continue
             splitlist.append(slice_w(space, ctx, last, ctx.match_start,
                                      space.w_None))
@@ -320,7 +320,7 @@ class W_SRE_Pattern(W_Root):
                     strbuilder, last_pos, ctx.match_start)
             start = ctx.match_end
             if start == ctx.match_start:
-                start = ctx.next(start)
+                start = ctx.next_indirect(start)
             if not (last_pos == ctx.match_start
                              == ctx.match_end and n > 0):
                 # the above ignores empty matches on latest position
@@ -682,13 +682,13 @@ class W_SRE_Scanner(W_Root):
             ctx = self.ctx
             nextstart = ctx.match_end
             if ctx.match_start == nextstart:
-                nextstart = ctx.next(nextstart)
+                nextstart = ctx.next_indirect(nextstart)
             self.ctx = ctx.fresh_copy(nextstart)
             match = W_SRE_Match(self.srepat, ctx)
             return match
         else:
             # obscure corner case
-            self.ctx.match_start = self.ctx.next(self.ctx.match_start)
+            self.ctx.match_start = self.ctx.next_indirect(self.ctx.match_start)
             return None
 
 W_SRE_Scanner.typedef = TypeDef(

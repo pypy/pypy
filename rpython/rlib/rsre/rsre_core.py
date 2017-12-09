@@ -172,6 +172,8 @@ class AbstractMatchContext(object):
         return position1 - position2
     def go_forward_by_bytes(self, base_position, index):
         return base_position + index
+    def next_indirect(self, position):
+        return position + 1     # like next(), but can be called indirectly
 
     def get_mark(self, gid):
         return find_mark(self.match_marks, gid)

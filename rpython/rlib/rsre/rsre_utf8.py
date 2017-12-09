@@ -34,6 +34,7 @@ class Utf8MatchContext(AbstractMatchContext):
 
     def next(self, position):
         return rutf8.next_codepoint_pos(self._utf8, position)
+    next_indirect = next
 
     def prev(self, position):
         if position <= 0:

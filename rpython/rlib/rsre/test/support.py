@@ -29,6 +29,7 @@ class MatchContextForTests(StrMatchContext):
     def next(self, position):
         assert isinstance(position, Position)
         return Position(position._p + 1)
+    next_indirect = next
 
     def prev(self, position):
         assert isinstance(position, Position)
