@@ -19,7 +19,7 @@ import sys
 from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
 from rpython.rlib.objectmodel import always_inline, dont_inline, try_inline
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import jit
+from rpython.rlib import jit, types
 from rpython.rlib.signature import signature
 from rpython.rlib.types import char, none
 from rpython.rlib.rarithmetic import r_uint
@@ -27,6 +27,8 @@ from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
+# we need a way to accept both r_uint and int(nonneg=True)
+#@signature(types.int_nonneg(), types.bool(), returns=types.str())
 def unichr_as_utf8(code, allow_surrogates=False):
     """Encode code (numeric value) as utf8 encoded string
     """

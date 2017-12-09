@@ -448,7 +448,8 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             elif c == 'c':
                 return space.newbytes(func(add_arg, argdesc, ll_type))
             elif c == 'u':
-                return space.newunicode(func(add_arg, argdesc, ll_type))
+                return space.newutf8(rutf8.unichr_as_utf8(
+                    ord(func(add_arg, argdesc, ll_type))), 1)
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.newfloat(float(func(add_arg, argdesc, ll_type)))
             else:
@@ -596,10 +597,10 @@ def wcharp2unicode(space, address, maxlength=-1):
         return space.w_None
     wcharp_addr = rffi.cast(rffi.CWCHARP, address)
     if maxlength == -1:
-        s = rffi.wcharp2unicode(wcharp_addr)
+        s, lgt = rffi.wcharp2utf8(wcharp_addr)
     else:
-        s = rffi.wcharp2unicoden(wcharp_addr, maxlength)
-    return space.newunicode(s)
+        s, lgt = rffi.wcharp2utf8n(wcharp_addr, maxlength)
+    return space.newutf8(s, lgt)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def charp2rawstring(space, address, maxlength=-1):
@@ -612,8 +613,8 @@ def charp2rawstring(space, address, maxlength=-1):
 def wcharp2rawunicode(space, address, maxlength=-1):
     if maxlength == -1:
         return wcharp2unicode(space, address)
-    s = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, address), maxlength)
-    return space.newunicode(s)
+    s = rffi.wcharpsize2utf8(rffi.cast(rffi.CWCHARP, address), maxlength)
+    return space.newutf8(s, maxlength)
 
 @unwrap_spec(address=r_uint, newcontent='bufferstr')
 def rawstring2charp(space, address, newcontent):
