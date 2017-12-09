@@ -75,6 +75,7 @@ class UCD(W_Root):
         except KeyError:
             msg = space.mod(space.newtext("undefined character name '%s'"), space.newtext(name))
             raise OperationError(space.w_KeyError, msg)
+        assert code >= 0
         return space.newutf8(unichr_as_utf8(code), 1)
 
     def name(self, space, w_unichr, w_default=None):
