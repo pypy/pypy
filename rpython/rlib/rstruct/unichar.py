@@ -3,12 +3,8 @@ Helpers to pack and unpack a unicode character into raw bytes.
 """
 
 import sys
-from rpython.rlib.runicode import MAXUNICODE
 
-if MAXUNICODE <= 65535:
-    UNICODE_SIZE = 2
-else:
-    UNICODE_SIZE = 4
+UNICODE_SIZE = 4
 BIGENDIAN = sys.byteorder == "big"
 
 def pack_unichar(unich, buf, pos):
@@ -34,7 +30,7 @@ def pack_codepoint(unich, buf, pos):
             buf.setitem(pos+2, chr((unich >> 16) & 0xFF))
             buf.setitem(pos+3, chr(unich >> 24))
 
-def unpack_unichar(rawstring):
+def unpack_codepoint(rawstring):
     assert len(rawstring) == UNICODE_SIZE
     if UNICODE_SIZE == 2:
         if BIGENDIAN:
@@ -54,4 +50,7 @@ def unpack_unichar(rawstring):
                  ord(rawstring[1]) << 8 |
                  ord(rawstring[2]) << 16 |
                  ord(rawstring[3]) << 24)
-    return unichr(n)
+    return n
+
+def unpack_unichar(rawstring):
+    return unichr(unpack_codepoint(rawstring))
