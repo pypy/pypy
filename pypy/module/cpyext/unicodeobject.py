@@ -3,7 +3,9 @@ from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.unicodehelper import wcharpsize2utf8
+from pypy.interpreter.unicodehelper import (
+    wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper,
+    unicode_encode_decimal)
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers_flags, cpython_api,
@@ -568,15 +570,11 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, length, byteorder = runicode.str_decode_utf_16_helper(
-        string, size, errors,
-        True, # final ? false for multiple passes?
-        None, # errorhandler
-        byteorder)
+    result, _,  length, byteorder = str_decode_utf_16_helper(
+        string, errors, final=True, errorhandler=None, byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
-
-    return space.newunicode(result)
+    return space.newutf8(result, length)
 
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, rffi.INTP], PyObject)
 def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
@@ -624,15 +622,11 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, length, byteorder = runicode.str_decode_utf_32_helper(
-        string, size, errors,
-        True, # final ? false for multiple passes?
-        None, # errorhandler
-        byteorder)
+    result, _,  length, byteorder = str_decode_utf_32_helper(
+        string, errors, final=True, errorhandler=None, byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
-
-    return space.newunicode(result)
+    return space.newutf8(result, length)
 
 @cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, CONST_STRING],
              rffi.INT_real, error=-1)
@@ -650,14 +644,13 @@ def PyUnicode_EncodeDecimal(space, s, length, output, llerrors):
 
     Returns 0 on success, -1 on failure.
     """
-    u = rffi.wcharpsize2unicode(s, length)
+    u = rffi.wcharpsize2utf8(s, length)
     if llerrors:
         errors = rffi.charp2str(llerrors)
     else:
         errors = None
     state = space.fromcache(CodecState)
-    result = runicode.unicode_encode_decimal(u, length, errors,
-                                             state.encode_error_handler)
+    result = unicode_encode_decimal(u, errors, state.encode_error_handler)
     i = len(result)
     output[i] = '\0'
     i -= 1
@@ -710,12 +703,17 @@ def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
     """Return 1 if substr matches str[start:end] at the given tail end
     (direction == -1 means to do a prefix match, direction == 1 a
     suffix match), 0 otherwise. Return -1 if an error occurred."""
+    space.utf8_w(w_str)  # type check
+    space.utf8_w(w_substr)
     w_start = space.newint(start)
     w_end = space.newint(end)
     if rffi.cast(lltype.Signed, direction) <= 0:
-        return space.call_method(w_str, "startswith", w_substr, w_start, w_end)
+        w_result = space.call_method(
+            w_str, "startswith", w_substr, w_start, w_end)
     else:
-        return space.call_method(w_str, "endswith", w_substr, w_start, w_end)
+        w_result = space.call_method(
+            w_str, "endswith", w_substr, w_start, w_end)
+    return space.int_w(w_result)
 
 @cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
 def PyUnicode_Count(space, w_str, w_substr, start, end):

@@ -3,7 +3,7 @@ import sys
 
 from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import INT_MAX
+from rpython.rlib.rarithmetic import INT_MAX, r_uint
 from rpython.rlib.rfloat import DTSF_ALT, formatd, isnan, isinf
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.unroll import unrolling_iterable
@@ -330,7 +330,7 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             if do_unicode:
                 cp = rutf8.codepoint_at_pos(self.fmt, self.fmtpos - 1)
-                w_s = space.newutf8(rutf8.unichr_as_utf8(cp), 1)
+                w_s = space.newutf8(rutf8.unichr_as_utf8(r_uint(cp)), 1)
             else:
                 cp = ord(self.fmt[self.fmtpos - 1])
                 w_s = space.newbytes(chr(cp))
@@ -466,7 +466,7 @@ def make_formatter_subclass(do_unicode):
                 n = space.int_w(w_value)
                 if do_unicode:
                     try:
-                        c = rutf8.unichr_as_utf8(n)
+                        c = rutf8.unichr_as_utf8(r_uint(n))
                     except ValueError:
                         raise oefmt(space.w_OverflowError,
                                     "unicode character code out of range")
