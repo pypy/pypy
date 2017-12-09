@@ -4,6 +4,8 @@ import os
 import py
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
+from pypy.module._sre import interp_sre
+from rpython.rlib.rsre.test import support
 
 
 def init_app_test(cls, space):
@@ -19,6 +21,33 @@ def init_app_test(cls, space):
         finally:
             sys.path.pop(0)
         """)
+
+def _test_sre_ctx_(self, str, start, end):
+    # Use the MatchContextForTests class, which handles Position
+    # instances instead of plain integers.  This is used to detect when
+    # we're accepting or escaping a Position to app-level, which we
+    # should not: Positions are meant to be byte indexes inside a
+    # possibly UTF8 string, not character indexes.
+    start = support.Position(start)
+    end = support.Position(end)
+    return support.MatchContextForTests(self.code, str, start, end, self.flags)
+
+def _bytepos_to_charindex(self, bytepos):
+    return self.ctx._real_pos(bytepos)
+
+def setup_module(mod):
+    mod._org_maker = (
+        interp_sre.W_SRE_Pattern._make_str_match_context,
+        interp_sre.W_SRE_Match.bytepos_to_charindex,
+        )
+    interp_sre.W_SRE_Pattern._make_str_match_context = _test_sre_ctx_
+    interp_sre.W_SRE_Match.bytepos_to_charindex = _bytepos_to_charindex
+
+def teardown_module(mod):
+    (
+        interp_sre.W_SRE_Pattern._make_str_match_context,
+        interp_sre.W_SRE_Match.bytepos_to_charindex,
+    ) = mod._org_maker
 
 
 class AppTestSrePy:

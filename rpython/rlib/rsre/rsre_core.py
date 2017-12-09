@@ -296,6 +296,9 @@ class StrMatchContext(FixedMatchContext):
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
 
+    def _real_pos(self, index):
+        return index     # overridden by tests
+
     def fresh_copy(self, start):
         return StrMatchContext(self.pattern, self._string, start,
                                self.end, self.flags)

@@ -34,11 +34,14 @@ set_unicode_db(pypy.objspace.std.unicodeobject.unicodedb)
 
 
 def slice_w(space, ctx, start, end, w_default):
-    if 0 <= start <= end:
+    # 'start' and 'end' are byte positions
+    if ctx.ZERO <= start <= end:
         if isinstance(ctx, rsre_core.BufMatchContext):
             return space.newbytes(ctx._buffer.getslice(start, end, 1,
                                                         end-start))
         if isinstance(ctx, rsre_core.StrMatchContext):
+            start = ctx._real_pos(start)
+            end = ctx._real_pos(end)
             return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
             XXXXXXX
@@ -60,6 +63,7 @@ def do_flatten_marks(ctx, num_groups):
         return None
     result = [-1] * (2 * num_groups)
     mark = ctx.match_marks
+    XXX
     while mark is not None:
         index = jit.promote(mark.gid)
         if result[index] == -1:
@@ -70,6 +74,7 @@ def do_flatten_marks(ctx, num_groups):
 
 @jit.look_inside_iff(lambda space, ctx, fmarks, num_groups, w_default: jit.isconstant(num_groups))
 def allgroups_w(space, ctx, fmarks, num_groups, w_default):
+    XXX
     grps = [slice_w(space, ctx, fmarks[i * 2], fmarks[i * 2 + 1], w_default)
             for i in range(num_groups)]
     return space.newtuple(grps)
@@ -138,8 +143,7 @@ class W_SRE_Pattern(W_Root):
                 pos = len(str)
             if endpos > len(str):
                 endpos = len(str)
-            return rsre_core.StrMatchContext(self.code, str,
-                                             pos, endpos, self.flags)
+            return self._make_str_match_context(str, pos, endpos)
         else:
             buf = space.readbuf_w(w_string)
             size = buf.getlength()
@@ -150,6 +154,11 @@ class W_SRE_Pattern(W_Root):
                 endpos = size
             return rsre_core.BufMatchContext(self.code, buf,
                                              pos, endpos, self.flags)
+
+    def _make_str_match_context(self, str, pos, endpos):
+        # for tests to override
+        return rsre_core.StrMatchContext(self.code, str,
+                                         pos, endpos, self.flags)
 
     def getmatch(self, ctx, found):
         if found:
@@ -191,6 +200,7 @@ class W_SRE_Pattern(W_Root):
             matchlist_w.append(w_item)
             no_progress = (ctx.match_start == ctx.match_end)
             ctx.reset(ctx.match_end + no_progress)
+            XXX #                   ^^^
         return space.newlist(matchlist_w)
 
     @unwrap_spec(pos=int, endpos=int)
@@ -215,6 +225,7 @@ class W_SRE_Pattern(W_Root):
                 if ctx.match_start == ctx.end:       # or end of string
                     break
                 ctx.reset(ctx.match_end + 1)
+                XXX   #                 ^^^
                 continue
             splitlist.append(slice_w(space, ctx, last, ctx.match_start,
                                      space.w_None))
@@ -283,7 +294,7 @@ class W_SRE_Pattern(W_Root):
         sublist_w = strbuilder = unicodebuilder = None
         if use_builder:
             if filter_as_unicode is not None:
-                unicodebuilder = Utf8StringBuilder(ctx.end)
+                unicodebuilder = XXX  #Utf8StringBuilder(ctx.end)
             else:
                 assert filter_as_string is not None
                 strbuilder = StringBuilder(ctx.end)
@@ -499,17 +510,29 @@ class W_SRE_Match(W_Root):
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def start_w(self, w_groupnum):
-        return self.space.newint(self.do_span(w_groupnum)[0])
+        start, end = self.do_span(w_groupnum)
+        start = self.bytepos_to_charindex(start)
+        return self.space.newint(start)
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def end_w(self, w_groupnum):
-        return self.space.newint(self.do_span(w_groupnum)[1])
+        start, end = self.do_span(w_groupnum)
+        end = self.bytepos_to_charindex(end)
+        return self.space.newint(end)
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def span_w(self, w_groupnum):
         start, end = self.do_span(w_groupnum)
+        start = self.bytepos_to_charindex(start)
+        end = self.bytepos_to_charindex(end)
         return self.space.newtuple([self.space.newint(start),
                                     self.space.newint(end)])
+
+    def bytepos_to_charindex(self, bytepos):
+        # Transform a 'byte position', as returned by all methods from
+        # rsre_core, back into a 'character index'.  This is for UTF8
+        # handling.
+        XXXX
 
     def flatten_marks(self):
         if self.flatten_cache is None:
