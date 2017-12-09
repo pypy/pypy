@@ -1,7 +1,7 @@
 from rpython.rlib import jit, rgc, rutf8
 from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rlib.rarithmetic import ovfcheck, widen
+from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -1013,7 +1013,7 @@ def make_array(mytype):
             elif mytype.typecode == 'c':
                 return space.newbytes(item)
             elif mytype.typecode == 'u':
-                code = ord(item)
+                code = r_uint(ord(item))
                 return space.newutf8(rutf8.unichr_as_utf8(code), 1)
             assert 0, "unreachable"
 
