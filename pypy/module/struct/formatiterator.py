@@ -192,7 +192,7 @@ class UnpackFormatIterator(FormatIterator):
         self.result_w.append(w_value)
 
     def append_utf8(self, value):
-        w_ch = self.space.newutf8(rutf8.unichr_as_utf8(r_uint(value), 1))
+        w_ch = self.space.newutf8(rutf8.unichr_as_utf8(r_uint(value)), 1)
         self.result_w.append(w_ch)
 
     def get_pos(self):
