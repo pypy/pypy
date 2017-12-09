@@ -7,6 +7,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module._codecs import interp_codecs
+from pypy.module.unicodedata import unicodedb
 
 @specialize.memo()
 def decode_error_handler(space):
@@ -34,6 +35,16 @@ def encode_error_handler(space):
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
     return raise_unicode_exception_encode
+
+def default_error_encode(
+        errors, encoding, msg, u, startingpos, endingpos):
+    """A default handler, for tests"""
+    assert endingpos >= 0
+    if errors == 'replace':
+        return '?', endingpos
+    if errors == 'ignore':
+        return '', endingpos
+    raise ValueError
 
 def convert_arg_to_w_unicode(space, w_arg, strict=None):
     return space.convert_arg_to_w_unicode(w_arg)
@@ -1458,3 +1469,70 @@ def utf8_encode_charmap(s, errors, errorhandler=None,
         pos = rutf8.next_codepoint_pos(s, pos)
     return result.build()
 
+# ____________________________________________________________
+# Decimal Encoder
+def unicode_encode_decimal(s, errors, errorhandler=None):
+    """Converts whitespace to ' ', decimal characters to their
+    corresponding ASCII digit and all other Latin-1 characters except
+    \0 as-is. Characters outside this range (Unicode ordinals 1-256)
+    are treated as errors. This includes embedded NULL bytes.
+    """
+    if errorhandler is None:
+        errorhandler = default_error_encode
+    result = StringBuilder(len(s))
+    pos = 0
+    i = 0
+    it = rutf8.Utf8StringIterator(s)
+    for ch in it:
+        if unicodedb.isspace(ch):
+            result.append(' ')
+            i += 1
+            continue
+        try:
+            decimal = unicodedb.decimal(ch)
+        except KeyError:
+            pass
+        else:
+            result.append(chr(48 + decimal))
+            i += 1
+            continue
+        if 0 < ch < 256:
+            result.append(chr(ch))
+            i += 1
+            continue
+        # All other characters are considered unencodable
+        start_index = i
+        i += 1
+        while not it.done():
+            ch = rutf8.codepoint_at_pos(s, it.get_pos())
+            try:
+                if (0 < ch < 256 or unicodedb.isspace(ch) or
+                        unicodedb.decimal(ch) >= 0):
+                    break
+            except KeyError:
+                # not a decimal
+                pass
+            if it.done():
+                break
+            ch = next(it)
+            i += 1
+        end_index = i
+        msg = "invalid decimal Unicode string"
+        r, pos = errorhandler(
+            errors, 'decimal', msg, s, start_index, end_index)
+        for ch in rutf8.Utf8StringIterator(r):
+            if unicodedb.isspace(ch):
+                result.append(' ')
+                continue
+            try:
+                decimal = unicodedb.decimal(ch)
+            except KeyError:
+                pass
+            else:
+                result.append(chr(48 + decimal))
+                continue
+            if 0 < ch < 256:
+                result.append(chr(ch))
+                continue
+            errorhandler('strict', 'decimal', msg, s, start_index, end_index)
+    return result.build()

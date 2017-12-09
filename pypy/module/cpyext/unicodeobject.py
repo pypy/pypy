@@ -4,7 +4,8 @@ from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import (
-    wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper)
+    wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper,
+    unicode_encode_decimal)
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers_flags, cpython_api,
@@ -643,14 +644,13 @@ def PyUnicode_EncodeDecimal(space, s, length, output, llerrors):
 
     Returns 0 on success, -1 on failure.
     """
-    u = rffi.wcharpsize2unicode(s, length)
+    u = rffi.wcharpsize2utf8(s, length)
     if llerrors:
         errors = rffi.charp2str(llerrors)
     else:
         errors = None
     state = space.fromcache(CodecState)
-    result = runicode.unicode_encode_decimal(u, length, errors,
-                                             state.encode_error_handler)
+    result = unicode_encode_decimal(u, errors, state.encode_error_handler)
     i = len(result)
     output[i] = '\0'
     i -= 1
