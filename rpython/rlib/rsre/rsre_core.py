@@ -165,14 +165,13 @@ class AbstractMatchContext(object):
     def maximum_distance(self, position_low, position_high):
         raise NotImplementedError
     @not_rpython
-    def bytes_difference(self, position1, position2):
-        raise NotImplementedError
-    @not_rpython
     def get_single_byte(self, base_position, index):
         raise NotImplementedError
-    @not_rpython
+
+    def bytes_difference(self, position1, position2):
+        return position1 - position2
     def go_forward_by_bytes(self, base_position, index):
-        raise NotImplementedError
+        return base_position + index
 
     def get_mark(self, gid):
         return find_mark(self.match_marks, gid)
@@ -242,12 +241,6 @@ class FixedMatchContext(AbstractMatchContext):
 
     def maximum_distance(self, position_low, position_high):
         return position_high - position_low
-
-    def bytes_difference(self, position1, position2):
-        return position1 - position2
-
-    def go_forward_by_bytes(self, base_position, index):
-        return base_position + index
 
 
 class BufMatchContext(FixedMatchContext):

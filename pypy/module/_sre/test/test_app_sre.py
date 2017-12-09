@@ -33,7 +33,9 @@ def _test_sre_ctx_(self, str, start, end):
     return support.MatchContextForTests(self.code, str, start, end, self.flags)
 
 def _bytepos_to_charindex(self, bytepos):
-    return self.ctx._real_pos(bytepos)
+    if isinstance(self.ctx, support.MatchContextForTests):
+        return self.ctx._real_pos(bytepos)
+    return bytepos
 
 def setup_module(mod):
     mod._org_maker = (

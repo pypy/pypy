@@ -104,6 +104,10 @@ class MatchContextForTests(StrMatchContext):
         assert isinstance(index, int)
         return Position(base_position._p + index)
 
+    def fresh_copy(self, start):
+        return MatchContextForTests(self.pattern, self._string, start,
+                                    self.end, self.flags)
+
 
 def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
     start, end = _adjust(start, end, len(string))
