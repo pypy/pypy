@@ -70,9 +70,6 @@ class CodecState(object):
                 raise oefmt(space.w_IndexError,
                             "position %d from error handler out of bounds",
                             newpos)
-            if newpos < startpos:
-                raise oefmt(space.w_IndexError,
-                    "position %d from error handler did not progress", newpos)
             w_replace = space.convert_to_w_unicode(w_replace)
             return w_replace._utf8, newpos
         return call_errorhandler
@@ -226,7 +223,7 @@ def xmlcharrefreplace_errors(space, w_exc):
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
         start = w_obj._index_to_byte(start)
-        end = w_obj._index_to_byte(end)        
+        end = w_obj._index_to_byte(end)
         builder = StringBuilder()
         pos = start
         obj = w_obj._utf8
