@@ -587,21 +587,22 @@ getting the advantage of providing document type information to the parser.
 
     def UnknownEncodingHandler(self, space, name, info):
         # Yes, supports only 8bit encodings
-        translationmap = space.unicode_w(
+        translationmap, lgt = space.utf8_len_w(
             space.call_method(
                 space.newbytes(self.all_chars), "decode",
                 space.newtext(name), space.newtext("replace")))
 
-        if len(translationmap) != 256:
+        if lgt != 256:
             raise oefmt(space.w_ValueError,
                         "multi-byte encodings are not supported")
 
-        for i in range(256):
-            c = translationmap[i]
-            if c == u'\ufffd':
+        i = 0
+        for c in rutf8.Utf8StringIterator(translationmap):
+            if c == 0xfffd:
                 info.c_map[i] = rffi.cast(rffi.INT, -1)
             else:
                 info.c_map[i] = rffi.cast(rffi.INT, c)
+            i += 1
         info.c_data = lltype.nullptr(rffi.VOIDP.TO)
         info.c_convert = lltype.nullptr(rffi.VOIDP.TO)
         info.c_release = lltype.nullptr(rffi.VOIDP.TO)

@@ -380,6 +380,7 @@ class W_ArrayBase(W_Root):
         if len(s) % self.itemsize != 0:
             raise oefmt(self.space.w_ValueError,
                         "string length not a multiple of item size")
+        self.check_valid_unicode(space, s) # empty for non-u arrays
         oldlen = self.len
         new = len(s) / self.itemsize
         if not new:
@@ -710,6 +711,9 @@ class W_ArrayBase(W_Root):
             s = "array('%s', %s)" % (self.typecode, space.text_w(r))
             return space.newtext(s)
 
+    def check_valid_unicode(self, space, s):
+        pass # overwritten by u
+
 W_ArrayBase.typedef = TypeDef(
     'array.array',
     __new__ = interp2app(w_array),
@@ -869,6 +873,18 @@ def make_array(mytype):
 
         def get_buffer(self):
             return rffi.cast(mytype.arrayptrtype, self._buffer)
+
+        if mytype.unwrap == 'utf8_len_w':
+            def check_valid_unicode(self, space, s):
+                i = 0
+                while i < len(s):
+                    if s[i] != '\x00' or ord(s[i + 1]) > 0x10:
+                        v = ((ord(s[i]) << 24) + (ord(s[i + 1]) << 16) +
+                             (ord(s[i + 2]) << 8) + ord(s[i + 3]))
+                        raise oefmt(space.w_ValueError,
+                            "Character U+%s is not in range [U+0000, U+10ffff]",
+                            hex(v)[2:])
+                    i += 4
 
         def item_w(self, w_item):
             space = self.space
