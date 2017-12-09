@@ -35,7 +35,7 @@ def _test_sre_ctx_(self, str, start, end):
 def _bytepos_to_charindex(self, bytepos):
     if isinstance(self.ctx, support.MatchContextForTests):
         return self.ctx._real_pos(bytepos)
-    return bytepos
+    return _org_maker[1](self, bytepos)
 
 def setup_module(mod):
     mod._org_maker = (
@@ -1037,3 +1037,15 @@ class AppTestOptimizations:
         import re
         assert re.search(".+ab", "wowowowawoabwowo")
         assert None == re.search(".+ab", "wowowaowowo")
+
+
+class AppTestUnicodeExtra:
+    def test_string_attribute(self):
+        import re
+        match = re.search(u"\u1234", u"\u1233\u1234\u1235")
+        assert match.string == u"\u1233\u1234\u1235"
+
+    def test_match_start(self):
+        import re
+        match = re.search(u"\u1234", u"\u1233\u1234\u1235")
+        assert match.start() == 1

@@ -115,7 +115,9 @@ class W_SRE_Pattern(W_Root):
         if endpos < pos:
             endpos = pos
         if space.isinstance_w(w_string, space.w_unicode):
-            utf8str, length = space.utf8_len_w(w_string)
+            w_unicode_obj = space.convert_arg_to_w_unicode(w_string)
+            utf8str = w_unicode_obj._utf8
+            length = w_unicode_obj._len()
             if pos <= 0:
                 bytepos = 0
             elif pos >= length:
@@ -127,8 +129,12 @@ class W_SRE_Pattern(W_Root):
             else:
                 endbytepos = rutf8.codepoint_at_index(utf8str, index_storage,
                                                       endpos)
-            return rsre_utf8.Utf8MatchContext(
+            ctx = rsre_utf8.Utf8MatchContext(
                 self.code, utf8str, bytepos, endbytepos, self.flags)
+            # xxx we store the w_string on the ctx too, for
+            # W_SRE_Match.bytepos_to_charindex()
+            ctx.w_unicode_obj = w_unicode_obj
+            return ctx
         elif space.isinstance_w(w_string, space.w_bytes):
             str = space.bytes_w(w_string)
             if pos > len(str):
@@ -520,7 +526,13 @@ class W_SRE_Match(W_Root):
         # Transform a 'byte position', as returned by all methods from
         # rsre_core, back into a 'character index'.  This is for UTF8
         # handling.
-        XXXX
+        ctx = self.ctx
+        if isinstance(ctx, rsre_utf8.Utf8MatchContext):
+            index_storage = ctx.w_unicode_obj._get_index_storage()
+            return rutf8.codepoint_index_at_byte_position(
+                ctx.w_unicode_obj._utf8, index_storage, bytepos)
+        else:
+            return bytepos
 
     def flatten_marks(self):
         if self.flatten_cache is None:
@@ -603,9 +615,8 @@ class W_SRE_Match(W_Root):
         elif isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string)
         elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
-            XXXXXXXX
-            lgt = rutf8.check_utf8(ctx._unicodestr, True)
-            return space.newutf8(ctx._unicodestr, lgt)
+            lgt = rutf8.get_utf8_length(ctx._utf8)
+            return space.newutf8(ctx._utf8, lgt)
         else:
             raise SystemError
 
