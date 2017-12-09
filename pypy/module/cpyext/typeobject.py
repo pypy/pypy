@@ -23,7 +23,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.cparser import CTypeSpace
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
-    W_PyCMethodObject, W_PyCFunctionObject)
+    W_PyCMethodObject, W_PyCFunctionObject, extract_doc, extract_txtsig)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, get_typedescr, make_typedescr,
@@ -331,7 +331,7 @@ def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
         if not getattr(struct, slot_names[1]):
             setattr(struct, slot_names[1], slot_func_helper)
 
-def add_operators(space, dict_w, pto):
+def add_operators(space, dict_w, pto, name):
     from pypy.module.cpyext.object import PyObject_HashNotImplemented
     hash_not_impl = PyObject_HashNotImplemented.api_func.get_llhelper(space)
     for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
@@ -361,8 +361,8 @@ def add_operators(space, dict_w, pto):
                 wrapper_func_kwds, doc, func_voidp, offset=offset)
         dict_w[method_name] = w_obj
     if pto.c_tp_doc:
-        dict_w['__doc__'] = space.newtext(
-            rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
+        raw_doc = rffi.charp2str(cts.cast('char*', pto.c_tp_doc))
+        dict_w['__doc__'] = space.newtext(extract_doc(raw_doc, name))
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
@@ -400,10 +400,12 @@ def get_new_method_def(space):
     lltype.render_immortal(ptr.c_ml_name)
     rffi.setintfield(ptr, 'c_ml_flags', METH_VARARGS | METH_KEYWORDS)
     ptr.c_ml_doc = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(
-        "T.__new__(S, ...) -> a new object with type S, a subtype of T"))
+        "Create and return a new object.  "
+        "See help(type) for accurate signature."))
     lltype.render_immortal(ptr.c_ml_doc)
     state.new_method_def = ptr
     return ptr
+
 
 def setup_new_method_def(space):
     ptr = get_new_method_def(space)
@@ -504,12 +506,12 @@ class W_PyCTypeObject(W_TypeObject):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
 
-        add_operators(space, dict_w, pto)
+        name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
+        add_operators(space, dict_w, pto, name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self)
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
-        name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
         flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
             minsize = rffi.sizeof(PyHeapTypeObject.TO)
@@ -527,8 +529,9 @@ class W_PyCTypeObject(W_TypeObject):
         elif pto.c_tp_as_mapping and pto.c_tp_as_mapping.c_mp_subscript:
             self.flag_map_or_seq = 'M'
         if pto.c_tp_doc:
-            self.w_doc = space.newtext(
-                rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
+            rawdoc = rffi.charp2str(cts.cast('char*', pto.c_tp_doc))
+            self.w_doc = space.newtext_or_none(extract_doc(rawdoc, name))
+            self.text_signature = extract_txtsig(rawdoc, name)
 
 @bootstrap_function
 def init_typeobject(space):

@@ -365,6 +365,7 @@ class W_BytearrayObject(W_Root):
 
     @specialize.argtype(1)
     def _inplace_add(self, other):
+        resizelist_hint(self._data, len(self._data) + len(other))
         for i in range(len(other)):
             self._data.append(other[i])
 
@@ -660,7 +661,7 @@ class BytearrayDocstrings:
         """x.__imul__(y) <==> x*=y"""
 
     def __init__():
-        """x.__init__(...) initializes x; see help(type(x)) for signature"""
+        """Initialize self.  See help(type(self)) for accurate signature."""
 
     def __iter__():
         """x.__iter__() <==> iter(x)"""

@@ -20,6 +20,7 @@ This object may be accessed either as a tuple of
 or via the attributes ru_utime, ru_stime, ru_maxrss, and so on."""
 
     __metaclass__ = _structseq.structseqtype
+    name = "resource.struct_rusage"
 
     ru_utime = _structseq.structseqfield(0,    "user time used")
     ru_stime = _structseq.structseqfield(1,    "system time used")

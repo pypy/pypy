@@ -66,6 +66,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         result = module.fillinfo()
         assert b"hello, world." == result
 
+    @pytest.mark.skip(reason="segfaults on linux buildslave")
     def test_0d(self):
         module = self.import_extension('foo', [
             ("create_view", "METH_VARARGS",
@@ -255,3 +256,13 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
              """)])
         mv = module.new()
         assert mv.tobytes() == b'hell'
+
+    def test_FromBuffer_NULL(self):
+        module = self.import_extension('foo', [
+            ('new', 'METH_NOARGS', """
+            Py_buffer info;
+            if (PyBuffer_FillInfo(&info, NULL, NULL, 1, 1, PyBUF_FULL_RO) < 0)
+                return NULL;
+            return PyMemoryView_FromBuffer(&info);
+             """)])
+        raises(ValueError, module.new)

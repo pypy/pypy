@@ -39,9 +39,7 @@ MAINDIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
 
 PLATFORMS = [
-    'maemo',
     'host',
-    'distutils',
     'arm',
 ]
 

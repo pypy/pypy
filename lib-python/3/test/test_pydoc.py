@@ -143,7 +143,7 @@ if check_impl_detail(pypy=True):
 <tr bgcolor="#aa55cc">
 <td colspan=3 valign=bottom>&nbsp;<br>
 <font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
-
+\x20\x20\x20\x20
 <tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%%"><table width="100%%" summary="list"><tr><td width="25%%" valign=top><a href="builtins.html">builtins</a><br>
 </td><td width="25%%" valign=top></td><td width="25%%" valign=top></td><td width="25%%" valign=top></td></tr></table></td></tr></table><p>
@@ -883,7 +883,7 @@ class TestDescriptions(unittest.TestCase):
     @requires_docstrings
     def test_unbound_builtin_method(self):
         self.assertEqual(self._get_summary_line(pickle.Pickler.dump),
-            "dump(self, obj, /)")
+            "dump(self, obj)")
 
     # these no longer include "self"
     def test_bound_python_method(self):
@@ -912,13 +912,13 @@ class TestDescriptions(unittest.TestCase):
         s = StringIO()
         p = pickle.Pickler(s)
         self.assertEqual(self._get_summary_line(p.dump),
-            "dump(obj, /) method of _pickle.Pickler instance")
+            "dump(obj) method of pickle._Pickler instance")
 
     # this should *never* include self!
     @requires_docstrings
     def test_module_level_callable(self):
         self.assertEqual(self._get_summary_line(os.stat),
-            "stat(path, *, dir_fd=None, follow_symlinks=True)")
+            "stat(path, *, dir_fd=-100, follow_symlinks=True)")
 
 
 @unittest.skipUnless(threading, 'Threading required for this test.')

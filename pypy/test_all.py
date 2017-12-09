@@ -27,7 +27,7 @@ if __name__ == '__main__':
     sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     import pytest
     if sys.platform == 'win32':
-        #Try to avoid opeing a dialog box if one of the tests causes a system error
+        #Try to avoid opening a dialog box if one of the tests causes a system error
         # We do this in runner.py, but buildbots run twisted which ruins inheritance
         # in windows subprocesses.
         import ctypes

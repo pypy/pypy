@@ -43,6 +43,39 @@ def cfunction_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
+def undotted_name(name):
+    """Return the last component of a dotted name"""
+    dotpos = name.rfind('.')
+    if dotpos < 0:
+        return name
+    else:
+        return name[dotpos + 1:]
+
+SIGNATURE_MARKER = ')\n--\n\n'
+
+def extract_doc(raw_doc, name):
+    doc = raw_doc
+    name = undotted_name(name)
+    if raw_doc.startswith(name + '('):
+        end_sig = raw_doc.find(SIGNATURE_MARKER)
+        if end_sig > 0:
+            doc = raw_doc[end_sig + len(SIGNATURE_MARKER):]
+    if not doc:
+        return None
+    return doc
+
+def extract_txtsig(raw_doc, name):
+    name = undotted_name(name)
+    if raw_doc.startswith(name + '('):
+        end_sig = raw_doc.find(SIGNATURE_MARKER)
+        if end_sig > 0:
+            # Notes:
+            # * Parentheses are included
+            # * SIGNATURE_MARKER cannot appear inside name,
+            #   so end_sig > len(name)
+            return raw_doc[len(name): end_sig + 1]
+    return None
+
 class W_PyCFunctionObject(W_Root):
     # TODO create a slightly different class depending on the c_ml_flags
     def __init__(self, space, ml, w_self, w_module=None):
@@ -84,11 +117,22 @@ class W_PyCFunctionObject(W_Root):
             raise oefmt(space.w_RuntimeError, "unknown calling convention")
 
     def get_doc(self, space):
-        doc = self.ml.c_ml_doc
-        if doc:
-            return space.newtext(rffi.charp2str(rffi.cast(rffi.CCHARP,doc)))
-        else:
-            return space.w_None
+        c_doc = self.ml.c_ml_doc
+        if c_doc:
+            rawdoc = rffi.charp2str(rffi.cast(rffi.CCHARP, c_doc))
+            doc = extract_doc(rawdoc, self.name)
+            if doc is not None:
+                return space.newtext(doc)
+        return space.w_None
+
+    def get_txtsig(self, space):
+        c_doc = self.ml.c_ml_doc
+        if c_doc:
+            rawdoc = rffi.charp2str(rffi.cast(rffi.CCHARP, c_doc))
+            txtsig = extract_txtsig(rawdoc, self.name)
+            if txtsig is not None:
+                return space.newtext(txtsig)
+        return space.w_None
 
 class W_PyCFunctionObjectNoArgs(W_PyCFunctionObject):
     def call(self, space, w_self, w_args, w_kw):
@@ -289,6 +333,7 @@ W_PyCFunctionObject.typedef = TypeDef(
     'builtin_function_or_method',
     __call__ = interp2app(cfunction_descr_call),
     __doc__ = GetSetProperty(W_PyCFunctionObject.get_doc),
+    __text_signature__ = GetSetProperty(W_PyCFunctionObject.get_txtsig),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject),
     __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject,
         wrapfn="newtext_or_none"),
@@ -299,6 +344,7 @@ W_PyCFunctionObjectNoArgs.typedef = TypeDef(
     'builtin_function_or_method', W_PyCFunctionObject.typedef,
     __call__ = interp2app(cfunction_descr_call_noargs),
     __doc__ = GetSetProperty(W_PyCFunctionObjectNoArgs.get_doc),
+    __text_signature__ = GetSetProperty(W_PyCFunctionObjectNoArgs.get_txtsig),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObjectNoArgs),
     __name__ = interp_attrproperty('name', cls=W_PyCFunctionObjectNoArgs,
         wrapfn="newtext_or_none"),
@@ -309,6 +355,7 @@ W_PyCFunctionObjectSingleObject.typedef = TypeDef(
     'builtin_function_or_method', W_PyCFunctionObject.typedef,
     __call__ = interp2app(cfunction_descr_call_single_object),
     __doc__ = GetSetProperty(W_PyCFunctionObjectSingleObject.get_doc),
+    __text_signature__ = GetSetProperty(W_PyCFunctionObjectSingleObject.get_txtsig),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObjectSingleObject),
     __name__ = interp_attrproperty('name', cls=W_PyCFunctionObjectSingleObject,
         wrapfn="newtext_or_none"),

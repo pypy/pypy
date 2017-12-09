@@ -1,3 +1,4 @@
+from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_MAX_FMT, Py_MAX_NDIMS, build_type_checkers,
     Py_ssize_tP, cts, parse_dir, bootstrap_function, Py_bufferP, slot_function)
@@ -201,6 +202,10 @@ def PyMemoryView_FromBuffer(space, view):
     The memoryview object then owns the buffer represented by view, which
     means you shouldn't try to call PyBuffer_Release() yourself: it
     will be done on deallocation of the memoryview object."""
+    if not view.c_buf:
+        raise oefmt(space.w_ValueError,
+            "PyMemoryView_FromBuffer(): info->buf must not be NULL")
+
     # XXX this should allocate a PyMemoryViewObject and
     # copy view into obj.c_view, without creating a new view.c_obj
     typedescr = get_typedescr(W_MemoryView.typedef)

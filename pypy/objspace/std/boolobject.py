@@ -40,7 +40,7 @@ class W_BoolObject(W_IntObject):
     @staticmethod
     @unwrap_spec(w_obj=WrappedDefault(False))
     def descr_new(space, w_booltype, w_obj):
-        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+        "Create and return a new object.  See help(type) for accurate signature."
         space.w_bool.check_user_subclass(w_booltype)
         return space.newbool(space.is_true(w_obj))
 

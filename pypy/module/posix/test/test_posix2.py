@@ -29,12 +29,20 @@ def setup_module(mod):
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
-    bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+    if sys.platform == 'darwin':
+        # see issue https://bugs.python.org/issue31380
+        bytes_dir = udir.ensure('fixc5x9fier.txt', dir=True)
+        file_name = 'cafxe9'
+        surrogate_name = 'foo'
+    else:
+        bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+        file_name = 'caf\xe9'
+        surrogate_name = 'foo\x80'
     bytes_dir.join('somefile').write('who cares?')
-    bytes_dir.join('caf\xe9').write('who knows?')
+    bytes_dir.join(file_name).write('who knows?')
     mod.bytes_dir = bytes_dir
     # an escaped surrogate
-    mod.esurrogate_dir = udir.ensure('foo\x80', dir=True)
+    mod.esurrogate_dir = udir.ensure(surrogate_name, dir=True)
 
     # in applevel tests, os.stat uses the CPython os.stat.
     # Be sure to return times with full precision
@@ -378,16 +386,21 @@ class AppTestPosix:
 
     def test_times(self):
         """
-        posix.times() should return a five-tuple giving float-representations
-        (seconds, effectively) of the four fields from the underlying struct
-        tms and the return value.
+        posix.times() should return a posix.times_result object giving 
+        float-representations (seconds, effectively) of the four fields from 
+        the underlying struct tms and the return value.
         """
         result = self.posix.times()
-        assert isinstance(result, tuple)
+        assert isinstance(self.posix.times(), self.posix.times_result)
+        assert isinstance(self.posix.times(), tuple)
         assert len(result) == 5
         for value in result:
             assert isinstance(value, float)
-
+        assert isinstance(result.user, float)
+        assert isinstance(result.system, float)
+        assert isinstance(result.children_user, float)
+        assert isinstance(result.children_system, float)
+        assert isinstance(result.elapsed, float)
 
     def test_strerror(self):
         assert isinstance(self.posix.strerror(0), str)
@@ -1337,6 +1350,17 @@ class AppTestPosix:
             posix.close(fd)
             s2.close()
             s1.close()
+            
+        def test_os_lockf(self):
+            posix, os = self.posix, self.os
+            fd = os.open(self.path2 + 'test_os_lockf', os.O_WRONLY | os.O_CREAT)
+            try:
+                os.write(fd, b'test')
+                os.lseek(fd, 0, 0)
+                posix.lockf(fd, posix.F_LOCK, 4)
+                posix.lockf(fd, posix.F_ULOCK, 4)
+            finally:
+                os.close(fd)
 
     def test_urandom(self):
         os = self.posix

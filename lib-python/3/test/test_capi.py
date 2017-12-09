@@ -31,8 +31,9 @@ Py_DEBUG = hasattr(sys, 'gettotalrefcount')
 skips = []
 if support.check_impl_detail(pypy=True):
     skips += [
-            'test_widechar',
-            ]
+        'test_lazy_hash_inheritance',
+        'test_capsule',
+    ]
 
 def testfunction(self):
     """some doc"""
@@ -55,6 +56,8 @@ class CAPITest(unittest.TestCase):
         self.assertEqual(testfunction.attribute, "test")
         self.assertRaises(AttributeError, setattr, inst.testfunction, "attribute", "test")
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True),
+                    "doesn't crash on PyPy")
     @unittest.skipUnless(threading, 'Threading required for this test.')
     def test_no_FatalError_infinite_loop(self):
         with support.SuppressCrashReport():
@@ -207,9 +210,9 @@ class CAPITest(unittest.TestCase):
         else:
             with self.assertRaises(SystemError) as cm:
                 _testcapi.return_null_without_error()
+            # PyPy change: different message
             self.assertRegex(str(cm.exception),
-                             'return_null_without_error.* '
-                             'returned NULL without setting an error')
+                'Function returned a NULL result without setting an exception')
 
     def test_return_result_with_error(self):
         # Issue #23571: A function must not return a result with an error set
@@ -239,9 +242,9 @@ class CAPITest(unittest.TestCase):
         else:
             with self.assertRaises(SystemError) as cm:
                 _testcapi.return_result_with_error()
+            # PyPy change: different message
             self.assertRegex(str(cm.exception),
-                             'return_result_with_error.* '
-                             'returned a result with an error set')
+                'An exception was set, but function returned a value')
 
     def test_buildvalue_N(self):
         _testcapi.test_buildvalue_N()
@@ -329,6 +332,8 @@ class TestPendingCalls(unittest.TestCase):
         self.pendingcalls_wait(l, n)
 
 
+@unittest.skipIf(support.check_impl_detail(pypy=True),
+                "subinterpreters not implemented on PyPy")
 class SubinterpreterTest(unittest.TestCase):
 
     def test_subinterps(self):

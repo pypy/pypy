@@ -28,7 +28,8 @@ RENAMED_USEMODULES = {
     'struct': '_struct',
     'thread': '_thread',
     'operator': '_operator',
-    'signal': '_signal'}
+    'signal': '_signal',
+    'imp': '_imp'}
 
 class AppError(Exception):
     def __init__(self, excinfo):

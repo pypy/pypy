@@ -1,7 +1,7 @@
 """Test suite for the cProfile module."""
 
 import sys
-from test.support import run_unittest, TESTFN, unlink
+from test.support import run_unittest, TESTFN, unlink, cpython_only
 
 # rip off all interesting stuff from test_profile
 import cProfile
@@ -17,6 +17,7 @@ class CProfileTest(ProfileTest):
         return _ProfileOutput
 
     # Issue 3895.
+    @cpython_only
     def test_bad_counter_during_dealloc(self):
         import _lsprof
         # Must use a file as StringIO doesn't trigger the bug.

@@ -7,7 +7,7 @@ class Module(MixedModule):
     interpleveldefs = {
         '_resolve_name'          : 'interp_cppyy.resolve_name',
         '_scope_byname'          : 'interp_cppyy.scope_byname',
-        '_template_byname'       : 'interp_cppyy.template_byname',
+        '_is_template'           : 'interp_cppyy.is_template',
         '_std_string_name'       : 'interp_cppyy.std_string_name',
         '_set_class_generator'   : 'interp_cppyy.set_class_generator',
         '_set_function_generator': 'interp_cppyy.set_function_generator',
@@ -15,7 +15,9 @@ class Module(MixedModule):
         '_get_nullptr'           : 'interp_cppyy.get_nullptr',
         'CPPClassBase'           : 'interp_cppyy.W_CPPClass',
         'addressof'              : 'interp_cppyy.addressof',
+        '_bind_object'           : 'interp_cppyy._bind_object',
         'bind_object'            : 'interp_cppyy.bind_object',
+        'move'                   : 'interp_cppyy.move',
     }
 
     appleveldefs = {

@@ -676,7 +676,7 @@ def test_getpriority():
     prio = rposix.getpriority(rposix.PRIO_PROCESS, 0)
     rposix.setpriority(rposix.PRIO_PROCESS, 0, prio)
     py.test.raises(OSError, rposix.getpriority, rposix.PRIO_PGRP, 123456789)
-    
+
 if sys.platform != 'win32':
     def test_sendfile():
         from rpython.rlib import rsocket
@@ -723,7 +723,7 @@ if sys.platform.startswith('linux'):
         os.close(fd)
         s2.close()
         s1.close()
-        
+
 @rposix_requires('pread')
 def test_pread():
     fname = str(udir.join('os_test.txt'))
@@ -794,14 +794,14 @@ def test_sched_get_priority_max():
     assert rposix.sched_get_priority_max(rposix.SCHED_RR) != -1
     assert rposix.sched_get_priority_max(rposix.SCHED_OTHER) != -1
     assert rposix.sched_get_priority_max(rposix.SCHED_BATCH) != -1
-    
+
 @rposix_requires('sched_get_priority_min')
 def test_sched_get_priority_min():
     assert rposix.sched_get_priority_min(rposix.SCHED_FIFO) != -1
     assert rposix.sched_get_priority_min(rposix.SCHED_RR) != -1
     assert rposix.sched_get_priority_min(rposix.SCHED_OTHER) != -1
     assert rposix.sched_get_priority_min(rposix.SCHED_BATCH) != -1
-    
+
 @rposix_requires('sched_get_priority_min')
 def test_os_sched_priority_max_greater_than_min():
     policy = rposix.SCHED_RR
@@ -810,9 +810,20 @@ def test_os_sched_priority_max_greater_than_min():
     assert isinstance(low, int) == True
     assert isinstance(high, int) == True
     assert  high > low
-    
+
 @rposix_requires('sched_yield')
 def test_sched_yield():
     if sys.platform != 'win32':
         rposix.sched_yield()
 
+@rposix_requires('lockf')
+def test_os_lockf():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY | os.O_CREAT, 0777)
+    try:
+        os.write(fd, b'test')
+        os.lseek(fd, 0, 0)
+        rposix.lockf(fd, rposix.F_LOCK, 4)
+        rposix.lockf(fd, rposix.F_ULOCK, 4)
+    finally:
+        os.close(fd)

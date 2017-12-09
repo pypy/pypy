@@ -28,7 +28,7 @@ const char * vmp_machine_os_name(void)
 #elif __linux__
     return "linux";
 #elif __FreeBSD__
-    return "freebsd"
+    return "freebsd";
 #else
     #error "Unknown compiler"
 #endif

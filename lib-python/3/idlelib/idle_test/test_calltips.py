@@ -63,7 +63,7 @@ class Get_signatureTest(unittest.TestCase):
         gtest([].append, append_doc)
         gtest(List.append, append_doc)
 
-        gtest(types.MethodType, "method(function, instance)")
+        gtest(types.MethodType, "instancemethod(function, instance, class)")
         gtest(SB(), default_tip)
 
     def test_signature_wrap(self):

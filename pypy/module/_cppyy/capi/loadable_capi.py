@@ -217,7 +217,8 @@ class State(object):
             'method_req_args'          : ([c_scope, c_index],         c_int),
             'method_arg_type'          : ([c_scope, c_index, c_int],  c_ccharp),
             'method_arg_default'       : ([c_scope, c_index, c_int],  c_ccharp),
-            'method_signature'         : ([c_scope, c_index],         c_ccharp),
+            'method_signature'         : ([c_scope, c_index, c_int],  c_ccharp),
+            'method_prototype'         : ([c_scope, c_index, c_int],  c_ccharp),
 
             'method_is_template'       : ([c_scope, c_index],         c_int),
             'method_num_template_args' : ([c_scope, c_index],         c_int),
@@ -498,9 +499,12 @@ def c_method_arg_type(space, cppscope, index, arg_index):
 def c_method_arg_default(space, cppscope, index, arg_index):
     args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(arg_index)]
     return charp2str_free(space, call_capi(space, 'method_arg_default', args))
-def c_method_signature(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
+def c_method_signature(space, cppscope, index, show_formalargs=True):
+    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(show_formalargs)]
     return charp2str_free(space, call_capi(space, 'method_signature', args))
+def c_method_prototype(space, cppscope, index, show_formalargs=True):
+    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(show_formalargs)]
+    return charp2str_free(space, call_capi(space, 'method_prototype', args))
 
 def c_method_is_template(space, cppscope, index):
     args = [_ArgH(cppscope.handle), _ArgL(index)]

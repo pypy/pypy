@@ -543,6 +543,13 @@ class AppTestTypeObject:
                type(X).__dict__["__doc__"].__delete__(X))
         assert X.__doc__ == "banana"
 
+    def test_text_signature(self):
+        assert object.__text_signature__ == '()'
+
+        class A:
+            pass
+        assert A.__text_signature__ is None
+
     def test_metaclass_conflict(self):
         """
         class T1(type):

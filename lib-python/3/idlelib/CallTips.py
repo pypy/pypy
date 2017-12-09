@@ -123,6 +123,15 @@ _INDENT = ' '*4  # for wrapped signatures
 _first_param = re.compile(r'(?<=\()\w*\,?\s*')
 _default_callable_argspec = "See source or doc"
 
+def _is_user_method(ob):
+    """Detect user methods on PyPy"""
+    return (isinstance(ob, types.MethodType) and
+        isinstance(ob.__code__, types.CodeType))
+
+def _is_user_function(ob):
+    """Detect user methods on PyPy"""
+    return (isinstance(ob, types.FunctionType) and
+        isinstance(ob.__code__, types.CodeType))
 
 def get_argspec(ob):
     '''Return a string describing the signature of a callable object, or ''.
@@ -140,21 +149,21 @@ def get_argspec(ob):
         return argspec
     if isinstance(ob, type):
         fob = ob.__init__
-    elif isinstance(ob_call, types.MethodType):
+    elif _is_user_method(ob_call):
         fob = ob_call
     else:
         fob = ob
     if (isinstance(fob, (types.FunctionType, types.MethodType)) and
             hasattr(fob.__code__, 'co_code')):  # PyPy: not on <builtin-code>
         argspec = inspect.formatargspec(*inspect.getfullargspec(fob))
-        if (isinstance(ob, (type, types.MethodType)) or
-                isinstance(ob_call, types.MethodType)):
+        if (_is_user_method(ob) or _is_user_method(ob_call) or
+                (isinstance(ob, type) and _is_user_function(fob))):
             argspec = _first_param.sub("", argspec)
 
     lines = (textwrap.wrap(argspec, _MAX_COLS, subsequent_indent=_INDENT)
             if len(argspec) > _MAX_COLS else [argspec] if argspec else [])
 
-    if isinstance(ob_call, types.MethodType):
+    if _is_user_method(ob_call):
         doc = ob_call.__doc__
     else:
         doc = getattr(ob, "__doc__", "")

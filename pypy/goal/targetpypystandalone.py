@@ -352,8 +352,9 @@ class PyPyTarget(object):
 
     def hack_for_cffi_modules(self, driver):
         # HACKHACKHACK
-        # ugly hack to modify target goal from compile_* to build_cffi_imports
-        # this should probably get cleaned up and merged with driver.create_exe
+        # ugly hack to modify target goal from compile_* to build_cffi_imports,
+        # as done in package.py
+        # this is needed by the benchmark buildbot run, maybe do it as a seperate step there?
         from rpython.tool.runsubprocess import run_subprocess
         from rpython.translator.driver import taskdef
         import types
@@ -363,11 +364,14 @@ class PyPyTarget(object):
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
             filename = os.path.join(pypydir, 'tool', 'build_cffi_imports.py')
+            if sys.platform == 'darwin':
+                argv = [filename, '--embed-dependencies']
+            else:
+                argv = [filename,]
             status, out, err = run_subprocess(str(driver.compute_exe_name()),
-                                              [filename])
+                                              argv)
             sys.stdout.write(out)
             sys.stderr.write(err)
-            # otherwise, ignore errors
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
         driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, [compile_goal]
         driver.default_goal = 'build_cffi_imports'

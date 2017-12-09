@@ -737,10 +737,14 @@ class W_SyntaxError(W_Exception):
             self.w_msg = args_w[0]
         if len(args_w) == 2:
             values_w = space.fixedview(args_w[1])
-            if len(values_w) > 0: self.w_filename   = values_w[0]
-            if len(values_w) > 1: self.w_lineno     = values_w[1]
-            if len(values_w) > 2: self.w_offset     = values_w[2]
-            if len(values_w) > 3: self.w_text       = values_w[3]
+            if len(values_w) > 0:
+                self.w_filename = values_w[0]
+            if len(values_w) > 1:
+                self.w_lineno = values_w[1]
+            if len(values_w) > 2:
+                self.w_offset = values_w[2]
+            if len(values_w) > 3:
+                self.w_text = values_w[3]
             if len(values_w) > 4:
                 self.w_lastlineno = values_w[4]   # PyPy extension
                 # kill the extra items from args_w to prevent undesired effects

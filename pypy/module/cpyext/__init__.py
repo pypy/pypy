@@ -4,6 +4,7 @@ from pypy.module.cpyext import api
 
 class Module(MixedModule):
     interpleveldefs = {
+        'is_cpyext_function': 'interp_cpyext.is_cpyext_function',
     }
 
     appleveldefs = {
@@ -41,7 +42,6 @@ import pypy.module.cpyext.pythonrun
 import pypy.module.cpyext.pyerrors
 import pypy.module.cpyext.typeobject
 import pypy.module.cpyext.object
-import pypy.module.cpyext.buffer
 import pypy.module.cpyext.bytesobject
 import pypy.module.cpyext.bytearrayobject
 import pypy.module.cpyext.tupleobject
@@ -50,6 +50,7 @@ import pypy.module.cpyext.dictobject
 import pypy.module.cpyext.longobject
 import pypy.module.cpyext.listobject
 import pypy.module.cpyext.sequence
+import pypy.module.cpyext.buffer
 import pypy.module.cpyext.eval
 import pypy.module.cpyext.import_
 import pypy.module.cpyext.mapping

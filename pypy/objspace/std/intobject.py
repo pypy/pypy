@@ -514,7 +514,7 @@ class W_IntObject(W_AbstractIntObject):
     @staticmethod
     @unwrap_spec(w_x=WrappedDefault(0))
     def descr_new(space, w_inttype, w_x, w_base=None):
-        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+        "Create and return a new object.  See help(type) for accurate signature."
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):

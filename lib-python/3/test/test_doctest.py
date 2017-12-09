@@ -660,7 +660,7 @@ plain ol' Python and is guaranteed to be available.
 
     >>> import builtins
     >>> tests = doctest.DocTestFinder().find(builtins)
-    >>> lo, hi = (120, 140) if is_pypy else (790, 810)
+    >>> lo, hi = (420, 440) if is_pypy else (790, 810)
     >>> lo < len(tests) < hi # approximate number of objects with docstrings
     True
     >>> real_tests = [t for t in tests if len(t.examples) > 0]

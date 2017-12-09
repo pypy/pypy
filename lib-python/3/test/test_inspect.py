@@ -32,6 +32,8 @@ from test import inspect_fodder2 as mod2
 from test import support
 
 from test.test_import import _ready_to_import
+if check_impl_detail():
+    import _pickle
 
 
 # Functions tested in this suite:
@@ -372,6 +374,7 @@ class TestRetrievingSourceCode(GetSourceBase):
         self.assertEqual(inspect.getdoc(mod.FesteringGob.contradiction),
                          'The automatic gainsaying.')
 
+    @cpython_only  # XXX: _finddoc() is broken on PyPy, but getdoc() seems OK
     @unittest.skipIf(MISSING_C_DOCSTRINGS, "test requires docstrings")
     def test_finddoc(self):
         finddoc = inspect._finddoc
@@ -765,21 +768,23 @@ class TestClassesAndFunctions(unittest.TestCase):
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_getfullargspec_builtin_methods(self):
-        import _pickle
-        self.assertFullArgSpecEquals(_pickle.Pickler.dump,
-                                     args_e=['self', 'obj'], formatted='(self, obj)')
+        if check_impl_detail():
+            self.assertFullArgSpecEquals(_pickle.Pickler.dump,
+                                        args_e=['self', 'obj'], formatted='(self, obj)')
 
-        self.assertFullArgSpecEquals(_pickle.Pickler(io.BytesIO()).dump,
-                                     args_e=['self', 'obj'], formatted='(self, obj)')
+            self.assertFullArgSpecEquals(_pickle.Pickler(io.BytesIO()).dump,
+                                        args_e=['self', 'obj'], formatted='(self, obj)')
+
+        # platform-dependent on PyPy
+        default_fd = os.stat.__kwdefaults__['dir_fd']
 
         self.assertFullArgSpecEquals(
              os.stat,
              args_e=['path'],
              kwonlyargs_e=['dir_fd', 'follow_symlinks'],
-             kwonlydefaults_e={'dir_fd': None, 'follow_symlinks': True},
-             formatted='(path, *, dir_fd=None, follow_symlinks=True)')
+             kwonlydefaults_e={'dir_fd': default_fd, 'follow_symlinks': True},
+             formatted='(path, *, dir_fd={}, follow_symlinks=True)'.format(default_fd))
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_getfullagrspec_builtin_func(self):
@@ -788,7 +793,6 @@ class TestClassesAndFunctions(unittest.TestCase):
         spec = inspect.getfullargspec(builtin)
         self.assertEqual(spec.defaults[0], 'avocado')
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_getfullagrspec_builtin_func_no_signature(self):
@@ -826,7 +830,9 @@ class TestClassesAndFunctions(unittest.TestCase):
 
         attrs = attrs_wo_objs(A)
 
-        self.assertIn(('__new__', 'method', object), attrs, 'missing __new__')
+        # changed in PyPy
+        self.assertIn(('__new__', 'static method', object), attrs, 'missing __new__')
+
         self.assertIn(('__init__', 'method', object), attrs, 'missing __init__')
 
         self.assertIn(('s', 'static method', A), attrs, 'missing static method')
@@ -1969,12 +1975,10 @@ class TestSignatureObject(unittest.TestCase):
                            ('kwargs', ..., int, "var_keyword")),
                           ...))
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_on_builtins(self):
         import _testcapi
-        import _pickle
 
         def test_unbound_method(o):
             """Use this to test unbound methods (things that should have a self)"""
@@ -2008,9 +2012,10 @@ class TestSignatureObject(unittest.TestCase):
 
         # normal method
         # (PyMethodDescr_Type, "method_descriptor")
-        test_unbound_method(_pickle.Pickler.dump)
-        d = _pickle.Pickler(io.StringIO())
-        test_callable(d.dump)
+        if check_impl_detail():
+            test_unbound_method(_pickle.Pickler.dump)
+            d = _pickle.Pickler(io.StringIO())
+            test_callable(d.dump)
 
         # static method
         test_callable(str.maketrans)
@@ -2031,7 +2036,7 @@ class TestSignatureObject(unittest.TestCase):
 
         # This doesn't work now.
         # (We don't have a valid signature for "type" in 3.4)
-        with self.assertRaisesRegex(ValueError, "no signature found"):
+        with self.assertRaisesRegex(ValueError, "signature"):
             class ThisWorksNow:
                 __call__ = type
             test_callable(ThisWorksNow())
@@ -2043,7 +2048,6 @@ class TestSignatureObject(unittest.TestCase):
         # Regression test for issue #20586
         test_callable(_testcapi.docstring_with_signature_but_no_doc)
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_on_decorated_builtins(self):
@@ -2066,7 +2070,6 @@ class TestSignatureObject(unittest.TestCase):
                                            follow_wrapped=False),
                          inspect.signature(wrapper_like))
 
-    @cpython_only
     def test_signature_on_builtins_no_signature(self):
         import _testcapi
         with self.assertRaisesRegex(ValueError,
@@ -2642,10 +2645,10 @@ class TestSignatureObject(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "callable.*is not supported"):
             self.assertEqual(inspect.signature(D), None)
 
+    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_on_builtin_class(self):
-        import _pickle
         self.assertEqual(str(inspect.signature(_pickle.Pickler)),
                          '(file, protocol=None, fix_imports=True)')
 
@@ -2891,10 +2894,10 @@ class TestSignatureObject(unittest.TestCase):
         foo_sig = MySignature.from_callable(foo)
         self.assertTrue(isinstance(foo_sig, MySignature))
 
+    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_from_callable_builtin_obj(self):
-        import _pickle
         class MySignature(inspect.Signature): pass
         sig = MySignature.from_callable(_pickle.Pickler)
         self.assertTrue(isinstance(sig, MySignature))
@@ -3453,7 +3456,6 @@ class TestSignatureDefinitions(unittest.TestCase):
     # This test case provides a home for checking that particular APIs
     # have signatures available for introspection
 
-    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_builtins_have_signatures(self):

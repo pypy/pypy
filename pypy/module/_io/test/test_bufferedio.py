@@ -189,6 +189,62 @@ class AppTestBufferedReader:
         b = bytearray(2)
         raises(ValueError, bufio.readinto, b)
 
+    def test_readinto1(self):
+        import _io
+
+        class MockIO(_io._IOBase):
+            def readable(self):
+                return True
+
+            def readinto(self, buf):
+                buf[:3] = b"abc"
+                return 3
+
+            def writable(self):
+                return True
+
+            def write(self, b):
+                return len(b)
+
+            def seekable(self):
+                return True
+
+            def seek(self, pos, whence):
+                return 0
+
+        bufio = _io.BufferedReader(MockIO(), buffer_size=5)
+        buf = bytearray(10)
+        bufio.read(2)
+        n = bufio.readinto1(buf)
+        assert n == 4
+        assert buf[:n] == b'cabc'
+
+        # Yes, CPython's observable behavior depends on buffer_size!
+        bufio = _io.BufferedReader(MockIO(), buffer_size=20)
+        buf = bytearray(10)
+        bufio.read(2)
+        n = bufio.readinto1(buf)
+        assert n == 1
+        assert buf[:n] == b'c'
+
+        bufio = _io.BufferedReader(MockIO(), buffer_size=20)
+        buf = bytearray(2)
+        bufio.peek(3)
+        assert bufio.readinto1(buf) == 2
+        assert buf == b'ab'
+        n = bufio.readinto1(buf)
+        assert n == 1
+        assert buf[:n] == b'c'
+
+        bufio = _io.BufferedRandom(MockIO(), buffer_size=10)
+        buf = bytearray(20)
+        bufio.peek(3)
+        assert bufio.readinto1(buf) == 6
+        assert buf[:6] == b'abcabc'
+
+        bufio = _io.BufferedWriter(MockIO(), buffer_size=10)
+        raises(_io.UnsupportedOperation, bufio.readinto1, bytearray(10))
+
     def test_seek(self):
         import _io
         raw = _io.FileIO(self.tmpfile)

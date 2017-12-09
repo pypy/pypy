@@ -15,7 +15,7 @@ if sys.platform.startswith('linux'):
     arch = 'linux'
     cmd = 'wget "%s"'
     TAR_OPTIONS += ' --wildcards'
-    binfiles = "'*/bin/pypy3' '*/bin/libpypy3-c.so'"
+    binfiles = "'*/bin/pypy3*' '*/bin/libpypy3-c.so*'"
     if os.uname()[-1].startswith('arm'):
         arch += '-armhf-raspbian'
 elif sys.platform.startswith('darwin'):

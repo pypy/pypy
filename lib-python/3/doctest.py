@@ -948,6 +948,8 @@ class DocTestFinder:
         elif inspect.getmodule(object) is not None:
             return module is inspect.getmodule(object)
         elif inspect.isfunction(object):
+            if isinstance(object.__code__, inspect._builtin_code_type):
+                return True  # XXX: A PyPy builtin - no way to tell
             return module.__dict__ is object.__globals__
         elif inspect.ismethoddescriptor(object):
             if hasattr(object, '__objclass__'):

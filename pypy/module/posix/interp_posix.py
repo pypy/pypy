@@ -684,11 +684,17 @@ def times(space):
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     else:
-        return space.newtuple([space.newfloat(times[0]),
-                               space.newfloat(times[1]),
-                               space.newfloat(times[2]),
-                               space.newfloat(times[3]),
-                               space.newfloat(times[4])])
+        w_keywords = space.newdict()
+        w_tuple = space.newtuple([space.newfloat(times[0]),
+                                  space.newfloat(times[1]),
+                                  space.newfloat(times[2]),
+                                  space.newfloat(times[3]),
+                                  space.newfloat(times[4])])
+
+        w_times_result = space.getattr(space.getbuiltinmodule(os.name),
+                                       space.newtext('times_result'))
+        return space.call_function(w_times_result, w_tuple, w_keywords)
+
 
 @unwrap_spec(command='fsencode')
 def system(space, command):
@@ -2464,6 +2470,19 @@ def sched_get_priority_min(space, policy):
     while True:
         try:
             s = rposix.sched_get_priority_min(policy)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+           return space.newint(s)
+
+@unwrap_spec(fd=c_int, cmd=c_int, length=r_longlong)
+def lockf(space, fd, cmd, length):
+    """apply, test or remove a POSIX lock on an 
+    open file.
+    """
+    while True:
+        try:
+            s = rposix.lockf(fd, cmd, length)
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:

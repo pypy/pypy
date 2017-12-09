@@ -579,6 +579,8 @@ def run_command_line(interactive,
         __pypy__.save_module_content_for_future_reload(sys)
 
     mainmodule = type(sys)('__main__')
+    mainmodule.__loader__ = sys.__loader__
+    mainmodule.__builtins__ = os.__builtins__
     sys.modules['__main__'] = mainmodule
 
     if not no_site:
@@ -727,7 +729,7 @@ def run_command_line(interactive,
                     SourceFileLoader, SourcelessFileLoader)
             if IS_WINDOWS:
                 filename = filename.lower()
-            if filename.endswith('.pyc') or filename.endswith('.pyo'):
+            if filename.endswith('.pyc'):
                 # We don't actually load via SourcelessFileLoader
                 # because '__main__' must not be listed inside
                 # 'importlib._bootstrap._module_locks' (it deadlocks

@@ -292,7 +292,7 @@ def make_compiled_pathname(pathname):
               ext + PYC_TAG + '.pyc')
     return result
 
-#@signature(types.str0(), returns=types.str0())
+@signature(types.str0(), returns=types.any())
 def make_source_pathname(pathname):
     "Given the path to a .pyc file, return the path to its .py file."
     # (...)/__pycache__/foo.<tag>.pyc -> (...)/foo.py

@@ -20,6 +20,7 @@ sys.path.insert(0,basedir)
 import py
 import fnmatch
 import subprocess
+from pypy.tool.release.smartstrip import smartstrip
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
@@ -83,7 +84,11 @@ def create_package(basedir, options, _fake=False):
     if not _fake and not pypy_runs(pypy_c):
         raise OSError("Running %r failed!" % (str(pypy_c),))
     if not options.no_cffi:
-        failures = create_cffi_import_libraries(str(pypy_c), options, str(basedir))
+        failures = create_cffi_import_libraries(
+            str(pypy_c), options, str(basedir),
+            embed_dependencies=options.embed_dependencies,
+        )
+
         for key, module in failures:
             print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
                 You can either install development headers package,
@@ -219,15 +224,9 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        if not options.nostrip:
+        if not _fake:
             for source, target in binaries:
-                if sys.platform == 'win32':
-                    pass
-                elif sys.platform == 'darwin':
-                    # 'strip' fun: see issue #587 for why -x
-                    os.system("strip -x " + str(bindir.join(target)))    # ignore errors
-                else:
-                    os.system("strip " + str(bindir.join(target)))    # ignore errors
+                smartstrip(bindir.join(target), keep_debug=options.keep_debug)
         #
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -266,6 +265,15 @@ using another platform..."""
 
 def package(*args, **kwds):
     import argparse
+
+    class NegateAction(argparse.Action):
+        def __init__(self, option_strings, dest, nargs=0, **kwargs):
+            super(NegateAction, self).__init__(option_strings, dest, nargs,
+                                               **kwargs)
+
+        def __call__(self, parser, ns, values, option):
+            setattr(ns, self.dest, option[2:4] != 'no')
+
     if sys.platform == 'win32':
         pypy_exe = 'pypy3.exe'
     else:
@@ -284,8 +292,8 @@ def package(*args, **kwds):
                     help='do not build and package the %r cffi module' % (key,))
     parser.add_argument('--without-cffi', dest='no_cffi', action='store_true',
         help='skip building *all* the cffi modules listed above')
-    parser.add_argument('--nostrip', dest='nostrip', action='store_true',
-        help='do not strip the exe, making it ~10MB larger')
+    parser.add_argument('--no-keep-debug', dest='keep_debug',
+                        action='store_false', help='do not keep debug symbols')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
         help='target executable name, defaults to "%s"' % pypy_exe)
     parser.add_argument('--archive-name', dest='name', type=str, default='',
@@ -296,12 +304,20 @@ def package(*args, **kwds):
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
         help='use as pypy3 exe instead of pypy/goal/pypy3-c')
+    parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
+                        dest='embed_dependencies',
+                        action=NegateAction,
+                        default=(sys.platform == 'darwin'),
+                        help='whether to embed dependencies for distribution '
+                        '(default on OS X)')
     options = parser.parse_args(args)
 
-    if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
-        options.nostrip = True
+    if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
+        options.keep_debug = False
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
         options.no_tk = True
+    if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
+        options.embed_dependencies = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
