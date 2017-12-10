@@ -439,7 +439,7 @@ def reencode_utf8_with_surrogates(utf8):
             low = codepoint_at_pos(utf8, i)
             if 0xDC00 <= low <= 0xDFFF:
                 uchr = 0x10000 + (high - 0xD800) * 0x400 + (low - 0xDC00)
-                i = next_codepoint_pos(utf8, i)                
+                i = next_codepoint_pos(utf8, i)
             # else not really a surrogate pair, just append high
         else:
             i = next_codepoint_pos(utf8, i)
@@ -536,6 +536,13 @@ def codepoint_position_at_index(utf8, storage, index):
         return next_codepoint_pos(utf8, bytepos)
     else:
         return next_codepoint_pos(utf8, next_codepoint_pos(utf8, bytepos))
+
+def _pos_at_index(utf8, index):
+    # Slow!
+    pos = 0
+    for _ in range(index):
+        pos = next_codepoint_pos(utf8, pos)
+    return pos
 
 @jit.dont_look_inside
 def codepoint_at_index(utf8, storage, index):
