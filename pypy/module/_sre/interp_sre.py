@@ -334,6 +334,7 @@ class W_SRE_Pattern(W_Root):
                 else:
                     if use_builder != '\x00':
                         assert filter_as_string is not None
+                        assert strbuilder is not None
                         strbuilder.append(filter_as_string)
                     else:
                         sublist_w.append(w_filter)
@@ -347,6 +348,7 @@ class W_SRE_Pattern(W_Root):
             _sub_append_slice(ctx, space, use_builder, sublist_w,
                               strbuilder, last_pos, ctx.end)
         if use_builder != '\x00':
+            assert strbuilder is not None
             result_bytes = strbuilder.build()
             if use_builder == 'S':
                 assert not isinstance(ctx, rsre_utf8.Utf8MatchContext)
@@ -379,6 +381,7 @@ sub_jitdriver = jit.JitDriver(
 def _sub_append_slice(ctx, space, use_builder, sublist_w,
                       strbuilder, start, end):
     if use_builder != '\x00':
+        assert strbuilder is not None
         if isinstance(ctx, rsre_core.BufMatchContext):
             assert use_builder == 'S'
             return strbuilder.append(ctx._buffer.getslice(start, end, 1, end-start))
