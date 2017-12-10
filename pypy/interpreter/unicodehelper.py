@@ -1,11 +1,13 @@
 import sys
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rutf8
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rstring import StringBuilder
+from rpython.rtyper.lltypesystem import rffi
 from pypy.module._codecs import interp_codecs
+from pypy.module.unicodedata import unicodedb
 
 @specialize.memo()
 def decode_error_handler(space):
@@ -33,6 +35,16 @@ def encode_error_handler(space):
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
     return raise_unicode_exception_encode
+
+def default_error_encode(
+        errors, encoding, msg, u, startingpos, endingpos):
+    """A default handler, for tests"""
+    assert endingpos >= 0
+    if errors == 'replace':
+        return '?', endingpos
+    if errors == 'ignore':
+        return '', endingpos
+    raise ValueError
 
 def convert_arg_to_w_unicode(space, w_arg, strict=None):
     return space.convert_arg_to_w_unicode(w_arg)
@@ -204,7 +216,7 @@ def utf8_encode_ascii(utf8, errors, errorhandler):
                 if c > 0x7F:
                     errorhandler("strict", 'ascii',
                                  'ordinal not in range(128)', utf8,
-                                 pos, pos + 1)  
+                                 pos, pos + 1)
                 j = rutf8.next_codepoint_pos(r, j)
             pos = newpos
             res.append(r)
@@ -530,6 +542,19 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
 
     return builder.build(), pos, outsize
 
+def wcharpsize2utf8(space, wcharp, size):
+    """Safe version of rffi.wcharpsize2utf8.
+
+    Raises app-level ValueError if any wchar value is outside the valid
+    codepoint range.
+    """
+    try:
+        return rffi.wcharpsize2utf8(wcharp, size)
+    except ValueError:
+        raise oefmt(space.w_ValueError,
+            "character is not in range [U+0000; U+10ffff]")
+
+
 # ____________________________________________________________
 # Raw unicode escape
 
@@ -575,8 +600,8 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
         digits = 4 if s[pos] == 'u' else 8
         message = "truncated \\uXXXX"
         pos += 1
-        pos, _, _ = hexescape(result, s, pos, digits,
-                        "rawunicodeescape", errorhandler, message, errors)
+        pos, _ = hexescape(result, s, pos, digits,
+                           "rawunicodeescape", errorhandler, message, errors)
 
     r = result.build()
     lgt = rutf8.check_utf8(r, True)
@@ -1073,22 +1098,19 @@ def unicode_encode_utf_16_helper(s, errors,
         elif ch >= 0xE000 or allow_surrogates:
             _STORECHAR(result, ch, byteorder)
         else:
-            ru, newindex = errorhandler(errors, public_encoding_name,
-                                   'surrogates not allowed',
-                                    s, pos-1, pos)
-            for j in range(newindex - index):
-                pos = rutf8.next_codepoint_pos(s, pos)
-            j = 0
-            while j < len(ru):
-                ch = rutf8.codepoint_at_pos(ru, j)
-                if ord(ch) < 0xD800:
-                    _STORECHAR(result, ord(ch), byteorder)
+            res_8, newindex = errorhandler(
+                errors, public_encoding_name, 'surrogates not allowed',
+                s, pos - 1, pos)
+            for cp in rutf8.Utf8StringIterator(res_8):
+                if cp < 0xD800:
+                    _STORECHAR(result, cp, byteorder)
                 else:
                     errorhandler('strict', public_encoding_name,
                                  'surrogates not allowed',
                                  s, pos-1, pos)
-                j = rutf8.next_codepoint_pos(ru, j)
-            index = newindex
+            if index != newindex:  # Should be uncommon
+                index = newindex
+                pos = rutf8._pos_at_index(s, newindex)
             continue
 
         pos = rutf8.next_codepoint_pos(s, pos)
@@ -1257,22 +1279,19 @@ def unicode_encode_utf_32_helper(s, errors,
         ch = rutf8.codepoint_at_pos(s, pos)
         pos = rutf8.next_codepoint_pos(s, pos)
         if not allow_surrogates and 0xD800 <= ch < 0xE000:
-            ru, newindex = errorhandler(errors, public_encoding_name,
-                                        'surrogates not allowed',
-                                        s, pos-1, pos)
-            for j in range(newindex - index):
-                pos = rutf8.next_codepoint_pos(s, pos)
-            j = 0
-            while j < len(ru):
-                ch = rutf8.codepoint_at_pos(ru, j)
-                if ord(ch) < 0xD800:
-                    _STORECHAR32(result, ord(ch), byteorder)
+            res_8, newindex = errorhandler(
+                errors, public_encoding_name, 'surrogates not allowed',
+                s, pos - 1, pos)
+            for ch in rutf8.Utf8StringIterator(res_8):
+                if ch < 0xD800:
+                    _STORECHAR32(result, ch, byteorder)
                 else:
-                    errorhandler('strict', public_encoding_name,
-                                 'surrogates not allowed',
-                                 s, pos-1, pos)
-                j = rutf8.next_codepoint_pos(ru, j)
-            index = newindex
+                    errorhandler(
+                        'strict', public_encoding_name, 'surrogates not allowed',
+                        s, pos - 1, pos)
+            if index != newindex:  # Should be uncommon
+                index = newindex
+                pos = rutf8._pos_at_index(s, newindex)
             continue
         _STORECHAR32(result, ch, byteorder)
         index += 1
@@ -1400,8 +1419,7 @@ def str_decode_charmap(s, errors, final=False,
     lgt = rutf8.check_utf8(r, True)
     return r, pos, lgt
 
-def utf8_encode_charmap(s, errors, errorhandler=None,
-                           mapping=None):
+def utf8_encode_charmap(s, errors, errorhandler=None, mapping=None):
     size = len(s)
     if mapping is None:
         return utf8_encode_latin_1(s, errors, errorhandler=errorhandler)
@@ -1413,34 +1431,99 @@ def utf8_encode_charmap(s, errors, errorhandler=None,
     index = 0
     while pos < size:
         ch = rutf8.codepoint_at_pos(s, pos)
-
         c = mapping.get(ch, '')
         if len(c) == 0:
-            # collect all unencodable chars. Important for narrow builds.
-            collend = rutf8.next_codepoint_pos(s, pos)
-            endindex = index + 1
-            while collend < size and mapping.get(rutf8.codepoint_at_pos(s, collend), '') == '':
-                collend = rutf8.next_codepoint_pos(s, collend)
-                endindex += 1
-            rs, endindex = errorhandler(errors, "charmap",
+            # collect all unencodable chars.
+            startindex = index
+            pos = rutf8.next_codepoint_pos(s, pos)
+            index += 1
+            while (pos < size and
+                   mapping.get(rutf8.codepoint_at_pos(s, pos), '') == ''):
+                pos = rutf8.next_codepoint_pos(s, pos)
+                index += 1
+            res_8, newindex = errorhandler(errors, "charmap",
                                    "character maps to <undefined>",
-                                   s, index, endindex)
-            j = 0
-            for _ in range(endindex - index):
-                ch2 = rutf8.codepoint_at_pos(rs, j)
-                ch2 = mapping.get(ch2, '')
+                                   s, startindex, index)
+            for cp2 in rutf8.Utf8StringIterator(res_8):
+                ch2 = mapping.get(cp2, '')
                 if not ch2:
                     errorhandler(
-                        "strict", "charmap",
-                        "character maps to <undefined>",
-                        s,  index, index + 1)
+                        "strict", "charmap", "character maps to <undefined>",
+                        s,  startindex, index)
                 result.append(ch2)
-                index += 1
-                j = rutf8.next_codepoint_pos(rs, j)
-                pos = rutf8.next_codepoint_pos(s, pos)
+            if index != newindex:  # Should be uncommon
+                index = newindex
+                pos = rutf8._pos_at_index(s, newindex)
             continue
         result.append(c)
         index += 1
         pos = rutf8.next_codepoint_pos(s, pos)
     return result.build()
 
+# ____________________________________________________________
+# Decimal Encoder
+def unicode_encode_decimal(s, errors, errorhandler=None):
+    """Converts whitespace to ' ', decimal characters to their
+    corresponding ASCII digit and all other Latin-1 characters except
+    \0 as-is. Characters outside this range (Unicode ordinals 1-256)
+    are treated as errors. This includes embedded NULL bytes.
+    """
+    if errorhandler is None:
+        errorhandler = default_error_encode
+    result = StringBuilder(len(s))
+    pos = 0
+    i = 0
+    it = rutf8.Utf8StringIterator(s)
+    for ch in it:
+        if unicodedb.isspace(ch):
+            result.append(' ')
+            i += 1
+            continue
+        try:
+            decimal = unicodedb.decimal(ch)
+        except KeyError:
+            pass
+        else:
+            result.append(chr(48 + decimal))
+            i += 1
+            continue
+        if 0 < ch < 256:
+            result.append(chr(ch))
+            i += 1
+            continue
+        # All other characters are considered unencodable
+        start_index = i
+        i += 1
+        while not it.done():
+            ch = rutf8.codepoint_at_pos(s, it.get_pos())
+            try:
+                if (0 < ch < 256 or unicodedb.isspace(ch) or
+                        unicodedb.decimal(ch) >= 0):
+                    break
+            except KeyError:
+                # not a decimal
+                pass
+            if it.done():
+                break
+            ch = next(it)
+            i += 1
+        end_index = i
+        msg = "invalid decimal Unicode string"
+        r, pos = errorhandler(
+            errors, 'decimal', msg, s, start_index, end_index)
+        for ch in rutf8.Utf8StringIterator(r):
+            if unicodedb.isspace(ch):
+                result.append(' ')
+                continue
+            try:
+                decimal = unicodedb.decimal(ch)
+            except KeyError:
+                pass
+            else:
+                result.append(chr(48 + decimal))
+                continue
+            if 0 < ch < 256:
+                result.append(chr(ch))
+                continue
+            errorhandler('strict', 'decimal', msg, s, start_index, end_index)
+    return result.build()

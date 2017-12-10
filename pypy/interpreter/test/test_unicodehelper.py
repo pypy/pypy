@@ -1,3 +1,4 @@
+import pytest
 from hypothesis import given, strategies
 
 from rpython.rlib import rutf8
@@ -5,6 +6,7 @@ from rpython.rlib import rutf8
 from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
 from pypy.interpreter import unicodehelper as uh
+from pypy.module._codecs.interp_codecs import CodecState
 
 def decode_utf8(u):
     return str_decode_utf8(u, True, "strict", None)
@@ -68,3 +70,16 @@ def test_unicode_raw_escape(u):
 def test_unicode_escape(u):
     r = uh.utf8_encode_unicode_escape(u.encode("utf8"), "strict", None)
     assert r == u.encode("unicode-escape")
+
+def test_encode_decimal(space):
+    assert uh.unicode_encode_decimal(u' 12, 34 ', None) == ' 12, 34 '
+    with pytest.raises(ValueError):
+        uh.unicode_encode_decimal(u' 12, \u1234 '.encode('utf8'), None)
+    state = space.fromcache(CodecState)
+    handler = state.encode_error_handler
+    assert uh.unicode_encode_decimal(
+        u'u\u1234\u1235v'.encode('utf8'), 'replace', handler) == 'u??v'
+
+    result = uh.unicode_encode_decimal(
+        u'12\u1234'.encode('utf8'), 'xmlcharrefreplace', handler)
+    assert result == '12&#4660;'

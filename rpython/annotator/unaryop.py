@@ -792,7 +792,7 @@ class __extend__(SomeUnicodeCodePoint):
     def ord(self):
         # warning, on 32-bit with 32-bit unichars, this might return
         # negative numbers
-        return SomeInteger()
+        return SomeInteger(nonneg=True)
 
 class __extend__(SomeIterator):
 

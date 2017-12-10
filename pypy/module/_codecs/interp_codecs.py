@@ -70,9 +70,6 @@ class CodecState(object):
                 raise oefmt(space.w_IndexError,
                             "position %d from error handler out of bounds",
                             newpos)
-            if newpos < startpos:
-                raise oefmt(space.w_IndexError,
-                    "position %d from error handler did not progress", newpos)
             w_replace = space.convert_to_w_unicode(w_replace)
             return w_replace._utf8, newpos
         return call_errorhandler
@@ -226,7 +223,7 @@ def xmlcharrefreplace_errors(space, w_exc):
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
         start = w_obj._index_to_byte(start)
-        end = w_obj._index_to_byte(end)        
+        end = w_obj._index_to_byte(end)
         builder = StringBuilder()
         pos = start
         obj = w_obj._utf8
@@ -460,22 +457,12 @@ if hasattr(runicode, 'str_decode_mbcs'):
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=True"
-@unwrap_spec(utf8='utf8', errors='text_or_none')
-def utf_8_encode(space, utf8, errors="strict"):
-    length, _ = rutf8.check_utf8(utf8, allow_surrogates=True)
-    return space.newtuple([space.newbytes(utf8), space.newint(length)])
-#@unwrap_spec(uni=unicode, errors='text_or_none')
-#def utf_8_encode(space, uni, errors="strict"):
-#    if errors is None:
-#        errors = 'strict'
-#    state = space.fromcache(CodecState)
-#    # NB. can't call unicode_encode_utf_8() directly because that's
-#    # an @elidable function nowadays.  Instead, we need the _impl().
-#    # (The problem is the errorhandler, which calls arbitrary Python.)
-#    result = runicode.unicode_encode_utf_8_impl(
-#        uni, len(uni), errors, state.encode_error_handler,
-#        allow_surrogates=True)
-#    return space.newtuple([space.newbytes(result), space.newint(len(uni))])
+@unwrap_spec(errors='text_or_none')
+def utf_8_encode(space, w_obj, errors="strict"):
+    utf8, lgt = space.utf8_len_w(w_obj)
+    if rutf8.has_surrogates(utf8):
+        utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
+    return space.newtuple([space.newbytes(utf8), space.newint(lgt)])
 
 @unwrap_spec(string='bufferstr', errors='text_or_none',
              w_final = WrappedDefault(False))

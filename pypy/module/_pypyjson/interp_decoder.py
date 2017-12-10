@@ -3,6 +3,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize, always_inline, r_dict
 from rpython.rlib import rfloat, runicode, rutf8
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.error import oefmt
 from pypy.interpreter import unicodehelper
 
@@ -366,7 +367,7 @@ class JSONDecoder(object):
             return # help the annotator to know that we'll never go beyond
                    # this point
         #
-        utf8_ch = rutf8.unichr_as_utf8(val, allow_surrogates=True)
+        utf8_ch = rutf8.unichr_as_utf8(r_uint(val), allow_surrogates=True)
         builder.append(utf8_ch)
         return i
 
@@ -400,7 +401,7 @@ class JSONDecoder(object):
                 break
             elif ch == '\\' or ch < '\x20':
                 self.pos = i-1
-                return self.space.unicode_w(self.decode_string_escaped(start))
+                return self.decode_string_escaped(start)
             strhash = intmask((1000003 * strhash) ^ ord(ll_chars[i]))
             bits |= ord(ch)
         length = i - start - 1
