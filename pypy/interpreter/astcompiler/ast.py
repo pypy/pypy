@@ -1743,6 +1743,8 @@ class expr(AST):
             return NameConstant.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Ellipsis):
             return Ellipsis.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_Constant):
+            return Constant.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Attribute):
             return Attribute.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Subscript):
@@ -1755,8 +1757,6 @@ class expr(AST):
             return List.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Tuple):
             return Tuple.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_Const):
-            return Const.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected expr node, got %T", w_node)
 State.ast_type('expr', 'AST', None, ['lineno', 'col_offset'])
@@ -2841,6 +2841,43 @@ class Ellipsis(expr):
 State.ast_type('Ellipsis', 'expr', [])
 
 
+class Constant(expr):
+
+    def __init__(self, value, lineno, col_offset):
+        self.value = value
+        expr.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_Constant(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_Constant(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_Constant)
+        w_value = self.value  # constant
+        space.setattr(w_node, space.newtext('value'), w_value)
+        w_lineno = space.newint(self.lineno)  # int
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_value = get_field(space, w_node, 'value', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        _value = w_value
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
+        _lineno = space.int_w(w_lineno)
+        _col_offset = space.int_w(w_col_offset)
+        return Constant(_value, _lineno, _col_offset)
+
+State.ast_type('Constant', 'expr', ['value'])
+
+
 class Attribute(expr):
 
     def __init__(self, value, attr, ctx, lineno, col_offset):
@@ -3135,43 +3172,6 @@ class Tuple(expr):
         return Tuple(_elts, _ctx, _lineno, _col_offset)
 
 State.ast_type('Tuple', 'expr', ['elts', 'ctx'])
-
-
-class Const(expr):
-
-    def __init__(self, obj, lineno, col_offset):
-        self.obj = obj
-        expr.__init__(self, lineno, col_offset)
-
-    def walkabout(self, visitor):
-        visitor.visit_Const(self)
-
-    def mutate_over(self, visitor):
-        return visitor.visit_Const(self)
-
-    def to_object(self, space):
-        w_node = space.call_function(get(space).w_Const)
-        w_obj = self.obj  # object
-        space.setattr(w_node, space.newtext('obj'), w_obj)
-        w_lineno = space.newint(self.lineno)  # int
-        space.setattr(w_node, space.newtext('lineno'), w_lineno)
-        w_col_offset = space.newint(self.col_offset)  # int
-        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
-        return w_node
-
-    @staticmethod
-    def from_object(space, w_node):
-        w_obj = get_field(space, w_node, 'obj', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _obj = w_obj
-        if _obj is None:
-            raise_required_value(space, w_node, 'obj')
-        _lineno = space.int_w(w_lineno)
-        _col_offset = space.int_w(w_col_offset)
-        return Const(_obj, _lineno, _col_offset)
-
-State.ast_type('Const', 'expr', ['obj'])
 
 
 class expr_context(AST):
@@ -4140,6 +4140,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Ellipsis(self, node):
         return self.default_visitor(node)
+    def visit_Constant(self, node):
+        return self.default_visitor(node)
     def visit_Attribute(self, node):
         return self.default_visitor(node)
     def visit_Subscript(self, node):
@@ -4151,8 +4153,6 @@ class ASTVisitor(object):
     def visit_List(self, node):
         return self.default_visitor(node)
     def visit_Tuple(self, node):
-        return self.default_visitor(node)
-    def visit_Const(self, node):
         return self.default_visitor(node)
     def visit_Slice(self, node):
         return self.default_visitor(node)
@@ -4380,6 +4380,9 @@ class GenericASTVisitor(ASTVisitor):
     def visit_Ellipsis(self, node):
         pass
 
+    def visit_Constant(self, node):
+        pass
+
     def visit_Attribute(self, node):
         node.value.walkabout(self)
 
@@ -4398,9 +4401,6 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_Tuple(self, node):
         self.visit_sequence(node.elts)
-
-    def visit_Const(self, node):
-        pass
 
     def visit_Slice(self, node):
         if node.lower:

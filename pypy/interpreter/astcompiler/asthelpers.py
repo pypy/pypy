@@ -128,7 +128,7 @@ class __extend__(ast.DictComp):
     _description = "dict comprehension"
 
 
-class __extend__(ast.Dict, ast.Set, ast.Str, ast.Bytes, ast.Num, ast.Const):
+class __extend__(ast.Dict, ast.Set, ast.Str, ast.Bytes, ast.Num, ast.Constant):
 
     _description = "literal"
 
@@ -150,18 +150,18 @@ class __extend__(ast.IfExp):
     _description = "conditional expression"
 
 
-class __extend__(ast.Const):
+class __extend__(ast.Constant):
 
     constant = True
 
     def as_node_list(self, space):
         try:
-            values_w = space.unpackiterable(self.obj)
+            values_w = space.unpackiterable(self.value)
         except OperationError:
             return None
         line = self.lineno
         column = self.col_offset
-        return [ast.Const(w_obj, line, column) for w_obj in values_w]
+        return [ast.Constant(w_obj, line, column) for w_obj in values_w]
 
 
 class __extend__(ast.Str):

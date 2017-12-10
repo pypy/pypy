@@ -130,7 +130,8 @@ class ASTNodeVisitor(ASDLVisitor):
     def get_value_converter(self, field, value):
         if field.type in self.data.simple_types:
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
-        elif field.type in ("object", "singleton", "string", "bytes"):
+        elif field.type in ("object", "singleton", "constant",
+                            "string", "bytes"):
             return value
         elif field.type == "bool":
             return "space.newbool(%s)" % (value,)
@@ -155,7 +156,7 @@ class ASTNodeVisitor(ASDLVisitor):
     def get_value_extractor(self, field, value):
         if field.type in self.data.simple_types:
             return "%s.from_object(space, %s)" % (field.type, value)
-        elif field.type in ("object","singleton"):
+        elif field.type in ("object", "singleton", "constant"):
             return value
         elif field.type in ("string","bytes"):
             return "check_string(space, %s)" % (value,)

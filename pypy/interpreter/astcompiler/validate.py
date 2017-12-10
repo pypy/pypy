@@ -318,6 +318,9 @@ class AstValidator(ast.ASTVisitor):
     def visit_Ellipsis(self, node):
         pass
 
+    def visit_Constant(self, node):
+        pass
+
     def visit_BoolOp(self, node):
         if self._len(node.values) < 2:
             raise ValidationError("BoolOp with less than 2 values")
