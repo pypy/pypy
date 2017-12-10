@@ -1098,9 +1098,9 @@ def unicode_encode_utf_16_helper(s, errors,
         elif ch >= 0xE000 or allow_surrogates:
             _STORECHAR(result, ch, byteorder)
         else:
-            ru, newindex = errorhandler(errors, public_encoding_name,
-                                   'surrogates not allowed',
-                                    s, pos-1, pos)
+            res_8, newindex = errorhandler(
+                errors, public_encoding_name, 'surrogates not allowed',
+                s, pos - 1, pos)
             for cp in rutf8.Utf8StringIterator(res_8):
                 if cp < 0xD800:
                     _STORECHAR(result, cp, byteorder)
@@ -1279,16 +1279,16 @@ def unicode_encode_utf_32_helper(s, errors,
         ch = rutf8.codepoint_at_pos(s, pos)
         pos = rutf8.next_codepoint_pos(s, pos)
         if not allow_surrogates and 0xD800 <= ch < 0xE000:
-            res_8, newindex = errorhandler(errors, public_encoding_name,
-                                        'surrogates not allowed',
-                                        s, pos-1, pos)
+            res_8, newindex = errorhandler(
+                errors, public_encoding_name, 'surrogates not allowed',
+                s, pos - 1, pos)
             for ch in rutf8.Utf8StringIterator(res_8):
                 if ch < 0xD800:
                     _STORECHAR32(result, ch, byteorder)
                 else:
-                    errorhandler('strict', public_encoding_name,
-                                 'surrogates not allowed',
-                                 s, pos-1, pos)
+                    errorhandler(
+                        'strict', public_encoding_name, 'surrogates not allowed',
+                        s, pos - 1, pos)
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
