@@ -1,6 +1,5 @@
 import sys
 from rpython.rlib.debug import check_nonneg
-from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rsre.rsre_core import AbstractMatchContext, EndOfString
 from rpython.rlib.rsre import rsre_char
 from rpython.rlib.objectmodel import we_are_translated
@@ -39,9 +38,7 @@ class Utf8MatchContext(AbstractMatchContext):
     def prev(self, position):
         if position <= 0:
             raise EndOfString
-        upos = r_uint(position)
-        upos = rutf8.prev_codepoint_pos(self._utf8, upos)
-        position = intmask(upos)
+        position = rutf8.prev_codepoint_pos(self._utf8, position)
         assert position >= 0
         return position
 
@@ -53,12 +50,10 @@ class Utf8MatchContext(AbstractMatchContext):
         return position
 
     def prev_n(self, position, n, start_position):
-        upos = r_uint(position)
         for i in range(n):
-            if upos <= r_uint(start_position):
+            if position <= start_position:
                 raise EndOfString
-            upos = rutf8.prev_codepoint_pos(self._utf8, upos)
-        position = intmask(upos)
+            position = rutf8.prev_codepoint_pos(self._utf8, position)
         assert position >= 0
         return position
 
