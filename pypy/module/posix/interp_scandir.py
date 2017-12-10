@@ -51,11 +51,25 @@ class W_ScandirIterator(W_Root):
         self.dirfd = dirfd
         self.w_path_prefix = w_path_prefix
         self.result_is_bytes = result_is_bytes
+        self.register_finalizer(space)
 
-    @rgc.must_be_light_finalizer
-    def __del__(self):
-        if self.dirp:
-            rposix_scandir.closedir(self.dirp)
+    def _finalize_(self):
+        if not self.dirp:
+            return
+        space = self.space
+        try:
+            msg = ("unclosed scandir iterator %s" %
+                   space.text_w(space.repr(self)))
+            space.warn(space.newtext(msg), space.w_ResourceWarning)
+        except OperationError as e:
+            # Spurious errors can appear at shutdown
+            if e.match(space, space.w_Warning):
+                e.write_unraisable(space, '', self)
+        self._close()
+
+    def _close(self):
+        rposix_scandir.closedir(self.dirp)
+        self.dirp = rposix_scandir.NULL_DIRP
 
     def iter_w(self):
         return self
@@ -96,16 +110,31 @@ class W_ScandirIterator(W_Root):
             #
             known_type = rposix_scandir.get_known_type(entry)
             inode = rposix_scandir.get_inode(entry)
+        except:
+            self._close()
+            raise
         finally:
             self._in_next = False
         direntry = W_DirEntry(self, name, known_type, inode)
         return direntry
+
+    def close_w(self):
+        self._close()
+
+    def enter_w(self):
+        return self
+
+    def exit_w(self, space, __args__):
+        self._close()
 
 
 W_ScandirIterator.typedef = TypeDef(
     'posix.ScandirIterator',
     __iter__ = interp2app(W_ScandirIterator.iter_w),
     __next__ = interp2app(W_ScandirIterator.next_w),
+    __enter__ = interp2app(W_ScandirIterator.enter_w),
+    __exit__ = interp2app(W_ScandirIterator.exit_w),
+    close = interp2app(W_ScandirIterator.close_w),
 )
 W_ScandirIterator.typedef.acceptable_as_base_class = False
 
