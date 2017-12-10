@@ -36,6 +36,7 @@ class MatchContextForTests(StrMatchContext):
         if position._p == 0:
             raise EndOfString
         return Position(position._p - 1)
+    prev_indirect = prev
 
     def next_n(self, position, n, end_position):
         assert isinstance(position, Position)

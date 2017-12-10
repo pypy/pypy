@@ -174,6 +174,11 @@ class AbstractMatchContext(object):
         return base_position + index
     def next_indirect(self, position):
         return position + 1     # like next(), but can be called indirectly
+    def prev_indirect(self, position):
+        position -= 1           # like prev(), but can be called indirectly
+        if position < 0:
+            raise EndOfString
+        return position
 
     def get_mark(self, gid):
         return find_mark(self.match_marks, gid)
@@ -217,14 +222,8 @@ class FixedMatchContext(AbstractMatchContext):
     these position methods.  The Utf8MatchContext subclass doesn't
     inherit from here."""
 
-    def next(self, position):
-        return position + 1
-
-    def prev(self, position):
-        position -= 1
-        if position < 0:
-            raise EndOfString
-        return position
+    next = AbstractMatchContext.next_indirect
+    prev = AbstractMatchContext.prev_indirect
 
     def next_n(self, position, n, end_position):
         position += n
@@ -397,7 +396,7 @@ class RepeatOneMatchResult(MatchResult):
                 self=self, ptr=ptr, ctx=ctx, nextppos=nextppos)
             result = sre_match(ctx, nextppos, ptr, self.start_marks)
             try:
-                ptr = ctx.prev(ptr)
+                ptr = ctx.prev_indirect(ptr)
             except EndOfString:
                 ptr = -1
             if result is not None:

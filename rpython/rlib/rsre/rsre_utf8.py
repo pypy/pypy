@@ -41,6 +41,7 @@ class Utf8MatchContext(AbstractMatchContext):
         position = rutf8.prev_codepoint_pos(self._utf8, position)
         assert position >= 0
         return position
+    prev_indirect = prev
 
     def next_n(self, position, n, end_position):
         for i in range(n):
