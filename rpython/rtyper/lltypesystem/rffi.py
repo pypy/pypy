@@ -1019,7 +1019,27 @@ def wcharpsize2utf8(w, size):
     s = StringBuilder(size)
     for i in range(size):
         rutf8.unichr_as_utf8_append(s, ord(w[i]))
-    return s.build()    
+    return s.build()
+
+def wcharp2utf8(w):
+    from rpython.rlib import rutf8
+
+    s = rutf8.Utf8StringBuilder()
+    i = 0
+    while ord(w[i]):
+        s.append_code(ord(w[i]))
+        i += 1
+    return s.build(), i
+
+def wcharp2utf8n(w, maxlen):
+    from rpython.rlib import rutf8
+
+    s = rutf8.Utf8StringBuilder(maxlen)
+    i = 0
+    while i < maxlen and w[i]:
+        s.append_code(ord(w[i]))
+        i += 1
+    return s.build(), i
 
 def utf82wcharp(utf8, utf8len):
     from rpython.rlib import rutf8

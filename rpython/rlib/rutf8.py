@@ -19,7 +19,7 @@ import sys
 from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
 from rpython.rlib.objectmodel import always_inline, dont_inline, try_inline
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import jit
+from rpython.rlib import jit, types
 from rpython.rlib.signature import signature
 from rpython.rlib.types import char, none
 from rpython.rlib.rarithmetic import r_uint
@@ -27,6 +27,8 @@ from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
+# we need a way to accept both r_uint and int(nonneg=True)
+#@signature(types.int_nonneg(), types.bool(), returns=types.str())
 def unichr_as_utf8(code, allow_surrogates=False):
     """Encode code (numeric value) as utf8 encoded string
     """
@@ -437,7 +439,7 @@ def reencode_utf8_with_surrogates(utf8):
             low = codepoint_at_pos(utf8, i)
             if 0xDC00 <= low <= 0xDFFF:
                 uchr = 0x10000 + (high - 0xD800) * 0x400 + (low - 0xDC00)
-                i = next_codepoint_pos(utf8, i)                
+                i = next_codepoint_pos(utf8, i)
             # else not really a surrogate pair, just append high
         else:
             i = next_codepoint_pos(utf8, i)
@@ -534,6 +536,13 @@ def codepoint_position_at_index(utf8, storage, index):
         return next_codepoint_pos(utf8, bytepos)
     else:
         return next_codepoint_pos(utf8, next_codepoint_pos(utf8, bytepos))
+
+def _pos_at_index(utf8, index):
+    # Slow!
+    pos = 0
+    for _ in range(index):
+        pos = next_codepoint_pos(utf8, pos)
+    return pos
 
 @jit.dont_look_inside
 def codepoint_at_index(utf8, storage, index):

@@ -537,8 +537,12 @@ class AppTestPartialEvaluation:
         assert '\xff'.decode('utf-7', 'ignore') == ''
         assert '\x00'.decode('unicode-internal', 'ignore') == ''
 
-    def test_backslahreplace(self):
-        assert u'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == 'a\\xac\u1234\u20ac\u8000'
+    def test_backslashreplace(self):
+        sin = u"a\xac\u1234\u20ac\u8000\U0010ffff"
+        expected = "a\\xac\\u1234\\u20ac\\u8000\\U0010ffff"
+        assert sin.encode('ascii', 'backslashreplace') == expected
+        expected = "a\xac\\u1234\xa4\\u8000\\U0010ffff"
+        assert sin.encode("iso-8859-15", "backslashreplace") == expected
 
     def test_badhandler(self):
         import codecs

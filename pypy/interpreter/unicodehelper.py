@@ -1098,22 +1098,19 @@ def unicode_encode_utf_16_helper(s, errors,
         elif ch >= 0xE000 or allow_surrogates:
             _STORECHAR(result, ch, byteorder)
         else:
-            ru, newindex = errorhandler(errors, public_encoding_name,
-                                   'surrogates not allowed',
-                                    s, pos-1, pos)
-            for j in range(newindex - index):
-                pos = rutf8.next_codepoint_pos(s, pos)
-            j = 0
-            while j < len(ru):
-                ch = rutf8.codepoint_at_pos(ru, j)
-                if ord(ch) < 0xD800:
-                    _STORECHAR(result, ord(ch), byteorder)
+            res_8, newindex = errorhandler(
+                errors, public_encoding_name, 'surrogates not allowed',
+                s, pos - 1, pos)
+            for cp in rutf8.Utf8StringIterator(res_8):
+                if cp < 0xD800:
+                    _STORECHAR(result, cp, byteorder)
                 else:
                     errorhandler('strict', public_encoding_name,
                                  'surrogates not allowed',
                                  s, pos-1, pos)
-                j = rutf8.next_codepoint_pos(ru, j)
-            index = newindex
+            if index != newindex:  # Should be uncommon
+                index = newindex
+                pos = rutf8._pos_at_index(s, newindex)
             continue
 
         pos = rutf8.next_codepoint_pos(s, pos)
@@ -1282,22 +1279,19 @@ def unicode_encode_utf_32_helper(s, errors,
         ch = rutf8.codepoint_at_pos(s, pos)
         pos = rutf8.next_codepoint_pos(s, pos)
         if not allow_surrogates and 0xD800 <= ch < 0xE000:
-            ru, newindex = errorhandler(errors, public_encoding_name,
-                                        'surrogates not allowed',
-                                        s, pos-1, pos)
-            for j in range(newindex - index):
-                pos = rutf8.next_codepoint_pos(s, pos)
-            j = 0
-            while j < len(ru):
-                ch = rutf8.codepoint_at_pos(ru, j)
-                if ord(ch) < 0xD800:
-                    _STORECHAR32(result, ord(ch), byteorder)
+            res_8, newindex = errorhandler(
+                errors, public_encoding_name, 'surrogates not allowed',
+                s, pos - 1, pos)
+            for ch in rutf8.Utf8StringIterator(res_8):
+                if ch < 0xD800:
+                    _STORECHAR32(result, ch, byteorder)
                 else:
-                    errorhandler('strict', public_encoding_name,
-                                 'surrogates not allowed',
-                                 s, pos-1, pos)
-                j = rutf8.next_codepoint_pos(ru, j)
-            index = newindex
+                    errorhandler(
+                        'strict', public_encoding_name, 'surrogates not allowed',
+                        s, pos - 1, pos)
+            if index != newindex:  # Should be uncommon
+                index = newindex
+                pos = rutf8._pos_at_index(s, newindex)
             continue
         _STORECHAR32(result, ch, byteorder)
         index += 1
@@ -1425,8 +1419,7 @@ def str_decode_charmap(s, errors, final=False,
     lgt = rutf8.check_utf8(r, True)
     return r, pos, lgt
 
-def utf8_encode_charmap(s, errors, errorhandler=None,
-                           mapping=None):
+def utf8_encode_charmap(s, errors, errorhandler=None, mapping=None):
     size = len(s)
     if mapping is None:
         return utf8_encode_latin_1(s, errors, errorhandler=errorhandler)
@@ -1438,31 +1431,29 @@ def utf8_encode_charmap(s, errors, errorhandler=None,
     index = 0
     while pos < size:
         ch = rutf8.codepoint_at_pos(s, pos)
-
         c = mapping.get(ch, '')
         if len(c) == 0:
-            # collect all unencodable chars. Important for narrow builds.
-            collend = rutf8.next_codepoint_pos(s, pos)
-            endindex = index + 1
-            while collend < size and mapping.get(rutf8.codepoint_at_pos(s, collend), '') == '':
-                collend = rutf8.next_codepoint_pos(s, collend)
-                endindex += 1
-            rs, endindex = errorhandler(errors, "charmap",
+            # collect all unencodable chars.
+            startindex = index
+            pos = rutf8.next_codepoint_pos(s, pos)
+            index += 1
+            while (pos < size and
+                   mapping.get(rutf8.codepoint_at_pos(s, pos), '') == ''):
+                pos = rutf8.next_codepoint_pos(s, pos)
+                index += 1
+            res_8, newindex = errorhandler(errors, "charmap",
                                    "character maps to <undefined>",
-                                   s, index, endindex)
-            j = 0
-            for _ in range(endindex - index):
-                ch2 = rutf8.codepoint_at_pos(rs, j)
-                ch2 = mapping.get(ch2, '')
+                                   s, startindex, index)
+            for cp2 in rutf8.Utf8StringIterator(res_8):
+                ch2 = mapping.get(cp2, '')
                 if not ch2:
                     errorhandler(
-                        "strict", "charmap",
-                        "character maps to <undefined>",
-                        s,  index, index + 1)
+                        "strict", "charmap", "character maps to <undefined>",
+                        s,  startindex, index)
                 result.append(ch2)
-                index += 1
-                j = rutf8.next_codepoint_pos(rs, j)
-                pos = rutf8.next_codepoint_pos(s, pos)
+            if index != newindex:  # Should be uncommon
+                index = newindex
+                pos = rutf8._pos_at_index(s, newindex)
             continue
         result.append(c)
         index += 1
