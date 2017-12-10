@@ -410,7 +410,7 @@ class RepeatOneMatchResult(MatchResult):
 class MinRepeatOneMatchResult(MatchResult):
     install_jitdriver('MinRepeatOne',
                       greens=['nextppos', 'ppos3', 'ctx.pattern'],
-                      reds=['ptr', 'self', 'ctx'],
+                      reds=['max_count', 'ptr', 'self', 'ctx'],
                       debugprint=(2, 0))   # indices in 'greens'
 
     def __init__(self, nextppos, ppos3, max_count, ptr, marks):
@@ -427,7 +427,8 @@ class MinRepeatOneMatchResult(MatchResult):
         ppos3 = self.ppos3
         while max_count >= 0:
             ctx.jitdriver_MinRepeatOne.jit_merge_point(
-                self=self, ptr=ptr, ctx=ctx, nextppos=nextppos, ppos3=ppos3)
+                self=self, ptr=ptr, ctx=ctx, nextppos=nextppos, ppos3=ppos3,
+                max_count=max_count)
             result = sre_match(ctx, nextppos, ptr, self.start_marks)
             if result is not None:
                 self.subresult = result
@@ -436,14 +437,14 @@ class MinRepeatOneMatchResult(MatchResult):
                 return self
             if not self.next_char_ok(ctx, ptr, ppos3):
                 break
-            ptr = ctx.next(ptr)
+            ptr = ctx.next_indirect(ptr)
             max_count -= 1
 
     def find_next_result(self, ctx):
         ptr = self.start_ptr
         if not self.next_char_ok(ctx, ptr, self.ppos3):
             return
-        self.start_ptr = ctx.next(ptr)
+        self.start_ptr = ctx.next_indirect(ptr)
         return self.find_first_result(ctx)
 
     def next_char_ok(self, ctx, ptr, ppos):
@@ -1208,7 +1209,7 @@ def regular_search(ctx, base):
         if sre_match(ctx, base, start, None) is not None:
             ctx.match_start = start
             return True
-        start = ctx.next(start)
+        start = ctx.next_indirect(start)
     return False
 
 install_jitdriver_spec("LiteralSearch",
