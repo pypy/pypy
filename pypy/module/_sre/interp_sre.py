@@ -349,8 +349,10 @@ class W_SRE_Pattern(W_Root):
         if use_builder != '\x00':
             result_bytes = strbuilder.build()
             if use_builder == 'S':
+                assert not isinstance(ctx, rsre_utf8.Utf8MatchContext)
                 return space.newbytes(result_bytes), n
             elif use_builder == 'U':
+                assert isinstance(ctx, rsre_utf8.Utf8MatchContext)
                 return space.newutf8(result_bytes,
                                      rutf8.get_utf8_length(result_bytes)), n
             else:
