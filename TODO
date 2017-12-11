@@ -1,15 +1,6 @@
-* rutf8.prev_codepoint_pos should use r_uint
 * find a better way to run "find" without creating the index storage,
   if one is not already readily available
-* fix _pypyjson
-* fix cpyext
 * write the correct jit_elidable in _get_index_storage
-* better flag handling in split/splitlines maybe?
-* encode_error_handler has XXX
-* remove assertions from W_UnicodeObject.__init__ if all the builders pass
-* what to do with error handlers that go backwards. There were tests
-  in test_codecs that would check for that
 * improve performance of splitlines
-
 * fix _pypyjson to not use a wrapped dict when decoding an object
 * make sure we review all the places that call ord(unichr) to check for ValueErrors
