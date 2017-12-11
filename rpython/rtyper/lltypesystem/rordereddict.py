@@ -66,7 +66,7 @@ def ll_call_lookup_function(d, key, hash, flag):
 
 def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
                 ll_fasthash_function=None, ll_hash_function=None,
-                ll_eq_function=None, method_cache={},
+                ll_eq_function=None, method_cache={}, fast_hash=False,
                 dummykeyobj=None, dummyvalueobj=None, rtyper=None):
     # get the actual DICT type. if DICT is None, it's created, otherwise
     # forward reference is becoming DICT
@@ -114,7 +114,10 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
     # * the value
     entryfields.append(("value", DICTVALUE))
 
-    if ll_fasthash_function is None:
+    if fast_hash:
+        assert get_custom_eq_hash is not None
+        entrymeths['entry_hash'] = ll_hash_custom_fast
+    elif ll_fasthash_function is None:
         entryfields.append(("f_hash", lltype.Signed))
         entrymeths['entry_hash'] = ll_hash_from_cache
     else:
@@ -140,7 +143,7 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
             'keyeq':          ll_keyeq_custom,
             'r_rdict_eqfn':   r_rdict_eqfn,
             'r_rdict_hashfn': r_rdict_hashfn,
-            'paranoia':       True,
+            'paranoia':       not fast_hash,
             }
     else:
         # figure out which functions must be used to hash and compare
@@ -167,13 +170,14 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
 class OrderedDictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None, force_non_null=False):
+                 custom_eq_hash=None, force_non_null=False, fast_hash=False):
         #assert not force_non_null
         self.rtyper = rtyper
         self.finalized = False
         self.DICT = lltype.GcForwardReference()
         self.lowleveltype = lltype.Ptr(self.DICT)
         self.custom_eq_hash = custom_eq_hash is not None
+        self.fast_hash = fast_hash
         if not isinstance(key_repr, rmodel.Repr):  # not computed yet, done by setup()
             assert callable(key_repr)
             self._key_repr_computer = key_repr
@@ -211,6 +215,7 @@ class OrderedDictRepr(AbstractDictRepr):
                 self.r_rdict_eqfn, self.r_rdict_hashfn = (
                     self._custom_eq_hash_repr())
                 kwd['get_custom_eq_hash'] = self._custom_eq_hash_repr
+                kwd['fast_hash'] = self.fast_hash
             else:
                 kwd['ll_hash_function'] = self.key_repr.get_ll_hash_function()
                 kwd['ll_eq_function'] = self.key_repr.get_ll_eq_function()
@@ -608,6 +613,12 @@ def ll_hash_from_cache(entries, d, i):
 def ll_hash_recomputed(entries, d, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
+
+@signature(types.any(), types.any(), types.int(), returns=types.any())
+def ll_hash_custom_fast(entries, d, i):
+    DICT = lltype.typeOf(d).TO
+    key = entries[i].key
+    return objectmodel.hlinvoke(DICT.r_rdict_hashfn, d.fnkeyhash, key)
 
 def ll_keyhash_custom(d, key):
     DICT = lltype.typeOf(d).TO
