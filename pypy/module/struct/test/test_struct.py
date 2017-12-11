@@ -49,6 +49,7 @@ class AppTestStruct(object):
         assert calcsize('=Q') == 8
         assert calcsize('<f') == 4
         assert calcsize('>d') == 8
+        assert calcsize('<d') == 2
         assert calcsize('!13s') == 13
         assert calcsize('=500p') == 500
         # test with some repetitions and multiple format characters
@@ -255,6 +256,14 @@ class AppTestStruct(object):
         assert unpack("!f", b'AH\x00\x00') == (12.5,)
         assert unpack("<f", b'\x00\x00H\xc1') == (-12.5,)
         raises(OverflowError, pack, "<f", 10e100)
+
+    def test_half_floats(self):
+        pack = self.struct.pack
+        unpack = self.struct.unpack
+        assert pack("<e", 65504.0) == b'\xff\x7b'
+        assert pack(">e", 65504.0) == b'\x7b\xff'
+        assert unpack(">e", b'\x7b\xff') == (65504.0,)
+        raises(OverflowError, pack, "<e", 1e6)
 
     def test_bool(self):
         pack = self.struct.pack
