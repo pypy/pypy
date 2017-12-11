@@ -760,3 +760,25 @@ class AppTestPartialEvaluation:
         assert r == '&#4660;\x80&#9029;y\xab'
         r = u'\u1234\u0080\u2345\u0079\u00AB'.encode('ascii', 'xmlcharrefreplace')
         assert r == '&#4660;&#128;&#9029;y&#171;'
+
+    def test_errorhandler_collection(self):
+        import _codecs
+        errors = []
+        def record_error(exc):
+            if not isinstance(exc, UnicodeEncodeError):
+                raise TypeError("don't know how to handle %r" % exc)
+            errors.append(exc.object[exc.start:exc.end])
+            return (u'', exc.end)
+        _codecs.register_error("test.record", record_error)
+
+        sin = u"\xac\u1234\u1234\u20ac\u8000"
+        assert sin.encode("ascii", "test.record") == ""
+        assert errors == [sin]
+
+        errors = []
+        assert sin.encode("latin-1", "test.record") == "\xac"
+        assert errors == [u'\u1234\u1234\u20ac\u8000']
+
+        errors = []
+        assert sin.encode("iso-8859-15", "test.record") == "\xac\xa4"
+        assert errors == [u'\u1234\u1234', u'\u8000']
