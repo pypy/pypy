@@ -448,6 +448,36 @@ class Decimal(object):
 
         return DecimalTuple(sign, coeff, expt)
 
+    def as_integer_ratio(self):
+        "Convert a Decimal to its exact integer ratio representation"
+        if _mpdec.mpd_isspecial(self._mpd):
+            if _mpdec.mpd_isnan(self._mpd):
+                raise ValueError("cannot convert NaN to integer ratio")
+            else:
+                raise OverflowError("cannot convert Infinity to integer ratio")
+
+        context = getcontext()
+        tmp = Decimal._new_empty()
+        with _CatchStatus(context) as (ctx, status_ptr):
+            _mpdec.mpd_qcopy(tmp._mpd, self._mpd, status_ptr)
+        exp = tmp._mpd.exp if tmp else 0
+        tmp._mpd.exp = 0
+
+        # context and rounding are unused here: the conversion is exact
+        numerator = tmp._to_int(_mpdec.MPD_ROUND_FLOOR)
+
+        exponent = 10 ** abs(exp)
+        if exp >= 0:
+            numerator *= exponent
+            denominator = 1
+        else:
+            denominator = exponent
+            gcd = _math.gcd(numerator, denominator)
+            numerator //= gcd
+            denominator //= gcd
+
+        return numerator, denominator
+
     def _convert_for_comparison(self, other, op):
         if isinstance(other, Decimal):
             return self, other
