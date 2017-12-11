@@ -29,3 +29,7 @@ Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)
 
 .. branch: win32-vcvars
 
+.. branch: unicode-utf8-re
+.. branch: utf8-io
+Utf8 handling for unicode
+
