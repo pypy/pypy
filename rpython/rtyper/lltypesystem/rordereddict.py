@@ -66,7 +66,7 @@ def ll_call_lookup_function(d, key, hash, flag):
 
 def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
                 ll_fasthash_function=None, ll_hash_function=None,
-                ll_eq_function=None, method_cache={}, fast_hash=False,
+                ll_eq_function=None, method_cache={}, simple_hash_eq=False,
                 dummykeyobj=None, dummyvalueobj=None, rtyper=None):
     # get the actual DICT type. if DICT is None, it's created, otherwise
     # forward reference is becoming DICT
@@ -114,7 +114,7 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
     # * the value
     entryfields.append(("value", DICTVALUE))
 
-    if fast_hash:
+    if simple_hash_eq:
         assert get_custom_eq_hash is not None
         entrymeths['entry_hash'] = ll_hash_custom_fast
     elif ll_fasthash_function is None:
@@ -143,7 +143,7 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
             'keyeq':          ll_keyeq_custom,
             'r_rdict_eqfn':   r_rdict_eqfn,
             'r_rdict_hashfn': r_rdict_hashfn,
-            'paranoia':       not fast_hash,
+            'paranoia':       not simple_hash_eq,
             }
     else:
         # figure out which functions must be used to hash and compare
@@ -170,14 +170,14 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
 class OrderedDictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None, force_non_null=False, fast_hash=False):
+                 custom_eq_hash=None, force_non_null=False, simple_hash_eq=False):
         #assert not force_non_null
         self.rtyper = rtyper
         self.finalized = False
         self.DICT = lltype.GcForwardReference()
         self.lowleveltype = lltype.Ptr(self.DICT)
         self.custom_eq_hash = custom_eq_hash is not None
-        self.fast_hash = fast_hash
+        self.simple_hash_eq = simple_hash_eq
         if not isinstance(key_repr, rmodel.Repr):  # not computed yet, done by setup()
             assert callable(key_repr)
             self._key_repr_computer = key_repr
@@ -215,7 +215,7 @@ class OrderedDictRepr(AbstractDictRepr):
                 self.r_rdict_eqfn, self.r_rdict_hashfn = (
                     self._custom_eq_hash_repr())
                 kwd['get_custom_eq_hash'] = self._custom_eq_hash_repr
-                kwd['fast_hash'] = self.fast_hash
+                kwd['simple_hash_eq'] = self.simple_hash_eq
             else:
                 kwd['ll_hash_function'] = self.key_repr.get_ll_hash_function()
                 kwd['ll_eq_function'] = self.key_repr.get_ll_eq_function()

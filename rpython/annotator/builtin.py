@@ -237,28 +237,28 @@ def robjmodel_instantiate(s_clspbc, s_nonmovable=None):
     return SomeInstance(clsdef)
 
 @analyzer_for(rpython.rlib.objectmodel.r_dict)
-def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None, s_fast_hash=None):
-    return _r_dict_helper(SomeDict, s_eqfn, s_hashfn, s_force_non_null, s_fast_hash)
+def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None, s_simple_hash_eq=None):
+    return _r_dict_helper(SomeDict, s_eqfn, s_hashfn, s_force_non_null, s_simple_hash_eq)
 
 @analyzer_for(rpython.rlib.objectmodel.r_ordereddict)
-def robjmodel_r_ordereddict(s_eqfn, s_hashfn, s_force_non_null=None, s_fast_hash=None):
+def robjmodel_r_ordereddict(s_eqfn, s_hashfn, s_force_non_null=None, s_simple_hash_eq=None):
     return _r_dict_helper(SomeOrderedDict, s_eqfn, s_hashfn,
-                          s_force_non_null, s_fast_hash)
+                          s_force_non_null, s_simple_hash_eq)
 
-def _r_dict_helper(cls, s_eqfn, s_hashfn, s_force_non_null, s_fast_hash):
+def _r_dict_helper(cls, s_eqfn, s_hashfn, s_force_non_null, s_simple_hash_eq):
     if s_force_non_null is None:
         force_non_null = False
     else:
         assert s_force_non_null.is_constant()
         force_non_null = s_force_non_null.const
-    if s_fast_hash is None:
-        fast_hash = False
+    if s_simple_hash_eq is None:
+        simple_hash_eq = False
     else:
-        assert s_fast_hash.is_constant()
-        fast_hash = s_fast_hash.const
+        assert s_simple_hash_eq.is_constant()
+        simple_hash_eq = s_simple_hash_eq.const
     dictdef = getbookkeeper().getdictdef(is_r_dict=True,
                                          force_non_null=force_non_null,
-                                         fast_hash=fast_hash)
+                                         simple_hash_eq=simple_hash_eq)
     dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
     return cls(dictdef)
 

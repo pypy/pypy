@@ -332,7 +332,7 @@ class TestObjectModel(BaseRtypingTest):
 
     def test_r_dict_fast_functions(self):
         def fn():
-            d1 = r_dict(strange_key_eq, strange_key_hash, fast_hash=True)
+            d1 = r_dict(strange_key_eq, strange_key_hash, simple_hash_eq=True)
             return play_with_r_dict(d1)
         res = self.interpret(fn, [])
         assert res

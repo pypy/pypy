@@ -386,8 +386,10 @@ class TestOrderedRDict(BaseTestRDict):
         return OrderedDict()
 
     @staticmethod
-    def new_r_dict(myeq, myhash, force_non_null=False, fast_hash=False):
-        return objectmodel.r_ordereddict(myeq, myhash, force_non_null=force_non_null, fast_hash=fast_hash)
+    def new_r_dict(myeq, myhash, force_non_null=False, simple_hash_eq=False):
+        return objectmodel.r_ordereddict(
+            myeq, myhash, force_non_null=force_non_null,
+            simple_hash_eq=simple_hash_eq)
 
     def test_two_dicts_with_different_value_types(self):
         def func(i):

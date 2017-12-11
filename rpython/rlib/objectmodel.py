@@ -748,11 +748,11 @@ class r_dict(object):
     def _newdict(self):
         return {}
 
-    def __init__(self, key_eq, key_hash, force_non_null=False, fast_hash=False):
+    def __init__(self, key_eq, key_hash, force_non_null=False, simple_hash_eq=False):
         """ force_non_null=True means that the key can never be None (even if
         the annotator things it could be)
 
-        fast_hash=True means that the hash function is very fast, meaning it's
+        simple_hash_eq=True means that the hash function is very fast, meaning it's
         efficient enough that the dict does not have to store the hash per key.
         It also implies that neither the hash nor the eq function will mutate
         the dictionary. """
@@ -760,7 +760,7 @@ class r_dict(object):
         self.key_eq = key_eq
         self.key_hash = key_hash
         self.force_non_null = force_non_null
-        self.fast_hash = fast_hash
+        self.simple_hash_eq = simple_hash_eq
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]

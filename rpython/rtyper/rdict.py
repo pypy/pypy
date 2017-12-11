@@ -15,7 +15,7 @@ class __extend__(annmodel.SomeDict):
         s_key = dictkey.s_value
         s_value = dictvalue.s_value
         force_non_null = self.dictdef.force_non_null
-        fast_hash = self.dictdef.fast_hash
+        simple_hash_eq = self.dictdef.simple_hash_eq
         if dictkey.custom_eq_hash:
             custom_eq_hash = lambda: (rtyper.getrepr(dictkey.s_rdict_eqfn),
                                       rtyper.getrepr(dictkey.s_rdict_hashfn))
@@ -23,7 +23,7 @@ class __extend__(annmodel.SomeDict):
             custom_eq_hash = None
         return self.get_dict_repr()(rtyper, lambda: rtyper.getrepr(s_key),
                         lambda: rtyper.getrepr(s_value), dictkey, dictvalue,
-                        custom_eq_hash, force_non_null, fast_hash)
+                        custom_eq_hash, force_non_null, simple_hash_eq)
 
     def rtyper_makekey(self):
         self.dictdef.dictkey  .dont_change_any_more = True

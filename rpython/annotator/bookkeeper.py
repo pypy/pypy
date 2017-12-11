@@ -194,14 +194,14 @@ class Bookkeeper(object):
             listdef.generalize_range_step(flags['range_step'])
         return SomeList(listdef)
 
-    def getdictdef(self, is_r_dict=False, force_non_null=False, fast_hash=False):
+    def getdictdef(self, is_r_dict=False, force_non_null=False, simple_hash_eq=False):
         """Get the DictDef associated with the current position."""
         try:
             dictdef = self.dictdefs[self.position_key]
         except KeyError:
             dictdef = DictDef(self, is_r_dict=is_r_dict,
                               force_non_null=force_non_null,
-                              fast_hash=fast_hash)
+                              simple_hash_eq=simple_hash_eq)
             self.dictdefs[self.position_key] = dictdef
         return dictdef
 
