@@ -330,6 +330,13 @@ class TestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 77
 
+    def test_r_dict_fast_functions(self):
+        def fn():
+            d1 = r_dict(strange_key_eq, strange_key_hash, fast_hash=True)
+            return play_with_r_dict(d1)
+        res = self.interpret(fn, [])
+        assert res
+
     def test_prepare_dict_update(self):
         def g(n):
             d = {}

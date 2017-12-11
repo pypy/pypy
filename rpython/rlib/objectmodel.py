@@ -748,11 +748,12 @@ class r_dict(object):
     def _newdict(self):
         return {}
 
-    def __init__(self, key_eq, key_hash, force_non_null=False):
+    def __init__(self, key_eq, key_hash, force_non_null=False, fast_hash=False):
         self._dict = self._newdict()
         self.key_eq = key_eq
         self.key_hash = key_hash
         self.force_non_null = force_non_null
+        self.fast_hash = fast_hash
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]

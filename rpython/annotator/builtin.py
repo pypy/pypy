@@ -237,12 +237,17 @@ def robjmodel_instantiate(s_clspbc, s_nonmovable=None):
     return SomeInstance(clsdef)
 
 @analyzer_for(rpython.rlib.objectmodel.r_dict)
-def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None):
+def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None, s_fast_hash=None):
     if s_force_non_null is None:
         force_non_null = False
     else:
         assert s_force_non_null.is_constant()
         force_non_null = s_force_non_null.const
+    if s_fast_hash is None:
+        fast_hash = False
+    else:
+        assert s_fast_hash.is_constant()
+        fast_hash = s_fast_hash.const
     dictdef = getbookkeeper().getdictdef(is_r_dict=True,
                                          force_non_null=force_non_null)
     dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
