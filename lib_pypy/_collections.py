@@ -323,7 +323,7 @@ class deque(object):
             self.rotate(-index)
 
     def __reduce_ex__(self, proto):
-        return type(self), (list(self), self.maxlen)
+        return type(self), ((), self.maxlen), None, iter(self)
 
     __hash__ = None
 

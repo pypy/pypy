@@ -491,23 +491,14 @@ class W_Deque(W_Root):
         "Return state information for pickling."
         space = self.space
         w_type = space.type(self)
-        w_dict = space.findattr(self, space.newtext('__dict__'))
-        w_list = space.call_function(space.w_list, self)
-        if w_dict is None:
-            if self.maxlen == sys.maxint:
-                result = [
-                    w_type, space.newtuple([w_list])]
-            else:
-                result = [
-                    w_type, space.newtuple([w_list, space.newint(self.maxlen)])]
+        w_dict = space.findattr(self, space.newtext('__dict__')) or space.w_None
+        w_it = space.iter(self)
+        if self.maxlen == sys.maxint:
+            w_lentuple = space.newtuple([])
         else:
-            if self.maxlen == sys.maxint:
-                w_len = space.w_None
-            else:
-                w_len = space.newint(self.maxlen)
-            result = [
-                w_type, space.newtuple([w_list, w_len]), w_dict]
-        return space.newtuple(result)
+            w_lentuple = space.newtuple([space.newtuple([]),
+                                         space.newint(self.maxlen)])
+        return space.newtuple([w_type, w_lentuple, w_dict, w_it])
 
     def get_maxlen(space, self):
         if self.maxlen == sys.maxint:
