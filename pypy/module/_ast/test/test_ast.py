@@ -84,6 +84,16 @@ class AppTestAST:
         imp.level = 3
         assert imp.level == 3
 
+    def test_bad_int(self):
+        ast = self.ast
+        body = [ast.ImportFrom(module='time',
+                               names=[ast.alias(name='sleep')],
+                               level=None,
+                               lineno=None, col_offset=None)]
+        mod = ast.Module(body)
+        exc = raises(ValueError, compile, mod, 'test', 'exec')
+        assert str(exc.value) == "invalid integer value: None"
+
     def test_identifier(self):
         ast = self.ast
         name = ast.Name("name_word", ast.Load())
@@ -114,13 +124,12 @@ class AppTestAST:
         assert alias.name == 'mod' + expected
         assert alias.asname == expected
 
-    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_object(self):
         ast = self.ast
-        const = ast.Const(4)
-        assert const.obj == 4
-        const.obj = 5
-        assert const.obj == 5
+        const = ast.Constant(4)
+        assert const.value == 4
+        const.value = 5
+        assert const.value == 5
 
     def test_optional(self):
         mod = self.get_ast("x(32)", "eval")
