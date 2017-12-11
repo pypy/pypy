@@ -915,10 +915,10 @@ def match_repeated_ignore(ctx, ptr, oldptr, length_bytes):
 @specializectx
 def find_repetition_end(ctx, ppos, ptr, maxcount, marks):
     end = ctx.end
-    ptrp1 = ctx.next(ptr)
     # First get rid of the cases where we don't have room for any match.
-    if maxcount <= 0 or ptrp1 > end:
+    if maxcount <= 0 or ptr >= end:
         return ptr
+    ptrp1 = ctx.next(ptr)
     # Check the first character directly.  If it doesn't match, we are done.
     # The idea is to be fast for cases like re.search("b+"), where we expect
     # the common case to be a non-match.  It's much faster with the JIT to
@@ -1202,12 +1202,14 @@ install_jitdriver('RegularSearch',
 
 def regular_search(ctx, base):
     start = ctx.match_start
-    while start <= ctx.end:
+    while True:
         ctx.jitdriver_RegularSearch.jit_merge_point(ctx=ctx, start=start,
                                                     base=base)
         if sre_match(ctx, base, start, None) is not None:
             ctx.match_start = start
             return True
+        if start >= ctx.end:
+            break
         start = ctx.next_indirect(start)
     return False
 
