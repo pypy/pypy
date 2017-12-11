@@ -68,9 +68,9 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         rawmode += "+"
 
     if universal:
-        if writing or appending:
+        if writing or appending or creating or updating:
             raise oefmt(space.w_ValueError,
-                        "can't use U and writing mode at once")
+                        "mode U cannot be combined with 'x', 'w', 'a', or '+'")
         space.warn(space.newtext("'U' mode is deprecated ('r' has the same "
                               "effect in Python 3.x)"),
                    space.w_DeprecationWarning)
