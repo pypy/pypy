@@ -351,56 +351,48 @@ def hexescape(builder, s, pos, digits,
         endinpos = pos
         while endinpos < len(s) and s[endinpos] in hexdigits:
             endinpos += 1
-        res, pos = errorhandler(errors, encoding,
-                                 message, s, pos-2, endinpos)
-        size = rutf8.check_utf8(res, True)
+        res, pos = errorhandler(
+            errors, encoding, message, s, pos - 2, endinpos)
         builder.append(res)
     else:
         try:
-            chr = r_uint(int(s[pos:pos+digits], 16))
+            chr = r_uint(int(s[pos:pos + digits], 16))
         except ValueError:
             endinpos = pos
             while s[endinpos] in hexdigits:
                 endinpos += 1
-            res, pos = errorhandler(errors, encoding,
-                                    message, s, pos-2, endinpos)
-            size = rutf8.check_utf8(res, True)
+            res, pos = errorhandler(
+                errors, encoding, message, s, pos - 2, endinpos)
             builder.append(res)
         else:
             # when we get here, chr is a 32-bit unicode character
             try:
-                rutf8.unichr_as_utf8_append(builder, intmask(chr), True)
+                builder.append_code(chr)
+                pos += digits
             except ValueError:
                 message = "illegal Unicode character"
-                res, pos = errorhandler(errors, encoding,
-                                        message, s, pos-2, pos+digits)
-                size = rutf8.check_utf8(res, True)
+                res, pos = errorhandler(
+                    errors, encoding, message, s, pos - 2, pos + digits)
                 builder.append(res)
-            else:
-                pos += digits
-                size = 1
-
-    return pos, size
+    return pos
 
 def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
     size = len(s)
     if size == 0:
         return '', 0, 0
 
-    builder = StringBuilder(size)
+    builder = rutf8.Utf8StringBuilder(size)
     pos = 0
-    outsize = 0
     while pos < size:
         ch = s[pos]
 
         # Non-escape characters are interpreted as Unicode ordinals
         if ch != '\\':
             if ord(ch) > 0x7F:
-                rutf8.unichr_as_utf8_append(builder, ord(ch))
+                builder.append_code(ord(ch))
             else:
                 builder.append(ch)
             pos += 1
-            outsize += 1
             continue
 
         # - Escapes
@@ -408,88 +400,70 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
         if pos >= size:
             message = "\\ at end of string"
             res, pos = errorhandler(errors, "unicodeescape",
-                                    message, s, pos-1, size)
-            newsize = rutf8.check_utf8(res, True)
-            outsize + newsize
+                                    message, s, pos - 1, size)
             builder.append(res)
             continue
 
         ch = s[pos]
         pos += 1
         # \x escapes
-        if ch == '\n': pass
+        if ch == '\n':
+            pass
         elif ch == '\\':
-            builder.append('\\')
-            outsize += 1
+            builder.append_char('\\')
         elif ch == '\'':
-            builder.append('\'')
-            outsize += 1
+            builder.append_char('\'')
         elif ch == '\"':
-            builder.append('\"')
-            outsize += 1
-        elif ch == 'b' :
-            builder.append('\b')
-            outsize += 1
-        elif ch == 'f' :
-            builder.append('\f')
-            outsize += 1
-        elif ch == 't' :
-            builder.append('\t')
-            outsize += 1
-        elif ch == 'n' :
-            builder.append('\n')
-            outsize += 1
-        elif ch == 'r' :
-            builder.append('\r')
-            outsize += 1
-        elif ch == 'v' :
-            builder.append('\v')
-            outsize += 1
-        elif ch == 'a' :
-            builder.append('\a')
-            outsize += 1
+            builder.append_char('\"')
+        elif ch == 'b':
+            builder.append_char('\b')
+        elif ch == 'f':
+            builder.append_char('\f')
+        elif ch == 't':
+            builder.append_char('\t')
+        elif ch == 'n':
+            builder.append_char('\n')
+        elif ch == 'r':
+            builder.append_char('\r')
+        elif ch == 'v':
+            builder.append_char('\v')
+        elif ch == 'a':
+            builder.append_char('\a')
         elif '0' <= ch <= '7':
             x = ord(ch) - ord('0')
             if pos < size:
                 ch = s[pos]
                 if '0' <= ch <= '7':
                     pos += 1
-                    x = (x<<3) + ord(ch) - ord('0')
+                    x = (x << 3) + ord(ch) - ord('0')
                     if pos < size:
                         ch = s[pos]
                         if '0' <= ch <= '7':
                             pos += 1
-                            x = (x<<3) + ord(ch) - ord('0')
-            outsize += 1
+                            x = (x << 3) + ord(ch) - ord('0')
             if x > 0x7F:
-                rutf8.unichr_as_utf8_append(builder, x)
+                builder.append_code(x)
             else:
-                builder.append(chr(x))
+                builder.append_char(chr(x))
         # hex escapes
         # \xXX
         elif ch == 'x':
             digits = 2
             message = "truncated \\xXX escape"
-            pos, newsize = hexescape(builder, s, pos, digits,
+            pos = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
-            outsize += newsize
-
         # \uXXXX
         elif ch == 'u':
             digits = 4
             message = "truncated \\uXXXX escape"
-            pos, newsize = hexescape(builder, s, pos, digits,
+            pos = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
-            outsize += newsize
-
         #  \UXXXXXXXX
         elif ch == 'U':
             digits = 8
             message = "truncated \\UXXXXXXXX escape"
-            pos, newsize = hexescape(builder, s, pos, digits,
+            pos = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
-            outsize += newsize
-
         # \N{name}
         elif ch == 'N' and ud_handler is not None:
             message = "malformed \\N character escape"
@@ -502,38 +476,29 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
                 if look < size and s[look] == '}':
                     # found a name.  look it up in the unicode database
                     message = "unknown Unicode character name"
-                    name = s[pos+1:look]
+                    name = s[pos + 1:look]
                     code = ud_handler.call(name)
                     if code < 0:
-                        res, pos = errorhandler(errors, "unicodeescape",
-                                                message, s, pos-1, look+1)
-                        newsize = rutf8.check_utf8(res, True)
-                        outsize += newsize
+                        res, pos = errorhandler(
+                            errors, "unicodeescape", message,
+                            s, pos - 1, look + 1)
                         builder.append(res)
                         continue
                     pos = look + 1
-                    outsize += 1
-                    rutf8.unichr_as_utf8_append(builder, code,
-                                                allow_surrogates=True)
-                    # xxx 'code' is probably always within range here...
+                    builder.append_code(code)
                 else:
                     res, pos = errorhandler(errors, "unicodeescape",
-                                            message, s, pos-1, look+1)
-                    newsize = rutf8.check_utf8(res, True)
-                    outsize += newsize
+                                            message, s, pos - 1, look + 1)
                     builder.append(res)
             else:
                 res, pos = errorhandler(errors, "unicodeescape",
-                                        message, s, pos-1, look+1)
-                newsize = rutf8.check_utf8(res, True)
-                outsize += newsize
+                                        message, s, pos - 1, look + 1)
                 builder.append(res)
         else:
-            builder.append('\\')
-            builder.append(ch)
-            outsize += 2
+            builder.append_char('\\')
+            builder.append_code(ord(ch))
 
-    return builder.build(), pos, outsize
+    return builder.build(), pos, builder.get_length()
 
 def wcharpsize2utf8(space, wcharp, size):
     """Safe version of rffi.wcharpsize2utf8.
@@ -557,14 +522,14 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
     if size == 0:
         return '', 0, 0
 
-    result = StringBuilder(size)
+    builder = rutf8.Utf8StringBuilder(size)
     pos = 0
     while pos < size:
         ch = s[pos]
 
         # Non-escape characters are interpreted as Unicode ordinals
         if ch != '\\':
-            rutf8.unichr_as_utf8_append(result, ord(ch), True)
+            builder.append_code(ord(ch))
             pos += 1
             continue
 
@@ -575,30 +540,27 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
             pos += 1
             if pos == size or s[pos] != '\\':
                 break
-            result.append('\\')
+            builder.append_char('\\')
 
         # we have a backslash at the end of the string, stop here
         if pos >= size:
-            result.append('\\')
+            builder.append_char('\\')
             break
 
-        if ((pos - bs) & 1 == 0 or
-            pos >= size or
-            (s[pos] != 'u' and s[pos] != 'U')):
-            result.append('\\')
-            rutf8.unichr_as_utf8_append(result, ord(s[pos]), True)
+        if ((pos - bs) & 1 == 0 or pos >= size or
+                (s[pos] != 'u' and s[pos] != 'U')):
+            builder.append_char('\\')
+            builder.append_code(ord(s[pos]))
             pos += 1
             continue
 
         digits = 4 if s[pos] == 'u' else 8
         message = "truncated \\uXXXX"
         pos += 1
-        pos, _ = hexescape(result, s, pos, digits,
+        pos = hexescape(builder, s, pos, digits,
                            "rawunicodeescape", errorhandler, message, errors)
 
-    r = result.build()
-    lgt = rutf8.check_utf8(r, True)
-    return r, pos, lgt
+    return builder.build(), pos, builder.get_length()
 
 _utf8_encode_unicode_escape = rutf8.make_utf8_escape_function()
 

@@ -1,4 +1,4 @@
-import py
+import pytest
 import sys
 from hypothesis import given, strategies, settings, example
 
@@ -9,7 +9,8 @@ from rpython.rlib import rutf8, runicode
 def test_unichr_as_utf8(c, allow_surrogates):
     i = ord(c)
     if not allow_surrogates and 0xD800 <= i <= 0xDFFF:
-        py.test.raises(ValueError, rutf8.unichr_as_utf8, i, allow_surrogates)
+        with pytest.raises(ValueError):
+            rutf8.unichr_as_utf8(i, allow_surrogates)
     else:
         u = rutf8.unichr_as_utf8(i, allow_surrogates)
         assert u == c.encode('utf8')
@@ -190,6 +191,13 @@ def test_utf8_string_builder():
 
     s.append_code(0xD800)
     assert s.get_length() == 5
+
+def test_utf8_string_builder_bad_code():
+    s = rutf8.Utf8StringBuilder()
+    with pytest.raises(ValueError):
+        s.append_code(0x110000)
+    assert s.build() == ''
+    assert s.get_length() == 0
 
 @given(strategies.text())
 def test_utf8_iterator(arg):

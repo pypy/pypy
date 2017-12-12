@@ -120,6 +120,10 @@ class AppTestCodecs:
                                {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
                 (u"\U0010FFFFbc", 3))
 
+    def test_escape_decode(self):
+        from _codecs import unicode_escape_decode as decode
+        assert decode('\\\x80') == (u'\\\x80', 2)
+
     def test_escape_decode_errors(self):
         from _codecs import escape_decode as decode
         raises(ValueError, decode, br"\x")
@@ -327,10 +331,8 @@ class AppTestPartialEvaluation:
         for decode in [unicode_escape_decode, raw_unicode_escape_decode]:
             for c, d in ('u', 4), ('U', 4):
                 for i in range(d):
-                    raises(UnicodeDecodeError, decode,
-                                      "\\" + c + "0"*i)
-                    raises(UnicodeDecodeError, decode,
-                                      "[\\" + c + "0"*i + "]")
+                    raises(UnicodeDecodeError, decode, "\\" + c + "0"*i)
+                    raises(UnicodeDecodeError, decode, "[\\" + c + "0"*i + "]")
                     data = "[\\" + c + "0"*i + "]\\" + c + "0"*i
                     assert decode(data, "ignore") == (u"[]", len(data))
                     assert decode(data, "replace") == (u"[\ufffd]\ufffd", len(data))

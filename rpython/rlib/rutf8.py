@@ -706,18 +706,18 @@ class Utf8StringBuilder(object):
     @always_inline
     def append_char(self, s):
         # for characters, ascii
-        self._lgt += 1
         self._s.append(s)
+        self._lgt += 1
 
     @try_inline
     def append_code(self, code):
-        self._lgt += 1
         unichr_as_utf8_append(self._s, code, True)
+        self._lgt += 1
 
     @always_inline
     def append_utf8(self, utf8, length):
-        self._lgt += length
         self._s.append(utf8)
+        self._lgt += length
 
     @always_inline
     def build(self):
