@@ -151,9 +151,14 @@ def _unwrap_path(space, w_value, allow_fd=True):
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
-    if allow_fd and space.index_CHECK(w_value):
-        fd = unwrap_fd(space, w_value, "string, bytes or integer")
-        return Path(fd, None, None, w_value)
+    if allow_fd:
+        try:
+            space.index(w_value)
+        except OperationError:
+            pass
+        else:
+            fd = unwrap_fd(space, w_value, "string, bytes or integer")
+            return Path(fd, None, None, w_value)
 
     # Inline fspath() for better error messages.
     w_fspath_method = space.lookup(w_value, '__fspath__')
@@ -165,12 +170,12 @@ def _unwrap_path(space, w_value, allow_fd=True):
 
     if allow_fd:
         raise oefmt(space.w_TypeError,
-                    "illegal type for path parameter (expected "
-                    "string, bytes, os.PathLike or integer, got %T)", w_value)
+                    "illegal type for path parameter (should be "
+                    "string, bytes, os.PathLike or integer, not %T)", w_value)
     else:
         raise oefmt(space.w_TypeError,
-                    "illegal type for path parameter (expected "
-                    "string, bytes or os.PathLike, got %T)", w_value)
+                    "illegal type for path parameter (should be "
+                    "string, bytes or os.PathLike, not %T)", w_value)
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):

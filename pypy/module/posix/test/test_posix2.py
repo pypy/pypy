@@ -208,7 +208,7 @@ class AppTestPosix:
         excinfo = raises(TypeError, self.posix.stat, None)
         assert "can't specify None" in str(excinfo.value)
         excinfo = raises(TypeError, self.posix.stat, 2.)
-        assert "should be string, bytes or integer, not float" in str(excinfo.value)
+        assert "should be string, bytes, os.PathLike or integer, not float" in str(excinfo.value)
         raises(ValueError, self.posix.stat, -1)
         raises(ValueError, self.posix.stat, b"abc\x00def")
         raises(ValueError, self.posix.stat, u"abc\x00def")
