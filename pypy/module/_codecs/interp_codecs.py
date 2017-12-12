@@ -210,7 +210,8 @@ def replace_errors(space, w_exc):
 def xmlcharrefreplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
+        obj = space.realunicode_w(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
@@ -236,7 +237,8 @@ def xmlcharrefreplace_errors(space, w_exc):
 def backslashreplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
+        obj = space.realunicode_w(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
