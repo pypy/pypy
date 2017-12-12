@@ -15,6 +15,7 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import (
     CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
+from pypy.interpreter import unicodehelper
 from pypy.objspace.std import unicodeobject
 from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
@@ -869,7 +870,7 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, length, byteorder = runicode.str_decode_utf_32_helper(
+    result, length, byteorder = unicodehelper.str_decode_utf_32_helper(
         string, size, errors,
         True, # final ? false for multiple passes?
         None, # errorhandler

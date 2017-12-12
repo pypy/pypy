@@ -1404,3 +1404,7 @@ class TestAstBuilder:
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
                            " bytes in position 0-1: truncated \\xXX escape")
+        input = "u'\\x1'"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
+                           " bytes in position 0-2: truncated \\xXX escape")

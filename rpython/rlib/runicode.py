@@ -710,7 +710,7 @@ def py3k_unicode_encode_utf_16_le(s, size, errors,
 
 
 # ____________________________________________________________
-# utf-32
+# utf-32 (not used in PyPy any more)
 
 def str_decode_utf_32(s, size, errors, final=True,
                       errorhandler=None):

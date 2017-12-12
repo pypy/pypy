@@ -245,7 +245,7 @@ if _WIN:
     LPDWORD = rwin32.LPDWORD
     _GetSystemTimeAdjustment = rwin32.winexternal(
                                             'GetSystemTimeAdjustment',
-                                            [LPDWORD, LPDWORD, rwin32.LPBOOL], 
+                                            [LPDWORD, LPDWORD, rwin32.LPBOOL],
                                             rffi.INT)
     def gettimeofday(space, w_info=None):
         with lltype.scoped_alloc(rwin32.FILETIME) as system_time:
@@ -270,7 +270,7 @@ if _WIN:
                      lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
                     _GetSystemTimeAdjustment(time_adjustment, time_increment,
                                              is_time_adjustment_disabled)
-                    
+
                     _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
                              time_increment[0] * 1e-7, False, True)
             return space.newfloat(tv_sec + tv_usec * 1e-6)
@@ -303,7 +303,7 @@ else:
                           widen(t.c_millitm) * 0.001)
                 if w_info is not None:
                     _setinfo(space, w_info, "ftime()", 1e-3,
-                             False, True) 
+                             False, True)
             return space.newfloat(result)
         else:
             if w_info:
@@ -955,7 +955,7 @@ if _WIN:
                                                  [rffi.CArrayPtr(lltype.SignedLongLong)],
                                                  rwin32.DWORD)
     QueryPerformanceFrequency = rwin32.winexternal(
-        'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)], 
+        'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)],
         rffi.INT)
     def win_perf_counter(space, w_info=None):
         with lltype.scoped_alloc(rffi.CArray(rffi.lltype.SignedLongLong), 1) as a:

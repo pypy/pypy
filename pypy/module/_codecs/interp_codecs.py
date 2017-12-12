@@ -2,12 +2,14 @@ import sys
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
+from rpython.rlib import runicode
 from rpython.rlib.runicode import (
     code_to_unichr, MAXUNICODE,
     raw_unicode_escape_helper_unicode)
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter import unicodehelper
 from pypy.module.unicodedata import unicodedb
 
 
@@ -244,7 +246,8 @@ def replace_errors(space, w_exc):
 def xmlcharrefreplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
+        obj = space.realunicode_w(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
@@ -301,7 +304,8 @@ def backslashreplace_errors(space, w_exc):
 def namereplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
+        obj = space.realunicode_w(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
@@ -611,48 +615,47 @@ def decode_text(space, w_obj, encoding, errors):
     return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 # ____________________________________________________________
-# delegation to runicode
+# delegation to runicode/unicodehelper
 
-from rpython.rlib import runicode
+def _find_implementation(impl_name):
+    try:
+        func = getattr(unicodehelper, impl_name)
+    except AttributeError:
+        if hasattr(runicode, 'py3k_' + impl_name):
+            impl_name = 'py3k_' + impl_name
+        func = getattr(runicode, impl_name)
+    return func
 
 def make_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
-    assert hasattr(runicode, rname)
-    if hasattr(runicode, 'py3k_' + rname):
-        rname = 'py3k_' + rname
+    func = _find_implementation(rname)
     @unwrap_spec(uni=unicode, errors='text_or_none')
     def wrap_encoder(space, uni, errors="strict"):
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
-        func = getattr(runicode, rname)
         result = func(uni, len(uni), errors, state.encode_error_handler)
         return space.newtuple([space.newbytes(result), space.newint(len(uni))])
-    wrap_encoder.func_name = rname
+    wrap_encoder.__name__ = func.__name__
     globals()[name] = wrap_encoder
 
 def make_utf_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
-    assert hasattr(runicode, rname)
-    if hasattr(runicode, 'py3k_' + rname):
-        rname = 'py3k_' + rname
+    func = _find_implementation(rname)
     @unwrap_spec(uni=unicode, errors='text_or_none')
     def wrap_encoder(space, uni, errors="strict"):
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
-        func = getattr(runicode, rname)
         result = func(uni, len(uni), errors, state.encode_error_handler,
                       allow_surrogates=False)
         return space.newtuple([space.newbytes(result), space.newint(len(uni))])
-    wrap_encoder.func_name = rname
+    wrap_encoder.__name__ = func.__name__
     globals()[name] = wrap_encoder
 
 def make_decoder_wrapper(name):
     rname = "str_decode_%s" % (name.replace("_decode", ""), )
-    assert hasattr(runicode, rname)
-    if hasattr(runicode, 'py3k_' + rname):
-        rname = 'py3k_' + rname
+    func = _find_implementation(rname)
     @unwrap_spec(string='bufferstr', errors='text_or_none',
                  w_final=WrappedDefault(False))
     def wrap_decoder(space, string, errors="strict", w_final=None):
@@ -660,11 +663,10 @@ def make_decoder_wrapper(name):
             errors = 'strict'
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
-        func = getattr(runicode, rname)
         result, consumed = func(string, len(string), errors,
                                 final, state.decode_error_handler)
         return space.newtuple([space.newunicode(result), space.newint(consumed)])
-    wrap_decoder.func_name = rname
+    wrap_decoder.__name__ = func.__name__
     globals()[name] = wrap_decoder
 
 for encoder in [

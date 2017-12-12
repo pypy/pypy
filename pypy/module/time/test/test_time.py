@@ -19,6 +19,8 @@ class AppTestTime:
         raises(TypeError, time.sleep, "foo")
         time.sleep(0.12345)
         raises(ValueError, time.sleep, -1.0)
+        raises(ValueError, time.sleep, float('nan'))
+        raises(OverflowError, time.sleep, float('inf'))
 
     def test_clock(self):
         import time

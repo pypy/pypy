@@ -76,7 +76,7 @@ class JSONDecoder(object):
         self.ll_chars = rffi.str2charp(s)
         self.end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         self.pos = 0
-        self.cache = r_dict(slice_eq, slice_hash)
+        self.cache = r_dict(slice_eq, slice_hash, simple_hash_eq=True)
 
     def close(self):
         rffi.free_charp(self.ll_chars)

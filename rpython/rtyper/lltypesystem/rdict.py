@@ -42,7 +42,8 @@ MASK = r_uint(intmask(HIGHEST_BIT - 1))
 class DictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None, force_non_null=False):
+                 custom_eq_hash=None, force_non_null=False, fast_hash=False):
+        # fast_hash is ignored (only implemented in rordereddict.py)
         self.rtyper = rtyper
         self.DICT = lltype.GcForwardReference()
         self.lowleveltype = lltype.Ptr(self.DICT)

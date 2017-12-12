@@ -106,11 +106,11 @@ class LLTypeHelper(TypeSystemHelper):
     # It is an r_dict on lltype.  Two copies, to avoid conflicts with
     # the value type.  Note that NULL is not allowed as a key.
     def new_ref_dict(self):
-        return r_dict(rd_eq, rd_hash)
+        return r_dict(rd_eq, rd_hash, simple_hash_eq=True)
     def new_ref_dict_2(self):
-        return r_dict(rd_eq, rd_hash)
+        return r_dict(rd_eq, rd_hash, simple_hash_eq=True)
     def new_ref_dict_3(self):
-        return r_dict(rd_eq, rd_hash)
+        return r_dict(rd_eq, rd_hash, simple_hash_eq=True)
 
     def cast_vtable_to_hashable(self, cpu, ptr):
         adr = llmemory.cast_ptr_to_adr(ptr)

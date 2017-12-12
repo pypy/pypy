@@ -116,10 +116,10 @@ class AppTestCodecs:
         raises(TypeError, charmap_decode, b'\xff', "strict",  {0xff: 0x110000})
         assert (charmap_decode(b"\x00\x01\x02", "strict",
                                {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
-                u"\U0010FFFFbc", 3)
+                (u"\U0010FFFFbc", 3))
         assert (charmap_decode(b"\x00\x01\x02", "strict",
                                {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
-                u"\U0010FFFFbc", 3)
+                (u"\U0010FFFFbc", 3))
 
     def test_escape_decode_errors(self):
         from _codecs import escape_decode as decode
@@ -590,6 +590,12 @@ class AppTestPartialEvaluation:
 
     def test_backslashreplace(self):
         import codecs
+        sin = u"a\xac\u1234\u20ac\u8000\U0010ffff"
+        expected = b"a\\xac\\u1234\\u20ac\\u8000\\U0010ffff"
+        assert sin.encode('ascii', 'backslashreplace') == expected
+        expected = b"a\xac\\u1234\xa4\\u8000\\U0010ffff"
+        assert sin.encode("iso-8859-15", "backslashreplace") == expected
+
         assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == b'a\\xac\u1234\u20ac\u8000'
         assert b'\x00\x60\x80'.decode(
             'ascii', 'backslashreplace') == u'\x00\x60\\x80'
@@ -732,7 +738,7 @@ class AppTestPartialEvaluation:
         def handler_unicodeinternal(exc):
             if not isinstance(exc, UnicodeDecodeError):
                 raise TypeError("don't know how to handle %r" % exc)
-            return ("\x01", 1)
+            return (u"\x01", 1)
         codecs.register_error("test.hui", handler_unicodeinternal)
         res = b"\x00\x00\x00\x00\x00".decode("unicode-internal", "test.hui")
         if sys.maxunicode > 65535:
@@ -939,3 +945,31 @@ class AppTestPartialEvaluation:
             assert len(w) == 1
             assert str(w[0].message) == warning_msg
             assert w[0].category == DeprecationWarning
+
+    def test_xmlcharrefreplace(self):
+        r = u'\u1234\u0080\u2345\u0079\u00AB'.encode('latin1', 'xmlcharrefreplace')
+        assert r == b'&#4660;\x80&#9029;y\xab'
+        r = u'\u1234\u0080\u2345\u0079\u00AB'.encode('ascii', 'xmlcharrefreplace')
+        assert r == b'&#4660;&#128;&#9029;y&#171;'
+
+    def test_errorhandler_collection(self):
+        import _codecs
+        errors = []
+        def record_error(exc):
+            if not isinstance(exc, UnicodeEncodeError):
+                raise TypeError("don't know how to handle %r" % exc)
+            errors.append(exc.object[exc.start:exc.end])
+            return (u'', exc.end)
+        _codecs.register_error("test.record", record_error)
+
+        sin = u"\xac\u1234\u1234\u20ac\u8000"
+        assert sin.encode("ascii", "test.record") == b""
+        assert errors == [sin]
+
+        errors = []
+        assert sin.encode("latin-1", "test.record") == b"\xac"
+        assert errors == [u'\u1234\u1234\u20ac\u8000']
+
+        errors = []
+        assert sin.encode("iso-8859-15", "test.record") == b"\xac\xa4"
+        assert errors == [u'\u1234\u1234', u'\u8000']
