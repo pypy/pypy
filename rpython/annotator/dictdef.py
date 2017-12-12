@@ -81,12 +81,14 @@ class DictDef(object):
     def __init__(self, bookkeeper, s_key = s_ImpossibleValue,
                                  s_value = s_ImpossibleValue,
                                is_r_dict = False,
-                           force_non_null = False):
+                           force_non_null = False,
+                           simple_hash_eq = False):
         self.dictkey = DictKey(bookkeeper, s_key, is_r_dict)
         self.dictkey.itemof[self] = True
         self.dictvalue = DictValue(bookkeeper, s_value)
         self.dictvalue.itemof[self] = True
         self.force_non_null = force_non_null
+        self.simple_hash_eq = simple_hash_eq
 
     def read_key(self, position_key):
         self.dictkey.read_locations.add(position_key)
