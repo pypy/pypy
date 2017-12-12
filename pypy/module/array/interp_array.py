@@ -1030,7 +1030,11 @@ def make_array(mytype):
                 return space.newbytes(item)
             elif mytype.typecode == 'u':
                 code = r_uint(ord(item))
-                return space.newutf8(rutf8.unichr_as_utf8(code), 1)
+                try:
+                    return space.newutf8(rutf8.unichr_as_utf8(code), 1)
+                except ValueError:
+                    raise oefmt(space.w_ValueError,
+                        "character is not in range [U+0000; U+10ffff]")
             assert 0, "unreachable"
 
         # interface
