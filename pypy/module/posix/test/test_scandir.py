@@ -169,7 +169,13 @@ class AppTestScandir(object):
     def test_repr(self):
         posix = self.posix
         d = next(posix.scandir(self.dir1))
+        assert isinstance(d, posix.DirEntry)
         assert repr(d) == "<DirEntry 'file1'>"
+
+    def test_fspath(self):
+        posix = self.posix
+        d = next(posix.scandir(self.dir1))
+        assert self.posix.fspath(d).endswith('dir1/file1')
 
     def test_resource_warning(self):
         posix = self.posix

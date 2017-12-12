@@ -335,6 +335,7 @@ W_DirEntry.typedef = TypeDef(
     path = GetSetProperty(W_DirEntry.fget_path,
                           doc="the entry's full path name; equivalent to "
                               "os.path.join(scandir_path, entry.name)"),
+    __fspath__ = interp2app(W_DirEntry.fget_path),
     is_dir = interp2app(W_DirEntry.descr_is_dir),
     is_file = interp2app(W_DirEntry.descr_is_file),
     is_symlink = interp2app(W_DirEntry.descr_is_symlink),
