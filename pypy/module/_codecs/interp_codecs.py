@@ -369,12 +369,16 @@ def register_error(space, errors, w_handler):
 # ____________________________________________________________
 # delegation to runicode/unicodehelper
 
+def _find_implementation(impl_name):
+    try:
+        func = getattr(unicodehelper, impl_name)
+    except AttributeError:
+        func = getattr(runicode, impl_name)
+    return func
+
 def make_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
-    try:
-        func = getattr(unicodehelper, rname)
-    except AttributeError:
-        func = getattr(runicode, rname)
+    func = _find_implementation(rname)
     @unwrap_spec(uni=unicode, errors='text_or_none')
     def wrap_encoder(space, uni, errors="strict"):
         if errors is None:
@@ -387,10 +391,7 @@ def make_encoder_wrapper(name):
 
 def make_decoder_wrapper(name):
     rname = "str_decode_%s" % (name.replace("_decode", ""), )
-    try:
-        func = getattr(unicodehelper, rname)
-    except AttributeError:
-        func = getattr(runicode, rname)
+    func = _find_implementation(rname)
     @unwrap_spec(string='bufferstr', errors='text_or_none',
                  w_final=WrappedDefault(False))
     def wrap_decoder(space, string, errors="strict", w_final=None):
