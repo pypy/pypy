@@ -20,7 +20,7 @@ from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
 from rpython.rlib.objectmodel import always_inline, dont_inline, try_inline
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit, types
-from rpython.rlib.signature import signature
+from rpython.rlib.signature import signature, finishsigs
 from rpython.rlib.types import char, none
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.unicodedata import unicodedb
@@ -683,6 +683,7 @@ def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None):
 
     return unicode_escape #, char_escape_helper
 
+@finishsigs
 class Utf8StringBuilder(object):
     @always_inline
     def __init__(self, size=0):
@@ -702,7 +703,7 @@ class Utf8StringBuilder(object):
         newlgt = get_utf8_length(s, start, end)
         self._lgt += newlgt
 
-    @signature(char(), returns=none())
+    @signature(types.self(), char(), returns=none())
     @always_inline
     def append_char(self, s):
         # for characters, ascii
