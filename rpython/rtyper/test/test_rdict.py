@@ -538,6 +538,25 @@ class BaseTestRDict(BaseRtypingTest):
         r_dict = rtyper.getrepr(s)
         assert not hasattr(r_dict.lowleveltype.TO.entries.TO.OF, "f_hash")
 
+    def test_r_dict_can_be_fast(self):
+        def myeq(n, m):
+            return n == m
+        def myhash(n):
+            return ~n
+        def f():
+            d = self.new_r_dict(myeq, myhash, simple_hash_eq=True)
+            d[5] = 7
+            d[12] = 19
+            return d
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        r_dict = rtyper.getrepr(s)
+        assert not hasattr(r_dict.lowleveltype.TO.entries.TO.OF, "f_hash")
+
     def test_tuple_dict(self):
         def f(i):
             d = self.newdict()
@@ -1000,8 +1019,8 @@ class TestRDict(BaseTestRDict):
         return {}
 
     @staticmethod
-    def new_r_dict(myeq, myhash):
-        return r_dict(myeq, myhash)
+    def new_r_dict(myeq, myhash, force_non_null=False, simple_hash_eq=False):
+        return r_dict(myeq, myhash, force_non_null=force_non_null, simple_hash_eq=simple_hash_eq)
 
     def test_two_dicts_with_different_value_types(self):
         def func(i):
