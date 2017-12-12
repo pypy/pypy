@@ -43,3 +43,4 @@ Make it possible to declare that the hash function of an r_dict is fast in RPyth
 .. branch: unicode-utf8-re
 .. branch: utf8-io
 Utf8 handling for unicode
+
