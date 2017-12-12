@@ -173,6 +173,7 @@ class AbstractMatchContext(object):
     def go_forward_by_bytes(self, base_position, index):
         return base_position + index
     def next_indirect(self, position):
+        assert position < self.end
         return position + 1     # like next(), but can be called indirectly
     def prev_indirect(self, position):
         position -= 1           # like prev(), but can be called indirectly
@@ -212,9 +213,6 @@ class AbstractMatchContext(object):
         if groupnum >= len(fmarks):
             return (-1, -1)
         return (fmarks[groupnum], fmarks[groupnum+1])
-
-    def fresh_copy(self, start):
-        raise NotImplementedError
 
 
 class FixedMatchContext(AbstractMatchContext):
@@ -264,9 +262,6 @@ class BufMatchContext(FixedMatchContext):
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
 
-    def fresh_copy(self, start):
-        return BufMatchContext(self.pattern, self._buffer, start,
-                               self.end, self.flags)
 
 class StrMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a plain string."""
@@ -293,9 +288,6 @@ class StrMatchContext(FixedMatchContext):
     def _real_pos(self, index):
         return index     # overridden by tests
 
-    def fresh_copy(self, start):
-        return StrMatchContext(self.pattern, self._string, start,
-                               self.end, self.flags)
 
 class UnicodeMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a unicode string."""

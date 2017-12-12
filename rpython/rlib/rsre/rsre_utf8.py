@@ -27,10 +27,6 @@ class Utf8MatchContext(AbstractMatchContext):
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
 
-    def fresh_copy(self, start):
-        return Utf8MatchContext(self.pattern, self._utf8, start,
-                                self.end, self.flags)
-
     def next(self, position):
         return rutf8.next_codepoint_pos(self._utf8, position)
     next_indirect = next

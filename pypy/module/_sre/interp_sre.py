@@ -156,6 +156,19 @@ class W_SRE_Pattern(W_Root):
             return rsre_core.BufMatchContext(self.code, buf,
                                              pos, endpos, self.flags)
 
+    def fresh_copy(self, ctx, start):
+        if isinstance(ctx, rsre_utf8.Utf8MatchContext):
+            result = rsre_utf8.Utf8MatchContext(
+                ctx.pattern, ctx._utf8, start, ctx.end, ctx.flags)
+            result.w_unicode_obj = ctx.w_unicode_obj
+            return result
+        if isinstance(ctx, rsre_core.StrMatchContext):
+            return self._make_str_match_context(ctx._string, start, ctx.end)
+        if isinstance(ctx, rsre_core.BufMatchContext):
+            return rsre_core.BufMatchContext(
+                ctx.pattern, ctx._buffer, start, ctx.end, ctx.flags)
+        raise AssertionError("bad ctx type")
+
     def _make_str_match_context(self, str, pos, endpos):
         # for tests to override
         return rsre_core.StrMatchContext(self.code, str,
@@ -182,7 +195,7 @@ class W_SRE_Pattern(W_Root):
         space = self.space
         matchlist_w = []
         ctx = self.make_ctx(w_string, pos, endpos)
-        while ctx.match_start <= ctx.end:
+        while True:
             if not searchcontext(space, ctx):
                 break
             num_groups = self.num_groups
@@ -201,6 +214,8 @@ class W_SRE_Pattern(W_Root):
             matchlist_w.append(w_item)
             reset_at = ctx.match_end
             if ctx.match_start == ctx.match_end:
+                if reset_at == ctx.end:
+                    break
                 reset_at = ctx.next_indirect(reset_at)
             ctx.reset(reset_at)
         return space.newlist(matchlist_w)
@@ -321,9 +336,6 @@ class W_SRE_Pattern(W_Root):
                 _sub_append_slice(
                     ctx, space, use_builder, sublist_w,
                     strbuilder, last_pos, ctx.match_start)
-            start = ctx.match_end
-            if start == ctx.match_start:
-                start = ctx.next_indirect(start)
             if not (last_pos == ctx.match_start
                              == ctx.match_end and n > 0):
                 # the above ignores empty matches on latest position
@@ -345,6 +357,12 @@ class W_SRE_Pattern(W_Root):
                 n += 1
             elif last_pos >= ctx.end:
                 break    # empty match at the end: finished
+
+            start = ctx.match_end
+            if start == ctx.match_start:
+                if start == ctx.end:
+                    break
+                start = ctx.next_indirect(start)
             ctx.reset(start)
 
         if last_pos < ctx.end:
@@ -663,40 +681,52 @@ class W_SRE_Scanner(W_Root):
         self.srepat = pattern
         self.ctx = ctx
         # 'self.ctx' is always a fresh context in which no searching
-        # or matching succeeded so far.
+        # or matching succeeded so far.  It is None when the iterator is
+        # exhausted.
 
     def iter_w(self):
         return self
 
     def next_w(self):
-        if self.ctx.match_start > self.ctx.end:
+        if self.ctx is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         if not searchcontext(self.space, self.ctx):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         return self.getmatch(True)
 
     def match_w(self):
-        if self.ctx.match_start > self.ctx.end:
+        if self.ctx is None:
             return self.space.w_None
         return self.getmatch(matchcontext(self.space, self.ctx))
 
     def search_w(self):
-        if self.ctx.match_start > self.ctx.end:
+        if self.ctx is None:
             return self.space.w_None
         return self.getmatch(searchcontext(self.space, self.ctx))
 
     def getmatch(self, found):
+        ctx = self.ctx
+        assert ctx is not None
         if found:
-            ctx = self.ctx
             nextstart = ctx.match_end
+            exhausted = False
             if ctx.match_start == nextstart:
-                nextstart = ctx.next_indirect(nextstart)
-            self.ctx = ctx.fresh_copy(nextstart)
+                if nextstart == ctx.end:
+                    exhausted = True
+                else:
+                    nextstart = ctx.next_indirect(nextstart)
+            if exhausted:
+                self.ctx = None
+            else:
+                self.ctx = self.srepat.fresh_copy(ctx, nextstart)
             match = W_SRE_Match(self.srepat, ctx)
             return match
         else:
             # obscure corner case
-            self.ctx.match_start = self.ctx.next_indirect(self.ctx.match_start)
+            if ctx.match_start == ctx.end:
+                self.ctx = None
+            else:
+                ctx.match_start = ctx.next_indirect(ctx.match_start)
             return None
 
 W_SRE_Scanner.typedef = TypeDef(

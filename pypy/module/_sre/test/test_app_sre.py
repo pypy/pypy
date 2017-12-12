@@ -28,8 +28,10 @@ def _test_sre_ctx_(self, str, start, end):
     # we're accepting or escaping a Position to app-level, which we
     # should not: Positions are meant to be byte indexes inside a
     # possibly UTF8 string, not character indexes.
-    start = support.Position(start)
-    end = support.Position(end)
+    if not isinstance(start, support.Position):
+        start = support.Position(start)
+    if not isinstance(end, support.Position):
+        end = support.Position(end)
     return support.MatchContextForTests(self.code, str, start, end, self.flags)
 
 def _bytepos_to_charindex(self, bytepos):
@@ -140,6 +142,9 @@ class AppTestSrePattern:
         assert ['', 'a', 'l', 'a', 'lla'] == re.split("b(a)", "balballa")
         assert ['', 'a', None, 'l', 'u', None, 'lla'] == (
             re.split("b([ua]|(s))", "balbulla"))
+        assert ["abc"] == re.split("", "abc")
+        assert ["abc"] == re.split("X?", "abc")
+        assert ["a", "c"] == re.split("b?", "abc")
 
     def test_weakref(self):
         import re, _weakref
@@ -253,6 +258,7 @@ class AppTestSreMatch:
         assert "rbd\nbr\n" == re.sub("a(.)", r"b\1\n", "radar")
         assert ("rbd\nbr\n", 2) == re.subn("a(.)", r"b\1\n", "radar")
         assert ("bbbba", 2) == re.subn("a", "b", "ababa", 2)
+        assert "XaXbXcX" == re.sub("", "X", "abc")
 
     def test_sub_unicode(self):
         import re
