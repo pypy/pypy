@@ -3,6 +3,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rutf8 import StringBuilder, Utf8StringBuilder
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -54,13 +55,13 @@ W_StringBuilder.typedef.acceptable_as_base_class = False
 class W_UnicodeBuilder(W_Root):
     def __init__(self, space, size):
         if size < 0:
-            self.builder = StringBuilder()
+            self.builder = Utf8StringBuilder()
         else:
-            self.builder = StringBuilder(size)
+            self.builder = Utf8StringBuilder(size)
 
     @unwrap_spec(size=int)
     def descr__new__(space, w_subtype, size=-1):
-        return W_UnicodeBuilder(space, size)
+        return W_UnicodeBuilder(space, 3 * size)
 
     @unwrap_spec(s='utf8')
     def descr_append(self, space, s):
@@ -76,7 +77,7 @@ class W_UnicodeBuilder(W_Root):
         self.builder.append_slice(w_unicode._utf8, byte_start, byte_end)
 
     def descr_build(self, space):
-        w_s = space.newtext(self.builder.build())
+        w_s = space.newutf8(self.builder.build(), self.builder.get_length())
         # after build(), we can continue to append more strings
         # to the same builder.  This is supported since
         # 2ff5087aca28 in RPython.

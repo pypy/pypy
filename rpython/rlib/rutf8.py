@@ -407,10 +407,10 @@ def _check_utf8(s, allow_surrogates, start, stop):
             continue
 
         return ~(pos - 1)
-
     assert pos == end
-    assert pos - continuation_bytes >= 0
-    return pos - continuation_bytes
+    result = pos - continuation_bytes - start
+    assert result >= 0
+    return result
 
 def has_surrogates(utf8):
     # XXX write a faster version maybe

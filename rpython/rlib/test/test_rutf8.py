@@ -29,7 +29,6 @@ def test_check_ascii(s):
     else:
         assert not raised
 
-@settings(max_examples=10000)
 @given(strategies.binary(), strategies.booleans())
 @example('\xf1\x80\x80\x80', False)
 def test_check_utf8(s, allow_surrogates):
@@ -38,6 +37,13 @@ def test_check_utf8(s, allow_surrogates):
 @given(strategies.text(), strategies.booleans())
 def test_check_utf8_valid(u, allow_surrogates):
     _test_check_utf8(u.encode('utf-8'), allow_surrogates)
+
+@given(strategies.binary(), strategies.text(), strategies.binary())
+def test_check_utf8_slice(a, b, c):
+    start = len(a)
+    b_utf8 = b.encode('utf-8')
+    end = start + len(b_utf8)
+    assert rutf8.check_utf8(a + b_utf8 + c, False, start, end) == len(b)
 
 def _has_surrogates(s):
     for u in s.decode('utf8'):
