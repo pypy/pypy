@@ -49,7 +49,7 @@ class AppTestStruct(object):
         assert calcsize('=Q') == 8
         assert calcsize('<f') == 4
         assert calcsize('>d') == 8
-        assert calcsize('<d') == 2
+        assert calcsize('<e') == 2
         assert calcsize('!13s') == 13
         assert calcsize('=500p') == 500
         # test with some repetitions and multiple format characters
