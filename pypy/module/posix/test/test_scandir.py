@@ -207,3 +207,10 @@ class AppTestScandir(object):
             del iterator
             gc.collect()
         assert not l
+
+    def test_lstat(self):
+        posix = self.posix
+        d = next(posix.scandir())
+        with open(d) as fp:
+            length = len(fp.read())
+        assert posix.lstat(d).st_size == length

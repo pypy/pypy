@@ -6,6 +6,7 @@ from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, generic_new_descr)
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
+from pypy.module.posix import interp_posix
 
 
 class Cache:
@@ -25,7 +26,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if not (space.isinstance_w(w_file, space.w_unicode) or
             space.isinstance_w(w_file, space.w_bytes) or
             space.isinstance_w(w_file, space.w_int)):
-        raise oefmt(space.w_TypeError, "invalid file: %R", w_file)
+        w_file = interp_posix.fspath(space, w_file)
 
     reading = writing = creating = appending = updating = text = binary = universal = False
 
