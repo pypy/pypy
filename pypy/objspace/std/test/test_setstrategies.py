@@ -1,5 +1,3 @@
-
-import py
 from pypy.objspace.std.setobject import W_SetObject
 from pypy.objspace.std.setobject import (
     BytesIteratorImplementation, BytesSetStrategy, EmptySetStrategy,

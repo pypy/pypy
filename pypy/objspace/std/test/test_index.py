@@ -1,7 +1,5 @@
 from py.test import raises
 
-from rpython.rlib import rutf8
-
 class AppTest_IndexProtocol:
     def setup_class(self):
         w_oldstyle = self.space.appexec([], """():

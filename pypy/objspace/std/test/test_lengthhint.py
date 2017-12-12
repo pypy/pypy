@@ -1,6 +1,3 @@
-
-from rpython.rlib import rutf8
-
 from pypy.module._collections.interp_deque import W_Deque
 from pypy.module.itertools.interp_itertools import W_Repeat
 
