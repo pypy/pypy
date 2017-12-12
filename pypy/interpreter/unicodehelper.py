@@ -356,7 +356,7 @@ def hexescape(builder, s, pos, digits,
         builder.append(res)
     else:
         try:
-            chr = r_uint(int(s[pos:pos + digits], 16))
+            chr = int(s[pos:pos + digits], 16)
         except ValueError:
             endinpos = pos
             while s[endinpos] in hexdigits:
