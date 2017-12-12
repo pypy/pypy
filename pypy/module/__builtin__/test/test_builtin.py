@@ -404,6 +404,7 @@ class AppTestBuiltinApp:
 
 
     def test_cmp(self):
+        assert cmp(float('nan'), float('nan')) == 0
         assert cmp(9,9) == 0
         assert cmp(0,9) < 0
         assert cmp(9,0) > 0

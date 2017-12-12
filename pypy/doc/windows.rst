@@ -11,7 +11,7 @@ for a full 64bit translation.
 
 To build pypy-c you need a working python environment, and a C compiler.
 It is possible to translate with a CPython 2.6 or later, but this is not
-the preferred way, because it will take a lot longer to run – depending
+the preferred way, because it will take a lot longer to run â€“ depending
 on your architecture, between two and three times as long. So head to
 `our downloads`_ and get the latest stable version.
 
@@ -103,6 +103,7 @@ or whatever is appropriate for your machine. Note that this is not enough, you
 must also copy the ``vcvarsall.bat`` file fron the ``...\9.0`` directory to the
 ``...\9.0\VC`` directory, and edit it, changing the lines that set
 ``VCINSTALLDIR`` and ``WindowsSdkDir``::
+
     set VCINSTALLDIR=%~dp0\
     set WindowsSdkDir=%~dp0\..\WinSDK\
 
