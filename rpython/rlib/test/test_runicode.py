@@ -284,6 +284,11 @@ class TestDecoding(UnicodeTests):
                 errorhandler, allow_surrogates=False)
         assert replace_with(u'rep', None) == u'<rep>'.encode('utf-32-be')
         assert replace_with(None, '\xca\xfe\xca\xfe') == '\x00\x00\x00<\xca\xfe\xca\xfe\x00\x00\x00>'
+        #
+        assert runicode.str_decode_utf_32_be(
+            b"\x00\x00\xdc\x80", 4, None) == (u'\udc80', 4)
+        py.test.raises(UnicodeDecodeError, runicode.py3k_str_decode_utf_32_be,
+                       b"\x00\x00\xdc\x80", 4, None)
 
     def test_utf7_bugs(self):
         u = u'A\u2262\u0391.'
