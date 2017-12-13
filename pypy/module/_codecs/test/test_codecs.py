@@ -778,6 +778,18 @@ class AppTestPartialEvaluation:
                 '[]'.encode(encoding))
             assert (u'[\udc80]'.encode(encoding, "replace") ==
                 '[?]'.encode(encoding))
+        for encoding, ill_surrogate in [('utf-8', b'\xed\xb2\x80'),
+                                        ('utf-16-le', b'\x80\xdc'),
+                                        ('utf-16-be', b'\xdc\x80'),
+                                        ('utf-32-le', b'\x80\xdc\x00\x00'),
+                                        ('utf-32-be', b'\x00\x00\xdc\x80')]:
+            print(encoding)
+            before, after = "[", "]"
+            before_sequence = before.encode(encoding)
+            after_sequence = after.encode(encoding)
+            test_string = before + "\uDC80" + after
+            test_sequence = before_sequence + ill_surrogate + after_sequence
+            raises(UnicodeDecodeError, test_sequence.decode, encoding)
 
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == b'xxx'
