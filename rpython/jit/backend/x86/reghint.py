@@ -148,6 +148,20 @@ class X86RegisterHints(object):
     consider_call_f = _consider_real_call
     consider_call_n = _consider_real_call
 
+    def _consider_call_may_force(self, op, position):
+        self._consider_call(op, position, guard_not_forced=True)
+    consider_call_may_force_i = _consider_call_may_force
+    consider_call_may_force_r = _consider_call_may_force
+    consider_call_may_force_f = _consider_call_may_force
+    consider_call_may_force_n = _consider_call_may_force
+
+    def _consider_call_release_gil(self, op, position):
+        # [Const(save_err), func_addr, args...]
+        self._consider_call(op, position, guard_not_forced=True, first_arg_index=2)
+    consider_call_release_gil_i = _consider_call_release_gil
+    consider_call_release_gil_f = _consider_call_release_gil
+    consider_call_release_gil_n = _consider_call_release_gil
+
 oplist = [X86RegisterHints.not_implemented_op] * rop._LAST
 
 for name, value in X86RegisterHints.__dict__.iteritems():
