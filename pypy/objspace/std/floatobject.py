@@ -620,10 +620,10 @@ class W_FloatObject(W_Root):
             num, den = float_as_rbigint_ratio(value)
         except OverflowError:
             raise oefmt(space.w_OverflowError,
-                        "cannot pass infinity to as_integer_ratio()")
+                        "cannot convert Infinity to integer ratio")
         except ValueError:
             raise oefmt(space.w_ValueError,
-                        "cannot pass nan to as_integer_ratio()")
+                        "cannot convert NaN to integer ratio")
 
         w_num = space.newlong_from_rbigint(num)
         w_den = space.newlong_from_rbigint(den)
