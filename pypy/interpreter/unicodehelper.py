@@ -172,19 +172,22 @@ def decode_utf8sp(space, string):
 def str_decode_utf_32(s, size, errors, final=True,
                            errorhandler=None):
     result, length, byteorder = str_decode_utf_32_helper(
-        s, size, errors, final, errorhandler, "native", 'utf-32-' + BYTEORDER2)
+        s, size, errors, final, errorhandler, "native", 'utf-32-' + BYTEORDER2,
+        allow_surrogates=False)
     return result, length
 
 def str_decode_utf_32_be(s, size, errors, final=True,
                               errorhandler=None):
     result, length, byteorder = str_decode_utf_32_helper(
-        s, size, errors, final, errorhandler, "big", 'utf-32-be')
+        s, size, errors, final, errorhandler, "big", 'utf-32-be',
+        allow_surrogates=False)
     return result, length
 
 def str_decode_utf_32_le(s, size, errors, final=True,
                               errorhandler=None):
     result, length, byteorder = str_decode_utf_32_helper(
-        s, size, errors, final, errorhandler, "little", 'utf-32-le')
+        s, size, errors, final, errorhandler, "little", 'utf-32-le',
+        allow_surrogates=False)
     return result, length
 
 BOM32_DIRECT = intmask(0x0000FEFF)
@@ -193,7 +196,8 @@ BOM32_REVERSE = intmask(0xFFFE0000)
 def str_decode_utf_32_helper(s, size, errors, final=True,
                              errorhandler=None,
                              byteorder="native",
-                             public_encoding_name='utf32'):
+                             public_encoding_name='utf32',
+                             allow_surrogates=True):
     if errorhandler is None:
         errorhandler = default_unicode_error_decode
     bo = 0
@@ -256,10 +260,17 @@ def str_decode_utf_32_helper(s, size, errors, final=True,
             continue
         ch = ((ord(s[pos + iorder[3]]) << 24) | (ord(s[pos + iorder[2]]) << 16) |
             (ord(s[pos + iorder[1]]) << 8) | ord(s[pos + iorder[0]]))
-        if ch >= 0x110000:
+        if not allow_surrogates and 0xD800 <= ch <= 0xDFFF:
+            r, pos = errorhandler(errors, public_encoding_name,
+                                  "code point in surrogate code point "
+                                  "range(0xd800, 0xe000)",
+                                  s, pos, pos + 4)
+            result.append(r)
+            continue
+        elif ch >= 0x110000:
             r, pos = errorhandler(errors, public_encoding_name,
                                   "codepoint not in range(0x110000)",
-                                  s, pos, len(s))
+                                  s, pos, pos + 4)
             result.append(r)
             continue
 

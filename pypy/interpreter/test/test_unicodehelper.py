@@ -2,7 +2,7 @@ import py
 import pytest
 import struct
 from pypy.interpreter.unicodehelper import (
-    encode_utf8, decode_utf8, unicode_encode_utf_32_be)
+    encode_utf8, decode_utf8, unicode_encode_utf_32_be, str_decode_utf_32_be)
 from pypy.interpreter.unicodehelper import encode_utf8sp, decode_utf8sp
 
 
@@ -90,3 +90,6 @@ def test_utf32_surrogates(unich):
     assert replace_with(u'rep', None) == u'<rep>'.encode('utf-32-be')
     assert (replace_with(None, '\xca\xfe\xca\xfe') ==
             '\x00\x00\x00<\xca\xfe\xca\xfe\x00\x00\x00>')
+
+    with pytest.raises(UnicodeDecodeError):
+        str_decode_utf_32_be(b"\x00\x00\xdc\x80", 4, None)
