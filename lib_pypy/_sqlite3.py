@@ -930,7 +930,9 @@ class Cursor(object):
                         self.__rowcount = 0
                     self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
 
-                if not multiple and self.__statement._type == _STMT_TYPE_INSERT:
+                if not multiple and self.__statement._type in (
+                        # REPLACE is an alias for INSERT OR REPLACE
+                        _STMT_TYPE_INSERT, _STMT_TYPE_REPLACE):
                     self.__lastrowid = _lib.sqlite3_last_insert_rowid(self.__connection._db)
                 else:
                     self.__lastrowid = None
