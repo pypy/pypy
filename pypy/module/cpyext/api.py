@@ -550,7 +550,7 @@ SYMBOLS_C = [
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
     'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
-    'PyUnicode_GetSize', 'PyUnicode_GetLength',
+    'PyUnicode_GetSize', 'PyUnicode_GetLength', 'PyUnicode_FromWideChar',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'PyModule_GetDef', 'PyModuleDef_Init', 'PyModule_GetState',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',

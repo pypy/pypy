@@ -475,13 +475,6 @@ def PyUnicode_FromUnicode(space, wchar_p, length):
     else:
         return new_empty_unicode(space, length)
 
-@cpython_api([CONST_WSTRING, Py_ssize_t], PyObject, result_is_ll=True)
-def PyUnicode_FromWideChar(space, wchar_p, length):
-    """Create a Unicode object from the wchar_t buffer w of the given size.
-    Return NULL on failure."""
-    # PyPy supposes Py_UNICODE == wchar_t
-    return PyUnicode_FromUnicode(space, wchar_p, length)
-
 @cpython_api([PyObject, CONST_STRING], PyObject)
 def _PyUnicode_AsDefaultEncodedString(space, w_unicode, errors):
     return PyUnicode_AsEncodedString(space, w_unicode, lltype.nullptr(rffi.CCHARP.TO), errors)
