@@ -28,6 +28,30 @@ class W_BaseCPyObject(W_ObjectObject):
 
     _cpy_ref = lltype.nullptr(PyObject.TO)
 
+    def _cpyext_as_pyobj(self, space):
+        return self._cpy_ref
+
+    def _cpyext_attach_pyobj(self, space, py_obj):
+        self._cpy_ref = py_obj
+        rawrefcount.create_link_pyobj(self, py_obj)
+
+def check_true(s_arg, bookeeper):
+    assert s_arg.const is True
+
+def w_root_as_pyobj(w_obj, space):
+    from rpython.rlib.debug import check_annotation
+    # make sure that translation crashes if we see this while not translating
+    # with cpyext
+    check_annotation(space.config.objspace.usemodules.cpyext, check_true)
+    # default implementation of _cpyext_as_pyobj
+    return rawrefcount.from_obj(PyObject, w_obj)
+
+def w_root_attach_pyobj(w_obj, space, py_obj):
+    from rpython.rlib.debug import check_annotation
+    check_annotation(space.config.objspace.usemodules.cpyext, check_true)
+    assert space.config.objspace.usemodules.cpyext
+    # default implementation of _cpyext_attach_pyobj
+    rawrefcount.create_link_pypy(w_obj, py_obj)
 
 class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
@@ -206,7 +230,7 @@ def track_reference(space, py_obj, w_obj):
     # XXX looks like a PyObject_GC_TRACK
     assert py_obj.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY
     py_obj.c_ob_refcnt += rawrefcount.REFCNT_FROM_PYPY
-    rawrefcount.create_link_pypy(w_obj, py_obj)
+    w_obj._cpyext_attach_pyobj(space, py_obj)
 
 
 w_marker_deallocating = W_Root()
@@ -260,12 +284,7 @@ def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
     """
     assert not is_pyobj(w_obj)
     if w_obj is not None:
-        if isinstance(w_obj, W_BaseCPyObject):
-            py_obj = w_obj._cpy_ref
-            if not we_are_translated():
-                assert py_obj == rawrefcount.from_obj(PyObject, w_obj)
-        else:
-            py_obj = rawrefcount.from_obj(PyObject, w_obj)
+        py_obj = w_obj._cpyext_as_pyobj(space)
         if not py_obj:
             py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
         #
