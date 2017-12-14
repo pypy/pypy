@@ -21,6 +21,14 @@ from rpython.rlib.debug import ll_assert, fatalerror
 #________________________________________________________
 # type description
 
+class W_BaseCPyObject(W_ObjectObject):
+    """ A subclass of W_ObjectObject that has one field for directly storing
+    the link from the w_obj to the cpy ref. This is only used for C-defined
+    types. """
+
+    _cpy_ref = lltype.nullptr(PyObject.TO)
+
+
 class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
     W_BaseObject = W_ObjectObject
@@ -66,8 +74,12 @@ class BaseCpyTypedescr(object):
 
     def realize(self, space, obj):
         w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+        assert isinstance(w_type, W_TypeObject)
         try:
-            w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+            if w_type.flag_cpytype:
+                w_obj = space.allocate_instance(W_BaseCPyObject, w_type)
+            else:
+                w_obj = space.allocate_instance(self.W_BaseObject, w_type)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_SystemError,
@@ -76,6 +88,9 @@ class BaseCpyTypedescr(object):
                             w_type)
             raise
         track_reference(space, obj, w_obj)
+        if w_type.flag_cpytype:
+            assert isinstance(w_obj, W_BaseCPyObject)
+            w_obj._cpy_ref = obj
         return w_obj
 
 typedescr_cache = {}
@@ -186,7 +201,7 @@ def track_reference(space, py_obj, w_obj):
     Ties together a PyObject and an interpreter object.
     The PyObject's refcnt is increased by REFCNT_FROM_PYPY.
     The reference in 'py_obj' is not stolen!  Remember to decref()
-    it is you need to.
+    it if you need to.
     """
     # XXX looks like a PyObject_GC_TRACK
     assert py_obj.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY
@@ -237,7 +252,7 @@ def from_ref(space, ref):
 @jit.dont_look_inside
 def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
     """
-    Returns a 'PyObject *' representing the given intepreter object.
+    Returns a 'PyObject *' representing the given interpreter object.
     This doesn't give a new reference, but the returned 'PyObject *'
     is valid at least as long as 'w_obj' is.  **To be safe, you should
     use keepalive_until_here(w_obj) some time later.**  In case of
@@ -245,7 +260,12 @@ def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
     """
     assert not is_pyobj(w_obj)
     if w_obj is not None:
-        py_obj = rawrefcount.from_obj(PyObject, w_obj)
+        if isinstance(w_obj, W_BaseCPyObject):
+            py_obj = w_obj._cpy_ref
+            if not we_are_translated():
+                assert py_obj == rawrefcount.from_obj(PyObject, w_obj)
+        else:
+            py_obj = rawrefcount.from_obj(PyObject, w_obj)
         if not py_obj:
             py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
         #

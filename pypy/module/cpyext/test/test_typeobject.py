@@ -3,10 +3,21 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import generic_cpy_call
-from pypy.module.cpyext.pyobject import make_ref, from_ref, decref
+from pypy.module.cpyext.pyobject import make_ref, from_ref, decref, as_pyobj
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
+
+    def setup_class(cls):
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        def _check_uses_shortcut(w_inst):
+            from pypy.module.cpyext.pyobject import W_BaseCPyObject
+            assert isinstance(w_inst, W_BaseCPyObject)
+            assert w_inst._cpy_ref
+            assert as_pyobj(cls.space, w_inst) == w_inst._cpy_ref
+        cls.w__check_uses_shortcut = cls.space.wrap(
+            gateway.interp2app(_check_uses_shortcut))
+
     def test_typeobject(self):
         import sys
         module = self.import_module(name='foo')
@@ -156,6 +167,14 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 return self
         assert fuu2(u"abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
+
+    def test_shortcut(self):
+        # test that instances of classes that are defined in C become an
+        # instance of W_BaseCPyObject and thus can be converted faster back to
+        # their pyobj, because they store a pointer to it directly.
+        module = self.import_module(name='foo')
+        obj = module.fooType()
+        self._check_uses_shortcut(obj)
 
     def test_multiple_inheritance1(self):
         module = self.import_module(name='foo')
