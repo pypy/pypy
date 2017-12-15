@@ -480,8 +480,8 @@ def sleep(space, w_secs):
             with lltype.scoped_alloc(TIMEVAL) as t:
                 seconds = ns // SECS_TO_NS
                 us = (ns % SECS_TO_NS) // US_TO_NS
-                rffi.setintfield(t, 'c_tv_sec', seconds)
-                rffi.setintfield(t, 'c_tv_usec', us)
+                rffi.setintfield(t, 'c_tv_sec', int(seconds))
+                rffi.setintfield(t, 'c_tv_usec', int(us))
 
                 res = rffi.cast(rffi.LONG, c_select(0, void, void, void, t))
             if res == 0:
