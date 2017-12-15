@@ -11,10 +11,9 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
         def _check_uses_shortcut(w_inst):
-            from pypy.module.cpyext.pyobject import W_BaseCPyObject
-            assert isinstance(w_inst, W_BaseCPyObject)
-            assert w_inst._cpy_ref
-            assert as_pyobj(cls.space, w_inst) == w_inst._cpy_ref
+            res = hasattr(w_inst, "_cpy_ref") and w_inst._cpy_ref
+            res = res and as_pyobj(cls.space, w_inst) == w_inst._cpy_ref
+            return cls.space.newbool(res)
         cls.w__check_uses_shortcut = cls.space.wrap(
             gateway.interp2app(_check_uses_shortcut))
 
@@ -174,7 +173,16 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         # their pyobj, because they store a pointer to it directly.
         module = self.import_module(name='foo')
         obj = module.fooType()
-        self._check_uses_shortcut(obj)
+        assert self._check_uses_shortcut(obj)
+        # W_TypeObjects use shortcut
+        assert self._check_uses_shortcut(object)
+        assert self._check_uses_shortcut(type)
+        # None, True, False use shortcut
+        assert self._check_uses_shortcut(None)
+        assert self._check_uses_shortcut(True)
+        assert self._check_uses_shortcut(False)
+        assert not self._check_uses_shortcut(1)
+        assert not self._check_uses_shortcut(object())
 
     def test_multiple_inheritance1(self):
         module = self.import_module(name='foo')

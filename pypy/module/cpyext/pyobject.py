@@ -10,6 +10,8 @@ from pypy.module.cpyext.api import (
     PyVarObject, Py_ssize_t, init_function, cts)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -26,14 +28,6 @@ class W_BaseCPyObject(W_ObjectObject):
     the link from the w_obj to the cpy ref. This is only used for C-defined
     types. """
 
-    _cpy_ref = lltype.nullptr(PyObject.TO)
-
-    def _cpyext_as_pyobj(self, space):
-        return self._cpy_ref
-
-    def _cpyext_attach_pyobj(self, space, py_obj):
-        self._cpy_ref = py_obj
-        rawrefcount.create_link_pyobj(self, py_obj)
 
 def check_true(s_arg, bookeeper):
     assert s_arg.const is True
@@ -52,6 +46,28 @@ def w_root_attach_pyobj(w_obj, space, py_obj):
     assert space.config.objspace.usemodules.cpyext
     # default implementation of _cpyext_attach_pyobj
     rawrefcount.create_link_pypy(w_obj, py_obj)
+
+
+def add_direct_pyobj_storage(cls):
+    """ Add the necessary methods to a class to store a reference to the py_obj
+    on its instances directly. """
+
+    cls._cpy_ref = lltype.nullptr(PyObject.TO)
+
+    def _cpyext_as_pyobj(self, space):
+        return self._cpy_ref
+    cls._cpyext_as_pyobj = _cpyext_as_pyobj
+
+    def _cpyext_attach_pyobj(self, space, py_obj):
+        self._cpy_ref = py_obj
+        rawrefcount.create_link_pyobj(self, py_obj)
+    cls._cpyext_attach_pyobj = _cpyext_attach_pyobj
+
+add_direct_pyobj_storage(W_BaseCPyObject)
+add_direct_pyobj_storage(W_TypeObject)
+add_direct_pyobj_storage(W_NoneObject)
+add_direct_pyobj_storage(W_BoolObject)
+
 
 class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
