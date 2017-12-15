@@ -92,8 +92,6 @@ class Module(MixedModule):
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
         'set_code_callback'         : 'interp_magic.set_code_callback',
-        'save_module_content_for_future_reload':
-                          'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
         '_promote'                   : 'interp_magic._promote',
         'normalize_exc'             : 'interp_magic.normalize_exc',
@@ -131,7 +129,7 @@ class Module(MixedModule):
                 raise
             else:
                 pass   # ok fine to ignore in this case
-        
+
         if self.space.config.translation.jit:
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',
