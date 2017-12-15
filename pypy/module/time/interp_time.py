@@ -3,10 +3,12 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import (OperationError, oefmt,
         strerror as _strerror, exception_from_saved_errno)
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter import timeutils
+from pypy.interpreter.timeutils import (
+    SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
 from pypy.interpreter.unicodehelper import decode_utf8, encode_utf8
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat, widen
+from rpython.rlib.rarithmetic import (
+    intmask, r_ulonglong, r_longfloat, widen, ovfcheck, ovfcheck_float_to_int)
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
@@ -452,25 +454,22 @@ if not _WIN:
     from rpython.rlib.rtime import c_select
 from rpython.rlib import rwin32
 
-@unwrap_spec(secs=float)
-def sleep(space, secs):
-    if secs < 0:
+def sleep(space, w_secs):
+    ns = timestamp_w(space, w_secs)
+    if not (ns >= 0):
         raise oefmt(space.w_ValueError,
                     "sleep length must be non-negative")
-    end_time = timeutils.monotonic(space) + secs
+    end_time = _monotonic(space) + float(ns) / SECS_TO_NS
     while True:
         if _WIN:
             # as decreed by Guido, only the main thread can be
             # interrupted.
             main_thread = space.fromcache(State).main_thread
             interruptible = (main_thread == thread.get_ident())
-            millisecs = int(secs * 1000)
+            millisecs = ns // MS_TO_NS
             if millisecs == 0 or not interruptible:
-                rtime.sleep(secs)
+                rtime.sleep(float(ns) / SECS_TO_NS)
                 break
-            MAX = int(sys.maxint / 1000)  # > 24 days
-            if millisecs > MAX:
-                millisecs = MAX
             interrupt_event = space.fromcache(State).get_interrupt_event()
             rwin32.ResetEvent(interrupt_event)
             rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
@@ -479,9 +478,10 @@ def sleep(space, secs):
         else:
             void = lltype.nullptr(rffi.VOIDP.TO)
             with lltype.scoped_alloc(TIMEVAL) as t:
-                frac = math.fmod(secs, 1.0)
-                rffi.setintfield(t, 'c_tv_sec', int(secs))
-                rffi.setintfield(t, 'c_tv_usec', int(frac*1000000.0))
+                seconds = ns // SECS_TO_NS
+                us = (ns % SECS_TO_NS) // US_TO_NS
+                rffi.setintfield(t, 'c_tv_sec', seconds)
+                rffi.setintfield(t, 'c_tv_usec', us)
 
                 res = rffi.cast(rffi.LONG, c_select(0, void, void, void, t))
             if res == 0:
@@ -489,8 +489,8 @@ def sleep(space, secs):
             if rposix.get_saved_errno() != EINTR:
                 raise exception_from_saved_errno(space, space.w_OSError)
         space.getexecutioncontext().checksignals()
-        secs = end_time - timeutils.monotonic(space)   # retry
-        if secs <= 0.0:
+        secs = end_time - _monotonic(space)   # retry
+        if secs <= 0:
             break
 
 def _get_module_object(space, obj_name):
