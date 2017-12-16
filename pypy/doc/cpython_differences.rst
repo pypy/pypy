@@ -355,7 +355,11 @@ is always False, as the bit patterns are different.  As usual,
 containers (as list items or in sets for example), the exact rule of
 equality used is "``if x is y or x == y``" (on both CPython and PyPy);
 as a consequence, because all ``nans`` are identical in PyPy, you
-cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__)
+cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__).
+Another consequence is that ``cmp(float('nan'), float('nan')) == 0``, because
+``cmp`` checks with ``is`` first whether the arguments are identical (there is
+no good value to return from this call to ``cmp``, because ``cmp`` pretends
+that there is a total order on floats, but that is wrong for NaNs).
 
 .. __: https://bitbucket.org/pypy/pypy/issue/1974/different-behaviour-for-collections-of
 

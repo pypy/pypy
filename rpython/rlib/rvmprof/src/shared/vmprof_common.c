@@ -4,6 +4,9 @@
 #include <errno.h>
 
 #ifdef RPYTHON_VMPROF
+
+int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, intptr_t pc);
+
 #ifdef RPYTHON_LL2CTYPES
    /* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
 
@@ -32,11 +35,20 @@ static pthread_t *threads = NULL;
 static size_t threads_size = 0;
 static size_t thread_count = 0;
 static size_t threads_size_step = 8;
-#endif
 
 int vmprof_get_itimer_type(void) {
     return itimer_type;
 }
+
+int vmprof_get_signal_type(void) {
+    return signal_type;
+}
+#endif
+
+#ifdef VMPROF_WINDOWS
+#include "vmprof_win.h"
+#endif
+
 
 int vmprof_is_enabled(void) {
     return is_enabled;
@@ -60,10 +72,6 @@ void vmprof_set_prepare_interval_usec(long value) {
 
 void vmprof_set_profile_interval_usec(long value) {
     profile_interval_usec = value;
-}
-
-int vmprof_get_signal_type(void) {
-    return signal_type;
 }
 
 char *vmprof_init(int fd, double interval, int memory,
@@ -188,7 +196,7 @@ PY_STACK_FRAME_T *get_vmprof_stack(void)
 #endif
 
 intptr_t vmprof_get_traceback(void *stack, void *ucontext,
-                              intptr_t *result_p, intptr_t result_length)
+                              void **result_p, intptr_t result_length)
 {
     int n;
     int enabled;

@@ -113,8 +113,10 @@ class TestPlatform(object):
     def test_environment_inheritance(self):
         # make sure that environment is inherited
         cmd = 'import os; print os.environ["_SOME_VARIABLE_%d"]'
+        env = {'_SOME_VARIABLE_1':'xyz'}
+        env['PATH'] = os.environ['PATH']
         res = self.platform.execute(sys.executable, ['-c', cmd % 1],
-                                    env={'_SOME_VARIABLE_1':'xyz'})
+                                    env=env)
         assert 'xyz' in res.out
         os.environ['_SOME_VARIABLE_2'] = 'zyz'
         try:
@@ -147,10 +149,13 @@ def test_equality():
 
 
 def test_is_host_build():
+    from platform import machine
     from rpython.translator import platform
     assert platform.host == platform.platform
 
     assert platform.is_host_build()
-    platform.set_platform('maemo', None)
-    assert platform.host != platform.platform
-    assert not platform.is_host_build()
+    # do we support non-host builds?
+    if machine().startswith('arm'):
+        platform.set_platform('arm', None)
+        assert platform.host != platform.platform
+        assert not platform.is_host_build()

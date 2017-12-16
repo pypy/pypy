@@ -717,9 +717,9 @@ def rtype_builtin_hasattr(hop):
 @typer_for(OrderedDict)
 @typer_for(objectmodel.r_dict)
 @typer_for(objectmodel.r_ordereddict)
-def rtype_dict_constructor(hop, i_force_non_null=None):
-    # 'i_force_non_null' is ignored here; if it has any effect, it
-    # has already been applied to 'hop.r_result'
+def rtype_dict_constructor(hop, i_force_non_null=None, i_simple_hash_eq=None):
+    # 'i_force_non_null' and 'i_simple_hash_eq' are ignored here; if they have any
+    # effect, it has already been applied to 'hop.r_result'
     hop.exception_cannot_occur()
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)

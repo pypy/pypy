@@ -2,7 +2,7 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.rarithmetic import *
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
-from hypothesis import given, strategies
+from hypothesis import given, strategies, assume
 import sys
 import py
 
@@ -404,8 +404,11 @@ def test_int_force_ge_zero():
 def test_int_c_div_mod(x, y):
     assert int_c_div(~x, y) == -(abs(~x) // y)
     assert int_c_div( x,-y) == -(x // y)
-    if (x, y) == (sys.maxint, 1):
-        py.test.skip("would overflow")
+
+@given(strategies.integers(min_value=0, max_value=sys.maxint),
+       strategies.integers(min_value=1, max_value=sys.maxint))
+def test_int_c_div_mod_2(x, y):
+    assume((x, y) != (sys.maxint, 1))  # This case would overflow
     assert int_c_div(~x,-y) == +(abs(~x) // y)
     for x1 in [x, ~x]:
         for y1 in [y, -y]:

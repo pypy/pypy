@@ -419,8 +419,7 @@ class W_UnicodeObject(W_Root):
                 cased = True
         return space.newbool(cased)
 
-    def _starts_ends_overflow(self, prefix):
-        return len(prefix) == 0
+    _starts_ends_unicode = True
 
 
 def wrapunicode(space, uni):
