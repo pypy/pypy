@@ -122,9 +122,7 @@ def PyErr_BadArgument(space):
     error indicator."""
     raise oefmt(space.w_TypeError, "bad argument type for built-in operation")
 
-# NB. this returns 'void' in CPython, but we can't easily, otherwise the
-# function is supposed not to fail
-@cpython_api([], rffi.INT_real, error=-1)
+@cpython_api([], lltype.Void, error=None)
 def PyErr_BadInternalCall(space):
     raise oefmt(space.w_SystemError, "Bad internal call!")
 
