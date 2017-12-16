@@ -1,3 +1,4 @@
+import pytest
 from rpython.tool.udir import udir
 
 
@@ -228,6 +229,7 @@ class AppTestMarshal:
                    BadReader(marshal.dumps(value)))
 
 
+@pytest.mark.skipif('config.option.runappdirect')
 class AppTestSmallLong(AppTestMarshal):
     spaceconfig = AppTestMarshal.spaceconfig.copy()
     spaceconfig["objspace.std.withsmalllong"] = True
