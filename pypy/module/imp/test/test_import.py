@@ -1210,12 +1210,12 @@ class AppTestWriteBytecode(object):
     }
 
     def setup_class(cls):
-        cls.saved_modules = _setup(cls)
+        cls.w_saved_modules = _setup(cls)
         sandbox = cls.spaceconfig['translation.sandbox']
         cls.w_sandbox = cls.space.wrap(sandbox)
 
     def teardown_class(cls):
-        _teardown(cls.space, cls.saved_modules)
+        _teardown(cls.space, cls.w_saved_modules)
         cls.space.appexec([], """
             ():
                 import sys
@@ -1245,6 +1245,7 @@ class AppTestWriteBytecode(object):
         assert not os.path.exists(c.__cached__)
 
 
+@pytest.mark.skipif('config.option.runappdirect')
 class AppTestWriteBytecodeSandbox(AppTestWriteBytecode):
     spaceconfig = {
         "translation.sandbox": True
