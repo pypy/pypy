@@ -267,3 +267,12 @@ class AppTestTuple(AppTestCpythonExtensionBase):
             raises(SystemError, module.set_after_use, s)
         else:
             module.set_after_use(s)
+
+    def test_badinternalcall_from_c(self):
+        module = self.import_extension('foo', [
+            ("badinternalcall", "METH_O",
+             """
+                return PyTuple_New(-1);
+             """),
+            ])
+        raises(SystemError, module.badinternalcall, None)
