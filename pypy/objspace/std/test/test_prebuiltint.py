@@ -1,5 +1,7 @@
+import pytest
 from pypy.objspace.std.test import test_intobject
 
+@pytest.mark.skipif('config.option.runappdirect')
 class AppTestInt(test_intobject.AppTestInt):
     spaceconfig = {"objspace.std.withprebuiltint": True}
 
