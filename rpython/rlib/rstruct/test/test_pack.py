@@ -138,6 +138,19 @@ class BaseTestPack(PackSupport):
         self.check('f', 123.456)
         self.check('d', 123.456789)
 
+    def test_pack_halffloat(self):
+        if self.fmttable is nativefmttable.native_fmttable:
+            # Host Python cannot handle half floats.
+            return
+        size = 2
+        wbuf = MutableStringBuffer(size)
+        self.mypack_into('e', wbuf, 6.5e+04)
+        got = wbuf.finish()
+        if self.bigendian:
+            assert got == b'\x7b\xef'
+        else:
+            assert got == b'\xef\x7b'
+
     def test_float_overflow(self):
         if self.fmt_prefix == '@':
             # native packing, no overflow

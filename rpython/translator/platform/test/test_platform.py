@@ -113,8 +113,10 @@ class TestPlatform(object):
     def test_environment_inheritance(self):
         # make sure that environment is inherited
         cmd = 'import os; print os.environ["_SOME_VARIABLE_%d"]'
+        env = {'_SOME_VARIABLE_1':'xyz'}
+        env['PATH'] = os.environ['PATH']
         res = self.platform.execute(sys.executable, ['-c', cmd % 1],
-                                    env={'_SOME_VARIABLE_1':'xyz'})
+                                    env=env)
         assert 'xyz' in res.out
         os.environ['_SOME_VARIABLE_2'] = 'zyz'
         try:
