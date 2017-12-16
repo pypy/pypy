@@ -1,3 +1,4 @@
+import pytest
 import sys
 import py
 import pypy
@@ -35,6 +36,7 @@ def test_pypy_collection(testdir):
     ])
 
 class TestSpaceConfig:
+    @pytest.mark.xfail(reason="Can't check config with -A in pypy3")
     def test_applevel_skipped_on_cpython_and_spaceconfig(self, testdir):
         setpypyconftest(testdir)
         testdir.makepyfile("""
