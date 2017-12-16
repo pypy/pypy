@@ -28,10 +28,6 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 ## Then the macro PyTuple_GET_ITEM can be implemented like CPython.
 ##
 
-# CCC: we have a problem in the branch: some of the functions defined in C,
-# like PyTuple_New, might call PyErr_*, but since these are implemented in
-# RPython, they are not GIL-safe. We need to think about it :(
-
 PyTupleObjectStruct = lltype.ForwardReference()
 PyTupleObject = lltype.Ptr(PyTupleObjectStruct)
 ObjectItems = rffi.CArray(PyObject)
