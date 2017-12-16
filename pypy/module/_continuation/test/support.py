@@ -10,4 +10,3 @@ class BaseAppTest:
             import rpython.rlib.rstacklet
         except CompilationError as e:
             py.test.skip("cannot import rstacklet: %s" % e)
-

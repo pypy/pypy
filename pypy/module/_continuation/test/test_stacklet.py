@@ -23,7 +23,7 @@ class AppTestStacklet(BaseAppTest):
                         # frame cycle
                         res.append('...')
                         break
-                    if f.f_code.co_name == 'runtest':
+                    if f.f_code.co_name == '<module>':
                         # if we are running with -A, cut all the stack above
                         # the test function
                         break
@@ -34,9 +34,6 @@ class AppTestStacklet(BaseAppTest):
                 return res
             return stack
        """)
-        if cls.runappdirect:
-            # make sure that "self.stack" does not pass the self
-            cls.w_stack = staticmethod(cls.w_stack.im_func)
 
     def test_new_empty(self):
         from _continuation import continulet
