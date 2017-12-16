@@ -204,6 +204,9 @@ CANNOT_FAIL = CannotFail()
 # id.  Invariant: this variable always contain 0 when the PyPy GIL is
 # released.  It should also contain 0 when regular RPython code
 # executes.  In non-cpyext-related code, it will thus always be 0.
+# When cpyext-related C code runs, it contains the thread id (usually)
+# or the value -1 (only for state.C.PyXxx() functions which are short-
+# running and should not themselves release the GIL).
 #
 # **make_generic_cpy_call():** RPython to C, with the GIL held.  Before
 # the call, must assert that the global variable is 0 and set the
@@ -972,8 +975,14 @@ def make_wrapper_second_level(space, argtypesw, restype,
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
-        _gil_auto = (gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid)
-        if gil_acquire or _gil_auto:
+        _gil_auto = False
+        if gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid:
+            # replace '-1' with the real tid, now that we have the tid
+            if cpyext_glob_tid_ptr[0] == -1:
+                cpyext_glob_tid_ptr[0] = tid
+            else:
+                _gil_auto = True
+        if _gil_auto or gil_acquire:
             if cpyext_glob_tid_ptr[0] == tid:
                 deadlock_error(pname)
             rgil.acquire()

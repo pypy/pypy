@@ -1,5 +1,6 @@
 from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import fatalerror_notb
 from pypy.module.cpyext.api import (
     cpython_api, Py_ssize_t, build_type_checkers_flags,
@@ -56,10 +57,17 @@ def tuple_check_ref(space, ref):
     return (w_type is space.w_tuple or
             space.issubtype_w(w_type, space.w_tuple))
 
+_BAD_ITEMCOUNT = None    # patched in test_badinternalcall_from_rpy
+
 def tuple_alloc(typedescr, space, w_type, itemcount):
     state = space.fromcache(State)
     if w_type is space.w_tuple:
-        return state.C.PyTuple_New(itemcount)
+        if not we_are_translated() and itemcount == _BAD_ITEMCOUNT:
+            itemcount = -42
+        ptup = state.ccall("PyTuple_New", itemcount)
+        if not ptup:
+            state.check_and_raise_exception(always=True)
+        return ptup
     else:
         return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
 
@@ -116,7 +124,9 @@ def tuple_realize(space, py_obj):
 def tuple_from_args_w(space, args_w):
     state = space.fromcache(State)
     n = len(args_w)
-    py_tuple = state.C.PyTuple_New(n) # XXX: check for errors?
+    py_tuple = state.ccall("PyTuple_New", n)
+    if not py_tuple:
+        state.check_and_raise_exception(always=True)
     py_tuple = rffi.cast(PyTupleObject, py_tuple)
     for i, w_obj in enumerate(args_w):
         py_tuple.c_ob_item[i] = make_ref(space, w_obj)
@@ -181,7 +191,10 @@ def _PyTuple_Resize(space, p_ref, newsize):
         PyErr_BadInternalCall(space)
     oldref = rffi.cast(PyTupleObject, ref)
     oldsize = oldref.c_ob_size
-    p_ref[0] = state.C.PyTuple_New(newsize)
+    ptup = state.ccall("PyTuple_New", newsize)
+    if not ptup:
+        state.check_and_raise_exception(always=True)
+    p_ref[0] = ptup
     newref = rffi.cast(PyTupleObject, p_ref[0])
     try:
         if oldsize < newsize:

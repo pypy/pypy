@@ -144,6 +144,46 @@ class TestTupleObject(BaseApiTest):
                           space.newtuple([space.wrap(i) for i in range(3, 7)]))
 
 
+class AppTestBadInternalCall(AppTestCpythonExtensionBase):
+    def setup_method(self, meth):
+        from pypy.module.cpyext import tupleobject
+        if self.runappdirect:
+            py.test.skip("not for runappdirect")
+        AppTestCpythonExtensionBase.setup_method(self, meth)
+        tupleobject._BAD_ITEMCOUNT = 42
+
+    def teardown_method(self, meth):
+        from pypy.module.cpyext import tupleobject
+        AppTestCpythonExtensionBase.teardown_method(self, meth)
+        tupleobject._BAD_ITEMCOUNT = None
+
+    def test_badinternalcall_from_rpy(self):
+        # This used to hit "a thread is trying to wait for the GIL" in
+        # thread_gil.c
+        module = self.import_extension('foo', [
+            ("badinternalcall2", "METH_O",
+             """
+                Py_INCREF(Py_None);
+                return Py_None;
+             """),
+            ])
+        tup = (None,) * 42
+        raises(SystemError, module.badinternalcall2, tup)
+
+    def test_badinternalcall_from_rpy_with_threads(self):
+        # This used to cause a deadlock in thread_gil.c
+        module = self.import_extension('foo', [
+            ("badinternalcall2", "METH_O",
+             """
+                Py_INCREF(Py_None);
+                return Py_None;
+             """),
+            ])
+        import thread; thread.start_new_thread(lambda: None, ())
+        tup = (None,) * 42
+        raises(SystemError, module.badinternalcall2, tup)
+
+
 class AppTestTuple(AppTestCpythonExtensionBase):
     def test_refcounts(self):
         module = self.import_extension('foo', [
