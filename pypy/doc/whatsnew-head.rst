@@ -36,6 +36,6 @@ Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)
 
 .. branch: win32-vcvars
 
-.. branch rdict-fast-hash
+.. branch: rdict-fast-hash
 
 Make it possible to declare that the hash function of an r_dict is fast in RPython.

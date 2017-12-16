@@ -23,7 +23,7 @@ fi
 
 # Download latest builds from the buildmaster, rename the top
 # level directory, and repackage ready to be uploaded to bitbucket
-for plat in linux linux64 linux-armhf-raspbian linux-armhf-raring linux-armel osx64 s390x
+for plat in linux linux64 linux-armhf-raspbian linux-armel osx64 s390x
   do
     echo downloading package for $plat
     if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
