@@ -18,12 +18,7 @@ def reduce(self):
     # __getnewargs__ or __getstate__ defined in the subclass, etc.
     # Doing the right thing looks involved, though...
     space = self.space
-    if self.sthread is None:
-        w_frame = space.w_False
-    elif self.sthread.is_empty_handle(self.h):
-        w_frame = space.w_None
-    else:
-        w_frame = self.bottomframe
+    w_frame = self.descr_get_frame(space)
     w_continulet_type = space.type(self)
     w_dict = self.getdict(space) or space.w_None
     args = [getunpickle(space),

@@ -131,6 +131,15 @@ class W_Continulet(W_Root):
         from pypy.module._continuation import interp_pickle
         interp_pickle.setstate(self, w_args)
 
+    def descr_get_frame(self, space):
+        if self.sthread is None:
+            w_frame = space.w_False
+        elif self.sthread.is_empty_handle(self.h):
+            w_frame = space.w_None
+        else:
+            w_frame = self.bottomframe
+        return w_frame
+
 
 def W_Continulet___new__(space, w_subtype, __args__):
     r = space.allocate_instance(W_Continulet, w_subtype)
@@ -153,6 +162,7 @@ W_Continulet.typedef = TypeDef(
     is_pending  = interp2app(W_Continulet.descr_is_pending),
     __reduce__  = interp2app(W_Continulet.descr__reduce__),
     __setstate__= interp2app(W_Continulet.descr__setstate__),
+    _get_frame=interp2app(W_Continulet.descr_get_frame)
     )
 
 # ____________________________________________________________
