@@ -133,6 +133,33 @@ class AppTestSrePattern:
         assert repr(r) == (
             r"""re.compile('f(o"\\d)', re.IGNORECASE|re.DOTALL|re.VERBOSE)""")
 
+    def test_pattern_compare(self):
+        import re
+        pattern1 = re.compile('abc', re.IGNORECASE)
+
+        # equal to itself
+        assert pattern1 == pattern1
+        assert not(pattern1 != pattern1)
+        # equal
+        re.purge()
+        pattern2 = re.compile('abc', re.IGNORECASE)
+        assert hash(pattern2) == hash(pattern1)
+        assert pattern2 == pattern1
+
+        # not equal: different pattern
+        re.purge()
+        pattern3 = re.compile('XYZ', re.IGNORECASE)
+        # warranty that hash values are different
+        assert pattern3 != pattern1
+
+        # not equal: different flag (flags=0)
+        re.purge()
+        pattern4 = re.compile('abc')
+        assert pattern4 != pattern1
+
+        # only == and != comparison operators are supported
+        raises(TypeError, "pattern1 < pattern2")
+
 
 class AppTestSreMatch:
     spaceconfig = dict(usemodules=('array', ))

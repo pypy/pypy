@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
+from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
@@ -132,6 +133,24 @@ class W_SRE_Pattern(W_Root):
             usep = u', '
             uflags = u'|'.join([item.decode('latin-1') for item in flag_items])
         return space.newunicode(u're.compile(%s%s%s)' % (u, usep, uflags))
+
+    def descr_eq(self, space, w_other):
+        if not isinstance(w_other, W_SRE_Pattern):
+            return space.w_NotImplemented
+        other = w_other
+        # Compare the code and the pattern because the same pattern can
+        # produce different codes depending on the locale used to compile the
+        # pattern when the re.LOCALE flag is used. Don't compare groups,
+        # indexgroup nor groupindex: they are derivated from the pattern.
+        return space.newbool(
+            self.flags == other.flags and
+            self.code == other.code and
+            space.eq_w(self.w_pattern, other.w_pattern))
+
+    def descr_hash(self, space):
+        code = ''.join([chr(c) for c in self.code])
+        return space.newint(compute_hash(
+            (self.flags, code, space.hash_w(self.w_pattern))))
 
     def fget_groupindex(self, space):
         w_groupindex = self.w_groupindex
@@ -488,6 +507,8 @@ W_SRE_Pattern.typedef = TypeDef(
     __deepcopy__ = interp2app(W_SRE_Pattern.cannot_copy_w),
     __repr__     = interp2app(W_SRE_Pattern.repr_w),
     __weakref__  = make_weakref_descr(W_SRE_Pattern),
+    __eq__       = interp2app(W_SRE_Pattern.descr_eq),
+    __hash__     = interp2app(W_SRE_Pattern.descr_hash),
     findall      = interp2app(W_SRE_Pattern.findall_w),
     finditer     = interp2app(W_SRE_Pattern.finditer_w),
     match        = interp2app(W_SRE_Pattern.match_w),
