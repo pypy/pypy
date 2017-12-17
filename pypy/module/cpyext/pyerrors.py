@@ -154,7 +154,7 @@ def PyErr_BadArgument(space):
     error indicator."""
     raise oefmt(space.w_TypeError, "bad argument type for built-in operation")
 
-@cpython_api([], lltype.Void)
+@cpython_api([], lltype.Void, error=None)
 def PyErr_BadInternalCall(space):
     raise oefmt(space.w_SystemError, "Bad internal call!")
 

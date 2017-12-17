@@ -1,6 +1,7 @@
 import py
 
-from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
+from pypy.module.cpyext.pyobject import (
+    PyObject, PyObjectP, make_ref, from_ref, incref)
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -14,6 +15,7 @@ class TestTupleObject(BaseApiTest):
     def test_tupleobject(self, space):
         assert not PyTuple_Check(space, space.w_None)
         with raises_w(space, SystemError):
+            incref(space, space.w_None)
             PyTuple_SetItem(space, space.w_None, 0, space.w_None)
         atuple = space.newtuple([space.wrap(0), space.wrap(1),
                                  space.wrap('yay')])
