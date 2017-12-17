@@ -236,6 +236,10 @@ class AppTestSreMatch:
                 return self.value
         assert re.match("(foo)", "foo").group(Index(1)) == "foo"
 
+    def test_getitem(self):
+        import re
+        assert re.match("(foo)bar", "foobar")[1] == "foo"
+
     def test_expand(self):
         import re
         m = re.search("a(..)(?P<name>..)", "ab1bc")

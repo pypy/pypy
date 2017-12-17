@@ -533,6 +533,10 @@ class W_SRE_Match(W_Root):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot copy this match object")
 
+    def descr_getitem(self, space, w_index):
+        start, end = self.do_span(w_index)
+        return slice_w(space, self.ctx, start, end, space.w_None)
+
     @jit.look_inside_iff(lambda self, args_w: jit.isconstant(len(args_w)))
     def group_w(self, args_w):
         space = self.space
@@ -684,6 +688,8 @@ W_SRE_Match.typedef = TypeDef(
     __copy__     = interp2app(W_SRE_Match.cannot_copy_w),
     __deepcopy__ = interp2app(W_SRE_Match.cannot_copy_w),
     __repr__     = interp2app(W_SRE_Match.repr_w),
+    __getitem__  = interp2app(W_SRE_Match.descr_getitem),
+    #
     group        = interp2app(W_SRE_Match.group_w),
     groups       = interp2app(W_SRE_Match.groups_w),
     groupdict    = interp2app(W_SRE_Match.groupdict_w),
