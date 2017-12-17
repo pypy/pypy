@@ -118,16 +118,12 @@ class W_Continulet(W_Root):
         return self.space.newbool(valid)
 
     def descr__reduce__(self):
-        raise oefmt(self.space.w_NotImplementedError,
-                    "continulet's pickle support is currently disabled")
         from pypy.module._continuation import interp_pickle
         return interp_pickle.reduce(self)
 
     def descr__setstate__(self, w_args):
         # XXX: review direct calls to frame.run(), notably when
         # unpickling generators (or coroutines!)
-        raise oefmt(self.space.w_NotImplementedError,
-                    "continulet's pickle support is currently disabled")
         from pypy.module._continuation import interp_pickle
         interp_pickle.setstate(self, w_args)
 
