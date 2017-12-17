@@ -227,6 +227,15 @@ class AppTestSreMatch:
         exc = raises(IndexError, re.match("", "").group, sys.maxsize + 1)
         assert str(exc.value) == "no such group"
 
+    def test_group_takes_index(self):
+        import re
+        class Index:
+            def __init__(self, value):
+                self.value = value
+            def __index__(self):
+                return self.value
+        assert re.match("(foo)", "foo").group(Index(1)) == "foo"
+
     def test_expand(self):
         import re
         m = re.search("a(..)(?P<name>..)", "ab1bc")

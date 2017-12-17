@@ -604,7 +604,7 @@ class W_SRE_Match(W_Root):
     def do_span(self, w_arg):
         space = self.space
         try:
-            groupnum = space.int_w(w_arg)
+            groupnum = space.getindex_w(w_arg, space.w_OverflowError)
         except OperationError as e:
             if not e.match(space, space.w_TypeError) and \
                     not e.match(space, space.w_OverflowError):
