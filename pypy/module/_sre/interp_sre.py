@@ -36,6 +36,9 @@ set_unicode_db(pypy.objspace.std.unicodeobject.unicodedb)
 def slice_w(space, ctx, start, end, w_default):
     if 0 <= start <= end:
         if isinstance(ctx, rsre_core.BufMatchContext):
+            length = ctx._buffer.getlength()
+            start = min(start, length)
+            end = min(end, length)
             return space.newbytes(ctx._buffer.getslice(start, end, 1,
                                                         end-start))
         if isinstance(ctx, rsre_core.StrMatchContext):
