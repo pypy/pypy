@@ -322,6 +322,14 @@ def test_madvise_arena_free():
     assert rffi.cast(lltype.Signed, addr) == 124 * pagesize
     assert size == pagesize * 5
 
+def test_arena_mmap_munmap():
+    p = llarena.arena_mmap(32*1024)
+    q = p + 32*1024 - 16
+    llarena.arena_reserve(q, llmemory.sizeof(lltype.Signed))
+    q.signed[0] = -123456789
+    assert q.signed[0] == -123456789
+    llarena.arena_munmap(p, 32*1024)
+
 
 class TestStandalone(test_standalone.StandaloneTests):
     def test_compiled_arena_protect(self):
@@ -361,3 +369,19 @@ class TestStandalone(test_standalone.StandaloneTests):
             cbuilder.cmdexec('2', expect_crash=True)
             if sys.platform.startswith('win'):
                 ctypes.windll.kernel32.SetErrorMode(old_err_mode)
+
+    def test_compiled_arena_mmap_munmap(self):
+        # mostly a "does not crash during translation" test
+        import sys
+        #
+        def fn(argv):
+            p = llarena.arena_mmap(32*1024)
+            p.char[32*1024-1] = 'X'
+            assert p.char[32*1024-1] == 'X'
+            llarena.arena_munmap(p, 32*1024)
+            print 42
+            return 0
+        #
+        t, cbuilder = self.compile(fn)
+        data = cbuilder.cmdexec('')
+        assert data == '42\n'

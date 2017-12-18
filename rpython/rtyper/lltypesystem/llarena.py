@@ -543,13 +543,8 @@ register_external(arena_free, [llmemory.Address], None, 'll_arena.arena_free',
 
 def llimpl_arena_mmap(nbytes):
     from rpython.rlib import rmmap
-    flags = rmmap.MAP_PRIVATE | rmmap.MAP_ANONYMOUS
-    prot = rmmap.PROT_READ | rmmap.PROT_WRITE
-    p = rffi.cast(llmemory.Address, rmmap.c_mmap_safe(
-        lltype.nullptr(rmmap.PTR.TO), nbytes, prot, flags, -1, 0))
-    if p == rffi.cast(llmemory.Address, -1):
-        p = rffi.cast(llmemory.Address, 0)
-    return p
+    p = rmmap.arena_mmap(nbytes)
+    return rffi.cast(llmemory.Address, p)
 register_external(arena_mmap, [int], llmemory.Address,
                   'll_arena.arena_mmap',
                   llimpl=llimpl_arena_mmap,
@@ -558,8 +553,7 @@ register_external(arena_mmap, [int], llmemory.Address,
 
 def llimpl_arena_munmap(arena_addr, nbytes):
     from rpython.rlib import rmmap
-    assert nbytes >= 0
-    rmmap.c_munmap_safe(rffi.cast(rmmap.PTR, arena_addr), nbytes)
+    rmmap.arena_munmap(arena_addr, nbytes)
 register_external(arena_munmap, [llmemory.Address, int], None,
                   'll_arena.arena_munmap',
                   llimpl=llimpl_arena_munmap,

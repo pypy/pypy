@@ -805,6 +805,18 @@ if _POSIX:
         def madvise_free(addr, map_size):
             "No madvise() on this platform"
 
+    def arena_mmap(nbytes):
+        flags = MAP_PRIVATE | MAP_ANONYMOUS
+        prot = PROT_READ | PROT_WRITE
+        p = c_mmap_safe(lltype.nullptr(PTR.TO), nbytes, prot, flags, -1, 0)
+        if p == rffi.cast(PTR, -1):
+            p = rffi.cast(PTR, 0)
+        return p
+
+    def arena_munmap(arena_ptr, nbytes):
+        assert nbytes >= 0
+        c_munmap_safe(rffi.cast(PTR, arena_ptr), nbytes)
+
 elif _MS_WINDOWS:
     def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
         # XXX flags is or-ed into access by now.
@@ -965,3 +977,13 @@ elif _MS_WINDOWS:
             rffi.cast(DWORD, PAGE_READWRITE))
         #from rpython.rlib import debug
         #debug.debug_print("madvise_free:", r)
+
+    def arena_mmap(nbytes):
+        null = lltype.nullptr(rffi.VOIDP.TO)
+        res = VirtualAlloc_safe(null, nbytes, MEM_COMMIT | MEM_RESERVE,
+                                PAGE_READWRITE)
+        return rffi.cast(PTR, res)
+
+    def arena_munmap(arena_ptr, nbytes):
+        assert nbytes >= 0
+        VirtualFree_safe(rffi.cast(rffi.VOIDP, arena_ptr), 0, MEM_RELEASE)
