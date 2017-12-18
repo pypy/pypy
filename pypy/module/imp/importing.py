@@ -47,14 +47,19 @@ def get_so_extension(space):
     if platform_name == 'linux2':
         platform_name = 'linux'
 
-    soabi += '-' + platform.machine() + '-' + platform_name
+    soabi += '-' + platform_name
+    # xxx used to also include platform.machine(), but this is wrong
+    # (might get AMD64 on a 32-bit python) and it is the source of a
+    # importlib bug if we get uppercase characters from there...
 
     if platform_name == 'linux':
         soabi += '-gnu'
         if sys.maxsize == (2**31 - 1) and platform.machine() == 'x86_64':
             soabi += 'x32'
 
-    return '.' + soabi + SO
+    result = '.' + soabi + SO
+    assert result == result.lower()   # this is an implicit requirement of importlib on Windows!
+    return result
 
 def has_so_extension(space):
     return (space.config.objspace.usemodules.cpyext or
