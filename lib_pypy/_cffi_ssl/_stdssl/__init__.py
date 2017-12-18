@@ -27,6 +27,7 @@ if sys.platform == 'win32':
     HAVE_POLL = False
 else:
     from select import poll, POLLIN, POLLOUT
+    HAVE_POLL = True
 
 OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT).decode('utf-8')
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER
