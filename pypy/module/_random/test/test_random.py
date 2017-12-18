@@ -86,9 +86,9 @@ class AppTestRandom:
         rnd = _random.Random()
         rnd.seed()
         state1 = rnd.getstate()
-        import time; time.sleep(1.1)     # must be at least 1 second here
-        rnd.seed()                       # (note that random.py overrides
-        state2 = rnd.getstate()          # seed() to improve the resolution)
+        import time; time.sleep(0.01)
+        rnd.seed()
+        state2 = rnd.getstate()
         assert state1 != state2
 
     def test_randbits(self):
