@@ -37,6 +37,7 @@ class AppTestStacklet(BaseAppTest):
                 return res
             return stack
        """)
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
         if cls.runappdirect:
             # make sure that "self.stack" does not pass the self
             cls.w_stack = staticmethod(cls.w_stack.im_func)
@@ -798,7 +799,7 @@ class AppTestStacklet(BaseAppTest):
         raises(error, continulet.switch, c1, to=c2)
 
     def test_sampling_inside_callback(self):
-        if self.runappdirect:
+        if self.appdirect:
             # see also
             # extra_tests.test_vmprof_greenlet.test_sampling_inside_callback
             # for a "translated" version of this test
