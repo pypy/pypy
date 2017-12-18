@@ -122,30 +122,14 @@ def setup():
                                               lltype.Signed, compilation_info=eci,
                                               _nowrapper=True)
 
+    vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
+                                           rffi.INT, compilation_info=eci,
+                                           _nowrapper=True)
+    vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
+                                            lltype.Void, compilation_info=eci,
+                                            _nowrapper=True)
+
     return CInterface(locals())
-
-
-# this is always present, but compiles to no-op if RPYTHON_VMPROF is not
-# defined (i.e. if we don't actually use vmprof in the generated C)
-auto_eci = ExternalCompilationInfo(post_include_bits=["""
-#ifndef RPYTHON_VMPROF
-#  define vmprof_stop_sampling()    (-1)
-#  define vmprof_start_sampling()   ((void)0)
-#endif
-"""])
-
-if get_translation_config() is None:
-    # tests need the full eci here
-    _eci = global_eci
-else:
-    _eci = auto_eci
-
-vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
-                                       rffi.INT, compilation_info=_eci,
-                                       _nowrapper=True)
-vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
-                                        lltype.Void, compilation_info=_eci,
-                                        _nowrapper=True)
 
 
 class CInterface(object):
@@ -230,20 +214,6 @@ def jit_rvmprof_code(leaving, unique_id):
         s = vmprof_tl_stack.getraw()
         assert s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG
         leave_code(s)
-
-#
-# stacklet support
-
-def save_rvmprof_stack():
-    vmprof_stop_sampling()
-    return vmprof_tl_stack.get_or_make_raw()
-
-def empty_rvmprof_stack():
-    vmprof_tl_stack.setraw(lltype.nullptr(VMPROFSTACK))
-
-def restore_rvmprof_stack(x):
-    vmprof_tl_stack.setraw(x)
-    vmprof_start_sampling()
 
 #
 # traceback support
