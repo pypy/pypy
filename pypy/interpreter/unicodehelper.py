@@ -21,6 +21,7 @@ def decode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_decode(errors, encoding, msg, s,
                                        startingpos, endingpos):
+        import pdb;pdb.set_trace()
         raise OperationError(space.w_UnicodeDecodeError,
                              space.newtuple([space.newtext(encoding),
                                              space.newbytes(s),

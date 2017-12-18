@@ -441,7 +441,8 @@ def _init_timezone(space):
 
     _set_module_object(space, "timezone", space.newint(timezone))
     _set_module_object(space, 'daylight', space.newint(daylight))
-    tzname_w = [space.newtext(tzname[0]), space.newtext(tzname[1])]
+    tzname_w = [space.newunicode(tzname[0].decode('latin-1')),
+                space.newunicode(tzname[1].decode('latin-1'))]
     _set_module_object(space, 'tzname', space.newtuple(tzname_w))
     _set_module_object(space, 'altzone', space.newint(altzone))
 
