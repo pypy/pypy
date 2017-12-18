@@ -808,6 +808,9 @@ if _POSIX:
     def arena_mmap(nbytes):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
         prot = PROT_READ | PROT_WRITE
+        if we_are_translated():
+            flags = NonConstant(flags)
+            prot = NonConstant(prot)
         p = c_mmap_safe(lltype.nullptr(PTR.TO), nbytes, prot, flags, -1, 0)
         if p == rffi.cast(PTR, -1):
             p = rffi.cast(PTR, 0)
@@ -955,8 +958,12 @@ elif _MS_WINDOWS:
         case of a sandboxed process
         """
         null = lltype.nullptr(rffi.VOIDP.TO)
-        res = VirtualAlloc_safe(null, map_size, MEM_COMMIT | MEM_RESERVE,
-                           PAGE_EXECUTE_READWRITE)
+        alloctype = MEM_COMMIT | MEM_RESERVE
+        protect = PAGE_EXECUTE_READWRITE
+        if we_are_translated():
+            alloctype = NonConstant(alloctype)
+            protect = NonConstant(protect)
+        res = VirtualAlloc_safe(null, map_size, alloctype, protect)
         if not res:
             raise MemoryError
         arg = lltype.malloc(LPDWORD.TO, 1, zero=True, flavor='raw')
@@ -980,8 +987,12 @@ elif _MS_WINDOWS:
 
     def arena_mmap(nbytes):
         null = lltype.nullptr(rffi.VOIDP.TO)
-        res = VirtualAlloc_safe(null, nbytes, MEM_COMMIT | MEM_RESERVE,
-                                PAGE_READWRITE)
+        alloctype = MEM_COMMIT | MEM_RESERVE
+        protect = PAGE_READWRITE
+        if we_are_translated():
+            alloctype = NonConstant(alloctype)
+            protect = NonConstant(protect)
+        res = VirtualAlloc_safe(null, nbytes, alloctype, protect)
         return rffi.cast(PTR, res)
 
     def arena_munmap(arena_ptr, nbytes):
