@@ -1,3 +1,6 @@
+from hypothesis import given, strategies as st, assume
+import pytest
+
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_genc import compile
 from rpython.tool.pytest.expecttest import ExpectTest
@@ -8,10 +11,10 @@ import errno
 import py
 
 def rposix_requires(funcname):
-    return py.test.mark.skipif(not hasattr(rposix, funcname),
+    return pytest.mark.skipif(not hasattr(rposix, funcname),
         reason="Requires rposix.%s()" % funcname)
 
-win_only = py.test.mark.skipif("os.name != 'nt'")
+win_only = pytest.mark.skipif("os.name != 'nt'")
 
 class TestPosixFunction:
     def test_access(self):
@@ -827,3 +830,47 @@ def test_os_lockf():
         rposix.lockf(fd, rposix.F_ULOCK, 4)
     finally:
         os.close(fd)
+
+def check_working_xattr():
+    fname = str(udir.join('xattr_test0.txt'))
+    with open(fname, 'wb'):
+        pass
+    try:
+        rposix.getxattr(fname, 'foo')
+    except OSError as e:
+        return e.errno != errno.ENOTSUP
+    else:
+       raise RuntimeError('getxattr() succeeded unexpectedly!?!')
+
+@pytest.mark.skipif(not (hasattr(rposix, 'getxattr') and check_working_xattr()),
+    reason="Requires working rposix.getxattr()")
+@given(name=st.binary(max_size=10), value=st.binary(max_size=10),
+    follow_symlinks=st.booleans(), use_fd=st.booleans())
+def test_xattr(name, value, follow_symlinks, use_fd):
+    use_fd = False
+    assume(follow_symlinks or not use_fd)
+    fname = str(udir.join('xattr_test.txt'))
+    with open(fname, 'wb'):
+        pass
+    if use_fd:
+        file_id = os.open(fname, os.O_CREAT, 0777)
+        read, write, delete = rposix.fgetxattr, rposix.fsetxattr, rposix.fremovexattr
+    else:
+        file_id = fname
+        if follow_symlinks:
+            read, write, delete = rposix.getxattr, rposix.setxattr, rposix.removexattr
+        else:
+            read = lambda *args, **kwargs: rposix.getxattr(*args, follow_symlinks=False, **kwargs)
+            write = lambda *args, **kwargs: rposix.setxattr(*args, follow_symlinks=False, **kwargs)
+            delete = lambda *args, **kwargs: rposix.removexattr(*args, follow_symlinks=False, **kwargs)
+    try:
+        with pytest.raises(OSError):
+            read(file_id, name)
+        write(file_id, name, value)
+        assert read(file_id, name) == value
+        delete(file_id, name)
+        with pytest.raises(OSError):
+            read(file_id, name)
+    finally:
+        if use_fd:
+            os.close(file_id)
