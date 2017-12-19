@@ -1447,13 +1447,17 @@ class AppTestPosix:
             os = self.posix
             with open(self.path, 'wb'):
                 pass
+            init_names = os.listxattr(self.path)
             raises(OSError, os.getxattr, self.path, 'user.test')
-            os.setxattr(self.path, 'user.test', b'', os.XATTR_CREATE)
+            os.setxattr(self.path, 'user.test', b'', os.XATTR_CREATE, follow_symlinks=False)
             assert os.getxattr(self.path, 'user.test') == b''
             os.setxattr(self.path, 'user.test', b'foo', os.XATTR_REPLACE)
-            assert os.getxattr(self.path, 'user.test') == b'foo'
-            os.removexattr(self.path, 'user.test')
+            assert os.getxattr(self.path, 'user.test', follow_symlinks=False) == b'foo'
+            assert set(os.listxattr(self.path)) == set(
+                init_names + [b'user.test'])
+            os.removexattr(self.path, 'user.test', follow_symlinks=False)
             raises(OSError, os.getxattr, self.path, 'user.test')
+            assert os.listxattr(self.path, follow_symlinks=False) == init_names
 
 
 class AppTestEnvironment(object):

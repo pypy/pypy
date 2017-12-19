@@ -255,6 +255,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['getxattr'] = 'interp_posix.getxattr'
         interpleveldefs['setxattr'] = 'interp_posix.setxattr'
         interpleveldefs['removexattr'] = 'interp_posix.removexattr'
+        interpleveldefs['listxattr'] = 'interp_posix.listxattr'
         for _name in ['XATTR_SIZE_MAX', 'XATTR_CREATE', 'XATTR_REPLACE']:
             if getattr(rposix, _name) is not None:
                 interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)

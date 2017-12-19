@@ -2304,10 +2304,8 @@ If follow_symlinks is False, and the last element of the path is a symbolic
             raise wrap_oserror(space, e, eintr_retry=False)
     else:
         try:
-            if follow_symlinks:
-                result = rposix.getxattr(path.as_bytes, attribute.as_bytes)
-            else:
-                result = rposix.lgetxattr(path.as_bytes, attribute.as_bytes)
+            result = rposix.getxattr(path.as_bytes, attribute.as_bytes,
+                follow_symlinks=follow_symlinks)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     return space.newbytes(result)
@@ -2335,10 +2333,8 @@ If follow_symlinks is False, and the last element of the path is a symbolic
             raise wrap_oserror(space, e, eintr_retry=False)
     else:
         try:
-            if follow_symlinks:
-                rposix.setxattr(path.as_bytes, attribute.as_bytes, value)
-            else:
-                rposix.lsetxattr(path.as_bytes, attribute.as_bytes, value)
+            rposix.setxattr(path.as_bytes, attribute.as_bytes, value,
+                follow_symlinks=follow_symlinks)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
 
@@ -2363,16 +2359,13 @@ If follow_symlinks is False, and the last element of the path is a symbolic
             raise wrap_oserror(space, e, eintr_retry=False)
     else:
         try:
-            if follow_symlinks:
-                rposix.removexattr(path.as_bytes, attribute.as_bytes)
-            else:
-                rposix.lremovexattr(path.as_bytes, attribute.as_bytes)
+            rposix.removexattr(path.as_bytes, attribute.as_bytes,
+                follow_symlinks=follow_symlinks)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
 
 
-@unwrap_spec(path=path_or_fd(), attribute=path_or_fd(allow_fd=False),
-             follow_symlinks=bool)
+@unwrap_spec(path=path_or_fd(), follow_symlinks=bool)
 def listxattr(space, path, __kwonly__, follow_symlinks=True):
     """listxattr(path='.', *, follow_symlinks=True)
 
@@ -2388,18 +2381,15 @@ If follow_symlinks is False, and the last element of the path is a symbolic
             raise oefmt(space.w_ValueError,
                         "listxattr: cannot use fd and follow_symlinks together")
         try:
-            result = rposix.flistxattr(path.as_fd, attribute.as_bytes)
+            result = rposix.flistxattr(path.as_fd)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     else:
         try:
-            if follow_symlinks:
-                result = rposix.listxattr(path.as_bytes, attribute.as_bytes)
-            else:
-                result = rposix.llistxattr(path.as_bytes, attribute.as_bytes)
+            result = rposix.listxattr(path.as_bytes, follow_symlinks)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
-    return xxx
+    return space.newlist([space.newbytes(attr) for attr in result])
 
 
 have_functions = []
