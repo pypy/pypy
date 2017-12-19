@@ -1,0 +1,67 @@
+======================================
+PyPy2.7 and PyPy3.5 v5.10 dual release
+======================================
+
+The PyPy team is proud to release both PyPy2.7 v5.10 (an interpreter supporting
+Python 2.7 syntax), and a final PyPy3.5 v5.10 (an interpreter for Python
+3.5 syntax). The two releases are both based on much the same codebase, thus
+the dual release.
+
+This release is an incremental release with very few new features, the main
+feature being the final PyPy3.5 release that works on linux and OS X with beta
+windows support. It also includes fixes for `vmprof`_ cooperation with greenlets.
+
+Compared to 5.9, the 5.10 release contains mostly bugfixes and small improvements.
+We have in the pipeline big new features coming for PyPy 6.0 that did not make
+the release cut and should be available within the next couple months.
+
+As always, this release is 100% compatible with the previous one and fixed
+several issues and bugs raised by the growing community of PyPy users.
+As always, wxe strongly recommend updating.
+
+This release concludes the Mozilla Open Source `grant`_ for having a compatible
+PyPy 3.5 release and we're very grateful for that.
+
+You can download the v5.10 releases here:
+
+    http://pypy.org/download.html
+
+We would like to thank our donors for the continued support of the PyPy
+project.
+
+We would also like to thank our contributors and
+encourage new people to join the project. PyPy has many
+layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
+improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
+with making RPython's JIT even better.
+
+.. _vmprof: http://vmprof.readthedocs.io
+.. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
+.. _`PyPy`: index.html
+.. _`RPython`: https://rpython.readthedocs.org
+.. _`modules`: project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: project-ideas.html
+
+What is PyPy?
+=============
+
+PyPy is a very compliant Python interpreter, almost a drop-in replacement for
+CPython 2.7 and CPython 3.5. It's fast (`PyPy and CPython 2.7.x`_ performance comparison)
+due to its integrated tracing JIT compiler.
+
+We also welcome developers of other `dynamic languages`_ to see what RPython
+can do for them.
+
+The PyPy 2.7 release supports: 
+
+  * **x86** machines on most common operating systems
+    (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
+  
+  * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
+  
+  * big- and little-endian variants of **PPC64** running Linux,
+
+  * **s390x** running Linux
+
+.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
+.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
