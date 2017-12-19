@@ -15,7 +15,7 @@ class VMProfPlatformUnsupported(Exception):
     pass
 
 # vmprof works only on x86 for now
-IS_SUPPORTED = host_platform.machine() in ('x86', 'x86_64')
+IS_SUPPORTED = host_platform.machine() in ('i686', 'x86_64')
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
