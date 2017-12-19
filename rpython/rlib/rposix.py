@@ -2603,29 +2603,41 @@ if sys.platform.startswith('linux'):
         save_err=rffi.RFFI_SAVE_ERRNO)
     c_fsetxattr = external('fsetxattr',
         [rffi.INT, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
-        rffi.SSIZE_T,
+        rffi.INT,
         compilation_info=CConfig._compilation_info_,
         save_err=rffi.RFFI_SAVE_ERRNO)
     c_setxattr = external('setxattr',
         [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
-        rffi.SSIZE_T,
+        rffi.INT,
         compilation_info=CConfig._compilation_info_,
         save_err=rffi.RFFI_SAVE_ERRNO)
     c_lsetxattr = external('lsetxattr',
         [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
-        rffi.SSIZE_T,
+        rffi.INT,
         compilation_info=CConfig._compilation_info_,
         save_err=rffi.RFFI_SAVE_ERRNO)
     c_fremovexattr = external('fremovexattr',
-        [rffi.INT, rffi.CCHARP], rffi.SSIZE_T,
+        [rffi.INT, rffi.CCHARP], rffi.INT,
         compilation_info=CConfig._compilation_info_,
         save_err=rffi.RFFI_SAVE_ERRNO)
     c_removexattr = external('removexattr',
-        [rffi.CCHARP, rffi.CCHARP], rffi.SSIZE_T,
+        [rffi.CCHARP, rffi.CCHARP], rffi.INT,
         compilation_info=CConfig._compilation_info_,
         save_err=rffi.RFFI_SAVE_ERRNO)
     c_lremovexattr = external('lremovexattr',
-        [rffi.CCHARP, rffi.CCHARP], rffi.SSIZE_T,
+        [rffi.CCHARP, rffi.CCHARP], rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_flistxattr = external('flistxattr',
+        [rffi.INT, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_listxattr = external('listxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_llistxattr = external('llistxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
         compilation_info=CConfig._compilation_info_,
         save_err=rffi.RFFI_SAVE_ERRNO)
     buf_sizes = [256, XATTR_SIZE_MAX]
@@ -2683,3 +2695,39 @@ if sys.platform.startswith('linux'):
             return handle_posix_error('removexattr', c_removexattr(path, name))
         else:
             return handle_posix_error('lremovexattr', c_lremovexattr(path, name))
+
+    def _unpack_attrs(attr_string):
+        result = attr_string.split('\0')
+        del result[-1]
+        return result
+
+    def flistxattr(fd):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                res = c_flistxattr(fd, buf.raw, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        raise OSError(err, 'flistxattr failed')
+                else:
+                    return _unpack_attrs(buf.str(res))
+        else:
+            raise OSError(errno.ERANGE, 'flistxattr failed')
+
+    def listxattr(path, follow_symlinks=True):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                if follow_symlinks:
+                    res = c_listxattr(path, buf.raw, size)
+                else:
+                    res = c_llistxattr(path, buf.raw, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        c_name = 'listxattr' if follow_symlinks else 'llistxattr'
+                        raise OSError(err, c_name + 'failed')
+                else:
+                    return _unpack_attrs(buf.str(res))
+        else:
+            c_name = 'listxattr' if follow_symlinks else 'llistxattr'
+            raise OSError(errno.ERANGE, c_name + 'failed')

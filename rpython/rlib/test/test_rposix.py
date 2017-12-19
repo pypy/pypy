@@ -853,27 +853,38 @@ def test_xattr(name, value, follow_symlinks, use_fd):
     assume(follow_symlinks or not use_fd)
     name = 'user.' + name.encode('utf-8')
     fname = str(udir.join('xattr_test.txt'))
+    try:
+        os.unlink(fname)
+    except OSError:
+        pass
     with open(fname, 'wb'):
         pass
     if use_fd:
         file_id = os.open(fname, os.O_CREAT, 0777)
         read, write, delete = rposix.fgetxattr, rposix.fsetxattr, rposix.fremovexattr
+        all_names = rposix.flistxattr
     else:
         file_id = fname
         if follow_symlinks:
             read, write, delete = rposix.getxattr, rposix.setxattr, rposix.removexattr
+            all_names = rposix.listxattr
         else:
             read = lambda *args, **kwargs: rposix.getxattr(*args, follow_symlinks=False, **kwargs)
             write = lambda *args, **kwargs: rposix.setxattr(*args, follow_symlinks=False, **kwargs)
             delete = lambda *args, **kwargs: rposix.removexattr(*args, follow_symlinks=False, **kwargs)
+            all_names = lambda *args, **kwargs: rposix.listxattr(*args, follow_symlinks=False, **kwargs)
     try:
+        init_names = all_names(file_id)
         with pytest.raises(OSError):
             read(file_id, name)
         write(file_id, name, value)
         assert read(file_id, name) == value
+        assert set(all_names(file_id)) == set(init_names + [name])
+        assert '' not in all_names(file_id)
         delete(file_id, name)
         with pytest.raises(OSError):
             read(file_id, name)
+        assert set(all_names(file_id)) == set(init_names)
     finally:
         if use_fd:
             os.close(file_id)
