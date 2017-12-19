@@ -229,7 +229,7 @@ corresponding Unix manual entries for more information on calls."""
         'POSIX_FADV_RANDOM', 'POSIX_FADV_NOREUSE', 'POSIX_FADV_DONTNEED']:
             assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
-    
+
     if hasattr(rposix, 'sched_get_priority_max'):
         interpleveldefs['sched_get_priority_max'] = 'interp_posix.sched_get_priority_max'
         interpleveldefs['sched_get_priority_min'] = 'interp_posix.sched_get_priority_min'
@@ -246,10 +246,20 @@ corresponding Unix manual entries for more information on calls."""
 
     if hasattr(rposix, 'sched_yield'):
         interpleveldefs['sched_yield'] = 'interp_posix.sched_yield'
-        
+
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if hasattr(rposix, 'getxattr'):
+        interpleveldefs['getxattr'] = 'interp_posix.getxattr'
+        interpleveldefs['setxattr'] = 'interp_posix.setxattr'
+        interpleveldefs['removexattr'] = 'interp_posix.removexattr'
+        interpleveldefs['listxattr'] = 'interp_posix.listxattr'
+        for _name in ['XATTR_SIZE_MAX', 'XATTR_CREATE', 'XATTR_REPLACE']:
+            if getattr(rposix, _name) is not None:
+                interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
 
     def startup(self, space):
         from pypy.module.posix import interp_posix
