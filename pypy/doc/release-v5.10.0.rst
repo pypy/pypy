@@ -17,10 +17,11 @@ the release cut and should be available within the next couple months.
 
 As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
-As always, wxe strongly recommend updating.
+As always, we strongly recommend updating.
 
 This release concludes the Mozilla Open Source `grant`_ for having a compatible
-PyPy 3.5 release and we're very grateful for that.
+PyPy 3.5 release and we're very grateful for that.  Of course, we will continue
+to improve PyPy 3.5 and probably move to 3.6 during the course of 2018.
 
 You can download the v5.10 releases here:
 
