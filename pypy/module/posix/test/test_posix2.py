@@ -386,8 +386,8 @@ class AppTestPosix:
 
     def test_times(self):
         """
-        posix.times() should return a posix.times_result object giving 
-        float-representations (seconds, effectively) of the four fields from 
+        posix.times() should return a posix.times_result object giving
+        float-representations (seconds, effectively) of the four fields from
         the underlying struct tms and the return value.
         """
         result = self.posix.times()
@@ -977,7 +977,7 @@ class AppTestPosix:
             assert posix.sched_get_priority_min(posix.SCHED_OTHER) != -1
             if getattr(posix, 'SCHED_BATCH', None):
                 assert posix.sched_get_priority_min(posix.SCHED_BATCH) != -1
-            
+
     if hasattr(rposix, 'sched_get_priority_min'):
         def test_os_sched_priority_max_greater_than_min(self):
             posix, os = self.posix, self.os
@@ -992,7 +992,7 @@ class AppTestPosix:
         def test_sched_yield(self):
             os = self.posix
             #Always suceeds on Linux
-            os.sched_yield() 
+            os.sched_yield()
 
     def test_write_buffer(self):
         os = self.posix
@@ -1350,7 +1350,7 @@ class AppTestPosix:
             posix.close(fd)
             s2.close()
             s1.close()
-            
+
         def test_os_lockf(self):
             posix, os = self.posix, self.os
             fd = os.open(self.path2 + 'test_os_lockf', os.O_WRONLY | os.O_CREAT)
@@ -1441,6 +1441,20 @@ class AppTestPosix:
         e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
         assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
 
+    if hasattr(rposix, 'getxattr'):
+        def test_xattr_simple(self):
+            # Minimal testing here, lib-python has better tests.
+            os = self.posix
+            with open(self.path, 'wb'):
+                pass
+            raises(OSError, os.getxattr, self.path, 'user.test')
+            os.setxattr(self.path, 'user.test', b'', os.XATTR_CREATE)
+            assert os.getxattr(self.path, 'user.test') == b''
+            os.setxattr(self.path, 'user.test', b'foo', os.XATTR_REPLACE)
+            assert os.getxattr(self.path, 'user.test') == b'foo'
+            os.removexattr(self.path, 'user.test')
+            raises(OSError, os.getxattr, self.path, 'user.test')
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
@@ -1494,6 +1508,7 @@ class AppTestEnvironment(object):
             cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
             res = os.system(cmd)
             assert res == 0
+
 
 @py.test.fixture
 def check_fsencoding(space, pytestconfig):
