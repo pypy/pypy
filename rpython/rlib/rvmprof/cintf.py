@@ -14,6 +14,9 @@ from rpython.config.translationoption import get_translation_config
 class VMProfPlatformUnsupported(Exception):
     pass
 
+# vmprof works only on x86 for now
+IS_SUPPORTED = host_platform.machine() in ('x86', 'x86_64')
+
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
 SHARED = SRC.join('shared')
@@ -57,7 +60,6 @@ def make_eci():
         else:
             _libs = []
 
-
     eci_kwds = dict(
         include_dirs = [SRC, SHARED, BACKTRACE],
         includes = ['rvmprof.h','vmprof_stack.h'],
@@ -91,6 +93,9 @@ def configure_libbacktrace_linux():
     shutil.copy(str(BACKTRACE.join(specific_config)), str(config))
 
 def setup():
+    if not IS_SUPPORTED:
+        raise VMProfPlatformUnsupported
+    
     if sys.platform.startswith('linux'):
         configure_libbacktrace_linux()
 

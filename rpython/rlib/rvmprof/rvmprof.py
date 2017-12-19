@@ -2,6 +2,7 @@ import sys, os
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rlib import jit, rposix, rgc
 from rpython.rlib.rvmprof import cintf
+from rpython.rlib.rvmprof.dummy import DummyVMProf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -34,6 +35,9 @@ class FakeWeakCodeObjectList(object):
         return []
 
 class VMProf(object):
+    """
+    NOTE: the API of this class should be kept in sync with dummy.DummyVMProf
+    """
 
     _immutable_fields_ = ['is_enabled?']
 
@@ -255,5 +259,8 @@ _vmprof_instance = None
 def _get_vmprof():
     global _vmprof_instance
     if _vmprof_instance is None:
-        _vmprof_instance = VMProf()
+        try:
+            _vmprof_instance = VMProf()
+        except cintf.VMProfPlatformUnsupported:
+            _vmprof_instance = DummyVMProf()
     return _vmprof_instance
