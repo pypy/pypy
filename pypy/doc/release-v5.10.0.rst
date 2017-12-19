@@ -65,3 +65,27 @@ The PyPy 2.7 release supports:
 
 .. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
 .. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+
+Changelog
+=========
+
+* improve ssl handling on windows for pypy3 (makes pip work)
+* improve unicode handling in various error reporters
+* fix vmprof cooperation with greenlets
+* fix some things in cpyext
+* test and document the cmp(nan, nan) == 0 behaviour
+* don't crash when calling sleep with inf or nan
+* fix bugs in _io module
+* inspect.isbuiltin() now returns True for functions implemented in C
+* allow the sequences future-import, docstring, future-import for CPython bug compatibility
+* Issue #2699: non-ascii messages in warnings
+* posix.lockf
+* fixes for FreeBSD platform
+* add .debug files, so builds contain debugging info, instead of being stripped
+* improvements to cppyy
+* issue #2677 copy pure c PyBuffer_{From,To}Contiguous from cpython
+* issue #2682, split firstword on any whitespace in sqlite3
+* ctypes: allow ptr[0] = foo when ptr is a pointer to struct
+* matplotlib works with tgagg backend
+* improvements to utf32 surrogate handling
+* cffi version bump to 1.11.2
