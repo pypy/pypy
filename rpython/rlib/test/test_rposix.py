@@ -836,19 +836,22 @@ def check_working_xattr():
     with open(fname, 'wb'):
         pass
     try:
-        rposix.getxattr(fname, 'foo')
-    except OSError as e:
-        return e.errno != errno.ENOTSUP
+        rposix.setxattr(fname, 'user.foo', '')
+    except OSError:
+        return False
     else:
-       raise RuntimeError('getxattr() succeeded unexpectedly!?!')
+        return True
 
 @pytest.mark.skipif(not (hasattr(rposix, 'getxattr') and check_working_xattr()),
     reason="Requires working rposix.getxattr()")
-@given(name=st.binary(max_size=10), value=st.binary(max_size=10),
+@given(
+    name=st.text(
+        alphabet=st.characters(min_codepoint=1), min_size=1, max_size=10),
+    value=st.binary(max_size=10),
     follow_symlinks=st.booleans(), use_fd=st.booleans())
 def test_xattr(name, value, follow_symlinks, use_fd):
-    use_fd = False
     assume(follow_symlinks or not use_fd)
+    name = 'user.' + name.encode('utf-8')
     fname = str(udir.join('xattr_test.txt'))
     with open(fname, 'wb'):
         pass
