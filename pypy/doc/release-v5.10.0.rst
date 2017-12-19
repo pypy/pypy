@@ -87,6 +87,8 @@ Changelog
 * issue #2677 copy pure c PyBuffer_{From,To}Contiguous from cpython
 * issue #2682, split firstword on any whitespace in sqlite3
 * ctypes: allow ptr[0] = foo when ptr is a pointer to struct
-* matplotlib works with tgagg backend
+* matplotlib will work with tkagg backend once `matplotlib pr #9356`_ is merged
 * improvements to utf32 surrogate handling
 * cffi version bump to 1.11.2
+
+.. _`matplotlib pr #9356`: https://github.com/matplotlib/matplotlib/pull/9356
