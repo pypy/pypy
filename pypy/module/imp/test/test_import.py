@@ -769,9 +769,9 @@ class AppTestImport(BaseFSEncodeTest):
 
 class TestAbi:
     def test_abi_tag(self):
-        space1 = maketestobjspace(make_config(None, soabi='TEST'))
+        space1 = maketestobjspace(make_config(None, soabi='footest'))
         space2 = maketestobjspace(make_config(None, soabi=''))
-        assert importing.get_so_extension(space1).startswith('.TEST')
+        assert importing.get_so_extension(space1).startswith('.footest')
         if sys.platform == 'win32':
             assert importing.get_so_extension(space2) == '.pyd'
         else:
