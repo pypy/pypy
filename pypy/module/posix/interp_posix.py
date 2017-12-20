@@ -2301,13 +2301,13 @@ If follow_symlinks is False, and the last element of the path is a symbolic
         try:
             result = rposix.fgetxattr(path.as_fd, attribute.as_bytes)
         except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
+            raise wrap_oserror(space, e, path.as_bytes)
     else:
         try:
             result = rposix.getxattr(path.as_bytes, attribute.as_bytes,
                 follow_symlinks=follow_symlinks)
         except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
+            raise wrap_oserror(space, e, path.as_bytes)
     return space.newbytes(result)
 
 @unwrap_spec(path=path_or_fd(), attribute=path_or_fd(allow_fd=False),
@@ -2330,13 +2330,13 @@ If follow_symlinks is False, and the last element of the path is a symbolic
         try:
             rposix.fsetxattr(path.as_fd, attribute.as_bytes, value)
         except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
+            raise wrap_oserror(space, e, path.as_bytes)
     else:
         try:
             rposix.setxattr(path.as_bytes, attribute.as_bytes, value,
                 follow_symlinks=follow_symlinks)
         except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
+            raise wrap_oserror(space, e, path.as_bytes)
 
 
 @unwrap_spec(path=path_or_fd(), attribute=path_or_fd(allow_fd=False),
@@ -2356,13 +2356,13 @@ If follow_symlinks is False, and the last element of the path is a symbolic
         try:
             rposix.fremovexattr(path.as_fd, attribute.as_bytes)
         except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
+            raise wrap_oserror(space, e, path.as_bytes)
     else:
         try:
             rposix.removexattr(path.as_bytes, attribute.as_bytes,
                 follow_symlinks=follow_symlinks)
         except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
+            raise wrap_oserror(space, e, path.as_bytes)
 
 
 @unwrap_spec(path=path_or_fd(), follow_symlinks=bool)
@@ -2388,9 +2388,8 @@ If follow_symlinks is False, and the last element of the path is a symbolic
         try:
             result = rposix.listxattr(path.as_bytes, follow_symlinks)
         except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
-    return space.newlist([
-        space.fsdecode(space.newbytes(attr)) for attr in result])
+            raise wrap_oserror(space, e, path.as_bytes)
+    return space.newlist([space.newfilename(attr) for attr in result])
 
 
 have_functions = []

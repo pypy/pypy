@@ -1448,7 +1448,8 @@ class AppTestPosix:
             with open(self.path, 'wb'):
                 pass
             init_names = os.listxattr(self.path)
-            raises(OSError, os.getxattr, self.path, 'user.test')
+            excinfo = raises(OSError, os.getxattr, self.path, 'user.test')
+            assert excinfo.value.filename == self.path
             os.setxattr(self.path, 'user.test', b'', os.XATTR_CREATE, follow_symlinks=False)
             assert os.getxattr(self.path, 'user.test') == b''
             os.setxattr(self.path, b'user.test', b'foo', os.XATTR_REPLACE)
