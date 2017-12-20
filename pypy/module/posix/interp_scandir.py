@@ -13,28 +13,39 @@ from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
-    if _WIN32:
-        raise NotImplementedError("XXX WIN32")
-
     if space.is_none(w_path):
         w_path = space.newunicode(u".")
-    if space.isinstance_w(w_path, space.w_bytes):
-        path_bytes = space.bytes0_w(w_path)
-        result_is_bytes = True
+
+    if not _WIN32:
+        if space.isinstance_w(w_path, space.w_bytes):
+            path = space.bytes0_w(w_path)
+            result_is_bytes = True
+        else:
+            path = space.fsencode_w(w_path)
+            result_is_bytes = False
     else:
-        path_bytes = space.fsencode_w(w_path)
+        if space.isinstance_w(w_path, space.w_bytes):
+            raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
+                                           " on Windows, use Unicode instead")
+        path = space.unicode_w(w_path)
         result_is_bytes = False
 
+    # 'path' is always bytes on posix and always unicode on windows
     try:
-        dirp = rposix_scandir.opendir(path_bytes)
+        dirp = rposix_scandir.opendir(path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-    path_prefix = path_bytes
-    if len(path_prefix) > 0 and path_prefix[-1] != '/':
-        path_prefix += '/'
-    w_path_prefix = space.newbytes(path_prefix)
-    if not result_is_bytes:
-        w_path_prefix = space.fsdecode(w_path_prefix)
+    path_prefix = path
+    if not _WIN32:
+        if len(path_prefix) > 0 and path_prefix[-1] != '/':
+            path_prefix += '/'
+        w_path_prefix = space.newbytes(path_prefix)
+        if not result_is_bytes:
+            w_path_prefix = space.fsdecode(w_path_prefix)
+    else:
+        if len(path_prefix) > 0 and path_prefix[-1] not in (u'\\', u'/', u':'):
+            path_prefix += u'\\'
+        w_path_prefix = space.newunicode(path_prefix)
     if rposix.HAVE_FSTATAT:
         dirfd = rposix.c_dirfd(dirp)
     else:
@@ -89,10 +100,14 @@ class W_ScandirIterator(W_Root):
                                                   eintr_retry=False))
                 if not entry:
                     raise self.fail()
-                assert rposix_scandir.has_name_bytes(entry)
-                name = rposix_scandir.get_name_bytes(entry)
-                if name != '.' and name != '..':
-                    break
+                if not _WIN32:
+                    name = rposix_scandir.get_name_bytes(entry)
+                    if name != '.' and name != '..':
+                        break
+                else:
+                    name = rposix_scandir.get_name_unicode(entry)
+                    if name != u'.' and name != u'..':
+                        break
             #
             known_type = rposix_scandir.get_known_type(entry)
             inode = rposix_scandir.get_inode(entry)
@@ -113,12 +128,16 @@ W_ScandirIterator.typedef.acceptable_as_base_class = False
 class FileNotFound(Exception):
     pass
 
-assert 0 <= rposix_scandir.DT_UNKNOWN <= 255
-assert 0 <= rposix_scandir.DT_REG <= 255
-assert 0 <= rposix_scandir.DT_DIR <= 255
-assert 0 <= rposix_scandir.DT_LNK <= 255
-FLAG_STAT  = 256
-FLAG_LSTAT = 512
+if not _WIN32:
+    assert 0 <= rposix_scandir.DT_UNKNOWN <= 255
+    assert 0 <= rposix_scandir.DT_REG <= 255
+    assert 0 <= rposix_scandir.DT_DIR <= 255
+    assert 0 <= rposix_scandir.DT_LNK <= 255
+    FLAG_STAT  = 256
+    FLAG_LSTAT = 512
+else:
+    FLAG_STAT  = 256
+    # XXX lstat and symlinks are not implemented on Windows
 
 
 class W_DirEntry(W_Root):
@@ -127,14 +146,17 @@ class W_DirEntry(W_Root):
     def __init__(self, scandir_iterator, name, known_type, inode):
         self.space = scandir_iterator.space
         self.scandir_iterator = scandir_iterator
-        self.name = name     # always bytes on Posix
+        self.name = name     # always bytes on Posix; always unicode on Windows
         self.inode = inode
         self.flags = known_type
         assert known_type == (known_type & 255)
         #
-        w_name = self.space.newbytes(name)
-        if not scandir_iterator.result_is_bytes:
-            w_name = self.space.fsdecode(w_name)
+        if not _WIN32:
+            w_name = self.space.newbytes(name)
+            if not scandir_iterator.result_is_bytes:
+                w_name = self.space.fsdecode(w_name)
+        else:
+            w_name = self.space.newunicode(name)
         self.w_name = w_name
 
     def descr_repr(self, space):

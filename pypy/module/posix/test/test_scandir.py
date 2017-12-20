@@ -31,6 +31,8 @@ class AppTestScandir(object):
 
     def setup_class(cls):
         space = cls.space
+        cls.w_WIN32 = space.wrap(sys.platform == 'win32')
+        cls.w_sep = space.wrap(os.sep)
         cls.w_posix = space.appexec([], test_posix2.GET_POSIX)
         cls.w_dir_empty = space.wrap(_make_dir('empty', {}))
         cls.w_dir0 = space.wrap(_make_dir('dir0', {'f1': 'file',
@@ -38,10 +40,11 @@ class AppTestScandir(object):
                                                    'f3': 'file'}))
         cls.w_dir1 = space.wrap(_make_dir('dir1', {'file1': 'file'}))
         cls.w_dir2 = space.wrap(_make_dir('dir2', {'subdir2': 'dir'}))
-        cls.w_dir3 = space.wrap(_make_dir('dir3', {'sfile3': 'symlink-file'}))
-        cls.w_dir4 = space.wrap(_make_dir('dir4', {'sdir4': 'symlink-dir'}))
-        cls.w_dir5 = space.wrap(_make_dir('dir5', {'sbrok5': 'symlink-broken'}))
-        cls.w_dir6 = space.wrap(_make_dir('dir6', {'serr6': 'symlink-error'}))
+        if sys.platform != 'win32':
+            cls.w_dir3 = space.wrap(_make_dir('dir3', {'sfile3': 'symlink-file'}))
+            cls.w_dir4 = space.wrap(_make_dir('dir4', {'sdir4': 'symlink-dir'}))
+            cls.w_dir5 = space.wrap(_make_dir('dir5', {'sbrok5': 'symlink-broken'}))
+            cls.w_dir6 = space.wrap(_make_dir('dir6', {'serr6': 'symlink-error'}))
 
     def test_scandir_empty(self):
         posix = self.posix
@@ -60,27 +63,32 @@ class AppTestScandir(object):
         d = next(posix.scandir())
         assert type(d.name) is str
         assert type(d.path) is str
-        assert d.path == './' + d.name
+        assert d.path == '.' + self.sep + d.name
         d = next(posix.scandir(None))
         assert type(d.name) is str
         assert type(d.path) is str
-        assert d.path == './' + d.name
+        assert d.path == '.' + self.sep + d.name
         d = next(posix.scandir(u'.'))
         assert type(d.name) is str
         assert type(d.path) is str
-        assert d.path == './' + d.name
-        d = next(posix.scandir(b'.'))
-        assert type(d.name) is bytes
-        assert type(d.path) is bytes
-        assert d.path == b'./' + d.name
-        d = next(posix.scandir('/'))
+        assert d.path == '.' + self.sep + d.name
+        d = next(posix.scandir(self.sep))
         assert type(d.name) is str
         assert type(d.path) is str
-        assert d.path == '/' + d.name
-        d = next(posix.scandir(b'/'))
-        assert type(d.name) is bytes
-        assert type(d.path) is bytes
-        assert d.path == b'/' + d.name
+        assert d.path == self.sep + d.name
+        if not self.WIN32:
+            d = next(posix.scandir(b'.'))
+            assert type(d.name) is bytes
+            assert type(d.path) is bytes
+            assert d.path == b'./' + d.name
+            d = next(posix.scandir(b'/'))
+            assert type(d.name) is bytes
+            assert type(d.path) is bytes
+            assert d.path == b'/' + d.name
+        else:
+            raises(TypeError, posix.scandir, b'.')
+            raises(TypeError, posix.scandir, b'/')
+            raises(TypeError, posix.scandir, b'\\')
 
     def test_stat1(self):
         posix = self.posix
