@@ -63,15 +63,12 @@ else:
     win32traits = make_win32_traits(unicode_traits)
 
 
-    class DirP:
-        def __init__(self):
-            self.filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
-            self.hFindFile = rwin32.INVALID_HANDLE_VALUE
-
-        def close(self):
-            lltype.free(self.filedata, flavor='raw')
-            if self.hFindFile != rwin32.INVALID_HANDLE_VALUE:
-                win32traits.FindClose(self.hFindFile)
+    SCANDIRP = lltype.Ptr(lltype.Struct('SCANDIRP',
+        ('filedata', win32traits.WIN32_FIND_DATA),
+        ('hFindFile', rwin32.HANDLE),
+        ('first_time', lltype.Bool),
+        ))
+    NULL_DIRP = lltype.nullptr(SCANDIRP.TO)
 
 
     # must only be called with unicode!
@@ -79,22 +76,23 @@ else:
         if len(path) == 0:
             path = u'.'
         if path[-1] not in (u'\\', u'/', u':'):
-            path += u'\\'
-        mask = path + u'*.*'
-        dirp = DirP()
+            mask = path + u'\\*.*'
+        else:
+            mask = path + u'*.*'
+        dirp = lltype.malloc(SCANDIRP.TO, flavor='raw')
         hFindFile = win32traits.FindFirstFile(mask, dirp.filedata)
         if hFindFile == rwin32.INVALID_HANDLE_VALUE:
             error = rwin32.GetLastError_saved()
-            dirp.close()
+            lltype.free(dirp, flavor='raw')
             raise WindowsError(error,  "FindFirstFileW failed")
         dirp.hFindFile = hFindFile
         dirp.first_time = True
         return dirp
 
     def closedir(dirp):
-        dirp.close()
-
-    NULL_DIRP = None
+        if dirp.hFindFile != rwin32.INVALID_HANDLE_VALUE:
+            win32traits.FindClose(dirp.hFindFile)
+        lltype.free(dirp, flavor='raw')
 
     def nextentry(dirp):
         """Read the next entry and returns an opaque object.

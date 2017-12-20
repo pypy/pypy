@@ -269,7 +269,7 @@ class W_DirEntry(W_Root):
 
         def get_stat_or_lstat(self, follow_symlinks):     # 'follow_symlinks' ignored
             if not self.stat_cached:
-                path = self.space.unicode_w(self.fget_path(self.space))
+                path = self.space.unicode0_w(self.fget_path(self.space))
                 self.d_stat = rposix_stat.stat(path)
                 self.stat_cached = True
             return self.d_stat
