@@ -2,7 +2,7 @@
 Implementation of the interpreter-level default import logic.
 """
 
-import sys, os, stat
+import sys, os, stat, re, platform
 
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -45,14 +45,17 @@ def get_so_extension(space):
 
     platform_name = sys.platform
     if platform_name.startswith('linux'):
-        if sys.maxsize < 2**32:
-            platform_name = 'i686-linux-gnu'
-            # xxx should detect if we are inside 'x32', but not for now
-            # because it's not supported anyway by PyPy.  (Using
-            # platform.machine() does not work, it may return x86_64
-            # anyway)
+        if re.match('(i[3-6]86|x86_64)$', platform.machine()):
+            if sys.maxsize < 2**32:
+                platform_name = 'i686-linux-gnu'
+                # xxx should detect if we are inside 'x32', but not for now
+                # because it's not supported anyway by PyPy.  (Relying
+                # on platform.machine() does not work, it may return x86_64
+                # anyway)
+            else:
+                platform_name = 'x86_64-linux-gnu'
         else:
-            platform_name = 'x86_64-linux-gnu'
+            platform_name = 'linux-gnu'
 
     soabi += '-' + platform_name
 
