@@ -631,8 +631,9 @@ class TestUnicode(BaseApiTest):
     def test_decode(self, space):
         b_text = rffi.str2charp('caf\x82xx')
         b_encoding = rffi.str2charp('cp437')
-        assert space.unicode_w(
-            PyUnicode_Decode(space, b_text, 4, b_encoding, None)) == u'caf\xe9'
+        b_errors = rffi.str2charp('strict')
+        assert space.unicode_w(PyUnicode_Decode(
+            space, b_text, 4, b_encoding, b_errors)) == u'caf\xe9'
 
         w_text = PyUnicode_FromEncodedObject(space, space.newbytes("test"), b_encoding, None)
         assert space.isinstance_w(w_text, space.w_unicode)

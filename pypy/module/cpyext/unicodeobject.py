@@ -492,7 +492,7 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     w_str = space.newbytes(rffi.charpsize2str(s, size))
     w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.newbytes(rffi.charp2str(errors))
+        w_errors = space.newtext(rffi.charp2str(errors))
     else:
         w_errors = None
     return space.call_method(w_str, 'decode', w_encoding, w_errors)
