@@ -2,7 +2,7 @@
 Implementation of the interpreter-level default import logic.
 """
 
-import sys, os, stat, platform
+import sys, os, stat
 
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -44,18 +44,17 @@ def get_so_extension(space):
         soabi += 'i'
 
     platform_name = sys.platform
-    if platform_name == 'linux2':
-        platform_name = 'linux'
+    if platform_name.startswith('linux'):
+        if sys.maxsize < 2**32:
+            platform_name = 'i686-linux-gnu'
+            # xxx should detect if we are inside 'x32', but not for now
+            # because it's not supported anyway by PyPy.  (Using
+            # platform.machine() does not work, it may return x86_64
+            # anyway)
+        else:
+            platform_name = 'x86_64-linux-gnu'
 
     soabi += '-' + platform_name
-    # xxx used to also include platform.machine(), but this is wrong
-    # (might get AMD64 on a 32-bit python) and it is the source of a
-    # importlib bug if we get uppercase characters from there...
-
-    if platform_name == 'linux':
-        soabi += '-gnu'
-        if sys.maxsize == (2**31 - 1) and platform.machine() == 'x86_64':
-            soabi += 'x32'
 
     result = '.' + soabi + SO
     assert result == result.lower()   # this is an implicit requirement of importlib on Windows!
