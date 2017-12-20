@@ -2389,7 +2389,8 @@ If follow_symlinks is False, and the last element of the path is a symbolic
             result = rposix.listxattr(path.as_bytes, follow_symlinks)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
-    return space.newlist([space.newbytes(attr) for attr in result])
+    return space.newlist([
+        space.fsdecode(space.newbytes(attr)) for attr in result])
 
 
 have_functions = []
