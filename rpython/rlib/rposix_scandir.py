@@ -1,6 +1,7 @@
 from rpython.rlib import rposix, rwin32
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import intmask
 
 
 if not rwin32.WIN32:
@@ -54,8 +55,10 @@ if not rwin32.WIN32:
 
 else:
     # ----- Win32 version -----
+    import stat
     from rpython.rlib._os_support import unicode_traits
     from rpython.rlib.rwin32file import make_win32_traits
+    from rpython.rlib import rposix_stat
 
     win32traits = make_win32_traits(unicode_traits)
 
@@ -69,21 +72,6 @@ else:
             lltype.free(self.filedata, flavor='raw')
             if self.hFindFile != rwin32.INVALID_HANDLE_VALUE:
                 win32traits.FindClose(self.hFindFile)
-
-    class DirEntP:
-        def __init__(self, filedata):
-            self.filedata = filedata
-            # ^^^ note that this structure is overwritten by the next() call, so
-            # we must copy a few pieces of information out of it now:
-            self.dwFileAttributes = filedata.c_dwFileAttributes
-            self.CreationTimeLow = filedata.c_ftCreationTime.c_dwLowDateTime
-            self.CreationTimeHigh = filedata.c_ftCreationTime.c_dwHighDateTime
-            self.LastAccessTimeLow = filedata.c_ftLastAccessTime.c_dwLowDateTime
-            self.LastAccessTimeHigh = filedata.c_ftLastAccessTime.c_dwHighDateTime
-            self.LastWriteTimeLow = filedata.c_ftLastWriteTime.c_dwLowDateTime
-            self.LastWriteTimeHigh = filedata.c_ftLastWriteTime.c_dwHighDateTime
-            self.nFileSizeHigh = filedata.c_nFileSizeHigh
-            self.nFileSizeLow = filedata.c_nFileSizeLow
 
 
     # must only be called with unicode!
@@ -113,7 +101,7 @@ else:
         Use the methods has_xxx() and get_xxx() to read from that
         opaque object.  The opaque object is valid until the next
         time nextentry() or closedir() is called.  This may raise
-        WindowsError, or return None when exhausted.  Note
+        WindowsError, or return NULL when exhausted.  Note
         that this doesn't filter out the "." and ".." entries.
         """
         if dirp.first_time:
@@ -123,16 +111,18 @@ else:
                 # error or no more files
                 error = rwin32.GetLastError_saved()
                 if error == win32traits.ERROR_NO_MORE_FILES:
-                    return None
+                    return lltype.nullptr(win32traits.WIN32_FIND_DATA)
                 raise WindowsError(error,  "FindNextFileW failed")
-        return DirEntP(dirp.filedata)
+        return dirp.filedata
 
-    def get_name_unicode(direntp):
+    def get_name_unicode(filedata):
         return unicode_traits.charp2str(rffi.cast(unicode_traits.CCHARP,
-                                                  direntp.filedata.c_cFileName))
+                                                  filedata.c_cFileName))
 
     def get_known_type(filedata):
-        return 0
+        attr = filedata.c_dwFileAttributes
+        st_mode = rposix_stat.win32_attributes_to_mode(win32traits, attr)
+        return stat.S_IFMT(st_mode)
 
     def get_inode(filedata):
         return None
