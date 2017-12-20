@@ -10,12 +10,13 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rthread, jit
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.config.translationoption import get_translation_config
+from rpython.jit.backend import detect_cpu
 
 class VMProfPlatformUnsupported(Exception):
     pass
 
 # vmprof works only on x86 for now
-IS_SUPPORTED = host_platform.machine() in ('i686', 'x86_64')
+IS_SUPPORTED = detect_cpu.autodetect().startswith('x86')
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
