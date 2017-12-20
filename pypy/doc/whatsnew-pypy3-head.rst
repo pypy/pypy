@@ -16,3 +16,6 @@ that did this
 Download and patch dependencies when building cffi-based stdlib modules
 
 .. branch: os_lockf
+
+.. branch: py3.5-xattr
+Add posix.*attr() functions
