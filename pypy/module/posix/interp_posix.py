@@ -1273,6 +1273,9 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
+    if _WIN32:
+        raise oefmt(space.w_NotImplementedError,
+                    "symlink() is not implemented for PyPy on Windows")
     try:
         if rposix.HAVE_SYMLINKAT and dir_fd != DEFAULT_DIR_FD:
             src = space.fsencode_w(w_src)

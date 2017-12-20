@@ -1157,7 +1157,7 @@ class AppTestPosix:
             expected = min(myprio + 3, 19)
             assert os.WEXITSTATUS(status1) == expected
 
-    if hasattr(os, 'symlink'):
+    if sys.platform != 'win32':
         def test_symlink(self):
             posix = self.posix
             bytes_dir = self.bytes_dir
@@ -1187,6 +1187,10 @@ class AppTestPosix:
             finally:
                 posix.close(f)
                 posix.unlink(bytes_dir + '/somelink'.encode())
+    else:
+        def test_symlink(self):
+            posix = self.posix
+            raises(NotImplementedError, posix.symlink, 'a', 'b')
 
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):
