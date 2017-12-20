@@ -252,6 +252,8 @@ class W_ZipImporter(W_Root):
         gets in code_object.co_filename. Something like
         'myfile.zip/mymodule.py'
         """
+        if ZIPSEP != os.path.sep:
+            filename = filename.replace(ZIPSEP, os.path.sep)
         return self.filename + os.path.sep + filename
 
     def load_module(self, space, w_fullname):
