@@ -4,7 +4,7 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import imp, struct, types, new, sys, os
+import imp, struct, types, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
@@ -80,7 +80,7 @@ class CodeHookCache(object):
 class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_fields_ = ["_signature", "co_argcount", "co_kwonlyargcount", "co_cellvars[*]",
-                          "co_code", "co_consts_w[*]", "co_filename",
+                          "co_code", "co_consts_w[*]", "co_filename", "w_filename",
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_lnotab", "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
@@ -111,6 +111,7 @@ class PyCode(eval.Code):
         assert isinstance(filename, str)
         rstring.check_str0(filename)
         self.co_filename = filename
+        self.w_filename = space.newfilename(filename)
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
@@ -203,6 +204,7 @@ class PyCode(eval.Code):
         if lastdirname:
             basename = '%s/%s' % (lastdirname, basename)
         self.co_filename = '<builtin>/%s' % (basename,)
+        self.w_filename = space.newfilename(self.co_filename)
 
     co_names = property(lambda self: [self.space.str_w(w_name) for w_name in self.co_names_w]) # for trace
 
@@ -427,7 +429,7 @@ class PyCode(eval.Code):
             space.newtuple(self.co_consts_w),
             space.newtuple(self.co_names_w),
             space.newtuple([space.newtext(v) for v in self.co_varnames]),
-            space.newtext(self.co_filename),
+            self.w_filename,
             space.newtext(self.co_name),
             space.newint(self.co_firstlineno),
             space.newbytes(self.co_lnotab),
@@ -451,7 +453,7 @@ class PyCode(eval.Code):
         space = self.space
         # co_name should be an identifier
         name = self.co_name.decode('utf-8')
-        fn = space.fsdecode_w(space.newbytes(self.co_filename))
+        fn = space.unicode_w(self.w_filename)
         return space.newunicode(u'<code object %s at 0x%s, file "%s", line %d>' % (
             name, unicode(self.getaddrstring(space)), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))
