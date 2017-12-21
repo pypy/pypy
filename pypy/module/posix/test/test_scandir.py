@@ -98,8 +98,7 @@ class AppTestScandir(object):
         assert d.stat().st_mode & 0o170000 == 0o100000    # S_IFREG
         assert d.stat().st_size == 0
 
-    @py.test.mark.skipif(sys.platform == "win32",
-                         reason="no symlink support so far")
+    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_stat4(self):
         posix = self.posix
         d = next(posix.scandir(self.dir4))
@@ -129,8 +128,7 @@ class AppTestScandir(object):
         assert not d.is_file(follow_symlinks=False)
         assert     d.is_dir(follow_symlinks=False)
 
-    @py.test.mark.skipif(sys.platform == "win32",
-                         reason="no symlink support so far")
+    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_dir3(self):
         posix = self.posix
         d = next(posix.scandir(self.dir3))
@@ -141,8 +139,7 @@ class AppTestScandir(object):
         assert     d.is_file(follow_symlinks=True)
         assert not d.is_file(follow_symlinks=False)
 
-    @py.test.mark.skipif(sys.platform == "win32",
-                         reason="no symlink support so far")
+    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_dir4(self):
         posix = self.posix
         d = next(posix.scandir(self.dir4))
@@ -153,8 +150,7 @@ class AppTestScandir(object):
         assert     d.is_dir(follow_symlinks=True)
         assert not d.is_dir(follow_symlinks=False)
 
-    @py.test.mark.skipif(sys.platform == "win32",
-                         reason="no symlink support so far")
+    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_dir5(self):
         posix = self.posix
         d = next(posix.scandir(self.dir5))
@@ -164,8 +160,7 @@ class AppTestScandir(object):
         assert     d.is_symlink()
         raises(OSError, d.stat)
 
-    @py.test.mark.skipif(sys.platform == "win32",
-                         reason="no symlink support so far")
+    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_dir6(self):
         posix = self.posix
         d = next(posix.scandir(self.dir6))
