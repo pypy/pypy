@@ -386,8 +386,8 @@ class AppTestPosix:
 
     def test_times(self):
         """
-        posix.times() should return a posix.times_result object giving 
-        float-representations (seconds, effectively) of the four fields from 
+        posix.times() should return a posix.times_result object giving
+        float-representations (seconds, effectively) of the four fields from
         the underlying struct tms and the return value.
         """
         result = self.posix.times()
@@ -977,7 +977,7 @@ class AppTestPosix:
             assert posix.sched_get_priority_min(posix.SCHED_OTHER) != -1
             if getattr(posix, 'SCHED_BATCH', None):
                 assert posix.sched_get_priority_min(posix.SCHED_BATCH) != -1
-            
+
     if hasattr(rposix, 'sched_get_priority_min'):
         def test_os_sched_priority_max_greater_than_min(self):
             posix, os = self.posix, self.os
@@ -992,7 +992,7 @@ class AppTestPosix:
         def test_sched_yield(self):
             os = self.posix
             #Always suceeds on Linux
-            os.sched_yield() 
+            os.sched_yield()
 
     def test_write_buffer(self):
         os = self.posix
@@ -1157,7 +1157,7 @@ class AppTestPosix:
             expected = min(myprio + 3, 19)
             assert os.WEXITSTATUS(status1) == expected
 
-    if hasattr(os, 'symlink'):
+    if sys.platform != 'win32':
         def test_symlink(self):
             posix = self.posix
             bytes_dir = self.bytes_dir
@@ -1187,6 +1187,10 @@ class AppTestPosix:
             finally:
                 posix.close(f)
                 posix.unlink(bytes_dir + '/somelink'.encode())
+    else:
+        def test_symlink(self):
+            posix = self.posix
+            raises(NotImplementedError, posix.symlink, 'a', 'b')
 
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):
@@ -1350,7 +1354,7 @@ class AppTestPosix:
             posix.close(fd)
             s2.close()
             s1.close()
-            
+
         def test_os_lockf(self):
             posix, os = self.posix, self.os
             fd = os.open(self.path2 + 'test_os_lockf', os.O_WRONLY | os.O_CREAT)
@@ -1441,6 +1445,25 @@ class AppTestPosix:
         e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
         assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
 
+    if hasattr(rposix, 'getxattr'):
+        def test_xattr_simple(self):
+            # Minimal testing here, lib-python has better tests.
+            os = self.posix
+            with open(self.path, 'wb'):
+                pass
+            init_names = os.listxattr(self.path)
+            excinfo = raises(OSError, os.getxattr, self.path, 'user.test')
+            assert excinfo.value.filename == self.path
+            os.setxattr(self.path, 'user.test', b'', os.XATTR_CREATE, follow_symlinks=False)
+            assert os.getxattr(self.path, 'user.test') == b''
+            os.setxattr(self.path, b'user.test', b'foo', os.XATTR_REPLACE)
+            assert os.getxattr(self.path, 'user.test', follow_symlinks=False) == b'foo'
+            assert set(os.listxattr(self.path)) == set(
+                init_names + ['user.test'])
+            os.removexattr(self.path, 'user.test', follow_symlinks=False)
+            raises(OSError, os.getxattr, self.path, 'user.test')
+            assert os.listxattr(self.path, follow_symlinks=False) == init_names
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
@@ -1494,6 +1517,7 @@ class AppTestEnvironment(object):
             cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
             res = os.system(cmd)
             assert res == 0
+
 
 @py.test.fixture
 def check_fsencoding(space, pytestconfig):

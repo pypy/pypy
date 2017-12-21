@@ -13,28 +13,39 @@ from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
-    if _WIN32:
-        raise NotImplementedError("XXX WIN32")
-
     if space.is_none(w_path):
         w_path = space.newunicode(u".")
-    if space.isinstance_w(w_path, space.w_bytes):
-        path_bytes = space.bytes0_w(w_path)
-        result_is_bytes = True
+
+    if not _WIN32:
+        if space.isinstance_w(w_path, space.w_bytes):
+            path = space.bytes0_w(w_path)
+            result_is_bytes = True
+        else:
+            path = space.fsencode_w(w_path)
+            result_is_bytes = False
     else:
-        path_bytes = space.fsencode_w(w_path)
+        if space.isinstance_w(w_path, space.w_bytes):
+            raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
+                                           " on Windows, use Unicode instead")
+        path = space.unicode_w(w_path)
         result_is_bytes = False
 
+    # 'path' is always bytes on posix and always unicode on windows
     try:
-        dirp = rposix_scandir.opendir(path_bytes)
+        dirp = rposix_scandir.opendir(path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-    path_prefix = path_bytes
-    if len(path_prefix) > 0 and path_prefix[-1] != '/':
-        path_prefix += '/'
-    w_path_prefix = space.newbytes(path_prefix)
-    if not result_is_bytes:
-        w_path_prefix = space.fsdecode(w_path_prefix)
+    path_prefix = path
+    if not _WIN32:
+        if len(path_prefix) > 0 and path_prefix[-1] != '/':
+            path_prefix += '/'
+        w_path_prefix = space.newbytes(path_prefix)
+        if not result_is_bytes:
+            w_path_prefix = space.fsdecode(w_path_prefix)
+    else:
+        if len(path_prefix) > 0 and path_prefix[-1] not in (u'\\', u'/', u':'):
+            path_prefix += u'\\'
+        w_path_prefix = space.newunicode(path_prefix)
     if rposix.HAVE_FSTATAT:
         dirfd = rposix.c_dirfd(dirp)
     else:
@@ -89,10 +100,14 @@ class W_ScandirIterator(W_Root):
                                                   eintr_retry=False))
                 if not entry:
                     raise self.fail()
-                assert rposix_scandir.has_name_bytes(entry)
-                name = rposix_scandir.get_name_bytes(entry)
-                if name != '.' and name != '..':
-                    break
+                if not _WIN32:
+                    name = rposix_scandir.get_name_bytes(entry)
+                    if name != '.' and name != '..':
+                        break
+                else:
+                    name = rposix_scandir.get_name_unicode(entry)
+                    if name != u'.' and name != u'..':
+                        break
             #
             known_type = rposix_scandir.get_known_type(entry)
             inode = rposix_scandir.get_inode(entry)
@@ -113,12 +128,13 @@ W_ScandirIterator.typedef.acceptable_as_base_class = False
 class FileNotFound(Exception):
     pass
 
-assert 0 <= rposix_scandir.DT_UNKNOWN <= 255
-assert 0 <= rposix_scandir.DT_REG <= 255
-assert 0 <= rposix_scandir.DT_DIR <= 255
-assert 0 <= rposix_scandir.DT_LNK <= 255
-FLAG_STAT  = 256
-FLAG_LSTAT = 512
+if not _WIN32:
+    assert 0 <= rposix_scandir.DT_UNKNOWN <= 255
+    assert 0 <= rposix_scandir.DT_REG <= 255
+    assert 0 <= rposix_scandir.DT_DIR <= 255
+    assert 0 <= rposix_scandir.DT_LNK <= 255
+    FLAG_STAT  = 256
+    FLAG_LSTAT = 512
 
 
 class W_DirEntry(W_Root):
@@ -127,14 +143,17 @@ class W_DirEntry(W_Root):
     def __init__(self, scandir_iterator, name, known_type, inode):
         self.space = scandir_iterator.space
         self.scandir_iterator = scandir_iterator
-        self.name = name     # always bytes on Posix
+        self.name = name     # always bytes on Posix; always unicode on Windows
         self.inode = inode
         self.flags = known_type
-        assert known_type == (known_type & 255)
         #
-        w_name = self.space.newbytes(name)
-        if not scandir_iterator.result_is_bytes:
-            w_name = self.space.fsdecode(w_name)
+        if not _WIN32:
+            assert known_type == (known_type & 255)
+            w_name = self.space.newbytes(name)
+            if not scandir_iterator.result_is_bytes:
+                w_name = self.space.fsdecode(w_name)
+        else:
+            w_name = self.space.newunicode(name)
         self.w_name = w_name
 
     def descr_repr(self, space):
@@ -156,93 +175,109 @@ class W_DirEntry(W_Root):
     # the end of the class.  Every method only calls methods *before*
     # it in program order, so there is no cycle.
 
-    def get_lstat(self):
-        """Get the lstat() of the direntry."""
-        if (self.flags & FLAG_LSTAT) == 0:
-            # Unlike CPython, try to use fstatat() if possible
-            dirfd = self.scandir_iterator.dirfd
-            if dirfd != -1 and rposix.HAVE_FSTATAT:
-                st = rposix_stat.fstatat(self.name, dirfd,
-                                         follow_symlinks=False)
-            else:
-                path = self.space.fsencode_w(self.fget_path(self.space))
-                st = rposix_stat.lstat(path)
-            self.d_lstat = st
-            self.flags |= FLAG_LSTAT
-        return self.d_lstat
-
-    def get_stat(self):
-        """Get the stat() of the direntry.  This is implemented in
-        such a way that it won't do both a stat() and a lstat().
-        """
-        if (self.flags & FLAG_STAT) == 0:
-            # We don't have the 'd_stat'.  If the known_type says the
-            # direntry is not a DT_LNK, then try to get and cache the
-            # 'd_lstat' instead.  Then, or if we already have a
-            # 'd_lstat' from before, *and* if the 'd_lstat' is not a
-            # S_ISLNK, we can reuse it unchanged for 'd_stat'.
-            #
-            # Note how, in the common case where the known_type says
-            # it is a DT_REG or DT_DIR, then we call and cache lstat()
-            # and that's it.  Also note that in a d_type-less OS or on
-            # a filesystem that always answer DT_UNKNOWN, this method
-            # will instead only call at most stat(), but not cache it
-            # as 'd_lstat'.
-            known_type = self.flags & 255
-            if (known_type != rposix_scandir.DT_UNKNOWN and
-                known_type != rposix_scandir.DT_LNK):
-                self.get_lstat()    # fill the 'd_lstat' cache
-                have_lstat = True
-            else:
-                have_lstat = (self.flags & FLAG_LSTAT) != 0
-
-            if have_lstat:
-                # We have the lstat() but not the stat().  They are
-                # the same, unless the 'd_lstat' is a S_IFLNK.
-                must_call_stat = stat.S_ISLNK(self.d_lstat.st_mode)
-            else:
-                must_call_stat = True
-
-            if must_call_stat:
-                # Must call stat().  Try to use fstatat() if possible
+    if not _WIN32:
+        def get_lstat(self):
+            """Get the lstat() of the direntry."""
+            if (self.flags & FLAG_LSTAT) == 0:
+                # Unlike CPython, try to use fstatat() if possible
                 dirfd = self.scandir_iterator.dirfd
-                if dirfd != -1 and rposix.HAVE_FSTATAT:
+                if rposix.HAVE_FSTATAT and dirfd != -1:
                     st = rposix_stat.fstatat(self.name, dirfd,
-                                             follow_symlinks=True)
+                                             follow_symlinks=False)
                 else:
                     path = self.space.fsencode_w(self.fget_path(self.space))
-                    st = rposix_stat.stat(path)
+                    st = rposix_stat.lstat(path)
+                self.d_lstat = st
+                self.flags |= FLAG_LSTAT
+            return self.d_lstat
+
+        def get_stat(self):
+            """Get the stat() of the direntry.  This is implemented in
+            such a way that it won't do both a stat() and a lstat().
+            """
+            if (self.flags & FLAG_STAT) == 0:
+                # We don't have the 'd_stat'.  If the known_type says the
+                # direntry is not a DT_LNK, then try to get and cache the
+                # 'd_lstat' instead.  Then, or if we already have a
+                # 'd_lstat' from before, *and* if the 'd_lstat' is not a
+                # S_ISLNK, we can reuse it unchanged for 'd_stat'.
+                #
+                # Note how, in the common case where the known_type says
+                # it is a DT_REG or DT_DIR, then we call and cache lstat()
+                # and that's it.  Also note that in a d_type-less OS or on
+                # a filesystem that always answer DT_UNKNOWN, this method
+                # will instead only call at most stat(), but not cache it
+                # as 'd_lstat'.
+                known_type = self.flags & 255
+                if (known_type != rposix_scandir.DT_UNKNOWN and
+                    known_type != rposix_scandir.DT_LNK):
+                    self.get_lstat()    # fill the 'd_lstat' cache
+                    have_lstat = True
+                else:
+                    have_lstat = (self.flags & FLAG_LSTAT) != 0
+
+                if have_lstat:
+                    # We have the lstat() but not the stat().  They are
+                    # the same, unless the 'd_lstat' is a S_IFLNK.
+                    must_call_stat = stat.S_ISLNK(self.d_lstat.st_mode)
+                else:
+                    must_call_stat = True
+
+                if must_call_stat:
+                    # Must call stat().  Try to use fstatat() if possible
+                    dirfd = self.scandir_iterator.dirfd
+                    if dirfd != -1 and rposix.HAVE_FSTATAT:
+                        st = rposix_stat.fstatat(self.name, dirfd,
+                                                 follow_symlinks=True)
+                    else:
+                        path = self.space.fsencode_w(self.fget_path(self.space))
+                        st = rposix_stat.stat(path)
+                else:
+                    st = self.d_lstat
+
+                self.d_stat = st
+                self.flags |= FLAG_STAT
+            return self.d_stat
+
+        def get_stat_or_lstat(self, follow_symlinks):
+            if follow_symlinks:
+                return self.get_stat()
             else:
-                st = self.d_lstat
+                return self.get_lstat()
 
-            self.d_stat = st
-            self.flags |= FLAG_STAT
-        return self.d_stat
+        def check_mode(self, follow_symlinks):
+            """Get the stat() or lstat() of the direntry, and return the
+            S_IFMT.  If calling stat()/lstat() gives us ENOENT, return -1
+            instead; it is better to give up and answer "no, not this type"
+            to requests, rather than propagate the error.
+            """
+            try:
+                st = self.get_stat_or_lstat(follow_symlinks)
+            except OSError as e:
+                if e.errno == ENOENT:    # not found
+                    return -1
+                raise wrap_oserror2(self.space, e, self.fget_path(self.space),
+                                    eintr_retry=False)
+            return stat.S_IFMT(st.st_mode)
 
-    def get_stat_or_lstat(self, follow_symlinks):
-        if follow_symlinks:
-            return self.get_stat()
-        else:
-            return self.get_lstat()
+    else:
+        # Win32
+        stat_cached = False
 
-    def check_mode(self, follow_symlinks):
-        """Get the stat() or lstat() of the direntry, and return the
-        S_IFMT.  If calling stat()/lstat() gives us ENOENT, return -1
-        instead; it is better to give up and answer "no, not this type"
-        to requests, rather than propagate the error.
-        """
-        try:
-            st = self.get_stat_or_lstat(follow_symlinks)
-        except OSError as e:
-            if e.errno == ENOENT:    # not found
-                return -1
-            raise wrap_oserror2(self.space, e, self.fget_path(self.space),
-                                eintr_retry=False)
-        return stat.S_IFMT(st.st_mode)
+        def check_mode(self, follow_symlinks):
+            return self.flags
+
+        def get_stat_or_lstat(self, follow_symlinks):     # 'follow_symlinks' ignored
+            if not self.stat_cached:
+                path = self.space.unicode0_w(self.fget_path(self.space))
+                self.d_stat = rposix_stat.stat(path)
+                self.stat_cached = True
+            return self.d_stat
+
 
     def is_dir(self, follow_symlinks):
         known_type = self.flags & 255
-        if known_type != rposix_scandir.DT_UNKNOWN:
+        if not _WIN32 and known_type != rposix_scandir.DT_UNKNOWN:
             if known_type == rposix_scandir.DT_DIR:
                 return True
             elif follow_symlinks and known_type == rposix_scandir.DT_LNK:
@@ -253,7 +288,7 @@ class W_DirEntry(W_Root):
 
     def is_file(self, follow_symlinks):
         known_type = self.flags & 255
-        if known_type != rposix_scandir.DT_UNKNOWN:
+        if not _WIN32 and known_type != rposix_scandir.DT_UNKNOWN:
             if known_type == rposix_scandir.DT_REG:
                 return True
             elif follow_symlinks and known_type == rposix_scandir.DT_LNK:
@@ -265,7 +300,7 @@ class W_DirEntry(W_Root):
     def is_symlink(self):
         """Check if the direntry is a symlink.  May get the lstat()."""
         known_type = self.flags & 255
-        if known_type != rposix_scandir.DT_UNKNOWN:
+        if not _WIN32 and known_type != rposix_scandir.DT_UNKNOWN:
             return known_type == rposix_scandir.DT_LNK
         return self.check_mode(follow_symlinks=False) == stat.S_IFLNK
 
@@ -294,7 +329,15 @@ class W_DirEntry(W_Root):
         return build_stat_result(space, st)
 
     def descr_inode(self, space):
-        return space.newint(self.inode)
+        inode = self.inode
+        if inode is None:    # _WIN32
+            try:
+                st = self.get_stat_or_lstat(follow_symlinks=False)
+            except OSError as e:
+                raise wrap_oserror2(space, e, self.fget_path(space),
+                                    eintr_retry=False)
+            inode = st.st_ino
+        return space.newint(inode)
 
 
 W_DirEntry.typedef = TypeDef(

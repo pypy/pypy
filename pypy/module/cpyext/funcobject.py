@@ -70,7 +70,7 @@ def code_attach(space, py_obj, w_obj, w_userdata=None):
     py_code = rffi.cast(PyCodeObject, py_obj)
     assert isinstance(w_obj, PyCode)
     py_code.c_co_name = make_ref(space, space.newtext(w_obj.co_name))
-    py_code.c_co_filename = make_ref(space, space.newtext(w_obj.co_filename))
+    py_code.c_co_filename = make_ref(space, w_obj.w_filename)
     co_flags = 0
     for name, value in ALL_CODE_FLAGS:
         if w_obj.co_flags & getattr(pycode, name):

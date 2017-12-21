@@ -140,6 +140,23 @@ try:
 except NameError:
     _SSLv2_IF_EXISTS = None
 
+
+
+
+import os
+class DirEntry:
+    def __init__(self, path, name):
+        self.path = os.path.join(path, name)
+        self.name = name
+    def is_dir(self):
+        return os.path.isdir(self.path)
+def myscandir(path='.'):
+    for name in os.listdir(path):
+        yield DirEntry(path, name)
+os.scandir = myscandir
+
+
+
 if sys.platform == "win32":
     from _ssl import enum_certificates, enum_crls
 

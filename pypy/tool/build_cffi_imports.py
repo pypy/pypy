@@ -17,8 +17,8 @@ cffi_build_scripts = {
     "resource": "_resource_build.py" if sys.platform != "win32" else None,
     "lzma": "_lzma_build.py",
     "_decimal": "_decimal_build.py",
-    "ssl": "_ssl_build.py",
-    # hashlib does not need to be built! It uses API calls from ssl
+    "_ssl": "_ssl_build.py",
+    # hashlib does not need to be built! It uses API calls from _ssl
     "xx": None,    # for testing: 'None' should be completely ignored
     }
 
@@ -28,7 +28,7 @@ cffi_dependencies = {
     'lzma': ('https://tukaani.org/xz/xz-5.2.3.tar.gz',
              '71928b357d0a09a12a4b4c5fafca8c31c19b0e7d3b8ebb19622e96f26dbf28cb',
              []),
-    'ssl': ('http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-2.6.2.tar.gz',
+    '_ssl': ('http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-2.6.2.tar.gz',
             'b029d2492b72a9ba5b5fcd9f3d602c9fd0baa087912f2aaecc28f52f567ec478',
             ['--without-openssldir']),
     '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
@@ -159,6 +159,12 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             continue
         if module is None or getattr(options, 'no_' + key, False):
             continue
+        # the key is the module name, has it already been built?
+        status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import %s' % key])
+        if status  == 0:
+            print('*', ' %s already built' % key, file=sys.stderr)
+            continue
+        
         if module.endswith('.py'):
             args = [module]
             cwd = str(join(basedir,'lib_pypy'))
@@ -175,7 +181,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             shutil.rmtree(destdir, ignore_errors=True)
             os.makedirs(destdir)
 
-            if key == 'ssl' and sys.platform == 'darwin':
+            if key == '_ssl' and sys.platform == 'darwin':
                 # this patch is loosely inspired by an Apple and adds
                 # a fallback to the OS X roots when none are available
                 patches = [
@@ -201,7 +207,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             env['LDFLAGS'] = \
                 '-L{}/usr/lib {}'.format(destdir, env.get('LDFLAGS', ''))
 
-            if key == 'ssl' and sys.platform == 'darwin':
+            if key == '_ssl' and sys.platform == 'darwin':
                 # needed for our roots patch
                 env['LDFLAGS'] += ' -framework CoreFoundation -framework Security'
 
@@ -237,7 +243,7 @@ if __name__ == '__main__':
                         help='instead of executing sys.executable' \
                              ' you can specify an alternative pypy vm here')
     parser.add_argument('--only', dest='only', default=None,
-                        help='Only build the modules delimited by a colon. E.g. ssl,sqlite')
+                        help='Only build the modules delimited by a colon. E.g. _ssl,sqlite')
     parser.add_argument('--embed-dependencies', dest='embed_dependencies', action='store_true',
         help='embed dependencies for distribution')
     args = parser.parse_args()
