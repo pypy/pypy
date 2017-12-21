@@ -58,7 +58,7 @@ more_errors = [
 
 
 class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(includes=['sys/errno.h'])
+    _compilation_info_ = ExternalCompilationInfo(includes=['errno.h'])
 
 for err_name in errors + win_errors + more_errors:
     setattr(CConfig, err_name, DefinedConstantInteger(err_name))
