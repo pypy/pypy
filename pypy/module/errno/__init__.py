@@ -1,6 +1,5 @@
-# Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-import errno
+from pypy.module.errno.interp_errno import name2code
 
 class Module(MixedModule):
     """This module makes available standard errno system symbols.
@@ -18,9 +17,7 @@ class Module(MixedModule):
 
     appleveldefs = {}
     interpleveldefs = {"errorcode": "interp_errno.get_errorcode(space)"}
-    
-for name in dir(errno):
-    if name.startswith('__') or name in Module.interpleveldefs:
-        continue
-    Module.interpleveldefs[name] = ("space.newint(%s)" %
-                                    (getattr(errno, name), ))
+
+for name, code in name2code.iteritems():
+    if code is not None:
+        Module.interpleveldefs[name] = ("space.newint(%s)" % code)
