@@ -31,7 +31,7 @@ Run extra_tests/ in buildbot
 Upgrade the _vmprof backend to vmprof 0.4.10
 
 .. branch: fix-vmprof-stacklet-switch
-
+.. branch: fix-vmprof-stacklet-switch-2
 Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)
 
 .. branch: win32-vcvars
@@ -39,3 +39,4 @@ Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)
 .. branch: rdict-fast-hash
 
 Make it possible to declare that the hash function of an r_dict is fast in RPython.
+
