@@ -204,7 +204,7 @@ class PyCode(eval.Code):
         if lastdirname:
             basename = '%s/%s' % (lastdirname, basename)
         self.co_filename = '<builtin>/%s' % (basename,)
-        self.w_filename = space.newfilename(self.co_filename)
+        self.w_filename = self.space.newfilename(self.co_filename)
 
     co_names = property(lambda self: [self.space.str_w(w_name) for w_name in self.co_names_w]) # for trace
 
