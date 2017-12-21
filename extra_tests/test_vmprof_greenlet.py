@@ -1,7 +1,7 @@
 import time
 import pytest
 import greenlet
-import vmprof
+vmprof = pytest.importorskip('vmprof')
 
 def count_samples(filename):
     stats = vmprof.read_profile(filename)
