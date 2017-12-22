@@ -605,7 +605,7 @@ class TestFunctions(BaseCTypesTestChecker):
         get_data.errcheck = ret_list_p(1)
         assert get_data('testing!') == [-1, -2, -3, -4]
 
-    def test_issue2533(self):
+    def test_issue2533(self, tmpdir):
         import cffi
         ffi = cffi.FFI()
         ffi.cdef("int **fetchme(void);")
@@ -617,11 +617,10 @@ class TestFunctions(BaseCTypesTestChecker):
                 return &pa;
             }
         """)
-        from rpython.tool.udir import udir
-        ffi.compile(verbose=True, tmpdir=str(udir))
+        ffi.compile(verbose=True, tmpdir=str(tmpdir))
 
         import sys
-        sys.path.insert(0, str(udir))
+        sys.path.insert(0, str(tmpdir))
         try:
             from _x_cffi import ffi, lib
         finally:
