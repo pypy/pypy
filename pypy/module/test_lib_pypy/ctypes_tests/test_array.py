@@ -1,5 +1,4 @@
-
-import py
+import pytest
 from ctypes import *
 from support import BaseCTypesTestChecker
 
@@ -40,7 +39,8 @@ class TestArray(BaseCTypesTestChecker):
             assert values == [0] * len(init)
 
             # Too many in itializers should be caught
-            py.test.raises(IndexError, int_array, *range(alen*2))
+            with pytest.raises(IndexError):
+                int_array(*range(alen*2))
 
         CharArray = ARRAY(c_char, 3)
 
@@ -48,7 +48,8 @@ class TestArray(BaseCTypesTestChecker):
 
         # Should this work? It doesn't:
         # CharArray("abc")
-        py.test.raises(TypeError, CharArray, "abc")
+        with pytest.raises(TypeError):
+            CharArray("abc")
 
         assert ca[0] == "a"
         assert ca[1] == "b"
@@ -61,10 +62,12 @@ class TestArray(BaseCTypesTestChecker):
 
         # slicing is now supported, but not extended slicing (3-argument)!
         from operator import getslice, delitem
-        py.test.raises(TypeError, getslice, ca, 0, 1, -1)
+        with pytest.raises(TypeError):
+            getslice(ca, 0, 1, -1)
 
         # cannot delete items
-        py.test.raises(TypeError, delitem, ca, 0)
+        with pytest.raises(TypeError):
+            delitem(ca, 0)
 
     def test_numeric_arrays(self):
 
@@ -165,7 +168,8 @@ class TestSophisticatedThings(BaseCTypesTestChecker):
         assert isinstance(Car("abcdefghi", 42.0, "12345").brand, bytes)
         assert Car("abcdefghi", 42.0, "12345").brand == "abcdefghi"
         assert Car("abcdefghio", 42.0, "12345").brand == "abcdefghio"
-        raises(ValueError, Car, "abcdefghiop", 42.0, "12345")
+        with pytest.raises(ValueError):
+            Car("abcdefghiop", 42.0, "12345")
 
         A = Car._fields_[2][1]
         TP = POINTER(A)

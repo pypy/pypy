@@ -8,7 +8,7 @@ Later...
 from __future__ import with_statement
 from ctypes import *
 import sys
-import py
+import pytest
 from support import BaseCTypesTestChecker
 
 try:
@@ -140,7 +140,8 @@ class TestFunctions(BaseCTypesTestChecker):
         assert type(result) == int
 
         # You cannot assing character format codes as restype any longer
-        raises(TypeError, setattr, f, "restype", "i")
+        with pytest.raises(TypeError):
+            setattr(f, "restype", "i")
 
     def test_unicode_function_name(self):
         f = dll[u'_testfunc_i_bhilfd']
@@ -237,7 +238,8 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(arg)
         assert not result.contents == v.value
 
-        raises(ArgumentError, f, byref(c_short(22)))
+        with pytest.raises(ArgumentError):
+            f(byref(c_short(22)))
 
         # It is dangerous, however, because you don't control the lifetime
         # of the pointer:
@@ -262,7 +264,8 @@ class TestFunctions(BaseCTypesTestChecker):
         class X(Structure):
             _fields_ = [("y", c_int)]
 
-        raises(ArgumentError, f, X()) #cannot convert parameter
+        with pytest.raises(ArgumentError):
+            f(X()) #cannot convert parameter
 
     ################################################################
     def test_shorts(self):
@@ -310,7 +313,8 @@ class TestFunctions(BaseCTypesTestChecker):
         # check that the prototype works: we call f with wrong
         # argument types
         cb = AnotherCallback(callback)
-        raises(ArgumentError, f, -10, cb)
+        with pytest.raises(ArgumentError):
+            f(-10, cb)
 
 
     def test_callbacks_2(self):
@@ -351,8 +355,10 @@ class TestFunctions(BaseCTypesTestChecker):
         assert 13577625587 == f(1000000000000, cb)
 
     def test_errors_2(self):
-        raises(AttributeError, getattr, dll, "_xxx_yyy")
-        raises(ValueError, c_int.in_dll, dll, "_xxx_yyy")
+        with pytest.raises(AttributeError):
+            getattr(dll, "_xxx_yyy")
+        with pytest.raises(ValueError):
+            c_int.in_dll(dll, "_xxx_yyy")
 
     def test_byval(self):
         # without prototype
@@ -466,16 +472,16 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f("abcd", ord("b"), 42)
         assert result == "bcd"
 
+    @pytest.mark.xfail(reason="we are less strict in checking callback parameters")
     def test_sf1651235(self):
-        py.test.skip("we are less strict in checking callback parameters")
         # see http://www.python.org/sf/1651235
-
         proto = CFUNCTYPE(c_int, RECT, POINT)
         def callback(*args):
             return 0
 
         callback = proto(callback)
-        raises(ArgumentError, lambda: callback((1, 2, 3, 4), POINT()))
+        with pytest.raises(ArgumentError):
+            callback((1, 2, 3, 4), POINT())
 
     def test_argument_conversion_and_checks(self):
         #This test is designed to check for segfaults if the wrong type of argument is passed as parameter
@@ -485,8 +491,10 @@ class TestFunctions(BaseCTypesTestChecker):
         assert strlen("eggs", ord("g")) == "ggs"
 
         # Should raise ArgumentError, not segfault
-        py.test.raises(ArgumentError, strlen, 0, 0)
-        py.test.raises(ArgumentError, strlen, False, 0)
+        with pytest.raises(ArgumentError):
+            strlen(0, 0)
+        with pytest.raises(ArgumentError):
+            strlen(False, 0)
 
     def test_union_as_passed_value(self):
         class UN(Union):
@@ -524,8 +532,8 @@ class TestFunctions(BaseCTypesTestChecker):
         assert tf_b("yadda") == -42
         assert seen == ["yadda"]
 
+    @pytest.mark.xfail(reason="warnings are disabled")
     def test_warnings(self):
-        py.test.skip("warnings are disabled")
         import warnings
         warnings.simplefilter("always")
         with warnings.catch_warnings(record=True) as w:
@@ -534,8 +542,8 @@ class TestFunctions(BaseCTypesTestChecker):
             assert issubclass(w[0].category, RuntimeWarning)
             assert "C function without declared arguments called" in str(w[0].message)
 
+    @pytest.mark.xfail
     def test_errcheck(self):
-        py.test.skip('fixme')
         def errcheck(result, func, args):
             assert result == -42
             assert type(result) is int
@@ -556,12 +564,12 @@ class TestFunctions(BaseCTypesTestChecker):
             assert len(w) == 1
             assert issubclass(w[0].category, RuntimeWarning)
             assert "C function without declared return type called" in str(w[0].message)
-            
+
         with warnings.catch_warnings(record=True) as w:
             dll.get_an_integer.restype = None
             dll.get_an_integer()
             assert len(w) == 0
-            
+
         warnings.resetwarnings()
 
 
