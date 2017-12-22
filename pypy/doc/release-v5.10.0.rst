@@ -19,6 +19,12 @@ As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
 As always, we strongly recommend updating.
 
+There are quite a few important changes that are in the pipeline that did not
+make it into the 5.10 release. Most important are speed improvements to cpyext
+(which will make numpy and pandas a bit faster) and utf8 branch that changes
+internal representation of unicode to utf8, which should help especially the
+Python 3.5 version of PyPy.
+
 This release concludes the Mozilla Open Source `grant`_ for having a compatible
 PyPy 3.5 release and we're very grateful for that.  Of course, we will continue
 to improve PyPy 3.5 and probably move to 3.6 during the course of 2018.
@@ -53,7 +59,7 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-The PyPy 2.7 release supports: 
+The PyPy release supports: 
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
