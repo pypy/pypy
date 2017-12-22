@@ -199,7 +199,7 @@ def _build(cfilenames, outputfilename, compile_extra, link_extra,
         # monkeypatch distutils for some versions of msvc compiler
         import setuptools
     except ImportError:
-        # XXX if this fails and is required, 
+        # XXX if this fails and is required,
         #     we must call pypy -mensurepip after translation
         pass
     from distutils.ccompiler import new_compiler

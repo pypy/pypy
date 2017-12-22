@@ -3,9 +3,7 @@
 #define MS_WIN32
 #endif
 
-#include "src/precommondefs.h"
-
-#define EXPORT(x)  RPY_EXPORTED x
+#define EXPORT(x)  extern x
 
 #include <stdlib.h>
 #include <math.h>
@@ -272,7 +270,7 @@ integrate(double a, double b, double (*f)(double), long nstep)
 {
 	double x, sum=0.0, dx=(b-a)/(double)nstep;
 	for(x=a+0.5*dx; (b-x)*(x-a)>0.0; x+=dx)
-    {   
+    {
         double y = f(x);
         printf("f(x)=%.1f\n", y);
 		sum += f(x);
@@ -287,7 +285,7 @@ typedef struct {
 static void _xxx_init(void *(*Xalloc)(int), void (*Xfree)(void *))
 {
 	void *ptr;
-	
+
 	printf("_xxx_init got %p %p\n", Xalloc, Xfree);
 	printf("calling\n");
 	ptr = Xalloc(32);
@@ -438,7 +436,7 @@ EXPORT(void) __stdcall s_tv_i(int c) { S; return; }
 #endif
 
 /********/
- 
+
 #ifndef MS_WIN32
 
 typedef struct {
