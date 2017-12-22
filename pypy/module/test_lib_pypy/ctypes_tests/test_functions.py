@@ -9,7 +9,7 @@ from __future__ import with_statement
 from ctypes import *
 import sys
 import pytest
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 try:
     WINFUNCTYPE

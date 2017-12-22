@@ -1,5 +1,5 @@
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 class TestStringBuffer(BaseCTypesTestChecker):
 

@@ -1,6 +1,6 @@
 from ctypes import *
 from struct import calcsize
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 import pytest
 

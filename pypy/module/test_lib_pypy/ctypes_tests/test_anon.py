@@ -1,6 +1,6 @@
 import pytest
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 class TestAnon(BaseCTypesTestChecker):
 

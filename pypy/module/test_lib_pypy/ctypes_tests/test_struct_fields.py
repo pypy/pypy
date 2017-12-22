@@ -1,5 +1,5 @@
 import pytest
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 from ctypes import *
 
 class TestStructFields(BaseCTypesTestChecker):
