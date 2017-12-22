@@ -56,9 +56,9 @@ More condensed:
 # This tuple and __get_builtin_constructor() must be modified if a new
 # always available algorithm is added.
 __always_supported = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512',
+                      'blake2b', 'blake2s',
                       # FIXME the following algorithms were added in
                       # cpython3.6 but are missing in pypy
-                      # 'blake2b', 'blake2s',
                       # 'sha3_224', 'sha3_256', 'sha3_384', 'sha3_512',
                       # 'shake_128', 'shake_256'
 )

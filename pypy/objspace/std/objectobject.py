@@ -18,7 +18,7 @@ def reduce_1(obj, proto):
     import copyreg
     return copyreg._reduce_ex(obj, proto)
 
-def _getstate(obj):
+def _getstate(obj, required=False):
     cls = obj.__class__
 
     try:
