@@ -1,4 +1,4 @@
-import py
+import pytest
 from ctypes import *
 from support import BaseCTypesTestChecker
 import sys, struct
@@ -65,8 +65,10 @@ class TestNumber(BaseCTypesTestChecker):
         # Only numbers are allowed in the contructor,
         # otherwise TypeError is raised
         for t in signed_types + unsigned_types + float_types:
-            raises(TypeError, t, "")
-            raises(TypeError, t, None)
+            with pytest.raises(TypeError):
+                t("")
+            with pytest.raises(TypeError):
+                t(None)
 
 ##    def test_valid_ranges(self):
 ##        # invalid values of the correct type
@@ -75,16 +77,16 @@ class TestNumber(BaseCTypesTestChecker):
 ##            self.assertRaises(ValueError, t, l-1)
 ##            self.assertRaises(ValueError, t, h+1)
 
+    @pytest.mark.xfail(reason="testing implementation internals")
     def test_from_param(self):
         # the from_param class method attribute always
         # returns PyCArgObject instances
-        py.test.skip("testing implementation internals")
         for t in signed_types + unsigned_types + float_types:
             assert ArgType == type(t.from_param(0))
 
+    @pytest.mark.xfail(reason="testing implementation internals")
     def test_byref(self):
         # calling byref returns also a PyCArgObject instance
-        py.test.skip("testing implementation internals")
         for t in signed_types + unsigned_types + float_types:
             parm = byref(t())
             assert ArgType == type(parm)
@@ -107,7 +109,8 @@ class TestNumber(BaseCTypesTestChecker):
     def test_integers(self):
         # integers cannot be constructed from floats
         for t in signed_types + unsigned_types:
-            raises(TypeError, t, 3.14)
+            with pytest.raises(TypeError):
+                t(3.14)
 
     def test_sizes(self):
         for t in signed_types + unsigned_types + float_types:
@@ -184,7 +187,8 @@ class TestNumber(BaseCTypesTestChecker):
         # c_int() can be initialized from Python's int, and c_int.
         # Not from c_long or so, which seems strange, abd should
         # probably be changed:
-        raises(TypeError, c_int, c_long(42))
+        with pytest.raises(TypeError):
+            c_int(c_long(42))
 
     def test_subclass(self):
         class enum(c_int):
@@ -194,14 +198,13 @@ class TestNumber(BaseCTypesTestChecker):
             _fields_ = [('t', enum)]
         assert isinstance(S().t, enum)
 
+    #@pytest.mark.xfail("'__pypy__' not in sys.builtin_module_names")
+    @pytest.mark.xfail
     def test_no_missing_shape_to_ffi_type(self):
         # whitebox test
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            skip("only for pypy's ctypes")
-        skip("re-enable after adding 'g' to _shape_to_ffi_type.typemap, "
-             "which I think needs fighting all the way up from "
-             "rpython.rlib.libffi")
+        "re-enable after adding 'g' to _shape_to_ffi_type.typemap, "
+        "which I think needs fighting all the way up from "
+        "rpython.rlib.libffi"
         from _ctypes.basics import _shape_to_ffi_type
         from _rawffi import Array
         for i in range(1, 256):
@@ -212,7 +215,7 @@ class TestNumber(BaseCTypesTestChecker):
             else:
                 assert chr(i) in _shape_to_ffi_type.typemap
 
-    @py.test.mark.xfail
+    @pytest.mark.xfail
     def test_pointer_to_long_double(self):
         import ctypes
         ctypes.POINTER(ctypes.c_longdouble)
