@@ -38,9 +38,6 @@ class AppTestStacklet(BaseAppTest):
             return stack
        """)
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
-        if cls.runappdirect:
-            # make sure that "self.stack" does not pass the self
-            cls.w_stack = staticmethod(cls.w_stack.im_func)
 
 
     @pytest.fixture
