@@ -11,6 +11,7 @@ class Module(MixedModule):
     interpleveldefs = {
        'e'              : 'interp_math.get(space).w_e',
        'pi'             : 'interp_math.get(space).w_pi',
+       'tau'            : 'interp_math.get(space).w_tau',
        'inf'            : 'interp_math.get(space).w_inf',
        'nan'            : 'interp_math.get(space).w_nan',
        'pow'            : 'interp_math.pow',

@@ -380,3 +380,7 @@ class AppTestMath:
         assert math.isinf(math.inf)
         assert math.inf > -math.inf
         assert math.isnan(math.nan)
+
+    def test_pi_tau(self):
+        import math
+        assert math.tau == math.pi * 2.0
