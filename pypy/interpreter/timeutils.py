@@ -4,6 +4,7 @@ Access to the time module's high-resolution monotonic clock
 import math
 from rpython.rlib.rarithmetic import (
     r_longlong, ovfcheck, ovfcheck_float_to_longlong)
+from rpython.rlib import rfloat
 from pypy.interpreter.error import oefmt
 
 SECS_TO_NS = 10 ** 9
@@ -21,6 +22,8 @@ def monotonic(space):
 def timestamp_w(space, w_secs):
     if space.isinstance_w(w_secs, space.w_float):
         secs = space.float_w(w_secs)
+        if rfloat.isnan(secs):
+            raise oefmt(space.w_ValueError, "timestamp is nan")
         result_float = math.ceil(secs * SECS_TO_NS)
         try:
             return ovfcheck_float_to_longlong(result_float)
