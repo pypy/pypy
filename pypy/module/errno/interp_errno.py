@@ -1,6 +1,7 @@
 from rpython.rlib.objectmodel import not_rpython
 from rpython.rtyper.tool.rffi_platform import DefinedConstantInteger, configure
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import sys
 
 # from CPython 3.5
 errors = [
@@ -40,7 +41,7 @@ win_errors = [
     "WSAEREMOTE", "WSAEINVAL", "WSAEINPROGRESS", "WSAGETSELECTEVEN",
     "WSAESOCKTNOSUPPORT", "WSAGETASYNCERRO", "WSAMAKESELECTREPL",
     "WSAGETASYNCBUFLE", "WSAEDESTADDRREQ", "WSAECONNREFUSED", "WSAENETRESET",
-    "WSAN",]
+    "WSAN", "WSAEDQUOT"]
 
 more_errors = [
     "ENOMEDIUM", "EMEDIUMTYPE", "ECANCELED", "ENOKEY", "EKEYEXPIRED",
@@ -55,10 +56,12 @@ more_errors = [
     "EFTYPE", "ENEEDAUTH", "ENOATTR", "ENOPOLICY", "EPROCLIM", "EPROCUNAVAIL",
     "EPROGMISMATCH", "EPROGUNAVAIL", "EPWROFF", "ERPCMISMATCH", "ESHLIBVERS"]
 
-
+includes = ['errno.h']
+if sys.platform == 'win32':
+    includes.append('winsock2.h')
 
 class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(includes=['errno.h'])
+    _compilation_info_ = ExternalCompilationInfo(includes=includes)
 
 for err_name in errors + win_errors + more_errors:
     setattr(CConfig, err_name, DefinedConstantInteger(err_name))
@@ -77,7 +80,7 @@ for name in win_errors:
     assert name.startswith('WSA')
     code = config[name]
     if code is not None:
-        if name[3:] in errors:
+        if name[3:] in errors and name[3:] not in name2code:
             # errno.EFOO = <WSAEFOO>
             name2code[name[3:]] = code
         # errno.WSABAR = <WSABAR>
