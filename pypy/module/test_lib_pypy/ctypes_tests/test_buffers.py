@@ -9,6 +9,11 @@ class TestStringBuffer(BaseCTypesTestChecker):
         assert sizeof(b) == 32 * sizeof(c_char)
         assert type(b[0]) is str
 
+        b = create_string_buffer(33L)
+        assert len(b) == 33
+        assert sizeof(b) == 33 * sizeof(c_char)
+        assert type(b[0]) is str
+
         b = create_string_buffer("abc")
         assert len(b) == 4 # trailing nul char
         assert sizeof(b) == 4 * sizeof(c_char)
