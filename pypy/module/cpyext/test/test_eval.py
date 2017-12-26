@@ -345,6 +345,8 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert ns['nested_flags']() == (0, 0)
 
     def test_recursive_function(self):
+        if sys.platform == 'win32':
+            assert False, 'hangs the process on win32'
         module = self.import_extension('foo', [
             ("call_recursive", "METH_NOARGS",
              """
