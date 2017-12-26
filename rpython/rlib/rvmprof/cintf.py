@@ -17,7 +17,7 @@ class VMProfPlatformUnsupported(Exception):
 
 # vmprof works only on x86 for now
 IS_SUPPORTED = detect_cpu.autodetect().startswith('x86')
-if sys.platform == 'win32':
+if sys.platform == 'win32' or sys.platform.startswith("openbsd"):
     IS_SUPPORTED = False
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
