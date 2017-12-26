@@ -13,10 +13,12 @@ class AppTestTime:
         assert isinstance(time._STRUCT_TM_ITEMS, int)
 
     def test_sleep(self):
-        import time
+        import time, sys
         raises(TypeError, time.sleep, "foo")
         time.sleep(0.12345)
         raises(ValueError, time.sleep, -1.0)
+        if sys.platform == 'win32':
+            assert False, 'hangs on win32 after translation'
         raises((ValueError, OverflowError), time.sleep, float('nan'))
         raises(OverflowError, time.sleep, float('inf'))
 
