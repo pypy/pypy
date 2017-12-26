@@ -1,6 +1,6 @@
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, cpython_struct)
-from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, make_ref
+from pypy.module.cpyext.pyobject import PyObject, decref, make_ref
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rthread
@@ -75,7 +75,7 @@ def encapsulator(T, flavor='raw', dealloc=None):
 
 def ThreadState_dealloc(ts, space):
     assert space is not None
-    Py_DecRef(space, ts.c_dict)
+    decref(space, ts.c_dict)
 ThreadStateCapsule = encapsulator(PyThreadState.TO,
                                   dealloc=ThreadState_dealloc)
 
@@ -319,7 +319,7 @@ def PyThreadState_Clear(space, tstate):
     interpreter lock must be held."""
     if not space.config.translation.thread:
         raise NoThreads
-    Py_DecRef(space, tstate.c_dict)
+    decref(space, tstate.c_dict)
     tstate.c_dict = lltype.nullptr(PyObject.TO)
     space.threadlocals.leave_thread(space)
     space.getexecutioncontext().cleanup_cpyext_state()

@@ -682,8 +682,8 @@ class PyObjectConverter(TypeConverter):
         if hasattr(space, "fake"):
             raise NotImplementedError
         space.getbuiltinmodule("cpyext")
-        from pypy.module.cpyext.pyobject import Py_DecRef, PyObject
-        Py_DecRef(space, rffi.cast(PyObject, rffi.cast(rffi.VOIDPP, arg)[0]))
+        from pypy.module.cpyext.pyobject import decref, PyObject
+        decref(space, rffi.cast(PyObject, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 
 class MacroConverter(TypeConverter):

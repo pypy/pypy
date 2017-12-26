@@ -7,7 +7,7 @@ from pypy.module.cpyext.api import (
     CONST_WSTRING, slot_function, cts, parse_dir)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
+    PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
@@ -85,7 +85,7 @@ def unicode_realize(space, py_obj):
 @slot_function([PyObject], lltype.Void)
 def unicode_dealloc(space, py_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    Py_DecRef(space, py_unicode.c_defenc)
+    decref(space, py_unicode.c_defenc)
     if py_unicode.c_str:
         lltype.free(py_unicode.c_str, flavor="raw")
 
@@ -461,7 +461,7 @@ def PyUnicode_Resize(space, ref, newsize):
     try:
         py_newuni = new_empty_unicode(space, newsize)
     except MemoryError:
-        Py_DecRef(space, ref[0])
+        decref(space, ref[0])
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
@@ -470,7 +470,7 @@ def PyUnicode_Resize(space, ref, newsize):
         to_cp = oldsize
     for i in range(to_cp):
         py_newuni.c_str[i] = py_uni.c_str[i]
-    Py_DecRef(space, ref[0])
+    decref(space, ref[0])
     ref[0] = rffi.cast(PyObject, py_newuni)
     return 0
 
