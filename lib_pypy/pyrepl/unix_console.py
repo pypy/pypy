@@ -500,7 +500,7 @@ class UnixConsole(Console):
             os.write(self.output_fd, fmt[:x])
             fmt = fmt[y:]
             delay = int(m.group(1))
-            if '*' in m.group(2):
+            if b'*' in m.group(2):
                 delay *= self.height
             if self._pad:
                 nchars = (bps*delay)/1000
