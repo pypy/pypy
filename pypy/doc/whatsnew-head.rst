@@ -7,4 +7,6 @@ What's new in PyPy2.7 5.10+
 
 .. branch: cpyext-avoid-roundtrip
 
-Reduce conversions of c struct to rpython equivalent where possible
+Big refactoring of some cpyext code, which avoids a lot of nonsense when
+calling C from Python and vice-versa: the result is a big speedup in
+function/method calls, up to 6 times faster.
