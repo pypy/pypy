@@ -1455,6 +1455,8 @@ class AppTestPosix:
             excinfo = raises(OSError, os.getxattr, self.path, 'user.test')
             assert excinfo.value.filename == self.path
             os.setxattr(self.path, 'user.test', b'', os.XATTR_CREATE, follow_symlinks=False)
+            raises(OSError,
+                os.setxattr, self.path, 'user.test', b'', os.XATTR_CREATE)
             assert os.getxattr(self.path, 'user.test') == b''
             os.setxattr(self.path, b'user.test', b'foo', os.XATTR_REPLACE)
             assert os.getxattr(self.path, 'user.test', follow_symlinks=False) == b'foo'
