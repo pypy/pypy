@@ -2331,12 +2331,12 @@ If follow_symlinks is False, and the last element of the path is a symbolic
             raise oefmt(space.w_ValueError,
                 "setxattr: cannot use fd and follow_symlinks together")
         try:
-            rposix.fsetxattr(path.as_fd, attribute.as_bytes, value)
+            rposix.fsetxattr(path.as_fd, attribute.as_bytes, value, flags)
         except OSError as e:
             raise wrap_oserror(space, e, path.as_bytes)
     else:
         try:
-            rposix.setxattr(path.as_bytes, attribute.as_bytes, value,
+            rposix.setxattr(path.as_bytes, attribute.as_bytes, value, flags,
                 follow_symlinks=follow_symlinks)
         except OSError as e:
             raise wrap_oserror(space, e, path.as_bytes)
