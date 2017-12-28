@@ -8,6 +8,14 @@ from pypy.interpreter.astcompiler.codegen import compile_ast
 from rpython.rlib.objectmodel import specialize
 
 
+class Cache:
+    def __init__(self, space):
+        self.error = space.new_exception_class("parser.ParserError")
+
+def get_error(space):
+    return space.fromcache(Cache).error
+
+
 class W_STType(W_Root):
     def __init__(self, tree, mode):
         self.tree = tree
@@ -114,3 +122,59 @@ def st2list(space, w_st, __args__):
 @unwrap_spec(w_st=W_STType)
 def compilest(space, w_st, __args__):
     return space.call_args(space.getattr(w_st, space.newtext("compile")), __args__)
+
+
+def raise_parser_error(space, w_tuple, message):
+    raise OperationError(get_error(space), space.newtuple(
+        [w_tuple, space.newtext("Illegal component tuple.")]))
+
+
+def get_node_type(space, w_tuple):
+    try:
+        w_type = space.getitem(w_tuple, space.newint(0))
+        return space.int_w(w_type)
+    except OperationError:
+        raise_parser_error(space, w_tuple, "Illegal component tuple.")
+
+class NodeState:
+    def __init__(self):
+        self.lineno = 0
+
+def build_node_tree(space, w_tuple):
+    type = get_node_type(space, w_tuple)
+    node_state = NodeState()
+    if 0 <= type < 256:
+        # The tuple is simple, but it doesn't start with a start symbol.
+        # Raise an exception now and be done with it.
+        raise_parser_error(space, w_tuple,
+                           "Illegal syntax-tree; cannot start with terminal symbol.")
+    node = pyparse.parser.Nonterminal(type, [])
+    build_node_children(space, w_tuple, node, node_state)
+    return node
+
+def build_node_children(space, w_tuple, node, node_state):
+    for w_elem in space.unpackiterable(w_tuple)[1:]:
+        type = get_node_type(space, w_elem)
+        if type < 256:  # Terminal node
+            length = space.len_w(w_elem)
+            if length == 2:
+                _, w_obj = space.unpackiterable(w_elem, 2)
+            elif length == 3:
+                _, w_obj, w_lineno = space.unpackiterable(w_elem, 3)
+            else:
+                raise_error(space, "terminal nodes must have 2 or 3 entries")
+            strn = space.text_w(w_obj)
+            child = pyparse.parser.Terminal(type, strn, node_state.lineno, 0)
+        else:
+            child = pyparse.parser.Nonterminal(type, [])
+        node.append_child(child)
+        if type >= 256:  # Nonterminal node
+            build_node_children(space, w_elem, child, node_state)
+        elif type == pyparse.pygram.tokens.NEWLINE:
+            node_state.lineno += 1
+
+
+def tuple2st(space, w_sequence):
+    # Convert the tree to the internal form before checking it
+    tree = build_node_tree(space, w_sequence)
+    return W_STType(tree, 'eval')

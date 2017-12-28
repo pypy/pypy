@@ -24,5 +24,7 @@ class Module(MixedModule):
         'ASTType'      : 'pyparser.W_STType',
         'compilest'    : 'pyparser.compilest',
         'compileast'   : 'pyparser.compilest',
-        'ParserError'  : 'space.new_exception_class("parser.ParserError")',
+        'tuple2st'     : 'pyparser.tuple2st',
+        'sequence2st'  : 'pyparser.tuple2st',
+        'ParserError'  : 'pyparser.get_error(space)',
     }
