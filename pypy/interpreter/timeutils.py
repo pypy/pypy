@@ -3,7 +3,7 @@ Access to the time module's high-resolution monotonic clock
 """
 import math
 from rpython.rlib.rarithmetic import (
-    r_longlong, ovfcheck, ovfcheck_float_to_longlong)
+    r_longlong, ovfcheck_float_to_longlong)
 from rpython.rlib import rfloat
 from pypy.interpreter.error import oefmt
 
@@ -31,10 +31,10 @@ def timestamp_w(space, w_secs):
             raise oefmt(space.w_OverflowError,
                 "timestamp %R too large to convert to C _PyTime_t", w_secs)
     else:
-        sec = space.int_w(w_secs)
         try:
-            result = ovfcheck(sec * SECS_TO_NS)
+            sec = space.bigint_w(w_secs).tolonglong()
+            result = sec * r_longlong(SECS_TO_NS)
         except OverflowError:
             raise oefmt(space.w_OverflowError,
-                "timestamp too large to convert to C _PyTime_t")
-        return r_longlong(result)
+                "timestamp %R too large to convert to C _PyTime_t", w_secs)
+        return result
