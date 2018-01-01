@@ -1412,6 +1412,15 @@ class datetime(date):
             self.__setstate(year, month)
             self._hashcode = -1
             return self
+        elif isinstance(year, tuple) and len(year) == 7:
+            # Used by internal functions where the arguments are guaranteed to
+            # be valid.
+            self = object.__new__(cls)
+            self._year, self._month, self._day, self._hour, self._minute, \
+                self._second, self._microsecond = year
+            self._tzinfo = tzinfo
+            self._hashcode = -1
+            return self
         year, month, day = _check_date_fields(year, month, day)
         hour, minute, second, microsecond = _check_time_fields(
             hour, minute, second, microsecond)
@@ -1531,7 +1540,7 @@ class datetime(date):
         offset = self._utcoffset()
         if offset:  # neither None nor 0
             mm -= offset
-            y, m, d, hh, mm, ss, _ = _normalize_datetime(
+            y, m, d, hh, mm, ss, _ = normalize_datetime(
                 y, m, d, hh, mm, ss, 0, ignore_overflow=True)
         return _build_struct_time(y, m, d, hh, mm, ss, 0)
 
@@ -1797,7 +1806,7 @@ class datetime(date):
         return diff and 1 or 0
 
     def _add_timedelta(self, other, factor):
-        y, m, d, hh, mm, ss, us = _normalize_datetime(
+        result = _normalize_datetime(
             self._year,
             self._month,
             self._day + other.days * factor,
@@ -1805,7 +1814,7 @@ class datetime(date):
             self._minute,
             self._second + other.seconds * factor,
             self._microsecond + other.microseconds * factor)
-        return datetime(y, m, d, hh, mm, ss, us, tzinfo=self._tzinfo)
+        return datetime(result, tzinfo=self._tzinfo)
 
     def __add__(self, other):
         "Add a datetime and a timedelta."
@@ -1814,29 +1823,6 @@ class datetime(date):
         return self._add_timedelta(other, 1)
 
     __radd__ = __add__
-
-    def _iadd_timedelta(self, other, factor):
-        if not isinstance(other, timedelta):
-            return NotImplemented
-        self._year, self._month, self._day, self._hour, self._minute, \
-            self._second, self._microsecond = _normalize_datetime(
-                self._year,
-                self._month,
-                self._day + other.days * factor,
-                self._hour,
-                self._minute,
-                self._second + other.seconds * factor,
-                self._microsecond + other.microseconds * factor)
-
-    def __iadd__(self, other):
-        "Increment a datetime by a timedelta."
-        self._iadd_timedelta(other, 1)
-        return self
-
-    def __isub__(self, other):
-        "Decrement a datetime by a timedelta."
-        self._iadd_timedelta(other, -1)
-        return self
 
     def __sub__(self, other):
         "Subtract two datetimes, or a datetime and a timedelta."
