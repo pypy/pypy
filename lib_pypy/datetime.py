@@ -1497,7 +1497,7 @@ class datetime(date):
             us = 0
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(timestamp)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
-        return cls(y, m, d, hh, mm, ss, us, tzinfo)
+        return cls((y, m, d, hh, mm, ss, us), tzinfo=tzinfo)
 
     @classmethod
     def now(cls, tz=None):
