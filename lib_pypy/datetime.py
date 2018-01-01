@@ -1815,6 +1815,29 @@ class datetime(date):
 
     __radd__ = __add__
 
+    def _iadd_timedelta(self, other, factor):
+        if not isinstance(other, timedelta):
+            return NotImplemented
+        self._year, self._month, self._day, self._hour, self._minute, \
+            self._second, self._microsecond = _normalize_datetime(
+                self._year,
+                self._month,
+                self._day + other.days * factor,
+                self._hour,
+                self._minute,
+                self._second + other.seconds * factor,
+                self._microsecond + other.microseconds * factor)
+
+    def __iadd__(self, other):
+        "Increment a datetime by a timedelta."
+        self._iadd_timedelta(other, 1)
+        return self
+
+    def __isub__(self, other):
+        "Decrement a datetime by a timedelta."
+        self._iadd_timedelta(other, -1)
+        return self
+
     def __sub__(self, other):
         "Subtract two datetimes, or a datetime and a timedelta."
         if not isinstance(other, datetime):
