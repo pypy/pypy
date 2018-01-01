@@ -1540,7 +1540,7 @@ class datetime(date):
         offset = self._utcoffset()
         if offset:  # neither None nor 0
             mm -= offset
-            y, m, d, hh, mm, ss, _ = normalize_datetime(
+            y, m, d, hh, mm, ss, _ = _normalize_datetime(
                 y, m, d, hh, mm, ss, 0, ignore_overflow=True)
         return _build_struct_time(y, m, d, hh, mm, ss, 0)
 
