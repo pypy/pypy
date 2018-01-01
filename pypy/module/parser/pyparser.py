@@ -124,9 +124,13 @@ def compilest(space, w_st, __args__):
     return space.call_args(space.getattr(w_st, space.newtext("compile")), __args__)
 
 
-def raise_parser_error(space, w_tuple, message):
+def parser_error(space, w_tuple, message):
     raise OperationError(get_error(space), space.newtuple(
-        [w_tuple, space.newtext("Illegal component tuple.")]))
+        [w_tuple, space.newtext(message)]))
+
+def parse_error(space, message):
+    return OperationError(get_error(space),
+                         space.newtext(message))
 
 
 def get_node_type(space, w_tuple):
@@ -134,7 +138,7 @@ def get_node_type(space, w_tuple):
         w_type = space.getitem(w_tuple, space.newint(0))
         return space.int_w(w_type)
     except OperationError:
-        raise_parser_error(space, w_tuple, "Illegal component tuple.")
+        raise parser_error(space, w_tuple, "Illegal component tuple.")
 
 class NodeState:
     def __init__(self):
@@ -146,7 +150,7 @@ def build_node_tree(space, w_tuple):
     if 0 <= type < 256:
         # The tuple is simple, but it doesn't start with a start symbol.
         # Raise an exception now and be done with it.
-        raise_parser_error(space, w_tuple,
+        raise parser_error(space, w_tuple,
                            "Illegal syntax-tree; cannot start with terminal symbol.")
     node = pyparse.parser.Nonterminal(type, [])
     build_node_children(space, w_tuple, node, node_state)
@@ -162,7 +166,8 @@ def build_node_children(space, w_tuple, node, node_state):
             elif length == 3:
                 _, w_obj, w_lineno = space.unpackiterable(w_elem, 3)
             else:
-                raise_error(space, "terminal nodes must have 2 or 3 entries")
+                raise parse_error(
+                    space, "terminal nodes must have 2 or 3 entries")
             strn = space.text_w(w_obj)
             child = pyparse.parser.Terminal(type, strn, node_state.lineno, 0)
         else:
@@ -174,7 +179,36 @@ def build_node_children(space, w_tuple, node, node_state):
             node_state.lineno += 1
 
 
+def validate_node(space, tree):
+    assert tree.type >= 256
+    type = tree.type - 256
+    parser = pyparse.PythonParser(space)
+    if type >= len(parser.grammar.dfas):
+        raise parse_error(space, "Unrecognized node type %d." % type)
+    dfa = parser.grammar.dfas[type]
+    # Run the DFA for this nonterminal
+    states, first = dfa
+    arcs, is_accepting = states[0]
+    for pos in range(tree.num_children()):
+        ch = tree.get_child(pos)
+        for i, next_state in arcs:
+            label = parser.grammar.labels[i]
+            if label == ch.type:
+                # The child is acceptable; validate it recursively
+                if ch.type >= 256:
+                    validate_node(space, ch)
+                # Update the state, and move on to the next child.
+                arcs, is_accepting = states[next_state]
+                break
+        else:
+            raise parse_error(space, "Illegal node")
+    if not is_accepting:
+        raise parse_error(space, "Illegal number of children for %d node" %
+                          tree.type)
+
+
 def tuple2st(space, w_sequence):
     # Convert the tree to the internal form before checking it
     tree = build_node_tree(space, w_sequence)
+    validate_node(space, tree)
     return W_STType(tree, 'eval')

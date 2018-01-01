@@ -71,3 +71,19 @@ class AppTestParser(ParserModuleTest):
 
         check_expr("foo(1)")
         check_suite("def f(): yield 1")
+
+    def test_bad_tree(self):
+        import parser
+        # from import a
+        tree = \
+            (257,
+             (267,
+              (268,
+               (269,
+                (281,
+                 (283, (1, 'from'), (1, 'import'),
+                  (286, (284, (1, 'fred')))))),
+               (4, ''))),
+             (4, ''), (0, ''))
+        raises(parser.ParserError,
+               parser.sequence2st, tree)
