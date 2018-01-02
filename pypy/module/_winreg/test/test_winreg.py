@@ -42,8 +42,8 @@ class AppTestFfi:
         test_data = [
             ("Int Value", 0xFEDCBA98, winreg.REG_DWORD),
             ("Str Value", b"A string Value", winreg.REG_SZ),
-            ("Unicode Value", u"A unicode Value", winreg.REG_SZ),
-            ("Str Expand", u"The path is %path%", winreg.REG_EXPAND_SZ),
+            ("Unicode Value", "A unicode Value", winreg.REG_SZ),
+            ("Str Expand", "The path is %path%", winreg.REG_EXPAND_SZ),
             ("Multi Str", [b"Several", u"string", u"values"], winreg.REG_MULTI_SZ),
             ]
         cls.w_test_data = w_test_data = space.wrap(test_data)
@@ -140,6 +140,7 @@ class AppTestFfi:
             assert 0, "Did not raise"
 
     def test_SetValueEx(self):
+        # this test leaves open keys. If it fails, others will too
         from winreg import CreateKey, SetValueEx, REG_BINARY, REG_DWORD
         key = CreateKey(self.root_key, self.test_key_name)
         sub_key = CreateKey(key, u"sub_key")
@@ -147,10 +148,9 @@ class AppTestFfi:
         SetValueEx(sub_key, 'Int Value', 0, REG_DWORD, 45)
         for name, value, type in self.test_data:
             SetValueEx(sub_key, name, 0, type, value)
-        exc = raises(TypeError, SetValueEx, sub_key, 'test_name', None,
-                                            REG_BINARY, memoryview('abc'))
-        assert str(exc.value) == ("Objects of type 'memoryview' can not "
-                                  "be used as binary registry values")
+        # cannot wrap a memoryview in setup_class for test_data
+        SetValueEx(sub_key, u'test_name', None,
+                            REG_BINARY, memoryview(b'abc'))
 
     def test_readValues(self):
         from winreg import OpenKey, EnumValue, QueryValueEx, EnumKey
@@ -163,27 +163,31 @@ class AppTestFfi:
                 data = EnumValue(sub_key, index)
             except EnvironmentError as e:
                 break
-            assert data in self.test_data
+            if data[0] != 'test_name':
+                # cannot wrap a memoryview in setup_class for test_data
+                assert data in self.test_data
             index = index + 1
-        assert index == len(self.test_data)
+        assert index == len(self.test_data) + 1
 
         for name, value, type in self.test_data:
             result = QueryValueEx(sub_key, name)
             assert result == (value, type)
             if type == REG_SZ or type == REG_EXPAND_SZ:
-                assert isinstance(result[0], unicode)     # not string
+                assert not isinstance(result[0], bytes)
 
         assert EnumKey(key, 0) == "sub_key"
         raises(EnvironmentError, EnumKey, key, 1)
 
     def test_delete(self):
         # must be run after test_SetValueEx
-        from _winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
+        from winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
         key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
         sub_key = OpenKey(key, "sub_key", 0, KEY_ALL_ACCESS)
 
         for name, value, type in self.test_data:
             DeleteValue(sub_key, name)
+        # cannot wrap a memoryview in setup_class for test_data
+        DeleteValue(sub_key, 'test_name')
 
         DeleteKey(key, "sub_key")
 

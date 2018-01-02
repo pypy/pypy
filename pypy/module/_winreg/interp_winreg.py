@@ -297,7 +297,7 @@ def convert_to_regdata(space, w_value, typ):
         else:
             buf = rffi.unicode2wcharp(space.unicode_w(w_value))
             buf = rffi.cast(rffi.CCHARP, buf)
-            buflen = space.len_w(w_value) + 1
+            buflen = (space.len_w(w_value) * 2) + 1
 
     elif typ == rwinreg.REG_MULTI_SZ:
         if space.is_w(w_value, space.w_None):
@@ -315,12 +315,12 @@ def convert_to_regdata(space, w_value, typ):
                     w_item = space.next(w_iter)
                     item = space.unicode_w(w_item)
                     strings.append(item)
-                    buflen += len(item) + 1
+                    buflen += 2 * (len(item) + 1)
                 except OperationError as e:
                     if not e.match(space, space.w_StopIteration):
                         raise       # re-raise other app-level exceptions
                     break
-            buflen += 1
+            buflen += 2
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
 
             # Now copy data
@@ -328,12 +328,14 @@ def convert_to_regdata(space, w_value, typ):
             for string in strings:
                 with rffi.scoped_unicode2wcharp(string) as wchr:
                     c_str = rffi.cast(rffi.CCHARP, wchr)
-                    for i in range(len(string)):
+                    for i in range(len(string) * 2):
                         buf[buflen + i] = c_str[i]
-                buflen += len(string) + 1
+                buflen += (len(string) + 1) * 2
                 buf[buflen - 1] = '\0'
-            buflen += 1
+                buf[buflen - 2] = '\0'
+            buflen += 2
             buf[buflen - 1] = '\0'
+            buf[buflen - 2] = '\0'
 
     else: # REG_BINARY and ALL unknown data types.
         if space.is_w(w_value, space.w_None):
@@ -371,6 +373,7 @@ def convert_from_regdata(space, buf, buflen, typ):
         else:
             # may or may not have a trailing NULL in the buffer.
             buf = rffi.cast(rffi.CWCHARP, buf)
+            buflen /= 2
             if buf[buflen - 1] == '\x00':
                 buflen -= 1
             s = rffi.wcharp2unicoden(buf, buflen)
@@ -380,11 +383,13 @@ def convert_from_regdata(space, buf, buflen, typ):
     elif typ == rwinreg.REG_MULTI_SZ:
         if not buflen:
             return space.newlist([])
+        buf = rffi.cast(rffi.CWCHARP, buf)
+        buflen /= 2
         i = 0
         l = []
         while i < buflen and buf[i]:
             s = []
-            while i < buflen and buf[i] != '\0':
+            while i < buflen and buf[i] != u'\0':
                 s.append(buf[i])
                 i += 1
             if len(s) == 0:
@@ -504,8 +509,8 @@ If the function fails, an exception is raised."""
                 raiseWindowsError(space, ret, 'CreateKey')
             return W_HKEY(space, rethkey[0])
 
-@unwrap_spec(subkey="unicode", reserved=int, access=rffi.r_uint)
-def CreateKeyEx(space, w_key, subkey, reserved=0, access=rwinreg.KEY_WRITE):
+@unwrap_spec(sub_key="unicode", reserved=int, access=rffi.r_uint)
+def CreateKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
 key is an already open key, or one of the predefined HKEY_* constants
@@ -518,8 +523,8 @@ If the key already exists, this function opens the existing key
 The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
     hkey = hkey_w(w_key, space)
-    with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
-        c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
+    with rffi.scoped_unicode2wcharp(sub_key) as wide_sub_key:
+        c_subkey = rffi.cast(rffi.CCHARP, wide_sub_key)
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
             ret = rwinreg.RegCreateKeyEx(hkey, c_subkey, reserved, None, 0,
                                          access, None, rethkey,
