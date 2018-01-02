@@ -110,8 +110,8 @@ def hkey_w(w_hkey, space):
     elif isinstance(w_hkey, W_HKEY):
         return w_hkey.hkey
     elif space.isinstance_w(w_hkey, space.w_int):
-        return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
-    elif space.isinstance_w(w_hkey, space.w_long):
+        if space.is_true(space.lt(w_hkey, space.newint(0))):
+            return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
         return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
     else:
         raise oefmt(space.w_TypeError, "The object is not a PyHKEY object")
@@ -170,9 +170,13 @@ in fileName is relative to the remote computer.
 The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree"""
     # XXX should filename use space.fsencode_w?
     hkey = hkey_w(w_hkey, space)
-    ret = rwinreg.RegLoadKey(hkey, subkey, filename)
-    if ret != 0:
-        raiseWindowsError(space, ret, 'RegLoadKey')
+    with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
+        c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
+        with rffi.scoped_unicode2wcharp(filename) as wide_filename:
+            c_filename = rffi.cast(rffi.CCHARP, wide_filename)
+            ret = rwinreg.RegLoadKey(hkey, c_subkey, c_filename)
+            if ret != 0:
+                raiseWindowsError(space, ret, 'RegLoadKey')
 
 @unwrap_spec(filename="unicode")
 def SaveKey(space, w_hkey, filename):
@@ -189,9 +193,11 @@ file_name is relative to the remote computer.
 The caller of this method must possess the SeBackupPrivilege security privilege.
 This function passes NULL for security_attributes to the API."""
     hkey = hkey_w(w_hkey, space)
-    ret = rwinreg.RegSaveKey(hkey, filename, None)
-    if ret != 0:
-        raiseWindowsError(space, ret, 'RegSaveKey')
+    with rffi.scoped_unicode2wcharp(filename) as wide_filename:
+        c_filename = rffi.cast(rffi.CCHARP, wide_filename)
+        ret = rwinreg.RegSaveKey(hkey, c_filename, None)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegSaveKey')
 
 @unwrap_spec(typ=int, value="unicode")
 def SetValue(space, w_hkey, w_subkey, typ, value):
@@ -267,6 +273,9 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
                     return space.newunicode(rffi.wcharp2unicoden(wide_buf, length))
 
 def convert_to_regdata(space, w_value, typ):
+    '''
+    returns CCHARP, int
+    '''
     buf = None
 
     if typ == rwinreg.REG_DWORD:
@@ -320,7 +329,7 @@ def convert_to_regdata(space, w_value, typ):
                 with rffi.scoped_unicode2wcharp(string) as wchr:
                     c_str = rffi.cast(rffi.CCHARP, wchr)
                     for i in range(len(string)):
-                        buf[buflen + i] = wchr[i]
+                        buf[buflen + i] = c_str[i]
                 buflen += len(string) + 1
                 buf[buflen - 1] = '\0'
             buflen += 1
@@ -358,14 +367,14 @@ def convert_from_regdata(space, buf, buflen, typ):
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
         if not buflen:
-            s = ""
+            s = u""
         else:
             # may or may not have a trailing NULL in the buffer.
             buf = rffi.cast(rffi.CWCHARP, buf)
             if buf[buflen - 1] == '\x00':
                 buflen -= 1
             s = rffi.wcharp2unicoden(buf, buflen)
-        w_s = space.newbytes(s)
+        w_s = space.newunicode(s)
         return w_s
 
     elif typ == rwinreg.REG_MULTI_SZ:
@@ -380,7 +389,7 @@ def convert_from_regdata(space, buf, buflen, typ):
                 i += 1
             if len(s) == 0:
                 break
-            s = ''.join(s)
+            s = u''.join(s)
             l.append(space.newunicode(s))
             i += 1
         return space.newlist(l)
@@ -545,9 +554,11 @@ def DeleteValue(space, w_hkey, subkey):
 key is an already open key, or any one of the predefined HKEY_* constants.
 value is a string that identifies the value to remove."""
     hkey = hkey_w(w_hkey, space)
-    ret = rwinreg.RegDeleteValue(hkey, subkey)
-    if ret != 0:
-        raiseWindowsError(space, ret, 'RegDeleteValue')
+    with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
+        c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
+        ret = rwinreg.RegDeleteValue(hkey, c_subkey)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegDeleteValue')
 
 @unwrap_spec(sub_key="unicode", reserved=int, access=rffi.r_uint)
 def OpenKey(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_READ):
@@ -603,15 +614,16 @@ data_type is an integer that identifies the type of the value data."""
             bufDataSize = intmask(retDataSize[0])
             bufValueSize = intmask(retValueSize[0])
 
-            with lltype.scoped_alloc(rffi.CCHARP.TO,
+            with lltype.scoped_alloc(rffi.CWCHARP.TO,
                                      intmask(retValueSize[0])) as valuebuf:
                 while True:
                     with lltype.scoped_alloc(rffi.CCHARP.TO,
                                              bufDataSize) as databuf:
                         with lltype.scoped_alloc(rwin32.LPDWORD.TO,
                                                  1) as retType:
+                            c_valuebuf = rffi.cast(rffi.CCHARP, valuebuf)
                             ret = rwinreg.RegEnumValue(
-                                hkey, index, valuebuf, retValueSize,
+                                hkey, index, c_valuebuf, retValueSize,
                                 null_dword, retType, databuf, retDataSize)
                             if ret == rwinreg.ERROR_MORE_DATA:
                                 # Resize and retry
@@ -660,7 +672,7 @@ raised, indicating no more values are available."""
                                        lltype.nullptr(rwin32.PFILETIME.TO))
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegEnumKeyEx')
-            return space.newunicode(rffi.wcharp2unicode(rffi.cast(CWCHARP, buf)))
+            return space.newunicode(rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP, buf)))
 
 def QueryInfoKey(space, w_hkey):
     """tuple = QueryInfoKey(key) - Returns information about a key.
