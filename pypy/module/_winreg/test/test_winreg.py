@@ -246,7 +246,7 @@ class AppTestFfi:
                 skip("access denied to registry key "
                      "(are you running in a non-interactive session?)")
             raise
-        QueryValueEx(HKEY_PERFORMANCE_DATA, None)
+        QueryValueEx(HKEY_PERFORMANCE_DATA, 'Global')
 
     def test_reflection_unsupported(self):
         import sys
