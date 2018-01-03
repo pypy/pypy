@@ -60,28 +60,43 @@ def makePyPseudoDFA ():
     # Digits
     def makeDigits ():
         return groupStr(states, "0123456789")
+    def makeDigitsChain (digits="0123456789", first=None,
+                         allow_leading_underscore=False):
+        if first is None:
+            first = digits
+        if allow_leading_underscore:
+            return group(states,
+                         makeDigitsChain(digits=digits),
+                         chain(states,
+                               newArcPair(states, "_"),
+                               makeDigitsChain(digits=digits)))
+        return chain(states,
+                     groupStr(states, first),
+                     any(states, groupStr(states, digits)),
+                     any(states,
+                         chain(states,
+                               newArcPair(states, "_"),
+                               atleastonce(states, groupStr(states, digits)))))
+
     # ____________________________________________________________
     # Integer numbers
     hexNumber = chain(states,
                       newArcPair(states, "0"),
                       groupStr(states, "xX"),
-                      atleastonce(states,
-                                  groupStr(states, "0123456789abcdefABCDEF")))
+                      makeDigitsChain("0123456789abcdefABCDEF",
+                                      allow_leading_underscore=True))
     octNumber = chain(states,
                       newArcPair(states, "0"),
                       groupStr(states, "oO"),
-                      groupStr(states, "01234567"),
-                      any(states, groupStr(states, "01234567")))
+                      makeDigitsChain("01234567",
+                                      allow_leading_underscore=True))
     binNumber = chain(states,
                       newArcPair(states, "0"),
                       groupStr(states, "bB"),
-                      atleastonce(states, groupStr(states, "01")))
-    decNumber = chain(states,
-                      groupStr(states, "123456789"),
-                      any(states, makeDigits()))
-    zero = chain(states,
-                 newArcPair(states, "0"),
-                 any(states, newArcPair(states, "0")))
+                      makeDigitsChain("01",
+                                      allow_leading_underscore=True))
+    decNumber = makeDigitsChain(first="123456789")
+    zero = makeDigitsChain("0")
     intNumber = group(states, hexNumber, octNumber, binNumber, decNumber, zero)
     # ____________________________________________________________
     # Exponents
@@ -89,29 +104,34 @@ def makePyPseudoDFA ():
         return chain(states,
                      groupStr(states, "eE"),
                      maybe(states, groupStr(states, "+-")),
-                     atleastonce(states, makeDigits()))
+                     makeDigitsChain())
+
     # ____________________________________________________________
     # Floating point numbers
+    def makePointFloat ():
+        return group(states,
+                           chain(states,
+                                 makeDigitsChain(),
+                                 newArcPair(states, "."),
+                                 any(states, makeDigits())),
+                           chain(states,
+                                 newArcPair(states, "."),
+                                 makeDigitsChain()))
     def makeFloat ():
-        pointFloat = chain(states,
-                           group(states,
-                                 chain(states,
-                                       atleastonce(states, makeDigits()),
-                                       newArcPair(states, "."),
-                                       any(states, makeDigits())),
-                                 chain(states,
-                                       newArcPair(states, "."),
-                                       atleastonce(states, makeDigits()))),
-                           maybe(states, makeExp()))
+        pointFloat = group(states,
+                           makePointFloat(),
+                           chain(states,
+                                 makePointFloat(),
+                                 makeExp()))
         expFloat = chain(states,
-                         atleastonce(states, makeDigits()),
+                         makeDigitsChain(),
                          makeExp())
         return group(states, pointFloat, expFloat)
     # ____________________________________________________________
     # Imaginary numbers
     imagNumber = group(states,
                        chain(states,
-                             atleastonce(states, makeDigits()),
+                             makeDigitsChain(),
                              groupStr(states, "jJ")),
                        chain(states,
                              makeFloat(),
