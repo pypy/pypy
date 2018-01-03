@@ -78,9 +78,9 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if text and binary:
         raise oefmt(space.w_ValueError,
                     "can't have text and binary mode at once")
-    if reading + writing + creating + appending > 1:
+    if creating + reading + writing + appending > 1:
         raise oefmt(space.w_ValueError,
-                    "must have exactly one of read/write/create/append mode")
+                    "must have exactly one of create/read/write/append mode")
     if binary and encoding is not None:
         raise oefmt(space.w_ValueError,
                     "binary mode doesn't take an encoding argument")
