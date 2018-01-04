@@ -153,3 +153,9 @@ class AppTestUnicodeData:
         for cp in range(0xf0000, 0xf0300, 7):
             exc = raises(ValueError, unicodedata.name, chr(cp))
             assert str(exc.value) == 'no such name'
+
+    def test_east_asian_width_9_0_changes(self):
+        import unicodedata
+        assert unicodedata.ucd_3_2_0.east_asian_width('\u231a') == 'N'
+        assert unicodedata.ucd.east_asian_width('\u231a') == 'W'
+
