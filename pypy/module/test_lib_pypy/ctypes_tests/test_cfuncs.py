@@ -3,7 +3,7 @@
 
 from ctypes import *
 import py
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 def setup_module(mod):
     import conftest

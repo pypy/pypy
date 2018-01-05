@@ -1,6 +1,6 @@
 from ctypes import *
 import pytest
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 def setup_module(mod):
     import conftest

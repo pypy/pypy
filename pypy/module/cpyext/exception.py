@@ -1,7 +1,7 @@
 # Provide implementation of PyException_ functions.
 
 from pypy.module.cpyext.api import cpython_api
-from pypy.module.cpyext.pyobject import PyObject, from_ref, Py_DecRef
+from pypy.module.cpyext.pyobject import PyObject, from_ref, decref
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 
@@ -48,7 +48,7 @@ def PyException_SetContext(space, w_exc, ctx):
     This steals a reference to ctx."""
     if ctx:
         w_ctx = from_ref(space, ctx)
-        Py_DecRef(space, ctx)
+        decref(space, ctx)
     else:
         w_ctx = space.w_None
     space.setattr(w_exc, space.newtext('__context__'), w_ctx)
@@ -72,7 +72,7 @@ def PyException_SetCause(space, w_exc, cause):
     This steals a reference to cause."""
     if cause:
         w_cause = from_ref(space, cause)
-        Py_DecRef(space, cause)
+        decref(space, cause)
     else:
         w_cause = space.w_None
     space.setattr(w_exc, space.newtext('__cause__'), w_cause)

@@ -4,7 +4,7 @@ from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers,
     slot_function)
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, from_ref, Py_DecRef, make_typedescr)
+    PyObject, make_ref, from_ref, decref, make_typedescr)
 from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function, Method
@@ -62,7 +62,7 @@ def function_attach(space, py_obj, w_obj, w_userdata=None):
 @slot_function([PyObject], lltype.Void)
 def function_dealloc(space, py_obj):
     py_func = rffi.cast(PyFunctionObject, py_obj)
-    Py_DecRef(space, py_func.c_func_name)
+    decref(space, py_func.c_func_name)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
@@ -81,8 +81,8 @@ def code_attach(space, py_obj, w_obj, w_userdata=None):
 @slot_function([PyObject], lltype.Void)
 def code_dealloc(space, py_obj):
     py_code = rffi.cast(PyCodeObject, py_obj)
-    Py_DecRef(space, py_code.c_co_name)
-    Py_DecRef(space, py_code.c_co_filename)
+    decref(space, py_code.c_co_name)
+    decref(space, py_code.c_co_filename)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 

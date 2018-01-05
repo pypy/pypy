@@ -3,7 +3,11 @@
 #define MS_WIN32
 #endif
 
-#define EXPORT(x)  extern x
+#ifdef _WIN32
+#define EXPORT(x) __declspec(dllexport) x
+#else
+#define EXPORT(x) extern x
+#endif
 
 #include <stdlib.h>
 #include <math.h>

@@ -217,6 +217,7 @@ Contributors
   Alejandro J. Cura
   Vladimir Kryachko
   Gabriel
+  Thomas Hisch
   Mark Williams
   Kunal Grover
   Nathan Taylor
@@ -306,8 +307,10 @@ Contributors
   Stanisław Halik
   Julien Phalip
   Roman Podoliaka
+  Steve Papanik
   Eli Stevens
   Boglarka Vezer
+  gabrielg
   PavloKapyshin
   Tomer Chachamu
   Christopher Groskopf
@@ -330,11 +333,13 @@ Contributors
   Konrad Delong
   Dinu Gherman
   pizi
+  Tomáš Pružina
   James Robert
   Armin Ronacher
   Diana Popa
   Mads Kiilerich
   Brett Cannon
+  Caleb Hattingh
   aliceinwire
   Zooko Wilcox-O Hearn
   James Lan
@@ -355,4 +360,5 @@ Contributors
   Jason Madden
   Yaroslav Fedevych
   Even Wiik Thomassen
+  m@funkyhat.org
   Stefan Marr

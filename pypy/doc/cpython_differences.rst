@@ -558,6 +558,15 @@ Miscellaneous
   ``del foo.bar`` where ``foo`` is a module (or class) that contains the
   function ``bar``, is significantly slower than CPython.
 
+* Various built-in functions in CPython accept only positional arguments
+  and not keyword arguments.  That can be considered a long-running
+  historical detail: newer functions tend to accept keyword arguments
+  and older function are occasionally fixed to do so as well.  In PyPy,
+  most built-in functions accept keyword arguments (``help()`` shows the
+  argument names).  But don't rely on it too much because future
+  versions of PyPy may have to rename the arguments if CPython starts
+  accepting them too.
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/

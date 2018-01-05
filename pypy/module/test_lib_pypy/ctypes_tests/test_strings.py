@@ -1,7 +1,7 @@
 
 import py
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 class TestStringArray(BaseCTypesTestChecker):
     def test_one(self):

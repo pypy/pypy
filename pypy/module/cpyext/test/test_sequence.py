@@ -5,7 +5,8 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.sequence import (
     PySequence_Fast, PySequence_Contains, PySequence_Index,
     PySequence_GetItem, PySequence_SetItem, PySequence_DelItem)
-
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
+from pypy.module.cpyext.state import State
 import pytest
 
 class TestSequence(BaseApiTest):
@@ -14,6 +15,9 @@ class TestSequence(BaseApiTest):
         assert not api.PySequence_Check(space.newdict())
 
     def test_sequence_api(self, space, api):
+        w_tup = space.wrap((1, 2, 3, 4))
+        assert api.PySequence_Fast(w_tup, "message") is w_tup
+
         w_l = space.wrap([1, 2, 3, 4])
         assert api.PySequence_Fast(w_l, "message") is w_l
 
@@ -104,6 +108,7 @@ class TestSequence(BaseApiTest):
             PySequence_Contains(space, space.w_None, space.wrap(2))
 
     def test_setitem(self, space, api):
+        state = space.fromcache(State)
         w_value = space.wrap(42)
 
         l = api.PyList_New(1)
@@ -113,7 +118,7 @@ class TestSequence(BaseApiTest):
         with raises_w(space, IndexError):
             PySequence_SetItem(space, l, 3, w_value)
 
-        t = api.PyTuple_New(1)
+        t = state.C.PyTuple_New(1)
         api.PyTuple_SetItem(t, 0, l)
         with raises_w(space, TypeError):
             PySequence_SetItem(space, t, 0, w_value)
@@ -131,9 +136,11 @@ class TestSequence(BaseApiTest):
     def test_getitem(self, space, api):
         thelist = [8, 7, 6, 5, 4, 3, 2, 1]
         w_l = space.wrap(thelist)
-        result = api.PySequence_GetItem(w_l, 4)
+        py_result = api.PySequence_GetItem(w_l, 4)
+        result = get_w_obj_and_decref(space, py_result)
         assert space.is_true(space.eq(result, space.wrap(4)))
-        result = api.PySequence_ITEM(w_l, 4)
+        py_result = api.PySequence_ITEM(w_l, 4)
+        result = get_w_obj_and_decref(space, py_result)
         assert space.is_true(space.eq(result, space.wrap(4)))
         with raises_w(space, IndexError):
             PySequence_GetItem(space, w_l, 9000)
@@ -155,6 +162,32 @@ class TestSequence(BaseApiTest):
         w_tofind = space.wrap(16)
         result = api.PySequence_Index(w_gen, w_tofind)
         assert result == 4
+
+    def test_sequence_getitem(self, space, api):
+        # PySequence_GetItem() is defined to return a new reference.
+        # When it happens to be called on a list or tuple, it returns
+        # a new reference that is also kept alive by the fact that it
+        # lives in the list/tuple.  Some code like PyArg_ParseTuple()
+        # relies on this fact: it decrefs the result of
+        # PySequence_GetItem() but then expects it to stay alive.  Meh.
+        # Here, we check that we try hard not to break this kind of
+        # code: if written naively, it could return a fresh PyIntObject,
+        # for example.
+        w1 = space.wrap((41, 42, 43))
+        p1 = api.PySequence_GetItem(w1, 1)
+        p2 = api.PySequence_GetItem(w1, 1)
+        assert p1 == p2
+        assert p1.c_ob_refcnt > 1
+        #
+        w1 = space.wrap([41, 42, 43])
+        p1 = api.PySequence_GetItem(w1, 1)
+        p2 = api.PySequence_GetItem(w1, 1)
+        assert p1 == p2
+        assert p1.c_ob_refcnt > 1
+        p1 = api.PySequence_GetItem(w1, -1)
+        p2 = api.PySequence_GetItem(w1, 2)
+        assert p1 == p2
+
 
 class AppTestSetObject(AppTestCpythonExtensionBase):
     def test_sequence_macro_cast(self):
@@ -245,12 +278,13 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
                 PyTypeObject * common_type;
                 PyObject *foo, **objects;
                 PyObject * seq = PyTuple_GetItem(args, 0);
-                /* XXX assert it is a tuple */
                 if (seq == NULL)
                     Py_RETURN_NONE;
                 foo = PySequence_Fast(seq, "some string");
                 objects = PySequence_Fast_ITEMS(foo);
-                size = PySequence_Fast_GET_SIZE(seq);
+                if (objects == NULL)
+                    return NULL;
+                size = PySequence_Fast_GET_SIZE(foo);
                 common_type = size > 0 ? Py_TYPE(objects[0]) : NULL;
                 for (i = 1; i < size; ++i) {
                     if (Py_TYPE(objects[i]) != common_type) {
@@ -259,10 +293,18 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
                     }
                 }
                 Py_DECREF(foo);
+                if (common_type == NULL)
+                    return PyBool_FromLong(0);
                 Py_DECREF(common_type);
                 return PyBool_FromLong(1);
              """)])
         s = [1, 2, 3, 4]
+        assert module.test_fast_sequence(s[0:-1])
+        assert module.test_fast_sequence(s[::-1])
+        s = (1, 2, 3, 4)
+        assert module.test_fast_sequence(s[0:-1])
+        assert module.test_fast_sequence(s[::-1])
+        s = "1234"
         assert module.test_fast_sequence(s[0:-1])
         assert module.test_fast_sequence(s[::-1])
 

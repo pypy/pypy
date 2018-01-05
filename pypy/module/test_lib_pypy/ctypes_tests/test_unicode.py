@@ -1,7 +1,7 @@
 # coding: latin-1
 import ctypes
 import pytest
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 try:
     ctypes.c_wchar

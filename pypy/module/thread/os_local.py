@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
-    descr_get_dict)
+    descr_get_dict, make_weakref_descr)
 from rpython.rlib.rshrinklist import AbstractShrinkList
 
 
@@ -91,6 +91,7 @@ Local.typedef = TypeDef("thread._local",
                         __doc__ = "Thread-local data",
                         __new__ = interp2app(Local.descr_local__new__.im_func),
                         __dict__ = GetSetProperty(descr_get_dict, cls=Local),
+                        __weakref__ = make_weakref_descr(Local),
                         )
 
 def thread_is_stopping(ec):

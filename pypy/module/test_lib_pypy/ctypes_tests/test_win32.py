@@ -2,7 +2,7 @@
 
 from ctypes import *
 from ctypes.test import is_resource_enabled
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 import pytest
 import sys

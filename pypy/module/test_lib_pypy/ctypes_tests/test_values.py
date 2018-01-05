@@ -4,7 +4,7 @@ A testcase which accesses *values* in a dll.
 
 import pytest
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 def setup_module(mod):
     import conftest

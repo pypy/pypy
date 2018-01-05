@@ -10,7 +10,7 @@ from pypy.module.cpyext.api import (
     CONST_WSTRING, Py_CLEANUP_SUPPORTED, slot_function, cts, parse_dir)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
+    PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr, as_pyobj)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import (
@@ -558,7 +558,7 @@ def PyUnicode_FSConverter(space, w_obj, result):
     """
     if not w_obj:
         # Implement ParseTuple cleanup support
-        Py_DecRef(space, result[0])
+        decref(space, result[0])
         return 1
     if space.isinstance_w(w_obj, space.w_bytes):
         w_output = w_obj
@@ -581,7 +581,7 @@ def PyUnicode_FSDecoder(space, w_obj, result):
     """
     if not w_obj:
         # Implement ParseTuple cleanup support
-        Py_DecRef(space, result[0])
+        decref(space, result[0])
         return 1
     if space.isinstance_w(w_obj, space.w_unicode):
         w_output = w_obj
@@ -655,7 +655,7 @@ def PyUnicode_InternInPlace(space, string):
     the call if and only if you owned it before the call.)"""
     w_str = from_ref(space, string[0])
     w_str = space.new_interned_w_str(w_str)
-    Py_DecRef(space, string[0])
+    decref(space, string[0])
     string[0] = make_ref(space, w_str)
 
 
@@ -703,7 +703,7 @@ def PyUnicode_Resize(space, ref, newsize):
     try:
         py_newuni = new_empty_unicode(space, newsize)
     except MemoryError:
-        Py_DecRef(space, ref[0])
+        decref(space, ref[0])
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
@@ -712,7 +712,7 @@ def PyUnicode_Resize(space, ref, newsize):
         to_cp = oldsize
     for i in range(to_cp):
         get_wbuffer(py_newuni)[i] = get_wbuffer(py_obj)[i]
-    Py_DecRef(space, ref[0])
+    decref(space, ref[0])
     ref[0] = rffi.cast(PyObject, py_newuni)
     return 0
 

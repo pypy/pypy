@@ -12,7 +12,8 @@ class ArrayMeta(_CDataMeta):
         if cls == (_CData,): # this is the Array class defined below
             res._ffiarray = None
             return res
-        if not hasattr(res, '_length_') or not isinstance(res._length_, int):
+        if not hasattr(res, '_length_') or not isinstance(res._length_,
+                                                          (int, long)):
             raise AttributeError(
                 "class must define a '_length_' attribute, "
                 "which must be a positive integer")

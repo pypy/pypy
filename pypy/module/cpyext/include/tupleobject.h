@@ -16,8 +16,12 @@ typedef struct {
      */
 } PyTupleObject;
 
+PyAPI_FUNC(PyObject *) PyTuple_New(Py_ssize_t size);
+PyAPI_FUNC(void) _PyPy_tuple_dealloc(PyObject *);
+
 /* defined in varargswrapper.c */
 PyAPI_FUNC(PyObject *) PyTuple_Pack(Py_ssize_t, ...);
+
 
 /* Macro, trading safety for speed */
 #define PyTuple_GET_ITEM(op, i) (((PyTupleObject *)(op))->ob_item[i])
