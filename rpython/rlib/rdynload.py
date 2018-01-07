@@ -228,7 +228,7 @@ else:  # _WIN32
         res = rwin32.LoadLibrary(name)
         if not res:
             err = rwin32.GetLastError_saved()
-            raise DLOpenError(rwin32.FormatError(err))
+            raise DLOpenError(rwin32.FormatErrorW(err))
         return res
 
     def dlclose(handle):
