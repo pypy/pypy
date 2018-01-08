@@ -1424,6 +1424,7 @@ class AppTestPosix:
                 skip("_getfinalpathname not supported on this platform")
             assert os.path.exists(result)
 
+    @py.test.mark.skipif("sys.platform == 'win32'")
     def test_rtld_constants(self):
         # check presence of major RTLD_* constants
         self.posix.RTLD_LAZY
@@ -1432,6 +1433,7 @@ class AppTestPosix:
         self.posix.RTLD_LOCAL
 
     def test_error_message(self):
+        import sys
         e = raises(OSError, self.posix.open, 'nonexistentfile1', 0)
         assert str(e.value).endswith(": 'nonexistentfile1'")
 
@@ -1442,8 +1444,9 @@ class AppTestPosix:
         e = raises(OSError, self.posix.replace, 'nonexistentfile1', 'bok')
         assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
 
-        e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
-        assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
+        if sys.platform != 'win32':
+            e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
+            assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
 
     if hasattr(rposix, 'getxattr'):
         def test_xattr_simple(self):
@@ -1472,8 +1475,8 @@ class AppTestEnvironment(object):
         cls.w_path = space.wrap(str(path))
 
     def test_environ(self):
-        import sys, posix
-        environ = posix.environ
+        import sys, os
+        environ = os.environ
         item_type = str if sys.platform.startswith('win') else bytes
         for k, v in environ.items():
             assert type(k) is item_type
@@ -1536,25 +1539,25 @@ def check_fsencoding(space, pytestconfig):
 class AppTestPosixUnicode:
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
-        import posix
+        import os
         try:
-            posix.stat(u"ą")
+            os.stat(u"ą")
         except OSError:
             pass
 
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
-        import posix
+        import os
         try:
-            posix.open(u"ą", posix.O_WRONLY)
+            os.open(u"ą", os.O_WRONLY)
         except OSError:
             pass
 
     def test_remove_unicode(self):
         # See 2 above ;)
-        import posix
+        import os
         try:
-            posix.remove(u"ą")
+            os.remove(u"ą")
         except OSError:
             pass
 

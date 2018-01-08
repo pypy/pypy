@@ -892,7 +892,7 @@ class AppTestPartialEvaluation:
             assert False, 'cannot test mbcs on this windows system, check code page'
         assert u'test'.encode('mbcs') == b'test'
         assert toencode[0].encode('mbcs') == toencode[1]
-        assert u'\u040a'.encode('mbcs') == b'?'  # some cyrillic letter
+        raises(UnicodeEncodeError, u'\u040a'.encode, 'mbcs')
         assert b'cafx\e9'.decode('mbcs') == u'cafx\e9'
 
     def test_handler_string_result(self):
