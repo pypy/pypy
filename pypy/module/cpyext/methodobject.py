@@ -190,7 +190,7 @@ class W_PyCMethodObject(W_PyCFunctionObject):
             assert isinstance(w_objclass, W_TypeObject)
             raise oefmt(space.w_TypeError,
                 "descriptor '%8' of '%s' object needs an argument",
-                self.name, w_objclass.name)
+                self.name, self.w_objclass.getname(space))
         w_instance = __args__.arguments_w[0]
         # XXX: needs a stricter test
         if not space.isinstance_w(w_instance, self.w_objclass):
@@ -230,7 +230,7 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
     def descr_call(self, space, __args__):
         if len(__args__.arguments_w) == 0:
             raise oefmt(space.w_TypeError,
-                "descriptor '%s' of '%s' object needs an argument",
+                "descriptor '%8' of '%s' object needs an argument",
                 self.name, self.w_objclass.getname(space))
         w_instance = __args__.arguments_w[0] # XXX typecheck missing
         # CCC: we can surely do better than this
