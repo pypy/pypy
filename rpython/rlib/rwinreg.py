@@ -47,71 +47,72 @@ def external(name, args, result, **kwds):
 HKEY = rwin32.HANDLE
 PHKEY = rffi.CArrayPtr(HKEY)
 REGSAM = rwin32.DWORD
+suffix = 'W'
 
 RegSetValue = external(
-    'RegSetValueA',
+    'RegSetValue' + suffix,
     [HKEY, rffi.CCHARP, rwin32.DWORD, rffi.CCHARP, rwin32.DWORD],
     rffi.LONG)
 
 RegSetValueEx = external(
-    'RegSetValueExA',
+    'RegSetValueEx' + suffix,
     [HKEY, rffi.CCHARP, rwin32.DWORD,
      rwin32.DWORD, rffi.CCHARP, rwin32.DWORD],
     rffi.LONG)
 
 RegQueryValue = external(
-    'RegQueryValueA',
+    'RegQueryValue' + suffix,
     [HKEY, rffi.CCHARP, rffi.CCHARP, rwin32.PLONG],
     rffi.LONG)
 
 RegQueryValueEx = external(
-    'RegQueryValueExA',
+    'RegQueryValueEx' + suffix,
     [HKEY, rffi.CCHARP, rwin32.LPDWORD, rwin32.LPDWORD,
      rffi.CCHARP, rwin32.LPDWORD],
     rffi.LONG)
 
 RegCreateKey = external(
-    'RegCreateKeyA',
+    'RegCreateKey' + suffix,
     [HKEY, rffi.CCHARP, PHKEY],
     rffi.LONG)
 
 RegCreateKeyEx = external(
-    'RegCreateKeyExA',
+    'RegCreateKeyEx' + suffix,
     [HKEY, rffi.CCHARP, rwin32.DWORD, rffi.CCHARP, rwin32.DWORD,
      REGSAM, rffi.VOIDP, PHKEY, rwin32.LPDWORD],
     rffi.LONG)
 
 RegDeleteValue = external(
-    'RegDeleteValueA',
+    'RegDeleteValue' + suffix,
     [HKEY, rffi.CCHARP],
     rffi.LONG)
 
 RegDeleteKey = external(
-    'RegDeleteKeyA',
+    'RegDeleteKey' + suffix,
     [HKEY, rffi.CCHARP],
     rffi.LONG)
 
 RegOpenKeyEx = external(
-    'RegOpenKeyExA',
+    'RegOpenKeyEx' + suffix,
     [HKEY, rffi.CCHARP, rwin32.DWORD, REGSAM, PHKEY],
     rffi.LONG)
 
 RegEnumValue = external(
-    'RegEnumValueA',
+    'RegEnumValue' + suffix,
     [HKEY, rwin32.DWORD, rffi.CCHARP,
      rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD,
      rffi.CCHARP, rwin32.LPDWORD],
     rffi.LONG)
 
 RegEnumKeyEx = external(
-    'RegEnumKeyExA',
+    'RegEnumKeyEx' + suffix,
     [HKEY, rwin32.DWORD, rffi.CCHARP,
      rwin32.LPDWORD, rwin32.LPDWORD,
      rffi.CCHARP, rwin32.LPDWORD, rwin32.PFILETIME],
     rffi.LONG)
 
 RegQueryInfoKey = external(
-    'RegQueryInfoKeyA',
+    'RegQueryInfoKey' + suffix,
     [HKEY, rffi.CCHARP, rwin32.LPDWORD, rwin32.LPDWORD,
      rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD,
      rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD,
@@ -129,17 +130,17 @@ RegFlushKey = external(
     rffi.LONG)
 
 RegLoadKey = external(
-    'RegLoadKeyA',
+    'RegLoadKey' + suffix,
     [HKEY, rffi.CCHARP, rffi.CCHARP],
     rffi.LONG)
 
 RegSaveKey = external(
-    'RegSaveKeyA',
+    'RegSaveKey' + suffix,
     [HKEY, rffi.CCHARP, rffi.VOIDP],
     rffi.LONG)
 
 RegConnectRegistry = external(
-    'RegConnectRegistryA',
+    'RegConnectRegistry' + suffix,
     [rffi.CCHARP, HKEY, PHKEY],
     rffi.LONG)
 
