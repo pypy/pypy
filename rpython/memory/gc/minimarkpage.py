@@ -94,6 +94,7 @@ class ArenaCollection(object):
         self.arena_size = arena_size
         self.page_size = page_size
         self.small_request_threshold = small_request_threshold
+        self.arenas_count = 0
         #
         # 'pageaddr_for_size': for each size N between WORD and
         # small_request_threshold (included), contains either NULL or
@@ -311,6 +312,7 @@ class ArenaCollection(object):
         arena.freepages = firstpage
         self.num_uninitialized_pages = npages
         self.current_arena = arena
+        self.arenas_count += 1
         #
     allocate_new_arena._dont_inline_ = True
 
@@ -398,6 +400,7 @@ class ArenaCollection(object):
                     llarena.arena_reset(arena.base, self.arena_size, 4)
                     llarena.arena_free(arena.base)
                     lltype.free(arena, flavor='raw', track_allocation=False)
+                    self.arenas_count -= 1
                     #
                 else:
                     # Insert 'arena' in the correct arenas_lists[n]
