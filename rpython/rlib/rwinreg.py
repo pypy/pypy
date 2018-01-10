@@ -47,7 +47,7 @@ def external(name, args, result, **kwds):
 HKEY = rwin32.HANDLE
 PHKEY = rffi.CArrayPtr(HKEY)
 REGSAM = rwin32.DWORD
-suffix = 'A'
+suffix = 'W'
 
 RegSetValue = external(
     'RegSetValue' + suffix,

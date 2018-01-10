@@ -148,7 +148,7 @@ def make_win32_traits(traits):
                                 save_err=rffi.RFFI_SAVE_LASTERROR)
         FindClose = external('FindClose',
                              [rwin32.HANDLE],
-                             rwin32.BOOL)
+                             rwin32.BOOL, releasegil=False)
 
         GetFileAttributes = external(
             'GetFileAttributes' + suffix,

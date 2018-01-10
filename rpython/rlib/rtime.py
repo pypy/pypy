@@ -165,7 +165,7 @@ if _WIN32:
         'QueryPerformanceCounter', [rffi.CArrayPtr(lltype.SignedLongLong)],
          lltype.Void, releasegil=False)
     QueryPerformanceFrequency = external(
-        'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)], 
+        'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)],
         rffi.INT, releasegil=False)
     class State(object):
         divisor = 0.0
@@ -267,9 +267,10 @@ def sleep(secs):
     else:
         void = lltype.nullptr(rffi.VOIDP.TO)
         with lltype.scoped_alloc(TIMEVAL) as t:
-            frac = math.fmod(secs, 1.0)
+            frac = int(math.fmod(secs, 1.0) * 1000000.)
+            assert frac >= 0
             rffi.setintfield(t, 'c_tv_sec', int(secs))
-            rffi.setintfield(t, 'c_tv_usec', int(frac*1000000.0))
+            rffi.setintfield(t, 'c_tv_usec', frac)
 
             if rffi.cast(rffi.LONG, c_select(0, void, void, void, t)) != 0:
                 errno = rposix.get_saved_errno()
