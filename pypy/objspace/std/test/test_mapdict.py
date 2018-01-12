@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import pytest
 
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
@@ -884,6 +885,7 @@ class AppTestWithMapDict(object):
         assert x.__dict__ == {'日本': 3}
         """
 
+@pytest.mark.skipif('config.option.runappdirect')
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
@@ -1286,7 +1288,7 @@ class AppTestWithMapDictAndCounters(object):
         assert res2 == "foobar"
 
 
-
+@pytest.mark.skipif('config.option.runappdirect')
 class AppTestGlobalCaching(AppTestWithMapDict):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
 

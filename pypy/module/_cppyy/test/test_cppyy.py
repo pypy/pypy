@@ -1,5 +1,4 @@
 import py, os, sys
-import subprocess
 
 from pypy.module._cppyy import interp_cppyy, executor
 from .support import setup_make
@@ -14,7 +13,8 @@ def setup_module(mod):
 class TestCPPYYImplementation:
     def test01_class_query(self, space):
         # NOTE: this test needs to run before test_pythonify.py
-        dct = interp_cppyy.load_dictionary(space, test_dct)
+        import ctypes
+        dct = ctypes.CDLL(test_dct)
         w_cppyyclass = interp_cppyy.scope_byname(space, "example01")
         w_cppyyclass2 = interp_cppyy.scope_byname(space, "example01")
         assert space.is_w(w_cppyyclass, w_cppyyclass2)
@@ -30,10 +30,16 @@ class AppTestCPPYY:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_example01, cls.w_payload = cls.space.unpackiterable(cls.space.appexec([], """():
-            import _cppyy
-            _cppyy.load_reflection_info(%r)
-            return _cppyy._scope_byname('example01'), _cppyy._scope_byname('payload')""" % (test_dct, )))
+        cls.w_lib, cls.w_instantiate, cls.w_example01, cls.w_payload = \
+                   cls.space.unpackiterable(cls.space.appexec([], """():
+            import _cppyy, ctypes
+            lib = ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)
+            def cpp_instantiate(tt, *args):
+                inst = _cppyy._bind_object(0, tt, True)
+                tt.get_overload("__init__").call(inst, *args)
+                return inst
+            return lib, cpp_instantiate, _cppyy._scope_byname('example01'),\
+                          _cppyy._scope_byname('payload')""" % (test_dct, )))
 
     def test01_static_int(self):
         """Test passing of an int, returning of an int, and overloading on a
@@ -90,25 +96,25 @@ class AppTestCPPYY:
 
         assert t.get_overload("getCount").call(None) == 0
 
-        e1 = t.get_overload(t.type_name).call(None, 7)
+        e1 = self.instantiate(t, 7)
         assert t.get_overload("getCount").call(None) == 1
         res = t.get_overload("addDataToInt").call(e1, 4)
         assert res == 11
         res = t.get_overload("addDataToInt").call(e1, -4)
         assert res == 3
-        e1.destruct()
+        e1.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
         raises(ReferenceError, 't.get_overload("addDataToInt").call(e1, 4)')
 
-        e1 = t.get_overload(t.type_name).call(None, 7)
-        e2 = t.get_overload(t.type_name).call(None, 8)
+        e1 = self.instantiate(t, 7)
+        e2 = self.instantiate(t, 8)
         assert t.get_overload("getCount").call(None) == 2
-        e1.destruct()
+        e1.__destruct__()
         assert t.get_overload("getCount").call(None) == 1
-        e2.destruct()
+        e2.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
 
-        e2.destruct()
+        e2.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
 
         raises(TypeError, t.get_overload("addDataToInt").call, 41, 4)
@@ -123,7 +129,7 @@ class AppTestCPPYY:
 
         assert t.get_overload("getCount").call(None) == 0
 
-        e1 = t.get_overload(t.type_name).call(None, 7)
+        e1 = self.instantiate(t, 7)
         assert t.get_overload("getCount").call(None) == 1
         res = t.get_overload("addDataToInt").call(e1, 4)
         assert res == 11
@@ -133,13 +139,13 @@ class AppTestCPPYY:
         gc.collect()
         assert t.get_overload("getCount").call(None) == 0
 
-        e1 = t.get_overload(t.type_name).call(None, 7)
-        e2 = t.get_overload(t.type_name).call(None, 8)
+        e1 = self.instantiate(t, 7)
+        e2 = self.instantiate(t, 8)
         assert t.get_overload("getCount").call(None) == 2
         e1 = None
         gc.collect()
         assert t.get_overload("getCount").call(None) == 1
-        e2.destruct()
+        e2.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
         e2 = None
         gc.collect()
@@ -154,10 +160,10 @@ class AppTestCPPYY:
 
         assert t.get_overload("getCount").call(None) == 0
 
-        e1 = t.get_overload(t.type_name).call(None, 7)
+        e1 = self.instantiate(t, 7)
         assert t.get_overload("getCount").call(None) == 1
-        assert e1._python_owns == True
-        e1._python_owns = False
+        assert e1.__python_owns__ == True
+        e1.__python_owns__ = False
         e1 = None
         gc.collect()
         assert t.get_overload("getCount").call(None) == 1
@@ -173,15 +179,15 @@ class AppTestCPPYY:
 
         t = self.example01
 
-        e = t.get_overload(t.type_name).call(None, 13)
+        e = self.instantiate(t, 13)
         res = t.get_overload("addDataToDouble").call(e, 16)
         assert round(res-29, 8) == 0.
-        e.destruct()
+        e.__destruct__()
 
-        e = t.get_overload(t.type_name).call(None, -13)
+        e = self.instantiate(t, -13)
         res = t.get_overload("addDataToDouble").call(e, 16)
         assert round(res-3, 8) == 0.
-        e.destruct()
+        e.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
 
     def test07_method_constcharp(self):
@@ -191,14 +197,14 @@ class AppTestCPPYY:
 
         t = self.example01
 
-        e = t.get_overload(t.type_name).call(None, 42)
+        e = self.instantiate(t, 42)
         res = t.get_overload("addDataToAtoi").call(e, "13")
         assert res == 55
         res = t.get_overload("addToStringValue").call(e, "12")       # TODO: this leaks
         assert res == "54"
         res = t.get_overload("addToStringValue").call(e, "-12")      # TODO: this leaks
         assert res == "30"
-        e.destruct()
+        e.__destruct__()
         assert t.get_overload("getCount").call(None) == 0
 
     def test08_pass_object_by_pointer(self):
@@ -208,17 +214,17 @@ class AppTestCPPYY:
         t1 = self.example01
         t2 = self.payload
 
-        pl = t2.get_overload(t2.type_name).call(None, 3.14)
+        pl = self.instantiate(t2, 3.14)
         assert round(t2.get_overload("getData").call(pl)-3.14, 8) == 0
-        t1.get_overload("staticSetPayload").call(None, pl, 41.)      # now pl is a CPPInstance
+        t1.get_overload("staticSetPayload").call(None, pl, 41.)
         assert t2.get_overload("getData").call(pl) == 41.
 
-        e = t1.get_overload(t1.type_name).call(None, 50)
+        e = self.instantiate(t1, 50)
         t1.get_overload("setPayload").call(e, pl);
         assert round(t2.get_overload("getData").call(pl)-50., 8) == 0
 
-        e.destruct()
-        pl.destruct() 
+        e.__destruct__()
+        pl.__destruct__() 
         assert t1.get_overload("getCount").call(None) == 0
 
     def test09_return_object_by_pointer(self):
@@ -228,15 +234,15 @@ class AppTestCPPYY:
         t1 = self.example01
         t2 = self.payload
 
-        pl1 = t2.get_overload(t2.type_name).call(None, 3.14)
+        pl1 = self.instantiate(t2, 3.14)
         assert round(t2.get_overload("getData").call(pl1)-3.14, 8) == 0
         pl2 = t1.get_overload("staticCyclePayload").call(None, pl1, 38.)
         assert t2.get_overload("getData").call(pl2) == 38.
 
-        e = t1.get_overload(t1.type_name).call(None, 50)
+        e = self.instantiate(t1, 50)
         pl2 = t1.get_overload("cyclePayload").call(e, pl1);
         assert round(t2.get_overload("getData").call(pl2)-50., 8) == 0
 
-        e.destruct()
-        pl1.destruct() 
+        e.__destruct__()
+        pl1.__destruct__() 
         assert t1.get_overload("getCount").call(None) == 0

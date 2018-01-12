@@ -1,3 +1,14 @@
+import os
+import stat
+
+from rpython.annotator.model import s_Str0
+from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rzipfile import RZipFile, BadZipfile
+from rpython.rlib.rzlib import RZlibError
+from rpython.rlib.rstring import assert_str0
+from rpython.rlib.signature import signature, finishsigs
+from rpython.rlib import types
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -6,11 +17,6 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.module import Module
 from pypy.module.imp import importing
 from pypy.module.zlib.interp_zlib import zlib_error
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rzipfile import RZipFile, BadZipfile
-from rpython.rlib.rzlib import RZlibError
-import os
-import stat
 
 ZIPSEP = '/'
 # note that zipfiles always use slash, but for OSes with other
@@ -18,10 +24,8 @@ ZIPSEP = '/'
 
 ENUMERATE_EXTS = unrolling_iterable(
     [(True, True, ZIPSEP + '__init__.pyc'),
-     (True, True, ZIPSEP + '__init__.pyo'),
      (False, True, ZIPSEP + '__init__.py'),
      (True, False, '.pyc'),
-     (True, False, '.pyo'),
      (False, False, '.py')])
 
 class Cache:
@@ -47,7 +51,7 @@ class W_ZipCache(W_Root):
     # THIS IS A TERRIBLE HACK TO BE CPYTHON COMPATIBLE
 
     def getitem(self, space, w_name):
-        return self._getitem(space, space.fsencode_w(w_name))
+        return self._getitem(space, space.text_w(w_name))
 
     def _getitem(self, space, name):
         try:
@@ -90,14 +94,14 @@ class W_ZipCache(W_Root):
     def iteritems(self, space):
         return space.iter(self.items(space))
 
-    @unwrap_spec(name='fsencode')
+    @unwrap_spec(name='text')
     def contains(self, space, name):
         return space.newbool(name in self.cache)
 
     def clear(self, space):
         self.cache = {}
 
-    @unwrap_spec(name='fsencode')
+    @unwrap_spec(name='text')
     def delitem(self, space, name):
         del self.cache[name]
 
@@ -118,6 +122,7 @@ W_ZipCache.typedef = TypeDef(
 
 zip_cache = W_ZipCache()
 
+@finishsigs
 class W_ZipImporter(W_Root):
     def __init__(self, space, name, filename, zip_file, prefix):
         self.space = space
@@ -140,14 +145,16 @@ class W_ZipImporter(W_Root):
             filename = filename.replace(os.path.sep, ZIPSEP)
         return filename
 
+    @signature(types.self(), types.str0(), returns=types.str0())
     def corr_zname(self, fname):
         if ZIPSEP != os.path.sep:
             return fname.replace(ZIPSEP, os.path.sep)
         else:
             return fname
 
+    @enforceargs(filename=s_Str0, typecheck=False)
     def import_py_file(self, space, modname, filename, buf, pkgpath):
-        w_mod = Module(space, space.newfilename(modname))
+        w_mod = Module(space, space.newtext(modname))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, space.newtext('__loader__'), self)
         importing._prepare_module(space, w_mod, real_name, pkgpath)
@@ -196,20 +203,21 @@ class W_ZipImporter(W_Root):
             return False
         return True
 
+    @enforceargs(filename=s_Str0, typecheck=False)
     def import_pyc_file(self, space, modname, filename, buf, pkgpath):
         magic = importing._get_long(buf[:4])
         timestamp = importing._get_long(buf[4:8])
         if not self.can_use_pyc(space, filename, magic, timestamp):
             return None
         # zipimport ignores the size field
-        buf = buf[12:] # XXX ugly copy, should use sequential read instead
+        buf = buf[12:]  # XXX ugly copy, should use sequential read instead
         w_mod = Module(space, space.newtext(modname))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, space.newtext('__loader__'), self)
         importing._prepare_module(space, w_mod, real_name, pkgpath)
-        result = importing.load_compiled_module(space, space.newtext(modname), w_mod,
-                                                real_name, magic, timestamp,
-                                                buf)
+        result = importing.load_compiled_module(
+            space, space.newtext(modname),
+            w_mod, real_name, magic, timestamp, buf)
         return result
 
     def have_modulefile(self, space, filename):
@@ -221,7 +229,7 @@ class W_ZipImporter(W_Root):
         except KeyError:
             return False
 
-    @unwrap_spec(fullname='fsencode')
+    @unwrap_spec(fullname='text')
     def find_module(self, space, fullname, w_path=None):
         filename = self.make_filename(fullname)
         for _, _, ext in ENUMERATE_EXTS:
@@ -229,14 +237,14 @@ class W_ZipImporter(W_Root):
                 return self
 
     def make_filename(self, fullname):
-        startpos = fullname.rfind('.') + 1 # 0 when not found
+        startpos = fullname.rfind('.') + 1  # 0 when not found
         assert startpos >= 0
         subname = fullname[startpos:]
         if ZIPSEP == os.path.sep:
             return self.prefix + subname.replace('.', '/')
         else:
-            return self.prefix.replace(os.path.sep, ZIPSEP) + \
-                    subname.replace('.', '/')
+            return (self.prefix.replace(os.path.sep, ZIPSEP) +
+                    subname.replace('.', '/'))
 
     def make_co_filename(self, filename):
         """
@@ -244,12 +252,20 @@ class W_ZipImporter(W_Root):
         gets in code_object.co_filename. Something like
         'myfile.zip/mymodule.py'
         """
+        if ZIPSEP != os.path.sep:
+            filename = filename.replace(ZIPSEP, os.path.sep)
         return self.filename + os.path.sep + filename
 
     def load_module(self, space, w_fullname):
-        fullname = space.fsencode_w(w_fullname)
+        fullname = space.text_w(w_fullname)
         filename = self.make_filename(fullname)
         for compiled, is_package, ext in ENUMERATE_EXTS:
+            if '\x00' in filename:
+                # Special case to make the annotator happy:
+                # filenames inside ZIPs shouldn't contain NULs so no module can
+                # possibly be found in this case
+                break
+            filename = assert_str0(filename)
             fname = filename + ext
             try:
                 buf = self.zip_file.read(fname)
@@ -287,7 +303,7 @@ class W_ZipImporter(W_Root):
                     raise
         raise oefmt(get_error(space), "can't find module %R", w_fullname)
 
-    @unwrap_spec(filename='fsencode')
+    @unwrap_spec(filename='text')
     def get_data(self, space, filename):
         filename = self._find_relative_path(filename)
         try:
@@ -301,9 +317,15 @@ class W_ZipImporter(W_Root):
             raise zlib_error(space, e.msg)
 
     def get_code(self, space, w_fullname):
-        fullname = space.fsencode_w(w_fullname)
+        fullname = space.text_w(w_fullname)
         filename = self.make_filename(fullname)
         for compiled, _, ext in ENUMERATE_EXTS:
+            if '\x00' in filename:
+                # Special case to make the annotator happy:
+                # filenames inside ZIPs shouldn't contain NULs so no module can
+                # possibly be found in this case
+                break
+            filename = assert_str0(filename)
             if self.have_modulefile(space, filename + ext):
                 w_source = self.get_data(space, filename + ext)
                 source = space.bytes_w(w_source)
@@ -325,11 +347,17 @@ class W_ZipImporter(W_Root):
                     "Cannot find source or code for %R in %R",
                     w_fullname, space.newfilename(self.name))
 
-    @unwrap_spec(fullname='fsencode')
+    @unwrap_spec(fullname='text')
     def get_source(self, space, fullname):
         filename = self.make_filename(fullname)
         found = False
         for compiled, _, ext in ENUMERATE_EXTS:
+            if '\x00' in filename:
+                # Special case to make the annotator happy:
+                # filenames inside ZIPs shouldn't contain NULs so no module can
+                # possibly be found in this case
+                break
+            filename = assert_str0(filename)
             fname = filename + ext
             if self.have_modulefile(space, fname):
                 if not compiled:
@@ -348,9 +376,15 @@ class W_ZipImporter(W_Root):
                     space.newfilename(self.name))
 
     def get_filename(self, space, w_fullname):
-        fullname = space.fsencode_w(w_fullname)
+        fullname = space.text_w(w_fullname)
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
+            if '\x00' in filename:
+                # Special case to make the annotator happy:
+                # filenames inside ZIPs shouldn't contain NULs so no module can
+                # possibly be found in this case
+                break
+            filename = assert_str0(filename)
             if self.have_modulefile(space, filename + ext):
                 return space.newfilename(self.filename + os.path.sep +
                                             self.corr_zname(filename + ext))
@@ -360,9 +394,15 @@ class W_ZipImporter(W_Root):
                     space.newfilename(self.name))
 
     def is_package(self, space, w_fullname):
-        fullname = space.fsencode_w(w_fullname)
+        fullname = space.text_w(w_fullname)
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
+            if '\x00' in filename:
+                # Special case to make the annotator happy:
+                # filenames inside ZIPs shouldn't contain NULs so no module can
+                # possibly be found in this case
+                break
+            filename = assert_str0(filename)
             if self.have_modulefile(space, filename + ext):
                 return space.newbool(is_package)
         raise oefmt(get_error(space),
@@ -375,7 +415,14 @@ class W_ZipImporter(W_Root):
         return space.newfilename(self.filename)
 
     def _find_loader(self, space, fullname):
+        if '\x00' in fullname:
+            # Special case to make the annotator happy:
+            # filenames inside ZIPs shouldn't contain NULs so no module can
+            # possibly be found in this case
+            return False, None
+        fullname = assert_str0(fullname)
         filename = self.make_filename(fullname)
+        filename = assert_str0(filename)
         for _, _, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 return True, None
@@ -385,7 +432,7 @@ class W_ZipImporter(W_Root):
             return True, self.filename + os.path.sep + self.corr_zname(dirpath)
         return False, None
 
-    @unwrap_spec(fullname='fsencode')
+    @unwrap_spec(fullname='text')
     def find_loader(self, space, fullname, w_path=None):
         found, ns_portion = self._find_loader(space, fullname)
         if not found:
@@ -401,9 +448,9 @@ def descr_new_zipimporter(space, w_type, w_name):
     name = space.fsencode_w(w_name)
     ok = False
     parts_ends = [i for i in range(0, len(name))
-                    if name[i] == os.path.sep or name[i] == ZIPSEP]
+            if name[i] == os.path.sep or name[i] == ZIPSEP]
     parts_ends.append(len(name))
-    filename = "" # make annotator happy
+    filename = ""  # make annotator happy
     for i in parts_ends:
         filename = name[:i]
         if not filename:

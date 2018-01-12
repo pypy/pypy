@@ -194,8 +194,8 @@ class AppTestThread(GenericTestThread):
         assert sorted(lst) == list(range(120))
 
     def test_many_threads(self):
-        import _thread, time
-        if self.can_start_many_threads:
+        import _thread, time, sys
+        if self.can_start_many_threads or sys.platform == 'win32':
             skip("this OS supports too many threads to check (> 1000)")
         lock = _thread.allocate_lock()
         lock.acquire()

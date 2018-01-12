@@ -12,7 +12,7 @@ import sys, textwrap, types, gc
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method
-from rpython.tool import runsubprocess
+from rpython.tool.runsubprocess import run_subprocess
 from pypy.tool.pytest import appsupport
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.tool.udir import udir
@@ -28,7 +28,8 @@ RENAMED_USEMODULES = {
     'struct': '_struct',
     'thread': '_thread',
     'operator': '_operator',
-    'signal': '_signal'}
+    'signal': '_signal',
+    'imp': '_imp'}
 
 class AppError(Exception):
     def __init__(self, excinfo):
@@ -67,14 +68,10 @@ def py3k_repr(value):
 def _rename_module(name):
     return str(RENAMED_USEMODULES.get(name, name))
 
-
-def run_with_python(python_, target_, usemodules, **definitions):
-    if python_ is None:
-        py.test.skip("Cannot find the default python3 interpreter to run with -A")
-    # we assume that the source of target_ is in utf-8. Unfortunately, we don't
-    # have any easy/standard way to determine from here the original encoding
-    # of the source file
-    helpers = r"""# -*- encoding: utf-8 -*-
+# we assume that the source of target_ is in utf-8. Unfortunately, we don't
+# have any easy/standard way to determine from here the original encoding
+# of the source file
+helpers = r"""# -*- encoding: utf-8 -*-
 if 1:
     import sys
     sys.path.append(%r)
@@ -90,7 +87,7 @@ if 1:
         import os
         try:
             if isinstance(func, str):
-                if func.startswith((' ', os.linesep)):
+                if func.startswith((' ', os.linesep, '\n')):
                     # it's probably an indented block, so we prefix if True:
                     # to avoid SyntaxError
                     func = "if True:\n" + func
@@ -109,6 +106,10 @@ if 1:
         pass
     self = Test()
 """
+
+def run_with_python(python_, target_, usemodules, **definitions):
+    if python_ is None:
+        py.test.skip("Cannot find the default python3 interpreter to run with -A")
     defs = []
     for symbol, value in sorted(definitions.items()):
         if isinstance(value, tuple) and isinstance(value[0], py.code.Source):
@@ -181,7 +182,7 @@ if 1:
     helper_dir = os.path.join(pypydir, 'tool', 'cpyext')
     env = os.environ.copy()
     env['PYTHONPATH'] = helper_dir
-    res, stdout, stderr = runsubprocess.run_subprocess(
+    res, stdout, stderr = run_subprocess(
         python_, [str(pyfile)], env=env)
     print pyfile.read()
     print >> sys.stdout, stdout
@@ -239,7 +240,7 @@ class AppTestFunction(py.test.collect.Function):
         space = gettestobjspace()
         filename = self._getdynfilename(target)
         func = app2interp_temp(src, filename=filename)
-        print "executing", func
+        # print "executing", func
         self.execute_appex(space, func, space)
 
     def repr_failure(self, excinfo):

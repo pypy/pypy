@@ -1,5 +1,8 @@
 import py
-from pypy.interpreter.unicodehelper import encode_utf8, decode_utf8
+import pytest
+import struct
+from pypy.interpreter.unicodehelper import (
+    encode_utf8, decode_utf8, unicode_encode_utf_32_be, str_decode_utf_32_be)
 from pypy.interpreter.unicodehelper import encode_utf8sp, decode_utf8sp
 
 
@@ -67,3 +70,26 @@ def test_decode_utf8sp():
     assert map(ord, got) == [0xd800, 0xdc00]
     got = decode_utf8sp(space, "\xf0\x90\x80\x80")
     assert map(ord, got) == [0x10000]
+
+@pytest.mark.parametrize('unich', [u"\ud800", u"\udc80"])
+def test_utf32_surrogates(unich):
+    assert (unicode_encode_utf_32_be(unich, 1, None) ==
+            struct.pack('>i', ord(unich)))
+    with pytest.raises(UnicodeEncodeError):
+        unicode_encode_utf_32_be(unich, 1, None, allow_surrogates=False)
+
+    def replace_with(ru, rs):
+        def errorhandler(errors, enc, msg, u, startingpos, endingpos):
+            if errors == 'strict':
+                raise UnicodeEncodeError(enc, u, startingpos, endingpos, msg)
+            return ru, rs, endingpos
+        return unicode_encode_utf_32_be(
+            u"<%s>" % unich, 3, None,
+            errorhandler, allow_surrogates=False)
+
+    assert replace_with(u'rep', None) == u'<rep>'.encode('utf-32-be')
+    assert (replace_with(None, '\xca\xfe\xca\xfe') ==
+            '\x00\x00\x00<\xca\xfe\xca\xfe\x00\x00\x00>')
+
+    with pytest.raises(UnicodeDecodeError):
+        str_decode_utf_32_be(b"\x00\x00\xdc\x80", 4, None)

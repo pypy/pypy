@@ -15,12 +15,12 @@ def gettestobjspace(**kwds):
         # this exception is typically only raised if a module is not available.
         # in this case the test should be skipped
         py.test.skip(str(e))
+    if getattr(option, 'runappdirect', None):
+        return TinyObjSpace()
     key = config.getkey()
     try:
         return _SPACECACHE[key]
     except KeyError:
-        if getattr(option, 'runappdirect', None):
-            return TinyObjSpace(**kwds)
         space = maketestobjspace(config)
         _SPACECACHE[key] = space
         return space
@@ -46,31 +46,7 @@ def maketestobjspace(config=None):
 
 class TinyObjSpace(object):
     """An object space that delegates everything to the hosting Python."""
-    def __init__(self, **kwds):
-        info = getattr(sys, 'pypy_translation_info', None)
-        for key, value in kwds.iteritems():
-            if key == 'usemodules':
-                if info is not None:
-                    for modname in value:
-                        ok = info.get('objspace.usemodules.%s' % modname,
-                                      False)
-                        if not ok:
-                            py.test.skip("cannot runappdirect test: "
-                                         "module %r required" % (modname,))
-                else:
-                    if '__pypy__' in value:
-                        py.test.skip("no module __pypy__ on top of CPython")
-                continue
-            if info is None:
-                py.test.skip("cannot runappdirect this test on top of CPython")
-            if ('translation.' + key) in info:
-                key = 'translation.' + key
-            has = info.get(key, None)
-            if has != value:
-                #print sys.pypy_translation_info
-                py.test.skip("cannot runappdirect test: space needs %s = %s, "\
-                    "while pypy3-c was built with %s" % (key, value, has))
-
+    def __init__(self):
         for name in ('int', 'long', 'str', 'unicode', 'list', 'None', 'ValueError',
                 'OverflowError'):
             setattr(self, 'w_' + name, eval(name))
@@ -96,13 +72,12 @@ class TinyObjSpace(object):
             return list(self.wrap(item) for item in obj)
         return obj
 
-    def newbytes(self, obj):
-        return obj
-
     def unpackiterable(self, itr):
         return list(itr)
 
     def is_true(self, obj):
+        if isinstance(obj, tuple) and isinstance(obj[0], py.code.Source):
+            raise ValueError('bool(appexec object) unknown')
         return bool(obj)
 
     def is_none(self, obj):

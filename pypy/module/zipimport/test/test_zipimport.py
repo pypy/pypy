@@ -196,19 +196,19 @@ def get_file():
         m0 = self.get_pyc()[0]
         m0 ^= 0x04
         test_pyc = bytes([m0]) + self.get_pyc()[1:]
-        self.writefile("uu.pyc", test_pyc)
+        self.writefile("xxbad_pyc.pyc", test_pyc)
         raises(zipimport.ZipImportError,
-               "__import__('uu', globals(), locals(), [])")
-        assert 'uu' not in sys.modules
+               "__import__('xxbad_pyc', globals(), locals(), [])")
+        assert 'xxbad_pyc' not in sys.modules
 
     def test_force_py(self):
         import sys
         m0 = self.get_pyc()[0]
         m0 ^= 0x04
         test_pyc = bytes([m0]) + self.get_pyc()[1:]
-        self.writefile("uu.pyc", test_pyc)
-        self.writefile("uu.py", "def f(x): return x")
-        mod = __import__("uu", globals(), locals(), [])
+        self.writefile("xxforce_py.pyc", test_pyc)
+        self.writefile("xxforce_py.py", "def f(x): return x")
+        mod = __import__("xxforce_py", globals(), locals(), [])
         assert mod.f(3) == 3
 
     def test_sys_modules(self):
@@ -394,10 +394,19 @@ def get_file():
         assert z.get_code('ä')
         raises(ImportError, z.get_code, 'xx')
         mod = z.load_module('ä')
+        #assert z.load_module('ä') is mod
         assert z.get_filename('ä') == mod.__file__
         raises(ImportError, z.load_module, 'xx')
         raises(ImportError, z.get_filename, 'xx')
         assert z.archive == self.zipfile
+        # PyPy fix: check null byte behavior:
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(ImportError, z.is_package, 'ä\0 b')
+            raises(ImportError, z.get_source, 'ä\0 b')
+            raises(ImportError, z.get_code, 'ä\0 b')
+            raises(ImportError, z.load_module, 'ä\0 b')
+            raises(ImportError, z.get_filename, 'ä\0 b')
 
     def test_co_filename(self):
         self.writefile('mymodule.py', """

@@ -18,6 +18,7 @@ corresponding Unix manual entries for more information on calls."""
         'error': 'app_posix.error',
         'stat_result': 'app_posix.stat_result',
         'statvfs_result': 'app_posix.statvfs_result',
+        'times_result': 'app_posix.times_result',
         'uname_result': 'app_posix.uname_result',
         'urandom': 'app_posix.urandom',
         'terminal_size': 'app_posix.terminal_size',
@@ -79,6 +80,7 @@ corresponding Unix manual entries for more information on calls."""
         'urandom': 'interp_posix.urandom',
         'device_encoding': 'interp_posix.device_encoding',
         'get_terminal_size': 'interp_posix.get_terminal_size',
+        'symlink': 'interp_posix.symlink',
 
         'scandir': 'interp_scandir.scandir',
         'get_inheritable': 'interp_posix.get_inheritable',
@@ -110,8 +112,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
-    if hasattr(os, 'symlink'):
-        interpleveldefs['symlink'] = 'interp_posix.symlink'
     if hasattr(os, 'readlink'):
         interpleveldefs['readlink'] = 'interp_posix.readlink'
     if hasattr(os, 'fork'):
@@ -228,7 +228,7 @@ corresponding Unix manual entries for more information on calls."""
         'POSIX_FADV_RANDOM', 'POSIX_FADV_NOREUSE', 'POSIX_FADV_DONTNEED']:
             assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
-    
+
     if hasattr(rposix, 'sched_get_priority_max'):
         interpleveldefs['sched_get_priority_max'] = 'interp_posix.sched_get_priority_max'
         interpleveldefs['sched_get_priority_min'] = 'interp_posix.sched_get_priority_min'
@@ -237,9 +237,28 @@ corresponding Unix manual entries for more information on calls."""
             if getattr(rposix, _name) is not None:
                 interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
 
+    if sys.platform.startswith('linux'):
+        interpleveldefs['lockf'] = 'interp_posix.lockf'
+        for _name in ['F_LOCK', 'F_TLOCK', 'F_ULOCK', 'F_TEST']:
+            if getattr(rposix, _name) is not None:
+                interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if hasattr(rposix, 'sched_yield'):
+        interpleveldefs['sched_yield'] = 'interp_posix.sched_yield'
+
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if hasattr(rposix, 'getxattr'):
+        interpleveldefs['getxattr'] = 'interp_posix.getxattr'
+        interpleveldefs['setxattr'] = 'interp_posix.setxattr'
+        interpleveldefs['removexattr'] = 'interp_posix.removexattr'
+        interpleveldefs['listxattr'] = 'interp_posix.listxattr'
+        for _name in ['XATTR_SIZE_MAX', 'XATTR_CREATE', 'XATTR_REPLACE']:
+            if getattr(rposix, _name) is not None:
+                interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
 
     def startup(self, space):
         from pypy.module.posix import interp_posix

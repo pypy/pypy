@@ -915,12 +915,6 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     Py_DECREF(res);
-    if (Py_REFCNT(arg) != 1) {
-        PyErr_Format(TestError, "test_buildvalue_N: "
-                     "arg was not decrefed in successful "
-                     "Py_BuildValue(\"%s\")", fmt);
-        return -1;
-    }
 
     Py_INCREF(arg);
     res = Py_BuildValue(fmt, raise_error, NULL, arg);
@@ -930,12 +924,6 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     PyErr_Clear();
-    if (Py_REFCNT(arg) != 1) {
-        PyErr_Format(TestError, "test_buildvalue_N: "
-                     "arg was not decrefed in failed "
-                     "Py_BuildValue(\"%s\")", fmt);
-        return -1;
-    }
     Py_DECREF(arg);
     return 0;
 }
@@ -957,10 +945,6 @@ test_buildvalue_N(PyObject *self, PyObject *noargs)
     if (res != arg) {
         return raiseTestError("test_buildvalue_N",
                               "Py_BuildValue(\"N\") returned wrong result");
-    }
-    if (Py_REFCNT(arg) != 2) {
-        return raiseTestError("test_buildvalue_N",
-                              "arg was not decrefed in Py_BuildValue(\"N\")");
     }
     Py_DECREF(res);
     Py_DECREF(arg);
@@ -2834,8 +2818,6 @@ make_memoryview_from_NULL_pointer(PyObject *self)
     return PyMemoryView_FromBuffer(&info);
 }
 
-#ifndef PYPY_VERSION
-
 static PyObject *
 test_from_contiguous(PyObject* self, PyObject *noargs)
 {
@@ -2885,7 +2867,6 @@ test_from_contiguous(PyObject* self, PyObject *noargs)
 
     Py_RETURN_NONE;
 }
-#endif  /* PYPY_VERSION */
 
 #if (defined(__linux__) || defined(__FreeBSD__)) && defined(__GNUC__) && !defined(PYPY_VERSION)
 extern PyTypeObject _PyBytesIOBuffer_Type;
@@ -3923,9 +3904,7 @@ static PyMethodDef TestMethods[] = {
     {"test_string_to_double", (PyCFunction)test_string_to_double, METH_NOARGS},
     {"test_unicode_compare_with_ascii", (PyCFunction)test_unicode_compare_with_ascii, METH_NOARGS},
     {"test_capsule", (PyCFunction)test_capsule, METH_NOARGS},
-#ifndef PYPY_VERSION
     {"test_from_contiguous", (PyCFunction)test_from_contiguous, METH_NOARGS},
-#endif
 #if (defined(__linux__) || defined(__FreeBSD__)) && defined(__GNUC__) && !defined(PYPY_VERSION)
     {"test_pep3118_obsolete_write_locks", (PyCFunction)test_pep3118_obsolete_write_locks, METH_NOARGS},
 #endif

@@ -268,10 +268,10 @@ class UCD(W_Root):
                 result[0] = ch
 
         if not composed: # If decomposed normalization we are done
-            return space.newunicode(u''.join([unichr(i) for i in result[:j]]))
+            return self.build(space, result, stop=j)
 
         if j <= 1:
-            return space.newunicode(u''.join([unichr(i) for i in result[:j]]))
+            return self.build(space, result, stop=j)
 
         current = result[0]
         starter_pos = 0
@@ -319,7 +319,10 @@ class UCD(W_Root):
 
         result[starter_pos] = current
 
-        return space.newunicode(u''.join([unichr(i) for i in result[:next_insert]]))
+        return self.build(space, result, stop=next_insert)
+
+    def build(self, space, r, stop):
+        return space.newunicode(u''.join([unichr(i) for i in r[:stop]]))
 
 
 methods = {}

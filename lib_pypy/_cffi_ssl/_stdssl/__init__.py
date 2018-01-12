@@ -20,8 +20,14 @@ from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_EOF, SSL_ERROR_NO_SOCKET, SSL_ERROR_INVALID_ERROR_CODE,
         pyerr_write_unraisable)
 from _cffi_ssl._stdssl import error
-from select import poll, POLLIN, POLLOUT, select
+from select import select
 from enum import IntEnum as _IntEnum
+
+if sys.platform == 'win32':
+    HAVE_POLL = False
+else:
+    from select import poll, POLLIN, POLLOUT
+    HAVE_POLL = True
 
 OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT).decode('utf-8')
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER
@@ -157,8 +163,6 @@ if hasattr(time, 'monotonic'):
 else:
     def _monotonic_clock():
         return time.clock_gettime(time.CLOCK_MONOTONIC)
-
-HAVE_POLL = True
 
 def _ssl_select(sock, writing, timeout):
     if HAVE_POLL:

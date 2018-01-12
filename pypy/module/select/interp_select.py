@@ -80,10 +80,10 @@ class Poll(W_Root):
                     if timeout < 0:
                         timeout = 0
                     continue
-                message = e.get_msg()
+                message = e.get_msg_unicode()
                 raise OperationError(space.w_OSError,
                                      space.newtuple([space.newint(e.errno),
-                                                     space.newtext(message)]))
+                                                     space.newunicode(message)]))
             finally:
                 self.running = False
             break
@@ -152,9 +152,9 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
             break     # normal path
         err = _c.geterrno()
         if err != errno.EINTR:
-            msg = _c.socket_strerror_str(err)
+            msg = _c.socket_strerror_unicode(err)
             raise OperationError(space.w_OSError, space.newtuple([
-                space.newint(err), space.newtext(msg)]))
+                space.newint(err), space.newunicode(msg)]))
         # got EINTR, automatic retry
         space.getexecutioncontext().checksignals()
         if timeout > 0.0:

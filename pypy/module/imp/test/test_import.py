@@ -601,25 +601,15 @@ class AppTestImport(BaseFSEncodeTest):
         import pkg.a, imp
         imp.reload(pkg.a)
 
-    def test_reload_builtin(self):
-        import sys, imp
-        oldpath = sys.path
-        try:
-            del sys.settrace
-        except AttributeError:
-            pass
-
-        imp.reload(sys)
-
-        assert sys.path is oldpath
-        assert 'settrace' not in dir(sys)    # at least on CPython 3.5.2
-
     def test_reload_builtin_doesnt_clear(self):
         import imp
         import sys
         sys.foobar = "baz"
-        imp.reload(sys)
-        assert sys.foobar == "baz"
+        try:
+            imp.reload(sys)
+            assert sys.foobar == "baz"
+        finally:
+            del sys.foobar
 
     def test_reimport_builtin_simple_case_1(self):
         import sys, time
@@ -637,18 +627,18 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_reimport_builtin(self):
         import imp, sys, time
-        oldpath = sys.path
-        time.tzname = "<test_reimport_builtin removed this>"
+        old_sleep = time.sleep
+        time.sleep = "<test_reimport_builtin removed this>"
 
         del sys.modules['time']
         import time as time1
         assert sys.modules['time'] is time1
 
-        assert time.tzname == "<test_reimport_builtin removed this>"
+        assert time.sleep == "<test_reimport_builtin removed this>"
 
-        imp.reload(time1)   # don't leave a broken time.tzname behind
+        imp.reload(time1)   # don't leave a broken time.sleep behind
         import time
-        assert time.tzname != "<test_reimport_builtin removed this>"
+        assert time.sleep is old_sleep
 
     def test_reload_infinite(self):
         import infinite_reload
@@ -779,9 +769,9 @@ class AppTestImport(BaseFSEncodeTest):
 
 class TestAbi:
     def test_abi_tag(self):
-        space1 = maketestobjspace(make_config(None, soabi='TEST'))
+        space1 = maketestobjspace(make_config(None, soabi='footest'))
         space2 = maketestobjspace(make_config(None, soabi=''))
-        assert importing.get_so_extension(space1).startswith('.TEST')
+        assert importing.get_so_extension(space1).startswith('.footest')
         if sys.platform == 'win32':
             assert importing.get_so_extension(space2) == '.pyd'
         else:
@@ -1220,12 +1210,12 @@ class AppTestWriteBytecode(object):
     }
 
     def setup_class(cls):
-        cls.saved_modules = _setup(cls)
+        cls.w_saved_modules = _setup(cls)
         sandbox = cls.spaceconfig['translation.sandbox']
         cls.w_sandbox = cls.space.wrap(sandbox)
 
     def teardown_class(cls):
-        _teardown(cls.space, cls.saved_modules)
+        _teardown(cls.space, cls.w_saved_modules)
         cls.space.appexec([], """
             ():
                 import sys
@@ -1255,50 +1245,8 @@ class AppTestWriteBytecode(object):
         assert not os.path.exists(c.__cached__)
 
 
+@pytest.mark.skipif('config.option.runappdirect')
 class AppTestWriteBytecodeSandbox(AppTestWriteBytecode):
     spaceconfig = {
         "translation.sandbox": True
     }
-
-
-class AppTestMultithreadedImp(object):
-    spaceconfig = dict(usemodules=['thread', 'time'])
-
-    def setup_class(cls):
-        #if not conftest.option.runappdirect:
-        #    py.test.skip("meant as an -A test")
-        tmpfile = udir.join('test_multithreaded_imp.py')
-        tmpfile.write('''if 1:
-            x = 666
-            import time
-            for i in range(1000): time.sleep(0.001)
-            x = 42
-        ''')
-        cls.w_tmppath = cls.space.wrap(str(udir))
-
-    def test_multithreaded_import(self):
-        import sys, _thread, time
-        oldpath = sys.path[:]
-        try:
-            sys.path.insert(0, self.tmppath)
-            got = []
-
-            def check():
-                import test_multithreaded_imp
-                got.append(getattr(test_multithreaded_imp, 'x', '?'))
-
-            for i in range(5):
-                _thread.start_new_thread(check, ())
-
-            for n in range(100):
-                for i in range(105): time.sleep(0.001)
-                if len(got) == 5:
-                    break
-            else:
-                raise AssertionError("got %r so far but still waiting" %
-                                     (got,))
-
-            assert got == [42] * 5, got
-
-        finally:
-            sys.path[:] = oldpath

@@ -85,7 +85,6 @@ class Test(unittest.TestCase):
         del a
         gc.collect()  # Should not crash
 
-    @xfail
     def test_from_buffer_copy(self):
         a = array.array("i", range(16))
         x = (c_int * 16).from_buffer_copy(a)

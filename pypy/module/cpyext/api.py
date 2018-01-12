@@ -206,6 +206,9 @@ CANNOT_FAIL = CannotFail()
 # id.  Invariant: this variable always contain 0 when the PyPy GIL is
 # released.  It should also contain 0 when regular RPython code
 # executes.  In non-cpyext-related code, it will thus always be 0.
+# When cpyext-related C code runs, it contains the thread id (usually)
+# or the value -1 (only for state.C.PyXxx() functions which are short-
+# running and should not themselves release the GIL).
 #
 # **make_generic_cpy_call():** RPython to C, with the GIL held.  Before
 # the call, must assert that the global variable is 0 and set the
@@ -257,14 +260,73 @@ cpyext_glob_tid_ptr = lltype.malloc(rffi.CArray(lltype.Signed), 1,
 
 cpyext_namespace = NameManager('cpyext_')
 
-class ApiFunction(object):
-    def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
-                 c_name=None, cdecl=None, gil=None,
-                 result_borrowed=False, result_is_ll=False):
+class BaseApiFunction(object):
+    def __init__(self, argtypes, restype, callable):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         self.callable = callable
+        self.cdecl = None    # default
+        #
+        def get_llhelper(space):
+            return llhelper(self.functype, self.get_wrapper(space))
+        self.get_llhelper = get_llhelper
+
+    def get_api_decl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        res = self.API_VISIBILITY % (restype,)
+        return "{res} {name}({args});".format(**locals())
+
+    def get_c_restype(self, c_writer):
+        if self.cdecl:
+            return self.cdecl.tp.result.get_c_name()
+        return c_writer.gettype(self.restype).replace('@', '').strip()
+
+    def get_c_args(self, c_writer):
+        if self.cdecl:
+            args = [tp.get_c_name('arg%d' % i) for i, tp in
+                enumerate(self.cdecl.tp.args)]
+            return ', '.join(args) or "void"
+        args = []
+        for i, argtype in enumerate(self.argtypes):
+            if argtype is CONST_STRING:
+                arg = 'const char *@'
+            elif argtype is CONST_STRINGP:
+                arg = 'const char **@'
+            elif argtype is CONST_WSTRING:
+                arg = 'const wchar_t *@'
+            else:
+                arg = c_writer.gettype(argtype)
+            arg = arg.replace('@', 'arg%d' % (i,)).strip()
+            args.append(arg)
+        args = ', '.join(args) or "void"
+        return args
+
+    def get_ptr_decl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        return "{restype} (*{name})({args});".format(**locals())
+
+    def get_ctypes_impl(self, name, c_writer):
+        restype = self.get_c_restype(c_writer)
+        args = self.get_c_args(c_writer)
+        callargs = ', '.join('arg%d' % (i,)
+                            for i in range(len(self.argtypes)))
+        if self.restype is lltype.Void:
+            body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+        else:
+            body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+        return '%s %s(%s)\n%s' % (restype, name, args, body)
+
+
+class ApiFunction(BaseApiFunction):
+    API_VISIBILITY = "PyAPI_FUNC(%s)"
+
+    def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
+                 c_name=None, cdecl=None, gil=None,
+                 result_borrowed=False, result_is_ll=False):
+        BaseApiFunction.__init__(self, argtypes, restype, callable)
         self.error_value = error
         self.c_name = c_name
         self.cdecl = cdecl
@@ -282,10 +344,6 @@ class ApiFunction(object):
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll
-        #
-        def get_llhelper(space):
-            return llhelper(self.functype, self.get_wrapper(space))
-        self.get_llhelper = get_llhelper
 
     def __repr__(self):
         return "<cpyext function %s>" % (self.callable.__name__,)
@@ -383,56 +441,16 @@ class ApiFunction(object):
                     arg = input_arg
                 newargs += (arg, )
             try:
-                return self.callable(space, *newargs)
+                result = self.callable(space, *newargs)
             finally:
                 keepalive_until_here(*keepalives)
+            #
+            # this is just a sanity check to ensure that we don't forget to
+            # specify result_is_ll=True
+            if self.restype == PyObject:
+                assert self.result_is_ll == is_pyobj(result)
+            return result
         return unwrapper
-
-    def get_c_restype(self, c_writer):
-        if self.cdecl:
-            return self.cdecl.tp.result.get_c_name()
-        return c_writer.gettype(self.restype).replace('@', '').strip()
-
-    def get_c_args(self, c_writer):
-        if self.cdecl:
-            args = [tp.get_c_name('arg%d' % i) for i, tp in
-                enumerate(self.cdecl.tp.args)]
-            return ', '.join(args) or "void"
-        args = []
-        for i, argtype in enumerate(self.argtypes):
-            if argtype is CONST_STRING:
-                arg = 'const char *@'
-            elif argtype is CONST_STRINGP:
-                arg = 'const char **@'
-            elif argtype is CONST_WSTRING:
-                arg = 'const wchar_t *@'
-            else:
-                arg = c_writer.gettype(argtype)
-            arg = arg.replace('@', 'arg%d' % (i,)).strip()
-            args.append(arg)
-        args = ', '.join(args) or "void"
-        return args
-
-    def get_api_decl(self, name, c_writer):
-        restype = self.get_c_restype(c_writer)
-        args = self.get_c_args(c_writer)
-        return "PyAPI_FUNC({restype}) {name}({args});".format(**locals())
-
-    def get_ptr_decl(self, name, c_writer):
-        restype = self.get_c_restype(c_writer)
-        args = self.get_c_args(c_writer)
-        return "{restype} (*{name})({args});".format(**locals())
-
-    def get_ctypes_impl(self, name, c_writer):
-        restype = self.get_c_restype(c_writer)
-        args = self.get_c_args(c_writer)
-        callargs = ', '.join('arg%d' % (i,)
-                            for i in range(len(self.argtypes)))
-        if self.restype is lltype.Void:
-            body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
-        else:
-            body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
-        return '%s %s(%s)\n%s' % (restype, name, args, body)
 
 
 DEFAULT_HEADER = 'pypy_decl.h'
@@ -469,6 +487,26 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         unwrapper.api_func = api_function
         INTERPLEVEL_API[func.__name__] = unwrapper  # used in tests
         return unwrapper
+    return decorate
+
+class COnlyApiFunction(BaseApiFunction):
+    API_VISIBILITY = "extern %s"
+
+    def get_wrapper(self, space):
+        return self.callable
+
+    def __call__(self, *args):
+        raise TypeError("the function %s should not be directly "
+                        "called from RPython, but only from C" % (self.func,))
+
+def c_only(argtypes, restype):
+    def decorate(func):
+        header = DEFAULT_HEADER
+        if func.__name__ in FUNCTIONS_BY_HEADER[header]:
+            raise ValueError("%s already registered" % func.__name__)
+        api_function = COnlyApiFunction(argtypes, restype, func)
+        FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
+        return api_function
     return decorate
 
 def api_func_from_cdef(func, cdef, cts,
@@ -550,7 +588,7 @@ SYMBOLS_C = [
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
     'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
-    'PyUnicode_GetSize', 'PyUnicode_GetLength',
+    'PyUnicode_GetSize', 'PyUnicode_GetLength', 'PyUnicode_FromWideChar',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'PyModule_GetDef', 'PyModuleDef_Init', 'PyModule_GetState',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
@@ -582,6 +620,7 @@ SYMBOLS_C = [
     'PyComplex_AsCComplex', 'PyComplex_FromCComplex',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
+    'PyBuffer_GetPointer', 'PyBuffer_ToContiguous', 'PyBuffer_FromContiguous',
 
     'PyImport_ImportModuleLevel',
 
@@ -612,6 +651,11 @@ SYMBOLS_C = [
     'PyBytes_FromFormat', 'PyBytes_FromFormatV',
 
     'PyType_FromSpec',
+    'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
+    '_PyObject_New', '_PyObject_NewVar',
+    '_PyObject_GC_New', '_PyObject_GC_NewVar',
+    'PyObject_Init', 'PyObject_InitVar',
+    'PyTuple_New',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -949,8 +993,14 @@ def make_wrapper_second_level(space, argtypesw, restype,
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
-        _gil_auto = (gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid)
-        if gil_acquire or _gil_auto:
+        _gil_auto = False
+        if gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid:
+            # replace '-1' with the real tid, now that we have the tid
+            if cpyext_glob_tid_ptr[0] == -1:
+                cpyext_glob_tid_ptr[0] = tid
+            else:
+                _gil_auto = True
+        if _gil_auto or gil_acquire:
             if cpyext_glob_tid_ptr[0] == tid:
                 deadlock_error(pname)
             rgil.acquire()
@@ -1072,6 +1122,7 @@ def setup_init_functions(eci, prefix):
     setdefenc = rffi.llexternal('_%s_setfilesystemdefaultencoding' % prefix,
                                 [rffi.CCHARP], lltype.Void,
                                 compilation_info=eci, _nowrapper=True)
+    @init_function
     def init_types(space):
         from pypy.module.cpyext.typeobject import py_type_ready
         from pypy.module.sys.interp_encoding import getfilesystemencoding
@@ -1079,7 +1130,7 @@ def setup_init_functions(eci, prefix):
         py_type_ready(space, get_capsule_type())
         s = space.text_w(getfilesystemencoding(space))
         setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
-    INIT_FUNCTIONS.append(init_types)
+
     from pypy.module.posix.interp_posix import add_fork_hook
     global py_fatalerror
     py_fatalerror = rffi.llexternal('%s_FatalError' % prefix,
@@ -1090,6 +1141,45 @@ def setup_init_functions(eci, prefix):
     def reinit_tls(space):
         _reinit_tls()
     add_fork_hook('child', reinit_tls)
+
+
+def attach_c_functions(space, eci, prefix):
+    state = space.fromcache(State)
+    state.C._Py_Dealloc = rffi.llexternal('_Py_Dealloc',
+                                         [PyObject], lltype.Void,
+                                         compilation_info=eci,
+                                         _nowrapper=True)
+    state.C.PyObject_Free = rffi.llexternal(
+        mangle_name(prefix, 'PyObject_Free'),
+        [rffi.VOIDP], lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True)
+    state.C.PyType_GenericAlloc = rffi.llexternal(
+        mangle_name(prefix, 'PyType_GenericAlloc'),
+        [PyTypeObjectPtr, Py_ssize_t], PyObject,
+        compilation_info=eci,
+        _nowrapper=True)
+    state.C._PyPy_int_dealloc = rffi.llexternal(
+        '_PyPy_int_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+    state.C.PyTuple_New = rffi.llexternal(
+        mangle_name(prefix, 'PyTuple_New'),
+        [Py_ssize_t], PyObject,
+        compilation_info=eci,
+        _nowrapper=True)
+    state.C._PyPy_tuple_dealloc = rffi.llexternal(
+        '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+    _, state.C.set_marker = rffi.CExternVariable(
+                   Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
+                   eci, _nowrapper=True, c_type='Py_ssize_t')
+    state.C._PyPy_subtype_dealloc = rffi.llexternal(
+        '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+    state.C._PyPy_object_dealloc = rffi.llexternal(
+        '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1159,6 +1249,7 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
 
+    attach_c_functions(space, eci, prefix)
     run_bootstrap_functions(space)
 
     # load the bridge, and init structure
@@ -1199,7 +1290,6 @@ def build_bridge(space):
                 in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, mname)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
             builder.prepare(py_obj, w_obj)
-    builder.attach_all(space)
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
@@ -1209,6 +1299,12 @@ def build_bridge(space):
             pypyAPI[structindex[name]] = ctypes.cast(
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
+
+    # we need to call this *after* the init code above, because it might
+    # indirectly call some functions which are attached to pypyAPI (e.g., we
+    # if do tuple_attach of the prebuilt empty tuple, we need to call
+    # _PyPy_Malloc)
+    builder.attach_all(space)
 
     setup_init_functions(eci, prefix)
     return modulename.new(ext='')
@@ -1406,6 +1502,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pylifecycle.c",
                          source_dir / "object.c",
                          source_dir / "typeobject.c",
+                         source_dir / "tupleobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):
@@ -1503,6 +1600,7 @@ def setup_library(space):
     eci = build_eci(code, use_micronumpy, translating=True)
     space.fromcache(State).install_dll(eci)
 
+    attach_c_functions(space, eci, prefix)
     run_bootstrap_functions(space)
 
     # emit uninitialized static data
@@ -1561,6 +1659,7 @@ def create_extension_module(space, w_spec):
     from rpython.rlib import rdynload
 
     w_name = space.getattr(w_spec, space.newtext("name"))
+    name = space.text_w(w_name)
     path = space.text_w(space.getattr(w_spec, space.newtext("origin")))
 
     if os.sep not in path:
@@ -1576,7 +1675,6 @@ def create_extension_module(space, w_spec):
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
     look_for = None
-    name = space.text_w(w_name)
     #
     if space.config.objspace.usemodules._cffi_backend:
         basename = name.split('.')[-1]
@@ -1702,7 +1800,7 @@ def generic_cpy_call_dont_convert_result(space, func, *args):
 
 @specialize.memo()
 def make_generic_cpy_call(FT, expect_null, convert_result):
-    from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
+    from pypy.module.cpyext.pyobject import is_pyobj, make_ref, decref
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
     from pypy.module.cpyext.pyerrors import PyErr_Occurred
     unrolling_arg_types = unrolling_iterable(enumerate(FT.ARGS))
@@ -1730,15 +1828,17 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
     @specialize.ll()
     def generic_cpy_call(space, func, *args):
         boxed_args = ()
-        keepalives = ()
+        to_decref = ()
         assert len(args) == len(FT.ARGS)
         for i, ARG in unrolling_arg_types:
             arg = args[i]
+            _pyobj = None
             if is_PyObject(ARG):
                 if not is_pyobj(arg):
-                    keepalives += (arg,)
-                    arg = as_pyobj(space, arg)
+                    arg = make_ref(space, arg)
+                    _pyobj = arg
             boxed_args += (arg,)
+            to_decref += (_pyobj,)
 
         # see "Handling of the GIL" above
         tid = rthread.get_ident()
@@ -1752,7 +1852,11 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
         finally:
             assert cpyext_glob_tid_ptr[0] == tid
             cpyext_glob_tid_ptr[0] = 0
-            keepalive_until_here(*keepalives)
+            for i, ARG in unrolling_arg_types:
+                # note that this loop is nicely unrolled statically by RPython
+                _pyobj = to_decref[i]
+                if _pyobj is not None:
+                    decref(space, _pyobj)
 
         if convert_result and is_PyObject(RESULT_TYPE):
             if not is_pyobj(result):

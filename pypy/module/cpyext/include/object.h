@@ -59,6 +59,11 @@ we have it for compatibility with CPython.
     } while (0)
 
 #endif
+PyAPI_FUNC(void) Py_IncRef(PyObject *);
+PyAPI_FUNC(void) Py_DecRef(PyObject *);
+extern Py_ssize_t _pypy_rawrefcount_w_marker_deallocating;
+PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
+
 
 #define Py_CLEAR(op)                            \
     do {                                        \
@@ -86,6 +91,10 @@ we have it for compatibility with CPython.
 #define Py_REFCNT(ob)		(((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
+
+#define _Py_NewReference(op)                                        \
+    ( ((PyObject *)(op))->ob_refcnt = 1,                            \
+      ((PyObject *)(op))->ob_pypy_link = 0 )
 
 #define _Py_ForgetReference(ob) /* nothing */
 
@@ -246,8 +255,16 @@ given type object has a specified feature.
 	  ) & ~(SIZEOF_VOID_P - 1)		\
 	)
 
-#define PyObject_INIT PyObject_Init
-#define PyObject_INIT_VAR PyObject_InitVar
+        
+#define PyObject_INIT(op, typeobj) \
+    ( Py_TYPE(op) = (typeobj), ((PyObject *)(op))->ob_refcnt = 1,\
+      ((PyObject *)(op))->ob_pypy_link = 0, (op) )
+#define PyObject_INIT_VAR(op, typeobj, size) \
+    ( Py_SIZE(op) = (size), PyObject_INIT((op), (typeobj)) )
+
+
+PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
+
 /*
 #define PyObject_NEW(type, typeobj) \
 ( (type *) PyObject_Init( \
@@ -308,12 +325,51 @@ typedef union _gc_head {
 PyAPI_FUNC(int) PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_AsWriteBuffer(PyObject *, void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_CheckReadBuffer(PyObject *);
+PyAPI_FUNC(void *) PyBuffer_GetPointer(Py_buffer *view, Py_ssize_t *indices);
+/* Get the memory area pointed to by the indices for the buffer given.
+   Note that view->ndim is the assumed size of indices
+*/
+
+PyAPI_FUNC(int) PyBuffer_ToContiguous(void *buf, Py_buffer *view,
+                                   Py_ssize_t len, char fort);
+PyAPI_FUNC(int) PyBuffer_FromContiguous(Py_buffer *view, void *buf,
+                                     Py_ssize_t len, char fort);
+/* Copy len bytes of data from the contiguous chunk of memory
+   pointed to by buf into the buffer exported by obj.  Return
+   0 on success and return -1 and raise a PyBuffer_Error on
+   error (i.e. the object does not have a buffer interface or
+   it is not working).
+
+   If fort is 'F' and the object is multi-dimensional,
+   then the data will be copied into the array in
+   Fortran-style (first dimension varies the fastest).  If
+   fort is 'C', then the data will be copied into the array
+   in C-style (last dimension varies the fastest).  If fort
+   is 'A', then it does not matter and the copy will be made
+   in whatever way is more efficient.
+
+*/
+
+
+/* on CPython, these are in objimpl.h */
+
+PyAPI_FUNC(void) PyObject_Free(void *);
+PyAPI_FUNC(void) PyObject_GC_Del(void *);
 
 #define PyObject_MALLOC         PyObject_Malloc
 #define PyObject_REALLOC        PyObject_Realloc
 #define PyObject_FREE           PyObject_Free
 #define PyObject_Del            PyObject_Free
 #define PyObject_DEL            PyObject_Free
+
+PyAPI_FUNC(PyObject *) _PyObject_New(PyTypeObject *);
+PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
+PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
+
+PyAPI_FUNC(PyObject *) PyObject_Init(PyObject *, PyTypeObject *);
+PyAPI_FUNC(PyVarObject *) PyObject_InitVar(PyVarObject *,
+                                           PyTypeObject *, Py_ssize_t);
 
 #ifndef Py_LIMITED_API
 PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
@@ -324,6 +380,8 @@ PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
 #define PyObject_Length PyObject_Size
 #define _PyObject_GC_Del PyObject_GC_Del
+PyAPI_FUNC(void) _PyPy_subtype_dealloc(PyObject *);
+PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);
 
 
 #ifdef __cplusplus

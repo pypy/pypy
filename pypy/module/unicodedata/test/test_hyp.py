@@ -10,7 +10,7 @@ def make_normalization(space, NF_code):
     def normalize(s):
         w_s = space.newunicode(s)
         w_res = ucd.normalize(space, NF_code, w_s)
-        return space.unwrap(w_res)
+        return space.unicode_w(w_res)
     return normalize
 
 all_forms = ['NFC', 'NFD', 'NFKC', 'NFKD']
@@ -40,6 +40,7 @@ compositions = [
 
 @pytest.mark.parametrize('NF1, NF2, NF3', compositions)
 @example(s=u'---\uafb8\u11a7---')  # issue 2289
+@example(s=u'\ufacf')
 @settings(max_examples=1000)
 @given(s=st.text())
 def test_composition(s, space, NF1, NF2, NF3):

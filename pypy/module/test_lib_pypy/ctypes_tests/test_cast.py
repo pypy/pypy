@@ -1,6 +1,6 @@
 from ctypes import *
 import sys, py
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 def setup_module(mod):
     import conftest
@@ -65,7 +65,7 @@ class TestCast(BaseCTypesTestChecker):
     def test_char_p(self):
         # This didn't work: bad argument to internal function
         s = c_char_p("hiho")
-        
+
         assert cast(cast(s, c_void_p), c_char_p).value == (
                              "hiho")
 

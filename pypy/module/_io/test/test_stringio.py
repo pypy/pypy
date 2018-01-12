@@ -259,6 +259,8 @@ class AppTestStringIO:
             assert line == s
             i += 1
         assert i == 10
+        sio.seek(len(s) * 10 +1)
+        assert list(sio) == []
         sio = io.StringIO(s * 2)
         sio.close()
         raises(ValueError, next, sio)

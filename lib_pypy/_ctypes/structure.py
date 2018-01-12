@@ -290,6 +290,11 @@ class StructOrUnion(_CData, metaclass=StructOrUnionMeta):
     def _get_buffer_value(self):
         return self._buffer.buffer
 
+    def _copy_to(self, addr):
+        from ctypes import memmove
+        origin = self._get_buffer_value()
+        memmove(addr, origin, self._fficompositesize_)
+
     def _to_ffi_param(self):
         return self._buffer
 

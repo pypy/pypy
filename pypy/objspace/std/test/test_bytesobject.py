@@ -1,4 +1,7 @@
 # coding: utf-8
+
+from pypy.interpreter.error import OperationError
+
 class TestW_BytesObject:
 
     def teardown_method(self, method):
@@ -95,6 +98,7 @@ class TestW_BytesObject:
         space = self.space
         w_res = space.call_function(space.w_bytes, space.wrap([42]))
         assert space.str_w(w_res) == '*'
+
 
 class AppTestBytesObject:
 

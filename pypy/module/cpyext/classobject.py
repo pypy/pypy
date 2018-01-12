@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import CANNOT_FAIL, cpython_api
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import Method

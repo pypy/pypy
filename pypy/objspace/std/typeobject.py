@@ -151,7 +151,7 @@ class W_TypeObject(W_Root):
                           'hasuserdel',
                           'weakrefable',
                           'hasdict',
-                          'layout',
+                          'layout?',
                           'terminator',
                           '_version_tag?',
                           'name?',
@@ -185,12 +185,14 @@ class W_TypeObject(W_Root):
         self.hasuserdel = False
         self.weakrefable = False
         self.w_doc = space.w_None
+        self.text_signature = None
         self.weak_subclasses = []
         self.flag_heaptype = is_heaptype
         self.flag_abstract = False
         self.flag_sequence_bug_compat = False
         self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
 
+        self.layout = None  # the lines below may try to access self.layout
         if overridetypedef is not None:
             assert not force_new_layout
             layout = setup_builtin_type(self, overridetypedef)
@@ -493,6 +495,10 @@ class W_TypeObject(W_Root):
         if not isinstance(w_subtype, W_TypeObject):
             raise oefmt(space.w_TypeError,
                         "X is not a type object ('%T')", w_subtype)
+        if not w_subtype.layout:
+            raise oefmt(space.w_TypeError,
+                "%N.__new__(%N): uninitialized type %N may not be instantiated yet.",
+                self, w_subtype, w_subtype)
         if not w_subtype.issubtype(self):
             raise oefmt(space.w_TypeError,
                         "%N.__new__(%N): %N is not a subtype of %N",
@@ -970,6 +976,12 @@ def descr_set__doc(space, w_type, w_value):
         raise oefmt(space.w_TypeError, "can't set %N.__doc__", w_type)
     w_type.setdictvalue(space, '__doc__', w_value)
 
+def type_get_txtsig(space, w_type):
+    w_type = _check(space, w_type)
+    if w_type.text_signature is None:
+        return space.w_None
+    return space.newtext(w_type.text_signature)
+
 def descr__dir(space, w_type):
     from pypy.objspace.std.util import _classdir
     return space.call_function(space.w_list, _classdir(space, w_type))
@@ -1057,6 +1069,7 @@ W_TypeObject.typedef = TypeDef("type",
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__=GetSetProperty(type_get_dict),
     __doc__ = GetSetProperty(descr__doc, descr_set__doc, cls=W_TypeObject, name='__doc__'),
+    __text_signature__=GetSetProperty(type_get_txtsig),
     __dir__ = gateway.interp2app(descr__dir),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
@@ -1266,6 +1279,7 @@ def setup_builtin_type(w_self, instancetypedef):
     else:
         w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
     w_self.w_doc = w_doc
+    w_self.text_signature = instancetypedef.text_signature
     ensure_common_attributes(w_self)
     #
     # usually 'instancetypedef' is new, i.e. not seen in any base,

@@ -9,7 +9,7 @@ class W_NoneObject(W_Root):
 
     @staticmethod
     def descr_new(space, w_type):
-        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+        "Create and return a new object.  See help(type) for accurate signature."
         return space.w_None
 
     def descr_bool(self, space):

@@ -4,6 +4,7 @@ from pypy.module.cpyext import api
 
 class Module(MixedModule):
     interpleveldefs = {
+        'is_cpyext_function': 'interp_cpyext.is_cpyext_function',
     }
 
     appleveldefs = {
@@ -15,11 +16,12 @@ class Module(MixedModule):
         space.fromcache(State).startup(space)
         method = pypy.module.cpyext.typeobject.get_new_method_def(space)
         # the w_self argument here is a dummy, the only thing done with w_obj
-        # is call space.type on it
-        w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space, method, space.w_None)
-        space.appexec([space.type(w_obj)], """(methodtype):
+        # is call type() on it
+        w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space,
+                                                           method, space.w_None)
+        space.appexec([w_obj], """(meth):
             from pickle import Pickler
-            Pickler.dispatch[methodtype] = Pickler.save_global
+            Pickler.dispatch[type(meth)] = Pickler.save_global
         """)
 
     def register_atexit(self, function):
@@ -41,7 +43,6 @@ import pypy.module.cpyext.pythonrun
 import pypy.module.cpyext.pyerrors
 import pypy.module.cpyext.typeobject
 import pypy.module.cpyext.object
-import pypy.module.cpyext.buffer
 import pypy.module.cpyext.bytesobject
 import pypy.module.cpyext.bytearrayobject
 import pypy.module.cpyext.tupleobject
@@ -50,6 +51,7 @@ import pypy.module.cpyext.dictobject
 import pypy.module.cpyext.longobject
 import pypy.module.cpyext.listobject
 import pypy.module.cpyext.sequence
+import pypy.module.cpyext.buffer
 import pypy.module.cpyext.eval
 import pypy.module.cpyext.import_
 import pypy.module.cpyext.mapping

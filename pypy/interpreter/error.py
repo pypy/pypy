@@ -621,12 +621,12 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
     if rwin32.WIN32 and isinstance(e, WindowsError):
         winerror = e.winerror
         try:
-            msg = rwin32.FormatError(winerror)
+            msg = rwin32.FormatErrorW(winerror)
         except ValueError:
-            msg = 'Windows Error %d' % winerror
+            msg = u'Windows Error %d' % winerror
         w_errno = space.w_None
         w_winerror = space.newint(winerror)
-        w_msg = space.newtext(msg)
+        w_msg = space.newunicode(msg)
     else:
         errno = e.errno
         if errno == EINTR:

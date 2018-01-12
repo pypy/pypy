@@ -1,3 +1,4 @@
+import os
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit, jit_libffi, libffi, rdynload, objectmodel
@@ -15,10 +16,7 @@ from pypy.module._cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
    C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_FUNC_PTR
 
 
-reflection_library = 'libcppyy_backend.so'
-
-def identify():
-    return 'loadable_capi'
+backend_library = 'libcppyy_backend.so'
 
 # this is not technically correct, but will do for now
 std_string_name = 'std::basic_string<char>'
@@ -115,7 +113,7 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
 
 class State(object):
     def __init__(self, space):
-        self.library = None
+        self.backend = None
         self.capi_calls = {}
 
         nt = newtype     # module from _cffi_backend
@@ -219,7 +217,8 @@ class State(object):
             'method_req_args'          : ([c_scope, c_index],         c_int),
             'method_arg_type'          : ([c_scope, c_index, c_int],  c_ccharp),
             'method_arg_default'       : ([c_scope, c_index, c_int],  c_ccharp),
-            'method_signature'         : ([c_scope, c_index],         c_ccharp),
+            'method_signature'         : ([c_scope, c_index, c_int],  c_ccharp),
+            'method_prototype'         : ([c_scope, c_index, c_int],  c_ccharp),
 
             'method_is_template'       : ([c_scope, c_index],         c_int),
             'method_num_template_args' : ([c_scope, c_index],         c_int),
@@ -264,24 +263,32 @@ class State(object):
         self.c_offset_farg = 0
 
 
-def load_reflection_library(space):
+def load_backend(space):
     state = space.fromcache(State)
-    if state.library is None:
+    if state.backend is None:
         from pypy.module._cffi_backend.libraryobj import W_Library
-        state.library = W_Library(space, reflection_library, rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY)
-        if state.library:
+        dldflags = rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY
+        if os.environ.get('CPPYY_BACKEND_LIBRARY'):
+            libname = os.environ['CPPYY_BACKEND_LIBRARY']
+            state.backend = W_Library(space, libname, dldflags)
+        else:
+            # try usual lookups
+            state.backend = W_Library(space, backend_library, dldflags)
+
+        if state.backend:
             # fix constants
-            state.c_sizeof_farg = _cdata_to_size_t(space, call_capi(space, 'function_arg_sizeof', []))
-            state.c_offset_farg = _cdata_to_size_t(space, call_capi(space, 'function_arg_typeoffset', []))
-    return state.library
+            state.c_sizeof_farg = _cdata_to_size_t(
+                space, call_capi(space, 'function_arg_sizeof', []))
+            state.c_offset_farg = _cdata_to_size_t(
+                space, call_capi(space, 'function_arg_typeoffset', []))
 
 def verify_backend(space):
     try:
-        load_reflection_library(space)
+        load_backend(space)
     except Exception:
         if objectmodel.we_are_translated():
             raise oefmt(space.w_ImportError,
-                        "missing reflection library %s", reflection_library)
+                        "missing reflection library %s", backend_library)
         return False
     return True
 
@@ -290,11 +297,11 @@ def call_capi(space, name, args):
     try:
         c_call = state.capi_calls[name]
     except KeyError:
-        if state.library is None:
-            load_reflection_library(space)
+        if state.backend is None:
+            load_backend(space)
         iface = state.capi_call_ifaces[name]
         cfunc = W_RCTypeFunc(space, iface[0], iface[1], False)
-        c_call = state.library.load_function(cfunc, 'cppyy_'+name)
+        c_call = state.backend.load_function(cfunc, 'cppyy_'+name)
         # TODO: there must be a better way to trick the leakfinder ...
         if not objectmodel.we_are_translated():
             leakfinder.remember_free(c_call.ctype.cif_descr._obj0)
@@ -319,9 +326,6 @@ def _cdata_to_ptr(space, w_cdata): # TODO: this is both a hack and dreadfully sl
 def _cdata_to_ccharp(space, w_cdata):
     ptr = _cdata_to_ptr(space, w_cdata)      # see above ... something better?
     return rffi.cast(rffi.CCHARP, ptr)
-
-def c_load_dictionary(name):
-    return libffi.CDLL(name)
 
 # name to opaque C++ scope representation ------------------------------------
 def c_num_scopes(space, cppscope):
@@ -495,9 +499,12 @@ def c_method_arg_type(space, cppscope, index, arg_index):
 def c_method_arg_default(space, cppscope, index, arg_index):
     args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(arg_index)]
     return charp2str_free(space, call_capi(space, 'method_arg_default', args))
-def c_method_signature(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
+def c_method_signature(space, cppscope, index, show_formalargs=True):
+    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(show_formalargs)]
     return charp2str_free(space, call_capi(space, 'method_signature', args))
+def c_method_prototype(space, cppscope, index, show_formalargs=True):
+    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(show_formalargs)]
+    return charp2str_free(space, call_capi(space, 'method_prototype', args))
 
 def c_method_is_template(space, cppscope, index):
     args = [_ArgH(cppscope.handle), _ArgL(index)]
@@ -600,7 +607,7 @@ def stdstring_c_str(space, w_self):
     """Return a python string taking into account \0"""
 
     from pypy.module._cppyy import interp_cppyy
-    cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
+    cppstr = space.interp_w(interp_cppyy.W_CPPClass, w_self, can_be_None=False)
     return space.newtext(c_stdstring2charp(space, cppstr._rawobject))
 
 # setup pythonizations for later use at run-time

@@ -1074,7 +1074,7 @@ class RSocket(object):
 
             if address is not None:
                 address.unlock()
-            if _c.geterrno() == _c.EINTR:
+            if (_c.geterrno() == _c.EINTR) or (_c.geterrno() == 11):
                 raise last_error()
             if (reply == -10000):
                 raise RSocketError("Invalid message size")
@@ -1298,6 +1298,8 @@ class SocketError(Exception):
         pass
     def get_msg(self):
         return ''
+    def get_msg_unicode(self):
+        return self.get_msg().decode('latin-1')
     def __str__(self):
         return self.get_msg()
 
@@ -1314,6 +1316,8 @@ class RSocketError(SocketError):
 class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
+    def get_msg_unicode(self):
+        return _c.socket_strerror_unicode(self.errno)
 
 def last_error():
     return CSocketError(_c.geterrno())
@@ -1322,6 +1326,8 @@ class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
     def get_msg(self):
         return _c.gai_strerror_str(self.errno)
+    def get_msg_unicode(self):
+        return _c.gai_strerror_unicode(self.errno)
 
 class HSocketError(SocketError):
     applevelerrcls = 'herror'

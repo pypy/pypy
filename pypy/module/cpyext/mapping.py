@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.pyobject import (
+    PyObject, hack_for_result_often_existing_obj)
 
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -40,12 +41,13 @@ def PyMapping_Items(space, w_obj):
     return space.call_function(space.w_list,
                                space.call_method(w_obj, "items"))
 
-@cpython_api([PyObject, CONST_STRING], PyObject)
+@cpython_api([PyObject, CONST_STRING], PyObject, result_is_ll=True)
 def PyMapping_GetItemString(space, w_obj, key):
     """Return element of o corresponding to the object key or NULL on failure.
     This is the equivalent of the Python expression o[key]."""
     w_key = space.newtext(rffi.charp2str(key))
-    return space.getitem(w_obj, w_key)
+    w_res = space.getitem(w_obj, w_key)
+    return hack_for_result_often_existing_obj(space, w_res)
 
 @cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyMapping_SetItemString(space, w_obj, key, w_value):

@@ -17,6 +17,12 @@ else:
         with fp:
             imp.load_module('_testcapi', fp, filename, description)
     except ImportError:
+        if os.name == 'nt':
+            # hack around finding compilers on win32
+            try:
+                import setuptools
+            except ImportError:
+                pass
         _pypy_testcapi.compile_shared(cfile, '_testcapi', output_dir)
 
 

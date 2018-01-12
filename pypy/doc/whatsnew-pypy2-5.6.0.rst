@@ -107,7 +107,7 @@ PowerPC implementation for vector operations used in VecOpt
 
 .. branch: newinitwarn
 
-Match CPython's stricter handling of __new/init__ arguments
+Match CPython's stricter handling of ``__new__``/``__init__`` arguments
 
 .. branch: openssl-1.1
 

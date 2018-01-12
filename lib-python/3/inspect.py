@@ -49,6 +49,10 @@ import functools
 import builtins
 from operator import attrgetter
 from collections import namedtuple, OrderedDict
+try:
+    from cpyext import is_cpyext_function as _is_cpyext_function
+except ImportError:
+    _is_cpyext_function = lambda obj: False
 
 # Create constants for the compiler flags in Include/code.h
 # We try to get them from dis to avoid duplication
@@ -262,7 +266,7 @@ def isbuiltin(object):
         __doc__         documentation string
         __name__        original name of this function or method
         __self__        instance to which a method is bound, or None"""
-    return isinstance(object, types.BuiltinFunctionType)
+    return isinstance(object, types.BuiltinFunctionType) or _is_cpyext_function(object)
 
 def isroutine(object):
     """Return true if the object is any kind of function or method."""
@@ -1824,7 +1828,7 @@ def _signature_is_functionlike(obj):
     kwdefaults = getattr(obj, '__kwdefaults__', _void) # ... and not None here
     annotations = getattr(obj, '__annotations__', None)
 
-    return (isinstance(code, types.CodeType) and
+    return (isinstance(code, (types.CodeType, _builtin_code_type)) and
             isinstance(name, str) and
             (defaults is None or isinstance(defaults, tuple)) and
             (kwdefaults is None or isinstance(kwdefaults, dict)) and
@@ -2078,8 +2082,6 @@ def _signature_from_builtin(cls, func, skip_bound_arg=True):
 
     s = getattr(func, "__text_signature__", None)
     if not s:
-        if func is object:  # XXX PyPy hack until we support __text_signature__
-            return '()'     # in the same cases as CPython
         raise ValueError("no signature found for builtin {!r}".format(func))
 
     return _signature_fromstr(cls, func, s, skip_bound_arg)

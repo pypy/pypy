@@ -1,4 +1,4 @@
-import py
+import pytest
 import sys
 from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.test import test_longobject
@@ -16,7 +16,8 @@ def test_direct():
     #
     assert space.int_w(w5) == 5
     if sys.maxint < 0x123456789ABCDEFL:
-        py.test.raises(OperationError, space.int_w, wlarge)
+        with pytest.raises(OperationError):
+            space.int_w(wlarge)
     else:
         assert space.int_w(wlarge) == 0x123456789ABCDEF
     #
@@ -44,6 +45,7 @@ def test_direct():
     assert space.unwrap(w_obj) == 42
 
 
+@pytest.mark.skipif('config.option.runappdirect')
 class AppTestSmallLong(test_longobject.AppTestLong):
     spaceconfig = {"objspace.std.withsmalllong": True}
 

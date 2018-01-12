@@ -162,7 +162,7 @@ IP_MULTICAST_LOOP IP_MULTICAST_TTL IP_OPTIONS IP_RECVDSTADDR IP_RECVOPTS
 IP_RECVRETOPTS IP_RETOPTS IP_TOS IP_TTL
 
 MSG_BTAG MSG_ETAG MSG_CTRUNC MSG_DONTROUTE MSG_DONTWAIT MSG_EOR MSG_OOB
-MSG_PEEK MSG_TRUNC MSG_WAITALL
+MSG_PEEK MSG_TRUNC MSG_WAITALL MSG_ERRQUEUE
 
 NI_DGRAM NI_MAXHOST NI_MAXSERV NI_NAMEREQD NI_NOFQDN NI_NUMERICHOST
 NI_NUMERICSERV
@@ -535,7 +535,7 @@ if HAVE_SENDMSG:
             int cmsg_status;
             struct iovec iov;
             struct recvmsg_info* retinfo;
-            int error_flag;   // variable to be set in case of special errors.
+            int error_flag = 0;   // variable to be set in case of special errors.
             int cmsgdatalen = 0;
 
             // variables that are set to 1, if the message charp has been allocated
@@ -709,6 +709,7 @@ if HAVE_SENDMSG:
                     free(retinfo);
                 }
             }
+            if (error_flag==0) error_flag = -1;
             return error_flag;
 
         err_closefds:
@@ -1360,6 +1361,11 @@ if WIN32:
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
 
+    def socket_strerror_unicode(errno):
+        return rwin32.FormatErrorW(errno)
+    def gai_strerror_unicode(errno):
+        return rwin32.FormatErrorW(errno)
+
     # WinSock does not use a bitmask in select, and uses
     # socket handles greater than FD_SETSIZE
     MAX_FD_SIZE = None
@@ -1370,5 +1376,10 @@ else:
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.charp2str(gai_strerror(errno))
+
+    def socket_strerror_unicode(errno):
+        return socket_strerror_str(errno).decode('latin-1')
+    def gai_strerror_unicode(errno):
+        return gai_strerror_str(errno).decode('latin-1')
 
     MAX_FD_SIZE = FD_SETSIZE

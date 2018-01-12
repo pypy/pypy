@@ -1,7 +1,6 @@
 import contextlib
 import os
 import sys
-import tracemalloc
 import unittest
 from unittest.mock import patch
 from test.support.script_helper import (assert_python_ok, assert_python_failure,
@@ -11,6 +10,11 @@ try:
     import threading
 except ImportError:
     threading = None
+
+try:
+    import tracemalloc
+except ImportError:
+    raise unittest.SkipTest("tracemalloc is required")
 
 EMPTY_STRING_SIZE = sys.getsizeof(b'')
 

@@ -111,14 +111,15 @@ state."""
         self._unsupportedoperation(space, "detach")
 
     def readinto_w(self, space, w_buffer):
-        return self._readinto(space, w_buffer, "read")
+        return self._readinto(space, w_buffer, read_once=False)
 
     def readinto1_w(self, space, w_buffer):
-        return self._readinto(space, w_buffer, "read1")
+        return self._readinto(space, w_buffer, read_once=True)
 
-    def _readinto(self, space, w_buffer, methodname):
+    def _readinto(self, space, w_buffer, read_once):
         rwbuffer = space.writebuf_w(w_buffer)
         length = rwbuffer.getlength()
+        methodname = "read1" if read_once else "read"
         w_data = space.call_method(self, methodname, space.newint(length))
 
         if not space.isinstance_w(w_data, space.w_bytes):
@@ -868,7 +869,63 @@ class BufferedMixin:
             finally:
                 self._reader_reset_buf()
 
-class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
+class BufferedReaderMixin(BufferedMixin):
+    _mixin_ = True
+
+    def readinto_w(self, space, w_buffer):
+        return self._readinto(space, w_buffer, read_once=False)
+
+    def readinto1_w(self, space, w_buffer):
+        return self._readinto(space, w_buffer, read_once=True)
+
+    def _readinto(self, space, w_buffer, read_once):
+        rwbuffer = space.writebuf_w(w_buffer)
+        length = rwbuffer.getlength()
+        with self.lock:
+            have = self._readahead()
+            if have >= length:
+                rwbuffer.setslice(0, self.buffer[self.pos:self.pos + length])
+                self.pos += length
+                return space.newint(length)
+            written = 0
+            if have > 0:
+                rwbuffer.setslice(0, self.buffer[self.pos:self.read_end])
+                written = have
+
+            while written < length:
+                if self.writable:
+                    self._flush_and_rewind_unlocked(space)
+                self._reader_reset_buf()
+                self.pos = 0
+                if written + len(self.buffer) < length:
+                    try:
+                        got = self._raw_read(
+                            space, rwbuffer, written, length - written)
+                        written += got
+                    except BlockingIOError:
+                        got = 0
+                    if got == 0:
+                        break
+                elif read_once and written:
+                    break
+                else:
+                    try:
+                        have = self._fill_buffer(space)
+                    except BlockingIOError:
+                        have = 0
+                    if have == 0:
+                        break
+                    endpos = min(have, length - written)
+                    assert endpos >= 0
+                    rwbuffer.setslice(written, self.buffer[0:endpos])
+                    written += endpos
+                    self.pos = endpos
+                if read_once:
+                    break
+            return space.newint(written)
+
+
+class W_BufferedReader(BufferedReaderMixin, W_BufferedIOBase):
     @unwrap_spec(buffer_size=int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
@@ -891,6 +948,8 @@ W_BufferedReader.typedef = TypeDef(
     read = interp2app(W_BufferedReader.read_w),
     peek = interp2app(W_BufferedReader.peek_w),
     read1 = interp2app(W_BufferedReader.read1_w),
+    readinto = interp2app(W_BufferedReader.readinto_w),
+    readinto1 = interp2app(W_BufferedReader.readinto1_w),
     raw = interp_attrproperty_w("w_raw", cls=W_BufferedReader),
     readline = interp2app(W_BufferedReader.readline_w),
 
@@ -1052,7 +1111,7 @@ W_BufferedRWPair.typedef = TypeDef(
     **methods
 )
 
-class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
+class W_BufferedRandom(BufferedReaderMixin, W_BufferedIOBase):
     @unwrap_spec(buffer_size=int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
@@ -1080,6 +1139,8 @@ W_BufferedRandom.typedef = TypeDef(
     peek = interp2app(W_BufferedRandom.peek_w),
     read1 = interp2app(W_BufferedRandom.read1_w),
     readline = interp2app(W_BufferedRandom.readline_w),
+    readinto = interp2app(W_BufferedRandom.readinto_w),
+    readinto1 = interp2app(W_BufferedRandom.readinto1_w),
 
     write = interp2app(W_BufferedRandom.write_w),
     flush = interp2app(W_BufferedRandom.flush_w),

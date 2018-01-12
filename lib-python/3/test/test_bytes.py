@@ -721,9 +721,12 @@ class BytesTest(BaseBytesTest, unittest.TestCase):
         self.assertIs(type(BytesSubclass(A())), BytesSubclass)
 
     # Test PyBytes_FromFormat()
-    @test.support.impl_detail("don't test cpyext here")
     def test_from_format(self):
         test.support.import_module('ctypes')
+        try:
+            from ctypes import pythonapi
+        except ImportError:
+            self.skipTest( "no pythonapi in ctypes")
         from ctypes import pythonapi, py_object, c_int, c_char_p
         PyBytes_FromFormat = pythonapi.PyBytes_FromFormat
         PyBytes_FromFormat.restype = py_object

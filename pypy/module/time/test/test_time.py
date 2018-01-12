@@ -13,12 +13,12 @@ class AppTestTime:
         assert isinstance(time._STRUCT_TM_ITEMS, int)
 
     def test_sleep(self):
-        import sys
-        import os
         import time
         raises(TypeError, time.sleep, "foo")
         time.sleep(0.12345)
         raises(ValueError, time.sleep, -1.0)
+        raises((ValueError, OverflowError), time.sleep, float('nan'))
+        raises(OverflowError, time.sleep, float('inf'))
 
     def test_clock(self):
         import time

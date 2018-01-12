@@ -146,24 +146,26 @@ def bug1333982(x=[]):
               1)
     pass
 
+# PyPy change: JUMP_IF_NOT_DEBUG
 dis_bug1333982 = """\
-%3d           0 LOAD_CONST               1 (0)
-              3 POP_JUMP_IF_TRUE        35
-              6 LOAD_GLOBAL              0 (AssertionError)
-              9 LOAD_CONST               2 (<code object <listcomp> at 0x..., file "%s", line %d>)
-             12 LOAD_CONST               3 ('bug1333982.<locals>.<listcomp>')
-             15 MAKE_FUNCTION            0
-             18 LOAD_FAST                0 (x)
-             21 GET_ITER
-             22 CALL_FUNCTION            1 (1 positional, 0 keyword pair)
+%3d           0 JUMP_IF_NOT_DEBUG       35 (to 38)
+              3 LOAD_CONST               1 (0)
+              6 POP_JUMP_IF_TRUE        38
+              9 LOAD_GLOBAL              0 (AssertionError)
+             12 LOAD_CONST               2 (<code object <listcomp> at 0x..., file "%s", line %d>)
+             15 LOAD_CONST               3 ('bug1333982.<locals>.<listcomp>')
+             18 MAKE_FUNCTION            0
+             21 LOAD_FAST                0 (x)
+             24 GET_ITER
+             25 CALL_FUNCTION            1 (1 positional, 0 keyword pair)
 
-%3d          25 LOAD_CONST               4 (1)
-             28 BINARY_ADD
-             29 CALL_FUNCTION            1 (1 positional, 0 keyword pair)
-             32 RAISE_VARARGS            1
+%3d          28 LOAD_CONST               4 (1)
+             31 BINARY_ADD
+             32 CALL_FUNCTION            1 (1 positional, 0 keyword pair)
+             35 RAISE_VARARGS            1
 
-%3d     >>   35 LOAD_CONST               0 (None)
-             38 RETURN_VALUE
+%3d     >>   38 LOAD_CONST               0 (None)
+             41 RETURN_VALUE
 """ % (bug1333982.__code__.co_firstlineno + 1,
        __file__,
        bug1333982.__code__.co_firstlineno + 1,

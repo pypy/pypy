@@ -66,10 +66,12 @@ class TestDicts(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             p109 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
-            guard_nonnull(p109, descr=...)
-            p10 = call_r(ConstClass(ll_str2unicode__rpy_stringPtr), p109, descr=<Callr . r EF=4 OS=2>)
+            i80 = strlen(p109)
+            p86 = call_r(ConstClass(str_decode_utf_8), p109, i80, ConstPtr(ptr82), 1, ConstClass(raise_unicode_exception_decode), 1, descr=<Callr 8 ririii EF=4>)
             guard_no_exception(descr=...)
+            p10 = getfield_gc_r(p86, descr=<FieldP tuple2.item0 8 pure>)
             guard_nonnull(p10, descr=...)
+
             i99 = unicodehash(p10)
             # NOTE: with siphash24, notably on unicodes, computing the hash
             # may raise MemoryError

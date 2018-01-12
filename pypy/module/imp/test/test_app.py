@@ -85,7 +85,7 @@ class AppTestImpModule:
                 assert suffix == '.py'
                 assert mode == 'r'
             elif type == imp.PY_COMPILED:
-                assert suffix in ('.pyc', '.pyo')
+                assert suffix == '.pyc'
                 assert mode == 'rb'
             elif type == imp.C_EXTENSION:
                 assert suffix.endswith(('.pyd', '.so'))
@@ -282,30 +282,31 @@ class AppTestImpModule:
 
     def test_builtin_reimport_mess(self):
         # taken from https://bugs.pypy.org/issue1514, with extra cases
-        # that show a difference with CPython: we can get on CPython
-        # several module objects for the same built-in module :-(
-        import sys, _md5
+        import sys
+        import time as time1
 
-        old = _md5.md5
-        _md5.md5 = 42
+        old = time1.process_time
+        try:
+            time1.process_time = 42
 
-        # save, re-import, restore.
-        saved = sys.modules.pop('_md5')
-        _md52 = __import__('_md5')
-        assert _md52 is not _md5
-        assert _md52.md5 is old
-        assert _md52 is sys.modules['_md5']
-        assert _md5 is saved
-        assert _md5.md5 == 42
+            # save, re-import, restore.
+            saved = sys.modules.pop('time')
+            assert time1 is saved
+            time2 = __import__('time')
+            assert time2 is not time1
+            assert time2 is sys.modules['time']
+            assert time2.process_time is old
 
-        import _md5
-        assert _md5.md5 is old
+            import time as time3
+            assert time3 is time2
+            assert time3.process_time is old
 
-        sys.modules['_md5'] = saved
-        import _md5
-        assert _md5.md5 == 42
-
-        _md5.md5 = old
+            sys.modules['time'] = time1
+            import time as time4
+            assert time4 is time1
+            assert time4.process_time == 42
+        finally:
+            time1.process_time = old
 
     def test_get_tag(self):
         import imp

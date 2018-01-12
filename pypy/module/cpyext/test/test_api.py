@@ -25,6 +25,10 @@ class BaseApiTest(LeakCheckingTest):
         cls.preload_builtins(space)
 
         class CAPI:
+            def __repr__(self):
+                return '<%s.%s instance>' % (self.__class__.__module__,
+                                             self.__class__.__name__)
+
             def __getattr__(self, name):
                 return getattr(cls.space, name)
         cls.api = CAPI()

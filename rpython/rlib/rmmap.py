@@ -492,6 +492,7 @@ class MMap(object):
 
         self.setslice(start, data)
         self.pos = start + data_len
+        return data_len
 
     def write_byte(self, byte):
         if len(byte) != 1:

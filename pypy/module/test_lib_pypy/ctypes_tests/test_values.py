@@ -2,9 +2,9 @@
 A testcase which accesses *values* in a dll.
 """
 
-import py
+import pytest
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 def setup_module(mod):
     import conftest
@@ -27,12 +27,13 @@ class TestValues(BaseCTypesTestChecker):
         assert ctdll.get_a_string_char(15) == ord('$')
 
     def test_undefined(self):
-        raises(ValueError, c_int.in_dll, ctdll, "Undefined_Symbol")
+        with pytest.raises(ValueError):
+            c_int.in_dll(ctdll, "Undefined_Symbol")
 
 class TestWin_Values(BaseCTypesTestChecker):
     """This test only works when python itself is a dll/shared library"""
     def setup_class(cls):
-        py.test.skip("tests expect and access cpython dll")
+        pytest.skip("tests expect and access cpython dll")
 
     def test_optimizeflag(self):
         # This test accesses the Py_OptimizeFlag intger, which is
@@ -86,7 +87,8 @@ class TestWin_Values(BaseCTypesTestChecker):
         del _pointer_type_cache[struct_frozen]
 
     def test_undefined(self):
-        raises(ValueError, c_int.in_dll, pydll, "Undefined_Symbol")
+        with pytest.raises(ValueError):
+            c_int.in_dll(pydll, "Undefined_Symbol")
 
 if __name__ == '__main__':
     unittest.main()

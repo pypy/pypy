@@ -145,6 +145,7 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
     __enter__=interp2app(Lock.descr__enter__),
     __exit__=interp2app(Lock.descr__exit__),
     __repr__ = interp2app(Lock.descr__repr__),
+    __weakref__ = make_weakref_descr(Lock),
     # Obsolete synonyms
     acquire_lock=interp2app(Lock.descr_lock_acquire),
     release_lock=interp2app(Lock.descr_lock_release),

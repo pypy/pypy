@@ -1,6 +1,33 @@
 #ifndef Py_UNICODEOBJECT_H
 #define Py_UNICODEOBJECT_H
 
+#ifndef SIZEOF_WCHAR_T
+#error Must define SIZEOF_WCHAR_T
+#endif
+
+#define Py_UNICODE_SIZE SIZEOF_WCHAR_T
+
+/* If wchar_t can be used for UCS-4 storage, set Py_UNICODE_WIDE.
+   Otherwise, Unicode strings are stored as UCS-2 (with limited support
+   for UTF-16) */
+
+#if Py_UNICODE_SIZE >= 4
+#define Py_UNICODE_WIDE
+#endif
+
+/* Set these flags if the platform has "wchar.h" and the
+   wchar_t type is a 16-bit unsigned type */
+/* #define HAVE_WCHAR_H */
+/* #define HAVE_USABLE_WCHAR_T */
+
+#ifdef HAVE_WCHAR_H
+/* Work around a cosmetic bug in BSDI 4.x wchar.h; thanks to Thomas Wouters */
+# ifdef _HAVE_BSDI
+#  include <time.h>
+# endif
+#  include <wchar.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -42,8 +69,7 @@ extern "C" {
    use PyUnicode_WRITE() and PyUnicode_READ(). */
 
 #define PyUnicode_AS_UNICODE(op) \
-    (assert(PyUnicode_Check(op)), \
-     (((PyASCIIObject *)(op))->wstr) ? (((PyASCIIObject *)(op))->wstr) : \
+     ((((PyASCIIObject *)(op))->wstr) ? (((PyASCIIObject *)(op))->wstr) : \
       PyUnicode_AsUnicode((PyObject *)(op)))
 
 #define PyUnicode_AS_DATA(op) \
@@ -251,6 +277,16 @@ PyAPI_FUNC(PyObject *) PyUnicode_FromFormat(
 /* --- wchar_t support for platforms which support it --------------------- */
 
 #ifdef HAVE_WCHAR_H
+
+/* Create a Unicode Object from the wchar_t buffer w of the given
+   size.
+
+   The buffer is copied into the new object. */
+
+PyAPI_FUNC(PyObject*) PyUnicode_FromWideChar(
+    const wchar_t *w,           /* wchar_t buffer */
+    Py_ssize_t size             /* size of buffer */
+    );
 
 /* Convert the Unicode object to a wide character string. The output string
    always ends with a nul character. If size is not NULL, write the number of

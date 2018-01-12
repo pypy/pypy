@@ -254,7 +254,7 @@ def getappfileloader(pkgroot, appname, spec):
         assert typ == imp.PY_SOURCE
         source = file.read()
         file.close()
-        if fn.endswith('.pyc') or fn.endswith('.pyo'):
+        if fn.endswith('.pyc'):
             fn = fn[:-1]
         app = gateway.applevel(source, filename=fn, modname=appname)
         applevelcache[impbase] = app

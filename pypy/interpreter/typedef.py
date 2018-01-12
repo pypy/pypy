@@ -16,7 +16,7 @@ class TypeDef(object):
     @not_rpython
     def __init__(self, __name, __base=None, __total_ordering__=None,
                  __buffer=None, __confirm_applevel_del__=False,
-                 variable_sized=False, **rawdict):
+                 _text_signature_=None, variable_sized=False, **rawdict):
         "initialization-time only"
         self.name = __name
         if __base is None:
@@ -36,6 +36,7 @@ class TypeDef(object):
             assert '__del__' not in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.get('__doc__', None)
+        self.text_signature = _text_signature_
         for base in bases:
             self.hasdict |= base.hasdict
             self.weakrefable |= base.weakrefable
@@ -537,6 +538,9 @@ def fget_co_varnames(space, code): # unwrapping through unwrap_spec
 def fget_co_argcount(space, code): # unwrapping through unwrap_spec
     return space.newint(code.signature().num_argnames())
 
+def fget_co_kwonlyargcount(space, code): # unwrapping through unwrap_spec
+    return space.newint(code.signature().num_kwonlyargnames())
+
 def fget_zero(space, code):
     return space.newint(0)
 
@@ -596,7 +600,7 @@ BuiltinCode.typedef = TypeDef('builtin-code',
     co_name = interp_attrproperty('co_name', cls=BuiltinCode, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=BuiltinCode),
     co_argcount = GetSetProperty(fget_co_argcount, cls=BuiltinCode),
-    co_kwonlyargcount = GetSetProperty(fget_zero, cls=BuiltinCode),
+    co_kwonlyargcount = GetSetProperty(fget_co_kwonlyargcount, cls=BuiltinCode),
     co_flags = GetSetProperty(fget_co_flags, cls=BuiltinCode),
     co_consts = GetSetProperty(fget_co_consts, cls=BuiltinCode),
     )
@@ -621,7 +625,7 @@ PyCode.typedef = TypeDef('code',
     co_varnames = GetSetProperty(PyCode.fget_co_varnames),
     co_freevars = GetSetProperty(PyCode.fget_co_freevars),
     co_cellvars = GetSetProperty(PyCode.fget_co_cellvars),
-    co_filename = interp_attrproperty('co_filename', cls=PyCode, wrapfn="newfilename"),
+    co_filename = interp_attrproperty_w('w_filename', cls=PyCode),
     co_name = interp_attrproperty('co_name', cls=PyCode, wrapfn="newtext"),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode, wrapfn="newint"),
     co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode, wrapfn="newbytes"),

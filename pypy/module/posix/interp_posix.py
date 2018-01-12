@@ -122,7 +122,7 @@ def call_rposix(func, path, *args):
     else:
         path_b = path.as_bytes
         assert path_b is not None
-        return func(path.as_bytes, *args)
+        return func(path_b, *args)
 
 
 class Path(object):
@@ -684,11 +684,17 @@ def times(space):
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     else:
-        return space.newtuple([space.newfloat(times[0]),
-                               space.newfloat(times[1]),
-                               space.newfloat(times[2]),
-                               space.newfloat(times[3]),
-                               space.newfloat(times[4])])
+        w_keywords = space.newdict()
+        w_tuple = space.newtuple([space.newfloat(times[0]),
+                                  space.newfloat(times[1]),
+                                  space.newfloat(times[2]),
+                                  space.newfloat(times[3]),
+                                  space.newfloat(times[4])])
+
+        w_times_result = space.getattr(space.getbuiltinmodule(os.name),
+                                       space.newtext('times_result'))
+        return space.call_function(w_times_result, w_tuple, w_keywords)
+
 
 @unwrap_spec(command='fsencode')
 def system(space, command):
@@ -1267,6 +1273,9 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
+    if _WIN32:
+        raise oefmt(space.w_NotImplementedError,
+                    "symlink() is not implemented for PyPy on Windows")
     try:
         if rposix.HAVE_SYMLINKAT and dir_fd != DEFAULT_DIR_FD:
             src = space.fsencode_w(w_src)
@@ -2277,7 +2286,9 @@ Set file flags.
 This function will not follow symbolic links.
 Equivalent to chflags(path, flags, follow_symlinks=False)."""
 
-def getxattr():
+@unwrap_spec(path=path_or_fd(), attribute=path_or_fd(allow_fd=False),
+             follow_symlinks=bool)
+def getxattr(space, path, attribute, __kwonly__, follow_symlinks=True):
     """getxattr(path, attribute, *, follow_symlinks=True) -> value
 
 Return the value of extended attribute attribute on path.
@@ -2286,8 +2297,27 @@ path may be either a string or an open file descriptor.
 If follow_symlinks is False, and the last element of the path is a symbolic
   link, getxattr will examine the symbolic link itself instead of the file
   the link points to."""
+    if path.as_fd != -1:
+        if not follow_symlinks:
+            raise oefmt(space.w_ValueError,
+                "getxattr: cannot use fd and follow_symlinks together")
+        try:
+            result = rposix.fgetxattr(path.as_fd, attribute.as_bytes)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path)
+    else:
+        try:
+            result = rposix.getxattr(path.as_bytes, attribute.as_bytes,
+                follow_symlinks=follow_symlinks)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path)
+    return space.newbytes(result)
 
-def setxattr():
+@unwrap_spec(path=path_or_fd(), attribute=path_or_fd(allow_fd=False),
+             flags=c_int,
+             follow_symlinks=bool)
+def setxattr(space, path, attribute, w_value, flags=0,
+             __kwonly__=None, follow_symlinks=True):
     """setxattr(path, attribute, value, flags=0, *, follow_symlinks=True)
 
 Set extended attribute attribute on path to value.
@@ -2295,9 +2325,26 @@ path may be either a string or an open file descriptor.
 If follow_symlinks is False, and the last element of the path is a symbolic
   link, setxattr will modify the symbolic link itself instead of the file
   the link points to."""
+    value = space.charbuf_w(w_value)
+    if path.as_fd != -1:
+        if not follow_symlinks:
+            raise oefmt(space.w_ValueError,
+                "setxattr: cannot use fd and follow_symlinks together")
+        try:
+            rposix.fsetxattr(path.as_fd, attribute.as_bytes, value, flags)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path)
+    else:
+        try:
+            rposix.setxattr(path.as_bytes, attribute.as_bytes, value, flags,
+                follow_symlinks=follow_symlinks)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path)
 
 
-def removexattr():
+@unwrap_spec(path=path_or_fd(), attribute=path_or_fd(allow_fd=False),
+             follow_symlinks=bool)
+def removexattr(space, path, attribute, __kwonly__, follow_symlinks=True):
     """removexattr(path, attribute, *, follow_symlinks=True)
 
 Remove extended attribute attribute on path.
@@ -2305,8 +2352,24 @@ path may be either a string or an open file descriptor.
 If follow_symlinks is False, and the last element of the path is a symbolic
   link, removexattr will modify the symbolic link itself instead of the file
   the link points to."""
+    if path.as_fd != -1:
+        if not follow_symlinks:
+            raise oefmt(space.w_ValueError,
+                "removexattr: cannot use fd and follow_symlinks together")
+        try:
+            rposix.fremovexattr(path.as_fd, attribute.as_bytes)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path)
+    else:
+        try:
+            rposix.removexattr(path.as_bytes, attribute.as_bytes,
+                follow_symlinks=follow_symlinks)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path)
 
-def listxattr():
+
+@unwrap_spec(path=path_or_fd(), follow_symlinks=bool)
+def listxattr(space, path, __kwonly__, follow_symlinks=True):
     """listxattr(path='.', *, follow_symlinks=True)
 
 Return a list of extended attributes on path.
@@ -2316,6 +2379,20 @@ if path is None, listxattr will examine the current directory.
 If follow_symlinks is False, and the last element of the path is a symbolic
   link, listxattr will examine the symbolic link itself instead of the file
   the link points to."""
+    if path.as_fd != -1:
+        if not follow_symlinks:
+            raise oefmt(space.w_ValueError,
+                        "listxattr: cannot use fd and follow_symlinks together")
+        try:
+            result = rposix.flistxattr(path.as_fd)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path)
+    else:
+        try:
+            result = rposix.listxattr(path.as_bytes, follow_symlinks)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path)
+    return space.newlist([space.newfilename(attr) for attr in result])
 
 
 have_functions = []
@@ -2443,8 +2520,8 @@ Copy count bytes from file descriptor in to file descriptor out."""
 
 @unwrap_spec(policy=int)
 def sched_get_priority_max(space, policy):
-    """returns the maximum priority value that 
-    can be used with the scheduling algorithm 
+    """returns the maximum priority value that
+    can be used with the scheduling algorithm
     identified by policy
     """
     while True:
@@ -2458,7 +2535,7 @@ def sched_get_priority_max(space, policy):
 @unwrap_spec(policy=int)
 def sched_get_priority_min(space, policy):
     """returns the minimum priority value that
-     can be used with the scheduling algorithm 
+     can be used with the scheduling algorithm
      identified by policy
     """
     while True:
@@ -2468,3 +2545,26 @@ def sched_get_priority_min(space, policy):
             wrap_oserror(space, e, eintr_retry=True)
         else:
            return space.newint(s)
+
+@unwrap_spec(fd=c_int, cmd=c_int, length=r_longlong)
+def lockf(space, fd, cmd, length):
+    """apply, test or remove a POSIX lock on an
+    open file.
+    """
+    while True:
+        try:
+            s = rposix.lockf(fd, cmd, length)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+           return space.newint(s)
+
+def sched_yield(space):
+    """ Voluntarily relinquish the CPU"""
+    while True:
+        try:
+            res = rposix.sched_yield()
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)

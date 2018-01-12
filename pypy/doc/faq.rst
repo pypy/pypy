@@ -182,6 +182,57 @@ of having one.  This work is currently a bit stalled because of its own
 technical difficulties.
 
 
+What about numpy, numpypy, micronumpy?
+--------------------------------------
+
+Way back in 2011, the PyPy team `started to reimplement`_ numpy in PyPy.  It
+has two pieces:
+
+  * the builtin module :source:`pypy/module/micronumpy`: this is written in
+    RPython and roughly covers the content of the ``numpy.core.multiarray``
+    module. Confusingly enough, this is available in PyPy under the name
+    ``_numpypy``.  It is included by default in all the official releases of
+    PyPy (but it might be dropped in the future).
+
+  * a fork_ of the official numpy repository maintained by us and informally
+    called ``numpypy``: even more confusing, the name of the repo on bitbucket
+    is ``numpy``.  The main difference with the upstream numpy, is that it is
+    based on the micronumpy module written in RPython, instead of of
+    ``numpy.core.multiarray`` which is written in C.
+
+Moreover, it is also possible to install the upstream version of ``numpy``:
+its core is written in C and it runs on PyPy under the cpyext compatibility
+layer. This is what you get if you do ``pypy -m pip install numpy``.
+
+
+Should I install numpy or numpypy?
+-----------------------------------
+
+TL;DR version: you should use numpy. You can install it by doing ``pypy -m pip
+install numpy``.  You might also be interested in using the experimental `PyPy
+binary wheels`_ to save compilation time.
+
+The upstream ``numpy`` is written in C, and runs under the cpyext
+compatibility layer.  Nowadays, cpyext is mature enough that you can simply
+use the upstream ``numpy``, since it passes 99.9% of the test suite. At the
+moment of writing (October 2017) the main drawback of ``numpy`` is that cpyext
+is infamously slow, and thus it has worse performance compared to
+``numpypy``. However, we are actively working on improving it, as we expect to
+reach the same speed, eventually.
+
+On the other hand, ``numpypy`` is more JIT-friendly and very fast to call,
+since it is written in RPython: but it is a reimplementation, and it's hard to
+be completely compatible: over the years the project slowly matured and
+eventually it was able to call out to the LAPACK and BLAS libraries to speed
+matrix calculations, and reached around an 80% parity with the upstream
+numpy. However, 80% is far from 100%.  Since cpyext/numpy compatibility is
+progressing fast, we have discontinued support for ``numpypy``.
+
+.. _`started to reimplement`: https://morepypy.blogspot.co.il/2011/05/numpy-in-pypy-status-and-roadmap.html
+.. _fork: https://bitbucket.org/pypy/numpy
+.. _`PyPy binary wheels`: https://github.com/antocuni/pypy-wheels
+
+
 Is PyPy more clever than CPython about Tail Calls?
 --------------------------------------------------
 

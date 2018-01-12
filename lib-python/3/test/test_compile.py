@@ -524,7 +524,8 @@ if 1:
             with open(fn, "wb") as fp:
                 fp.write(src)
             res = script_helper.run_python_until_end(fn)[0]
-        self.assertIn(b"Non-UTF-8", res.err)
+        # PyPy change: we have a different error here
+        self.assertIn(b"SyntaxError", res.err)
 
     def test_yet_more_evil_still_undecodable(self):
         # Issue #25388

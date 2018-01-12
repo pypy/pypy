@@ -2,10 +2,9 @@ from pypy.tool import stdlib_opcode as pythonopcode
 from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyframe import PyFrame
-from pypy.module._continuation.interp_continuation import State, global_state
-from pypy.module._continuation.interp_continuation import build_sthread
-from pypy.module._continuation.interp_continuation import post_switch
-from pypy.module._continuation.interp_continuation import get_result, geterror
+from pypy.module._continuation.interp_continuation import (
+    State, global_state, build_sthread, pre_switch, post_switch,
+    get_result, geterror)
 
 
 def getunpickle(space):
@@ -19,12 +18,7 @@ def reduce(self):
     # __getnewargs__ or __getstate__ defined in the subclass, etc.
     # Doing the right thing looks involved, though...
     space = self.space
-    if self.sthread is None:
-        w_frame = space.w_False
-    elif self.sthread.is_empty_handle(self.h):
-        w_frame = space.w_None
-    else:
-        w_frame = self.bottomframe
+    w_frame = self.descr_get_frame(space)
     w_continulet_type = space.type(self)
     w_dict = self.getdict(space) or space.w_None
     args = [getunpickle(space),
@@ -65,9 +59,10 @@ def resume_trampoline_callback(h, arg):
         if self.bottomframe is None:
             w_result = space.w_None
         else:
+            saved_exception = pre_switch(sthread)
             h = sthread.switch(self.h)
             try:
-                w_result = post_switch(sthread, h)
+                w_result = post_switch(sthread, h, saved_exception)
                 operr = None
             except OperationError as e:
                 w_result = None

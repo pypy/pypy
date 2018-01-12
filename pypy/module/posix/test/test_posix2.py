@@ -29,12 +29,20 @@ def setup_module(mod):
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
-    bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+    if sys.platform == 'darwin':
+        # see issue https://bugs.python.org/issue31380
+        bytes_dir = udir.ensure('fixc5x9fier.txt', dir=True)
+        file_name = 'cafxe9'
+        surrogate_name = 'foo'
+    else:
+        bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+        file_name = 'caf\xe9'
+        surrogate_name = 'foo\x80'
     bytes_dir.join('somefile').write('who cares?')
-    bytes_dir.join('caf\xe9').write('who knows?')
+    bytes_dir.join(file_name).write('who knows?')
     mod.bytes_dir = bytes_dir
     # an escaped surrogate
-    mod.esurrogate_dir = udir.ensure('foo\x80', dir=True)
+    mod.esurrogate_dir = udir.ensure(surrogate_name, dir=True)
 
     # in applevel tests, os.stat uses the CPython os.stat.
     # Be sure to return times with full precision
@@ -378,16 +386,21 @@ class AppTestPosix:
 
     def test_times(self):
         """
-        posix.times() should return a five-tuple giving float-representations
-        (seconds, effectively) of the four fields from the underlying struct
-        tms and the return value.
+        posix.times() should return a posix.times_result object giving
+        float-representations (seconds, effectively) of the four fields from
+        the underlying struct tms and the return value.
         """
         result = self.posix.times()
-        assert isinstance(result, tuple)
+        assert isinstance(self.posix.times(), self.posix.times_result)
+        assert isinstance(self.posix.times(), tuple)
         assert len(result) == 5
         for value in result:
             assert isinstance(value, float)
-
+        assert isinstance(result.user, float)
+        assert isinstance(result.system, float)
+        assert isinstance(result.children_user, float)
+        assert isinstance(result.children_system, float)
+        assert isinstance(result.elapsed, float)
 
     def test_strerror(self):
         assert isinstance(self.posix.strerror(0), str)
@@ -964,7 +977,7 @@ class AppTestPosix:
             assert posix.sched_get_priority_min(posix.SCHED_OTHER) != -1
             if getattr(posix, 'SCHED_BATCH', None):
                 assert posix.sched_get_priority_min(posix.SCHED_BATCH) != -1
-            
+
     if hasattr(rposix, 'sched_get_priority_min'):
         def test_os_sched_priority_max_greater_than_min(self):
             posix, os = self.posix, self.os
@@ -974,6 +987,12 @@ class AppTestPosix:
             assert isinstance(low, int) == True
             assert isinstance(high, int) == True
             assert  high > low
+
+    if hasattr(rposix, 'sched_yield'):
+        def test_sched_yield(self):
+            os = self.posix
+            #Always suceeds on Linux
+            os.sched_yield()
 
     def test_write_buffer(self):
         os = self.posix
@@ -1138,7 +1157,7 @@ class AppTestPosix:
             expected = min(myprio + 3, 19)
             assert os.WEXITSTATUS(status1) == expected
 
-    if hasattr(os, 'symlink'):
+    if sys.platform != 'win32':
         def test_symlink(self):
             posix = self.posix
             bytes_dir = self.bytes_dir
@@ -1168,6 +1187,10 @@ class AppTestPosix:
             finally:
                 posix.close(f)
                 posix.unlink(bytes_dir + '/somelink'.encode())
+    else:
+        def test_symlink(self):
+            posix = self.posix
+            raises(NotImplementedError, posix.symlink, 'a', 'b')
 
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):
@@ -1332,6 +1355,17 @@ class AppTestPosix:
             s2.close()
             s1.close()
 
+        def test_os_lockf(self):
+            posix, os = self.posix, self.os
+            fd = os.open(self.path2 + 'test_os_lockf', os.O_WRONLY | os.O_CREAT)
+            try:
+                os.write(fd, b'test')
+                os.lseek(fd, 0, 0)
+                posix.lockf(fd, posix.F_LOCK, 4)
+                posix.lockf(fd, posix.F_ULOCK, 4)
+            finally:
+                os.close(fd)
+
     def test_urandom(self):
         os = self.posix
         s = os.urandom(5)
@@ -1390,6 +1424,7 @@ class AppTestPosix:
                 skip("_getfinalpathname not supported on this platform")
             assert os.path.exists(result)
 
+    @py.test.mark.skipif("sys.platform == 'win32'")
     def test_rtld_constants(self):
         # check presence of major RTLD_* constants
         self.posix.RTLD_LAZY
@@ -1398,6 +1433,7 @@ class AppTestPosix:
         self.posix.RTLD_LOCAL
 
     def test_error_message(self):
+        import sys
         e = raises(OSError, self.posix.open, 'nonexistentfile1', 0)
         assert str(e.value).endswith(": 'nonexistentfile1'")
 
@@ -1408,8 +1444,30 @@ class AppTestPosix:
         e = raises(OSError, self.posix.replace, 'nonexistentfile1', 'bok')
         assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
 
-        e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
-        assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
+        if sys.platform != 'win32':
+            e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
+            assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
+
+    if hasattr(rposix, 'getxattr'):
+        def test_xattr_simple(self):
+            # Minimal testing here, lib-python has better tests.
+            os = self.posix
+            with open(self.path, 'wb'):
+                pass
+            init_names = os.listxattr(self.path)
+            excinfo = raises(OSError, os.getxattr, self.path, 'user.test')
+            assert excinfo.value.filename == self.path
+            os.setxattr(self.path, 'user.test', b'', os.XATTR_CREATE, follow_symlinks=False)
+            raises(OSError,
+                os.setxattr, self.path, 'user.test', b'', os.XATTR_CREATE)
+            assert os.getxattr(self.path, 'user.test') == b''
+            os.setxattr(self.path, b'user.test', b'foo', os.XATTR_REPLACE)
+            assert os.getxattr(self.path, 'user.test', follow_symlinks=False) == b'foo'
+            assert set(os.listxattr(self.path)) == set(
+                init_names + ['user.test'])
+            os.removexattr(self.path, 'user.test', follow_symlinks=False)
+            raises(OSError, os.getxattr, self.path, 'user.test')
+            assert os.listxattr(self.path, follow_symlinks=False) == init_names
 
 
 class AppTestEnvironment(object):
@@ -1417,8 +1475,8 @@ class AppTestEnvironment(object):
         cls.w_path = space.wrap(str(path))
 
     def test_environ(self):
-        import sys, posix
-        environ = posix.environ
+        import sys, os
+        environ = os.environ
         item_type = str if sys.platform.startswith('win') else bytes
         for k, v in environ.items():
             assert type(k) is item_type
@@ -1465,6 +1523,7 @@ class AppTestEnvironment(object):
             res = os.system(cmd)
             assert res == 0
 
+
 @py.test.fixture
 def check_fsencoding(space, pytestconfig):
     if pytestconfig.getvalue('runappdirect'):
@@ -1480,25 +1539,25 @@ def check_fsencoding(space, pytestconfig):
 class AppTestPosixUnicode:
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
-        import posix
+        import os
         try:
-            posix.stat(u"ą")
+            os.stat(u"ą")
         except OSError:
             pass
 
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
-        import posix
+        import os
         try:
-            posix.open(u"ą", posix.O_WRONLY)
+            os.open(u"ą", os.O_WRONLY)
         except OSError:
             pass
 
     def test_remove_unicode(self):
         # See 2 above ;)
-        import posix
+        import os
         try:
-            posix.remove(u"ą")
+            os.remove(u"ą")
         except OSError:
             pass
 

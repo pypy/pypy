@@ -560,19 +560,35 @@ class AppTestSocket:
         s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
 
     def test_dup(self):
-        import _socket as socket, posix
+        import _socket as socket, os
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('localhost', 0))
         fd = socket.dup(s.fileno())
         assert s.fileno() != fd
-        assert posix.get_inheritable(s.fileno()) is False
-        assert posix.get_inheritable(fd) is False
-        posix.close(fd)
+        assert os.get_inheritable(s.fileno()) is False
+        assert os.get_inheritable(fd) is False
+        os.close(fd)
         s.close()
 
     def test_dup_error(self):
         import _socket
         raises(_socket.error, _socket.dup, 123456)
+
+    def test_recvmsg_issue2649(self):
+        import _socket as socket
+        listener = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(('::1', 1234))
+
+        s = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        IPV6_RECVERR = 25
+        s.setsockopt(socket.IPPROTO_IPV6, IPV6_RECVERR, 1)
+
+        s.sendto(b'x', ('::1', 1234))
+        try:
+            queue = s.recvmsg(1024, 1024, socket.MSG_ERRQUEUE)
+        except BlockingIOError as e:
+            assert True
 
     def test_buffer(self):
         # Test that send/sendall/sendto accept a buffer as arg
@@ -682,18 +698,18 @@ class AppTestSocket:
         raises(ValueError, _socket.socket, fileno=-1)
 
     def test_socket_non_inheritable(self):
-        import _socket, posix
+        import _socket, os
         s1 = _socket.socket()
-        assert posix.get_inheritable(s1.fileno()) is False
+        assert os.get_inheritable(s1.fileno()) is False
         s1.close()
 
     def test_socketpair_non_inheritable(self):
-        import _socket, posix
+        import _socket, os
         if not hasattr(_socket, 'socketpair'):
             skip("no socketpair")
         s1, s2 = _socket.socketpair()
-        assert posix.get_inheritable(s1.fileno()) is False
-        assert posix.get_inheritable(s2.fileno()) is False
+        assert os.get_inheritable(s1.fileno()) is False
+        assert os.get_inheritable(s2.fileno()) is False
         s1.close()
         s2.close()
 
@@ -713,7 +729,12 @@ class AppTestNetlink:
     def setup_class(cls):
         if not hasattr(os, 'getpid'):
             pytest.skip("AF_NETLINK needs os.getpid()")
-        w_ok = space.appexec([], "(): import _socket; " +
+        
+        if cls.runappdirect:
+            import _socket
+            w_ok = hasattr(_socket, 'AF_NETLINK')
+        else:
+            w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_NETLINK')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_NETLINK on this platform")
@@ -721,7 +742,8 @@ class AppTestNetlink:
 
     def test_connect_to_kernel_netlink_routing_socket(self):
         import _socket, os
-        s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM, _socket.NETLINK_ROUTE)
+        s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM,
+                           _socket.NETLINK_ROUTE)
         assert s.getsockname() == (0, 0)
         s.bind((0, 0))
         a, b = s.getsockname()
@@ -733,7 +755,11 @@ class AppTestPacket:
     def setup_class(cls):
         if not hasattr(os, 'getuid') or os.getuid() != 0:
             pytest.skip("AF_PACKET needs to be root for testing")
-        w_ok = space.appexec([], "(): import _socket; " +
+        if cls.runappdirect:
+            import _socket
+            w_ok = hasattr(_socket, 'AF_PACKET')
+        else:
+            w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_PACKET')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_PACKET on this platform")
@@ -887,12 +913,12 @@ class AppTestSocketTCP:
 
 
     def test_accept_non_inheritable(self):
-        import _socket, posix
+        import _socket, os
         cli = _socket.socket()
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
-        assert posix.get_inheritable(fileno) is False
-        posix.close(fileno)
+        assert os.get_inheritable(fileno) is False
+        os.close(fileno)
         cli.close()
 
     def test_recv_into_params(self):
