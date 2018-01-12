@@ -114,7 +114,9 @@ class _Pointer(_CData):
         cobj = self._type_.from_param(value)
         if ensure_objects(cobj) is not None:
             store_reference(self, index, cobj._objects)
-        self._subarray(index)[0] = cobj._get_buffer_value()
+        address = self._buffer[0]
+        address += index * sizeof(self._type_)
+        cobj._copy_to(address)
 
     def __nonzero__(self):
         return self._buffer[0] != 0

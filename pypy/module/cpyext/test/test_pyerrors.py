@@ -425,3 +425,15 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert orig_exc_info == reset_sys_exc_info
             assert new_exc_info == (new_exc.__class__, new_exc, None)
             assert new_exc_info == new_sys_exc_info
+
+    def test_PyErr_BadInternalCall(self):
+        # NB. it only seemed to fail when run with '-s'... but I think
+        # that it always printed stuff to stderr
+        module = self.import_extension('foo', [
+            ("oops", "METH_NOARGS",
+             r'''
+             PyErr_BadInternalCall();
+             return NULL;
+             '''),
+            ])
+        raises(SystemError, module.oops)

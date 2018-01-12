@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import generic_cpy_call
-from pypy.module.cpyext.pyobject import make_ref, from_ref
+from pypy.module.cpyext.pyobject import make_ref, from_ref, decref
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
@@ -353,12 +353,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 PyObject* name = PyString_FromString("mymodule");
                 PyObject *obj = PyType_Type.tp_alloc(&PyType_Type, 0);
                 PyHeapTypeObject *type = (PyHeapTypeObject*)obj;
-                if ((type->ht_type.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0)
-                {
-                    PyErr_SetString(PyExc_ValueError,
-                                    "Py_TPFLAGS_HEAPTYPE not set");
-                    return NULL;
-                }
+                /* this is issue #2434: logic from pybind11 */
+                type->ht_type.tp_flags |= Py_TPFLAGS_HEAPTYPE;
                 type->ht_type.tp_name = ((PyTypeObject*)args)->tp_name;
                 PyType_Ready(&type->ht_type);
                 ret = PyObject_SetAttrString((PyObject*)&type->ht_type,
@@ -487,7 +483,7 @@ class TestTypes(BaseApiTest):
         assert py_type.c_tp_alloc
         assert from_ref(space, py_type.c_tp_mro).wrappeditems is w_class.mro_w
 
-        api.Py_DecRef(ref)
+        decref(space, ref)
 
     def test_type_dict(self, space, api):
         w_class = space.appexec([], """():
@@ -515,7 +511,7 @@ class TestTypes(BaseApiTest):
             return C
             """)
         ref = make_ref(space, w_class)
-        api.Py_DecRef(ref)
+        decref(space, ref)
 
     def test_lookup(self, space, api):
         w_type = space.w_bytes
@@ -526,12 +522,6 @@ class TestTypes(BaseApiTest):
         assert w_obj is None
         assert api.PyErr_Occurred() is None
 
-    def test_ndarray_ref(self, space, api):
-        w_obj = space.appexec([], """():
-            import _numpypy
-            return _numpypy.multiarray.dtype('int64').type(2)""")
-        ref = make_ref(space, w_obj)
-        api.Py_DecRef(ref)
 
 class AppTestSlots(AppTestCpythonExtensionBase):
     def setup_class(cls):

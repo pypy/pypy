@@ -29,6 +29,7 @@ static int (*unw_get_proc_name)(unw_cursor_t *, char *, size_t, unw_word_t*) = N
 static int (*unw_is_signal_frame)(unw_cursor_t *) = NULL;
 static int (*unw_getcontext)(unw_context_t *) = NULL;
 #else
+#define UNW_LOCAL_ONLY
 #include <libunwind.h>
 #endif
 
@@ -261,7 +262,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     }
 
     int depth = 0;
-    PY_STACK_FRAME_T * top_most_frame = frame;
+    //PY_STACK_FRAME_T * top_most_frame = frame;
     while ((depth + _per_loop()) <= max_depth) {
         unw_get_proc_info(&cursor, &pip);
 
@@ -399,7 +400,7 @@ int vmp_read_vmaps(const char * fname) {
     if (fd == NULL) {
         return 0;
     }
-    char * saveptr;
+    char * saveptr = NULL;
     char * line = NULL;
     char * he = NULL;
     char * name;

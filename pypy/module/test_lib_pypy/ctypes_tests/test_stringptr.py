@@ -1,5 +1,5 @@
-import py
-from support import BaseCTypesTestChecker
+import pytest
+from .support import BaseCTypesTestChecker
 from ctypes import *
 
 def setup_module(mod):
@@ -16,7 +16,8 @@ class TestStringPtr(BaseCTypesTestChecker):
         x = X()
 
         # NULL pointer access
-        raises(ValueError, getattr, x.str, "contents")
+        with pytest.raises(ValueError):
+            x.str.contents
         b = c_buffer("Hello, World")
         #from sys import getrefcount as grc
         #assert grc(b) == 2
@@ -31,7 +32,6 @@ class TestStringPtr(BaseCTypesTestChecker):
         # XXX pypy  modified:
         #raises(TypeError, setattr, x, "str", "Hello, World")
         x = b = None
-        py.test.skip("test passes! but modified to avoid getrefcount and detail issues")
 
     def test__c_char_p(self):
         class X(Structure):
@@ -47,7 +47,6 @@ class TestStringPtr(BaseCTypesTestChecker):
         #b = c_buffer("Hello, World")
         #raises(TypeError, setattr, x, "str", b)
         x = None
-        py.test.skip("test passes! but modified to avoid detail issues")
 
 
     def test_functions(self):

@@ -489,21 +489,21 @@ def str_decode_utf_16_le(s, size, errors, final=True,
     return result, length
 
 def py3k_str_decode_utf_16(s, size, errors, final=True,
-                      errorhandler=None):
+                           errorhandler=None):
     result, length, byteorder = str_decode_utf_16_helper(s, size, errors, final,
                                                          errorhandler, "native",
                                                          'utf-16-' + BYTEORDER2)
     return result, length
 
 def py3k_str_decode_utf_16_be(s, size, errors, final=True,
-                         errorhandler=None):
+                              errorhandler=None):
     result, length, byteorder = str_decode_utf_16_helper(s, size, errors, final,
                                                          errorhandler, "big",
                                                          'utf-16-be')
     return result, length
 
 def py3k_str_decode_utf_16_le(s, size, errors, final=True,
-                         errorhandler=None):
+                              errorhandler=None):
     result, length, byteorder = str_decode_utf_16_helper(s, size, errors, final,
                                                          errorhandler, "little",
                                                          'utf-16-le')
@@ -710,45 +710,45 @@ def py3k_unicode_encode_utf_16_le(s, size, errors,
 
 
 # ____________________________________________________________
-# utf-32
+# utf-32 (not used in PyPy any more)
 
 def str_decode_utf_32(s, size, errors, final=True,
                       errorhandler=None):
-    result, length, byteorder = str_decode_utf_32_helper(s, size, errors, final,
-                                                         errorhandler, "native")
+    result, length, byteorder = str_decode_utf_32_helper(
+        s, size, errors, final, errorhandler, "native")
     return result, length
 
 def str_decode_utf_32_be(s, size, errors, final=True,
                          errorhandler=None):
-    result, length, byteorder = str_decode_utf_32_helper(s, size, errors, final,
-                                                         errorhandler, "big")
+    result, length, byteorder = str_decode_utf_32_helper(
+        s, size, errors, final, errorhandler, "big")
     return result, length
 
 def str_decode_utf_32_le(s, size, errors, final=True,
                          errorhandler=None):
-    result, length, byteorder = str_decode_utf_32_helper(s, size, errors, final,
-                                                         errorhandler, "little")
+    result, length, byteorder = str_decode_utf_32_helper(
+        s, size, errors, final, errorhandler, "little")
     return result, length
 
 def py3k_str_decode_utf_32(s, size, errors, final=True,
                            errorhandler=None):
-    result, length, byteorder = str_decode_utf_32_helper(s, size, errors, final,
-                                                         errorhandler, "native",
-                                                         'utf-32-' + BYTEORDER2)
+    result, length, byteorder = str_decode_utf_32_helper(
+        s, size, errors, final, errorhandler, "native",
+        'utf-32-' + BYTEORDER2, allow_surrogates=False)
     return result, length
 
 def py3k_str_decode_utf_32_be(s, size, errors, final=True,
                               errorhandler=None):
-    result, length, byteorder = str_decode_utf_32_helper(s, size, errors, final,
-                                                         errorhandler, "big",
-                                                         'utf-32-be')
+    result, length, byteorder = str_decode_utf_32_helper(
+        s, size, errors, final, errorhandler, "big",
+        'utf-32-be', allow_surrogates=False)
     return result, length
 
 def py3k_str_decode_utf_32_le(s, size, errors, final=True,
                               errorhandler=None):
-    result, length, byteorder = str_decode_utf_32_helper(s, size, errors, final,
-                                                         errorhandler, "little",
-                                                         'utf-32-le')
+    result, length, byteorder = str_decode_utf_32_helper(
+        s, size, errors, final, errorhandler, "little",
+        'utf-32-le', allow_surrogates=False)
     return result, length
 
 BOM32_DIRECT  = intmask(0x0000FEFF)
@@ -757,7 +757,8 @@ BOM32_REVERSE = intmask(0xFFFE0000)
 def str_decode_utf_32_helper(s, size, errors, final=True,
                              errorhandler=None,
                              byteorder="native",
-                             public_encoding_name='utf32'):
+                             public_encoding_name='utf32',
+                             allow_surrogates=True):
     if errorhandler is None:
         errorhandler = default_unicode_error_decode
     bo = 0
@@ -821,7 +822,13 @@ def str_decode_utf_32_helper(s, size, errors, final=True,
             continue
         ch = ((ord(s[pos + iorder[3]]) << 24) | (ord(s[pos + iorder[2]]) << 16) |
               (ord(s[pos + iorder[1]]) << 8)  | ord(s[pos + iorder[0]]))
-        if ch >= 0x110000:
+        if not allow_surrogates and 0xD800 <= ch <= 0xDFFFF:
+            r, pos = errorhandler(errors, public_encoding_name,
+                                  "code point in surrogate code point "
+                                  "range(0xd800, 0xe000)",
+                                  s, pos, len(s))
+            result.append(r)
+        elif ch >= 0x110000:
             r, pos = errorhandler(errors, public_encoding_name,
                                   "codepoint not in range(0x110000)",
                                   s, pos, len(s))
@@ -877,32 +884,31 @@ def unicode_encode_utf_32_helper(s, size, errors,
         ch = ord(s[pos])
         pos += 1
         ch2 = 0
-        if 0xD800 <= ch < 0xDC00:
-            if not allow_surrogates:
-                ru, rs, pos = errorhandler(errors, public_encoding_name,
-                                           'surrogates not allowed',
-                                           s, pos-1, pos)
-                if rs is not None:
-                    # py3k only
-                    if len(rs) % 4 != 0:
-                        errorhandler('strict', public_encoding_name,
-                                     'surrogates not allowed',
-                                     s, pos-1, pos)
-                    result.append(rs)
-                    continue
-                for ch in ru:
-                    if ord(ch) < 0xD800:
-                        _STORECHAR32(result, ord(ch), byteorder)
-                    else:
-                        errorhandler('strict', public_encoding_name,
-                                     'surrogates not allowed',
-                                     s, pos-1, pos)
+        if not allow_surrogates and 0xD800 <= ch < 0xE000:
+            ru, rs, pos = errorhandler(errors, public_encoding_name,
+                                        'surrogates not allowed',
+                                        s, pos-1, pos)
+            if rs is not None:
+                # py3k only
+                if len(rs) % 4 != 0:
+                    errorhandler('strict', public_encoding_name,
+                                    'surrogates not allowed',
+                                    s, pos-1, pos)
+                result.append(rs)
                 continue
-            elif MAXUNICODE < 65536 and pos < size:
-                ch2 = ord(s[pos])
-                if 0xDC00 <= ch2 < 0xE000:
-                    ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000;
-                    pos += 1
+            for ch in ru:
+                if ord(ch) < 0xD800:
+                    _STORECHAR32(result, ord(ch), byteorder)
+                else:
+                    errorhandler('strict', public_encoding_name,
+                                    'surrogates not allowed',
+                                    s, pos-1, pos)
+            continue
+        if 0xD800 <= ch < 0xDC00 and MAXUNICODE < 65536 and pos < size:
+            ch2 = ord(s[pos])
+            if 0xDC00 <= ch2 < 0xE000:
+                ch = (((ch & 0x3FF)<<10) | (ch2 & 0x3FF)) + 0x10000;
+                pos += 1
         _STORECHAR32(result, ch, byteorder)
 
     return result.build()

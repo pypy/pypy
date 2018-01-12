@@ -5,6 +5,7 @@ from pypy.module.cpyext.classobject import (
     PyClass_Check, PyClass_New, PyInstance_Check, PyInstance_New,
     PyInstance_NewRaw, _PyInstance_Lookup)
 from pypy.module.cpyext.object import PyObject_GetAttr
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 
 class TestClassObject(BaseApiTest):
     def test_newinstance(self, space):
@@ -44,13 +45,14 @@ class TestClassObject(BaseApiTest):
         """)
 
         assert PyInstance_Check(space, w_instance)
-        assert PyObject_GetAttr(space, w_instance, space.wrap('x')) is space.w_None
+        py_obj = PyObject_GetAttr(space, w_instance, space.wrap('x'))
+        assert get_w_obj_and_decref(space, py_obj) is space.w_None
         assert _PyInstance_Lookup(space, w_instance, space.wrap('x')) is space.w_None
         assert _PyInstance_Lookup(space, w_instance, space.wrap('y')) is None
 
         # getattr returns a bound method
-        assert not isinstance(
-            PyObject_GetAttr(space, w_instance, space.wrap('f')), Function)
+        py_obj = PyObject_GetAttr(space, w_instance, space.wrap('f'))
+        assert not isinstance(get_w_obj_and_decref(space, py_obj), Function)
         # _PyInstance_Lookup returns the raw descriptor
         assert isinstance(
             _PyInstance_Lookup(space, w_instance, space.wrap('f')), Function)

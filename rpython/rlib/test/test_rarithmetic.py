@@ -2,7 +2,7 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.rarithmetic import *
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
-from hypothesis import given, strategies
+from hypothesis import given, strategies, assume
 import sys
 import py
 
@@ -404,8 +404,11 @@ def test_int_force_ge_zero():
 def test_int_c_div_mod(x, y):
     assert int_c_div(~x, y) == -(abs(~x) // y)
     assert int_c_div( x,-y) == -(x // y)
-    if (x, y) == (sys.maxint, 1):
-        py.test.skip("would overflow")
+
+@given(strategies.integers(min_value=0, max_value=sys.maxint),
+       strategies.integers(min_value=1, max_value=sys.maxint))
+def test_int_c_div_mod_2(x, y):
+    assume((x, y) != (sys.maxint, 1))  # This case would overflow
     assert int_c_div(~x,-y) == +(abs(~x) // y)
     for x1 in [x, ~x]:
         for y1 in [y, -y]:
@@ -549,6 +552,51 @@ class TestStringToInt:
             py.test.raises(ParseStringError, string_to_int, s+'  ', base)
             py.test.raises(ParseStringError, string_to_int, '+'+s, base)
             py.test.raises(ParseStringError, string_to_int, '-'+s, base)
+
+    def test_number_underscores(self):
+        VALID_UNDERSCORE_LITERALS = [
+            '0_0_0',
+            '4_2',
+            '1_0000_0000',
+            '0b1001_0100',
+            '0xfff_ffff',
+            '0o5_7_7',
+            '0b_0',
+            '0x_f',
+            '0o_5',
+        ]
+        INVALID_UNDERSCORE_LITERALS = [
+            # Trailing underscores:
+            '0_',
+            '42_',
+            '1.4j_',
+            '0x_',
+            '0b1_',
+            '0xf_',
+            '0o5_',
+            # Underscores in the base selector:
+            '0_b0',
+            '0_xf',
+            '0_o5',
+            # Old-style octal, still disallowed:
+            '09_99',
+            # Multiple consecutive underscores:
+            '4_______2',
+            '0b1001__0100',
+            '0xfff__ffff',
+            '0x___',
+            '0o5__77',
+            '1e1__0',
+        ]
+        for x in VALID_UNDERSCORE_LITERALS:
+            print x
+            y = string_to_int(x, base=0, allow_underscores=True)
+            assert y == int(x.replace('_', ''), base=0)
+        for x in INVALID_UNDERSCORE_LITERALS:
+            print x
+            py.test.raises(ParseStringError, string_to_int, x, base=0,
+                           allow_underscores=True)
+
 
 class TestExplicitIntsizes:
 

@@ -3,10 +3,10 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
     PyVarObject, size_t, slot_function,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, FILEP, fwrite)
+    Py_GE, CONST_STRING, FILEP, fwrite, c_only)
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, from_ref, Py_IncRef, Py_DecRef,
-    get_typedescr)
+    PyObject, PyObjectP, from_ref, incref, decref,
+    get_typedescr, hack_for_result_often_existing_obj)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
@@ -32,31 +32,20 @@ def PyObject_Realloc(space, ptr, size):
     # XXX FIXME
     return realloc(ptr, size)
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_Free(space, ptr):
+@c_only([rffi.VOIDP], lltype.Void)
+def _PyPy_Free(ptr):
     lltype.free(ptr, flavor='raw')
 
-@cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
-def _PyObject_New(space, type):
-    return _PyObject_NewVar(space, type, 0)
+@c_only([Py_ssize_t], rffi.VOIDP)
+def _PyPy_Malloc(size):
+    # XXX: the malloc inside BaseCpyTypedescr.allocate and
+    # typeobject.type_alloc specify zero=True, so this is why we use it also
+    # here. However, CPython does a simple non-initialized malloc, so we
+    # should investigate whether we can remove zero=True as well
+    return lltype.malloc(rffi.VOIDP.TO, size,
+                         flavor='raw', zero=True,
+                         add_memory_pressure=True)
 
-@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
-def _PyObject_NewVar(space, type, itemcount):
-    w_type = from_ref(space, rffi.cast(PyObject, type))
-    assert isinstance(w_type, W_TypeObject)
-    typedescr = get_typedescr(w_type.layout.typedef)
-    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
-    #py_obj.c_ob_refcnt = 0 --- will be set to 1 again by PyObject_Init{Var}
-    if type.c_tp_itemsize == 0:
-        w_obj = PyObject_Init(space, py_obj, type)
-    else:
-        py_objvar = rffi.cast(PyVarObject, py_obj)
-        w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
-    return py_obj
-
-@slot_function([PyObject], lltype.Void)
-def PyObject_dealloc(space, obj):
-    return _dealloc(space, obj)
 
 def _dealloc(space, obj):
     # This frees an object after its refcount dropped to zero, so we
@@ -66,15 +55,7 @@ def _dealloc(space, obj):
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
-        Py_DecRef(space, rffi.cast(PyObject, pto))
-
-@cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
-def _PyObject_GC_New(space, type):
-    return _PyObject_New(space, type)
-
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_GC_Del(space, obj):
-    PyObject_Free(space, obj)
+        decref(space, rffi.cast(PyObject, pto))
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
@@ -88,20 +69,22 @@ def PyObject_IsTrue(space, w_obj):
 def PyObject_Not(space, w_obj):
     return not space.is_true(w_obj)
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, result_is_ll=True)
 def PyObject_GetAttr(space, w_obj, w_name):
     """Retrieve an attribute named attr_name from object o. Returns the attribute
     value on success, or NULL on failure.  This is the equivalent of the Python
     expression o.attr_name."""
-    return space.getattr(w_obj, w_name)
+    w_res = space.getattr(w_obj, w_name)
+    return hack_for_result_often_existing_obj(space, w_res)
 
-@cpython_api([PyObject, CONST_STRING], PyObject)
+@cpython_api([PyObject, CONST_STRING], PyObject, result_is_ll=True)
 def PyObject_GetAttrString(space, w_obj, name_ptr):
     """Retrieve an attribute named attr_name from object o. Returns the attribute
     value on success, or NULL on failure. This is the equivalent of the Python
     expression o.attr_name."""
     name = rffi.charp2str(name_ptr)
-    return space.getattr(w_obj, space.newtext(name))
+    w_res = space.getattr(w_obj, space.newtext(name))
+    return hack_for_result_often_existing_obj(space, w_res)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyObject_HasAttr(space, w_obj, w_name):
@@ -160,11 +143,12 @@ def PyCallable_Check(space, w_obj):
     and 0 otherwise.  This function always succeeds."""
     return int(space.is_true(space.callable(w_obj)))
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, result_is_ll=True)
 def PyObject_GetItem(space, w_obj, w_key):
     """Return element of o corresponding to the object key or NULL on failure.
     This is the equivalent of the Python expression o[key]."""
-    return space.getitem(w_obj, w_key)
+    w_res = space.getitem(w_obj, w_key)
+    return hack_for_result_often_existing_obj(space, w_res)
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyObject_SetItem(space, w_obj, w_key, w_value):
@@ -179,29 +163,6 @@ def PyObject_DelItem(space, w_obj, w_key):
     equivalent of the Python statement del o[key]."""
     space.delitem(w_obj, w_key)
     return 0
-
-@cpython_api([PyObject, PyTypeObjectPtr], PyObject, result_is_ll=True)
-def PyObject_Init(space, obj, type):
-    """Initialize a newly-allocated object op with its type and initial
-    reference.  Returns the initialized object.  If type indicates that the
-    object participates in the cyclic garbage detector, it is added to the
-    detector's set of observed objects. Other fields of the object are not
-    affected."""
-    if not obj:
-        PyErr_NoMemory(space)
-    obj.c_ob_type = type
-    obj.c_ob_pypy_link = 0
-    obj.c_ob_refcnt = 1
-    return obj
-
-@cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
-def PyObject_InitVar(space, py_obj, type, size):
-    """This does everything PyObject_Init() does, and also initializes the
-    length information for a variable-size object."""
-    if not py_obj:
-        PyErr_NoMemory(space)
-    py_obj.c_ob_size = size
-    return PyObject_Init(space, rffi.cast(PyObject, py_obj), type)
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Type(space, w_obj):
@@ -309,7 +270,7 @@ def PyObject_RichCompareBool(space, w_o1, w_o2, opid_int):
 @cpython_api([PyObject], PyObject, result_is_ll=True)
 def PyObject_SelfIter(space, ref):
     """Undocumented function, this is what CPython does."""
-    Py_IncRef(space, ref)
+    incref(space, ref)
     return ref
 
 @cpython_api([PyObject, PyObject], PyObject)

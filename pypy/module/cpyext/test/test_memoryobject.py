@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
-from pypy.module.cpyext.pyobject import make_ref, from_ref
+from pypy.module.cpyext.pyobject import make_ref, from_ref, decref
 from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
@@ -31,8 +31,8 @@ class TestMemoryViewObject(BaseApiTest):
             w_f = space.wrap(f)
             assert space.eq_w(space.getattr(w_mv, w_f),
                               space.getattr(w_memoryview, w_f))
-        api.Py_DecRef(ref)
-        api.Py_DecRef(w_memoryview)
+        decref(space, ref)
+        decref(space, c_memoryview)
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
@@ -115,7 +115,36 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                 view = PyMemoryView_GET_BUFFER(memoryview);
                 Py_DECREF(memoryview);
                 return PyLong_FromLong(view->len / view->itemsize);
-            """)])
+            """),
+            ("test_contiguous", "METH_O",
+             """
+                Py_buffer* view;
+                PyObject * memoryview;
+                void * buf = NULL;
+                int ret;
+                Py_ssize_t len;
+                memoryview = PyMemoryView_FromObject(args);
+                if (memoryview == NULL)
+                    return NULL;
+                view = PyMemoryView_GET_BUFFER(memoryview);
+                Py_DECREF(memoryview);
+                len = view->len;
+                if (len == 0)
+                    return NULL;
+                buf = malloc(len);
+                ret = PyBuffer_ToContiguous(buf, view, view->len, 'A');
+                if (ret != 0)
+                {
+                    free(buf);
+                    return NULL;
+                }
+                ret = PyBuffer_FromContiguous(view, buf, view->len, 'A');
+                free(buf);
+                if (ret != 0)
+                    return NULL;
+                 Py_RETURN_NONE;
+             """),
+            ])
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
         ten = foo.get_len(arr)
@@ -124,6 +153,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert ten == 10
         ten = foo.test_buffer(arr)
         assert ten == 10
+        foo.test_contiguous(arr)
 
     def test_releasebuffer(self):
         module = self.import_extension('foo', [

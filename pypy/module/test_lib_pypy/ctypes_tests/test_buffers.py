@@ -1,5 +1,5 @@
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 class TestStringBuffer(BaseCTypesTestChecker):
 
@@ -7,6 +7,11 @@ class TestStringBuffer(BaseCTypesTestChecker):
         b = create_string_buffer(32)
         assert len(b) == 32
         assert sizeof(b) == 32 * sizeof(c_char)
+        assert type(b[0]) is str
+
+        b = create_string_buffer(33L)
+        assert len(b) == 33
+        assert sizeof(b) == 33 * sizeof(c_char)
         assert type(b[0]) is str
 
         b = create_string_buffer("abc")

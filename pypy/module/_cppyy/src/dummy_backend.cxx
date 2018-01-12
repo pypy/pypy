@@ -1,4 +1,3 @@
-#include "cppyy.h"
 #include "capi.h"
 
 #include <map>
@@ -13,6 +12,27 @@
 #include <string.h>
 
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
+
+// union for argument passing
+struct CPPYY_G__value {
+  union {
+    double d;
+    long    i; /* used to be int */
+    char ch;
+    short sh;
+    int in;
+    float fl;
+    unsigned char uch;
+    unsigned short ush;
+    unsigned int uin;
+    unsigned long ulo;
+    long long ll;
+    unsigned long long ull;
+    long double ld;
+  } obj;
+  long ref;
+  int type;
+};
 
 // add example01.cxx code
 int globalAddOneToInt(int a);
@@ -143,6 +163,14 @@ struct Cppyy_InitPseudoReflectionInfo {
         // class example01 --
         static long s_scope_id  = 0;
         static long s_method_id = 0;
+
+        { // namespace ''
+        s_handles[""] = (cppyy_scope_t)++s_scope_id;
+        }
+
+        { // namespace std
+        s_handles["std"] = (cppyy_scope_t)++s_scope_id;
+        }
 
         { // class example01 --
         s_handles["example01"] = (cppyy_scope_t)++s_scope_id;
@@ -927,7 +955,13 @@ char* cppyy_method_arg_default(
     return cppstring_to_cstring("");
 }
 
-char* cppyy_method_signature(cppyy_scope_t /* handle */, cppyy_index_t /* method_index */) {
+char* cppyy_method_signature(
+        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* show_formalargs */) {
+    return cppstring_to_cstring("");
+}
+
+char* cppyy_method_prototype(
+        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* show_formalargs */) {
     return cppstring_to_cstring("");
 }
 

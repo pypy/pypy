@@ -210,6 +210,10 @@ if WIN32:
         'FormatMessageA',
         [DWORD, rffi.VOIDP, DWORD, DWORD, rffi.CCHARP, DWORD, rffi.VOIDP],
         DWORD)
+    FormatMessageW = winexternal(
+        'FormatMessageW',
+        [DWORD, rffi.VOIDP, DWORD, DWORD, rffi.CWCHARP, DWORD, rffi.VOIDP],
+        DWORD)
 
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
 
@@ -286,6 +290,8 @@ if WIN32:
     # A bit like strerror...
     def FormatError(code):
         return llimpl_FormatError(code)
+    def FormatErrorW(code):
+        return llimpl_FormatErrorW(code)
 
     def llimpl_FormatError(code):
         "Return a message corresponding to the given Windows error code."
@@ -312,6 +318,37 @@ if WIN32:
                 result = 'Windows Error %d' % (code,)
             else:
                 result = rffi.charpsize2str(s_buf, buflen)
+        finally:
+            LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
+            lltype.free(buf, flavor='raw')
+
+        return result
+
+    def llimpl_FormatErrorW(code):
+        "Return a unicode message corresponding to the given Windows error code."
+        buf = lltype.malloc(rffi.CWCHARPP.TO, 1, flavor='raw')
+        buf[0] = lltype.nullptr(rffi.CWCHARP.TO)
+        try:
+            msglen = FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                                    FORMAT_MESSAGE_FROM_SYSTEM | 
+                                    FORMAT_MESSAGE_IGNORE_INSERTS,
+                                    None,
+                                    rffi.cast(DWORD, code),
+                                    DEFAULT_LANGUAGE,
+                                    rffi.cast(rffi.CWCHARP, buf),
+                                    0, None)
+            buflen = intmask(msglen)
+
+            # remove trailing cr/lf and dots
+            s_buf = buf[0]
+            while buflen > 0 and (ord(s_buf[buflen - 1]) <= ord(' ') or
+                                  s_buf[buflen - 1] == u'.'):
+                buflen -= 1
+
+            if buflen <= 0:
+                result = u'Windows Error %d' % (code,)
+            else:
+                result = rffi.wcharpsize2unicode(s_buf, buflen)
         finally:
             LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
             lltype.free(buf, flavor='raw')

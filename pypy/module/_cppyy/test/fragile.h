@@ -30,9 +30,11 @@ public:
     void overload(int, no_such_class* p = 0) {}
 };
 
+static const int dummy_location = 0xdead;
+
 class E {
 public:
-    E() : m_pp_no_such(0), m_pp_a(0) {}
+    E() : m_pp_no_such((no_such_class**)&dummy_location), m_pp_a(0) {}
 
     virtual int check() { return (int)'E'; }
     void overload(no_such_class**) {}

@@ -310,12 +310,19 @@ def _get_error_msg():
     errno = rposix.get_saved_errno()
     return os.strerror(errno)
 
+def _check_sleep_arg(space, secs):
+    from rpython.rlib.rfloat import isinf, isnan
+    if secs < 0:
+        raise oefmt(space.w_IOError,
+                    "Invalid argument: negative time in sleep")
+    if isinf(secs) or isnan(secs):
+        raise oefmt(space.w_IOError,
+                    "Invalid argument: inf or nan")
+
 if sys.platform != 'win32':
     @unwrap_spec(secs=float)
     def sleep(space, secs):
-        if secs < 0:
-            raise oefmt(space.w_IOError,
-                        "Invalid argument: negative time in sleep")
+        _check_sleep_arg(space, secs)
         rtime.sleep(secs)
 else:
     from rpython.rlib import rwin32
@@ -336,9 +343,7 @@ else:
                                    OSError(EINTR, "sleep() interrupted"))
     @unwrap_spec(secs=float)
     def sleep(space, secs):
-        if secs < 0:
-            raise oefmt(space.w_IOError,
-                        "Invalid argument: negative time in sleep")
+        _check_sleep_arg(space, secs)
         # as decreed by Guido, only the main thread can be
         # interrupted.
         main_thread = space.fromcache(State).main_thread

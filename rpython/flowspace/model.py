@@ -170,7 +170,7 @@ class Link(object):
 
 class Block(object):
     __slots__ = """inputargs operations exitswitch
-                exits blockcolor""".split()
+                exits blockcolor generation""".split()
 
     def __init__(self, inputargs):
         self.inputargs = list(inputargs)  # mixed list of variable/const XXX
