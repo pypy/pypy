@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     slot_function, generic_cpy_call, PyObject, Py_ssize_t,
-    Py_TPFLAGS_CHECKTYPES, Py_buffer, Py_bufferP, PyTypeObjectPtr, cts)
+    Py_TPFLAGS_CHECKTYPES, Py_buffer, Py_bufferP, PyTypeObjectPtr)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, ternaryfunc, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
@@ -143,7 +143,6 @@ def wrap_ternaryfunc_r(space, w_self, w_args, func):
 def wrap_inquirypred(space, w_self, w_args, func):
     func_inquiry = rffi.cast(inquiry, func)
     check_num_args(space, w_args, 0)
-    args_w = space.fixedview(w_args)
     res = generic_cpy_call(space, func_inquiry, w_self)
     res = rffi.cast(lltype.Signed, res)
     if res == -1:
@@ -431,14 +430,26 @@ def slot_factory(tp_name):
     return decorate
 
 
-def build_slot_tp_function(space, typedef, name, method_name):
-    if name in SLOT_FACTORIES:
-        return SLOT_FACTORIES[name](space, typedef, name, method_name)
-    else:
+SLOTS = {}
+@specialize.memo()
+def get_slot_tp_function(space, typedef, name, method_name):
+    """Return a description of the slot C function to use for the built-in
+    type for 'typedef'.  The 'name' is the slot name.  This is a memo
+    function that, after translation, returns one of a built-in finite set.
+    """
+    if name not in SLOT_FACTORIES:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
         # richcmpfunc(s)
-        return
+        return None
+    key = (typedef, name)
+    try:
+        return SLOTS[key]
+    except KeyError:
+        slot_func = SLOT_FACTORIES[name](space, typedef, name, method_name)
+        llfunc = llslot(space, slot_func) if slot_func else None
+        SLOTS[key] = llfunc
+        return llfunc
 
 
 def make_unary_slot(space, typedef, name, attr):

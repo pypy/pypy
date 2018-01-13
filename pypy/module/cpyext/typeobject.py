@@ -31,7 +31,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, decref, as_pyobj)
 from pypy.module.cpyext.slotdefs import (
-    slotdefs_for_tp_slots, slotdefs_for_wrappers, build_slot_tp_function,
+    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
     llslot)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
@@ -226,22 +226,6 @@ def convert_member_defs(space, dict_w, members, w_type):
             dict_w[name] = w_descr
             i += 1
 
-SLOTS = {}
-@specialize.memo()
-def get_slot_tp_function(space, typedef, name, method_name):
-    """Return a description of the slot C function to use for the built-in
-    type for 'typedef'.  The 'name' is the slot name.  This is a memo
-    function that, after translation, returns one of a built-in finite set.
-    """
-    key = (typedef, name)
-    try:
-        return SLOTS[key]
-    except KeyError:
-        slot_func = build_slot_tp_function(space, typedef, name, method_name)
-        api_func = slot_func.api_func if slot_func else None
-        SLOTS[key] = api_func
-        return api_func
-
 missing_slots={}
 def warn_missing_slot(space, method_name, slot_name, w_type):
     if not we_are_translated():
@@ -281,12 +265,11 @@ def update_all_slots(space, w_type, pto):
 def update_all_slots_builtin(space, w_type, pto):
     typedef = w_type.layout.typedef
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
-        slot_apifunc = get_slot_tp_function(space, typedef, slot_name, method_name)
-        if not slot_apifunc:
+        slot_llfunc = get_slot_tp_function(space, typedef, slot_name, method_name)
+        if not slot_llfunc:
             warn_missing_slot(space, method_name, slot_name, w_type)
             continue
-        slot_func_helper = slot_apifunc.get_llhelper(space)
-        fill_slot(space, pto, w_type, slot_names, slot_func_helper)
+        fill_slot(space, pto, w_type, slot_names, slot_llfunc)
 
 @specialize.arg(3)
 def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
@@ -332,7 +315,7 @@ def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
 
 def add_operators(space, dict_w, pto):
     from pypy.module.cpyext.object import PyObject_HashNotImplemented
-    hash_not_impl = PyObject_HashNotImplemented.api_func.get_llhelper(space)
+    hash_not_impl = llslot(space, PyObject_HashNotImplemented)
     for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
