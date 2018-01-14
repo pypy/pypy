@@ -50,13 +50,14 @@ def _make_unctrl_map():
 
 
 def _my_unctrl(c, u=_make_unctrl_map()):
+    # takes an integer, returns a unicode
     if c in u:
         return u[c]
     else:
         if unicodedata.category(c).startswith('C'):
-            return br'\u%04x' % ord(c)
+            return r'\u%04x' % ord(c)
         else:
-            return c
+            return unichr(c)
 
 if 'a'[0] == b'a':
     # When running tests with python2, bytes characters are bytes.
