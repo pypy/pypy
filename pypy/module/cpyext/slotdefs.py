@@ -437,11 +437,6 @@ def get_slot_tp_function(space, typedef, name, method_name):
     type for 'typedef'.  The 'name' is the slot name.  This is a memo
     function that, after translation, returns one of a built-in finite set.
     """
-    if name not in SLOT_FACTORIES:
-        # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
-        # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
-        # richcmpfunc(s)
-        return None
     key = (typedef, name)
     try:
         return SLOTS[key]
@@ -814,6 +809,28 @@ for name in missing_wrappers:
         raise NotImplementedError("Slot wrapper " + name)
     missing_wrapper.__name__ = name
     globals()[name] = missing_wrapper
+
+def make_missing_slot(space, typedef, name, attr):
+    return None
+
+missing_builtin_slots = [
+    'tp_print', 'tp_compare', 'tp_getattr', 'tp_setattr', 'tp_setattro',
+    'tp_richcompare', 'tp_del', 'tp_as_buffer.c_bf_getwritebuffer',
+    'tp_as_number.c_nb_nonzero', 'tp_as_number.c_nb_coerce',
+    'tp_as_number.c_nb_inplace_add', 'tp_as_number.c_nb_inplace_subtract',
+    'tp_as_number.c_nb_inplace_multiply', 'tp_as_number.c_nb_inplace_divide',
+    'tp_as_number.c_nb_inplace_remainder', 'tp_as_number.c_nb_inplace_power',
+    'tp_as_number.c_nb_inplace_lshift', 'tp_as_number.c_nb_inplace_rshift',
+    'tp_as_number.c_nb_inplace_and', 'tp_as_number.c_nb_inplace_xor',
+    'tp_as_number.c_nb_inplace_or',
+    'tp_as_number.c_nb_floor_divide', 'tp_as_number.c_nb_true_divide',
+    'tp_as_number.c_nb_inplace_floor_divide', 'tp_as_number.c_nb_inplace_true_divide',
+    'tp_as_sequence.c_sq_slice', 'tp_as_sequence.c_sq_ass_slice',
+    'tp_as_sequence.c_sq_contains',
+    'tp_as_buffer.c_bf_getreadbuffer',
+    ]
+for name in missing_builtin_slots:
+    slot_factory(name)(make_missing_slot)
 
 
 PyWrapperFlag_KEYWORDS = 1
