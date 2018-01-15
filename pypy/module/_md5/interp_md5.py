@@ -23,12 +23,12 @@ class W_MD5(W_Root):
         return self.space.newbytes(self.digest())
 
     def hexdigest_w(self):
-        return self.space.wrap(self.hexdigest())
+        return self.space.newtext(self.hexdigest())
 
     def copy_w(self):
         clone = W_MD5(self.space)
         clone._copyfrom(self)
-        return self.space.wrap(clone)
+        return clone
 
 
 @unwrap_spec(initialdata='bufferstr')

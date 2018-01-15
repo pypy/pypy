@@ -16,6 +16,7 @@
  * can redefine it to upwards growing, 1.
  */
 #define STACK_DIRECTION 0   
+#define STATIC_NOINLINE   __attribute__((noinline)) static
 
 #include "src/stacklet/slp_platformselect.h"
 
@@ -55,11 +56,6 @@ struct stacklet_s {
 
     stacklet_thread_handle stack_thrd;  /* the thread where the stacklet is */
 };
-
-void *(*_stacklet_switchstack)(void*(*)(void*, void*),
-                               void*(*)(void*, void*), void*) = NULL;
-void (*_stacklet_initialstub)(struct stacklet_thread_s *,
-                              stacklet_run_fn, void *) = NULL;
 
 struct stacklet_thread_s {
     struct stacklet_s *g_stack_chain_head;  /* NULL <=> running main */
@@ -252,8 +248,17 @@ static void *g_restore_state(void *new_stack_pointer, void *rawthrd)
     return EMPTY_STACKLET_HANDLE;
 }
 
-static void g_initialstub(struct stacklet_thread_s *thrd,
-                          stacklet_run_fn run, void *run_arg)
+STATIC_NOINLINE
+void *_stacklet_switchstack(void *(*save_state)(void*, void*),
+                            void *(*restore_state)(void*, void*),
+                            void *extra)
+{
+    return slp_switch(save_state, restore_state, extra);
+}
+
+STATIC_NOINLINE
+void g_initialstub(struct stacklet_thread_s *thrd,
+                   stacklet_run_fn run, void *run_arg)
 {
     struct stacklet_s *result;
 
@@ -284,13 +289,6 @@ stacklet_thread_handle stacklet_newthread(void)
 {
     struct stacklet_thread_s *thrd;
 
-    if (_stacklet_switchstack == NULL) {
-        /* set up the following global with an indirection, which is needed
-           to prevent any inlining */
-        _stacklet_initialstub = g_initialstub;
-        _stacklet_switchstack = slp_switch;
-    }
-
     thrd = malloc(sizeof(struct stacklet_thread_s));
     if (thrd != NULL)
         memset(thrd, 0, sizeof(struct stacklet_thread_s));
@@ -311,7 +309,7 @@ stacklet_handle stacklet_new(stacklet_thread_handle thrd,
         thrd->g_current_stack_stop = ((char *)&stackmarker) + 1;
 
     thrd->g_current_stack_marker = (char *)&stackmarker;
-    _stacklet_initialstub(thrd, run, run_arg);
+    g_initialstub(thrd, run, run_arg);
     return thrd->g_source;
 }
 

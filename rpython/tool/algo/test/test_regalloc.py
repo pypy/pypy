@@ -57,4 +57,5 @@ def test_loop_2():
         return b
     t, rtyper, graph = gengraph(f, [int, int], viewbefore=False)
     regalloc = perform_register_allocation(graph, is_int)
-    check_valid(graph, regalloc, is_int)
+    num_renamings = check_valid(graph, regalloc, is_int)
+    assert num_renamings == 2

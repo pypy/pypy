@@ -6,9 +6,9 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        'CODESIZE':       'space.wrap(interp_sre.CODESIZE)',
+        'CODESIZE':       'space.newint(interp_sre.CODESIZE)',
         'MAGIC':          'space.newint(20031017)',
-        'MAXREPEAT':      'space.wrap(interp_sre.MAXREPEAT)',
+        'MAXREPEAT':      'space.newint(interp_sre.MAXREPEAT)',
         'compile':        'interp_sre.W_SRE_Pattern',
         'getlower':       'interp_sre.w_getlower',
         'getcodesize':    'interp_sre.w_getcodesize',

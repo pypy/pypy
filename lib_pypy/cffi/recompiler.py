@@ -3,8 +3,9 @@ from . import ffiplatform, model
 from .error import VerificationError
 from .cffi_opcode import *
 
-VERSION = "0x2601"
-VERSION_EMBEDDED = "0x2701"
+VERSION_BASE = 0x2601
+VERSION_EMBEDDED = 0x2701
+VERSION_CHAR16CHAR32 = 0x2801
 
 
 class GlobalExpr:
@@ -126,6 +127,10 @@ class Recompiler:
         self.ffi = ffi
         self.module_name = module_name
         self.target_is_python = target_is_python
+        self._version = VERSION_BASE
+
+    def needs_version(self, ver):
+        self._version = max(self._version, ver)
 
     def collect_type_table(self):
         self._typesdict = {}
@@ -290,8 +295,9 @@ class Recompiler:
         base_module_name = self.module_name.split('.')[-1]
         if self.ffi._embedding is not None:
             prnt('#define _CFFI_MODULE_NAME  "%s"' % (self.module_name,))
-            prnt('#define _CFFI_PYTHON_STARTUP_CODE  %s' %
-                 (self._string_literal(self.ffi._embedding),))
+            prnt('static const char _CFFI_PYTHON_STARTUP_CODE[] = {')
+            self._print_string_literal_in_array(self.ffi._embedding)
+            prnt('0 };')
             prnt('#ifdef PYPY_VERSION')
             prnt('# define _CFFI_PYTHON_STARTUP_FUNC  _cffi_pypyinit_%s' % (
                 base_module_name,))
@@ -303,10 +309,10 @@ class Recompiler:
                 base_module_name,))
             prnt('#endif')
             lines = self._rel_readlines('_embedding.h')
+            i = lines.index('#include "_cffi_errors.h"\n')
+            lines[i:i+1] = self._rel_readlines('_cffi_errors.h')
             prnt(''.join(lines))
-            version = VERSION_EMBEDDED
-        else:
-            version = VERSION
+            self.needs_version(VERSION_EMBEDDED)
         #
         # then paste the C source given by the user, verbatim.
         prnt('/************************************************************/')
@@ -405,8 +411,11 @@ class Recompiler:
             prnt('        _cffi_call_python_org = '
                  '(void(*)(struct _cffi_externpy_s *, char *))p[1];')
             prnt('    }')
-        prnt('    p[0] = (const void *)%s;' % version)
+        prnt('    p[0] = (const void *)0x%x;' % self._version)
         prnt('    p[1] = &_cffi_type_context;')
+        prnt('#if PY_MAJOR_VERSION >= 3')
+        prnt('    return NULL;')
+        prnt('#endif')
         prnt('}')
         # on Windows, distutils insists on putting init_cffi_xyz in
         # 'export_symbols', so instead of fighting it, just give up and
@@ -423,21 +432,22 @@ class Recompiler:
         prnt('PyMODINIT_FUNC')
         prnt('PyInit_%s(void)' % (base_module_name,))
         prnt('{')
-        prnt('  return _cffi_init("%s", %s, &_cffi_type_context);' % (
-            self.module_name, version))
+        prnt('  return _cffi_init("%s", 0x%x, &_cffi_type_context);' % (
+            self.module_name, self._version))
         prnt('}')
         prnt('#else')
         prnt('PyMODINIT_FUNC')
         prnt('init%s(void)' % (base_module_name,))
         prnt('{')
-        prnt('  _cffi_init("%s", %s, &_cffi_type_context);' % (
-            self.module_name, version))
+        prnt('  _cffi_init("%s", 0x%x, &_cffi_type_context);' % (
+            self.module_name, self._version))
         prnt('}')
         prnt('#endif')
         prnt()
         prnt('#ifdef __GNUC__')
         prnt('#  pragma GCC visibility pop')
         prnt('#endif')
+        self._version = None
 
     def _to_py(self, x):
         if isinstance(x, str):
@@ -476,7 +486,8 @@ class Recompiler:
             prnt('from %s import ffi as _ffi%d' % (included_module_name, i))
         prnt()
         prnt("ffi = _cffi_backend.FFI('%s'," % (self.module_name,))
-        prnt("    _version = %s," % (VERSION,))
+        prnt("    _version = 0x%x," % (self._version,))
+        self._version = None
         #
         # the '_types' keyword argument
         self.cffi_types = tuple(self.cffi_types)    # don't change any more
@@ -506,7 +517,7 @@ class Recompiler:
 
     def _convert_funcarg_to_c(self, tp, fromvar, tovar, errcode):
         extraarg = ''
-        if isinstance(tp, model.BasePrimitiveType):
+        if isinstance(tp, model.BasePrimitiveType) and not tp.is_complex_type():
             if tp.is_integer_type() and tp.name != '_Bool':
                 converter = '_cffi_to_c_int'
                 extraarg = ', %s' % tp.name
@@ -515,8 +526,11 @@ class Recompiler:
                 # double' here, and _cffi_to_c_double would loose precision
                 converter = '(%s)_cffi_to_c_double' % (tp.get_c_name(''),)
             else:
-                converter = '(%s)_cffi_to_c_%s' % (tp.get_c_name(''),
+                cname = tp.get_c_name('')
+                converter = '(%s)_cffi_to_c_%s' % (cname,
                                                    tp.name.replace(' ', '_'))
+                if cname in ('char16_t', 'char32_t'):
+                    self.needs_version(VERSION_CHAR16CHAR32)
             errvalue = '-1'
         #
         elif isinstance(tp, model.PointerType):
@@ -524,8 +538,10 @@ class Recompiler:
                                                     tovar, errcode)
             return
         #
-        elif isinstance(tp, model.StructOrUnionOrEnum):
-            # a struct (not a struct pointer) as a function argument
+        elif (isinstance(tp, model.StructOrUnionOrEnum) or
+              isinstance(tp, model.BasePrimitiveType)):
+            # a struct (not a struct pointer) as a function argument;
+            # or, a complex (the same code works)
             self._prnt('  if (_cffi_to_c((char *)&%s, _cffi_type(%d), %s) < 0)'
                       % (tovar, self._gettypenum(tp), fromvar))
             self._prnt('    %s;' % errcode)
@@ -566,12 +582,15 @@ class Recompiler:
 
     def _convert_expr_from_c(self, tp, var, context):
         if isinstance(tp, model.BasePrimitiveType):
-            if tp.is_integer_type():
+            if tp.is_integer_type() and tp.name != '_Bool':
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
             elif isinstance(tp, model.UnknownFloatType):
                 return '_cffi_from_c_double(%s)' % (var,)
-            elif tp.name != 'long double':
-                return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
+            elif tp.name != 'long double' and not tp.is_complex_type():
+                cname = tp.name.replace(' ', '_')
+                if cname in ('char16_t', 'char32_t'):
+                    self.needs_version(VERSION_CHAR16CHAR32)
+                return '_cffi_from_c_%s(%s)' % (cname, var)
             else:
                 return '_cffi_from_c_deref((char *)&%s, _cffi_type(%d))' % (
                     var, self._gettypenum(tp))
@@ -734,21 +753,26 @@ class Recompiler:
         #
         # the PyPy version: need to replace struct/union arguments with
         # pointers, and if the result is a struct/union, insert a first
-        # arg that is a pointer to the result.
+        # arg that is a pointer to the result.  We also do that for
+        # complex args and return type.
+        def need_indirection(type):
+            return (isinstance(type, model.StructOrUnion) or
+                    (isinstance(type, model.PrimitiveType) and
+                     type.is_complex_type()))
         difference = False
         arguments = []
         call_arguments = []
         context = 'argument of %s' % name
         for i, type in enumerate(tp.args):
             indirection = ''
-            if isinstance(type, model.StructOrUnion):
+            if need_indirection(type):
                 indirection = '*'
                 difference = True
             arg = type.get_c_name(' %sx%d' % (indirection, i), context)
             arguments.append(arg)
             call_arguments.append('%sx%d' % (indirection, i))
         tp_result = tp.result
-        if isinstance(tp_result, model.StructOrUnion):
+        if need_indirection(tp_result):
             context = 'result of %s' % name
             arg = tp_result.get_c_name(' *result', context)
             arguments.insert(0, arg)
@@ -1180,7 +1204,7 @@ class Recompiler:
             size_of_result = '(int)sizeof(%s)' % (
                 tp.result.get_c_name('', context),)
         prnt('static struct _cffi_externpy_s _cffi_externpy__%s =' % name)
-        prnt('  { "%s", %s };' % (name, size_of_result))
+        prnt('  { "%s.%s", %s };' % (self.module_name, name, size_of_result))
         prnt()
         #
         arguments = []
@@ -1248,17 +1272,18 @@ class Recompiler:
       _generate_cpy_extern_python_plus_c_ctx = \
       _generate_cpy_extern_python_ctx
 
-    def _string_literal(self, s):
-        def _char_repr(c):
-            # escape with a '\' the characters '\', '"' or (for trigraphs) '?'
-            if c in '\\"?': return '\\' + c
-            if ' ' <= c < '\x7F': return c
-            if c == '\n': return '\\n'
-            return '\\%03o' % ord(c)
-        lines = []
-        for line in s.splitlines(True) or ['']:
-            lines.append('"%s"' % ''.join([_char_repr(c) for c in line]))
-        return ' \\\n'.join(lines)
+    def _print_string_literal_in_array(self, s):
+        prnt = self._prnt
+        prnt('// # NB. this is not a string because of a size limit in MSVC')
+        for line in s.splitlines(True):
+            prnt(('// ' + line).rstrip())
+            printed_line = ''
+            for c in line:
+                if len(printed_line) >= 76:
+                    prnt(printed_line)
+                    printed_line = ''
+                printed_line += '%d,' % (ord(c),)
+            prnt(printed_line)
 
     # ----------
     # emitting the opcodes for individual types
@@ -1479,6 +1504,12 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                     _patch_for_embedding(patchlist)
                 if target != '*':
                     _patch_for_target(patchlist, target)
+                if compiler_verbose:
+                    if tmpdir == '.':
+                        msg = 'the current directory is'
+                    else:
+                        msg = 'setting the current directory to'
+                    print('%s %r' % (msg, os.path.abspath(tmpdir)))
                 os.chdir(tmpdir)
                 outputfilename = ffiplatform.compile('.', ext,
                                                      compiler_verbose, debug)

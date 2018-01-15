@@ -8,8 +8,8 @@ Later...
 from __future__ import with_statement
 from ctypes import *
 import sys
-import py
-from support import BaseCTypesTestChecker
+import pytest
+from .support import BaseCTypesTestChecker
 
 try:
     WINFUNCTYPE
@@ -99,6 +99,15 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(0, 0, 0, 0, 0, 0)
         assert result == '\x00'
 
+    def test_boolresult(self):
+        f = dll._testfunc_i_bhilfd
+        f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
+        f.restype = c_bool
+        false_result = f(0, 0, 0, 0, 0, 0)
+        assert false_result is False
+        true_result = f(1, 0, 0, 0, 0, 0)
+        assert true_result is True
+
     def test_voidresult(self):
         f = dll._testfunc_v
         f.restype = None
@@ -131,7 +140,8 @@ class TestFunctions(BaseCTypesTestChecker):
         assert type(result) == int
 
         # You cannot assing character format codes as restype any longer
-        raises(TypeError, setattr, f, "restype", "i")
+        with pytest.raises(TypeError):
+            setattr(f, "restype", "i")
 
     def test_unicode_function_name(self):
         f = dll[u'_testfunc_i_bhilfd']
@@ -228,7 +238,8 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(arg)
         assert not result.contents == v.value
 
-        raises(ArgumentError, f, byref(c_short(22)))
+        with pytest.raises(ArgumentError):
+            f(byref(c_short(22)))
 
         # It is dangerous, however, because you don't control the lifetime
         # of the pointer:
@@ -253,7 +264,8 @@ class TestFunctions(BaseCTypesTestChecker):
         class X(Structure):
             _fields_ = [("y", c_int)]
 
-        raises(ArgumentError, f, X()) #cannot convert parameter
+        with pytest.raises(ArgumentError):
+            f(X()) #cannot convert parameter
 
     ################################################################
     def test_shorts(self):
@@ -301,7 +313,8 @@ class TestFunctions(BaseCTypesTestChecker):
         # check that the prototype works: we call f with wrong
         # argument types
         cb = AnotherCallback(callback)
-        raises(ArgumentError, f, -10, cb)
+        with pytest.raises(ArgumentError):
+            f(-10, cb)
 
 
     def test_callbacks_2(self):
@@ -342,8 +355,10 @@ class TestFunctions(BaseCTypesTestChecker):
         assert 13577625587 == f(1000000000000, cb)
 
     def test_errors_2(self):
-        raises(AttributeError, getattr, dll, "_xxx_yyy")
-        raises(ValueError, c_int.in_dll, dll, "_xxx_yyy")
+        with pytest.raises(AttributeError):
+            getattr(dll, "_xxx_yyy")
+        with pytest.raises(ValueError):
+            c_int.in_dll(dll, "_xxx_yyy")
 
     def test_byval(self):
         # without prototype
@@ -457,27 +472,29 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f("abcd", ord("b"), 42)
         assert result == "bcd"
 
+    @pytest.mark.xfail(reason="we are less strict in checking callback parameters")
     def test_sf1651235(self):
-        py.test.skip("we are less strict in checking callback parameters")
         # see http://www.python.org/sf/1651235
-
         proto = CFUNCTYPE(c_int, RECT, POINT)
         def callback(*args):
             return 0
 
         callback = proto(callback)
-        raises(ArgumentError, lambda: callback((1, 2, 3, 4), POINT()))
+        with pytest.raises(ArgumentError):
+            callback((1, 2, 3, 4), POINT())
 
     def test_argument_conversion_and_checks(self):
-        py.test.skip("XXX currently broken on PyPy, sorry")
+        #This test is designed to check for segfaults if the wrong type of argument is passed as parameter
         strlen = dll.my_strchr
         strlen.argtypes = [c_char_p, c_int]
         strlen.restype = c_char_p
         assert strlen("eggs", ord("g")) == "ggs"
 
         # Should raise ArgumentError, not segfault
-        py.test.raises(ArgumentError, strlen, 0, 0)
-        py.test.raises(ArgumentError, strlen, False, 0)
+        with pytest.raises(ArgumentError):
+            strlen(0, 0)
+        with pytest.raises(ArgumentError):
+            strlen(False, 0)
 
     def test_union_as_passed_value(self):
         class UN(Union):
@@ -515,8 +532,8 @@ class TestFunctions(BaseCTypesTestChecker):
         assert tf_b("yadda") == -42
         assert seen == ["yadda"]
 
+    @pytest.mark.xfail(reason="warnings are disabled")
     def test_warnings(self):
-        py.test.skip("warnings are disabled")
         import warnings
         warnings.simplefilter("always")
         with warnings.catch_warnings(record=True) as w:
@@ -525,8 +542,8 @@ class TestFunctions(BaseCTypesTestChecker):
             assert issubclass(w[0].category, RuntimeWarning)
             assert "C function without declared arguments called" in str(w[0].message)
 
+    @pytest.mark.xfail
     def test_errcheck(self):
-        py.test.skip('fixme')
         def errcheck(result, func, args):
             assert result == -42
             assert type(result) is int
@@ -547,12 +564,12 @@ class TestFunctions(BaseCTypesTestChecker):
             assert len(w) == 1
             assert issubclass(w[0].category, RuntimeWarning)
             assert "C function without declared return type called" in str(w[0].message)
-            
+
         with warnings.catch_warnings(record=True) as w:
             dll.get_an_integer.restype = None
             dll.get_an_integer()
             assert len(w) == 0
-            
+
         warnings.resetwarnings()
 
 
@@ -587,3 +604,36 @@ class TestFunctions(BaseCTypesTestChecker):
 
         get_data.errcheck = ret_list_p(1)
         assert get_data('testing!') == [-1, -2, -3, -4]
+
+    def test_issue2533(self, tmpdir):
+        import cffi
+        ffi = cffi.FFI()
+        ffi.cdef("int **fetchme(void);")
+        ffi.set_source("_x_cffi", """
+            int **fetchme(void)
+            {
+                static int a = 42;
+                static int *pa = &a;
+                return &pa;
+            }
+        """)
+        ffi.compile(verbose=True, tmpdir=str(tmpdir))
+
+        import sys
+        sys.path.insert(0, str(tmpdir))
+        try:
+            from _x_cffi import ffi, lib
+        finally:
+            sys.path.pop(0)
+        fetchme = ffi.addressof(lib, 'fetchme')
+        fetchme = int(ffi.cast("intptr_t", fetchme))
+
+        FN = CFUNCTYPE(POINTER(POINTER(c_int)))
+        ff = cast(fetchme, FN)
+
+        g = ff()
+        assert g.contents.contents.value == 42
+
+        h = c_int(43)
+        g[0] = pointer(h)     # used to crash here
+        assert g.contents.contents.value == 43

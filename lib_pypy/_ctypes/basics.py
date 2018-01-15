@@ -64,8 +64,9 @@ class _CDataMeta(type):
         res = object.__new__(self)
         res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
-        res.__dict__['_base'] = base
-        res.__dict__['_index'] = index
+        if base is not None:
+            res.__dict__['_base'] = base
+            res.__dict__['_index'] = index
         return res
 
     def _CData_retval(self, resbuffer):
@@ -81,7 +82,7 @@ class _CDataMeta(type):
         return False
 
     def in_dll(self, dll, name):
-        return self.from_address(dll._handle.getaddressindll(name))
+        return self.from_address(dll.__pypy_dll__.getaddressindll(name))
 
     def from_buffer(self, obj, offset=0):
         size = self._sizeofinstances()
@@ -174,6 +175,10 @@ class _CData(object):
 
     def _get_buffer_value(self):
         return self._buffer[0]
+
+    def _copy_to(self, addr):
+        target = type(self).from_address(addr)._buffer
+        target[0] = self._get_buffer_value()
 
     def _to_ffi_param(self):
         if self.__class__._is_pointer_like():

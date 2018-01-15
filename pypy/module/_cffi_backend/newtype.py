@@ -66,8 +66,8 @@ def _clean_cache(space):
 
 PRIMITIVE_TYPES = {}
 
-def eptype(name, TYPE, ctypecls):
-    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE), alignment(TYPE)
+def eptype(name, TYPE, ctypecls, rep=1):
+    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE) * rep, alignment(TYPE)
 
 def eptypesize(name, size, ctypecls):
     for TYPE in [lltype.Signed, lltype.SignedLongLong, rffi.SIGNEDCHAR,
@@ -94,6 +94,9 @@ eptype("double", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveFloat)
 eptype("long double", rffi.LONGDOUBLE, ctypeprim.W_CTypePrimitiveLongDouble)
 eptype("_Bool",  lltype.Bool,          ctypeprim.W_CTypePrimitiveBool)
 
+eptype("float _Complex",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveComplex, rep=2)
+eptype("double _Complex", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveComplex, rep=2)
+
 eptypesize("int8_t",   1, ctypeprim.W_CTypePrimitiveSigned)
 eptypesize("uint8_t",  1, ctypeprim.W_CTypePrimitiveUnsigned)
 eptypesize("int16_t",  2, ctypeprim.W_CTypePrimitiveSigned)
@@ -107,6 +110,9 @@ eptype("intptr_t",  rffi.INTPTR_T,  ctypeprim.W_CTypePrimitiveSigned)
 eptype("uintptr_t", rffi.UINTPTR_T, ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("size_t",    rffi.SIZE_T,    ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("ssize_t",   rffi.SSIZE_T,   ctypeprim.W_CTypePrimitiveSigned)
+
+eptypesize("char16_t", 2, ctypeprim.W_CTypePrimitiveUniChar)
+eptypesize("char32_t", 4, ctypeprim.W_CTypePrimitiveUniChar)
 
 _WCTSigned = ctypeprim.W_CTypePrimitiveSigned
 _WCTUnsign = ctypeprim.W_CTypePrimitiveUnsigned
@@ -153,7 +159,7 @@ else:
     eptypesize("int_fast64_t",  8, _WCTSigned)
     eptypesize("uint_fast64_t", 8, _WCTUnsign)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_primitive_type(space, name):
     return _new_primitive_type(space, name)
 
@@ -167,7 +173,7 @@ def _new_primitive_type(space, name):
     try:
         ctypecls, size, align = PRIMITIVE_TYPES[name]
     except KeyError:
-        raise OperationError(space.w_KeyError, space.wrap(name))
+        raise OperationError(space.w_KeyError, space.newtext(name))
     ctype = ctypecls(space, size, name, len(name), align)
     unique_cache.primitives[name] = ctype
     return ctype
@@ -280,11 +286,11 @@ def complete_sflags(sflags):
 # ____________________________________________________________
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_struct_type(space, name):
     return ctypestruct.W_CTypeStruct(space, name)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_union_type(space, name):
     return ctypestruct.W_CTypeUnion(space, name)
 
@@ -331,7 +337,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         field_w = space.fixedview(w_field)
         if not (2 <= len(field_w) <= 4):
             raise oefmt(space.w_TypeError, "bad field descr")
-        fname = space.str_w(field_w[0])
+        fname = space.text_w(field_w[0])
         ftype = space.interp_w(ctypeobj.W_CType, field_w[1])
         fbitsize = -1
         foffset = -1
@@ -590,13 +596,13 @@ def _new_chara_type(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(name=str, w_basectype=ctypeobj.W_CType)
+@unwrap_spec(name='text', w_basectype=ctypeobj.W_CType)
 def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
         raise oefmt(space.w_ValueError, "tuple args must have the same size")
-    enumerators = [space.str_w(w) for w in enumerators_w]
+    enumerators = [space.text_w(w) for w in enumerators_w]
     #
     if (not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveSigned) and
         not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveUnsigned)):

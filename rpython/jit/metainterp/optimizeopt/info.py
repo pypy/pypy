@@ -71,7 +71,7 @@ class PtrInfo(AbstractInfo):
     def same_info(self, other):
         return self is other
 
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode):
         return None
 
     def getstrhash(self, op, mode):
@@ -336,9 +336,13 @@ class InstancePtrInfo(AbstractStructPtrInfo):
         AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
         if self._known_class is not None:
             if not optimizer.cpu.remove_gctypeptr:
+                short.append(ResOperation(rop.GUARD_NONNULL, [op]))
                 short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
-            short.append(ResOperation(rop.GUARD_CLASS,
-                                      [op, self._known_class]))
+                short.append(ResOperation(rop.GUARD_CLASS,
+                                          [op, self._known_class]))
+            else:
+                short.append(ResOperation(rop.GUARD_NONNULL_CLASS,
+                    [op, self._known_class]))
         elif self.descr is not None:
             if not optimizer.cpu.remove_gctypeptr:
                 short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
@@ -775,25 +779,33 @@ class ConstPtrInfo(PtrInfo):
         from rpython.jit.metainterp.optimizeopt.intutils import ConstIntBound,\
                 IntLowerBound
 
-        if mode is None:
+        length = self.getstrlen1(mode)
+        if length < 0:
             # XXX we can do better if we know it's an array
             return IntLowerBound(0)
-        else:
-            return ConstIntBound(self.getstrlen(None, None, mode).getint())
-    
-    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+        return ConstIntBound(length)
+
+    def getstrlen(self, op, string_optimizer, mode):
+        length = self.getstrlen1(mode)
+        if length < 0:
+            return None
+        return ConstInt(length)
+
+    def getstrlen1(self, mode):
         from rpython.jit.metainterp.optimizeopt import vstring
-        
+
         if mode is vstring.mode_string:
             s = self._unpack_str(vstring.mode_string)
             if s is None:
-                return None
-            return ConstInt(len(s))
-        else:
+                return -1
+            return len(s)
+        elif mode is vstring.mode_unicode:
             s = self._unpack_str(vstring.mode_unicode)            
             if s is None:
-                return None
-            return ConstInt(len(s))
+                return -1
+            return len(s)
+        else:
+            return -1
 
     def getstrhash(self, op, mode):
         from rpython.jit.metainterp.optimizeopt import vstring
@@ -814,7 +826,7 @@ class ConstPtrInfo(PtrInfo):
         from rpython.jit.metainterp.optimizeopt import vstring
         from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0
 
-        lgt = self.getstrlen(op, string_optimizer, mode, False)
+        lgt = self.getstrlen(op, string_optimizer, mode)
         return vstring.copy_str_content(string_optimizer, self._const,
                                         targetbox, CONST_0, offsetbox,
                                         lgt, mode)

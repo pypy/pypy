@@ -1,19 +1,21 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
+from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref, decref
 from pypy.module.cpyext.pytraceback import PyTracebackObject
 from pypy.interpreter.pytraceback import PyTraceback
-from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.baseobjspace import AppExecCache
 
 class TestPyTracebackObject(BaseApiTest):
     def test_traceback(self, space, api):
-        w_traceback = space.appexec([], """():
+        src = """():
             import sys
             try:
                 1/0
             except:
                 return sys.exc_info()[2]
-        """)
+        """
+        w_traceback = space.appexec([], src)
+
         py_obj = make_ref(space, w_traceback)
         py_traceback = rffi.cast(PyTracebackObject, py_obj)
         assert (from_ref(space, rffi.cast(PyObject, py_traceback.c_ob_type)) is
@@ -37,4 +39,6 @@ class TestPyTracebackObject(BaseApiTest):
 
         assert lltype.normalizeptr(py_traceback) is None
 
-        api.Py_DecRef(py_obj)
+        decref(space, py_obj)
+        # hack to allow the code object to be freed
+        del space.fromcache(AppExecCache).content[src]

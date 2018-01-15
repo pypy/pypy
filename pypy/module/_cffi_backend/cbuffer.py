@@ -4,14 +4,15 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct
 from pypy.objspace.std.bufferobject import W_Buffer
+from pypy.interpreter.buffer import SimpleView
 
-from rpython.rlib.buffer import Buffer
+from rpython.rlib.buffer import RawBuffer
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 
-class LLBuffer(Buffer):
+class LLBuffer(RawBuffer):
     _immutable_ = True
 
     def __init__(self, raw_cdata, size):
@@ -34,7 +35,7 @@ class LLBuffer(Buffer):
     def getslice(self, start, stop, step, size):
         if step == 1:
             return rffi.charpsize2str(rffi.ptradd(self.raw_cdata, start), size)
-        return Buffer.getslice(self, start, stop, step, size)
+        return RawBuffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         raw_cdata = rffi.ptradd(self.raw_cdata, start)
@@ -60,7 +61,7 @@ class MiniBuffer(W_Buffer):
         if space.isinstance_w(w_other, space.w_unicode):
             return space.w_NotImplemented
         try:
-            other_buf = space.buffer_w(w_other, space.BUF_SIMPLE)
+            other_buf = space.readbuf_w(w_other)
         except OperationError as e:
             if e.async(space):
                 raise
@@ -133,7 +134,7 @@ def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
         raise oefmt(space.w_TypeError,
                     "don't know the size pointed to by '%s'", ctype.name)
     ptr = w_cdata.unsafe_escaping_ptr()    # w_cdata kept alive by MiniBuffer()
-    return space.wrap(MiniBuffer(LLBuffer(ptr, size), w_cdata))
+    return MiniBuffer(LLBuffer(ptr, size), w_cdata)
 
 MiniBuffer.typedef = TypeDef(
     "_cffi_backend.buffer",

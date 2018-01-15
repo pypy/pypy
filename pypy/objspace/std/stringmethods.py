@@ -18,7 +18,7 @@ class StringMethods(object):
         assert start >= 0
         assert stop >= 0
         #if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj),
-        #                                                space.w_str):
+        #                                                space.w_bytes):
         #    return orig_obj
         return self._new(s[start:stop])
 
@@ -26,30 +26,31 @@ class StringMethods(object):
         value = self._val(space)
         lenself = len(value)
         start, end = unwrap_start_stop(space, lenself, w_start, w_end)
-        return (value, start, end)
+        # the None means "no offset"; see bytearrayobject.py
+        return (value, start, end, None)
 
     def _multi_chr(self, c):
         return c
 
     def descr_len(self, space):
-        return space.wrap(self._len())
+        return space.newint(self._len())
 
     #def descr_iter(self, space):
     #    pass
 
     def descr_contains(self, space, w_sub):
-        value = self._val(space)
+        value, start, end, _ = self._convert_idx_params(space, None, None)
         if self._use_rstr_ops(space, w_sub):
             other = self._op_val(space, w_sub)
-            return space.newbool(value.find(other) >= 0)
+            return space.newbool(value.find(other, start, end) >= 0)
 
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(w_sub, W_BytesObject):
             other = self._op_val(space, w_sub)
-            res = find(value, other, 0, len(value))
+            res = find(value, other, start, end)
         else:
             buffer = _get_buffer(space, w_sub)
-            res = find(value, buffer, 0, len(value))
+            res = find(value, buffer, start, end)
 
         return space.newbool(res >= 0)
 
@@ -146,7 +147,7 @@ class StringMethods(object):
         return self._new(centered)
 
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
-        value, start, end = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
 
         if self._use_rstr_ops(space, w_sub):
             return space.newint(value.count(self._op_val(space, w_sub), start,
@@ -155,7 +156,7 @@ class StringMethods(object):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(w_sub, W_BytearrayObject):
-            res = count(value, w_sub.data, start, end)
+            res = count(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = count(value, w_sub._value, start, end)
         else:
@@ -163,7 +164,7 @@ class StringMethods(object):
             res = count(value, buffer, start, end)
 
         assert res >= 0
-        return space.wrap(res)
+        return space.newint(res)
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
@@ -235,52 +236,54 @@ class StringMethods(object):
         return distance
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         if self._use_rstr_ops(space, w_sub):
             res = value.find(self._op_val(space, w_sub), start, end)
-            return space.wrap(res)
+            return space.newint(res)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(w_sub, W_BytearrayObject):
-            res = find(value, w_sub.data, start, end)
+            res = find(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = find(value, w_sub._value, start, end)
         else:
             buffer = _get_buffer(space, w_sub)
             res = find(value, buffer, start, end)
-
-        return space.wrap(res)
+        if ofs is not None and res >= 0:
+            res -= ofs
+        return space.newint(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         if self._use_rstr_ops(space, w_sub):
             res = value.rfind(self._op_val(space, w_sub), start, end)
-            return space.wrap(res)
+            return space.newint(res)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(w_sub, W_BytearrayObject):
-            res = rfind(value, w_sub.data, start, end)
+            res = rfind(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = rfind(value, w_sub._value, start, end)
         else:
             buffer = _get_buffer(space, w_sub)
             res = rfind(value, buffer, start, end)
-
-        return space.wrap(res)
+        if ofs is not None and res >= 0:
+            res -= ofs
+        return space.newint(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if self._use_rstr_ops(space, w_sub):
             res = value.find(self._op_val(space, w_sub), start, end)
         elif isinstance(w_sub, W_BytearrayObject):
-            res = find(value, w_sub.data, start, end)
+            res = find(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = find(value, w_sub._value, start, end)
         else:
@@ -290,17 +293,19 @@ class StringMethods(object):
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in string.index")
-        return space.wrap(res)
+        if ofs is not None:
+            res -= ofs
+        return space.newint(res)
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if self._use_rstr_ops(space, w_sub):
             res = value.rfind(self._op_val(space, w_sub), start, end)
         elif isinstance(w_sub, W_BytearrayObject):
-            res = rfind(value, w_sub.data, start, end)
+            res = rfind(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = rfind(value, w_sub._value, start, end)
         else:
@@ -310,7 +315,9 @@ class StringMethods(object):
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in string.rindex")
-        return space.wrap(res)
+        if ofs is not None:
+            res -= ofs
+        return space.newint(res)
 
     @specialize.arg(2)
     def _is_generic(self, space, func_name):
@@ -612,7 +619,7 @@ class StringMethods(object):
         return self._newlist_unwrapped(space, strs)
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
             return self._startswith_tuple(space, value, w_prefix, start, end)
         return space.newbool(self._startswith(space, value, w_prefix, start,
@@ -626,16 +633,19 @@ class StringMethods(object):
 
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
-        if start > len(value):
-            return self._starts_ends_overflow(prefix)
+        if self._starts_ends_unicode:   # bug-to-bug compat
+            if len(prefix) == 0:
+                return True
+        else:
+            if start > len(value):
+                return False
         return startswith(value, prefix, start, end)
 
-    def _starts_ends_overflow(self, prefix):
-        return False     # bug-to-bug compat: this is for strings and
-                         # bytearrays, but overridden for unicodes
+    _starts_ends_unicode = False  # bug-to-bug compat: this is for strings and
+                                  # bytearrays, but overridden for unicodes
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
             return self._endswith_tuple(space, value, w_suffix, start, end)
         return space.newbool(self._endswith(space, value, w_suffix, start,
@@ -649,8 +659,12 @@ class StringMethods(object):
 
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
-        if start > len(value):
-            return self._starts_ends_overflow(prefix)
+        if self._starts_ends_unicode:   # bug-to-bug compat
+            if len(prefix) == 0:
+                return True
+        else:
+            if start > len(value):
+                return False
         return endswith(value, prefix, start, end)
 
     def _strip(self, space, w_chars, left, right, name='strip'):
@@ -805,4 +819,4 @@ def _descr_getslice_slowpath(selfvalue, start, step, sl):
     return [selfvalue[start + i*step] for i in range(sl)]
 
 def _get_buffer(space, w_obj):
-    return space.buffer_w(w_obj, space.BUF_SIMPLE)
+    return space.buffer_w(w_obj, space.BUF_SIMPLE).as_readbuf()

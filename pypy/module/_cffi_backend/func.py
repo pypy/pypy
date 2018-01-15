@@ -46,17 +46,17 @@ def sizeof(space, w_obj):
                         "ctype '%s' is of unknown size", w_obj.name)
     else:
         raise oefmt(space.w_TypeError, "expected a 'cdata' or 'ctype' object")
-    return space.wrap(size)
+    return space.newint(size)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def alignof(space, w_ctype):
     align = w_ctype.alignof()
-    return space.wrap(align)
+    return space.newint(align)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
 def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
     ctype, offset = w_ctype.direct_typeoffsetof(w_field_or_index, following)
-    return space.newtuple([space.wrap(ctype), space.wrap(offset)])
+    return space.newtuple([ctype, space.newint(offset)])
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
 def rawaddressof(space, w_ctype, w_cdata, offset):
@@ -64,11 +64,11 @@ def rawaddressof(space, w_ctype, w_cdata, offset):
 
 # ____________________________________________________________
 
-@unwrap_spec(w_ctype=ctypeobj.W_CType, replace_with=str)
+@unwrap_spec(w_ctype=ctypeobj.W_CType, replace_with='text')
 def getcname(space, w_ctype, replace_with):
     p = w_ctype.name_position
     s = '%s%s%s' % (w_ctype.name[:p], replace_with, w_ctype.name[p:])
-    return space.wrap(s)
+    return space.newtext(s)
 
 # ____________________________________________________________
 
@@ -99,30 +99,16 @@ def _get_common_types(space, w_dict):
             break
         key = rffi.charp2str(p)
         value = rffi.charp2str(rffi.ptradd(p, len(key) + 1))
-        space.setitem_str(w_dict, key, space.wrap(value))
+        space.setitem_str(w_dict, key, space.newtext(value))
         index += 1
 
 # ____________________________________________________________
 
 def _fetch_as_read_buffer(space, w_x):
-    # xxx do we really need to implement the same mess as in CPython 2.7
-    # w.r.t. buffers and memoryviews??
-    try:
-        buf = space.readbuf_w(w_x)
-    except OperationError as e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        buf = space.buffer_w(w_x, space.BUF_SIMPLE)
-    return buf
+    return space.readbuf_w(w_x)
 
 def _fetch_as_write_buffer(space, w_x):
-    try:
-        buf = space.writebuf_w(w_x)
-    except OperationError as e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        buf = space.buffer_w(w_x, space.BUF_WRITABLE)
-    return buf
+    return space.writebuf_w(w_x)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def from_buffer(space, w_ctype, w_x):
@@ -140,7 +126,7 @@ def _from_buffer(space, w_ctype, w_x):
         raise oefmt(space.w_TypeError,
                         "from_buffer() cannot return the address a unicode")
     buf = _fetch_as_read_buffer(space, w_x)
-    if space.isinstance_w(w_x, space.w_str):
+    if space.isinstance_w(w_x, space.w_bytes):
         _cdata = get_raw_address_of_string(space, w_x)
     else:
         try:
@@ -181,7 +167,7 @@ def get_raw_address_of_string(space, w_x):
     cache = space.fromcache(RawBytesCache)
     rawbytes = cache.wdict.get(w_x)
     if rawbytes is None:
-        data = space.str_w(w_x)
+        data = space.bytes_w(w_x)
         if we_are_translated() and not rgc.can_move(data):
             lldata = llstr(data)
             data_start = (llmemory.cast_ptr_to_adr(lldata) +
@@ -271,6 +257,6 @@ def memmove(space, w_dest, w_src, n):
 
 # ____________________________________________________________
 
-@unwrap_spec(w_cdata=cdataobj.W_CData)
-def gcp(space, w_cdata, w_destructor):
-    return w_cdata.with_gc(w_destructor)
+@unwrap_spec(w_cdata=cdataobj.W_CData, size=int)
+def gcp(space, w_cdata, w_destructor, size=0):
+    return w_cdata.with_gc(w_destructor, size)

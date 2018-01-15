@@ -73,7 +73,7 @@ class FakeCallControl:
     def guess_call_kind(self, op):
         return 'residual'
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
-                     extraeffect=None, extradescr=None):
+                     extraeffect=None, extradescr=None, calling_graph=None):
         try:
             name = op.args[0].value._obj._name
             if 'cannot_raise' in name or name.startswith('cast_'):

@@ -1,7 +1,12 @@
 
 /***** Support code for embedding *****/
 
-#if defined(_MSC_VER)
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+#if defined(_WIN32)
 #  define CFFI_DLLEXPORT  __declspec(dllexport)
 #elif defined(__GNUC__)
 #  define CFFI_DLLEXPORT  __attribute__((visibility("default")))
@@ -108,6 +113,8 @@ static void _cffi_release_reentrant_mutex(void)
 
 /**********  CPython-specific section  **********/
 #ifndef PYPY_VERSION
+
+#include "_cffi_errors.h"
 
 
 #define _cffi_call_python_org  _cffi_exports[_CFFI_CPIDX]
@@ -220,8 +227,16 @@ static int _cffi_initialize_python(void)
         /* Print as much information as potentially useful.
            Debugging load-time failures with embedding is not fun
         */
+        PyObject *ecap;
         PyObject *exception, *v, *tb, *f, *modules, *mod;
         PyErr_Fetch(&exception, &v, &tb);
+        ecap = _cffi_start_error_capture();
+        f = PySys_GetObject((char *)"stderr");
+        if (f != NULL && f != Py_None) {
+            PyFile_WriteString(
+                "Failed to initialize the Python-CFFI embedding logic:\n\n", f);
+        }
+
         if (exception != NULL) {
             PyErr_NormalizeException(&exception, &v, &tb);
             PyErr_Display(exception, v, tb);
@@ -230,10 +245,9 @@ static int _cffi_initialize_python(void)
         Py_XDECREF(v);
         Py_XDECREF(tb);
 
-        f = PySys_GetObject((char *)"stderr");
         if (f != NULL && f != Py_None) {
             PyFile_WriteString("\nFrom: " _CFFI_MODULE_NAME
-                               "\ncompiled with cffi version: 1.10.0"
+                               "\ncompiled with cffi version: 1.11.3"
                                "\n_cffi_backend module: ", f);
             modules = PyImport_GetModuleDict();
             mod = PyDict_GetItemString(modules, "_cffi_backend");
@@ -249,6 +263,7 @@ static int _cffi_initialize_python(void)
             PyFile_WriteObject(PySys_GetObject((char *)"path"), f, 0);
             PyFile_WriteString("\n\n", f);
         }
+        _cffi_stop_error_capture(ecap);
     }
     result = -1;
     goto done;
@@ -515,3 +530,7 @@ static int cffi_start_python(void)
 #undef cffi_compare_and_swap
 #undef cffi_write_barrier
 #undef cffi_read_barrier
+
+#ifdef __cplusplus
+}
+#endif

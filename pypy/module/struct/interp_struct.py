@@ -1,5 +1,6 @@
 from rpython.rlib import jit
 from rpython.rlib.buffer import SubBuffer
+from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
@@ -7,6 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import make_weakref_descr
 from pypy.module.struct.formatiterator import (
     PackFormatIterator, UnpackFormatIterator
 )
@@ -26,50 +28,60 @@ def _calcsize(space, format):
     try:
         fmtiter.interpret(format)
     except StructOverflowError as e:
-        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
+        raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
-        raise OperationError(get_error(space), space.wrap(e.msg))
+        raise OperationError(get_error(space), space.newtext(e.msg))
     return fmtiter.totalsize
 
 
-@unwrap_spec(format=str)
+@unwrap_spec(format='text')
 def calcsize(space, format):
-    return space.wrap(_calcsize(space, format))
+    """Return size of C struct described by format string fmt."""
+    return space.newint(_calcsize(space, format))
 
 
 def _pack(space, format, args_w):
-    if jit.isconstant(format):
-        size = _calcsize(space, format)
-    else:
-        size = 8
-    fmtiter = PackFormatIterator(space, args_w, size)
+    """Return string containing values v1, v2, ... packed according to fmt."""
+    size = _calcsize(space, format)
+    wbuf = MutableStringBuffer(size)
+    fmtiter = PackFormatIterator(space, wbuf, args_w)
     try:
         fmtiter.interpret(format)
     except StructOverflowError as e:
-        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
+        raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
-        raise OperationError(get_error(space), space.wrap(e.msg))
-    return fmtiter.result.build()
+        raise OperationError(get_error(space), space.newtext(e.msg))
+    assert fmtiter.pos == wbuf.getlength(), 'missing .advance() or wrong calcsize()'
+    return wbuf.finish()
 
 
-@unwrap_spec(format=str)
+@unwrap_spec(format='text')
 def pack(space, format, args_w):
-    return space.wrap(_pack(space, format, args_w))
+    return space.newbytes(_pack(space, format, args_w))
 
 
-# XXX inefficient
-@unwrap_spec(format=str, offset=int)
+@unwrap_spec(format='text', offset=int)
 def pack_into(space, format, w_buffer, offset, args_w):
-    res = _pack(space, format, args_w)
+    """ Pack the values v1, v2, ... according to fmt.
+Write the packed bytes into the writable buffer buf starting at offset
+    """
+    size = _calcsize(space, format)
     buf = space.getarg_w('w*', w_buffer)
     if offset < 0:
         offset += buf.getlength()
-    size = len(res)
     if offset < 0 or (buf.getlength() - offset) < size:
         raise oefmt(get_error(space),
                     "pack_into requires a buffer of at least %d bytes",
                     size)
-    buf.setslice(offset, res)
+    #
+    wbuf = SubBuffer(buf, offset, size)
+    fmtiter = PackFormatIterator(space, wbuf, args_w)
+    try:
+        fmtiter.interpret(format)
+    except StructOverflowError as e:
+        raise OperationError(space.w_OverflowError, space.newtext(e.msg))
+    except StructError as e:
+        raise OperationError(get_error(space), space.newtext(e.msg))
 
 
 def _unpack(space, format, buf):
@@ -77,20 +89,22 @@ def _unpack(space, format, buf):
     try:
         fmtiter.interpret(format)
     except StructOverflowError as e:
-        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
+        raise OperationError(space.w_OverflowError, space.newtext(e.msg))
     except StructError as e:
-        raise OperationError(get_error(space), space.wrap(e.msg))
+        raise OperationError(get_error(space), space.newtext(e.msg))
     return space.newtuple(fmtiter.result_w[:])
 
 
-@unwrap_spec(format=str)
+@unwrap_spec(format='text')
 def unpack(space, format, w_str):
     buf = space.getarg_w('s*', w_str)
     return _unpack(space, format, buf)
 
 
-@unwrap_spec(format=str, offset=int)
+@unwrap_spec(format='text', offset=int)
 def unpack_from(space, format, w_buffer, offset=0):
+    """Unpack the buffer, containing packed C structure data, according to
+fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
     size = _calcsize(space, format)
     buf = space.getarg_w('z*', w_buffer)
     if buf is None:
@@ -108,15 +122,16 @@ def unpack_from(space, format, w_buffer, offset=0):
 class W_Struct(W_Root):
     _immutable_fields_ = ["format", "size"]
 
-    def __init__(self, space, format):
+    format = ""
+    size = -1
+
+    def descr__new__(space, w_subtype, __args__):
+        return space.allocate_instance(W_Struct, w_subtype)
+
+    @unwrap_spec(format='text')
+    def descr__init__(self, space, format):
         self.format = format
         self.size = _calcsize(space, format)
-
-    @unwrap_spec(format=str)
-    def descr__new__(space, w_subtype, format):
-        self = space.allocate_instance(W_Struct, w_subtype)
-        W_Struct.__init__(self, space, format)
-        return self
 
     def descr_pack(self, space, args_w):
         return pack(space, jit.promote_string(self.format), args_w)
@@ -134,13 +149,15 @@ class W_Struct(W_Root):
 
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
-    format=interp_attrproperty("format", cls=W_Struct),
-    size=interp_attrproperty("size", cls=W_Struct),
+    __init__=interp2app(W_Struct.descr__init__),
+    format=interp_attrproperty("format", cls=W_Struct, wrapfn="newbytes"),
+    size=interp_attrproperty("size", cls=W_Struct, wrapfn="newint"),
 
     pack=interp2app(W_Struct.descr_pack),
     unpack=interp2app(W_Struct.descr_unpack),
     pack_into=interp2app(W_Struct.descr_pack_into),
     unpack_from=interp2app(W_Struct.descr_unpack_from),
+    __weakref__=make_weakref_descr(W_Struct),
 )
 
 def clearcache(space):

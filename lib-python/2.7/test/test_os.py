@@ -580,6 +580,7 @@ HAVE_GETENTROPY = (sysconfig.get_config_var('HAVE_GETENTROPY') == 1)
                  "getentropy() does not use a file descriptor")
 class URandomFDTests(unittest.TestCase):
     @unittest.skipUnless(resource, "test requires the resource module")
+    @test_support.impl_detail(pypy=False)    # on Linux, may use getrandom()
     def test_urandom_failure(self):
         # Check urandom() failing when it is not able to open /dev/random.
         # We spawn a new process to make the test more robust (if getrlimit()

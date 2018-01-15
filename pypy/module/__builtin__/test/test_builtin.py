@@ -404,6 +404,7 @@ class AppTestBuiltinApp:
 
 
     def test_cmp(self):
+        assert cmp(float('nan'), float('nan')) == 0
         assert cmp(9,9) == 0
         assert cmp(0,9) < 0
         assert cmp(9,0) > 0
@@ -625,6 +626,9 @@ class AppTestBuiltinApp:
         assert round(5e15) == 5e15
         assert round(-(5e15-1)) == -(5e15-1)
         assert round(-5e15) == -5e15
+        assert round(5e15/2) == 5e15/2
+        assert round((5e15+1)/2) == 5e15/2+1
+        assert round((5e15-1)/2) == 5e15/2
         #
         inf = 1e200 * 1e200
         assert round(inf) == inf
@@ -636,6 +640,12 @@ class AppTestBuiltinApp:
         #
         assert round(562949953421312.5, 1) == 562949953421312.5
         assert round(56294995342131.5, 3) == 56294995342131.5
+        #
+        for i in range(-10, 10):
+            expected = i if i < 0 else i + 1
+            assert round(i + 0.5) == round(i + 0.5, 0) == expected
+            x = i * 10 + 5
+            assert round(x, -1) == round(float(x), -1) == expected * 10
 
     def test_vars_obscure_case(self):
         class C_get_vars(object):

@@ -10,21 +10,13 @@ import rpython
 rpydir = str(py.path.local(rpython.__file__).join('..'))
 
 def _get_compiler_type(cc, x64_flag):
-    import subprocess
     if not cc:
         cc = os.environ.get('CC','')
     if not cc:
         return MsvcPlatform(x64=x64_flag)
     elif cc.startswith('mingw') or cc == 'gcc':
         return MingwPlatform(cc)
-    else:
-        return MsvcPlatform(cc=cc, x64=x64_flag)
-    try:
-        subprocess.check_output([cc, '--version'])
-    except:
-        raise ValueError("Could not find compiler specified by cc option '%s',"
-                         " it must be a valid exe file on your path" % cc)
-    return MingwPlatform(cc)
+    return MsvcPlatform(cc=cc, x64=x64_flag)
 
 def Windows(cc=None):
     return _get_compiler_type(cc, False)
@@ -74,6 +66,11 @@ def _get_msvc_env(vsver, x64flag):
             vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
         else:
             vcvars = os.path.join(toolsdir, 'vsvars32.bat')
+            if not os.path.exists(vcvars):
+                # even msdn does not know which to run
+                # see https://msdn.microsoft.com/en-us/library/1700bbwd(v=vs.90).aspx
+                # wich names both
+                vcvars = os.path.join(toolsdir, 'vcvars32.bat') 
 
     import subprocess
     try:
@@ -95,29 +92,50 @@ def _get_msvc_env(vsver, x64flag):
         key, value = line.split('=', 1)
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
             env[key.upper()] = value
-    ## log.msg("Updated environment with %s" % (vcvars,))
+    log.msg("Updated environment with %s" % (vcvars,))
     return env
 
 def find_msvc_env(x64flag=False):
+    vcvers = [140, 100, 90, 80, 71, 70]
     # First, try to get the compiler which served to compile python
     msc_pos = sys.version.find('MSC v.')
     if msc_pos != -1:
         msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
-        # 1300 -> 70, 1310 -> 71, 1400 -> 80, 1500 -> 90
+        # 1500 -> 90, 1900 -> 140
         vsver = (msc_ver / 10) - 60
+        vcvers.insert(0, vsver)
+    errs = []
+    for vsver in vcvers: 
         env = _get_msvc_env(vsver, x64flag)
-
-        if env is not None:
-            return env
-
-    # Then, try any other version
-    for vsver in (100, 90, 80, 71, 70): # All the versions I know
-        env = _get_msvc_env(vsver, x64flag)
-
         if env is not None:
             return env
     log.error("Could not find a Microsoft Compiler")
     # Assume that the compiler is already part of the environment
+
+# copied from distutils.spawn
+def _find_executable(executable, path=None):
+    """Tries to find 'executable' in the directories listed in 'path'.
+
+    A string listing directories separated by 'os.pathsep'; defaults to
+    os.environ['PATH'].  Returns the complete filename or None if not found.
+    """
+    if path is None:
+        path = os.environ['PATH']
+    paths = path.split(os.pathsep)
+
+    for ext in '.exe', '':
+        newexe = executable + ext
+
+        if os.path.isfile(newexe):
+            return newexe
+        else:
+            for p in paths:
+                f = os.path.join(p, newexe)
+                if os.path.isfile(f):
+                    # the file exists, we have a shot at spawn working
+                    return f
+    return None
+
 
 class MsvcPlatform(Platform):
     name = "msvc"
@@ -128,6 +146,9 @@ class MsvcPlatform(Platform):
 
     cc = 'cl.exe'
     link = 'link.exe'
+    make = 'nmake'
+    if _find_executable('jom.exe'):
+        make = 'jom.exe'
 
     cflags = ('/MD', '/O2', '/Zi')
     link_flags = ('/debug','/LARGEADDRESSAWARE')
@@ -200,7 +221,7 @@ class MsvcPlatform(Platform):
     def _linkfiles(self, link_files):
         return list(link_files)
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['/dll'] + args
 
     def check___thread(self):
@@ -271,7 +292,7 @@ class MsvcPlatform(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], profopt=False, config=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -392,6 +413,7 @@ class MsvcPlatform(Platform):
                           '/Fo$@ /c $< $(INCLUDEDIRS)'))
 
 
+        icon = config.translation.icon if config else None
         if icon:
             shutil.copyfile(icon, str(path.join('icon.ico')))
             rc_file = path.join('icon.rc')
@@ -459,19 +481,19 @@ class MsvcPlatform(Platform):
                 deps.append('icon.res')
                 wdeps.append('icon.res')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)'] + deps,
-                   ['$(CC_LINK) /nologo /debug %s ' % (' '.join(deps),) + \
+                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE %s ' % (' '.join(deps),) + \
                     '$(SHARED_IMPORT_LIB) /out:$@ ' + \
                     '/MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
             m.rule('$(WTARGET)', ['$(TARGET)'] + wdeps,
-                   ['$(CC_LINK) /nologo /debug /SUBSYSTEM:WINDOWS %s ' % (' '.join(wdeps),) + \
-                    '$(SHARED_IMPORT_LIB) /out:$@ ' + \
+                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE /SUBSYSTEM:WINDOWS %s ' % (
+                    ' '.join(wdeps),) + '$(SHARED_IMPORT_LIB) /out:$@ ' + \
                     '/MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)']+deps,
-                   ['$(CC_LINK) /nologo /DEBUG %s ' % (' '.join(deps),) + \
+                   ['$(CC_LINK) /nologo /DEBUG /LARGEADDRESSAWARE %s ' % (' '.join(deps),) + \
                     'debugmode_$(SHARED_IMPORT_LIB) /out:$@',
                     ])
 
@@ -482,11 +504,11 @@ class MsvcPlatform(Platform):
             path = path_to_makefile.makefile_dir
         else:
             path = path_to_makefile
-        log.execute('make %s in %s' % (" ".join(extra_opts), path))
+        log.execute('%s %s in %s' % (self.make, " ".join(extra_opts), path))
         oldcwd = path.chdir()
         try:
             returncode, stdout, stderr = _run_subprocess(
-                'nmake',
+                self.make,
                 ['/nologo', '/f', str(path.join('Makefile'))] + extra_opts,
                 env = self.c_environ)
         finally:
@@ -554,7 +576,7 @@ class MingwPlatform(posix.BasePosix):
             cc = 'gcc'
         Platform.__init__(self, cc)
 
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['-shared'] + args
 
     def _include_dirs_for_libffi(self):

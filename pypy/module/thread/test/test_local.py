@@ -72,6 +72,19 @@ class AppTestLocal(GenericTestThread):
         assert seen1 == [1, 2, 3, 4, 5]
         assert tags == ['???']
 
+    def test_local_init2(self):
+        import thread
+
+        class A(object):
+            def __init__(self, n):
+                assert n == 42
+                self.n = n
+        class X(thread._local, A):
+            pass
+
+        x = X(42)
+        assert x.n == 42
+
     def test_local_setdict(self):
         import thread
         x = thread._local()
@@ -88,6 +101,10 @@ class AppTestLocal(GenericTestThread):
             thread.start_new_thread(f, (i,))
         self.waitfor(lambda: len(done) == 5, delay=2)
         assert len(done) == 5
+
+    def test_weakrefable(self):
+        import thread, weakref
+        weakref.ref(thread._local())
 
     def test_local_is_not_immortal(self):
         import thread, gc, time
@@ -123,6 +140,7 @@ def test_local_caching():
             return {}
         def wrap(self, obj):
             return obj
+        newtext = wrap
         def type(self, obj):
             return type(obj)
         class config:

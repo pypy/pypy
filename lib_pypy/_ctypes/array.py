@@ -8,60 +8,64 @@ from _ctypes.basics import CArgObject, as_ffi_pointer
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
-        if '_type_' in typedict:
-            ffiarray = _rawffi.Array(typedict['_type_']._ffishape_)
-            res._ffiarray = ffiarray
-            subletter = getattr(typedict['_type_'], '_type_', None)
-            if subletter == 'c':
-                def getvalue(self):
-                    return _rawffi.charp2string(self._buffer.buffer,
-                                                self._length_)
-                def setvalue(self, val):
-                    # we don't want to have buffers here
-                    if len(val) > self._length_:
-                        raise ValueError("%r too long" % (val,))
-                    if isinstance(val, str):
-                        _rawffi.rawstring2charp(self._buffer.buffer, val)
-                    else:
-                        for i in range(len(val)):
-                            self[i] = val[i]
-                    if len(val) < self._length_:
-                        self._buffer[len(val)] = '\x00'
-                res.value = property(getvalue, setvalue)
 
-                def getraw(self):
-                    return _rawffi.charp2rawstring(self._buffer.buffer,
-                                                   self._length_)
-
-                def setraw(self, buffer):
-                    if len(buffer) > self._length_:
-                        raise ValueError("%r too long" % (buffer,))
-                    _rawffi.rawstring2charp(self._buffer.buffer, buffer)
-                res.raw = property(getraw, setraw)
-            elif subletter == 'u':
-                def getvalue(self):
-                    return _rawffi.wcharp2unicode(self._buffer.buffer,
-                                                  self._length_)
-
-                def setvalue(self, val):
-                    # we don't want to have buffers here
-                    if len(val) > self._length_:
-                        raise ValueError("%r too long" % (val,))
-                    if isinstance(val, unicode):
-                        target = self._buffer
-                    else:
-                        target = self
-                    for i in range(len(val)):
-                        target[i] = val[i]
-                    if len(val) < self._length_:
-                        target[len(val)] = u'\x00'
-                res.value = property(getvalue, setvalue)
-                
-            if '_length_' in typedict:
-                res._ffishape_ = (ffiarray, typedict['_length_'])
-                res._fficompositesize_ = res._sizeofinstances()
-        else:
+        if cls == (_CData,): # this is the Array class defined below
             res._ffiarray = None
+            return res
+        if not hasattr(res, '_length_') or not isinstance(res._length_,
+                                                          (int, long)):
+            raise AttributeError(
+                "class must define a '_length_' attribute, "
+                "which must be a positive integer")
+        ffiarray = res._ffiarray = _rawffi.Array(res._type_._ffishape_)
+        subletter = getattr(res._type_, '_type_', None)
+        if subletter == 'c':
+            def getvalue(self):
+                return _rawffi.charp2string(self._buffer.buffer,
+                                            self._length_)
+            def setvalue(self, val):
+                # we don't want to have buffers here
+                if len(val) > self._length_:
+                    raise ValueError("%r too long" % (val,))
+                if isinstance(val, str):
+                    _rawffi.rawstring2charp(self._buffer.buffer, val)
+                else:
+                    for i in range(len(val)):
+                        self[i] = val[i]
+                if len(val) < self._length_:
+                    self._buffer[len(val)] = b'\x00'
+            res.value = property(getvalue, setvalue)
+
+            def getraw(self):
+                return _rawffi.charp2rawstring(self._buffer.buffer,
+                                               self._length_)
+
+            def setraw(self, buffer):
+                if len(buffer) > self._length_:
+                    raise ValueError("%r too long" % (buffer,))
+                _rawffi.rawstring2charp(self._buffer.buffer, buffer)
+            res.raw = property(getraw, setraw)
+        elif subletter == 'u':
+            def getvalue(self):
+                return _rawffi.wcharp2unicode(self._buffer.buffer,
+                                              self._length_)
+
+            def setvalue(self, val):
+                # we don't want to have buffers here
+                if len(val) > self._length_:
+                    raise ValueError("%r too long" % (val,))
+                if isinstance(val, unicode):
+                    target = self._buffer
+                else:
+                    target = self
+                for i in range(len(val)):
+                    target[i] = val[i]
+                if len(val) < self._length_:
+                    target[len(val)] = u'\x00'
+            res.value = property(getvalue, setvalue)
+
+        res._ffishape_ = (ffiarray, res._length_)
+        res._fficompositesize_ = res._sizeofinstances()
         return res
 
     from_address = cdata_from_address
@@ -76,17 +80,22 @@ class ArrayMeta(_CDataMeta):
         return self._type_._alignmentofinstances()
 
     def _CData_output(self, resarray, base=None, index=-1):
-        # this seems to be a string if we're array of char, surprise!
-        from ctypes import c_char, c_wchar
-        if self._type_ is c_char:
-            return _rawffi.charp2string(resarray.buffer, self._length_)
-        if self._type_ is c_wchar:
-            return _rawffi.wcharp2unicode(resarray.buffer, self._length_)
+        from _rawffi.alt import types
+        # If a char_p or unichar_p is received, skip the string interpretation
+        if base._ffiargtype != types.Pointer(types.char_p) and \
+           base._ffiargtype != types.Pointer(types.unichar_p):
+            # this seems to be a string if we're array of char, surprise!
+            from ctypes import c_char, c_wchar
+            if self._type_ is c_char:
+                return _rawffi.charp2string(resarray.buffer, self._length_)
+            if self._type_ is c_wchar:
+                return _rawffi.wcharp2unicode(resarray.buffer, self._length_)
         res = self.__new__(self)
         ffiarray = self._ffiarray.fromaddress(resarray.buffer, self._length_)
         res._buffer = ffiarray
-        res._base = base
-        res._index = index
+        if base is not None:
+            res._base = base
+            res._index = index
         return res
 
     def _CData_retval(self, resbuffer):
@@ -151,7 +160,7 @@ def array_slice_getitem(self, index):
     l = [self[i] for i in range(start, stop, step)]
     letter = getattr(self._type_, '_type_', None)
     if letter == 'c':
-        return "".join(l)
+        return b"".join(l)
     if letter == 'u':
         return u"".join(l)
     return l

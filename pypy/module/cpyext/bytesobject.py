@@ -1,12 +1,12 @@
 from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
+    cpython_api, cpython_struct, bootstrap_function, build_type_checkers_flags,
     PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref,
+    PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
+    make_typedescr, get_typedescr, as_pyobj, get_w_obj_and_decref,
     pyobj_has_w_obj)
 from pypy.objspace.std.bytesobject import W_BytesObject
 
@@ -52,13 +52,13 @@ cpython_struct("PyStringObject", PyBytesObjectFields, PyBytesObjectStruct)
 @bootstrap_function
 def init_bytesobject(space):
     "Type description of PyBytesObject"
-    make_typedescr(space.w_str.layout.typedef,
+    make_typedescr(space.w_bytes.layout.typedef,
                    basestruct=PyBytesObject.TO,
                    attach=bytes_attach,
                    dealloc=bytes_dealloc,
                    realize=bytes_realize)
 
-PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_str")
+PyString_Check, PyString_CheckExact = build_type_checkers_flags("String", "w_bytes")
 
 def new_empty_str(space, length):
     """
@@ -66,8 +66,8 @@ def new_empty_str(space, length):
     interpreter object.  The ob_sval may be mutated, until bytes_realize() is
     called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_str.layout.typedef)
-    py_obj = typedescr.allocate(space, space.w_str, length)
+    typedescr = get_typedescr(space.w_bytes.layout.typedef)
+    py_obj = typedescr.allocate(space, space.w_bytes, length)
     py_str = rffi.cast(PyBytesObject, py_obj)
     py_str.c_ob_shash = -1
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
@@ -79,7 +79,7 @@ def bytes_attach(space, py_obj, w_obj, w_userdata=None):
     c_ob_sval must not be modified.
     """
     py_str = rffi.cast(PyBytesObject, py_obj)
-    s = space.str_w(w_obj)
+    s = space.bytes_w(w_obj)
     len_s = len(s)
     if py_str.c_ob_size  < len_s:
         raise oefmt(space.w_ValueError,
@@ -124,21 +124,21 @@ def bytes_dealloc(space, py_obj):
 def PyString_FromStringAndSize(space, char_p, length):
     if char_p:
         s = rffi.charpsize2str(char_p, length)
-        return make_ref(space, space.wrap(s))
+        return make_ref(space, space.newbytes(s))
     else:
         return rffi.cast(PyObject, new_empty_str(space, length))
 
 @cpython_api([CONST_STRING], PyObject)
 def PyString_FromString(space, char_p):
     s = rffi.charp2str(char_p)
-    return space.wrap(s)
+    return space.newbytes(s)
 
 @cpython_api([PyObject], rffi.CCHARP, error=0)
 def PyString_AsString(space, ref):
     return _PyString_AsString(space, ref)
 
 def _PyString_AsString(space, ref):
-    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         pass    # typecheck returned "ok" without forcing 'ref' at all
     elif not PyString_Check(space, ref):   # otherwise, use the alternate way
         from pypy.module.cpyext.unicodeobject import (
@@ -188,7 +188,7 @@ def PyString_AsStringAndSize(space, ref, data, length):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyString_Size(space, ref):
-    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         ref = rffi.cast(PyBytesObject, ref)
         return ref.c_ob_size
     else:
@@ -215,7 +215,7 @@ def _PyString_Resize(space, ref, newsize):
     try:
         py_newstr = new_empty_str(space, newsize)
     except MemoryError:
-        Py_DecRef(space, ref[0])
+        decref(space, ref[0])
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
@@ -224,7 +224,7 @@ def _PyString_Resize(space, ref, newsize):
         to_cp = oldsize
     for i in range(to_cp):
         py_newstr.c_ob_sval[i] = py_str.c_ob_sval[i]
-    Py_DecRef(space, ref[0])
+    decref(space, ref[0])
     ref[0] = rffi.cast(PyObject, py_newstr)
     return 0
 
@@ -260,7 +260,7 @@ def PyString_ConcatAndDel(space, ref, newpart):
     try:
         PyString_Concat(space, ref, newpart)
     finally:
-        Py_DecRef(space, newpart)
+        decref(space, newpart)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyString_Format(space, w_format, w_args):
@@ -294,7 +294,7 @@ def PyString_InternInPlace(space, string):
     alias."""
     w_str = from_ref(space, string[0])
     w_str = space.new_interned_w_str(w_str)
-    Py_DecRef(space, string[0])
+    decref(space, string[0])
     string[0] = make_ref(space, w_str)
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
@@ -311,9 +311,9 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
 
     w_encoding = w_errors = None
     if encoding:
-        w_encoding = space.wrap(rffi.charp2str(encoding))
+        w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
+        w_errors = space.newtext(rffi.charp2str(errors))
     return space.call_method(w_str, 'encode', w_encoding, w_errors)
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
@@ -331,9 +331,9 @@ def PyString_AsDecodedObject(space, w_str, encoding, errors):
 
     w_encoding = w_errors = None
     if encoding:
-        w_encoding = space.wrap(rffi.charp2str(encoding))
+        w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
+        w_errors = space.newtext(rffi.charp2str(errors))
     return space.call_method(w_str, "decode", w_encoding, w_errors)
 
 @cpython_api([PyObject, PyObject], PyObject)

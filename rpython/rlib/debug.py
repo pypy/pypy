@@ -288,6 +288,9 @@ class Entry(ExtRegistryEntry):
 def mark_dict_non_null(d):
     """ Mark dictionary as having non-null keys and values. A warning would
     be emitted (not an error!) in case annotation disagrees.
+
+    This doesn't work for r_dicts. For them, pass
+    r_dict(..., force_non_null=True) to the constructor.
     """
     assert isinstance(d, dict)
     return d
@@ -524,7 +527,8 @@ extern "C" RPY_EXPORTED void AttachToVS() {
     ll_attach = rffi.llexternal("AttachToVS", [], lltype.Void,
                                 compilation_info=make_vs_attach_eci())
     def impl_attach_gdb():
-        ll_attach()
+        #ll_attach()
+        print "AttachToVS is disabled at the moment (compilation failure)"
 
 register_external(attach_gdb, [], result=None,
                   export_name="impl_attach_gdb", llimpl=impl_attach_gdb)

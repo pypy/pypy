@@ -145,6 +145,9 @@ def llexternal(name, args, result, _callable=None,
         # Also, _nowrapper functions cannot release the GIL, by default.
         invoke_around_handlers = not sandboxsafe and not _nowrapper
 
+    if _nowrapper and isinstance(_callable, ll2ctypes.LL2CtypesCallable):
+        kwds['_real_integer_addr'] = _callable.get_real_address
+
     if random_effects_on_gcobjs not in (False, True):
         random_effects_on_gcobjs = (
             invoke_around_handlers or   # because it can release the GIL
@@ -752,7 +755,8 @@ LONGDOUBLEP = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={'nolength': True}))
 
 # Signed, Signed *
 SIGNED = lltype.Signed
-SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
+SIGNEDP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+SIGNEDPP = lltype.Ptr(lltype.Array(SIGNEDP, hints={'nolength': True}))
 
 
 # various type mapping
@@ -1007,6 +1011,7 @@ def make_string_mappings(strtype):
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
+CWCHARPP = lltype.Ptr(lltype.Array(CWCHARP, hints={'nolength': True}))
 
 def liststr2charpp(l):
     """ list[str] -> char**, NULL terminated
@@ -1232,8 +1237,11 @@ class scoped_unicode2wcharp:
 
 
 class scoped_nonmovingbuffer:
+
     def __init__(self, data):
         self.data = data
+    __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=False)]
+
     def __enter__(self):
         self.buf, self.flag = get_nonmovingbuffer(self.data)
         return self.buf

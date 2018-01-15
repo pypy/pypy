@@ -10,8 +10,8 @@ from pypy.module.cpyext.bytesobject import (
     PyString_AsEncodedObject, PyString_AsDecodedObject, _PyString_Eq,
     _PyString_Join)
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
-from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
-from pypy.module.cpyext.object import PyObject_AsCharBuffer
+from pypy.module.cpyext.pyobject import decref, from_ref, make_ref
+from pypy.module.cpyext.buffer import PyObject_AsCharBuffer
 from pypy.module.cpyext.api import PyTypeObjectPtr
 
 
@@ -104,7 +104,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """),
             ('alloc_rw', "METH_NOARGS",
              '''
-                PyObject *obj = _PyObject_NewVar(&PyBytes_Type, 10);
+                PyObject *obj = (PyObject*)_PyObject_NewVar(&PyBytes_Type, 10);
                 memcpy(PyBytes_AS_STRING(obj), "works", 6);
                 return (PyObject*)obj;
              '''),
@@ -367,6 +367,16 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """
                 return PyLong_FromLong(PyObject_Size(args));
              """),
+            ('has_nb_add', "METH_O",
+             '''
+                if (args->ob_type->tp_as_number == NULL) {
+                    Py_RETURN_FALSE;
+                }
+                if (args->ob_type->tp_as_number->nb_add == NULL) {
+                    Py_RETURN_FALSE;
+                }
+                Py_RETURN_TRUE;
+             '''),
             ], prologue="""
                 #include <Python.h>
                 PyTypeObject PyStringArrType_Type = {
@@ -447,6 +457,8 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
             ''')
 
         a = module.newsubstr('abc')
+        assert module.has_nb_add('a') is False
+        assert module.has_nb_add(a) is False
         assert type(a).__name__ == 'string_'
         assert a == 'abc'
         assert 3 == module.get_len(a)
@@ -473,7 +485,7 @@ class TestBytes(BaseApiTest):
         assert py_str.c_ob_size == 10
         assert py_str.c_ob_sval[1] == 'b'
         assert py_str.c_ob_sval[10] == '\x00'
-        Py_DecRef(space, ar[0])
+        decref(space, ar[0])
         lltype.free(ar, flavor='raw')
 
     def test_string_buffer(self, space):
@@ -492,7 +504,7 @@ class TestBytes(BaseApiTest):
         assert generic_cpy_call(space, c_buf.c_bf_getreadbuffer,
                                 py_obj, 0, ref) == 10
         lltype.free(ref, flavor='raw')
-        Py_DecRef(space, py_obj)
+        decref(space, py_obj)
 
     def test_Concat(self, space):
         ref = make_ref(space, space.wrap('abc'))
@@ -518,7 +530,7 @@ class TestBytes(BaseApiTest):
         PyString_ConcatAndDel(space, ptr, ref2)
         assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
         assert ref2.c_ob_refcnt == prev_refcnf - 1
-        Py_DecRef(space, ptr[0])
+        decref(space, ptr[0])
         ptr[0] = lltype.nullptr(PyObject.TO)
         ref2 = make_ref(space, space.wrap('foo'))
         prev_refcnf = ref2.c_ob_refcnt
@@ -543,7 +555,7 @@ class TestBytes(BaseApiTest):
         assert rffi.charp2str(bufp[0]) == 'text'
         lltype.free(bufp, flavor='raw')
         lltype.free(lenp, flavor='raw')
-        Py_DecRef(space, ref)
+        decref(space, ref)
 
     def test_intern(self, space):
         buf = rffi.str2charp("test")

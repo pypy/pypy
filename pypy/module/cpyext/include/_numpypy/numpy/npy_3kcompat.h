@@ -10,7 +10,7 @@
 #ifndef _NPY_3KCOMPAT_H_
 #define _NPY_3KCOMPAT_H_
 
-#include <numpy/npy_common.h>
+#include "npy_common.h"
 
 #define npy_PyFile_Dup(file, mode) (NULL)
 #define npy_PyFile_DupClose(file, handle) (0)

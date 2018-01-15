@@ -33,7 +33,6 @@ class FunctionCodeGenerator(object):
     Collects information about a function which we have to generate
     from a flow graph.
     """
-
     def __init__(self, graph, db, exception_policy, functionname):
         self.graph = graph
         self.db = db
@@ -174,6 +173,19 @@ class FunctionCodeGenerator(object):
     def cfunction_body(self):
         graph = self.graph
 
+        # ----- for gc_enter_roots_frame
+        _seen = set()
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'gc_enter_roots_frame':
+                    _seen.add(tuple(op.args))
+        if _seen:
+            assert len(_seen) == 1, (
+                "multiple different gc_enter_roots_frame in %r" % (graph,))
+            for line in self.gcpolicy.enter_roots_frame(self, list(_seen)[0]):
+                yield line
+        # ----- done
+
         # Locate blocks with a single predecessor, which can be written
         # inline in place of a "goto":
         entrymap = mkentrymap(graph)
@@ -299,7 +311,8 @@ class FunctionCodeGenerator(object):
     def gen_op(self, op):
         macro = 'OP_%s' % op.opname.upper()
         line = None
-        if op.opname.startswith('gc_') and op.opname != 'gc_load_indexed':
+        if (op.opname.startswith('gc_') and
+            op.opname not in ('gc_load_indexed', 'gc_store_indexed')):
             meth = getattr(self.gcpolicy, macro, None)
             if meth:
                 line = meth(self, op)
@@ -713,6 +726,19 @@ class FunctionCodeGenerator(object):
         return (
           "%(result)s = ((%(typename)s) (((char *)%(addr)s) + "
           "%(base_ofs)s + %(scale)s * %(index)s))[0];"
+          % locals())
+
+    def OP_GC_STORE_INDEXED(self, op):
+        addr = self.expr(op.args[0])
+        index = self.expr(op.args[1])
+        value = self.expr(op.args[2])
+        scale = self.expr(op.args[3])
+        base_ofs = self.expr(op.args[4])
+        TYPE = op.args[2].concretetype
+        typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
+        return (
+          "((%(typename)s) (((char *)%(addr)s) + "
+          "%(base_ofs)s + %(scale)s * %(index)s))[0] = %(value)s;"
           % locals())
 
     def OP_CAST_PRIMITIVE(self, op):

@@ -24,19 +24,8 @@ CONST_ZERO_FLOAT = Const._new(0.0)
 llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
-def check_no_forwarding(lsts):
-    for lst in lsts:
-        for op in lst:
-            assert op.get_forwarded() is None
-
 class LoopInfo(object):
     label_op = None
-
-    def _check_no_forwarding(self):
-        pass
-
-    def forget_optimization_info(self):
-        pass
 
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps, jump_op):
@@ -284,7 +273,6 @@ class Optimizer(Optimization):
         self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
         self.interned_refs = self.cpu.ts.new_ref_dict()
-        self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.pendingfields = None # set temporarily to a list, normally by
                                   # heap.py, as we're about to generate a guard
@@ -297,6 +285,7 @@ class Optimizer(Optimization):
         self.optrewrite = None
         self.optearlyforce = None
         self.optunroll = None
+        self._really_emitted_operation = None
 
         self._last_guard_op = None
         self._last_debug_merge_point = None
@@ -576,8 +565,7 @@ class Optimizer(Optimization):
         return (BasicLoopInfo(trace.inputargs, self.quasi_immutable_deps, last_op),
                 self._newoperations)
 
-    @staticmethod
-    def _clean_optimization_info(lst):
+    def _clean_optimization_info(self, lst):
         for op in lst:
             if op.get_forwarded() is not None:
                 op.set_forwarded(None)

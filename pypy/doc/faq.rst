@@ -156,19 +156,81 @@ features (such as set comprehensions).
 Does PyPy have a GIL?  Why?
 -------------------------------------------------
 
-Yes, PyPy has a GIL.  Removing the GIL is very hard.  The problems are
-essentially the same as with CPython (including the fact that our
-garbage collectors are not thread-safe so far).  Fixing it is possible,
-as shown by Jython and IronPython, but difficult.  It would require
-adapting the whole source code of PyPy, including subtle decisions about
-whether some effects are ok or not for the user (i.e. the Python
-programmer).
+Yes, PyPy has a GIL.  Removing the GIL is very hard.  On top of CPython,
+you have two problems:  (1) GC, in this case reference counting; (2) the
+whole Python language.
 
-Instead, since 2012, there is work going on on a still very experimental
-:doc:`Software Transactional Memory <stm>` (STM) version of PyPy.  This should give
-an alternative PyPy which works without a GIL, while at the same time
-continuing to give the Python programmer the complete illusion of having
-one.
+For PyPy, the hard issue is (2): by that I mean issues like what occurs
+if a mutable object is changed from one thread and read from another
+concurrently.  This is a problem for *any* mutable type: it needs
+careful review and fixes (fine-grained locks, mostly) through the
+*whole* Python interpreter.  It is a major effort, although not
+completely impossible, as Jython/IronPython showed.  This includes
+subtle decisions about whether some effects are ok or not for the user
+(i.e. the Python programmer).
+
+CPython has additionally the problem (1) of reference counting.  With
+PyPy, this sub-problem is simpler: we need to make our GC
+multithread-aware.  This is easier to do efficiently in PyPy than in
+CPython.  It doesn't solve the issue (2), though.
+
+Note that since 2012 there is work going on on a still very experimental
+:doc:`Software Transactional Memory <stm>` (STM) version of PyPy.  This
+should give an alternative PyPy which works without a GIL, while at the
+same time continuing to give the Python programmer the complete illusion
+of having one.  This work is currently a bit stalled because of its own
+technical difficulties.
+
+
+What about numpy, numpypy, micronumpy?
+--------------------------------------
+
+Way back in 2011, the PyPy team `started to reimplement`_ numpy in PyPy.  It
+has two pieces:
+
+  * the builtin module :source:`pypy/module/micronumpy`: this is written in
+    RPython and roughly covers the content of the ``numpy.core.multiarray``
+    module. Confusingly enough, this is available in PyPy under the name
+    ``_numpypy``.  It is included by default in all the official releases of
+    PyPy (but it might be dropped in the future).
+
+  * a fork_ of the official numpy repository maintained by us and informally
+    called ``numpypy``: even more confusing, the name of the repo on bitbucket
+    is ``numpy``.  The main difference with the upstream numpy, is that it is
+    based on the micronumpy module written in RPython, instead of of
+    ``numpy.core.multiarray`` which is written in C.
+
+Moreover, it is also possible to install the upstream version of ``numpy``:
+its core is written in C and it runs on PyPy under the cpyext compatibility
+layer. This is what you get if you do ``pypy -m pip install numpy``.
+
+
+Should I install numpy or numpypy?
+-----------------------------------
+
+TL;DR version: you should use numpy. You can install it by doing ``pypy -m pip
+install numpy``.  You might also be interested in using the experimental `PyPy
+binary wheels`_ to save compilation time.
+
+The upstream ``numpy`` is written in C, and runs under the cpyext
+compatibility layer.  Nowadays, cpyext is mature enough that you can simply
+use the upstream ``numpy``, since it passes 99.9% of the test suite. At the
+moment of writing (October 2017) the main drawback of ``numpy`` is that cpyext
+is infamously slow, and thus it has worse performance compared to
+``numpypy``. However, we are actively working on improving it, as we expect to
+reach the same speed, eventually.
+
+On the other hand, ``numpypy`` is more JIT-friendly and very fast to call,
+since it is written in RPython: but it is a reimplementation, and it's hard to
+be completely compatible: over the years the project slowly matured and
+eventually it was able to call out to the LAPACK and BLAS libraries to speed
+matrix calculations, and reached around an 80% parity with the upstream
+numpy. However, 80% is far from 100%.  Since cpyext/numpy compatibility is
+progressing fast, we have discontinued support for ``numpypy``.
+
+.. _`started to reimplement`: https://morepypy.blogspot.co.il/2011/05/numpy-in-pypy-status-and-roadmap.html
+.. _fork: https://bitbucket.org/pypy/numpy
+.. _`PyPy binary wheels`: https://github.com/antocuni/pypy-wheels
 
 
 Is PyPy more clever than CPython about Tail Calls?
@@ -426,3 +488,11 @@ option would be to pay some PyPy developers to implement Windows 64 support,
 but so far there doesn't seem to be an overwhelming commercial interest in it.
 
 .. _`to make it happen`: windows.html#what-is-missing-for-a-full-64-bit-translation
+
+
+How long will PyPy support Python2?
+-----------------------------------
+
+Since RPython is built on top of Python2 and that is extremely unlikely to
+change, the Python2 version of PyPy will be around "forever", i.e. as long as
+PyPy itself is around.

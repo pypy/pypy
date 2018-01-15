@@ -39,5 +39,5 @@ class Module(MixedModule):
         space = self.space
         pypyjitdriver.space = space
         w_obj = space.wrap(PARAMETERS)
-        space.setattr(space.wrap(self), space.wrap('defaults'), w_obj)
+        space.setattr(self, space.newtext('defaults'), w_obj)
         pypy_hooks.space = space

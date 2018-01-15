@@ -295,14 +295,9 @@ class CDefinedIntSymbolic(Symbolic):
 
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
 _translated_to_c = CDefinedIntSymbolic('1 /*_translated_to_c*/', default=0)
-_rpy_assert_value = CDefinedIntSymbolic('RPY_ASSERT_VALUE', default=1)
 
 def we_are_translated_to_c():
     return we_are_translated() and _translated_to_c
-
-def we_are_debug():
-    """ Returns True when not translated or translated with debugging enabled. """
-    return not we_are_translated() or (_translated_to_c and _rpy_assert_value)
 
 # ____________________________________________________________
 
@@ -519,6 +514,7 @@ def current_object_addr_as_int(x):
 
 # ----------
 
+@specialize.ll()
 def _hash_string(s):
     """The default algorithm behind compute_hash() for a string or a unicode.
     This is a modified Fowler-Noll-Vo (FNV) hash.  According to Wikipedia,
@@ -752,11 +748,19 @@ class r_dict(object):
     def _newdict(self):
         return {}
 
-    def __init__(self, key_eq, key_hash, force_non_null=False):
+    def __init__(self, key_eq, key_hash, force_non_null=False, simple_hash_eq=False):
+        """ force_non_null=True means that the key can never be None (even if
+        the annotator things it could be)
+
+        simple_hash_eq=True means that the hash function is very fast, meaning it's
+        efficient enough that the dict does not have to store the hash per key.
+        It also implies that neither the hash nor the eq function will mutate
+        the dictionary. """
         self._dict = self._newdict()
         self.key_eq = key_eq
         self.key_hash = key_hash
         self.force_non_null = force_non_null
+        self.simple_hash_eq = simple_hash_eq
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]

@@ -622,19 +622,23 @@ class ZipExtFile(io.BufferedIOBase):
         """Read and return up to n bytes.
         If the argument is omitted, None, or negative, data is read and returned until EOF is reached..
         """
-        buf = ''
+        # PyPy modification: don't do repeated string concatenation
+        buf = []
+        lenbuf = 0
         if n is None:
             n = -1
         while True:
             if n < 0:
                 data = self.read1(n)
-            elif n > len(buf):
-                data = self.read1(n - len(buf))
+            elif n > lenbuf:
+                data = self.read1(n - lenbuf)
             else:
-                return buf
+                break
             if len(data) == 0:
-                return buf
-            buf += data
+                break
+            lenbuf += len(data)
+            buf.append(data)
+        return "".join(buf)
 
     def _update_crc(self, newdata, eof):
         # Update the CRC using the given data.

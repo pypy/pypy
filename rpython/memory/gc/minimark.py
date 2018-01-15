@@ -1399,8 +1399,15 @@ class MiniMarkGC(MovingGCBase):
                         if cardbyte & 1:
                             if interval_stop > length:
                                 interval_stop = length
-                                ll_assert(cardbyte <= 1 and bytes == 0,
-                                          "premature end of object")
+                                #--- the sanity check below almost always
+                                #--- passes, except in situations like
+                                #--- test_writebarrier_before_copy_manually\
+                                #    _copy_card_bits
+                                #ll_assert(cardbyte <= 1 and bytes == 0,
+                                #          "premature end of object")
+                                ll_assert(bytes == 0, "premature end of object")
+                                if interval_stop <= interval_start:
+                                    break
                             self.trace_and_drag_out_of_nursery_partial(
                                 obj, interval_start, interval_stop)
                         #
@@ -1636,6 +1643,7 @@ class MiniMarkGC(MovingGCBase):
         # with a finalizer and all objects reachable from there (and also
         # moves some objects from 'objects_with_finalizers' to
         # 'run_finalizers').
+        self.kept_alive_by_finalizer = r_uint(0)
         if self.old_objects_with_finalizers.non_empty():
             self.deal_with_objects_with_finalizers()
         #
@@ -1678,6 +1686,9 @@ class MiniMarkGC(MovingGCBase):
         # we currently have -- but no more than 'max_delta' more than
         # we currently have.
         total_memory_used = float(self.get_total_memory_used())
+        total_memory_used -= float(self.kept_alive_by_finalizer)
+        if total_memory_used < 0:
+            total_memory_used = 0
         bounded = self.set_major_threshold_from(
             min(total_memory_used * self.major_collection_threshold,
                 total_memory_used + self.max_delta),
@@ -1775,6 +1786,11 @@ class MiniMarkGC(MovingGCBase):
         self.prebuilt_root_objects.foreach(callback, arg)
         MovingGCBase.enumerate_all_roots(self, callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
+
+    def enum_live_with_finalizers(self, callback, arg):
+        self.probably_young_objects_with_finalizers.foreach(callback, arg, 2)
+        self.old_objects_with_finalizers.foreach(callback, arg, 2)
+    enum_live_with_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
     @staticmethod
     def _collect_obj(obj, objects_to_trace):
@@ -1999,8 +2015,11 @@ class MiniMarkGC(MovingGCBase):
     def _bump_finalization_state_from_0_to_1(self, obj):
         ll_assert(self._finalization_state(obj) == 0,
                   "unexpected finalization state != 0")
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + self.get_size(obj)
         hdr = self.header(obj)
         hdr.tid |= GCFLAG_FINALIZATION_ORDERING
+        self.kept_alive_by_finalizer += raw_malloc_usage(totalsize)
 
     def _recursively_bump_finalization_state_from_2_to_3(self, obj):
         ll_assert(self._finalization_state(obj) == 2,

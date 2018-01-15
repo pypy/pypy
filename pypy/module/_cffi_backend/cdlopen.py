@@ -155,7 +155,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
         p = rffi.ptradd(p, llmemory.raw_malloc_usage(n * rffi.sizeof(GLOBAL_S)))
         nintconsts = rffi.cast(rffi.CArrayPtr(CDL_INTCONST_S), p)
         for i in range(n):
-            decoder = StringDecoder(ffi, space.str_w(globals_w[i * 2]))
+            decoder = StringDecoder(ffi, space.bytes_w(globals_w[i * 2]))
             nglobs[i].c_type_op = decoder.next_opcode()
             nglobs[i].c_name = decoder.next_name()
             op = getop(nglobs[i].c_type_op)
@@ -185,7 +185,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
             # 'desc' is the tuple of strings (desc_struct, desc_field_1, ..)
             desc = space.fixedview(struct_unions_w[i])
             nf1 = len(desc) - 1
-            decoder = StringDecoder(ffi, space.str_w(desc[0]))
+            decoder = StringDecoder(ffi, space.bytes_w(desc[0]))
             rffi.setintfield(nstructs[i], 'c_type_index', decoder.next_4bytes())
             flags = decoder.next_4bytes()
             rffi.setintfield(nstructs[i], 'c_flags', flags)
@@ -202,7 +202,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
                 rffi.setintfield(nstructs[i], 'c_first_field_index', nf)
                 rffi.setintfield(nstructs[i], 'c_num_fields', nf1)
             for j in range(nf1):
-                decoder = StringDecoder(ffi, space.str_w(desc[j + 1]))
+                decoder = StringDecoder(ffi, space.bytes_w(desc[j + 1]))
                 # this 'decoder' is for one of the other strings beyond
                 # the first one, describing one field each
                 type_op = decoder.next_opcode()
@@ -226,7 +226,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
         n = len(enums_w)
         nenums = allocate_array(ffi, ENUM_S, n)
         for i in range(n):
-            decoder = StringDecoder(ffi, space.str_w(enums_w[i]))
+            decoder = StringDecoder(ffi, space.bytes_w(enums_w[i]))
             rffi.setintfield(nenums[i], 'c_type_index', decoder.next_4bytes())
             rffi.setintfield(nenums[i], 'c_type_prim', decoder.next_4bytes())
             nenums[i].c_name = decoder.next_name()
@@ -241,7 +241,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
         n = len(typenames_w)
         ntypenames = allocate_array(ffi, TYPENAME_S, n)
         for i in range(n):
-            decoder = StringDecoder(ffi, space.str_w(typenames_w[i]))
+            decoder = StringDecoder(ffi, space.bytes_w(typenames_w[i]))
             rffi.setintfield(ntypenames[i],'c_type_index',decoder.next_4bytes())
             ntypenames[i].c_name = decoder.next_name()
         ffi.ctxobj.ctx.c_typenames = ntypenames

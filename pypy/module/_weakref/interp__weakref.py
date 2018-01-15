@@ -287,10 +287,10 @@ def getweakrefcount(space, w_obj):
     """Return the number of weak references to 'obj'."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
-        return space.wrap(0)
+        return space.newint(0)
     else:
         result = lifeline.traverse(_weakref_count, 0)
-        return space.wrap(result)
+        return space.newint(result)
 
 def _get_weakrefs(lifeline, wref, result):
     w_ref = wref()

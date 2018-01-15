@@ -5,6 +5,7 @@ from pypy.module.cpyext import api
 class Module(MixedModule):
     interpleveldefs = {
         'load_module': 'api.load_extension_module',
+        'is_cpyext_function': 'interp_cpyext.is_cpyext_function',
     }
 
     appleveldefs = {
@@ -15,10 +16,13 @@ class Module(MixedModule):
     def startup(self, space):
         space.fromcache(State).startup(space)
         method = pypy.module.cpyext.typeobject.get_new_method_def(space)
-        w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space, method, space.wrap(''))
-        space.appexec([space.type(w_obj)], """(methodtype):
+        # the w_self argument here is a dummy, the only thing done with w_obj
+        # is call type() on it
+        w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space,
+                                                           method, space.w_None)
+        space.appexec([w_obj], """(meth):
             from pickle import Pickler
-            Pickler.dispatch[methodtype] = Pickler.save_global
+            Pickler.dispatch[type(meth)] = Pickler.save_global
         """)
 
     def register_atexit(self, function):

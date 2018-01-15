@@ -64,6 +64,7 @@ class Transformer(object):
         self.cpu = cpu
         self.callcontrol = callcontrol
         self.portal_jd = portal_jd   # non-None only for the portal graph(s)
+        self.graph = None
 
     def transform(self, graph):
         self.graph = graph
@@ -424,7 +425,8 @@ class Transformer(object):
         of 'residual_call_xxx' are the function to call, and its calldescr."""
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex,
                                                   extraeffect=extraeffect,
-                                                  extradescr=extradescr)
+                                                  extradescr=extradescr,
+                                                  calling_graph=self.graph)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
@@ -1139,6 +1141,26 @@ class Transformer(object):
                               [op.args[0], op.args[1],
                                op.args[2], op.args[3], c_bytes], op.result)
 
+    def rewrite_op_gc_store_indexed(self, op):
+        T = op.args[2].concretetype
+        kind = getkind(T)[0]
+        assert kind != 'r'
+        descr = self.cpu.arraydescrof(rffi.CArray(T))
+        if (not isinstance(op.args[3], Constant) or
+            not isinstance(op.args[4], Constant)):
+            raise NotImplementedError("gc_store_indexed: 'scale' and 'base_ofs'"
+                                      " should be constants")
+        # According to the comment in resoperation.py, "itemsize is not signed
+        # (always > 0)", so we don't need the "bytes = -bytes" line which is
+        # in rewrite_op_gc_load_indexed
+        bytes = descr.get_item_size_in_bytes()
+        c_bytes = Constant(bytes, lltype.Signed)
+        return SpaceOperation('gc_store_indexed_%s' % kind,
+                              [op.args[0], op.args[1], op.args[2],
+                               op.args[3], op.args[4], c_bytes, descr], None)
+
+
+
     def _rewrite_equality(self, op, opname):
         arg0, arg1 = op.args
         if isinstance(arg0, Constant) and not arg0.value:
@@ -1601,7 +1623,9 @@ class Transformer(object):
         if len(op.args) > 4 + 2 or have_floats:
             raise Exception("Conditional call does not support floats or more than 4 arguments")
         callop = SpaceOperation('direct_call', op.args[1:], op.result)
-        calldescr = self.callcontrol.getcalldescr(callop)
+        calldescr = self.callcontrol.getcalldescr(
+                callop,
+                calling_graph=self.graph)
         assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
         op1 = self.rewrite_call(op, rewritten_opname,
                                 op.args[:2], args=op.args[2:],
@@ -1912,7 +1936,8 @@ class Transformer(object):
                              extradescr=None):
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
                                                   extraeffect,
-                                                  extradescr=extradescr)
+                                                  extradescr=extradescr,
+                                                  calling_graph=self.graph)
         if extraeffect is not None:
             assert (is_test_calldescr(calldescr)      # for tests
                     or calldescr.get_extra_info().extraeffect == extraeffect)
@@ -1942,7 +1967,8 @@ class Transformer(object):
                             [c_func] + [varoftype(T) for T in argtypes],
                             varoftype(resulttype))
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
-                                                  effectinfo)
+                                                  effectinfo,
+                                                  calling_graph=self.graph)
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:

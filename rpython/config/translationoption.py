@@ -17,26 +17,29 @@ DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 DEFL_GC = "incminimark"   # XXX
 
 DEFL_ROOTFINDER_WITHJIT = "shadowstack"
-if sys.platform.startswith("linux"):
-    _mach = os.popen('uname -m', 'r').read().strip()
-    if _mach.startswith('x86') or _mach in ['i386', 'i486', 'i586', 'i686']:
-        DEFL_ROOTFINDER_WITHJIT = "asmgcc"   # only for Linux on x86 / x86-64
+## if sys.platform.startswith("linux"):
+##     _mach = os.popen('uname -m', 'r').read().strip()
+##     if _mach.startswith('x86') or _mach in ['i386', 'i486', 'i586', 'i686']:
+##         DEFL_ROOTFINDER_WITHJIT = "asmgcc"   # only for Linux on x86 / x86-64
 
 IS_64_BITS = sys.maxint > 2147483647
 
 SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
-    sys.platform.startswith("linux"))     # Linux works
-    # OS/X doesn't work, because we still target 10.5/10.6 and the
-    # minimum required version is 10.7.  Windows doesn't work.  Please
+    sys.platform.startswith("linux") or     # Linux works
+    #sys.platform.startswith("darwin") or   # OS/X >= 10.7 works (*)
+    False)
+    # Windows doesn't work.  Please
     # add other platforms here if it works on them.
+
+# (*) NOTE: __thread on OS/X does not work together with
+# pthread_key_create(): when the destructor is called, the __thread is
+# already freed!
 
 MAINDIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
 
 PLATFORMS = [
-    'maemo',
     'host',
-    'distutils',
     'arm',
 ]
 
@@ -137,10 +140,9 @@ translation_optiondescription = OptionDescription(
     BoolOption("verbose", "Print extra information", default=False,
                cmdline="--verbose"),
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
-    StrOption("profopt", "Specify profile based optimization script",
-              cmdline="--profopt"),
-    BoolOption("noprofopt", "Don't use profile based optimization",
-               default=False, cmdline="--no-profopt", negation=False),
+    BoolOption("profopt", "Enable profile guided optimization. Defaults to enabling this for PyPy. For other training workloads, please specify them in profoptargs",
+              cmdline="--profopt", default=False),
+    StrOption("profoptargs", "Absolute path to the profile guided optimization training script + the necessary arguments of the script", cmdline="--profoptargs", default=None),
     BoolOption("instrument", "internal: turn instrumentation on",
                default=False, cmdline=None),
     BoolOption("countmallocs", "Count mallocs and frees", default=False,
@@ -198,6 +200,9 @@ translation_optiondescription = OptionDescription(
     BoolOption("lldebug0",
                "If true, makes an lldebug0 build", default=False,
                cmdline="--lldebug0"),
+    BoolOption("lto", "enable link time optimization",
+               default=False, cmdline="--lto",
+               requires=[("translation.gcrootfinder", "shadowstack")]),
     StrOption("icon", "Path to the (Windows) icon to use for the executable"),
     StrOption("libname",
               "Windows: name and possibly location of the lib file to create"),

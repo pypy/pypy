@@ -14,6 +14,7 @@ from pypy.module.cpyext.eval import (
     _PyEval_SliceIndex)
 from pypy.module.cpyext.api import (
     c_fopen, c_fclose, c_fileno, Py_ssize_tP, is_valid_fd)
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts
@@ -117,8 +118,8 @@ class TestEval(BaseApiTest):
 
         assert run("a = 42 * 43", Py_single_input,
                    w_globals, w_globals) == space.w_None
-        assert 42 * 43 == space.unwrap(
-            PyObject_GetItem(space, w_globals, space.wrap("a")))
+        py_obj = PyObject_GetItem(space, w_globals, space.wrap("a"))
+        assert 42 * 43 == space.unwrap(get_w_obj_and_decref(space, py_obj))
 
     def test_run_string_flags(self, space):
         flags = lltype.malloc(PyCompilerFlags, flavor='raw')
@@ -131,7 +132,7 @@ class TestEval(BaseApiTest):
         finally:
             rffi.free_charp(buf)
         w_a = space.getitem(w_globals, space.wrap("a"))
-        assert space.unwrap(w_a) == u'caf\xe9'
+        assert space.unicode_w(w_a) == u'caf\xe9'
         lltype.free(flags, flavor='raw')
 
     def test_run_file(self, space):
@@ -279,6 +280,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert module.call_method("text") == 2
 
     def test_CompileString_and_Exec(self):
+        import sys
         module = self.import_extension('foo', [
             ("compile_string", "METH_NOARGS",
              """
@@ -313,6 +315,9 @@ class AppTestCall(AppTestCpythonExtensionBase):
         print mod.__dict__
         assert mod.f(42) == 47
 
+        # Clean-up
+        del sys.modules['cpyext_test_modname']
+
     def test_merge_compiler_flags(self):
         module = self.import_extension('foo', [
             ("get_flags", "METH_NOARGS",
@@ -331,3 +336,88 @@ class AppTestCall(AppTestCpythonExtensionBase):
                 def nested_flags():
                     return module.get_flags()""" in ns
         assert ns['nested_flags']() == (1, 0x2000)  # CO_FUTURE_DIVISION
+
+    def test_recursive_function(self):
+        module = self.import_extension('foo', [
+            ("call_recursive", "METH_NOARGS",
+             """
+                int oldlimit;
+                int recurse(void);
+                res = 0;
+                oldlimit = Py_GetRecursionLimit();
+                Py_SetRecursionLimit(oldlimit/100);
+                res = recurse();
+                Py_SetRecursionLimit(oldlimit);
+                if (PyErr_Occurred())
+                    return NULL;
+                return PyLong_FromLong(res);
+             """),], prologue= '''
+                int res;
+                int recurse(void) {
+                    if (Py_EnterRecursiveCall(" while calling recurse")) {
+                        return -1;
+                    }
+                    res ++;
+                    return recurse();
+                };
+             '''
+            )
+        try:
+            res = module.call_recursive()
+        except RuntimeError as e:
+            assert 'while calling recurse' in str(e)
+        else:
+            assert False, "expected RuntimeError"
+
+    def test_build_class(self):
+            # make sure PyObject_Call generates a proper PyTypeObject,
+            # along the way verify that userslot has iter and next
+            module = self.import_extension('foo', [
+                ("object_call", "METH_O",
+                 '''
+                    return PyObject_Call((PyObject*)&PyType_Type, args, NULL);
+                 '''),
+                ('iter', "METH_O",
+                 '''
+                    if (NULL == args->ob_type->tp_iter)
+                    {
+                        PyErr_SetString(PyExc_TypeError, "NULL tp_iter");
+                        return NULL;
+                    }
+                    return args->ob_type->tp_iter(args);
+                 '''),
+                ('next', "METH_O",
+                 '''
+                    if (NULL == args->ob_type->tp_iternext)
+                    {
+                        PyErr_SetString(PyExc_TypeError, "NULL tp_iternext");
+                        return NULL;
+                    }
+                    return args->ob_type->tp_iternext(args);
+                 '''),])
+            def __init__(self, N):
+                self.N = N
+                self.i = 0
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                if self.i < self.N:
+                    i = self.i
+                    self.i += 1
+                    return i
+                raise StopIteration
+
+            d = {'__init__': __init__, '__iter__': __iter__, 'next': __next__,
+                 '__next__': next}
+            C = module.object_call(('Iterable', (object,), d))
+            c = C(5)
+            i = module.iter(c)
+            out = []
+            try:
+                while 1:
+                    out.append(module.next(i))
+            except StopIteration:
+                pass
+            assert out == [0, 1, 2, 3, 4]

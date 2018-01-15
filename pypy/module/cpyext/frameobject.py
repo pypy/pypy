@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObjectFields, cpython_struct,
     CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyobject import (
-    PyObject, Py_DecRef, make_ref, from_ref, track_reference,
+    PyObject, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pystate import PyThreadState
@@ -43,9 +43,9 @@ def frame_attach(space, py_obj, w_obj, w_userdata=None):
 def frame_dealloc(space, py_obj):
     py_frame = rffi.cast(PyFrameObject, py_obj)
     py_code = rffi.cast(PyObject, py_frame.c_f_code)
-    Py_DecRef(space, py_code)
-    Py_DecRef(space, py_frame.c_f_globals)
-    Py_DecRef(space, py_frame.c_f_locals)
+    decref(space, py_code)
+    decref(space, py_frame.c_f_globals)
+    decref(space, py_frame.c_f_locals)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
@@ -63,9 +63,8 @@ def frame_realize(space, py_obj):
     frame = space.FrameClass(space, code, w_globals, outer_func=None)
     d = frame.getorcreatedebug()
     d.f_lineno = rffi.getintfield(py_frame, 'c_f_lineno')
-    w_obj = space.wrap(frame)
-    track_reference(space, py_obj, w_obj)
-    return w_obj
+    track_reference(space, py_obj, frame)
+    return frame
 
 @cpython_api([PyThreadState, PyCodeObject, PyObject, PyObject], PyFrameObject,
              result_is_ll=True)

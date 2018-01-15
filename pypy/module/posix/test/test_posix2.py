@@ -31,9 +31,15 @@ def setup_module(mod):
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
-    unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+    if sys.platform == 'darwin':
+        # see issue https://bugs.python.org/issue31380
+        unicode_dir = udir.ensure('fixc5x9fier.txt', dir=True)
+        file_name = 'cafxe9'
+    else:
+        unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+        file_name = 'caf\xe9'
     unicode_dir.join('somefile').write('who cares?')
-    unicode_dir.join('caf\xe9').write('who knows?')
+    unicode_dir.join(file_name).write('who knows?')
     mod.unicode_dir = unicode_dir
 
     # in applevel tests, os.stat uses the CPython os.stat.
@@ -368,11 +374,11 @@ class AppTestPosix:
         pdir = self.pdir + '/file1'
         posix = self.posix
 
-        assert posix.access(pdir, posix.R_OK)
-        assert posix.access(pdir, posix.W_OK)
+        assert posix.access(pdir, posix.R_OK) is True
+        assert posix.access(pdir, posix.W_OK) is True
         import sys
         if sys.platform != "win32":
-            assert not posix.access(pdir, posix.X_OK)
+            assert posix.access(pdir, posix.X_OK) is False
 
     def test_times(self):
         """

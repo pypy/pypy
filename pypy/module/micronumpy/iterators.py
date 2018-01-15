@@ -71,7 +71,7 @@ class PureShapeIter(object):
 
     @jit.unroll_safe
     def get_index(self, space, shapelen):
-        return [space.wrap(self.indexes[i]) for i in range(shapelen)]
+        return [space.newint(self.indexes[i]) for i in range(shapelen)]
 
 
 class IterState(object):

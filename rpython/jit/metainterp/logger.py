@@ -13,10 +13,11 @@ class Logger(object):
         self.guard_number = guard_number
 
     def log_loop_from_trace(self, trace, memo):
+        debug_start("jit-log-noopt")
         if not have_debug_prints():
+            debug_stop("jit-log-noopt")
             return
         inputargs, ops = self._unpack_trace(trace)
-        debug_start("jit-log-noopt")
         debug_print("# Traced loop or bridge with", len(ops), "ops")
         logops = self._log_operations(inputargs, ops, None, memo)
         debug_stop("jit-log-noopt")

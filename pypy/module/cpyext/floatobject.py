@@ -42,7 +42,7 @@ PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float")
 
 @cpython_api([lltype.Float], PyObject)
 def PyFloat_FromDouble(space, value):
-    return space.wrap(value)
+    return space.newfloat(value)
 
 @cpython_api([PyObject], lltype.Float, error=-1)
 def PyFloat_AsDouble(space, w_obj):

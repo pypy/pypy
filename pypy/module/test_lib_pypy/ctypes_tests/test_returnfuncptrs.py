@@ -1,4 +1,4 @@
-import py
+import pytest
 
 from ctypes import *
 
@@ -16,8 +16,10 @@ class TestReturnFuncPtr:
         strchr = get_strchr()
         assert strchr("abcdef", "b") == "bcdef"
         assert strchr("abcdef", "x") == None
-        raises(ArgumentError, strchr, "abcdef", 3)
-        raises(TypeError, strchr, "abcdef")
+        with pytest.raises(ArgumentError):
+            strchr("abcdef", 3)
+        with pytest.raises(TypeError):
+            strchr("abcdef")
 
     def test_without_prototype(self):
         get_strchr = dll.get_strchr
@@ -29,5 +31,7 @@ class TestReturnFuncPtr:
         strchr = CFUNCTYPE(c_char_p, c_char_p, c_char)(addr)
         assert strchr("abcdef", "b"), "bcdef"
         assert strchr("abcdef", "x") == None
-        raises(ArgumentError, strchr, "abcdef", 3)
-        raises(TypeError, strchr, "abcdef")
+        with pytest.raises(ArgumentError):
+            strchr("abcdef", 3)
+        with pytest.raises(TypeError):
+            strchr("abcdef")

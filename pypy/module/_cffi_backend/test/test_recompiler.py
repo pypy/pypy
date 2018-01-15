@@ -6,9 +6,10 @@ from pypy.module._cffi_backend.newtype import _clean_cache
 import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 
-@unwrap_spec(cdef=str, module_name=str, source=str, packed=int)
+@unwrap_spec(cdef='text', module_name='text', source='text', packed=int)
 def prepare(space, cdef, module_name, source, w_includes=None,
-            w_extra_source=None, w_min_version=None, packed=False):
+            w_extra_source=None, w_min_version=None, packed=False,
+            w_extra_compile_args=None):
     try:
         import cffi
         from cffi import FFI            # <== the system one, which
@@ -55,10 +56,14 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     sources = []
     if w_extra_source is not None:
         sources.append(space.str_w(w_extra_source))
+    kwargs = {}
+    if w_extra_compile_args is not None:
+        kwargs['extra_compile_args'] = space.unwrap(w_extra_compile_args)
     ext = ffiplatform.get_extension(c_file, module_name,
             include_dirs=[str(rdir)],
             export_symbols=['_cffi_pypyinit_' + base_module_name],
-            sources=sources)
+            sources=sources,
+            **kwargs)
     ffiplatform.compile(str(rdir), ext)
 
     for extension in ['so', 'pyd', 'dylib']:
@@ -1471,8 +1476,13 @@ class AppTestRecompiler:
         with self.StdErrCapture(fd=True) as f:
             res = lib.bar(4, 5)
         assert res == 0
-        assert f.getvalue() == (
+        assert f.getvalue() in (
+            # If the underlying cffi is <= 1.9
             "extern \"Python\": function bar() called, but no code was attached "
+            "to it yet with @ffi.def_extern().  Returning 0.\n",
+            # If the underlying cffi is >= 1.10
+            "extern \"Python\": function _CFFI_test_extern_python_1.bar() "
+            "called, but no code was attached "
             "to it yet with @ffi.def_extern().  Returning 0.\n")
 
         @ffi.def_extern("bar")
@@ -1814,6 +1824,68 @@ class AppTestRecompiler:
         assert lib.f.__get__(42) is lib.f
         assert lib.f.__get__(42, int) is lib.f
 
+    def test_function_returns_float_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "float _Complex f1(float a, float b);",
+            "test_function_returns_float_complex", """
+            #include <complex.h>
+            static float _Complex f1(float a, float b) { return a + I*2.0*b; }
+        """, min_version=(1, 11, 0))
+        result = lib.f1(1.25, 5.1)
+        assert type(result) == complex
+        assert result.real == 1.25   # exact
+        assert (result.imag != 2*5.1) and (abs(result.imag - 2*5.1) < 1e-5) # inexact
+
+    def test_function_returns_double_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "double _Complex f1(double a, double b);",
+            "test_function_returns_double_complex", """
+            #include <complex.h>
+            static double _Complex f1(double a, double b) { return a + I*2.0*b; }
+        """, min_version=(1, 11, 0))
+        result = lib.f1(1.25, 5.1)
+        assert type(result) == complex
+        assert result.real == 1.25   # exact
+        assert result.imag == 2*5.1  # exact
+
+    def test_function_argument_float_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "float f1(float _Complex x);",
+            "test_function_argument_float_complex", """
+            #include <complex.h>
+            static float f1(float _Complex x) { return cabsf(x); }
+        """, min_version=(1, 11, 0))
+        x = complex(12.34, 56.78)
+        result = lib.f1(x)
+        assert abs(result - abs(x)) < 1e-5
+        result2 = lib.f1(ffi.cast("float _Complex", x))
+        assert result2 == result
+
+    def test_function_argument_double_complex(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("MSVC may not support _Complex")
+        ffi, lib = self.prepare(
+            "double f1(double _Complex);",
+            "test_function_argument_double_complex", """
+            #include <complex.h>
+            static double f1(double _Complex x) { return cabs(x); }
+        """, min_version=(1, 11, 0))
+        x = complex(12.34, 56.78)
+        result = lib.f1(x)
+        assert abs(result - abs(x)) < 1e-11
+        result2 = lib.f1(ffi.cast("double _Complex", x))
+        assert result2 == result
+
     def test_typedef_array_dotdotdot(self):
         ffi, lib = self.prepare("""
             typedef int foo_t[...], bar_t[...];
@@ -1866,7 +1938,7 @@ class AppTestRecompiler:
     def test_call_with_nested_anonymous_struct(self):
         import sys
         if sys.platform == 'win32':
-            py.test.skip("needs a GCC extension")
+            skip("needs a GCC extension")
         ffi, lib = self.prepare("""
             struct foo { int a; union { int b, c; }; };
             struct foo f(void);
@@ -1914,6 +1986,9 @@ class AppTestRecompiler:
             "set_source() and not taking a final '...' argument)")
 
     def test_call_with_zero_length_field(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("zero-length field not supported by MSVC")
         ffi, lib = self.prepare("""
             struct foo { int a; int x[0]; };
             struct foo f(void);
@@ -1959,7 +2034,7 @@ class AppTestRecompiler:
     def test_call_with_packed_struct(self):
         import sys
         if sys.platform == 'win32':
-            py.test.skip("needs a GCC extension")
+            skip("needs a GCC extension")
         ffi, lib = self.prepare("""
             struct foo { char y; int x; };
             struct foo f(void);
@@ -1984,3 +2059,51 @@ class AppTestRecompiler:
            "Such structs are only supported as return value if the function is "
            "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
            "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+    def test_gcc_visibility_hidden(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("test for gcc/clang")
+        ffi, lib = self.prepare("""
+        int f(int);
+        """, "test_gcc_visibility_hidden", """
+        int f(int a) { return a + 40; }
+        """, extra_compile_args=['-fvisibility=hidden'])
+        assert lib.f(2) == 42
+
+    def test_override_default_definition(self):
+        ffi, lib = self.prepare("""
+        typedef long int16_t, char16_t;
+        """, "test_override_default_definition", """
+        """)
+        assert ffi.typeof("int16_t") is ffi.typeof("char16_t") is ffi.typeof("long")
+
+    def test_char16_char32_plain_c(self):
+        ffi, lib = self.prepare("""
+            char16_t foo_2bytes(char16_t);
+            char32_t foo_4bytes(char32_t);
+        """, "test_char16_char32_type_nocpp", """
+        #if !defined(__cplusplus) || (!defined(_LIBCPP_VERSION) && __cplusplus < 201103L)
+        typedef uint_least16_t char16_t;
+        typedef uint_least32_t char32_t;
+        #endif
+
+        char16_t foo_2bytes(char16_t a) { return (char16_t)(a + 42); }
+        char32_t foo_4bytes(char32_t a) { return (char32_t)(a + 42); }
+        """, min_version=(1, 11, 0))
+        assert lib.foo_2bytes(u'\u1234') == u'\u125e'
+        assert lib.foo_4bytes(u'\u1234') == u'\u125e'
+        assert lib.foo_4bytes(u'\U00012345') == u'\U0001236f'
+        raises(TypeError, lib.foo_2bytes, u'\U00012345')
+        raises(TypeError, lib.foo_2bytes, 1234)
+        raises(TypeError, lib.foo_4bytes, 1234)
+
+    def test_loader_spec(self):
+        import sys
+        ffi, lib = self.prepare("", "test_loader_spec", "")
+        if sys.version_info < (3,):
+            assert not hasattr(lib, '__loader__')
+            assert not hasattr(lib, '__spec__')
+        else:
+            assert lib.__loader__ is None
+            assert lib.__spec__ is None

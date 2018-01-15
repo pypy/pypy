@@ -1,6 +1,6 @@
 syntax: glob
 *.py[co]
-*.sw[po]
+*.sw[pon]
 *~
 .*.swp
 .idea
@@ -8,6 +8,8 @@ syntax: glob
 .pydevproject
 __pycache__
 
+.cache/
+.gdb_history
 syntax: regexp
 ^testresult$
 ^site-packages$
@@ -23,16 +25,17 @@ syntax: regexp
 ^pypy/module/cpyext/test/.+\.manifest$
 ^pypy/module/test_lib_pypy/ctypes_tests/.+\.o$
 ^pypy/module/test_lib_pypy/ctypes_tests/_ctypes_test\.o$
-^pypy/module/cppyy/src/.+\.o$
-^pypy/module/cppyy/bench/.+\.so$
-^pypy/module/cppyy/bench/.+\.root$
-^pypy/module/cppyy/bench/.+\.d$
-^pypy/module/cppyy/src/.+\.errors$
-^pypy/module/cppyy/test/.+_rflx\.cpp$
-^pypy/module/cppyy/test/.+\.so$
-^pypy/module/cppyy/test/.+\.rootmap$
-^pypy/module/cppyy/test/.+\.exe$
-^pypy/module/cppyy/test/.+_cint.h$
+^pypy/module/_cppyy/src/.+\.o$
+^pypy/module/_cppyy/bench/.+\.so$
+^pypy/module/_cppyy/bench/.+\.root$
+^pypy/module/_cppyy/bench/.+\.d$
+^pypy/module/_cppyy/src/.+\.errors$
+^pypy/module/_cppyy/test/.+_rflx\.cpp$
+^pypy/module/_cppyy/test/.+\.so$
+^pypy/module/_cppyy/test/.+\.rootmap$
+^pypy/module/_cppyy/test/.+\.exe$
+^pypy/module/_cppyy/test/.+_cint.h$
+^pypy/module/_cppyy/.+/*\.pcm$
 ^pypy/module/test_lib_pypy/cffi_tests/__pycache__.+$
 ^pypy/doc/.+\.html$
 ^pypy/doc/config/.+\.rst$
@@ -49,6 +52,11 @@ syntax: regexp
 ^rpython/translator/goal/target.+-c$
 ^rpython/translator/goal/.+\.exe$
 ^rpython/translator/goal/.+\.dll$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/Makefile$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.guess$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.h$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.log$
+^rpython/rlib/rvmprof/src/shared/libbacktrace/config.status$
 ^pypy/goal/pypy-translation-snapshot$
 ^pypy/goal/pypy-c
 ^pypy/goal/.+\.exe$
@@ -60,6 +68,11 @@ syntax: regexp
 ^lib_pypy/ctypes_config_cache/_.+_cache\.py$
 ^lib_pypy/ctypes_config_cache/_.+_.+_\.py$
 ^lib_pypy/_libmpdec/.+.o$
+^lib_pypy/.+.c$
+^lib_pypy/.+.o$
+^lib_pypy/.+.so$
+^lib_pypy/.+.pyd$
+^lib_pypy/Release/
 ^pypy/doc/discussion/.+\.html$
 ^include/.+\.h$
 ^include/.+\.inl$
@@ -74,8 +87,7 @@ syntax: regexp
 ^rpython/doc/_build/.*$
 ^compiled
 ^.git/
-^.hypothesis/
+.hypothesis/
 ^release/
 ^rpython/_cache$
 
-pypy/module/cppyy/.+/*\.pcm

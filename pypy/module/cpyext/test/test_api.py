@@ -6,7 +6,8 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext.api import (
     slot_function, cpython_api, copy_header_files, INTERPLEVEL_API,
     Py_ssize_t, Py_ssize_tP, PyObject, cts)
-from pypy.module.cpyext.test.test_cpyext import freeze_refcnts, LeakCheckingTest
+from pypy.module.cpyext.test.test_cpyext import (
+    freeze_refcnts, LeakCheckingTest)
 from pypy.interpreter.error import OperationError
 from rpython.rlib import rawrefcount
 import os
@@ -21,26 +22,17 @@ def raises_w(space, expected_exc):
 class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
         space = cls.space
-        # warm up reference counts:
-        # - the posix module allocates a HCRYPTPROV on Windows
-        # - writing to stdout and stderr allocates a file lock
-        space.getbuiltinmodule("cpyext")
-        space.getbuiltinmodule(os.name)
-        space.call_function(space.getattr(space.sys.get("stderr"),
-                                          space.wrap("write")),
-                            space.wrap(""))
-        space.call_function(space.getattr(space.sys.get("stdout"),
-                                          space.wrap("write")),
-                            space.wrap(""))
+        cls.preload_builtins(space)
 
         class CAPI:
+            def __repr__(self):
+                return '<%s.%s instance>' % (self.__class__.__module__,
+                                             self.__class__.__name__)
+
             def __getattr__(self, name):
                 return getattr(cls.space, name)
         cls.api = CAPI()
         CAPI.__dict__.update(INTERPLEVEL_API)
-
-        print 'DONT_FREE_ANY_MORE'
-        rawrefcount._dont_free_any_more()
 
     def raises(self, space, api, expected_exc, f, *args):
         if not callable(f):
@@ -64,14 +56,7 @@ class BaseApiTest(LeakCheckingTest):
         except OperationError as e:
             print e.errorstr(self.space)
             raise
-
-        try:
-            self.space.getexecutioncontext().cleanup_cpyext_threadstate()
-        except AttributeError:
-            pass
-
-        if self.check_and_print_leaks():
-            assert False, "Test leaks or loses object(s)."
+        self.cleanup()
 
 @slot_function([PyObject], lltype.Void)
 def PyPy_GetWrapped(space, w_arg):

@@ -2,7 +2,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 
-@unwrap_spec(type=str)
+@unwrap_spec(type='text')
 def newdict(space, type):
     """ newdict(type)
 
@@ -44,6 +44,14 @@ def reversed_dict(space, w_obj):
     if not isinstance(w_obj, W_DictMultiObject):
         raise OperationError(space.w_TypeError, space.w_None)
     return w_obj.nondescr_reversed_dict(space)
+
+def dict_popitem_first(space, w_obj):
+    """Interp-level implementation of OrderedDict.popitem(last=False).
+    """
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+    if not isinstance(w_obj, W_DictMultiObject):
+        raise OperationError(space.w_TypeError, space.w_None)
+    return w_obj.nondescr_popitem_first(space)
 
 def delitem_if_value_is(space, w_obj, w_key, w_value):
     """Atomic equivalent to: 'if dict.get(key) is value: del dict[key]'.

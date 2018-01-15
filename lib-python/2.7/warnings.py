@@ -43,11 +43,12 @@ def formatwarning(message, category, filename, lineno, line=None):
         unicodetype = unicode
     except NameError:
         unicodetype = ()
+    template = "%s: %s: %s\n"
     try:
         message = str(message)
     except UnicodeEncodeError:
-        pass
-    s =  "%s: %s: %s\n" % (lineno, category.__name__, message)
+        template = unicode(template)
+    s = template % (lineno, category.__name__, message)
     line = linecache.getline(filename, lineno) if line is None else line
     if line:
         line = line.strip()
@@ -309,9 +310,12 @@ class WarningMessage(object):
 
     def __init__(self, message, category, filename, lineno, file=None,
                     line=None):
-        local_values = locals()
-        for attr in self._WARNING_DETAILS:
-            setattr(self, attr, local_values[attr])
+        self.message = message
+        self.category = category
+        self.filename = filename
+        self.lineno = lineno
+        self.file = file
+        self.line = line
         self._category_name = category.__name__ if category else None
 
     def __str__(self):

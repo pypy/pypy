@@ -39,13 +39,45 @@ class TestAppLevelObject(BaseApiTest):
         arg = space.newtuple([one, one, one])
         # call w_date.__new__
         w_obj = space.call_function(w_date, one, one, one)
-        w_year = space.getattr(w_obj, space.newbytes('year'))
+        w_year = space.getattr(w_obj, space.newtext('year'))
         assert space.int_w(w_year) == 1
 
         w_obj = generic_cpy_call(space, py_datetype.c_tp_new, py_datetype,
                                  arg, space.newdict({}))
-        w_year = space.getattr(w_obj, space.newbytes('year'))
+        w_year = space.getattr(w_obj, space.newtext('year'))
         assert space.int_w(w_year) == 1
+
+    def test_descr_slots(self, space, api):
+        w_descr = space.appexec([], """():
+            class Descr(object):
+                def __get__(self, obj, type):
+                    return 42 + (obj is None)
+                def __set__(self, obj, value):
+                    obj.append('set')
+                def __delete__(self, obj):
+                    obj.append('del')
+            return Descr()
+            """)
+        w_descrtype = space.type(w_descr)
+        py_descr = make_ref(space, w_descr)
+        py_descrtype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_descrtype))
+        w_obj = space.newlist([])
+        py_obj = make_ref(space, w_obj)
+        w_res = generic_cpy_call(space, py_descrtype.c_tp_descr_get,
+                                 py_descr, py_obj, py_obj)
+        assert space.int_w(w_res) == 42
+        assert generic_cpy_call(
+            space, py_descrtype.c_tp_descr_set,
+            py_descr, py_obj, make_ref(space, space.w_None)) == 0
+        assert generic_cpy_call(
+            space, py_descrtype.c_tp_descr_set,
+            py_descr, py_obj, None) == 0
+        assert space.eq_w(w_obj, space.wrap(['set', 'del']))
+        #
+        # unbound __get__(self, NULL, type)
+        w_res = generic_cpy_call(space, py_descrtype.c_tp_descr_get,
+                                 py_descr, None, space.w_int)
+        assert space.int_w(w_res) == 43
 
 class AppTestUserSlots(AppTestCpythonExtensionBase):
     def test_tp_hash_from_python(self):
@@ -158,10 +190,12 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                     0,                  /* tp_basicsize*/
                     0                  /* tp_itemsize */
                 };
+                PyObject * mod;
+                PyObject * dt;
             ''', more_init='''
-                PyObject * mod = PyImport_ImportModule("datetime");
+                mod = PyImport_ImportModule("datetime");
                 if (mod == NULL) INITERROR;
-                PyObject * dt = PyString_FromString("datetime");
+                dt = PyString_FromString("datetime");
                 datetime_cls = (PyTypeObject*)PyObject_GetAttr(mod, dt); 
                 if (datetime_cls == NULL) INITERROR;
                 _Timestamp.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;

@@ -153,7 +153,7 @@ def disable(space):
 
 def is_enabled(space):
     "is_enabled()->bool: check if the handler is enabled"
-    return space.wrap(space.fromcache(Handler).is_enabled())
+    return space.newbool(space.fromcache(Handler).is_enabled())
 
 @unwrap_spec(all_threads=int)
 def dump_traceback(space, w_file=None, all_threads=0):
@@ -178,7 +178,7 @@ def register(space, signum, w_file=None, all_threads=1, chain=0):
 
 @unwrap_spec(signum=int)
 def unregister(space, signum):
-    return space.wrap(space.fromcache(Handler).unregister(signum))
+    return space.newbool(space.fromcache(Handler).unregister(signum))
 
 
 # for tests...
@@ -206,4 +206,4 @@ def sigabrt(space):
 @unwrap_spec(levels=int)
 def stack_overflow(space, levels=100000000):
     levels = float(levels)
-    return space.wrap(cintf.pypy_faulthandler_stackoverflow(levels))
+    return space.newfloat(cintf.pypy_faulthandler_stackoverflow(levels))

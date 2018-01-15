@@ -138,7 +138,7 @@ class TestNewFFI1:
         min = int(min)
         max = int(max)
         p = ffi.cast(c_decl, min)
-        assert p != min       # no __eq__(int)
+        assert p == min
         assert bool(p) is bool(min)
         assert int(p) == min
         p = ffi.cast(c_decl, max)
@@ -149,9 +149,9 @@ class TestNewFFI1:
         assert ffi.typeof(q) is ffi.typeof(p) and int(q) == max
         q = ffi.cast(c_decl, long(min - 1))
         assert ffi.typeof(q) is ffi.typeof(p) and int(q) == max
-        assert q != p
+        assert q == p
         assert int(q) == int(p)
-        assert hash(q) != hash(p)   # unlikely
+        assert hash(q) == hash(p)
         c_decl_ptr = '%s *' % c_decl
         py.test.raises(OverflowError, ffi.new, c_decl_ptr, min - 1)
         py.test.raises(OverflowError, ffi.new, c_decl_ptr, max + 1)
@@ -419,7 +419,6 @@ class TestNewFFI1:
         #
         p = ffi.new("wchar_t[]", u+'\U00023456')
         if SIZE_OF_WCHAR == 2:
-            assert sys.maxunicode == 0xffff
             assert len(p) == 3
             assert p[0] == u+'\ud84d'
             assert p[1] == u+'\udc56'
@@ -897,9 +896,9 @@ class TestNewFFI1:
         assert ffi.string(ffi.cast("enum bar", -2)) == "B1"
         assert ffi.string(ffi.cast("enum bar", -1)) == "CC1"
         assert ffi.string(ffi.cast("enum bar", 1)) == "E1"
-        assert ffi.cast("enum bar", -2) != ffi.cast("enum bar", -2)
-        assert ffi.cast("enum foq", 0) != ffi.cast("enum bar", 0)
-        assert ffi.cast("enum bar", 0) != ffi.cast("int", 0)
+        assert ffi.cast("enum bar", -2) == ffi.cast("enum bar", -2)
+        assert ffi.cast("enum foq", 0) == ffi.cast("enum bar", 0)
+        assert ffi.cast("enum bar", 0) == ffi.cast("int", 0)
         assert repr(ffi.cast("enum bar", -1)) == "<cdata 'enum bar' -1: CC1>"
         assert repr(ffi.cast("enum foq", -1)) == (  # enums are unsigned, if
             "<cdata 'enum foq' 4294967295>") or (   # they contain no neg value
@@ -1106,14 +1105,14 @@ class TestNewFFI1:
         assert (q == None) is False
         assert (q != None) is True
 
-    def test_no_integer_comparison(self):
+    def test_integer_comparison(self):
         x = ffi.cast("int", 123)
         y = ffi.cast("int", 456)
-        py.test.raises(TypeError, "x < y")
+        assert x < y
         #
         z = ffi.cast("double", 78.9)
-        py.test.raises(TypeError, "x < z")
-        py.test.raises(TypeError, "z < y")
+        assert x > z
+        assert y > z
 
     def test_ffi_buffer_ptr(self):
         a = ffi.new("short *", 100)
@@ -1673,6 +1672,8 @@ class TestNewFFI1:
             "double",
             "long double",
             "wchar_t",
+            "char16_t",
+            "char32_t",
             "_Bool",
             "int8_t",
             "uint8_t",
@@ -1705,6 +1706,8 @@ class TestNewFFI1:
             "ptrdiff_t",
             "size_t",
             "ssize_t",
+            'float _Complex',
+            'double _Complex',
             ])
         for name in PRIMITIVE_TO_INDEX:
             x = ffi.sizeof(name)
@@ -1741,3 +1744,30 @@ class TestNewFFI1:
         exec("from _test_import_from_lib import *", d)
         assert (sorted([x for x in d.keys() if not x.startswith('__')]) ==
                 ['ffi', 'lib'])
+
+    def test_char16_t(self):
+        x = ffi.new("char16_t[]", 5)
+        assert len(x) == 5 and ffi.sizeof(x) == 10
+        x[2] = u+'\u1324'
+        assert x[2] == u+'\u1324'
+        y = ffi.new("char16_t[]", u+'\u1234\u5678')
+        assert len(y) == 3
+        assert list(y) == [u+'\u1234', u+'\u5678', u+'\x00']
+        assert ffi.string(y) == u+'\u1234\u5678'
+        z = ffi.new("char16_t[]", u+'\U00012345')
+        assert len(z) == 3
+        assert list(z) == [u+'\ud808', u+'\udf45', u+'\x00']
+        assert ffi.string(z) == u+'\U00012345'
+
+    def test_char32_t(self):
+        x = ffi.new("char32_t[]", 5)
+        assert len(x) == 5 and ffi.sizeof(x) == 20
+        x[3] = u+'\U00013245'
+        assert x[3] == u+'\U00013245'
+        y = ffi.new("char32_t[]", u+'\u1234\u5678')
+        assert len(y) == 3
+        assert list(y) == [u+'\u1234', u+'\u5678', u+'\x00']
+        z = ffi.new("char32_t[]", u+'\U00012345')
+        assert len(z) == 2
+        assert list(z) == [u+'\U00012345', u+'\x00'] # maybe a 2-unichars strin
+        assert ffi.string(z) == u+'\U00012345'

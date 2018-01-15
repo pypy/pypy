@@ -241,8 +241,10 @@ class TestTypeDef:
         class W_C(W_A):
             b = 3
         W_A.typedef = typedef.TypeDef("A",
-            a = typedef.interp_attrproperty("a", cls=W_A),
-            b = typedef.interp_attrproperty("b", cls=W_A),
+            a = typedef.interp_attrproperty("a", cls=W_A,
+                wrapfn="newint"),
+            b = typedef.interp_attrproperty("b", cls=W_A,
+                wrapfn="newint"),
         )
         class W_B(W_Root):
             pass
@@ -417,3 +419,7 @@ class AppTestTypeDef:
         def f():
             return x
         assert f.__closure__[0].cell_contents is x
+
+    def test_get_with_none_arg(self):
+        raises(TypeError, type.__dict__['__mro__'].__get__, None)
+        raises(TypeError, type.__dict__['__mro__'].__get__, None, None)

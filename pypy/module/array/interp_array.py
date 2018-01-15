@@ -1,5 +1,5 @@
 from rpython.rlib import jit, rgc
-from rpython.rlib.buffer import Buffer
+from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -16,7 +16,7 @@ from pypy.interpreter.typedef import (
 from pypy.module._file.interp_file import W_File
 
 
-@unwrap_spec(typecode=str)
+@unwrap_spec(typecode='text')
 def w_array(space, w_cls, typecode, __args__):
     if len(__args__.arguments_w) > 1:
         raise oefmt(space.w_TypeError, "array() takes at most 2 arguments")
@@ -43,7 +43,7 @@ def w_array(space, w_cls, typecode, __args__):
     if len(__args__.arguments_w) > 0:
         w_initializer = __args__.arguments_w[0]
         w_initializer_type = space.type(w_initializer)
-        if w_initializer_type is space.w_str:
+        if w_initializer_type is space.w_bytes:
             a.descr_fromstring(space, w_initializer)
         elif w_initializer_type is space.w_list:
             a.descr_fromlist(space, w_initializer)
@@ -53,11 +53,11 @@ def w_array(space, w_cls, typecode, __args__):
 
 
 def descr_itemsize(space, self):
-    return space.wrap(self.itemsize)
+    return space.newint(self.itemsize)
 
 
 def descr_typecode(space, self):
-    return space.wrap(self.typecode)
+    return space.newtext(self.typecode)
 
 arr_eq_driver = jit.JitDriver(name='array_eq_driver', greens=['comp_func'],
                               reds='auto')
@@ -76,7 +76,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
         w_elem1 = arr1.w_getitem(space, i)
         w_elem2 = arr2.w_getitem(space, i)
         if comp_op == EQ:
-            res = space.is_true(space.eq(w_elem1, w_elem2))
+            res = space.eq_w(w_elem1, w_elem2)
             if not res:
                 return space.w_False
         elif comp_op == NE:
@@ -90,7 +90,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.gt(w_elem1, w_elem2))
             if res:
                 return space.w_True
-            elif not space.is_true(space.eq(w_elem1, w_elem2)):
+            elif not space.eq_w(w_elem1, w_elem2):
                 return space.w_False
         else:
             if comp_op == LE:
@@ -99,7 +99,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.ge(w_elem1, w_elem2))
             if not res:
                 return space.w_False
-            elif not space.is_true(space.eq(w_elem1, w_elem2)):
+            elif not space.eq_w(w_elem1, w_elem2):
                 return space.w_True
     # we have some leftovers
     if comp_op == EQ:
@@ -117,6 +117,29 @@ def compare_arrays(space, arr1, arr2, comp_op):
     if arr1.len > arr2.len:
         return space.w_True
     return space.w_False
+
+index_count_jd = jit.JitDriver(
+    greens = ['count', 'arrclass', 'tp_item'],
+    reds = 'auto', name = 'array.index_or_count')
+
+def index_count_array(arr, w_val, count=False):
+    space = arr.space
+    tp_item = space.type(w_val)
+    arrclass = arr.__class__
+    cnt = 0
+    for i in range(arr.len):
+        index_count_jd.jit_merge_point(
+            tp_item=tp_item, count=count,
+            arrclass=arrclass)
+        w_item = arr.w_getitem(space, i)
+        if space.eq_w(w_item, w_val):
+            if count:
+                cnt += 1
+            else:
+                return i
+    if count:
+        return cnt
+    return -1
 
 UNICODE_ARRAY = lltype.Ptr(lltype.Array(lltype.UniChar,
                                         hints={'nolength': True}))
@@ -257,28 +280,22 @@ class W_ArrayBase(W_Root):
         """
         self.extend(w_x)
 
-    def descr_count(self, space, w_val):
+    def descr_count(self, space, w_x):
         """ count(x)
 
         Return number of occurrences of x in the array.
         """
-        cnt = 0
-        for i in range(self.len):
-            # XXX jitdriver
-            w_item = self.w_getitem(space, i)
-            if space.is_true(space.eq(w_item, w_val)):
-                cnt += 1
-        return space.wrap(cnt)
+        cnt = index_count_array(self, w_x, count=True)
+        return space.newint(cnt)
 
     def descr_index(self, space, w_x):
         """ index(x)
 
         Return index of first occurrence of x in the array.
         """
-        for i in range(self.len):
-            w_item = self.w_getitem(space, i)
-            if space.is_true(space.eq(w_item, w_x)):
-                return space.wrap(i)
+        res = index_count_array(self, w_x, count=False)
+        if res >= 0:
+            return space.newint(res)
         raise oefmt(space.w_ValueError, "array.index(x): x not in list")
 
     def descr_reverse(self, space):
@@ -384,14 +401,14 @@ class W_ArrayBase(W_Root):
             size = ovfcheck(self.itemsize * n)
         except OverflowError:
             raise MemoryError
-        w_item = space.call_method(w_f, 'read', space.wrap(size))
+        w_item = space.call_method(w_f, 'read', space.newint(size))
         item = space.bytes_w(w_item)
         if len(item) < size:
             n = len(item) % self.itemsize
             elems = max(0, len(item) - (len(item) % self.itemsize))
             if n != 0:
                 item = item[0:elems]
-            self.descr_fromstring(space, space.wrap(item))
+            self.descr_fromstring(space, space.newbytes(item))
             raise oefmt(space.w_EOFError, "not enough items in file")
         self.descr_fromstring(space, w_item)
 
@@ -434,7 +451,7 @@ class W_ArrayBase(W_Root):
         """
         if self.typecode == 'u':
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
-            return space.wrap(rffi.wcharpsize2unicode(buf, self.len))
+            return space.newunicode(rffi.wcharpsize2unicode(buf, self.len))
         else:
             raise oefmt(space.w_ValueError,
                         "tounicode() may only be called on type 'u' arrays")
@@ -447,8 +464,8 @@ class W_ArrayBase(W_Root):
         The length should be multiplied by the itemsize attribute to calculate
         the buffer length in bytes.
         """
-        w_ptr = space.wrap(self._buffer_as_unsigned())
-        w_len = space.wrap(self.len)
+        w_ptr = space.newint(self._buffer_as_unsigned())
+        w_len = space.newint(self.len)
         return space.newtuple([w_ptr, w_len])
 
     def descr_reduce(self, space):
@@ -456,11 +473,11 @@ class W_ArrayBase(W_Root):
         """
         if self.len > 0:
             w_s = self.descr_tostring(space)
-            args = [space.wrap(self.typecode), w_s]
+            args = [space.newtext(self.typecode), w_s]
         else:
-            args = [space.wrap(self.typecode)]
+            args = [space.newtext(self.typecode)]
         try:
-            w_dict = space.getattr(self, space.wrap('__dict__'))
+            w_dict = space.getattr(self, space.newtext('__dict__'))
         except OperationError:
             w_dict = space.w_None
         return space.newtuple([space.type(self), space.newtuple(args), w_dict])
@@ -501,7 +518,7 @@ class W_ArrayBase(W_Root):
         self._charbuf_stop()
 
     def descr_len(self, space):
-        return space.wrap(self.len)
+        return space.newint(self.len)
 
     def descr_eq(self, space, w_arr2):
         "x.__eq__(y) <==> x==y"
@@ -679,19 +696,19 @@ class W_ArrayBase(W_Root):
 
     def descr_repr(self, space):
         if self.len == 0:
-            return space.wrap("array('%s')" % self.typecode)
+            return space.newtext("array('%s')" % self.typecode)
         elif self.typecode == "c":
             r = space.repr(self.descr_tostring(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            return space.newtext(s)
         elif self.typecode == "u":
             r = space.repr(self.descr_tounicode(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            return space.newtext(s)
 
 W_ArrayBase.typedef = TypeDef(
     'array.array',
@@ -752,7 +769,9 @@ W_ArrayBase.typedef = TypeDef(
 
 class TypeCode(object):
     def __init__(self, itemtype, unwrap, canoverflow=False, signed=False,
-                 method='__int__'):
+                 method='__int__', errorname=None):
+        if errorname is None:
+            errorname = unwrap[:-2]
         self.itemtype = itemtype
         self.bytes = rffi.sizeof(itemtype)
         self.arraytype = lltype.Array(itemtype, hints={'nolength': True})
@@ -762,6 +781,7 @@ class TypeCode(object):
         self.canoverflow = canoverflow
         self.w_class = None
         self.method = method
+        self.errorname = errorname
 
     def _freeze_(self):
         # hint for the annotator: track individual constant instances
@@ -776,7 +796,7 @@ else:
     _UINTTypeCode = \
          TypeCode(rffi.UINT,          'int_w', True)
 types = {
-    'c': TypeCode(lltype.Char,        'str_w', method=''),
+    'c': TypeCode(lltype.Char,        'bytes_w', method=''),
     'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
     'b': TypeCode(rffi.SIGNEDCHAR,    'int_w', True, True),
     'B': TypeCode(rffi.UCHAR,         'int_w', True),
@@ -785,8 +805,8 @@ types = {
     'i': TypeCode(rffi.INT,           'int_w', True, True),
     'I': _UINTTypeCode,
     'l': TypeCode(rffi.LONG,          'int_w', True, True),
-    'L': TypeCode(rffi.ULONG,         'bigint_w'),  # Overflow handled by
-                                                    # rbigint.touint() which
+    'L': TypeCode(rffi.ULONG,         'bigint_w',   # Overflow handled by
+                  errorname="integer"),             # rbigint.touint() which
                                                     # corresponds to the
                                                     # C-type unsigned long
     'f': TypeCode(lltype.SingleFloat, 'float_w', method='__float__'),
@@ -796,54 +816,42 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(Buffer):
+class ArrayBuffer(RawBuffer):
     _immutable_ = True
 
-    def __init__(self, array, readonly):
-        self.array = array
+    def __init__(self, w_array, readonly):
+        self.w_array = w_array
         self.readonly = readonly
 
     def getlength(self):
-        return self.array.len * self.array.itemsize
-
-    def getformat(self):
-        return self.array.typecode
-
-    def getitemsize(self):
-        return self.array.itemsize
-
-    def getndim(self):
-        return 1
-
-    def getstrides(self):
-        return [self.getitemsize()]
+        return self.w_array.len * self.w_array.itemsize
 
     def getitem(self, index):
-        array = self.array
-        data = array._charbuf_start()
+        w_array = self.w_array
+        data = w_array._charbuf_start()
         char = data[index]
-        array._charbuf_stop()
+        w_array._charbuf_stop()
         return char
 
     def setitem(self, index, char):
-        array = self.array
-        data = array._charbuf_start()
+        w_array = self.w_array
+        data = w_array._charbuf_start()
         data[index] = char
-        array._charbuf_stop()
+        w_array._charbuf_stop()
 
     def getslice(self, start, stop, step, size):
         if size == 0:
             return ''
         if step == 1:
-            data = self.array._charbuf_start()
+            data = self.w_array._charbuf_start()
             try:
                 return rffi.charpsize2str(rffi.ptradd(data, start), size)
             finally:
-                self.array._charbuf_stop()
-        return Buffer.getslice(self, start, stop, step, size)
+                self.w_array._charbuf_stop()
+        return RawBuffer.getslice(self, start, stop, step, size)
 
     def get_raw_address(self):
-        return self.array._charbuf_start()
+        return self.w_array._charbuf_start()
 
 
 unpack_driver = jit.JitDriver(name='unpack_array',
@@ -876,7 +884,7 @@ def make_array(mytype):
                         item = unwrap(space.call_method(w_item, mytype.method))
                     except OperationError:
                         raise oefmt(space.w_TypeError,
-                                    "array item must be " + mytype.unwrap[:-2])
+                                    "array item must be " + mytype.errorname)
                 else:
                     raise
             if mytype.unwrap == 'bigint_w':
@@ -887,7 +895,7 @@ def make_array(mytype):
                                 "unsigned %d-byte integer out of range",
                                 mytype.bytes)
                 return rffi.cast(mytype.itemtype, item)
-            if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
+            if mytype.unwrap == 'bytes_w' or mytype.unwrap == 'unicode_w':
                 if len(item) != 1:
                     raise oefmt(space.w_TypeError, "array item must be char")
                 item = item[0]
@@ -911,7 +919,7 @@ def make_array(mytype):
                     if not mytype.signed:
                         msg = 'un' + msg      # 'signed' => 'unsigned'
                     raise OperationError(self.space.w_OverflowError,
-                                         self.space.wrap(msg))
+                                         self.space.newtext(msg))
             return result
 
         def fromsequence(self, w_seq):
@@ -990,9 +998,17 @@ def make_array(mytype):
             keepalive_until_here(self)
             if mytype.typecode in 'bBhHil':
                 item = rffi.cast(lltype.Signed, item)
-            elif mytype.typecode == 'f':
+                return space.newint(item)
+            if mytype.typecode in 'IL':
+                return space.newint(item)
+            elif mytype.typecode in 'fd':
                 item = float(item)
-            return space.wrap(item)
+                return space.newfloat(item)
+            elif mytype.typecode == 'c':
+                return space.newbytes(item)
+            elif mytype.typecode == 'u':
+                return space.newunicode(item)
+            assert 0, "unreachable"
 
         # interface
 

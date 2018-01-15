@@ -1,5 +1,6 @@
 import py
 import sys
+from pypy.interpreter.error import OperationError
 
 
 class TestUnicodeObject:
@@ -33,6 +34,77 @@ class TestUnicodeObject:
         assert w_new is w_uni
 
 
+try:
+    from hypothesis import given, strategies
+except ImportError:
+    pass
+else:
+    @given(u=strategies.text(),
+           start=strategies.integers(min_value=0, max_value=10),
+           len1=strategies.integers(min_value=-1, max_value=10))
+    def test_hypo_index_find(u, start, len1, space):
+        if start + len1 < 0:
+            return   # skip this case
+        v = u[start : start + len1]
+        w_u = space.wrap(u)
+        w_v = space.wrap(v)
+        expected = u.find(v, start, start + len1)
+        try:
+            w_index = space.call_method(w_u, 'index', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+        except OperationError as e:
+            if not e.match(space, space.w_ValueError):
+                raise
+            assert expected == -1
+        else:
+            assert space.int_w(w_index) == expected >= 0
+
+        w_index = space.call_method(w_u, 'find', w_v,
+                                    space.newint(start),
+                                    space.newint(start + len1))
+        assert space.int_w(w_index) == expected
+
+        rexpected = u.rfind(v, start, start + len1)
+        try:
+            w_index = space.call_method(w_u, 'rindex', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+        except OperationError as e:
+            if not e.match(space, space.w_ValueError):
+                raise
+            assert rexpected == -1
+        else:
+            assert space.int_w(w_index) == rexpected >= 0
+
+        w_index = space.call_method(w_u, 'rfind', w_v,
+                                    space.newint(start),
+                                    space.newint(start + len1))
+        assert space.int_w(w_index) == rexpected
+
+        expected = u.startswith(v, start)
+        w_res = space.call_method(w_u, 'startswith', w_v,
+                                  space.newint(start))
+        assert w_res is space.newbool(expected)
+
+        expected = u.startswith(v, start, start + len1)
+        w_res = space.call_method(w_u, 'startswith', w_v,
+                                  space.newint(start),
+                                  space.newint(start + len1))
+        assert w_res is space.newbool(expected)
+
+        expected = u.endswith(v, start)
+        w_res = space.call_method(w_u, 'endswith', w_v,
+                                  space.newint(start))
+        assert w_res is space.newbool(expected)
+
+        expected = u.endswith(v, start, start + len1)
+        w_res = space.call_method(w_u, 'endswith', w_v,
+                                  space.newint(start),
+                                  space.newint(start + len1))
+        assert w_res is space.newbool(expected)
+
+
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
         assert u'a' == 'a'
@@ -62,6 +134,11 @@ class AppTestUnicodeString:
             assert type(a) == type(b)
         check(u'a' + 'b', u'ab')
         check('a' + u'b', u'ab')
+
+    def test_getitem(self):
+        assert u'abc'[2] == 'c'
+        raises(IndexError, u'abc'.__getitem__, 15)
+        assert u'g\u0105\u015b\u0107'[2] == u'\u015b'
 
     def test_join(self):
         def check(a, b):
@@ -99,6 +176,8 @@ class AppTestUnicodeString:
         assert u'\n\n'.splitlines() == [u'', u'']
         assert u'a\nb\nc'.splitlines(1) == [u'a\n', u'b\n', u'c']
         assert u'\na\nb\n'.splitlines(1) == [u'\n', u'a\n', u'b\n']
+        assert ((u'a' + '\xc2\x85'.decode('utf8') + u'b\n').splitlines() ==
+                ['a', 'b'])
 
     def test_zfill(self):
         assert u'123'.zfill(2) == u'123'
@@ -145,6 +224,7 @@ class AppTestUnicodeString:
         raises(ValueError, u'abc'.split, u'')
         raises(ValueError, 'abc'.split, u'')
         assert u'   a b c d'.split(None, 0) == [u'a b c d']
+        assert u'a\nb\u1680c'.split() == [u'a', u'b', u'c']
 
     def test_rsplit(self):
         assert u"".rsplit() == []
@@ -174,6 +254,7 @@ class AppTestUnicodeString:
         raises(ValueError, 'abc'.rsplit, u'')
         assert u'  a b c  '.rsplit(None, 0) == [u'  a b c']
         assert u''.rsplit('aaa') == [u'']
+        assert u'a\nb\u1680c'.rsplit() == [u'a', u'b', u'c']
 
     def test_split_rsplit_str_unicode(self):
         x = 'abc'.split(u'b')
@@ -219,6 +300,8 @@ class AppTestUnicodeString:
         assert u"bROWN fOX".title() == u"Brown Fox"
         assert u"Brown Fox".title() == u"Brown Fox"
         assert u"bro!wn fox".title() == u"Bro!Wn Fox"
+        assert u"brow\u4321n fox".title() == u"Brow\u4321N Fox"
+        assert u'\ud800'.title() == u'\ud800'
 
     def test_istitle(self):
         assert u"".istitle() == False
@@ -243,6 +326,18 @@ class AppTestUnicodeString:
         assert not u'\u01c5abc'.islower()
         assert not u'\u01c5ABC'.isupper()
 
+    def test_lower_upper(self):
+        assert u'a'.lower() == u'a'
+        assert u'A'.lower() == u'a'
+        assert u'\u0105'.lower() == u'\u0105'
+        assert u'\u0104'.lower() == u'\u0105'
+        assert u'\ud800'.lower() == u'\ud800'
+        assert u'a'.upper() == u'A'
+        assert u'A'.upper() == u'A'
+        assert u'\u0105'.upper() == u'\u0104'
+        assert u'\u0104'.upper() == u'\u0104'
+        assert u'\ud800'.upper() == u'\ud800'
+
     def test_capitalize(self):
         assert u"brown fox".capitalize() == u"Brown fox"
         assert u' hello '.capitalize() == u' hello '
@@ -264,6 +359,8 @@ class AppTestUnicodeString:
         # check with Ll chars with no upper - nothing changes here
         assert (u'\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
                 u'\u019b\u1d00\u1d86\u0221\u1fb7')
+        assert u'\ud800'.capitalize() == u'\ud800'
+        assert u'xx\ud800'.capitalize() == u'Xx\ud800'
 
     def test_rjust(self):
         s = u"abc"
@@ -304,6 +401,16 @@ class AppTestUnicodeString:
         assert u'one!two!three!'.replace('x', '@') == u'one!two!three!'
         assert u'one!two!three!'.replace(u'x', '@', 2) == u'one!two!three!'
         assert u'abc'.replace('', u'-') == u'-a-b-c-'
+        assert u'\u1234'.replace(u'', '-') == u'-\u1234-'
+        assert u'\u0234\u5678'.replace('', u'-') == u'-\u0234-\u5678-'
+        assert u'\u0234\u5678'.replace('', u'-', 0) == u'\u0234\u5678'
+        assert u'\u0234\u5678'.replace('', u'-', 1) == u'-\u0234\u5678'
+        assert u'\u0234\u5678'.replace('', u'-', 2) == u'-\u0234-\u5678'
+        assert u'\u0234\u5678'.replace('', u'-', 3) == u'-\u0234-\u5678-'
+        assert u'\u0234\u5678'.replace('', u'-', 4) == u'-\u0234-\u5678-'
+        assert u'\u0234\u5678'.replace('', u'-', 700) == u'-\u0234-\u5678-'
+        assert u'\u0234\u5678'.replace('', u'-', -1) == u'-\u0234-\u5678-'
+        assert u'\u0234\u5678'.replace('', u'-', -42) == u'-\u0234-\u5678-'
         assert u'abc'.replace(u'', u'-', 3) == u'-a-b-c'
         assert u'abc'.replace('', '-', 0) == u'abc'
         assert u''.replace(u'', '') == u''
@@ -407,6 +514,9 @@ class AppTestUnicodeString:
         assert u''.startswith(u'a') is False
         assert u'x'.startswith(u'xx') is False
         assert u'y'.startswith(u'xx') is False
+        assert u'\u1234\u5678\u4321'.startswith(u'\u1234') is True
+        assert u'\u1234\u5678\u4321'.startswith(u'\u1234\u4321') is False
+        assert u'\u1234'.startswith(u'', 1, 0) is True
 
     def test_startswith_more(self):
         assert u'ab'.startswith(u'a', 0) is True
@@ -517,7 +627,7 @@ class AppTestUnicodeString:
         raises(TypeError, u'hello'.translate)
         raises(TypeError, u'abababc'.translate, {ord('a'):''})
 
-    def test_unicode_form_encoded_object(self):
+    def test_unicode_from_encoded_object(self):
         assert unicode('x', 'utf-8') == u'x'
         assert unicode('x', 'utf-8', 'strict') == u'x'
 
@@ -562,6 +672,8 @@ class AppTestUnicodeString:
         assert u'\u20ac'.encode('utf-8') == '\xe2\x82\xac'
         assert u'\ud800\udc02'.encode('utf-8') == '\xf0\x90\x80\x82'
         assert u'\ud84d\udc56'.encode('utf-8') == '\xf0\xa3\x91\x96'
+        assert u'\ud800\udc02'.encode('uTf-8') == '\xf0\x90\x80\x82'
+        assert u'\ud84d\udc56'.encode('Utf8') == '\xf0\xa3\x91\x96'
         assert u'\ud800'.encode('utf-8') == '\xed\xa0\x80'
         assert u'\udc00'.encode('utf-8') == '\xed\xb0\x80'
         assert (u'\ud800\udc02'*1000).encode('utf-8') == '\xf0\x90\x80\x82'*1000
@@ -673,6 +785,7 @@ class AppTestUnicodeString:
     def test_index(self):
         assert u"rrarrrrrrrrra".index(u'a', 4, None) == 12
         assert u"rrarrrrrrrrra".index(u'a', None, 6) == 2
+        assert u"\u1234\u4321\u5678".index(u'\u5678', 1) == 2
 
     def test_rindex(self):
         from sys import maxint
@@ -682,6 +795,7 @@ class AppTestUnicodeString:
         assert u'abcdefghiabc'.rindex(u'abc', 0, -1) == 0
         assert u'abcdefghiabc'.rindex(u'abc', -4*maxint, 4*maxint) == 9
         assert u'rrarrrrrrrrra'.rindex(u'a', 4, None) == 12
+        assert u"\u1234\u5678".rindex(u'\u5678') == 1
 
         raises(ValueError, u'abcdefghiabc'.rindex, u'hib')
         raises(ValueError, u'defghiabc'.rindex, u'def', 1)
@@ -696,12 +810,15 @@ class AppTestUnicodeString:
         assert u'abcdefghiabc'.rfind(u'') == 12
         assert u'abcdefghiabc'.rfind(u'abcd') == 0
         assert u'abcdefghiabc'.rfind(u'abcz') == -1
+        assert u"\u1234\u5678".rfind(u'\u5678') == 1
 
     def test_rfind_corner_case(self):
         assert u'abc'.rfind('', 4) == -1
 
     def test_find_index_str_unicode(self):
-        assert 'abcdefghiabc'.find(u'bc') == 1
+        assert u'abcdefghiabc'.find(u'bc') == 1
+        assert u'ab\u0105b\u0107'.find('b', 2) == 3
+        assert u'ab\u0105b\u0107'.find('b', 0, 1) == -1
         assert 'abcdefghiabc'.rfind(u'abc') == 9
         raises(UnicodeDecodeError, '\x80'.find, u'')
         raises(UnicodeDecodeError, '\x80'.rfind, u'')
@@ -709,6 +826,7 @@ class AppTestUnicodeString:
         assert 'abcdefghiabc'.rindex(u'abc') == 9
         raises(UnicodeDecodeError, '\x80'.index, u'')
         raises(UnicodeDecodeError, '\x80'.rindex, u'')
+        assert u"\u1234\u5678".find(u'\u5678') == 1
 
     def test_count(self):
         assert u"".count(u"x") ==0
@@ -735,6 +853,7 @@ class AppTestUnicodeString:
 
     def test_swapcase(self):
         assert u'\xe4\xc4\xdf'.swapcase() == u'\xc4\xe4\xdf'
+        assert u'\ud800'.swapcase() == u'\ud800'
 
     def test_buffer(self):
         buf = buffer(u'XY')
@@ -806,16 +925,31 @@ class AppTestUnicodeString:
 
     def test_getslice(self):
         assert u'123456'.__getslice__(1, 5) == u'2345'
-        s = u"abc"
-        assert s[:] == "abc"
-        assert s[1:] == "bc"
-        assert s[:2] == "ab"
-        assert s[1:2] == "b"
-        assert s[-2:] == "bc"
-        assert s[:-1] == "ab"
-        assert s[-2:2] == "b"
-        assert s[1:-1] == "b"
-        assert s[-2:-1] == "b"
+        s = u"\u0105b\u0107"
+        assert s[:] == u"\u0105b\u0107"
+        assert s[1:] == u"b\u0107"
+        assert s[:2] == u"\u0105b"
+        assert s[1:2] == u"b"
+        assert s[-2:] == u"b\u0107"
+        assert s[:-1] == u"\u0105b"
+        assert s[-2:2] == u"b"
+        assert s[1:-1] == u"b"
+        assert s[-2:-1] == u"b"
+
+    def test_getitem_slice(self):
+        assert u'123456'.__getitem__(slice(1, 5)) == u'2345'
+        s = u"\u0105b\u0107"
+        assert s[slice(3)] == u"\u0105b\u0107"
+        assert s[slice(1, 3)] == u"b\u0107"
+        assert s[slice(2)] == u"\u0105b"
+        assert s[slice(1,2)] == u"b"
+        assert s[slice(-2,3)] == u"b\u0107"
+        assert s[slice(-1)] == u"\u0105b"
+        assert s[slice(-2,2)] == u"b"
+        assert s[slice(1,-1)] == u"b"
+        assert s[slice(-2,-1)] == u"b"
+        assert u"abcde"[::2] == u"ace"
+        assert u"\u0105\u0106\u0107abcd"[::2] == u"\u0105\u0107bd"
 
     def test_no_len_on_str_iter(self):
         iterable = u"hello"

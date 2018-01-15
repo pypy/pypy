@@ -11,6 +11,7 @@ from rpython.rlib import rarithmetic, rurandom
 from rpython.rlib.objectmodel import not_rpython, always_inline
 from rpython.rlib.objectmodel import we_are_translated, dont_inline
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rgc, jit, rposix
 from rpython.rlib.rarithmetic import r_uint64, r_uint32, r_uint
 from rpython.rlib.rawstorage import misaligned_is_fine
@@ -24,14 +25,13 @@ from rpython.rtyper.annlowlevel import llhelper
 if sys.byteorder == 'little':
     def _le64toh(x):
         return x
+    def _le32toh(x):
+        return x
+    BIG_ENDIAN = False
 else:
     _le64toh = rarithmetic.byteswap
-
-
-class Seed:
-    k0l = k1l = r_uint64(0)
-seed = Seed()
-
+    _le32toh = rarithmetic.byteswap
+    BIG_ENDIAN = True
 
 def _decode64(s):
     return (r_uint64(ord(s[0])) |
@@ -43,10 +43,16 @@ def _decode64(s):
             r_uint64(ord(s[6])) << 48 |
             r_uint64(ord(s[7])) << 56)
 
+class Seed:
+    k0l = k1l = r_uint64(0)
+seed = Seed()
+
+
 def select_random_seed(s):
     """'s' is a string of length 16"""
     seed.k0l = _decode64(s)
     seed.k1l = _decode64(s[8:16])
+    _update_prebuilt_hashes()
 
 
 random_ctx = rurandom.init_urandom()
@@ -149,23 +155,20 @@ def ll_hash_string_siphash24(ll_s):
     else:
         # NOTE: a latin-1 unicode string must have the same hash as the
         # corresponding byte string.  If the unicode is all within
-        # 0-255, then we need to allocate a byte buffer and copy the
-        # latin-1 encoding in it manually.  Note also that we give a
+        # 0-255, then we call _siphash24() with a special argument that
+        # will make it load only one byte for every unicode char.
+        # Note also that we give a
         # different hash result than CPython on ucs4 platforms, for
         # unicode strings where CPython uses 2 bytes per character.
+        addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
+        SZ = rffi.sizeof(rstr.UNICODE.chars.OF)
         for i in range(length):
             if ord(ll_s.chars[i]) > 0xFF:
-                addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
-                length *= rffi.sizeof(rstr.UNICODE.chars.OF)
+                length *= SZ
                 break
         else:
-            p = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
-            i = 0
-            while i < length:
-                p[i] = chr(ord(ll_s.chars[i]))
-                i += 1
-            x = _siphash24(llmemory.cast_ptr_to_adr(p), length)
-            lltype.free(p, flavor='raw')
+            x = _siphash24(addr, length, SZ)
+            keepalive_until_here(ll_s)
             return intmask(x)
     x = _siphash24(addr, length)
     keepalive_until_here(ll_s)
@@ -173,20 +176,22 @@ def ll_hash_string_siphash24(ll_s):
 
 
 @contextmanager
-def choosen_seed(new_k0, new_k1, test_misaligned_path=False):
+def choosen_seed(new_k0, new_k1, test_misaligned_path=False,
+                 test_prebuilt=False):
     """For tests."""
-    global misaligned_is_fine
-    old = seed.k0l, seed.k1l, misaligned_is_fine
-    seed.k0l = _le64toh(r_uint64(new_k0))
-    seed.k1l = _le64toh(r_uint64(new_k1))
+    global misaligned_is_fine, seed
+    old = seed, misaligned_is_fine
+    seed = Seed()
+    seed.k0l = r_uint64(new_k0)
+    seed.k1l = r_uint64(new_k1)
+    if test_prebuilt:
+        _update_prebuilt_hashes()
+    else:
+        seed.bound_prebuilt_size = 0
     if test_misaligned_path:
         misaligned_is_fine = False
     yield
-    seed.k0l, seed.k1l, misaligned_is_fine = old
-
-def get_current_seed():
-    return _le64toh(seed.k0l), _le64toh(seed.k1l)
-
+    seed, misaligned_is_fine = old
 
 magic0 = r_uint64(0x736f6d6570736575)
 magic1 = r_uint64(0x646f72616e646f6d)
@@ -217,9 +222,21 @@ def _double_round(v0, v1, v2, v3):
 
 
 @rgc.no_collect
-def _siphash24(addr_in, size):
+@specialize.arg(2)
+def _siphash24(addr_in, size, SZ=1):
     """Takes an address pointer and a size.  Returns the hash as a r_uint64,
     which can then be casted to the expected type."""
+
+    if BIG_ENDIAN:
+        index = SZ - 1
+    else:
+        index = 0
+    if size < seed.bound_prebuilt_size:
+        if size <= 0:
+            return seed.hash_empty
+        else:
+            t = rarithmetic.intmask(llop.raw_load(rffi.UCHAR, addr_in, index))
+            return seed.hash_single[t]
 
     k0 = seed.k0l
     k1 = seed.k1l
@@ -229,10 +246,10 @@ def _siphash24(addr_in, size):
     v2 = k0 ^ magic2
     v3 = k1 ^ magic3
 
-    direct = (misaligned_is_fine or
+    direct = (SZ == 1) and (misaligned_is_fine or
                  (rffi.cast(lltype.Signed, addr_in) & 7) == 0)
-    index = 0
     if direct:
+        assert SZ == 1
         while size >= 8:
             mi = llop.raw_load(rffi.ULONGLONG, addr_in, index)
             mi = _le64toh(mi)
@@ -244,50 +261,51 @@ def _siphash24(addr_in, size):
     else:
         while size >= 8:
             mi = (
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index)) |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1)) << 8 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2)) << 16 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3)) << 24 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4)) << 32 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5)) << 40 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6)) << 48 |
-                r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 7)) << 56
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index)) |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1*SZ)) << 8 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2*SZ)) << 16 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3*SZ)) << 24 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4*SZ)) << 32 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5*SZ)) << 40 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6*SZ)) << 48 |
+              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 7*SZ)) << 56
             )
             size -= 8
-            index += 8
+            index += 8*SZ
             v3 ^= mi
             v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
             v0 ^= mi
 
     t = r_uint64(0)
     if size == 7:
-        t = r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6)) << 48
+        t = r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6*SZ)) << 48
         size = 6
     if size == 6:
-        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5)) << 40
+        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5*SZ)) << 40
         size = 5
     if size == 5:
-        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4)) << 32
+        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4*SZ)) << 32
         size = 4
     if size == 4:
         if direct:
-            t |= r_uint64(llop.raw_load(rffi.UINT, addr_in, index))
+            v = _le32toh(r_uint32(llop.raw_load(rffi.UINT, addr_in, index)))
+            t |= r_uint64(v)
             size = 0
         else:
-            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3)) << 24
+            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3*SZ))<< 24
             size = 3
     if size == 3:
-        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2)) << 16
+        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2*SZ)) << 16
         size = 2
     if size == 2:
-        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1)) << 8
+        t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1*SZ)) << 8
         size = 1
     if size == 1:
         t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index))
         size = 0
     assert size == 0
 
-    b |= _le64toh(t)
+    b |= t
 
     v3 ^= b
     v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
@@ -307,3 +325,17 @@ def siphash24(s):
     """
     with rffi.scoped_nonmovingbuffer(s) as p:
         return _siphash24(llmemory.cast_ptr_to_adr(p), len(s))
+
+
+# Prebuilt hashes are precomputed here
+def _update_prebuilt_hashes():
+    seed.bound_prebuilt_size = 0
+    with lltype.scoped_alloc(rffi.CCHARP.TO, 1) as p:
+        addr = llmemory.cast_ptr_to_adr(p)
+        seed.hash_single = [r_uint64(0)] * 256
+        for i in range(256):
+            p[0] = chr(i)
+            seed.hash_single[i] = _siphash24(addr, 1)
+        seed.hash_empty = _siphash24(addr, 0)
+    seed.bound_prebuilt_size = 2
+_update_prebuilt_hashes()

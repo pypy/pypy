@@ -106,14 +106,20 @@ def get_ident():
     if we_are_translated():
         return tlfield_thread_ident.getraw()
     else:
-        import thread
+        try:
+            import thread
+        except ImportError:
+            return 42
         return thread.get_ident()
 
 def get_or_make_ident():
     if we_are_translated():
         return tlfield_thread_ident.get_or_make_raw()
     else:
-        import thread
+        try:
+            import thread
+        except ImportError:
+            return 42
         return thread.get_ident()
 
 @specialize.arg(0)
@@ -429,7 +435,11 @@ class ThreadLocalReference(ThreadLocalField):
                 gc._trace_callback(callback, arg, p + offset)
             llop.threadlocalref_release(lltype.Void)
         _lambda_trace_tlref = lambda: _trace_tlref
-        TRACETLREF = lltype.GcStruct('TRACETLREF')
+        # WAAAH obscurity: can't use a name that may be non-unique,
+        # otherwise the types compare equal, even though we call
+        # register_custom_trace_hook() to register different trace
+        # functions...
+        TRACETLREF = lltype.GcStruct('TRACETLREF%d' % unique_id)
         _tracetlref_obj = lltype.malloc(TRACETLREF, immortal=True)
 
     @staticmethod

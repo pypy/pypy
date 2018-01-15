@@ -1,6 +1,6 @@
 from ctypes import *
-import py
-from support import BaseCTypesTestChecker
+import pytest
+from .support import BaseCTypesTestChecker
 
 class TestCallbacks(BaseCTypesTestChecker):
     functype = CFUNCTYPE
@@ -22,7 +22,7 @@ class TestCallbacks(BaseCTypesTestChecker):
             c_uint: (int, long),
             c_ulong: (int, long),
             }
-        
+
         PROTO = self.functype.im_func(typ, typ)
         cfunc = PROTO(self.callback)
         result = cfunc(arg)
@@ -101,15 +101,18 @@ class TestCallbacks(BaseCTypesTestChecker):
 ##        self.check_type(c_char_p, "abc")
 ##        self.check_type(c_char_p, "def")
 
+
+    @pytest.mark.xfail(
+        reason="we are less strict about callback return type sanity")
     def test_unsupported_restype_1(self):
-        py.test.skip("we are less strict about callback return type sanity")
         # Only "fundamental" result types are supported for callback
         # functions, the type must have a non-NULL stgdict->setfunc.
         # POINTER(c_double), for example, is not supported.
 
         prototype = self.functype.im_func(POINTER(c_double))
         # The type is checked when the prototype is called
-        raises(TypeError, prototype, lambda: None)
+        with pytest.raises(TypeError):
+            prototype(lambda: None)
 
 try:
     WINFUNCTYPE
@@ -193,9 +196,10 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         class RECT(Structure):
             _fields_ = [("left", c_int), ("top", c_int),
                         ("right", c_int), ("bottom", c_int)]
-        
+
         proto = CFUNCTYPE(RECT, c_int)
-        raises(TypeError, proto, lambda r: 0)
+        with pytest.raises(TypeError):
+            proto(lambda r: 0)
 
 
     def test_qsort(self):
@@ -210,7 +214,7 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
             a[i] = 5-i
 
         assert a[0] == 5 # sanity
-        
+
         def comp(a, b):
             a = a.contents.value
             b = b.contents.value
@@ -273,4 +277,5 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         FUNC = CFUNCTYPE(None, c_void_p)
         cfunc = FUNC(callback)
         param = c_uint(42)
-        py.test.raises(ArgumentError, "cfunc(param)")
+        with pytest.raises(ArgumentError):
+            cfunc(param)

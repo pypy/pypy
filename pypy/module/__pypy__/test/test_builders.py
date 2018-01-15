@@ -9,8 +9,9 @@ class AppTestBuilders(object):
         b.append(u"1")
         s = b.build()
         assert s == u"abc1231"
-        raises(ValueError, b.build)
-        raises(ValueError, b.append, u"123")
+        assert b.build() == s
+        b.append(u"123")
+        assert b.build() == s + u"123"
 
     def test_preallocate(self):
         from __pypy__.builders import UnicodeBuilder
@@ -26,8 +27,9 @@ class AppTestBuilders(object):
         b.append_slice(u"abcdefgh", 2, 5)
         raises(ValueError, b.append_slice, u"1", 2, 1)
         s = b.build()
-        assert s == "cde"
-        raises(ValueError, b.append_slice, u"abc", 1, 2)
+        assert s == u"cde"
+        b.append_slice(u"abc", 1, 2)
+        assert b.build() == u"cdeb"
 
     def test_stringbuilder(self):
         from __pypy__.builders import StringBuilder
@@ -37,6 +39,6 @@ class AppTestBuilders(object):
         assert len(b) == 6
         b.append("you and me")
         s = b.build()
-        raises(ValueError, len, b)
+        assert len(b) == 16
         assert s == "abc123you and me"
-        raises(ValueError, b.build)
+        assert b.build() == s

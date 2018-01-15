@@ -36,7 +36,7 @@ def collect(space, generation=0):
         if temp_reenable:
             disable_finalizers(space)
 
-    return space.wrap(0)
+    return space.newint(0)
 
 def enable(space):
     """Non-recursive version.  Enable finalizers now.
@@ -79,7 +79,7 @@ def disable_finalizers(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(filename='str0')
+@unwrap_spec(filename='fsencode')
 def dump_heap_stats(space, filename):
     tb = rgc._heap_stats()
     if not tb:

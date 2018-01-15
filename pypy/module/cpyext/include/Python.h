@@ -73,12 +73,13 @@
 
 #define Py_MEMCPY memcpy
 
-#include <pypy_macros.h>
+#include "pypy_macros.h"
 
 #include "patchlevel.h"
 #include "pyconfig.h"
 
 #include "object.h"
+#include "abstract.h"
 #include "pymath.h"
 #include "pyport.h"
 #include "warnings.h"
@@ -137,7 +138,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-  #include <pypy_decl.h>
+  #include "pypy_decl.h"
 #ifdef __cplusplus
 }
 #endif

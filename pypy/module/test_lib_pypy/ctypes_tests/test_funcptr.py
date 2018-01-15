@@ -1,4 +1,4 @@
-import py
+import pytest
 import sys, os, unittest
 from ctypes import *
 
@@ -27,6 +27,8 @@ class TestCFuncPtr:
         assert sizeof(x) == sizeof(c_voidp)
         assert sizeof(X) == sizeof(c_voidp)
 
+    @pytest.mark.xfail(
+        reason="cdecl funcptrs ignoring extra args is not implemented")
     def test_first(self):
         StdCallback = WINFUNCTYPE(c_int, c_int, c_int)
         CdeclCallback = CFUNCTYPE(c_int, c_int, c_int)
@@ -42,14 +44,13 @@ class TestCFuncPtr:
         # The following no longer raises a TypeError - it is now
         # possible, as in C, to call cdecl functions with more parameters.
         #self.assertRaises(TypeError, c, 1, 2, 3)
-        py.test.skip("cdecl funcptrs ignoring extra args is not implemented")
         assert c(1, 2, 3, 4, 5, 6) == 3
         if not WINFUNCTYPE is CFUNCTYPE and os.name != "ce":
-            raises(TypeError, s, 1, 2, 3)
+            with pytest.raises(TypeError):
+                s(1, 2, 3)
 
+    @pytest.mark.skipif("sys.platform != 'win32'")
     def test_structures(self):
-        if sys.platform != 'win32':
-            py.test.skip("win32 related")
         WNDPROC = WINFUNCTYPE(c_long, c_int, c_int, c_int, c_int)
 
         def wndproc(hwnd, msg, wParam, lParam):
@@ -130,9 +131,10 @@ class TestCFuncPtr:
         assert strtok(None, "\n") == "c"
         assert strtok(None, "\n") == None
 
+    @pytest.mark.xfail(
+        reason="This test needs mmap to make sure the code is executable, "
+            "please rewrite me")
     def test_from_address(self):
-        py.test.skip("This test needs mmap to make sure the"
-                     " code is executable, please rewrite me")
         def make_function():
             proto = CFUNCTYPE(c_int)
             a=create_string_buffer(

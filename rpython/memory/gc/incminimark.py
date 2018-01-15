@@ -1138,7 +1138,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Check if the object at 'addr' is young.
         if not self.is_valid_gc_object(addr):
             return False     # filter out tagged pointers explicitly.
-        if self.nursery <= addr < self.nursery_top:
+        if self.is_in_nursery(addr):
             return True      # addr is in the nursery
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
@@ -1897,8 +1897,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
                         if cardbyte & 1:
                             if interval_stop > length:
                                 interval_stop = length
-                                ll_assert(cardbyte <= 1 and bytes == 0,
-                                          "premature end of object")
+                                #--- the sanity check below almost always
+                                #--- passes, except in situations like
+                                #--- test_writebarrier_before_copy_manually\
+                                #    _copy_card_bits
+                                #ll_assert(cardbyte <= 1 and bytes == 0,
+                                #          "premature end of object")
+                                ll_assert(bytes == 0, "premature end of object")
+                                if interval_stop <= interval_start:
+                                    break
                             self.trace_and_drag_out_of_nursery_partial(
                                 obj, interval_start, interval_stop)
                         #
@@ -2124,7 +2131,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _malloc_out_of_nursery(self, totalsize):
         """Allocate non-movable memory for an object of the given
         'totalsize' that lives so far in the nursery."""
-        if raw_malloc_usage(totalsize) <= self.small_request_threshold:
+        if (r_uint(raw_malloc_usage(totalsize)) <=
+            r_uint(self.small_request_threshold)):
             # most common path
             return self.ac.malloc(totalsize)
         else:
@@ -2133,6 +2141,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     _malloc_out_of_nursery._always_inline_ = True
 
     def _malloc_out_of_nursery_nonsmall(self, totalsize):
+        if r_uint(raw_malloc_usage(totalsize)) > r_uint(self.nursery_size):
+            out_of_memory("memory corruption: bad size for object in the "
+                          "nursery")
         # 'totalsize' should be aligned.
         ll_assert(raw_malloc_usage(totalsize) & (WORD-1) == 0,
                   "misaligned totalsize in _malloc_out_of_nursery_nonsmall")
@@ -2304,6 +2315,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 ll_assert(not (self.probably_young_objects_with_finalizers
                                .non_empty()),
                     "probably_young_objects_with_finalizers should be empty")
+                self.kept_alive_by_finalizer = r_uint(0)
                 if self.old_objects_with_finalizers.non_empty():
                     self.deal_with_objects_with_finalizers()
                 elif self.old_objects_with_weakrefs.non_empty():
@@ -2342,6 +2354,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if self.rrc_enabled:
                     self.rrc_major_collection_free()
                 #
+                self.stat_ac_arenas_count = self.ac.arenas_count
+                self.stat_rawmalloced_total_size = self.rawmalloced_total_size
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
@@ -2371,11 +2385,26 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
                 self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
                 #
+                # Print statistics
+                debug_start("gc-collect-done")
+                debug_print("arenas:               ",
+                            self.stat_ac_arenas_count, " => ",
+                            self.ac.arenas_count)
+                debug_print("bytes used in arenas: ",
+                            self.ac.total_memory_used)
+                debug_print("bytes raw-malloced:   ",
+                            self.stat_rawmalloced_total_size, " => ",
+                            self.rawmalloced_total_size)
+                debug_stop("gc-collect-done")
+                #
                 # Set the threshold for the next major collection to be when we
                 # have allocated 'major_collection_threshold' times more than
                 # we currently have -- but no more than 'max_delta' more than
                 # we currently have.
                 total_memory_used = float(self.get_total_memory_used())
+                total_memory_used -= float(self.kept_alive_by_finalizer)
+                if total_memory_used < 0:
+                    total_memory_used = 0
                 bounded = self.set_major_threshold_from(
                     min(total_memory_used * self.major_collection_threshold,
                         total_memory_used + self.max_delta),
@@ -2414,7 +2443,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.execute_finalizers()
             #END FINALIZING
         else:
-            pass #XXX which exception to raise here. Should be unreachable.
+            ll_assert(False, "bogus gc_state")
 
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
         debug_stop("gc-collect-step")
@@ -2506,6 +2535,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.prebuilt_root_objects.foreach(callback, arg)
         MovingGCBase.enumerate_all_roots(self, callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
+
+    def enum_live_with_finalizers(self, callback, arg):
+        self.probably_young_objects_with_finalizers.foreach(callback, arg, 2)
+        self.old_objects_with_finalizers.foreach(callback, arg, 2)
+    enum_live_with_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
     def _collect_obj(self, obj, ignored):
         # Ignore pinned objects, which are the ones still in the nursery here.
@@ -2780,8 +2814,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _bump_finalization_state_from_0_to_1(self, obj):
         ll_assert(self._finalization_state(obj) == 0,
                   "unexpected finalization state != 0")
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + self.get_size(obj)
         hdr = self.header(obj)
         hdr.tid |= GCFLAG_FINALIZATION_ORDERING
+        # A bit hackish, but we will not count these objects as "alive"
+        # for the purpose of computing when the next major GC should
+        # occur.  This is done for issue #2590: without this, if we
+        # allocate mostly objects with finalizers, the
+        # next_major_collection_threshold grows forever and actual
+        # memory usage is not bounded.
+        self.kept_alive_by_finalizer += raw_malloc_usage(totalsize)
 
     def _recursively_bump_finalization_state_from_2_to_3(self, obj):
         ll_assert(self._finalization_state(obj) == 2,

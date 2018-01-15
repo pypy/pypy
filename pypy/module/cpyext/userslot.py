@@ -26,7 +26,7 @@ def slot_tp_hash(space, w_obj):
 
 @slot_function([PyObject, Py_ssize_t], PyObject)
 def slot_sq_item(space, w_obj, index):
-    return space.getitem(w_obj, space.wrap(index))
+    return space.getitem(w_obj, space.newint(index))
 
 @slot_function([PyTypeObjectPtr, PyObject, PyObject], PyObject)
 def slot_tp_new(space, w_type, w_args, w_kwds):
@@ -39,12 +39,12 @@ def slot_tp_new(space, w_type, w_args, w_kwds):
     #     we know (since we are in this function) that self is not a cpytype
     from pypy.module.cpyext.typeobject import W_PyCTypeObject
     w_type0 = w_type
-    mro_w = space.listview(space.getattr(w_type0, space.wrap('__mro__')))
+    mro_w = space.listview(space.getattr(w_type0, space.newtext('__mro__')))
     for w_m in mro_w[1:]:
         if not w_type0.is_cpytype():
             break
         w_type0 = w_m
-    w_impl = space.getattr(w_type0, space.wrap('__new__'))
+    w_impl = space.getattr(w_type0, space.newtext('__new__'))
     args = Arguments(space, [w_type],
                      w_stararg=w_args, w_starstararg=w_kwds)
     return space.call_args(w_impl, args)
@@ -109,4 +109,24 @@ def slot_mp_subscript(space, w_obj1, w_obj2):
 def slot_tp_getattr(space, w_obj1, w_obj2):
     return space.getattr(w_obj1, w_obj2)
 
+@slot_function([PyObject, PyObject, PyObject], PyObject)
+def slot_tp_descr_get(space, w_self, w_obj, w_type):
+    if w_obj is None:
+        w_obj = space.w_None
+    return space.get(w_self, w_obj, w_type)
 
+@slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+def slot_tp_descr_set(space, w_self, w_obj, w_value):
+    if w_value is not None:
+        space.set(w_self, w_obj, w_value)
+    else:
+        space.delete(w_self, w_obj)
+    return 0
+
+@slot_function([PyObject], PyObject)
+def slot_tp_iter(space, w_self):
+    return space.iter(w_self)
+
+@slot_function([PyObject], PyObject)
+def slot_tp_iternext(space, w_self):
+    return space.next(w_self)

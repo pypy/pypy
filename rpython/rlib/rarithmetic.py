@@ -845,7 +845,7 @@ else:
 # String parsing support
 # ---------------------------
 
-def string_to_int(s, base=10):
+def string_to_int(s, base=10, allow_underscores=False):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
@@ -854,7 +854,8 @@ def string_to_int(s, base=10):
     from rpython.rlib.rstring import (
         NumberStringParser, ParseStringOverflowError, strip_spaces)
     s = literal = strip_spaces(s)
-    p = NumberStringParser(s, literal, base, 'int')
+    p = NumberStringParser(s, literal, base, 'int',
+                           allow_underscores=allow_underscores)
     base = p.base
     result = 0
     while True:
