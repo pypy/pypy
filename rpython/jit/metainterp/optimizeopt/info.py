@@ -81,6 +81,9 @@ class PtrInfo(AbstractInfo):
         pass
 
     def make_guards(self, op, short, optimizer):
+        self.make_guard_compat_conditions(op, short, optimizer)
+
+    def make_guard_compat_conditions(self, op, short, optimizer):
         compat_cond = self._compatibility_conditions
         if compat_cond is None:
             return
@@ -333,7 +336,6 @@ class InstancePtrInfo(AbstractStructPtrInfo):
         return visitor.visit_virtual(self.descr, fielddescrs)
 
     def make_guards(self, op, short, optimizer):
-        AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
         if self._known_class is not None:
             if not optimizer.cpu.remove_gctypeptr:
                 short.append(ResOperation(rop.GUARD_NONNULL, [op]))
@@ -343,11 +345,16 @@ class InstancePtrInfo(AbstractStructPtrInfo):
             else:
                 short.append(ResOperation(rop.GUARD_NONNULL_CLASS,
                     [op, self._known_class]))
+            self.make_guard_compat_conditions(op, short, optimizer)
         elif self.descr is not None:
+            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
                 short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_SUBCLASS, [op,
                             ConstInt(self.descr.get_vtable())]))
+            self.make_guard_compat_conditions(op, short, optimizer)
+        else:
+            AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
 
 class StructPtrInfo(AbstractStructPtrInfo):
     def __init__(self, descr, is_virtual=False):
