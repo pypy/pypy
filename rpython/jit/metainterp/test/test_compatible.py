@@ -609,7 +609,7 @@ class TestCompatible(LLJitMixin):
 
         x = self.meta_interp(main, [False])
         assert x < 70
-        self.check_trace_count(7)
+        self.check_trace_count(5)
         self.check_resops(call_i=0)
 
 
@@ -696,7 +696,5 @@ class TestCompatible(LLJitMixin):
         main(False)
 
         self.meta_interp(main, [True], backendopt=True)
-         # XXX this should be 3, but hard to achieve without propagating more
-         # information across bridges
-        self.check_trace_count(4)
+        self.check_trace_count(3)
         self.check_resops(call_i=0)

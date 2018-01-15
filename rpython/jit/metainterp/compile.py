@@ -1137,10 +1137,6 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         # but later
         #self.fallback_jump_target = 0 (set on the class, annotator trick in
         #                            case we don't see any GuardCompatibleDescr)
-        # the next two attributes are for tracking where the guarded value came
-        # from
-        self.source_failarg_index = -1
-        self.source_fielddescr = None
 
     def find_compatible(self, cpu, ref):
         """ callback for the CPU: given a value ref, it returns:
@@ -1183,20 +1179,12 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         compat_cond = None
         if self.failarg_index != -1:
             firstop = new_loop.operations[0]
-            opindex = 0
-            if self.source_fielddescr:
-                assert firstop.getopnum() == rop.GETFIELD_GC_R
-                assert firstop.getdescr() is self.source_fielddescr
-                arg = firstop
-                opindex = 1
-                firstop = new_loop.operations[1]
-            else:
-                arg = new_loop.inputargs[self.failarg_index]
+            arg = new_loop.inputargs[self.failarg_index]
             if (firstop.getopnum() == rop.GUARD_COMPATIBLE and
                     firstop.getarg(0) is arg):
                 # a guard_compatible about the same box
                 # remove it, it doesn't have to be checked in the bridge
-                del new_loop.operations[opindex]
+                del new_loop.operations[0]
                 newdescr = firstop.getdescr()
                 assert isinstance(newdescr, GuardCompatibleDescr)
                 compat_cond = newdescr._compatibility_conditions
