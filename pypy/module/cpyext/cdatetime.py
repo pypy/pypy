@@ -1,40 +1,17 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.annlowlevel import llhelper
-from pypy.module.cpyext.pyobject import PyObject, make_ref
+from pypy.module.cpyext.pyobject import PyObject, make_ref, make_typedescr
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cpython_struct,
-    PyObjectFields)
+    PyObjectFields, cts, parse_dir, bootstrap_function, slot_function)
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError
 from rpython.tool.sourcetools import func_renamer
 
-# API import function
+cts.parse_header(parse_dir / 'cpyext_datetime.h')
 
-PyDateTime_CAPI = cpython_struct(
-    'PyDateTime_CAPI',
-    (('DateType', PyTypeObjectPtr),
-     ('DateTimeType', PyTypeObjectPtr),
-     ('TimeType', PyTypeObjectPtr),
-     ('DeltaType', PyTypeObjectPtr),
-     ('TZInfoType', PyTypeObjectPtr),
 
-     ('Date_FromDate', lltype.Ptr(lltype.FuncType(
-         [rffi.INT_real, rffi.INT_real, rffi.INT_real, PyTypeObjectPtr],
-         PyObject))),
-     ('Time_FromTime', lltype.Ptr(lltype.FuncType(
-         [rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
-          PyObject, PyTypeObjectPtr],
-         PyObject))),
-     ('DateTime_FromDateAndTime', lltype.Ptr(lltype.FuncType(
-         [rffi.INT_real, rffi.INT_real, rffi.INT_real,
-          rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
-          PyObject, PyTypeObjectPtr],
-         PyObject))),
-     ('Delta_FromDelta', lltype.Ptr(lltype.FuncType(
-         [rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
-          PyTypeObjectPtr],
-         PyObject))),
-     ))
+PyDateTime_CAPI = cts.gettype('PyDateTime_CAPI')
 
 @cpython_api([], lltype.Ptr(PyDateTime_CAPI))
 def _PyDateTime_Import(space):
@@ -78,19 +55,9 @@ def _PyDateTime_Import(space):
 
     return datetimeAPI
 
-PyDateTime_DateStruct = lltype.ForwardReference()
-PyDateTime_TimeStruct = lltype.ForwardReference()
-PyDateTime_DateTimeStruct = lltype.ForwardReference()
-cpython_struct("PyDateTime_Date", PyObjectFields, PyDateTime_DateStruct)
-PyDateTime_Date = lltype.Ptr(PyDateTime_DateStruct)
-cpython_struct("PyDateTime_Time", PyObjectFields, PyDateTime_TimeStruct)
-PyDateTime_Time = lltype.Ptr(PyDateTime_TimeStruct)
-cpython_struct("PyDateTime_DateTime", PyObjectFields, PyDateTime_DateTimeStruct)
-PyDateTime_DateTime = lltype.Ptr(PyDateTime_DateTimeStruct)
-
-PyDeltaObjectStruct = lltype.ForwardReference()
-cpython_struct("PyDateTime_Delta", PyObjectFields, PyDeltaObjectStruct)
-PyDateTime_Delta = lltype.Ptr(PyDeltaObjectStruct)
+PyDateTime_Time = cts.gettype('PyDateTime_Time*')
+PyDateTime_DateTime = cts.gettype('PyDateTime_DateTime*')
+PyDateTime_Delta = cts.gettype('PyDateTime_Delta*')
 
 # Check functions
 
@@ -128,6 +95,66 @@ PyDelta_Check, PyDelta_CheckExact = make_check_function(
     "PyDelta_Check", "timedelta")
 PyTZInfo_Check, PyTZInfo_CheckExact = make_check_function(
     "PyTZInfo_Check", "tzinfo")
+
+@bootstrap_function
+def init_datetime(space):
+    w_datetime = PyImport_Import(space, space.newtext("datetime"))
+
+    w_datetimetype = space.getattr(w_datetime, space.newtext("datetime"))
+    w_timetype = space.getattr(w_datetime, space.newtext("time"))
+    w_timedeltatype = space.getattr(w_datetime, space.newtext("timedelta"))
+    
+    # XXX doesn't work, the w_datetimetype, w_timetype, w_timedeltatype all
+    #     share the object layout.typedef so the typedescr specialization fails
+    return
+    # no realize functions since there are no getters
+    make_typedescr(w_datetimetype.layout.typedef,
+                   basestruct=PyDateTime_DateTime.TO,
+                   attach=type_attach,
+                   dealloc=type_dealloc,
+                  )
+
+    make_typedescr(w_timetype.layout.typedef,
+                   basestruct=PyDateTime_Time.TO,
+                   attach=type_attach,
+                   dealloc=type_dealloc,
+                  )
+
+    make_typedescr(w_timedeltatype.layout.typedef,
+                   basestruct=PyDateTime_Delta.TO,
+                   attach=timedeltatype_attach,
+                  )
+
+def type_attach(space, py_obj, w_obj, w_userdata=None):
+    "Fills a newly allocated py_obj from the w_obj"
+    import pdb;pdb.set_trace()
+    py_datetime = rffi.cast(PyDateTime_Time, py_obj)
+    w_tzinfo = space.getattr(w_obj, space.wrap('tzinfo'))
+    if space.is_none(w_tzinfo):
+        py_datetime.c_hastzinfo = 0
+        py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
+    else:
+        py_datetime.c_hastzinfo = 1
+        py_datetime.c_tzinfo = make_ref(w_tzinfo)
+
+@slot_function([PyObject], lltype.Void)
+def type_dealloc(space, py_obj):
+    import pdb;pdb.set_trace()
+    py_datetime = rffi.cast(PyDateTime_Time, py_obj)
+    if (py_datetime.hastzinfo):
+        decref(space, py_datetime.c_tzinfo)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
+    
+def timedeltatype_attach(space, py_obj, w_obj, w_userdata=None):
+    "Fills a newly allocated py_obj from the w_obj"
+    py_delta = rffi.cast(PyDateTime_Delta, py_obj)
+    days = space.int_w(space.getattr(w_obj, space.newtext('days')))
+    py_delta.c_days = days
+    seconds = space.int_w(space.getattr(w_obj, space.newtext('seconds')))
+    py_delta.c_seconds = seconds
+    microseconds = space.int_w(space.getattr(w_obj, space.newtext('microseconds')))
+    py_delta.c_microseconds = microseconds
 
 # Constructors. They are better used as macros.
 
