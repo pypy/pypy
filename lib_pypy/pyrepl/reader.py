@@ -57,7 +57,7 @@ def _my_unctrl(c, u=_make_unctrl_map()):
         if unicodedata.category(c).startswith('C'):
             return r'\u%04x' % ord(c)
         else:
-            return unichr(c)
+            return c
 
 if 'a'[0] == b'a':
     # When running tests with python2, bytes characters are bytes.
