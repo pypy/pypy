@@ -214,13 +214,10 @@ class AppTest(object):
 
     def test_raw_encode_basestring_ascii(self):
         import _pypyjson
-        def check(inp_s):
-            s = _pypyjson.raw_encode_basestring_ascii(inp_s)
-            if s is None:
-                return inp_s
+        def check(s):
+            s = _pypyjson.raw_encode_basestring_ascii(s)
             assert type(s) is str
-            assert len(s) >= 2 and s.startswith('"') and s.endswith('"')
-            return s[1:-1]
+            return s
         assert check("") == ""
         assert check(u"") == ""
         assert check("abc ") == "abc "

@@ -1,7 +1,6 @@
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.runicode import str_decode_utf_8
 from pypy.interpreter import unicodehelper
-from pypy.interpreter.gateway import unwrap_spec
 
 
 HEX = '0123456789abcdef'
@@ -17,19 +16,17 @@ ESCAPE_BEFORE_SPACE = [ESCAPE_DICT.get(chr(_i), '\\u%04x' % _i)
                        for _i in range(32)]
 
 
-@unwrap_spec(u=unicode)
-def raw_encode_basestring_ascii(space, u):
+def raw_encode_basestring_ascii(space, w_unicode):
+    u = space.unicode_w(w_unicode)
     for i in range(len(u)):
         c = ord(u[i])
         if c < 32 or c > 126 or c == ord('\\') or c == ord('"'):
             break
     else:
         # The unicode string 'u' contains only safe characters.
-        # Return None to mean this.
-        return space.w_None
+        return w_unicode
 
     sb = StringBuilder(len(u) + 20)
-    sb.append('"')
 
     for i in range(len(u)):
         c = ord(u[i])
@@ -61,6 +58,5 @@ def raw_encode_basestring_ascii(space, u):
                 sb.append(HEX[(s2 >> 4) & 0x0f])
                 sb.append(HEX[s2 & 0x0f])
 
-    sb.append('"')
     res = sb.build()
     return space.newtext(res)

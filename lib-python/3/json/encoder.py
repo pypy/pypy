@@ -4,18 +4,6 @@ import re
 
 from __pypy__.builders import StringBuilder
 
-try:
-    from _json import encode_basestring_ascii as c_encode_basestring_ascii
-except ImportError:
-    c_encode_basestring_ascii = None
-try:
-    from _json import encode_basestring as c_encode_basestring
-except ImportError:
-    c_encode_basestring = None
-try:
-    from _json import make_encoder as c_make_encoder
-except ImportError:
-    c_make_encoder = None
 
 ESCAPE = re.compile(r'[\x00-\x1f\\"\b\f\n\r\t]')
 ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')
@@ -35,19 +23,17 @@ for i in range(0x20):
 
 INFINITY = float('inf')
 
-def py_encode_basestring(s):
+def raw_encode_basestring(s):
     """Return a JSON representation of a Python string
 
     """
     def replace(match):
         return ESCAPE_DCT[match.group(0)]
-    return '"' + ESCAPE.sub(replace, s) + '"'
+    return ESCAPE.sub(replace, s)
+encode_basestring = lambda s: '"' + raw_encode_basestring(s) + '"'
 
 
-encode_basestring = (c_encode_basestring or py_encode_basestring)
-
-
-def py_encode_basestring_ascii(s):
+def raw_encode_basestring_ascii(s):
     """Return an ASCII-only JSON representation of a Python string
 
     """
@@ -66,11 +52,9 @@ def py_encode_basestring_ascii(s):
                 s1 = 0xd800 | ((n >> 10) & 0x3ff)
                 s2 = 0xdc00 | (n & 0x3ff)
                 return '\\u{0:04x}\\u{1:04x}'.format(s1, s2)
-    return '"' + ESCAPE_ASCII.sub(replace, s) + '"'
+    return ESCAPE_ASCII.sub(replace, s)
+encode_basestring_ascii = lambda s: '"' + raw_encode_basestring_ascii(s) + '"'
 
-
-encode_basestring_ascii = (
-    c_encode_basestring_ascii or py_encode_basestring_ascii)
 
 class JSONEncoder(object):
     """Extensible JSON <http://json.org> encoder for Python data structures.
@@ -148,6 +132,10 @@ class JSONEncoder(object):
 
         self.skipkeys = skipkeys
         self.ensure_ascii = ensure_ascii
+        if ensure_ascii:
+            self.__encoder = raw_encode_basestring_ascii
+        else:
+            self.__encoder = raw_encode_basestring
         self.check_circular = check_circular
         self.allow_nan = allow_nan
         self.sort_keys = sort_keys
@@ -159,7 +147,7 @@ class JSONEncoder(object):
         if default is not None:
             self.default = default
 
-        if indent is not None and not isinstance(ident, str):
+        if indent is not None and not isinstance(indent, str):
             self.indent_str = ' ' * indent
         else:
             self.indent_str = indent
@@ -465,8 +453,8 @@ class JSONEncoder(object):
                 yield 'true'
             elif value is False:
                 yield 'false'
-            elif isinstance(value, (int, long)):
-                yield str(value)
+            elif isinstance(value, int):
+                yield int.__str__(value)
             elif isinstance(value, float):
                 yield self.__floatstr(value)
             else:
@@ -495,8 +483,8 @@ class JSONEncoder(object):
             yield 'true'
         elif o is False:
             yield 'false'
-        elif isinstance(o, (int, long)):
-            yield str(o)
+        elif isinstance(o, int):
+            yield int.__str__(o)
         elif isinstance(o, float):
             yield self.__floatstr(o)
         elif isinstance(o, (list, tuple)):
@@ -513,10 +501,5 @@ class JSONEncoder(object):
 # overwrite some helpers here with more efficient versions
 try:
     from _pypyjson import raw_encode_basestring_ascii
-    def encode_basestring_ascii(s):
-        encoded = raw_encode_basestring_ascii(s)
-        if encoded is None:
-            return '"' + s + '"'
-        return encoded    # on pypy3, includes the quotes already
 except ImportError:
     pass
