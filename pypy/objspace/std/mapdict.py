@@ -98,9 +98,9 @@ class AbstractAttribute(object):
     @jit.elidable_compatible()
     def find_map_storageindex(self, name, index):
         """ return an index of the attributes, or a negative number if the
-        attribute is not there. returns -1 if the attribute does not exist and
-        the object does *not* have a devolved terminator, and -2 if the
-        terminator *is* devolved """
+        attribute is not there. returns NOATTR if the attribute does not exist
+        and the object does *not* have a devolved terminator, and
+        NOATTR_DEVOLVED_TERMINATOR if the terminator *is* devolved """
         attr = self.find_map_attr(name, index)
         if attr is None:
             if isinstance(self.terminator, DevolvedDictTerminator):
