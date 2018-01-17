@@ -1,11 +1,14 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.annlowlevel import llhelper
-from pypy.module.cpyext.pyobject import PyObject, make_ref, make_typedescr
+from pypy.module.cpyext.pyobject import (PyObject, make_ref, make_typedescr,
+    decref)
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cpython_struct,
     PyObjectFields, cts, parse_dir, bootstrap_function, slot_function)
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError
+from pypy.module.__pypy__.interp_pypydatetime import (W_DateTime_Date,
+    W_DateTime_Time, W_DateTime_Delta)
 from rpython.tool.sourcetools import func_renamer
 
 cts.parse_header(parse_dir / 'cpyext_datetime.h')
@@ -56,7 +59,7 @@ def _PyDateTime_Import(space):
     return datetimeAPI
 
 PyDateTime_Time = cts.gettype('PyDateTime_Time*')
-PyDateTime_DateTime = cts.gettype('PyDateTime_DateTime*')
+PyDateTime_Date = cts.gettype('PyDateTime_Date*')
 PyDateTime_Delta = cts.gettype('PyDateTime_Delta*')
 
 # Check functions
@@ -69,6 +72,8 @@ def make_check_function(func_name, type_name):
             return space.is_true(
                 space.appexec([w_obj], """(obj):
                     from datetime import %s as datatype
+                    if not isinstance(obj, datatype):
+                        print datatype
                     return isinstance(obj, datatype)
                     """ % (type_name,)))
         except OperationError:
@@ -98,54 +103,39 @@ PyTZInfo_Check, PyTZInfo_CheckExact = make_check_function(
 
 @bootstrap_function
 def init_datetime(space):
-    w_datetime = PyImport_Import(space, space.newtext("datetime"))
-
-    w_datetimetype = space.getattr(w_datetime, space.newtext("datetime"))
-    w_timetype = space.getattr(w_datetime, space.newtext("time"))
-    w_timedeltatype = space.getattr(w_datetime, space.newtext("timedelta"))
-    
-    # XXX doesn't work, the w_datetimetype, w_timetype, w_timedeltatype all
-    #     share the object layout.typedef so the typedescr specialization fails
-    return
     # no realize functions since there are no getters
-    make_typedescr(w_datetimetype.layout.typedef,
-                   basestruct=PyDateTime_DateTime.TO,
-                   attach=type_attach,
-                   dealloc=type_dealloc,
-                  )
-
-    make_typedescr(w_timetype.layout.typedef,
+    make_typedescr(W_DateTime_Time.typedef,
                    basestruct=PyDateTime_Time.TO,
                    attach=type_attach,
                    dealloc=type_dealloc,
                   )
 
-    make_typedescr(w_timedeltatype.layout.typedef,
+    make_typedescr(W_DateTime_Delta.typedef,
                    basestruct=PyDateTime_Delta.TO,
                    attach=timedeltatype_attach,
                   )
 
 def type_attach(space, py_obj, w_obj, w_userdata=None):
-    "Fills a newly allocated py_obj from the w_obj"
-    import pdb;pdb.set_trace()
+    '''Fills a newly allocated py_obj from the w_obj
+       Can be called with a datetime, or a time
+    '''
     py_datetime = rffi.cast(PyDateTime_Time, py_obj)
-    w_tzinfo = space.getattr(w_obj, space.wrap('tzinfo'))
+    w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
     if space.is_none(w_tzinfo):
         py_datetime.c_hastzinfo = 0
         py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
     else:
         py_datetime.c_hastzinfo = 1
-        py_datetime.c_tzinfo = make_ref(w_tzinfo)
+        py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
 
 @slot_function([PyObject], lltype.Void)
 def type_dealloc(space, py_obj):
-    import pdb;pdb.set_trace()
     py_datetime = rffi.cast(PyDateTime_Time, py_obj)
-    if (py_datetime.hastzinfo):
+    if (py_datetime.c_hastzinfo != 0):
         decref(space, py_datetime.c_tzinfo)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
-    
+
 def timedeltatype_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated py_obj from the w_obj"
     py_delta = rffi.cast(PyDateTime_Delta, py_obj)
