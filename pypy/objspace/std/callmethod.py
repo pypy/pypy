@@ -55,7 +55,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
         else:
             if map._type_safe_to_do_getattr():
                 safe = True
-                name = space.str_w(w_name)
+                name = space.text_w(w_name)
                 w_descr = map._type_lookup_safe(name)
     else:
         w_type = space.type(w_obj)
