@@ -5,12 +5,10 @@ extern "C" {
 #endif
 
 #include "cpyext_datetime.h"
+
 PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
-#define PyDateTime_IMPORT                           \
-    do {                                            \
-        if(PyDateTimeAPI==NULL)                     \
-            PyDateTimeAPI = _PyDateTime_Import();   \
-    } while (0)
+
+#define PyDateTime_IMPORT (PyDateTimeAPI = _PyDateTime_Import())
 
 /* Macros for accessing constructors in a simplified fashion. */
 #define PyDate_FromDate(year, month, day) \

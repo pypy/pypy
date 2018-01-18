@@ -18,9 +18,9 @@ typedef struct {
 typedef struct
 {
     PyObject_HEAD
-    long days;                   /* -MAX_DELTA_DAYS <= days <= MAX_DELTA_DAYS */
-    long seconds;                /* 0 <= seconds < 24*3600 is invariant */
-    long microseconds;           /* 0 <= microseconds < 1000000 is invariant */
+    int days;                   /* -MAX_DELTA_DAYS <= days <= MAX_DELTA_DAYS */
+    int seconds;                /* 0 <= seconds < 24*3600 is invariant */
+    int microseconds;           /* 0 <= microseconds < 1000000 is invariant */
 } PyDateTime_Delta;
 
 /* The datetime and time types have an optional tzinfo member,
@@ -29,14 +29,14 @@ typedef struct
 typedef struct
 {
     PyObject_HEAD
-    long hastzinfo;
+    unsigned char hastzinfo;
     PyObject *tzinfo;
 } PyDateTime_Time;
 
 typedef struct
 {
     PyObject_HEAD
-    long hastzinfo;
+    unsigned char hastzinfo;
     PyObject *tzinfo;
 } PyDateTime_DateTime;
 
@@ -44,4 +44,9 @@ typedef struct
 typedef struct {
     PyObject_HEAD
 } PyDateTime_Date;
+
+
+typedef struct {
+    PyObject_HEAD
+} PyDateTime_TZInfo;
 
