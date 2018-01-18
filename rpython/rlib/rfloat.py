@@ -1,7 +1,7 @@
 """Float constants"""
 
 import math, struct
-from math import isinf, isnan, copysign, acosh, asinh, atanh, log1p, expm1
+from math import isinf, isnan, acosh, asinh, atanh, log1p, expm1
 
 from rpython.annotator.model import SomeString, SomeChar
 from rpython.rlib import objectmodel, unroll
@@ -131,7 +131,7 @@ def round_double(value, ndigits, half_even=False):
     # multiple of 0.5 * 10**n for n >= 23 takes at least 54 bits of
     # precision to represent exactly.
 
-    sign = copysign(1.0, value)
+    sign = math.copysign(1.0, value)
     value = abs(value)
 
     # find 2-valuation value
@@ -234,7 +234,7 @@ def round_away(x):
     absx = abs(x)
     r = math.floor(absx + 0.5)
     if r - absx < 1.0:
-        return copysign(r, x)
+        return math.copysign(r, x)
     else:
         # 'absx' is just in the wrong range: its exponent is precisely
         # the one for which all integers are representable but not any
@@ -258,7 +258,7 @@ def round_half_even(x):
         # absx == n + 0.5  for a non-negative integer 'n'
         # absx * 0.5 == n//2 + 0.25 or 0.75, which we round to nearest
         r = math.floor(absx * 0.5 + 0.5) * 2.0
-    return copysign(r, x)
+    return math.copysign(r, x)
 
 @not_rpython
 def isfinite(x):
@@ -362,7 +362,7 @@ def _sinpi(x):
         r = math.sin(math.pi * (y - 2.))
     else:
         raise AssertionError("should not reach")
-    return copysign(1., x) * r
+    return math.copysign(1., x) * r
 
 _lanczos_g = 6.024680040776729583740234375
 _lanczos_g_minus_half = 5.524680040776729583740234375

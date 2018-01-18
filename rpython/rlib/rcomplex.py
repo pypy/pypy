@@ -1,6 +1,6 @@
 import math
 from math import fabs
-from rpython.rlib.rfloat import copysign, asinh, log1p, isfinite, isinf, isnan
+from rpython.rlib.rfloat import asinh, log1p, isfinite, isinf, isnan
 from rpython.rlib.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from rpython.rlib.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
 from rpython.rlib.constant import M_LN2, M_LN10
@@ -151,9 +151,9 @@ def c_sqrt(x, y):
     d = ay/(2.*s)
 
     if x >= 0.:
-        return (s, copysign(d, y))
+        return (s, math.copysign(d, y))
     else:
-        return (d, copysign(s, y))
+        return (d, math.copysign(s, y))
 
 
 
@@ -167,10 +167,10 @@ def c_acos(x, y):
         # split into cases to make sure that the branch cut has the
         # correct continuity on systems with unsigned zeros
         if x < 0.:
-            imag = -copysign(math.log(math.hypot(x/2., y/2.)) +
+            imag = -math.copysign(math.log(math.hypot(x/2., y/2.)) +
                              M_LN2*2., y)
         else:
-            imag = copysign(math.log(math.hypot(x/2., y/2.)) +
+            imag = math.copysign(math.log(math.hypot(x/2., y/2.)) +
                             M_LN2*2., -y)
     else:
         s1x, s1y = c_sqrt(1.-x, -y)
@@ -210,10 +210,10 @@ def c_asinh(x, y):
 
     if fabs(x) > CM_LARGE_DOUBLE or fabs(y) > CM_LARGE_DOUBLE:
         if y >= 0.:
-            real = copysign(math.log(math.hypot(x/2., y/2.)) +
+            real = math.copysign(math.log(math.hypot(x/2., y/2.)) +
                             M_LN2*2., x)
         else:
-            real = -copysign(math.log(math.hypot(x/2., y/2.)) +
+            real = -math.copysign(math.log(math.hypot(x/2., y/2.)) +
                              M_LN2*2., -x)
         imag = math.atan2(y, fabs(x))
     else:
@@ -249,7 +249,7 @@ def c_atanh(x, y):
         # except when working with unsigned zeros: they're there to
         # ensure that the branch cut has the correct continuity on
         # systems that don't support signed zeros
-        imag = -copysign(math.pi/2., -y)
+        imag = -math.copysign(math.pi/2., -y)
     elif x == 1. and ay < CM_SQRT_DBL_MIN:
         # C99 standard says:  atanh(1+/-0.) should be inf +/- 0i
         if ay == 0.:
@@ -258,7 +258,7 @@ def c_atanh(x, y):
             #imag = y
         else:
             real = -math.log(math.sqrt(ay)/math.sqrt(math.hypot(ay, 2.)))
-            imag = copysign(math.atan2(2., -ay) / 2, y)
+            imag = math.copysign(math.atan2(2., -ay) / 2, y)
     else:
         real = log1p(4.*x/((1-x)*(1-x) + ay*ay))/4.
         imag = -math.atan2(-2.*y, (1-x)*(1+x) - ay*ay) / 2.
@@ -332,11 +332,11 @@ def c_exp(x, y):
     if not isfinite(x) or not isfinite(y):
         if isinf(x) and isfinite(y) and y != 0.:
             if x > 0:
-                real = copysign(INF, math.cos(y))
-                imag = copysign(INF, math.sin(y))
+                real = math.copysign(INF, math.cos(y))
+                imag = math.copysign(INF, math.sin(y))
             else:
-                real = copysign(0., math.cos(y))
-                imag = copysign(0., math.sin(y))
+                real = math.copysign(0., math.cos(y))
+                imag = math.copysign(0., math.sin(y))
             r = (real, imag)
         else:
             r = exp_special_values[special_type(x)][special_type(y)]
@@ -364,11 +364,11 @@ def c_cosh(x, y):
     if not isfinite(x) or not isfinite(y):
         if isinf(x) and isfinite(y) and y != 0.:
             if x > 0:
-                real = copysign(INF, math.cos(y))
-                imag = copysign(INF, math.sin(y))
+                real = math.copysign(INF, math.cos(y))
+                imag = math.copysign(INF, math.sin(y))
             else:
-                real = copysign(INF, math.cos(y))
-                imag = -copysign(INF, math.sin(y))
+                real = math.copysign(INF, math.cos(y))
+                imag = -math.copysign(INF, math.sin(y))
             r = (real, imag)
         else:
             r = cosh_special_values[special_type(x)][special_type(y)]
@@ -382,7 +382,7 @@ def c_cosh(x, y):
     if fabs(x) > CM_LOG_LARGE_DOUBLE:
         # deal correctly with cases where cosh(x) overflows but
         # cosh(z) does not.
-        x_minus_one = x - copysign(1., x)
+        x_minus_one = x - math.copysign(1., x)
         real = math.cos(y) * math.cosh(x_minus_one) * math.e
         imag = math.sin(y) * math.sinh(x_minus_one) * math.e
     else:
@@ -398,11 +398,11 @@ def c_sinh(x, y):
     if not isfinite(x) or not isfinite(y):
         if isinf(x) and isfinite(y) and y != 0.:
             if x > 0:
-                real = copysign(INF, math.cos(y))
-                imag = copysign(INF, math.sin(y))
+                real = math.copysign(INF, math.cos(y))
+                imag = math.copysign(INF, math.sin(y))
             else:
-                real = -copysign(INF, math.cos(y))
-                imag = copysign(INF, math.sin(y))
+                real = -math.copysign(INF, math.cos(y))
+                imag = math.copysign(INF, math.sin(y))
             r = (real, imag)
         else:
             r = sinh_special_values[special_type(x)][special_type(y)]
@@ -414,7 +414,7 @@ def c_sinh(x, y):
         return r
 
     if fabs(x) > CM_LOG_LARGE_DOUBLE:
-        x_minus_one = x - copysign(1., x)
+        x_minus_one = x - math.copysign(1., x)
         real = math.cos(y) * math.sinh(x_minus_one) * math.e
         imag = math.sin(y) * math.cosh(x_minus_one) * math.e
     else:
@@ -440,10 +440,10 @@ def c_tanh(x, y):
         if isinf(x) and isfinite(y) and y != 0.:
             if x > 0:
                 real = 1.0        # vv XXX why is the 2. there?
-                imag = copysign(0., 2. * math.sin(y) * math.cos(y))
+                imag = math.copysign(0., 2. * math.sin(y) * math.cos(y))
             else:
                 real = -1.0
-                imag = copysign(0., 2. * math.sin(y) * math.cos(y))
+                imag = math.copysign(0., 2. * math.sin(y) * math.cos(y))
             r = (real, imag)
         else:
             r = tanh_special_values[special_type(x)][special_type(y)]
@@ -454,7 +454,7 @@ def c_tanh(x, y):
         return r
 
     if fabs(x) > CM_LOG_LARGE_DOUBLE:
-        real = copysign(1., x)
+        real = math.copysign(1., x)
         imag = 4. * math.sin(y) * math.cos(y) * math.exp(-2.*fabs(x))
     else:
         tx = math.tanh(x)
@@ -489,11 +489,11 @@ def c_rect(r, phi):
         # and sin(phi) to figure out the signs.
         if isinf(r) and isfinite(phi) and phi != 0.:
             if r > 0:
-                real = copysign(INF, math.cos(phi))
-                imag = copysign(INF, math.sin(phi))
+                real = math.copysign(INF, math.cos(phi))
+                imag = math.copysign(INF, math.sin(phi))
             else:
-                real = -copysign(INF, math.cos(phi))
-                imag = -copysign(INF, math.sin(phi))
+                real = -math.copysign(INF, math.cos(phi))
+                imag = -math.copysign(INF, math.sin(phi))
             z = (real, imag)
         else:
             z = rect_special_values[special_type(r)][special_type(phi)]
@@ -516,21 +516,21 @@ def c_phase(x, y):
         return NAN
     if isinf(y):
         if isinf(x):
-            if copysign(1., x) == 1.:
+            if math.copysign(1., x) == 1.:
                 # atan2(+-inf, +inf) == +-pi/4
-                return copysign(0.25 * math.pi, y)
+                return math.copysign(0.25 * math.pi, y)
             else:
                 # atan2(+-inf, -inf) == +-pi*3/4
-                return copysign(0.75 * math.pi, y)
+                return math.copysign(0.75 * math.pi, y)
         # atan2(+-inf, x) == +-pi/2 for finite x
-        return copysign(0.5 * math.pi, y)
+        return math.copysign(0.5 * math.pi, y)
     if isinf(x) or y == 0.:
-        if copysign(1., x) == 1.:
+        if math.copysign(1., x) == 1.:
             # atan2(+-y, +inf) = atan2(+-0, +x) = +-0.
-            return copysign(0., y)
+            return math.copysign(0., y)
         else:
             # atan2(+-y, -inf) = atan2(+-0., -x) = +-pi.
-            return copysign(math.pi, y)
+            return math.copysign(math.pi, y)
     return math.atan2(y, x)
 
 

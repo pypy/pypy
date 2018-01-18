@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
 from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
-    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN, copysign,
+    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN,
     float_as_rbigint_ratio, formatd, isfinite, isinf, isnan)
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
@@ -533,7 +533,7 @@ class W_FloatObject(W_Root):
             # fmod returns different results across platforms; ensure
             # it has the same sign as the denominator; we'd like to do
             # "mod = y * 0.0", but that may get optimized away
-            mod = copysign(0.0, y)
+            mod = math.copysign(0.0, y)
 
         return W_FloatObject(mod)
 
@@ -617,7 +617,7 @@ class W_FloatObject(W_Root):
         if not isfinite(value):
             return self.descr_str(space)
         if value == 0.0:
-            if copysign(1., value) == -1.:
+            if math.copysign(1., value) == -1.:
                 return space.newtext("-0x0.0p+0")
             else:
                 return space.newtext("0x0.0p+0")
@@ -832,7 +832,7 @@ def _pow(space, x, y):
                 return abs(x)
         else:
             if y_is_odd:
-                return copysign(0.0, x)
+                return math.copysign(0.0, x)
             else:
                 return 0.0
 

@@ -151,7 +151,7 @@ def float_pack(x, size):
     else:
         raise ValueError("invalid size value")
 
-    sign = rfloat.copysign(1.0, x) < 0.0
+    sign = math.copysign(1.0, x) < 0.0
     if rfloat.isinf(x):
         mant = r_ulonglong(0)
         exp = MAX_EXP - MIN_EXP + 2
@@ -216,7 +216,7 @@ def float_pack80(x, size):
     else:
         raise ValueError("invalid size value")
 
-    sign = rfloat.copysign(1.0, x) < 0.0
+    sign = math.copysign(1.0, x) < 0.0
     if rfloat.isinf(x):
         mant = r_ulonglong(0)
         exp = MAX_EXP - MIN_EXP + 2

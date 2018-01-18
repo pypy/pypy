@@ -767,7 +767,7 @@ class Float(Primitive):
         except ZeroDivisionError:
             if v1 == v2 == 0.0:
                 return rfloat.NAN
-            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+            return math.copysign(rfloat.INFINITY, v1 * v2)
 
     @simple_binary_op
     def floordiv(self, v1, v2):
@@ -776,7 +776,7 @@ class Float(Primitive):
         except ZeroDivisionError:
             if v1 == v2 == 0.0:
                 return rfloat.NAN
-            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+            return math.copysign(rfloat.INFINITY, v1 * v2)
 
     @simple_binary_op
     def mod(self, v1, v2):
@@ -793,7 +793,7 @@ class Float(Primitive):
             # fmod returns different results across platforms; ensure
             # it has the same sign as the denominator; we'd like to do
             # "mod = v2 * 0.0", but that may get optimized away
-            mod = rfloat.copysign(0.0, v2)
+            mod = math.copysign(0.0, v2)
         return mod
 
     @simple_binary_op
@@ -805,7 +805,7 @@ class Float(Primitive):
         except OverflowError:
             if math.modf(v2)[0] == 0 and math.modf(v2 / 2)[0] != 0:
                 # Odd integer powers result in the same sign as the base
-                return rfloat.copysign(rfloat.INFINITY, v1)
+                return math.copysign(rfloat.INFINITY, v1)
             return rfloat.INFINITY
 
     @simple_binary_op
@@ -818,11 +818,11 @@ class Float(Primitive):
             return 0.0
         if rfloat.isnan(v):
             return rfloat.NAN
-        return rfloat.copysign(1.0, v)
+        return math.copysign(1.0, v)
 
     @raw_unary_op
     def signbit(self, v):
-        return rfloat.copysign(1.0, v) < 0.0
+        return math.copysign(1.0, v) < 0.0
 
     @simple_unary_op
     def fabs(self, v):
@@ -862,7 +862,7 @@ class Float(Primitive):
     @simple_unary_op
     def reciprocal(self, v):
         if v == 0.0:
-            return rfloat.copysign(rfloat.INFINITY, v)
+            return math.copysign(rfloat.INFINITY, v)
         return 1.0 / v
 
     @simple_unary_op
@@ -1537,8 +1537,8 @@ class ComplexFloating(object):
         if rfloat.isinf(v[1]) and rfloat.isinf(v[0]):
             return rfloat.NAN, rfloat.NAN
         if rfloat.isinf(v[0]):
-            return (rfloat.copysign(0., v[0]),
-                    rfloat.copysign(0., -v[1]))
+            return (math.copysign(0., v[0]),
+                    math.copysign(0., -v[1]))
         a2 = v[0]*v[0] + v[1]*v[1]
         try:
             return rcomplex.c_div((v[0], -v[1]), (a2, 0.))

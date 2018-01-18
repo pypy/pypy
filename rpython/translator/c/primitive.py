@@ -1,3 +1,4 @@
+import math
 import sys
 
 from rpython.rlib.objectmodel import Symbolic, ComputedIntSymbolic, CDefinedIntSymbolic
@@ -113,10 +114,7 @@ def name_signedlonglong(value, db):
         return '%dLL' % value
 
 def is_positive_nan(value):
-    # bah.  we don't have math.copysign() if we're running Python 2.5
-    import struct
-    c = struct.pack("!d", value)[0]
-    return {'\x7f': True, '\xff': False}[c]
+    return math.copysign(1, value) > 0
 
 def name_float(value, db):
     if isinf(value):

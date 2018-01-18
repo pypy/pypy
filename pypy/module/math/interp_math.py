@@ -61,7 +61,7 @@ def copysign(space, w_x, w_y):
     # No exceptions possible.
     x = _get_double(space, w_x)
     y = _get_double(space, w_y)
-    return space.newfloat(rfloat.copysign(x, y))
+    return space.newfloat(math.copysign(x, y))
 
 def isinf(space, w_x):
     """Return True if x is infinity."""

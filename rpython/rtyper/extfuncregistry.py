@@ -30,9 +30,9 @@ _register = [  # (module, [(method name, arg types, return type), ...], ...)
         ('isinf', [float], bool),
         ('isnan', [float], bool),
         ('isfinite', [float], bool),
-        ('copysign', [float, float], float),
     ]),
     (math, [
+       ('copysign', [float, float], float),
        ('floor', [float], float),
        ('sqrt', [float], float),
        ('log', [float], float),

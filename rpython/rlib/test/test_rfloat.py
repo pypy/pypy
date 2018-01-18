@@ -1,20 +1,12 @@
 import sys, py
 
 from rpython.rlib.rfloat import float_as_rbigint_ratio
-from rpython.rlib.rfloat import copysign
 from rpython.rlib.rfloat import round_away
 from rpython.rlib.rfloat import round_double
 from rpython.rlib.rfloat import erf, erfc, gamma, lgamma, isnan
 from rpython.rlib.rfloat import ulps_check, acc_check
 from rpython.rlib.rfloat import string_to_float
 from rpython.rlib.rbigint import rbigint
-
-def test_copysign():
-    assert copysign(1, 1) == 1
-    assert copysign(-1, 1) == 1
-    assert copysign(-1, -1) == -1
-    assert copysign(1, -1) == -1
-    assert copysign(1, -0.) == -1
 
 def test_round_away():
     assert round_away(.1) == 0.
