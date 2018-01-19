@@ -79,8 +79,6 @@ def make_check_function(func_name, type_name):
             return space.is_true(
                 space.appexec([w_obj], """(obj):
                     from datetime import %s as datatype
-                    if not isinstance(obj, datatype):
-                        print datatype
                     return isinstance(obj, datatype)
                     """ % (type_name,)))
         except OperationError:
