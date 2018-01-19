@@ -2,6 +2,8 @@
 Interp-level implementation of the basic space operations.
 """
 
+import math
+
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault

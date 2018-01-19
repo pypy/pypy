@@ -58,6 +58,14 @@ class OsModule(MixedModule):
     }
 
 
+class PyPyDateTime(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'dateinterop': 'interp_pypydatetime.W_DateTime_Date',
+        'timeinterop'    : 'interp_pypydatetime.W_DateTime_Time',
+        'deltainterop'   : 'interp_pypydatetime.W_DateTime_Delta',
+    }
+
 class Module(MixedModule):
     """ PyPy specific "magic" functions. A lot of them are experimental and
     subject to change, many are internal. """
@@ -107,6 +115,7 @@ class Module(MixedModule):
         "thread": ThreadModule,
         "intop": IntOpModule,
         "os": OsModule,
+        '_pypydatetime': PyPyDateTime,
     }
 
     def setup_after_space_initialization(self):

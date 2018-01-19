@@ -1,10 +1,11 @@
 """String formatting routines"""
+import math
 import sys
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import INT_MAX
-from rpython.rlib.rfloat import DTSF_ALT, formatd, isnan, isinf
+from rpython.rlib.rfloat import DTSF_ALT, formatd
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
@@ -112,12 +113,12 @@ class BaseStringFormatter(object):
     def format_float(self, w_value, char):
         space = self.space
         x = space.float_w(maybe_float(space, w_value))
-        if isnan(x):
+        if math.isnan(x):
             if char in 'EFG':
                 r = 'NAN'
             else:
                 r = 'nan'
-        elif isinf(x):
+        elif math.isinf(x):
             if x < 0:
                 if char in 'EFG':
                     r = '-INF'

@@ -1,4 +1,4 @@
-import py, sys, struct
+import py, sys, struct, math
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
@@ -7,7 +7,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 from rpython.translator import cdir
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
-from rpython.rlib.rfloat import isnan
 
 def import_ctypes():
     try:
@@ -126,7 +125,7 @@ def test_defined_constant_float():
         value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.0e50000')
         assert value == float("inf")
         value = rffi_platform.getdefineddouble('BLAH', '#define BLAH (double)0/0')
-        assert isnan(value)
+        assert math.isnan(value)
 
 def test_defined_constant_string():
     value = rffi_platform.getdefinedstring('MCDONC', '')
