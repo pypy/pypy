@@ -355,8 +355,8 @@ def fsum(space, w_iterable):
             v = hi
         del partials[added:]
         if v != 0.0:
-            if not rfloat.isfinite(v):
-                if rfloat.isfinite(original):
+            if not math.isinf(v):
+                if math.isinf(original):
                     raise oefmt(space.w_OverflowError, "intermediate overflow")
                 if math.isinf(original):
                     inf_sum += original
@@ -473,7 +473,7 @@ only close to themselves."""
     # sign would otherwise have an infinite relative tolerance.
     # Two infinities of the same sign are caught by the equality check
     # above.
-    if rfloat.isinf(a) or rfloat.isinf(b):
+    if math.isinf(a) or math.isinf(b):
         return space.w_False
     #
     # now do the regular computation

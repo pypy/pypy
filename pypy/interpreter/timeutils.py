@@ -22,7 +22,7 @@ def monotonic(space):
 def timestamp_w(space, w_secs):
     if space.isinstance_w(w_secs, space.w_float):
         secs = space.float_w(w_secs)
-        if rfloat.isnan(secs):
+        if math.isnan(secs):
             raise oefmt(space.w_ValueError, "timestamp is nan")
         result_float = math.ceil(secs * SECS_TO_NS)
         try:

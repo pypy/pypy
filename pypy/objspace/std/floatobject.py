@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
 from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
-    DTSF_ADD_DOT_0, INFINITY, NAN, copysign,
+    DTSF_ADD_DOT_0, INFINITY, NAN,
     float_as_rbigint_ratio, formatd, isfinite)
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
@@ -918,6 +918,6 @@ def _round_float(space, w_float, w_ndigits=None):
 
     # finite x, and ndigits is not unreasonably large
     z = rfloat.round_double(x, ndigits, half_even=True)
-    if rfloat.isinf(z):
+    if math.isinf(z):
         raise oefmt(space.w_OverflowError, "overflow occurred during round")
     return space.newfloat(z)
