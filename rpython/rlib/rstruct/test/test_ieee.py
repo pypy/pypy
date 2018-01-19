@@ -59,9 +59,6 @@ class TestFloatSpecific:
 
 
 class TestFloatPacking:
-    def setup_class(cls):
-        if sys.version_info < (2, 6):
-            py.test.skip("the 'struct' module of this old CPython is broken")
 
     def check_float(self, x):
         # check roundtrip
