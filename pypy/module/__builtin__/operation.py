@@ -2,11 +2,13 @@
 Interp-level implementation of the basic space operations.
 """
 
+import math
+
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.runicode import UNICHR
-from rpython.rlib.rfloat import isfinite, isinf, round_double, round_away
+from rpython.rlib.rfloat import isfinite, round_double, round_away
 from rpython.rlib import rfloat
 import __builtin__
 
@@ -151,7 +153,7 @@ This always returns a floating point number.  Precision may be negative."""
         else:
             # finite x, and ndigits is not unreasonably large
             z = round_double(number, ndigits)
-            if isinf(z):
+            if math.isinf(z):
                 raise oefmt(space.w_OverflowError,
                             "rounded value too large to represent")
     return space.newfloat(z)

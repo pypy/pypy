@@ -1,5 +1,4 @@
 from __future__ import with_statement
-from rpython.rlib.rfloat import isnan, isinf
 from pypy.module.cmath import interp_cmath
 import os, sys, math
 
@@ -142,12 +141,12 @@ def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
     """
 
     # special values testing
-    if isnan(a):
-        if isnan(b):
+    if math.isnan(a):
+        if math.isnan(b):
             return
         raise AssertionError(msg + '%r should be nan' % (b,))
 
-    if isinf(a):
+    if math.isinf(a):
         if a == b:
             return
         raise AssertionError(msg + 'finite result where infinity expected: '

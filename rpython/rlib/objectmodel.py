@@ -549,9 +549,9 @@ def _hash_float(f):
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
     from rpython.rlib.rarithmetic import intmask
-    from rpython.rlib.rfloat import isfinite, isinf
+    from rpython.rlib.rfloat import isfinite
     if not isfinite(f):
-        if isinf(f):
+        if math.isinf(f):
             if f < 0.0:
                 return -271828
             else:

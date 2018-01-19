@@ -7,7 +7,6 @@ from pypy.conftest import option
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from rpython.rlib.rfloat import isnan, isinf
 from rpython.rlib.rcomplex import c_pow
 
 
@@ -22,12 +21,12 @@ def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg=''):
     """
 
     # special values testing
-    if isnan(a):
-        if isnan(b):
+    if math.isnan(a):
+        if math.isnan(b):
             return True,''
         raise AssertionError(msg + '%r should be nan' % (b,))
 
-    if isinf(a):
+    if math.isinf(a):
         if a == b:
             return True,''
         raise AssertionError(msg + 'finite result where infinity expected: '+ \

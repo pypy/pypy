@@ -6,6 +6,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import math
 import os
 import sys
 import time as pytime
@@ -311,11 +312,10 @@ def _get_error_msg():
     return os.strerror(errno)
 
 def _check_sleep_arg(space, secs):
-    from rpython.rlib.rfloat import isinf, isnan
     if secs < 0:
         raise oefmt(space.w_IOError,
                     "Invalid argument: negative time in sleep")
-    if isinf(secs) or isnan(secs):
+    if math.isinf(secs) or math.isnan(secs):
         raise oefmt(space.w_IOError,
                     "Invalid argument: inf or nan")
 

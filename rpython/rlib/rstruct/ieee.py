@@ -152,10 +152,10 @@ def float_pack(x, size):
         raise ValueError("invalid size value")
 
     sign = math.copysign(1.0, x) < 0.0
-    if rfloat.isinf(x):
+    if math.isinf(x):
         mant = r_ulonglong(0)
         exp = MAX_EXP - MIN_EXP + 2
-    elif rfloat.isnan(x):
+    elif math.isnan(x):
         asint = cast(ULONGLONG, float2longlong(x))
         sign = asint >> 63
         # shift off lower bits, perhaps losing data
@@ -217,10 +217,10 @@ def float_pack80(x, size):
         raise ValueError("invalid size value")
 
     sign = math.copysign(1.0, x) < 0.0
-    if rfloat.isinf(x):
+    if math.isinf(x):
         mant = r_ulonglong(0)
         exp = MAX_EXP - MIN_EXP + 2
-    elif rfloat.isnan(x):  # rfloat.isnan(x):
+    elif math.isnan(x):
         asint = cast(ULONGLONG, float2longlong(x))
         mant = asint & ((r_ulonglong(1) << 51) - 1)
         if mant == 0:

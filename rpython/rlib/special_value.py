@@ -1,5 +1,4 @@
 import math
-from rpython.rlib.rfloat import isnan, isinf
 
 # code to deal with special values (infinities, NaNs, ...)
 #
@@ -13,9 +12,9 @@ ST_PINF    = 5         # positive infinity
 ST_NAN     = 6         # Not a Number
 
 def special_type(d):
-    if isnan(d):
+    if math.isnan(d):
         return ST_NAN
-    elif isinf(d):
+    elif math.isinf(d):
         if d > 0.0:
             return ST_PINF
         else:

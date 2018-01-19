@@ -390,7 +390,7 @@ def test_infinite_float():
     assert res == 1.5
 
 def test_infinite_float_in_array():
-    from rpython.rlib.rfloat import INFINITY, NAN, isnan
+    from rpython.rlib.rfloat import INFINITY, NAN
     lst = [INFINITY, -INFINITY, NAN]
     def fn(i):
         return lst[i]
@@ -400,19 +400,19 @@ def test_infinite_float_in_array():
     res = f1(1)
     assert res == -INFINITY
     res = f1(2)
-    assert isnan(res)
+    assert math.isnan(res)
 
 def test_nan_and_special_values():
-    from rpython.rlib.rfloat import isnan, isinf, isfinite
+    from rpython.rlib.rfloat import isfinite
     inf = 1e300 * 1e300
-    assert isinf(inf)
+    assert math.isinf(inf)
     nan = inf/inf
-    assert isnan(nan)
+    assert math.isnan(nan)
 
     for value, checker in [
-            (inf,   lambda x: isinf(x) and x > 0.0),
-            (-inf,  lambda x: isinf(x) and x < 0.0),
-            (nan,   isnan),
+            (inf,   lambda x: math.isinf(x) and x > 0.0),
+            (-inf,  lambda x: math.isinf(x) and x < 0.0),
+            (nan,   math.isnan),
             (42.0,  isfinite),
             (0.0,   lambda x: not x and math.copysign(1., x) == 1.),
             (-0.0,  lambda x: not x and math.copysign(1., x) == -1.),

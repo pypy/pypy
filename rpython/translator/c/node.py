@@ -1,3 +1,4 @@
+import math
 from rpython.rtyper.lltypesystem.lltype import (Struct, Array, FixedSizeArray,
     FuncType, typeOf, GcStruct, GcArray, RttiStruct, ContainerType, parentlink,
     Void, OpaqueType, Float, RuntimeTypeInfo, getRuntimeTypeInfo, Char,
@@ -9,7 +10,7 @@ from rpython.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
 from rpython.rlib import exports, objectmodel
-from rpython.rlib.rfloat import isfinite, isinf
+from rpython.rlib.rfloat import isfinite
 
 
 def needs_gcheader(gctransformer, T):
@@ -756,7 +757,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
         comma = ','
         if typeOf(value) == Float and not isfinite(value):
             db.late_initializations.append(('%s' % access_expr, db.get(value)))
-            if isinf(value):
+            if math.isinf(value):
                 name = '-+'[value > 0] + 'inf'
             else:
                 name = 'NaN'

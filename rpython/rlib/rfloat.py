@@ -1,7 +1,7 @@
 """Float constants"""
 
 import math, struct
-from math import isinf, isnan, acosh, asinh, atanh, log1p, expm1
+from math import acosh, asinh, atanh, log1p, expm1
 
 from rpython.annotator.model import SomeString, SomeChar
 from rpython.rlib import objectmodel, unroll
@@ -85,7 +85,7 @@ def formatd(x, code, precision, flags=0):
 def double_to_string(value, tp, precision, flags):
     if isfinite(value):
         special = DIST_FINITE
-    elif isinf(value):
+    elif math.isinf(value):
         special = DIST_INFINITY
     else:  #isnan(value):
         special = DIST_NAN
@@ -204,7 +204,7 @@ def log2(x):
     #   (a) produce exact results for powers of 2, and
     #   (b) be monotonic, assuming that the system log is monotonic.
     if not isfinite(x):
-        if isnan(x):
+        if math.isnan(x):
             return x  # log2(nan) = nan
         elif x > 0.0:
             return x  # log2(+inf) = +inf
@@ -262,14 +262,14 @@ def round_half_even(x):
 
 @not_rpython
 def isfinite(x):
-    return not isinf(x) and not isnan(x)
+    return not math.isinf(x) and not math.isnan(x)
 
 def float_as_rbigint_ratio(value):
     from rpython.rlib.rbigint import rbigint
 
-    if isinf(value):
+    if math.isinf(value):
         raise OverflowError("cannot pass infinity to as_integer_ratio()")
-    elif isnan(value):
+    elif math.isnan(value):
         raise ValueError("cannot pass nan to as_integer_ratio()")
     float_part, exp_int = math.frexp(value)
     for i in range(300):
@@ -327,7 +327,7 @@ def _erfc_contfrac(x):
 
 def erf(x):
     """The error function at x."""
-    if isnan(x):
+    if math.isnan(x):
         return x
     absx = abs(x)
     if absx < ERF_SERIES_CUTOFF:
@@ -338,7 +338,7 @@ def erf(x):
 
 def erfc(x):
     """The complementary error function at x."""
-    if isnan(x):
+    if math.isnan(x):
         return x
     absx = abs(x)
     if absx < ERF_SERIES_CUTOFF:
@@ -410,9 +410,9 @@ def _lanczos_sum(x):
 
 def gamma(x):
     """Compute the gamma function for x."""
-    if isnan(x) or (isinf(x) and x > 0.):
+    if math.isnan(x) or (math.isinf(x) and x > 0.):
         return x
-    if isinf(x):
+    if math.isinf(x):
         raise ValueError("math domain error")
     if x == 0.:
         raise ValueError("math domain error")
@@ -424,7 +424,7 @@ def gamma(x):
     absx = abs(x)
     if absx < 1e-20:
         r = 1. / x
-        if isinf(r):
+        if math.isinf(r):
             raise OverflowError("math range error")
         return r
     if absx > 200.:
@@ -458,15 +458,15 @@ def gamma(x):
             sqrtpow = math.pow(y, absx / 2. - .25)
             r *= sqrtpow
             r *= sqrtpow
-    if isinf(r):
+    if math.isinf(r):
         raise OverflowError("math range error")
     return r
 
 def lgamma(x):
     """Compute the natural logarithm of the gamma function for x."""
-    if isnan(x):
+    if math.isnan(x):
         return x
-    if isinf(x):
+    if math.isinf(x):
         return INFINITY
     if x == math.floor(x) and x <= 2.:
         if x <= 0.:
@@ -482,7 +482,7 @@ def lgamma(x):
         r = (math.log(math.pi) - math.log(abs(_sinpi(absx))) - math.log(absx) -
              (math.log(_lanczos_sum(absx)) - _lanczos_g +
               (absx - .5) * (math.log(absx + _lanczos_g - .5) - 1)))
-    if isinf(r):
+    if math.isinf(r):
         raise OverflowError("math domain error")
     return r
 

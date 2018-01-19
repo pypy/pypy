@@ -1,6 +1,6 @@
 import math
 from math import fabs
-from rpython.rlib.rfloat import asinh, log1p, isfinite, isinf, isnan
+from rpython.rlib.rfloat import asinh, log1p, isfinite
 from rpython.rlib.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from rpython.rlib.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
 from rpython.rlib.constant import M_LN2, M_LN10
@@ -57,7 +57,7 @@ def c_div(x, y): #x/y
             denom = r2 + i2 * ratio
             rr = (r1 + i1 * ratio) / denom
             ir = (i1 - r1 * ratio) / denom
-    elif isnan(r2):
+    elif math.isnan(r2):
         rr = NAN
         ir = NAN
     else:
@@ -330,7 +330,7 @@ def c_log10(x, y):
 
 def c_exp(x, y):
     if not isfinite(x) or not isfinite(y):
-        if isinf(x) and isfinite(y) and y != 0.:
+        if math.isinf(x) and isfinite(y) and y != 0.:
             if x > 0:
                 real = math.copysign(INF, math.cos(y))
                 imag = math.copysign(INF, math.sin(y))
@@ -343,7 +343,7 @@ def c_exp(x, y):
 
         # need to raise ValueError if y is +/- infinity and x is not
         # a NaN and not -infinity
-        if isinf(y) and (isfinite(x) or (isinf(x) and x > 0)):
+        if math.isinf(y) and (isfinite(x) or (math.isinf(x) and x > 0)):
             raise ValueError("math domain error")
         return r
 
@@ -355,14 +355,14 @@ def c_exp(x, y):
         l = math.exp(x)
         real = l * math.cos(y)
         imag = l * math.sin(y)
-    if isinf(real) or isinf(imag):
+    if math.isinf(real) or math.isinf(imag):
         raise OverflowError("math range error")
     return real, imag
 
 
 def c_cosh(x, y):
     if not isfinite(x) or not isfinite(y):
-        if isinf(x) and isfinite(y) and y != 0.:
+        if math.isinf(x) and isfinite(y) and y != 0.:
             if x > 0:
                 real = math.copysign(INF, math.cos(y))
                 imag = math.copysign(INF, math.sin(y))
@@ -375,7 +375,7 @@ def c_cosh(x, y):
 
         # need to raise ValueError if y is +/- infinity and x is not
         # a NaN
-        if isinf(y) and not isnan(x):
+        if math.isinf(y) and not math.isnan(x):
             raise ValueError("math domain error")
         return r
 
@@ -388,7 +388,7 @@ def c_cosh(x, y):
     else:
         real = math.cos(y) * math.cosh(x)
         imag = math.sin(y) * math.sinh(x)
-    if isinf(real) or isinf(imag):
+    if math.isinf(real) or math.isinf(imag):
         raise OverflowError("math range error")
     return real, imag
 
@@ -396,7 +396,7 @@ def c_cosh(x, y):
 def c_sinh(x, y):
     # special treatment for sinh(+/-inf + iy) if y is finite and nonzero
     if not isfinite(x) or not isfinite(y):
-        if isinf(x) and isfinite(y) and y != 0.:
+        if math.isinf(x) and isfinite(y) and y != 0.:
             if x > 0:
                 real = math.copysign(INF, math.cos(y))
                 imag = math.copysign(INF, math.sin(y))
@@ -409,7 +409,7 @@ def c_sinh(x, y):
 
         # need to raise ValueError if y is +/- infinity and x is not
         # a NaN
-        if isinf(y) and not isnan(x):
+        if math.isinf(y) and not math.isnan(x):
             raise ValueError("math domain error")
         return r
 
@@ -420,7 +420,7 @@ def c_sinh(x, y):
     else:
         real = math.cos(y) * math.sinh(x)
         imag = math.sin(y) * math.cosh(x)
-    if isinf(real) or isinf(imag):
+    if math.isinf(real) or math.isinf(imag):
         raise OverflowError("math range error")
     return real, imag
 
@@ -437,7 +437,7 @@ def c_tanh(x, y):
     #   computation of cosh(x).
 
     if not isfinite(x) or not isfinite(y):
-        if isinf(x) and isfinite(y) and y != 0.:
+        if math.isinf(x) and isfinite(y) and y != 0.:
             if x > 0:
                 real = 1.0        # vv XXX why is the 2. there?
                 imag = math.copysign(0., 2. * math.sin(y) * math.cos(y))
@@ -449,7 +449,7 @@ def c_tanh(x, y):
             r = tanh_special_values[special_type(x)][special_type(y)]
 
         # need to raise ValueError if y is +/-infinity and x is finite
-        if isinf(y) and isfinite(x):
+        if math.isinf(y) and isfinite(x):
             raise ValueError("math domain error")
         return r
 
@@ -487,7 +487,7 @@ def c_rect(r, phi):
         # if r is +/-infinity and phi is finite but nonzero then
         # result is (+-INF +-INF i), but we need to compute cos(phi)
         # and sin(phi) to figure out the signs.
-        if isinf(r) and isfinite(phi) and phi != 0.:
+        if math.isinf(r) and isfinite(phi) and phi != 0.:
             if r > 0:
                 real = math.copysign(INF, math.cos(phi))
                 imag = math.copysign(INF, math.sin(phi))
@@ -500,7 +500,7 @@ def c_rect(r, phi):
 
         # need to raise ValueError if r is a nonzero number and phi
         # is infinite
-        if r != 0. and not isnan(r) and isinf(phi):
+        if r != 0. and not math.isnan(r) and math.isinf(phi):
             raise ValueError("math domain error")
         return z
 
@@ -512,10 +512,10 @@ def c_rect(r, phi):
 def c_phase(x, y):
     # Windows screws up atan2 for inf and nan, and alpha Tru64 5.1 doesn't
     # follow C99 for atan2(0., 0.).
-    if isnan(x) or isnan(y):
+    if math.isnan(x) or math.isnan(y):
         return NAN
-    if isinf(y):
-        if isinf(x):
+    if math.isinf(y):
+        if math.isinf(x):
             if math.copysign(1., x) == 1.:
                 # atan2(+-inf, +inf) == +-pi/4
                 return math.copysign(0.25 * math.pi, y)
@@ -524,7 +524,7 @@ def c_phase(x, y):
                 return math.copysign(0.75 * math.pi, y)
         # atan2(+-inf, x) == +-pi/2 for finite x
         return math.copysign(0.5 * math.pi, y)
-    if isinf(x) or y == 0.:
+    if math.isinf(x) or y == 0.:
         if math.copysign(1., x) == 1.:
             # atan2(+-y, +inf) = atan2(+-0, +x) = +-0.
             return math.copysign(0., y)
@@ -538,9 +538,9 @@ def c_abs(r, i):
     if not isfinite(r) or not isfinite(i):
         # C99 rules: if either the real or the imaginary part is an
         # infinity, return infinity, even if the other part is a NaN.
-        if isinf(r):
+        if math.isinf(r):
             return INF
-        if isinf(i):
+        if math.isinf(i):
             return INF
 
         # either the real or imaginary part is a NaN,
@@ -560,11 +560,11 @@ def c_polar(r, i):
 
 
 def c_isinf(r, i):
-    return isinf(r) or isinf(i)
+    return math.isinf(r) or math.isinf(i)
 
 
 def c_isnan(r, i):
-    return isnan(r) or isnan(i)
+    return math.isnan(r) or math.isnan(i)
 
 
 def c_isfinite(r, i):

@@ -1,7 +1,6 @@
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from rpython.rlib.rarithmetic import most_neg_value_of_same_type
-from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
 from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
@@ -227,9 +226,9 @@ class rbigint(object):
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         # This function is not marked as pure because it can raise
-        if isinf(dval):
+        if math.isinf(dval):
             raise OverflowError("cannot convert float infinity to integer")
-        if isnan(dval):
+        if math.isnan(dval):
             raise ValueError("cannot convert float NaN to integer")
         return rbigint._fromfloat_finite(dval)
 

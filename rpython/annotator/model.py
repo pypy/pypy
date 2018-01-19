@@ -170,9 +170,8 @@ class SomeFloat(SomeObject):
     def __eq__(self, other):
         if (type(self) is SomeFloat and type(other) is SomeFloat and
             self.is_constant() and other.is_constant()):
-            from rpython.rlib.rfloat import isnan
             # NaN unpleasantness.
-            if isnan(self.const) and isnan(other.const):
+            if math.isnan(self.const) and math.isnan(other.const):
                 return True
             # 0.0 vs -0.0 unpleasantness.
             if not self.const and not other.const:
