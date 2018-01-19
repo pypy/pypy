@@ -10,3 +10,7 @@ What's new in PyPy2.7 5.10+
 Big refactoring of some cpyext code, which avoids a lot of nonsense when
 calling C from Python and vice-versa: the result is a big speedup in
 function/method calls, up to 6 times faster.
+
+.. branch: cpyext-datetime2
+
+Support ``tzinfo`` field on C-API datetime objects, fixes latest pandas HEAD
