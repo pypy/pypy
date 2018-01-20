@@ -731,8 +731,10 @@ Convert a string or number to a floating point number, if possible.''',
 
 
 def _hash_float(space, v):
-    if math.isnan(v):
-        return 0
+    if not isfinite(v):
+        if isinf(v):
+            return HASH_INF if v > 0 else -HASH_INF
+        return HASH_NAN
 
     m, e = math.frexp(v)
 
