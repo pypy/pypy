@@ -76,7 +76,7 @@ class TestString(BaseTestPyPyC):
             i23 = strgetitem(p10, i19)
             p25 = newstr(1)
             strsetitem(p25, 0, i23)
-            p93 = call_r(ConstClass(fromstr), p25, 16, 0, descr=<Callr . ri EF=4>)
+            p93 = call_r(ConstClass(fromstr), p25, 16, 0, descr=<Callr . rii EF=4>)
             guard_no_exception(descr=...)
             i95 = getfield_gc_i(p93, descr=<FieldS rpython.rlib.rbigint.rbigint.inst_size .*>)
             i96 = int_gt(i95, #)
