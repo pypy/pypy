@@ -183,6 +183,7 @@ def build_once_search_tree(assembler):
     # contains one extra word on the stack:
     #    - saved RAX
 
+    assembler.pending_slowpaths = []
     mc = codebuf.MachineCodeBlockWrapper()
     mc.force_frame_size(frame_size)
     if IS_X86_32:    # save edi as an extra scratch register
@@ -286,6 +287,7 @@ def build_once_search_tree(assembler):
         XXX
         mc.JMP_s(0)
 
+    assembler.flush_pending_slowpaths(mc)
     assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
 
 

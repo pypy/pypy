@@ -903,3 +903,41 @@ class CompileFrameworkTests(BaseFrameworkTests):
 
     def test_multiple_pinned(self):
         self.run('multiple_pinned')
+
+    def define_guard_compatible(cls):
+        from rpython.rlib.jit import elidable_compatible
+        # a simple smoke test to see whether guard_compatible works at all
+        class S(object):
+            pass
+        p1 = S()
+        p1.x = 5
+
+        p2 = S()
+        p2.x = 5
+
+        p3 = S()
+        p3.x = 6
+
+        class A(object):
+            pass
+
+        c = A()
+        c.count = 0
+        @elidable_compatible()
+        def g(s, ignored):
+            c.count += 1
+            return s.x
+
+        def f(n, x, *args):
+            if x.x:
+                a = p1
+            else:
+                a = p3
+            n -= g(a, "abc")
+            return (n, x) + args
+
+        return None, f, None
+
+    def test_guard_compatible(self):
+        self.run('guard_compatible')
+
