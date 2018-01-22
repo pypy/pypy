@@ -121,13 +121,17 @@ class EnvBuilder:
             executable = sys.executable
         #
         # PyPy extension: resolve 'executable' if it is a symlink
-        try:
-            for i in range(10):
-                executable = os.path.abspath(executable)
-                executable = os.path.join(os.path.dirname(executable),
-                                          os.readlink(executable))
-        except OSError:
-            pass
+        # XXX as of PyPy 5.10, win32 does not have readlink
+        #     note it is highly unlikely that symlinks were used on win32
+        #     since it requires admin priveleges
+        if hasattr(os, 'readlink'):
+            try:
+                for i in range(10):
+                    executable = os.path.abspath(executable)
+                    executable = os.path.join(os.path.dirname(executable),
+                                              os.readlink(executable))
+            except OSError:
+                pass
         #
         dirname, exename = os.path.split(os.path.abspath(executable))
         context.executable = executable
