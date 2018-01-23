@@ -4,3 +4,6 @@
 
 def enable(*args, **kwargs):
     pass
+
+def register(*args, **kwargs):
+    pass
