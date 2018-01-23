@@ -111,6 +111,27 @@ def test_add_attribute():
     assert obj2.getdictvalue(space, "b") == 60
     assert obj2.map is obj.map
 
+def test_add_attribute_limit():
+    cls = Class()
+    obj = cls.instantiate()
+    # test that eventually attributes are really just stored in a dictionary
+    for i in range(1000):
+        obj.setdictvalue(space, str(i), i)
+    assert len(obj.storage) == 1 # moved to dict (which is the remaining item)
+
+    for i in range(1000):
+        assert obj.getdictvalue(space, str(i)) == i
+
+    # this doesn't happen with slots
+    cls = Class()
+    obj = cls.instantiate()
+    for i in range(1000):
+        obj.setslotvalue(i, i)
+    assert len(obj.storage) == 1000
+
+    for i in range(1000):
+        assert obj.getslotvalue(i) == i
+
 def test_insert_different_orders():
     cls = Class()
     obj = cls.instantiate()
