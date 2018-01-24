@@ -39,17 +39,27 @@ discovered the problem).
 
 .. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/en-us/download/details.aspx?id=44266
 
+Installing Visual Tools v14 (for Python 3)
+------------------------------------------
+
+CPython (as of Jan 2018) recommends_ Microsoft Visual C++ 14. That compiler is
+part of recent Visual Studio releases, from Visual Studio 2015 to 2017.
+It is enough to install the "Build Tools for Visual Studio 2017" listed near
+the bottom of the downloads_ page.
+
+.. _recommends: https://wiki.python.org/moin/WindowsCompilers
+.. _downloads: https://www.visualstudio.com/downloads
+
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test translation using v9, also known as Visual Studio 2008.
+We routinely test translation of PyPy 2.7 using v9 and PyPy 3 with vc14.
 Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
 for the compiler, so you do not need to run vcvars before translation.
-They will attempt to locate the same compiler version that
-was used to build the Python interpreter doing the
-translation.  Failing that, they will pick the most recent Visual Studio
+They will attempt to locate the appropriate version used in CPython.
+Failing that, they will pick the most recent Visual Studio
 compiler they can find.  In addition, the target architecture
 (32 bits, 64 bits) is automatically selected.  A 32 bit build can only be built
 using a 32 bit Python and vice versa. By default the interpreter is built using
