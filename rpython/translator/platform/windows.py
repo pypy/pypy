@@ -96,7 +96,7 @@ def find_msvc_env(x64flag=False):
         msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
         # 1500 -> 90, 1900 -> 140
         vsver = (msc_ver / 10) - 60
-        vcvers.insert(0, vsver)
+        #vcvers.insert(0, vsver)
     errs = []
     for vsver in vcvers: 
         env = _get_msvc_env(vsver, x64flag)
