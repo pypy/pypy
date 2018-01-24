@@ -26,39 +26,29 @@ def Windows_x64(cc=None):
                     " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
 
-def _find_vcvarsall(version):
-    # copied from setuptools.msvc9_support.py
-    from distutils.msvc9compiler import Reg
-    VC_BASE = r'Software\%sMicrosoft\DevDiv\VCForPython\%0.1f'
-    key = VC_BASE % ('', version)
-    try:
-        # Per-user installs register the compiler path here
-        productdir = Reg.get_value(key, "installdir")
-    except KeyError:
-        try:
-            # All-user installs on a 64-bit system register here
-            key = VC_BASE % ('Wow6432Node\\', version)
-            productdir = Reg.get_value(key, "installdir")
-        except KeyError:
-            productdir = None
-
-    if productdir:
-        vcvarsall = os.path.join(productdir, "vcvarsall.bat")
-        if os.path.isfile(vcvarsall):
-            return vcvarsall
-    return None
-
+def _find_vcvarsall(version, x64flag):
+    import rpython.tool.setuptools_msvc as msvc
+    if x64flag:
+        arch = 'x64'
+    else:
+        arch = 'x86'
+    if version == 140:
+        return msvc.msvc14_get_vc_env(arch)
+    else:
+        return msvc.msvc9_query_vcvarsall(version / 10.0, arch)
+    
 def _get_msvc_env(vsver, x64flag):
-    vcvars = None
+    vcdict = None
+    toolsdir = None
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     except KeyError:
-        # try to import from the registry, as done in setuptools
-        # XXX works for 90 but is it generalizable?
-        toolsdir = ''
-        vcvars = _find_vcvarsall(vsver/10)
-
-    if not vcvars:
+        # use setuptools from python3 to find tools
+        try:
+            vcdict = _find_vcvarsall(vsver, x64flag)
+        except Exception as e:
+            return None
+    else:
         if x64flag:
             vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
             vcinstalldir = os.path.join(vsinstalldir, 'VC')
@@ -72,31 +62,34 @@ def _get_msvc_env(vsver, x64flag):
                 # wich names both
                 vcvars = os.path.join(toolsdir, 'vcvars32.bat') 
 
-    import subprocess
-    try:
-        popen = subprocess.Popen('"%s" & set' % (vcvars,),
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
+        import subprocess
+        try:
+            popen = subprocess.Popen('"%s" & set' % (vcvars,),
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
 
-        stdout, stderr = popen.communicate()
-        if popen.wait() != 0:
+            stdout, stderr = popen.communicate()
+            if popen.wait() != 0:
+                return None
+        except:
             return None
-    except:
-        return None
-    env = {}
 
-    stdout = stdout.replace("\r\n", "\n")
-    for line in stdout.split("\n"):
-        if '=' not in line:
-            continue
-        key, value = line.split('=', 1)
+        stdout = stdout.replace("\r\n", "\n")
+        vcdict = {}
+        for line in stdout.split("\n"):
+            if '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            vcdict[key] = value
+    env = {}
+    for key, value in vcdict.items():
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
             env[key.upper()] = value
-    log.msg("Updated environment with %s" % (vcvars,))
+    log.msg("Updated environment with vsver %d, using x64 %s" % (vsver, x64flag,))
     return env
 
 def find_msvc_env(x64flag=False):
-    vcvers = [140, 100, 90, 80, 71, 70]
+    vcvers = [140, 90, 100]
     # First, try to get the compiler which served to compile python
     msc_pos = sys.version.find('MSC v.')
     if msc_pos != -1:
