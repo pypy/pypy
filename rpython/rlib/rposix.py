@@ -43,7 +43,8 @@ if os.name == 'nt':
     else:
         includes=['errno.h','stdio.h', 'stdint.h']
     separate_module_sources =['''
-        /* Lifted completely from CPython 3.3 Modules/posix_module.c */
+        /* Lifted completely from CPython 3 Modules/posix_module.c */
+        #if defined _MSC_VER && MSC_VER >= 1400 && _MSC_VER < 1900
         #include <malloc.h> /* for _msize */
         typedef struct {
             intptr_t osfhnd;
@@ -95,6 +96,13 @@ if os.name == 'nt':
             errno = EBADF;
             return 0;
         }
+        #else
+        RPY_EXTERN int
+        _PyVerify_fd(int fd)
+        {
+            return 1;
+        }
+        #endif
     ''',]
     post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);']
 else:
