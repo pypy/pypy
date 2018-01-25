@@ -281,6 +281,7 @@ class Terminator(AbstractAttribute):
         if index == DICT and obj._get_mapdict_map().length() >= LIMIT_MAP_ATTRIBUTES:
             space = self.space
             w_dict = obj.getdict(space)
+            assert isinstance(w_dict, W_DictMultiObject)
             strategy = w_dict.get_strategy()
             assert isinstance(strategy, MapDictStrategy)
             strategy.switch_to_text_strategy(w_dict)

@@ -112,15 +112,21 @@ def test_add_attribute():
     assert obj2.map is obj.map
 
 def test_add_attribute_limit():
-    cls = Class()
-    obj = cls.instantiate()
-    # test that eventually attributes are really just stored in a dictionary
-    for i in range(1000):
-        obj.setdictvalue(space, str(i), i)
-    assert len(obj.storage) == 1 # moved to dict (which is the remaining item)
+    for numslots in [0, 10, 100]:
+        cls = Class()
+        obj = cls.instantiate()
+        for i in range(numslots):
+            obj.setslotvalue(i, i) # some extra slots too, sometimes
+        # test that eventually attributes are really just stored in a dictionary
+        for i in range(1000):
+            obj.setdictvalue(space, str(i), i)
+        # moved to dict (which is the remaining non-slot item)
+        assert len(obj.storage) == 1 + numslots
 
-    for i in range(1000):
-        assert obj.getdictvalue(space, str(i)) == i
+        for i in range(1000):
+            assert obj.getdictvalue(space, str(i)) == i
+        for i in range(numslots):
+            assert obj.getslotvalue(i) == i # check extra slots
 
     # this doesn't happen with slots
     cls = Class()
