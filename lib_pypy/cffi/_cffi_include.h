@@ -7,6 +7,16 @@
    we can learn about Py_DEBUG from pyconfig.h, but it is unclear if
    the same works for the other two macros.  Py_DEBUG implies them,
    but not the other way around.
+
+   Issue #350 is still open: on Windows, the code here causes it to link
+   with PYTHON36.DLL (for example) instead of PYTHON3.DLL.  A fix was
+   attempted in 164e526a5515 and 14ce6985e1c3, but reverted: virtualenv
+   does not make PYTHON3.DLL available, and so the "correctly" compiled
+   version would not run inside a virtualenv.  We will re-apply the fix
+   after virtualenv has been fixed for some time.  For explanation, see
+   issue #355.  For a workaround if you want PYTHON3.DLL and don't worry
+   about virtualenv, see issue #350.  See also 'py_limited_api' in
+   setuptools_ext.py.
 */
 #if !defined(_CFFI_USE_EMBEDDING) && !defined(Py_LIMITED_API)
 #  include <pyconfig.h>

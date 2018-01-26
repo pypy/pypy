@@ -78,6 +78,10 @@ class TestRStruct(BaseRtypingTest):
         assert f != 12.34     # precision lost
         assert abs(f - 12.34) < 1E-6
 
+    def test_unpack_halffloat(self):
+        assert runpack(">e", b"\x7b\xef") == 64992.0
+        assert runpack("<e", b"\xef\x7b") == 64992.0
+
     def test_unpack_standard_little(self):
         def unpack(fmt, data):
             def fn():

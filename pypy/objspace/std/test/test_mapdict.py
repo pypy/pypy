@@ -794,7 +794,6 @@ class AppTestWithMapDict(object):
         assert d == {}
 
     def test_change_class_slots(self):
-        skip("not supported by pypy yet")
         class A(object):
             __slots__ = ["x", "y"]
 
@@ -812,7 +811,6 @@ class AppTestWithMapDict(object):
         assert isinstance(a, B)
 
     def test_change_class_slots_dict(self):
-        skip("not supported by pypy yet")
         class A(object):
             __slots__ = ["x", "__dict__"]
         class B(object):
@@ -840,7 +838,7 @@ class AppTestWithMapDict(object):
         assert a.y == 2
         d = a.__dict__
         d[1] = 3
-        assert d == {"x": 1, "y": 2, 1:3}
+        assert d == {"y": 2, 1: 3}
         a.__class__ = B
         assert a.x == 1
         assert a.y == 2

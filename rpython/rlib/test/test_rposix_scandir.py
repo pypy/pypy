@@ -2,20 +2,24 @@ import sys, os
 import py
 from rpython.rlib import rposix_scandir
 
+if sys.platform == 'win32':
+    basedir = os.environ.get('LOCALAPPDATA', r'C:\users')
+    func = rposix_scandir.get_name_unicode
+else:
+    basedir = '/'
+    func = rposix_scandir.get_name_bytes
 
 class TestScanDir(object):
 
-    @py.test.mark.skipif("sys.platform == 'win32'")   # XXX
     def test_name_bytes(self):
-        scan = rposix_scandir.opendir('/')
+        scan = rposix_scandir.opendir(basedir)
         found = []
         while True:
             p = rposix_scandir.nextentry(scan)
             if not p:
                 break
-            assert rposix_scandir.has_name_bytes(p)
-            found.append(rposix_scandir.get_name_bytes(p))
+            found.append(func(p))
         rposix_scandir.closedir(scan)
         found.remove('.')
         found.remove('..')
-        assert sorted(found) == sorted(os.listdir('/'))
+        assert sorted(found) == sorted(os.listdir(basedir))

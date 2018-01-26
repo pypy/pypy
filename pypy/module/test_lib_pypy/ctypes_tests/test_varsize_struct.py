@@ -1,10 +1,10 @@
-import py
-from support import BaseCTypesTestChecker
+import pytest
+from .support import BaseCTypesTestChecker
 from ctypes import *
 
 class TestVarSize(BaseCTypesTestChecker):
     def test_resize(self):
-        py.test.skip("resizing not implemented")
+        pytest.skip("resizing not implemented")
         class X(Structure):
             _fields_ = [("item", c_int),
                         ("array", c_int * 1)]
@@ -35,15 +35,23 @@ class TestVarSize(BaseCTypesTestChecker):
 
     def test_array_invalid_length(self):
         # cannot create arrays with non-positive size
-        raises(ValueError, lambda: c_int * -1)
-        raises(ValueError, lambda: c_int * -3)
+        with pytest.raises(ValueError):
+            c_int * -1
+        with pytest.raises(ValueError):
+            c_int * -3
 
     def test_zerosized_array(self):
         array = (c_int * 0)()
         # accessing elements of zero-sized arrays raise IndexError
-        raises(IndexError, array.__setitem__, 0, None)
-        raises(IndexError, array.__getitem__, 0)
-        raises(IndexError, array.__setitem__, 1, None)
-        raises(IndexError, array.__getitem__, 1)
-        raises(IndexError, array.__setitem__, -1, None)
-        raises(IndexError, array.__getitem__, -1)
+        with pytest.raises(IndexError):
+            array.__setitem__(0, None)
+        with pytest.raises(IndexError):
+            array.__getitem__(0)
+        with pytest.raises(IndexError):
+            array.__setitem__(1, None)
+        with pytest.raises(IndexError):
+            array.__getitem__(1)
+        with pytest.raises(IndexError):
+            array.__setitem__(-1, None)
+        with pytest.raises(IndexError):
+            array.__getitem__(-1)

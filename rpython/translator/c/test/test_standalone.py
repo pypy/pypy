@@ -1102,22 +1102,6 @@ class TestStandalone(StandaloneTests):
         assert out.strip() == 'ok'
 
 
-class TestMaemo(TestStandalone):
-    def setup_class(cls):
-        py.test.skip("TestMaemo: tests skipped for now")
-        from rpython.translator.platform.maemo import check_scratchbox
-        check_scratchbox()
-        config = get_combined_translation_config(translating=True)
-        config.translation.platform = 'maemo'
-        cls.config = config
-
-    def test_profopt(self):
-        py.test.skip("Unsupported")
-
-    def test_prof_inline(self):
-        py.test.skip("Unsupported")
-
-
 class TestThread(object):
     gcrootfinder = 'shadowstack'
     config = None

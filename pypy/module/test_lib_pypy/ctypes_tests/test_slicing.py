@@ -1,5 +1,5 @@
-import py
-from support import BaseCTypesTestChecker
+import pytest
+from .support import BaseCTypesTestChecker
 from ctypes import *
 
 def setup_module(mod):
@@ -30,13 +30,17 @@ class TestSlices(BaseCTypesTestChecker):
         from operator import setslice
 
         # TypeError: int expected instead of str instance
-        raises(TypeError, setslice, a, 0, 5, "abcde")
+        with pytest.raises(TypeError):
+            setslice(a, 0, 5, "abcde")
         # TypeError: int expected instead of str instance
-        raises(TypeError, setslice, a, 0, 5, ["a", "b", "c", "d", "e"])
+        with pytest.raises(TypeError):
+            setslice(a, 0, 5, ["a", "b", "c", "d", "e"])
         # TypeError: int expected instead of float instance
-        raises(TypeError, setslice, a, 0, 5, [1, 2, 3, 4, 3.14])
+        with pytest.raises(TypeError):
+            setslice(a, 0, 5, [1, 2, 3, 4, 3.14])
         # ValueError: Can only assign sequence of same size
-        raises(ValueError, setslice, a, 0, 5, range(32))
+        with pytest.raises(ValueError):
+            setslice(a, 0, 5, range(32))
 
     def test_char_ptr(self):
         s = "abcdefghijklmnopqrstuvwxyz"
@@ -47,8 +51,8 @@ class TestSlices(BaseCTypesTestChecker):
         assert res[:len(s)] == s
 
         import operator
-        raises(TypeError, operator.setslice,
-                          res, 0, 5, u"abcde")
+        with pytest.raises(TypeError):
+            operator.setslice(res, 0, 5, u"abcde")
         dll.my_free(res)
 
         dll.my_strdup.restype = POINTER(c_byte)
@@ -99,8 +103,8 @@ class TestSlices(BaseCTypesTestChecker):
             assert res[:len(s)] == s
 
             import operator
-            raises(TypeError, operator.setslice,
-                              res, 0, 5, u"abcde")
+            with pytest.raises(TypeError):
+                operator.setslice(res, 0, 5, u"abcde")
             dll.my_free(res)
 
             if sizeof(c_wchar) == sizeof(c_short):

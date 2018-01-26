@@ -2,13 +2,13 @@
 
 from ctypes import *
 from ctypes.test import is_resource_enabled
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
-import py
+import pytest
 import sys
 
 if sys.platform != "win32":
-    py.test.skip("win32-only tests")
+    pytest.importorskip('skip_the_whole_module')  # hack!
 
 class TestWindows(BaseCTypesTestChecker):
     def test_callconv_1(self):
@@ -16,13 +16,15 @@ class TestWindows(BaseCTypesTestChecker):
 
         IsWindow = windll.user32.IsWindow
         # ValueError: Procedure probably called with not enough arguments (4 bytes missing)
-        py.test.raises(ValueError, IsWindow)
+        with pytest.raises(ValueError):
+            IsWindow()
 
         # This one should succeeed...
         assert IsWindow(0) == 0
 
         # ValueError: Procedure probably called with too many arguments (8 bytes in excess)
-        py.test.raises(ValueError, IsWindow, 0, 0, 0)
+        with pytest.raises(ValueError):
+            IsWindow(0, 0, 0)
 
     def test_callconv_2(self):
         # Calling stdcall function as cdecl
@@ -31,13 +33,15 @@ class TestWindows(BaseCTypesTestChecker):
 
         # ValueError: Procedure called with not enough arguments (4 bytes missing)
         # or wrong calling convention
-        py.test.raises(ValueError, IsWindow, None)
+        with pytest.raises(ValueError):
+            IsWindow(None)
 
     if is_resource_enabled("SEH"):
         def test_SEH(self):
             # Call functions with invalid arguments, and make sure that access violations
             # are trapped and raise an exception.
-            py.test.raises(WindowsError, windll.kernel32.GetModuleHandleA, 32)
+            with pytest.raises(WindowsError):
+                windll.kernel32.GetModuleHandleA(32)
 
 class TestWintypes(BaseCTypesTestChecker):
 

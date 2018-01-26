@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, Py_ssize_t
-from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref, make_ref, Py_DecRef
+from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref, make_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.cpyext.state import State

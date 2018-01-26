@@ -11,7 +11,7 @@ for a full 64bit translation.
 
 To build pypy-c you need a working python environment, and a C compiler.
 It is possible to translate with a CPython 2.6 or later, but this is not
-the preferred way, because it will take a lot longer to run – depending
+the preferred way, because it will take a lot longer to run â€“ depending
 on your architecture, between two and three times as long. So head to
 `our downloads`_ and get the latest stable version.
 
@@ -25,8 +25,10 @@ Installing Visual Compiler v9 (for Python 2.7)
 
 This compiler, while the standard one for Python 2.7, is deprecated. Microsoft has
 made it available as the `Microsoft Visual C++ Compiler for Python 2.7`_ (the link
-was checked in Nov 2016). Note that the compiler suite will be installed in
-``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``.
+was checked in Nov 2016). Note that the compiler suite may be installed in
+``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``
+or in
+``C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python``.
 A current version of ``setuptools`` will be able to find it there. For
 Windows 10, you must right-click the download, and under ``Properties`` ->
 ``Compatibility`` mark it as ``Run run this program in comatibility mode for``
@@ -41,7 +43,6 @@ Translating PyPy with Visual Studio
 -----------------------------------
 
 We routinely test translation using v9, also known as Visual Studio 2008.
-Our buildbot is still using the Express Edition, not the compiler noted above.
 Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
@@ -80,6 +81,31 @@ slower translation::
     PYTHONPATH=../.. ./pypy-c ../tool/build_cffi_imports.py
 
 .. _build instructions: http://pypy.org/download.html#building-from-source
+
+Setting Up Visual Studio for building SSL in Python3
+----------------------------------------------------
+
+On Python3, the ``ssl`` module is based on ``cffi``, and requires a build step after
+translation. However ``distutils`` does not support the Micorosft-provided Visual C
+compiler, and ``cffi`` depends on ``distutils`` to find the compiler. The
+traditional solution to this problem is to install the ``setuptools`` module
+via running ``-m ensurepip`` which installs ``pip`` and ``setuptools``. However
+``pip`` requires ``ssl``. So we have a chicken-and-egg problem: ``ssl`` depends on
+``cffi`` which depends on ``setuptools``, which depends on ``ensurepip``, which
+depends on ``ssl``.
+
+In order to solve this, the buildbot sets an environment varaible that helps
+``distutils`` find the compiler without ``setuptools``::
+
+     set VS90COMNTOOLS=C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0\VC\bin
+
+or whatever is appropriate for your machine. Note that this is not enough, you
+must also copy the ``vcvarsall.bat`` file fron the ``...\9.0`` directory to the
+``...\9.0\VC`` directory, and edit it, changing the lines that set
+``VCINSTALLDIR`` and ``WindowsSdkDir``::
+
+    set VCINSTALLDIR=%~dp0\
+    set WindowsSdkDir=%~dp0\..\WinSDK\
 
 
 Preparing Windows for the large build

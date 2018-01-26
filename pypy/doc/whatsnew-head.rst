@@ -2,11 +2,15 @@
 What's new in PyPy2.7 5.10+
 ===========================
 
-.. this is a revision shortly after release-pypy2.7-v5.9.0
-.. startrev:d56dadcef996
+.. this is a revision shortly after release-pypy2.7-v5.10.0
+.. startrev: 6b024edd9d12
 
-.. branch: cppyy-packaging
-Cleanup and improve cppyy packaging
+.. branch: cpyext-avoid-roundtrip
 
-.. branch: docs-osx-brew-openssl
+Big refactoring of some cpyext code, which avoids a lot of nonsense when
+calling C from Python and vice-versa: the result is a big speedup in
+function/method calls, up to 6 times faster.
 
+.. branch: cpyext-datetime2
+
+Support ``tzinfo`` field on C-API datetime objects, fixes latest pandas HEAD

@@ -1,13 +1,69 @@
+import pytest
 import os
+from rpython.rlib.rvmprof.test.support import fakevmprof
+from pypy.interpreter.gateway import interp2app
 from pypy.module._continuation.test.support import BaseAppTest
 
-
+@pytest.mark.usefixtures('app_fakevmprof')
 class AppTestStacklet(BaseAppTest):
     def setup_class(cls):
         BaseAppTest.setup_class.im_func(cls)
         cls.w_translated = cls.space.wrap(
             os.path.join(os.path.dirname(__file__),
                          'test_translated.py'))
+        cls.w_stack = cls.space.appexec([], """():
+            import sys
+            def stack(f=None):
+                '''
+                get the call-stack of the caller or the specified frame
+                '''
+                if f is None:
+                    f = sys._getframe(1)
+                res = []
+                seen = set()
+                while f:
+                    if f in seen:
+                        # frame cycle
+                        res.append('...')
+                        break
+                    if f.f_code.co_name == 'runtest':
+                        # if we are running with -A, cut all the stack above
+                        # the test function
+                        break
+                    seen.add(f)
+                    res.append(f.f_code.co_name)
+                    f = f.f_back
+                #print res
+                return res
+            return stack
+       """)
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
+        if cls.runappdirect:
+            # make sure that "self.stack" does not pass the self
+            cls.w_stack = staticmethod(cls.w_stack.im_func)
+
+
+    @pytest.fixture
+    def app_fakevmprof(self, fakevmprof):
+        """
+        This is automaticaly re-initialized for every method: thanks to
+        fakevmprof's finalizer, it checks that we called {start,stop}_sampling
+        the in pairs
+        """
+        w = self.space.wrap
+        i2a = interp2app
+        def is_sampling_enabled(space):
+            return space.wrap(fakevmprof.is_sampling_enabled)
+        self.w_is_sampling_enabled = w(i2a(is_sampling_enabled))
+        #
+        def start_sampling(space):
+            fakevmprof.start_sampling()
+        self.w_start_sampling = w(i2a(start_sampling))
+        #
+        def stop_sampling(space):
+            fakevmprof.stop_sampling()
+        self.w_stop_sampling = w(i2a(stop_sampling))
+
 
     def test_new_empty(self):
         from _continuation import continulet
@@ -339,17 +395,24 @@ class AppTestStacklet(BaseAppTest):
     def test_f_back(self):
         import sys
         from _continuation import continulet
+        stack = self.stack
         #
         def bar(c):
+            assert stack() == ['bar', 'foo', 'test_f_back']
             c.switch(sys._getframe(0))
             c.switch(sys._getframe(0).f_back)
             c.switch(sys._getframe(1))
+            #
+            assert stack() == ['bar', 'foo', 'main', 'test_f_back']
             c.switch(sys._getframe(1).f_back)
+            #
+            assert stack() == ['bar', 'foo', 'main2', 'test_f_back']
             assert sys._getframe(2) is f3_foo.f_back
             c.switch(sys._getframe(2))
         def foo(c):
             bar(c)
         #
+        assert stack() == ['test_f_back']
         c = continulet(foo)
         f1_bar = c.switch()
         assert f1_bar.f_code.co_name == 'bar'
@@ -358,14 +421,20 @@ class AppTestStacklet(BaseAppTest):
         f3_foo = c.switch()
         assert f3_foo is f2_foo
         assert f1_bar.f_back is f3_foo
+        #
         def main():
             f4_main = c.switch()
             assert f4_main.f_code.co_name == 'main'
             assert f3_foo.f_back is f1_bar    # not running, so a loop
+            assert stack() == ['main', 'test_f_back']
+            assert stack(f1_bar) == ['bar', 'foo', '...']
+        #
         def main2():
             f5_main2 = c.switch()
             assert f5_main2.f_code.co_name == 'main2'
             assert f3_foo.f_back is f1_bar    # not running, so a loop
+            assert stack(f1_bar) == ['bar', 'foo', '...']
+        #
         main()
         main2()
         res = c.switch()
@@ -728,3 +797,25 @@ class AppTestStacklet(BaseAppTest):
 
         continulet.switch(c1, to=c2)
         raises(error, continulet.switch, c1, to=c2)
+
+    def test_sampling_inside_callback(self):
+        if self.appdirect:
+            # see also
+            # extra_tests.test_vmprof_greenlet.test_sampling_inside_callback
+            # for a "translated" version of this test
+            skip("we can't run this until we have _vmprof.is_sampling_enabled")
+        from _continuation import continulet
+        #
+        def my_callback(c1):
+            assert self.is_sampling_enabled()
+            return 42
+        #
+        try:
+            self.start_sampling()
+            assert self.is_sampling_enabled()
+            c = continulet(my_callback)
+            res = c.switch()
+            assert res == 42
+            assert self.is_sampling_enabled()
+        finally:
+            self.stop_sampling()

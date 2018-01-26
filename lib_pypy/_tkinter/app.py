@@ -180,6 +180,9 @@ class TkApp(object):
             if err == tklib.TCL_ERROR:
                 self.raiseTclError()
 
+    def interpaddr(self):
+        return int(tkffi.cast('size_t', self.interp))
+
     def _var_invoke(self, func, *args, **kwargs):
         if self.threaded and self.thread_id != tklib.Tcl_GetCurrentThread():
             # The current thread is not the interpreter thread.

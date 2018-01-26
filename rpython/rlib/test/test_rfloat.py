@@ -1,20 +1,12 @@
-import sys, py
+import sys, py, math
 
 from rpython.rlib.rfloat import float_as_rbigint_ratio
-from rpython.rlib.rfloat import copysign
 from rpython.rlib.rfloat import round_away
 from rpython.rlib.rfloat import round_double
-from rpython.rlib.rfloat import erf, erfc, gamma, lgamma, isnan
+from rpython.rlib.rfloat import erf, erfc, gamma, lgamma
 from rpython.rlib.rfloat import ulps_check, acc_check
 from rpython.rlib.rfloat import string_to_float
 from rpython.rlib.rbigint import rbigint
-
-def test_copysign():
-    assert copysign(1, 1) == 1
-    assert copysign(-1, 1) == 1
-    assert copysign(-1, -1) == -1
-    assert copysign(1, -1) == -1
-    assert copysign(1, -0.) == -1
 
 def test_round_away():
     assert round_away(.1) == 0.
@@ -179,9 +171,9 @@ def test_mtestfile():
 
         accuracy_failure = None
         if isinstance(got, float) and isinstance(expected, float):
-            if isnan(expected) and isnan(got):
+            if math.isnan(expected) and math.isnan(got):
                 continue
-            if not isnan(expected) and not isnan(got):
+            if not math.isnan(expected) and not math.isnan(got):
                 if fn == 'lgamma':
                     # we use a weaker accuracy test for lgamma;
                     # lgamma only achieves an absolute error of

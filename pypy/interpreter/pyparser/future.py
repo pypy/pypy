@@ -85,13 +85,17 @@ def add_future_flags(future_flags, tokens):
     # permissive parsing of the given list of tokens; it relies on
     # the real parsing done afterwards to give errors.
     it.skip_newlines()
-    it.skip_name("r") or it.skip_name("u") or it.skip_name("ru")
-    if it.skip(pygram.tokens.STRING):
-        it.skip_newlines()
 
-    while (it.skip_name("from") and
+    docstring_possible = True
+    while True:
+        it.skip_name("r") or it.skip_name("u") or it.skip_name("ru")
+        if docstring_possible and it.skip(pygram.tokens.STRING):
+            it.skip_newlines()
+            docstring_possible = False
+        if not (it.skip_name("from") and
            it.skip_name("__future__") and
            it.skip_name("import")):
+            break
         it.skip(pygram.tokens.LPAR)    # optionally
         # return in 'last_position' any line-column pair that points
         # somewhere inside the last __future__ import statement
