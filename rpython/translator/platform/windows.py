@@ -101,7 +101,7 @@ def find_msvc_env(x64flag=False):
     for vsver in vcvers: 
         env = _get_msvc_env(vsver, x64flag)
         if env is not None:
-            return env
+            return env, vsver
     log.error("Could not find a Microsoft Compiler")
     # Assume that the compiler is already part of the environment
 
@@ -129,7 +129,6 @@ def _find_executable(executable, path=None):
                     return f
     return None
 
-
 class MsvcPlatform(Platform):
     name = "msvc"
     so_ext = 'dll'
@@ -152,9 +151,14 @@ class MsvcPlatform(Platform):
     def __init__(self, cc=None, x64=False):
         self.x64 = x64
         if cc is None:
-            msvc_compiler_environ = find_msvc_env(x64)
+            msvc_compiler_environ, self.vsver = find_msvc_env(x64)
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
+                if x64:
+                    self.external_branch = 'win34_%d' % self.vsver
+                else:
+                    self.external_branch = 'win32_%d' % self.vsver
+                patch_env(msvc_compiler_environ, self.externals)
                 self.c_environ = os.environ.copy()
                 self.c_environ.update(msvc_compiler_environ)
         else:
@@ -508,6 +512,15 @@ class MsvcPlatform(Platform):
             oldcwd.chdir()
 
         self._handle_error(returncode, stdout, stderr, path.join('make'))
+
+# These are the external libraries, created and maintained by get_externals.py
+# The buildbot runs get_externals before building
+def patch_env(env, externals = Platform.externals):
+    #print 'adding %s to PATH, INCLUDE, LIB' % basepath
+    env['PATH'] = externals + r'\bin;' + env.get('PATH', '')
+    env['INCLUDE'] = externals + r'\include;' + env.get('INCLUDE', '')
+    env['LIB'] = externals + r'\lib;' + env.get('LIB', '')
+    return None
 
 class WinDefinition(posix.Definition):
     def write(self, f):
