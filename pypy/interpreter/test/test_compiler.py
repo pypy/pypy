@@ -1007,8 +1007,9 @@ class AppTestCompiler(object):
         compile(b"# coding: latin1\n#\xfd\n", "dummy", "exec")
         raises(SyntaxError, compile, b"# coding: utf-8\n'\xfd'\n",
                "dummy", "exec") #1
-        raises(SyntaxError, compile, b'# coding: utf-8\nx=5\nb"\xfd"\n',
+        excinfo = raises(SyntaxError, compile, b'# coding: utf-8\nx=5\nb"\xfd"\n',
                "dummy", "exec") #2
+        assert excinfo.value.lineno == 3
         # the following example still fails on CPython 3.5.2, skip if -A
         if '__pypy__' in sys.builtin_module_names:
             raises(SyntaxError, compile, b"# coding: utf-8\n#\xfd\n",
