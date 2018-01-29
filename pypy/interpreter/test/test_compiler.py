@@ -1024,6 +1024,12 @@ class AppTestCompiler(object):
         raises(SyntaxError, compile, b"#\x00\nx=5#\xfd\n", "dummy", "exec",
                PyCF_ACCEPT_NULL_BYTES)
 
+    def test_correct_offset_in_many_bytes(self):
+        excinfo = raises(SyntaxError, compile, b'# coding: utf-8\nx = b"a" b"c" b"\xfd"\n',
+               "dummy", "exec")
+        assert excinfo.value.lineno == 2
+        assert excinfo.value.offset == 14
+
     def test_dict_and_set_literal_order(self):
         x = 1
         l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})
