@@ -39,17 +39,6 @@ discovered the problem).
 
 .. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/en-us/download/details.aspx?id=44266
 
-Installing Visual Tools v14 (for Python 3)
-------------------------------------------
-
-CPython (as of Jan 2018) recommends_ Microsoft Visual C++ 14. That compiler is
-part of recent Visual Studio releases, from Visual Studio 2015 to 2017.
-It is enough to install the "Build Tools for Visual Studio 2017" listed near
-the bottom of the downloads_ page.
-
-.. _recommends: https://wiki.python.org/moin/WindowsCompilers
-.. _downloads: https://www.visualstudio.com/downloads
-
 Translating PyPy with Visual Studio
 -----------------------------------
 
@@ -58,8 +47,9 @@ Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
 for the compiler, so you do not need to run vcvars before translation.
-They will attempt to locate the appropriate version used in CPython.
-Failing that, they will pick the most recent Visual Studio
+They will attempt to locate the same compiler version that
+was used to build the Python interpreter doing the
+translation.  Failing that, they will pick the most recent Visual Studio
 compiler they can find.  In addition, the target architecture
 (32 bits, 64 bits) is automatically selected.  A 32 bit build can only be built
 using a 32 bit Python and vice versa. By default the interpreter is built using
@@ -142,243 +132,14 @@ translate with.
 Installing external packages
 ----------------------------
 
-On Windows, there is no standard place where to download, build and
-install third-party libraries.  We recommend installing them in the parent
-directory of the pypy checkout.  For example, if you installed pypy in
-``d:\pypy\trunk\`` (This directory contains a README file), the base
-directory is ``d:\pypy``. You must then set the
-INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
+We uses a `repository` parallel to pypy to hold binary compiled versions of the
+build dependencies for windows. As part of the `rpython` setup stage, environment
+variables will be set to use these dependencies. The repository has a README
+file on how to replicate, and a branch for each supported platform. You may run
+ the `get_externals.py` utility to checkout the proper branch for your platform
+and PyPy version.
 
-
-Abridged method (using Visual Studio 2008)
-------------------------------------------
-
-Download the versions of all the external packages from
-https://bitbucket.org/pypy/pypy/downloads/local_59.zip
-(for post-5.8 builds) with sha256 checksum
-``6344230e90ab7a9cb84efbae1ba22051cdeeb40a31823e0808545b705aba8911``
-https://bitbucket.org/pypy/pypy/downloads/local_5.8.zip
-(to reproduce 5.8 builds) with sha256 checksum 
-``fbe769bf3a4ab6f5a8b0a05b61930fc7f37da2a9a85a8f609cf5a9bad06e2554`` or
-https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
-(for 2.4 release and later) or
-https://bitbucket.org/pypy/pypy/downloads/local.zip
-(for pre-2.4 versions)
-Then expand it into the base directory (base_dir) and modify your environment
-to reflect this::
-
-    set PATH=<base_dir>\bin;%PATH%
-    set INCLUDE=<base_dir>\include;%INCLUDE%
-    set LIB=<base_dir>\lib;%LIB%
-
-Now you should be good to go. If you choose this method, you do not need
-to download/build anything else. 
-
-Nonabridged method (building from scratch)
-------------------------------------------
-
-If you want to, you can rebuild everything from scratch by continuing.
-
-
-The Boehm garbage collector
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This library is needed if you plan to use the ``--gc=boehm`` translation
-option (this is the default at some optimization levels like ``-O1``,
-but unneeded for high-performance translations like ``-O2``).
-You may get it at
-http://hboehm.info/gc/gc_source/gc-7.1.tar.gz
-
-Versions 7.0 and 7.1 are known to work; the 6.x series won't work with
-RPython. Unpack this folder in the base directory.
-The default GC_abort(...) function in misc.c will try to open a MessageBox.
-You may want to disable this with the following patch::
-
-    --- a/misc.c    Sun Apr 20 14:08:27 2014 +0300
-    +++ b/misc.c    Sun Apr 20 14:08:37 2014 +0300
-    @@ -1058,7 +1058,7 @@
-     #ifndef PCR
-      void GC_abort(const char *msg)
-       {
-       -#   if defined(MSWIN32)
-       +#   if 0 && defined(MSWIN32)
-              (void) MessageBoxA(NULL, msg, "Fatal error in gc", MB_ICONERROR|MB_OK);
-               #   else
-                      GC_err_printf("%s\n", msg);
-
-Then open a command prompt::
-
-    cd gc-7.1
-    nmake -f NT_THREADS_MAKEFILE
-    copy Release\gc.dll <somewhere in the PATH>
-
-
-The zlib compression library
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Download http://www.gzip.org/zlib/zlib-1.2.11.tar.gz and extract it in
-the base directory.  Then compile::
-
-    cd zlib-1.2.11
-    nmake -f win32\Makefile.msc
-    copy zlib.lib <somewhere in LIB>
-    copy zlib.h zconf.h <somewhere in INCLUDE>
-    copy zlib1.dll <in PATH> # (needed for tests via ll2ctypes)
-
-
-The bz2 compression library
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Get the same version of bz2 used by python and compile as a static library::
-
-    svn export http://svn.python.org/projects/external/bzip2-1.0.6
-    cd bzip2-1.0.6
-    nmake -f makefile.msc
-    copy libbz2.lib <somewhere in LIB>
-    copy bzlib.h <somewhere in INCLUDE>
-
-
-The sqlite3 database library
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-PyPy uses cffi to interact with sqlite3.dll. Only the dll is needed, the cffi
-wrapper is compiled when the module is imported for the first time.
-The sqlite3.dll should be version 3.8.11 for CPython2.7 compatablility.
-
-
-The expat XML parser
-~~~~~~~~~~~~~~~~~~~~
-
-CPython compiles expat from source as part of the build. PyPy uses the same
-code base, but expects to link to a static lib of expat. Here are instructions
-to reproduce the static lib in version 2.2.4.
-
-Download the source code of expat: https://github.com/libexpat/libexpat. 
-``git checkout`` the proper tag, in this case ``R_2_2_4``. Run
-``vcvars.bat`` to set up the visual compiler tools, and CD into the source
-directory. Create a file ``stdbool.h`` with the content
-
-.. code-block:: c
-
-    #pragma once
-
-    #define false   0
-    #define true    1
-
-    #define bool int
-
-and put it in a place on the ``INCLUDE`` path, or create it in the local
-directory and add ``.`` to the ``INCLUDE`` path::
-
-    SET INCLUDE=%INCLUDE%;.
-
-Then compile all the ``*.c`` file into ``*.obj``::
-
-    cl.exe /nologo /MD  /O2 *c /c
-    rem for debug
-    cl.exe /nologo /MD  /O0 /Ob0 /Zi *c /c
-
-You may need to move some variable declarations to the beginning of the
-function, to be compliant with C89 standard. Here is the diff for version 2.2.4
-
-.. code-block:: diff
-
-    diff --git a/expat/lib/xmltok.c b/expat/lib/xmltok.c
-    index 007aed0..a2dcaad 100644
-    --- a/expat/lib/xmltok.c
-    +++ b/expat/lib/xmltok.c
-    @@ -399,19 +399,21 @@ utf8_toUtf8(const ENCODING *UNUSED_P(enc),
-       /* Avoid copying partial characters (due to limited space). */
-       const ptrdiff_t bytesAvailable = fromLim - *fromP;
-       const ptrdiff_t bytesStorable = toLim - *toP;
-    +  const char * fromLimBefore;
-    +  ptrdiff_t bytesToCopy;
-       if (bytesAvailable > bytesStorable) {
-         fromLim = *fromP + bytesStorable;
-         output_exhausted = true;
-       }
-
-       /* Avoid copying partial characters (from incomplete input). */
-    -  const char * const fromLimBefore = fromLim;
-    +  fromLimBefore = fromLim;
-       align_limit_to_full_utf8_characters(*fromP, &fromLim);
-       if (fromLim < fromLimBefore) {
-         input_incomplete = true;
-       }
-
-    -  const ptrdiff_t bytesToCopy = fromLim - *fromP;
-    +  bytesToCopy = fromLim - *fromP;
-       memcpy((void *)*toP, (const void *)*fromP, (size_t)bytesToCopy);
-       *fromP += bytesToCopy;
-       *toP += bytesToCopy;
-
-
-Create ``libexpat.lib`` (for translation) and ``libexpat.dll`` (for tests)::
-
-    cl /LD *.obj libexpat.def /Felibexpat.dll 
-    rem for debug
-    rem cl /LDd /Zi *.obj libexpat.def /Felibexpat.dll
-
-    rem this will override the export library created in the step above
-    rem but tests do not need the export library, they load the dll dynamically
-    lib *.obj /out:libexpat.lib
-
-Then, copy 
-
-- ``libexpat.lib`` into LIB
-- both ``lib\expat.h`` and ``lib\expat_external.h`` in INCLUDE
-- ``libexpat.dll`` into PATH
-
-
-The OpenSSL library
-~~~~~~~~~~~~~~~~~~~
-
-OpenSSL needs a Perl interpreter to configure its makefile.  You may
-use the one distributed by ActiveState, or the one from cygwin.::
-
-    svn export http://svn.python.org/projects/external/openssl-1.0.2k
-    cd openssl-1.0.2k
-    perl Configure VC-WIN32 no-idea no-mdc2
-    ms\do_ms.bat
-    nmake -f ms\nt.mak install
-    copy out32\*.lib <somewhere in LIB>
-    xcopy /S include\openssl <somewhere in INCLUDE>
-
-For tests you will also need the dlls::
-    nmake -f ms\ntdll.mak install
-    copy out32dll\*.dll <somewhere in PATH>
-
-TkInter module support
-~~~~~~~~~~~~~~~~~~~~~~
-
-Note that much of this is taken from the cpython build process.
-Tkinter is imported via cffi, so the module is optional. To recreate the tcltk
-directory found for the release script, create the dlls, libs, headers and
-runtime by running::
-
-    svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85
-    svn export http://svn.python.org/projects/external/tk-8.5.2.0 tk85
-    cd tcl85\win
-    nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all
-    nmake -f makefile.vc DEBUG=0 INSTALLDIR=..\..\tcltk install
-    cd ..\..\tk85\win
-    nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all
-    nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 install
-    copy ..\..\tcltk\bin\* <somewhere in PATH>
-    copy ..\..\tcltk\lib\*.lib <somewhere in LIB>
-    xcopy /S ..\..\tcltk\include <somewhere in INCLUDE>
-
-The lzma compression library
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Python 3.3 ship with CFFI wrappers for the lzma library, which can be
-downloaded from this site http://tukaani.org/xz. Python 3.3-3.5 use version
-5.0.5, a prebuilt version can be downloaded from
-http://tukaani.org/xz/xz-5.0.5-windows.zip, check the signature
-http://tukaani.org/xz/xz-5.0.5-windows.zip.sig
-
-Then copy the headers to the include directory, rename ``liblzma.a`` to 
-``lzma.lib`` and copy it to the lib directory
-
+.. _repository:  https://bitbucket.org/pypy/external
 
 Using the mingw compiler
 ------------------------
