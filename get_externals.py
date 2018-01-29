@@ -22,7 +22,7 @@ def runcmd(cmd, verbose):
         stderr = str(e) + '\n' + stderr
         report = True
     if report:
-        print('running "%s" returned\n%s\n%s' % (cmd, stdout, stderr))
+        print('running "%s" returned\n%s\n%s' % (' '.join(cmd), stdout, stderr))
     if stderr:
         raise RuntimeError(stderr)
 

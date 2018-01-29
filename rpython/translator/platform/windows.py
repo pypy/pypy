@@ -155,9 +155,9 @@ class MsvcPlatform(Platform):
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
                 if x64:
-                    self.external_branch = 'win34_%d' % self.vsver
+                    self.externals_branch = 'win34_%d' % self.vsver
                 else:
-                    self.external_branch = 'win32_%d' % self.vsver
+                    self.externals_branch = 'win32_%d' % self.vsver
                 patch_env(msvc_compiler_environ, self.externals)
                 self.c_environ = os.environ.copy()
                 self.c_environ.update(msvc_compiler_environ)
