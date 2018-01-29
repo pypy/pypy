@@ -50,6 +50,9 @@ def parse_args():
     p.add_argument('-b', '--branch', default=host.externals_branch,
                    help='branch to check out',
                    )
+    p.add_argument('-p', '--platform', default=None,
+                   help='someday support cross-compilation, ignore for now',
+                   )
     return p.parse_args()
 
 
