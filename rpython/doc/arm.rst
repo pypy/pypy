@@ -8,7 +8,9 @@ an interpreter using the RPython translator to target ARM using a cross
 compilation toolchain.
 
 To translate an RPython program for ARM we can either
-translate directly on an ARM device following the normal translation steps. Unfortunately this is not really feasible on most ARM machines. The alternative is to cross-translate using a cross-compilation toolchain.
+translate directly on an ARM device following the normal translation steps.
+Unfortunately this is not really feasible on most ARM machines. The
+alternative is to cross-translate using a cross-compilation toolchain.
 
 To cross-translate we run the translation on a more powerful (usually
 x86) machine and generate a binary for ARM using a cross-compiler to compile
@@ -24,7 +26,8 @@ Requirements
 The tools required to cross translate from a Linux based host to an ARM based Linux target are:
 
 - A checkout of PyPy (default branch).
-- The GCC ARM cross compiler (on Ubuntu it is the ``gcc-arm-linux-gnueabi package``) but other toolchains should also work.
+- The GCC ARM cross compiler (on Ubuntu it is the ``gcc-arm-linux-gnueabi package``) but other
+  toolchains should also work.
 - Scratchbox 2, a cross-compilation engine (``scratchbox2`` Ubuntu package).
 - A 32-bit PyPy or Python.
 - And the following (or corresponding) packages need to be installed to create an ARM based chroot:
@@ -150,15 +153,14 @@ and call the translator
 
   pypy ~/path_to_pypy_checkout/rpython/bin/rpython -O2 --platform=arm target.py
 
-If everything worked correctly this should yield an ARM binary. Running this binary in the ARM chroot or on an ARM device should produce the output ``"Hello World"``.
+If everything worked correctly this should yield an ARM binary. Running this
+binary in the ARM chroot or on an ARM device should produce the output
+``"Hello World"``.
 
 To translate the full python pypy interpreter with a jit, you can cd into pypy/goal and call
 
 ::
 
-  pypy <path to rpython>/rpython/bin/rpython -Ojit --platform=arm --gcrootfinder=shadowstack --jit-backend=arm targetpypystandalone.py
+  pypy <path to rpython>/rpython/bin/rpython -Ojit --platform=arm targetpypystandalone.py
 
-The gcrootfinder option is needed to work around `issue 1377`_ and the jit-backend works around `issue 1376`_
 
-.. _issue 1377: https://bitbucket.org/pypy/pypy/issue/1377
-.. _issue 1376: https://bitbucket.org/pypy/pypy/issue/1376

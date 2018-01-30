@@ -1,3 +1,4 @@
+import math
 import sys
 
 import py
@@ -3973,7 +3974,6 @@ class BaseLLtypeTests(BasicTests):
         assert res == 3
 
     def test_float_bytes(self):
-        from rpython.rlib.rfloat import isnan
         def f(n):
             ll = float2longlong(n)
             return longlong2float(ll)
@@ -3981,7 +3981,7 @@ class BaseLLtypeTests(BasicTests):
         for x in [2.5, float("nan"), -2.5, float("inf")]:
             # There are tests elsewhere to verify the correctness of this.
             res = self.interp_operations(f, [x])
-            assert res == x or isnan(x) and isnan(res)
+            assert res == x or math.isnan(x) and math.isnan(res)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):

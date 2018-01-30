@@ -417,6 +417,9 @@ class ParseStringError(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+    def __str__(self):
+        return self.msg
+
 class InvalidBaseError(ParseStringError):
     """Signals an invalid base argument"""
 
@@ -431,7 +434,7 @@ class NumberStringParser:
         raise ParseStringError("invalid literal for %s() with base %d" %
                                (self.fname, self.original_base))
 
-    def __init__(self, s, literal, base, fname):
+    def __init__(self, s, literal, base, fname, allow_underscores=False):
         self.fname = fname
         sign = 1
         if s.startswith('-'):
@@ -441,6 +444,8 @@ class NumberStringParser:
             s = strip_spaces(s[1:])
         self.sign = sign
         self.original_base = base
+        self.allow_underscores = allow_underscores
+        self.last_is_underscore = False
 
         if base == 0:
             if s.startswith('0x') or s.startswith('0X'):
@@ -480,13 +485,22 @@ class NumberStringParser:
                 digit = (digit - ord('A')) + 10
             elif 'a' <= c <= 'z':
                 digit = (digit - ord('a')) + 10
+            elif c == '_' and self.allow_underscores:
+                if self.last_is_underscore:
+                    self.error()
+                self.last_is_underscore = True
+                self.i += 1
+                return self.next_digit()
             else:
                 self.error()
             if digit >= self.base:
                 self.error()
             self.i += 1
+            self.last_is_underscore = False
             return digit
         else:
+            if self.last_is_underscore:
+                self.error()
             return -1
 
     def prev_digit(self):

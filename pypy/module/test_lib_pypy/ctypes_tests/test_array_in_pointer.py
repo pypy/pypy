@@ -2,7 +2,7 @@ from ctypes import *
 from binascii import hexlify
 import re
 import py
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 def dump(obj):
     # helper function to dump memory contents in hex, with a hyphen

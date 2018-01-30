@@ -149,7 +149,7 @@ On SLES11::
     xz-devel # For lzma on PyPy3.
     (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
 
-On Mac OS X::
+On Mac OS X:
 
 Most of these build-time dependencies are installed alongside
 the Developer Tools. However, note that in order for the installation to

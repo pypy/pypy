@@ -549,9 +549,9 @@ def _hash_float(f):
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
     from rpython.rlib.rarithmetic import intmask
-    from rpython.rlib.rfloat import isfinite, isinf
+    from rpython.rlib.rfloat import isfinite
     if not isfinite(f):
-        if isinf(f):
+        if math.isinf(f):
             if f < 0.0:
                 return -271828
             else:
@@ -748,11 +748,19 @@ class r_dict(object):
     def _newdict(self):
         return {}
 
-    def __init__(self, key_eq, key_hash, force_non_null=False):
+    def __init__(self, key_eq, key_hash, force_non_null=False, simple_hash_eq=False):
+        """ force_non_null=True means that the key can never be None (even if
+        the annotator things it could be)
+
+        simple_hash_eq=True means that the hash function is very fast, meaning it's
+        efficient enough that the dict does not have to store the hash per key.
+        It also implies that neither the hash nor the eq function will mutate
+        the dictionary. """
         self._dict = self._newdict()
         self.key_eq = key_eq
         self.key_hash = key_hash
         self.force_non_null = force_non_null
+        self.simple_hash_eq = simple_hash_eq
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]

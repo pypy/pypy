@@ -355,7 +355,11 @@ is always False, as the bit patterns are different.  As usual,
 containers (as list items or in sets for example), the exact rule of
 equality used is "``if x is y or x == y``" (on both CPython and PyPy);
 as a consequence, because all ``nans`` are identical in PyPy, you
-cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__)
+cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__).
+Another consequence is that ``cmp(float('nan'), float('nan')) == 0``, because
+``cmp`` checks with ``is`` first whether the arguments are identical (there is
+no good value to return from this call to ``cmp``, because ``cmp`` pretends
+that there is a total order on floats, but that is wrong for NaNs).
 
 .. __: https://bitbucket.org/pypy/pypy/issue/1974/different-behaviour-for-collections-of
 
@@ -540,6 +544,15 @@ Miscellaneous
   that deleting attributes from them are rare. Because of this, e.g.
   ``del foo.bar`` where ``foo`` is a module (or class) that contains the
   function ``bar``, is significantly slower than CPython.
+
+* Various built-in functions in CPython accept only positional arguments
+  and not keyword arguments.  That can be considered a long-running
+  historical detail: newer functions tend to accept keyword arguments
+  and older function are occasionally fixed to do so as well.  In PyPy,
+  most built-in functions accept keyword arguments (``help()`` shows the
+  argument names).  But don't rely on it too much because future
+  versions of PyPy may have to rename the arguments if CPython starts
+  accepting them too.
 
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html

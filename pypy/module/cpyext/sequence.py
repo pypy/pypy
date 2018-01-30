@@ -165,6 +165,9 @@ def PySequence_ITEM(space, w_obj, i):
 def PySequence_GetItem(space, w_obj, i):
     """Return the ith element of o, or NULL on failure. This is the equivalent of
     the Python expression o[i]."""
+    if i < 0:
+        l = PySequence_Length(space, w_obj)
+        i += l
     return PySequence_ITEM(space, w_obj, i)
 
 @cpython_api([PyObject], PyObject)
@@ -264,7 +267,7 @@ def PySequence_Index(space, w_seq, w_obj):
     raise oefmt(space.w_ValueError, "sequence.index(x): x not in sequence")
 
 class CPyListStrategy(ListStrategy):
-    erase, unerase = rerased.new_erasing_pair("empty")
+    erase, unerase = rerased.new_erasing_pair("cpylist")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 

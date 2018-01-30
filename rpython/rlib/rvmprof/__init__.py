@@ -55,9 +55,28 @@ def get_profile_path(space):
 
     return None
 
-def stop_sampling(space):
-    fd = _get_vmprof().cintf.vmprof_stop_sampling()
-    return rffi.cast(lltype.Signed, fd)
+def stop_sampling():
+    return _get_vmprof().stop_sampling()
 
-def start_sampling(space):
-    _get_vmprof().cintf.vmprof_start_sampling()
+def start_sampling():
+    return _get_vmprof().start_sampling()
+
+# ----------------
+# stacklet support
+# ----------------
+#
+# Ideally, vmprof_tl_stack, VMPROFSTACK etc. should be part of "self.cintf":
+# not sure why they are a global. Eventually, we should probably fix all this
+# mess.
+from rpython.rlib.rvmprof.cintf import vmprof_tl_stack, VMPROFSTACK
+
+def save_stack():
+    stop_sampling()
+    return vmprof_tl_stack.get_or_make_raw()
+
+def empty_stack():
+    vmprof_tl_stack.setraw(lltype.nullptr(VMPROFSTACK))
+
+def restore_stack(x):
+    vmprof_tl_stack.setraw(x)
+    start_sampling()

@@ -184,6 +184,9 @@ class TestSequence(BaseApiTest):
         p2 = api.PySequence_GetItem(w1, 1)
         assert p1 == p2
         assert p1.c_ob_refcnt > 1
+        p1 = api.PySequence_GetItem(w1, -1)
+        p2 = api.PySequence_GetItem(w1, 2)
+        assert p1 == p2
 
 
 class AppTestSetObject(AppTestCpythonExtensionBase):

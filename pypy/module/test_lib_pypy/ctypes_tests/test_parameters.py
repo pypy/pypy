@@ -1,4 +1,4 @@
-import py
+import pytest
 import sys
 
 class TestSimpleTypes:
@@ -60,10 +60,10 @@ class TestSimpleTypes:
         o = My_void_pp()
 
         assert Void_pp.from_param(o) is o
-        
+
     # XXX Replace by c_char_p tests
+    @pytest.mark.xfail(reason="testing implementation internals")
     def test_cstrings(self):
-        py.test.skip("testing implementation internals")
         from ctypes import c_char_p, byref
 
         # c_char_p.from_param on a Python String packs the string
@@ -73,17 +73,19 @@ class TestSimpleTypes:
 
         # new in 0.9.1: convert (encode) unicode to ascii
         assert c_char_p.from_param(u"123")._obj == "123"
-        raises(UnicodeEncodeError, c_char_p.from_param, u"123\377")
+        with pytest.raises(UnicodeEncodeError):
+            c_char_p.from_param(u"123\377")
 
-        raises(TypeError, c_char_p.from_param, 42)
+        with pytest.raises(TypeError):
+            c_char_p.from_param(42)
 
         # calling c_char_p.from_param with a c_char_p instance
         # returns the argument itself:
         a = c_char_p("123")
         assert c_char_p.from_param(a) is a
 
+    @pytest.mark.xfail(reason="testing implementation internals")
     def test_cw_strings(self):
-        py.test.skip("testing implementation internals")
         from ctypes import byref
         try:
             from ctypes import c_wchar_p
@@ -93,11 +95,13 @@ class TestSimpleTypes:
         s = u"123"
         if sys.platform == "win32":
             assert c_wchar_p.from_param(s)._obj is s
-            raises(TypeError, c_wchar_p.from_param, 42)
+            with pytest.raises(TypeError):
+                c_wchar_p.from_param(42)
 
             # new in 0.9.1: convert (decode) ascii to unicode
             assert c_wchar_p.from_param("123")._obj == u"123"
-        raises(UnicodeDecodeError, c_wchar_p.from_param, "123\377")
+            with pytest.raises(UnicodeDecodeError):
+                c_wchar_p.from_param("123\377")
 
         pa = c_wchar_p.from_param(c_wchar_p(u"123"))
         assert type(pa) == c_wchar_p
@@ -115,9 +119,12 @@ class TestSimpleTypes:
         assert not LPINT.from_param(None)
 
         if c_int != c_long:
-            raises(TypeError, LPINT.from_param, pointer(c_long(42)))
-        raises(TypeError, LPINT.from_param, pointer(c_uint(42)))
-        raises(TypeError, LPINT.from_param, pointer(c_short(42)))
+            with pytest.raises(TypeError):
+                LPINT.from_param(pointer(c_long(42)))
+        with pytest.raises(TypeError):
+            LPINT.from_param(pointer(c_uint(42)))
+        with pytest.raises(TypeError):
+            LPINT.from_param(pointer(c_short(42)))
 
     def test_byref_pointer(self):
         # The from_param class method of POINTER(typ) classes accepts what is
@@ -127,10 +134,13 @@ class TestSimpleTypes:
 
         LPINT.from_param(byref(c_int(42)))
 
-        raises(TypeError, LPINT.from_param, byref(c_short(22)))
+        with pytest.raises(TypeError):
+            LPINT.from_param(byref(c_short(22)))
         if c_int != c_long:
-            raises(TypeError, LPINT.from_param, byref(c_long(22)))
-        raises(TypeError, LPINT.from_param, byref(c_uint(22)))
+            with pytest.raises(TypeError):
+                LPINT.from_param(byref(c_long(22)))
+        with pytest.raises(TypeError):
+            LPINT.from_param(byref(c_uint(22)))
 
     def test_byref_pointerpointer(self):
         # See above
@@ -139,10 +149,13 @@ class TestSimpleTypes:
         LPLPINT = POINTER(POINTER(c_int))
         LPLPINT.from_param(byref(pointer(c_int(42))))
 
-        raises(TypeError, LPLPINT.from_param, byref(pointer(c_short(22))))
+        with pytest.raises(TypeError):
+            LPLPINT.from_param(byref(pointer(c_short(22))))
         if c_int != c_long:
-            raises(TypeError, LPLPINT.from_param, byref(pointer(c_long(22))))
-        raises(TypeError, LPLPINT.from_param, byref(pointer(c_uint(22))))
+            with pytest.raises(TypeError):
+                LPLPINT.from_param(byref(pointer(c_long(22))))
+        with pytest.raises(TypeError):
+            LPLPINT.from_param(byref(pointer(c_uint(22))))
 
     def test_array_pointers(self):
         from ctypes import c_short, c_uint, c_int, c_long, POINTER
@@ -155,15 +168,18 @@ class TestSimpleTypes:
         # the same type!
         LPINT = POINTER(c_int)
         LPINT.from_param((c_int*3)())
-        raises(TypeError, LPINT.from_param, c_short*3)
-        raises(TypeError, LPINT.from_param, c_long*3)
-        raises(TypeError, LPINT.from_param, c_uint*3)
+        with pytest.raises(TypeError):
+            LPINT.from_param(c_short*3)
+        with pytest.raises(TypeError):
+            LPINT.from_param(c_long*3)
+        with pytest.raises(TypeError):
+            LPINT.from_param(c_uint*3)
 
 ##    def test_performance(self):
 ##        check_perf()
 
+    @pytest.mark.xfail(reason="testing implementation internals")
     def test_noctypes_argtype(self):
-        py.test.skip("we implement details differently")
         from ctypes import CDLL, c_void_p, ArgumentError
         import conftest
         dll = CDLL(str(conftest.sofile))
@@ -171,7 +187,8 @@ class TestSimpleTypes:
         func = dll._testfunc_p_p
         func.restype = c_void_p
         # TypeError: has no from_param method
-        raises(TypeError, setattr, func, "argtypes", (object,))
+        with pytest.raises(TypeError):
+            setattr(func, "argtypes", (object,))
 
         class Adapter(object):
             def from_param(cls, obj):
@@ -187,7 +204,8 @@ class TestSimpleTypes:
 
         func.argtypes = (Adapter(),)
         # don't know how to convert parameter 1
-        raises(ArgumentError, func, object())
+        with pytest.raises(ArgumentError):
+            func(object())
         assert func(c_void_p(42)) == 42
 
         class Adapter(object):
@@ -196,7 +214,8 @@ class TestSimpleTypes:
 
         func.argtypes = (Adapter(),)
         # ArgumentError: argument 1: ValueError: 99
-        raises(ArgumentError, func, 99)
+        with pytest.raises(ArgumentError):
+            func(99)
 
     def test_multiple_signature(self):
         # when .argtypes is not set, calling a function with a certain
@@ -212,4 +231,4 @@ class TestSimpleTypes:
 
         # This one is normal
         assert func(None) == 0
-        
+

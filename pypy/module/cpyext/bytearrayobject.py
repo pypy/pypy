@@ -3,8 +3,8 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.bytearrayobject import new_bytearray
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
+    cpython_api, cpython_struct, build_type_checkers,
+    PyVarObjectFields, Py_ssize_t, CONST_STRING)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref,

@@ -120,7 +120,7 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
         return (PyVarObject*)PyErr_NoMemory();
     
     if (type->tp_itemsize == 0)
-        return PyObject_INIT(py_obj, type);
+        return (PyVarObject*)PyObject_INIT(py_obj, type);
     else
         return PyObject_INIT_VAR((PyVarObject*)py_obj, type, nitems);
 }
@@ -138,5 +138,5 @@ PyVarObject *
 PyObject_InitVar(PyVarObject *obj, PyTypeObject *type, Py_ssize_t size)
 {
     obj->ob_size = size;
-    return PyObject_Init((PyObject*)obj, type);
+    return (PyVarObject*)PyObject_Init((PyObject*)obj, type);
 }

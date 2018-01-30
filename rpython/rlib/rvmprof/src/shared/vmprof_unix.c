@@ -41,8 +41,6 @@ static struct profbuf_s *volatile current_codes;
 void vmprof_ignore_signals(int ignored)
 {
     if (ignored) {
-        /* set the last bit, and wait until concurrently-running signal
-           handlers finish */
         __sync_add_and_fetch(&signal_handler_ignore, 1L);
         while (signal_handler_entries != 0L) {
             usleep(1);
@@ -370,7 +368,7 @@ int vmprof_enable(int memory, int native, int real_time)
         goto error;
     if (install_sigprof_timer() == -1)
         goto error;
-    vmprof_ignore_signals(0);
+    signal_handler_ignore = 0;
     return 0;
 
  error:
@@ -394,7 +392,7 @@ int close_profile(void)
 
 int vmprof_disable(void)
 {
-    vmprof_ignore_signals(1);
+    signal_handler_ignore = 1;
     vmprof_set_profile_interval_usec(0);
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
     disable_cpyprof();

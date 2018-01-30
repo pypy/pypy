@@ -12,6 +12,7 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
+from pypy.interpreter import unicodehelper
 from pypy.objspace.std import unicodeobject
 from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
@@ -473,7 +474,7 @@ def PyUnicode_Resize(space, ref, newsize):
     ref[0] = rffi.cast(PyObject, py_newuni)
     return 0
 
-def make_conversion_functions(suffix, encoding):
+def make_conversion_functions(suffix, encoding, only_for_asstring=False):
     @cpython_api([PyObject], PyObject)
     @func_renamer('PyUnicode_As%sString' % suffix)
     def PyUnicode_AsXXXString(space, w_unicode):
@@ -484,6 +485,9 @@ def make_conversion_functions(suffix, encoding):
             PyErr_BadArgument(space)
         return unicodeobject.encode_object(space, w_unicode, encoding, "strict")
     globals()['PyUnicode_As%sString' % suffix] = PyUnicode_AsXXXString
+
+    if only_for_asstring:
+        return
 
     @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
     @func_renamer('PyUnicode_Decode%s' % suffix)
@@ -515,6 +519,8 @@ def make_conversion_functions(suffix, encoding):
     globals()['PyUnicode_Encode%s' % suffix] = PyUnicode_EncodeXXX
 
 make_conversion_functions('UTF8', 'utf-8')
+make_conversion_functions('UTF16', 'utf-16', only_for_asstring=True)
+make_conversion_functions('UTF32', 'utf-32', only_for_asstring=True)
 make_conversion_functions('ASCII', 'ascii')
 make_conversion_functions('Latin1', 'latin-1')
 if sys.platform == 'win32':
@@ -620,7 +626,7 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, length, byteorder = runicode.str_decode_utf_32_helper(
+    result, length, byteorder = unicodehelper.str_decode_utf_32_helper(
         string, size, errors,
         True, # final ? false for multiple passes?
         None, # errorhandler
