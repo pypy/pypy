@@ -259,6 +259,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         cmpr = module.OldCmpType()
         assert cmpr < cmpr
 
+    def test_unhashable_when_tpcompare(self):
+        module = self.import_module("comparisons")
+        cmpr = module.OldCmpType()
+        raises(TypeError, hash, cmpr)
+
     def test_hash(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()
