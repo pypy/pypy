@@ -171,6 +171,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         # test that instances of classes that are defined in C become an
         # instance of W_BaseCPyObject and thus can be converted faster back to
         # their pyobj, because they store a pointer to it directly.
+        if self.runappdirect:
+            skip("can't run with -A")
         module = self.import_module(name='foo')
         obj = module.fooType()
         assert self._check_uses_shortcut(obj)
