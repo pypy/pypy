@@ -9,18 +9,12 @@ class AppTestWin32:
         if sys.platform != "win32":
             py.test.skip("win32 only")
 
-    def test_CloseHandle(self):
-        from _multiprocessing import win32
-        raises(WindowsError, win32.CloseHandle, -1)
-
-    def test_CreateFile(self):
-        from _multiprocessing import win32
-        err = raises(WindowsError, win32.CreateFile,
-                     "in/valid", 0, 0, 0, 0, 0, 0)
-        assert err.value.winerror == 87 # ERROR_INVALID_PARAMETER
+    def test_closesocket(self):
+        from _multiprocessing import closesocket
+        raises(WindowsError, closesocket, -1)
 
     def test_pipe(self):
-        from _multiprocessing import win32
+        import _winapi as win32
         import os
         address = r'\\.\pipe\pypy-test-%s' % (os.getpid())
         openmode = win32.PIPE_ACCESS_INBOUND
