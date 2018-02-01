@@ -17,6 +17,7 @@ class Module(MixedModule):
         'get_profile_path': 'interp_vmprof.get_profile_path',
         'stop_sampling': 'interp_vmprof.stop_sampling',
         'start_sampling': 'interp_vmprof.start_sampling',
+        'resolve_addr': 'interp_vmprof.resolve_addr',
 
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }

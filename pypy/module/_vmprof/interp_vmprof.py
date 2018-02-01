@@ -4,6 +4,7 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 from rpython.rlib import rvmprof, jit
+from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import oefmt
 
 # ____________________________________________________________
@@ -98,3 +99,19 @@ def stop_sampling(space):
 def start_sampling(space):
     rvmprof.start_sampling()
     return space.w_None
+
+@unwrap_spec(addr=int)
+def resolve_addr(space, addr):
+    addr = rffi.cast(rffi.VOIDP, addr)
+    try:
+        name, lineno, srcfile = rvmprof.resolve_addr(addr)
+    except ValueError:
+        name = ''
+        lineno = 0
+        srcfile = ''
+    #
+    w_name = space.newtext(name)
+    w_lineno = space.newint(lineno)
+    w_srcfile = space.newtext(srcfile)
+    return space.newtuple([w_name, w_lineno, w_srcfile])
+

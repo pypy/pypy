@@ -150,3 +150,10 @@ class AppTestVMProf(object):
         assert pos3 > pos
         _vmprof.disable()
 
+    def test_resolve_addr(self):
+        import _vmprof
+        addr = 0x517450 # XXX dont' hardcode
+        name, lineno, srcfile = _vmprof.resolve_addr(addr)
+        assert name == 'PyLong_AsLong'
+        assert lineno == 0
+        assert srcfile == 'python'
