@@ -199,3 +199,13 @@ class TestNative(RVMProfSamplingTest):
                     del not_found[i]
                     break
         assert not_found == []
+
+
+class TestSymbolTable(object):
+
+    def test_vmp_resolve_addr(self):
+        # XXX: don't hardcode this addr
+        addr = rffi.cast(rffi.VOIDP, 0x517450)
+        name, lineno, srcfile = rvmprof.resolve_addr(addr)
+        assert name == 'PyLong_AsLong'
+

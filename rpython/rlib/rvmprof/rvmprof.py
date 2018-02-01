@@ -186,6 +186,26 @@ class VMProf(object):
         """
         self.cintf.vmprof_start_sampling()
 
+    def resolve_addr(self, addr):
+        name_len = 128
+        srcfile_len = 256
+        with lltype.scoped_alloc(rffi.CCHARP.TO, name_len) as name_p:
+            with lltype.scoped_alloc(rffi.CCHARP.TO, srcfile_len) as srcfile_p:
+                with lltype.scoped_alloc(rffi.INTP.TO, 1) as lineno_p:
+                    # XXX vmp_resolve_addr checks whether the first char is 0
+                    # before calling dladdr, not sure why. Investigate before
+                    # merging.
+                    name_p[0] = '\0'
+                    srcfile_p[0] = '\0'
+                    res = self.cintf.vmp_resolve_addr(addr, name_p, name_len,
+                                                      lineno_p, srcfile_p, srcfile_len)
+                    if res != 0:
+                        raise ValueError("Cannot resolve name")
+                    #
+                    name = rffi.charp2strn(name_p, name_len)
+                    srcfile = rffi.charp2strn(srcfile_p, srcfile_len)
+                    lineno = lineno_p[0]
+                    return name, lineno, srcfile
 
 def vmprof_execute_code(name, get_code_fn, result_class=None,
                         _hack_update_stack_untranslated=False):

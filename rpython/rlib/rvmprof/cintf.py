@@ -146,6 +146,11 @@ def setup():
                                             lltype.Void, compilation_info=eci,
                                             _nowrapper=True)
 
+    vmp_resolve_addr = rffi.llexternal("vmp_resolve_addr",
+                                       [rffi.VOIDP, rffi.CCHARP, rffi.INT,
+                                        rffi.INTP, rffi.CCHARP, rffi.INT],
+                                       rffi.INT, compilation_info=eci)
+
     return CInterface(locals())
 
 

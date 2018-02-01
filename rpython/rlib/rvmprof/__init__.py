@@ -61,6 +61,9 @@ def stop_sampling():
 def start_sampling():
     return _get_vmprof().start_sampling()
 
+def resolve_addr(addr):
+    return _get_vmprof().resolve_addr(addr)
+
 # ----------------
 # stacklet support
 # ----------------
@@ -80,3 +83,4 @@ def empty_stack():
 def restore_stack(x):
     vmprof_tl_stack.setraw(x)
     start_sampling()
+
