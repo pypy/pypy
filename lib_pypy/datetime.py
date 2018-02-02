@@ -1415,15 +1415,11 @@ class datetime(date):
         elif isinstance(year, tuple) and len(year) == 7:
             # Used by internal functions where the arguments are guaranteed to
             # be valid.
-            self = object.__new__(cls)
-            self._year, self._month, self._day, self._hour, self._minute, \
-                self._second, self._microsecond = year
-            self._tzinfo = tzinfo
-            self._hashcode = -1
-            return self
-        year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond = _check_time_fields(
-            hour, minute, second, microsecond)
+            year, month, day, hour, minute, second, microsecond = year
+        else:
+            year, month, day = _check_date_fields(year, month, day)
+            hour, minute, second, microsecond = _check_time_fields(
+                hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         self = object.__new__(cls)
         self._year = year
