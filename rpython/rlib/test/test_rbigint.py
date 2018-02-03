@@ -17,14 +17,30 @@ from rpython.translator.c.test.test_standalone import StandaloneTests
 
 from hypothesis import given, strategies
 
+def gen_signs(l):
+    for s in l:
+        if s == 0:
+            yield s
+        else:
+            yield s
+            yield -s
+
 long_vals_not_too_big = range(17) + [
-        37, 50,
+        37, 39, 50,
         127, 128, 129, 511, 512, 513, sys.maxint, sys.maxint + 1,
+        12345678901234567890L,
         123456789123456789000000L,
-        ]
+]
 
 long_vals = long_vals_not_too_big + [
         1 << 100, 3 ** 10000]
+
+int_vals = range(33) + [
+        1000,
+        0x11111111, 0x11111112, 8888,
+        9999, sys.maxint, 2 ** 19, 2 ** 18 - 1
+]
+signed_int_vals = list(gen_signs(int_vals)) + [-sys.maxint-1]
 
 class TestRLong(object):
     def test_simple(self):
@@ -71,22 +87,24 @@ class TestRLong(object):
         assert r2.tolong() == 100L
 
         for op1 in gen_signs(long_vals):
-            for op2 in gen_signs(long_vals):
-                if not op2 or op2 >= (1 << SHIFT) or op2 <= -(1 << SHIFT):
+            for op2 in signed_int_vals:
+                if not op2:
                     continue
                 rl_op1 = rbigint.fromlong(op1)
                 r1 = rl_op1.int_floordiv(op2)
                 r2 = op1 // op2
                 assert r1.tolong() == r2
-                
+
         assert py.test.raises(ZeroDivisionError, r.int_floordiv, 0)
 
         # Error pointed out by Armin Rigo
         n = sys.maxint+1
         r = rbigint.fromlong(n)
         assert r.int_floordiv(int(-n)).tolong() == -1L
-        
-        for x in (1, 1000, sys.maxint):
+
+        for x in int_vals:
+            if not x:
+                continue
             r = rbigint.fromlong(x)
             rn = rbigint.fromlong(-x)
             res = r.int_floordiv(x)
@@ -94,7 +112,7 @@ class TestRLong(object):
             res3 = rn.int_floordiv(x)
             assert res.tolong() == 1L
             assert res2.tolong() == -1L
-            assert res3.tolong() == -1L        
+            assert res3.tolong() == -1L
 
     def test_truediv(self):
         for op1 in gen_signs(long_vals_not_too_big):
@@ -153,12 +171,14 @@ class TestRLong(object):
                 rl_op2 = rbigint.fromlong(op2)
                 r1 = rl_op1.mod(rl_op2)
                 r2 = op1 % op2
-                
+
                 assert r1.tolong() == r2
 
     def test_int_mod(self):
         for x in gen_signs(long_vals):
-            for y in gen_signs([1, 2, 4, 8, 8888, sys.maxint, 2 ** 19, 2 ** 18 - 1]):
+            for y in signed_int_vals:
+                if not y:
+                    continue
                 op1 = rbigint.fromlong(x)
                 r1 = op1.int_mod(y)
                 r2 = x % y
@@ -212,13 +232,6 @@ class TestRLong(object):
         assert not (a1 == a3)
 
 
-def gen_signs(l):
-    for s in l:
-        if s == 0:
-            yield s
-        else:
-            yield s
-            yield -s
 
 def bigint(lst, sign):
     for digit in lst:
@@ -320,7 +333,7 @@ class Test_rbigint(object):
 
     def test_int_add(self):
         for x in gen_signs(long_vals):
-            for y in gen_signs([0, 1, 9999, sys.maxint, 2 ** 19, 2 ** 18 - 1]):
+            for y in signed_int_vals:
                 f1 = rbigint.fromlong(x)
                 result = f1.int_add(y)
                 assert result.tolong() == x + y
@@ -337,7 +350,7 @@ class Test_rbigint(object):
 
     def test_int_sub(self):
         for x in gen_signs([0, 123456789123456789000000L, 1 << 100, 3 ** 10000]):
-            for y in gen_signs([0, 1, 8888, sys.maxint, 2 ** 19, 2 ** 18 - 1]):
+            for y in signed_int_vals:
                 f1 = rbigint.fromlong(x)
                 result = f1.int_sub(y)
                 assert result.tolong() == x - y
@@ -358,8 +371,8 @@ class Test_rbigint(object):
             assert result.tolong() == x * x
 
     def test_int_mul(self):
-        for x in gen_signs([39, 128, 111111111, 123456789123456789000000L, 1 << 100, 3 ** 10000]):
-            for y in gen_signs([0, 1, 8888, sys.maxint, 2 ** 19, 2 ** 18 - 1]):
+        for x in gen_signs(long_vals):
+            for y in signed_int_vals:
                 f1 = rbigint.fromlong(x)
                 result = f1.int_mul(y)
                 assert result.tolong() == x * y
@@ -442,14 +455,14 @@ class Test_rbigint(object):
 
     def test_int_comparison(self):
         for x in gen_signs(long_vals):
-            for y in gen_signs([0, 1, 0x11111111, 0x11111112, 8888, sys.maxint, 2 ** 19, 2 ** 18 - 1]):
+            for y in signed_int_vals:
                 f1 = rbigint.fromlong(x)
-                assert (x < y) ==  f1.int_lt(y)
-                assert (x <= y) ==  f1.int_le(y)
-                assert (x > y) ==  f1.int_gt(y)
-                assert (x >= y) ==  f1.int_ge(y)
-                assert (x == y) ==  f1.int_eq(y)
-                assert (x != y) ==  f1.int_ne(y)
+                assert (x < y) == f1.int_lt(y)
+                assert (x <= y) == f1.int_le(y)
+                assert (x > y) == f1.int_gt(y)
+                assert (x >= y) == f1.int_ge(y)
+                assert (x == y) == f1.int_eq(y)
+                assert (x != y) == f1.int_ne(y)
 
     def test_order(self):
         f6 = rbigint.fromint(6)
@@ -879,19 +892,24 @@ class TestInternalFunctions(object):
                 assert rem.tolong() == _rem
 
     def test_int_divmod(self):
-         x = 12345678901234567890L
-         for i in range(10):
-             y = randint(0, 1 << 12)
-             for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
-                 sx *= x
-                 sy *= y
-                 f1 = rbigint.fromlong(sx)
-                 div, rem = f1.int_divmod(sy)
-                 _div, _rem = divmod(sx, sy)
-                 print sx, sy, " | ", div.tolong(), rem.tolong()
-                 assert div.tolong() == _div
-                 assert rem.tolong() == _rem
-         
+        for x in long_vals:
+            for y in int_vals + [-sys.maxint-1]:
+                if not y:
+                    continue
+                for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
+                    sx *= x
+                    sy *= y
+                    if sx == 0 and sy == 1:
+                        import pdb; pdb.set_trace()
+                    if sy == sys.maxint + 1:
+                        continue
+                    f1 = rbigint.fromlong(sx)
+                    div, rem = f1.int_divmod(sy)
+                    _div, _rem = divmod(sx, sy)
+                    print sx, sy, " | ", div.tolong(), rem.tolong()
+                    assert div.tolong() == _div
+                    assert rem.tolong() == _rem
+
     # testing Karatsuba stuff
     def test__v_iadd(self):
         f1 = bigint([lobj.MASK] * 10, 1)
