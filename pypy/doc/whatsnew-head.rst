@@ -31,3 +31,8 @@ When using cpyext, improve the speed of passing certain objects from PyPy to C
 code, most notably None, True, False, types, all instances of C-defined types.
 Before, a dict lookup was needed every time such an object crossed over, now it
 is just a field read.
+
+
+.. branch: 2634_datetime_timedelta_performance
+
+Improve datetime + timedelta performance.
