@@ -758,6 +758,47 @@ class Test_rbigint(object):
         assert rbigint.fromlong(2).log(2.0) == 1.0
         assert rbigint.fromlong(2**1023).log(2.0) == 1023.0
 
+    def test_frombytes(self):
+        bigint = rbigint.frombytes('', byteorder='big', signed=True)
+        assert bigint.tolong() == 0
+        s = "\xFF\x12\x34\x56"
+        bigint = rbigint.frombytes(s, byteorder="big", signed=False)
+        assert bigint.tolong() == 0xFF123456
+        bigint = rbigint.frombytes(s, byteorder="little", signed=False)
+        assert bigint.tolong() == 0x563412FF
+        s = "\xFF\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\xFF"
+        bigint = rbigint.frombytes(s, byteorder="big", signed=False)
+        assert s == bigint.tobytes(16, byteorder="big", signed=False)
+        py.test.raises(InvalidEndiannessError, bigint.frombytes, '\xFF', 'foo',
+               signed=True)
+        bigint = rbigint.frombytes('\x82', byteorder='big', signed=True)
+        assert bigint.tolong() == -126
+
+    def test_tobytes(self):
+        assert rbigint.fromint(0).tobytes(1, 'big', signed=True) == '\x00'
+        assert rbigint.fromint(1).tobytes(2, 'big', signed=True) == '\x00\x01'
+        py.test.raises(OverflowError, rbigint.fromint(255).tobytes, 1, 'big', signed=True)
+        assert rbigint.fromint(-129).tobytes(2, 'big', signed=True) == '\xff\x7f'
+        assert rbigint.fromint(-129).tobytes(2, 'little', signed=True) == '\x7f\xff'
+        assert rbigint.fromint(65535).tobytes(3, 'big', signed=True) == '\x00\xff\xff'
+        assert rbigint.fromint(-65536).tobytes(3, 'little', signed=True) == '\x00\x00\xff'
+        assert rbigint.fromint(65535).tobytes(2, 'big', signed=False) == '\xff\xff'
+        assert rbigint.fromint(-8388608).tobytes(3, 'little', signed=True) == '\x00\x00\x80'
+        i = rbigint.fromint(-8388608)
+        py.test.raises(InvalidEndiannessError, i.tobytes, 3, 'foo', signed=True)
+        py.test.raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
+        py.test.raises(OverflowError, i.tobytes, 2, 'little', signed=True)
+
+    @given(strategies.binary(), strategies.booleans(), strategies.booleans())
+    def test_frombytes_tobytes_hypothesis(self, s, big, signed):
+        # check the roundtrip from binary strings to bigints and back
+        byteorder = 'big' if big else 'little'
+        bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
+        t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
+        assert s == t
+
+
+
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!
@@ -1027,45 +1068,6 @@ class TestTranslatable(object):
 
         res = interpret(fn, [])
         assert res == -42.0
-
-    def test_frombytes(self):
-        bigint = rbigint.frombytes('', byteorder='big', signed=True)
-        assert bigint.tolong() == 0
-        s = "\xFF\x12\x34\x56"
-        bigint = rbigint.frombytes(s, byteorder="big", signed=False)
-        assert bigint.tolong() == 0xFF123456
-        bigint = rbigint.frombytes(s, byteorder="little", signed=False)
-        assert bigint.tolong() == 0x563412FF
-        s = "\xFF\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\xFF"
-        bigint = rbigint.frombytes(s, byteorder="big", signed=False)
-        assert s == bigint.tobytes(16, byteorder="big", signed=False)
-        py.test.raises(InvalidEndiannessError, bigint.frombytes, '\xFF', 'foo',
-               signed=True)
-        bigint = rbigint.frombytes('\x82', byteorder='big', signed=True)
-        assert bigint.tolong() == -126
-
-    def test_tobytes(self):
-        assert rbigint.fromint(0).tobytes(1, 'big', signed=True) == '\x00'
-        assert rbigint.fromint(1).tobytes(2, 'big', signed=True) == '\x00\x01'
-        py.test.raises(OverflowError, rbigint.fromint(255).tobytes, 1, 'big', signed=True)
-        assert rbigint.fromint(-129).tobytes(2, 'big', signed=True) == '\xff\x7f'
-        assert rbigint.fromint(-129).tobytes(2, 'little', signed=True) == '\x7f\xff'
-        assert rbigint.fromint(65535).tobytes(3, 'big', signed=True) == '\x00\xff\xff'
-        assert rbigint.fromint(-65536).tobytes(3, 'little', signed=True) == '\x00\x00\xff'
-        assert rbigint.fromint(65535).tobytes(2, 'big', signed=False) == '\xff\xff'
-        assert rbigint.fromint(-8388608).tobytes(3, 'little', signed=True) == '\x00\x00\x80'
-        i = rbigint.fromint(-8388608)
-        py.test.raises(InvalidEndiannessError, i.tobytes, 3, 'foo', signed=True)
-        py.test.raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
-        py.test.raises(OverflowError, i.tobytes, 2, 'little', signed=True)
-
-    @given(strategies.binary(), strategies.booleans(), strategies.booleans())
-    def test_frombytes_tobytes_hypothesis(self, s, big, signed):
-        # check the roundtrip from binary strings to bigints and back
-        byteorder = 'big' if big else 'little'
-        bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
-        t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
-        assert s == t
 
 
 class TestTranslated(StandaloneTests):
