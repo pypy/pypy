@@ -1,43 +1,28 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.annlowlevel import llhelper
-from pypy.module.cpyext.pyobject import PyObject, make_ref
+from rpython.rlib.rarithmetic import widen
+from pypy.module.cpyext.pyobject import (PyObject, make_ref, make_typedescr,
+    decref)
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cpython_struct,
-    PyObjectFields)
+    PyObjectFields, cts, parse_dir, bootstrap_function, slot_function)
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError
+from pypy.module.__pypy__.interp_pypydatetime import (W_DateTime_Date,
+    W_DateTime_Time, W_DateTime_Delta)
 from rpython.tool.sourcetools import func_renamer
 
-# API import function
+cts.parse_header(parse_dir / 'cpyext_datetime.h')
 
-PyDateTime_CAPI = cpython_struct(
-    'PyDateTime_CAPI',
-    (('DateType', PyTypeObjectPtr),
-     ('DateTimeType', PyTypeObjectPtr),
-     ('TimeType', PyTypeObjectPtr),
-     ('DeltaType', PyTypeObjectPtr),
-     ('TZInfoType', PyTypeObjectPtr),
 
-     ('Date_FromDate', lltype.Ptr(lltype.FuncType(
-         [rffi.INT_real, rffi.INT_real, rffi.INT_real, PyTypeObjectPtr],
-         PyObject))),
-     ('Time_FromTime', lltype.Ptr(lltype.FuncType(
-         [rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
-          PyObject, PyTypeObjectPtr],
-         PyObject))),
-     ('DateTime_FromDateAndTime', lltype.Ptr(lltype.FuncType(
-         [rffi.INT_real, rffi.INT_real, rffi.INT_real,
-          rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
-          PyObject, PyTypeObjectPtr],
-         PyObject))),
-     ('Delta_FromDelta', lltype.Ptr(lltype.FuncType(
-         [rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
-          PyTypeObjectPtr],
-         PyObject))),
-     ))
+PyDateTime_CAPI = cts.gettype('PyDateTime_CAPI')
+
+datetimeAPI_global = []
 
 @cpython_api([], lltype.Ptr(PyDateTime_CAPI))
 def _PyDateTime_Import(space):
+    if len(datetimeAPI_global) >0:
+        return datetimeAPI_global[0]
     datetimeAPI = lltype.malloc(PyDateTime_CAPI, flavor='raw',
                                 track_allocation=False)
 
@@ -76,21 +61,13 @@ def _PyDateTime_Import(space):
         _PyDelta_FromDelta.api_func.functype,
         _PyDelta_FromDelta.api_func.get_wrapper(space))
 
+    datetimeAPI_global.append(datetimeAPI)
     return datetimeAPI
 
-PyDateTime_DateStruct = lltype.ForwardReference()
-PyDateTime_TimeStruct = lltype.ForwardReference()
-PyDateTime_DateTimeStruct = lltype.ForwardReference()
-cpython_struct("PyDateTime_Date", PyObjectFields, PyDateTime_DateStruct)
-PyDateTime_Date = lltype.Ptr(PyDateTime_DateStruct)
-cpython_struct("PyDateTime_Time", PyObjectFields, PyDateTime_TimeStruct)
-PyDateTime_Time = lltype.Ptr(PyDateTime_TimeStruct)
-cpython_struct("PyDateTime_DateTime", PyObjectFields, PyDateTime_DateTimeStruct)
-PyDateTime_DateTime = lltype.Ptr(PyDateTime_DateTimeStruct)
-
-PyDeltaObjectStruct = lltype.ForwardReference()
-cpython_struct("PyDateTime_Delta", PyObjectFields, PyDeltaObjectStruct)
-PyDateTime_Delta = lltype.Ptr(PyDeltaObjectStruct)
+PyDateTime_Time = cts.gettype('PyDateTime_Time*')
+PyDateTime_DateTime = cts.gettype('PyDateTime_DateTime*')
+PyDateTime_Date = cts.gettype('PyDateTime_Date*')
+PyDateTime_Delta = cts.gettype('PyDateTime_Delta*')
 
 # Check functions
 
@@ -128,6 +105,72 @@ PyDelta_Check, PyDelta_CheckExact = make_check_function(
     "PyDelta_Check", "timedelta")
 PyTZInfo_Check, PyTZInfo_CheckExact = make_check_function(
     "PyTZInfo_Check", "tzinfo")
+
+@bootstrap_function
+def init_datetime(space):
+    # no realize functions since there are no getters
+    make_typedescr(W_DateTime_Time.typedef,
+                   basestruct=PyDateTime_Time.TO,
+                   attach=type_attach,
+                   dealloc=type_dealloc,
+                  )
+
+    # why do we need date_dealloc? Since W_DateTime_Date is the base class for
+    # app level datetime.date. If a c-extension class uses datetime.date for its
+    # base class and defines a tp_dealloc, we will get this:
+    # c_class->tp_dealloc == tp_dealloc_func
+    # c_class->tp_base == datetime.date, 
+    #                     datetime.date->tp_dealloc = _PyPy_subtype_dealloc
+    # datetime.date->tp_base = W_DateTime_Date
+    #                    W_DateTime_Date->tp_dealloc = _PyPy_subtype_dealloc
+    # but _PyPy_subtype_dealloc will call tp_dealloc_func, which can call its
+    # base's tp_dealloc and we get recursion. So break the recursion by setting
+    # W_DateTime_Date->tp_dealloc
+    make_typedescr(W_DateTime_Date.typedef,
+                   basestruct=PyDateTime_DateTime.TO,
+                   dealloc=date_dealloc,
+                  )
+
+    make_typedescr(W_DateTime_Delta.typedef,
+                   basestruct=PyDateTime_Delta.TO,
+                   attach=timedeltatype_attach,
+                  )
+
+def type_attach(space, py_obj, w_obj, w_userdata=None):
+    '''Fills a newly allocated py_obj from the w_obj
+       Can be called with a datetime, or a time
+    '''
+    py_datetime = rffi.cast(PyDateTime_Time, py_obj)
+    w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
+    if space.is_none(w_tzinfo):
+        py_datetime.c_hastzinfo = cts.cast('unsigned char', 0)
+        py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
+    else:
+        py_datetime.c_hastzinfo = cts.cast('unsigned char', 1)
+        py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
+
+@slot_function([PyObject], lltype.Void)
+def type_dealloc(space, py_obj):
+    py_datetime = rffi.cast(PyDateTime_Time, py_obj)
+    if (widen(py_datetime.c_hastzinfo) != 0):
+        decref(space, py_datetime.c_tzinfo)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
+
+@slot_function([PyObject], lltype.Void)
+def date_dealloc(space, py_obj):
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
+
+def timedeltatype_attach(space, py_obj, w_obj, w_userdata=None):
+    "Fills a newly allocated py_obj from the w_obj"
+    py_delta = rffi.cast(PyDateTime_Delta, py_obj)
+    days = space.int_w(space.getattr(w_obj, space.newtext('days')))
+    py_delta.c_days = cts.cast('int', days)
+    seconds = space.int_w(space.getattr(w_obj, space.newtext('seconds')))
+    py_delta.c_seconds = cts.cast('int', seconds)
+    microseconds = space.int_w(space.getattr(w_obj, space.newtext('microseconds')))
+    py_delta.c_microseconds = cts.cast('int', microseconds)
 
 # Constructors. They are better used as macros.
 

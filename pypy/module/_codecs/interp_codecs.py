@@ -1,10 +1,12 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib import runicode
 from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter import unicodehelper
 
 
 class VersionTag(object):
@@ -210,7 +212,8 @@ def replace_errors(space, w_exc):
 def xmlcharrefreplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
+        obj = space.realunicode_w(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
@@ -236,7 +239,8 @@ def xmlcharrefreplace_errors(space, w_exc):
 def backslashreplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
+        obj = space.realunicode_w(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
@@ -363,19 +367,23 @@ def register_error(space, errors, w_handler):
         raise oefmt(space.w_TypeError, "handler must be callable")
 
 # ____________________________________________________________
-# delegation to runicode
+# delegation to runicode/unicodehelper
 
-from rpython.rlib import runicode
+def _find_implementation(impl_name):
+    try:
+        func = getattr(unicodehelper, impl_name)
+    except AttributeError:
+        func = getattr(runicode, impl_name)
+    return func
 
 def make_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
-    assert hasattr(runicode, rname)
+    func = _find_implementation(rname)
     @unwrap_spec(uni=unicode, errors='text_or_none')
     def wrap_encoder(space, uni, errors="strict"):
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
-        func = getattr(runicode, rname)
         result = func(uni, len(uni), errors, state.encode_error_handler)
         return space.newtuple([space.newbytes(result), space.newint(len(uni))])
     wrap_encoder.func_name = rname
@@ -383,7 +391,7 @@ def make_encoder_wrapper(name):
 
 def make_decoder_wrapper(name):
     rname = "str_decode_%s" % (name.replace("_decode", ""), )
-    assert hasattr(runicode, rname)
+    func = _find_implementation(rname)
     @unwrap_spec(string='bufferstr', errors='text_or_none',
                  w_final=WrappedDefault(False))
     def wrap_decoder(space, string, errors="strict", w_final=None):
@@ -391,7 +399,6 @@ def make_decoder_wrapper(name):
             errors = 'strict'
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
-        func = getattr(runicode, rname)
         result, consumed = func(string, len(string), errors,
                                 final, state.decode_error_handler)
         return space.newtuple([space.newunicode(result), space.newint(consumed)])

@@ -6,6 +6,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import math
 import os
 import sys
 import time as pytime
@@ -310,12 +311,18 @@ def _get_error_msg():
     errno = rposix.get_saved_errno()
     return os.strerror(errno)
 
+def _check_sleep_arg(space, secs):
+    if secs < 0:
+        raise oefmt(space.w_IOError,
+                    "Invalid argument: negative time in sleep")
+    if math.isinf(secs) or math.isnan(secs):
+        raise oefmt(space.w_IOError,
+                    "Invalid argument: inf or nan")
+
 if sys.platform != 'win32':
     @unwrap_spec(secs=float)
     def sleep(space, secs):
-        if secs < 0:
-            raise oefmt(space.w_IOError,
-                        "Invalid argument: negative time in sleep")
+        _check_sleep_arg(space, secs)
         rtime.sleep(secs)
 else:
     from rpython.rlib import rwin32
@@ -336,9 +343,7 @@ else:
                                    OSError(EINTR, "sleep() interrupted"))
     @unwrap_spec(secs=float)
     def sleep(space, secs):
-        if secs < 0:
-            raise oefmt(space.w_IOError,
-                        "Invalid argument: negative time in sleep")
+        _check_sleep_arg(space, secs)
         # as decreed by Guido, only the main thread can be
         # interrupted.
         main_thread = space.fromcache(State).main_thread

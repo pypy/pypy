@@ -10,7 +10,7 @@ def make_normalization(space, NF_code):
     def normalize(s):
         w_s = space.newunicode(s)
         w_res = ucd.normalize(space, NF_code, w_s)
-        return space.unwrap(w_res)
+        return space.unicode_w(w_res)
     return normalize
 
 all_forms = ['NFC', 'NFD', 'NFKC', 'NFKD']

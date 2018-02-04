@@ -288,6 +288,9 @@ class Entry(ExtRegistryEntry):
 def mark_dict_non_null(d):
     """ Mark dictionary as having non-null keys and values. A warning would
     be emitted (not an error!) in case annotation disagrees.
+
+    This doesn't work for r_dicts. For them, pass
+    r_dict(..., force_non_null=True) to the constructor.
     """
     assert isinstance(d, dict)
     return d

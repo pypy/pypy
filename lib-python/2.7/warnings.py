@@ -43,11 +43,12 @@ def formatwarning(message, category, filename, lineno, line=None):
         unicodetype = unicode
     except NameError:
         unicodetype = ()
+    template = "%s: %s: %s\n"
     try:
         message = str(message)
     except UnicodeEncodeError:
-        pass
-    s =  "%s: %s: %s\n" % (lineno, category.__name__, message)
+        template = unicode(template)
+    s = template % (lineno, category.__name__, message)
     line = linecache.getline(filename, lineno) if line is None else line
     if line:
         line = line.strip()

@@ -2,21 +2,37 @@
 What's new in PyPy2.7 5.10+
 ===========================
 
-.. this is a revision shortly after release-pypy2.7-v5.9.0
-.. startrev:d56dadcef996
+.. this is a revision shortly after release-pypy2.7-v5.10.0
+.. startrev: 6b024edd9d12
 
-.. branch: cppyy-packaging
-Cleanup and improve cppyy packaging
+.. branch: cpyext-avoid-roundtrip
 
-.. branch: docs-osx-brew-openssl
+Big refactoring of some cpyext code, which avoids a lot of nonsense when
+calling C from Python and vice-versa: the result is a big speedup in
+function/method calls, up to 6 times faster.
 
-.. branch: keep-debug-symbols
-Add a smartstrip tool, which can optionally keep the debug symbols in a
-separate file, instead of just stripping them away. Use it in packaging
+.. branch: cpyext-datetime2
 
-.. branch: bsd-patches
-Fix failures on FreeBSD, contributed by David Naylor as patches on the issue
-tracker (issues 2694, 2695, 2696, 2697)
+Support ``tzinfo`` field on C-API datetime objects, fixes latest pandas HEAD
 
-.. branch: run-extra-tests
-Run extra_tests/ in buildbot
+
+.. branch: mapdict-size-limit
+
+Fix a corner case of mapdict: When an instance is used like a dict (using
+``setattr`` and ``getattr``, or ``.__dict__``) and a lot of attributes are
+added, then the performance using mapdict is linear in the number of
+attributes. This is now fixed (by switching to a regular dict after 80
+attributes).
+
+
+.. branch: cpyext-faster-arg-passing
+
+When using cpyext, improve the speed of passing certain objects from PyPy to C
+code, most notably None, True, False, types, all instances of C-defined types.
+Before, a dict lookup was needed every time such an object crossed over, now it
+is just a field read.
+
+
+.. branch: 2634_datetime_timedelta_performance
+
+Improve datetime + timedelta performance.

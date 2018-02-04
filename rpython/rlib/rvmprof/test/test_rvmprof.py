@@ -144,7 +144,8 @@ class TestNative(RVMProfSamplingTest):
 
     @pytest.fixture
     def init(self, tmpdir):
-        eci = ExternalCompilationInfo(compile_extra=['-g','-O0'],
+        eci = ExternalCompilationInfo(compile_extra=['-g','-O0', '-Werror'],
+                post_include_bits = ['int native_func(int);'],
                 separate_module_sources=["""
                 RPY_EXTERN int native_func(int d) {
                     int j = 0;
@@ -164,23 +165,25 @@ class TestNative(RVMProfSamplingTest):
 
     @rvmprof.vmprof_execute_code("xcode1", lambda self, code, count: code)
     def main(self, code, count):
+        code = self.MyCode('py:main:3:main')
+        rvmprof.register_code(code, self.MyCode.get_name)
+        code = self.MyCode('py:code:7:native_func')
+        rvmprof.register_code(code, self.MyCode.get_name)
         if count > 0:
             return self.main(code, count-1)
         else:
             return self.native_func(100)
 
     def test(self):
-        # XXX: this test is known to fail since rev a4f077ba651c, but buildbot
-        # never ran it. FIXME.
         from vmprof import read_profile
-        from vmprof.show import PrettyPrinter
+        # from vmprof.show import PrettyPrinter
         assert self.rpy_entry_point(3, 0.5) == 42000
         assert self.tmpfile.check()
-        #
+
         prof = read_profile(self.tmpfilename)
         tree = prof.get_tree()
-        p = PrettyPrinter()
-        p._print_tree(tree)
+        # p = PrettyPrinter()
+        # p._print_tree(tree)
         def walk(tree, symbols):
             symbols.append(tree.name)
             if len(tree.children) == 0:
@@ -189,7 +192,7 @@ class TestNative(RVMProfSamplingTest):
                 walk(child, symbols)
         symbols = []
         walk(tree, symbols)
-        not_found = ['n:native_func']
+        not_found = ['py:code:7:native_func']
         for sym in symbols:
             for i,name in enumerate(not_found):
                 if sym.startswith(name):

@@ -64,3 +64,7 @@ def test_formaterror():
     msg = rwin32.FormatError(34)
     assert '%2' in msg
 
+def test_formaterror_unicode():
+    msg = rwin32.FormatErrorW(34)
+    assert type(msg) is unicode
+    assert u'%2' in msg

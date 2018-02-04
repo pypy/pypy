@@ -1881,7 +1881,8 @@ if not _WIN32:
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO,
-                    macro=_MACRO_ON_POSIX)
+                    macro=_MACRO_ON_POSIX,
+                    compilation_info=ExternalCompilationInfo(includes=['unistd.h']))
 
 @replace_os_function('chroot')
 def chroot(path):
@@ -2573,3 +2574,160 @@ if not _WIN32:
         """Passes offset==NULL; not support on all OSes"""
         res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
         return handle_posix_error('sendfile', res)
+
+# ____________________________________________________________
+# Support for *xattr functions
+
+if sys.platform.startswith('linux'):
+
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['sys/xattr.h', 'linux/limits.h'],)
+        XATTR_SIZE_MAX = rffi_platform.DefinedConstantInteger('XATTR_SIZE_MAX')
+        XATTR_CREATE = rffi_platform.DefinedConstantInteger('XATTR_CREATE')
+        XATTR_REPLACE = rffi_platform.DefinedConstantInteger('XATTR_REPLACE')
+
+    cConfig = rffi_platform.configure(CConfig)
+    globals().update(cConfig)
+    c_fgetxattr = external('fgetxattr',
+        [rffi.INT, rffi.CCHARP, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_getxattr = external('getxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_lgetxattr = external('lgetxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_fsetxattr = external('fsetxattr',
+        [rffi.INT, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
+        rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_setxattr = external('setxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
+        rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_lsetxattr = external('lsetxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
+        rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_fremovexattr = external('fremovexattr',
+        [rffi.INT, rffi.CCHARP], rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_removexattr = external('removexattr',
+        [rffi.CCHARP, rffi.CCHARP], rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_lremovexattr = external('lremovexattr',
+        [rffi.CCHARP, rffi.CCHARP], rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_flistxattr = external('flistxattr',
+        [rffi.INT, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_listxattr = external('listxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_llistxattr = external('llistxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    buf_sizes = [256, XATTR_SIZE_MAX]
+
+    def fgetxattr(fd, name):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+                res = c_fgetxattr(fd, name, void_buf, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        raise OSError(err, 'fgetxattr failed')
+                else:
+                    return buf.str(res)
+        else:
+            raise OSError(errno.ERANGE, 'fgetxattr failed')
+
+    def getxattr(path, name, follow_symlinks=True):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+                if follow_symlinks:
+                    res = c_getxattr(path, name, void_buf, size)
+                else:
+                    res = c_lgetxattr(path, name, void_buf, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        c_name = 'getxattr' if follow_symlinks else 'lgetxattr'
+                        raise OSError(err, c_name + 'failed')
+                else:
+                    return buf.str(res)
+        else:
+            c_name = 'getxattr' if follow_symlinks else 'lgetxattr'
+            raise OSError(errno.ERANGE, c_name + 'failed')
+
+    def fsetxattr(fd, name, value, flags=0):
+        return handle_posix_error(
+            'fsetxattr', c_fsetxattr(fd, name, value, len(value), flags))
+
+    def setxattr(path, name, value, flags=0, follow_symlinks=True):
+        if follow_symlinks:
+            return handle_posix_error(
+                'setxattr', c_setxattr(path, name, value, len(value), flags))
+        else:
+            return handle_posix_error(
+                'lsetxattr', c_lsetxattr(path, name, value, len(value), flags))
+
+    def fremovexattr(fd, name):
+        return handle_posix_error('fremovexattr', c_fremovexattr(fd, name))
+
+    def removexattr(path, name, follow_symlinks=True):
+        if follow_symlinks:
+            return handle_posix_error('removexattr', c_removexattr(path, name))
+        else:
+            return handle_posix_error('lremovexattr', c_lremovexattr(path, name))
+
+    def _unpack_attrs(attr_string):
+        result = attr_string.split('\0')
+        del result[-1]
+        return result
+
+    def flistxattr(fd):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                res = c_flistxattr(fd, buf.raw, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        raise OSError(err, 'flistxattr failed')
+                else:
+                    return _unpack_attrs(buf.str(res))
+        else:
+            raise OSError(errno.ERANGE, 'flistxattr failed')
+
+    def listxattr(path, follow_symlinks=True):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                if follow_symlinks:
+                    res = c_listxattr(path, buf.raw, size)
+                else:
+                    res = c_llistxattr(path, buf.raw, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        c_name = 'listxattr' if follow_symlinks else 'llistxattr'
+                        raise OSError(err, c_name + 'failed')
+                else:
+                    return _unpack_attrs(buf.str(res))
+        else:
+            c_name = 'listxattr' if follow_symlinks else 'llistxattr'
+            raise OSError(errno.ERANGE, c_name + 'failed')

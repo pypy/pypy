@@ -30,7 +30,7 @@ class ListItem(object):
         self.s_value = s_value
         self.bookkeeper = bookkeeper
         self.itemof = {}  # set of all ListDefs using this ListItem
-        self.read_locations = {}
+        self.read_locations = set()
         if bookkeeper is None:
             self.dont_change_any_more = True
 
@@ -95,7 +95,7 @@ class ListItem(object):
                 self.notify_update()
             if s_new_value != s_other_value:
                 other.notify_update()
-            self.read_locations.update(other.read_locations)
+            self.read_locations |= other.read_locations
 
     def patch(self):
         for listdef in self.itemof:
@@ -130,7 +130,7 @@ class ListDef(object):
         self.listitem.itemof[self] = True
 
     def read_item(self, position_key):
-        self.listitem.read_locations[position_key] = True
+        self.listitem.read_locations.add(position_key)
         return self.listitem.s_value
 
     def same_as(self, other):

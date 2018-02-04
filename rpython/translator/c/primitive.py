@@ -1,8 +1,8 @@
+import math
 import sys
 
 from rpython.rlib.objectmodel import Symbolic, ComputedIntSymbolic, CDefinedIntSymbolic
 from rpython.rlib.rarithmetic import r_longlong, is_emulated_long
-from rpython.rlib.rfloat import isinf, isnan
 from rpython.rtyper.lltypesystem import rffi, llgroup
 from rpython.rtyper.lltypesystem.llmemory import (Address, AddressOffset,
     ItemOffset, ArrayItemsOffset, FieldOffset, CompositeOffset,
@@ -113,18 +113,15 @@ def name_signedlonglong(value, db):
         return '%dLL' % value
 
 def is_positive_nan(value):
-    # bah.  we don't have math.copysign() if we're running Python 2.5
-    import struct
-    c = struct.pack("!d", value)[0]
-    return {'\x7f': True, '\xff': False}[c]
+    return math.copysign(1, value) > 0
 
 def name_float(value, db):
-    if isinf(value):
+    if math.isinf(value):
         if value > 0:
             return '(Py_HUGE_VAL)'
         else:
             return '(-Py_HUGE_VAL)'
-    elif isnan(value):
+    elif math.isnan(value):
         if is_positive_nan(value):
             return '(Py_HUGE_VAL/Py_HUGE_VAL)'
         else:
@@ -137,12 +134,12 @@ name_longfloat = name_float
 
 def name_singlefloat(value, db):
     value = float(value)
-    if isinf(value):
+    if math.isinf(value):
         if value > 0:
             return '((float)Py_HUGE_VAL)'
         else:
             return '((float)-Py_HUGE_VAL)'
-    elif isnan(value):
+    elif math.isnan(value):
         # XXX are these expressions ok?
         if is_positive_nan(value):
             return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
