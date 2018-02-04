@@ -1823,16 +1823,14 @@ def _k_lopsided_mul(a, b):
     ret._normalize()
     return ret
 
-def _inplace_divrem1(pout, pin, n, size=0):
+def _inplace_divrem1(pout, pin, n):
     """
     Divide bigint pin by non-zero digit n, storing quotient
     in pout, and returning the remainder. It's OK for pin == pout on entry.
     """
     rem = _widen_digit(0)
     assert n > 0 and n <= MASK
-    if not size:
-        size = pin.numdigits()
-    size -= 1
+    size = pin.numdigits() - 1
     while size >= 0:
         rem = (rem << SHIFT) | pin.widedigit(size)
         hi = rem // n
