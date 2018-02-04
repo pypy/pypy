@@ -16,4 +16,4 @@ class Module(MixedModule):
         interpleveldefs['recv'] = 'interp_win32_py3.multiprocessing_recv'
         interpleveldefs['send'] = 'interp_win32_py3.multiprocessing_send'
     else:
-        interpleveldefs['sem_unlink'] = 'interp_semaphore.semaphore_unlink',
+        interpleveldefs['sem_unlink'] = 'interp_semaphore.semaphore_unlink'
