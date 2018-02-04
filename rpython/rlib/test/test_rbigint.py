@@ -84,9 +84,10 @@ class TestRLong(object):
         for op1 in gen_signs(long_vals_not_too_big):
             rl_op1 = rbigint.fromlong(op1)
             for op2 in gen_signs(long_vals):
-                if not op2:
-                    continue
                 rl_op2 = rbigint.fromlong(op2)
+                if not op2:
+                    py.test.raises(ZeroDivisionError, rl_op1.truediv, rl_op2)
+                    continue
                 r1 = rl_op1.truediv(rl_op2)
                 r2 = op1 / op2
                 assert r1 == r2
@@ -586,7 +587,7 @@ class Test_rbigint(object):
                 assert f1.tolong() == x
 
     def test_bitwise(self):
-        for x in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30]):
+        for x in gen_signs(long_vals):
             for y in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30, 3 ** 31]):
                 lx = rbigint.fromlong(x)
                 ly = rbigint.fromlong(y)
@@ -679,9 +680,10 @@ class Test_rbigint(object):
     def test_log(self):
         from rpython.rlib.rfloat import ulps_check
         for op in long_vals:
-            if not op:
-                continue
             for base in [0, 2, 4, 8, 16, 10, math.e]:
+                if not op:
+                    py.test.raises(ValueError, rbigint.fromlong(op).log, base)
+                    continue
                 l = rbigint.fromlong(op).log(base)
                 if base:
                     assert ulps_check(l, math.log(op, base)) is None
@@ -786,7 +788,7 @@ class TestInternalFunctions(object):
         Rx = 1 << 130
         Rx2 = 1 << 150
         Ry = 1 << 127
-        Ry2 = 1<< 150
+        Ry2 = 1 << 150
         for i in range(10):
             x = long(randint(Rx, Rx2))
             y = long(randint(Ry, Ry2))
@@ -796,7 +798,7 @@ class TestInternalFunctions(object):
             _div, _rem = divmod(x, y)
             assert div.tolong() == _div
             assert rem.tolong() == _rem
-            
+
     def test_divmod(self):
         x = 12345678901234567890L
         for i in range(100):
@@ -812,6 +814,7 @@ class TestInternalFunctions(object):
                 _div, _rem = divmod(sx, sy)
                 assert div.tolong() == _div
                 assert rem.tolong() == _rem
+        py.test.raises(ZeroDivisionError, rbigint.fromlong(x).divmod, rbigint.fromlong(0))
 
     # testing Karatsuba stuff
     def test__v_iadd(self):
