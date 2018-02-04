@@ -71,10 +71,10 @@ class TestRLong(object):
 
     def test_floordiv(self):
         for op1 in gen_signs(long_vals):
+            rl_op1 = rbigint.fromlong(op1)
             for op2 in gen_signs(long_vals):
                 if not op2:
                     continue
-                rl_op1 = rbigint.fromlong(op1)
                 rl_op2 = rbigint.fromlong(op2)
                 r1 = rl_op1.floordiv(rl_op2)
                 r2 = op1 // op2
@@ -82,10 +82,10 @@ class TestRLong(object):
 
     def test_truediv(self):
         for op1 in gen_signs(long_vals_not_too_big):
+            rl_op1 = rbigint.fromlong(op1)
             for op2 in gen_signs(long_vals):
                 if not op2:
                     continue
-                rl_op1 = rbigint.fromlong(op1)
                 rl_op2 = rbigint.fromlong(op2)
                 r1 = rl_op1.truediv(rl_op2)
                 r2 = op1 / op2
@@ -266,36 +266,32 @@ class Test_rbigint(object):
         assert rbigint._from_numberstring_parser(parser).tolong() == 1231231241
 
     def test_add(self):
-        x = 123456789123456789000000L
-        y = 123858582373821923936744221L
-        for i in [-1, 1]:
-            for j in [-1, 1]:
-                f1 = rbigint.fromlong(x * i)
-                f2 = rbigint.fromlong(y * j)
+        for x in gen_signs(long_vals):
+            f1 = rbigint.fromlong(x)
+            for y in gen_signs(long_vals):
+                f2 = rbigint.fromlong(y)
                 result = f1.add(f2)
-                assert result.tolong() == x * i + y * j
+                assert result.tolong() == x + y
 
     def test_int_add(self):
         for x in gen_signs(long_vals):
+            f1 = rbigint.fromlong(x)
             for y in signed_int_vals:
-                f1 = rbigint.fromlong(x)
                 result = f1.int_add(y)
                 assert result.tolong() == x + y
 
     def test_sub(self):
-        x = 12378959520302182384345L
-        y = 88961284756491823819191823L
-        for i in [-1, 1]:
-            for j in [-1, 1]:
-                f1 = rbigint.fromlong(x * i)
-                f2 = rbigint.fromlong(y * j)
+        for x in gen_signs(long_vals):
+            f1 = rbigint.fromlong(x)
+            for y in gen_signs(long_vals):
+                f2 = rbigint.fromlong(y)
                 result = f1.sub(f2)
-                assert result.tolong() == x * i - y * j
+                assert result.tolong() == x - y
 
     def test_int_sub(self):
-        for x in gen_signs([0, 123456789123456789000000L, 1 << 100, 3 ** 10000]):
+        for x in gen_signs(long_vals):
+            f1 = rbigint.fromlong(x)
             for y in signed_int_vals:
-                f1 = rbigint.fromlong(x)
                 result = f1.int_sub(y)
                 assert result.tolong() == x - y
 
@@ -316,8 +312,8 @@ class Test_rbigint(object):
 
     def test_int_mul(self):
         for x in gen_signs(long_vals):
+            f1 = rbigint.fromlong(x)
             for y in signed_int_vals:
-                f1 = rbigint.fromlong(x)
                 result = f1.int_mul(y)
                 assert result.tolong() == x * y
 
