@@ -141,6 +141,7 @@ class TestRLong(object):
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
 
+
     def test_touint(self):
         result = r_uint(sys.maxint + 42)
         rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))
@@ -358,7 +359,7 @@ class Test_rbigint(object):
         null = rbigint.fromfloat(-0.0)
         assert null.int_eq(0)
 
-    def test_eq(self):
+    def test_eq_ne(self):
         x = 5858393919192332223L
         y = 585839391919233111223311112332L
         f1 = rbigint.fromlong(x)
@@ -369,6 +370,12 @@ class Test_rbigint(object):
         assert f3.eq(f3)
         assert not f1.eq(f2)
         assert not f1.eq(f3)
+
+        assert not f1.ne(f1)
+        assert not f2.ne(f2)
+        assert not f3.ne(f3)
+        assert f1.ne(f2)
+        assert f1.ne(f3)
 
     def test_eq_fastpath(self):
         x = 1234
