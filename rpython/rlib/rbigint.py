@@ -2548,6 +2548,8 @@ def _bitwise(a, op, b): # '&', '|', '^'
             maska ^= MASK
             maskb ^= MASK
             negz = -1
+    else:
+        assert 0, "unreachable"
 
     # JRH: The original logic here was to allocate the result value (z)
     # as the longer of the two operands.  However, there are some cases
