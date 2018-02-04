@@ -695,9 +695,7 @@ class rbigint(object):
             return NULLRBIGINT
 
         if asize == 1:
-            if a._digits[0] == NULLDIGIT:
-                return NULLRBIGINT
-            elif a._digits[0] == ONEDIGIT:
+            if a._digits[0] == ONEDIGIT:
                 return rbigint(b._digits[:b.size], a.sign * b.sign, b.size)
             elif bsize == 1:
                 res = b.widedigit(0) * a.widedigit(0)
