@@ -1,6 +1,8 @@
 import py
 import sys
 from rpython.tool.udir import udir
+from rpython.rlib import rvmprof
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.tool.pytest.objspace import gettestobjspace
 
 class AppTestVMProf(object):
@@ -11,6 +13,9 @@ class AppTestVMProf(object):
         cls.w_tmpfilename2 = cls.space.wrap(str(udir.join('test__vmprof.2')))
         cls.w_plain = cls.space.wrap(not cls.runappdirect and
             '__pypy__' not in sys.builtin_module_names)
+        #
+        addr = rffi.cast(lltype.Signed, rvmprof.get_address_of_vmprof_start_sampling())
+        cls.w_addr_of_vmprof_start_sampling = cls.space.wrap(addr)
 
     def test_import_vmprof(self):
         tmpfile = open(self.tmpfilename, 'wb')
@@ -152,8 +157,7 @@ class AppTestVMProf(object):
 
     def test_resolve_addr(self):
         import _vmprof
-        addr = 0x517450 # XXX dont' hardcode
+        addr = self.addr_of_vmprof_start_sampling
         name, lineno, srcfile = _vmprof.resolve_addr(addr)
-        assert name == 'PyLong_AsLong'
-        assert lineno == 0
-        assert srcfile == 'python'
+        assert name == 'vmprof_start_sampling'
+        assert srcfile.endswith('rvmprof.c')

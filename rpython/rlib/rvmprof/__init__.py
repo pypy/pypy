@@ -84,3 +84,15 @@ def restore_stack(x):
     vmprof_tl_stack.setraw(x)
     start_sampling()
 
+
+# --------------
+# used by tests
+# --------------
+
+def get_address_of_vmprof_start_sampling():
+    """
+    This is used only for testing that vmp_resolve_addr can find the correct
+    symbol name
+    """
+    fn = _get_vmprof().cintf.vmprof_start_sampling
+    return rffi.cast(rffi.VOIDP, fn)

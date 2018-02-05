@@ -204,8 +204,7 @@ class TestNative(RVMProfSamplingTest):
 class TestSymbolTable(object):
 
     def test_vmp_resolve_addr(self):
-        # XXX: don't hardcode this addr
-        addr = rffi.cast(rffi.VOIDP, 0x517450)
+        addr = rvmprof.get_address_of_vmprof_start_sampling()
         name, lineno, srcfile = rvmprof.resolve_addr(addr)
-        assert name == 'PyLong_AsLong'
-
+        assert name == 'vmprof_start_sampling'
+        assert srcfile.endswith('rvmprof.c')
