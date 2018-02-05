@@ -783,12 +783,10 @@ class rbigint(object):
 
     @jit.elidable
     def floordiv(self, other):
-        if self.sign == 1 and other.numdigits() == 1 and other.sign == 1:
-            digit = other.digit(0)
-            if digit == 1:
-                return self
-            elif digit & (digit - 1) == 0:
-                return self.rqshift(ptwotable[digit])
+        if other.numdigits() == 1:
+            otherint = other.digit(0) * other.sign
+            assert int_in_valid_range(otherint)
+            return self.int_floordiv(otherint)
 
         div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
@@ -800,13 +798,13 @@ class rbigint(object):
 
     def div(self, other):
         return self.floordiv(other)
-        
+
     @jit.elidable
     def int_floordiv(self, b):
         if not int_in_valid_range(b):
             # Fallback to long.
             return self.floordiv(rbigint.fromint(b))
-        
+
         if b == 0:
             raise ZeroDivisionError("long division by zero")
 
@@ -818,7 +816,7 @@ class rbigint(object):
                 return self
             elif digit & (digit - 1) == 0:
                 return self.rqshift(ptwotable[digit])
-            
+
         div, mod = _divrem1(self, digit)
 
         if mod != 0 and self.sign * (-1 if b < 0 else 1) == -1:
@@ -830,7 +828,7 @@ class rbigint(object):
 
     def int_div(self, other):
         return self.int_floordiv(other)
-        
+
     @jit.elidable
     def mod(self, other):
         if self.sign == 0:
