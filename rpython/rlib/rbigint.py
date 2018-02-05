@@ -762,10 +762,12 @@ class rbigint(object):
 
     @jit.elidable
     def floordiv(self, other):
-        if other.numdigits() == 1:
-            otherint = other.digit(0) * other.sign
-            assert int_in_valid_range(otherint)
-            return self.int_floordiv(otherint)
+        if self.sign == 1 and other.numdigits() == 1 and other.sign == 1:
+            digit = other.digit(0)
+            if digit == 1:
+                return rbigint(self._digits[:self.size], 1, self.size)
+            elif digit and digit & (digit - 1) == 0:
+                return self.rshift(ptwotable[digit])
 
         div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
