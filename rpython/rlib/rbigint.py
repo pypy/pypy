@@ -949,24 +949,23 @@ class rbigint(object):
         if not int_in_valid_range(w) or (wsign == -1 and v.sign != wsign):
             # Just fallback.
             return v.divmod(rbigint.fromint(w))
-            
+
         digit = abs(w)
         assert digit > 0
 
         div, mod = _divrem1(v, digit)
         div.sign = v.sign * wsign
-            
-        if v.sign != wsign:
+        if v.sign < 0:
+            mod = -mod
+        if mod and v.sign * wsign == -1:
+            mod += w
             if div.sign == 0:
                 div = ONENEGATIVERBIGINT
             else:
                 div = div.int_sub(1)
-            mod = w - mod
-            
-        mod = rbigint.fromint(wsign * mod)
-        
+        mod = rbigint.fromint(mod)
         return div, mod
-        
+
     @jit.elidable
     def pow(a, b, c=None):
         negativeOutput = False  # if x<0 return negative output

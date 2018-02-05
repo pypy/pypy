@@ -902,8 +902,6 @@ class TestInternalFunctions(object):
                 for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
                     sx *= x
                     sy *= y
-                    if sx == 0 and sy == 1:
-                        import pdb; pdb.set_trace()
                     if sy == sys.maxint + 1:
                         continue
                     f1 = rbigint.fromlong(sx)
