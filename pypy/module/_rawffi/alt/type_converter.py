@@ -128,7 +128,7 @@ class FromAppLevelConverter(object):
         intval: lltype.Signed
         """
         self.error(w_ffitype, w_obj)
-        
+
     def handle_unichar(self, w_ffitype, w_obj, intval):
         """
         intval: lltype.Signed
@@ -174,7 +174,7 @@ class FromAppLevelConverter(object):
     def handle_struct_rawffi(self, w_ffitype, w_structinstance):
         """
         This method should be killed as soon as we remove support for _rawffi structures
-        
+
         w_structinstance: W_StructureInstance
         """
         self.error(w_ffitype, w_structinstance)
@@ -349,7 +349,7 @@ class ToAppLevelConverter(object):
     def get_struct_rawffi(self, w_ffitype, w_structdescr):
         """
         This should be killed as soon as we kill support for _rawffi structures
-        
+
         Return type: lltype.Unsigned
         (the address of the structure)
         """

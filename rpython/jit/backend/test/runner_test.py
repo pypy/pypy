@@ -1,4 +1,4 @@
-import py, sys, random, os, struct, operator
+import py, sys, random, os, struct, operator, math
 from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
                                          BasicFailDescr,
@@ -1696,7 +1696,7 @@ class BaseBackendTest(Runner):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
 
-        from rpython.rlib.rfloat import INFINITY, NAN, isinf, isnan
+        from rpython.rlib.rfloat import INFINITY, NAN
         from rpython.jit.metainterp.resoperation import opname
 
         fzer = 0.0
@@ -1724,10 +1724,10 @@ class BaseBackendTest(Runner):
                                              expectedtype)
                 if not isinstance(expected, bool):
                     got = longlong.getrealfloat(got)
-                if isnan(expected):
-                    ok = isnan(got)
-                elif isinf(expected):
-                    ok = isinf(got)
+                if math.isnan(expected):
+                    ok = math.isnan(got)
+                elif math.isinf(expected):
+                    ok = math.isinf(got)
                 else:
                     ok = got == expected
                 if not ok:

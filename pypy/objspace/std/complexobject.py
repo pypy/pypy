@@ -4,7 +4,7 @@ from rpython.rlib import jit, rcomplex
 from rpython.rlib.rarithmetic import intmask, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
-    DTSF_STR_PRECISION, copysign, formatd, isinf, isnan, string_to_float)
+    DTSF_STR_PRECISION, formatd, string_to_float)
 from rpython.rlib.rstring import ParseStringError
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -111,12 +111,12 @@ def _split_complex(s):
 
 def format_float(x, code, precision):
     # like float2string, except that the ".0" is not necessary
-    if isinf(x):
+    if math.isinf(x):
         if x > 0.0:
             return "inf"
         else:
             return "-inf"
-    elif isnan(x):
+    elif math.isnan(x):
         return "nan"
     else:
         return formatd(x, code, precision)
@@ -346,18 +346,18 @@ class W_ComplexObject(W_Root):
                                space.newfloat(self.imagval)])
 
     def descr_repr(self, space):
-        if self.realval == 0 and copysign(1., self.realval) == 1.:
+        if self.realval == 0 and math.copysign(1., self.realval) == 1.:
             return space.newtext(repr_format(self.imagval) + 'j')
-        sign = (copysign(1., self.imagval) == 1. or
-                isnan(self.imagval)) and '+' or ''
+        sign = (math.copysign(1., self.imagval) == 1. or
+                math.isnan(self.imagval)) and '+' or ''
         return space.newtext('(' + repr_format(self.realval)
                              + sign + repr_format(self.imagval) + 'j)')
 
     def descr_str(self, space):
-        if self.realval == 0 and copysign(1., self.realval) == 1.:
+        if self.realval == 0 and math.copysign(1., self.realval) == 1.:
             return space.newtext(str_format(self.imagval) + 'j')
-        sign = (copysign(1., self.imagval) == 1. or
-                isnan(self.imagval)) and '+' or ''
+        sign = (math.copysign(1., self.imagval) == 1. or
+                math.isnan(self.imagval)) and '+' or ''
         return space.newtext('(' + str_format(self.realval)
                              + sign + str_format(self.imagval) + 'j)')
 

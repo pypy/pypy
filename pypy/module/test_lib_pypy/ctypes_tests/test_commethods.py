@@ -2,10 +2,10 @@
 # Can't resist from implementing some kind of mini-comtypes
 # theller ;-)
 
-import py
+import pytest
 import sys
 if sys.platform != "win32":
-    py.test.skip('windows only test')
+    pytest.importorskip('skip_the_whole_module')  # hack!
 
 import ctypes, new, unittest
 from ctypes.wintypes import HRESULT
@@ -27,7 +27,7 @@ class UnboundMethod(object):
         if instance is None:
             return self
         return new.instancemethod(self.func, instance, owner)
-    
+
 def commethod(index, restype, *argtypes):
     """A decorator that generates COM methods.  The decorated function
     itself is not used except for it's name."""
@@ -72,7 +72,8 @@ def test_basic_comtypes():
     assert 4 == punk.AddRef()
 
     punk.SetName("TypeLib_ByPYPY")
-    py.test.raises(COMError, lambda: punk.SetName(None))
+    with pytest.raises(COMError):
+        punk.SetName(None)
 
     # This would save the typelib to disk.
     ## punk.SaveAllChanges()

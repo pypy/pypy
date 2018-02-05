@@ -87,6 +87,14 @@ class AppTestSrePattern:
         assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
         assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
 
+    def test_findall_unicode(self):
+        import re
+        assert [u"\u1234"] == re.findall(u"\u1234", u"\u1000\u1234\u2000")
+        assert ["a", "u"] == re.findall("b(.)", "abalbus")
+        assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
+        assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
+        assert [u"xyz"] == re.findall(u".*yz", u"xyz")
+
     def test_finditer(self):
         import re
         it = re.finditer("b(.)", "brabbel")
@@ -999,3 +1007,15 @@ class AppTestOptimizations:
         import re
         assert re.search(".+ab", "wowowowawoabwowo")
         assert None == re.search(".+ab", "wowowaowowo")
+
+
+class AppTestUnicodeExtra:
+    def test_string_attribute(self):
+        import re
+        match = re.search(u"\u1234", u"\u1233\u1234\u1235")
+        assert match.string == u"\u1233\u1234\u1235"
+
+    def test_match_start(self):
+        import re
+        match = re.search(u"\u1234", u"\u1233\u1234\u1235")
+        assert match.start() == 1

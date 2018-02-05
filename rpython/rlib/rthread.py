@@ -110,14 +110,20 @@ def get_ident():
     if we_are_translated():
         return tlfield_thread_ident.getraw()
     else:
-        import thread
+        try:
+            import thread
+        except ImportError:
+            return 42
         return thread.get_ident()
 
 def get_or_make_ident():
     if we_are_translated():
         return tlfield_thread_ident.get_or_make_raw()
     else:
-        import thread
+        try:
+            import thread
+        except ImportError:
+            return 42
         return thread.get_ident()
 
 @specialize.arg(0)

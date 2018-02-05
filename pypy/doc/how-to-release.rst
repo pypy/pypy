@@ -62,7 +62,7 @@ Release Steps
   * go to pypy/tool/release and run
     ``force-builds.py <release branch>``
     The following JIT binaries should be built, however, we need more buildbots
-    windows, linux-32, linux-64, osx64, armhf-raring, armhf-raspberrian, armel,
+    windows, linux-32, linux-64, osx64, armhf-raspberrian, armel,
     freebsd64 
 
   * wait for builds to complete, make sure there are no failures

@@ -409,6 +409,7 @@ def test_getaddrinfo_http():
     # catch-all address (i.e. opendns).
     e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
+    assert isinstance(e.value.get_msg_unicode(), unicode)
 
 def getaddrinfo_pydotorg(i, result):
     lst = getaddrinfo('python.org', None)

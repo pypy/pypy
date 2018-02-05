@@ -1,5 +1,4 @@
 import math
-from rpython.rlib.rfloat import isinf
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -18,7 +17,7 @@ for k, v in rffi_platform.configure(CConfig).items():
 
 
 assert 0.0 < DBL_MAX < (1e200*1e200)
-assert isinf(DBL_MAX * 1.0001)
+assert math.isinf(DBL_MAX * 1.0001)
 assert DBL_MIN > 0.0
 assert DBL_MIN * (2**-53) == 0.0
 

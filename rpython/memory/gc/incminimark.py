@@ -2378,6 +2378,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if self.rrc_enabled:
                     self.rrc_major_collection_free()
                 #
+                self.stat_ac_arenas_count = self.ac.arenas_count
+                self.stat_rawmalloced_total_size = self.rawmalloced_total_size
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
@@ -2406,6 +2408,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
                 self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
+                #
+                # Print statistics
+                debug_start("gc-collect-done")
+                debug_print("arenas:               ",
+                            self.stat_ac_arenas_count, " => ",
+                            self.ac.arenas_count)
+                debug_print("bytes used in arenas: ",
+                            self.ac.total_memory_used)
+                debug_print("bytes raw-malloced:   ",
+                            self.stat_rawmalloced_total_size, " => ",
+                            self.rawmalloced_total_size)
+                debug_stop("gc-collect-done")
                 #
                 # Set the threshold for the next major collection to be when we
                 # have allocated 'major_collection_threshold' times more than

@@ -5,7 +5,7 @@ down to what aliases what and what exact types operations return.
 
 import py
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 class TestExtra(BaseCTypesTestChecker):
     def test_primitive_pointer(self):
