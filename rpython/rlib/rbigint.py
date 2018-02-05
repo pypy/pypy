@@ -41,7 +41,7 @@ else:
     UNSIGNED_TYPE = lltype.Unsigned
     LONG_TYPE = rffi.LONGLONG
     ULONG_TYPE = rffi.ULONGLONG
-    
+
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
 
@@ -100,7 +100,7 @@ def _widen_digit(x):
 
 def _unsigned_widen_digit(x):
     return rffi.cast(ULONG_TYPE, x)
-    
+
 @specialize.argtype(0)
 def _store_digit(x):
     return rffi.cast(STORE_TYPE, x)
@@ -143,16 +143,16 @@ class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
     _immutable_ = True
     _immutable_fields_ = ["_digits[*]", "size", "sign"]
-    
+
     def __init__(self, digits=NULLDIGITS, sign=0, size=0):
         if not we_are_translated():
             _check_digits(digits)
         make_sure_not_resized(digits)
         self._digits = digits
-        
+
         assert size >= 0
         self.size = size or len(digits)
-        
+
         self.sign = sign
 
     # __eq__ and __ne__ method exist for testingl only, they are not RPython!
@@ -183,7 +183,7 @@ class rbigint(object):
         to have enough room to contain two digits."""
         return _unsigned_widen_digit(self._digits[x])
     uwidedigit._always_inline_ = True
-    
+
     def udigit(self, x):
         """Return the x'th digit, as an unsigned int."""
         return _load_unsigned_digit(self._digits[x])
@@ -220,7 +220,7 @@ class rbigint(object):
         else:
             return NULLRBIGINT
 
-        
+
         if carry:
             return rbigint([_store_digit(ival & MASK),
                 _store_digit(carry)], sign, 2)
@@ -530,7 +530,7 @@ class rbigint(object):
     def int_eq(self, other):
         """ eq with int """
         if not int_in_valid_range(other):
-            # Fallback to Long. 
+            # Fallback to Long.
             return self.eq(rbigint.fromint(other))
 
         if self.numdigits() > 1:
@@ -592,14 +592,14 @@ class rbigint(object):
             osign = 0
         elif other < 0:
             osign = -1
- 
+
         if self.sign > osign:
             return False
         elif self.sign < osign:
             return True
 
         digits = self.numdigits()
-        
+
         if digits > 1:
             if osign == 1:
                 return False
@@ -753,7 +753,7 @@ class rbigint(object):
 
         asize = self.numdigits()
         digit = abs(b)
-        
+
         bsign = -1 if b < 0 else 1
 
         if digit == 1:
@@ -1026,7 +1026,7 @@ class rbigint(object):
                     if bi & j:
                         z = _help_mult(z, a, c)
                     j >>= 1
-                
+
 
         else:
             # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
@@ -1151,7 +1151,7 @@ class rbigint(object):
         # Left-to-right binary exponentiation (HAC Algorithm 14.79)
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
         j = 1 << (SHIFT-1)
-        
+
         while j != 0:
             z = _help_mult(z, z, c)
             if b & j:
@@ -1161,7 +1161,7 @@ class rbigint(object):
         if negativeOutput and z.sign != 0:
             z = z.sub(c)
         return z
-        
+
     @jit.elidable
     def neg(self):
         return rbigint(self._digits, -self.sign, self.numdigits())
@@ -1261,7 +1261,7 @@ class rbigint(object):
             else:
                 return NULLRBIGINT
 
-        
+
         hishift = SHIFT - loshift
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
@@ -1286,10 +1286,10 @@ class rbigint(object):
         wordshift = int_other / SHIFT
         loshift = int_other % SHIFT
         newsize = self.numdigits() - wordshift
-            
+
         if newsize <= 0:
             return NULLRBIGINT
-                
+
         hishift = SHIFT - loshift
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
@@ -1301,11 +1301,11 @@ class rbigint(object):
                 newdigit |= (self.udigit(wordshift+1) << hishift)
             z.setdigit(i, newdigit)
             i += 1
-            wordshift += 1 
+            wordshift += 1
         z._normalize()
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
-    
+
     @jit.elidable
     def abs_rshift_and_mask(self, bigshiftcount, mask):
         assert isinstance(bigshiftcount, r_ulonglong)
@@ -1642,7 +1642,7 @@ def _x_int_sub(a, b):
 
         if adigit == bdigit:
             return NULLRBIGINT
-    
+
         return rbigint.fromint(adigit - bdigit)
 
     z = rbigint([NULLDIGIT] * size_a, 1, size_a)
@@ -1744,7 +1744,7 @@ def _x_mul(a, b, digit=0):
         carry >>= SHIFT
         j = UDIGIT_TYPE(0)
         while j < size_b1:
-            # this operation does not overflow using 
+            # this operation does not overflow using
             # SHIFT = (LONG_BIT // 2) - 1 = B - 1; in fact before it
             # carry and z.widedigit(pz) are less than 2**(B - 1);
             # b.widedigit(j + 1) * f0 < (2**(B-1) - 1)**2; so
@@ -1987,7 +1987,7 @@ def _muladd1(a, n, extra=0):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
     assert n > 0
-    
+
     size_a = a.numdigits()
     z = rbigint([NULLDIGIT] * (size_a+1), 1)
     assert extra & MASK == extra
@@ -2071,7 +2071,7 @@ def _x_divrem(v1, w1):
 
     wm1 = w.widedigit(abs(size_w-1))
     wm2 = w.widedigit(abs(size_w-2))
-    
+
     j = size_v - 1
     k -= 1
     while k >= 0:
