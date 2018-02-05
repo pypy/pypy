@@ -831,10 +831,12 @@ class rbigint(object):
 
     @jit.elidable
     def mod(self, other):
+        if other.sign == 0:
+            raise ZeroDivisionError("long division or modulo by zero")
         if self.sign == 0:
             return NULLRBIGINT
 
-        if other.sign != 0 and other.numdigits() == 1:
+        if other.numdigits() == 1:
             otherint = other.digit(0) * other.sign
             assert int_in_valid_range(otherint)
             return self.int_mod(otherint)
@@ -846,6 +848,8 @@ class rbigint(object):
 
     @jit.elidable
     def int_mod(self, other):
+        if other == 0:
+            raise ZeroDivisionError("long division or modulo by zero")
         if self.sign == 0:
             return NULLRBIGINT
 
@@ -853,7 +857,7 @@ class rbigint(object):
             # Fallback to long.
             return self.mod(rbigint.fromint(other))
 
-        elif other != 0:
+        if 1: # preserve indentation to preserve history
             digit = abs(other)
             if digit == 1:
                 return NULLRBIGINT
@@ -880,8 +884,6 @@ class rbigint(object):
                 if rem == 0:
                     return NULLRBIGINT
                 mod = rbigint([rem], -1 if self.sign < 0 else 1, 1)
-        else:
-            raise ZeroDivisionError("long division or modulo by zero")
 
         if mod.sign * (-1 if other < 0 else 1) == -1:
             mod = mod.int_add(other)

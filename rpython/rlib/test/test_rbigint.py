@@ -165,11 +165,12 @@ class TestRLong(object):
 
     def test_mod(self):
         for op1 in gen_signs(long_vals):
+            rl_op1 = rbigint.fromlong(op1)
             for op2 in gen_signs(long_vals):
-                if not op2:
-                    continue
-                rl_op1 = rbigint.fromlong(op1)
                 rl_op2 = rbigint.fromlong(op2)
+                if not op2:
+                    py.test.raises(ZeroDivisionError, rl_op1.mod, rl_op2)
+                    continue
                 r1 = rl_op1.mod(rl_op2)
                 r2 = op1 % op2
 
@@ -177,10 +178,11 @@ class TestRLong(object):
 
     def test_int_mod(self):
         for x in gen_signs(long_vals):
+            op1 = rbigint.fromlong(x)
             for y in signed_int_vals:
                 if not y:
+                    py.test.raises(ZeroDivisionError, op1.int_mod, 0)
                     continue
-                op1 = rbigint.fromlong(x)
                 r1 = op1.int_mod(y)
                 r2 = x % y
                 assert r1.tolong() == r2
