@@ -107,14 +107,6 @@ def strategy(space, w_obj):
         raise oefmt(space.w_TypeError, "expecting dict or list or set object")
     return space.newtext(name)
 
-
-@unwrap_spec(fd='c_int')
-def validate_fd(space, fd):
-    try:
-        rposix.validate_fd(fd)
-    except OSError as e:
-        raise wrap_oserror(space, e)
-
 def get_console_cp(space):
     from rpython.rlib import rwin32    # Windows only
     return space.newtuple([

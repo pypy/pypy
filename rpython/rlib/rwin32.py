@@ -218,9 +218,9 @@ if WIN32:
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
 
     def get_osfhandle(fd):
-        from rpython.rlib.rposix import validate_fd
-        validate_fd(fd)
-        handle = _get_osfhandle(fd)
+        from rpython.rlib.rposix import FdValidator
+        with FdValidator(fd):
+            handle = _get_osfhandle(fd)
         if handle == INVALID_HANDLE_VALUE:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle

@@ -427,10 +427,14 @@ class MsvcPlatform(Platform):
         if len(headers_to_precompile)>0 and self.version >= 80:
             # at least from VS2013 onwards we need to include PCH
             # objects in the final link command
-            linkobjs = 'stdafx.obj @<<\n$(OBJECTS)\n<<'
+            linkobjs = 'stdafx.obj '
         else:
-            linkobjs = '@<<\n$(OBJECTS)\n<<'
-
+            linkobjs = ''
+        if len(' '.join(rel_ofiles)) > 2048:
+            # command line is limited in length, use a response file
+            linkobjs += '@<<\n$(OBJECTS)\n<<'
+        else:
+            linkobjs += '$(OBJECTS)'
         extra_deps = []
         if icon and not shared:
             extra_deps.append('icon.res')

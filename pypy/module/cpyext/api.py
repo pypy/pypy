@@ -30,7 +30,7 @@ from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
-from rpython.rlib.rposix import is_valid_fd, validate_fd
+from rpython.rlib.rposix import is_valid_fd, FdValidator
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module import exceptions
@@ -96,25 +96,31 @@ else:
     dash = ''
 
 def fclose(fp):
-    if not is_valid_fd(c_fileno(fp)):
+    try:
+        with FdValidator(c_fileno(fp)):
+            return c_fclose(fp)
+    except IOError:
         return -1
-    return c_fclose(fp)
 
 def fwrite(buf, sz, n, fp):
-    validate_fd(c_fileno(fp))
-    return c_fwrite(buf, sz, n, fp)
+    with FdValidator(c_fileno(fp)):
+        return c_fwrite(buf, sz, n, fp)
 
 def fread(buf, sz, n, fp):
-    validate_fd(c_fileno(fp))
-    return c_fread(buf, sz, n, fp)
+    with FdValidator(c_fileno(fp)):
+        return c_fread(buf, sz, n, fp)
 
 _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
-    validate_fd(c_fileno(fp))
-    return _feof(fp)
+    with FdValidator(c_fileno(fp)):
+        return _feof(fp)
 
 def is_valid_fp(fp):
-    return is_valid_fd(c_fileno(fp))
+    try:
+        with FdValidator(c_fileno(fp)):
+            return 1
+    except IOError:
+        return 0
 
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
