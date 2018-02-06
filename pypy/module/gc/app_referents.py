@@ -55,7 +55,9 @@ class GcStats(object):
         for item in ('total_gc_memory', 'jit_backend_used',
                      'total_memory_pressure',
                      'total_allocated_memory', 'jit_backend_allocated',
-                     'peak_memory', 'peak_allocated_memory'):
+                     'peak_memory', 'peak_allocated_memory', 'total_arena_memory',
+                     'total_rawmalloced_memory', 'nursery_size',
+                     'peak_arena_memory', 'peak_rawmalloced_memory'):
             setattr(self, item, self._format(getattr(self._s, item)))
         self.memory_used_sum = self._format(self._s.total_gc_memory + self._s.total_memory_pressure +
                                             self._s.jit_backend_used)
@@ -68,50 +70,42 @@ class GcStats(object):
             return "%.1fkB" % (v / 1024.)
         return "%.1fMB" % (v / 1024. / 1024.)
 
-    def repr(self):
+    def __repr__(self):
         if self._s.total_memory_pressure != -1:
-            return """Total memory consumed:
-    GC used:            %s (peak: %s)
-    raw assembler used: %s
-    memory pressure:    %s
-    -----------------------------
-    Total:              %s
-
-    Total memory allocated:
-    GC allocated:            %s (peak: %s)
-    raw assembler allocated: %s
-    memory pressure:         %s
-    -----------------------------
-    Total:                   %s
-    """ % (self.total_gc_memory, self.peak_memory,
-           self.jit_backend_used,
-           self.total_memory_pressure,
-           self.memory_used_sum,
-
-           self.total_allocated_memory, self.peak_allocated_memory,
-           self.jit_backend_allocated,
-           self.total_memory_pressure,
-           self.memory_allocated_sum)
+            extra = "\nmemory pressure:    %s" % self.total_memory_pressure
         else:
-            return """Total memory consumed:
+            extra = ""
+        return """Total memory consumed:
     GC used:            %s (peak: %s)
-    raw assembler used: %s
+       in arenas:            %s
+       rawmalloced:          %s
+       nursery:              %s
+    raw assembler used: %s%s
     -----------------------------
     Total:              %s
 
     Total memory allocated:
     GC allocated:            %s (peak: %s)
-    raw assembler allocated: %s
-    memory pressure:         %s
+       in arenas:            %s
+       rawmalloced:          %s
+       nursery:              %s
+    raw assembler allocated: %s%s
     -----------------------------
     Total:                   %s
     """ % (self.total_gc_memory, self.peak_memory,
+              self.total_arena_memory,
+              self.total_rawmalloced_memory,
+              self.nursery_size,
            self.jit_backend_used,
+           extra,
            self.memory_used_sum,
 
            self.total_allocated_memory, self.peak_allocated_memory,
+              self.peak_arena_memory,
+              self.peak_rawmalloced_memory,
+              self.nursery_size,
            self.jit_backend_allocated,
-           self.total_memory_pressure,
+           extra,
            self.memory_allocated_sum)
 
 

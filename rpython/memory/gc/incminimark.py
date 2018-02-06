@@ -2969,6 +2969,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return intmask(self.get_total_memory_alloced() + self.nursery_size)
         elif stats_no == rgc.TOTAL_MEMORY_PRESSURE:
             return inspector.count_memory_pressure(self)
+        elif stats_no == rgc.TOTAL_ARENA_MEMORY:
+            return intmask(self.ac.total_memory_used)
+        elif stats_no == rgc.TOTAL_RAWMALLOCED_MEMORY:
+            return intmask(self.rawmalloced_total_size)
+        elif stats_no == rgc.PEAK_RAWMALLOCED_MEMORY:
+            return intmask(self.rawmalloced_peak_size)
+        elif stats_no == rgc.PEAK_ARENA_MEMORY:
+            return intmask(max(self.ac.peak_memory_used,
+                               self.ac.total_memory_used))
+        elif stats_no == rgc.NURSERY_SIZE:
+            return intmask(self.nursery_size)
         return 0
 
 
