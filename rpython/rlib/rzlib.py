@@ -269,6 +269,7 @@ def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
     compress data.
     """
     stream = lltype.malloc(z_stream, flavor='raw', zero=True)
+    rgc.add_memory_pressure(rffi.sizeof(stream))
     err = _deflateInit2(stream, level, method, wbits, memLevel, strategy)
     if err == Z_OK:
         if zdict is not None:
@@ -303,6 +304,7 @@ def inflateInit(wbits=MAX_WBITS, zdict=None):
     decompress data.
     """
     stream = lltype.malloc(z_stream, flavor='raw', zero=True)
+    rgc.add_memory_pressure(rffi.sizeof(z_stream))
     err = _inflateInit2(stream, wbits)
     if err == Z_OK:
         if zdict is not None and wbits < 0:

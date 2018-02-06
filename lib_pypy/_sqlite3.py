@@ -35,7 +35,7 @@ try:
 except ImportError:
     assert '__pypy__' not in sys.builtin_module_names
     newlist_hint = lambda sizehint: []
-    add_memory_pressure = lambda size, obj: None
+    add_memory_pressure = lambda size: None
 
 if sys.version_info[0] >= 3:
     StandardError = Exception
@@ -155,7 +155,7 @@ def connect(database, timeout=5.0, detect_types=0, isolation_level="",
     # backed by :memory: or a file)
     res = factory(database, timeout, detect_types, isolation_level,
                     check_same_thread, factory, cached_statements)
-    add_memory_pressure(100 * 1024, res)
+    add_memory_pressure(100 * 1024)
     return res
 
 

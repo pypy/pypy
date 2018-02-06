@@ -142,14 +142,11 @@ def set_debug(space, debug):
                   space.newbool(debug))
 
 @unwrap_spec(estimate=int)
-def add_memory_pressure(space, estimate, w_obj=None):
+def add_memory_pressure(space, estimate):
     """ Add memory pressure of estimate bytes. Useful when calling a C function
     that internally allocates a big chunk of memory. This instructs the GC to
     garbage collect sooner than it would otherwise."""
-    #if space.is_none(w_obj):
     rgc.add_memory_pressure(estimate)
-    #else:
-    #    rgc.add_memory_pressure(estimate, w_obj)
 
 @unwrap_spec(w_frame=PyFrame)
 def locals_to_fast(space, w_frame):
