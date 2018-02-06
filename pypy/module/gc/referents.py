@@ -172,8 +172,11 @@ def get_typeids_list(space):
     return space.newlist(list_w)
 
 class W_GcStats(W_Root):
-    def __init__(self):
-        self.total_memory_pressure = rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
+    def __init__(self, memory_pressure):
+        if memory_pressure:
+            self.total_memory_pressure = rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
+        else:
+            self.total_memory_pressure = -1
         self.total_gc_memory = rgc.get_stats(rgc.TOTAL_MEMORY)
         self.total_allocated_memory = rgc.get_stats(rgc.TOTAL_ALLOCATED_MEMORY)
         self.peak_memory = rgc.get_stats(rgc.PEAK_MEMORY)
@@ -198,5 +201,6 @@ W_GcStats.typedef = TypeDef("GcStats",
         cls=W_GcStats, wrapfn="newint"),
 )
 
-def get_stats(space):
-    return W_GcStats()
+@unwrap_spec(memory_pressure=bool)
+def get_stats(space, memory_pressure=False):
+    return W_GcStats(memory_pressure)

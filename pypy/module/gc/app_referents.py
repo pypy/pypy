@@ -69,28 +69,51 @@ class GcStats(object):
         return "%.1fMB" % (v / 1024. / 1024.)
 
     def repr(self):
-        return """Total memory consumed:
-GC used:            %s (peak: %s)
-raw assembler used: %s
-memory pressure:    %s
------------------------------
-Total:              %s
+        if self._s.total_memory_pressure != -1:
+            return """Total memory consumed:
+    GC used:            %s (peak: %s)
+    raw assembler used: %s
+    memory pressure:    %s
+    -----------------------------
+    Total:              %s
 
-Total memory allocated:
-GC allocated:            %s (peak: %s)
-raw assembler allocated: %s
-memory pressure:         %s
------------------------------
-Total:                   %s
-""" % (self.total_gc_memory, self.peak_memory,
-       self.jit_backend_used,
-       self.total_memory_pressure,
-       self.memory_used_sum,
+    Total memory allocated:
+    GC allocated:            %s (peak: %s)
+    raw assembler allocated: %s
+    memory pressure:         %s
+    -----------------------------
+    Total:                   %s
+    """ % (self.total_gc_memory, self.peak_memory,
+           self.jit_backend_used,
+           self.total_memory_pressure,
+           self.memory_used_sum,
 
-       self.total_allocated_memory, self.peak_allocated_memory,
-       self.jit_backend_allocated,
-       self.total_memory_pressure,
-       self.memory_allocated_sum)
+           self.total_allocated_memory, self.peak_allocated_memory,
+           self.jit_backend_allocated,
+           self.total_memory_pressure,
+           self.memory_allocated_sum)
+        else:
+            return """Total memory consumed:
+    GC used:            %s (peak: %s)
+    raw assembler used: %s
+    -----------------------------
+    Total:              %s
+
+    Total memory allocated:
+    GC allocated:            %s (peak: %s)
+    raw assembler allocated: %s
+    memory pressure:         %s
+    -----------------------------
+    Total:                   %s
+    """ % (self.total_gc_memory, self.peak_memory,
+           self.jit_backend_used,
+           self.memory_used_sum,
+
+           self.total_allocated_memory, self.peak_allocated_memory,
+           self.jit_backend_allocated,
+           self.total_memory_pressure,
+           self.memory_allocated_sum)
+
 
 def get_stats():
     return GcStats(gc._get_stats())
