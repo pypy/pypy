@@ -21,13 +21,13 @@ class W_Allocator(W_Root):
         if self.w_alloc is None:
             if self.should_clear_after_alloc:
                 ptr = lltype.malloc(rffi.CCHARP.TO, datasize,
-                                    flavor='raw', zero=True,
-                                    add_memory_pressure=True)
+                                    flavor='raw', zero=True)
             else:
                 ptr = lltype.malloc(rffi.CCHARP.TO, datasize,
-                                    flavor='raw', zero=False,
-                                    add_memory_pressure=True)
-            return cdataobj.W_CDataNewStd(space, ptr, ctype, length)
+                                    flavor='raw', zero=False)
+            w_res = cdataobj.W_CDataNewStd(space, ptr, ctype, length)
+            rgc.add_memory_pressure(datasize, w_res)
+            return w_res
         else:
             w_raw_cdata = space.call_function(self.w_alloc,
                                               space.newint(datasize))
@@ -53,7 +53,7 @@ class W_Allocator(W_Root):
             if self.w_free is not None:
                 res.w_free = self.w_free
                 res.register_finalizer(space)
-            rgc.add_memory_pressure(datasize)
+            rgc.add_memory_pressure(datasize, res)
             return res
 
     @unwrap_spec(w_init=WrappedDefault(None))

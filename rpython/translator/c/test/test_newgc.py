@@ -1613,7 +1613,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
                 digest = ropenssl.EVP_get_digestbyname('sha1')
                 self.ctx = ropenssl.EVP_MD_CTX_new()
                 ropenssl.EVP_DigestInit(self.ctx, digest)
-                rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64)
+                rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64, self)
 
             def __del__(self):
                 ropenssl.EVP_MD_CTX_free(self.ctx)
@@ -1624,12 +1624,16 @@ class TestMiniMarkGC(TestSemiSpaceGC):
                 am3 = am2
                 am2 = am1
                 am1 = A()
+            am1 = am2 = am3 = None
             # what can we use for the res?
-            return 0
+            for i in range(10):
+                gc.collect()
+            return rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
         return f
 
     def test_nongc_opaque_attached_to_gc(self):
         res = self.run("nongc_opaque_attached_to_gc")
+        # the res is 0 for non-memory-pressure-accounting GC
         assert res == 0
 
     def define_limited_memory(self):
@@ -1667,6 +1671,38 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
+
+    def define_total_memory_pressure(cls):
+        class A(object):
+            def __init__(self):
+                rgc.add_memory_pressure(10, self)
+
+            def __del__(self):
+                pass
+
+        class B(A):
+            def __init__(self):
+                rgc.add_memory_pressure(10, self)
+
+        class C(A):
+            pass
+
+        class Glob(object):
+            pass
+        glob = Glob()
+
+        def f():
+            glob.l = [None] * 3
+            for i in range(10000):
+                glob.l[i % 3] = A()
+                glob.l[(i + 1) % 3] = B()
+                glob.l[(i + 2) % 3] = C()
+            return rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
+        return f
+
+    def test_total_memory_pressure(self):
+        res = self.run("total_memory_pressure")
+        assert res == 30 # total reachable is 3
 
     def define_random_pin(self):
         class A:
