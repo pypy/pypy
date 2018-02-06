@@ -192,15 +192,22 @@ if _WIN:
                              "RPY_EXTERN "
                              "void pypy__tzset();"],
         separate_module_sources = ["""
-        long pypy_get_timezone() { long timezone; _get_timezone(&timezone); return timezone;};
-        int pypy_get_daylight() { int daylight; _get_daylight(&daylight); return daylight;};
-        int pypy_get_tzname(size_t len, int index, char * tzname) {
-             size_t s;
-             return 0;
-             errno_t ret = _get_tzname(&s, tzname, len, index);
-             return (int)s;
-        };
-        void pypy__tzset() { _tzset(); }
+            long pypy_get_timezone() {
+                long timezone; 
+                _get_timezone(&timezone); 
+                return timezone;
+            };
+            int pypy_get_daylight() {
+                int daylight;
+                _get_daylight(&daylight);
+                return daylight;
+            };
+            int pypy_get_tzname(size_t len, int index, char * tzname) {
+                size_t s;
+                errno_t ret = _get_tzname(&s, tzname, len, index);
+                return (int)s;
+            };
+            void pypy__tzset() { _tzset(); }
         """])
     # Ensure sure that we use _tzset() and timezone from the same C Runtime.
     c_tzset = external('pypy__tzset', [], lltype.Void, win_eci)

@@ -44,7 +44,7 @@ if os.name == 'nt':
         includes=['errno.h','stdio.h', 'stdint.h']
     separate_module_sources =['''
         /* Lifted completely from CPython 3 Modules/posixmodule.c */
-        #if defined _MSC_VER && MSC_VER >= 1400 && _MSC_VER < 1900
+        #if defined _MSC_VER && _MSC_VER >= 1400 && _MSC_VER < 1900
         #include <malloc.h> /* for _msize */
         typedef struct {
             intptr_t osfhnd;
@@ -96,8 +96,8 @@ if os.name == 'nt':
             errno = EBADF;
             return 0;
         }
-        RPY_EXTERN void* enter_suppress_iph(void) {return (void*)NULL};
-        RPY_EXTERN void exit_suppress_iph(void*) {};
+        RPY_EXTERN void* enter_suppress_iph(void) {return (void*)NULL;};
+        RPY_EXTERN void exit_suppress_iph(void* handle) {};
         #elif defined _MSC_VER
         RPY_EXTERN int _PyVerify_fd(int fd)
         {
@@ -133,8 +133,8 @@ if os.name == 'nt':
         {
             return 1;
         }
-        void* enter_suppress_iph(void) {return (void*) NULL};
-        void exit_suppress_iph(void*) {};
+        RPY_EXTERN void* enter_suppress_iph(void) {return (void*)NULL;};
+        RPY_EXTERN void exit_suppress_iph(void* handle) {};
         #endif
     ''',]
     post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);']
@@ -1148,7 +1148,6 @@ c_isatty = external(UNDERSCORE_ON_WIN32 + 'isatty', [rffi.INT], rffi.INT)
 
 @replace_os_function('isatty')
 def isatty(fd):
-    print 'isatty'
     with FdValidator(fd):
         return c_isatty(fd) != 0
     return False
