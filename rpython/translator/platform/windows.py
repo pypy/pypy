@@ -9,22 +9,36 @@ from rpython.translator.platform import Platform, posix
 import rpython
 rpydir = str(py.path.local(rpython.__file__).join('..'))
 
-def _get_compiler_type(cc, x64_flag):
+def _get_compiler_type(cc, x64_flag, ver0=None):
     if not cc:
         cc = os.environ.get('CC','')
     if not cc:
-        return MsvcPlatform(x64=x64_flag)
+        return MsvcPlatform(x64=x64_flag, ver0=ver0)
     elif cc.startswith('mingw') or cc == 'gcc':
         return MingwPlatform(cc)
-    return MsvcPlatform(cc=cc, x64=x64_flag)
+    return MsvcPlatform(cc=cc, x64=x64_flag, ver0=ver0)
 
-def Windows(cc=None):
-    return _get_compiler_type(cc, False)
+def _get_vcver0():
+    # try to get the compiler which served to compile python
+    msc_pos = sys.version.find('MSC v.')
+    if msc_pos != -1:
+        msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
+        # 1500 -> 90, 1900 -> 140
+        vsver = (msc_ver / 10) - 60
+        return vsver
+    return None
 
-def Windows_x64(cc=None):
+def Windows(cc=None, ver0=None):
+    if ver0 is None:
+        ver0 = _get_vcver0()
+    return _get_compiler_type(cc, False, ver0=ver0)
+
+def Windows_x64(cc=None, ver0=None):
     raise Exception("Win64 is not supported.  You must either build for Win32"
                     " or contribute the missing support in PyPy.")
-    return _get_compiler_type(cc, True)
+    if ver0 is None:
+        ver0 = _get_vcver0()
+    return _get_compiler_type(cc, True, ver0=ver0)
 
 def _find_vcvarsall(version, x64flag):
     import rpython.tool.setuptools_msvc as msvc
@@ -88,15 +102,10 @@ def _get_msvc_env(vsver, x64flag):
     log.msg("Updated environment with vsver %d, using x64 %s" % (vsver, x64flag,))
     return env
 
-def find_msvc_env(x64flag=False):
+def find_msvc_env(x64flag=False, ver0=None):
     vcvers = [140, 90, 100]
-    # First, try to get the compiler which served to compile python
-    msc_pos = sys.version.find('MSC v.')
-    if msc_pos != -1:
-        msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
-        # 1500 -> 90, 1900 -> 140
-        vsver = (msc_ver / 10) - 60
-        #vcvers.insert(0, vsver)
+    if ver0 in vcvers:
+        vcvers.insert(0, ver0)
     errs = []
     for vsver in vcvers: 
         env = _get_msvc_env(vsver, x64flag)
@@ -148,10 +157,10 @@ class MsvcPlatform(Platform):
     shared_only = ()
     environ = None
 
-    def __init__(self, cc=None, x64=False):
+    def __init__(self, cc=None, x64=False, ver0=None):
         self.x64 = x64
         if cc is None:
-            msvc_compiler_environ, self.vsver = find_msvc_env(x64)
+            msvc_compiler_environ, self.vsver = find_msvc_env(x64, ver0=ver0)
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
                 if x64:
