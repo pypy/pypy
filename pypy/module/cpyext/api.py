@@ -30,7 +30,7 @@ from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
-from rpython.rlib.rposix import is_valid_fd, FdValidator
+from rpython.rlib.rposix import FdValidator
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module import exceptions
