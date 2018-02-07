@@ -1415,9 +1415,14 @@ class datetime(date):
             self.__setstate(year, month)
             self._hashcode = -1
             return self
-        year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond = _check_time_fields(
-            hour, minute, second, microsecond)
+        elif isinstance(year, tuple) and len(year) == 7:
+            # Used by internal functions where the arguments are guaranteed to
+            # be valid.
+            year, month, day, hour, minute, second, microsecond = year
+        else:
+            year, month, day = _check_date_fields(year, month, day)
+            hour, minute, second, microsecond = _check_time_fields(
+                hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         self = dateinterop.__new__(cls)
         self._year = year
@@ -1491,7 +1496,7 @@ class datetime(date):
             us = 0
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(timestamp)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
-        return cls(y, m, d, hh, mm, ss, us, tzinfo)
+        return cls((y, m, d, hh, mm, ss, us), tzinfo=tzinfo)
 
     @classmethod
     def now(cls, tz=None):
@@ -1800,7 +1805,7 @@ class datetime(date):
         return diff and 1 or 0
 
     def _add_timedelta(self, other, factor):
-        y, m, d, hh, mm, ss, us = _normalize_datetime(
+        result = _normalize_datetime(
             self._year,
             self._month,
             self._day + other.days * factor,
@@ -1808,7 +1813,7 @@ class datetime(date):
             self._minute,
             self._second + other.seconds * factor,
             self._microsecond + other.microseconds * factor)
-        return datetime(y, m, d, hh, mm, ss, us, tzinfo=self._tzinfo)
+        return datetime(result, tzinfo=self._tzinfo)
 
     def __add__(self, other):
         "Add a datetime and a timedelta."

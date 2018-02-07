@@ -392,22 +392,29 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 inline = True)
 
         if getattr(GCClass, 'raw_malloc_memory_pressure', False):
-            def raw_malloc_memory_pressure_varsize(length, itemsize):
+            def raw_malloc_memory_pressure_varsize(length, itemsize, adr):
                 totalmem = length * itemsize
                 if totalmem > 0:
-                    gcdata.gc.raw_malloc_memory_pressure(totalmem)
+                    gcdata.gc.raw_malloc_memory_pressure(totalmem, adr)
                 #else: probably an overflow -- the following rawmalloc
                 #      will fail then
-            def raw_malloc_memory_pressure(sizehint):
-                gcdata.gc.raw_malloc_memory_pressure(sizehint)
+            def raw_malloc_memory_pressure(sizehint, adr):
+                gcdata.gc.raw_malloc_memory_pressure(sizehint, adr)
             self.raw_malloc_memory_pressure_varsize_ptr = getfn(
                 raw_malloc_memory_pressure_varsize,
-                [annmodel.SomeInteger(), annmodel.SomeInteger()],
+                [annmodel.SomeInteger(), annmodel.SomeInteger(),
+                 SomeAddress()],
                 annmodel.s_None, minimal_transform = False)
             self.raw_malloc_memory_pressure_ptr = getfn(
                 raw_malloc_memory_pressure,
-                [annmodel.SomeInteger()],
+                [annmodel.SomeInteger(), SomeAddress()],
                 annmodel.s_None, minimal_transform = False)
+
+        if getattr(GCClass, 'get_stats', False):
+            def get_stats(stats_no):
+                return gcdata.gc.get_stats(stats_no)
+            self.get_stats_ptr = getfn(get_stats, [annmodel.SomeInteger()],
+                annmodel.SomeInteger())
 
 
         self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
@@ -830,6 +837,39 @@ class BaseFrameworkGCTransformer(GCTransformer):
         return v_result
 
     gct_fv_gc_malloc_varsize = gct_fv_gc_malloc
+
+    def gct_gc_add_memory_pressure(self, hop):
+        def _find_correct_type(TP):
+            T = TP.TO
+            while 'special_memory_pressure' not in T._flds:
+                T = T._flds['super']
+            return T
+
+        if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
+            op = hop.spaceop
+            size = op.args[0]
+            if len(op.args) == 2:
+                v_fld = rmodel.inputconst(lltype.Void, "special_memory_pressure")
+                T = _find_correct_type(op.args[1].concretetype)
+                v_inst = hop.genop("cast_pointer", [op.args[1]],
+                    resulttype=lltype.Ptr(T))
+                hop.genop("bare_setfield", [v_inst, v_fld, size])
+                v_adr = hop.genop("cast_ptr_to_adr", [op.args[1]],
+                    resulttype=llmemory.Address)
+            else:
+                v_adr = rmodel.inputconst(llmemory.Address, llmemory.NULL)
+            hop.genop("direct_call", [self.raw_malloc_memory_pressure_ptr,
+                               size, v_adr])
+
+
+    def gct_gc_get_stats(self, hop):
+        if hasattr(self, 'get_stats_ptr'):
+            return hop.genop("direct_call",
+                [self.get_stats_ptr, hop.spaceop.args[0]],
+                resultvar=hop.spaceop.result)
+        hop.genop("same_as", [rmodel.inputconst(lltype.Signed, 0)],
+            resultvar=hop.spaceop.result)
+
 
     def gct_gc__collect(self, hop):
         op = hop.spaceop

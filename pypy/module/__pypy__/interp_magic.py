@@ -134,7 +134,7 @@ def set_debug(space, debug):
                   space.newbool(debug))
 
 @unwrap_spec(estimate=int)
-def add_memory_pressure(estimate):
+def add_memory_pressure(space, estimate):
     """ Add memory pressure of estimate bytes. Useful when calling a C function
     that internally allocates a big chunk of memory. This instructs the GC to
     garbage collect sooner than it would otherwise."""

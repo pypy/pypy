@@ -83,7 +83,9 @@ class GCBase(object):
                             has_custom_trace,
                             fast_path_tracing,
                             has_gcptr,
-                            cannot_pin):
+                            cannot_pin,
+                            has_memory_pressure,
+                            get_memory_pressure_ofs):
         self.finalizer_handlers = finalizer_handlers
         self.destructor_or_custom_trace = destructor_or_custom_trace
         self.is_old_style_finalizer = is_old_style_finalizer
@@ -103,6 +105,8 @@ class GCBase(object):
         self.fast_path_tracing = fast_path_tracing
         self.has_gcptr = has_gcptr
         self.cannot_pin = cannot_pin
+        self.has_memory_pressure = has_memory_pressure
+        self.get_memory_pressure_ofs = get_memory_pressure_ofs
 
     def get_member_index(self, type_id):
         return self.member_index(type_id)

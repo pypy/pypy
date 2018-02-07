@@ -141,6 +141,9 @@ class ArenaCollection(object):
         # the total memory used, counting every block in use, without
         # the additional bookkeeping stuff.
         self.total_memory_used = r_uint(0)
+        self.peak_memory_used = r_uint(0)
+        self.total_memory_alloced = r_uint(0)
+        self.peak_memory_alloced = r_uint(0)
 
 
     def _new_page_ptr_list(self, length):
@@ -293,7 +296,11 @@ class ArenaCollection(object):
         #
         # 'arena_base' points to the start of malloced memory; it might not
         # be a page-aligned address
-        arena_base = llarena.arena_malloc(self.arena_size, False)
+        arena_base = llarena.arena_mmap(self.arena_size)
+        self.total_memory_alloced += self.arena_size
+        self.peak_memory_alloced = max(self.total_memory_alloced,
+                                       self.peak_memory_alloced)
+
         if not arena_base:
             out_of_memory("out of memory: couldn't allocate the next arena")
         arena_end = arena_base + self.arena_size
@@ -321,6 +328,8 @@ class ArenaCollection(object):
         """Prepare calls to mass_free_incremental(): moves the chained lists
         into 'self.old_xxx'.
         """
+        self.peak_memory_used = max(self.peak_memory_used,
+                                    self.total_memory_used)
         self.total_memory_used = r_uint(0)
         #
         size_class = self.small_request_threshold >> WORD_POWER_2
@@ -397,8 +406,8 @@ class ArenaCollection(object):
                 if arena.nfreepages == arena.totalpages:
                     #
                     # The whole arena is empty.  Free it.
-                    llarena.arena_reset(arena.base, self.arena_size, 4)
-                    llarena.arena_free(arena.base)
+                    llarena.arena_munmap(arena.base, self.arena_size)
+                    self.total_memory_alloced -= self.arena_size
                     lltype.free(arena, flavor='raw', track_allocation=False)
                     self.arenas_count -= 1
                     #

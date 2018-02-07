@@ -485,6 +485,7 @@ LL_OPERATIONS = {
     'gc_gettypeid'        : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
+    'gc_get_stats'        : LLOp(),
     'gc_fq_next_dead'     : LLOp(),
     'gc_fq_register'      : LLOp(),
     'gc_ignore_finalizer' : LLOp(canrun=True),
