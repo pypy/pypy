@@ -2,7 +2,7 @@ import array
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rtyper.lltypesystem.lloperation import llop
-
+import os, sys
 
 # An "arena" is a large area of memory which can hold a number of
 # objects, not necessarily all of the same type or size.  It's used by
@@ -327,15 +327,16 @@ def arena_free(arena_addr):
     assert not arena_addr.arena.objectptrs
     arena_addr.arena.mark_freed()
 
-def arena_mmap(nbytes):
-    """Allocate and return a new arena, zero-initialized by the
-    system, calling mmap()."""
-    return arena_malloc(nbytes, True)
+if os.name == 'posix':
+    def arena_mmap(nbytes):
+        """Allocate and return a new arena, zero-initialized by the
+        system, calling mmap()."""
+        return arena_malloc(nbytes, True)
 
-def arena_munmap(arena_addr, nbytes):
-    """Release an arena allocated with arena_mmap()."""
-    arena_free(arena_addr)
-    assert nbytes == arena_addr.arena.nbytes
+    def arena_munmap(arena_addr, nbytes):
+        """Release an arena allocated with arena_mmap()."""
+        arena_free(arena_addr)
+        assert nbytes == arena_addr.arena.nbytes
 
 
 def arena_reset(arena_addr, size, zero):
@@ -404,7 +405,6 @@ def arena_protect(arena_addr, size, inaccessible):
 # We can tweak these implementations to be more suited to very large
 # chunks of memory.
 
-import os, sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.tool.rffi_platform import memory_alignment
@@ -541,30 +541,31 @@ register_external(arena_free, [llmemory.Address], None, 'll_arena.arena_free',
                   llfakeimpl=arena_free,
                   sandboxsafe=True)
 
-def llimpl_arena_mmap(nbytes):
-    from rpython.rlib import rmmap
-    flags = rmmap.MAP_PRIVATE | rmmap.MAP_ANONYMOUS
-    prot = rmmap.PROT_READ | rmmap.PROT_WRITE
-    p = rffi.cast(llmemory.Address, rmmap.c_mmap_safe(
-        lltype.nullptr(rmmap.PTR.TO), nbytes, prot, flags, -1, 0))
-    if p == rffi.cast(llmemory.Address, -1):
-        p = rffi.cast(llmemory.Address, 0)
-    return p
-register_external(arena_mmap, [int], llmemory.Address,
-                  'll_arena.arena_mmap',
-                  llimpl=llimpl_arena_mmap,
-                  llfakeimpl=arena_mmap,
-                  sandboxsafe=True)
+if os.name == 'posix':
+    def llimpl_arena_mmap(nbytes):
+        from rpython.rlib import rmmap
+        flags = rmmap.MAP_PRIVATE | rmmap.MAP_ANONYMOUS
+        prot = rmmap.PROT_READ | rmmap.PROT_WRITE
+        p = rffi.cast(llmemory.Address, rmmap.c_mmap_safe(
+            lltype.nullptr(rmmap.PTR.TO), nbytes, prot, flags, -1, 0))
+        if p == rffi.cast(llmemory.Address, -1):
+            p = rffi.cast(llmemory.Address, 0)
+        return p
+    register_external(arena_mmap, [int], llmemory.Address,
+                      'll_arena.arena_mmap',
+                      llimpl=llimpl_arena_mmap,
+                      llfakeimpl=arena_mmap,
+                      sandboxsafe=True)
 
-def llimpl_arena_munmap(arena_addr, nbytes):
-    from rpython.rlib import rmmap
-    assert nbytes >= 0
-    rmmap.c_munmap_safe(rffi.cast(rmmap.PTR, arena_addr), nbytes)
-register_external(arena_munmap, [llmemory.Address, int], None,
-                  'll_arena.arena_munmap',
-                  llimpl=llimpl_arena_munmap,
-                  llfakeimpl=arena_munmap,
-                  sandboxsafe=True)
+    def llimpl_arena_munmap(arena_addr, nbytes):
+        from rpython.rlib import rmmap
+        assert nbytes >= 0
+        rmmap.c_munmap_safe(rffi.cast(rmmap.PTR, arena_addr), nbytes)
+    register_external(arena_munmap, [llmemory.Address, int], None,
+                      'll_arena.arena_munmap',
+                      llimpl=llimpl_arena_munmap,
+                      llfakeimpl=arena_munmap,
+                      sandboxsafe=True)
 
 def llimpl_arena_reset(arena_addr, size, zero):
     if zero:
