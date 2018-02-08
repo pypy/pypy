@@ -9,8 +9,6 @@ NULL = llmemory.NULL
 WORD_POWER_2 = {32: 2, 64: 3}[LONG_BIT]
 assert 1 << WORD_POWER_2 == WORD
 
-USE_MMAP = False
-
 # Terminology: the memory is subdivided into "arenas" containing "pages".
 # A page contains a number of allocated objects, called "blocks".
 
@@ -297,10 +295,7 @@ class ArenaCollection(object):
         #
         # 'arena_base' points to the start of malloced memory; it might not
         # be a page-aligned address
-        if USE_MMAP:
-            arena_base = llarena.arena_mmap(self.arena_size)
-        else:
-            arena_base = llarena.arena_malloc(self.arena_size, False)
+        arena_base = llarena.arena_malloc(self.arena_size, False)
         self.total_memory_alloced += self.arena_size
         self.peak_memory_alloced = max(self.total_memory_alloced,
                                        self.peak_memory_alloced)
@@ -410,11 +405,8 @@ class ArenaCollection(object):
                 if arena.nfreepages == arena.totalpages:
                     #
                     # The whole arena is empty.  Free it.
-                    if USE_MMAP:
-                        llarena.arena_munmap(arena.base, self.arena_size)
-                    else:
-                        llarena.arena_reset(arena.base, self.arena_size, 4)
-                        llarena.arena_free(arena.base)
+                    llarena.arena_reset(arena.base, self.arena_size, 4)
+                    llarena.arena_free(arena.base)
                     self.total_memory_alloced -= self.arena_size
                     lltype.free(arena, flavor='raw', track_allocation=False)
                     self.arenas_count -= 1
