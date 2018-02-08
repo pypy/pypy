@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
@@ -96,6 +96,8 @@ class GCData(object):
         return llmemory.cast_adr_to_ptr(adr, lltype.Ptr(FIN_HANDLER_ARRAY))
 
     def q_destructor_or_custom_trace(self, typeid):
+        if not self.get(typeid).customdata:
+            return lltype.nullptr(rffi.VOIDP.TO)
         return self.get(typeid).customdata.customfunc
 
     def q_is_old_style_finalizer(self, typeid):
