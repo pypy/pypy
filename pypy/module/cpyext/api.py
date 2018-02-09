@@ -115,13 +115,6 @@ def feof(fp):
     with FdValidator(c_fileno(fp)):
         return _feof(fp)
 
-def is_valid_fp(fp):
-    try:
-        with FdValidator(c_fileno(fp)):
-            return 1
-    except IOError:
-        return 0
-
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
 udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")

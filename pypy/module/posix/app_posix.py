@@ -99,9 +99,7 @@ else:
         """fdopen(fd [, mode='r' [, buffering]]) -> file_object
 
         Return an open file object connected to a file descriptor."""
-        from rpython.rlib.rposix import FdValidator
-        with FdValidator(fd):
-            return _fdopen(fd, mode, buffering)
+        return _fdopen(fd, mode, buffering)
 
 def tmpfile():
     """Create a temporary file.
