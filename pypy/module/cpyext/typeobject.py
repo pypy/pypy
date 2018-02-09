@@ -341,8 +341,12 @@ def add_operators(space, dict_w, pto, name):
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
             if slot_names[0] == 'c_tp_hash':
-                if hash_not_impl == func:
-                    # special case for tp_hash == PyObject_HashNotImplemented
+                # two special cases where __hash__ is explicitly set to None
+                # (which leads to an unhashable type):
+                # 1) tp_hash == PyObject_HashNotImplemented
+                # 2) tp_hash == NULL and tp_richcompare not NULL
+                if hash_not_impl == func or (
+                        not func and pto.c_tp_richcompare):
                     dict_w[method_name] = space.w_None
                     continue
         else:

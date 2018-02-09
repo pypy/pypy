@@ -10,6 +10,8 @@ from pypy.module.cpyext.api import (
     PyVarObject, Py_ssize_t, init_function, cts)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -20,6 +22,52 @@ from rpython.rlib.debug import ll_assert, fatalerror
 
 #________________________________________________________
 # type description
+
+class W_BaseCPyObject(W_ObjectObject):
+    """ A subclass of W_ObjectObject that has one field for directly storing
+    the link from the w_obj to the cpy ref. This is only used for C-defined
+    types. """
+
+
+def check_true(s_arg, bookeeper):
+    assert s_arg.const is True
+
+def w_root_as_pyobj(w_obj, space):
+    from rpython.rlib.debug import check_annotation
+    # make sure that translation crashes if we see this while not translating
+    # with cpyext
+    check_annotation(space.config.objspace.usemodules.cpyext, check_true)
+    # default implementation of _cpyext_as_pyobj
+    return rawrefcount.from_obj(PyObject, w_obj)
+
+def w_root_attach_pyobj(w_obj, space, py_obj):
+    from rpython.rlib.debug import check_annotation
+    check_annotation(space.config.objspace.usemodules.cpyext, check_true)
+    assert space.config.objspace.usemodules.cpyext
+    # default implementation of _cpyext_attach_pyobj
+    rawrefcount.create_link_pypy(w_obj, py_obj)
+
+
+def add_direct_pyobj_storage(cls):
+    """ Add the necessary methods to a class to store a reference to the py_obj
+    on its instances directly. """
+
+    cls._cpy_ref = lltype.nullptr(PyObject.TO)
+
+    def _cpyext_as_pyobj(self, space):
+        return self._cpy_ref
+    cls._cpyext_as_pyobj = _cpyext_as_pyobj
+
+    def _cpyext_attach_pyobj(self, space, py_obj):
+        self._cpy_ref = py_obj
+        rawrefcount.create_link_pyobj(self, py_obj)
+    cls._cpyext_attach_pyobj = _cpyext_attach_pyobj
+
+add_direct_pyobj_storage(W_BaseCPyObject)
+add_direct_pyobj_storage(W_TypeObject)
+add_direct_pyobj_storage(W_NoneObject)
+add_direct_pyobj_storage(W_BoolObject)
+
 
 class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
@@ -66,8 +114,12 @@ class BaseCpyTypedescr(object):
 
     def realize(self, space, obj):
         w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+        assert isinstance(w_type, W_TypeObject)
         try:
-            w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+            if w_type.flag_cpytype:
+                w_obj = space.allocate_instance(W_BaseCPyObject, w_type)
+            else:
+                w_obj = space.allocate_instance(self.W_BaseObject, w_type)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_SystemError,
@@ -76,6 +128,9 @@ class BaseCpyTypedescr(object):
                             w_type)
             raise
         track_reference(space, obj, w_obj)
+        if w_type.flag_cpytype:
+            assert isinstance(w_obj, W_BaseCPyObject)
+            w_obj._cpy_ref = obj
         return w_obj
 
 typedescr_cache = {}
@@ -186,12 +241,12 @@ def track_reference(space, py_obj, w_obj):
     Ties together a PyObject and an interpreter object.
     The PyObject's refcnt is increased by REFCNT_FROM_PYPY.
     The reference in 'py_obj' is not stolen!  Remember to decref()
-    it is you need to.
+    it if you need to.
     """
     # XXX looks like a PyObject_GC_TRACK
     assert py_obj.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY
     py_obj.c_ob_refcnt += rawrefcount.REFCNT_FROM_PYPY
-    rawrefcount.create_link_pypy(w_obj, py_obj)
+    w_obj._cpyext_attach_pyobj(space, py_obj)
 
 
 w_marker_deallocating = W_Root()
@@ -237,7 +292,7 @@ def from_ref(space, ref):
 @jit.dont_look_inside
 def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
     """
-    Returns a 'PyObject *' representing the given intepreter object.
+    Returns a 'PyObject *' representing the given interpreter object.
     This doesn't give a new reference, but the returned 'PyObject *'
     is valid at least as long as 'w_obj' is.  **To be safe, you should
     use keepalive_until_here(w_obj) some time later.**  In case of
@@ -245,7 +300,7 @@ def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
     """
     assert not is_pyobj(w_obj)
     if w_obj is not None:
-        py_obj = rawrefcount.from_obj(PyObject, w_obj)
+        py_obj = w_obj._cpyext_as_pyobj(space)
         if not py_obj:
             py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
         #

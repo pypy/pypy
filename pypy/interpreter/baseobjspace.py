@@ -207,6 +207,21 @@ class W_Root(object):
     def _set_mapdict_storage_and_map(self, storage, map):
         raise NotImplementedError
 
+
+    # -------------------------------------------------------------------
+    # cpyext support
+    # these functions will only be seen by the annotator if we translate
+    # with the cpyext module
+
+    def _cpyext_as_pyobj(self, space):
+        from pypy.module.cpyext.pyobject import w_root_as_pyobj
+        return w_root_as_pyobj(self, space)
+
+    def _cpyext_attach_pyobj(self, space, py_obj):
+        from pypy.module.cpyext.pyobject import w_root_attach_pyobj
+        return w_root_attach_pyobj(self, space, py_obj)
+
+
     # -------------------------------------------------------------------
 
     def is_w(self, space, w_other):

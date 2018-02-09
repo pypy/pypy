@@ -71,6 +71,7 @@ class Bookkeeper(object):
 
         self.needs_generic_instantiate = {}
         self.thread_local_fields = set()
+        self.memory_pressure_types = set()
 
         self.register_builtins()
 
