@@ -97,7 +97,7 @@ class GCData(object):
 
     def q_destructor_or_custom_trace(self, typeid):
         if not self.get(typeid).customdata:
-            return lltype.nullptr(rffi.VOIDP.TO)
+            return lltype.nullptr(GCData.CUSTOM_DATA_STRUCT)
         return self.get(typeid).customdata.customfunc
 
     def q_is_old_style_finalizer(self, typeid):
