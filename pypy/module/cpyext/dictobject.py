@@ -9,7 +9,7 @@ from pypy.module.cpyext.api import (
     bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
         make_typedescr, track_reference, create_ref, from_ref, decref,
-        Py_IncRef)
+        incref)
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 
@@ -279,7 +279,7 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         w_keys = space.newlist(space.listview(w_keyview))
         w_keys.switch_to_object_strategy()
         py_dict.c__tmpkeys = create_ref(space, w_keys)
-        Py_IncRef(space, py_dict.c__tmpkeys)
+        incref(space, py_dict.c__tmpkeys)
     else:
         if not py_dict.c__tmpkeys:
             # pos should have been 0, cannot fail so return 0

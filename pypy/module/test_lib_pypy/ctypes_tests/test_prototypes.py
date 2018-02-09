@@ -1,6 +1,6 @@
-import py
+import pytest
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 # IMPORTANT INFO:
 #
@@ -31,21 +31,27 @@ class TestFuncPrototypes(BaseCTypesTestChecker):
 
     def test_restype_setattr(self):
         func = testdll._testfunc_p_p
-        raises(TypeError, setattr, func, 'restype', 20)
+        with pytest.raises(TypeError):
+            setattr(func, 'restype', 20)
 
     def test_argtypes_setattr(self):
         func = testdll._testfunc_p_p
-        raises(TypeError, setattr, func, 'argtypes', 20)
-        raises(TypeError, setattr, func, 'argtypes', [20])
+        with pytest.raises(TypeError):
+            setattr(func, 'argtypes', 20)
+        with pytest.raises(TypeError):
+            setattr(func, 'argtypes', [20])
 
         func = CFUNCTYPE(c_long, c_void_p, c_long)(lambda: None)
         assert func.argtypes == (c_void_p, c_long)
 
     def test_paramflags_setattr(self):
         func = CFUNCTYPE(c_long, c_void_p, c_long)(lambda: None)
-        raises(TypeError, setattr, func, 'paramflags', 'spam')
-        raises(ValueError, setattr, func, 'paramflags', (1, 2, 3, 4))
-        raises(TypeError, setattr, func, 'paramflags', ((1,), ('a',)))
+        with pytest.raises(TypeError):
+            setattr(func, 'paramflags', 'spam')
+        with pytest.raises(ValueError):
+            setattr(func, 'paramflags', (1, 2, 3, 4))
+        with pytest.raises(TypeError):
+            setattr(func, 'paramflags', ((1,), ('a',)))
         func.paramflags = (1,), (1|4,)
 
     def test_kwargs(self):
@@ -107,13 +113,16 @@ class TestCharPointers(BaseCTypesTestChecker):
                              positive_address(func(byref(ci))))
 
         func.argtypes = c_char_p,
-        raises(ArgumentError, func, byref(ci))
+        with pytest.raises(ArgumentError):
+            func(byref(ci))
 
         func.argtypes = POINTER(c_short),
-        raises(ArgumentError, func, byref(ci))
+        with pytest.raises(ArgumentError):
+            func(byref(ci))
 
         func.argtypes = POINTER(c_double),
-        raises(ArgumentError, func, byref(ci))
+        with pytest.raises(ArgumentError):
+            func(byref(ci))
 
     def test_POINTER_c_char_arg(self):
         func = testdll._testfunc_p_p
@@ -252,7 +261,8 @@ class TestArray(BaseCTypesTestChecker):
         func.restype = POINTER(c_int)
         func.argtypes = [c_int * 8]
         array = ARRAY(1, 2, 3, 4, 5, 6, 7, 8)
-        py.test.raises(ArgumentError, "func(array)")
+        with pytest.raises(ArgumentError):
+            func(array)
 
 ################################################################
 

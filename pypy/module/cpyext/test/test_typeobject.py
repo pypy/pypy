@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import generic_cpy_call
-from pypy.module.cpyext.pyobject import make_ref, from_ref
+from pypy.module.cpyext.pyobject import make_ref, from_ref, decref
 from pypy.module.cpyext.typeobject import cts, PyTypeObjectPtr
 
 import sys
@@ -478,7 +478,7 @@ class TestTypes(BaseApiTest):
         assert py_type.c_tp_alloc
         assert from_ref(space, py_type.c_tp_mro).wrappeditems is w_class.mro_w
 
-        api.Py_DecRef(ref)
+        decref(space, ref)
 
     def test_type_dict(self, space, api):
         w_class = space.appexec([], """():
@@ -506,7 +506,7 @@ class TestTypes(BaseApiTest):
             return C
             """)
         ref = make_ref(space, w_class)
-        api.Py_DecRef(ref)
+        decref(space, ref)
 
     def test_lookup(self, space, api):
         w_type = space.w_bytes
@@ -516,14 +516,6 @@ class TestTypes(BaseApiTest):
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
         assert api.PyErr_Occurred() is None
-
-    def test_ndarray_ref(self, space, api):
-        pytest.py3k_skip('Numpy not yet supported on py3k')
-        w_obj = space.appexec([], """():
-            import _numpypy
-            return _numpypy.multiarray.dtype('int64').type(2)""")
-        ref = make_ref(space, w_obj)
-        api.Py_DecRef(ref)
 
     def test_typeslots(self, space):
         assert cts.macros['Py_tp_doc'] == 56

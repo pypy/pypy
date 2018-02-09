@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.unicodeobject import (
     Py_UNICODE, PyUnicodeObject, new_empty_unicode)
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_CLEANUP_SUPPORTED
-from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
+from pypy.module.cpyext.pyobject import decref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 from pypy.module.cpyext.unicodeobject import *
@@ -413,7 +413,7 @@ class TestUnicode(BaseApiTest):
 
         res = PyUnicode_FromStringAndSize(space, s, 4)
         w_res = from_ref(space, res)
-        Py_DecRef(space, res)
+        decref(space, res)
         assert space.unicode_w(w_res) == u'sp\x09m'
         rffi.free_charp(s)
 
@@ -444,7 +444,7 @@ class TestUnicode(BaseApiTest):
         assert get_wsize(py_uni) == 10
         assert get_wbuffer(py_uni)[1] == 'b'
         assert get_wbuffer(py_uni)[10] == '\x00'
-        Py_DecRef(space, ar[0])
+        decref(space, ar[0])
         lltype.free(ar, flavor='raw')
 
     def test_AsUTF8String(self, space):
@@ -631,8 +631,9 @@ class TestUnicode(BaseApiTest):
     def test_decode(self, space):
         b_text = rffi.str2charp('caf\x82xx')
         b_encoding = rffi.str2charp('cp437')
-        assert space.unicode_w(
-            PyUnicode_Decode(space, b_text, 4, b_encoding, None)) == u'caf\xe9'
+        b_errors = rffi.str2charp('strict')
+        assert space.unicode_w(PyUnicode_Decode(
+            space, b_text, 4, b_encoding, b_errors)) == u'caf\xe9'
 
         w_text = PyUnicode_FromEncodedObject(space, space.newbytes("test"), b_encoding, None)
         assert space.isinstance_w(w_text, space.w_unicode)

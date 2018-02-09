@@ -1,6 +1,6 @@
 import sys
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 class TestUnion(BaseCTypesTestChecker):
     def test_getattr(self):
@@ -28,4 +28,4 @@ class TestUnion(BaseCTypesTestChecker):
         u = UnionofStuff()
         u.one.x = 3
         assert u.two.x == 3
-        
+

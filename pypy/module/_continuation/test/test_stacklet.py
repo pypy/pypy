@@ -1,7 +1,10 @@
+import pytest
 import os
+from rpython.rlib.rvmprof.test.support import fakevmprof
+from pypy.interpreter.gateway import interp2app
 from pypy.module._continuation.test.support import BaseAppTest
 
-
+@pytest.mark.usefixtures('app_fakevmprof')
 class AppTestStacklet(BaseAppTest):
     def setup_class(cls):
         BaseAppTest.setup_class.im_func(cls)
@@ -23,7 +26,7 @@ class AppTestStacklet(BaseAppTest):
                         # frame cycle
                         res.append('...')
                         break
-                    if f.f_code.co_name == 'runtest':
+                    if f.f_code.co_name == '<module>':
                         # if we are running with -A, cut all the stack above
                         # the test function
                         break
@@ -34,9 +37,30 @@ class AppTestStacklet(BaseAppTest):
                 return res
             return stack
        """)
-        if cls.runappdirect:
-            # make sure that "self.stack" does not pass the self
-            cls.w_stack = staticmethod(cls.w_stack.im_func)
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
+
+
+    @pytest.fixture
+    def app_fakevmprof(self, fakevmprof):
+        """
+        This is automaticaly re-initialized for every method: thanks to
+        fakevmprof's finalizer, it checks that we called {start,stop}_sampling
+        the in pairs
+        """
+        w = self.space.wrap
+        i2a = interp2app
+        def is_sampling_enabled(space):
+            return space.wrap(fakevmprof.is_sampling_enabled)
+        self.w_is_sampling_enabled = w(i2a(is_sampling_enabled))
+        #
+        def start_sampling(space):
+            fakevmprof.start_sampling()
+        self.w_start_sampling = w(i2a(start_sampling))
+        #
+        def stop_sampling(space):
+            fakevmprof.stop_sampling()
+        self.w_stop_sampling = w(i2a(stop_sampling))
+
 
     def test_new_empty(self):
         from _continuation import continulet
@@ -800,3 +824,25 @@ class AppTestStacklet(BaseAppTest):
         bd50 = continulet(f)
         main.switch(to=bd50)
         print(999)
+
+    def test_sampling_inside_callback(self):
+        if self.appdirect:
+            # see also
+            # extra_tests.test_vmprof_greenlet.test_sampling_inside_callback
+            # for a "translated" version of this test
+            skip("we can't run this until we have _vmprof.is_sampling_enabled")
+        from _continuation import continulet
+        #
+        def my_callback(c1):
+            assert self.is_sampling_enabled()
+            return 42
+        #
+        try:
+            self.start_sampling()
+            assert self.is_sampling_enabled()
+            c = continulet(my_callback)
+            res = c.switch()
+            assert res == 42
+            assert self.is_sampling_enabled()
+        finally:
+            self.stop_sampling()

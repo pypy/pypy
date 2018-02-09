@@ -58,6 +58,14 @@ class OsModule(MixedModule):
     }
 
 
+class PyPyDateTime(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'dateinterop': 'interp_pypydatetime.W_DateTime_Date',
+        'timeinterop'    : 'interp_pypydatetime.W_DateTime_Time',
+        'deltainterop'   : 'interp_pypydatetime.W_DateTime_Delta',
+    }
+
 class Module(MixedModule):
     """ PyPy specific "magic" functions. A lot of them are experimental and
     subject to change, many are internal. """
@@ -92,8 +100,6 @@ class Module(MixedModule):
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
         'set_code_callback'         : 'interp_magic.set_code_callback',
-        'save_module_content_for_future_reload':
-                          'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
         '_promote'                   : 'interp_magic._promote',
         'normalize_exc'             : 'interp_magic.normalize_exc',
@@ -109,6 +115,7 @@ class Module(MixedModule):
         "thread": ThreadModule,
         "intop": IntOpModule,
         "os": OsModule,
+        '_pypydatetime': PyPyDateTime,
     }
 
     def setup_after_space_initialization(self):
@@ -131,7 +138,7 @@ class Module(MixedModule):
                 raise
             else:
                 pass   # ok fine to ignore in this case
-        
+
         if self.space.config.translation.jit:
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',

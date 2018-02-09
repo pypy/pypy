@@ -342,10 +342,11 @@ def string_parse_literal(astbuilder, atom_node):
     encoding = astbuilder.compile_info.encoding
     joined_pieces = []
     fmode = False
-    try:
-        for i in range(atom_node.num_children()):
+    for i in range(atom_node.num_children()):
+        child = atom_node.get_child(i)
+        try:
             w_next = parsestring.parsestr(
-                    space, encoding, atom_node.get_child(i).get_value())
+                    space, encoding, child.get_value())
             if not isinstance(w_next, parsestring.W_FString):
                 add_constant_string(astbuilder, joined_pieces, w_next,
                                     atom_node)
@@ -353,17 +354,20 @@ def string_parse_literal(astbuilder, atom_node):
                 parse_f_string(astbuilder, joined_pieces, w_next, atom_node)
                 fmode = True
 
-    except error.OperationError as e:
-        if e.match(space, space.w_UnicodeError):
-            kind = 'unicode error'
-        elif e.match(space, space.w_ValueError):
-            kind = 'value error'
-        else:
-            raise
-        # Unicode/ValueError in literal: turn into SyntaxError
-        e.normalize_exception(space)
-        errmsg = space.text_w(space.str(e.get_w_value(space)))
-        raise astbuilder.error('(%s) %s' % (kind, errmsg), atom_node)
+        except error.OperationError as e:
+            if e.match(space, space.w_UnicodeError):
+                kind = '(unicode error) '
+            elif e.match(space, space.w_ValueError):
+                kind = '(value error) '
+            elif e.match(space, space.w_SyntaxError):
+                kind = ''
+            else:
+                raise
+            # Unicode/ValueError/SyntaxError (without position information) in
+            # literal: turn into SyntaxError with position information
+            e.normalize_exception(space)
+            errmsg = space.text_w(space.str(e.get_w_value(space)))
+            raise astbuilder.error('%s%s' % (kind, errmsg), child)
 
     if not fmode and len(joined_pieces) == 1:   # <= the common path
         return joined_pieces[0]   # ast.Str, Bytes or FormattedValue

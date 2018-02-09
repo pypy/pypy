@@ -608,11 +608,13 @@ class W_SRE_Match(W_Root):
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def start_w(self, w_groupnum):
-        return self.space.newint(self.do_span(w_groupnum)[0])
+        start, end = self.do_span(w_groupnum)
+        return self.space.newint(start)
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def end_w(self, w_groupnum):
-        return self.space.newint(self.do_span(w_groupnum)[1])
+        start, end = self.do_span(w_groupnum)
+        return self.space.newint(end)
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def span_w(self, w_groupnum):

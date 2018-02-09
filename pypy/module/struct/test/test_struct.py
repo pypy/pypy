@@ -464,6 +464,10 @@ class AppTestStruct(object):
         assert s.unpack(s.pack(42)) == (42,)
         assert s.unpack_from(memoryview(s.pack(42))) == (42,)
 
+    def test_struct_weakrefable(self):
+        import weakref
+        weakref.ref(self.struct.Struct('i'))
+
     def test_struct_subclass(self):
         class S(self.struct.Struct):
             def __init__(self):

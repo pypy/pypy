@@ -855,7 +855,7 @@ def get_error(space, name):
 
 @specialize.arg(2)
 def converted_error(space, e, eintr_retry=False):
-    message = e.get_msg()
+    message = e.get_msg_unicode()
     w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
         if e.errno == errno.EINTR:
@@ -863,9 +863,9 @@ def converted_error(space, e, eintr_retry=False):
             if eintr_retry:
                 return       # only return None if eintr_retry==True
         w_exception = space.call_function(w_exception_class, space.newint(e.errno),
-                                      space.newtext(message))
+                                      space.newunicode(message))
     else:
-        w_exception = space.call_function(w_exception_class, space.newtext(message))
+        w_exception = space.call_function(w_exception_class, space.newunicode(message))
     raise OperationError(w_exception_class, w_exception)
 
 def explicit_socket_error(space, msg):

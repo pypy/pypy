@@ -228,7 +228,9 @@ else:  # _WIN32
         res = rwin32.LoadLibrary(name)
         if not res:
             err = rwin32.GetLastError_saved()
-            raise DLOpenError(rwin32.FormatError(err))
+            ustr = rwin32.FormatErrorW(err)
+            # DLOpenError unicode msg breaks translation of cpyext create_extension_module
+            raise DLOpenError(ustr.encode('utf-8'))
         return res
 
     def dlclose(handle):

@@ -54,6 +54,29 @@ makefmt(char *fmt, int longflag, int longlongflag, int size_tflag,
    plus 1 for the sign.  53/22 is an upper bound for log10(256). */
 #define MAX_LONG_LONG_CHARS (2 + (SIZEOF_LONG_LONG*53-1) / 22)
 
+#ifdef HAVE_WCHAR_H
+
+PyObject *
+PyUnicode_FromWideChar(const wchar_t *w, Py_ssize_t size)
+{
+    /*
+    if (w == NULL) {
+        if (size == 0)
+            _Py_RETURN_UNICODE_EMPTY();
+        PyErr_BadInternalCall();
+        return NULL;
+    }
+    */
+
+    if (size == -1) {
+        size = wcslen(w);
+    }
+
+    return PyUnicode_FromUnicode(w, size);
+}
+
+#endif /* HAVE_WCHAR_H */
+
 PyObject *
 PyUnicode_FromFormatV(const char *format, va_list vargs)
 {

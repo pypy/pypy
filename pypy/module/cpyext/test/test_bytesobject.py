@@ -8,7 +8,7 @@ from pypy.module.cpyext.bytesobject import (
     _PyBytes_Eq,
     _PyBytes_Join)
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP
-from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
+from pypy.module.cpyext.pyobject import decref, from_ref, make_ref
 from pypy.module.cpyext.buffer import PyObject_AsCharBuffer
 
 
@@ -101,7 +101,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """),
             ('alloc_rw', "METH_NOARGS",
              '''
-                PyObject *obj = _PyObject_NewVar(&PyBytes_Type, 10);
+                PyObject *obj = (PyObject*)_PyObject_NewVar(&PyBytes_Type, 10);
                 memcpy(PyBytes_AS_STRING(obj), "works", 6);
                 return (PyObject*)obj;
              '''),
@@ -246,7 +246,7 @@ class TestBytes(BaseApiTest):
         assert py_str.c_ob_size == 10
         assert py_str.c_ob_sval[1] == 'b'
         assert py_str.c_ob_sval[10] == '\x00'
-        Py_DecRef(space, ar[0])
+        decref(space, ar[0])
         lltype.free(ar, flavor='raw')
 
     def test_Concat(self, space):
@@ -273,7 +273,7 @@ class TestBytes(BaseApiTest):
         PyBytes_ConcatAndDel(space, ptr, ref2)
         assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
         assert ref2.c_ob_refcnt == prev_refcnf - 1
-        Py_DecRef(space, ptr[0])
+        decref(space, ptr[0])
         ptr[0] = lltype.nullptr(PyObject.TO)
         ref2 = make_ref(space, space.newbytes('foo'))
         prev_refcnf = ref2.c_ob_refcnt
@@ -294,7 +294,7 @@ class TestBytes(BaseApiTest):
         assert rffi.charp2str(bufp[0]) == 'text'
         lltype.free(bufp, flavor='raw')
         lltype.free(lenp, flavor='raw')
-        Py_DecRef(space, ref)
+        decref(space, ref)
 
     def test_eq(self, space):
         assert 1 == _PyBytes_Eq(space, space.newbytes("hello"), space.newbytes("hello"))

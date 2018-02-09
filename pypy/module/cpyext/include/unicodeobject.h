@@ -20,6 +20,14 @@
 /* #define HAVE_WCHAR_H */
 /* #define HAVE_USABLE_WCHAR_T */
 
+#ifdef HAVE_WCHAR_H
+/* Work around a cosmetic bug in BSDI 4.x wchar.h; thanks to Thomas Wouters */
+# ifdef _HAVE_BSDI
+#  include <time.h>
+# endif
+#  include <wchar.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -269,6 +277,16 @@ PyAPI_FUNC(PyObject *) PyUnicode_FromFormat(
 /* --- wchar_t support for platforms which support it --------------------- */
 
 #ifdef HAVE_WCHAR_H
+
+/* Create a Unicode Object from the wchar_t buffer w of the given
+   size.
+
+   The buffer is copied into the new object. */
+
+PyAPI_FUNC(PyObject*) PyUnicode_FromWideChar(
+    const wchar_t *w,           /* wchar_t buffer */
+    Py_ssize_t size             /* size of buffer */
+    );
 
 /* Convert the Unicode object to a wide character string. The output string
    always ends with a nul character. If size is not NULL, write the number of

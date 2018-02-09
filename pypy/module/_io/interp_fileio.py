@@ -8,6 +8,7 @@ from rpython.rlib.rposix import c_read, get_saved_errno
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rposix
 from rpython.rlib.rposix_stat import STAT_FIELD_TYPES
+from rpython.rlib.streamio import _setfd_binary
 from rpython.rtyper.lltypesystem import lltype, rffi
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_EXCL
 import sys, os, stat, errno
@@ -238,6 +239,8 @@ class W_FileIO(W_RawIOBase):
             self.blksize = DEFAULT_BUFFER_SIZE
             if HAS_BLKSIZE and st.st_blksize > 1:
                 self.blksize = st.st_blksize
+
+            _setfd_binary(self.fd)
 
             space.setattr(self, space.newtext("name"), w_name)
 

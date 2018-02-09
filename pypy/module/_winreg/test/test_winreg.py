@@ -12,14 +12,14 @@ try:
     priv_flags = win32security.TOKEN_ADJUST_PRIVILEGES | win32security.TOKEN_QUERY
     hToken = win32security.OpenProcessToken (win32api.GetCurrentProcess (), priv_flags)
     privilege_id = win32security.LookupPrivilegeValue (None, "SeBackupPrivilege")
-    win32security.AdjustTokenPrivileges (hToken, 0, [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)])
+    ret = win32security.AdjustTokenPrivileges (hToken, 0, [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)])
 except:
     canSaveKey = False
 else:
-    canSaveKey = True
+    canSaveKey = len(ret) > 0
 
 class AppTestHKey:
-    #spaceconfig = dict(usemodules=('_winreg',))
+    spaceconfig = dict(usemodules=('_winreg',))
 
     def test_repr(self):
         import winreg
@@ -27,12 +27,12 @@ class AppTestHKey:
         assert str(k) == "<PyHKEY:0x123>"
 
 class AppTestFfi:
-    #spaceconfig = dict(usemodules=('_winreg',))
+    spaceconfig = dict(usemodules=('_winreg',))
 
     def setup_class(cls):
-        import _winreg
+        import _winreg as winreg
         space = cls.space
-        cls.root_key = _winreg.HKEY_CURRENT_USER
+        cls.root_key = winreg.HKEY_CURRENT_USER
         cls.test_key_name = "SOFTWARE\\Pypy Registry Test Key - Delete Me"
         cls.w_root_key = space.wrap(cls.root_key)
         cls.w_test_key_name = space.wrap(cls.test_key_name)
@@ -40,22 +40,22 @@ class AppTestFfi:
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
 
         test_data = [
-            ("Int Value", 0xFEDCBA98, _winreg.REG_DWORD),
-            ("Str Value", "A string Value", _winreg.REG_SZ),
-            ("Unicode Value", u"A unicode Value", _winreg.REG_SZ),
-            ("Str Expand", "The path is %path%", _winreg.REG_EXPAND_SZ),
-            ("Multi Str", ["Several", "string", u"values"], _winreg.REG_MULTI_SZ),
+            ("Int Value", 0xFEDCBA98, winreg.REG_DWORD),
+            ("Str Value", b"A string Value", winreg.REG_SZ),
+            ("Unicode Value", "A unicode Value", winreg.REG_SZ),
+            ("Str Expand", "The path is %path%", winreg.REG_EXPAND_SZ),
+            ("Multi Str", [b"Several", u"string", u"values"], winreg.REG_MULTI_SZ),
             ]
         cls.w_test_data = w_test_data = space.wrap(test_data)
         w_btest = space.newtuple([space.wrap("Raw data"),
                                   space.newbytes("binary\x00data"),
-                                  space.wrap(_winreg.REG_BINARY)])
+                                  space.wrap(winreg.REG_BINARY)])
         w_test_data.append(w_btest)
 
     def teardown_class(cls):
-        import winreg
+        import _winreg
         try:
-            winreg.DeleteKey(cls.root_key, cls.test_key_name)
+            _winreg.DeleteKey(cls.root_key, cls.test_key_name)
         except WindowsError:
             pass
 
@@ -67,14 +67,14 @@ class AppTestFfi:
 
     def test_simple_write(self):
         from winreg import SetValue, QueryValue, REG_SZ
-        value = "Some Default value"
+        value = u"Some Default value"
         SetValue(self.root_key, self.test_key_name, REG_SZ, value)
         assert QueryValue(self.root_key, self.test_key_name) == value
 
     def test_CreateKey(self):
         from winreg import CreateKey, QueryInfoKey
         key = CreateKey(self.root_key, self.test_key_name)
-        sub_key = CreateKey(key, "sub_key")
+        sub_key = CreateKey(key, u"sub_key")
 
         nkeys, nvalues, since_mod = QueryInfoKey(key)
         assert nkeys == 1
@@ -86,7 +86,7 @@ class AppTestFfi:
         from winreg import CreateKeyEx, QueryInfoKey
         from winreg import KEY_ALL_ACCESS, KEY_READ
         key = CreateKeyEx(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
-        sub_key = CreateKeyEx(key, "sub_key", 0, KEY_READ)
+        sub_key = CreateKeyEx(key, u"sub_key", 0, KEY_READ)
 
         nkeys, nvalues, since_mod = QueryInfoKey(key)
         assert nkeys == 1
@@ -97,7 +97,7 @@ class AppTestFfi:
     def test_close(self):
         from winreg import OpenKey, CloseKey, FlushKey, QueryInfoKey
         key = OpenKey(self.root_key, self.test_key_name)
-        sub_key = OpenKey(key, "sub_key")
+        sub_key = OpenKey(key, u"sub_key")
 
         int_sub_key = int(sub_key)
         FlushKey(sub_key)
@@ -119,7 +119,7 @@ class AppTestFfi:
     def test_with(self):
         from winreg import OpenKey
         with OpenKey(self.root_key, self.test_key_name) as key:
-            with OpenKey(key, "sub_key") as sub_key:
+            with OpenKey(key, u"sub_key") as sub_key:
                 assert key.handle != 0
                 assert sub_key.handle != 0
         assert key.handle == 0
@@ -140,17 +140,17 @@ class AppTestFfi:
             assert 0, "Did not raise"
 
     def test_SetValueEx(self):
+        # this test leaves open keys. If it fails, others will too
         from winreg import CreateKey, SetValueEx, REG_BINARY, REG_DWORD
         key = CreateKey(self.root_key, self.test_key_name)
-        sub_key = CreateKey(key, "sub_key")
+        sub_key = CreateKey(key, u"sub_key")
         SetValueEx(sub_key, 'Int Value', 0, REG_DWORD, None)
         SetValueEx(sub_key, 'Int Value', 0, REG_DWORD, 45)
         for name, value, type in self.test_data:
             SetValueEx(sub_key, name, 0, type, value)
-        exc = raises(TypeError, SetValueEx, sub_key, 'test_name', None,
-                                            REG_BINARY, memoryview('abc'))
-        assert str(exc.value) == ("Objects of type 'memoryview' can not "
-                                  "be used as binary registry values")
+        # cannot wrap a memoryview in setup_class for test_data
+        SetValueEx(sub_key, u'test_name', None,
+                            REG_BINARY, memoryview(b'abc'))
 
     def test_readValues(self):
         from winreg import OpenKey, EnumValue, QueryValueEx, EnumKey
@@ -163,26 +163,31 @@ class AppTestFfi:
                 data = EnumValue(sub_key, index)
             except EnvironmentError as e:
                 break
-            assert data in self.test_data
+            if data[0] != 'test_name':
+                # cannot wrap a memoryview in setup_class for test_data
+                assert data in self.test_data
             index = index + 1
-        assert index == len(self.test_data)
+        assert index == len(self.test_data) + 1
 
         for name, value, type in self.test_data:
             result = QueryValueEx(sub_key, name)
             assert result == (value, type)
             if type == REG_SZ or type == REG_EXPAND_SZ:
-                assert isinstance(result[0], unicode)     # not string
+                assert not isinstance(result[0], bytes)
 
         assert EnumKey(key, 0) == "sub_key"
         raises(EnvironmentError, EnumKey, key, 1)
 
     def test_delete(self):
+        # must be run after test_SetValueEx
         from winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
         key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
         sub_key = OpenKey(key, "sub_key", 0, KEY_ALL_ACCESS)
 
         for name, value, type in self.test_data:
             DeleteValue(sub_key, name)
+        # cannot wrap a memoryview in setup_class for test_data
+        DeleteValue(sub_key, 'test_name')
 
         DeleteKey(key, "sub_key")
 
@@ -192,6 +197,7 @@ class AppTestFfi:
         h.Close()
 
     def test_savekey(self):
+        # must be run after test_SetValueEx
         if not self.canSaveKey:
             skip("CPython needs win32api to set the SeBackupPrivilege security privilege")
         from winreg import OpenKey, KEY_ALL_ACCESS, SaveKey
@@ -240,7 +246,7 @@ class AppTestFfi:
                 skip("access denied to registry key "
                      "(are you running in a non-interactive session?)")
             raise
-        QueryValueEx(HKEY_PERFORMANCE_DATA, None)
+        QueryValueEx(HKEY_PERFORMANCE_DATA, 'Global')
 
     def test_reflection_unsupported(self):
         import sys

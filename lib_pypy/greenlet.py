@@ -127,7 +127,7 @@ class greenlet(_continulet):
             return None
         if self.__main:
             self = getcurrent()
-        f = _continulet.__reduce__(self)[2][0]
+        f = self._get_frame()
         if not f:
             return None
         return f.f_back.f_back.f_back   # go past start(), __switch(), switch()

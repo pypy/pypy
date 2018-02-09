@@ -463,3 +463,15 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 ])
         res = module.test(StopIteration("foo!"))
         assert res == "foo!"
+
+    def test_PyErr_BadInternalCall(self):
+        # NB. it only seemed to fail when run with '-s'... but I think
+        # that it always printed stuff to stderr
+        module = self.import_extension('foo', [
+            ("oops", "METH_NOARGS",
+             r'''
+             PyErr_BadInternalCall();
+             return NULL;
+             '''),
+            ])
+        raises(SystemError, module.oops)

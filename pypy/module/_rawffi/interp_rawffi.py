@@ -154,7 +154,7 @@ def wrap_dlopenerror(space, e, filename):
         msg = e.msg if we_are_translated() else repr(e.msg)
     else:
         msg = 'unspecified error'
-    return oefmt(space.w_OSError, 'Cannot load library %s: %s', filename, msg)
+    return oefmt(space.w_OSError, 'Cannot load library %s: %8', filename, msg)
 
 
 class W_CDLL(W_Root):
@@ -628,7 +628,7 @@ def rawstring2charp(space, address, newcontent, offset=0, size=-1):
 if _MS_WINDOWS:
     @unwrap_spec(code=int)
     def FormatError(space, code):
-        return space.newtext(rwin32.FormatError(code))
+        return space.newunicode(rwin32.FormatErrorW(code))
 
     @unwrap_spec(hresult=int)
     def check_HRESULT(space, hresult):

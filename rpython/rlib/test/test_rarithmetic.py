@@ -559,7 +559,7 @@ class TestStringToInt:
             '4_2',
             '1_0000_0000',
             '0b1001_0100',
-            '0xffff_ffff',
+            '0xfff_ffff',
             '0o5_7_7',
             '0b_0',
             '0x_f',
@@ -583,7 +583,7 @@ class TestStringToInt:
             # Multiple consecutive underscores:
             '4_______2',
             '0b1001__0100',
-            '0xffff__ffff',
+            '0xfff__ffff',
             '0x___',
             '0o5__77',
             '1e1__0',

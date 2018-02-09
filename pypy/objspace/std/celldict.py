@@ -6,6 +6,7 @@ indirection is introduced to make the version tag change less often.
 from rpython.rlib import jit, rerased, objectmodel
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import (
     DictStrategy, ObjectDictStrategy, _never_equal_to_string,
     create_iterator_classes)
@@ -54,10 +55,21 @@ class ModuleDictStrategy(DictStrategy):
     def _getdictvalue_no_unwrapping_pure(self, version, w_dict, key):
         return self.unerase(w_dict.dstorage).get(key, None)
 
+    def try_unwrap_key(self, space, w_key):
+        if space.is_w(space.type(w_key), space.w_text):
+            try:
+                return space.text_w(w_key)
+            except OperationError as e:
+                if e.match(space, space.w_UnicodeEncodeError):
+                    return None
+                raise
+        return None
+
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_text):
-            self.setitem_str(w_dict, space.text_w(w_key), w_value)
+        key = self.try_unwrap_key(space, w_key)
+        if key is not None:
+            self.setitem_str(w_dict, key, w_value)
         else:
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
@@ -75,8 +87,8 @@ class ModuleDictStrategy(DictStrategy):
 
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_text):
-            key = space.text_w(w_key)
+        key = self.try_unwrap_key(space, w_key)
+        if key is not None:
             cell = self.getdictvalue_no_unwrapping(w_dict, key)
             w_result = unwrap_cell(self.space, cell)
             if w_result is not None:
@@ -90,8 +102,8 @@ class ModuleDictStrategy(DictStrategy):
     def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_text):
-            key = space.text_w(w_key)
+        key = self.try_unwrap_key(space, w_key)
+        if key is not None:
             dict_w = self.unerase(w_dict.dstorage)
             try:
                 del dict_w[key]
@@ -111,9 +123,9 @@ class ModuleDictStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_text):
-            return self.getitem_str(w_dict, space.text_w(w_key))
-
+        key = self.try_unwrap_key(space, w_key)
+        if key is not None:
+            return self.getitem_str(w_dict, key)
         elif _never_equal_to_string(space, w_lookup_type):
             return None
         else:

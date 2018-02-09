@@ -1,4 +1,4 @@
-import py
+import pytest
 import sys
 
 from ctypes import *
@@ -33,6 +33,5 @@ class TestRetval:
         pass
     else:
         def test_oledll(self):
-            raises(WindowsError,
-                   oledll.oleaut32.CreateTypeLib2,
-                   0, 0, 0)
+            with pytest.raises(WindowsError):
+                oledll.oleaut32.CreateTypeLib2(0, 0, 0)

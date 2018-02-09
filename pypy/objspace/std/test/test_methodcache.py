@@ -1,6 +1,8 @@
+import pytest
 from pypy.objspace.std.test import test_typeobject
 
 
+@pytest.mark.skipif('config.option.runappdirect')
 class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
 

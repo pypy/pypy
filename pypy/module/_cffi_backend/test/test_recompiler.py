@@ -8,7 +8,8 @@ import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 @unwrap_spec(cdef='text', module_name='text', source='text', packed=int)
 def prepare(space, cdef, module_name, source, w_includes=None,
-            w_extra_source=None, w_min_version=None, packed=False):
+            w_extra_source=None, w_min_version=None, packed=False,
+            w_extra_compile_args=None):
     try:
         import cffi
         from cffi import FFI            # <== the system one, which
@@ -55,10 +56,14 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     sources = []
     if w_extra_source is not None:
         sources.append(space.str_w(w_extra_source))
+    kwargs = {}
+    if w_extra_compile_args is not None:
+        kwargs['extra_compile_args'] = space.unwrap(w_extra_compile_args)
     ext = ffiplatform.get_extension(c_file, module_name,
             include_dirs=[str(rdir)],
             export_symbols=['_cffi_pypyinit_' + base_module_name],
-            sources=sources)
+            sources=sources,
+            **kwargs)
     ffiplatform.compile(str(rdir), ext)
 
     for extension in ['so', 'pyd', 'dylib']:
@@ -2055,3 +2060,51 @@ class AppTestRecompiler:
            "Such structs are only supported as return value if the function is "
            "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
            "+ffibuilder.set_source() and not taking a final '...' argument)")
+
+    def test_gcc_visibility_hidden(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("test for gcc/clang")
+        ffi, lib = self.prepare("""
+        int f(int);
+        """, "test_gcc_visibility_hidden", """
+        int f(int a) { return a + 40; }
+        """, extra_compile_args=['-fvisibility=hidden'])
+        assert lib.f(2) == 42
+
+    def test_override_default_definition(self):
+        ffi, lib = self.prepare("""
+        typedef long int16_t, char16_t;
+        """, "test_override_default_definition", """
+        """)
+        assert ffi.typeof("int16_t") is ffi.typeof("char16_t") is ffi.typeof("long")
+
+    def test_char16_char32_plain_c(self):
+        ffi, lib = self.prepare("""
+            char16_t foo_2bytes(char16_t);
+            char32_t foo_4bytes(char32_t);
+        """, "test_char16_char32_type_nocpp", """
+        #if !defined(__cplusplus) || (!defined(_LIBCPP_VERSION) && __cplusplus < 201103L)
+        typedef uint_least16_t char16_t;
+        typedef uint_least32_t char32_t;
+        #endif
+
+        char16_t foo_2bytes(char16_t a) { return (char16_t)(a + 42); }
+        char32_t foo_4bytes(char32_t a) { return (char32_t)(a + 42); }
+        """, min_version=(1, 11, 0))
+        assert lib.foo_2bytes(u'\u1234') == u'\u125e'
+        assert lib.foo_4bytes(u'\u1234') == u'\u125e'
+        assert lib.foo_4bytes(u'\U00012345') == u'\U0001236f'
+        raises(TypeError, lib.foo_2bytes, u'\U00012345')
+        raises(TypeError, lib.foo_2bytes, 1234)
+        raises(TypeError, lib.foo_4bytes, 1234)
+
+    def test_loader_spec(self):
+        import sys
+        ffi, lib = self.prepare("", "test_loader_spec", "")
+        if sys.version_info < (3,):
+            assert not hasattr(lib, '__loader__')
+            assert not hasattr(lib, '__spec__')
+        else:
+            assert lib.__loader__ is None
+            assert lib.__spec__ is None

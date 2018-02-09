@@ -220,8 +220,8 @@ only close to themselves."""
     # sign would otherwise have an infinite relative tolerance.
     # Two infinities of the same sign are caught by the equality check
     # above.
-    if (rfloat.isinf(ax) or rfloat.isinf(ay) or
-        rfloat.isinf(bx) or rfloat.isinf(by)):
+    if (math.isinf(ax) or math.isinf(ay) or
+        math.isinf(bx) or math.isinf(by)):
         return space.w_False
     #
     # now do the regular computation

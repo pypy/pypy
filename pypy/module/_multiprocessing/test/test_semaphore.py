@@ -102,7 +102,13 @@ class AppTestSemaphore:
         assert res == False
 
     def test_semaphore_rebuild(self):
-        from _multiprocessing import SemLock, sem_unlink
+        import sys
+        if sys.platform == 'win32':
+            from _multiprocessing import SemLock
+            def sem_unlink(*args):
+                pass
+        else:
+            from _multiprocessing import SemLock, sem_unlink
         kind = self.SEMAPHORE
         value = 1
         maxvalue = 1

@@ -11,7 +11,6 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp import history
 from rpython.rlib.jit import JitDriver, hint, set_param
 from rpython.rlib.objectmodel import compute_hash
-from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_uint, intmask, r_int
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
@@ -309,7 +308,7 @@ class VectorizeTests(object):
                                 reds = 'auto',
                                 vectorize=True)
         def fmax(v1, v2):
-            return v1 if v1 >= v2 or rfloat.isnan(v2) else v2
+            return v1 if v1 >= v2 or math.isnan(v2) else v2
         T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
         def f(d):
             i = 0

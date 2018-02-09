@@ -1007,8 +1007,9 @@ class AppTestCompiler(object):
         compile(b"# coding: latin1\n#\xfd\n", "dummy", "exec")
         raises(SyntaxError, compile, b"# coding: utf-8\n'\xfd'\n",
                "dummy", "exec") #1
-        raises(SyntaxError, compile, b'# coding: utf-8\nx=5\nb"\xfd"\n',
+        excinfo = raises(SyntaxError, compile, b'# coding: utf-8\nx=5\nb"\xfd"\n',
                "dummy", "exec") #2
+        assert excinfo.value.lineno == 3
         # the following example still fails on CPython 3.5.2, skip if -A
         if '__pypy__' in sys.builtin_module_names:
             raises(SyntaxError, compile, b"# coding: utf-8\n#\xfd\n",
@@ -1022,6 +1023,12 @@ class AppTestCompiler(object):
                PyCF_ACCEPT_NULL_BYTES)
         raises(SyntaxError, compile, b"#\x00\nx=5#\xfd\n", "dummy", "exec",
                PyCF_ACCEPT_NULL_BYTES)
+
+    def test_correct_offset_in_many_bytes(self):
+        excinfo = raises(SyntaxError, compile, b'# coding: utf-8\nx = b"a" b"c" b"\xfd"\n',
+               "dummy", "exec")
+        assert excinfo.value.lineno == 2
+        assert excinfo.value.offset == 14
 
     def test_dict_and_set_literal_order(self):
         x = 1

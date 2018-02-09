@@ -1,18 +1,16 @@
 =========================
-What's new in PyPy3 5.9+
+What's new in PyPy3 5.10+
 =========================
 
-.. this is the revision after release-pypy3.5-5.9
-.. startrev: be41e3ac0a29
+.. this is the revision after release-pypy3.5-v5.10
+.. startrev: 34c63fba0bba
 
-.. branch: sched_yield
-Add sched_yield posix attribute
+.. branch: hroncok/fix-typeerror-str-does-not-support-the-b-1514414905375
 
-.. branch: py3.5-appexec
-Raise if space.is_true(space.appexec()) used in app level tests, fix tests
-that did this
+Fix for bytestrings in console repl
 
-.. branch: py3.5-mac-embedding
-Download and patch dependencies when building cffi-based stdlib modules
+.. branch: py3-winreg
 
-.. branch: os_lockf
+Update winreg module to use unicode, wide-strings
+
+

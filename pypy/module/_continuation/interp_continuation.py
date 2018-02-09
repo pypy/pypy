@@ -1,5 +1,6 @@
 from rpython.rlib.rstacklet import StackletThread
 from rpython.rlib import jit
+from rpython.rlib import rvmprof
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
@@ -131,6 +132,15 @@ class W_Continulet(W_Root):
         from pypy.module._continuation import interp_pickle
         interp_pickle.setstate(self, w_args)
 
+    def descr_get_frame(self, space):
+        if self.sthread is None:
+            w_frame = space.w_False
+        elif self.sthread.is_empty_handle(self.h):
+            w_frame = space.w_None
+        else:
+            w_frame = self.bottomframe
+        return w_frame
+
 
 def W_Continulet___new__(space, w_subtype, __args__):
     r = space.allocate_instance(W_Continulet, w_subtype)
@@ -153,6 +163,7 @@ W_Continulet.typedef = TypeDef(
     is_pending  = interp2app(W_Continulet.descr_is_pending),
     __reduce__  = interp2app(W_Continulet.descr__reduce__),
     __setstate__= interp2app(W_Continulet.descr__setstate__),
+    _get_frame=interp2app(W_Continulet.descr_get_frame)
     )
 
 # ____________________________________________________________
@@ -231,12 +242,15 @@ def new_stacklet_callback(h, arg):
     self.h = h
     global_state.clear()
     try:
+        rvmprof.start_sampling()
         frame = self.bottomframe
         w_result = frame.execute_frame()
     except Exception as e:
         global_state.propagate_exception = e
     else:
         global_state.w_value = w_result
+    finally:
+        rvmprof.stop_sampling()
     self.sthread.ec.topframeref = jit.vref_None
     global_state.origin = self
     global_state.destination = self

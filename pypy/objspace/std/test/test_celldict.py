@@ -76,6 +76,8 @@ class AppTestModuleDict(object):
     def test_key_not_there(self):
         d = type(__builtins__)("abc").__dict__
         raises(KeyError, "d['def']")
+        assert 42 not in d
+        assert u"\udc00" not in d
 
     def test_fallback_evil_key(self):
         class F(object):
