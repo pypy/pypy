@@ -22,4 +22,4 @@ class TestScanDir(object):
         rposix_scandir.closedir(scan)
         found.remove('.')
         found.remove('..')
-        assert sorted(found) == sorted(os.listdir('/'))
+        assert sorted(found) == sorted(os.listdir(basedir))

@@ -359,6 +359,20 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         m = self.import_module('_widechar')
         raises(ValueError, m.test_widechar)
 
+    def test_AsUTFNString(self):
+        module = self.import_extension('foo', [
+            ("asutf8", "METH_O", "return PyUnicode_AsUTF8String(args);"),
+            ("asutf16", "METH_O", "return PyUnicode_AsUTF16String(args);"),
+            ("asutf32", "METH_O", "return PyUnicode_AsUTF32String(args);"),
+            ])
+        u = u'sp\x09m\u1234\U00012345'
+        s = module.asutf8(u)
+        assert s == u.encode('utf-8')
+        s = module.asutf16(u)
+        assert s == u.encode('utf-16')
+        s = module.asutf32(u)
+        assert s == u.encode('utf-32')
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
@@ -448,10 +462,24 @@ class TestUnicode(BaseApiTest):
         lltype.free(ar, flavor='raw')
 
     def test_AsUTF8String(self, space):
-        w_u = space.wrap(u'sp\x09m')
+        w_u = space.wrap(u'sp\x09m\u1234')
         w_res = PyUnicode_AsUTF8String(space, w_u)
         assert space.type(w_res) is space.w_bytes
-        assert space.unwrap(w_res) == 'sp\tm'
+        assert space.unwrap(w_res) == 'sp\tm\xe1\x88\xb4'
+
+    def test_AsUTF16String(self, space):
+        u = u'sp\x09m\u1234\U00012345'
+        w_u = space.wrap(u)
+        w_res = PyUnicode_AsUTF16String(space, w_u)
+        assert space.type(w_res) is space.w_bytes
+        assert space.unwrap(w_res) == u.encode('utf-16')
+
+    def test_AsUTF32String(self, space):
+        u = u'sp\x09m\u1234\U00012345'
+        w_u = space.wrap(u)
+        w_res = PyUnicode_AsUTF32String(space, w_u)
+        assert space.type(w_res) is space.w_bytes
+        assert space.unwrap(w_res) == u.encode('utf-32')
 
     def test_decode_utf8(self, space):
         u = rffi.str2charp(u'sp\x134m'.encode("utf-8"))

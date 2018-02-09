@@ -20,6 +20,9 @@ PyAPI_FUNC(long) PyOS_strtol(const char *, char **, int);
 
 #define PyLong_AS_LONG(op) PyLong_AsLong(op)
 
+#define _PyLong_AsByteArray(v, bytes, n, little_endian, is_signed)   \
+    _PyLong_AsByteArrayO((PyObject *)(v), bytes, n, little_endian, is_signed)
+
 #ifdef __cplusplus
 }
 #endif
