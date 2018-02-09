@@ -573,7 +573,7 @@ class UsingFrameworkTest(object):
             return compute_hash(x)
         for size in ([random.randrange(0, 260) for i in range(10)] +
                      [random.randrange(260, 60000)]):
-            print 'PREBUILT DICTIONARY OF SIZE', size
+            #print 'PREBUILT DICTIONARY OF SIZE', size
             keys = [X() for j in range(size)]
             d = r_dict(keq, khash)
             for j in range(size):
