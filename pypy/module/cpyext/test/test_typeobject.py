@@ -265,11 +265,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
 
         assert cmpr.__le__(4) is NotImplemented
 
-
-    def test_unhashable_when_tpcompare(self):
-        module = self.import_module("comparisons")
-        cmpr = module.OldCmpType()
-        raises(TypeError, hash, cmpr)
     def test_hash(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()

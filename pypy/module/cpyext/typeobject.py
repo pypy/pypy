@@ -344,9 +344,9 @@ def add_operators(space, dict_w, pto, name):
                 # two special cases where __hash__ is explicitly set to None
                 # (which leads to an unhashable type):
                 # 1) tp_hash == PyObject_HashNotImplemented
-                # 2) tp_hash == NULL and either of tp_compare or tp_richcompare are not NULL
+                # 2) tp_hash == NULL and tp_richcompare not NULL
                 if hash_not_impl == func or (
-                        not func and (pto.c_tp_compare or pto.c_tp_richcompare)):
+                        not func and pto.c_tp_richcompare):
                     dict_w[method_name] = space.w_None
                     continue
         else:
