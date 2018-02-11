@@ -39,6 +39,16 @@ discovered the problem).
 
 .. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/en-us/download/details.aspx?id=44266
 
+Installing "Build Tools for Visual Studio 2017" (for Python 3)
+--------------------------------------------------------------
+
+As documented in the CPython Wiki_, CPython now recommends Visual C++ version
+14.0. A compact version of the compiler suite can be obtained from Microsoft_
+downloads, search the page for "Build Tools for Visual Studio 2017".
+
+.. _Wiki: https://wiki.python.org/moin/WindowsCompilers
+.. _Microsoft: https://www.visualstudio.com/downloads
+
 Translating PyPy with Visual Studio
 -----------------------------------
 
@@ -82,8 +92,8 @@ slower translation::
 
 .. _build instructions: http://pypy.org/download.html#building-from-source
 
-Setting Up Visual Studio for building SSL in Python3
-----------------------------------------------------
+Setting Up Visual Studio 9.0 for building SSL in Python3
+--------------------------------------------------------
 
 On Python3, the ``ssl`` module is based on ``cffi``, and requires a build step after
 translation. However ``distutils`` does not support the Micorosft-provided Visual C
