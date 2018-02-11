@@ -282,24 +282,24 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                  return result;
              """),
             ])
-        s = module.as_bytearray(0x41BC9AL, 4, True, False)
+        s = module.as_bytearray(0x41BC9A, 4, True, False)
         assert s == "\x9A\xBC\x41\x00"
-        s = module.as_bytearray(0x41BC9AL, 4, False, False)
+        s = module.as_bytearray(0x41BC9A, 4, False, False)
         assert s == "\x00\x41\xBC\x9A"
-        s = module.as_bytearray(0x41BC9AL, 3, True, False)
+        s = module.as_bytearray(0x41BC9A, 3, True, False)
         assert s == "\x9A\xBC\x41"
-        s = module.as_bytearray(0x41BC9AL, 3, True, True)
+        s = module.as_bytearray(0x41BC9A, 3, True, True)
         assert s == "\x9A\xBC\x41"
-        s = module.as_bytearray(0x9876L, 2, True, False)
+        s = module.as_bytearray(0x9876, 2, True, False)
         assert s == "\x76\x98"
-        s = module.as_bytearray(0x9876L - 0x10000L, 2, True, True)
+        s = module.as_bytearray(0x9876 - 0x10000, 2, True, True)
         assert s == "\x76\x98"
         raises(OverflowError, module.as_bytearray,
-                              0x9876L, 2, False, True)
+                              0x9876, 2, False, True)
         raises(OverflowError, module.as_bytearray,
-                              -1L, 2, True, False)
+                              -1, 2, True, False)
         raises(OverflowError, module.as_bytearray,
-                              0x1234567L, 3, True, False)
+                              0x1234567, 3, True, False)
 
     def test_fromunicode(self):
         module = self.import_extension('foo', [
