@@ -46,8 +46,12 @@ As documented in the CPython Wiki_, CPython now recommends Visual C++ version
 14.0. A compact version of the compiler suite can be obtained from Microsoft_
 downloads, search the page for "Build Tools for Visual Studio 2017".
 
+You will also need to install the the `Windows SDK`_ in order to use the 
+`mt.exe` mainfest compiler.
+
 .. _Wiki: https://wiki.python.org/moin/WindowsCompilers
 .. _Microsoft: https://www.visualstudio.com/downloads
+.. _`Windows SDK`: https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk
 
 Translating PyPy with Visual Studio
 -----------------------------------
