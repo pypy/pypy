@@ -802,18 +802,6 @@ class AppTestWithMapDict(object):
         d[1] = 3
         a.__dict__ = {}
 
-    def test_dict_limit(self):
-        class A(object):
-            pass
-        a = A()
-        for n in (40, 1000):
-            for i in range(n):
-                v = str(i).encode().decode('utf8')
-                setattr(a, v, i)
-            for i in range(n):
-                v = str(i).encode().decode('utf8')
-                assert (n, getattr(a, v)) == (n, i)
-
     def test_dict_clear_bug(self):
         class A(object):
             pass

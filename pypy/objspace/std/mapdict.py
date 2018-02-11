@@ -767,7 +767,7 @@ class MapDictStrategy(DictStrategy):
 
     def switch_to_text_strategy(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
-        strategy = self.space.fromcache(UnicodeDictStrategy)
+        strategy = self.space.fromcache(BytesDictStrategy)
         str_dict = strategy.unerase(strategy.get_empty_storage())
         w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(str_dict)
