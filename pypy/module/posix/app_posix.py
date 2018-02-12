@@ -1,6 +1,5 @@
 # NOT_RPYTHON
 from _structseq import structseqtype, structseqfield
-from __pypy__ import validate_fd
 
 # XXX we need a way to access the current module's globals more directly...
 import errno
@@ -93,6 +92,10 @@ class statvfs_result(metaclass=structseqtype):
     f_favail = structseqfield(7)
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
+
+# Capture file.fdopen at import time, as some code replaces
+# __builtins__.file with a custom function.
+_fdopen = file.fdopen
 
 
 class uname_result(metaclass=structseqtype):

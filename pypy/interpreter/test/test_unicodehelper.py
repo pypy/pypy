@@ -1,6 +1,7 @@
 import py
 import pytest
 import struct
+import sys
 from pypy.interpreter.unicodehelper import (
     encode_utf8, decode_utf8, unicode_encode_utf_32_be, str_decode_utf_32_be)
 from pypy.interpreter.unicodehelper import encode_utf8sp, decode_utf8sp
@@ -51,7 +52,10 @@ def test_decode_utf8():
     py.test.raises(Hit, decode_utf8, space, "\xed\xb0\x80")
     py.test.raises(Hit, decode_utf8, space, "\xed\xa0\x80\xed\xb0\x80")
     got = decode_utf8(space, "\xf0\x90\x80\x80")
-    assert map(ord, got) == [0x10000]
+    if sys.maxunicode > 65535:
+        assert map(ord, got) == [0x10000]
+    else:
+        assert map(ord, got) == [55296, 56320]
 
 def test_decode_utf8_allow_surrogates():
     sp = FakeSpace()

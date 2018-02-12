@@ -105,14 +105,6 @@ def strategy(space, w_obj):
         raise oefmt(space.w_TypeError, "expecting dict or list or set object")
     return space.newtext(name)
 
-
-@unwrap_spec(fd='c_int')
-def validate_fd(space, fd):
-    try:
-        rposix.validate_fd(fd)
-    except OSError as e:
-        raise wrap_oserror(space, e)
-
 @unwrap_spec(sizehint=int)
 def resizelist_hint(space, w_list, sizehint):
     """ Reallocate the underlying storage of the argument list to sizehint """

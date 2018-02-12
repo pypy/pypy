@@ -40,3 +40,7 @@ Improve datetime + timedelta performance.
 .. branch: memory-accounting
 
 Improve way to describe memory
+
+.. branch: msvc14
+
+Allow compilaiton with Visual Studio 2017 compiler suite on windows
