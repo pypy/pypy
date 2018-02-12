@@ -29,8 +29,8 @@ def _get_vcver0():
     return None
 
 def Windows(cc=None, ver0=None):
-    if ver0 is None:
-        ver0 = _get_vcver0()
+    #if ver0 is None:
+    #    ver0 = _get_vcver0()
     return _get_compiler_type(cc, False, ver0=ver0)
 
 def Windows_x64(cc=None, ver0=None):
