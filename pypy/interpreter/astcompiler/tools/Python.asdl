@@ -17,6 +17,7 @@ module Python
                        stmt* body, expr* decorator_list, expr? returns)
           | AsyncFunctionDef(identifier name, arguments args,
                              stmt* body, expr* decorator_list, expr? returns)
+
           | ClassDef(identifier name,
              expr* bases,
              keyword* keywords,
@@ -27,6 +28,8 @@ module Python
           | Delete(expr* targets)
           | Assign(expr* targets, expr value)
           | AugAssign(expr target, operator op, expr value)
+          -- 'simple' indicates that we annotate simple name without parens
+          | AnnAssign(expr target, expr annotation, expr? value, int simple)
 
           -- use 'orelse' because else is a keyword in target languages
           | For(expr target, expr iter, stmt* body, stmt* orelse)
@@ -107,7 +110,7 @@ module Python
 
     cmpop = Eq | NotEq | Lt | LtE | Gt | GtE | Is | IsNot | In | NotIn
 
-    comprehension = (expr target, expr iter, expr* ifs)
+    comprehension = (expr target, expr iter, expr* ifs, int is_async)
 
     excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)
                     attributes (int lineno, int col_offset)
