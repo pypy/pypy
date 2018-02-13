@@ -1315,7 +1315,8 @@ class ASTBuilder(object):
             expr = self.handle_expr(comp_node.get_child(3))
             assert isinstance(expr, ast.expr)
             if for_node.num_children() == 1:
-                comp = ast.comprehension(for_targets[0], expr, None)
+                # FIXME: determine whether this is actually async
+                comp = ast.comprehension(for_targets[0], expr, None, 0)
             else:
                 # Modified in python2.7, see http://bugs.python.org/issue6704
                 # Fixing unamed tuple location
@@ -1324,7 +1325,8 @@ class ASTBuilder(object):
                 col = expr_node.col_offset
                 line = expr_node.lineno
                 target = ast.Tuple(for_targets, ast.Store, line, col)
-                comp = ast.comprehension(target, expr, None)
+                # FIXME: determine whether this is actually async
+                comp = ast.comprehension(target, expr, None, 0)
             if comp_node.num_children() == 5:
                 comp_node = comp_iter = comp_node.get_child(4)
                 assert comp_iter.type == syms.comp_iter
