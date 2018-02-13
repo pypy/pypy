@@ -93,10 +93,6 @@ class statvfs_result(metaclass=structseqtype):
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
 
-# Capture file.fdopen at import time, as some code replaces
-# __builtins__.file with a custom function.
-_fdopen = file.fdopen
-
 
 class uname_result(metaclass=structseqtype):
 
@@ -116,14 +112,6 @@ class terminal_size(metaclass=structseqtype):
 
     columns  = structseqfield(0, "width of the terminal window in characters")
     lines = structseqfield(1, "height of the terminal window in characters")
-
-if osname == 'posix':
-    # POSIX: we want to check the file descriptor when fdopen() is called,
-    # not later when we read or write data.  So we call fstat(), letting
-    # it raise if fd is invalid.
-    _validate_fd = posix.fstat
-else:
-    _validate_fd = validate_fd
 
 
 class times_result(metaclass=structseqtype):
