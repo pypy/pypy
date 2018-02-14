@@ -614,6 +614,44 @@ class TestAstBuilder:
             assert len(dec.args) == 2
             assert dec.keywords is None
 
+    def test_annassign(self):
+        simple = self.get_first_stmt('a: int')
+        assert isinstance(simple, ast.AnnAssign)
+        assert isinstance(simple.target, ast.Name)
+        assert simple.target.ctx == ast.Store
+        assert isinstance(simple.annotation, ast.Name)
+        assert simple.value == None
+        assert simple.simple == 1
+
+        with_value = self.get_first_stmt('x: str = "test"')
+        assert isinstance(with_value, ast.AnnAssign)
+        assert isinstance(with_value.value, ast.Str)
+        assert self.space.eq_w(with_value.value.s, self.space.wrap("test"))
+
+        not_simple = self.get_first_stmt('(a): int')
+        assert isinstance(not_simple, ast.AnnAssign)
+        assert isinstance(not_simple.target, ast.Name)
+        assert not_simple.target.ctx == ast.Store
+        assert not_simple.simple == 0
+
+        attrs = self.get_first_stmt('a.b.c: int')
+        assert isinstance(attrs, ast.AnnAssign)
+        assert isinstance(attrs.target, ast.Attribute)
+
+        subscript = self.get_first_stmt('a[0:2]: int')
+        assert isinstance(subscript, ast.AnnAssign)
+        assert isinstance(subscript.target, ast.Subscript)
+
+        exc_tuple = py.test.raises(SyntaxError, self.get_ast, 'a, b: int').value
+        assert exc_tuple.msg == "only single target (not tuple) can be annotated"
+
+        exc_list = py.test.raises(SyntaxError, self.get_ast, '[]: int').value
+        assert exc_list.msg == "only single target (not list) can be annotated"
+
+        exc_bad_target = py.test.raises(SyntaxError, self.get_ast, '{}: int').value
+        assert exc_bad_target.msg == "illegal target for annoation"
+
+
     def test_augassign(self):
         aug_assigns = (
             ("+=", ast.Add),
