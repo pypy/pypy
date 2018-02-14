@@ -27,7 +27,7 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 
 # the maximum number of attributes stored in mapdict (afterwards just use a
 # dict)
-LIMIT_MAP_ATTRIBUTES = 8000
+LIMIT_MAP_ATTRIBUTES = 80
 
 
 class AbstractAttribute(object):
