@@ -339,6 +339,8 @@ class stmt(AST):
             return Assign.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_AugAssign):
             return AugAssign.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_AnnAssign):
+            return AnnAssign.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_For):
             return For.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_AsyncFor):
@@ -814,6 +816,64 @@ class AugAssign(stmt):
         return AugAssign(_target, _op, _value, _lineno, _col_offset)
 
 State.ast_type('AugAssign', 'stmt', ['target', 'op', 'value'])
+
+
+class AnnAssign(stmt):
+
+    def __init__(self, target, annotation, value, simple, lineno, col_offset):
+        self.target = target
+        self.annotation = annotation
+        self.value = value
+        self.simple = simple
+        stmt.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_AnnAssign(self)
+
+    def mutate_over(self, visitor):
+        self.target = self.target.mutate_over(visitor)
+        self.annotation = self.annotation.mutate_over(visitor)
+        if self.value:
+            self.value = self.value.mutate_over(visitor)
+        return visitor.visit_AnnAssign(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_AnnAssign)
+        w_target = self.target.to_object(space)  # expr
+        space.setattr(w_node, space.newtext('target'), w_target)
+        w_annotation = self.annotation.to_object(space)  # expr
+        space.setattr(w_node, space.newtext('annotation'), w_annotation)
+        w_value = self.value.to_object(space) if self.value is not None else space.w_None  # expr
+        space.setattr(w_node, space.newtext('value'), w_value)
+        w_simple = space.newint(self.simple)  # int
+        space.setattr(w_node, space.newtext('simple'), w_simple)
+        w_lineno = space.newint(self.lineno)  # int
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_target = get_field(space, w_node, 'target', False)
+        w_annotation = get_field(space, w_node, 'annotation', False)
+        w_value = get_field(space, w_node, 'value', True)
+        w_simple = get_field(space, w_node, 'simple', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        _target = expr.from_object(space, w_target)
+        if _target is None:
+            raise_required_value(space, w_node, 'target')
+        _annotation = expr.from_object(space, w_annotation)
+        if _annotation is None:
+            raise_required_value(space, w_node, 'annotation')
+        _value = expr.from_object(space, w_value)
+        _simple = obj_to_int(space, w_simple)
+        _lineno = obj_to_int(space, w_lineno)
+        _col_offset = obj_to_int(space, w_col_offset)
+        return AnnAssign(_target, _annotation, _value, _simple, _lineno, _col_offset)
+
+State.ast_type('AnnAssign', 'stmt', ['target', 'annotation', 'value', 'simple'])
 
 
 class For(stmt):
@@ -3673,10 +3733,11 @@ cmpop_to_class = [
 
 class comprehension(AST):
 
-    def __init__(self, target, iter, ifs):
+    def __init__(self, target, iter, ifs, is_async):
         self.target = target
         self.iter = iter
         self.ifs = ifs
+        self.is_async = is_async
 
     def mutate_over(self, visitor):
         self.target = self.target.mutate_over(visitor)
@@ -3702,6 +3763,8 @@ class comprehension(AST):
             ifs_w = [node.to_object(space) for node in self.ifs] # expr
         w_ifs = space.newlist(ifs_w)
         space.setattr(w_node, space.newtext('ifs'), w_ifs)
+        w_is_async = space.newint(self.is_async)  # int
+        space.setattr(w_node, space.newtext('is_async'), w_is_async)
         return w_node
 
     @staticmethod
@@ -3709,6 +3772,7 @@ class comprehension(AST):
         w_target = get_field(space, w_node, 'target', False)
         w_iter = get_field(space, w_node, 'iter', False)
         w_ifs = get_field(space, w_node, 'ifs', False)
+        w_is_async = get_field(space, w_node, 'is_async', False)
         _target = expr.from_object(space, w_target)
         if _target is None:
             raise_required_value(space, w_node, 'target')
@@ -3717,9 +3781,10 @@ class comprehension(AST):
             raise_required_value(space, w_node, 'iter')
         ifs_w = space.unpackiterable(w_ifs)
         _ifs = [expr.from_object(space, w_item) for w_item in ifs_w]
-        return comprehension(_target, _iter, _ifs)
+        _is_async = obj_to_int(space, w_is_async)
+        return comprehension(_target, _iter, _ifs, _is_async)
 
-State.ast_type('comprehension', 'AST', ['target', 'iter', 'ifs'])
+State.ast_type('comprehension', 'AST', ['target', 'iter', 'ifs', 'is_async'])
 
 class excepthandler(AST):
 
@@ -4066,6 +4131,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_AugAssign(self, node):
         return self.default_visitor(node)
+    def visit_AnnAssign(self, node):
+        return self.default_visitor(node)
     def visit_For(self, node):
         return self.default_visitor(node)
     def visit_AsyncFor(self, node):
@@ -4229,6 +4296,12 @@ class GenericASTVisitor(ASTVisitor):
     def visit_AugAssign(self, node):
         node.target.walkabout(self)
         node.value.walkabout(self)
+
+    def visit_AnnAssign(self, node):
+        node.target.walkabout(self)
+        node.annotation.walkabout(self)
+        if node.value:
+            node.value.walkabout(self)
 
     def visit_For(self, node):
         node.target.walkabout(self)
