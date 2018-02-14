@@ -737,6 +737,7 @@ class ASTBuilder(object):
             raise AssertionError("unknown statment type")
 
     def handle_expr_stmt(self, stmt):
+        from pypy.interpreter.pyparser.parser import AbstractNonterminal
         if stmt.num_children() == 1:
             expression = self.handle_testlist(stmt.get_child(0))
             return ast.Expr(expression, stmt.get_lineno(), stmt.get_column())
@@ -754,6 +755,44 @@ class ASTBuilder(object):
             operator = augassign_operator_map[op_str]
             return ast.AugAssign(target_expr, operator, value_expr,
                                  stmt.get_lineno(), stmt.get_column())
+        elif stmt.get_child(1).type == syms.annassign:
+            # Variable annotation (PEP 526), which may or may not include assignment.
+            target = stmt.get_child(0)
+            target_expr = self.handle_testlist(target)
+            simple = 0
+            # target is a name, nothing funky
+            if isinstance(target_expr, ast.Name):
+                # The PEP demands that `(x): T` be treated differently than `x: T`
+                # however, the parser does not easily expose the wrapping parens, which are a no-op
+                # they are elided by handle_testlist if they existed.
+                # so here we walk down the parse tree until we hit a terminal, and check whether it's
+                # a left paren
+                simple_test = target.get_child(0)
+                while isinstance(simple_test, AbstractNonterminal):
+                    simple_test = simple_test.get_child(0)
+                if simple_test.type != tokens.LPAR:
+                    simple = 1
+            # subscripts are allowed with nothing special
+            elif isinstance(target_expr, ast.Subscript):
+                pass
+            # attributes are also fine here
+            elif isinstance(target_expr, ast.Attribute):
+                pass
+            # tuples and lists get special error messages
+            elif isinstance(target_expr, ast.Tuple):
+                self.error("only single target (not tuple) can be annotated", target)
+            elif isinstance(target_expr, ast.List):
+                self.error("only single target (not list) can be annotated", target)
+            # and everything else gets a generic error
+            else:
+                self.error("illegal target for annoation", target)
+            self.set_context(target_expr, ast.Store)
+            second = stmt.get_child(1)
+            annotation = self.handle_expr(second.get_child(1))
+            value_expr = None
+            if second.num_children() == 4:
+                value_expr = self.handle_testlist(second.get_child(-1))
+            return ast.AnnAssign(target_expr, annotation, value_expr, simple, stmt.get_lineno(), stmt.get_column())
         else:
             # Normal assignment.
             targets = []
