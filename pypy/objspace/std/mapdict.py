@@ -4,6 +4,7 @@ from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.unicodehelper import encode_utf8
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string,
@@ -27,7 +28,7 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 
 # the maximum number of attributes stored in mapdict (afterwards just use a
 # dict)
-LIMIT_MAP_ATTRIBUTES = 8000
+LIMIT_MAP_ATTRIBUTES = 80
 
 
 class AbstractAttribute(object):
@@ -431,7 +432,8 @@ class PlainAttribute(AbstractAttribute):
     def materialize_str_dict(self, space, obj, str_dict):
         new_obj = self.back.materialize_str_dict(space, obj, str_dict)
         if self.index == DICT:
-            str_dict[self.name] = obj._mapdict_read_storage(self.storageindex)
+            enc_name = encode_utf8(space, self.name)
+            str_dict[enc_name] = obj._mapdict_read_storage(self.storageindex)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -767,7 +769,7 @@ class MapDictStrategy(DictStrategy):
 
     def switch_to_text_strategy(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
-        strategy = self.space.fromcache(BytesDictStrategy)
+        strategy = self.space.fromcache(UnicodeDictStrategy)
         str_dict = strategy.unerase(strategy.get_empty_storage())
         w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(str_dict)

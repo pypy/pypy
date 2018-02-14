@@ -125,6 +125,7 @@ def test_add_attribute_limit():
             obj.setdictvalue(space, str(i), i)
         # moved to dict (which is the remaining non-slot item)
         assert len(obj.storage) == 1 + numslots
+        assert isinstance(obj.getdict(space).dstrategy, UnicodeDictStrategy)
 
         for i in range(1000):
             assert obj.getdictvalue(space, str(i)) == i
