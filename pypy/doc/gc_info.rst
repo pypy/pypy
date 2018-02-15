@@ -1,10 +1,11 @@
-Garbage collector configuration
-===============================
+Garbage collector documentation and configuration
+=================================================
+
+
+Incminimark
+-----------
 
 .. _minimark-environment-variables:
-
-Minimark
---------
 
 PyPy's default ``incminimark`` garbage collector is configurable through
 several environment variables:
