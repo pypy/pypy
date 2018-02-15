@@ -15,13 +15,40 @@ size is a very crucial variable - depending on your workload (one or many
 processes) and cache sizes you might want to experiment with it via
 *PYPY_GC_NURSERY* environment variable. When the nursery is full, there is
 performed a minor collection. Freed objects are no longer referencable and
-just die, without any effort, while surviving objects from the nursery
-are copied to the old generation. Either to arenas, which are collections
-of objects of the same size, or directly allocated with malloc if they're big
-enough.
+just die, just by not being referenced any more; on the other hand, objects
+found to still be alive must survive and are copied from the nursery
+to the old generation. Either to arenas, which are collections
+of objects of the same size, or directly allocated with malloc if they're
+larger.  (A third category, the very large objects, are initially allocated
+outside the nursery and never move.)
 
 Since Incminimark is an incremental GC, the major collection is incremental,
 meaning there should not be any pauses longer than 1ms.
+
+
+Fragmentation
+-------------
+
+Before we discuss issues of "fragmentation", we need a bit of precision.
+There are two kinds of related but distinct issues:
+
+* If the program allocates a lot of memory, and then frees it all by
+  dropping all references to it, then we might expect to see the RSS
+  to drop.  (RSS = Resident Set Size on Linux, as seen by "top"; it is an
+  approximation of the actual memory usage from the OS's point of view.)
+  This might not occur: the RSS may remain at its highest value.  This
+  issue is more precisely caused by the process not returning "free"
+  memory to the OS.  We call this case "unreturned memory".
+
+* After doing the above, if the RSS didn't go down, then at least future
+  allocations should not cause the RSS to grow more.  That is, the process
+  should reuse unreturned memory as long as it has got some left.  If this
+  does not occur, the RSS grows even larger and we have real fragmentation
+  issues.
+
+
+gc.get_stats
+------------
 
 There is a special function in the ``gc`` module called
 ``get_stats(memory_pressure=False)``.
@@ -56,19 +83,32 @@ Example call looks like that::
     
 In this particular case, which is just at startup, GC consumes relatively
 little memory and there is even less unused, but allocated memory. In case
-there is a high memory fragmentation, the "allocated" can be much higher
-than "used". Generally speaking, "peak" will more resemble the actual
-memory consumed as reported by RSS, since returning memory to the OS is a hard
-and not solved problem.
+there is a lot of unreturned memory or actual fragmentation, the "allocated"
+can be much higher than "used".  Generally speaking, "peak" will more closely
+resemble the actual memory consumed as reported by RSS.  Indeed, returning
+memory to the OS is a hard and not solved problem.  In PyPy, it occurs only if
+an arena is entirely free---a contiguous block of 64 pages of 4 or 8 KB each.
+It is also rare for the "rawmalloced" category, at least for common system
+implementations of ``malloc()``.
 
 The details of various fields:
 
-* GC in arenas - small old objects held in arenas. If the amount of allocated
-  is much higher than the amount of used, we have large fragmentation issue
+* GC in arenas - small old objects held in arenas. If the amount "allocated"
+  is much higher than the amount "used", we have unreturned memory.  It is
+  possible but unlikely that we have internal fragmentation here.  However,
+  this unreturned memory cannot be reused for any ``malloc()``, including the
+  memory from the "rawmalloced" section.
 
-* GC rawmalloced - large objects allocated with malloc. If this does not
-  correspond to the amount of RSS very well, consider using jemalloc as opposed
-  to system malloc
+* GC rawmalloced - large objects allocated with malloc.  This is gives the
+  current (first block of text) and peak (second block of text) memory
+  allocated with ``malloc()``.  The amount of unreturned memory or
+  fragmentation caused by ``malloc()`` cannot easily be reported.  Usually
+  you can guess there is some if the RSS is much larger than the total
+  memory reported for "GC allocated", but do keep in mind that this total
+  does not include malloc'ed memory not known to PyPy's GC at all.  If you
+  guess there is some, consider using `jemalloc`_ as opposed to system malloc.
+
+.. _`jemalloc`: http://jemalloc.net/
 
 * nursery - amount of memory allocated for nursery, fixed at startup,
   controlled via an environment variable
@@ -91,7 +131,7 @@ several environment variables:
 
 ``PYPY_GC_NURSERY``
     The nursery size.
-    Defaults to 1/2 of your cache or ``4M``.
+    Defaults to 1/2 of your last-level cache, or ``4M`` if unknown.
     Small values (like 1 or 1KB) are useful for debugging.
 
 ``PYPY_GC_NURSERY_DEBUG``
