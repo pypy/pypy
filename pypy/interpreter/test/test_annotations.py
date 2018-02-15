@@ -69,6 +69,14 @@ class AppTestAnnotations:
         C()
         '''
 
+    def test_repeated_setup(self):
+        '''
+        d = {}
+        exec('a: int', d)
+        exec('b: int', d)
+        exec('assert __annotations__ == {"a": int, "b": int}', d)
+        '''
+
     def test_function_no___annotations__(self):
         '''
         a: int
