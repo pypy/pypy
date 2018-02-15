@@ -433,6 +433,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
             if assign.value:
                 scope |= SYM_USED
             self.note_symbol(name, scope)
+        else:
+            target.walkabout(self)
 
     def visit_ClassDef(self, clsdef):
         self.note_symbol(clsdef.name, SYM_ASSIGNED)
