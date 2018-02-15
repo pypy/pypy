@@ -513,6 +513,9 @@ def f(x):
         assert fscp.contains_annotated == False
         assert fscp.lookup("x") == symtable.SCOPE_LOCAL
 
+    def test_nonsimple_annotation(self):
+        fscp = self.func_scope("def f(): implicit_global[0]: int")
+        assert fscp.lookup("implicit_global") == symtable.SCOPE_GLOBAL_IMPLICIT
 
     def test_issue13343(self):
         scp = self.mod_scope("lambda *, k1=x, k2: None")
