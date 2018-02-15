@@ -5,7 +5,86 @@ Garbage collector documentation and configuration
 Incminimark
 -----------
 
+PyPy's default garbage collector is called incminimark - it's an incremental,
+generational moving collector. Here we hope to explain a bit how it works
+and how it can be tuned to suit the workload.
+
+Incminimark first allocates objects in so called *nursery* - place for young
+objects, where allocation is very cheap, being just a pointer bump. The nursery
+size is a very crucial variable - depending on your workload (one or many
+processes) and cache sizes you might want to experiment with it via
+*PYPY_GC_NURSERY* environment variable. When the nursery is full, there is
+performed a minor collection. Freed objects are no longer referencable and
+just die, without any effort, while surviving objects from the nursery
+are copied to the old generation. Either to arenas, which are collections
+of objects of the same size, or directly allocated with malloc if they're big
+enough.
+
+Since Incminimark is an incremental GC, the major collection is incremental,
+meaning there should not be any pauses longer than 1ms.
+
+There is a special function in the ``gc`` module called
+``get_stats(memory_pressure=False)``.
+
+``memory_pressure`` controls whether or not to report memory pressure from
+objects allocated outside of the GC, which requires walking the entire heap,
+so it's disabled by default due to its cost. Enable it when debugging
+mysterious memory disappearance.
+
+Example call looks like that::
+    
+    >>> gc.get_stats(True)
+    Total memory consumed:
+    GC used:            4.2MB (peak: 4.2MB)
+       in arenas:            763.7kB
+       rawmalloced:          383.1kB
+       nursery:              3.1MB
+    raw assembler used: 0.0kB
+    memory pressure:    0.0kB
+    -----------------------------
+    Total:              4.2MB
+
+    Total memory allocated:
+    GC allocated:            4.5MB (peak: 4.5MB)
+       in arenas:            763.7kB
+       rawmalloced:          383.1kB
+       nursery:              3.1MB
+    raw assembler allocated: 0.0kB
+    memory pressure:    0.0kB
+    -----------------------------
+    Total:                   4.5MB
+    
+In this particular case, which is just at startup, GC consumes relatively
+little memory and there is even less unused, but allocated memory. In case
+there is a high memory fragmentation, the "allocated" can be much higher
+than "used". Generally speaking, "peak" will more resemble the actual
+memory consumed as reported by RSS, since returning memory to the OS is a hard
+and not solved problem.
+
+The details of various fields:
+
+* GC in arenas - small old objects held in arenas. If the amount of allocated
+  is much higher than the amount of used, we have large fragmentation issue
+
+* GC rawmalloced - large objects allocated with malloc. If this does not
+  correspond to the amount of RSS very well, consider using jemalloc as opposed
+  to system malloc
+
+* nursery - amount of memory allocated for nursery, fixed at startup,
+  controlled via an environment variable
+
+* raw assembler allocated - amount of assembler memory that JIT feels
+  responsible for
+
+* memory pressure, if asked for - amount of memory we think got allocated
+  via external malloc (eg loading cert store in SSL contexts) that is kept
+  alive by GC objects, but not accounted in the GC
+
+
 .. _minimark-environment-variables:
+
+Environment variables
+---------------------
 
 PyPy's default ``incminimark`` garbage collector is configurable through
 several environment variables:
