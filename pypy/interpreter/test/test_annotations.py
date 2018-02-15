@@ -59,8 +59,13 @@ class AppTestAnnotations:
         class C:
             def __init__(self):
                 self.x: invalid_name = 1
-                y[0]: also_invalid
                 assert self.x == 1
+                try:
+                    # this is invalid because `y` is undefined
+                    # it should raise a NameError
+                    y[0]: also_invalid
+                except NameError:
+                    ...
         C()
         '''
 
