@@ -370,8 +370,11 @@ class TestUTF8Decoding(UnicodeTests):
             self.checkdecode(s, "utf-8")
 
     def test_utf8_surrogate(self):
-        # surrogates used to be allowed by python 2.x
-        py.test.raises(UnicodeDecodeError, self.checkdecode, u"\ud800", "utf-8")
+        # surrogates used to be allowed by python 2.x, and on narrow builds
+        if runicode.MAXUNICODE < 65536:
+            self.checkdecode(u"\ud800", "utf-8")
+        else:
+            py.test.raises(UnicodeDecodeError, self.checkdecode, u"\ud800", "utf-8")
 
     def test_invalid_start_byte(self):
         """

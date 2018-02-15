@@ -17,6 +17,7 @@ if os.name != 'nt':
     USEMODULES += ['fcntl', 'select', '_posixsubprocess', '_socket']
 else:
     USEMODULES += ['_rawffi', 'thread']
+    USEMODULES += ['_rawffi', 'thread', 'signal', '_cffi_backend']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)

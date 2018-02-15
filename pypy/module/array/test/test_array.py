@@ -300,6 +300,12 @@ class AppTestArray(object):
         b = self.array('u', u'hi')
         assert len(b) == 2 and b[0] == 'h' and b[1] == 'i'
 
+    def test_setslice_to_extend(self):
+        a = self.array('i')
+        a[0:1] = self.array('i', [9])
+        a[1:5] = self.array('i', [99])
+        assert list(a) == [9, 99]
+
     def test_sequence(self):
         a = self.array('i', [1, 2, 3, 4])
         assert len(a) == 4

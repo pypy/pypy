@@ -114,6 +114,34 @@ def test_add_attribute():
     assert obj2.getdictvalue(space, "b") == 60
     assert obj2.map is obj.map
 
+def test_add_attribute_limit():
+    for numslots in [0, 10, 100]:
+        cls = Class()
+        obj = cls.instantiate()
+        for i in range(numslots):
+            obj.setslotvalue(i, i) # some extra slots too, sometimes
+        # test that eventually attributes are really just stored in a dictionary
+        for i in range(1000):
+            obj.setdictvalue(space, str(i), i)
+        # moved to dict (which is the remaining non-slot item)
+        assert len(obj.storage) == 1 + numslots
+        assert isinstance(obj.getdict(space).dstrategy, UnicodeDictStrategy)
+
+        for i in range(1000):
+            assert obj.getdictvalue(space, str(i)) == i
+        for i in range(numslots):
+            assert obj.getslotvalue(i) == i # check extra slots
+
+    # this doesn't happen with slots
+    cls = Class()
+    obj = cls.instantiate()
+    for i in range(1000):
+        obj.setslotvalue(i, i)
+    assert len(obj.storage) == 1000
+
+    for i in range(1000):
+        assert obj.getslotvalue(i) == i
+
 def test_insert_different_orders():
     cls = Class()
     obj = cls.instantiate()
@@ -797,7 +825,6 @@ class AppTestWithMapDict(object):
         assert d == {}
 
     def test_change_class_slots(self):
-        skip("not supported by pypy yet")
         class A(object):
             __slots__ = ["x", "y"]
 
@@ -815,7 +842,6 @@ class AppTestWithMapDict(object):
         assert isinstance(a, B)
 
     def test_change_class_slots_dict(self):
-        skip("not supported by pypy yet")
         class A(object):
             __slots__ = ["x", "__dict__"]
         class B(object):
@@ -843,7 +869,7 @@ class AppTestWithMapDict(object):
         assert a.y == 2
         d = a.__dict__
         d[1] = 3
-        assert d == {"x": 1, "y": 2, 1:3}
+        assert d == {"y": 2, 1: 3}
         a.__class__ = B
         assert a.x == 1
         assert a.y == 2

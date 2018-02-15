@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
@@ -21,13 +21,21 @@ class GCData(object):
     # A destructor is called when the object is about to be freed.
     # A custom tracer (CT) enumerates the addresses that contain GCREFs.
     # Both are called with the address of the object as only argument.
+    # They're embedded in a struct that has raw_memory_offset as another
+    # argument, which is only valid if T_HAS_MEMORY_PRESSURE is set
     CUSTOM_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
     CUSTOM_FUNC_PTR = lltype.Ptr(CUSTOM_FUNC)
+    CUSTOM_DATA_STRUCT = lltype.Struct('custom_data',
+        ('customfunc', CUSTOM_FUNC_PTR),
+        ('memory_pressure_offset', lltype.Signed), # offset to where the amount
+                                           # of owned memory pressure is stored
+        )
+    CUSTOM_DATA_STRUCT_PTR = lltype.Ptr(CUSTOM_DATA_STRUCT)
 
     # structure describing the layout of a typeid
     TYPE_INFO = lltype.Struct("type_info",
         ("infobits",       lltype.Signed),    # combination of the T_xxx consts
-        ("customfunc",     CUSTOM_FUNC_PTR),
+        ("customdata",     CUSTOM_DATA_STRUCT_PTR),
         ("fixedsize",      lltype.Signed),
         ("ofstoptrs",      lltype.Ptr(OFFSETS_TO_GC_PTR)),
         hints={'immutable': True},
@@ -81,14 +89,16 @@ class GCData(object):
     def q_cannot_pin(self, typeid):
         typeinfo = self.get(typeid)
         ANY = (T_HAS_GCPTR | T_IS_WEAKREF)
-        return (typeinfo.infobits & ANY) != 0 or bool(typeinfo.customfunc)
+        return (typeinfo.infobits & ANY) != 0 or bool(typeinfo.customdata)
 
     def q_finalizer_handlers(self):
         adr = self.finalizer_handlers   # set from framework.py or gcwrapper.py
         return llmemory.cast_adr_to_ptr(adr, lltype.Ptr(FIN_HANDLER_ARRAY))
 
     def q_destructor_or_custom_trace(self, typeid):
-        return self.get(typeid).customfunc
+        if not self.get(typeid).customdata:
+            return lltype.nullptr(GCData.CUSTOM_FUNC_PTR.TO)
+        return self.get(typeid).customdata.customfunc
 
     def q_is_old_style_finalizer(self, typeid):
         typeinfo = self.get(typeid)
@@ -139,6 +149,15 @@ class GCData(object):
         infobits = self.get(typeid).infobits
         return infobits & T_ANY_SLOW_FLAG == 0
 
+    def q_has_memory_pressure(self, typeid):
+        infobits = self.get(typeid).infobits
+        return infobits & T_HAS_MEMORY_PRESSURE != 0
+
+    def q_get_memory_pressure_ofs(self, typeid):
+        infobits = self.get(typeid).infobits
+        assert infobits & T_HAS_MEMORY_PRESSURE != 0
+        return self.get(typeid).customdata.memory_pressure_offset
+
     def set_query_functions(self, gc):
         gc.set_query_functions(
             self.q_is_varsize,
@@ -159,7 +178,9 @@ class GCData(object):
             self.q_has_custom_trace,
             self.q_fast_path_tracing,
             self.q_has_gcptr,
-            self.q_cannot_pin)
+            self.q_cannot_pin,
+            self.q_has_memory_pressure,
+            self.q_get_memory_pressure_ofs)
 
     def _has_got_custom_trace(self, typeid):
         type_info = self.get(typeid)
@@ -176,8 +197,9 @@ T_IS_RPYTHON_INSTANCE       = 0x100000 # the type is a subclass of OBJECT
 T_HAS_CUSTOM_TRACE          = 0x200000
 T_HAS_OLDSTYLE_FINALIZER    = 0x400000
 T_HAS_GCPTR                 = 0x1000000
-T_KEY_MASK                  = intmask(0xFE000000) # bug detection only
-T_KEY_VALUE                 = intmask(0x5A000000) # bug detection only
+T_HAS_MEMORY_PRESSURE       = 0x2000000 # first field is memory pressure field
+T_KEY_MASK                  = intmask(0xFC000000) # bug detection only
+T_KEY_VALUE                 = intmask(0x58000000) # bug detection only
 
 def _check_valid_type_info(p):
     ll_assert(p.infobits & T_KEY_MASK == T_KEY_VALUE, "invalid type_id")
@@ -192,6 +214,25 @@ def check_typeid(typeid):
     ll_assert(llop.is_group_member_nonzero(lltype.Bool, typeid),
               "invalid type_id")
 
+def has_special_memory_pressure(TYPE):
+    if TYPE._is_varsize():
+        return False
+    T = TYPE
+    while True:
+        if 'special_memory_pressure' in T._flds:
+            return True
+        if 'super' not in T._flds:
+            return False
+        T = T._flds['super']
+
+def get_memory_pressure_ofs(TYPE):
+    T = TYPE
+    while True:
+        if 'special_memory_pressure' in T._flds:
+            return llmemory.offsetof(T, 'special_memory_pressure')
+        if 'super' not in T._flds:
+            assert False, "get_ and has_memory_pressure disagree"
+        T = T._flds['super']    
 
 def encode_type_shape(builder, info, TYPE, index):
     """Encode the shape of the TYPE into the TYPE_INFO structure 'info'."""
@@ -202,12 +243,18 @@ def encode_type_shape(builder, info, TYPE, index):
         infobits |= T_HAS_GCPTR
     #
     fptrs = builder.special_funcptr_for_type(TYPE)
-    if fptrs:
+    if fptrs or has_special_memory_pressure(TYPE):
+        customdata = lltype.malloc(GCData.CUSTOM_DATA_STRUCT, flavor='raw',
+                                   immortal=True)
+        info.customdata = customdata
         if "destructor" in fptrs:
-            info.customfunc = fptrs["destructor"]
+            customdata.customfunc = fptrs["destructor"]
         if "old_style_finalizer" in fptrs:
-            info.customfunc = fptrs["old_style_finalizer"]
+            customdata.customfunc = fptrs["old_style_finalizer"]
             infobits |= T_HAS_OLDSTYLE_FINALIZER
+        if has_special_memory_pressure(TYPE):
+            infobits |= T_HAS_MEMORY_PRESSURE
+            info.customdata.memory_pressure_offset = get_memory_pressure_ofs(TYPE)
     #
     if not TYPE._is_varsize():
         info.fixedsize = llarena.round_up_for_allocation(

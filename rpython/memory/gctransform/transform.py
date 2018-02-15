@@ -535,12 +535,7 @@ class GCTransformer(BaseGCTransformer):
         return self.varsize_malloc_helper(hop, flags, meth, [])
 
     def gct_gc_add_memory_pressure(self, hop):
-        if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
-            op = hop.spaceop
-            size = op.args[0]
-            return hop.genop("direct_call",
-                          [self.raw_malloc_memory_pressure_ptr,
-                           size])
+        pass
 
     def varsize_malloc_helper(self, hop, flags, meth, extraargs):
         def intconst(c): return rmodel.inputconst(lltype.Signed, c)
@@ -574,9 +569,10 @@ class GCTransformer(BaseGCTransformer):
                                                                     c_offset_to_length):
         if flags.get('add_memory_pressure', False):
             if hasattr(self, 'raw_malloc_memory_pressure_varsize_ptr'):
+                v_adr = rmodel.inputconst(llmemory.Address, llmemory.NULL)
                 hop.genop("direct_call",
                           [self.raw_malloc_memory_pressure_varsize_ptr,
-                           v_length, c_item_size])
+                           v_length, c_item_size, v_adr])
         if c_offset_to_length is None:
             if flags.get('zero'):
                 fnptr = self.raw_malloc_varsize_no_length_zero_ptr

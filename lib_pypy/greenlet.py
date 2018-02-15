@@ -2,7 +2,7 @@ import sys
 import __pypy__
 import _continuation
 
-__version__ = "0.4.12"
+__version__ = "0.4.13"
 
 # ____________________________________________________________
 # Exceptions

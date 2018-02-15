@@ -267,7 +267,7 @@ def PySequence_Index(space, w_seq, w_obj):
     raise oefmt(space.w_ValueError, "sequence.index(x): x not in sequence")
 
 class CPyListStrategy(ListStrategy):
-    erase, unerase = rerased.new_erasing_pair("empty")
+    erase, unerase = rerased.new_erasing_pair("cpylist")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 

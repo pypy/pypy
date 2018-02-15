@@ -259,8 +259,6 @@ def set_wakeup_fd(space, fd):
                     "signal.set_wakeup_fd is not implemented on Windows")
 
     if fd != -1:
-        if not rposix.is_valid_fd(fd):
-            raise oefmt(space.w_ValueError, "invalid fd")
         try:
             os.fstat(fd)
             flags = rposix.get_status_flags(fd)
