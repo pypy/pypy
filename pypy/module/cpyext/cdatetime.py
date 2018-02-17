@@ -32,6 +32,10 @@ def _PyDateTime_Import(space):
     w_type = space.getattr(w_datetime, space.newtext("date"))
     datetimeAPI.c_DateType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
+    # convenient place to modify this, needed since the make_typedescr attach
+    # links the "wrong" struct to W_DateTime_Date, which in turn is needed
+    # because datetime, with a tzinfo entry, inherits from date, without one
+    datetimeAPI.c_DateType.c_tp_basicsize = rffi.sizeof(PyObject.TO)
 
     w_type = space.getattr(w_datetime, space.newtext("datetime"))
     datetimeAPI.c_DateTimeType = rffi.cast(
@@ -129,7 +133,6 @@ def init_datetime(space):
     # W_DateTime_Date->tp_dealloc
     make_typedescr(W_DateTime_Date.typedef,
                    basestruct=PyDateTime_DateTime.TO,
-                   alloc=date_or_datetime_allocate,
                    attach=type_attach,
                    dealloc=date_dealloc,
                   )
@@ -139,33 +142,12 @@ def init_datetime(space):
                    attach=timedeltatype_attach,
                   )
 
-def date_or_datetime_allocate(self, space, w_type, itemcount=0, immortal=False):
-    # allocates a date or datetime object. datetime has a tzinfo field, date does not
-    pytype = as_pyobj(space, w_type)
-    pytype = rffi.cast(PyTypeObjectPtr, pytype)
-    if w_type.name == 'date':
-        # XXX we should do this where the 'date' and 'datetime' type is instantiated
-        pytype.c_tp_basicsize = rffi.sizeof(PyObject.TO)
-    size = pytype.c_tp_basicsize
-    incref(space, pytype)
-    assert size >= rffi.sizeof(PyObject.TO)
-    buf = lltype.malloc(rffi.VOIDP.TO, size,
-                        flavor='raw', zero=True,
-                        add_memory_pressure=True, immortal=immortal)
-    pyobj = rffi.cast(PyObject, buf)
-    pyobj.c_ob_refcnt = 1
-    #pyobj.c_ob_pypy_link should get assigned very quickly
-    pyobj.c_ob_type = pytype
-    return pyobj
-
 def type_attach(space, py_obj, w_obj, w_userdata=None):
     '''Fills a newly allocated py_obj from the w_obj
     '''
     if space.type(w_obj).name == 'date':
         # No tzinfo
         return
-    # just make sure, should be removed
-    assert py_obj.c_ob_type.c_tp_basicsize > rffi.sizeof(PyObject.TO)
     py_datetime = rffi.cast(PyDateTime_Time, py_obj)
     w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
     if space.is_none(w_tzinfo):
