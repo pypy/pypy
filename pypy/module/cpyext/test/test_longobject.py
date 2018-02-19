@@ -277,23 +277,23 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                      free(bytes);
                      return NULL;
                  }
-                 result = PyString_FromStringAndSize((const char *)bytes, n);
+                 result = PyBytes_FromStringAndSize((const char *)bytes, n);
                  free(bytes);
                  return result;
              """),
             ])
         s = module.as_bytearray(0x41BC9A, 4, True, False)
-        assert s == "\x9A\xBC\x41\x00"
+        assert s == b"\x9A\xBC\x41\x00"
         s = module.as_bytearray(0x41BC9A, 4, False, False)
-        assert s == "\x00\x41\xBC\x9A"
+        assert s == b"\x00\x41\xBC\x9A"
         s = module.as_bytearray(0x41BC9A, 3, True, False)
-        assert s == "\x9A\xBC\x41"
+        assert s == b"\x9A\xBC\x41"
         s = module.as_bytearray(0x41BC9A, 3, True, True)
-        assert s == "\x9A\xBC\x41"
+        assert s == b"\x9A\xBC\x41"
         s = module.as_bytearray(0x9876, 2, True, False)
-        assert s == "\x76\x98"
+        assert s == b"\x76\x98"
         s = module.as_bytearray(0x9876 - 0x10000, 2, True, True)
-        assert s == "\x76\x98"
+        assert s == b"\x76\x98"
         raises(OverflowError, module.as_bytearray,
                               0x9876, 2, False, True)
         raises(OverflowError, module.as_bytearray,
