@@ -1478,10 +1478,9 @@ class AppTestEnvironment(object):
     def test_environ(self):
         import sys, os
         environ = os.environ
-        item_type = str if sys.platform.startswith('win') else bytes
         for k, v in environ.items():
-            assert type(k) is item_type
-            assert type(v) is item_type
+            assert type(k) is str
+            assert type(v) is str
         name = next(iter(environ))
         assert environ[name] is not None
         del environ[name]
