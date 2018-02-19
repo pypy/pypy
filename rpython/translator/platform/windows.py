@@ -384,7 +384,8 @@ class MsvcPlatform(Platform):
 
         if len(headers_to_precompile)>0:
             if shared:
-                no_precompile_cfiles += ['main.c', 'wmain.c']
+                no_precompile_cfiles += [m.makefile_dir / 'main.c', 
+                                         m.makefile_dir / 'wmain.c']
             stdafx_h = path.join('stdafx.h')
             txt  = '#ifndef PYPY_STDAFX_H\n'
             txt += '#define PYPY_STDAFX_H\n'
