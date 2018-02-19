@@ -535,7 +535,13 @@ class MsvcPlatform(Platform):
 # The buildbot runs get_externals before building
 def patch_env(env, externals = Platform.externals):
     #print 'adding %s to PATH, INCLUDE, LIB' % basepath
-    env['PATH'] = externals + r'\bin;' + env.get('PATH', '')
+    binpath = externals + r'\bin'
+    path = os.environ['PATH']
+    if binpath not in path.split(';'):
+        path = binpath + ';' + path
+    # make sure externals is in current path for tests and translating
+    os.environ['PATH'] = path
+    env['PATH'] = binpath + ';' + env.get('PATH', '')
     env['INCLUDE'] = externals + r'\include;' + env.get('INCLUDE', '')
     env['LIB'] = externals + r'\lib;' + env.get('LIB', '')
     return None
