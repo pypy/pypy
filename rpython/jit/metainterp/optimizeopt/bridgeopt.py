@@ -3,6 +3,8 @@ optimizer of the bridge attached to a guard. """
 
 from rpython.jit.metainterp import resumecode
 
+from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
+    debug_print)
 
 # adds the following sections at the end of the resume code:
 #
@@ -59,7 +61,6 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     for box in liveboxes:
         if box is not None and box in liveboxes_from_env:
             available_boxes[box] = None
-    metainterp_sd = optimizer.metainterp_sd
 
     # class knowledge is stored as bits, true meaning the class is known, false
     # means unknown. on deserializing we look at the bits, and read the runtime
@@ -107,6 +108,8 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         numb_state.append_int(0)
 
 def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):
+    debug_start("jit-bridge-deserialize")
+
     reader = resumecode.Reader(resumestorage.rd_numb)
     assert len(frontend_boxes) == len(liveboxes)
     metainterp_sd = optimizer.metainterp_sd
@@ -116,6 +119,7 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
     reader.jump(startcount - 1)
 
     # class knowledge
+    debug_print("# class knowledge")
     bitfield = 0
     mask = 0
     for i, box in enumerate(liveboxes):
@@ -129,9 +133,14 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         if class_known:
             cls = optimizer.cpu.ts.cls_of_box(frontend_boxes[i])
             optimizer.make_constant_class(box, cls)
+            debug_print("class known", i)
+        else:
+            debug_print("class NOT known", i)
 
     # heap knowledge
+    debug_print("# heap knowledge")
     if not optimizer.optheap:
+        debug_print("# no optheap!")
         return
     length = reader.next_item()
     result_struct = []
@@ -143,6 +152,15 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         tagged = reader.next_item()
         box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
         result_struct.append((box1, descr, box2))
+
+        attrname = descr.repr_of_descr()
+        try:
+            i1 = liveboxes.index(box1)
+            i2 = liveboxes.index(box2)
+        except ValueError:
+            debug_print("getfield: some unknown box with field", attrname)
+        else:
+            debug_print("getfield:", i1, i2, attrname)
     length = reader.next_item()
     result_array = []
     for i in range(length):
@@ -155,3 +173,5 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
         result_array.append((box1, index, descr, box2))
     optimizer.optheap.deserialize_optheap(result_struct, result_array)
+
+    debug_stop("jit-bridge-deserialize")
