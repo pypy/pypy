@@ -55,10 +55,7 @@ def _get_msvc_env(vsver, x64flag):
     vcdict = None
     toolsdir = None
     try:
-        if vsver < 140:
-            toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
-        else:
-            raise KeyError('always use registry values')
+        toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     except KeyError:
         # use setuptools from python3 to find tools
         try:
