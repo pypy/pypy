@@ -531,7 +531,7 @@ class BaseTestGenerateGuards(BaseTest):
         op = ResOperation(
                 rop.CALL_PURE_I, [ConstInt(123), ConstPtr(self.quasiptr)],
                 descr=self.plaincalldescr)
-        copied_op, cond, result = ccond.prepare_const_arg_call(
+        copied_op, cond, reason = ccond._prepare_const_arg_call(
                 op, optimizer)
         ccond.record_condition(cond, ConstInt(5), optimizer)
 
@@ -545,7 +545,7 @@ class BaseTestGenerateGuards(BaseTest):
                 rop.CALL_PURE_I,
                 [ConstInt(123), ConstPtr(self.quasiptr), getfield_op],
                 descr=self.nonwritedescr)
-        copied_op, cond, result = ccond.prepare_const_arg_call(
+        copied_op, cond, reason = ccond._prepare_const_arg_call(
                 op, optimizer)
         ccond.record_condition(cond, ConstInt(5), optimizer)
         value = info.PtrInfo()

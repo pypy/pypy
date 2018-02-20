@@ -83,8 +83,12 @@ class CompatibilityCondition(object):
             cond.activate_secondary(ref, loop_token)
         return True
 
-    def prepare_const_arg_call(self, op, optimizer):
-        copied_op, cond = self._prepare_const_arg_call(op, optimizer)
+    def replace_with_const_result_if_possible(self, op, optimizer):
+        """ Main entry point for optimizeopt: check if op can be replaced with
+        a constant result and stored in the conditions instead of leaving it in
+        the trace. Returns None if that is not possible. """
+        copied_op, cond, failure_reason = self._prepare_const_arg_call(
+                op, optimizer)
         if copied_op:
             result = optimizer._can_optimize_call_pure(copied_op)
             if result is None:
@@ -93,9 +97,23 @@ class CompatibilityCondition(object):
                 result = do_call(
                         optimizer.cpu, copied_op.getarglist(),
                         copied_op.getdescr())
-            return copied_op, cond, result
-        else:
-            return None, None, None
+            recorded = self.record_condition(
+                    cond, result, optimizer)
+            if recorded:
+                return result
+            else:
+                failure_reason = "self is frozen"
+        debug_start("jit-guard-compatible")
+        if have_debug_prints():
+            try:
+                addr = op.getarg(0).getaddr()
+            except Exception:
+                funcname = "?"
+            else:
+                funcname = optimizer.metainterp_sd.get_name_from_address(addr)
+            debug_print("failed to optimize call:", funcname, failure_reason)
+            debug_stop("jit-guard-compatible")
+        return None
 
     def _prepare_const_arg_call(self, op, optimizer):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
@@ -112,15 +130,16 @@ class CompatibilityCondition(object):
         copied_op = op.copy()
         copied_op.setarg(1, self.known_valid)
         if op.numargs() == 2:
-            return copied_op, PureCallCondition(op, optimizer)
+            return copied_op, PureCallCondition(op, optimizer), ""
         arg2 = copied_op.getarg(2)
         if arg2.is_constant():
             # already a constant, can just use PureCallCondition
             if last_nonconst_index != -1:
-                return None, None # a non-constant argument, can't optimize
-            return copied_op, PureCallCondition(op, optimizer)
+                # a non-constant argument, can't optimize
+                return None, None, "nonconstant arg " + str(last_nonconst_index)
+            return copied_op, PureCallCondition(op, optimizer), ""
         if last_nonconst_index != 2:
-            return None, None
+            return None, None, "nonconstant arg " + str(last_nonconst_index)
 
         # really simple-minded pattern matching
         # the order of things is like this:
@@ -132,20 +151,20 @@ class CompatibilityCondition(object):
         # make it possible for the GUARD_COMPATIBLE to still remove the call,
         # even though the second argument is not constant
         if arg2.getopnum() not in (rop.GETFIELD_GC_R, rop.GETFIELD_GC_I, rop.GETFIELD_GC_F):
-            return None, None
+            return None, None, "arg2 not a getfield"
         if not self.last_quasi_immut_field_op:
-            return None, None
+            return None, None, "no quasiimut op known"
         qmutdescr = self.last_quasi_immut_field_op.getdescr()
         assert isinstance(qmutdescr, QuasiImmutDescr)
         fielddescr = qmutdescr.fielddescr # XXX
         same_arg = self.last_quasi_immut_field_op.getarg(0) is arg2.getarg(0)
         if arg2.getdescr() is not fielddescr or not same_arg:
-            return None, None
+            return None, None, "fielddescr doesn't match"
         if not qmutdescr.is_still_valid_for(self.known_valid):
-            return None, None
+            return None, None, "qmutdescr invalid"
         copied_op.setarg(2, qmutdescr.constantfieldbox)
         return copied_op, QuasiimmutGetfieldAndPureCallCondition(
-                op, qmutdescr, optimizer)
+                op, qmutdescr, optimizer), ""
 
     def emit_conditions(self, op, short, optimizer):
         """ re-emit the conditions about variable op into the short preamble
