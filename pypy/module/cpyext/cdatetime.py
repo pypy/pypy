@@ -2,9 +2,10 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.pyobject import (PyObject, make_ref, make_typedescr,
-    decref)
+    decref, as_pyobj, incref)
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cpython_struct,
-    PyObjectFields, cts, parse_dir, bootstrap_function, slot_function)
+    PyObjectFields, cts, parse_dir, bootstrap_function, slot_function,
+    Py_TPFLAGS_HEAPTYPE)
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError
@@ -31,6 +32,10 @@ def _PyDateTime_Import(space):
     w_type = space.getattr(w_datetime, space.newtext("date"))
     datetimeAPI.c_DateType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
+    # convenient place to modify this, needed since the make_typedescr attach
+    # links the "wrong" struct to W_DateTime_Date, which in turn is needed
+    # because datetime, with a tzinfo entry, inherits from date, without one
+    datetimeAPI.c_DateType.c_tp_basicsize = rffi.sizeof(PyObject.TO)
 
     w_type = space.getattr(w_datetime, space.newtext("datetime"))
     datetimeAPI.c_DateTimeType = rffi.cast(
@@ -128,6 +133,7 @@ def init_datetime(space):
     # W_DateTime_Date->tp_dealloc
     make_typedescr(W_DateTime_Date.typedef,
                    basestruct=PyDateTime_DateTime.TO,
+                   attach=type_attach,
                    dealloc=date_dealloc,
                   )
 
@@ -138,8 +144,10 @@ def init_datetime(space):
 
 def type_attach(space, py_obj, w_obj, w_userdata=None):
     '''Fills a newly allocated py_obj from the w_obj
-       Can be called with a datetime, or a time
     '''
+    if space.type(w_obj).name == 'date':
+        # No tzinfo
+        return
     py_datetime = rffi.cast(PyDateTime_Time, py_obj)
     w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
     if space.is_none(w_tzinfo):
