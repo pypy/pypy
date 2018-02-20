@@ -53,8 +53,8 @@ class AppTestLock(GenericTestThread):
         assert lock.locked() is False
 
     def test_weakrefable(self):
-        import thread, weakref
-        weakref.ref(thread.allocate_lock())
+        import _thread, weakref
+        weakref.ref(_thread.allocate_lock())
 
     def test_timeout(self):
         import _thread

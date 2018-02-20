@@ -102,8 +102,8 @@ class AppTestLocal(GenericTestThread):
         assert len(done) == 5
 
     def test_weakrefable(self):
-        import thread, weakref
-        weakref.ref(thread._local())
+        import _thread, weakref
+        weakref.ref(_thread._local())
 
     def test_local_is_not_immortal(self):
         import _thread, gc, time
