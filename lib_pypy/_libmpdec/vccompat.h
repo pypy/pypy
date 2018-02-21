@@ -34,6 +34,8 @@
 #ifdef _MSC_VER
   #if _MSC_VER < 1900
   #include "vcstdint.h"
+  #else
+  #include "stdint.h"
   #endif
   #undef inline
   #define inline __inline
