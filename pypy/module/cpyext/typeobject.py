@@ -265,10 +265,11 @@ def update_all_slots(space, w_type, pto):
 def update_all_slots_builtin(space, w_type, pto):
     typedef = w_type.layout.typedef
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
-        slot_llfunc = get_slot_tp_function(space, typedef, slot_name, method_name)
-        if not slot_llfunc:
+        slot_apifunc = get_slot_tp_function(space, typedef, slot_name, method_name)
+        if not slot_apifunc:
             warn_missing_slot(space, method_name, slot_name, w_type)
             continue
+        slot_llfunc = slot_apifunc.get_llhelper(space)
         fill_slot(space, pto, w_type, slot_names, slot_llfunc)
 
 @specialize.arg(3)
