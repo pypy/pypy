@@ -62,8 +62,12 @@ class CompatibilityCondition(object):
         self.conditions.append(cond)
         return True
 
-    def register_quasi_immut_field(self, op):
-        self.last_quasi_immut_field_op = op
+    def register_quasi_immut_field(self, op, optimizer):
+        from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
+        assert optimizer.ensure_ptr_info_arg0(op)._compatibility_conditions is self
+        descr = op.getdescr()
+        assert isinstance(descr, QuasiImmutDescr)
+        self.last_quasi_immut_field_descr = descr
 
     def check_compat(self, cpu, ref):
         for i, cond in enumerate(self.conditions):
@@ -152,13 +156,12 @@ class CompatibilityCondition(object):
         # even though the second argument is not constant
         if arg2.getopnum() not in (rop.GETFIELD_GC_R, rop.GETFIELD_GC_I, rop.GETFIELD_GC_F):
             return None, None, "arg2 not a getfield"
-        if not self.last_quasi_immut_field_op:
+        if not self.last_quasi_immut_field_descr:
             return None, None, "no quasiimut op known"
-        qmutdescr = self.last_quasi_immut_field_op.getdescr()
+        qmutdescr = self.last_quasi_immut_field_descr
         assert isinstance(qmutdescr, QuasiImmutDescr)
         fielddescr = qmutdescr.fielddescr # XXX
-        same_arg = self.last_quasi_immut_field_op.getarg(0) is arg2.getarg(0)
-        if arg2.getdescr() is not fielddescr or not same_arg:
+        if arg2.getdescr() is not fielddescr:
             return None, None, "fielddescr doesn't match"
         if not qmutdescr.is_still_valid_for(self.known_valid):
             return None, None, "qmutdescr invalid"

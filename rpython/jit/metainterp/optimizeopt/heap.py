@@ -677,7 +677,7 @@ class OptHeap(Optimization):
                 # the getfield_gc on the object, since it's not constant.
                 # However, if the quasi-immutable field is passed to a pure
                 # function call, we can treat it as constant then
-                ccond.register_quasi_immut_field(op)
+                ccond.register_quasi_immut_field(op, self.optimizer)
                 # don't remove the guard_not_invalidated, the guard_compatible
                 # needs it
                 self._remove_guard_not_invalidated = False

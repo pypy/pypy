@@ -281,6 +281,55 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
         }
         self.optimize_loop(ops, expected, call_pure_results)
 
+    def test_quasiimmut_bug(self):
+        # bug that happened because we hade quasiimmut_field on two different
+        # boxes (that turn out to be the same after other optimizations)
+        ops = """
+        [p1]
+        guard_compatible(p1, ConstPtr(quasiptr)) []
+        quasiimmut_field(p1, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i0 = getfield_gc_i(p1, descr=quasifielddescr)
+        i1 = call_pure_i(123, p1, i0, descr=nonwritedescr)
+
+        # get an alias p2 to p1
+        p3 = new_with_vtable(descr=nodesize)
+        setfield_gc(p3, p1, descr=nextdescr)
+        p2 = getfield_gc_r(p3, descr=nextdescr)
+
+        # a condition via the alias
+        guard_compatible(p2, ConstPtr(quasiptr)) []
+        quasiimmut_field(p2, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i3 = getfield_gc_i(p2, descr=quasifielddescr)
+        i4 = call_pure_i(123, p2, i3, descr=nonwritedescr)
+
+        # and now the original box
+        i5 = call_pure_i(123, p1, i0, descr=nonwritedescr)
+        escape_n(i1)
+        escape_n(i4)
+        escape_n(i5)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_compatible(p1, ConstPtr(quasiptr)) []
+        guard_not_invalidated() []
+        i0 = getfield_gc_i(p1, descr=quasifielddescr) # will be removed by the backend
+        escape_n(5)
+        escape_n(5)
+        escape_n(5)
+        jump(p1)
+        """
+        call_pure_results = {
+            (ConstInt(123), ConstPtr(self.quasiptr), ConstInt(-4247)): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
+        descr = self.loop.operations[1].getdescr()
+        assert descr._compatibility_conditions is not None
+        assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.quasiptr))
+        assert len(descr._compatibility_conditions.conditions) == 1
+
 
 class TestCompatibleUnroll(BaseTestWithUnroll, LLtypeMixin):
 
