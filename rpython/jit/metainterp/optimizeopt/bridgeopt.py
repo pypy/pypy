@@ -108,9 +108,14 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         numb_state.append_int(0)
 
 def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):
+    from rpython.rlib.objectmodel import compute_unique_id
+    from rpython.rlib.rarithmetic import r_uint
+
     debug_start("jit-bridge-deserialize")
 
     reader = resumecode.Reader(resumestorage.rd_numb)
+    hash = r_uint(compute_unique_id(resumestorage))
+    debug_print("resuming from Guard0x%x" % hash)
     assert len(frontend_boxes) == len(liveboxes)
     metainterp_sd = optimizer.metainterp_sd
 
