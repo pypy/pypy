@@ -32,7 +32,9 @@
 
 /* Visual C fixes: no stdint.h, no snprintf ... */
 #ifdef _MSC_VER
+  #if _MSC_VER < 1900
   #include "vcstdint.h"
+  #endif
   #undef inline
   #define inline __inline
   #undef random
