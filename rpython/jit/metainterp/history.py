@@ -935,7 +935,7 @@ class Stats(object):
         return insns
 
     def check_simple_loop(self, expected=None, **check):
-        """ Usefull in the simplest case when we have only one trace ending with
+        """ Useful in the simplest case when we have only one trace ending with
         a jump back to itself and possibly a few bridges.
         Only the operations within the loop formed by that single jump will
         be counted.

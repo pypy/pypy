@@ -30,7 +30,7 @@ def giveup():
 class CompileData(object):
     memo = None
     log_noopt = True
-    
+
     def forget_optimization_info(self):
         for arg in self.trace.inputargs:
             arg.set_forwarded(None)
@@ -67,19 +67,26 @@ class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
     the label
     """
-    def __init__(self, trace, call_pure_results=None,
+    def __init__(self, trace, resumestorage=None, call_pure_results=None,
                  enable_opts=None):
         self.trace = trace
+        self.resumestorage = resumestorage
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
+        from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_knowledge
 
         #assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.propagate_all_forward(self.trace.get_iter(),
-            self.call_pure_results)
+        traceiter = self.trace.get_iter()
+        if self.resumestorage:
+            frontend_inputargs = self.trace.inputargs
+            deserialize_optimizer_knowledge(opt, self.resumestorage,
+                                            frontend_inputargs,
+                                            traceiter.inputargs)
+        return opt.propagate_all_forward(traceiter, self.call_pure_results)
 
 class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
@@ -1067,22 +1074,22 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     enable_opts = jitdriver_sd.warmstate.enable_opts
 
     call_pure_results = metainterp.call_pure_results
+    if isinstance(resumekey, ResumeGuardCopiedDescr):
+        resumestorage = resumekey.prev
+        assert isinstance(resumestorage, ResumeGuardDescr)
+    elif isinstance(resumekey, ResumeFromInterpDescr):
+        resumestorage = None
+    else:
+        resumestorage = resumekey
+        assert isinstance(resumestorage, ResumeGuardDescr)
 
     if metainterp.history.ends_with_jump:
-        if isinstance(resumekey, ResumeGuardCopiedDescr):
-            key = resumekey.prev
-            assert isinstance(key, ResumeGuardDescr)
-        elif isinstance(resumekey, ResumeFromInterpDescr):
-            key = None
-        else:
-            key = resumekey
-            assert isinstance(key, ResumeGuardDescr)
-        data = BridgeCompileData(trace, runtime_boxes, key,
+        data = BridgeCompileData(trace, runtime_boxes, resumestorage,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)
     else:
-        data = SimpleCompileData(trace,
+        data = SimpleCompileData(trace, resumestorage,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
