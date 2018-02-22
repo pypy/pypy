@@ -430,9 +430,9 @@ def get_slot_tp_function(space, typedef, name, method_name):
         return SLOTS[key]
     except KeyError:
         slot_func = SLOT_FACTORIES[name](space, typedef, name, method_name)
-        llfunc = llslot(space, slot_func) if slot_func else None
-        SLOTS[key] = llfunc
-        return llfunc
+        api_func = slot_func.api_func if slot_func else None
+        SLOTS[key] = api_func
+        return api_func
 
 
 def make_unary_slot(space, typedef, name, attr):
