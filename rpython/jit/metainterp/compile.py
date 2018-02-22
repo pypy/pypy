@@ -678,38 +678,16 @@ class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
         raise jitexc.ExitFrameWithExceptionRef(cpu, value)
 
 
-class TerminatingLoopToken(JitCellToken): # FIXME: kill?
-    terminating = True
-
-    def __init__(self, nargs, finishdescr):
-        self.finishdescr = finishdescr
-
-def make_done_loop_tokens():
-    done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid()
-    done_with_this_frame_descr_int = DoneWithThisFrameDescrInt()
-    done_with_this_frame_descr_ref = DoneWithThisFrameDescrRef()
-    done_with_this_frame_descr_float = DoneWithThisFrameDescrFloat()
-    exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef()
-
-    # pseudo loop tokens to make the life of optimize.py easier
-    d = {'loop_tokens_done_with_this_frame_int': [
-                TerminatingLoopToken(1, done_with_this_frame_descr_int)
-                ],
-            'loop_tokens_done_with_this_frame_ref': [
-                TerminatingLoopToken(1, done_with_this_frame_descr_ref)
-                ],
-            'loop_tokens_done_with_this_frame_float': [
-                TerminatingLoopToken(1, done_with_this_frame_descr_float)
-                ],
-            'loop_tokens_done_with_this_frame_void': [
-                TerminatingLoopToken(0, done_with_this_frame_descr_void)
-                ],
-            'loop_tokens_exit_frame_with_exception_ref': [
-                TerminatingLoopToken(1, exit_frame_with_exception_descr_ref)
-                ],
-    }
-    d.update(locals())
-    return d
+def make_and_attach_done_descrs(targets):
+    for name, cls in [
+            ("done_with_this_frame_descr_void", DoneWithThisFrameDescrVoid),
+            ("done_with_this_frame_descr_int", DoneWithThisFrameDescrInt),
+            ("done_with_this_frame_descr_ref", DoneWithThisFrameDescrRef),
+            ("done_with_this_frame_descr_float", DoneWithThisFrameDescrFloat),
+            ("exit_frame_with_exception_descr_ref", ExitFrameWithExceptionDescrRef)]:
+        descr = cls()
+        for target in targets:
+            setattr(target, name, descr)
 
 class ResumeDescr(AbstractFailDescr):
     _attrs_ = ()

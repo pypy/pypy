@@ -404,7 +404,6 @@ class JitCellToken(AbstractDescr):
     target_tokens = None
     failed_states = None
     retraced_count = 0
-    terminating = False # see TerminatingLoopToken in compile.py
     invalidated = False
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled
