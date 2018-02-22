@@ -2463,10 +2463,7 @@ class MetaInterp(object):
     def handle_guard_failure(self, resumedescr, deadframe):
         debug_start('jit-tracing')
         self.staticdata.profiler.start_tracing()
-        if isinstance(resumedescr, compile.ResumeGuardCopiedDescr):
-            key = resumedescr.prev
-        else:
-            key = resumedescr
+        key = resumedescr.get_resumestorage()
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
