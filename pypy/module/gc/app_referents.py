@@ -72,7 +72,7 @@ class GcStats(object):
 
     def __repr__(self):
         if self._s.total_memory_pressure != -1:
-            extra = "\nmemory pressure:    %s" % self.total_memory_pressure
+            extra = "\n    memory pressure:    %s" % self.total_memory_pressure
         else:
             extra = ""
         return """Total memory consumed:
@@ -109,5 +109,5 @@ class GcStats(object):
            self.memory_allocated_sum)
 
 
-def get_stats():
-    return GcStats(gc._get_stats())
+def get_stats(memory_pressure=False):
+    return GcStats(gc._get_stats(memory_pressure=memory_pressure))

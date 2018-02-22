@@ -538,11 +538,16 @@ class AppTestPartialEvaluation:
         assert '\x00'.decode('unicode-internal', 'ignore') == ''
 
     def test_backslashreplace(self):
+        import sys
         sin = u"a\xac\u1234\u20ac\u8000\U0010ffff"
-        expected = "a\\xac\\u1234\\u20ac\\u8000\\U0010ffff"
-        assert sin.encode('ascii', 'backslashreplace') == expected
-        expected = "a\xac\\u1234\xa4\\u8000\\U0010ffff"
-        assert sin.encode("iso-8859-15", "backslashreplace") == expected
+        if sys.maxunicode > 65535:
+            expected_ascii = "a\\xac\\u1234\\u20ac\\u8000\\U0010ffff"
+            expected_8859 = "a\xac\\u1234\xa4\\u8000\\U0010ffff"
+        else:
+            expected_ascii = "a\\xac\\u1234\\u20ac\\u8000\\udbff\\udfff"
+            expected_8859 = "a\xac\\u1234\xa4\\u8000\\udbff\\udfff"
+        assert sin.encode('ascii', 'backslashreplace') == expected_ascii
+        assert sin.encode("iso-8859-15", "backslashreplace") == expected_8859
 
     def test_badhandler(self):
         import codecs

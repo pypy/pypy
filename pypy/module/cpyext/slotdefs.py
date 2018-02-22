@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     slot_function, generic_cpy_call, PyObject, Py_ssize_t,
-    Py_TPFLAGS_CHECKTYPES, Py_buffer, Py_bufferP, PyTypeObjectPtr, cts)
+    Py_TPFLAGS_CHECKTYPES, Py_buffer, Py_bufferP, PyTypeObjectPtr)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, ternaryfunc, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
@@ -143,7 +143,6 @@ def wrap_ternaryfunc_r(space, w_self, w_args, func):
 def wrap_inquirypred(space, w_self, w_args, func):
     func_inquiry = rffi.cast(inquiry, func)
     check_num_args(space, w_args, 0)
-    args_w = space.fixedview(w_args)
     res = generic_cpy_call(space, func_inquiry, w_self)
     res = rffi.cast(lltype.Signed, res)
     if res == -1:
@@ -423,284 +422,330 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
     return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
 
-from rpython.rlib.nonconst import NonConstant
+SLOT_FACTORIES = {}
+def slot_factory(tp_name):
+    def decorate(func):
+        SLOT_FACTORIES[tp_name] = func
+        return func
+    return decorate
 
-def build_slot_tp_function(space, typedef, name):
+
+SLOTS = {}
+@specialize.memo()
+def get_slot_tp_function(space, typedef, name, method_name):
+    """Return a description of the slot C function to use for the built-in
+    type for 'typedef'.  The 'name' is the slot name.  This is a memo
+    function that, after translation, returns one of a built-in finite set.
+    """
+    key = (typedef, name)
+    try:
+        return SLOTS[key]
+    except KeyError:
+        slot_func = SLOT_FACTORIES[name](space, typedef, name, method_name)
+        api_func = slot_func.api_func if slot_func else None
+        SLOTS[key] = api_func
+        return api_func
+
+
+def make_unary_slot(space, typedef, name, attr):
     w_type = space.gettypeobject(typedef)
-
-    handled = False
-    # unary functions
-    for tp_name, attr in [('tp_as_number.c_nb_int', '__int__'),
-                          ('tp_as_number.c_nb_long', '__long__'),
-                          ('tp_as_number.c_nb_float', '__float__'),
-                          ('tp_as_number.c_nb_negative', '__neg__'),
-                          ('tp_as_number.c_nb_positive', '__pos__'),
-                          ('tp_as_number.c_nb_absolute', '__abs__'),
-                          ('tp_as_number.c_nb_invert', '__invert__'),
-                          ('tp_as_number.c_nb_index', '__index__'),
-                          ('tp_as_number.c_nb_hex', '__hex__'),
-                          ('tp_as_number.c_nb_oct', '__oct__'),
-                          ('tp_str', '__str__'),
-                          ('tp_repr', '__repr__'),
-                          ('tp_iter', '__iter__'),
-                          ]:
-        if name == tp_name:
-            slot_fn = w_type.lookup(attr)
-            if slot_fn is None:
-                return
-
-            @slot_function([PyObject], PyObject)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self):
-                return space.call_function(slot_fn, w_self)
-            handled = True
-
-    for tp_name, attr in [('tp_hash', '__hash__'),
-                          ('tp_as_sequence.c_sq_length', '__len__'),
-                          ('tp_as_mapping.c_mp_length', '__len__'),
-                         ]:
-        if name == tp_name:
-            slot_fn = w_type.lookup(attr)
-            if slot_fn is None:
-                return
-            @slot_function([PyObject], lltype.Signed, error=-1)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_obj):
-                return space.int_w(space.call_function(slot_fn, w_obj))
-            handled = True
-
-
-    # binary functions
-    for tp_name, attr in [('tp_as_number.c_nb_add', '__add__'),
-                          ('tp_as_number.c_nb_subtract', '__sub__'),
-                          ('tp_as_number.c_nb_multiply', '__mul__'),
-                          ('tp_as_number.c_nb_divide', '__div__'),
-                          ('tp_as_number.c_nb_remainder', '__mod__'),
-                          ('tp_as_number.c_nb_divmod', '__divmod__'),
-                          ('tp_as_number.c_nb_lshift', '__lshift__'),
-                          ('tp_as_number.c_nb_rshift', '__rshift__'),
-                          ('tp_as_number.c_nb_and', '__and__'),
-                          ('tp_as_number.c_nb_xor', '__xor__'),
-                          ('tp_as_number.c_nb_or', '__or__'),
-                          ('tp_as_sequence.c_sq_concat', '__add__'),
-                          ('tp_as_sequence.c_sq_inplace_concat', '__iadd__'),
-                          ('tp_as_mapping.c_mp_subscript', '__getitem__'),
-                          ]:
-        if name == tp_name:
-            slot_fn = w_type.lookup(attr)
-            if slot_fn is None:
-                return
-
-            @slot_function([PyObject, PyObject], PyObject)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self, w_arg):
-                return space.call_function(slot_fn, w_self, w_arg)
-            handled = True
-
-    # binary-with-Py_ssize_t-type
-    for tp_name, attr in [('tp_as_sequence.c_sq_item', '__getitem__'),
-                          ('tp_as_sequence.c_sq_repeat', '__mul__'),
-                          ('tp_as_sequence.c_sq_repeat', '__mul__'),
-                          ('tp_as_sequence.c_sq_inplace_repeat', '__imul__'),
-                          ]:
-        if name == tp_name:
-            slot_fn = w_type.lookup(attr)
-            if slot_fn is None:
-                return
-
-            @slot_function([PyObject, Py_ssize_t], PyObject)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self, arg):
-                return space.call_function(slot_fn, w_self, space.newint(arg))
-            handled = True
-
-    # ternary functions
-    for tp_name, attr in [('tp_as_number.c_nb_power', '__pow__'),
-                          ]:
-        if name == tp_name:
-            slot_fn = w_type.lookup(attr)
-            if slot_fn is None:
-                return
-
-            @slot_function([PyObject, PyObject, PyObject], PyObject)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self, w_arg1, w_arg2):
-                return space.call_function(slot_fn, w_self, w_arg1, w_arg2)
-            handled = True
-    # ternary-with-void returning-Py_size_t-type
-    for tp_name, attr in [('tp_as_mapping.c_mp_ass_subscript', '__setitem__'),
-                         ]:
-        if name == tp_name:
-            slot_ass = w_type.lookup(attr)
-            if slot_ass is None:
-                return
-            slot_del = w_type.lookup('__delitem__')
-            if slot_del is None:
-                return
-
-            @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self, w_arg1, arg2):
-                if arg2:
-                    w_arg2 = from_ref(space, rffi.cast(PyObject, arg2))
-                    space.call_function(slot_ass, w_self, w_arg1, w_arg2)
-                else:
-                    space.call_function(slot_del, w_self, w_arg1)
-                return 0
-            handled = True
-    # ternary-Py_size_t-void returning-Py_size_t-type
-    for tp_name, attr in [('tp_as_sequence.c_sq_ass_item', '__setitem__'),
-                         ]:
-        if name == tp_name:
-            slot_ass = w_type.lookup(attr)
-            if slot_ass is None:
-                return
-            slot_del = w_type.lookup('__delitem__')
-            if slot_del is None:
-                return
-
-            @slot_function([PyObject, lltype.Signed, PyObject], rffi.INT_real, error=-1)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self, arg1, arg2):
-                if arg2:
-                    w_arg2 = from_ref(space, rffi.cast(PyObject, arg2))
-                    space.call_function(slot_ass, w_self, space.newint(arg1), w_arg2)
-                else:
-                    space.call_function(slot_del, w_self, space.newint(arg1))
-                return 0
-            handled = True
-    if handled:
-        pass
-    elif name == 'tp_setattro':
-        setattr_fn = w_type.lookup('__setattr__')
-        delattr_fn = w_type.lookup('__delattr__')
-        if setattr_fn is None:
-            return
-
-        @slot_function([PyObject, PyObject, PyObject], rffi.INT_real,
-                     error=-1)
-        @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
-        def slot_tp_setattro(space, w_self, w_name, w_value):
-            if w_value is not None:
-                space.call_function(setattr_fn, w_self, w_name, w_value)
-            else:
-                space.call_function(delattr_fn, w_self, w_name)
-            return 0
-        slot_func = slot_tp_setattro
-    elif name == 'tp_getattro':
-        getattr_fn = w_type.lookup('__getattribute__')
-        if getattr_fn is None:
-            return
-
-        @slot_function([PyObject, PyObject], PyObject)
-        @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
-        def slot_tp_getattro(space, w_self, w_name):
-            return space.call_function(getattr_fn, w_self, w_name)
-        slot_func = slot_tp_getattro
-
-    elif name == 'tp_call':
-        call_fn = w_type.lookup('__call__')
-        if call_fn is None:
-            return
-
-        @slot_function([PyObject, PyObject, PyObject], PyObject)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_call(space, w_self, w_args, w_kwds):
-            args = Arguments(space, [w_self],
-                             w_stararg=w_args, w_starstararg=w_kwds)
-            return space.call_args(call_fn, args)
-        slot_func = slot_tp_call
-
-    elif name == 'tp_iternext':
-        iternext_fn = w_type.lookup('next')
-        if iternext_fn is None:
-            return
-
-        @slot_function([PyObject], PyObject)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_iternext(space, w_self):
-            try:
-                return space.call_function(iternext_fn, w_self)
-            except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                return None
-        slot_func = slot_tp_iternext
-
-    elif name == 'tp_init':
-        init_fn = w_type.lookup('__init__')
-        if init_fn is None:
-            return
-
-        @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_init(space, w_self, w_args, w_kwds):
-            args = Arguments(space, [w_self],
-                             w_stararg=w_args, w_starstararg=w_kwds)
-            space.call_args(init_fn, args)
-            return 0
-        slot_func = slot_tp_init
-    elif name == 'tp_new':
-        new_fn = w_type.lookup('__new__')
-        if new_fn is None:
-            return
-
-        @slot_function([PyTypeObjectPtr, PyObject, PyObject], PyObject)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_new(space, w_self, w_args, w_kwds):
-            args = Arguments(space, [w_self],
-                             w_stararg=w_args, w_starstararg=w_kwds)
-            return space.call_args(space.get(new_fn, w_self), args)
-        slot_func = slot_tp_new
-    elif name == 'tp_as_buffer.c_bf_getbuffer':
-        buff_fn = w_type.lookup('__buffer__')
-        if buff_fn is not None:
-            buff_w = slot_from___buffer__(space, typedef, buff_fn)
-        elif typedef.buffer:
-            buff_w = slot_from_buffer_w(space, typedef, buff_fn)
-        else:
-            return
-        slot_func = buff_w
-    elif name == 'tp_descr_get':
-        get_fn = w_type.lookup('__get__')
-        if get_fn is None:
-            return
-
-        @slot_function([PyObject, PyObject, PyObject], PyObject)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_descr_get(space, w_self, w_obj, w_value):
-            if w_obj is None:
-                w_obj = space.w_None
-            return space.call_function(get_fn, w_self, w_obj, w_value)
-        slot_func = slot_tp_descr_get
-    elif name == 'tp_descr_set':
-        set_fn = w_type.lookup('__set__')
-        delete_fn = w_type.lookup('__delete__')
-        if set_fn is None and delete_fn is None:
-            return
-
-        @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_descr_set(space, w_self, w_obj, w_value):
-            if w_value is not None:
-                if set_fn is None:
-                    raise oefmt(space.w_TypeError,
-                                "%s object has no __set__", typedef.name)
-                space.call_function(set_fn, w_self, w_obj, w_value)
-            else:
-                if delete_fn is None:
-                    raise oefmt(space.w_TypeError,
-                                "%s object has no __delete__", typedef.name)
-                space.call_function(delete_fn, w_self, w_obj)
-            return 0
-        slot_func = slot_tp_descr_set
-    else:
-        # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
-        # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
-        # richcmpfunc(s)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
         return
 
+    @slot_function([PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self):
+        return space.call_function(slot_fn, w_self)
     return slot_func
+
+UNARY_SLOTS = [
+    'tp_as_number.c_nb_int',
+    'tp_as_number.c_nb_long',
+    'tp_as_number.c_nb_float',
+    'tp_as_number.c_nb_negative',
+    'tp_as_number.c_nb_positive',
+    'tp_as_number.c_nb_absolute',
+    'tp_as_number.c_nb_invert',
+    'tp_as_number.c_nb_index',
+    'tp_as_number.c_nb_hex',
+    'tp_as_number.c_nb_oct',
+    'tp_str',
+    'tp_repr',
+    'tp_iter']
+for name in UNARY_SLOTS:
+    slot_factory(name)(make_unary_slot)
+
+def make_unary_slot_int(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
+        return
+    @slot_function([PyObject], lltype.Signed, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_obj):
+        return space.int_w(space.call_function(slot_fn, w_obj))
+    return slot_func
+
+UNARY_SLOTS_INT = [
+    'tp_hash',
+    'tp_as_sequence.c_sq_length',
+    'tp_as_mapping.c_mp_length',]
+for name in UNARY_SLOTS_INT:
+    slot_factory(name)(make_unary_slot_int)
+
+
+def make_binary_slot(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, w_arg):
+        return space.call_function(slot_fn, w_self, w_arg)
+    return slot_func
+
+BINARY_SLOTS = [
+    'tp_as_number.c_nb_add',
+    'tp_as_number.c_nb_subtract',
+    'tp_as_number.c_nb_multiply',
+    'tp_as_number.c_nb_divide',
+    'tp_as_number.c_nb_remainder',
+    'tp_as_number.c_nb_divmod',
+    'tp_as_number.c_nb_lshift',
+    'tp_as_number.c_nb_rshift',
+    'tp_as_number.c_nb_and',
+    'tp_as_number.c_nb_xor',
+    'tp_as_number.c_nb_or',
+    'tp_as_sequence.c_sq_concat',
+    'tp_as_sequence.c_sq_inplace_concat',
+    'tp_as_mapping.c_mp_subscript',]
+for name in BINARY_SLOTS:
+    slot_factory(name)(make_binary_slot)
+
+
+def make_binary_slot_int(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
+        return
+
+    @slot_function([PyObject, Py_ssize_t], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, arg):
+        return space.call_function(slot_fn, w_self, space.newint(arg))
+    return slot_func
+
+BINARY_SLOTS_INT = [
+    'tp_as_sequence.c_sq_item',
+    'tp_as_sequence.c_sq_repeat',
+    'tp_as_sequence.c_sq_repeat',
+    'tp_as_sequence.c_sq_inplace_repeat',]
+for name in BINARY_SLOTS_INT:
+    slot_factory(name)(make_binary_slot_int)
+
+@slot_factory('tp_as_number.c_nb_power')
+def make_nb_power(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, w_arg1, w_arg2):
+        return space.call_function(slot_fn, w_self, w_arg1, w_arg2)
+    return slot_func
+
+@slot_factory('tp_as_mapping.c_mp_ass_subscript')
+def make_sq_set_item(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_ass = w_type.lookup(attr)
+    if slot_ass is None:
+        return
+    slot_del = w_type.lookup('__delitem__')
+    if slot_del is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, w_arg1, arg2):
+        if arg2:
+            w_arg2 = from_ref(space, rffi.cast(PyObject, arg2))
+            space.call_function(slot_ass, w_self, w_arg1, w_arg2)
+        else:
+            space.call_function(slot_del, w_self, w_arg1)
+        return 0
+    return slot_func
+
+
+@slot_factory('tp_as_sequence.c_sq_ass_item')
+def make_sq_ass_item(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_ass = w_type.lookup(attr)
+    if slot_ass is None:
+        return
+    slot_del = w_type.lookup('__delitem__')
+    if slot_del is None:
+        return
+
+    @slot_function([PyObject, lltype.Signed, PyObject], rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, arg1, arg2):
+        if arg2:
+            w_arg2 = from_ref(space, rffi.cast(PyObject, arg2))
+            space.call_function(slot_ass, w_self, space.newint(arg1), w_arg2)
+        else:
+            space.call_function(slot_del, w_self, space.newint(arg1))
+        return 0
+    return slot_func
+
+def make_tp_setattro(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    setattr_fn = w_type.lookup('__setattr__')
+    delattr_fn = w_type.lookup('__delattr__')
+    if setattr_fn is None or delattr_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], rffi.INT_real,
+                    error=-1)
+    @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
+    def slot_tp_setattro(space, w_self, w_name, w_value):
+        if w_value is not None:
+            space.call_function(setattr_fn, w_self, w_name, w_value)
+        else:
+            space.call_function(delattr_fn, w_self, w_name)
+        return 0
+    return slot_tp_setattro
+
+@slot_factory('tp_getattro')
+def make_tp_getattro(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    getattr_fn = w_type.lookup('__getattribute__')
+    if getattr_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
+    def slot_tp_getattro(space, w_self, w_name):
+        return space.call_function(getattr_fn, w_self, w_name)
+    return slot_tp_getattro
+
+@slot_factory('tp_call')
+def make_tp_call(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    call_fn = w_type.lookup('__call__')
+    if call_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_call(space, w_self, w_args, w_kwds):
+        args = Arguments(space, [w_self],
+                            w_stararg=w_args, w_starstararg=w_kwds)
+        return space.call_args(call_fn, args)
+    return slot_tp_call
+
+@slot_factory('tp_iternext')
+def make_tp_iternext(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    iternext_fn = w_type.lookup('next')
+    if iternext_fn is None:
+        return
+
+    @slot_function([PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_iternext(space, w_self):
+        try:
+            return space.call_function(iternext_fn, w_self)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            return None
+    return slot_tp_iternext
+
+@slot_factory('tp_init')
+def make_tp_init(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    init_fn = w_type.lookup('__init__')
+    if init_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_init(space, w_self, w_args, w_kwds):
+        args = Arguments(space, [w_self],
+                            w_stararg=w_args, w_starstararg=w_kwds)
+        space.call_args(init_fn, args)
+        return 0
+    return slot_tp_init
+
+@slot_factory('tp_new')
+def make_tp_new(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    new_fn = w_type.lookup('__new__')
+    if new_fn is None:
+        return
+
+    @slot_function([PyTypeObjectPtr, PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_new(space, w_self, w_args, w_kwds):
+        args = Arguments(space, [w_self],
+                            w_stararg=w_args, w_starstararg=w_kwds)
+        return space.call_args(space.get(new_fn, w_self), args)
+    return slot_tp_new
+
+@slot_factory('tp_as_buffer.c_bf_getbuffer')
+def make_bf_getbuffer(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    buff_fn = w_type.lookup('__buffer__')
+    if buff_fn is not None:
+        return slot_from___buffer__(space, typedef, buff_fn)
+    elif typedef.buffer:
+        return slot_from_buffer_w(space, typedef)
+    else:
+        return None
+
+@slot_factory('tp_descr_get')
+def make_tp_descr_get(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    get_fn = w_type.lookup('__get__')
+    if get_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_descr_get(space, w_self, w_obj, w_value):
+        if w_obj is None:
+            w_obj = space.w_None
+        return space.call_function(get_fn, w_self, w_obj, w_value)
+    return slot_tp_descr_get
+
+@slot_factory('tp_descr_set')
+def make_tp_descr_set(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    set_fn = w_type.lookup('__set__')
+    delete_fn = w_type.lookup('__delete__')
+    if set_fn is None and delete_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_descr_set(space, w_self, w_obj, w_value):
+        if w_value is not None:
+            if set_fn is None:
+                raise oefmt(space.w_TypeError,
+                            "%s object has no __set__", typedef.name)
+            space.call_function(set_fn, w_self, w_obj, w_value)
+        else:
+            if delete_fn is None:
+                raise oefmt(space.w_TypeError,
+                            "%s object has no __delete__", typedef.name)
+            space.call_function(delete_fn, w_self, w_obj)
+        return 0
+    return slot_tp_descr_set
 
 
 def slot_from___buffer__(space, typedef, buff_fn):
@@ -730,7 +775,7 @@ def slot_from___buffer__(space, typedef, buff_fn):
         return 0
     return buff_w
 
-def slot_from_buffer_w(space, typedef, buff_fn):
+def slot_from_buffer_w(space, typedef):
     name = 'bf_getbuffer'
     @slot_function([PyObject, Py_bufferP, rffi.INT_real],
             rffi.INT_real, error=-1)
@@ -764,6 +809,28 @@ for name in missing_wrappers:
         raise NotImplementedError("Slot wrapper " + name)
     missing_wrapper.__name__ = name
     globals()[name] = missing_wrapper
+
+def make_missing_slot(space, typedef, name, attr):
+    return None
+
+missing_builtin_slots = [
+    'tp_print', 'tp_compare', 'tp_getattr', 'tp_setattr', 'tp_setattro',
+    'tp_richcompare', 'tp_del', 'tp_as_buffer.c_bf_getwritebuffer',
+    'tp_as_number.c_nb_nonzero', 'tp_as_number.c_nb_coerce',
+    'tp_as_number.c_nb_inplace_add', 'tp_as_number.c_nb_inplace_subtract',
+    'tp_as_number.c_nb_inplace_multiply', 'tp_as_number.c_nb_inplace_divide',
+    'tp_as_number.c_nb_inplace_remainder', 'tp_as_number.c_nb_inplace_power',
+    'tp_as_number.c_nb_inplace_lshift', 'tp_as_number.c_nb_inplace_rshift',
+    'tp_as_number.c_nb_inplace_and', 'tp_as_number.c_nb_inplace_xor',
+    'tp_as_number.c_nb_inplace_or',
+    'tp_as_number.c_nb_floor_divide', 'tp_as_number.c_nb_true_divide',
+    'tp_as_number.c_nb_inplace_floor_divide', 'tp_as_number.c_nb_inplace_true_divide',
+    'tp_as_sequence.c_sq_slice', 'tp_as_sequence.c_sq_ass_slice',
+    'tp_as_sequence.c_sq_contains',
+    'tp_as_buffer.c_bf_getreadbuffer',
+    ]
+for name in missing_builtin_slots:
+    slot_factory(name)(make_missing_slot)
 
 
 PyWrapperFlag_KEYWORDS = 1
