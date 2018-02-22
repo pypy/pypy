@@ -1,5 +1,6 @@
 import pytest
 import struct
+import sys
 from pypy.interpreter.unicodehelper import (
     encode_utf8, decode_utf8, unicode_encode_utf_32_be)
 
@@ -26,7 +27,10 @@ def test_decode_utf8():
     got = decode_utf8(space, "\xed\xa0\x80\xed\xb0\x80")
     assert map(ord, got) == [0xd800, 0xdc00]
     got = decode_utf8(space, "\xf0\x90\x80\x80")
-    assert map(ord, got) == [0x10000]
+    if sys.maxunicode > 65535:
+        assert map(ord, got) == [0x10000]
+    else:
+        assert map(ord, got) == [55296, 56320]
 
 @pytest.mark.parametrize('unich', [u"\ud800", u"\udc80"])
 def test_utf32_surrogates(unich):

@@ -30,7 +30,7 @@ def giveup():
 class CompileData(object):
     memo = None
     log_noopt = True
-    
+
     def forget_optimization_info(self):
         for arg in self.trace.inputargs:
             arg.set_forwarded(None)
@@ -67,19 +67,26 @@ class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
     the label
     """
-    def __init__(self, trace, call_pure_results=None,
+    def __init__(self, trace, resumestorage=None, call_pure_results=None,
                  enable_opts=None):
         self.trace = trace
+        self.resumestorage = resumestorage
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
+        from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_knowledge
 
         #assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.propagate_all_forward(self.trace.get_iter(),
-            self.call_pure_results)
+        traceiter = self.trace.get_iter()
+        if self.resumestorage:
+            frontend_inputargs = self.trace.inputargs
+            deserialize_optimizer_knowledge(opt, self.resumestorage,
+                                            frontend_inputargs,
+                                            traceiter.inputargs)
+        return opt.propagate_all_forward(traceiter, self.call_pure_results)
 
 class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
@@ -518,7 +525,7 @@ def forget_optimization_info(lst, reset_values=False):
     for item in lst:
         item.set_forwarded(None)
         # XXX we should really do it, but we need to remember the values
-        #     somehoe for ContinueRunningNormally
+        #     somehow for ContinueRunningNormally
         if reset_values:
             item.reset_value()
 
@@ -671,38 +678,16 @@ class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
         raise jitexc.ExitFrameWithExceptionRef(cpu, value)
 
 
-class TerminatingLoopToken(JitCellToken): # FIXME: kill?
-    terminating = True
-
-    def __init__(self, nargs, finishdescr):
-        self.finishdescr = finishdescr
-
-def make_done_loop_tokens():
-    done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid()
-    done_with_this_frame_descr_int = DoneWithThisFrameDescrInt()
-    done_with_this_frame_descr_ref = DoneWithThisFrameDescrRef()
-    done_with_this_frame_descr_float = DoneWithThisFrameDescrFloat()
-    exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef()
-
-    # pseudo loop tokens to make the life of optimize.py easier
-    d = {'loop_tokens_done_with_this_frame_int': [
-                TerminatingLoopToken(1, done_with_this_frame_descr_int)
-                ],
-            'loop_tokens_done_with_this_frame_ref': [
-                TerminatingLoopToken(1, done_with_this_frame_descr_ref)
-                ],
-            'loop_tokens_done_with_this_frame_float': [
-                TerminatingLoopToken(1, done_with_this_frame_descr_float)
-                ],
-            'loop_tokens_done_with_this_frame_void': [
-                TerminatingLoopToken(0, done_with_this_frame_descr_void)
-                ],
-            'loop_tokens_exit_frame_with_exception_ref': [
-                TerminatingLoopToken(1, exit_frame_with_exception_descr_ref)
-                ],
-    }
-    d.update(locals())
-    return d
+def make_and_attach_done_descrs(targets):
+    for name, cls in [
+            ("done_with_this_frame_descr_void", DoneWithThisFrameDescrVoid),
+            ("done_with_this_frame_descr_int", DoneWithThisFrameDescrInt),
+            ("done_with_this_frame_descr_ref", DoneWithThisFrameDescrRef),
+            ("done_with_this_frame_descr_float", DoneWithThisFrameDescrFloat),
+            ("exit_frame_with_exception_descr_ref", ExitFrameWithExceptionDescrRef)]:
+        descr = cls()
+        for target in targets:
+            setattr(target, name, descr)
 
 class ResumeDescr(AbstractFailDescr):
     _attrs_ = ()
@@ -725,6 +710,9 @@ class AbstractResumeGuardDescr(ResumeDescr):
     TY_INT          = 0x02
     TY_REF          = 0x04
     TY_FLOAT        = 0x06
+
+    def get_resumestorage(self):
+        raise NotImplementedError("abstract base class")
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         if (self.must_compile(deadframe, metainterp_sd, jitdriver_sd)
@@ -855,15 +843,23 @@ class AbstractResumeGuardDescr(ResumeDescr):
 class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
     _attrs_ = ('status', 'prev')
 
+    def __init__(self, prev):
+        AbstractResumeGuardDescr.__init__(self)
+        assert isinstance(prev, ResumeGuardDescr)
+        self.prev = prev
+
     def copy_all_attributes_from(self, other):
         assert isinstance(other, ResumeGuardCopiedDescr)
         self.prev = other.prev
 
     def clone(self):
-        cloned = ResumeGuardCopiedDescr()
-        cloned.copy_all_attributes_from(self)
+        cloned = ResumeGuardCopiedDescr(self.prev)
         return cloned
 
+    def get_resumestorage(self):
+        prev = self.prev
+        assert isinstance(prev, ResumeGuardDescr)
+        return prev
 
 class ResumeGuardDescr(AbstractResumeGuardDescr):
     _attrs_ = ('rd_numb', 'rd_consts', 'rd_virtuals',
@@ -874,8 +870,7 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     def copy_all_attributes_from(self, other):
-        if isinstance(other, ResumeGuardCopiedDescr):
-            other = other.prev
+        other = other.get_resumestorage()
         assert isinstance(other, ResumeGuardDescr)
         self.rd_consts = other.rd_consts
         self.rd_pendingfields = other.rd_pendingfields
@@ -895,6 +890,9 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
         cloned = ResumeGuardDescr()
         cloned.copy_all_attributes_from(self)
         return cloned
+
+    def get_resumestorage(self):
+        return self
 
 class ResumeGuardExcDescr(ResumeGuardDescr):
     pass
@@ -937,25 +935,25 @@ class AllVirtuals:
         ptr = cpu.ts.cast_to_baseclass(gcref)
         return cast_base_ptr_to_instance(AllVirtuals, ptr)
 
-def invent_fail_descr_for_op(opnum, optimizer, copied_guard=False):
+def invent_fail_descr_for_op(opnum, optimizer, copied_from_descr=None):
     if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
-        assert not copied_guard
+        assert copied_from_descr is None
         resumedescr = ResumeGuardForcedDescr()
         resumedescr._init(optimizer.metainterp_sd, optimizer.jitdriver_sd)
     elif opnum in (rop.GUARD_IS_OBJECT, rop.GUARD_SUBCLASS, rop.GUARD_GC_TYPE):
         # note - this only happens in tests
         resumedescr = ResumeAtPositionDescr()
     elif opnum in (rop.GUARD_EXCEPTION, rop.GUARD_NO_EXCEPTION):
-        if copied_guard:
-            resumedescr = ResumeGuardCopiedExcDescr()
+        if copied_from_descr is not None:
+            resumedescr = ResumeGuardCopiedExcDescr(copied_from_descr)
         else:
             resumedescr = ResumeGuardExcDescr()
     elif opnum == rop.GUARD_COMPATIBLE:
         assert not copied_guard # XXX for now?
         resumedescr = GuardCompatibleDescr()
     else:
-        if copied_guard:
-            resumedescr = ResumeGuardCopiedDescr()
+        if copied_from_descr is not None:
+            resumedescr = ResumeGuardCopiedDescr(copied_from_descr)
         else:
             resumedescr = ResumeGuardDescr()
     return resumedescr
@@ -1040,6 +1038,9 @@ class ResumeFromInterpDescr(ResumeDescr):
             self.original_greenkey, jitcell_token)
         metainterp_sd.stats.add_jitcell_token(jitcell_token)
 
+    def get_resumestorage(self):
+        return None
+
 
 def compile_trace(metainterp, resumekey, runtime_boxes):
     """Try to compile a new bridge leading from the beginning of the history
@@ -1071,22 +1072,15 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     enable_opts = jitdriver_sd.warmstate.enable_opts
 
     call_pure_results = metainterp.call_pure_results
+    resumestorage = resumekey.get_resumestorage()
 
     if metainterp.history.ends_with_jump:
-        if isinstance(resumekey, ResumeGuardCopiedDescr):
-            key = resumekey.prev
-            assert isinstance(key, ResumeGuardDescr)
-        elif isinstance(resumekey, ResumeFromInterpDescr):
-            key = None
-        else:
-            key = resumekey
-            assert isinstance(key, ResumeGuardDescr)
-        data = BridgeCompileData(trace, runtime_boxes, key,
+        data = BridgeCompileData(trace, runtime_boxes, resumestorage,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)
     else:
-        data = SimpleCompileData(trace,
+        data = SimpleCompileData(trace, resumestorage,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:

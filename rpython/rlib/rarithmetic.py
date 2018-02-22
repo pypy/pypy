@@ -36,7 +36,7 @@ mark where overflow checking is required.
 
 
 """
-import sys, struct
+import sys, struct, math
 from rpython.rtyper import extregistry
 from rpython.rlib import objectmodel
 from rpython.flowspace.model import Constant, const
@@ -191,8 +191,7 @@ def ovfcheck(r):
 # Note the "<= x <" here, as opposed to "< x <" above.
 # This is justified by test_typed in translator/c/test.
 def ovfcheck_float_to_longlong(x):
-    from rpython.rlib.rfloat import isnan
-    if isnan(x):
+    if math.isnan(x):
         raise OverflowError
     if -9223372036854776832.0 <= x < 9223372036854775296.0:
         return r_longlong(x)
@@ -200,8 +199,7 @@ def ovfcheck_float_to_longlong(x):
 
 if sys.maxint == 2147483647:
     def ovfcheck_float_to_int(x):
-        from rpython.rlib.rfloat import isnan
-        if isnan(x):
+        if math.isnan(x):
             raise OverflowError
         if -2147483649.0 < x < 2147483648.0:
             return int(x)

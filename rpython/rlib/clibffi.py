@@ -296,7 +296,8 @@ elif _MSVC:
     def get_libc_name():
         return rwin32.GetModuleFileName(get_libc_handle())
 
-    assert "msvcr" in get_libc_name().lower(), \
+    libc_name = get_libc_name().lower()
+    assert "msvcr" in libc_name or 'ucrtbase' in libc_name, \
            "Suspect msvcrt library: %s" % (get_libc_name(),)
 elif _MINGW:
     def get_libc_name():

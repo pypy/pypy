@@ -37,7 +37,10 @@ class ExecutionResult(object):
 class Platform(object):
     name = "abstract platform"
     c_environ = None
-
+    # which branch to check out in get_external.py
+    externals_branch='default'
+    # where to put the externals, as an absolute path
+    externals = str(py.path.local(__file__).parts()[-5] / 'externals')
     relevant_environ = ()
     log_errors = True
 

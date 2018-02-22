@@ -107,14 +107,6 @@ def strategy(space, w_obj):
         raise oefmt(space.w_TypeError, "expecting dict or list or set object")
     return space.newtext(name)
 
-
-@unwrap_spec(fd='c_int')
-def validate_fd(space, fd):
-    try:
-        rposix.validate_fd(fd)
-    except OSError as e:
-        raise wrap_oserror(space, e)
-
 def get_console_cp(space):
     from rpython.rlib import rwin32    # Windows only
     return space.newtuple([
@@ -142,7 +134,7 @@ def set_debug(space, debug):
                   space.newbool(debug))
 
 @unwrap_spec(estimate=int)
-def add_memory_pressure(estimate):
+def add_memory_pressure(space, estimate):
     """ Add memory pressure of estimate bytes. Useful when calling a C function
     that internally allocates a big chunk of memory. This instructs the GC to
     garbage collect sooner than it would otherwise."""

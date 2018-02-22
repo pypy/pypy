@@ -18,7 +18,7 @@ if os.name != 'nt':
     USEMODULES += ['fcntl']
 else:
     # On windows, os.popen uses the subprocess module
-    USEMODULES += ['_rawffi', 'thread', 'signal']
+    USEMODULES += ['_rawffi', 'thread', 'signal', '_cffi_backend']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
@@ -300,8 +300,13 @@ class AppTestPosix:
 
         # There used to be code here to ensure that fcntl is not faked
         # but we can't do that cleanly any more
-        exc = raises(OSError, posix.fdopen, fd)
-        assert exc.value.errno == errno.EBADF
+        try:
+            fid = posix.fdopen(fd)
+            fid.read(10)
+        except IOError as e:
+            assert e.errno == errno.EBADF
+        else:
+            assert False, "using result of fdopen(fd) on closed file must raise"
 
     def test_fdopen_hackedbuiltins(self):
         "Same test, with __builtins__.file removed"
@@ -331,8 +336,17 @@ class AppTestPosix:
         path = self.path
         posix = self.posix
         fd = posix.open(path, posix.O_RDONLY)
-        exc = raises(OSError, posix.fdopen, fd, 'w')
-        assert str(exc.value) == "[Errno 22] Invalid argument"
+        # compatability issue - using Visual Studio 10 and above no
+        # longer raises on fid creation, only when _using_ fid
+        # win32 python2 raises IOError on flush(), win32 python3 raises OSError
+        try:
+            fid = posix.fdopen(fd, 'w')
+            fid.write('abc')
+            fid.flush()
+        except  (OSError, IOError) as e:
+            assert e.errno in (9, 22)
+        else:
+            assert False, "expected OSError"
         posix.close(fd)  # fd should not be closed
 
     def test_getcwd(self):

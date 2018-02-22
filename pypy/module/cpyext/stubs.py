@@ -1552,14 +1552,6 @@ def PyUnicode_EncodeUTF32(space, s, size, errors, byteorder):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsUTF32String(space, unicode):
-    """Return a Python string using the UTF-32 encoding in native byte order. The
-    string always starts with a BOM mark.  Error handling is "strict".  Return
-    NULL if an exception was raised by the codec.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF16Stateful(space, s, size, errors, byteorder, consumed):
     """If consumed is NULL, behave like PyUnicode_DecodeUTF16(). If
@@ -1593,13 +1585,6 @@ def PyUnicode_EncodeUTF16(space, s, size, errors, byteorder):
 
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsUTF16String(space, unicode):
-    """Return a Python string using the UTF-16 encoding in native byte order. The
-    string always starts with a BOM mark.  Error handling is "strict".  Return
-    NULL if an exception was raised by the codec."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
