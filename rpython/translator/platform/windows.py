@@ -73,7 +73,7 @@ def _get_msvc_env(vsver, x64flag):
             if not os.path.exists(vcvars):
                 # even msdn does not know which to run
                 # see https://msdn.microsoft.com/en-us/library/1700bbwd(v=vs.90).aspx
-                # wich names both
+                # which names both
                 vcvars = os.path.join(toolsdir, 'vcvars32.bat') 
 
         import subprocess
@@ -99,6 +99,18 @@ def _get_msvc_env(vsver, x64flag):
     for key, value in vcdict.items():
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
             env[key.upper()] = value
+    if not _find_executable('mt.exe', env['PATH']):
+        # For some reason the sdk bin path is missing?
+        # put it together from some other env variables that happened to exist
+        # on the buildbot where this occurred
+        if 'WindowsSDKVersion' in vcdict and 'WindowsSdkDir' in vcdict:
+            binpath = vcdict['WindowsSdkDir'] + '\\bin\\' + vcdict['WindowsSDKVersion'] + 'x86'
+            env['PATH'] += ';' + binpath
+        if not _find_executable('mt.exe', env['PATH']):
+            log.msg('Could not find mt.exe on path=%s' % env['PATH'])
+            log.msg('Running vsver %s set this env' % vsver)
+            for key, value in vcdict.items():
+                log.msg('%s=%s' %(key, value))            
     log.msg("Updated environment with vsver %d, using x64 %s" % (vsver, x64flag,))
     return env
 
