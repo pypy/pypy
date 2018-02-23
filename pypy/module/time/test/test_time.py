@@ -107,7 +107,7 @@ class AppTestTime:
         t = time.time()
         assert time.localtime(t) == time.localtime(t)
         if os.name == 'nt':
-            raises(ValueError, time.localtime, -1)
+            raises(OSError, time.localtime, -1)
         else:
             time.localtime(-1)
 
@@ -124,9 +124,15 @@ class AppTestTime:
         ltime = time.localtime()
         ltime = list(ltime)
         ltime[0] = -1
-        time.mktime(tuple(ltime))  # Does not crash anymore
+        if os.name == "posix":
+            time.mktime(tuple(ltime))  # Does not crash anymore
+        else:
+            raises(OverflowError, time.mktime, tuple(ltime))
         ltime[0] = 100
-        time.mktime(tuple(ltime))  # Does not crash anymore
+        if os.name == "posix":
+            time.mktime(tuple(ltime))  # Does not crash anymore
+        else:
+            raises(OverflowError, time.mktime, tuple(ltime))
 
         t = time.time()
         assert int(time.mktime(time.localtime(t))) == int(t)
@@ -256,6 +262,8 @@ class AppTestTime:
 
     def test_localtime_timezone(self):
         import os, time
+        if not os.name == "posix":
+            skip("tzset available only under Unix")
         org_TZ = os.environ.get('TZ', None)
         try:
             os.environ['TZ'] = 'Europe/Kiev'
@@ -414,6 +422,8 @@ class AppTestTime:
     def test_pep475_retry_sleep(self):
         import time
         import _signal as signal
+        if not hasattr(signal, 'SIGALRM'):
+            skip("SIGALRM available only under Unix")
         signalled = []
 
         def foo(*args):
