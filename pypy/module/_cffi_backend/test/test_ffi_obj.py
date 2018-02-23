@@ -288,6 +288,15 @@ class AppTestFFIObj:
         ffi.cast("unsigned short *", c)[1] += 500
         assert list(a) == [10000, 20500, 30000]
 
+    def test_from_buffer_BytesIO(self):
+        from _cffi_backend import FFI
+        import _io
+        ffi = FFI()
+        a = _io.BytesIO(b"Hello, world!")
+        buf = a.getbuffer()
+        # used to segfault
+        raises(TypeError, ffi.from_buffer, buf)
+
     def test_memmove(self):
         import sys
         import _cffi_backend as _cffi1_backend
