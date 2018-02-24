@@ -27,6 +27,7 @@ class FakeCPU(object):
 class FakeOptimizer(object):
     metainterp_sd = None
     optheap = None
+    optrewrite = None
 
     def __init__(self, dct={}, cpu=None):
         self.dct = dct
@@ -61,7 +62,8 @@ def test_known_classes():
 
     serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
 
-    assert unpack_numbering(numb_state.create_numbering()) == [1, 0b010000, 0, 0]
+    assert unpack_numbering(numb_state.create_numbering()) == [
+            1, 0b010000, 0, 0, 0]
 
     rbox1 = InputArgRef()
     rbox2 = InputArgRef()
@@ -100,7 +102,7 @@ def test_random_class_knowledge(boxes_known_classes):
 
     serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
 
-    assert len(numb_state.create_numbering().code) == 3 + math.ceil(len(refboxes) / 6.0)
+    assert len(numb_state.create_numbering().code) == 4 + math.ceil(len(refboxes) / 6.0)
 
     dct = {box: cls
               for box, known_class in boxes_known_classes
@@ -346,6 +348,7 @@ class TestOptBridge(LLJitMixin):
             res = 0
             while y > 0:
                 myjitdriver.jit_merge_point(y=y, n=n, res=res)
+                a = get()
                 a = get()
                 res += a.x
                 if y > n:
