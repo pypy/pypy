@@ -63,6 +63,12 @@ typedef struct {
     HANDLE hStdError;
 } STARTUPINFO, *LPSTARTUPINFO;
 
+typedef struct _SECURITY_ATTRIBUTES {
+    DWORD nLength;
+    LPVOID lpSecurityDescriptor;
+    BOOL bInheritHandle;
+} SECURITY_ATTRIBUTES, *PSECURITY_ATTRIBUTES, *LPSECURITY_ATTRIBUTES;
+
 typedef struct {
     HANDLE hProcess;
     HANDLE hThread;
@@ -70,9 +76,41 @@ typedef struct {
     DWORD  dwThreadId;
 } PROCESS_INFORMATION, *LPPROCESS_INFORMATION;
 
+typedef struct _OVERLAPPED {
+    ULONG_PTR Internal;
+    ULONG_PTR InternalHigh;
+    union {
+        struct {
+            DWORD Offset;
+            DWORD OffsetHigh;
+        } DUMMYSTRUCTNAME;
+        PVOID Pointer;
+    } DUMMYUNIONNAME;
+
+    HANDLE  hEvent;
+} OVERLAPPED, *LPOVERLAPPED;
+
+
 DWORD WINAPI GetVersion(void);
 BOOL WINAPI CreatePipe(PHANDLE, PHANDLE, void *, DWORD);
+HANDLE WINAPI CreateNamedPipeA(LPCSTR, DWORD, DWORD, DWORD, DWORD, DWORD,
+                         DWORD , LPSECURITY_ATTRIBUTES);
+HANDLE WINAPI CreateNamedPipeW(LPWSTR, DWORD, DWORD, DWORD, DWORD, DWORD,
+                         DWORD , LPSECURITY_ATTRIBUTES);
+HANDLE WINAPI CreateFileA(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES,
+                   DWORD, DWORD, HANDLE);
+HANDLE WINAPI CreateFileW(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES,
+                   DWORD, DWORD, HANDLE);
+BOOL WINAPI SetNamedPipeHandleState(HANDLE, LPDWORD, LPDWORD, LPDWORD);
+BOOL WINAPI ConnectNamedPipe(HANDLE, LPOVERLAPPED);
+HANDLE WINAPI CreateEventA(LPSECURITY_ATTRIBUTES, BOOL, BOOL, LPCSTR);
+HANDLE WINAPI CreateEventW(LPSECURITY_ATTRIBUTES, BOOL, BOOL, LPCWSTR);
+VOID WINAPI SetEvent(HANDLE);
+BOOL WINAPI CancelIoEx(HANDLE, LPOVERLAPPED);
 BOOL WINAPI CloseHandle(HANDLE);
+DWORD WINAPI GetLastError(VOID);
+BOOL WINAPI GetOverlappedResult(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
+
 HANDLE WINAPI GetCurrentProcess(void);
 BOOL WINAPI DuplicateHandle(HANDLE, HANDLE, HANDLE, LPHANDLE,
                             DWORD, BOOL, DWORD);

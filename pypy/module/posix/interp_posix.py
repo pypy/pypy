@@ -2242,8 +2242,9 @@ def device_encoding(space, fd):
     Return a string describing the encoding of the device if the output
     is a terminal; else return None.
     """
-    if not (rposix.is_valid_fd(fd) and os.isatty(fd)):
-        return space.w_None
+    with rposix.FdValidator(fd):
+        if not (os.isatty(fd)):
+            return space.w_None
     if _WIN32:
         if fd == 0:
             ccp = rwin32.GetConsoleCP()

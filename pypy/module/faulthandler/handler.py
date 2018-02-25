@@ -1,6 +1,5 @@
 import os
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib.rposix import is_valid_fd
 from rpython.rlib.rarithmetic import widen, ovfcheck_float_to_longlong
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
@@ -35,7 +34,7 @@ class Handler(object):
                 raise oefmt(space.w_RuntimeError, "sys.stderr is None")
         elif space.isinstance_w(w_file, space.w_int):
             fd = space.c_int_w(w_file)
-            if fd < 0 or not is_valid_fd(fd):
+            if fd < 0:
                 raise oefmt(space.w_ValueError,
                             "file is not a valid file descriptor")
             return fd, None

@@ -222,6 +222,10 @@ class UnixCCompiler(CCompiler):
         return "-L" + dir
 
     def _is_gcc(self, compiler_name):
+        if "__pypy__" in sys.builtin_module_names:   # issue #2747
+            if (compiler_name.startswith('cc') or
+                compiler_name.startswith('c++')):
+                return True
         return "gcc" in compiler_name or "g++" in compiler_name
 
     def runtime_library_dir_option(self, dir):

@@ -211,6 +211,10 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             if key == '_ssl' and sys.platform == 'darwin':
                 # needed for our roots patch
                 env['LDFLAGS'] += ' -framework CoreFoundation -framework Security'
+        elif sys.platform == 'win32':
+            env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
+            env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
+            env['PATH'] = r'..\externals\bin;' + env.get('PATH', '')
 
         try:
             status, stdout, stderr = run_subprocess(str(pypy_c), args,
