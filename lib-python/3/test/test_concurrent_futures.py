@@ -161,6 +161,7 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, unittest.Tes
         executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
+        test.support.gc_collect()
 
         for t in threads:
             self.assertRegex(t.name, r'^SpecialPool_[0-4]$')
@@ -171,6 +172,7 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, unittest.Tes
         executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
+        test.support.gc_collect()
 
         for t in threads:
             # We don't particularly care what the default name is, just that
