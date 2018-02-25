@@ -1,4 +1,4 @@
-import unittest
+import unittest, sys
 from ctypes.test import need_symbol
 
 from ctypes.test import xfail
