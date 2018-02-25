@@ -18,7 +18,8 @@ cffi_build_scripts = {
     "lzma": "_lzma_build.py",
     "_decimal": "_decimal_build.py",
     "_ssl": "_ssl_build.py",
-    # hashlib does not need to be built! It uses API calls from _ssl
+    "_blake2": "_blake2/_blake2_build.py",
+    "_sha3": "_sha3/_sha3_build.py",
     "xx": None,    # for testing: 'None' should be completely ignored
     }
 

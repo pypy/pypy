@@ -41,8 +41,8 @@ void store64(void* dst, uint64_t w);
 """
 
 blake2b_source = """
-#include "blake2.h"
-#include "blake2-impl.h"
+#include "impl/blake2.h"
+#include "impl/blake2-impl.h"
 
 #define BLAKE_OUTBYTES BLAKE2B_OUTBYTES
 #define BLAKE_SALTBYTES BLAKE2B_SALTBYTES
@@ -63,7 +63,7 @@ void* addressof_node_offset(blake_param *S) {
 """
 
 
-_libdir = os.path.join(os.path.dirname(__file__), 'impl')
+_libdir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'impl'))
 
 blake2b_ffi = FFI()
 blake2b_ffi.cdef(blake_cdef)
