@@ -359,3 +359,37 @@ class TestOptBridge(LLJitMixin):
         res = self.meta_interp(f, [6, 32, 16])
         self.check_trace_count(3)
         self.check_resops(call_r=1)
+
+    def test_bridge_call_loopinvariant_2(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        aholder = B()
+        aholder.a = A()
+
+        @jit.loop_invariant
+        def get():
+            return aholder.a
+
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n'])
+        def f(x, y, n):
+            if x == 10001121:
+                aholder.a = A()
+            if x:
+                get().x = 1
+            else:
+                get().x = 2
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res)
+                if y > n:
+                    res += get().x
+                    res += 1
+                res += get().x
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        self.check_trace_count(3)
+        self.check_resops(call_r=1)
