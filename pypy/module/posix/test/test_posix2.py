@@ -162,8 +162,12 @@ class AppTestPosix:
     def test_stat_float_times(self):
         path = self.path
         posix = self.posix
-        current = posix.stat_float_times()
-        assert current is True
+        import warnings
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter('always')
+            current = posix.stat_float_times()
+            assert current is True
+        assert "stat_float_times" in repr(l[0].message)
         try:
             posix.stat_float_times(True)
             st = posix.stat(path)
@@ -179,6 +183,7 @@ class AppTestPosix:
 
         finally:
             posix.stat_float_times(current)
+
 
     def test_stat_result(self):
         st = self.posix.stat_result((0, 0, 0, 0, 0, 0, 0, 41, 42.1, 43))

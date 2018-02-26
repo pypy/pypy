@@ -586,6 +586,8 @@ If newval is True, future calls to stat() return floats, if it is False,
 future calls return ints.
 If newval is omitted, return the current setting.
 """
+    space.warn(space.newtext("stat_float_times() is deprecated"),
+               space.w_DeprecationWarning)
     state = space.fromcache(StatState)
 
     if newval == -1:
