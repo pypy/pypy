@@ -233,11 +233,17 @@ def find_vcvarsall(version):
     if not productdir or not os.path.isdir(productdir):
         toolskey = "VS%0.f0COMNTOOLS" % version
         toolsdir = os.environ.get(toolskey, None)
+        batfile = 'vcvarsall.bat'
 
         if toolsdir and os.path.isdir(toolsdir):
-            productdir = os.path.join(toolsdir, os.pardir, os.pardir, "VC")
-            productdir = os.path.abspath(productdir)
+            if os.path.exists(os.path.join(toolsdir, 'VsDevCmd.bat')):
+                productdir = toolsdir
+                batfile = 'VsDevCmd.bat'
+            else:
+                productdir = os.path.join(toolsdir, os.pardir, os.pardir, "VC")
+                productdir = os.path.abspath(productdir)
             if not os.path.isdir(productdir):
+                
                 log.debug("%s is not a valid directory" % productdir)
                 return None
         else:
@@ -245,7 +251,7 @@ def find_vcvarsall(version):
     if not productdir:
         log.debug("No productdir found")
         return None
-    vcvarsall = os.path.join(productdir, "vcvarsall.bat")
+    vcvarsall = os.path.join(productdir, batfile)
     if os.path.isfile(vcvarsall):
         return vcvarsall
     log.debug("Unable to find vcvarsall.bat")
