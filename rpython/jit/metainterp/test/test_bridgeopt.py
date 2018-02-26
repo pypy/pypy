@@ -60,7 +60,7 @@ def test_known_classes():
     numb_state.append_int(1) # size of resume block
     liveboxes = [InputArgInt(), box2, box1, box3]
 
-    serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
+    serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, None)
 
     assert unpack_numbering(numb_state.create_numbering()) == [
             1, 0b010000, 0, 0, 0]
@@ -100,7 +100,7 @@ def test_random_class_knowledge(boxes_known_classes):
     numb_state.append_int(1) # size of resume block
     liveboxes = [box for (box, _) in boxes_known_classes]
 
-    serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
+    serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, None)
 
     assert len(numb_state.create_numbering().code) == 4 + math.ceil(len(refboxes) / 6.0)
 
@@ -220,6 +220,31 @@ class TestOptBridge(LLJitMixin):
         self.check_resops(guard_value=1)
         self.check_resops(getfield_gc_i=4) # 3x a.x, 1x a.n
         self.check_resops(getfield_gc_r=1) # in main loop
+
+    def test_bridge_field_read_virtual(self):
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n', 'a'])
+        class A(object):
+            pass
+        class Virt(object):
+            def __init__(self, n1):
+                self.n1 = n1
+
+        def f(y, n):
+            a = A()
+            a.n = n
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res, a=a)
+                v = Virt(a.n)
+                if y > n:
+                    res += 1
+                res += v.n1 + a.n
+                y -= 1
+            return res
+        res = self.meta_interp(f, [32, 16])
+        assert res == f(32, 16)
+        self.check_trace_count(3)
+        self.check_resops(getfield_gc_i=1) # 1x a.x
 
     def test_bridge_field_read_constants(self):
         myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n'])
