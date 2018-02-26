@@ -385,8 +385,11 @@ class W_SRE_Pattern(W_Root):
             if not (last_pos == ctx.match_start
                              == ctx.match_end and n > 0):
                 # the above ignores empty matches on latest position
+                last_pos = ctx.match_end
                 if filter_is_callable:
                     w_match = self.getmatch(ctx, True)
+                    # make a copy of 'ctx'; see test_sub_matches_stay_valid
+                    ctx = ctx.fresh_copy(start) # match_start/match_end dropped
                     w_piece = space.call_function(w_filter, w_match)
                     if not space.is_w(w_piece, space.w_None):
                         assert strbuilder is None and unicodebuilder is None
@@ -403,7 +406,6 @@ class W_SRE_Pattern(W_Root):
                             unicodebuilder.append(filter_as_unicode)
                     else:
                         sublist_w.append(w_filter)
-                last_pos = ctx.match_end
                 n += 1
             elif last_pos >= ctx.end:
                 break    # empty match at the end: finished

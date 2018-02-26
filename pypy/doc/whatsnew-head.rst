@@ -48,3 +48,7 @@ Allow compilaiton with Visual Studio 2017 compiler suite on windows
 .. branch: winapi
 
 Update _winapi and internal _winbase_cffi (via _winbase_build) for python 3 
+
+.. branch: refactor-slots
+
+Refactor cpyext slots.

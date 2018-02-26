@@ -143,6 +143,42 @@ class TestOptBridge(LLJitMixin):
         self.check_trace_count(3)
         self.check_resops(guard_class=1)
 
+    def test_bridge_guard_class_return(self):
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n', 'a'])
+        class A(object):
+            def f(self):
+                return 1
+        class B(A):
+            def f(self):
+                return 2
+        def f(x, y, n):
+            if x:
+                a = A()
+            else:
+                a = B()
+            a.x = 0
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res, a=a)
+                res += a.f()
+                a.x += 1
+                if y < n:
+                    res += 1
+                    res += a.f()
+                    return res
+                res += a.f()
+                y -= 1
+            return res
+        def g(i):
+            res = 0
+            for i in range(i):
+                res += f(6, 32, 16-i)
+        res1 = g(10)
+        res2 = self.meta_interp(g, [10])
+        assert res1 == res2
+        self.check_trace_count(2)
+        self.check_resops(guard_class=1, omit_finish=False)
+
     def test_bridge_field_read(self):
         myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n', 'a'])
         class A(object):

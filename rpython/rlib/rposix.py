@@ -109,9 +109,9 @@ if os.name == 'nt':
             wchar_t const* file,
             unsigned int line,
             uintptr_t pReserved) {
-                wprintf(L"Invalid parameter detected in function %s."  
-                            L" File: %s Line: %d\\n", function, file, line);  
-                wprintf(L"Expression: %s\\n", expression);  
+                wprintf(L"Invalid parameter detected in function %s."
+                            L" File: %s Line: %d\\n", function, file, line);
+                wprintf(L"Expression: %s\\n", expression);
         }
 
         RPY_EXTERN void* enter_suppress_iph(void)
@@ -267,7 +267,7 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 
 if os.name == 'nt':
-    is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT], 
+    is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT],
         rffi.INT, compilation_info=errno_eci,
         ))
     c_enter_suppress_iph = jit.dont_look_inside(external("enter_suppress_iph",
@@ -515,7 +515,7 @@ c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
                    releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('read')
-@enforceargs(int, int)
+@signature(types.int(), types.int(), returns=types.any())
 def read(fd, count):
     if count < 0:
         raise OSError(errno.EINVAL, None)
@@ -526,7 +526,7 @@ def read(fd, count):
             return buf.str(got)
 
 @replace_os_function('write')
-@enforceargs(int, None)
+@signature(types.int(), types.any(), returns=types.any())
 def write(fd, data):
     count = len(data)
     with FdValidator(fd):
@@ -536,6 +536,7 @@ def write(fd, data):
             return handle_posix_error('write', ret)
 
 @replace_os_function('close')
+@signature(types.int(), returns=types.any())
 def close(fd):
     with FdValidator(fd):
         handle_posix_error('close', c_close(fd))
