@@ -40,7 +40,7 @@ class W_Library(W_Root):
 
     def check_closed(self):
         if self.handle == rffi.cast(DLLHANDLE, 0):
-            raise oefmt(space.w_ValueError,
+            raise oefmt(self.space.w_ValueError,
                         "library '%s' has already been closed",
                         self.name)
 
