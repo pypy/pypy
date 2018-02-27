@@ -46,7 +46,7 @@ def _find_vcvarsall(version, x64flag):
         arch = 'x64'
     else:
         arch = 'x86'
-    if version == 140:
+    if version >= 140:
         return msvc.msvc14_get_vc_env(arch)
     else:
         return msvc.msvc9_query_vcvarsall(version / 10.0, arch)
@@ -115,7 +115,7 @@ def _get_msvc_env(vsver, x64flag):
     return env
 
 def find_msvc_env(x64flag=False, ver0=None):
-    vcvers = [140, 90, 100]
+    vcvers = [140, 141, 150, 90, 100]
     if ver0 in vcvers:
         vcvers.insert(0, ver0)
     errs = []
