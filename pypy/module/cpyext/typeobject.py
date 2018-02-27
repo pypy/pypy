@@ -236,11 +236,6 @@ def warn_missing_slot(space, method_name, slot_name, w_type):
 
 def update_all_slots(space, w_type, pto):
     # fill slots in pto
-    # Not very sure about it, but according to
-    # test_call_tp_dealloc, we should not
-    # overwrite slots that are already set: these ones are probably
-    # coming from a parent C type.
-
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
         slot_func_helper = None
         w_descr = w_type.dict_w.get(method_name, None)
@@ -276,8 +271,7 @@ def update_all_slots_builtin(space, w_type, pto):
 def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
     # XXX special case wrapper-functions and use a "specific" slot func
     if len(slot_names) == 1:
-        if not getattr(pto, slot_names[0]):
-            setattr(pto, slot_names[0], slot_func_helper)
+        setattr(pto, slot_names[0], slot_func_helper)
     elif ((w_type is space.w_list or w_type is space.w_tuple) and
             slot_names[0] == 'c_tp_as_number'):
         # XXX hack - how can we generalize this? The problem is method
@@ -311,8 +305,7 @@ def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
             struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
             setattr(pto, slot_names[0], struct)
 
-        if not getattr(struct, slot_names[1]):
-            setattr(struct, slot_names[1], slot_func_helper)
+        setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
     from pypy.module.cpyext.object import PyObject_HashNotImplemented
