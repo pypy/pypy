@@ -106,7 +106,7 @@ def slot_mp_subscript(space, w_obj1, w_obj2):
     return space.getitem(w_obj1, w_obj2)
 
 @slot_function([PyObject, PyObject], PyObject)
-def slot_tp_getattr(space, w_obj1, w_obj2):
+def slot_tp_getattr_hook(space, w_obj1, w_obj2):
     return space.getattr(w_obj1, w_obj2)
 
 @slot_function([PyObject, PyObject, PyObject], PyObject)
