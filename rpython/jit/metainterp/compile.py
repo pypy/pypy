@@ -949,7 +949,7 @@ def invent_fail_descr_for_op(opnum, optimizer, copied_from_descr=None):
         else:
             resumedescr = ResumeGuardExcDescr()
     elif opnum == rop.GUARD_COMPATIBLE:
-        assert not copied_guard # XXX for now?
+        assert copied_from_descr is None # XXX for now?
         resumedescr = GuardCompatibleDescr()
     else:
         if copied_from_descr is not None:
