@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.11.4", ("This test_c.py file is for testing a version"
+assert __version__ == "1.11.5", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -395,6 +395,9 @@ def test_load_standard_library():
     # the next one is from 'libm', not 'libc', but we assume
     # that it is already loaded too, so it should work
     assert x.load_function(BVoidP, 'sqrt')
+    #
+    x.close_lib()
+    py.test.raises(ValueError, x.load_function, BVoidP, 'sqrt')
 
 def test_no_len_on_nonarray():
     p = new_primitive_type("int")
@@ -1210,6 +1213,9 @@ def test_read_variable():
     ll = find_and_load_library('c')
     stderr = ll.read_variable(BVoidP, "stderr")
     assert stderr == cast(BVoidP, _testfunc(8))
+    #
+    ll.close_lib()
+    py.test.raises(ValueError, ll.read_variable, BVoidP, "stderr")
 
 def test_read_variable_as_unknown_length_array():
     ## FIXME: this test assumes glibc specific behavior, it's not compliant with C standard
@@ -1236,6 +1242,9 @@ def test_write_variable():
     assert not ll.read_variable(BVoidP, "stderr")
     ll.write_variable(BVoidP, "stderr", stderr)
     assert ll.read_variable(BVoidP, "stderr") == stderr
+    #
+    ll.close_lib()
+    py.test.raises(ValueError, ll.write_variable, BVoidP, "stderr", stderr)
 
 def test_callback():
     BInt = new_primitive_type("int")

@@ -567,9 +567,9 @@ Miscellaneous
   versions of PyPy may have to rename the arguments if CPython starts
   accepting them too.
 
-* PyPy3: `distutils` has been enhanced to allow finding `VsDevCmd.bat` in the
-  directory pointed to by the `VS%0.f0COMNTOOLS` (typically `VS140COMNTOOLS`)
-  environment variable. CPython searches for `vcvarsall.bat` somewhere _above_
+* PyPy3: ``distutils`` has been enhanced to allow finding ``VsDevCmd.bat`` in the
+  directory pointed to by the ``VS%0.f0COMNTOOLS`` (typically ``VS140COMNTOOLS``)
+  environment variable. CPython searches for ``vcvarsall.bat`` somewhere **above**
   that value.
 
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621

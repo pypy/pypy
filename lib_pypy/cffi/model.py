@@ -352,21 +352,20 @@ class StructOrUnion(StructOrUnionOrEnum):
         self.fldquals = fldquals
         self.build_c_name_with_marker()
 
-    def has_anonymous_struct_fields(self):
-        if self.fldtypes is None:
-            return False
-        for name, type in zip(self.fldnames, self.fldtypes):
-            if name == '' and isinstance(type, StructOrUnion):
-                return True
-        return False
+    def anonymous_struct_fields(self):
+        if self.fldtypes is not None:
+            for name, type in zip(self.fldnames, self.fldtypes):
+                if name == '' and isinstance(type, StructOrUnion):
+                    yield type
 
-    def enumfields(self):
+    def enumfields(self, expand_anonymous_struct_union=True):
         fldquals = self.fldquals
         if fldquals is None:
             fldquals = (0,) * len(self.fldnames)
         for name, type, bitsize, quals in zip(self.fldnames, self.fldtypes,
                                               self.fldbitsize, fldquals):
-            if name == '' and isinstance(type, StructOrUnion):
+            if (name == '' and isinstance(type, StructOrUnion)
+                    and expand_anonymous_struct_union):
                 # nested anonymous struct/union
                 for result in type.enumfields():
                     yield result
