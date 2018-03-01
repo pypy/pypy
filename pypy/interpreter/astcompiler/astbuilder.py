@@ -1317,8 +1317,9 @@ class ASTBuilder(object):
         current_for = comp_node
         while True:
             count += 1
-            if current_for.num_children() == 5:
-                current_iter = current_for.get_child(4)
+            is_async = current_for.get_child(0).type == tokens.ASYNC
+            if current_for.num_children() == 5 + is_async:
+                current_iter = current_for.get_child(4 + is_async)
             else:
                 return count
             while True:
@@ -1349,13 +1350,13 @@ class ASTBuilder(object):
         fors_count = self.count_comp_fors(comp_node)
         comps = []
         for i in range(fors_count):
-            for_node = comp_node.get_child(1)
+            is_async = comp_node.get_child(0).type == tokens.ASYNC
+            for_node = comp_node.get_child(1 + is_async)
             for_targets = self.handle_exprlist(for_node, ast.Store)
-            expr = self.handle_expr(comp_node.get_child(3))
+            expr = self.handle_expr(comp_node.get_child(3 + is_async))
             assert isinstance(expr, ast.expr)
             if for_node.num_children() == 1:
-                # FIXME: determine whether this is actually async
-                comp = ast.comprehension(for_targets[0], expr, None, 0)
+                comp = ast.comprehension(for_targets[0], expr, None, is_async)
             else:
                 # Modified in python2.7, see http://bugs.python.org/issue6704
                 # Fixing unamed tuple location
@@ -1364,10 +1365,9 @@ class ASTBuilder(object):
                 col = expr_node.col_offset
                 line = expr_node.lineno
                 target = ast.Tuple(for_targets, ast.Store, line, col)
-                # FIXME: determine whether this is actually async
-                comp = ast.comprehension(target, expr, None, 0)
-            if comp_node.num_children() == 5:
-                comp_node = comp_iter = comp_node.get_child(4)
+                comp = ast.comprehension(target, expr, None, is_async)
+            if comp_node.num_children() == 5 + is_async:
+                comp_node = comp_iter = comp_node.get_child(4 + is_async)
                 assert comp_iter.type == syms.comp_iter
                 ifs_count = self.count_comp_ifs(comp_iter)
                 if ifs_count:
