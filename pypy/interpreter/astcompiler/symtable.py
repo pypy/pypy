@@ -517,7 +517,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_Nonlocal(self, nonl):
         for name in nonl.names:
             old_role = self.scope.lookup_role(name)
-            print(name, old_role)
             msg = ""
             if old_role & SYM_GLOBAL:
                 msg = "name '%s' is nonlocal and global" % (name,)
