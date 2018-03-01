@@ -207,18 +207,20 @@ class AppTestFfi:
         except:
             pass
 
-        key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
-        SaveKey(key, self.tmpfilename)
+        with OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS) as key:
+            SaveKey(key, self.tmpfilename)
 
     def test_expand_environment_string(self):
         from winreg import ExpandEnvironmentStrings
         import nt
         r = ExpandEnvironmentStrings("%windir%\\test")
         assert isinstance(r, str)
-        if 'WINDIR' in list(nt.environ.keys()):
+        if 'WINDIR' in nt.environ:
             assert r == nt.environ["WINDIR"] + "\\test"
-        else:
+        elif 'windir' in nt.environ:
             assert r == nt.environ["windir"] + "\\test"
+        else:
+            skip('nt.environ not filled in for untranslated tests')
 
     def test_long_key(self):
         from winreg import (
