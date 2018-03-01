@@ -519,33 +519,6 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-@slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real, error=-1)
-def bytes_getbuffer(space, w_str, view, flags):
-    from pypy.module.cpyext.bytesobject import PyBytes_AsString
-    from pypy.module.cpyext.buffer import PyBuffer_FillInfo
-    c_buf = rffi.cast(rffi.VOIDP, PyBytes_AsString(space, w_str))
-    return PyBuffer_FillInfo(space, view, w_str, c_buf,
-                             space.len_w(w_str), 1, flags)
-
-@slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real, error=-1)
-def bf_getbuffer(space, w_obj, view, flags):
-    from pypy.module.cpyext.buffer import fill_buffer
-    buf = space.buffer_w(w_obj, rffi.cast(lltype.Signed, flags))
-    fill_buffer(space, view, buf, as_pyobj(space, w_obj))
-    return 0
-
-def setup_buffer_procs(space, w_type, pto):
-    bufspec = w_type.layout.typedef.buffer
-    if not bufspec:
-        return
-    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
-    lltype.render_immortal(c_buf)
-    if space.is_w(w_type, space.w_bytes):
-        c_buf.c_bf_getbuffer = llslot(space, bytes_getbuffer)
-    else:
-        c_buf.c_bf_getbuffer = llslot(space, bf_getbuffer)
-    pto.c_tp_as_buffer = c_buf
-
 @slot_function([PyObject], lltype.Void)
 def type_dealloc(space, obj):
     from pypy.module.cpyext.object import _dealloc
@@ -604,8 +577,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
-    # buffer protocol
-    setup_buffer_procs(space, w_type, pto)
 
     state = space.fromcache(State)
     pto.c_tp_free = state.C.PyObject_Free
@@ -723,7 +694,6 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_as_buffer = base.c_tp_as_buffer
         if base.c_tp_as_buffer:
             # inherit base.c_tp_as_buffer functions not inherited from w_type
-            # note: builtin types are handled in setup_buffer_procs
             pto_as = pto.c_tp_as_buffer
             base_as = base.c_tp_as_buffer
             if not pto_as.c_bf_getbuffer:

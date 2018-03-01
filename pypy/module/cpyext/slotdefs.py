@@ -688,12 +688,46 @@ def make_tp_new(space, typedef, name, attr):
         return space.call_args(space.get(new_fn, w_self), args)
     return slot_tp_new
 
+@slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real],
+    rffi.INT_real, error=-1)
+def bytes_getbuffer(space, w_str, view, flags):
+    from pypy.module.cpyext.bytesobject import PyBytes_AsString
+    from pypy.module.cpyext.buffer import PyBuffer_FillInfo
+    c_buf = rffi.cast(rffi.VOIDP, PyBytes_AsString(space, w_str))
+    return PyBuffer_FillInfo(space, view, w_str, c_buf,
+                             space.len_w(w_str), 1, flags)
+
+def slot_from_buffer_w(space, typedef):
+    name = 'bf_getbuffer'
+    @slot_function([PyObject, Py_bufferP, rffi.INT_real],
+            rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name, typedef.name))
+    def buff_w(space, w_self, c_view, flags):
+        w_obj = w_self
+        if c_view:
+            #like PyObject_GetBuffer
+            flags = widen(flags)
+            buf = space.buffer_w(w_obj, flags)
+            try:
+                c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                c_view.c_obj = make_ref(space, w_obj)
+            except ValueError:
+                s = buf.as_str()
+                w_s = space.newbytes(s)
+                c_view.c_obj = make_ref(space, w_s)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                        s, track_allocation=False))
+                rffi.setintfield(c_view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, c_view)
+            return ret
+        return 0
+    return buff_w
+
 @slot_factory('tp_as_buffer.c_bf_getbuffer')
 def make_bf_getbuffer(space, typedef, name, attr):
     w_type = space.gettypeobject(typedef)
-    buff_fn = w_type.lookup('__buffer__')
-    if buff_fn is not None:
-        return slot_from___buffer__(space, typedef, buff_fn)
+    if space.is_w(w_type, space.w_bytes):
+        return bytes_getbuffer
     elif typedef.buffer:
         return slot_from_buffer_w(space, typedef)
     else:
@@ -738,59 +772,6 @@ def make_tp_descr_set(space, typedef, name, attr):
         return 0
     return slot_tp_descr_set
 
-
-def slot_from___buffer__(space, typedef, buff_fn):
-    name = 'bf_getbuffer'
-    @slot_function([PyObject, Py_bufferP, rffi.INT_real],
-            rffi.INT_real, error=-1)
-    @func_renamer("cpyext_%s_%s" % (name, typedef.name))
-    def buff_w(space, w_self, c_view, flags):
-        args = Arguments(space, [space.newint(flags)])
-        w_obj = space.call_args(space.get(buff_fn, w_self), args)
-        if c_view:
-            #like PyObject_GetBuffer
-            flags = widen(flags)
-            buf = space.buffer_w(w_obj, flags)
-            try:
-                c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-                c_view.c_obj = make_ref(space, w_obj)
-            except ValueError:
-                s = buf.as_str()
-                w_s = space.newbytes(s)
-                c_view.c_obj = make_ref(space, w_s)
-                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
-                                        s, track_allocation=False))
-                rffi.setintfield(c_view, 'c_readonly', 1)
-            ret = fill_Py_buffer(space, buf, c_view)
-            return ret
-        return 0
-    return buff_w
-
-def slot_from_buffer_w(space, typedef):
-    name = 'bf_getbuffer'
-    @slot_function([PyObject, Py_bufferP, rffi.INT_real],
-            rffi.INT_real, error=-1)
-    @func_renamer("cpyext_%s_%s" % (name, typedef.name))
-    def buff_w(space, w_self, c_view, flags):
-        w_obj = w_self
-        if c_view:
-            #like PyObject_GetBuffer
-            flags = widen(flags)
-            buf = space.buffer_w(w_obj, flags)
-            try:
-                c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-                c_view.c_obj = make_ref(space, w_obj)
-            except ValueError:
-                s = buf.as_str()
-                w_s = space.newbytes(s)
-                c_view.c_obj = make_ref(space, w_s)
-                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
-                                        s, track_allocation=False))
-                rffi.setintfield(c_view, 'c_readonly', 1)
-            ret = fill_Py_buffer(space, buf, c_view)
-            return ret
-        return 0
-    return buff_w
 
 missing_wrappers = ['wrap_indexargfunc', 'wrap_del']
 for name in missing_wrappers:
