@@ -266,21 +266,21 @@ class TestASTValidator:
     def _check_comprehension(self, fac):
         self.expr(fac([]), "comprehension with no generators")
         g = ast.comprehension(ast.Name("x", ast.Load, 0, 0),
-                              ast.Name("x", ast.Load, 0, 0), [])
+                              ast.Name("x", ast.Load, 0, 0), [], False)
         self.expr(fac([g]), "must have Store context")
         g = ast.comprehension(ast.Name("x", ast.Store, 0, 0),
-                              ast.Name("x", ast.Store, 0, 0), [])
+                              ast.Name("x", ast.Store, 0, 0), [], False)
         self.expr(fac([g]), "must have Load context")
         x = ast.Name("x", ast.Store, 0, 0)
         y = ast.Name("y", ast.Load, 0, 0)
-        g = ast.comprehension(x, y, [None])
+        g = ast.comprehension(x, y, [None], False)
         self.expr(fac([g]), "None disallowed")
-        g = ast.comprehension(x, y, [ast.Name("x", ast.Store, 0, 0)])
+        g = ast.comprehension(x, y, [ast.Name("x", ast.Store, 0, 0)], False)
         self.expr(fac([g]), "must have Load context")
 
     def _simple_comp(self, fac):
         g = ast.comprehension(ast.Name("x", ast.Store, 0, 0),
-                              ast.Name("x", ast.Load, 0, 0), [])
+                              ast.Name("x", ast.Load, 0, 0), [], False)
         self.expr(fac(ast.Name("x", ast.Store, 0, 0), [g], 0, 0),
                   "must have Load context")
         def wrap(gens):
@@ -298,7 +298,7 @@ class TestASTValidator:
 
     def test_dictcomp(self):
         g = ast.comprehension(ast.Name("y", ast.Store, 0, 0),
-                              ast.Name("p", ast.Load, 0, 0), [])
+                              ast.Name("p", ast.Load, 0, 0), [], False)
         c = ast.DictComp(ast.Name("x", ast.Store, 0, 0),
                          ast.Name("y", ast.Load, 0, 0), [g], 0, 0)
         self.expr(c, "must have Load context")
@@ -394,6 +394,10 @@ class TestASTValidator:
     def test_nameconstant(self):
         node = ast.NameConstant("True", 0, 0)
         self.expr(node, "singleton must be True, False, or None")
+
+    def test_constant(self):
+        node = ast.Constant(self.space.newlist([1]), 0, 0)
+        self.expr(node, "got an invalid type in Constant: list")
 
     def test_stdlib_validates(self):
         stdlib = os.path.join(os.path.dirname(ast.__file__), '../../../lib-python/3')

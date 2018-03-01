@@ -93,6 +93,27 @@ class __extend__(ast.Attribute):
         _check_context(ctx, self.ctx)
 
 
+# Recursive function to validate a Constant value.
+def validate_constant(space, w_obj):
+    if space.is_w(w_obj, space.w_None):
+        return
+    if space.is_w(w_obj, space.w_Ellipsis):
+        return
+    w_type = space.type(w_obj)
+    if w_type in (space.w_int,
+                  space.w_complex,
+                  space.w_bool,
+                  space.w_unicode,
+                  space.w_bytes):
+        return
+    if w_type in (space.w_tuple, space.w_frozenset):
+        for w_item in space.unpackiterable(w_obj):
+            validate_constant(space, w_item)
+        return
+    raise ValidationError("got an invalid type in Constant: %s" %
+                          space.type(w_obj).name)
+
+
 class AstValidator(ast.ASTVisitor):
     def __init__(self, space):
         self.space = space
@@ -325,7 +346,7 @@ class AstValidator(ast.ASTVisitor):
         pass
 
     def visit_Constant(self, node):
-        pass
+        validate_constant(self.space, node.value)
 
     def visit_BoolOp(self, node):
         if self._len(node.values) < 2:
