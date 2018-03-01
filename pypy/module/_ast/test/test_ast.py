@@ -84,15 +84,22 @@ class AppTestAST:
         imp.level = 3
         assert imp.level == 3
 
+        body = [ast.ImportFrom(module='time',
+                               names=[ast.alias(name='sleep')],
+                               level=None,
+                               lineno=1, col_offset=2)]
+        mod = ast.Module(body)
+        compile(mod, 'test', 'exec')
+
     def test_bad_int(self):
         ast = self.ast
         body = [ast.ImportFrom(module='time',
                                names=[ast.alias(name='sleep')],
-                               level=None,
-                               lineno=None, col_offset=None)]
+                               level='A',
+                               lineno=1, col_offset=2)]
         mod = ast.Module(body)
         exc = raises(ValueError, compile, mod, 'test', 'exec')
-        assert str(exc.value) == "invalid integer value: None"
+        assert str(exc.value) == "invalid integer value: 'A'"
 
     def test_identifier(self):
         ast = self.ast

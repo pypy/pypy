@@ -28,7 +28,9 @@ def get_field(space, w_node, name, optional):
         w_obj = space.w_None
     return w_obj
 
-def obj_to_int(space, w_value):
+def obj_to_int(space, w_value, optional):
+    if optional and space.is_w(w_value, space.w_None):
+        return 0
     if not space.isinstance_w(w_value, space.w_long):
         raise oefmt(space.w_ValueError,
                     "invalid integer value: %R", w_value)
@@ -452,8 +454,8 @@ class FunctionDef(stmt):
         decorator_list_w = space.unpackiterable(w_decorator_list)
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
         _returns = expr.from_object(space, w_returns)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return FunctionDef(_name, _args, _body, _decorator_list, _returns, _lineno, _col_offset)
 
 State.ast_type('FunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns'])
@@ -532,8 +534,8 @@ class AsyncFunctionDef(stmt):
         decorator_list_w = space.unpackiterable(w_decorator_list)
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
         _returns = expr.from_object(space, w_returns)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return AsyncFunctionDef(_name, _args, _body, _decorator_list, _returns, _lineno, _col_offset)
 
 State.ast_type('AsyncFunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns'])
@@ -625,8 +627,8 @@ class ClassDef(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return ClassDef(_name, _bases, _keywords, _body, _decorator_list, _lineno, _col_offset)
 
 State.ast_type('ClassDef', 'stmt', ['name', 'bases', 'keywords', 'body', 'decorator_list'])
@@ -662,8 +664,8 @@ class Return(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Return(_value, _lineno, _col_offset)
 
 State.ast_type('Return', 'stmt', ['value'])
@@ -706,8 +708,8 @@ class Delete(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         targets_w = space.unpackiterable(w_targets)
         _targets = [expr.from_object(space, w_item) for w_item in targets_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Delete(_targets, _lineno, _col_offset)
 
 State.ast_type('Delete', 'stmt', ['targets'])
@@ -758,8 +760,8 @@ class Assign(stmt):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Assign(_targets, _value, _lineno, _col_offset)
 
 State.ast_type('Assign', 'stmt', ['targets', 'value'])
@@ -811,8 +813,8 @@ class AugAssign(stmt):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return AugAssign(_target, _op, _value, _lineno, _col_offset)
 
 State.ast_type('AugAssign', 'stmt', ['target', 'op', 'value'])
@@ -868,9 +870,9 @@ class AnnAssign(stmt):
         if _annotation is None:
             raise_required_value(space, w_node, 'annotation')
         _value = expr.from_object(space, w_value)
-        _simple = obj_to_int(space, w_simple)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _simple = obj_to_int(space, w_simple, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return AnnAssign(_target, _annotation, _value, _simple, _lineno, _col_offset)
 
 State.ast_type('AnnAssign', 'stmt', ['target', 'annotation', 'value', 'simple'])
@@ -943,8 +945,8 @@ class For(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return For(_target, _iter, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('For', 'stmt', ['target', 'iter', 'body', 'orelse'])
@@ -1017,8 +1019,8 @@ class AsyncFor(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return AsyncFor(_target, _iter, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('AsyncFor', 'stmt', ['target', 'iter', 'body', 'orelse'])
@@ -1083,8 +1085,8 @@ class While(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return While(_test, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('While', 'stmt', ['test', 'body', 'orelse'])
@@ -1149,8 +1151,8 @@ class If(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return If(_test, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('If', 'stmt', ['test', 'body', 'orelse'])
@@ -1207,8 +1209,8 @@ class With(stmt):
         _items = [withitem.from_object(space, w_item) for w_item in items_w]
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return With(_items, _body, _lineno, _col_offset)
 
 State.ast_type('With', 'stmt', ['items', 'body'])
@@ -1265,8 +1267,8 @@ class AsyncWith(stmt):
         _items = [withitem.from_object(space, w_item) for w_item in items_w]
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return AsyncWith(_items, _body, _lineno, _col_offset)
 
 State.ast_type('AsyncWith', 'stmt', ['items', 'body'])
@@ -1309,8 +1311,8 @@ class Raise(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _exc = expr.from_object(space, w_exc)
         _cause = expr.from_object(space, w_cause)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Raise(_exc, _cause, _lineno, _col_offset)
 
 State.ast_type('Raise', 'stmt', ['exc', 'cause'])
@@ -1395,8 +1397,8 @@ class Try(stmt):
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
         finalbody_w = space.unpackiterable(w_finalbody)
         _finalbody = [stmt.from_object(space, w_item) for w_item in finalbody_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Try(_body, _handlers, _orelse, _finalbody, _lineno, _col_offset)
 
 State.ast_type('Try', 'stmt', ['body', 'handlers', 'orelse', 'finalbody'])
@@ -1440,8 +1442,8 @@ class Assert(stmt):
         if _test is None:
             raise_required_value(space, w_node, 'test')
         _msg = expr.from_object(space, w_msg)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Assert(_test, _msg, _lineno, _col_offset)
 
 State.ast_type('Assert', 'stmt', ['test', 'msg'])
@@ -1484,8 +1486,8 @@ class Import(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
         _names = [alias.from_object(space, w_item) for w_item in names_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Import(_names, _lineno, _col_offset)
 
 State.ast_type('Import', 'stmt', ['names'])
@@ -1537,9 +1539,9 @@ class ImportFrom(stmt):
         _module = space.text_or_none_w(w_module)
         names_w = space.unpackiterable(w_names)
         _names = [alias.from_object(space, w_item) for w_item in names_w]
-        _level = obj_to_int(space, w_level)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _level = obj_to_int(space, w_level, True)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return ImportFrom(_module, _names, _level, _lineno, _col_offset)
 
 State.ast_type('ImportFrom', 'stmt', ['module', 'names', 'level'])
@@ -1578,8 +1580,8 @@ class Global(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
         _names = [space.text_w(w_item) for w_item in names_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Global(_names, _lineno, _col_offset)
 
 State.ast_type('Global', 'stmt', ['names'])
@@ -1618,8 +1620,8 @@ class Nonlocal(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
         _names = [space.text_w(w_item) for w_item in names_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Nonlocal(_names, _lineno, _col_offset)
 
 State.ast_type('Nonlocal', 'stmt', ['names'])
@@ -1656,8 +1658,8 @@ class Expr(stmt):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Expr(_value, _lineno, _col_offset)
 
 State.ast_type('Expr', 'stmt', ['value'])
@@ -1686,8 +1688,8 @@ class Pass(stmt):
     def from_object(space, w_node):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Pass(_lineno, _col_offset)
 
 State.ast_type('Pass', 'stmt', [])
@@ -1716,8 +1718,8 @@ class Break(stmt):
     def from_object(space, w_node):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Break(_lineno, _col_offset)
 
 State.ast_type('Break', 'stmt', [])
@@ -1746,8 +1748,8 @@ class Continue(stmt):
     def from_object(space, w_node):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Continue(_lineno, _col_offset)
 
 State.ast_type('Continue', 'stmt', [])
@@ -1871,8 +1873,8 @@ class BoolOp(expr):
             raise_required_value(space, w_node, 'op')
         values_w = space.unpackiterable(w_values)
         _values = [expr.from_object(space, w_item) for w_item in values_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return BoolOp(_op, _values, _lineno, _col_offset)
 
 State.ast_type('BoolOp', 'expr', ['op', 'values'])
@@ -1924,8 +1926,8 @@ class BinOp(expr):
         _right = expr.from_object(space, w_right)
         if _right is None:
             raise_required_value(space, w_node, 'right')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return BinOp(_left, _op, _right, _lineno, _col_offset)
 
 State.ast_type('BinOp', 'expr', ['left', 'op', 'right'])
@@ -1969,8 +1971,8 @@ class UnaryOp(expr):
         _operand = expr.from_object(space, w_operand)
         if _operand is None:
             raise_required_value(space, w_node, 'operand')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return UnaryOp(_op, _operand, _lineno, _col_offset)
 
 State.ast_type('UnaryOp', 'expr', ['op', 'operand'])
@@ -2015,8 +2017,8 @@ class Lambda(expr):
         _body = expr.from_object(space, w_body)
         if _body is None:
             raise_required_value(space, w_node, 'body')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Lambda(_args, _body, _lineno, _col_offset)
 
 State.ast_type('Lambda', 'expr', ['args', 'body'])
@@ -2069,8 +2071,8 @@ class IfExp(expr):
         _orelse = expr.from_object(space, w_orelse)
         if _orelse is None:
             raise_required_value(space, w_node, 'orelse')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return IfExp(_test, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('IfExp', 'expr', ['test', 'body', 'orelse'])
@@ -2127,8 +2129,8 @@ class Dict(expr):
         _keys = [expr.from_object(space, w_item) for w_item in keys_w]
         values_w = space.unpackiterable(w_values)
         _values = [expr.from_object(space, w_item) for w_item in values_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Dict(_keys, _values, _lineno, _col_offset)
 
 State.ast_type('Dict', 'expr', ['keys', 'values'])
@@ -2171,8 +2173,8 @@ class Set(expr):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         elts_w = space.unpackiterable(w_elts)
         _elts = [expr.from_object(space, w_item) for w_item in elts_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Set(_elts, _lineno, _col_offset)
 
 State.ast_type('Set', 'expr', ['elts'])
@@ -2223,8 +2225,8 @@ class ListComp(expr):
             raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return ListComp(_elt, _generators, _lineno, _col_offset)
 
 State.ast_type('ListComp', 'expr', ['elt', 'generators'])
@@ -2275,8 +2277,8 @@ class SetComp(expr):
             raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return SetComp(_elt, _generators, _lineno, _col_offset)
 
 State.ast_type('SetComp', 'expr', ['elt', 'generators'])
@@ -2335,8 +2337,8 @@ class DictComp(expr):
             raise_required_value(space, w_node, 'value')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return DictComp(_key, _value, _generators, _lineno, _col_offset)
 
 State.ast_type('DictComp', 'expr', ['key', 'value', 'generators'])
@@ -2387,8 +2389,8 @@ class GeneratorExp(expr):
             raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return GeneratorExp(_elt, _generators, _lineno, _col_offset)
 
 State.ast_type('GeneratorExp', 'expr', ['elt', 'generators'])
@@ -2425,8 +2427,8 @@ class Await(expr):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Await(_value, _lineno, _col_offset)
 
 State.ast_type('Await', 'expr', ['value'])
@@ -2462,8 +2464,8 @@ class Yield(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Yield(_value, _lineno, _col_offset)
 
 State.ast_type('Yield', 'expr', ['value'])
@@ -2500,8 +2502,8 @@ class YieldFrom(expr):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return YieldFrom(_value, _lineno, _col_offset)
 
 State.ast_type('YieldFrom', 'expr', ['value'])
@@ -2562,8 +2564,8 @@ class Compare(expr):
         _ops = [cmpop.from_object(space, w_item) for w_item in ops_w]
         comparators_w = space.unpackiterable(w_comparators)
         _comparators = [expr.from_object(space, w_item) for w_item in comparators_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Compare(_left, _ops, _comparators, _lineno, _col_offset)
 
 State.ast_type('Compare', 'expr', ['left', 'ops', 'comparators'])
@@ -2628,8 +2630,8 @@ class Call(expr):
         _args = [expr.from_object(space, w_item) for w_item in args_w]
         keywords_w = space.unpackiterable(w_keywords)
         _keywords = [keyword.from_object(space, w_item) for w_item in keywords_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Call(_func, _args, _keywords, _lineno, _col_offset)
 
 State.ast_type('Call', 'expr', ['func', 'args', 'keywords'])
@@ -2665,8 +2667,8 @@ class Num(expr):
         _n = w_n
         if _n is None:
             raise_required_value(space, w_node, 'n')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Num(_n, _lineno, _col_offset)
 
 State.ast_type('Num', 'expr', ['n'])
@@ -2702,8 +2704,8 @@ class Str(expr):
         _s = check_string(space, w_s)
         if _s is None:
             raise_required_value(space, w_node, 's')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Str(_s, _lineno, _col_offset)
 
 State.ast_type('Str', 'expr', ['s'])
@@ -2750,10 +2752,10 @@ class FormattedValue(expr):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _conversion = obj_to_int(space, w_conversion)
+        _conversion = obj_to_int(space, w_conversion, True)
         _format_spec = expr.from_object(space, w_format_spec)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return FormattedValue(_value, _conversion, _format_spec, _lineno, _col_offset)
 
 State.ast_type('FormattedValue', 'expr', ['value', 'conversion', 'format_spec'])
@@ -2796,8 +2798,8 @@ class JoinedStr(expr):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         values_w = space.unpackiterable(w_values)
         _values = [expr.from_object(space, w_item) for w_item in values_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return JoinedStr(_values, _lineno, _col_offset)
 
 State.ast_type('JoinedStr', 'expr', ['values'])
@@ -2833,8 +2835,8 @@ class Bytes(expr):
         _s = check_string(space, w_s)
         if _s is None:
             raise_required_value(space, w_node, 's')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Bytes(_s, _lineno, _col_offset)
 
 State.ast_type('Bytes', 'expr', ['s'])
@@ -2870,8 +2872,8 @@ class NameConstant(expr):
         _value = w_value
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return NameConstant(_value, _lineno, _col_offset)
 
 State.ast_type('NameConstant', 'expr', ['value'])
@@ -2900,8 +2902,8 @@ class Ellipsis(expr):
     def from_object(space, w_node):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Ellipsis(_lineno, _col_offset)
 
 State.ast_type('Ellipsis', 'expr', [])
@@ -2937,8 +2939,8 @@ class Constant(expr):
         _value = w_value
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Constant(_value, _lineno, _col_offset)
 
 State.ast_type('Constant', 'expr', ['value'])
@@ -2989,8 +2991,8 @@ class Attribute(expr):
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Attribute(_value, _attr, _ctx, _lineno, _col_offset)
 
 State.ast_type('Attribute', 'expr', ['value', 'attr', 'ctx'])
@@ -3042,8 +3044,8 @@ class Subscript(expr):
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Subscript(_value, _slice, _ctx, _lineno, _col_offset)
 
 State.ast_type('Subscript', 'expr', ['value', 'slice', 'ctx'])
@@ -3087,8 +3089,8 @@ class Starred(expr):
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Starred(_value, _ctx, _lineno, _col_offset)
 
 State.ast_type('Starred', 'expr', ['value', 'ctx'])
@@ -3131,8 +3133,8 @@ class Name(expr):
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Name(_id, _ctx, _lineno, _col_offset)
 
 State.ast_type('Name', 'expr', ['id', 'ctx'])
@@ -3182,8 +3184,8 @@ class List(expr):
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return List(_elts, _ctx, _lineno, _col_offset)
 
 State.ast_type('List', 'expr', ['elts', 'ctx'])
@@ -3233,8 +3235,8 @@ class Tuple(expr):
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return Tuple(_elts, _ctx, _lineno, _col_offset)
 
 State.ast_type('Tuple', 'expr', ['elts', 'ctx'])
@@ -3781,7 +3783,7 @@ class comprehension(AST):
             raise_required_value(space, w_node, 'iter')
         ifs_w = space.unpackiterable(w_ifs)
         _ifs = [expr.from_object(space, w_item) for w_item in ifs_w]
-        _is_async = obj_to_int(space, w_is_async)
+        _is_async = obj_to_int(space, w_is_async, False)
         return comprehension(_target, _iter, _ifs, _is_async)
 
 State.ast_type('comprehension', 'AST', ['target', 'iter', 'ifs', 'is_async'])
@@ -3851,8 +3853,8 @@ class ExceptHandler(excepthandler):
         _name = space.text_or_none_w(w_name)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return ExceptHandler(_type, _name, _body, _lineno, _col_offset)
 
 State.ast_type('ExceptHandler', 'excepthandler', ['type', 'name', 'body'])
@@ -3986,8 +3988,8 @@ class arg(AST):
         if _arg is None:
             raise_required_value(space, w_node, 'arg')
         _annotation = expr.from_object(space, w_annotation)
-        _lineno = obj_to_int(space, w_lineno)
-        _col_offset = obj_to_int(space, w_col_offset)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return arg(_arg, _annotation, _lineno, _col_offset)
 
 State.ast_type('arg', 'AST', ['arg', 'annotation'], ['lineno', 'col_offset'])

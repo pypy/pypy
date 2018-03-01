@@ -165,7 +165,7 @@ class ASTNodeVisitor(ASDLVisitor):
                 return "space.text_or_none_w(%s)" % (value,)
             return "space.text_w(%s)" % (value,)
         elif field.type in ("int",):
-            return "obj_to_int(space, %s)" % (value,)
+            return "obj_to_int(space, %s, %s)" % (value, field.opt)
         elif field.type in ("bool",):
             return "space.bool_w(%s)" % (value,)
         else:
@@ -457,7 +457,9 @@ def get_field(space, w_node, name, optional):
         w_obj = space.w_None
     return w_obj
 
-def obj_to_int(space, w_value):
+def obj_to_int(space, w_value, optional):
+    if optional and space.is_w(w_value, space.w_None):
+        return 0
     if not space.isinstance_w(w_value, space.w_long):
         raise oefmt(space.w_ValueError,
                     "invalid integer value: %R", w_value)

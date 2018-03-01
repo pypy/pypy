@@ -101,6 +101,7 @@ def validate_constant(space, w_obj):
         return
     w_type = space.type(w_obj)
     if w_type in (space.w_int,
+                  space.w_float,
                   space.w_complex,
                   space.w_bool,
                   space.w_unicode,
@@ -315,8 +316,8 @@ class AstValidator(ast.ASTVisitor):
         self._validate_nonempty_seq(node.names, "names", "Import")
 
     def visit_ImportFrom(self, node):
-        if node.level < -1:
-            raise ValidationError("ImportFrom level less than -1")
+        if node.level < 0:
+            raise ValidationError("Negative ImportFrom level")
         self._validate_nonempty_seq(node.names, "names", "ImportFrom")
 
     def visit_Global(self, node):
