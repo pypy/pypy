@@ -1478,6 +1478,8 @@ class AppTestEnvironment(object):
     def test_environ(self):
         import sys, os
         environ = os.environ
+        if not environ:
+            skip('environ not filled in for untranslated tests')
         for k, v in environ.items():
             assert type(k) is str
             assert type(v) is str
