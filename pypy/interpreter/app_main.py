@@ -577,6 +577,7 @@ def run_command_line(interactive,
     mainmodule = type(sys)('__main__')
     mainmodule.__loader__ = sys.__loader__
     mainmodule.__builtins__ = os.__builtins__
+    mainmodule.__annotations__ = {}
     sys.modules['__main__'] = mainmodule
 
     if not no_site:

@@ -12,6 +12,7 @@ SYM_ASSIGNED = 2  # (DEF_LOCAL in CPython3). Or deleted actually.
 SYM_PARAM = 2 << 1
 SYM_NONLOCAL = 2 << 2
 SYM_USED = 2 << 3
+SYM_ANNOTATED = 2 << 4
 SYM_BOUND = (SYM_PARAM | SYM_ASSIGNED)
 
 # codegen.py actually deals with these:
@@ -44,6 +45,7 @@ class Scope(object):
         self.child_has_free = False
         self.nested = False
         self.doc_removable = False
+        self.contains_annotated = False
         self._in_try_body_depth = 0
 
     def lookup(self, name):
@@ -139,7 +141,7 @@ class Scope(object):
                 self.free_vars.append(name)
             free[name] = None
             self.has_free = True
-        elif flags & SYM_BOUND:
+        elif flags & (SYM_BOUND | SYM_ANNOTATED):
             self.symbols[name] = SCOPE_LOCAL
             local[name] = None
             try:
@@ -420,6 +422,20 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.scope.note_return(ret)
         ast.GenericASTVisitor.visit_Return(self, ret)
 
+    def visit_AnnAssign(self, assign):
+        # __annotations__ is not setup or used in functions.
+        if not isinstance(self.scope, FunctionScope):
+            self.scope.contains_annotated = True
+        target = assign.target
+        if isinstance(target, ast.Name):
+            scope = SYM_ANNOTATED
+            name = target.id
+            if assign.value:
+                scope |= SYM_USED
+            self.note_symbol(name, scope)
+        else:
+            target.walkabout(self)
+
     def visit_ClassDef(self, clsdef):
         self.note_symbol(clsdef.name, SYM_ASSIGNED)
         self.visit_sequence(clsdef.bases)
@@ -485,9 +501,12 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 msg = "name '%s' is nonlocal and global" % (name,)
                 raise SyntaxError(msg, glob.lineno, glob.col_offset)
 
-            if old_role & (SYM_USED | SYM_ASSIGNED):
+            if old_role & (SYM_USED | SYM_ASSIGNED | SYM_ANNOTATED):
                 if old_role & SYM_ASSIGNED:
                     msg = "name '%s' is assigned to before global declaration"\
+                        % (name,)
+                elif old_role & SYM_ANNOTATED:
+                    msg = "annotated name '%s' can't be global" \
                         % (name,)
                 else:
                     msg = "name '%s' is used prior to global declaration" % \
@@ -498,6 +517,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_Nonlocal(self, nonl):
         for name in nonl.names:
             old_role = self.scope.lookup_role(name)
+            print(name, old_role)
             msg = ""
             if old_role & SYM_GLOBAL:
                 msg = "name '%s' is nonlocal and global" % (name,)
@@ -505,6 +525,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 msg = "name '%s' is parameter and nonlocal" % (name,)
             if isinstance(self.scope, ModuleScope):
                 msg = "nonlocal declaration not allowed at module level"
+            if old_role & SYM_ANNOTATED:
+                msg = "annotated name '%s' can't be nonlocal" \
+                    % (name,)
             if msg is not "":
                 raise SyntaxError(msg, nonl.lineno, nonl.col_offset)
 

@@ -292,6 +292,10 @@ class __extend__(pyframe.PyFrame):
                 self.DELETE_DEREF(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_FAST.index:
                 self.DELETE_FAST(oparg, next_instr)
+            elif opcode == opcodedesc.SETUP_ANNOTATIONS.index:
+                self.SETUP_ANNOTATIONS(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_ANNOTATION.index:
+                self.STORE_ANNOTATION(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_GLOBAL.index:
                 self.DELETE_GLOBAL(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_NAME.index:
@@ -946,6 +950,18 @@ class __extend__(pyframe.PyFrame):
                         "local variable '%s' referenced before assignment",
                         varname)
         self.locals_cells_stack_w[varindex] = None
+
+    def SETUP_ANNOTATIONS(self, oparg, next_instr):
+        w_locals = self.getorcreatedebug().w_locals
+        if not self.space.finditem_str(w_locals, '__annotations__'):
+            w_annotations = self.space.newdict()
+            self.space.setitem_str(w_locals, '__annotations__', w_annotations)
+
+    def STORE_ANNOTATION(self, varindex, next_instr):
+        varname = self.getname_u(varindex)
+        w_newvalue = self.popvalue()
+        self.space.setitem_str(self.getorcreatedebug().w_locals.getitem_str('__annotations__'), varname,
+                               w_newvalue)
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)

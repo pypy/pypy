@@ -212,6 +212,12 @@ class AstValidator(ast.ASTVisitor):
         self._validate_exprs(node.targets, ast.Store)
         self._validate_expr(node.value)
 
+    def visit_AnnAssign(self, node):
+        self._validate_expr(node.target, ast.Store)
+        self._validate_expr(node.annotation)
+        if node.value:
+            self._validate_expr(node.value)
+
     def visit_AugAssign(self, node):
         self._validate_expr(node.target, ast.Store)
         self._validate_expr(node.value)

@@ -299,6 +299,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             return False
 
+    def _maybe_setup_annotations(self):
+        # if the scope contained an annotated variable assignemt,
+        # this will emit the requisite SETUP_ANNOTATIONS
+        if self.scope.contains_annotated and not isinstance(self, AbstractFunctionCodeGenerator):
+            self.emit_op(ops.SETUP_ANNOTATIONS)
+
     def visit_Module(self, mod):
         if not self._handle_body(mod.body):
             self.first_lineno = self.lineno = 1
@@ -925,6 +931,66 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.visit_sequence(targets)
         return True
 
+    def _annotation_evaluate(self, item):
+        # PEP 526 requires that some things be evaluated, to avoid bugs
+        # where a non-assigning variable annotation references invalid items
+        # this is effectively a NOP, but will fail if e.g. item is an
+        # Attribute and one of the chained names does not exist
+        item.walkabout(self)
+        self.emit_op(ops.POP_TOP)
+
+    def _annotation_eval_slice(self, target):
+        if isinstance(target, ast.Index):
+            self._annotation_evaluate(target.value)
+        elif isinstance(target, ast.Slice):
+            for val in [target.lower, target.upper, target.step]:
+                if val:
+                    self._annotation_evaluate(val)
+        elif isinstance(target, ast.ExtSlice):
+            for val in target.dims:
+                if isinstance(val, ast.Index) or isinstance(val, ast.Slice):
+                    self._annotation_eval_slice(val)
+                else:
+                    self.error("Invalid nested slice", val)
+        else:
+            self.error("Invalid slice?", target)
+
+    def visit_AnnAssign(self, assign):
+        self.update_position(assign.lineno, True)
+        target = assign.target
+        # if there's an assignment to be done, do it
+        if assign.value:
+            assign.value.walkabout(self)
+            target.walkabout(self)
+        # the PEP requires that certain parts of the target be evaluated at runtime
+        # to avoid silent annotation-related errors
+        if isinstance(target, ast.Name):
+            # if it's just a simple name and we're not in a function, store
+            # the annotation in __annotations__
+            if assign.simple and not isinstance(self.scope, symtable.FunctionScope):
+                assign.annotation.walkabout(self)
+                name = target.id
+                self.emit_op_arg(ops.STORE_ANNOTATION, self.add_name(self.names, name))
+        elif isinstance(target, ast.Attribute):
+            # the spec requires that `a.b: int` evaluates `a`
+            # and in a non-function scope, also evaluates `int`
+            # (N.B.: if the target is of the form `a.b.c`, `a.b` will be evaluated)
+            if not assign.value:
+                attr = target.value
+                self._annotation_evaluate(attr)
+        elif isinstance(target, ast.Subscript):
+            # similar to the above, `a[0:5]: int` evaluates the name and the slice argument
+            # and if not in a function, also evaluates the annotation
+            sl = target.slice
+            self._annotation_evaluate(target.value)
+            self._annotation_eval_slice(sl)
+        else:
+            self.error("can't handle annotation with %s" % (target,), target)
+        # if this is not in a function, evaluate the annotation
+        if not (assign.simple or isinstance(self.scope, symtable.FunctionScope)):
+            self._annotation_evaluate(assign.annotation)
+
+
     def visit_With(self, wih):
         self.update_position(wih.lineno, True)
         self.handle_withitem(wih, 0, is_async=False)
@@ -1527,6 +1593,7 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
                                      symbols, compile_info, qualname=None)
 
     def _compile(self, tree):
+        self._maybe_setup_annotations()
         tree.walkabout(self)
 
     def _get_code_flags(self):
@@ -1656,6 +1723,7 @@ class ClassCodeGenerator(PythonCodeGenerator):
         w_qualname = self.space.newtext(self.qualname)
         self.load_const(w_qualname)
         self.name_op("__qualname__", ast.Store)
+        self._maybe_setup_annotations()
         # compile the body proper
         self._handle_body(cls.body)
         # return the (empty) __class__ cell
