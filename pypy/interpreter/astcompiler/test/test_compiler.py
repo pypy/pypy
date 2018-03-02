@@ -1161,9 +1161,7 @@ class TestCompiler:
         async def f():
             {await a for a in b}
         """
-        e = py.test.raises(SyntaxError, self.simple_test, source, None, None)
-        assert e.value.msg == (
-            "'await' expressions in comprehensions are not supported")
+        self.simple_test(source, "None", None)
 
     def test_load_classderef(self):
         source = """if 1:

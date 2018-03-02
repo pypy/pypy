@@ -83,9 +83,6 @@ INVALID = splitcases("""
         pass
     
     async def foo():
-        [i async for i in els]
-    
-    async def foo():
         await
     
     def foo():

@@ -1448,6 +1448,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                                     ComprehensionCodeGenerator)
 
     def _comp_generator(self, node, generators, gen_index):
+        gen = generators[gen_index]
+        assert isinstance(gen, ast.comprehension)
+        if gen.is_async:
+            self._comp_async_generator(node, generators, gen_index)
+        else:
+            self._comp_sync_generator(node, generators, gen_index)
+
+    def _comp_sync_generator(self, node, generators, gen_index):
         start = self.new_block()
         if_cleanup = self.new_block()
         anchor = self.new_block()
@@ -1476,15 +1484,96 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
         self.use_next_block(anchor)
 
+    def _comp_async_generator(self, node, generators, gen_index):
+        b_try = self.new_block()
+        b_after_try = self.new_block()
+        b_try_cleanup = self.new_block()
+        b_except = self.new_block()
+        b_skip = self.new_block()
+        b_if_cleanup = self.new_block()
+        b_anchor = self.new_block()
+        gen = generators[gen_index]
+        assert isinstance(gen, ast.comprehension)
+        if gen_index == 0:
+            self.argcount = 1
+            self.emit_op_arg(ops.LOAD_FAST, 0)
+        else:
+            gen.iter.walkabout(self)
+            self.emit_op(ops.GET_AITER)
+            self.load_const(self.space.w_None)
+            self.emit_op(ops.YIELD_FROM)
+        self.use_next_block(b_try)
+        self.emit_jump(ops.SETUP_EXCEPT, b_except)
+        self.push_frame_block(F_BLOCK_EXCEPT, b_try)
+
+        self.emit_op(ops.GET_ANEXT)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+        gen.target.walkabout(self)
+        self.emit_op(ops.POP_BLOCK)
+        self.pop_frame_block(F_BLOCK_EXCEPT, b_try)
+        self.emit_jump(ops.JUMP_FORWARD, b_after_try)
+
+        self.use_next_block(b_except)
+        self.emit_op(ops.DUP_TOP)
+        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
+        self.emit_op_arg(ops.COMPARE_OP, 10)
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, b_try_cleanup, True)
+
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_anchor, True)
+
+        self.use_next_block(b_try_cleanup)
+        self.emit_op(ops.END_FINALLY)
+
+        self.use_next_block(b_after_try)
+
+        if gen.ifs:
+            for if_ in gen.ifs:
+                if_.accept_jump_if(self, False, b_if_cleanup)
+                self.use_next_block()
+        gen_index += 1
+
+        if gen_index < len(generators):
+            self._comp_generator(node, generators, gen_index)
+        else:
+            node.accept_comp_iteration(self, gen_index)
+        self.use_next_block(b_if_cleanup)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
+        self.use_next_block(b_anchor)
+        self.emit_op(ops.POP_TOP)
+
     def _compile_comprehension(self, node, name, sub_scope):
+        is_async_function = isinstance(self, AsyncFunctionCodeGenerator)
         code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
+        is_async_generator = code.co_flags & (
+            consts.CO_COROUTINE |
+            consts.CO_ITERABLE_COROUTINE |
+            consts.CO_ASYNC_GENERATOR)
+
+        if is_async_generator and not is_async_function:
+            self.error("asynchronous comprehension outside of "
+                       "an asynchronous function", node)
+
         self.update_position(node.lineno)
         self._make_function(code, qualname=qualname)
         first_comp = node.get_generators()[0]
         assert isinstance(first_comp, ast.comprehension)
         first_comp.iter.walkabout(self)
-        self.emit_op(ops.GET_ITER)
+        if first_comp.is_async:
+            self.emit_op(ops.GET_AITER)
+            self.load_const(self.space.w_None)
+            self.emit_op(ops.YIELD_FROM)
+        else:
+            self.emit_op(ops.GET_ITER)
         self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        if is_async_generator and sub_scope is not GenExpCodeGenerator:
+            self.emit_op(ops.GET_AWAITABLE)
+            self.load_const(self.space.w_None)
+            self.emit_op(ops.YIELD_FROM)
 
     def visit_GeneratorExp(self, genexp):
         self._compile_comprehension(genexp, "<genexpr>", GenExpCodeGenerator)

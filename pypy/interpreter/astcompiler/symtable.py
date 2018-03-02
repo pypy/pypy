@@ -258,11 +258,7 @@ class FunctionScope(Scope):
             self.has_yield_inside_try = True
 
     def note_await(self, await_node):
-        if self.name == '<genexpr>':
-            msg = "'await' expressions in comprehensions are not supported"
-        else:
-            msg = "'await' outside async function"
-        raise SyntaxError(msg, await_node.lineno, await_node.col_offset)
+        pass
 
     def note_return(self, ret):
         if ret.value:
