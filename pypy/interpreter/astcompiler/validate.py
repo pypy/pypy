@@ -11,11 +11,16 @@ def validate_ast(space, node):
 
 
 class ValidationError(Exception):
+    # Will be seen as a ValueError
     def __init__(self, message):
         self.message = message
 
     def __str__(self):
         return self.message
+
+class ValidationTypeError(ValidationError):
+    # Will be seen as a TypeError
+    pass
 
 
 def expr_context_name(ctx):
@@ -111,8 +116,8 @@ def validate_constant(space, w_obj):
         for w_item in space.unpackiterable(w_obj):
             validate_constant(space, w_item)
         return
-    raise ValidationError("got an invalid type in Constant: %s" %
-                          space.type(w_obj).name)
+    raise ValidationTypeError("got an invalid type in Constant: %s" %
+                              space.type(w_obj).name)
 
 
 class AstValidator(ast.ASTVisitor):

@@ -397,7 +397,8 @@ class TestASTValidator:
 
     def test_constant(self):
         node = ast.Constant(self.space.newlist([1]), 0, 0)
-        self.expr(node, "got an invalid type in Constant: list")
+        self.expr(node, "got an invalid type in Constant: list",
+                  exc=validate.ValidationTypeError)
 
     def test_stdlib_validates(self):
         stdlib = os.path.join(os.path.dirname(ast.__file__), '../../../lib-python/3')
