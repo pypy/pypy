@@ -1466,3 +1466,26 @@ class TestOptimizations:
             return f'ab{x}cd'
         """
         code, blocks = generate_function_code(source, self.space)
+
+class AppTestCoroutine:
+    def w_run_async(self, coro):
+        buffer = []
+        result = None
+        while True:
+            try:
+                buffer.append(coro.send(None))
+            except StopIteration as ex:
+                result = ex.args[0] if ex.args else None
+                break
+        return buffer, result
+        
+    def test_async_generator(self):
+        """
+        async def f(i):
+            return i
+
+        async def run_list():
+            return [await c for c in [f(1), f(41)]]
+
+        assert self.run_async(run_list()) == ([], [1, 41])
+        """

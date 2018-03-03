@@ -1547,12 +1547,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_TOP)
 
     def _compile_comprehension(self, node, name, sub_scope):
-        is_async_function = isinstance(self, AsyncFunctionCodeGenerator)
+        is_async_function = self.scope.is_coroutine
         code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
-        is_async_generator = code.co_flags & (
-            consts.CO_COROUTINE |
-            consts.CO_ITERABLE_COROUTINE |
-            consts.CO_ASYNC_GENERATOR)
+        is_async_generator = self.symbols.find_scope(node).is_coroutine
 
         if is_async_generator and not is_async_function:
             self.error("asynchronous comprehension outside of "
@@ -1704,8 +1701,12 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
             flags |= consts.CO_OPTIMIZED
         if scope.nested:
             flags |= consts.CO_NESTED
-        if scope.is_generator:
+        if scope.is_generator and not scope.is_coroutine:
             flags |= consts.CO_GENERATOR
+        if not scope.is_generator and scope.is_coroutine:
+            flags |= consts.CO_COROUTINE
+        if scope.is_generator and scope.is_coroutine:
+            flags |= consts.CO_ASYNC_GENERATOR
         if scope.has_yield_inside_try:
             flags |= consts.CO_YIELD_INSIDE_TRY
         if scope.has_variable_arg:
@@ -1750,13 +1751,6 @@ class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
         if func.body:
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)
-
-    def _get_code_flags(self):
-        flags = AbstractFunctionCodeGenerator._get_code_flags(self)
-        if flags & consts.CO_GENERATOR:
-            return (flags & ~consts.CO_GENERATOR) | consts.CO_ASYNC_GENERATOR
-        else:
-            return flags | consts.CO_COROUTINE
 
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 

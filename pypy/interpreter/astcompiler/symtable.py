@@ -236,6 +236,7 @@ class FunctionScope(Scope):
         self.has_variable_arg = False
         self.has_keywords_arg = False
         self.is_generator = False
+        self.is_coroutine = False
         self.has_yield_inside_try = False
         self.optimized = True
         self.return_with_value = False
@@ -258,7 +259,7 @@ class FunctionScope(Scope):
             self.has_yield_inside_try = True
 
     def note_await(self, await_node):
-        pass
+        self.is_coroutine = True
 
     def note_return(self, ret):
         if ret.value:
@@ -296,12 +297,13 @@ class FunctionScope(Scope):
 
 class AsyncFunctionScope(FunctionScope):
 
+    def __init__(self, name, lineno, col_offset):
+        FunctionScope.__init__(self, name, lineno, col_offset)
+        self.is_coroutine = True
+
     def note_yieldFrom(self, yield_node):
         raise SyntaxError("'yield from' inside async function", yield_node.lineno,
                           yield_node.col_offset)
-
-    def note_await(self, await_node):
-        pass
 
 
 class ClassScope(Scope):
@@ -550,6 +552,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
         lamb.body.walkabout(self)
         self.pop_scope()
 
+    def visit_comprehension(self, comp):
+        ast.GenericASTVisitor.visit_comprehension(self, comp)
+        if comp.is_async:
+            self.scope.note_await(comp)
+
     def _visit_comprehension(self, node, comps, *consider):
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
@@ -557,6 +564,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         new_scope = FunctionScope("<genexpr>", node.lineno, node.col_offset)
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
+        if outer.is_async:
+            self.scope.note_await(outer)
         outer.target.walkabout(self)
         self.visit_sequence(outer.ifs)
         self.visit_sequence(comps[1:])
