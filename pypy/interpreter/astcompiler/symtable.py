@@ -28,6 +28,7 @@ SCOPE_CELL_CLASS = 6     # for "__class__" inside class bodies only
 class Scope(object):
 
     can_be_optimized = False
+    is_coroutine = False
 
     def __init__(self, name, lineno=0, col_offset=0):
         self.lineno = lineno
@@ -236,7 +237,6 @@ class FunctionScope(Scope):
         self.has_variable_arg = False
         self.has_keywords_arg = False
         self.is_generator = False
-        self.is_coroutine = False
         self.has_yield_inside_try = False
         self.optimized = True
         self.return_with_value = False
