@@ -282,12 +282,7 @@ class PyFrame(W_Root):
     def initialize_as_generator(self, name, qualname):
         space = self.space
         flags = self.getcode().co_flags
-        if flags & pycode.CO_GENERATOR:
-            from pypy.interpreter.generator import GeneratorIterator
-            gen = GeneratorIterator(self, name, qualname)
-            ec = None
-            w_wrapper = None
-        elif flags & pycode.CO_COROUTINE:
+        if flags & pycode.CO_COROUTINE:
             from pypy.interpreter.generator import Coroutine
             gen = Coroutine(self, name, qualname)
             ec = space.getexecutioncontext()
@@ -295,6 +290,11 @@ class PyFrame(W_Root):
         elif flags & pycode.CO_ASYNC_GENERATOR:
             from pypy.interpreter.generator import AsyncGenerator
             gen = AsyncGenerator(self, name, qualname)
+            ec = None
+            w_wrapper = None
+        elif flags & pycode.CO_GENERATOR:
+            from pypy.interpreter.generator import GeneratorIterator
+            gen = GeneratorIterator(self, name, qualname)
             ec = None
             w_wrapper = None
         else:

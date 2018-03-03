@@ -1490,6 +1490,19 @@ class AppTestCoroutine:
         assert self.run_async(run_list()) == ([], [1, 41])
         """
 
+    def test_async_genexpr(self):
+        """
+        async def f(it):
+            for i in it:
+                yield i
+
+        async def run_gen():
+            gen = (i + 1 async for i in f([10, 20]))
+            return [g + 100 async for g in gen]
+
+        assert self.run_async(run_gen()) == ([], [111, 121])
+        """
+
     def test_anext_tuple(self):
         """
         async def foo():

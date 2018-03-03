@@ -564,8 +564,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         new_scope = FunctionScope("<genexpr>", node.lineno, node.col_offset)
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
-        if outer.is_async:
-            self.scope.note_await(outer)
+        new_scope.is_coroutine |= outer.is_async
         outer.target.walkabout(self)
         self.visit_sequence(outer.ifs)
         self.visit_sequence(comps[1:])
@@ -579,6 +578,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                    "unexpectedly (http://bugs.python.org/issue10544)")
             misc.syntax_warning(self.space, msg, self.compile_info.filename,
                                 node.lineno, node.col_offset)
+        new_scope.is_generator |= isinstance(node, ast.GeneratorExp)
 
     def visit_ListComp(self, listcomp):
         self._visit_comprehension(listcomp, listcomp.generators, listcomp.elt)
