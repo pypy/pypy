@@ -646,7 +646,12 @@ class AsyncGenABase(W_Root):
 
     def unwrap_value(self, w_value):
         if isinstance(w_value, AsyncGenValueWrapper):
-            raise OperationError(self.space.w_StopIteration, w_value.w_value)
+            w_value = w_value.w_value
+            if self.space.isinstance_w(w_value, self.space.w_tuple):
+                # Construct the exception manually, to avoid tuple unpacking.
+                w_value = self.space.call_function(self.space.w_StopIteration,
+                                                   w_value)
+            raise OperationError(self.space.w_StopIteration, w_value)
         else:
             return w_value
 

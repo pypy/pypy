@@ -870,3 +870,22 @@ def gen1():
         e = raises(RuntimeError, my_gen.throw, StopIteration, stop_exc, None)
         assert e.value.__cause__ is stop_exc
         assert e.value.__context__ is stop_exc
+
+    def test_return_tuple(self):
+        d = {}
+        exec("def gen1(): return (yield 1)", d)
+
+        gen = d['gen1']()
+        assert next(gen) == 1
+        exc = raises(StopIteration, gen.send, (2,))
+        assert exc.value.value == (2,)
+
+    def test_return_stopiteration(self):
+        d = {}
+        exec("def gen1(): return (yield 1)", d)
+
+        gen = d['gen1']()
+        assert next(gen) == 1
+        exc = raises(StopIteration, gen.send, StopIteration(2))
+        assert isinstance(exc.value, StopIteration)
+        assert exc.value.value.value == 2

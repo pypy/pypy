@@ -1489,3 +1489,19 @@ class AppTestCoroutine:
 
         assert self.run_async(run_list()) == ([], [1, 41])
         """
+
+    def test_anext_tuple(self):
+        """
+        async def foo():
+            try:
+                yield (1,)
+            except ZeroDivisionError:
+                yield (2,)
+
+        async def run():
+            it = foo().__aiter__()
+            return await it.__anext__() 
+
+        assert self.run_async(run()) == ([], (1,))
+        """
+
