@@ -283,6 +283,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def _get_code_flags(self):
         return 0
 
+    def _check_async_function(self):
+        """Returns true if 'await' is allowed."""
+        return False
+
     def _handle_body(self, body):
         """Compile a list of statements, handling doc strings if needed."""
         if body:
@@ -1087,6 +1091,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.YIELD_FROM)
 
     def visit_Await(self, aw):
+        if not self._check_async_function():
+            self.error("'await' outside async function", aw)
         self.update_position(aw.lineno)
         aw.value.walkabout(self)
         self.emit_op(ops.GET_AWAITABLE)
@@ -1752,6 +1758,9 @@ class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)
 
+    def _check_async_function(self):
+        return True
+
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, lam):
@@ -1779,6 +1788,9 @@ class ComprehensionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _end_comp(self):
         self.emit_op(ops.RETURN_VALUE)
+
+    def _check_async_function(self):
+        return True
 
 
 class GenExpCodeGenerator(ComprehensionCodeGenerator):

@@ -1163,6 +1163,14 @@ class TestCompiler:
         """
         self.simple_test(source, "None", None)
 
+    def test_await_in_nested(self):
+        source = """if 1:
+        async def foo():
+            def bar():
+                [i for i in await items]
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
+
     def test_load_classderef(self):
         source = """if 1:
         def f():
