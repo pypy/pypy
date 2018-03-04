@@ -1175,6 +1175,19 @@ class AppTestPosix:
             if len(e.value.args) > 2:
                 assert e.value.args[2] == "\\foo\\bar\\baz"
 
+    def test_rename(self):
+        os = self.posix
+        with open(self.path, "w") as f:
+            f.write("this is a rename test")
+        unicode_name = str(self.udir) + u'/test\u03be.txt'
+        os.rename(self.path, unicode_name)
+        with open(unicode_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(unicode_name, self.path)
+        with open(self.path) as f:
+            assert f.read() == 'this is a rename test'
+
+        
 
 class AppTestEnvironment(object):
     def setup_class(cls):
