@@ -1609,7 +1609,7 @@ class __extend__(pyframe.PyFrame):
                 "__aiter__ should return an asynchronous "
                 "iterator, not awaitable" %
                     space.type(w_obj).name),
-                space.w_PendingDeprecationWarning)
+                space.w_DeprecationWarning)
         self.pushvalue(w_awaitable)
 
     def GET_ANEXT(self, oparg, next_instr):
