@@ -499,3 +499,53 @@ class AppTestCoroutine:
         else:
             assert False, "didn't raise"
     """
+
+    def w_run_async(self, coro):
+        buffer = []
+        result = None
+        while True:
+            try:
+                buffer.append(coro.send(None))
+            except StopIteration as ex:
+                result = ex.args[0] if ex.args else None
+                break
+        return buffer, result
+
+    def test_async_generator(self):
+        """
+        async def f(i):
+            return i
+
+        async def run_list():
+            return [await c for c in [f(1), f(41)]]
+
+        assert self.run_async(run_list()) == ([], [1, 41])
+        """
+
+    def test_async_genexpr(self):
+        """
+        async def f(it):
+            for i in it:
+                yield i
+
+        async def run_gen():
+            gen = (i + 1 async for i in f([10, 20]))
+            return [g + 100 async for g in gen]
+
+        assert self.run_async(run_gen()) == ([], [111, 121])
+        """
+
+    def test_anext_tuple(self):
+        """
+        async def foo():
+            try:
+                yield (1,)
+            except ZeroDivisionError:
+                yield (2,)
+
+        async def run():
+            it = foo().__aiter__()
+            return await it.__anext__()
+
+        assert self.run_async(run()) == ([], (1,))
+        """
