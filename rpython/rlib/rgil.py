@@ -17,26 +17,47 @@ eci = ExternalCompilationInfo(
 
 llexternal = rffi.llexternal
 
+from cffi import FFI
+ffi = FFI()
+
+cdef = """
+    void RPyGilAllocate(void);
+    long RPyGilYieldThread(void);
+    void RPyGilRelease(void);
+    void RPyGilAcquire(void);
+    long *RPyFetchFastGil(void);
+"""
+ffi.cdef(cdef)
+lib = ffi.verify("""
+    #include "src/thread.h"
+    #define RPY_WITH_GIL
+    """,
+    sources=[str(translator_c_dir/ 'src' / 'thread.c')],
+    include_dirs=[cdir])
+
+
 
 _gil_allocate = llexternal('RPyGilAllocate', [], lltype.Void,
                            _nowrapper=True, sandboxsafe=True,
-                           compilation_info=eci)
+                           compilation_info=eci, _callable=lib.RPyGilAllocate)
 
 _gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Signed,
                                _nowrapper=True, sandboxsafe=True,
-                               compilation_info=eci)
+                               compilation_info=eci,
+                               _callable=lib.RPyGilYieldThread)
 
-_gil_release      = llexternal('RPyGilRelease', [], lltype.Void,
-                               _nowrapper=True, sandboxsafe=True,
-                               compilation_info=eci)
+_gil_release = llexternal('RPyGilRelease', [], lltype.Void,
+                          _nowrapper=True, sandboxsafe=True,
+                          compilation_info=eci, _callable=lib.RPyGilRelease)
 
-_gil_acquire      = llexternal('RPyGilAcquire', [], lltype.Void,
-                              _nowrapper=True, sandboxsafe=True,
-                              compilation_info=eci)
+_gil_acquire = llexternal('RPyGilAcquire', [], lltype.Void,
+                          _nowrapper=True, sandboxsafe=True,
+                          compilation_info=eci, _callable=lib.RPyGilAcquire)
 
 gil_fetch_fastgil = llexternal('RPyFetchFastGil', [], llmemory.Address,
                                _nowrapper=True, sandboxsafe=True,
-                               compilation_info=eci)
+                               compilation_info=eci,
+                               _callable=lib.RPyFetchFastGil)
 
 # ____________________________________________________________
 
