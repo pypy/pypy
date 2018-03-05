@@ -1300,6 +1300,14 @@ class AppTestCompiler:
         # compiling the produced AST previously triggered a crash
         compile(ast, '', 'exec')
 
+    def test_await_warning(self):
+        import warnings
+        source = "def f(): await = 5"
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter("always")
+            compile(source, '', 'exec')
+        assert isinstance(l[0].message, DeprecationWarning)
+
 
 class TestOptimizations:
     def count_instructions(self, source):
