@@ -1596,14 +1596,15 @@ class __extend__(pyframe.PyFrame):
             try:
                 w_awaitable = get_awaitable_iter(space, w_iter)
             except OperationError as e:
-                # yay! get_awaitable_iter() carefully builds a useful
-                # error message, but here we're eating *all errors*
-                # to replace it with a generic one.
                 if e.async(space):
                     raise
-                raise oefmt(space.w_TypeError,
+                new_error = oefmt(space.w_TypeError,
                             "'async for' received an invalid object "
                             "from __aiter__: %T", w_iter)
+                e.normalize_exception(space)
+                new_error.normalize_exception(space)
+                new_error.set_cause(space, e.get_w_value(space))
+                raise new_error
             space.warn(space.newtext(
                 "'%s' implements legacy __aiter__ protocol; "
                 "__aiter__ should return an asynchronous "
@@ -1628,14 +1629,15 @@ class __extend__(pyframe.PyFrame):
         try:
             w_awaitable = get_awaitable_iter(space, w_next_iter)
         except OperationError as e:
-            # yay! get_awaitable_iter() carefully builds a useful
-            # error message, but here we're eating *all errors*
-            # to replace it with a generic one.
             if e.async(space):
                 raise
-            raise oefmt(space.w_TypeError,
+            new_error = oefmt(space.w_TypeError,
                         "'async for' received an invalid object "
                         "from __anext__: %T", w_next_iter)
+            e.normalize_exception(space)
+            new_error.normalize_exception(space)
+            new_error.set_cause(space, e.get_w_value(space))
+            raise new_error
         self.pushvalue(w_awaitable)
 
     def FORMAT_VALUE(self, oparg, next_instr):

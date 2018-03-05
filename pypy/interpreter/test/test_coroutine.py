@@ -75,6 +75,24 @@ class AppTestCoroutine:
         assert next(cr.__await__()) == 20
         """
 
+    def test_for_error_cause(self): """
+        class F:
+            def __aiter__(self):
+                return self
+            def __anext__(self):
+                return self
+            def __await__(self):
+                1 / 0
+
+        async def main():
+            async for _ in F():
+                pass
+
+        c = raises(TypeError, main().send, None)
+        assert 'an invalid object from __anext__' in c.value.args[0], c.value
+        assert isinstance(c.value.__cause__, ZeroDivisionError)
+        """
+
     def test_set_coroutine_wrapper(self): """
         import sys
         async def f():
