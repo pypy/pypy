@@ -971,9 +971,12 @@ class AppTestPosix:
             if sys.platform == 'win32':
                 os.chmod(self.path, 0400)
                 assert (os.stat(self.path).st_mode & 0600) == 0400
+                os.chmod(self.path, 0700)
             else:
                 os.chmod(self.path, 0200)
                 assert (os.stat(self.path).st_mode & 0777) == 0200
+                os.chmod(self.path, 0700)
+            os.unlink(self.path)
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
@@ -983,6 +986,7 @@ class AppTestPosix:
             assert (os.fstat(f.fileno()).st_mode & 0777) == 0200
             f.close()
             assert (os.stat(self.path).st_mode & 0777) == 0200
+            os.unlink(self.path)
 
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):
@@ -1186,6 +1190,7 @@ class AppTestPosix:
         os.rename(unicode_name, self.path)
         with open(self.path) as f:
             assert f.read() == 'this is a rename test'
+        os.unlink(self.path)
 
         
 
