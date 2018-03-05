@@ -114,3 +114,7 @@ else:
     @specialize.argtype(0)
     def _preferred_traits(path):
         return string_traits
+
+    @specialize.argtype(0, 1)
+    def _preferred_traits2(path1, path2):
+        return string_traits
