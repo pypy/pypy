@@ -464,7 +464,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
 
         numb_state.patch(1, len(liveboxes))
 
-        self._add_optimizer_sections(numb_state, liveboxes)
+        self._add_optimizer_sections(numb_state, liveboxes, liveboxes_from_env)
         storage.rd_numb = numb_state.create_numbering()
         storage.rd_consts = self.memo.consts
         return liveboxes[:]
@@ -584,11 +584,11 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 return self.liveboxes_from_env[box]
             return self.liveboxes[box]
 
-    def _add_optimizer_sections(self, numb_state, liveboxes):
+    def _add_optimizer_sections(self, numb_state, liveboxes, liveboxes_from_env):
         # add extra information about things the optimizer learned
         from rpython.jit.metainterp.optimizeopt.bridgeopt import serialize_optimizer_knowledge
         serialize_optimizer_knowledge(
-            self.optimizer, numb_state, liveboxes, self)
+            self.optimizer, numb_state, liveboxes, liveboxes_from_env, self.memo)
 
 class AbstractVirtualInfo(object):
     kind = REF

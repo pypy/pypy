@@ -33,6 +33,13 @@ from rpython.jit.metainterp import resumecode
 
 # maybe should be delegated to the optimization classes?
 
+def tag_box(box, liveboxes_from_env, memo):
+    from rpython.jit.metainterp.history import Const
+    if isinstance(box, Const):
+        return memo.getconst(box)
+    else:
+        return liveboxes_from_env[box] # has to exist
+
 def decode_box(resumestorage, tagged, liveboxes, cpu):
     from rpython.jit.metainterp.resume import untag, TAGCONST, TAGINT, TAGBOX
     from rpython.jit.metainterp.resume import NULLREF, TAG_CONST_OFFSET, tagged_eq
@@ -53,12 +60,11 @@ def decode_box(resumestorage, tagged, liveboxes, cpu):
         raise AssertionError("unreachable")
     return box
 
-def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, adder):
+def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_from_env, memo):
     from rpython.jit.metainterp.history import ConstInt
-
     available_boxes = {}
     for box in liveboxes:
-        if box is not None:
+        if box is not None and box in liveboxes_from_env:
             available_boxes[box] = None
 
     # class knowledge is stored as bits, true meaning the class is known, false
@@ -92,16 +98,16 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, adder):
         numb_state.append_int(len(triples_struct))
         for box1, descr, box2 in triples_struct:
             descr_index = descr.descr_index
-            numb_state.append_short(adder._gettagged(box1))
+            numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
             numb_state.append_int(descr_index)
-            numb_state.append_short(adder._gettagged(box2))
+            numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
         numb_state.append_int(len(triples_array))
         for box1, index, descr, box2 in triples_array:
             descr_index = descr.descr_index
-            numb_state.append_short(adder._gettagged(box1))
+            numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
             numb_state.append_int(index)
             numb_state.append_int(descr_index)
-            numb_state.append_short(adder._gettagged(box2))
+            numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
     else:
         numb_state.append_int(0)
         numb_state.append_int(0)
@@ -112,8 +118,8 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, adder):
         numb_state.append_int(len(tuples_loopinvariant))
         for constarg0, box in tuples_loopinvariant:
             numb_state.append_short(
-                    adder._gettagged(ConstInt(constarg0)))
-            numb_state.append_short(adder._gettagged(box))
+                    tag_box(ConstInt(constarg0), liveboxes_from_env, memo))
+            numb_state.append_short(tag_box(box, liveboxes_from_env, memo))
     else:
         numb_state.append_int(0)
 
