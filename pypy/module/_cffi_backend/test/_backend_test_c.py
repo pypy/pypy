@@ -398,6 +398,7 @@ def test_load_standard_library():
     #
     x.close_lib()
     py.test.raises(ValueError, x.load_function, BVoidP, 'sqrt')
+    x.close_lib()
 
 def test_no_len_on_nonarray():
     p = new_primitive_type("int")

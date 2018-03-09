@@ -90,7 +90,6 @@ class W_Library(W_Root):
         w_ctype.convert_from_object(rffi.cast(rffi.CCHARP, cdata), w_value)
 
     def close_lib(self):
-        self.check_closed()
         self._finalize_()
 
 
