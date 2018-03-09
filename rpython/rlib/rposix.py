@@ -8,7 +8,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib import debug, jit, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
-    _prefer_unicode, _preferred_traits)
+    _prefer_unicode, _preferred_traits, _preferred_traits2)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
 from rpython.rlib.rarithmetic import intmask, widen
@@ -1257,7 +1257,7 @@ def rename(path1, path2):
         handle_posix_error('rename',
                            c_rename(_as_bytes0(path1), _as_bytes0(path2)))
     else:
-        traits = _preferred_traits(path1)
+        traits = _preferred_traits2(path1, path2)
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
@@ -1267,7 +1267,7 @@ def rename(path1, path2):
 @specialize.argtype(0, 1)
 def replace(path1, path2):
     if _WIN32:
-        traits = _preferred_traits(path1)
+        traits = _preferred_traits2(path1, path2)
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)

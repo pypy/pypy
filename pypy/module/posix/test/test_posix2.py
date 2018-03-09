@@ -1087,9 +1087,12 @@ class AppTestPosix:
             if sys.platform == 'win32':
                 os.chmod(my_path, 0o400)
                 assert (os.stat(my_path).st_mode & 0o600) == 0o400
+                os.chmod(self.path, 0700)
             else:
                 os.chmod(my_path, 0o200)
                 assert (os.stat(my_path).st_mode & 0o777) == 0o200
+                os.chmod(self.path, 0700)
+            os.unlink(self.path)
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
@@ -1100,6 +1103,7 @@ class AppTestPosix:
             assert (os.fstat(f.fileno()).st_mode & 0o777) == 0o200
             f.close()
             assert (os.stat(my_path).st_mode & 0o777) == 0o200
+            os.unlink(self.path)
 
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):
@@ -1401,6 +1405,20 @@ class AppTestPosix:
             if len(e.value.args) > 2:
                 assert e.value.args[2] == "\\foo\\bar\\baz"
 
+    def test_rename(self):
+        os = self.posix
+        with open(self.path, "w") as f:
+            f.write("this is a rename test")
+        unicode_name = str(self.udir) + u'/test\u03be.txt'
+        os.rename(self.path, unicode_name)
+        with open(unicode_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(unicode_name, self.path)
+        with open(self.path) as f:
+            assert f.read() == 'this is a rename test'
+        os.unlink(self.path)
+
+        
     def test_device_encoding(self):
         import sys
         encoding = self.posix.device_encoding(sys.stdout.fileno())

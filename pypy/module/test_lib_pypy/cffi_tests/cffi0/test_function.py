@@ -508,9 +508,6 @@ class TestFunction(object):
         ffi.cdef("int foobar(void); int foobaz;")
         lib = ffi.dlopen(lib_m)
         ffi.dlclose(lib)
-        e = py.test.raises(ValueError, ffi.dlclose, lib)
-        assert str(e.value).startswith("library '")
-        assert str(e.value).endswith("' has already been closed")
         e = py.test.raises(ValueError, getattr, lib, 'foobar')
         assert str(e.value).startswith("library '")
         assert str(e.value).endswith("' has already been closed")
@@ -520,3 +517,4 @@ class TestFunction(object):
         e = py.test.raises(ValueError, setattr, lib, 'foobaz', 42)
         assert str(e.value).startswith("library '")
         assert str(e.value).endswith("' has already been closed")
+        ffi.dlclose(lib)    # does not raise

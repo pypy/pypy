@@ -120,12 +120,10 @@ def test_dlclose():
         str_extmod = extmod.encode('utf-8')
     else:
         str_extmod = extmod
-    e = py.test.raises(ffi.error, ffi.dlclose, lib)
-    assert str(e.value).startswith(
-        "library '%s' is already closed" % (str_extmod,))
     e = py.test.raises(ffi.error, getattr, lib, 'add42')
     assert str(e.value) == (
         "library '%s' has been closed" % (str_extmod,))
+    ffi.dlclose(lib)   # does not raise
 
 def test_constant_via_lib():
     from re_python_pysrc import ffi
