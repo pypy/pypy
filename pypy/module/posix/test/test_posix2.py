@@ -1179,6 +1179,7 @@ class AppTestPosix:
             if len(e.value.args) > 2:
                 assert e.value.args[2] == "\\foo\\bar\\baz"
 
+    @py.test.mark.skipif("sys.platform != 'win32'")
     def test_rename(self):
         os = self.posix
         with open(self.path, "w") as f:
