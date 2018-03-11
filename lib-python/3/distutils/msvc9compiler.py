@@ -223,6 +223,7 @@ def find_vcvarsall(version):
     that fails it falls back to the VS90COMNTOOLS env var.
     """
     vsbase = VS_BASE % version
+    batfile = 'vcvarsall.bat'
     try:
         productdir = Reg.get_value(r"%s\Setup\VC" % vsbase,
                                    "productdir")
@@ -233,7 +234,6 @@ def find_vcvarsall(version):
     if not productdir or not os.path.isdir(productdir):
         toolskey = "VS%0.f0COMNTOOLS" % version
         toolsdir = os.environ.get(toolskey, None)
-        batfile = 'vcvarsall.bat'
 
         if toolsdir and os.path.isdir(toolsdir):
             if os.path.exists(os.path.join(toolsdir, 'VsDevCmd.bat')):
