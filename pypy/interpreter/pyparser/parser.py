@@ -41,6 +41,12 @@ class Grammar(object):
             pass
         return True
 
+class DFA(object):
+    def __init__(self, symbol_id, states, first):
+        self.symbol_id = symbol_id
+        self.states = states
+        self.first = first
+
 
 class Node(object):
 
@@ -188,17 +194,27 @@ class ParseError(Exception):
 
 
 class StackEntry(object):
-    def __init__(self, next, dfa, state, node):
+    def __init__(self, next, dfa, state):
         self.next = next
         self.dfa = dfa
         self.state = state
-        self.node = node
+        self.node = None
 
-    def push(self, dfa, state, node):
-        return StackEntry(self, dfa, state, node)
+    def push(self, dfa, state):
+        return StackEntry(self, dfa, state)
 
     def pop(self):
         return self.next
+
+    def node_append_child(self, child):
+        node = self.node
+        if node is None:
+            self.node = Nonterminal1(self.dfa.symbol_id, child)
+        elif isinstance(node, Nonterminal1):
+            self.node = Nonterminal(self.dfa.symbol_id)
+            self.node._children = [node._child, child]
+        else:
+            self.node.append_child(child)
 
 
 class Parser(object):
@@ -215,8 +231,7 @@ class Parser(object):
         if start == -1:
             start = self.grammar.start
         self.root = None
-        current_node = Nonterminal(start)
-        self.stack = StackEntry(None, self.grammar.dfas[start - 256], 0, current_node)
+        self.stack = StackEntry(None, self.grammar.dfas[start - 256], 0)
 
     def add_token(self, token_type, value, lineno, column, line):
         label_index = self.classify(token_type, value, lineno, column, line)
@@ -224,7 +239,7 @@ class Parser(object):
         while True:
             dfa = self.stack.dfa
             state_index = self.stack.state
-            states, first = dfa
+            states = dfa.states
             arcs, is_accepting = states[state_index]
             for i, next_state in arcs:
                 sym_id = self.grammar.labels[i]
@@ -242,12 +257,12 @@ class Parser(object):
                             return True
                         dfa = self.stack.dfa
                         state_index = self.stack.state
-                        state = dfa[0][state_index]
+                        state = dfa.states[state_index]
                     return False
                 elif sym_id >= 256:
                     sub_node_dfa = self.grammar.dfas[sym_id - 256]
                     # Check if this token can start a child node.
-                    if label_index in sub_node_dfa[1]:
+                    if label_index in sub_node_dfa.first:
                         self.push(sub_node_dfa, next_state, sym_id, lineno,
                                   column)
                         break
@@ -285,26 +300,21 @@ class Parser(object):
     def shift(self, next_state, token_type, value, lineno, column):
         """Shift a non-terminal and prepare for the next state."""
         new_node = Terminal(token_type, value, lineno, column)
-        self.stack.node.append_child(new_node)
+        self.stack.node_append_child(new_node)
         self.stack.state = next_state
 
     def push(self, next_dfa, next_state, node_type, lineno, column):
         """Push a terminal and adjust the current state."""
-        new_node = Nonterminal(node_type)
-
         self.stack.state = next_state
-        self.stack = self.stack.push(next_dfa, 0, new_node)
+        self.stack = self.stack.push(next_dfa, 0)
 
     def pop(self):
         """Pop an entry off the stack and make its node a child of the last."""
         top = self.stack
         self.stack = top.pop()
         node = top.node
+        assert node is not None
         if self.stack:
-            # we are now done with node, so we can store it more efficiently if
-            # it has just one child
-            if node.num_children() == 1:
-                node = Nonterminal1(node.type, node.get_child(0))
-            self.stack.node.append_child(node)
+            self.stack.node_append_child(node)
         else:
             self.root = node
