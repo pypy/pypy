@@ -290,3 +290,28 @@ age: NUMBER\n"""
             NEWLINE
             ENDMARKER"""
         assert tree_from_string(expected, gram) == p.parse("hi 42 end")
+
+
+    def test_optimized_terminal(self):
+        gram = """foo: bar baz 'end' NEWLINE ENDMARKER
+bar: NAME
+baz: NUMBER
+"""
+        p, gram = self.parser_for(gram, False)
+        expected = """
+        foo
+            bar
+                NAME "a_name"
+            baz
+                NUMBER "42"
+            NAME "end"
+            NEWLINE
+            ENDMARKER"""
+        input = "a_name 42 end"
+        tree = p.parse(input)
+        assert tree_from_string(expected, gram) == tree
+        assert isinstance(tree, parser.Nonterminal)
+        assert isinstance(tree.get_child(0), parser.Nonterminal1)
+        assert isinstance(tree.get_child(1), parser.Nonterminal1)
+
+
