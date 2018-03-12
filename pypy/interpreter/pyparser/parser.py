@@ -1,6 +1,7 @@
 """
 A CPython inspired RPython parser.
 """
+from rpython.rlib.objectmodel import not_rpython
 
 
 class Grammar(object):
@@ -45,8 +46,23 @@ class DFA(object):
     def __init__(self, symbol_id, states, first):
         self.symbol_id = symbol_id
         self.states = states
-        self.first = first
+        self.first = self._first_to_string(first)
 
+    def could_match_token(self, label_index):
+        pos = label_index >> 3
+        bit = 1 << (label_index & 0b111)
+        return bool(ord(self.first[label_index >> 3]) & bit)
+
+    @staticmethod
+    @not_rpython
+    def _first_to_string(first):
+        l = sorted(first.keys())
+        b = bytearray(32)
+        for label_index in l:
+            pos = label_index >> 3
+            bit = 1 << (label_index & 0b111)
+            b[pos] |= bit
+        return str(b)
 
 class Node(object):
 
@@ -259,7 +275,7 @@ class Parser(object):
                 elif sym_id >= 256:
                     sub_node_dfa = self.grammar.dfas[sym_id - 256]
                     # Check if this token can start a child node.
-                    if label_index in sub_node_dfa.first:
+                    if sub_node_dfa.could_match_token(label_index):
                         self.push(sub_node_dfa, next_state, sym_id, lineno,
                                   column)
                         break

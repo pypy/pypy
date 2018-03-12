@@ -7,6 +7,12 @@ from pypy.interpreter.pyparser import parser, metaparser, pygram
 from pypy.interpreter.pyparser.test.test_metaparser import MyGrammar
 
 
+def test_char_set():
+    first = {5: None, 9: None, 100: None, 255:None}
+    p = parser.DFA(None, None, first)
+    for i in range(256):
+        assert p.could_match_token(i) == (i in first)
+
 class SimpleParser(parser.Parser):
 
     def parse(self, input):
