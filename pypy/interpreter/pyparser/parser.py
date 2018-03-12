@@ -133,9 +133,11 @@ class AbstractNonterminal(Node):
 
 class Nonterminal(AbstractNonterminal):
     __slots__ = ("_children", )
-    def __init__(self, type):
+    def __init__(self, type, children=None):
         Node.__init__(self, type)
-        self._children = None
+        if children is None:
+            children = []
+        self._children = children
 
     def __repr__(self):
         return "Nonterminal(type=%s, children=%r)" % (self.type, self._children)
@@ -145,15 +147,10 @@ class Nonterminal(AbstractNonterminal):
         return self._children[i]
 
     def num_children(self):
-        if self._children is None:
-            return 0
         return len(self._children)
 
     def append_child(self, child):
-        if self._children is None:
-            self._children = [child]
-        else:
-            self._children.append(child)
+        self._children.append(child)
 
 
 class Nonterminal1(AbstractNonterminal):
@@ -211,8 +208,8 @@ class StackEntry(object):
         if node is None:
             self.node = Nonterminal1(self.dfa.symbol_id, child)
         elif isinstance(node, Nonterminal1):
-            self.node = Nonterminal(self.dfa.symbol_id)
-            self.node._children = [node._child, child]
+            newnode = self.node = Nonterminal(
+                    self.dfa.symbol_id, [node._child, child])
         else:
             self.node.append_child(child)
 
