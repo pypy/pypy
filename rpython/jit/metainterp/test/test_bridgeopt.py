@@ -1,6 +1,9 @@
 # tests that check that information is fed from the optimizer into the bridges
 
+import pytest
+
 import math
+
 from rpython.rlib import jit
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.optimizeopt.bridgeopt import serialize_optimizer_knowledge
@@ -360,6 +363,7 @@ class TestOptBridge(LLJitMixin):
         self.check_trace_count(3)
         self.check_resops(call_r=1)
 
+    @pytest.mark.xfail()
     def test_bridge_call_loopinvariant_2(self):
         class A(object):
             pass
