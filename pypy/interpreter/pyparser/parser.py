@@ -181,12 +181,25 @@ class ParseError(Exception):
         return "ParserError(%s, %r)" % (self.token_type, self.value)
 
 
+class StackEntry(object):
+    def __init__(self, next, dfa, state, node):
+        self.next = next
+        self.dfa = dfa
+        self.state = state
+        self.node = node
+
+    def push(self, dfa, state, node):
+        return StackEntry(self, dfa, state, node)
+
+    def pop(self):
+        return self.next
+
+
 class Parser(object):
 
     def __init__(self, grammar):
         self.grammar = grammar
         self.root = None
-        self.stack = None
 
     def prepare(self, start=-1):
         """Setup the parser for parsing.
@@ -197,14 +210,14 @@ class Parser(object):
             start = self.grammar.start
         self.root = None
         current_node = Nonterminal(start, [])
-        self.stack = []
-        self.stack.append((self.grammar.dfas[start - 256], 0, current_node))
+        self.stack = StackEntry(None, self.grammar.dfas[start - 256], 0, current_node)
 
     def add_token(self, token_type, value, lineno, column, line):
         label_index = self.classify(token_type, value, lineno, column, line)
         sym_id = 0 # for the annotator
         while True:
-            dfa, state_index, node = self.stack[-1]
+            dfa = self.stack.dfa
+            state_index = self.stack.state
             states, first = dfa
             arcs, is_accepting = states[state_index]
             for i, next_state in arcs:
@@ -217,10 +230,12 @@ class Parser(object):
                     # the stack.
                     while state[1] and not state[0]:
                         self.pop()
-                        if not self.stack:
+                        if self.stack is None:
+                            assert self.stack is None
                             # Parsing is done.
                             return True
-                        dfa, state_index, node = self.stack[-1]
+                        dfa = self.stack.dfa
+                        state_index = self.stack.state
                         state = dfa[0][state_index]
                     return False
                 elif sym_id >= 256:
@@ -235,7 +250,8 @@ class Parser(object):
                 # state is accepting, it's invalid input.
                 if is_accepting:
                     self.pop()
-                    if not self.stack:
+                    if self.stack is None:
+                        assert self.stack is None
                         raise ParseError("too much input", token_type, value,
                                          lineno, column, line)
                 else:
@@ -262,26 +278,27 @@ class Parser(object):
 
     def shift(self, next_state, token_type, value, lineno, column):
         """Shift a non-terminal and prepare for the next state."""
-        dfa, state, node = self.stack[-1]
         new_node = Terminal(token_type, value, lineno, column)
-        node.append_child(new_node)
-        self.stack[-1] = (dfa, next_state, node)
+        self.stack.node.append_child(new_node)
+        self.stack.state = next_state
 
     def push(self, next_dfa, next_state, node_type, lineno, column):
         """Push a terminal and adjust the current state."""
-        dfa, state, node = self.stack[-1]
         new_node = Nonterminal(node_type, [])
-        self.stack[-1] = (dfa, next_state, node)
-        self.stack.append((next_dfa, 0, new_node))
+
+        self.stack.state = next_state
+        self.stack = self.stack.push(next_dfa, 0, new_node)
 
     def pop(self):
         """Pop an entry off the stack and make its node a child of the last."""
-        dfa, state, node = self.stack.pop()
+        top = self.stack
+        self.stack = top.pop()
+        node = top.node
         if self.stack:
             # we are now done with node, so we can store it more efficiently if
             # it has just one child
             if node.num_children() == 1:
                 node = Nonterminal1(node.type, node.get_child(0))
-            self.stack[-1][2].append_child(node)
+            self.stack.node.append_child(node)
         else:
             self.root = node
