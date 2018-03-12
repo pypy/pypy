@@ -127,21 +127,27 @@ class AbstractNonterminal(Node):
 
 class Nonterminal(AbstractNonterminal):
     __slots__ = ("_children", )
-    def __init__(self, type, children):
+    def __init__(self, type):
         Node.__init__(self, type)
-        self._children = children
+        self._children = None
 
     def __repr__(self):
         return "Nonterminal(type=%s, children=%r)" % (self.type, self._children)
 
     def get_child(self, i):
+        assert self._children is not None
         return self._children[i]
 
     def num_children(self):
+        if self._children is None:
+            return 0
         return len(self._children)
 
     def append_child(self, child):
-        self._children.append(child)
+        if self._children is None:
+            self._children = [child]
+        else:
+            self._children.append(child)
 
 
 class Nonterminal1(AbstractNonterminal):
@@ -209,7 +215,7 @@ class Parser(object):
         if start == -1:
             start = self.grammar.start
         self.root = None
-        current_node = Nonterminal(start, [])
+        current_node = Nonterminal(start)
         self.stack = StackEntry(None, self.grammar.dfas[start - 256], 0, current_node)
 
     def add_token(self, token_type, value, lineno, column, line):
@@ -284,7 +290,7 @@ class Parser(object):
 
     def push(self, next_dfa, next_state, node_type, lineno, column):
         """Push a terminal and adjust the current state."""
-        new_node = Nonterminal(node_type, [])
+        new_node = Nonterminal(node_type)
 
         self.stack.state = next_state
         self.stack = self.stack.push(next_dfa, 0, new_node)
