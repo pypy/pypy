@@ -1,6 +1,9 @@
 # tests that check that information is fed from the optimizer into the bridges
 
+import pytest
+
 import math
+
 from rpython.rlib import jit
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.optimizeopt.bridgeopt import serialize_optimizer_knowledge
@@ -27,6 +30,7 @@ class FakeCPU(object):
 class FakeOptimizer(object):
     metainterp_sd = None
     optheap = None
+    optrewrite = None
 
     def __init__(self, dct={}, cpu=None):
         self.dct = dct
@@ -61,7 +65,8 @@ def test_known_classes():
 
     serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
 
-    assert unpack_numbering(numb_state.create_numbering()) == [1, 0b010000, 0, 0]
+    assert unpack_numbering(numb_state.create_numbering()) == [
+            1, 0b010000, 0, 0, 0]
 
     rbox1 = InputArgRef()
     rbox2 = InputArgRef()
@@ -100,7 +105,7 @@ def test_random_class_knowledge(boxes_known_classes):
 
     serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
 
-    assert len(numb_state.create_numbering().code) == 3 + math.ceil(len(refboxes) / 6.0)
+    assert len(numb_state.create_numbering().code) == 4 + math.ceil(len(refboxes) / 6.0)
 
     dct = {box: cls
               for box, known_class in boxes_known_classes
@@ -321,3 +326,74 @@ class TestOptBridge(LLJitMixin):
         self.check_trace_count(3)
         self.check_resops(guard_value=1)
         self.check_resops(getarrayitem_gc_i=5)
+
+    def test_bridge_call_loopinvariant(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        aholder = B()
+        aholder.a = A()
+
+        @jit.loop_invariant
+        def get():
+            return aholder.a
+
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n'])
+        def f(x, y, n):
+            if x == 10001121:
+                aholder.a = A()
+            if x:
+                get().x = 1
+            else:
+                get().x = 2
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res)
+                a = get()
+                a = get()
+                res += a.x
+                if y > n:
+                    res += 1
+                res += get().x + a.x
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        self.check_trace_count(3)
+        self.check_resops(call_r=1)
+
+    @pytest.mark.xfail()
+    def test_bridge_call_loopinvariant_2(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        aholder = B()
+        aholder.a = A()
+
+        @jit.loop_invariant
+        def get():
+            return aholder.a
+
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n'])
+        def f(x, y, n):
+            if x == 10001121:
+                aholder.a = A()
+            if x:
+                get().x = 1
+            else:
+                get().x = 2
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res)
+                if y > n:
+                    res += get().x
+                    res += 1
+                res += get().x
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        self.check_trace_count(3)
+        self.check_resops(call_r=1)
