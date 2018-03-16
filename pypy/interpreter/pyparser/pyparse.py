@@ -185,6 +185,9 @@ class PythonParser(parser.Parser):
                 else:
                     new_err = error.SyntaxError
                     msg = "invalid syntax"
+                    if e.expected_str is not None:
+                        msg += " (expected '%s')" % e.expected_str
+
                 raise new_err(msg, e.lineno, e.column, e.line,
                               compile_info.filename)
             else:

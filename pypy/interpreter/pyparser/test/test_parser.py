@@ -321,3 +321,12 @@ baz: NUMBER
         assert isinstance(tree.get_child(1), parser.Nonterminal1)
 
 
+    def test_error_string(self):
+        p, gram = self.parser_for(
+            "foo: 'if' NUMBER '+' NUMBER"
+        )
+        info = py.test.raises(parser.ParseError, p.parse, "if 42")
+        info.value.expected_str is None
+        info = py.test.raises(parser.ParseError, p.parse, "if 42 42")
+        info.value.expected_str == '+'
+

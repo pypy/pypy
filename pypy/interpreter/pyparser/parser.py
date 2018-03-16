@@ -17,6 +17,7 @@ class Grammar(object):
         self.symbol_names = {}
         self.symbol_to_label = {}
         self.keyword_ids = {}
+        self.token_to_error_string = {}
         self.dfas = []
         self.labels = [0]
         self.token_ids = {}
@@ -193,7 +194,7 @@ class Nonterminal1(AbstractNonterminal):
 class ParseError(Exception):
 
     def __init__(self, msg, token_type, value, lineno, column, line,
-                 expected=-1):
+                 expected=-1, expected_str=None):
         self.msg = msg
         self.token_type = token_type
         self.value = value
@@ -201,6 +202,7 @@ class ParseError(Exception):
         self.column = column
         self.line = line
         self.expected = expected
+        self.expected_str = expected_str
 
     def __str__(self):
         return "ParserError(%s, %r)" % (self.token_type, self.value)
@@ -293,10 +295,13 @@ class Parser(object):
                     # error.
                     if len(arcs) == 1:
                         expected = sym_id
+                        expected_str = self.grammar.token_to_error_string.get(
+                                arcs[0][0], None)
                     else:
                         expected = -1
+                        expected_str = None
                     raise ParseError("bad input", token_type, value, lineno,
-                                     column, line, expected)
+                                     column, line, expected, expected_str)
 
     def classify(self, token_type, value, lineno, column, line):
         """Find the label for a token."""
