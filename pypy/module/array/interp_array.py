@@ -1034,7 +1034,9 @@ def make_array(mytype):
                     return space.newutf8(rutf8.unichr_as_utf8(code), 1)
                 except ValueError:
                     raise oefmt(space.w_ValueError,
-                        "character is not in range [U+0000; U+10ffff]")
+                        "array contains a 32-bit integer that is outside "
+                        "the range [U+0000; U+10ffff] of valid unicode "
+                        "characters")
             assert 0, "unreachable"
 
         # interface
