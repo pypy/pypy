@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.unicodeobject import (
     Py_UNICODE, PyUnicodeObject, new_empty_unicode)
 from pypy.module.cpyext.api import PyObjectP, PyObject
-from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
+from pypy.module.cpyext.pyobject import decref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 from pypy.module.cpyext.unicodeobject import *
@@ -145,6 +145,20 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.test_unicode_format(1, "xyz")
         assert res == u"bla 1 ble xyz\n"
 
+    def test_AsUTFNString(self):
+        module = self.import_extension('foo', [
+            ("asutf8", "METH_O", "return PyUnicode_AsUTF8String(args);"),
+            ("asutf16", "METH_O", "return PyUnicode_AsUTF16String(args);"),
+            ("asutf32", "METH_O", "return PyUnicode_AsUTF32String(args);"),
+            ])
+        u = u'sp\x09m\u1234\U00012345'
+        s = module.asutf8(u)
+        assert s == u.encode('utf-8')
+        s = module.asutf16(u)
+        assert s == u.encode('utf-16')
+        s = module.asutf32(u)
+        assert s == u.encode('utf-32')
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
@@ -220,7 +234,7 @@ class TestUnicode(BaseApiTest):
 
         res = PyUnicode_FromStringAndSize(space, s, 4)
         w_res = from_ref(space, res)
-        Py_DecRef(space, res)
+        decref(space, res)
         assert space.utf8_w(w_res) == u'sp\x09m'.encode("utf-8")
         rffi.free_charp(s)
 
@@ -243,14 +257,28 @@ class TestUnicode(BaseApiTest):
         assert py_uni.c_length == 10
         assert py_uni.c_str[1] == 'b'
         assert py_uni.c_str[10] == '\x00'
-        Py_DecRef(space, ar[0])
+        decref(space, ar[0])
         lltype.free(ar, flavor='raw')
 
     def test_AsUTF8String(self, space):
-        w_u = space.wrap(u'sp\x09m')
+        w_u = space.wrap(u'sp\x09m\u1234')
         w_res = PyUnicode_AsUTF8String(space, w_u)
         assert space.type(w_res) is space.w_bytes
-        assert space.unwrap(w_res) == 'sp\tm'
+        assert space.unwrap(w_res) == 'sp\tm\xe1\x88\xb4'
+
+    def test_AsUTF16String(self, space):
+        u = u'sp\x09m\u1234\U00012345'
+        w_u = space.wrap(u)
+        w_res = PyUnicode_AsUTF16String(space, w_u)
+        assert space.type(w_res) is space.w_bytes
+        assert space.unwrap(w_res) == u.encode('utf-16')
+
+    def test_AsUTF32String(self, space):
+        u = u'sp\x09m\u1234\U00012345'
+        w_u = space.wrap(u)
+        w_res = PyUnicode_AsUTF32String(space, w_u)
+        assert space.type(w_res) is space.w_bytes
+        assert space.unwrap(w_res) == u.encode('utf-32')
 
     def test_decode_utf8(self, space):
         u = rffi.str2charp(u'sp\x134m'.encode("utf-8"))

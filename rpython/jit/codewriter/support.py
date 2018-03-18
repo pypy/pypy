@@ -675,6 +675,8 @@ class LLtypeHelpers:
 
     def _ll_1_gc_add_memory_pressure(num):
         llop.gc_add_memory_pressure(lltype.Void, num)
+    def _ll_2_gc_add_memory_pressure(num, obj):
+        llop.gc_add_memory_pressure(lltype.Void, num, obj)
 
 
 def setup_extra_builtin(rtyper, oopspec_name, nb_args, extra=None):

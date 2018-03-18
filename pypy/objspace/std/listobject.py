@@ -7,6 +7,7 @@ http://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.htm
 
 """
 
+import math
 import operator
 import sys
 
@@ -1798,11 +1799,9 @@ class FloatListStrategy(ListStrategy):
 
 
     def _safe_find(self, w_list, obj, start, stop):
-        from rpython.rlib.rfloat import isnan
-        #
         l = self.unerase(w_list.lstorage)
         stop = min(stop, len(l))
-        if not isnan(obj):
+        if not math.isnan(obj):
             for i in range(start, stop):
                 val = l[i]
                 if val == obj:

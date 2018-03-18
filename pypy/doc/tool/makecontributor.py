@@ -81,6 +81,7 @@ alias = {
     'Yasir Suhail':['yasirs'],
     'Squeaky': ['squeaky'],
     "Amaury Forgeot d'Arc": ['amauryfa@gmail.com'],
+    "Dodan Mihai": ['mihai.dodan@gmail.com'],
     }
 
 alias_map = {}

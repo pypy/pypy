@@ -1,5 +1,5 @@
 import py
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 from ctypes import *
 
 class MyInt(c_int):

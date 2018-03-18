@@ -143,6 +143,13 @@ class FFI(object):
             self._libraries.append(lib)
         return lib
 
+    def dlclose(self, lib):
+        """Close a library obtained with ffi.dlopen().  After this call,
+        access to functions or variables from the library will fail
+        (possibly with a segmentation fault).
+        """
+        type(lib).__cffi_close__(lib)
+
     def _typeof_locked(self, cdecl):
         # call me with the lock!
         key = cdecl
@@ -898,6 +905,9 @@ def _make_ffi_library(ffi, libname, flags):
                 return addressof_var(name)
             raise AttributeError("cffi library has no function or "
                                  "global variable named '%s'" % (name,))
+        def __cffi_close__(self):
+            backendlib.close_lib()
+            self.__dict__.clear()
     #
     if libname is not None:
         try:

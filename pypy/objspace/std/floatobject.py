@@ -7,8 +7,8 @@ from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
 from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
-    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN, copysign,
-    float_as_rbigint_ratio, formatd, isfinite, isinf, isnan)
+    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN,
+    float_as_rbigint_ratio, formatd, isfinite)
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
@@ -27,7 +27,7 @@ def float2string(x, code, precision):
     # we special-case explicitly inf and nan here
     if isfinite(x):
         s = formatd(x, code, precision, DTSF_ADD_DOT_0)
-    elif isinf(x):
+    elif math.isinf(x):
         if x > 0.0:
             s = "inf"
         else:
@@ -533,7 +533,7 @@ class W_FloatObject(W_Root):
             # fmod returns different results across platforms; ensure
             # it has the same sign as the denominator; we'd like to do
             # "mod = y * 0.0", but that may get optimized away
-            mod = copysign(0.0, y)
+            mod = math.copysign(0.0, y)
 
         return W_FloatObject(mod)
 
@@ -617,7 +617,7 @@ class W_FloatObject(W_Root):
         if not isfinite(value):
             return self.descr_str(space)
         if value == 0.0:
-            if copysign(1., value) == -1.:
+            if math.copysign(1., value) == -1.:
                 return space.newtext("-0x0.0p+0")
             else:
                 return space.newtext("0x0.0p+0")
@@ -704,7 +704,7 @@ Convert a string or number to a floating point number, if possible.''',
 
 
 def _hash_float(space, v):
-    if isnan(v):
+    if math.isnan(v):
         return 0
 
     # This is designed so that Python numbers of different types
@@ -798,16 +798,16 @@ def _pow(space, x, y):
     if y == 0.0:
         # x**0 is 1, even 0**0
         return 1.0
-    if isnan(x):
+    if math.isnan(x):
         # nan**y = nan, unless y == 0
         return x
-    if isnan(y):
+    if math.isnan(y):
         # x**nan = nan, unless x == 1; x**nan = x
         if x == 1.0:
             return 1.0
         else:
             return y
-    if isinf(y):
+    if math.isinf(y):
         # x**inf is: 0.0 if abs(x) < 1; 1.0 if abs(x) == 1; inf if
         # abs(x) > 1 (including case where x infinite)
         #
@@ -820,7 +820,7 @@ def _pow(space, x, y):
             return INFINITY
         else:
             return 0.0
-    if isinf(x):
+    if math.isinf(x):
         # (+-inf)**w is: inf for w positive, 0 for w negative; in oth
         # cases, we need to add the appropriate sign if w is an odd
         # integer.
@@ -832,7 +832,7 @@ def _pow(space, x, y):
                 return abs(x)
         else:
             if y_is_odd:
-                return copysign(0.0, x)
+                return math.copysign(0.0, x)
             else:
                 return 0.0
 
@@ -846,7 +846,7 @@ def _pow(space, x, y):
     # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
     # -           pipermail/python-bugs-list/2003-March/016795.html
     if x < 0.0:
-        if isnan(y):
+        if math.isnan(y):
             return NAN
         if math.floor(y) != y:
             raise PowDomainError

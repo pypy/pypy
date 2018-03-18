@@ -2,43 +2,58 @@
 What's new in PyPy2.7 5.10+
 ===========================
 
-.. this is a revision shortly after release-pypy2.7-v5.9.0
-.. startrev:d56dadcef996
+.. this is a revision shortly after release-pypy2.7-v5.10.0
+.. startrev: 6b024edd9d12
+
+.. branch: cpyext-avoid-roundtrip
+
+Big refactoring of some cpyext code, which avoids a lot of nonsense when
+calling C from Python and vice-versa: the result is a big speedup in
+function/method calls, up to 6 times faster.
+
+.. branch: cpyext-datetime2
+
+Support ``tzinfo`` field on C-API datetime objects, fixes latest pandas HEAD
 
 
-.. branch: cppyy-packaging
+.. branch: mapdict-size-limit
 
-Cleanup and improve cppyy packaging
+Fix a corner case of mapdict: When an instance is used like a dict (using
+``setattr`` and ``getattr``, or ``.__dict__``) and a lot of attributes are
+added, then the performance using mapdict is linear in the number of
+attributes. This is now fixed (by switching to a regular dict after 80
+attributes).
 
-.. branch: docs-osx-brew-openssl
 
-.. branch: keep-debug-symbols
+.. branch: cpyext-faster-arg-passing
 
-Add a smartstrip tool, which can optionally keep the debug symbols in a
-separate file, instead of just stripping them away. Use it in packaging
+When using cpyext, improve the speed of passing certain objects from PyPy to C
+code, most notably None, True, False, types, all instances of C-defined types.
+Before, a dict lookup was needed every time such an object crossed over, now it
+is just a field read.
 
-.. branch: bsd-patches
 
-Fix failures on FreeBSD, contributed by David Naylor as patches on the issue
-tracker (issues 2694, 2695, 2696, 2697)
+.. branch: 2634_datetime_timedelta_performance
 
-.. branch: run-extra-tests
+Improve datetime + timedelta performance.
 
-Run extra_tests/ in buildbot
+.. branch: memory-accounting
 
-.. branch: vmprof-0.4.10
+Improve way to describe memory
 
-Upgrade the _vmprof backend to vmprof 0.4.10
+.. branch: msvc14
 
-.. branch: fix-vmprof-stacklet-switch
+Allow compilaiton with Visual Studio 2017 compiler suite on windows
 
-Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)
+.. branch: refactor-slots
 
-.. branch: win32-vcvars
+Refactor cpyext slots.
 
-.. branch rdict-fast-hash
 
-Make it possible to declare that the hash function of an r_dict is fast in RPython.
+.. branch: call-loopinvariant-into-bridges
+
+Speed up branchy code that does a lot of function inlining by saving one call
+to read the TLS in most bridges.
 
 .. branch: unicode-utf8-re
 .. branch: utf8-io

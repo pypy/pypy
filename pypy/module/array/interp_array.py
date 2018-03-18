@@ -715,7 +715,7 @@ class W_ArrayBase(W_Root):
         pass # overwritten by u
 
 W_ArrayBase.typedef = TypeDef(
-    'array.array',
+    'array.array', None, None, "read-write",
     __new__ = interp2app(w_array),
 
     __len__ = interp2app(W_ArrayBase.descr_len),
@@ -1119,12 +1119,16 @@ def make_array(mytype):
             start, stop, step, size = self.space.decode_index4(w_idx, self.len)
             assert step != 0
             if w_item.len != size or self is w_item:
-                # XXX this is a giant slow hack
-                w_lst = self.descr_tolist(space)
-                w_item = space.call_method(w_item, 'tolist')
-                space.setitem(w_lst, w_idx, w_item)
-                self.setlen(0)
-                self.fromsequence(w_lst)
+                if start == self.len and step > 0:
+                    # we actually want simply extend()
+                    self.extend(w_item)
+                else:
+                    # XXX this is a giant slow hack
+                    w_lst = self.descr_tolist(space)
+                    w_item = space.call_method(w_item, 'tolist')
+                    space.setitem(w_lst, w_idx, w_item)
+                    self.setlen(0)
+                    self.fromsequence(w_lst)
             else:
                 j = 0
                 buf = self.get_buffer()

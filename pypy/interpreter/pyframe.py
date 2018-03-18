@@ -270,8 +270,8 @@ class PyFrame(W_Root):
             #
             try:
                 if operr is not None:
-                    ec = self.space.getexecutioncontext()
-                    next_instr = self.handle_operation_error(ec, operr)
+                    next_instr = self.handle_operation_error(
+                            executioncontext, operr)
                     self.last_instr = intmask(next_instr - 1)
                 else:
                     # Execution starts just after the last_instr.  Initially,

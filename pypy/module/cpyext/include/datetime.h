@@ -4,49 +4,11 @@
 extern "C" {
 #endif
 
-/* Define structure for C API. */
-typedef struct {
-    /* type objects */
-    PyTypeObject *DateType;
-    PyTypeObject *DateTimeType;
-    PyTypeObject *TimeType;
-    PyTypeObject *DeltaType;
-    PyTypeObject *TZInfoType;
-
-    /* constructors */
-    PyObject *(*Date_FromDate)(int, int, int, PyTypeObject*);
-    PyObject *(*DateTime_FromDateAndTime)(int, int, int, int, int, int, int,
-        PyObject*, PyTypeObject*);
-    PyObject *(*Time_FromTime)(int, int, int, int, PyObject*, PyTypeObject*);
-    PyObject *(*Delta_FromDelta)(int, int, int, int, PyTypeObject*);
-} PyDateTime_CAPI;
+#include "cpyext_datetime.h"
 
 PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
-#define PyDateTime_IMPORT                           \
-    do {                                            \
-        if(PyDateTimeAPI==NULL)                     \
-            PyDateTimeAPI = _PyDateTime_Import();   \
-    } while (0)
 
-typedef struct {
-    PyObject_HEAD
-} PyDateTime_Delta;
-
-typedef struct {
-    PyObject_HEAD
-} PyDateTime_Date;
-
-typedef struct {
-    PyObject_HEAD
-} PyDateTime_Time;
-
-typedef struct {
-    PyObject_HEAD
-} PyDateTime_DateTime;
-
-typedef struct {
-    PyObject_HEAD
-} PyDateTime_TZInfo;
+#define PyDateTime_IMPORT (PyDateTimeAPI = _PyDateTime_Import())
 
 /* Macros for accessing constructors in a simplified fashion. */
 #define PyDate_FromDate(year, month, day) \

@@ -2,6 +2,7 @@
 Utility RPython functions to inspect objects in the GC.
 """
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import free_non_gc_object
 from rpython.rlib import rposix, rgc, jit
 
@@ -92,17 +93,12 @@ raw_os_write = rffi.llexternal(rposix.UNDERSCORE_ON_WIN32 + 'write',
 
 AddressStack = get_address_stack()
 
-class HeapDumper(object):
-    _alloc_flavor_ = "raw"
-    BUFSIZE = 8192     # words
+class BaseWalker(object):
+    _alloc_flavor_ = 'raw'
 
-    def __init__(self, gc, fd):
+    def __init__(self, gc):
         self.gc = gc
         self.gcflag = gc.gcflag_extra
-        self.fd = rffi.cast(rffi.INT, fd)
-        self.writebuffer = lltype.malloc(rffi.SIGNEDP.TO, self.BUFSIZE,
-                                         flavor='raw')
-        self.buf_count = 0
         if self.gcflag == 0:
             self.seen = AddressDict()
         self.pending = AddressStack()
@@ -111,8 +107,107 @@ class HeapDumper(object):
         if self.gcflag == 0:
             self.seen.delete()
         self.pending.delete()
-        lltype.free(self.writebuffer, flavor='raw')
         free_non_gc_object(self)
+
+    def add_roots(self):
+        self.gc.enumerate_all_roots(_hd_add_root, self)
+        pendingroots = self.pending
+        self.pending = AddressStack()
+        self.walk(pendingroots)
+        pendingroots.delete()
+        self.end_add_roots_marker()
+
+    def end_add_roots_marker(self):
+        pass
+
+    def add(self, obj):
+        if self.gcflag == 0:
+            if not self.seen.contains(obj):
+                self.seen.setitem(obj, obj)
+                self.pending.append(obj)
+        else:
+            hdr = self.gc.header(obj)
+            if (hdr.tid & self.gcflag) == 0:
+                hdr.tid |= self.gcflag
+                self.pending.append(obj)
+
+    def walk(self, pending):
+        while pending.non_empty():
+            self.processobj(pending.pop())
+
+    # ----------
+    # A simplified copy of the above, to make sure we walk again all the
+    # objects to clear the 'gcflag'.
+
+    def unobj(self, obj):
+        gc = self.gc
+        gc.trace(obj, self._unref, None)
+
+    def _unref(self, pointer, _):
+        obj = pointer.address[0]
+        self.unadd(obj)
+
+    def unadd(self, obj):
+        assert self.gcflag != 0
+        hdr = self.gc.header(obj)
+        if (hdr.tid & self.gcflag) != 0:
+            hdr.tid &= ~self.gcflag
+            self.pending.append(obj)
+
+    def clear_gcflag_again(self):
+        self.gc.enumerate_all_roots(_hd_unadd_root, self)
+        pendingroots = self.pending
+        self.pending = AddressStack()
+        self.unwalk(pendingroots)
+        pendingroots.delete()
+
+    def unwalk(self, pending):
+        while pending.non_empty():
+            self.unobj(pending.pop())
+
+    def finish_processing(self):
+        if self.gcflag != 0:
+            self.clear_gcflag_again()
+            self.unwalk(self.pending)
+
+    def process(self):
+        self.add_roots()
+        self.walk(self.pending)
+
+
+class MemoryPressureCounter(BaseWalker):
+
+    def __init__(self, gc):
+        self.count = 0
+        BaseWalker.__init__(self, gc)
+
+    def processobj(self, obj):
+        gc = self.gc
+        typeid = gc.get_type_id(obj)
+        if gc.has_memory_pressure(typeid):
+            ofs = gc.get_memory_pressure_ofs(typeid)
+            val = (obj + ofs).signed[0]
+            self.count += val
+        gc.trace(obj, self._ref, None)
+
+    def _ref(self, pointer, _):
+        obj = pointer.address[0]
+        self.add(obj)
+
+
+class HeapDumper(BaseWalker):
+    BUFSIZE = 8192     # words
+
+    def __init__(self, gc, fd):
+        BaseWalker.__init__(self, gc)
+        self.fd = rffi.cast(rffi.INT, fd)
+        self.writebuffer = lltype.malloc(rffi.SIGNEDP.TO, self.BUFSIZE,
+                                         flavor='raw')
+        self.buf_count = 0
+
+    def delete(self):
+        lltype.free(self.writebuffer, flavor='raw')
+        BaseWalker.delete(self)
 
     @jit.dont_look_inside
     def flush(self):
@@ -143,6 +238,7 @@ class HeapDumper(object):
         self.write(0)
         self.write(0)
         self.write(-1)
+    end_add_roots_marker = write_marker
 
     def writeobj(self, obj):
         gc = self.gc
@@ -152,64 +248,13 @@ class HeapDumper(object):
         self.write(gc.get_size_incl_hash(obj))
         gc.trace(obj, self._writeref, None)
         self.write(-1)
+    processobj = writeobj
 
     def _writeref(self, pointer, _):
         obj = pointer.address[0]
         self.write(llmemory.cast_adr_to_int(obj))
         self.add(obj)
 
-    def add(self, obj):
-        if self.gcflag == 0:
-            if not self.seen.contains(obj):
-                self.seen.setitem(obj, obj)
-                self.pending.append(obj)
-        else:
-            hdr = self.gc.header(obj)
-            if (hdr.tid & self.gcflag) == 0:
-                hdr.tid |= self.gcflag
-                self.pending.append(obj)
-
-    def add_roots(self):
-        self.gc.enumerate_all_roots(_hd_add_root, self)
-        pendingroots = self.pending
-        self.pending = AddressStack()
-        self.walk(pendingroots)
-        pendingroots.delete()
-        self.write_marker()
-
-    def walk(self, pending):
-        while pending.non_empty():
-            self.writeobj(pending.pop())
-
-    # ----------
-    # A simplified copy of the above, to make sure we walk again all the
-    # objects to clear the 'gcflag'.
-
-    def unwriteobj(self, obj):
-        gc = self.gc
-        gc.trace(obj, self._unwriteref, None)
-
-    def _unwriteref(self, pointer, _):
-        obj = pointer.address[0]
-        self.unadd(obj)
-
-    def unadd(self, obj):
-        assert self.gcflag != 0
-        hdr = self.gc.header(obj)
-        if (hdr.tid & self.gcflag) != 0:
-            hdr.tid &= ~self.gcflag
-            self.pending.append(obj)
-
-    def clear_gcflag_again(self):
-        self.gc.enumerate_all_roots(_hd_unadd_root, self)
-        pendingroots = self.pending
-        self.pending = AddressStack()
-        self.unwalk(pendingroots)
-        pendingroots.delete()
-
-    def unwalk(self, pending):
-        while pending.non_empty():
-            self.unwriteobj(pending.pop())
 
 def _hd_add_root(obj, heap_dumper):
     heap_dumper.add(obj)
@@ -219,14 +264,19 @@ def _hd_unadd_root(obj, heap_dumper):
 
 def dump_rpy_heap(gc, fd):
     heapdumper = HeapDumper(gc, fd)
-    heapdumper.add_roots()
-    heapdumper.walk(heapdumper.pending)
+    heapdumper.process()
     heapdumper.flush()
-    if heapdumper.gcflag != 0:
-        heapdumper.clear_gcflag_again()
-        heapdumper.unwalk(heapdumper.pending)
+    heapdumper.finish_processing()
     heapdumper.delete()
     return True
+
+def count_memory_pressure(gc):
+    counter = MemoryPressureCounter(gc)
+    counter.process()
+    counter.finish_processing()
+    res = counter.count
+    counter.delete()
+    return res
 
 def get_typeids_z(gc):
     srcaddress = gc.root_walker.gcdata.typeids_z

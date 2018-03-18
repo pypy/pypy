@@ -1,12 +1,13 @@
 """The unicode/str format() method"""
 
+import math
 import sys
 import string
 
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rstring, runicode, rlocale, rfloat, jit, rutf8
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rfloat import copysign, formatd
+from rpython.rlib.rfloat import formatd
 from rpython.rlib.rarithmetic import r_uint, intmask
 from pypy.interpreter.signature import Signature
 from pypy.interpreter import unicodehelper
@@ -1027,7 +1028,7 @@ def make_formatting_class(for_unicode):
                 default_precision = 12
                 #test if real part is non-zero
                 if (w_complex.realval == 0 and
-                    copysign(1., w_complex.realval) == 1.):
+                    math.copysign(1., w_complex.realval) == 1.):
                     skip_re = 1
                 else:
                     add_parens = 1

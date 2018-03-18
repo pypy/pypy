@@ -1,7 +1,7 @@
-from rpython.rlib import rgc
+from rpython.rlib import rgc, jit_hooks
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.error import oefmt, wrap_oserror
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -170,3 +170,53 @@ def get_typeids_list(space):
     l = rgc.get_typeids_list()
     list_w = [space.newint(l[i]) for i in range(len(l))]
     return space.newlist(list_w)
+
+class W_GcStats(W_Root):
+    def __init__(self, memory_pressure):
+        if memory_pressure:
+            self.total_memory_pressure = rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
+        else:
+            self.total_memory_pressure = -1
+        self.total_gc_memory = rgc.get_stats(rgc.TOTAL_MEMORY)
+        self.total_allocated_memory = rgc.get_stats(rgc.TOTAL_ALLOCATED_MEMORY)
+        self.peak_memory = rgc.get_stats(rgc.PEAK_MEMORY)
+        self.peak_allocated_memory = rgc.get_stats(rgc.PEAK_ALLOCATED_MEMORY)
+        self.jit_backend_allocated = jit_hooks.stats_asmmemmgr_allocated(None)
+        self.jit_backend_used = jit_hooks.stats_asmmemmgr_used(None)
+        self.total_arena_memory = rgc.get_stats(rgc.TOTAL_ARENA_MEMORY)
+        self.total_rawmalloced_memory = rgc.get_stats(
+            rgc.TOTAL_RAWMALLOCED_MEMORY)
+        self.peak_arena_memory = rgc.get_stats(rgc.PEAK_ARENA_MEMORY)
+        self.peak_rawmalloced_memory = rgc.get_stats(rgc.PEAK_RAWMALLOCED_MEMORY)
+        self.nursery_size = rgc.get_stats(rgc.NURSERY_SIZE)
+
+W_GcStats.typedef = TypeDef("GcStats",
+    total_memory_pressure=interp_attrproperty("total_memory_pressure",
+        cls=W_GcStats, wrapfn="newint"),
+    total_gc_memory=interp_attrproperty("total_gc_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    peak_allocated_memory=interp_attrproperty("peak_allocated_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    peak_memory=interp_attrproperty("peak_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    total_allocated_memory=interp_attrproperty("total_allocated_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    jit_backend_allocated=interp_attrproperty("jit_backend_allocated",
+        cls=W_GcStats, wrapfn="newint"),
+    jit_backend_used=interp_attrproperty("jit_backend_used",
+        cls=W_GcStats, wrapfn="newint"),
+    total_arena_memory=interp_attrproperty("total_arena_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    total_rawmalloced_memory=interp_attrproperty("total_rawmalloced_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    peak_arena_memory=interp_attrproperty("peak_arena_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    peak_rawmalloced_memory=interp_attrproperty("peak_rawmalloced_memory",
+        cls=W_GcStats, wrapfn="newint"),
+    nursery_size=interp_attrproperty("nursery_size",
+        cls=W_GcStats, wrapfn="newint"),
+)
+
+@unwrap_spec(memory_pressure=bool)
+def get_stats(space, memory_pressure=False):
+    return W_GcStats(memory_pressure)

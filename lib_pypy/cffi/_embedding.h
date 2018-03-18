@@ -146,32 +146,6 @@ static int _cffi_initialize_python(void)
     PyGILState_STATE state;
     PyObject *pycode=NULL, *global_dict=NULL, *x;
 
-#if PY_MAJOR_VERSION >= 3
-    /* see comments in _cffi_carefully_make_gil() about the
-       Python2/Python3 difference 
-    */
-#else
-    /* Acquire the GIL.  We have no threadstate here.  If Python is 
-       already initialized, it is possible that there is already one
-       existing for this thread, but it is not made current now.
-    */
-    PyEval_AcquireLock();
-
-    _cffi_py_initialize();
-
-    /* The Py_InitializeEx() sometimes made a threadstate for us, but
-       not always.  Indeed Py_InitializeEx() could be called and do
-       nothing.  So do we have a threadstate, or not?  We don't know,
-       but we can replace it with NULL in all cases.
-    */
-    (void)PyThreadState_Swap(NULL);
-
-    /* Now we can release the GIL and re-acquire immediately using the
-       logic of PyGILState(), which handles making or installing the
-       correct threadstate.
-    */
-    PyEval_ReleaseLock();
-#endif
     state = PyGILState_Ensure();
 
     /* Call the initxxx() function from the present module.  It will
@@ -247,7 +221,7 @@ static int _cffi_initialize_python(void)
 
         if (f != NULL && f != Py_None) {
             PyFile_WriteString("\nFrom: " _CFFI_MODULE_NAME
-                               "\ncompiled with cffi version: 1.11.2"
+                               "\ncompiled with cffi version: 1.11.5"
                                "\n_cffi_backend module: ", f);
             modules = PyImport_GetModuleDict();
             mod = PyDict_GetItemString(modules, "_cffi_backend");
@@ -278,16 +252,14 @@ static int _cffi_carefully_make_gil(void)
        that we don't hold the GIL before (if it exists), and we don't
        hold it afterwards.
 
-       What it really does is completely different in Python 2 and 
-       Python 3.
+       (What it really does used to be completely different in Python 2
+       and Python 3, with the Python 2 solution avoiding the spin-lock
+       around the Py_InitializeEx() call.  However, after recent changes
+       to CPython 2.7 (issue #358) it no longer works.  So we use the
+       Python 3 solution everywhere.)
 
-    Python 2
-    ========
-
-       Initialize the GIL, without initializing the rest of Python,
-       by calling PyEval_InitThreads().
-
-       PyEval_InitThreads() must not be called concurrently at all.
+       This initializes Python by calling Py_InitializeEx().
+       Important: this must not be called concurrently at all.
        So we use a global variable as a simple spin lock.  This global
        variable must be from 'libpythonX.Y.so', not from this
        cffi-based extension module, because it must be shared from
@@ -297,18 +269,6 @@ static int _cffi_carefully_make_gil(void)
        string "ENDMARKER".  We change it temporarily to point to the
        next character in that string.  (Yes, I know it's REALLY
        obscure.)
-
-    Python 3
-    ========
-
-       In Python 3, PyEval_InitThreads() cannot be called before
-       Py_InitializeEx() any more.  So this function calls
-       Py_InitializeEx() first.  It uses the same obscure logic to
-       make sure we never call it concurrently.
-
-       Arguably, this is less good on the spinlock, because
-       Py_InitializeEx() takes much longer to run than
-       PyEval_InitThreads().  But I didn't find a way around it.
     */
 
 #ifdef WITH_THREAD
@@ -332,8 +292,7 @@ static int _cffi_carefully_make_gil(void)
     }
 #endif
 
-#if PY_MAJOR_VERSION >= 3
-    /* Python 3: call Py_InitializeEx() */
+    /* call Py_InitializeEx() */
     {
         PyGILState_STATE state = PyGILState_UNLOCKED;
         if (!Py_IsInitialized())
@@ -344,17 +303,6 @@ static int _cffi_carefully_make_gil(void)
         PyEval_InitThreads();
         PyGILState_Release(state);
     }
-#else
-    /* Python 2: call PyEval_InitThreads() */
-# ifdef WITH_THREAD
-    if (!PyEval_ThreadsInitialized()) {
-        PyEval_InitThreads();    /* makes the GIL */
-        PyEval_ReleaseLock();    /* then release it */
-    }
-    /* else: there is already a GIL, but we still needed to do the
-       spinlock dance to make sure that we see it as fully ready */
-# endif
-#endif
 
 #ifdef WITH_THREAD
     /* release the lock */

@@ -1,5 +1,9 @@
 import pytest
 from hypothesis import given, strategies
+import struct
+import sys
+from pypy.interpreter.unicodehelper import (
+    encode_utf8, decode_utf8, unicode_encode_utf_32_be)
 
 from rpython.rlib import rutf8
 

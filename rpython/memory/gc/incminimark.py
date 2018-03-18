@@ -72,6 +72,7 @@ from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import rgc
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -371,6 +372,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_rawmalloced_objects = self.AddressStack()
         self.raw_malloc_might_sweep = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
+        self.rawmalloced_peak_size = r_uint(0)
 
         self.gc_state = STATE_SCANNING
         #
@@ -996,6 +998,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Record the newly allocated object and its full malloced size.
             # The object is young or old depending on the argument.
             self.rawmalloced_total_size += r_uint(allocsize)
+            self.rawmalloced_peak_size = max(self.rawmalloced_total_size,
+                                             self.rawmalloced_peak_size)
             if alloc_young:
                 if not self.young_rawmalloced_objects:
                     self.young_rawmalloced_objects = self.AddressDict()
@@ -1023,7 +1027,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if self.max_heap_size < self.next_major_collection_threshold:
                 self.next_major_collection_threshold = self.max_heap_size
 
-    def raw_malloc_memory_pressure(self, sizehint):
+    def raw_malloc_memory_pressure(self, sizehint, adr):
         # Decrement by 'sizehint' plus a very little bit extra.  This
         # is needed e.g. for _rawffi, which may allocate a lot of tiny
         # arrays.
@@ -1182,6 +1186,24 @@ class IncrementalMiniMarkGC(MovingGCBase):
         nursery: only objects in the ArenaCollection or raw-malloced.
         """
         return self.ac.total_memory_used + self.rawmalloced_total_size
+
+    def get_total_memory_alloced(self):
+        """ Return the total memory allocated
+        """
+        return self.ac.total_memory_alloced + self.rawmalloced_total_size
+
+    def get_peak_memory_alloced(self):
+        """ Return the peak memory ever allocated. The peaks
+        can be at different times, but we just don't worry for now
+        """
+        return self.ac.peak_memory_alloced + self.rawmalloced_peak_size
+
+    def get_peak_memory_used(self):
+        """ Return the peak memory GC felt ever responsible for
+        """
+        mem_allocated = max(self.ac.peak_memory_used,
+                            self.ac.total_memory_used)
+        return mem_allocated + self.rawmalloced_peak_size
 
     def threshold_reached(self, extra=0):
         return (self.next_major_collection_threshold -
@@ -2155,6 +2177,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
         self.rawmalloced_total_size += r_uint(raw_malloc_usage(totalsize))
+        self.rawmalloced_peak_size = max(self.rawmalloced_total_size,
+                                         self.rawmalloced_peak_size)
         self.old_rawmalloced_objects.append(arena + size_gc_header)
         return arena
 
@@ -2354,6 +2378,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if self.rrc_enabled:
                     self.rrc_major_collection_free()
                 #
+                self.stat_ac_arenas_count = self.ac.arenas_count
+                self.stat_rawmalloced_total_size = self.rawmalloced_total_size
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
@@ -2382,6 +2408,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
                 self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
+                #
+                # Print statistics
+                debug_start("gc-collect-done")
+                debug_print("arenas:               ",
+                            self.stat_ac_arenas_count, " => ",
+                            self.ac.arenas_count)
+                debug_print("bytes used in arenas: ",
+                            self.ac.total_memory_used)
+                debug_print("bytes raw-malloced:   ",
+                            self.stat_rawmalloced_total_size, " => ",
+                            self.rawmalloced_total_size)
+                debug_stop("gc-collect-done")
                 #
                 # Set the threshold for the next major collection to be when we
                 # have allocated 'major_collection_threshold' times more than
@@ -2917,6 +2955,32 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 (obj + offset).address[0] = llmemory.NULL
         self.old_objects_with_weakrefs.delete()
         self.old_objects_with_weakrefs = new_with_weakref
+
+    def get_stats(self, stats_no):
+        from rpython.memory.gc import inspector
+
+        if stats_no == rgc.TOTAL_MEMORY:
+            return intmask(self.get_total_memory_used() + self.nursery_size)
+        elif stats_no == rgc.PEAK_MEMORY:
+            return intmask(self.get_peak_memory_used() + self.nursery_size)
+        elif stats_no == rgc.PEAK_ALLOCATED_MEMORY:
+            return intmask(self.get_peak_memory_alloced() + self.nursery_size)
+        elif stats_no == rgc.TOTAL_ALLOCATED_MEMORY:
+            return intmask(self.get_total_memory_alloced() + self.nursery_size)
+        elif stats_no == rgc.TOTAL_MEMORY_PRESSURE:
+            return inspector.count_memory_pressure(self)
+        elif stats_no == rgc.TOTAL_ARENA_MEMORY:
+            return intmask(self.ac.total_memory_used)
+        elif stats_no == rgc.TOTAL_RAWMALLOCED_MEMORY:
+            return intmask(self.rawmalloced_total_size)
+        elif stats_no == rgc.PEAK_RAWMALLOCED_MEMORY:
+            return intmask(self.rawmalloced_peak_size)
+        elif stats_no == rgc.PEAK_ARENA_MEMORY:
+            return intmask(max(self.ac.peak_memory_used,
+                               self.ac.total_memory_used))
+        elif stats_no == rgc.NURSERY_SIZE:
+            return intmask(self.nursery_size)
+        return 0
 
 
     # ----------

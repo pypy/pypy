@@ -1,4 +1,4 @@
-
+import sys
 import pytest
 try:
     from hypothesis import given, strategies as st, example, settings
@@ -47,5 +47,7 @@ compositions = [
 @settings(max_examples=1000)
 @given(s=st.text())
 def test_composition(s, space, NF1, NF2, NF3):
+    if s == u'\ufacf' and sys.maxunicode == 65535:
+        pytest.skip('chr(0xfacf) normalizes to chr(0x2284a), which is too big')
     norm1, norm2, norm3 = [make_normalization(space, form) for form in [NF1, NF2, NF3]]
     assert norm2(norm1(s)) == norm3(s)

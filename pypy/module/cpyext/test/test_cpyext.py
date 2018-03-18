@@ -442,7 +442,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         {
             if (self)
             {
-                Py_INCREF(self);
+                Py_IncRef(self);
                 return self;
             }
             else

@@ -6,6 +6,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import math
 import os
 import sys
 import time as pytime
@@ -150,9 +151,10 @@ def external(name, args, result, eci=CConfig._compilation_info_, **kwds):
         if (rffi.TIME_T in args or rffi.TIME_TP in args
             or result in (rffi.TIME_T, rffi.TIME_TP)):
             name = '_' + name + '64'
+    _calling_conv = kwds.pop('calling_conv', calling_conv)
     return rffi.llexternal(name, args, result,
                            compilation_info=eci,
-                           calling_conv=calling_conv,
+                           calling_conv=_calling_conv,
                            releasegil=False,
                            **kwds)
 
@@ -186,20 +188,34 @@ if _WIN:
                              "RPY_EXTERN "
                              "int pypy_get_daylight();\n"
                              "RPY_EXTERN "
-                             "char** pypy_get_tzname();\n"
+                             "int pypy_get_tzname(size_t, int, char*);\n"
                              "RPY_EXTERN "
                              "void pypy__tzset();"],
         separate_module_sources = ["""
-        long pypy_get_timezone() { return timezone; }
-        int pypy_get_daylight() { return daylight; }
-        char** pypy_get_tzname() { return tzname; }
-        void pypy__tzset() { _tzset(); }
+            long pypy_get_timezone() {
+                long timezone; 
+                _get_timezone(&timezone); 
+                return timezone;
+            };
+            int pypy_get_daylight() {
+                int daylight;
+                _get_daylight(&daylight);
+                return daylight;
+            };
+            int pypy_get_tzname(size_t len, int index, char * tzname) {
+                size_t s;
+                errno_t ret = _get_tzname(&s, tzname, len, index);
+                return (int)s;
+            };
+            void pypy__tzset() { _tzset(); }
         """])
     # Ensure sure that we use _tzset() and timezone from the same C Runtime.
     c_tzset = external('pypy__tzset', [], lltype.Void, win_eci)
     c_get_timezone = external('pypy_get_timezone', [], rffi.LONG, win_eci)
     c_get_daylight = external('pypy_get_daylight', [], rffi.INT, win_eci)
-    c_get_tzname = external('pypy_get_tzname', [], rffi.CCHARPP, win_eci)
+    c_get_tzname = external('pypy_get_tzname',
+                            [rffi.SIZE_T, rffi.INT, rffi.CCHARP], 
+                            rffi.INT, win_eci, calling_conv='c')
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
@@ -220,8 +236,11 @@ def _init_timezone(space):
         timezone = c_get_timezone()
         altzone = timezone - 3600
         daylight = c_get_daylight()
-        tzname_ptr = c_get_tzname()
-        tzname = rffi.charp2str(tzname_ptr[0]), rffi.charp2str(tzname_ptr[1])
+        with rffi.scoped_alloc_buffer(100) as buf:
+            s = c_get_tzname(100, 0, buf.raw)
+            tzname[0] = buf.str(s)
+            s = c_get_tzname(100, 1, buf.raw)
+            tzname[1] = buf.str(s)
 
     if _POSIX:
         if _CYGWIN:
@@ -311,11 +330,10 @@ def _get_error_msg():
     return os.strerror(errno)
 
 def _check_sleep_arg(space, secs):
-    from rpython.rlib.rfloat import isinf, isnan
     if secs < 0:
         raise oefmt(space.w_IOError,
                     "Invalid argument: negative time in sleep")
-    if isinf(secs) or isnan(secs):
+    if math.isinf(secs) or math.isnan(secs):
         raise oefmt(space.w_IOError,
                     "Invalid argument: inf or nan")
 

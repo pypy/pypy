@@ -1854,12 +1854,7 @@ class MetaInterpStaticData(object):
         self._addr2name_keys = []
         self._addr2name_values = []
 
-        self.__dict__.update(compile.make_done_loop_tokens())
-        for val in ['int', 'float', 'ref', 'void']:
-            fullname = 'done_with_this_frame_descr_' + val
-            setattr(self.cpu, fullname, getattr(self, fullname))
-        d = self.exit_frame_with_exception_descr_ref
-        self.cpu.exit_frame_with_exception_descr_ref = d
+        compile.make_and_attach_done_descrs([self, cpu])
 
     def _freeze_(self):
         return True
@@ -1909,8 +1904,8 @@ class MetaInterpStaticData(object):
                     history.REF: 'ref',
                     history.FLOAT: 'float',
                     history.VOID: 'void'}[jd.result_type]
-            tokens = getattr(self, 'loop_tokens_done_with_this_frame_%s' % name)
-            jd.portal_finishtoken = tokens[0].finishdescr
+            token = getattr(self, 'done_with_this_frame_descr_%s' % name)
+            jd.portal_finishtoken = token
             jd.propagate_exc_descr = exc_descr
         #
         self.cpu.propagate_exception_descr = exc_descr
@@ -2463,10 +2458,7 @@ class MetaInterp(object):
     def handle_guard_failure(self, resumedescr, deadframe):
         debug_start('jit-tracing')
         self.staticdata.profiler.start_tracing()
-        if isinstance(resumedescr, compile.ResumeGuardCopiedDescr):
-            key = resumedescr.prev
-        else:
-            key = resumedescr
+        key = resumedescr.get_resumestorage()
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
@@ -2770,21 +2762,19 @@ class MetaInterp(object):
         if result_type == history.VOID:
             assert exitbox is None
             exits = []
-            loop_tokens = sd.loop_tokens_done_with_this_frame_void
+            token = sd.done_with_this_frame_descr_void
         elif result_type == history.INT:
             exits = [exitbox]
-            loop_tokens = sd.loop_tokens_done_with_this_frame_int
+            token = sd.done_with_this_frame_descr_int
         elif result_type == history.REF:
             exits = [exitbox]
-            loop_tokens = sd.loop_tokens_done_with_this_frame_ref
+            token = sd.done_with_this_frame_descr_ref
         elif result_type == history.FLOAT:
             exits = [exitbox]
-            loop_tokens = sd.loop_tokens_done_with_this_frame_float
+            token = sd.done_with_this_frame_descr_float
         else:
             assert False
-        # FIXME: kill TerminatingLoopToken?
         # FIXME: can we call compile_trace?
-        token = loop_tokens[0].finishdescr
         self.history.record(rop.FINISH, exits, None, descr=token)
         self.history.trace.done()
         target_token = compile.compile_trace(self, self.resumekey, exits)
@@ -2810,7 +2800,7 @@ class MetaInterp(object):
     def compile_exit_frame_with_exception(self, valuebox):
         self.store_token_in_vable()
         sd = self.staticdata
-        token = sd.loop_tokens_exit_frame_with_exception_ref[0].finishdescr
+        token = sd.exit_frame_with_exception_descr_ref
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
         self.history.trace.done()
         target_token = compile.compile_trace(self, self.resumekey, [valuebox])

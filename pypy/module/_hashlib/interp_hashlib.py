@@ -61,7 +61,8 @@ class W_Hash(W_Root):
         ctx = ropenssl.EVP_MD_CTX_new()
         if ctx is None:
             raise MemoryError
-        rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self.digest_size)
+        rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self.digest_size,
+                                self)
         try:
             if copy_from:
                 if not ropenssl.EVP_MD_CTX_copy(ctx, copy_from):

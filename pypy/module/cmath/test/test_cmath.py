@@ -1,5 +1,4 @@
 from __future__ import with_statement
-from rpython.rlib.rfloat import copysign, isnan, isinf
 from pypy.module.cmath import interp_cmath
 import os, sys, math
 
@@ -11,7 +10,7 @@ def test_special_values():
     assert isinstance(sqrt_special_values[5][1], tuple)
     assert sqrt_special_values[5][1][0] == 1e200 * 1e200
     assert sqrt_special_values[5][1][1] == -0.
-    assert copysign(1., sqrt_special_values[5][1][1]) == -1.
+    assert math.copysign(1., sqrt_special_values[5][1][1]) == -1.
 
 
 class AppTestCMath:
@@ -142,12 +141,12 @@ def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
     """
 
     # special values testing
-    if isnan(a):
-        if isnan(b):
+    if math.isnan(a):
+        if math.isnan(b):
             return
         raise AssertionError(msg + '%r should be nan' % (b,))
 
-    if isinf(a):
+    if math.isinf(a):
         if a == b:
             return
         raise AssertionError(msg + 'finite result where infinity expected: '
@@ -158,8 +157,7 @@ def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
     # and b to have opposite signs; in practice these hardly ever
     # occur).
     if not a and not b:
-        # only check it if we are running on top of CPython >= 2.6
-        if sys.version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
+        if math.copysign(1., a) != math.copysign(1., b):
             raise AssertionError(msg + 'zero has wrong sign: expected %r, '
                                        'got %r' % (a, b))
 

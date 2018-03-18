@@ -13,7 +13,8 @@ from pypy.module.cpyext.eval import (
     PyEval_GetBuiltins, PyEval_GetLocals, PyEval_GetGlobals,
     _PyEval_SliceIndex)
 from pypy.module.cpyext.api import (
-    c_fopen, c_fclose, c_fileno, Py_ssize_tP, is_valid_fd)
+    c_fopen, c_fclose, c_fileno, Py_ssize_tP)
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts
@@ -117,8 +118,8 @@ class TestEval(BaseApiTest):
 
         assert run("a = 42 * 43", Py_single_input,
                    w_globals, w_globals) == space.w_None
-        assert 42 * 43 == space.unwrap(
-            PyObject_GetItem(space, w_globals, space.wrap("a")))
+        py_obj = PyObject_GetItem(space, w_globals, space.wrap("a"))
+        assert 42 * 43 == space.unwrap(get_w_obj_and_decref(space, py_obj))
 
     def test_run_string_flags(self, space):
         flags = lltype.malloc(PyCompilerFlags, flavor='raw')
@@ -149,7 +150,6 @@ class TestEval(BaseApiTest):
         os.close(c_fileno(fp))
         with raises_w(space, IOError):
             PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
-        if is_valid_fd(c_fileno(fp)):
             c_fclose(fp)
         rffi.free_charp(filename)
 

@@ -295,8 +295,9 @@ class Recompiler:
         base_module_name = self.module_name.split('.')[-1]
         if self.ffi._embedding is not None:
             prnt('#define _CFFI_MODULE_NAME  "%s"' % (self.module_name,))
-            prnt('#define _CFFI_PYTHON_STARTUP_CODE  %s' %
-                 (self._string_literal(self.ffi._embedding),))
+            prnt('static const char _CFFI_PYTHON_STARTUP_CODE[] = {')
+            self._print_string_literal_in_array(self.ffi._embedding)
+            prnt('0 };')
             prnt('#ifdef PYPY_VERSION')
             prnt('# define _CFFI_PYTHON_STARTUP_FUNC  _cffi_pypyinit_%s' % (
                 base_module_name,))
@@ -835,6 +836,10 @@ class Recompiler:
 
     def _struct_collecttype(self, tp):
         self._do_collect_type(tp)
+        if self.target_is_python:
+            # also requires nested anon struct/unions in ABI mode, recursively
+            for fldtype in tp.anonymous_struct_fields():
+                self._struct_collecttype(fldtype)
 
     def _struct_decl(self, tp, cname, approxname):
         if tp.fldtypes is None:
@@ -883,7 +888,7 @@ class Recompiler:
                  named_ptr not in self.ffi._parser._included_declarations)):
             if tp.fldtypes is None:
                 pass    # opaque
-            elif tp.partial or tp.has_anonymous_struct_fields():
+            elif tp.partial or any(tp.anonymous_struct_fields()):
                 pass    # field layout obtained silently from the C compiler
             else:
                 flags.append("_CFFI_F_CHECK_FIELDS")
@@ -895,7 +900,8 @@ class Recompiler:
         flags = '|'.join(flags) or '0'
         c_fields = []
         if reason_for_not_expanding is None:
-            enumfields = list(tp.enumfields())
+            expand_anonymous_struct_union = not self.target_is_python
+            enumfields = list(tp.enumfields(expand_anonymous_struct_union))
             for fldname, fldtype, fbitsize, fqual in enumfields:
                 fldtype = self._field_type(tp, fldname, fldtype)
                 self._check_not_opaque(fldtype,
@@ -1271,17 +1277,18 @@ class Recompiler:
       _generate_cpy_extern_python_plus_c_ctx = \
       _generate_cpy_extern_python_ctx
 
-    def _string_literal(self, s):
-        def _char_repr(c):
-            # escape with a '\' the characters '\', '"' or (for trigraphs) '?'
-            if c in '\\"?': return '\\' + c
-            if ' ' <= c < '\x7F': return c
-            if c == '\n': return '\\n'
-            return '\\%03o' % ord(c)
-        lines = []
-        for line in s.splitlines(True) or ['']:
-            lines.append('"%s"' % ''.join([_char_repr(c) for c in line]))
-        return ' \\\n'.join(lines)
+    def _print_string_literal_in_array(self, s):
+        prnt = self._prnt
+        prnt('// # NB. this is not a string because of a size limit in MSVC')
+        for line in s.splitlines(True):
+            prnt(('// ' + line).rstrip())
+            printed_line = ''
+            for c in line:
+                if len(printed_line) >= 76:
+                    prnt(printed_line)
+                    printed_line = ''
+                printed_line += '%d,' % (ord(c),)
+            prnt(printed_line)
 
     # ----------
     # emitting the opcodes for individual types

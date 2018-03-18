@@ -2,20 +2,15 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.methodobject import PyMethodDef
 from pypy.module.cpyext.api import ApiFunction
-from pypy.module.cpyext.pyobject import PyObject, make_ref, Py_DecRef
+from pypy.module.cpyext.pyobject import PyObject, make_ref
 from pypy.module.cpyext.methodobject import (
     PyDescr_NewMethod, PyCFunction)
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 class AppTestMethodObject(AppTestCpythonExtensionBase):
-    def test_call_METH(self):
+
+    def test_call_METH_NOARGS(self):
         mod = self.import_extension('MyModule', [
-            ('getarg_O', 'METH_O',
-             '''
-             Py_INCREF(args);
-             return args;
-             '''
-             ),
             ('getarg_NO', 'METH_NOARGS',
              '''
              if(args) {
@@ -28,11 +23,62 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              }
              '''
              ),
+            ])
+        assert mod.getarg_NO() is None
+        raises(TypeError, mod.getarg_NO, 1)
+        raises(TypeError, mod.getarg_NO, 1, 1)
+
+    def test_call_METH_O(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_O', 'METH_O',
+             '''
+             Py_INCREF(args);
+             return args;
+             '''
+             ),
+            ])
+        assert mod.getarg_O(1) == 1
+        assert mod.getarg_O.__name__ == "getarg_O"
+        raises(TypeError, mod.getarg_O)
+        raises(TypeError, mod.getarg_O, 1, 1)
+
+    def test_call_METH_VARARGS(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_VARARGS', 'METH_VARARGS',
+             '''
+             return Py_BuildValue("Ol", args, args->ob_refcnt);
+             '''
+             ),
+            ])
+        # check that we pass the expected tuple of arguments AND that the
+        # recnt is 1. In particular, on PyPy refcnt==1 means that we created
+        # the PyObject tuple directly, without passing from a w_tuple; as
+        # such, the tuple will be immediately freed after the call, without
+        # having to wait until the GC runs.
+        #
+        tup, refcnt = mod.getarg_VARARGS()
+        assert tup == ()
+        # the empty tuple is shared on CPython, so the refcnt will be >1. On
+        # PyPy it is not shared, though.
+        if not self.runappdirect:
+            assert refcnt == 1
+        #
+        tup, refcnt = mod.getarg_VARARGS(1)
+        assert tup == (1,)
+        assert refcnt == 1
+        #
+        tup, refcnt = mod.getarg_VARARGS(1, 2, 3)
+        assert tup == (1, 2, 3)
+        assert refcnt == 1
+        #
+        raises(TypeError, mod.getarg_VARARGS, k=1)
+
+    def test_call_METH_OLDARGS(self):
+        mod = self.import_extension('MyModule', [
             ('getarg_OLD', 'METH_OLDARGS',
              '''
              if(args) {
-                 Py_INCREF(args);
-                 return args;
+                 return Py_BuildValue("Ol", args, args->ob_refcnt);
              }
              else {
                  Py_INCREF(Py_None);
@@ -40,6 +86,31 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              }
              '''
              ),
+            ])
+        assert mod.getarg_OLD() is None
+        val, refcnt = mod.getarg_OLD(1)
+        assert val == 1
+        val, refcnt = mod.getarg_OLD(1, 2)
+        assert val == (1, 2)
+        assert refcnt == 1 # see the comments in the test above
+
+    def test_call_METH_KEYWORDS(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_KW', 'METH_VARARGS | METH_KEYWORDS',
+             '''
+             if (!kwargs) kwargs = Py_None;
+             return Py_BuildValue("OO", args, kwargs);
+             '''
+             ),
+            ])
+        assert mod.getarg_KW(1) == ((1,), None)
+        assert mod.getarg_KW(1, 2) == ((1, 2), None)
+        assert mod.getarg_KW(a=3, b=4) == ((), {'a': 3, 'b': 4})
+        assert mod.getarg_KW(1, 2, a=3, b=4) == ((1, 2), {'a': 3, 'b': 4})
+        assert mod.getarg_KW.__name__ == "getarg_KW"
+
+    def test_func_attributes(self):
+        mod = self.import_extension('MyModule', [
             ('isCFunction', 'METH_O',
              '''
              if(PyCFunction_Check(args)) {
@@ -67,30 +138,17 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              '''
              PyCFunction ptr = PyCFunction_GetFunction(args);
              if (!ptr) return NULL;
-             if (ptr == (PyCFunction)MyModule_getarg_O)
+             if (ptr == (PyCFunction)MyModule_getModule)
                  Py_RETURN_TRUE;
              else
                  Py_RETURN_FALSE;
              '''
              ),
             ])
-        assert mod.getarg_O(1) == 1
-        assert mod.getarg_O.__name__ == "getarg_O"
-        raises(TypeError, mod.getarg_O)
-        raises(TypeError, mod.getarg_O, 1, 1)
-
-        assert mod.getarg_NO() is None
-        raises(TypeError, mod.getarg_NO, 1)
-        raises(TypeError, mod.getarg_NO, 1, 1)
-
-        assert mod.getarg_OLD(1) == 1
-        assert mod.getarg_OLD() is None
-        assert mod.getarg_OLD(1, 2) == (1, 2)
-
-        assert mod.isCFunction(mod.getarg_O) == "getarg_O"
-        assert mod.getModule(mod.getarg_O) == 'MyModule'
+        assert mod.isCFunction(mod.getModule) == "getModule"
+        assert mod.getModule(mod.getModule) == 'MyModule'
         if self.runappdirect:  # XXX: fails untranslated
-            assert mod.isSameFunction(mod.getarg_O)
+            assert mod.isSameFunction(mod.getModule)
         raises(SystemError, mod.isSameFunction, 1)
 
     def test_function_as_method(self):

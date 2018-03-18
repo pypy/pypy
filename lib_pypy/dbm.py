@@ -157,7 +157,14 @@ lib.DBM_REPLACE = 1
 def open(filename, flag='r', mode=0666):
     "open a DBM database"
     if not isinstance(filename, str):
-        raise TypeError("expected string")
+        if sys.version_info < (3,) and isinstance(filename, unicode):
+            # unlike CPython we'll encode 'filename' with filesystemencoding
+            # instead of defaultencoding, because that seems like a far
+            # better idea.  But I'm also open for saying that we should
+            # rather go for bug-to-bug compatibility instead.
+            filename = filename.encode(sys.getfilesystemencoding())
+        else:
+            raise TypeError("expected string")
 
     openflag = 0
 

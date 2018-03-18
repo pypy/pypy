@@ -1,7 +1,7 @@
 # Test specifically-sized containers.
 
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 class TestSizes(BaseCTypesTestChecker):
     def test_8(self):
