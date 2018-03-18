@@ -221,6 +221,20 @@ def utf8_encode_ascii(s, errors, errorhandler):
                 pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
+if sys.platform == 'win32':
+    def utf8_encode_mbcs(s, errors, errorhandler):
+        from rpython.rlib import runicode
+        slen = len(s)
+        res = runicode.unicode_encode_mbcs(s, slen, errors, errorhandler)
+        return res.decode('utf8')
+        
+    def str_decode_mbcs(s, errors, errorhandler):
+        from rpython.rlib import runicode
+        slen = len(s)
+        res, size = runicode.str_decode_mbcs(s, slen, errors=errors,
+                                           errorhandler=errorhandler)
+        return res.encode('utf8'), size, len(res)
+
 def str_decode_utf8(s, errors, final, errorhandler):
     """ Same as checking for the valid utf8, but we know the utf8 is not
     valid so we're trying to either raise or pack stuff with error handler.
