@@ -1328,7 +1328,7 @@ class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
         self.data = data
     def __enter__(self):
-        self.buf, self.flag = get_nonmoving_unicodebuffer(self.data.decode('utf-8'))
+        self.buf, self.flag = get_nonmoving_unicodebuffer(self.data)
         return self.buf
     def __exit__(self, *args):
         free_nonmoving_unicodebuffer(self.data, self.buf, self.flag)
