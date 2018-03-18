@@ -214,9 +214,9 @@ class TestObject(BaseApiTest):
                 PyObject_Cmp(space, w(u"\xe9"), w("\xe9"), ptr)
 
     def test_unicode(self, space, api):
-        assert space.unicode_w(api.PyObject_Unicode(None)) == u"<NULL>"
-        assert space.unicode_w(api.PyObject_Unicode(space.wrap([]))) == u"[]"
-        assert space.unicode_w(api.PyObject_Unicode(space.wrap("e"))) == u"e"
+        assert space.utf8_w(api.PyObject_Unicode(None)) == u"<NULL>".encode('utf-8')
+        assert space.utf8_w(api.PyObject_Unicode(space.wrap([]))) == u"[]".encode('utf-8')
+        assert space.utf8_w(api.PyObject_Unicode(space.wrap("e"))) == u"e".encode('utf-8')
         with raises_w(space, UnicodeDecodeError):
             PyObject_Unicode(space, space.wrap("\xe9"))
 
