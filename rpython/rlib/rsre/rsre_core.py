@@ -92,8 +92,6 @@ class EndOfString(Exception):
 class AbstractMatchContext(object):
     """Abstract base class"""
     _immutable_fields_ = ['pattern[*]', 'flags', 'end']
-    match_start = 0
-    match_end = 0
     match_marks = None
     match_marks_flat = None
     fullmatch_only = False
@@ -105,6 +103,7 @@ class AbstractMatchContext(object):
         check_nonneg(end)
         self.pattern = pattern
         self.match_start = match_start
+        self.match_end = self.ZERO
         self.end = end
         self.flags = flags
         # check we don't get the old value of MAXREPEAT
@@ -309,9 +308,6 @@ class UnicodeMatchContext(FixedMatchContext):
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
 
-    def fresh_copy(self, start):
-        return UnicodeMatchContext(self.pattern, self._unicodestr, start,
-                                   self.end, self.flags)
 
 # ____________________________________________________________
 

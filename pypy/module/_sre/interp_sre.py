@@ -156,18 +156,21 @@ class W_SRE_Pattern(W_Root):
             return rsre_core.BufMatchContext(self.code, buf,
                                              pos, endpos, self.flags)
 
-    def fresh_copy(self, ctx, start):
+    def fresh_copy(self, ctx):
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
             result = rsre_utf8.Utf8MatchContext(
-                ctx.pattern, ctx._utf8, start, ctx.end, ctx.flags)
+                ctx.pattern, ctx._utf8, ctx.match_start, ctx.end, ctx.flags)
             result.w_unicode_obj = ctx.w_unicode_obj
-            return result
-        if isinstance(ctx, rsre_core.StrMatchContext):
-            return self._make_str_match_context(ctx._string, start, ctx.end)
-        if isinstance(ctx, rsre_core.BufMatchContext):
-            return rsre_core.BufMatchContext(
-                ctx.pattern, ctx._buffer, start, ctx.end, ctx.flags)
-        raise AssertionError("bad ctx type")
+        elif isinstance(ctx, rsre_core.StrMatchContext):
+            result = self._make_str_match_context(
+                ctx._string, ctx.match_start, ctx.end)
+        elif isinstance(ctx, rsre_core.BufMatchContext):
+            result = rsre_core.BufMatchContext(
+                ctx.pattern, ctx._buffer, ctx.match_start, ctx.end, ctx.flags)
+        else:
+            raise AssertionError("bad ctx type")
+        result.match_end = ctx.match_end
+        return result
 
     def _make_str_match_context(self, str, pos, endpos):
         # for tests to override
@@ -343,7 +346,7 @@ class W_SRE_Pattern(W_Root):
                 if filter_is_callable:
                     w_match = self.getmatch(ctx, True)
                     # make a copy of 'ctx'; see test_sub_matches_stay_valid
-                    ctx = ctx.fresh_copy(start) # match_start/match_end dropped
+                    ctx = self.fresh_copy(ctx)
                     w_piece = space.call_function(w_filter, w_match)
                     if not space.is_w(w_piece, space.w_None):
                         assert strbuilder is None
@@ -720,7 +723,8 @@ class W_SRE_Scanner(W_Root):
             if exhausted:
                 self.ctx = None
             else:
-                self.ctx = self.srepat.fresh_copy(ctx, nextstart)
+                self.ctx = self.srepat.fresh_copy(ctx)
+                self.ctx.match_start = nextstart
             match = W_SRE_Match(self.srepat, ctx)
             return match
         else:
