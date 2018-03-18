@@ -1278,6 +1278,18 @@ class scoped_unicode2wcharp:
         if self.buf:
             free_wcharp(self.buf)
 
+class scoped_utf82wcharp:
+    def __init__(self, value, unicode_len):
+        if value is not None:
+            self.buf = utf82wcharp(value, unicode_len)
+        else:
+            self.buf = lltype.nullptr(CWCHARP.TO)
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        if self.buf:
+            free_wcharp(self.buf)
+
 
 class scoped_nonmovingbuffer:
 
@@ -1316,7 +1328,7 @@ class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
         self.data = data
     def __enter__(self):
-        self.buf, self.flag = get_nonmoving_unicodebuffer(self.data)
+        self.buf, self.flag = get_nonmoving_unicodebuffer(self.data.decode('utf-8'))
         return self.buf
     def __exit__(self, *args):
         free_nonmoving_unicodebuffer(self.data, self.buf, self.flag)

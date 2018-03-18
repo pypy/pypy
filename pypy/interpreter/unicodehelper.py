@@ -226,12 +226,12 @@ if sys.platform == 'win32':
         from rpython.rlib import runicode
         slen = len(s)
         res = runicode.unicode_encode_mbcs(s, slen, errors, errorhandler)
-        return res.decode('utf8')
+        return res
         
-    def str_decode_mbcs(s, errors, errorhandler):
+    def str_decode_mbcs(s, errors, final, errorhandler):
         from rpython.rlib import runicode
         slen = len(s)
-        res, size = runicode.str_decode_mbcs(s, slen, errors=errors,
+        res, size = runicode.str_decode_mbcs(s, slen, final=final, errors=errors,
                                            errorhandler=errorhandler)
         return res.encode('utf8'), size, len(res)
 
