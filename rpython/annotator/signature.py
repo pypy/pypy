@@ -43,12 +43,11 @@ def _validate_annotation_size(t):
     try:
         _ = iter(t)
     except TypeError:  # if it's not an iterable, just return
-        return t
-    if len(t) == 0:
-        raise ValueError("Cannot handle empty %s in args enforcing", type(t))
-    if isinstance(t, tuple) or len(t) == 1:  # we accept tuples with len > 1 because
-        return t                             # tuple items are all of same type
-    raise TypeError("Cannot specify multiple types in a %s (try using tuple)", type(t))
+        return t       # (size does not matter)
+    if isinstance(t, tuple):  # we accept tuples with any length, because
+        return t              # their in-memory representation is predictable
+    if len(t) > 1:
+        raise TypeError("Cannot specify multiple types in a %s (try using tuple)", type(t))
 
 
 def _compute_annotation(t, bookkeeper=None):
