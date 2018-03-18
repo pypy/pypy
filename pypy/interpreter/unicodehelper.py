@@ -2,11 +2,10 @@ import sys
 
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rutf8
 from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi
-from pypy.module._codecs import interp_codecs
 from pypy.module.unicodedata import unicodedb
 
 @specialize.memo()
@@ -64,6 +63,7 @@ def _has_surrogate(u):
 
 # These functions take and return unwrapped rpython strings
 def decode_unicode_escape(space, string):
+    from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
     result_utf8, consumed, length = str_decode_unicode_escape(
@@ -1268,6 +1268,41 @@ def utf8_encode_utf_32_le(s, errors,
     return unicode_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "little")
 
+def py3k_str_decode_utf_32(s, size, errors, final=True,
+                           errorhandler=None):
+    result, length, byteorder = str_decode_utf_32_helper(
+        s, size, errors, final, errorhandler, "native", 'utf-32-' + BYTEORDER2)
+    return result, length
+
+def py3k_str_decode_utf_32_be(s, size, errors, final=True,
+                              errorhandler=None):
+    result, length, byteorder = str_decode_utf_32_helper(
+        s, size, errors, final, errorhandler, "big", 'utf-32-be')
+    return result, length
+
+def py3k_str_decode_utf_32_le(s, size, errors, final=True,
+                              errorhandler=None):
+    result, length, byteorder = str_decode_utf_32_helper(
+        s, size, errors, final, errorhandler, "little", 'utf-32-le')
+    return result, length
+
+def py3k_unicode_encode_utf_32(s, size, errors,
+                               errorhandler=None, allow_surrogates=True):
+    return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
+                                        allow_surrogates, "native",
+                                        'utf-32-' + BYTEORDER2)
+
+def py3k_unicode_encode_utf_32_be(s, size, errors,
+                                  errorhandler=None, allow_surrogates=True):
+    return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
+                                        allow_surrogates, "big",
+                                        'utf-32-be')
+
+def py3k_unicode_encode_utf_32_le(s, size, errors,
+                                  errorhandler=None, allow_surrogates=True):
+    return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
+                                        allow_surrogates, "little",
+                                        'utf-32-le')
 # ____________________________________________________________
 # unicode-internal
 

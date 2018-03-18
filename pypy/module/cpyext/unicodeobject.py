@@ -18,6 +18,7 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
+from pypy.interpreter import unicodehelper
 from pypy.objspace.std import unicodeobject
 import sys
 
@@ -622,7 +623,7 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, _,  length, byteorder = str_decode_utf_32_helper(
+    result, _,  length, byteorder = unicodehelper.str_decode_utf_32_helper(
         string, errors, final=True, errorhandler=None, byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
