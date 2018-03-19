@@ -295,6 +295,7 @@ def query_vcvarsall(version, arch="x86"):
     if len(result) != len(interesting):
         raise ValueError(str(list(result.keys())))
 
+    log.debug('Got', result)
     return result
 
 # More globals
