@@ -243,7 +243,7 @@ def find_vcvarsall(version):
                 productdir = os.path.join(toolsdir, os.pardir, os.pardir, "VC")
                 productdir = os.path.abspath(productdir)
             if not os.path.isdir(productdir):
-                
+
                 log.debug("%s is not a valid directory" % productdir)
                 return None
         else:
