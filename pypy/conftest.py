@@ -43,11 +43,10 @@ def pytest_configure(config):
     def py3k_skip(message):
         py.test.skip('[py3k] %s' % message)
     py.test.py3k_skip = py3k_skip
+    if config.getoption('runappdirect'):
+        config.addinivalue_line('python_files', 'apptest_*.py')
 
 def pytest_addoption(parser):
-    from rpython.conftest import pytest_addoption
-    pytest_addoption(parser)
-
     group = parser.getgroup("pypy options")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
@@ -94,7 +93,8 @@ def pytest_sessionstart(session):
     ensure_pytest_builtin_helpers()
 
 def pytest_pycollect_makemodule(path, parent):
-    return PyPyModule(path, parent)
+    if not parent.config.getoption('runappdirect'):
+        return PyPyModule(path, parent)
 
 def is_applevel(item):
     from pypy.tool.pytest.apptest import AppTestFunction
@@ -193,5 +193,7 @@ def pytest_runtest_setup(item):
             appclass.obj.runappdirect = option.runappdirect
 
 
-def pytest_ignore_collect(path):
+def pytest_ignore_collect(path, config):
+    if config.getoption('runappdirect') and not path.fnmatch('apptest_*.py'):
+        return True
     return path.check(link=1)
