@@ -1,7 +1,6 @@
-
-import py
+import pytest
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 formats = "bBhHiIlLqQfd"
 
@@ -40,7 +39,8 @@ class TestArray(BaseCTypesTestChecker):
             assert values == [0] * len(init)
 
             # Too many in itializers should be caught
-            py.test.raises(IndexError, int_array, *range(alen*2))
+            with pytest.raises(IndexError):
+                int_array(*range(alen*2))
 
         CharArray = ARRAY(c_char, 3)
 
@@ -48,7 +48,8 @@ class TestArray(BaseCTypesTestChecker):
 
         # Should this work? It doesn't:
         # CharArray("abc")
-        py.test.raises(TypeError, CharArray, "abc")
+        with pytest.raises(TypeError):
+            CharArray("abc")
 
         assert ca[0] == "a"
         assert ca[1] == "b"
@@ -61,10 +62,12 @@ class TestArray(BaseCTypesTestChecker):
 
         # slicing is now supported, but not extended slicing (3-argument)!
         from operator import getslice, delitem
-        py.test.raises(TypeError, getslice, ca, 0, 1, -1)
+        with pytest.raises(TypeError):
+            getslice(ca, 0, 1, -1)
 
         # cannot delete items
-        py.test.raises(TypeError, delitem, ca, 0)
+        with pytest.raises(TypeError):
+            delitem(ca, 0)
 
     def test_numeric_arrays(self):
 
@@ -138,4 +141,37 @@ class TestSophisticatedThings(BaseCTypesTestChecker):
         x.y = 3
         y[1] = x
         assert y[1].y == 3
-        
+
+    def test_output_simple(self):
+        A = c_char * 10
+        TP = POINTER(A)
+        x = TP(A())
+        assert x[0] != ''
+
+        A = c_wchar * 10
+        TP = POINTER(A)
+        x = TP(A())
+        assert x[0] != ''
+
+    def test_output_simple_array(self):
+        A = c_char * 10
+        AA = A * 10
+        aa = AA()
+        assert aa[0] != ''
+
+    def test_output_complex_test(self):
+        class Car(Structure):
+            _fields_ = [("brand", c_char * 10),
+                        ("speed", c_float),
+                        ("owner", c_char * 10)]
+
+        assert isinstance(Car("abcdefghi", 42.0, "12345").brand, bytes)
+        assert Car("abcdefghi", 42.0, "12345").brand == "abcdefghi"
+        assert Car("abcdefghio", 42.0, "12345").brand == "abcdefghio"
+        with pytest.raises(ValueError):
+            Car("abcdefghiop", 42.0, "12345")
+
+        A = Car._fields_[2][1]
+        TP = POINTER(A)
+        x = TP(A())
+        assert x[0] != ''

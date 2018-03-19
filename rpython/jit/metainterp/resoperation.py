@@ -52,10 +52,6 @@ class AbstractValue(object):
         llop.debug_print(lltype.Void, "setting forwarded on:", self.__class__.__name__)
         raise SettingForwardedOnAbstractValue()
 
-    def clear_forwarded(self):
-        if self.get_forwarded() is not None:
-            self.set_forwarded(None)
-
     @specialize.arg(1)
     def get_box_replacement(op, not_const=False):
         # Read the chain "op, op._forwarded, op._forwarded._forwarded..."
@@ -404,7 +400,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return rop.can_raise(self.getopnum())
 
     def is_foldable_guard(self):
-        return rop.is_foldable_guard(self.getopnun())
+        return rop.is_foldable_guard(self.getopnum())
 
     def is_primitive_array_access(self):
         """ Indicates that this operations loads/stores a
@@ -752,7 +748,6 @@ class InputArgRef(RefOp, AbstractInputArg):
 
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
-        self.datatype = 'r'
 
     def reset_value(self):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))

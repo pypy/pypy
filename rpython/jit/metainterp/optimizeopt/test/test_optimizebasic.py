@@ -31,8 +31,8 @@ class BaseTestBasic(BaseTest):
         expected = convert_old_style_to_targets(exp, jump=True)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
         trace = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
-        compile_data = compile.SimpleCompileData(trace,
-                                                 call_pure_results)
+        compile_data = compile.SimpleCompileData(
+            trace, call_pure_results=call_pure_results)
         info, ops = self._do_optimize_loop(compile_data)
         label_op = ResOperation(rop.LABEL, info.inputargs)
         loop.inputargs = info.inputargs
@@ -288,7 +288,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_int_is_true_is_zero(self):
-        py.test.skip("XXX implement me")
         ops = """
         [i0]
         i1 = int_is_true(i0)
@@ -301,6 +300,22 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i0]
         i1 = int_is_true(i0)
         guard_true(i1) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i2 = int_is_zero(i0)
+        guard_false(i2) []
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i2 = int_is_zero(i0)
+        guard_false(i2) []
         jump(i0)
         """
         self.optimize_loop(ops, expected)
@@ -1537,6 +1552,46 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_duplicate_getarrayitem_after_setarrayitem_and_guard(self):
+        ops = """
+        [p0, p1, p2, p3, i1]
+        p4 = getarrayitem_gc_r(p0, 0, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        setarrayitem_gc(p1, 1, p3, descr=arraydescr2)
+        guard_true(i1) [i1]
+        p7 = getarrayitem_gc_r(p0, 0, descr=arraydescr2)
+        p8 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
+        p9 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        p10 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
+        escape_n(p4)
+        escape_n(p5)
+        escape_n(p6)
+        escape_n(p7)
+        escape_n(p8)
+        escape_n(p9)
+        escape_n(p10)
+        jump(p0, p1, p2, p3, i1)
+        """
+        expected = """
+        [p0, p1, p2, p3, i1]
+        p4 = getarrayitem_gc_r(p0, 0, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        setarrayitem_gc(p1, 1, p3, descr=arraydescr2)
+        guard_true(i1) [i1]
+        p8 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
+        escape_n(p4)
+        escape_n(p5)
+        escape_n(p6)
+        escape_n(p4)
+        escape_n(p8)
+        escape_n(p6)
+        escape_n(p3)
+        jump(p0, p1, p2, p3, 1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_getarrayitem_pure_does_not_invalidate(self):
         ops = """
         [p1, p2]
@@ -1906,6 +1961,55 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i0)
         """
         self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(0, i0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(i0, 0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(1, i0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul_ovf(i0, 1)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
     def test_fold_constant_partial_ops_float(self):
         ops = """
@@ -4840,6 +4944,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_nonvirtual_newstr_strlen(self):
+        ops = """
+        [p0]
+        p1 = call_r(0, p0, s"X", descr=strconcatdescr)
+        i0 = strlen(p1)
+        finish(i0)
+        """
+        expected = """
+        [p0]
+        i2 = strlen(p0)
+        i4 = int_add(i2, 1)
+        finish(i4)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_copy_long_string_to_virtual(self):
         ops = """
         []
@@ -5605,6 +5724,71 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [p0]
         finish()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_bug_int_and_1(self):
+        ops = """
+        [p0]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i57 = int_and(i51, 1)
+        i62 = int_eq(i57, 0)
+        guard_false(i62) []
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_bug_int_and_2(self):
+        ops = """
+        [p0]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i57 = int_and(4, i51)
+        i62 = int_eq(i57, 0)
+        guard_false(i62) []
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_bug_int_or(self):
+        ops = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_or(i51, i52)
+        i62 = int_eq(i57, 0)
+        guard_false(i62) []
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_int_and_positive(self):
+        ops = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_and(i51, i52)
+        i62 = int_lt(i57, 0)
+        guard_false(i62) []
+        """
+        expected = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_and(i51, i52)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_or_positive(self):
+        ops = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_or(i51, i52)
+        i62 = int_lt(i57, 0)
+        guard_false(i62) []
+        """
+        expected = """
+        [p0, p1]
+        i51 = arraylen_gc(p0, descr=arraydescr)
+        i52 = arraylen_gc(p1, descr=arraydescr)
+        i57 = int_or(i51, i52)
         """
         self.optimize_loop(ops, expected)
 

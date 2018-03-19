@@ -114,14 +114,18 @@ def make_methods(functions, modname):
     codes = []
     for funcname, flags, code in functions:
         cfuncname = "%s_%s" % (modname, funcname)
+        if 'METH_KEYWORDS' in flags:
+            signature = '(PyObject *self, PyObject *args, PyObject *kwargs)'
+        else:
+            signature = '(PyObject *self, PyObject *args)'
         methods_table.append(
-            "{\"%s\", %s, %s}," % (funcname, cfuncname, flags))
+            "{\"%s\", (PyCFunction)%s, %s}," % (funcname, cfuncname, flags))
         func_code = """
-        static PyObject* %s(PyObject* self, PyObject* args)
-        {
-        %s
-        }
-        """ % (cfuncname, code)
+        static PyObject* {cfuncname}{signature}
+        {{
+        {code}
+        }}
+        """.format(cfuncname=cfuncname, signature=signature, code=code)
         codes.append(func_code)
 
     body = "\n".join(codes) + """
@@ -199,7 +203,7 @@ def _build(cfilenames, outputfilename, compile_extra, link_extra,
         # monkeypatch distutils for some versions of msvc compiler
         import setuptools
     except ImportError:
-        # XXX if this fails and is required, 
+        # XXX if this fails and is required,
         #     we must call pypy -mensurepip after translation
         pass
     from distutils.ccompiler import new_compiler
@@ -244,13 +248,13 @@ def get_sys_info_app(base_dir):
     if sys.platform == 'win32':
         compile_extra = ["/we4013"]
         link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
-    elif sys.platform == 'darwin':
-        compile_extra = link_extra = None
-        pass
     elif sys.platform.startswith('linux'):
         compile_extra = [
             "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
         link_extra = None
+    else:
+        compile_extra = link_extra = None
+        pass
     return ExtensionCompiler(
         builddir_base=base_dir,
         include_extra=[get_python_inc()],

@@ -185,8 +185,30 @@ class CallControl(object):
                                          FUNC.RESULT, EffectInfo.MOST_GENERAL)
         return (fnaddr, calldescr)
 
+    def _raise_effect_error(self, op, extraeffect, functype, calling_graph):
+        explanation = []
+        if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
+            explanation = self.randomeffects_analyzer.explain_analyze_slowly(op)
+        elif extraeffect == EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE:
+            explanation = self.virtualizable_analyzer.explain_analyze_slowly(op)
+        msg = []
+        if explanation:
+            msg = [
+                "_______ ERROR AT BOTTOM ______",
+                "RPython callstack leading to problem:",
+                ]
+            msg.extend(explanation)
+            msg.append("_______ ERROR: ______")
+        msg.append("operation %r" % op)
+        msg.append("in graph %s" % (calling_graph or "<unknown>"))
+        msg.append("this calls a %s function," % (functype, ))
+        msg.append(" but this contradicts other sources (e.g. it can have random"
+                   " effects): EF=%s" % (extraeffect, ))
+        raise Exception("\n".join(msg))
+
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
-                     extraeffect=None, extradescr=None):
+                     extraeffect=None, extradescr=None,
+                     calling_graph=None):
         """Return the calldescr that describes all calls done by 'op'.
         This returns a calldescr that we can put in the corresponding
         call operation in the calling jitcode.  It gets an effectinfo
@@ -202,13 +224,13 @@ class CallControl(object):
         ARGS = FUNC.ARGS
         if NON_VOID_ARGS != [T for T in ARGS if T is not lltype.Void]:
             raise Exception(
-                "in operation %r: caling a function with signature %r, "
+                "operation %r in %s: calling a function with signature %r, "
                 "but passing actual arguments (ignoring voids) of types %r"
-                % (op, FUNC, NON_VOID_ARGS))
+                % (op, calling_graph, FUNC, NON_VOID_ARGS))
         if RESULT != FUNC.RESULT:
             raise Exception(
-                "in operation %r: caling a function with signature %r, "
-                "but the actual return type is %r" % (op, FUNC, RESULT))
+                "%r in %s: calling a function with signature %r, "
+                "but the actual return type is %r" % (op, calling_graph, FUNC, RESULT))
         # ok
         # get the 'elidable' and 'loopinvariant' flags from the function object
         elidable = False
@@ -217,7 +239,7 @@ class CallControl(object):
         if op.opname == "direct_call":
             funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
-                "%r: getcalldescr() with a non-default call ABI" % (op,))
+                "%r in %s: getcalldescr() with a non-default call ABI" % (op, calling_graph))
             func = getattr(funcobj, '_callable', None)
             elidable = getattr(func, "_elidable_function_", False)
             loopinvariant = getattr(func, "_jit_loop_invariant_", False)
@@ -245,11 +267,11 @@ class CallControl(object):
                 if not error:
                     continue
                 raise Exception(
-                    "%r is an indirect call to a family of functions "
+                    "%r in %s is an indirect call to a family of functions "
                     "(or methods) that includes %r. However, the latter "
                     "is marked %r. You need to use an indirection: replace "
                     "it with a non-marked function/method which calls the "
-                    "marked function." % (op, graph, error))
+                    "marked function." % (op, calling_graph, graph, error))
         # build the extraeffect
         random_effects = self.randomeffects_analyzer.analyze(op)
         if random_effects:
@@ -277,22 +299,17 @@ class CallControl(object):
         # check that the result is really as expected
         if loopinvariant:
             if extraeffect != EffectInfo.EF_LOOPINVARIANT:
-                raise Exception(
-                "in operation %r: this calls a _jit_loop_invariant_ function,"
-                " but this contradicts other sources (e.g. it can have random"
-                " effects): EF=%s" % (op, extraeffect))
+                self._raise_effect_error(op, extraeffect, "_jit_loop_invariant_", calling_graph)
         if elidable:
             if extraeffect not in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
                                    EffectInfo.EF_ELIDABLE_OR_MEMORYERROR,
                                    EffectInfo.EF_ELIDABLE_CAN_RAISE):
-                raise Exception(
-                "in operation %r: this calls an elidable function,"
-                " but this contradicts other sources (e.g. it can have random"
-                " effects): EF=%s" % (op, extraeffect))
+
+                self._raise_effect_error(op, extraeffect, "elidable", calling_graph)
             elif RESULT is lltype.Void:
                 raise Exception(
-                    "in operation %r: this calls an elidable function "
-                    "but the function has no result" % (op, ))
+                    "operation %r in %s: this calls an elidable function "
+                    "but the function has no result" % (op, calling_graph))
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op, self.seen_rw), self.cpu,

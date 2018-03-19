@@ -1,3 +1,4 @@
+import math
 import sys
 
 import py
@@ -3973,7 +3974,6 @@ class BaseLLtypeTests(BasicTests):
         assert res == 3
 
     def test_float_bytes(self):
-        from rpython.rlib.rfloat import isnan
         def f(n):
             ll = float2longlong(n)
             return longlong2float(ll)
@@ -3981,7 +3981,7 @@ class BaseLLtypeTests(BasicTests):
         for x in [2.5, float("nan"), -2.5, float("inf")]:
             # There are tests elsewhere to verify the correctness of this.
             res = self.interp_operations(f, [x])
-            assert res == x or isnan(x) and isnan(res)
+            assert res == x or math.isnan(x) and math.isnan(res)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
@@ -4613,3 +4613,51 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.check_operations_history(guard_nonnull=0, guard_nonnull_class=0,
                                       guard_class=2,
                                       assert_not_none=2) # before optimization
+
+    def test_call_time_clock(self):
+        import time
+        def g():
+            time.clock()
+            return 0
+        self.interp_operations(g, [])
+
+    def test_issue2465(self):
+        driver = JitDriver(greens=[], reds=['i', 'a', 'b'])
+        class F(object):
+            def __init__(self, floatval):
+                self.floatval = floatval
+        def f(i):
+            a = F(0.0)
+            b = None
+            while i > 0:
+                driver.jit_merge_point(i=i, a=a, b=b)
+                b = F(a.floatval / 1.)
+                i -= 1
+            return i
+
+        self.meta_interp(f, [10])
+
+    def test_finalizer_bug(self):
+        py.test.skip("loops!")
+        from rpython.rlib import rgc
+        driver = JitDriver(greens=[], reds=[])
+        class Fin(object):
+            @rgc.must_be_light_finalizer
+            def __del__(self):
+                holder[0].field = 7
+        class Un(object):
+            def __init__(self):
+                self.field = 0
+        holder = [Un()]
+
+        def f():
+            while True:
+                driver.jit_merge_point()
+                holder[0].field = 0
+                Fin()
+                if holder[0].field:
+                    break
+            return holder[0].field
+
+        f() # finishes
+        self.meta_interp(f, [])

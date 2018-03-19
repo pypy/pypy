@@ -18,8 +18,9 @@ alias = {
     'Antonio Cuni': ['antocuni', 'anto'],
     'Armin Rigo': ['arigo', 'arfigo', 'armin', 'arigato'],
     'Maciej Fijalkowski': ['fijal'],
-    'Carl Friedrich Bolz': ['cfbolz', 'cf'],
+    'Carl Friedrich Bolz-Tereick': ['Carl Friedrich Bolz', 'cfbolz', 'cf'],
     'Samuele Pedroni': ['pedronis', 'samuele', 'samule'],
+    'Richard Plangger':['planrich'],
     'Michael Hudson': ['mwh'],
     'Holger Krekel': ['hpk', 'holger krekel', 'holger', 'hufpk'],
     "Amaury Forgeot d'Arc": ['afa'],
@@ -67,7 +68,7 @@ alias = {
     'Edd Barrett': ['edd'],
     'Manuel Jacob': ['mjacob'],
     'Rami Chowdhury': ['necaris'],
-    'Stanislaw Halik':['w31rd0'],
+    'Stanislaw Halik': ['Stanislaw Halik', 'w31rd0'],
     'Wenzhu Man':['wenzhu man', 'wenzhuman'],
     'Anton Gulenko':['anton gulenko', 'anton_gulenko'],
     'Richard Lancaster':['richardlancaster'],
@@ -75,9 +76,12 @@ alias = {
     'Spenser Bauman':['Spenser Andrew Bauman'],
     'Raffael Tfirst':['raffael.tfirst@gmail.com'],
     'timo':['timo@eistee.fritz.box'],
-    'Jasper Schulz':['Jasper.Schulz'],
+    'Jasper Schulz':['Jasper.Schulz', 'jbs'],
     'Aaron Gallagher':['"Aaron Gallagher'],
     'Yasir Suhail':['yasirs'],
+    'Squeaky': ['squeaky'],
+    "Amaury Forgeot d'Arc": ['amauryfa@gmail.com'],
+    "Dodan Mihai": ['mihai.dodan@gmail.com'],
     }
 
 alias_map = {}

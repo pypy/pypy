@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.module import _cffi_backend
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cffi_opcode, newtype, ctypestruct
+from pypy.module._cffi_backend import ctypeprim
 from pypy.module._cffi_backend import parse_c_type
 
 
@@ -70,6 +71,10 @@ class RealizeCache:
         "uint_fast64_t",
         "intmax_t",
         "uintmax_t",
+        "float _Complex",
+        "double _Complex",
+        "char16_t",
+        "char32_t",
         ]
     assert len(NAMES) == cffi_opcode._NUM_PRIM
 
@@ -131,15 +136,15 @@ def realize_global_int(ffi, g, gindex):
 
     if neg == 0:     # positive
         if value <= rffi.cast(rffi.ULONGLONG, sys.maxint):
-            return ffi.space.wrap(intmask(value))
+            return ffi.space.newint(intmask(value))
         else:
-            return ffi.space.wrap(value)
+            return ffi.space.newint(value)
     elif neg == 1:   # negative
         value = rffi.cast(rffi.LONGLONG, value)
         if value >= -sys.maxint-1:
-            return ffi.space.wrap(intmask(value))
+            return ffi.space.newint(intmask(value))
         else:
-            return ffi.space.wrap(value)
+            return ffi.space.newint(value)
 
     if neg == 2:
         got = "%d (0x%x)" % (value, value)
@@ -209,7 +214,7 @@ class W_RawFuncType(W_Root):
         # which the struct args are replaced with ptr-to- struct, and
         # a struct return value is replaced with a hidden first arg of
         # type ptr-to-struct.  This is how recompiler.py produces
-        # trampoline functions for PyPy.
+        # trampoline functions for PyPy.  (Same with complex numbers.)
         if self.nostruct_ctype is None:
             fargs, fret, ellipsis, abi = self._unpack(ffi)
             # 'locs' will be a string of the same length as the final fargs,
@@ -218,11 +223,13 @@ class W_RawFuncType(W_Root):
             locs = ['\x00'] * len(fargs)
             for i in range(len(fargs)):
                 farg = fargs[i]
-                if isinstance(farg, ctypestruct.W_CTypeStructOrUnion):
+                if (isinstance(farg, ctypestruct.W_CTypeStructOrUnion) or
+                    isinstance(farg, ctypeprim.W_CTypePrimitiveComplex)):
                     farg = newtype.new_pointer_type(ffi.space, farg)
                     fargs[i] = farg
                     locs[i] = 'A'
-            if isinstance(fret, ctypestruct.W_CTypeStructOrUnion):
+            if (isinstance(fret, ctypestruct.W_CTypeStructOrUnion) or
+                isinstance(fret, ctypeprim.W_CTypePrimitiveComplex)):
                 fret = newtype.new_pointer_type(ffi.space, fret)
                 fargs = [fret] + fargs
                 locs = ['R'] + locs
@@ -364,7 +371,7 @@ def _realize_c_enum(ffi, eindex):
             while p[j] != ',' and p[j] != '\x00':
                 j += 1
             enname = rffi.charpsize2str(p, j)
-            enumerators_w.append(space.wrap(enname))
+            enumerators_w.append(space.newtext(enname))
 
             gindex = parse_c_type.search_in_globals(ffi.ctxobj.ctx, enname)
             assert gindex >= 0
@@ -493,10 +500,10 @@ def do_realize_lazy_struct(w_ctype):
                                          field_name, "'")
 
         fields_w[i] = space.newtuple([
-            space.wrap(field_name),
+            space.newtext(field_name),
             w_ctf,
-            space.wrap(fbitsize),
-            space.wrap(field_offset)])
+            space.newint(fbitsize),
+            space.newint(field_offset)])
 
     sflags = 0
     c_flags = rffi.getintfield(s, 'c_flags')

@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, Py_ssize_t
-from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref, make_ref, Py_DecRef
+from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref, make_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.cpyext.state import State
@@ -95,53 +95,58 @@ def PyNumber_Coerce(space, pp1, pp2):
 def func_rename(newname):
     return lambda func: func_with_new_name(func, newname)
 
-def make_numbermethod(name, spacemeth):
+def make_numbermethod(cname, spacemeth):
     @cpython_api([PyObject, PyObject], PyObject)
-    @func_rename('PyNumber_%s' % (name,))
+    @func_rename(cname)
     def PyNumber_Method(space, w_o1, w_o2):
         meth = getattr(space, spacemeth)
         return meth(w_o1, w_o2)
+    return PyNumber_Method
 
 def make_unary_numbermethod(name, spacemeth):
     @cpython_api([PyObject], PyObject)
-    @func_rename('PyNumber_%s' % (name,))
+    @func_rename(cname)
     def PyNumber_Method(space, w_o1):
         meth = getattr(space, spacemeth)
         return meth(w_o1)
+    return PyNumber_Method
 
-def make_inplace_numbermethod(name, spacemeth):
+def make_inplace_numbermethod(cname, spacemeth):
     spacemeth = 'inplace_' + spacemeth.rstrip('_')
     @cpython_api([PyObject, PyObject], PyObject)
-    @func_rename('PyNumber_InPlace%s' % (name,))
+    @func_rename(cname)
     def PyNumber_Method(space, w_o1, w_o2):
         meth = getattr(space, spacemeth)
         return meth(w_o1, w_o2)
+    return PyNumber_Method
 
 for name, spacemeth in [
-    ('Add', 'add'),
-    ('Subtract', 'sub'),
-    ('Multiply', 'mul'),
-    ('Divide', 'div'),
-    ('FloorDivide', 'floordiv'),
-    ('TrueDivide', 'truediv'),
-    ('Remainder', 'mod'),
-    ('Lshift', 'lshift'),
-    ('Rshift', 'rshift'),
-    ('And', 'and_'),
-    ('Xor', 'xor'),
-    ('Or', 'or_'),
-    ('Divmod', 'divmod'),
-    ]:
-    make_numbermethod(name, spacemeth)
+        ('Add', 'add'),
+        ('Subtract', 'sub'),
+        ('Multiply', 'mul'),
+        ('Divide', 'div'),
+        ('FloorDivide', 'floordiv'),
+        ('TrueDivide', 'truediv'),
+        ('Remainder', 'mod'),
+        ('Lshift', 'lshift'),
+        ('Rshift', 'rshift'),
+        ('And', 'and_'),
+        ('Xor', 'xor'),
+        ('Or', 'or_'),
+        ('Divmod', 'divmod')]:
+    cname = 'PyNumber_%s' % (name,)
+    globals()[cname] = make_numbermethod(cname, spacemeth)
     if name != 'Divmod':
-        make_inplace_numbermethod(name, spacemeth)
+        cname = 'PyNumber_InPlace%s' % (name,)
+        globals()[cname] = make_inplace_numbermethod(cname, spacemeth)
 
 for name, spacemeth in [
-    ('Negative', 'neg'),
-    ('Positive', 'pos'),
-    ('Absolute', 'abs'),
-    ('Invert', 'invert')]:
-    make_unary_numbermethod(name, spacemeth)
+        ('Negative', 'neg'),
+        ('Positive', 'pos'),
+        ('Absolute', 'abs'),
+        ('Invert', 'invert')]:
+    cname = 'PyNumber_%s' % (name,)
+    globals()[cname] = make_unary_numbermethod(cname, spacemeth)
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyNumber_Power(space, w_o1, w_o2, w_o3):

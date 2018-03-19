@@ -827,6 +827,21 @@ class MIFrame(object):
                             self._remove_symbolics(scalebox),
                             self._remove_symbolics(baseofsbox), bytesbox)
 
+    @arguments("box", "box", "box", "box", "box", "box", "descr")
+    def _opimpl_gc_store_indexed(self, addrbox, indexbox, valuebox,
+                                 scalebox, baseofsbox, bytesbox,
+                                 arraydescr):
+        return self.execute_with_descr(rop.GC_STORE_INDEXED,
+                                       arraydescr,
+                                       addrbox,
+                                       indexbox,
+                                       valuebox,
+                                       self._remove_symbolics(scalebox),
+                                       self._remove_symbolics(baseofsbox),
+                                       bytesbox)
+    opimpl_gc_store_indexed_i = _opimpl_gc_store_indexed
+    opimpl_gc_store_indexed_f = _opimpl_gc_store_indexed
+
     @arguments("box")
     def opimpl_hint_force_virtualizable(self, box):
         self.metainterp.gen_store_back_in_vable(box)
@@ -1839,12 +1854,7 @@ class MetaInterpStaticData(object):
         self._addr2name_keys = []
         self._addr2name_values = []
 
-        self.__dict__.update(compile.make_done_loop_tokens())
-        for val in ['int', 'float', 'ref', 'void']:
-            fullname = 'done_with_this_frame_descr_' + val
-            setattr(self.cpu, fullname, getattr(self, fullname))
-        d = self.exit_frame_with_exception_descr_ref
-        self.cpu.exit_frame_with_exception_descr_ref = d
+        compile.make_and_attach_done_descrs([self, cpu])
 
     def _freeze_(self):
         return True
@@ -1894,8 +1904,8 @@ class MetaInterpStaticData(object):
                     history.REF: 'ref',
                     history.FLOAT: 'float',
                     history.VOID: 'void'}[jd.result_type]
-            tokens = getattr(self, 'loop_tokens_done_with_this_frame_%s' % name)
-            jd.portal_finishtoken = tokens[0].finishdescr
+            token = getattr(self, 'done_with_this_frame_descr_%s' % name)
+            jd.portal_finishtoken = token
             jd.propagate_exc_descr = exc_descr
         #
         self.cpu.propagate_exception_descr = exc_descr
@@ -2024,8 +2034,6 @@ class MetaInterp(object):
         self.aborted_tracing_greenkey = None
 
     def retrace_needed(self, trace, exported_state):
-        if not we_are_translated():
-            exported_state._check_no_forwarding()
         self.partial_trace = trace
         self.retracing_from = self.potential_retrace_position
         self.exported_state = exported_state
@@ -2424,7 +2432,6 @@ class MetaInterp(object):
         self.staticdata.profiler.start_tracing()
         assert jitdriver_sd is self.jitdriver_sd
         self.staticdata.try_to_free_some_loops()
-        self.create_empty_history()
         try:
             original_boxes = self.initialize_original_boxes(jitdriver_sd, *args)
             return self._compile_and_run_once(original_boxes)
@@ -2438,10 +2445,11 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         original_greenkey = original_boxes[:num_green_args]
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
-        self.history.set_inputargs(original_boxes[num_green_args:],
-                                   self.staticdata)
         self.seen_loop_header_for_jdindex = -1
         try:
+            self.create_empty_history()
+            self.history.set_inputargs(original_boxes[num_green_args:],
+                                       self.staticdata)
             self.interpret()
         except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
@@ -2450,10 +2458,7 @@ class MetaInterp(object):
     def handle_guard_failure(self, resumedescr, deadframe):
         debug_start('jit-tracing')
         self.staticdata.profiler.start_tracing()
-        if isinstance(resumedescr, compile.ResumeGuardCopiedDescr):
-            key = resumedescr.prev
-        else:
-            key = resumedescr
+        key = resumedescr.get_resumestorage()
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
@@ -2461,9 +2466,11 @@ class MetaInterp(object):
         if self.resumekey_original_loop_token is None:
             raise compile.giveup() # should be rare
         self.staticdata.try_to_free_some_loops()
-        inputargs = self.initialize_state_from_guard_failure(key, deadframe)
         try:
+            inputargs = self.initialize_state_from_guard_failure(key, deadframe)
             return self._handle_guard_failure(resumedescr, key, inputargs, deadframe)
+        except SwitchToBlackhole as stb:
+            self.run_blackhole_interp_to_cancel_tracing(stb)
         finally:
             self.resumekey_original_loop_token = None
             self.staticdata.profiler.end_tracing()
@@ -2475,13 +2482,10 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
-        try:
-            self.prepare_resume_from_failure(deadframe, inputargs, resumedescr)
-            if self.resumekey_original_loop_token is None:   # very rare case
-                raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
-            self.interpret()
-        except SwitchToBlackhole as stb:
-            self.run_blackhole_interp_to_cancel_tracing(stb)
+        self.prepare_resume_from_failure(deadframe, inputargs, resumedescr)
+        if self.resumekey_original_loop_token is None:   # very rare case
+            raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
+        self.interpret()
         assert False, "should always raise"
 
     def run_blackhole_interp_to_cancel_tracing(self, stb):
@@ -2758,21 +2762,19 @@ class MetaInterp(object):
         if result_type == history.VOID:
             assert exitbox is None
             exits = []
-            loop_tokens = sd.loop_tokens_done_with_this_frame_void
+            token = sd.done_with_this_frame_descr_void
         elif result_type == history.INT:
             exits = [exitbox]
-            loop_tokens = sd.loop_tokens_done_with_this_frame_int
+            token = sd.done_with_this_frame_descr_int
         elif result_type == history.REF:
             exits = [exitbox]
-            loop_tokens = sd.loop_tokens_done_with_this_frame_ref
+            token = sd.done_with_this_frame_descr_ref
         elif result_type == history.FLOAT:
             exits = [exitbox]
-            loop_tokens = sd.loop_tokens_done_with_this_frame_float
+            token = sd.done_with_this_frame_descr_float
         else:
             assert False
-        # FIXME: kill TerminatingLoopToken?
         # FIXME: can we call compile_trace?
-        token = loop_tokens[0].finishdescr
         self.history.record(rop.FINISH, exits, None, descr=token)
         self.history.trace.done()
         target_token = compile.compile_trace(self, self.resumekey, exits)
@@ -2798,7 +2800,7 @@ class MetaInterp(object):
     def compile_exit_frame_with_exception(self, valuebox):
         self.store_token_in_vable()
         sd = self.staticdata
-        token = sd.loop_tokens_exit_frame_with_exception_ref[0].finishdescr
+        token = sd.exit_frame_with_exception_descr_ref
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
         self.history.trace.done()
         target_token = compile.compile_trace(self, self.resumekey, [valuebox])

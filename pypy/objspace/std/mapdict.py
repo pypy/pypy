@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string,
-    W_DictObject,
+    W_DictObject, BytesDictStrategy, UnicodeDictStrategy
 )
 from pypy.objspace.std.typeobject import MutableCell
 
@@ -24,6 +24,10 @@ NUM_DIGITS = 4
 NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # note: we use "x * NUM_DIGITS_POW2" instead of "x << NUM_DIGITS" because
 # we want to propagate knowledge that the result cannot be negative
+
+# the maximum number of attributes stored in mapdict (afterwards just use a
+# dict)
+LIMIT_MAP_ATTRIBUTES = 80
 
 
 class AbstractAttribute(object):
@@ -253,6 +257,9 @@ class AbstractAttribute(object):
     def materialize_r_dict(self, space, obj, dict_w):
         raise NotImplementedError("abstract base class")
 
+    def materialize_str_dict(self, space, obj, str_dict):
+        raise NotImplementedError("abstract base class")
+
     def remove_dict_entries(self, obj):
         raise NotImplementedError("abstract base class")
 
@@ -272,6 +279,13 @@ class Terminator(AbstractAttribute):
 
     def _write_terminator(self, obj, name, index, w_value):
         obj._get_mapdict_map().add_attr(obj, name, index, w_value)
+        if index == DICT and obj._get_mapdict_map().length() >= LIMIT_MAP_ATTRIBUTES:
+            space = self.space
+            w_dict = obj.getdict(space)
+            assert isinstance(w_dict, W_DictMultiObject)
+            strategy = w_dict.get_strategy()
+            assert isinstance(strategy, MapDictStrategy)
+            strategy.switch_to_text_strategy(w_dict)
         return True
 
     def copy(self, obj):
@@ -302,6 +316,12 @@ class DictTerminator(Terminator):
         self.devolved_dict_terminator = DevolvedDictTerminator(space, w_cls)
 
     def materialize_r_dict(self, space, obj, dict_w):
+        return self._make_devolved(space)
+
+    def materialize_str_dict(self, space, obj, dict_w):
+        return self._make_devolved(space)
+
+    def _make_devolved(self, space):
         result = Object()
         result.space = space
         result._mapdict_init_empty(self.devolved_dict_terminator)
@@ -337,7 +357,7 @@ class DevolvedDictTerminator(Terminator):
             space = self.space
             w_dict = obj.getdict(space)
             try:
-                space.delitem(w_dict, space.wrap(name))
+                space.delitem(w_dict, space.newtext(name))
             except OperationError as ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
@@ -402,8 +422,16 @@ class PlainAttribute(AbstractAttribute):
     def materialize_r_dict(self, space, obj, dict_w):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.index == DICT:
-            w_attr = space.wrap(self.name)
+            w_attr = space.newtext(self.name)
             dict_w[w_attr] = obj._mapdict_read_storage(self.storageindex)
+        else:
+            self._copy_attr(obj, new_obj)
+        return new_obj
+
+    def materialize_str_dict(self, space, obj, str_dict):
+        new_obj = self.back.materialize_str_dict(space, obj, str_dict)
+        if self.index == DICT:
+            str_dict[self.name] = obj._mapdict_read_storage(self.storageindex)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -436,6 +464,9 @@ class MapAttrCache(object):
             self.indexes[i] = INVALID
         for i in range(len(self.cached_attrs)):
             self.cached_attrs[i] = None
+
+    def _cleanup_(self):
+        self.clear()
 
 # ____________________________________________________________
 # object implementation
@@ -736,11 +767,20 @@ class MapDictStrategy(DictStrategy):
         assert w_obj.getdict(self.space) is w_dict or w_obj._get_mapdict_map().terminator.w_cls is None
         materialize_r_dict(self.space, w_obj, dict_w)
 
+    def switch_to_text_strategy(self, w_dict):
+        w_obj = self.unerase(w_dict.dstorage)
+        strategy = self.space.fromcache(BytesDictStrategy)
+        str_dict = strategy.unerase(strategy.get_empty_storage())
+        w_dict.set_strategy(strategy)
+        w_dict.dstorage = strategy.erase(str_dict)
+        assert w_obj.getdict(self.space) is w_dict or w_obj._get_mapdict_map().terminator.w_cls is None
+        materialize_str_dict(self.space, w_obj, str_dict)
+
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_str):
-            return self.getitem_str(w_dict, space.str_w(w_key))
+        if space.is_w(w_lookup_type, space.w_text):
+            return self.getitem_str(w_dict, space.text_w(w_key))
         elif _never_equal_to_string(space, w_lookup_type):
             return None
         else:
@@ -758,16 +798,16 @@ class MapDictStrategy(DictStrategy):
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
+        if space.is_w(space.type(w_key), space.w_text):
+            self.setitem_str(w_dict, self.space.text_w(w_key), w_value)
         else:
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            key = space.str_w(w_key)
+        if space.is_w(space.type(w_key), space.w_text):
+            key = space.text_w(w_key)
             w_result = self.getitem_str(w_dict, key)
             if w_result is not None:
                 return w_result
@@ -781,8 +821,8 @@ class MapDictStrategy(DictStrategy):
         space = self.space
         w_key_type = space.type(w_key)
         w_obj = self.unerase(w_dict.dstorage)
-        if space.is_w(w_key_type, space.w_str):
-            key = self.space.str_w(w_key)
+        if space.is_w(w_key_type, space.w_text):
+            key = self.space.text_w(w_key)
             flag = w_obj.deldictvalue(space, key)
             if not flag:
                 raise KeyError
@@ -812,7 +852,7 @@ class MapDictStrategy(DictStrategy):
             raise KeyError
         key = curr.name
         w_value = self.getitem_str(w_dict, key)
-        w_key = self.space.wrap(key)
+        w_key = self.space.newtext(key)
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
@@ -829,6 +869,11 @@ class MapDictStrategy(DictStrategy):
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
     new_obj = map.materialize_r_dict(space, obj, dict_w)
+    obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
+
+def materialize_str_dict(space, obj, dict_w):
+    map = obj._get_mapdict_map()
+    new_obj = map.materialize_str_dict(space, obj, dict_w)
     obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
 
@@ -869,7 +914,7 @@ class MapDictIteratorKeys(BaseKeyIterator):
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()
-            w_attr = self.space.wrap(attr)
+            w_attr = self.space.newtext(attr)
             return w_attr
         return None
 
@@ -906,7 +951,7 @@ class MapDictIteratorItems(BaseItemIterator):
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()
-            w_attr = self.space.wrap(attr)
+            w_attr = self.space.newtext(attr)
             return w_attr, self.w_obj.getdictvalue(self.space, attr)
         return None, None
 
@@ -984,7 +1029,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             return space._handle_getattribute(w_descr, w_obj, w_name)
         version_tag = w_type.version_tag()
         if version_tag is not None:
-            name = space.str_w(w_name)
+            name = space.text_w(w_name)
             # We need to care for obscure cases in which the w_descr is
             # a MutableCell, which may change without changing the version_tag
             _, w_descr = w_type._pure_lookup_where_with_method_cache(

@@ -1443,6 +1443,31 @@ class TestLL2Ctypes(object):
         assert seen[0]() == 42
         assert seen[1]() == 43
 
+    def test_keep_value_across_lltype_callable(self):
+        PtrF = lltype.Ptr(lltype.FuncType([], lltype.Void))
+        f = rffi.cast(PtrF, 42)
+        assert lltype.typeOf(f) == PtrF
+        assert rffi.cast(lltype.Signed, f) == 42
+
+    def test_keep_value_across_rffi_llexternal(self):
+        c_source = py.code.Source(r"""
+            void ff1(void) { }
+            void *get_ff1(void) { return &ff1; }
+        """)
+        eci = ExternalCompilationInfo(
+            separate_module_sources=[c_source],
+            post_include_bits = [
+                "RPY_EXTERN void ff1(void); RPY_EXTERN void *get_ff1(void);"])
+        PtrFF1 = lltype.Ptr(lltype.FuncType([], lltype.Void))
+        f1 = rffi.llexternal('ff1', [], lltype.Void, compilation_info=eci,
+                             _nowrapper=True)
+        assert lltype.typeOf(f1) == PtrFF1
+        getff1 = rffi.llexternal('get_ff1', [], PtrFF1, compilation_info=eci,
+                                 _nowrapper=True)
+        f2 = getff1()
+        assert rffi.cast(lltype.Signed, f2) == rffi.cast(lltype.Signed, f1)
+        #assert f2 == f1  -- fails, would be nice but oh well
+
 
 class TestPlatform(object):
     def test_lib_on_libpaths(self):

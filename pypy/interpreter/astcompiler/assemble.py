@@ -1,12 +1,13 @@
 """Python control flow graph generation and bytecode assembly."""
 
+import math
 import os
-from rpython.rlib import rfloat
 from rpython.rlib.objectmodel import we_are_translated
 
 from pypy.interpreter.astcompiler import ast, misc, symtable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.miscutils import string_sort
 from pypy.tool import stdlib_opcode as ops
 
 
@@ -138,9 +139,12 @@ class Block(object):
 
 
 def _make_index_dict_filter(syms, flag):
+    names = syms.keys()
+    string_sort(names)   # return cell vars in alphabetical order
     i = 0
     result = {}
-    for name, scope in syms.iteritems():
+    for name in names:
+        scope = syms[name]
         if scope == flag:
             result[name] = i
             i += 1
@@ -170,6 +174,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.var_names = _list_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
                                                  symtable.SCOPE_CELL)
+        string_sort(scope.free_vars)    # return free vars in alphabetical order
         self.free_vars = _list_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
         self.argcount = 0
@@ -261,19 +266,19 @@ class PythonCodeMaker(ast.ASTVisitor):
         w_type = space.type(obj)
         if space.is_w(w_type, space.w_float):
             val = space.float_w(obj)
-            if val == 0.0 and rfloat.copysign(1., val) < 0:
+            if val == 0.0 and math.copysign(1., val) < 0:
                 w_key = space.newtuple([obj, space.w_float, space.w_None])
             else:
                 w_key = space.newtuple([obj, space.w_float])
         elif space.is_w(w_type, space.w_complex):
-            w_real = space.getattr(obj, space.wrap("real"))
-            w_imag = space.getattr(obj, space.wrap("imag"))
+            w_real = space.getattr(obj, space.newtext("real"))
+            w_imag = space.getattr(obj, space.newtext("imag"))
             real = space.float_w(w_real)
             imag = space.float_w(w_imag)
             real_negzero = (real == 0.0 and
-                            rfloat.copysign(1., real) < 0)
+                            math.copysign(1., real) < 0)
             imag_negzero = (imag == 0.0 and
-                            rfloat.copysign(1., imag) < 0)
+                            math.copysign(1., imag) < 0)
             if real_negzero and imag_negzero:
                 tup = [obj, space.w_complex, space.w_None, space.w_None,
                        space.w_None]
@@ -366,7 +371,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         space = self.space
         consts_w = [space.w_None] * space.len_w(w_consts)
         w_iter = space.iter(w_consts)
-        first = space.wrap(0)
+        first = space.newint(0)
         while True:
             try:
                 w_key = space.next(w_iter)

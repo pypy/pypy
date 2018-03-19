@@ -351,10 +351,7 @@ class RegressionTests(unittest.TestCase):
         self.assertRaises(ValueError, cur.execute, " \0select 2")
         self.assertRaises(ValueError, cur.execute, "select 2\0")
 
-    @test_support.impl_detail(pypy=False)
     def CheckCommitCursorReset(self):
-        # This test is for logic added in 2.7.13 which PyPy doesn't
-        # implement.  See http://bugs.python.org/issue29006
         """
         Connection.commit() did reset cursors, which made sqlite3
         to return rows multiple times when fetched from cursors

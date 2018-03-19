@@ -9,15 +9,19 @@ from pypy.interpreter.streamutil import wrap_streamerror
 
 
 def get_suffixes(space):
-    w = space.wrap
     suffixes_w = []
     if importing.has_so_extension(space):
         suffixes_w.append(
-            space.newtuple([w(importing.get_so_extension(space)),
-                            w('rb'), w(importing.C_EXTENSION)]))
+            space.newtuple([space.newtext(importing.get_so_extension(space)),
+                            space.newtext('rb'),
+                            space.newint(importing.C_EXTENSION)]))
     suffixes_w.extend([
-        space.newtuple([w('.py'), w('U'), w(importing.PY_SOURCE)]),
-        space.newtuple([w('.pyc'), w('rb'), w(importing.PY_COMPILED)]),
+        space.newtuple([space.newtext('.py'),
+                        space.newtext('U'),
+                        space.newint(importing.PY_SOURCE)]),
+        space.newtuple([space.newtext('.pyc'),
+                        space.newtext('rb'),
+                        space.newint(importing.PY_COMPILED)]),
         ])
     return space.newlist(suffixes_w)
 
@@ -30,7 +34,7 @@ def get_magic(space):
     c = x & 0xff
     x >>= 8
     d = x & 0xff
-    return space.wrap(chr(a) + chr(b) + chr(c) + chr(d))
+    return space.newbytes(chr(a) + chr(b) + chr(c) + chr(d))
 
 def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):
@@ -45,7 +49,7 @@ def get_file(space, w_file, filename, filemode):
         return space.interp_w(W_File, w_file).stream
 
 def find_module(space, w_name, w_path=None):
-    name = space.str0_w(w_name)
+    name = space.text0_w(w_name)
     if space.is_none(w_path):
         w_path = None
 
@@ -54,7 +58,7 @@ def find_module(space, w_name, w_path=None):
     if not find_info:
         raise oefmt(space.w_ImportError, "No module named %s", name)
 
-    w_filename = space.wrap(find_info.filename)
+    w_filename = space.newtext(find_info.filename)
     stream = find_info.stream
 
     if stream is not None:
@@ -62,20 +66,20 @@ def find_module(space, w_name, w_path=None):
         fileobj.fdopenstream(
             stream, stream.try_to_find_file_descriptor(),
             find_info.filemode, w_filename)
-        w_fileobj = space.wrap(fileobj)
+        w_fileobj = fileobj
     else:
         w_fileobj = space.w_None
     w_import_info = space.newtuple(
-        [space.wrap(find_info.suffix),
-         space.wrap(find_info.filemode),
-         space.wrap(find_info.modtype)])
+        [space.newtext(find_info.suffix),
+         space.newtext(find_info.filemode),
+         space.newint(find_info.modtype)])
     return space.newtuple([w_fileobj, w_filename, w_import_info])
 
 def load_module(space, w_name, w_file, w_filename, w_info):
     w_suffix, w_filemode, w_modtype = space.unpackiterable(w_info, 3)
 
-    filename = space.str0_w(w_filename)
-    filemode = space.str_w(w_filemode)
+    filename = space.fsencode_w(w_filename)
+    filemode = space.text_w(w_filemode)
     if space.is_w(w_file, space.w_None):
         stream = None
     else:
@@ -85,17 +89,17 @@ def load_module(space, w_name, w_file, w_filename, w_info):
         space.int_w(w_modtype),
         filename,
         stream,
-        space.str_w(w_suffix),
+        space.text_w(w_suffix),
         filemode)
     return importing.load_module(
         space, w_name, find_info, reuse=True)
 
 def load_source(space, w_modulename, w_filename, w_file=None):
-    filename = space.str0_w(w_filename)
+    filename = space.fsencode_w(w_filename)
 
     stream = get_file(space, w_file, filename, 'U')
 
-    w_mod = space.wrap(Module(space, w_modulename))
+    w_mod = Module(space, w_modulename)
     importing._prepare_module(space, w_mod, filename, None)
 
     w_mod = importing.load_source_module(
@@ -105,7 +109,7 @@ def load_source(space, w_modulename, w_filename, w_file=None):
         stream.close()
     return w_mod
 
-@unwrap_spec(filename='str0', check_afterwards=int)
+@unwrap_spec(filename='fsencode', check_afterwards=int)
 def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
                          check_afterwards=False):
     # the function 'imp._run_compiled_module' is a pypy-only extension
@@ -121,25 +125,25 @@ def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
         stream.close()
     return w_mod
 
-@unwrap_spec(filename='str0')
+@unwrap_spec(filename='fsencode')
 def load_compiled(space, w_modulename, filename, w_file=None):
-    w_mod = space.wrap(Module(space, w_modulename))
+    w_mod = Module(space, w_modulename)
     importing._prepare_module(space, w_mod, filename, None)
     return _run_compiled_module(space, w_modulename, filename, w_file, w_mod,
                                 check_afterwards=True)
 
-@unwrap_spec(filename=str)
+@unwrap_spec(filename='fsencode')
 def load_dynamic(space, w_modulename, filename, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")
-    importing.load_c_extension(space, filename, space.str_w(w_modulename))
-    return importing.check_sys_modules(space, w_modulename)
+    return importing.load_c_extension(space, filename,
+                                      space.text_w(w_modulename))
 
 def new_module(space, w_name):
-    return space.wrap(Module(space, w_name, add_package=False))
+    return Module(space, w_name, add_package=False)
 
 def init_builtin(space, w_name):
-    name = space.str0_w(w_name)
+    name = space.text0_w(w_name)
     if name not in space.builtin_modules:
         return
     if space.finditem(space.sys.get('modules'), w_name) is not None:
@@ -151,12 +155,12 @@ def init_frozen(space, w_name):
     return None
 
 def is_builtin(space, w_name):
-    name = space.str0_w(w_name)
+    name = space.text0_w(w_name)
     if name not in space.builtin_modules:
-        return space.wrap(0)
+        return space.newint(0)
     if space.finditem(space.sys.get('modules'), w_name) is not None:
-        return space.wrap(-1)   # cannot be initialized again
-    return space.wrap(1)
+        return space.newint(-1)   # cannot be initialized again
+    return space.newint(1)
 
 def is_frozen(space, w_name):
     return space.w_False
@@ -165,7 +169,7 @@ def is_frozen(space, w_name):
 
 def lock_held(space):
     if space.config.objspace.usemodules.thread:
-        return space.wrap(importing.getimportlock(space).lock_held_by_anyone())
+        return space.newbool(importing.getimportlock(space).lock_held_by_anyone())
     else:
         return space.w_False
 

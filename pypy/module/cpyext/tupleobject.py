@@ -1,12 +1,14 @@
 from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import fatalerror_notb
-from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
-                                    build_type_checkers, PyVarObjectFields,
-                                    cpython_struct, bootstrap_function)
-from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
-    make_ref, from_ref, decref, incref, pyobj_has_w_obj,
-    track_reference, make_typedescr, get_typedescr)
+from pypy.module.cpyext.api import (
+    cpython_api, Py_ssize_t, build_type_checkers_flags,
+    PyVarObjectFields, cpython_struct, bootstrap_function, slot_function)
+from pypy.module.cpyext.pyobject import (
+    PyObject, PyObjectP, make_ref, from_ref, decref, incref, BaseCpyTypedescr,
+    track_reference, make_typedescr, get_typedescr, pyobj_has_w_obj)
+from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
 
@@ -34,34 +36,36 @@ PyTupleObjectFields = PyVarObjectFields + \
 cpython_struct("PyTupleObject", PyTupleObjectFields, PyTupleObjectStruct)
 
 @bootstrap_function
-def init_stringobject(space):
+def init_tupleobject(space):
     "Type description of PyTupleObject"
+    state = space.fromcache(State)
     make_typedescr(space.w_tuple.layout.typedef,
                    basestruct=PyTupleObject.TO,
                    attach=tuple_attach,
-                   dealloc=tuple_dealloc,
+                   alloc=tuple_alloc,
+                   dealloc=state.C._PyPy_tuple_dealloc,
                    realize=tuple_realize)
 
-PyTuple_Check, PyTuple_CheckExact = build_type_checkers("Tuple")
+PyTuple_Check, PyTuple_CheckExact = build_type_checkers_flags("Tuple")
 
 def tuple_check_ref(space, ref):
     w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
     return (w_type is space.w_tuple or
             space.issubtype_w(w_type, space.w_tuple))
 
-def new_empty_tuple(space, length):
-    """
-    Allocate a PyTupleObject and its array of PyObject *, but without a
-    corresponding interpreter object.  The array may be mutated, until
-    tuple_realize() is called.  Refcount of the result is 1.
-    """
-    typedescr = get_typedescr(space.w_tuple.layout.typedef)
-    py_obj = typedescr.allocate(space, space.w_tuple, length)
-    py_tup = rffi.cast(PyTupleObject, py_obj)
-    p = py_tup.c_ob_item
-    for i in range(py_tup.c_ob_size):
-        p[i] = lltype.nullptr(PyObject.TO)
-    return py_obj
+_BAD_ITEMCOUNT = None    # patched in test_badinternalcall_from_rpy
+
+def tuple_alloc(typedescr, space, w_type, itemcount):
+    state = space.fromcache(State)
+    if w_type is space.w_tuple:
+        if not we_are_translated() and itemcount == _BAD_ITEMCOUNT:
+            itemcount = -42
+        ptup = state.ccall("PyTuple_New", itemcount)
+        if not ptup:
+            state.check_and_raise_exception(always=True)
+        return ptup
+    else:
+        return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
 
 def tuple_attach(space, py_obj, w_obj, w_userdata=None):
     """
@@ -74,7 +78,7 @@ def tuple_attach(space, py_obj, w_obj, w_userdata=None):
     if py_tup.c_ob_size < length:
         raise oefmt(space.w_ValueError,
             "tuple_attach called on object with ob_size %d but trying to store %d",
-            py_tup.c_ob_size, length) 
+            py_tup.c_ob_size, length)
     i = 0
     try:
         while i < length:
@@ -113,38 +117,34 @@ def tuple_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyObject], lltype.Void, header=None)
-def tuple_dealloc(space, py_obj):
-    """Frees allocated PyTupleObject resources.
-    """
-    py_tup = rffi.cast(PyTupleObject, py_obj)
-    p = py_tup.c_ob_item
-    for i in range(py_tup.c_ob_size):
-        decref(space, p[i])
-    from pypy.module.cpyext.object import _dealloc
-    _dealloc(space, py_obj)
-
-#_______________________________________________________________________
-
-@cpython_api([Py_ssize_t], PyObject, result_is_ll=True)
-def PyTuple_New(space, size):
-    return new_empty_tuple(space, size)
+def tuple_from_args_w(space, args_w):
+    state = space.fromcache(State)
+    n = len(args_w)
+    py_tuple = state.ccall("PyTuple_New", n)
+    if not py_tuple:
+        state.check_and_raise_exception(always=True)
+    py_tuple = rffi.cast(PyTupleObject, py_tuple)
+    for i, w_obj in enumerate(args_w):
+        py_tuple.c_ob_item[i] = make_ref(space, w_obj)
+    return rffi.cast(PyObject, py_tuple)
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyTuple_SetItem(space, ref, index, py_obj):
-    # XXX this will not complain when changing tuples that have
-    # already been realized as a W_TupleObject, but won't update the
-    # W_TupleObject
     if not tuple_check_ref(space, ref):
         decref(space, py_obj)
         PyErr_BadInternalCall(space)
-    ref = rffi.cast(PyTupleObject, ref)
-    size = ref.c_ob_size
+    tupleobj = rffi.cast(PyTupleObject, ref)
+    size = tupleobj.c_ob_size
     if index < 0 or index >= size:
         decref(space, py_obj)
         raise oefmt(space.w_IndexError, "tuple assignment index out of range")
-    old_ref = ref.c_ob_item[index]
-    ref.c_ob_item[index] = py_obj    # consumes a reference
+    old_ref = tupleobj.c_ob_item[index]
+    if pyobj_has_w_obj(ref):
+        # similar but not quite equal to ref.c_ob_refcnt != 1 on CPython
+        decref(space, py_obj)
+        raise oefmt(space.w_SystemError, "PyTuple_SetItem called on tuple after"
+                                        " use of tuple")
+    tupleobj.c_ob_item[index] = py_obj    # consumes a reference
     if old_ref:
         decref(space, old_ref)
     return 0
@@ -181,12 +181,16 @@ def _PyTuple_Resize(space, p_ref, newsize):
     this function. If the object referenced by *p is replaced, the original
     *p is destroyed.  On failure, returns -1 and sets *p to NULL, and
     raises MemoryError or SystemError."""
+    state = space.fromcache(State)
     ref = p_ref[0]
     if not tuple_check_ref(space, ref):
         PyErr_BadInternalCall(space)
     oldref = rffi.cast(PyTupleObject, ref)
     oldsize = oldref.c_ob_size
-    p_ref[0] = new_empty_tuple(space, newsize)
+    ptup = state.ccall("PyTuple_New", newsize)
+    if not ptup:
+        state.check_and_raise_exception(always=True)
+    p_ref[0] = ptup
     newref = rffi.cast(PyTupleObject, p_ref[0])
     try:
         if oldsize < newsize:
@@ -210,4 +214,4 @@ def PyTuple_GetSlice(space, w_obj, low, high):
     """Take a slice of the tuple pointed to by p from low to high and return it
     as a new tuple.
     """
-    return space.getslice(w_obj, space.wrap(low), space.wrap(high))
+    return space.getslice(w_obj, space.newint(low), space.newint(high))

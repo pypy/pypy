@@ -1,7 +1,6 @@
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from rpython.rlib.rarithmetic import most_neg_value_of_same_type
-from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
 from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
@@ -227,9 +226,9 @@ class rbigint(object):
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         # This function is not marked as pure because it can raise
-        if isinf(dval):
+        if math.isinf(dval):
             raise OverflowError("cannot convert float infinity to integer")
-        if isnan(dval):
+        if math.isnan(dval):
             raise ValueError("cannot convert float NaN to integer")
         return rbigint._fromfloat_finite(dval)
 
@@ -272,7 +271,7 @@ class rbigint(object):
 
     @staticmethod
     @jit.elidable
-    def fromstr(s, base=0):
+    def fromstr(s, base=0, allow_underscores=False):
         """As string_to_int(), but ignores an optional 'l' or 'L' suffix
         and returns an rbigint."""
         from rpython.rlib.rstring import NumberStringParser, \
@@ -281,7 +280,8 @@ class rbigint(object):
         if (s.endswith('l') or s.endswith('L')) and base < 22:
             # in base 22 and above, 'L' is a valid digit!  try: long('L',22)
             s = s[:-1]
-        parser = NumberStringParser(s, literal, base, 'long')
+        parser = NumberStringParser(s, literal, base, 'long',
+                                    allow_underscores=allow_underscores)
         return rbigint._from_numberstring_parser(parser)
 
     @staticmethod
@@ -695,9 +695,7 @@ class rbigint(object):
             return NULLRBIGINT
 
         if asize == 1:
-            if a._digits[0] == NULLDIGIT:
-                return NULLRBIGINT
-            elif a._digits[0] == ONEDIGIT:
+            if a._digits[0] == ONEDIGIT:
                 return rbigint(b._digits[:b.size], a.sign * b.sign, b.size)
             elif bsize == 1:
                 res = b.widedigit(0) * a.widedigit(0)
@@ -784,35 +782,15 @@ class rbigint(object):
 
     @jit.elidable
     def mod(self, other):
+        if other.sign == 0:
+            raise ZeroDivisionError("long division or modulo by zero")
         if self.sign == 0:
             return NULLRBIGINT
 
-        if other.sign != 0 and other.numdigits() == 1:
-            digit = other.digit(0)
-            if digit == 1:
-                return NULLRBIGINT
-            elif digit == 2:
-                modm = self.digit(0) & 1
-                if modm:
-                    return ONENEGATIVERBIGINT if other.sign == -1 else ONERBIGINT
-                return NULLRBIGINT
-            elif digit & (digit - 1) == 0:
-                mod = self.int_and_(digit - 1)
-            else:
-                # Perform
-                size = self.numdigits() - 1
-                if size > 0:
-                    rem = self.widedigit(size)
-                    size -= 1
-                    while size >= 0:
-                        rem = ((rem << SHIFT) + self.widedigit(size)) % digit
-                        size -= 1
-                else:
-                    rem = self.digit(0) % digit
-
-                if rem == 0:
-                    return NULLRBIGINT
-                mod = rbigint([_store_digit(rem)], -1 if self.sign < 0 else 1, 1)
+        if other.numdigits() == 1:
+            otherint = other.digit(0) * other.sign
+            assert int_in_valid_range(otherint)
+            return self.int_mod(otherint)
         else:
             div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
@@ -821,6 +799,8 @@ class rbigint(object):
 
     @jit.elidable
     def int_mod(self, other):
+        if other == 0:
+            raise ZeroDivisionError("long division or modulo by zero")
         if self.sign == 0:
             return NULLRBIGINT
 
@@ -828,7 +808,7 @@ class rbigint(object):
             # Fallback to long.
             return self.mod(rbigint.fromint(other))
 
-        elif other != 0:
+        if 1: # preserve indentation to preserve history
             digit = abs(other)
             if digit == 1:
                 return NULLRBIGINT
@@ -842,6 +822,7 @@ class rbigint(object):
             else:
                 # Perform
                 size = self.numdigits() - 1
+
                 if size > 0:
                     rem = self.widedigit(size)
                     size -= 1
@@ -854,8 +835,6 @@ class rbigint(object):
                 if rem == 0:
                     return NULLRBIGINT
                 mod = rbigint([_store_digit(rem)], -1 if self.sign < 0 else 1, 1)
-        else:
-            raise ZeroDivisionError("long division or modulo by zero")
 
         if mod.sign * (-1 if other < 0 else 1) == -1:
             mod = mod.int_add(other)
@@ -1825,16 +1804,14 @@ def _k_lopsided_mul(a, b):
     ret._normalize()
     return ret
 
-def _inplace_divrem1(pout, pin, n, size=0):
+def _inplace_divrem1(pout, pin, n):
     """
     Divide bigint pin by non-zero digit n, storing quotient
     in pout, and returning the remainder. It's OK for pin == pout on entry.
     """
     rem = _widen_digit(0)
     assert n > 0 and n <= MASK
-    if not size:
-        size = pin.numdigits()
-    size -= 1
+    size = pin.numdigits() - 1
     while size >= 0:
         rem = (rem << SHIFT) | pin.widedigit(size)
         hi = rem // n
@@ -2552,6 +2529,8 @@ def _bitwise(a, op, b): # '&', '|', '^'
             maska ^= MASK
             maskb ^= MASK
             negz = -1
+    else:
+        assert 0, "unreachable"
 
     # JRH: The original logic here was to allocate the result value (z)
     # as the longer of the two operands.  However, there are some cases

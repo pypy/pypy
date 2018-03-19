@@ -6,6 +6,7 @@ import ctypes.util
 from cffi.backend_ctypes import CTypesBackend
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
 from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture
+from .backend_tests import needs_dlopen_none
 
 try:
     from StringIO import StringIO
@@ -112,6 +113,7 @@ class TestFunction(object):
             int fputs(const char *, void *);
             void *stderr;
         """)
+        needs_dlopen_none()
         ffi.C = ffi.dlopen(None)
         ffi.C.fputs   # fetch before capturing, for easier debugging
         with FdWriteCapture() as fd:
@@ -128,6 +130,7 @@ class TestFunction(object):
             int fputs(char *, void *);
             void *stderr;
         """)
+        needs_dlopen_none()
         ffi.C = ffi.dlopen(None)
         ffi.C.fputs   # fetch before capturing, for easier debugging
         with FdWriteCapture() as fd:
@@ -144,6 +147,7 @@ class TestFunction(object):
            int fprintf(void *, const char *format, ...);
            void *stderr;
         """)
+        needs_dlopen_none()
         ffi.C = ffi.dlopen(None)
         with FdWriteCapture() as fd:
             ffi.C.fprintf(ffi.C.stderr, b"hello with no arguments\n")
@@ -170,6 +174,7 @@ class TestFunction(object):
         ffi.cdef("""
            int printf(const char *format, ...);
         """)
+        needs_dlopen_none()
         ffi.C = ffi.dlopen(None)
         e = py.test.raises(TypeError, ffi.C.printf, b"hello %d\n", 42)
         assert str(e.value) == ("argument 2 passed in the variadic part "
@@ -180,6 +185,7 @@ class TestFunction(object):
         ffi.cdef("""
             int puts(const char *);
         """)
+        needs_dlopen_none()
         ffi.C = ffi.dlopen(None)
         fptr = ffi.C.puts
         assert ffi.typeof(fptr) == ffi.typeof("int(*)(const char*)")
@@ -203,6 +209,7 @@ class TestFunction(object):
             int fputs(const char *, void *);
             void *stderr;
         """)
+        needs_dlopen_none()
         ffi.C = ffi.dlopen(None)
         fptr = ffi.cast("int(*)(const char *txt, void *)", ffi.C.fputs)
         assert fptr == ffi.C.fputs
@@ -236,6 +243,7 @@ class TestFunction(object):
         ffi.cdef("""
             int strlen(char[]);
         """)
+        needs_dlopen_none()
         ffi.C = ffi.dlopen(None)
         p = ffi.new("char[]", b"hello")
         res = ffi.C.strlen(p)
@@ -248,6 +256,7 @@ class TestFunction(object):
         ffi.cdef("""
             void *stdout;
         """)
+        needs_dlopen_none()
         C = ffi.dlopen(None)
         pout = C.stdout
         C.stdout = ffi.NULL
@@ -260,6 +269,7 @@ class TestFunction(object):
         ffi.cdef("""
             char *strchr(const char *s, int c);
         """)
+        needs_dlopen_none()
         ffi.C = ffi.dlopen(None)
         p = ffi.new("char[]", b"hello world!")
         q = ffi.C.strchr(p, ord('w'))
@@ -276,6 +286,7 @@ class TestFunction(object):
             struct in_addr { unsigned int s_addr; };
             char *inet_ntoa(struct in_addr in);
         """)
+        needs_dlopen_none()
         ffi.C = ffi.dlopen(None)
         ina = ffi.new("struct in_addr *", [0x04040404])
         a = ffi.C.inet_ntoa(ina[0])
@@ -297,6 +308,7 @@ class TestFunction(object):
         filename = str(udir.join('fputs_custom_FILE'))
         ffi = FFI(backend=self.Backend())
         ffi.cdef("int fputs(const char *, FILE *);")
+        needs_dlopen_none()
         C = ffi.dlopen(None)
         with open(filename, 'wb') as f:
             f.write(b'[')
@@ -312,6 +324,7 @@ class TestFunction(object):
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""enum foo_e { AA, BB, CC=5, DD };
                     typedef enum { EE=-5, FF } some_enum_t;""")
+        needs_dlopen_none()
         lib = ffi.dlopen(None)
         assert lib.AA == 0
         assert lib.BB == 1
@@ -323,6 +336,7 @@ class TestFunction(object):
     def test_void_star_accepts_string(self):
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""int strlen(const void *);""")
+        needs_dlopen_none()
         lib = ffi.dlopen(None)
         res = lib.strlen(b"hello")
         assert res == 5
@@ -332,6 +346,7 @@ class TestFunction(object):
             py.test.skip("not supported by the ctypes backend")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""int strlen(signed char *);""")
+        needs_dlopen_none()
         lib = ffi.dlopen(None)
         res = lib.strlen(b"hello")
         assert res == 5
@@ -341,6 +356,7 @@ class TestFunction(object):
             py.test.skip("not supported by the ctypes backend")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""int strlen(unsigned char *);""")
+        needs_dlopen_none()
         lib = ffi.dlopen(None)
         res = lib.strlen(b"hello")
         assert res == 5
@@ -484,3 +500,21 @@ class TestFunction(object):
         """)
         m = ffi.dlopen(lib_m)
         assert dir(m) == ['MYE1', 'MYE2', 'MYFOO', 'myconst', 'myfunc', 'myvar']
+
+    def test_dlclose(self):
+        if self.Backend is CTypesBackend:
+            py.test.skip("not with the ctypes backend")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("int foobar(void); int foobaz;")
+        lib = ffi.dlopen(lib_m)
+        ffi.dlclose(lib)
+        e = py.test.raises(ValueError, getattr, lib, 'foobar')
+        assert str(e.value).startswith("library '")
+        assert str(e.value).endswith("' has already been closed")
+        e = py.test.raises(ValueError, getattr, lib, 'foobaz')
+        assert str(e.value).startswith("library '")
+        assert str(e.value).endswith("' has already been closed")
+        e = py.test.raises(ValueError, setattr, lib, 'foobaz', 42)
+        assert str(e.value).startswith("library '")
+        assert str(e.value).endswith("' has already been closed")
+        ffi.dlclose(lib)    # does not raise

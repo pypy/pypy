@@ -109,9 +109,8 @@ class AppTest_fast_path_from_list(object):
         P_BOOL = _cffi_backend.new_pointer_type(BOOL)
         BOOL_ARRAY = _cffi_backend.new_array_type(P_BOOL, None)
         buf = _cffi_backend.newp(BOOL_ARRAY, [1, 0])
-        assert buf[0] == 1
-        assert buf[1] == 0
-        assert type(buf[1]) is int
+        assert buf[0] is True
+        assert buf[1] is False
         raises(OverflowError, _cffi_backend.newp, BOOL_ARRAY, [2])
         raises(OverflowError, _cffi_backend.newp, BOOL_ARRAY, [-1])
 

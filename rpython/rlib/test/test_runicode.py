@@ -2,6 +2,7 @@
 
 import py
 import sys, random
+import struct
 from rpython.rlib import runicode
 
 from hypothesis import given, settings, strategies
@@ -38,8 +39,10 @@ class UnicodeTests(object):
         assert x == y
         assert type(x) is type(y)
 
-    def getdecoder(self, encoding):
-        return getattr(runicode, "str_decode_%s" % encoding.replace("-", "_"))
+    def getdecoder(self, encoding, look_for_py3k=False):
+        prefix = "py3k_" if look_for_py3k else ""
+        return getattr(runicode, "%sstr_decode_%s" %
+                                 (prefix, encoding.replace("-", "_")))
 
     def getencoder(self, encoding):
         return getattr(runicode,
@@ -96,14 +99,17 @@ class UnicodeTests(object):
         assert '\xc3' in result
 
     def checkdecodeerror(self, s, encoding, start, stop,
-                         addstuff=True, msg=None):
+                         addstuff=True, msg=None,
+                         expected_reported_encoding=None,
+                         look_for_py3k=False):
         called = [0]
         def errorhandler(errors, enc, errmsg, t, startingpos,
                          endingpos):
             called[0] += 1
             if called[0] == 1:
                 assert errors == "foo!"
-                assert enc == encoding.replace('-', '')
+                assert enc == (expected_reported_encoding or
+                               encoding.replace('-', ''))
                 assert t is s
                 assert start == startingpos
                 assert stop == endingpos
@@ -111,7 +117,7 @@ class UnicodeTests(object):
                     assert errmsg == msg
                 return u"42424242", stop
             return u"", endingpos
-        decoder = self.getdecoder(encoding)
+        decoder = self.getdecoder(encoding, look_for_py3k=look_for_py3k)
         if addstuff:
             s += "some rest in ascii"
         result, _ = decoder(s, len(s), "foo!", True, errorhandler)
@@ -218,10 +224,71 @@ class TestDecoding(UnicodeTests):
                   ]:
             self.checkdecodeerror(s, "utf-16", 2, 4, addstuff=False)
 
+    def test_utf16_errors_py3k(self):
+        letter = sys.byteorder[0]
+        self.checkdecodeerror("\xff", "utf-16", 0, 1, addstuff=False,
+                              expected_reported_encoding='utf-16-%se' % letter,
+                              look_for_py3k=True)
+        self.checkdecodeerror("\xff", "utf-16-be", 0, 1, addstuff=False,
+                              expected_reported_encoding='utf-16-be',
+                              look_for_py3k=True)
+        self.checkdecodeerror("\xff", "utf-16-le", 0, 1, addstuff=False,
+                              expected_reported_encoding='utf-16-le',
+                              look_for_py3k=True)
+        self.checkdecodeerror("\xff", "utf-32", 0, 1, addstuff=False,
+                              expected_reported_encoding='utf-32-%se' % letter,
+                              look_for_py3k=True)
+        self.checkdecodeerror("\xff", "utf-32-be", 0, 1, addstuff=False,
+                              expected_reported_encoding='utf-32-be',
+                              look_for_py3k=True)
+        self.checkdecodeerror("\xff", "utf-32-le", 0, 1, addstuff=False,
+                              expected_reported_encoding='utf-32-le',
+                              look_for_py3k=True)
+
     def test_utf16_bugs(self):
         s = '\x80-\xe9\xdeL\xa3\x9b'
         py.test.raises(UnicodeDecodeError, runicode.str_decode_utf_16_le,
                        s, len(s), True)
+
+    def test_utf16_surrogates(self):
+        assert runicode.unicode_encode_utf_16_be(
+            u"\ud800", 1, None) == '\xd8\x00'
+        py.test.raises(UnicodeEncodeError, runicode.unicode_encode_utf_16_be,
+                       u"\ud800", 1, None, allow_surrogates=False)
+        def replace_with(ru, rs):
+            def errorhandler(errors, enc, msg, u, startingpos, endingpos):
+                if errors == 'strict':
+                    raise UnicodeEncodeError(enc, u, startingpos,
+                                             endingpos, msg)
+                return ru, rs, endingpos
+            return runicode.unicode_encode_utf_16_be(
+                u"<\ud800>", 3, None,
+                errorhandler, allow_surrogates=False)
+        assert replace_with(u'rep', None) == '\x00<\x00r\x00e\x00p\x00>'
+        assert replace_with(None, '\xca\xfe') == '\x00<\xca\xfe\x00>'
+
+    @py.test.mark.parametrize('unich',[u"\ud800", u"\udc80"])
+    def test_utf32_surrogates(self, unich):
+        assert runicode.unicode_encode_utf_32_be(
+            unich, 1, None) == struct.pack('>i', ord(unich))
+        py.test.raises(UnicodeEncodeError, runicode.unicode_encode_utf_32_be,
+                       unich, 1, None, allow_surrogates=False)
+        def replace_with(ru, rs):
+            def errorhandler(errors, enc, msg, u, startingpos, endingpos):
+                if errors == 'strict':
+                    raise UnicodeEncodeError(enc, u, startingpos,
+                                             endingpos, msg)
+                return ru, rs, endingpos
+            return runicode.unicode_encode_utf_32_be(
+                u"<%s>" % unich, 3, None,
+                errorhandler, allow_surrogates=False)
+        assert replace_with(u'rep', None) == u'<rep>'.encode('utf-32-be')
+        assert replace_with(None, '\xca\xfe\xca\xfe') == '\x00\x00\x00<\xca\xfe\xca\xfe\x00\x00\x00>'
+        #
+        assert runicode.str_decode_utf_32_be(
+            b"\x00\x00\xdc\x80", 4, None) == (u'\udc80', 4)
+        py.test.raises(UnicodeDecodeError, runicode.py3k_str_decode_utf_32_be,
+                       b"\x00\x00\xdc\x80", 4, None)
 
     def test_utf7_bugs(self):
         u = u'A\u2262\u0391.'
@@ -303,8 +370,11 @@ class TestUTF8Decoding(UnicodeTests):
             self.checkdecode(s, "utf-8")
 
     def test_utf8_surrogate(self):
-        # surrogates used to be allowed by python 2.x
-        py.test.raises(UnicodeDecodeError, self.checkdecode, u"\ud800", "utf-8")
+        # surrogates used to be allowed by python 2.x, and on narrow builds
+        if runicode.MAXUNICODE < 65536:
+            self.checkdecode(u"\ud800", "utf-8")
+        else:
+            py.test.raises(UnicodeDecodeError, self.checkdecode, u"\ud800", "utf-8")
 
     def test_invalid_start_byte(self):
         """
@@ -372,7 +442,7 @@ class TestUTF8Decoding(UnicodeTests):
             assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 'ignore',
                         final=True) == (u'aaaabbbb', len(seq) + 8))
             assert (self.decoder(seq, len(seq), 'custom', final=True,
-                        errorhandler=self.custom_replace) == 
+                        errorhandler=self.custom_replace) ==
                         (FOO * len(seq), len(seq)))
             assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 'custom',
                         final=True, errorhandler=self.custom_replace) ==
@@ -568,7 +638,7 @@ class TestUTF8Decoding(UnicodeTests):
                                   msg='invalid continuation byte')
             assert self.decoder(seq, len(seq), 'replace', final=True
                                 ) == (res, len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8,
                                  'replace', final=True) ==
                         (u'aaaa' + res + u'bbbb', len(seq) + 8))
             res = res.replace(FFFD, u'')

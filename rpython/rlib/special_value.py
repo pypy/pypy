@@ -1,5 +1,4 @@
 import math
-from rpython.rlib.rfloat import isnan, isinf, copysign
 
 # code to deal with special values (infinities, NaNs, ...)
 #
@@ -13,9 +12,9 @@ ST_PINF    = 5         # positive infinity
 ST_NAN     = 6         # Not a Number
 
 def special_type(d):
-    if isnan(d):
+    if math.isnan(d):
         return ST_NAN
-    elif isinf(d):
+    elif math.isinf(d):
         if d > 0.0:
             return ST_PINF
         else:
@@ -27,7 +26,7 @@ def special_type(d):
             else:
                 return ST_NEG
         else:
-            if copysign(1., d) == 1.:
+            if math.copysign(1., d) == 1.:
                 return ST_PZERO
             else:
                 return ST_NZERO
@@ -166,4 +165,4 @@ rect_special_values = build_table([
     (N,N),   (N,N), (N,Z),    (N,Z),     (N,N), (N,N),   (N,N),
     ])
 
-assert copysign(1., acosh_special_values[5][2][1]) == -1.
+assert math.copysign(1., acosh_special_values[5][2][1]) == -1.

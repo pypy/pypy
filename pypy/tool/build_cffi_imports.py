@@ -22,7 +22,18 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
 
     shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
                   ignore_errors=True)
+    # be sure pip, setuptools are installed in a fresh pypy
+    # allows proper functioning of cffi on win32 with newer vc compilers
+    # XXX move this to a build slave step?
+    status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
+    if status  != 0:
+        status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
     failures = []
+    env = os.environ.copy()
+    if sys.platform == 'win32':
+        env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
+        env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
+        env['PATH'] = r'..\externals\bin;' + env.get('PATH', '')
     for key, module in sorted(cffi_build_scripts.items()):
         if module is None or getattr(options, 'no_' + key, False):
             continue
@@ -34,7 +45,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
             cwd = None
         print('*', ' '.join(args), file=sys.stderr)
         try:
-            status, stdout, stderr = run_subprocess(str(pypy_c), args, cwd=cwd)
+            status, stdout, stderr = run_subprocess(str(pypy_c), args,
+                                                     cwd=cwd, env=env)
             if status != 0:
                 print(stdout, stderr, file=sys.stderr)
                 failures.append((key, module))

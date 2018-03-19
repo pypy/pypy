@@ -1,8 +1,7 @@
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import executioncontext
-from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount
@@ -14,9 +13,8 @@ class State:
         self.reset()
         self.programname = lltype.nullptr(rffi.CCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
-        if space.config.translation.gc != "boehm":
-            pyobj_dealloc_action = PyObjDeallocAction(space)
-            self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
+        self.builder = None
+        self.C = CNamespace()
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
@@ -47,6 +45,7 @@ class State:
         self.operror = None
         return operror
 
+    @specialize.arg(1)
     def check_and_raise_exception(self, always=False):
         operror = self.operror
         if operror:
@@ -57,22 +56,41 @@ class State:
                         "Function returned an error result without setting an "
                         "exception")
 
-    def build_api(self, space):
+    def setup_rawrefcount(self):
+        space = self.space
+        if not self.space.config.translating:
+            def dealloc_trigger():
+                from pypy.module.cpyext.pyobject import PyObject, decref
+                print 'dealloc_trigger...'
+                while True:
+                    ob = rawrefcount.next_dead(PyObject)
+                    if not ob:
+                        break
+                    print 'deallocating PyObject', ob
+                    decref(space, ob)
+                print 'dealloc_trigger DONE'
+                return "RETRY"
+            rawrefcount.init(dealloc_trigger)
+        else:
+            if space.config.translation.gc == "boehm":
+                action = BoehmPyObjDeallocAction(space)
+                space.actionflag.register_periodic_action(action,
+                    use_bytecode_counter=True)
+            else:
+                pyobj_dealloc_action = PyObjDeallocAction(space)
+                self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
+
+    def build_api(self):
         """NOT_RPYTHON
         This function is called when at object space creation,
         and drives the compilation of the cpyext library
         """
+        self.setup_rawrefcount()
         from pypy.module.cpyext import api
-        state = self.space.fromcache(State)
         if not self.space.config.translating:
-            state.api_lib = str(api.build_bridge(self.space))
+            self.api_lib = str(api.build_bridge(self.space))
         else:
             api.setup_library(self.space)
-            #
-            if self.space.config.translation.gc == "boehm":
-                action = BoehmPyObjDeallocAction(self.space)
-                self.space.actionflag.register_periodic_action(action,
-                    use_bytecode_counter=True)
 
     def install_dll(self, eci):
         """NOT_RPYTHON
@@ -84,17 +102,17 @@ class State:
 
     def startup(self, space):
         "This function is called when the program really starts"
-
         from pypy.module.cpyext.typeobject import setup_new_method_def
         from pypy.module.cpyext.api import INIT_FUNCTIONS
-        from pypy.module.cpyext.api import init_static_data_translated
 
         if we_are_translated():
             if space.config.translation.gc != "boehm":
+                # This must be called in RPython, the untranslated version
+                # does something different. Sigh.
                 rawrefcount.init(
                     llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
                     self.dealloc_trigger))
-            init_static_data_translated(space)
+            self.builder.attach_all(space)
 
         setup_new_method_def(space)
 
@@ -107,8 +125,8 @@ class State:
             space = self.space
             argv = space.sys.get('argv')
             if space.len_w(argv):
-                argv0 = space.getitem(argv, space.wrap(0))
-                progname = space.str_w(argv0)
+                argv0 = space.getitem(argv, space.newint(0))
+                progname = space.text_w(argv0)
             else:
                 progname = "pypy"
             self.programname = rffi.str2charp(progname)
@@ -119,7 +137,7 @@ class State:
         if not self.version:
             space = self.space
             w_version = space.sys.get('version')
-            version = space.str_w(w_version)
+            version = space.text_w(w_version)
             self.version = rffi.str2charp(version)
             lltype.render_immortal(self.version)
         return self.version
@@ -145,10 +163,28 @@ class State:
         if not isinstance(w_mod, Module):
             msg = "fixup_extension: module '%s' not loaded" % name
             raise OperationError(space.w_SystemError,
-                                 space.wrap(msg))
+                                 space.newtext(msg))
         w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy
+        return w_mod
+
+    @specialize.arg(1)
+    def ccall(self, name, *args):
+        from pypy.module.cpyext.api import cpyext_glob_tid_ptr
+        # This is similar to doing a direct call to state.C.PyXxx(), but
+        # must be used for any function that might potentially call back
+        # RPython code---most of them can, e.g. PyErr_NoMemory().
+        assert cpyext_glob_tid_ptr[0] == 0
+        cpyext_glob_tid_ptr[0] = -1
+        result = getattr(self.C, name)(*args)
+        cpyext_glob_tid_ptr[0] = 0
+        return result
+
+
+class CNamespace:
+    def _freeze_(self):
+        return True
 
 
 def _rawrefcount_perform(space):

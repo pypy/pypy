@@ -1,83 +1,56 @@
-==========================
-What's new in PyPy2.7 5.6+
-==========================
+===========================
+What's new in PyPy2.7 5.10+
+===========================
 
-.. this is a revision shortly after release-pypy2.7-v5.6
-.. startrev: 7e9787939641
+.. this is a revision shortly after release-pypy2.7-v5.10.0
+.. startrev: 6b024edd9d12
+
+.. branch: cpyext-avoid-roundtrip
+
+Big refactoring of some cpyext code, which avoids a lot of nonsense when
+calling C from Python and vice-versa: the result is a big speedup in
+function/method calls, up to 6 times faster.
+
+.. branch: cpyext-datetime2
+
+Support ``tzinfo`` field on C-API datetime objects, fixes latest pandas HEAD
 
 
-Since a while now, PyPy preserves the order of dictionaries and sets.
-However, the set literal syntax ``{x, y, z}`` would by mistake build a
-set with the opposite order: ``set([z, y, x])``.  This has been fixed.
-Note that CPython is inconsistent too: in 2.7.12, ``{5, 5.0}`` would be
-``set([5.0])``, but in 2.7.trunk it is ``set([5])``.  PyPy's behavior
-changed in exactly the same way because of this fix.
+.. branch: mapdict-size-limit
+
+Fix a corner case of mapdict: When an instance is used like a dict (using
+``setattr`` and ``getattr``, or ``.__dict__``) and a lot of attributes are
+added, then the performance using mapdict is linear in the number of
+attributes. This is now fixed (by switching to a regular dict after 80
+attributes).
 
 
-.. branch: rpython-error-to-systemerror
+.. branch: cpyext-faster-arg-passing
 
-Any uncaught RPython exception (from a PyPy bug) is turned into an
-app-level SystemError.  This should improve the lot of users hitting an
-uncaught RPython error.
+When using cpyext, improve the speed of passing certain objects from PyPy to C
+code, most notably None, True, False, types, all instances of C-defined types.
+Before, a dict lookup was needed every time such an object crossed over, now it
+is just a field read.
 
-.. branch: union-side-effects-2
 
-Try to improve the consistency of RPython annotation unions.
+.. branch: 2634_datetime_timedelta_performance
 
-.. branch: pytest-2.9.2
+Improve datetime + timedelta performance.
 
-.. branch: clean-exported-state
+.. branch: memory-accounting
 
-Clean-ups in the jit optimizeopt
+Improve way to describe memory
 
-.. branch: conditional_call_value_4
+.. branch: msvc14
 
-Add jit.conditional_call_elidable(), a way to tell the JIT "conditonally
-call this function" returning a result.
+Allow compilaiton with Visual Studio 2017 compiler suite on windows
 
-.. branch: desc-specialize
+.. branch: refactor-slots
 
-Refactor FunctionDesc.specialize() and related code (RPython annotator).
+Refactor cpyext slots.
 
-.. branch: raw-calloc
 
-.. branch: issue2446
+.. branch: call-loopinvariant-into-bridges
 
-Assign ``tp_doc`` to the new TypeObject's type dictionary ``__doc__`` key
-so it will be picked up by app-level objects of that type
-
-.. branch: cling-support
-
-Module cppyy now uses cling as its backend (Reflex has been removed). The
-user-facing interface and main developer tools (genreflex, selection files,
-class loader, etc.) remain the same.  A libcppyy_backend.so library is still
-needed but is now available through PyPI with pip: PyPy-cppyy-backend.
-
-The Cling-backend brings support for modern C++ (11, 14, etc.), dynamic
-template instantations, and improved integration with CFFI for better
-performance.  It also provides interactive C++ (and bindings to that).
-
-.. branch: better-PyDict_Next
-
-Improve the performance of ``PyDict_Next``. When trying ``PyDict_Next`` on a
-typedef dict, the test exposed a problem converting a ``GetSetProperty`` to a
-``PyGetSetDescrObject``. The other direction seem to be fully implemented.
-This branch made a minimal effort to convert the basic fields to avoid
-segfaults, but trying to use the ``PyGetSetDescrObject`` will probably fail.
-
-.. branch: stdlib-2.7.13
-
-Updated the implementation to match CPython 2.7.13 instead of 2.7.13.
-
-.. branch: issue2444
-
-Fix ``PyObject_GetBuffer`` and ``PyMemoryView_GET_BUFFER``, which leaked
-memory and held references. Add a finalizer to CPyBuffer, add a
-PyMemoryViewObject with a PyBuffer attached so that the call to 
-``PyMemoryView_GET_BUFFER`` does not leak a PyBuffer-sized piece of memory.
-Properly call ``bf_releasebuffer`` when not ``NULL``.
-
-.. branch: boehm-rawrefcount
-
-Support translations of cpyext with the Boehm GC (for special cases like
-revdb).
+Speed up branchy code that does a lot of function inlining by saving one call
+to read the TLS in most bridges.

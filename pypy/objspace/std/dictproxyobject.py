@@ -38,8 +38,8 @@ class W_DictProxyObject(W_Root):
         return space.str(self.w_mapping)
 
     def descr_repr(self, space):
-        return space.wrap("dict_proxy(%s)" %
-                                (space.str_w(space.repr(self.w_mapping)),))
+        return space.newtext("dict_proxy(%s)" %
+                                (space.text_w(space.repr(self.w_mapping)),))
 
     @unwrap_spec(w_default=WrappedDefault(None))
     def get_w(self, space, w_key, w_default):
@@ -99,3 +99,7 @@ W_DictProxyObject.typedef = TypeDef(
     copy=interp2app(W_DictProxyObject.copy_w),
     **cmp_methods
 )
+
+def _set_flag_map_or_seq(space):
+    w_type = space.gettypeobject(W_DictProxyObject.typedef)
+    w_type.flag_map_or_seq = 'M'

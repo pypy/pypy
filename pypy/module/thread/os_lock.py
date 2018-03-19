@@ -7,7 +7,7 @@ from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.error import oefmt
 from rpython.rlib.rarithmetic import r_longlong, ovfcheck_float_to_longlong
 
@@ -150,6 +150,7 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
     locked  = descr_locked,
     __enter__ = descr__enter__,
     __exit__ = descr__exit__,
+    __weakref__ = make_weakref_descr(Lock),
     # Obsolete synonyms
     acquire_lock = descr_acquire,
     release_lock = descr_release,
@@ -160,4 +161,4 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
 def allocate_lock(space):
     """Create a new lock object.  (allocate() is an obsolete synonym.)
 See LockType.__doc__ for information about locks."""
-    return space.wrap(Lock(space))
+    return Lock(space)

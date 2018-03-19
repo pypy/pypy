@@ -97,6 +97,7 @@ class BaseGCTransformer(object):
         self.inline = inline
         if translator and inline:
             self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
+            self.raise_analyzer = RaiseAnalyzer(translator)
         self.graphs_to_inline = {}
         self.graph_dependencies = {}
         self.ll_finalizers_ptrs = []
@@ -113,28 +114,36 @@ class BaseGCTransformer(object):
         self.seen_graphs.add(graph)
         self.minimal_transform.add(graph)
 
-    def inline_helpers(self, graphs):
+    def inline_helpers_into(self, graph):
         from rpython.translator.backendopt.inline import iter_callsites
-        raise_analyzer = RaiseAnalyzer(self.translator)
+        to_enum = []
+        for called, block, i in iter_callsites(graph, None):
+            if called in self.graphs_to_inline:
+                to_enum.append(called)
+        any_inlining = False
+        for inline_graph in to_enum:
+            try:
+                inline.inline_function(self.translator, inline_graph, graph,
+                                       self.lltype_to_classdef,
+                                       self.raise_analyzer,
+                                       cleanup=False)
+                any_inlining = True
+            except inline.CannotInline as e:
+                print 'CANNOT INLINE:', e
+                print '\t%s into %s' % (inline_graph, graph)
+                raise      # for now, make it a fatal error
+        cleanup_graph(graph)
+        if any_inlining:
+            constant_fold_graph(graph)
+        return any_inlining
+
+    def inline_helpers_and_postprocess(self, graphs):
         for graph in graphs:
-            to_enum = []
-            for called, block, i in iter_callsites(graph, None):
-                if called in self.graphs_to_inline:
-                    to_enum.append(called)
-            must_constfold = False
-            for inline_graph in to_enum:
-                try:
-                    inline.inline_function(self.translator, inline_graph, graph,
-                                           self.lltype_to_classdef,
-                                           raise_analyzer,
-                                           cleanup=False)
-                    must_constfold = True
-                except inline.CannotInline as e:
-                    print 'CANNOT INLINE:', e
-                    print '\t%s into %s' % (inline_graph, graph)
-            cleanup_graph(graph)
-            if must_constfold:
-                constant_fold_graph(graph)
+            any_inlining = self.inline and self.inline_helpers_into(graph)
+            self.postprocess_graph(graph, any_inlining)
+
+    def postprocess_graph(self, graph, any_inlining):
+        pass
 
     def compute_borrowed_vars(self, graph):
         # the input args are borrowed, and stay borrowed for as long as they
@@ -201,6 +210,9 @@ class BaseGCTransformer(object):
         self.var_last_needed_in = None
         self.curr_block = None
 
+    def start_transforming_graph(self, graph):
+        pass    # for asmgcc.py
+
     def transform_graph(self, graph):
         if graph in self.minimal_transform:
             if self.minimalgctransformer:
@@ -210,6 +222,7 @@ class BaseGCTransformer(object):
         if graph in self.seen_graphs:
             return
         self.seen_graphs.add(graph)
+        self.start_transforming_graph(graph)
 
         self.links_to_split = {} # link -> vars to pop_alive across the link
 
@@ -374,9 +387,6 @@ class BaseGCTransformer(object):
         return hop.cast_result(rmodel.inputconst(lltype.Ptr(ARRAY_TYPEID_MAP),
                                         lltype.nullptr(ARRAY_TYPEID_MAP)))
 
-    def get_prebuilt_hash(self, obj):
-        return None
-
 
 class MinimalGCTransformer(BaseGCTransformer):
     def __init__(self, parenttransformer):
@@ -532,12 +542,7 @@ class GCTransformer(BaseGCTransformer):
         return self.varsize_malloc_helper(hop, flags, meth, [])
 
     def gct_gc_add_memory_pressure(self, hop):
-        if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
-            op = hop.spaceop
-            size = op.args[0]
-            return hop.genop("direct_call",
-                          [self.raw_malloc_memory_pressure_ptr,
-                           size])
+        pass
 
     def varsize_malloc_helper(self, hop, flags, meth, extraargs):
         def intconst(c): return rmodel.inputconst(lltype.Signed, c)
@@ -571,9 +576,10 @@ class GCTransformer(BaseGCTransformer):
                                                                     c_offset_to_length):
         if flags.get('add_memory_pressure', False):
             if hasattr(self, 'raw_malloc_memory_pressure_varsize_ptr'):
+                v_adr = rmodel.inputconst(llmemory.Address, llmemory.NULL)
                 hop.genop("direct_call",
                           [self.raw_malloc_memory_pressure_varsize_ptr,
-                           v_length, c_item_size])
+                           v_length, c_item_size, v_adr])
         if c_offset_to_length is None:
             if flags.get('zero'):
                 fnptr = self.raw_malloc_varsize_no_length_zero_ptr

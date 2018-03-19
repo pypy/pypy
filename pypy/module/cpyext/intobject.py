@@ -2,10 +2,11 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, build_type_checkers, bootstrap_function,
+    cpython_api, cpython_struct, build_type_checkers_flags, bootstrap_function,
     PyObject, PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
-    make_typedescr, track_reference, from_ref)
+    make_typedescr, track_reference, from_ref, BaseCpyTypedescr)
+from pypy.module.cpyext.state import State
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_TEST, r_ulonglong
 from pypy.objspace.std.intobject import W_IntObject
 import sys
@@ -19,10 +20,24 @@ cpython_struct("PyIntObject", PyIntObjectFields, PyIntObjectStruct)
 @bootstrap_function
 def init_intobject(space):
     "Type description of PyIntObject"
+    state = space.fromcache(State)
     make_typedescr(space.w_int.layout.typedef,
                    basestruct=PyIntObject.TO,
                    attach=int_attach,
+                   alloc=int_alloc,
+                   dealloc=state.C._PyPy_int_dealloc,
                    realize=int_realize)
+
+def int_alloc(typedescr, space, w_type, itemcount):
+    state = space.fromcache(State)
+    if w_type is space.w_int:
+        # in theory here we just want to allocate, without initializing the
+        # value. However, it's just easier to call PyInt_FromLong with a dummy
+        # value; make sure it's big enough to avoid the smallint optimization
+        # (if it will ever be enabled)
+        return state.ccall("PyInt_FromLong", 0x0DEADBEE)
+    else:
+        return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
 
 def int_attach(space, py_obj, w_obj, w_userdata=None):
     """
@@ -40,7 +55,7 @@ def int_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
-PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")
+PyInt_Check, PyInt_CheckExact = build_type_checkers_flags("Int")
 
 @cpython_api([], lltype.Signed, error=CANNOT_FAIL)
 def PyInt_GetMax(space):
@@ -48,12 +63,6 @@ def PyInt_GetMax(space):
     as defined in the system header files)."""
     return sys.maxint
 
-@cpython_api([lltype.Signed], PyObject)
-def PyInt_FromLong(space, ival):
-    """Create a new integer object with a value of ival.
-
-    """
-    return space.wrap(ival)
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyInt_AsLong(space, w_obj):
@@ -127,8 +136,8 @@ def PyInt_FromSize_t(space, ival):
     LONG_MAX, a long integer object is returned.
     """
     if ival <= LONG_MAX:
-        return space.wrap(intmask(ival))
-    return space.wrap(ival)
+        return space.newint(intmask(ival))
+    return space.newint(ival)
 
 @cpython_api([Py_ssize_t], PyObject)
 def PyInt_FromSsize_t(space, ival):
@@ -136,7 +145,7 @@ def PyInt_FromSsize_t(space, ival):
     than LONG_MAX or smaller than LONG_MIN, a long integer object is
     returned.
     """
-    return space.wrap(ival)
+    return space.newint(ival)
 
 @cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject)
 def PyInt_FromString(space, str, pend, base):
@@ -154,8 +163,8 @@ def PyInt_FromString(space, str, pend, base):
     returned.  If overflow warnings are not being suppressed, NULL will be
     returned in this case."""
     s = rffi.charp2str(str)
-    w_str = space.wrap(s)
-    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    w_str = space.newtext(s)
+    w_base = space.newint(rffi.cast(lltype.Signed, base))
     if pend:
         pend[0] = rffi.ptradd(str, len(s))
     return space.call_function(space.w_int, w_str, w_base)

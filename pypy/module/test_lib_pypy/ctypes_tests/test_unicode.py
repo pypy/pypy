@@ -1,7 +1,7 @@
 # coding: latin-1
 import ctypes
-import py
-from support import BaseCTypesTestChecker
+import pytest
+from .support import BaseCTypesTestChecker
 
 try:
     ctypes.c_wchar
@@ -33,7 +33,7 @@ else:
             assert wcslen(u"ab\u2070") == 3
             # string args are converted
             assert wcslen("abc") == 3
-            py.test.raises(ctypes.ArgumentError, wcslen, "abä")
+            pytest.raises(ctypes.ArgumentError, wcslen, "abä")
 
         def test_ascii_replace(self):
             ctypes.set_conversion_mode("ascii", "replace")
@@ -86,7 +86,8 @@ else:
             ctypes.set_conversion_mode("ascii", "strict")
             assert func("abc") == "abc"
             assert func(u"abc") == "abc"
-            raises(ctypes.ArgumentError, func, u"abä")
+            with pytest.raises(ctypes.ArgumentError):
+                func(u"abä")
 
         def test_ascii_ignore(self):
             ctypes.set_conversion_mode("ascii", "ignore")

@@ -21,6 +21,7 @@ import py
 import fnmatch
 import subprocess
 import glob
+from pypy.tool.release.smartstrip import smartstrip
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
@@ -161,9 +162,9 @@ def create_package(basedir, options, _fake=False):
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:
-                print >>sys.stderr, """Packaging Tk runtime failed.
-tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
-directory next to the dlls, as per build instructions."""
+                print >>sys.stderr, r"""Packaging Tk runtime failed.
+tk85.dll and tcl85.dll found in %s, expecting to find runtime in %s
+directory next to the dlls, as per build instructions.""" %(p, tktcldir)
                 import traceback;traceback.print_exc()
                 raise MissingDependenciesError('Tk runtime')
 
@@ -179,7 +180,7 @@ directory next to the dlls, as per build instructions."""
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
-                                           '*.c', '*.o'))
+                                           '*_cffi.c', '*.o'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
@@ -212,15 +213,9 @@ directory next to the dlls, as per build instructions."""
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        if not options.nostrip:
+        if not _fake:
             for source, target in binaries:
-                if sys.platform == 'win32':
-                    pass
-                elif sys.platform == 'darwin':
-                    # 'strip' fun: see issue #587 for why -x
-                    os.system("strip -x " + str(bindir.join(target)))    # ignore errors
-                else:
-                    os.system("strip " + str(bindir.join(target)))    # ignore errors
+                smartstrip(bindir.join(target), keep_debug=options.keep_debug)
         #
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -234,12 +229,14 @@ directory next to the dlls, as per build instructions."""
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
+            if sys.platform == 'darwin':
                 print >>sys.stderr, """Warning: tar on current platform does not suport overriding the uid and gid
 for its contents. The tarball will contain your uid and gid. If you are
 building the actual release for the PyPy website, you may want to be
 using another platform..."""
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+            elif sys.platform.startswith('freebsd'):
+                e = os.system('tar --uname=root --gname=wheel -cvjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
                 e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
             else:
@@ -279,8 +276,8 @@ def package(*args, **kwds):
                     help='do not build and package the %r cffi module' % (key,))
     parser.add_argument('--without-cffi', dest='no_cffi', action='store_true',
         help='skip building *all* the cffi modules listed above')
-    parser.add_argument('--nostrip', dest='nostrip', action='store_true',
-        help='do not strip the exe, making it ~10MB larger')
+    parser.add_argument('--no-keep-debug', dest='keep_debug',
+                        action='store_false', help='do not keep debug symbols')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
         help='target executable name, defaults to "pypy"')
     parser.add_argument('--archive-name', dest='name', type=str, default='',
@@ -293,8 +290,8 @@ def package(*args, **kwds):
         help='use as pypy exe instead of pypy/goal/pypy-c')
     options = parser.parse_args(args)
 
-    if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
-        options.nostrip = True
+    if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
+        options.keep_debug = False
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
         options.no_tk = True
     if not options.builddir:

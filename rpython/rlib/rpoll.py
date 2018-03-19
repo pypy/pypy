@@ -28,12 +28,16 @@ class PollError(Exception):
         self.errno = errno
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
+    def get_msg_unicode(self):
+        return _c.socket_strerror_unicode(self.errno)
 
 class SelectError(Exception):
     def __init__(self, errno):
         self.errno = errno
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
+    def get_msg_unicode(self):
+        return _c.socket_strerror_unicode(self.errno)
 
 # ____________________________________________________________
 # poll() for POSIX systems

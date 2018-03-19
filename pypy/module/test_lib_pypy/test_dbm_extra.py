@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-import py
+import py, os
 from rpython.tool.udir import udir
 try:
     from lib_pypy import dbm
@@ -73,4 +73,9 @@ def test_key_with_empty_value():
     d['key_with_empty_value'] = ''
     assert 'key_with_empty_value' in d
     assert d['key_with_empty_value'] == ''
+    d.close()
+
+def test_unicode_filename():
+    path = str(udir) + os.sep + u'test_dbm_extra.test_unicode_filename'
+    d = dbm.open(path, 'c')
     d.close()

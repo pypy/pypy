@@ -354,7 +354,7 @@ class GcRewriterAssembler(object):
             else:
                 # this is dead code, but in case we have a gc that does
                 # not have a write barrier and does not zero memory, we would
-                # need to clal it
+                # need to call it
                 if op.getopnum() == rop.SETFIELD_GC:
                     self.consider_setfield_gc(op)
                 elif op.getopnum() == rop.SETARRAYITEM_GC:

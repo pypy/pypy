@@ -2,22 +2,33 @@ from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext.pyobject import make_ref, from_ref
+from pypy.module.cpyext.api import generic_cpy_call
+from pypy.module.cpyext.pyobject import make_ref, from_ref, decref, as_pyobj
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
+
+    def setup_class(cls):
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        def _check_uses_shortcut(w_inst):
+            res = hasattr(w_inst, "_cpy_ref") and w_inst._cpy_ref
+            res = res and as_pyobj(cls.space, w_inst) == w_inst._cpy_ref
+            return cls.space.newbool(res)
+        cls.w__check_uses_shortcut = cls.space.wrap(
+            gateway.interp2app(_check_uses_shortcut))
+
     def test_typeobject(self):
         import sys
         module = self.import_module(name='foo')
         assert 'foo' in sys.modules
         assert "copy" in dir(module.fooType)
         obj = module.new()
-        print(obj.foo)
+        #print(obj.foo)
         assert obj.foo == 42
-        print("Obj has type", type(obj))
+        #print("Obj has type", type(obj))
         assert type(obj) is module.fooType
-        print("type of obj has type", type(type(obj)))
-        print("type of type of obj has type", type(type(type(obj))))
+        #print("type of obj has type", type(type(obj)))
+        #print("type of type of obj has type", type(type(type(obj))))
         assert module.fooType.__doc__ == "foo is for testing."
 
     def test_typeobject_method_descriptor(self):
@@ -121,6 +132,20 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = module.fooType.classmeth()
         assert obj is module.fooType
 
+    def test_methoddescr(self):
+        module = self.import_module(name='foo')
+        descr = module.fooType.copy
+        assert type(descr).__name__ == 'method_descriptor'
+        assert str(descr) == "<method 'copy' of 'foo.foo' objects>"
+        assert repr(descr) == "<method 'copy' of 'foo.foo' objects>"
+        raises(TypeError, descr, None)
+
+    def test_cython_fake_classmethod(self):
+        module = self.import_module(name='foo')
+        print(module.fooType.fake_classmeth)
+        print(type(module.fooType.fake_classmeth))
+        assert module.fooType.fake_classmeth() is module.fooType
+
     def test_new(self):
         # XXX cpython segfaults but if run singly (with -k test_new) this passes
         module = self.import_module(name='foo')
@@ -141,6 +166,25 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 return self
         assert fuu2(u"abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
+
+    def test_shortcut(self):
+        # test that instances of classes that are defined in C become an
+        # instance of W_BaseCPyObject and thus can be converted faster back to
+        # their pyobj, because they store a pointer to it directly.
+        if self.runappdirect:
+            skip("can't run with -A")
+        module = self.import_module(name='foo')
+        obj = module.fooType()
+        assert self._check_uses_shortcut(obj)
+        # W_TypeObjects use shortcut
+        assert self._check_uses_shortcut(object)
+        assert self._check_uses_shortcut(type)
+        # None, True, False use shortcut
+        assert self._check_uses_shortcut(None)
+        assert self._check_uses_shortcut(True)
+        assert self._check_uses_shortcut(False)
+        assert not self._check_uses_shortcut(1)
+        assert not self._check_uses_shortcut(object())
 
     def test_multiple_inheritance1(self):
         module = self.import_module(name='foo')
@@ -244,6 +288,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         cmpr = module.OldCmpType()
         assert cmpr < cmpr
 
+    def test_unhashable_when_tpcompare(self):
+        module = self.import_module("comparisons")
+        cmpr = module.OldCmpType()
+        raises(TypeError, hash, cmpr)
+
     def test_hash(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()
@@ -338,12 +387,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 PyObject* name = PyString_FromString("mymodule");
                 PyObject *obj = PyType_Type.tp_alloc(&PyType_Type, 0);
                 PyHeapTypeObject *type = (PyHeapTypeObject*)obj;
-                if ((type->ht_type.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0)
-                {
-                    PyErr_SetString(PyExc_ValueError,
-                                    "Py_TPFLAGS_HEAPTYPE not set");
-                    return NULL;
-                }
+                /* this is issue #2434: logic from pybind11 */
+                type->ht_type.tp_flags |= Py_TPFLAGS_HEAPTYPE;
                 type->ht_type.tp_name = ((PyTypeObject*)args)->tp_name;
                 PyType_Ready(&type->ht_type);
                 ret = PyObject_SetAttrString((PyObject*)&type->ht_type,
@@ -391,6 +436,73 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = foo.new()
         assert module.hack_tp_dict(obj) == 2
 
+    def test_tp_descr_get(self):
+        module = self.import_extension('foo', [
+           ("tp_descr_get", "METH_O",
+            '''
+                if (args->ob_type->tp_descr_get == NULL) {
+                    Py_INCREF(Py_False);
+                    return Py_False;
+                }
+                return args->ob_type->tp_descr_get(args, NULL,
+                                                   (PyObject *)&PyInt_Type);
+             '''
+             )
+            ])
+        assert module.tp_descr_get(42) is False
+
+        class Y(object):
+            def __get__(self, *args):
+                return 42
+            def unbound_method_example(self):
+                pass
+        assert module.tp_descr_get(Y()) == 42
+        #
+        p = property(lambda self: 42)
+        result = module.tp_descr_get(p)
+        assert result is p
+        #
+        f = lambda x: x + 1
+        ubm = module.tp_descr_get(f)
+        assert type(ubm) is type(Y.unbound_method_example)
+        assert ubm(42) == 43
+
+    def test_tp_descr_set(self):
+        module = self.import_extension('foo', [
+           ("tp_descr_set", "METH_O",
+            '''
+                if (args->ob_type->tp_descr_set == NULL) {
+                    Py_INCREF(Py_False);
+                    return Py_False;
+                }
+                if (args->ob_type->tp_descr_set(args, Py_False, Py_True) != 0)
+                    return NULL;
+                if (args->ob_type->tp_descr_set(args, Py_Ellipsis, NULL) != 0)
+                    return NULL;
+
+                Py_INCREF(Py_True);
+                return Py_True;
+             '''
+             )
+            ])
+        assert module.tp_descr_set(42) is False
+
+        class Y(object):
+            def __set__(self, obj, value):
+                assert obj is False
+                assert value is True
+            def __delete__(self, obj):
+                assert obj is Ellipsis
+        assert module.tp_descr_set(Y()) is True
+        #
+        def pset(obj, value):
+            assert obj is False
+            assert value is True
+        def pdel(obj):
+            assert obj is Ellipsis
+        p = property(lambda: "never used", pset, pdel)
+        assert module.tp_descr_set(p) is True
+
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
@@ -405,7 +517,7 @@ class TestTypes(BaseApiTest):
         assert py_type.c_tp_alloc
         assert from_ref(space, py_type.c_tp_mro).wrappeditems is w_class.mro_w
 
-        api.Py_DecRef(ref)
+        decref(space, ref)
 
     def test_type_dict(self, space, api):
         w_class = space.appexec([], """():
@@ -433,23 +545,17 @@ class TestTypes(BaseApiTest):
             return C
             """)
         ref = make_ref(space, w_class)
-        api.Py_DecRef(ref)
+        decref(space, ref)
 
     def test_lookup(self, space, api):
-        w_type = space.w_str
+        w_type = space.w_bytes
         w_obj = api._PyType_Lookup(w_type, space.wrap("upper"))
-        assert space.is_w(w_obj, space.w_str.getdictvalue(space, "upper"))
+        assert space.is_w(w_obj, space.w_bytes.getdictvalue(space, "upper"))
 
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
         assert api.PyErr_Occurred() is None
 
-    def test_ndarray_ref(self, space, api):
-        w_obj = space.appexec([], """():
-            import _numpypy
-            return _numpypy.multiarray.dtype('int64').type(2)""")
-        ref = make_ref(space, w_obj)
-        api.Py_DecRef(ref)
 
 class AppTestSlots(AppTestCpythonExtensionBase):
     def setup_class(cls):
@@ -541,6 +647,33 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             def __init__(self):
                 self.attr1 = 123
         assert module.test_tp_getattro(C(), 123)
+
+    def test_issue_2760_getattr(self):
+        module = self.import_extension('foo', [
+            ("get_foo", "METH_O",
+             '''
+             char* name = "foo";
+             PyTypeObject *tp = Py_TYPE(args);
+             PyObject *res;
+             if (tp->tp_getattr != NULL) {
+                res = (*tp->tp_getattr)(args, name);
+             }
+             else if (tp->tp_getattro != NULL) {
+                 PyObject *w = PyString_FromString(name);
+                 res = (*tp->tp_getattro)(args, w);
+                 Py_DECREF(w);
+             }
+             else {
+                 res = Py_None;
+             }
+             return res;
+             ''')])
+        class Passthrough(object):
+            def __getattr__(self, name):
+                return name
+
+        obj = Passthrough()
+        assert module.get_foo(obj) == 'foo'
 
     def test_nb_int(self):
         module = self.import_extension('foo', [
@@ -662,30 +795,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         x = LL.__new__(LL)
         assert module.tp_init(list, x, ("hi",)) is None
         assert x == ["h", "i"]
-
-    def test_tp_str(self):
-        module = self.import_extension('foo', [
-           ("tp_str", "METH_VARARGS",
-            '''
-                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
-                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
-                 if (!type->tp_str)
-                 {
-                     PyErr_SetNone(PyExc_ValueError);
-                     return NULL;
-                 }
-                 return type->tp_str(obj);
-             '''
-             )
-            ])
-        class C:
-            def __str__(self):
-                return "text"
-        assert module.tp_str(type(C()), C()) == "text"
-        class D(int):
-            def __str__(self):
-                return "more text"
-        assert module.tp_str(int, D(42)) == "42"
 
     def test_mp_ass_subscript(self):
         module = self.import_extension('foo', [
@@ -978,9 +1087,12 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (d + a) == 5
         assert pow(d,b) == 16
 
-    def test_tp_new_in_subclass_of_type(self):
+    def test_tp_new_in_subclass(self):
+        import datetime
         module = self.import_module(name='foo3')
         module.footype("X", (object,), {})
+        a = module.datetimetype(1, 1, 1)
+        assert isinstance(a, module.datetimetype)
 
     def test_app_subclass_of_c_type(self):
         import sys
@@ -992,14 +1104,22 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             pass
         class bar(f1, f2):
             pass
+        class foo(f2, f1):
+            pass
+
+        x = foo()
         assert bar.__base__ is f2
         # On cpython, the size changes.
         if '__pypy__' in sys.builtin_module_names:
             assert module.size_of_instances(bar) == size
         else:
             assert module.size_of_instances(bar) >= size
+        assert module.size_of_instances(foo) == module.size_of_instances(bar)
 
     def test_app_cant_subclass_two_types(self):
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip("crashes on CPython (2.7.5 crashes, 2.7.9 is ok)")
         module = self.import_module(name='foo')
         try:
             class bar(module.fooType, module.UnicodeSubtype):
@@ -1017,7 +1137,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_call_tp_dealloc(self):
         module = self.import_extension('foo', [
-            ("fetchFooType", "METH_VARARGS",
+            ("fetchFooType", "METH_NOARGS",
              """
                 PyObject *o;
                 o = PyObject_New(PyObject, &Foo_Type);
@@ -1035,7 +1155,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Py_DECREF(e);
                 return o;
              """),
-            ("getCounter", "METH_VARARGS",
+            ("getCounter", "METH_NOARGS",
              """
                 return PyInt_FromLong(foo_counter);
              """)], prologue="""
@@ -1165,7 +1285,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             self._check_type_object(FooType)
         class X(object):
             __metaclass__ = FooType
-        print repr(X)
         X()
 
     def test_multiple_inheritance3(self):
@@ -1183,7 +1302,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Base1->tp_basicsize = sizeof(PyHeapTypeObject);
                 Base2->tp_basicsize = sizeof(PyHeapTypeObject);
                 Base12->tp_basicsize = sizeof(PyHeapTypeObject);
-                #ifndef PYPY_VERSION /* PyHeapTypeObject has no ht_qualname on PyPy */
+                #ifndef PYPY_VERSION /* PyHeapTypeObject has no ht_qualname nor ht_name on PyPy */
                 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 3
                 {
                   PyObject * dummyname = PyBytes_FromString("dummy name");
@@ -1191,13 +1310,20 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                   ((PyHeapTypeObject*)Base2)->ht_qualname = dummyname;
                   ((PyHeapTypeObject*)Base12)->ht_qualname = dummyname;
                 }
-                #endif 
-                #endif 
+                #elif PY_MAJOR_VERSION == 2
+                {
+                  PyObject * dummyname = PyBytes_FromString("dummy name");
+                  ((PyHeapTypeObject*)Base1)->ht_name = dummyname;
+                  ((PyHeapTypeObject*)Base2)->ht_name = dummyname;
+                  ((PyHeapTypeObject*)Base12)->ht_name = dummyname;
+                }
+                #endif
+                #endif
                 Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_base = Base1;
-                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2); 
+                Base12->tp_bases = PyTuple_Pack(2, Base1, Base2);
                 Base12->tp_doc = "The Base12 type or object";
                 if (PyType_Ready(Base1) < 0) return NULL;
                 if (PyType_Ready(Base2) < 0) return NULL;
@@ -1210,5 +1336,205 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert 'Base12' in str(obj)
         assert type(obj).__doc__ == "The Base12 type or object"
         assert obj.__doc__ == "The Base12 type or object"
+
+    def test_multiple_inheritance_fetch_tp_bases(self):
+        module = self.import_extension('foo', [
+           ("foo", "METH_O",
+            '''
+                PyTypeObject *tp;
+                tp = (PyTypeObject*)args;
+                Py_INCREF(tp->tp_bases);
+                return tp->tp_bases;
+            '''
+            )])
+        class A(object):
+            pass
+        class B(object):
+            pass
+        class C(A, B):
+            pass
+        bases = module.foo(C)
+        assert bases == (A, B)
+
+    def test_multiple_inheritance_old_style_base(self):
+        module = self.import_extension('foo', [
+           ("foo", "METH_O",
+            '''
+                PyTypeObject *tp;
+                tp = (PyTypeObject*)args;
+                Py_INCREF(tp->tp_bases);
+                return tp->tp_bases;
+            '''
+            )])
+        # used to segfault after some iterations
+        for i in range(11):
+            print i
+            class A(object):
+                pass
+            class B:
+                pass
+            class C(A, B):
+                pass
+            bases = module.foo(C)
+            assert bases == (A, B)
+
+    def test_getattr_getattro(self):
+        module = self.import_module(name='foo')
+        assert module.gettype2.dcba == 'getattro:dcba'
+        assert (type(module.gettype2).__getattribute__(module.gettype2, 'dcBA')
+            == 'getattro:dcBA')
+        assert module.gettype1.abcd == 'getattr:abcd'
+        # GetType1 objects have a __getattribute__ method, but this
+        # doesn't call tp_getattr at all, also on CPython
+        raises(AttributeError, type(module.gettype1).__getattribute__,
+                               module.gettype1, 'dcBA')
+
+    def test_multiple_inheritance_tp_basicsize(self):
+        module = self.import_module(name='issue2482')
+
+        class PyBase(object):
+            pass
+
+        basesize = module.get_basicsize(PyBase)
+
+        CBase = module.issue2482_object
+        class A(CBase, PyBase):
+            def __init__(self, i):
+                CBase.__init__(self)
+                PyBase.__init__(self)
+
+        class B(PyBase, CBase):
+            def __init__(self, i):
+                PyBase.__init__(self)
+                CBase.__init__(self)
+
+        Asize = module.get_basicsize(A)
+        Bsize = module.get_basicsize(B)
+        assert Asize == Bsize
+        assert Asize > basesize
+
+    def test_multiple_inheritance_bug1(self):
+        module = self.import_extension('foo', [
+           ("get_type", "METH_NOARGS",
+            '''
+                Py_INCREF(&Foo_Type);
+                return (PyObject *)&Foo_Type;
+            '''
+            ), ("forty_two", "METH_O",
+            '''
+                return PyInt_FromLong(42);
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            static PyObject *dummy_new(PyTypeObject *t, PyObject *a,
+                                       PyObject *k)
+            {
+                abort();   /* never actually called in CPython */
+            }
+            ''', more_init = '''
+                Foo_Type.tp_base = (PyTypeObject *)PyExc_Exception;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_new = dummy_new;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        Foo = module.get_type()
+        class A(Foo, SyntaxError):
+            pass
+        assert A.__base__ is SyntaxError
+        A(42)    # assert is not aborting
+
+        class Bar(Exception):
+            __new__ = module.forty_two
+
+        class B(Bar, SyntaxError):
+            pass
+
+        assert B() == 42
+
+        # aaaaa even more hackiness
+        class C(A):
+            pass
+        C(42)   # assert is not aborting
+
+
+class AppTestHashable(AppTestCpythonExtensionBase):
+    def test_unhashable(self):
+        if not self.runappdirect:
+            skip('pointer to function equality available'
+                 ' only after translation')
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''', more_init = '''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_hash = PyObject_HashNotImplemented;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        obj = module.new_obj()
+        raises(TypeError, hash, obj)
+        assert type(obj).__dict__['__hash__'] is None
+        # this is equivalent to
+        from collections import Hashable
+        assert not isinstance(obj, Hashable)
+
+
+class AppTestFlags(AppTestCpythonExtensionBase):
+    def test_has_subclass_flag(self):
+        module = self.import_extension('foo', [
+           ("test_flags", "METH_VARARGS",
+            '''
+                long long in_flag, my_flag;
+                PyObject * obj;
+                if (!PyArg_ParseTuple(args, "OL", &obj, &in_flag))
+                    return NULL;
+                if (!PyType_Check(obj))
+                {
+                    PyErr_SetString(PyExc_ValueError, "input must be type");
+                    return NULL;
+                }
+                my_flag = ((PyTypeObject*)obj)->tp_flags;
+                if ((my_flag & in_flag) != in_flag)
+                    return PyLong_FromLong(-1);
+                if (!PyType_CheckExact(obj)) {
+                    if ((my_flag & Py_TPFLAGS_TYPE_SUBCLASS) == Py_TPFLAGS_TYPE_SUBCLASS)
+                        return PyLong_FromLong(-2);
+                }
+                return PyLong_FromLong(0);
+            '''),])
+        # copied from object.h
+        Py_TPFLAGS_INT_SUBCLASS       = (1L<<23) # goes away on py3
+        Py_TPFLAGS_LONG_SUBCLASS      = (1L<<24)
+        Py_TPFLAGS_LIST_SUBCLASS      = (1L<<25)
+        Py_TPFLAGS_TUPLE_SUBCLASS     = (1L<<26)
+        Py_TPFLAGS_STRING_SUBCLASS    = (1L<<27) # rename to BYTES on py3
+        Py_TPFLAGS_UNICODE_SUBCLASS   = (1L<<28)
+        Py_TPFLAGS_DICT_SUBCLASS      = (1L<<29)
+        Py_TPFLAGS_BASE_EXC_SUBCLASS  = (1L<<30)
+        Py_TPFLAGS_TYPE_SUBCLASS      = (1L<<31)
+        for t,f in ((long, Py_TPFLAGS_LONG_SUBCLASS),
+                    (int, Py_TPFLAGS_INT_SUBCLASS),
+                    (list, Py_TPFLAGS_LIST_SUBCLASS),
+                    (tuple, Py_TPFLAGS_TUPLE_SUBCLASS),
+                    (str, Py_TPFLAGS_STRING_SUBCLASS),
+                    (unicode, Py_TPFLAGS_UNICODE_SUBCLASS),
+                    (Exception, Py_TPFLAGS_BASE_EXC_SUBCLASS),
+                    (type, Py_TPFLAGS_TYPE_SUBCLASS),
+                   ):
+            assert module.test_flags(t, f) == 0
+        class MyList(list):
+            pass
+        assert module.test_flags(MyList, Py_TPFLAGS_LIST_SUBCLASS) == 0
 
 

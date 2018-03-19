@@ -240,15 +240,18 @@ def test_primitive_category():
         tp = model.PrimitiveType(typename)
         C = tp.is_char_type()
         F = tp.is_float_type()
+        X = tp.is_complex_type()
         I = tp.is_integer_type()
-        assert C == (typename in ('char', 'wchar_t'))
+        assert C == (typename in ('char', 'wchar_t', 'char16_t', 'char32_t'))
         assert F == (typename in ('float', 'double', 'long double'))
-        assert I + F + C == 1      # one and only one of them is true
+        assert X == (typename in ('float _Complex', 'double _Complex'))
+        assert I + F + C + X == 1      # one and only one of them is true
 
 def test_all_integer_and_float_types():
     typenames = []
     for typename in all_primitive_types:
         if (all_primitive_types[typename] == 'c' or
+            all_primitive_types[typename] == 'j' or    # complex
             typename == '_Bool' or typename == 'long double'):
             pass
         else:
@@ -381,6 +384,10 @@ def test_wchar_type():
     ffi.cdef("wchar_t foo(wchar_t);")
     lib = ffi.verify("wchar_t foo(wchar_t x) { return x+1; }")
     assert lib.foo(uniexample1) == uniexample2
+
+def test_char16_char32_type():
+    py.test.skip("XXX test or fully prevent char16_t and char32_t from "
+                 "working in ffi.verify() mode")
 
 def test_no_argument():
     ffi = FFI()
@@ -1443,20 +1450,30 @@ def test_bool():
         py.test.skip("_Bool not in MSVC")
     ffi = FFI()
     ffi.cdef("struct foo_s { _Bool x; };"
-             "_Bool foo(_Bool);")
+             "_Bool foo(_Bool); _Bool (*foop)(_Bool);")
     lib = ffi.verify("""
         struct foo_s { _Bool x; };
         int foo(int arg) {
             return !arg;
         }
+        _Bool _foofunc(_Bool x) {
+            return !x;
+        }
+        _Bool (*foop)(_Bool) = _foofunc;
     """)
     p = ffi.new("struct foo_s *")
     p.x = 1
-    assert p.x == 1
+    assert p.x is True
     py.test.raises(OverflowError, "p.x = -1")
     py.test.raises(TypeError, "p.x = 0.0")
-    assert lib.foo(1) == 0
-    assert lib.foo(0) == 1
+    assert lib.foop(1) is False
+    assert lib.foop(True) is False
+    assert lib.foop(0) is True
+    py.test.raises(OverflowError, lib.foop, 42)
+    py.test.raises(TypeError, lib.foop, 0.0)
+    assert lib.foo(1) is False
+    assert lib.foo(True) is False
+    assert lib.foo(0) is True
     py.test.raises(OverflowError, lib.foo, 42)
     py.test.raises(TypeError, lib.foo, 0.0)
     assert int(ffi.cast("_Bool", long(1))) == 1
@@ -2247,10 +2264,10 @@ def test_dont_support_int_dotdotdot():
     assert str(e.value) == ("feature not supported with ffi.verify(), but only "
                             "with ffi.set_source(): 'typedef int... t1'")
     ffi = FFI()
-    ffi.cdef("typedef unsigned long... t1;")
+    ffi.cdef("typedef double ... t1;")
     e = py.test.raises(VerificationError, ffi.verify, "")
     assert str(e.value) == ("feature not supported with ffi.verify(), but only "
-                         "with ffi.set_source(): 'typedef unsigned long... t1'")
+                         "with ffi.set_source(): 'typedef float... t1'")
 
 def test_const_fields():
     ffi = FFI()
@@ -2438,3 +2455,71 @@ def test_win32_calling_convention_3():
     assert (pt.x, pt.y) == (-9*500*999, 9*500*999)
     pt = lib.call2(lib.cb2)
     assert (pt.x, pt.y) == (99*500*999, -99*500*999)
+
+def _only_test_on_linux_intel():
+    if not sys.platform.startswith('linux'):
+        py.test.skip('only running the memory-intensive test on Linux')
+    import platform
+    machine = platform.machine()
+    if 'x86' not in machine and 'x64' not in machine:
+        py.test.skip('only running the memory-intensive test on x86/x64')
+
+def test_ffi_gc_size_arg():
+    # with PyPy's GC, these calls to ffi.gc() would rapidly consume
+    # 40 GB of RAM without the third argument
+    _only_test_on_linux_intel()
+    ffi = FFI()
+    ffi.cdef("void *malloc(size_t); void free(void *);")
+    lib = ffi.verify(r"""
+        #include <stdlib.h>
+    """)
+    for i in range(2000):
+        p = lib.malloc(20*1024*1024)    # 20 MB
+        p1 = ffi.cast("char *", p)
+        for j in range(0, 20*1024*1024, 4096):
+            p1[j] = b'!'
+        p = ffi.gc(p, lib.free, 20*1024*1024)
+        del p
+
+def test_ffi_gc_size_arg_2():
+    # a variant of the above: this "attack" works on cpython's cyclic gc too
+    # and I found no obvious way to prevent that.  So for now, this test
+    # is skipped on CPython, where it eats all the memory.
+    if '__pypy__' not in sys.builtin_module_names:
+        py.test.skip("find a way to tweak the cyclic GC of CPython")
+    _only_test_on_linux_intel()
+    ffi = FFI()
+    ffi.cdef("void *malloc(size_t); void free(void *);")
+    lib = ffi.verify(r"""
+        #include <stdlib.h>
+    """)
+    class X(object):
+        pass
+    for i in range(2000):
+        p = lib.malloc(50*1024*1024)    # 50 MB
+        p1 = ffi.cast("char *", p)
+        for j in range(0, 50*1024*1024, 4096):
+            p1[j] = b'!'
+        p = ffi.gc(p, lib.free, 50*1024*1024)
+        x = X()
+        x.p = p
+        x.cyclic = x
+        del p, x
+
+def test_ffi_new_with_cycles():
+    # still another variant, with ffi.new()
+    if '__pypy__' not in sys.builtin_module_names:
+        py.test.skip("find a way to tweak the cyclic GC of CPython")
+    ffi = FFI()
+    ffi.cdef("")
+    lib = ffi.verify("")
+    class X(object):
+        pass
+    for i in range(2000):
+        p = ffi.new("char[]", 50*1024*1024)    # 50 MB
+        for j in range(0, 50*1024*1024, 4096):
+            p[j] = b'!'
+        x = X()
+        x.p = p
+        x.cyclic = x
+        del p, x

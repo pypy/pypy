@@ -1,5 +1,5 @@
 from rpython.annotator.model import (
-    s_ImpossibleValue, SomeInteger, s_Bool, union)
+    s_ImpossibleValue, SomeInteger, s_Bool, union, AnnotatorError)
 from rpython.annotator.listdef import ListItem
 from rpython.rlib.objectmodel import compute_hash
 
@@ -51,23 +51,19 @@ class DictKey(ListItem):
 
         s_key = self.s_value
 
-        def check_eqfn(annotator, graph):
-            s = annotator.binding(graph.getreturnvar())
-            assert s_Bool.contains(s), (
+        s = self.bookkeeper.emulate_pbc_call(
+            myeq, self.s_rdict_eqfn, [s_key, s_key], replace=replace_othereq)
+        if not s_Bool.contains(s):
+            raise AnnotatorError(
                 "the custom eq function of an r_dict must return a boolean"
                 " (got %r)" % (s,))
-        self.bookkeeper.emulate_pbc_call(myeq, self.s_rdict_eqfn, [s_key, s_key],
-                                         replace=replace_othereq,
-                                         callback = check_eqfn)
 
-        def check_hashfn(annotator, graph):
-            s = annotator.binding(graph.getreturnvar())
-            assert SomeInteger().contains(s), (
+        s = self.bookkeeper.emulate_pbc_call(
+            myhash, self.s_rdict_hashfn, [s_key], replace=replace_otherhash)
+        if not SomeInteger().contains(s):
+            raise AnnotatorError(
                 "the custom hash function of an r_dict must return an integer"
                 " (got %r)" % (s,))
-        self.bookkeeper.emulate_pbc_call(myhash, self.s_rdict_hashfn, [s_key],
-                                         replace=replace_otherhash,
-                                         callback = check_hashfn)
 
 
 class DictValue(ListItem):
@@ -85,19 +81,21 @@ class DictDef(object):
     def __init__(self, bookkeeper, s_key = s_ImpossibleValue,
                                  s_value = s_ImpossibleValue,
                                is_r_dict = False,
-                           force_non_null = False):
+                           force_non_null = False,
+                           simple_hash_eq = False):
         self.dictkey = DictKey(bookkeeper, s_key, is_r_dict)
         self.dictkey.itemof[self] = True
         self.dictvalue = DictValue(bookkeeper, s_value)
         self.dictvalue.itemof[self] = True
         self.force_non_null = force_non_null
+        self.simple_hash_eq = simple_hash_eq
 
     def read_key(self, position_key):
-        self.dictkey.read_locations[position_key] = True
+        self.dictkey.read_locations.add(position_key)
         return self.dictkey.s_value
 
     def read_value(self, position_key):
-        self.dictvalue.read_locations[position_key] = True
+        self.dictvalue.read_locations.add(position_key)
         return self.dictvalue.s_value
 
     def same_as(self, other):
@@ -114,14 +112,6 @@ class DictDef(object):
 
     def generalize_value(self, s_value):
         self.dictvalue.generalize(s_value)
-
-    def seen_prebuilt_key(self, x):
-        # In case we are an r_dict, we don't ask for the hash ourselves.
-        # Note that if the custom hashing function ends up asking for
-        # the hash of x, then it must use compute_hash() itself, so it
-        # works out.
-        if not self.dictkey.custom_eq_hash:
-            compute_hash(x)
 
     def __repr__(self):
         return '<{%r: %r}>' % (self.dictkey.s_value, self.dictvalue.s_value)

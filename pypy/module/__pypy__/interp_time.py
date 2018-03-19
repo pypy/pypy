@@ -18,7 +18,7 @@ if HAS_CLOCK_GETTIME:
                 raise exception_from_saved_errno(space, space.w_IOError)
             t = (float(rffi.getintfield(tp, 'c_tv_sec')) +
                  float(rffi.getintfield(tp, 'c_tv_nsec')) * 0.000000001)
-        return space.wrap(t)
+        return space.newfloat(t)
 
     @unwrap_spec(clk_id="c_int")
     def clock_getres(space, clk_id):
@@ -28,4 +28,4 @@ if HAS_CLOCK_GETTIME:
                 raise exception_from_saved_errno(space, space.w_IOError)
             t = (float(rffi.getintfield(tp, 'c_tv_sec')) +
                  float(rffi.getintfield(tp, 'c_tv_nsec')) * 0.000000001)
-        return space.wrap(t)
+        return space.newfloat(t)

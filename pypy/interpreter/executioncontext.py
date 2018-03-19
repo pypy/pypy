@@ -1,15 +1,15 @@
 import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib import jit, rgc, objectmodel
 
 TICK_COUNTER_STEP = 100
 
 def app_profile_call(space, w_callable, frame, event, w_arg):
     space.call_function(w_callable,
-                        space.wrap(frame),
-                        space.wrap(event), w_arg)
+                        frame,
+                        space.newtext(event), w_arg)
 
 class ExecutionContext(object):
     """An ExecutionContext holds the state of an execution thread
@@ -332,7 +332,7 @@ class ExecutionContext(object):
             if operr is not None:
                 w_value = operr.get_w_value(space)
                 w_arg = space.newtuple([operr.w_type, w_value,
-                                     space.wrap(operr.get_traceback())])
+                                        operr.get_w_traceback(space)])
 
             d = frame.getorcreatedebug()
             if d.w_locals is not None:
@@ -343,9 +343,11 @@ class ExecutionContext(object):
             self.is_tracing += 1
             try:
                 try:
-                    w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
+                    w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
-                        d.w_f_trace = None
+                        # bug-to-bug compatibility with CPython
+                        # http://bugs.python.org/issue11992
+                        pass   #d.w_f_trace = None
                     else:
                         d.w_f_trace = w_result
                 except:
@@ -430,8 +432,9 @@ class AbstractActionFlag(object):
             # to run at the next possible bytecode
             self.reset_ticker(-1)
 
+    @not_rpython
     def register_periodic_action(self, action, use_bytecode_counter):
-        """NOT_RPYTHON:
+        """
         Register the PeriodicAsyncAction action to be called whenever the
         tick counter becomes smaller than 0.  If 'use_bytecode_counter' is
         True, make sure that we decrease the tick counter at every bytecode.
@@ -617,7 +620,7 @@ def report_error(space, e, where, w_obj):
         msg = ("RPython exception %s in %s<%s at 0x%s> ignored\n" % (
                    str(e), where, space.type(w_obj).name, addrstring))
         space.call_method(space.sys.get('stderr'), 'write',
-                          space.wrap(msg))
+                          space.newtext(msg))
 
 
 def make_finalizer_queue(W_Root, space):

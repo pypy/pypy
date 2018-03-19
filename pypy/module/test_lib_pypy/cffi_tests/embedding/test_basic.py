@@ -200,3 +200,9 @@ class TestBasic(EmbeddingTests):
                           "prepADD2\n"
                           "adding 100 and -5 and -20\n"
                           "got: 42 75\n")
+
+    def test_init_time_error(self):
+        initerror_cffi = self.prepare_module('initerror')
+        self.compile('add1-test', [initerror_cffi])
+        output = self.execute('add1-test')
+        assert output == "got: 0 0\n"    # plus lots of info to stderr

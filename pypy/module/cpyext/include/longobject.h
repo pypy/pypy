@@ -14,6 +14,12 @@ PyAPI_FUNC(long) PyOS_strtol(const char *, char **, int);
 
 #define PyOS_strtoul strtoul
 #define PyOS_strtol strtoul
+#define PyLong_Check(op) \
+		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_LONG_SUBCLASS)
+#define PyLong_CheckExact(op) ((op)->ob_type == &PyLong_Type)
+
+#define _PyLong_AsByteArray(v, bytes, n, little_endian, is_signed)   \
+    _PyLong_AsByteArrayO((PyObject *)(v), bytes, n, little_endian, is_signed)
 
 #ifdef __cplusplus
 }

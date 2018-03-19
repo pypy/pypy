@@ -117,7 +117,7 @@ class CConfig:
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
         if static_platform.name == 'msvc':
-            defines += ' PROCESS_QUERY_LIMITED_INFORMATION' 
+            defines += ' PROCESS_QUERY_LIMITED_INFORMATION'
         for name in defines.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
@@ -171,7 +171,7 @@ if WIN32:
         function, if that C function was declared with the flag
         llexternal(..., save_err=RFFI_SAVE_LASTERROR | RFFI_ALT_ERRNO).
         Functions without that flag don't change the saved LastError.
-        Alternatively, if the function was declared 
+        Alternatively, if the function was declared
         RFFI_SAVE_WSALASTERROR | RFFI_ALT_ERRNO,
         then the value of the C-level WSAGetLastError() is saved instead
         (into the same "saved alt LastError" variable).
@@ -210,13 +210,17 @@ if WIN32:
         'FormatMessageA',
         [DWORD, rffi.VOIDP, DWORD, DWORD, rffi.CCHARP, DWORD, rffi.VOIDP],
         DWORD)
+    FormatMessageW = winexternal(
+        'FormatMessageW',
+        [DWORD, rffi.VOIDP, DWORD, DWORD, rffi.CWCHARP, DWORD, rffi.VOIDP],
+        DWORD)
 
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
 
     def get_osfhandle(fd):
-        from rpython.rlib.rposix import validate_fd
-        validate_fd(fd)
-        handle = _get_osfhandle(fd)
+        from rpython.rlib.rposix import FdValidator
+        with FdValidator(fd):
+            handle = _get_osfhandle(fd)
         if handle == INVALID_HANDLE_VALUE:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle
@@ -227,45 +231,10 @@ if WIN32:
         in the dict."""
         # Prior to Visual Studio 8, the MSVCRT dll doesn't export the
         # _dosmaperr() function, which is available only when compiled
-        # against the static CRT library.
-        from rpython.translator.platform import host_factory
-        static_platform = host_factory()
-        if static_platform.name == 'msvc':
-            static_platform.cflags = ['/MT']  # static CRT
-            static_platform.version = 0       # no manifest
-        cfile = udir.join('dosmaperr.c')
-        cfile.write(r'''
-                #include <errno.h>
-                #include <WinError.h>
-                #include <stdio.h>
-                #ifdef __GNUC__
-                #define _dosmaperr mingw_dosmaperr
-                #endif
-                int main()
-                {
-                    int i;
-                    for(i=1; i < 65000; i++) {
-                        _dosmaperr(i);
-                        if (errno == EINVAL) {
-                            /* CPython issue #12802 */
-                            if (i == ERROR_DIRECTORY)
-                                errno = ENOTDIR;
-                            else
-                                continue;
-                        }
-                        printf("%d\t%d\n", i, errno);
-                    }
-                    return 0;
-                }''')
-        try:
-            exename = static_platform.compile(
-                [cfile], ExternalCompilationInfo(),
-                outputfilename = "dosmaperr",
-                standalone=True)
-        except (CompilationError, WindowsError):
-            # Fallback for the mingw32 compiler
-            assert static_platform.name == 'mingw32'
-            errors = {
+        # against the static CRT library. After Visual Studio 9, this
+        # private function seems to be gone, so use a static map, from
+        # CPython PC/errmap.h
+        errors = {
                 2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7,
                 11: 8, 15: 2, 16: 13, 17: 18, 18: 2, 19: 13, 20: 13, 21: 13,
                 22: 13, 23: 13, 24: 13, 25: 13, 26: 13, 27: 13, 28: 13,
@@ -275,17 +244,15 @@ if WIN32:
                 132: 13, 145: 41, 158: 13, 161: 2, 164: 11, 167: 13, 183: 17,
                 188: 8, 189: 8, 190: 8, 191: 8, 192: 8, 193: 8, 194: 8,
                 195: 8, 196: 8, 197: 8, 198: 8, 199: 8, 200: 8, 201: 8,
-                202: 8, 206: 2, 215: 11, 267: 20, 1816: 12,
+                202: 8, 206: 2, 215: 11, 232: 32, 267: 20, 1816: 12,
                 }
-        else:
-            output = os.popen(str(exename))
-            errors = dict(map(int, line.split())
-                          for line in output)
         return errors, errno.EINVAL
 
     # A bit like strerror...
     def FormatError(code):
         return llimpl_FormatError(code)
+    def FormatErrorW(code):
+        return llimpl_FormatErrorW(code)
 
     def llimpl_FormatError(code):
         "Return a message corresponding to the given Windows error code."
@@ -293,7 +260,7 @@ if WIN32:
         buf[0] = lltype.nullptr(rffi.CCHARP.TO)
         try:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                                   FORMAT_MESSAGE_FROM_SYSTEM | 
+                                   FORMAT_MESSAGE_FROM_SYSTEM |
                                    FORMAT_MESSAGE_IGNORE_INSERTS,
                                    None,
                                    rffi.cast(DWORD, code),
@@ -312,6 +279,37 @@ if WIN32:
                 result = 'Windows Error %d' % (code,)
             else:
                 result = rffi.charpsize2str(s_buf, buflen)
+        finally:
+            LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
+            lltype.free(buf, flavor='raw')
+
+        return result
+
+    def llimpl_FormatErrorW(code):
+        "Return a unicode message corresponding to the given Windows error code."
+        buf = lltype.malloc(rffi.CWCHARPP.TO, 1, flavor='raw')
+        buf[0] = lltype.nullptr(rffi.CWCHARP.TO)
+        try:
+            msglen = FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                                    FORMAT_MESSAGE_FROM_SYSTEM |
+                                    FORMAT_MESSAGE_IGNORE_INSERTS,
+                                    None,
+                                    rffi.cast(DWORD, code),
+                                    DEFAULT_LANGUAGE,
+                                    rffi.cast(rffi.CWCHARP, buf),
+                                    0, None)
+            buflen = intmask(msglen)
+
+            # remove trailing cr/lf and dots
+            s_buf = buf[0]
+            while buflen > 0 and (ord(s_buf[buflen - 1]) <= ord(' ') or
+                                  s_buf[buflen - 1] == u'.'):
+                buflen -= 1
+
+            if buflen <= 0:
+                result = u'Windows Error %d' % (code,)
+            else:
+                result = rffi.wcharpsize2unicode(s_buf, buflen)
         finally:
             LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
             lltype.free(buf, flavor='raw')
