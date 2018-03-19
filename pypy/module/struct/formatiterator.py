@@ -186,7 +186,7 @@ class UnpackFormatIterator(FormatIterator):
         elif isinstance(value, str):
             w_value = self.space.newbytes(value)
         elif isinstance(value, unicode):
-            w_value = self.space.newunicode(value)
+            w_value = self.space.newutf8(value.decode('utf-8'), len(value))
         else:
             assert 0, "unreachable"
         self.result_w.append(w_value)

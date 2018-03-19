@@ -169,41 +169,41 @@ def test_utf8_string_builder():
     s = rutf8.Utf8StringBuilder()
     s.append("foo")
     s.append_char("x")
-    assert s.get_length() == 4
+    assert s.getlength() == 4
     assert s.build() == "foox"
     s.append(u"\u1234".encode("utf8"))
-    assert s.get_length() == 5
+    assert s.getlength() == 5
     assert s.build().decode("utf8") == u"foox\u1234"
     s.append("foo")
     s.append_char("x")
-    assert s.get_length() == 9
+    assert s.getlength() == 9
     assert s.build().decode("utf8") == u"foox\u1234foox"
 
     s = rutf8.Utf8StringBuilder()
     s.append_code(0x1234)
     assert s.build().decode("utf8") == u"\u1234"
-    assert s.get_length() == 1
+    assert s.getlength() == 1
     s.append_code(0xD800)
-    assert s.get_length() == 2
+    assert s.getlength() == 2
 
     s = rutf8.Utf8StringBuilder()
     s.append_utf8("abc", 3)
-    assert s.get_length() == 3
+    assert s.getlength() == 3
     assert s.build().decode("utf8") == u"abc"
 
     s.append_utf8(u"\u1234".encode("utf8"), 1)
     assert s.build().decode("utf8") == u"abc\u1234"
-    assert s.get_length() == 4
+    assert s.getlength() == 4
 
     s.append_code(0xD800)
-    assert s.get_length() == 5
+    assert s.getlength() == 5
 
 def test_utf8_string_builder_bad_code():
     s = rutf8.Utf8StringBuilder()
     with pytest.raises(ValueError):
         s.append_code(0x110000)
     assert s.build() == ''
-    assert s.get_length() == 0
+    assert s.getlength() == 0
 
 @given(strategies.text())
 def test_utf8_iterator(arg):

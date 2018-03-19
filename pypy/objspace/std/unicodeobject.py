@@ -50,7 +50,7 @@ class W_UnicodeObject(W_Root):
     @staticmethod
     def from_utf8builder(builder):
         return W_UnicodeObject(
-            builder.build(), builder.get_length())
+            builder.build(), builder.getlength())
 
     def __repr__(self):
         """representation for debugging purposes"""

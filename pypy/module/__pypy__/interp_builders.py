@@ -77,7 +77,7 @@ class W_UnicodeBuilder(W_Root):
         self.builder.append_slice(w_unicode._utf8, byte_start, byte_end)
 
     def descr_build(self, space):
-        w_s = space.newutf8(self.builder.build(), self.builder.get_length())
+        w_s = space.newutf8(self.builder.build(), self.builder.getlength())
         # after build(), we can continue to append more strings
         # to the same builder.  This is supported since
         # 2ff5087aca28 in RPython.

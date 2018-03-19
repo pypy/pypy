@@ -703,7 +703,7 @@ class W_TextIOWrapper(W_TextIOBase):
             builder.append(data)
             remaining -= len(data)
 
-        return space.newutf8(builder.build(), builder.get_length())
+        return space.newutf8(builder.build(), builder.getlength())
 
     def _scan_line_ending(self, limit):
         if self.readuniversal:

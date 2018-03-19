@@ -1783,9 +1783,8 @@ class ObjSpace(object):
 
     def unicode0_w(self, w_obj):
         "Like unicode_w, but rejects strings with NUL bytes."
-        xxxx
         from rpython.rlib import rstring
-        result = w_obj.unicode_w(self)
+        result = w_obj.utf8_w(self).decode('utf8')
         if u'\x00' in result:
             raise oefmt(self.w_TypeError,
                         "argument must be a unicode string without NUL "

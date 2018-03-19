@@ -725,7 +725,7 @@ class Utf8StringBuilder(object):
         return self._s.build()
 
     @always_inline
-    def get_length(self):
+    def getlength(self):
         return self._lgt
 
 class Utf8StringIterator(object):

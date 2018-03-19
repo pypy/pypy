@@ -224,6 +224,7 @@ def utf8_encode_ascii(s, errors, errorhandler):
 if sys.platform == 'win32':
     def utf8_encode_mbcs(s, errors, errorhandler):
         from rpython.rlib import runicode
+        s = s.decode('utf-8')
         slen = len(s)
         res = runicode.unicode_encode_mbcs(s, slen, errors, errorhandler)
         return res
@@ -512,7 +513,7 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
             builder.append_char('\\')
             builder.append_code(ord(ch))
 
-    return builder.build(), pos, builder.get_length()
+    return builder.build(), pos, builder.getlength()
 
 def wcharpsize2utf8(space, wcharp, size):
     """Safe version of rffi.wcharpsize2utf8.
@@ -574,7 +575,7 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
         pos = hexescape(builder, s, pos, digits,
                            "rawunicodeescape", errorhandler, message, errors)
 
-    return builder.build(), pos, builder.get_length()
+    return builder.build(), pos, builder.getlength()
 
 _utf8_encode_unicode_escape = rutf8.make_utf8_escape_function()
 
