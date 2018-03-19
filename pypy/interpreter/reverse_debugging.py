@@ -321,11 +321,11 @@ class W_RevDBOutput(W_Root):
         space = self.space
         if space.isinstance_w(w_buffer, space.w_unicode):
             w_buffer = space.call_method(w_buffer, 'encode',
-                                         space.wrap('utf-8'))   # safe?
-        revdb.send_output(space.str_w(w_buffer))
+                                         space.newtext('utf-8'))   # safe?
+        revdb.send_output(space.bytes_w(w_buffer))
 
 def descr_get_softspace(space, revdb):
-    return space.wrap(revdb.softspace)
+    return space.newint(revdb.softspace)
 def descr_set_softspace(space, revdb, w_newvalue):
     revdb.softspace = space.int_w(w_newvalue)
 
@@ -349,15 +349,18 @@ def revdb_displayhook(space, w_obj):
     if uid > 0:
         dbstate.printed_objects[uid] = w_obj
         revdb.send_nextnid(uid)   # outputs '$NUM = '
-    space.setitem(space.builtin.w_dict, space.wrap('_'), w_obj)
-    # do str_w(repr()) only now: if w_obj was produced successfully,
+    space.setitem(space.builtin.w_dict, space.newtext('_'), w_obj)
+    # do repr() after setitem: if w_obj was produced successfully,
     # but its repr crashes because it tries to do I/O, then we already
     # have it recorded in '_' and in '$NUM ='.
-    s = space.str_w(space.repr(w_obj))
-    revdb.send_output(s)
+    w_repr = space.repr(w_obj)
+    if space.isinstance_w(w_repr, space.w_unicode):
+        w_repr = space.call_method(w_repr, 'encode',
+                                   space.newtext('utf-8'))   # safe?
+    revdb.send_output(space.bytes_w(w_repr))
     revdb.send_output("\n")
 
-@gateway.unwrap_spec(name='str0', level=int)
+@gateway.unwrap_spec(name='text0', level=int)
 def revdb_importhook(space, name, w_globals=None,
                      w_locals=None, w_fromlist=None, level=-1):
     # Incredibly simplified version of __import__, which only returns
@@ -366,8 +369,8 @@ def revdb_importhook(space, name, w_globals=None,
     # argument that is a non-empty list, returns the module 'name3' if
     # the 'name' argument is 'name1.name2.name3'.  With an empty or
     # None 'fromlist' argument, returns the module 'name1' instead.
-    return space.appexec([space.wrap(name), w_fromlist or space.w_None,
-                          space.wrap(level), space.wrap(space.sys)],
+    return space.appexec([space.newtext(name), w_fromlist or space.w_None,
+                          space.newint(level), space.sys],
     """(name, fromlist, level, sys):
         if level > 0:
             raise ImportError("only absolute imports are "
@@ -387,16 +390,16 @@ def revdb_importhook(space, name, w_globals=None,
 
 @specialize.memo()
 def get_revdb_displayhook(space):
-    return space.wrap(gateway.interp2app(revdb_displayhook))
+    return gateway.interp2app(revdb_displayhook).spacebind(space)
 
 @specialize.memo()
 def get_revdb_importhook(space):
-    return space.wrap(gateway.interp2app(revdb_importhook))
+    return gateway.interp2app(revdb_importhook).spacebind(space)
 
 
 def prepare_print_environment(space):
     assert not dbstate.standard_code
-    w_revdb_output = space.wrap(W_RevDBOutput(space))
+    w_revdb_output = W_RevDBOutput(space)
     w_displayhook = get_revdb_displayhook(space)
     w_import = get_revdb_importhook(space)
     space.sys.setdictvalue(space, 'stdout', w_revdb_output)
@@ -435,11 +438,11 @@ def command_print(cmd, expression):
                 # set the sys.last_xxx attributes
                 w_type = operationerr.w_type
                 w_value = operationerr.get_w_value(space)
-                w_tb = space.wrap(operationerr.get_traceback())
+                w_tb = operationerr.get_traceback()
                 w_dict = space.sys.w_dict
-                space.setitem(w_dict, space.wrap('last_type'), w_type)
-                space.setitem(w_dict, space.wrap('last_value'), w_value)
-                space.setitem(w_dict, space.wrap('last_traceback'), w_tb)
+                space.setitem(w_dict, space.newtext('last_type'), w_type)
+                space.setitem(w_dict, space.newtext('last_value'), w_value)
+                space.setitem(w_dict, space.newtext('last_traceback'), w_tb)
 
         except OperationError as e:
             revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
@@ -527,7 +530,7 @@ def command_locals(cmd, extra):
     with non_standard_code:
         try:
             prepare_print_environment(space)
-            space.appexec([space.wrap(space.sys),
+            space.appexec([space.sys,
                            frame.getdictscope()], """(sys, locals):
                 lst = locals.keys()
                 lst.sort()
@@ -704,7 +707,7 @@ def command_breakpoints(cmd, extra):
             if kind == 'B':
                 add_breakpoint(name, i)
             elif kind == 'W':
-                code = interp_marshal.loads(space, space.wrap(name))
+                code = interp_marshal.loads(space, space.newtext(name))
                 watch_progs.append((code, i, ''))
     dbstate.watch_progs = watch_progs[:]
 lambda_breakpoints = lambda: command_breakpoints
@@ -767,9 +770,9 @@ def command_compilewatch(cmd, expression):
     with non_standard_code:
         try:
             code = compile(expression, 'eval')
-            marshalled_code = space.str_w(interp_marshal.dumps(
-                space, space.wrap(code),
-                space.wrap(interp_marshal.Py_MARSHAL_VERSION)))
+            marshalled_code = space.bytes_w(interp_marshal.dumps(
+                space, code,
+                space.newint(interp_marshal.Py_MARSHAL_VERSION)))
         except OperationError as e:
             revdb.send_watch(e.errorstr(space), ok_flag=0)
         else:
@@ -780,7 +783,7 @@ def command_checkwatch(cmd, marshalled_code):
     space = dbstate.space
     with non_standard_code:
         try:
-            code = interp_marshal.loads(space, space.wrap(marshalled_code))
+            code = interp_marshal.loads(space, space.newbytes(marshalled_code))
             text = _run_watch(space, code)
         except OperationError as e:
             revdb.send_watch(e.errorstr(space), ok_flag=0)
@@ -793,7 +796,7 @@ def _run_watch(space, prog):
     # must be called from non_standard_code!
     w_dict = space.builtin.w_dict
     w_res = prog.exec_code(space, w_dict, w_dict)
-    return space.str_w(space.repr(w_res))
+    return space.text_w(space.repr(w_res))
 
 
 # ____________________________________________________________

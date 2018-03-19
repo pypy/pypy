@@ -1018,7 +1018,8 @@ class LLFrame(object):
 
     def op_boehm_malloc(self, size):
         assert lltype.typeOf(size) == lltype.Signed
-        return llmemory.raw_malloc(size)
+        raw = llmemory.raw_malloc(size)
+        return llmemory.cast_adr_to_ptr(raw, llmemory.GCREF)
     op_boehm_malloc_atomic = op_boehm_malloc
 
     def op_boehm_register_finalizer(self, p, finalizer):
@@ -1083,6 +1084,8 @@ class LLFrame(object):
         elif getattr(addr, 'is_fake_thread_local_addr', False):
             assert type(offset) is CDefinedIntSymbolic
             self.llinterpreter.get_tlobj()[offset.expr] = value
+        elif isinstance(offset, llmemory.ArrayLengthOffset):
+            assert len(addr.ptr) == value  # invalid ArrayLengthOffset
         else:
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value

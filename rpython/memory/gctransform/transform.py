@@ -469,6 +469,7 @@ def mallocHelpers(gckind):
     else:
         raise AssertionError(gckind)
 
+
     def ll_malloc_varsize(length, size, itemsize, lengthoffset):
         result = mh.ll_malloc_varsize_no_length(length, size, itemsize)
         llopstore(lltype.Void, result, lengthoffset, length)

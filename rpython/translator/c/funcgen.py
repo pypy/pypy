@@ -322,7 +322,8 @@ class FunctionCodeGenerator(object):
         macro = 'OP_%s' % op.opname.upper()
         line = None
         if (op.opname.startswith('gc_') and
-            op.opname not in ('gc_load_indexed', 'gc_store_indexed')):
+            op.opname not in ('gc_load_indexed', 'gc_store',
+                              'gc_store_indexed')):
             meth = getattr(self.gcpolicy, macro, None)
             if meth:
                 line = meth(self, op)

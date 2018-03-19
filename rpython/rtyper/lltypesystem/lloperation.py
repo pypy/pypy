@@ -402,6 +402,7 @@ LL_OPERATIONS = {
     'raw_store':            LLOp(revdb_protect=True, canrun=True),
     'bare_raw_store':       LLOp(revdb_protect=True),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
+    'gc_store':             LLOp(canrun=True),
     'gc_store_indexed':     LLOp(canrun=True),
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),

@@ -206,7 +206,7 @@ def side_effects_ok(space):
     watchpoints.  Note that you need to re-run ``REVDB=.. pypy''
     after changing the Python code.
     """
-    return space.wrap(space._side_effects_ok())
+    return space.newbool(space._side_effects_ok())
 
 def revdb_stop(space):
     from pypy.interpreter.reverse_debugging import stop_point

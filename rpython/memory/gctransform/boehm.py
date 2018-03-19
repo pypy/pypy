@@ -218,8 +218,8 @@ class BoehmGCTransformer(GCTransformer):
         hop.genop('int_invert', [v_int], resultvar=hop.spaceop.result)
 
     def gcheader_initdata(self, obj):
-        if not translator.config.translation.reverse_debugger:
-            return
+        if not self.translator.config.translation.reverse_debugger:
+            return GCTransform.gcheader_initdata(self, obj)
         hdr = lltype.malloc(self.HDR, immortal=True, zero=True)
         return hdr._obj
 

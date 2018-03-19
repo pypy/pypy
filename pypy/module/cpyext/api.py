@@ -1158,7 +1158,7 @@ def attach_c_functions(space, eci, prefix):
         '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
-                   Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
+                   rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
                    eci, _nowrapper=True, c_type='Py_ssize_t')
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
         '_PyPy_subtype_dealloc', [PyObject], lltype.Void,

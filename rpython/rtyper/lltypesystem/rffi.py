@@ -1330,28 +1330,22 @@ c_memset = llexternal("memset",
         )
 
 
-if not we_are_translated():
-    class RawBytes(object):
-        # literal copy of _cffi_backend/func.py
-        def __init__(self, string):
-            self.ptr = str2charp(string, track_allocation=False)
-        def __del__(self):
-            if free_charp is not None:    # CPython shutdown
-                free_charp(self.ptr, track_allocation=False)
+class RawBytes(object):
+    # literal copy of _cffi_backend/func.py
+    def __init__(self, string):
+        self.ptr = str2charp(string, track_allocation=False)
+    def __del__(self):
+        if free_charp is not None:    # CPython shutdown
+            free_charp(self.ptr, track_allocation=False)
 
-    TEST_RAW_ADDR_KEEP_ALIVE = {}
+# NOTE: This is not a weak key dictionary, thus keeping a lot of stuff alive.
+TEST_RAW_ADDR_KEEP_ALIVE = {}
 
 @jit.dont_look_inside
 def get_raw_address_of_string(string):
     """Returns a 'char *' that is valid as long as the rpython string object is alive.
     Two calls to to this function, given the same string parameter,
     are guaranteed to return the same pointer.
-
-    The extra parameter key is necessary to create a weak reference.
-    The buffer of the returned pointer (if object is young) lives as long
-    as key is alive. If key goes out of scope, the buffer will eventually
-    be freed. `string` cannot go out of scope until the RawBytes object
-    referencing it goes out of scope.
 
     NOTE: may raise ValueError on some GCs, but not the default one.
     """
@@ -1362,6 +1356,8 @@ def get_raw_address_of_string(string):
     from rpython.rlib import rgc
 
     if we_are_translated():
+        if rgc.must_split_gc_address_space():
+            raise ValueError("cannot return a pointer in the gcstring")
         if rgc.can_move(string):
             string = rgc.move_out_of_nursery(string)
             if rgc.can_move(string):

@@ -2472,12 +2472,12 @@ class RevDBMetaVar(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_RevDBMetaVar)
-        w_metavar = space.wrap(self.metavar)  # int
-        space.setattr(w_node, space.wrap('metavar'), w_metavar)
-        w_lineno = space.wrap(self.lineno)  # int
-        space.setattr(w_node, space.wrap('lineno'), w_lineno)
-        w_col_offset = space.wrap(self.col_offset)  # int
-        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        w_metavar = space.newint(self.metavar)  # int
+        space.setattr(w_node, space.newtext('metavar'), w_metavar)
+        w_lineno = space.newint(self.lineno)  # int
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         return w_node
 
     @staticmethod

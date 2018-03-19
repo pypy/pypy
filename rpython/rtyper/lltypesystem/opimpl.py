@@ -709,7 +709,14 @@ def op_raw_store(p, ofs, newvalue):
     TVAL = lltype.typeOf(newvalue)
     p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
     p[0] = newvalue
-op_gc_store = op_raw_store
+
+def op_gc_store(p, ofs, newvalue):
+    from rpython.rtyper.lltypesystem import rffi
+    if lltype.typeOf(p) is not llmemory.Address:
+        p = llmemory.cast_ptr_to_adr(p)
+    TVAL = lltype.typeOf(newvalue)
+    p = llmemory.cast_adr_to_ptr(p + ofs, lltype.Ptr(lltype.FixedSizeArray(TVAL, 1)))
+    p[0] = newvalue
 
 def op_raw_load(TVAL, p, ofs):
     from rpython.rtyper.lltypesystem import rffi
