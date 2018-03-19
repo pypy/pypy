@@ -9,6 +9,7 @@ LOOK_FOR_PYTHON3 = 'python3.5'
 PYTHON3 = os.getenv('PYTHON3') or py.path.local.sysfind(LOOK_FOR_PYTHON3)
 if PYTHON3 is not None:
     PYTHON3 = str(PYTHON3)
+APPLEVEL_FN = 'apptest_*.py'
 
 # pytest settings
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
@@ -44,7 +45,7 @@ def pytest_configure(config):
         py.test.skip('[py3k] %s' % message)
     py.test.py3k_skip = py3k_skip
     if config.getoption('runappdirect'):
-        config.addinivalue_line('python_files', 'apptest_*.py')
+        config.addinivalue_line('python_files', APPLEVEL_FN)
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
@@ -94,7 +95,11 @@ def pytest_sessionstart(session):
 
 def pytest_pycollect_makemodule(path, parent):
     if not parent.config.getoption('runappdirect'):
-        return PyPyModule(path, parent)
+        if path.fnmatch(APPLEVEL_FN):
+            from pypy.tool.pytest.apptest2 import AppTestModule
+            return AppTestModule(path, parent)
+        else:
+            return PyPyModule(path, parent)
 
 def is_applevel(item):
     from pypy.tool.pytest.apptest import AppTestFunction
@@ -110,7 +115,8 @@ def pytest_collection_modifyitems(config, items):
             else:
                 item.add_marker('interplevel')
 
-class PyPyModule(py.test.collect.Module):
+
+class PyPyModule(pytest.Module):
     """ we take care of collecting classes both at app level
         and at interp-level (because we need to stick a space
         at the class) ourselves.
@@ -194,6 +200,6 @@ def pytest_runtest_setup(item):
 
 
 def pytest_ignore_collect(path, config):
-    if config.getoption('runappdirect') and not path.fnmatch('apptest_*.py'):
+    if config.getoption('runappdirect') and not path.fnmatch(APPLEVEL_FN):
         return True
     return path.check(link=1)
