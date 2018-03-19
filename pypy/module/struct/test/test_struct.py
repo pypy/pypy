@@ -258,12 +258,19 @@ class AppTestStruct(object):
         raises(OverflowError, pack, "<f", 10e100)
 
     def test_half_floats(self):
+        import sys
         pack = self.struct.pack
         unpack = self.struct.unpack
         assert pack("<e", 65504.0) == b'\xff\x7b'
         assert pack(">e", 65504.0) == b'\x7b\xff'
         assert unpack(">e", b'\x7b\xff') == (65504.0,)
         raises(OverflowError, pack, "<e", 1e6)
+        if sys.byteorder == 'little':
+            assert pack("e", 65504.0) == b'\xff\x7b'
+            assert unpack("e", b'\xff\x7b') == (65504.0,)
+        else:
+            assert pack("e", 65504.0) == b'\x7b\xff'
+            assert unpack("e", b'\x7b\xff') == (65504.0,)
 
     def test_bool(self):
         pack = self.struct.pack
