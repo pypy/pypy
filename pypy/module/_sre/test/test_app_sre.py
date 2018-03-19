@@ -395,6 +395,18 @@ class AppTestSreMatch:
         KEYCRE = re.compile(r"%\(([^)]*)\)s|.")
         raises(TypeError, KEYCRE.sub, "hello", {"%(": 1})
 
+    def test_sub_matches_stay_valid(self):
+        import re
+        matches = []
+        def callback(match):
+            matches.append(match)
+            return "x"
+        result = re.compile(r"[ab]").sub(callback, "acb")
+        assert result == "xcx"
+        assert len(matches) == 2
+        assert matches[0].group() == "a"
+        assert matches[1].group() == "b"
+
 
 class AppTestSreScanner:
 

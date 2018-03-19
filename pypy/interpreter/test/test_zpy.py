@@ -113,6 +113,7 @@ def test_tb_normalization():
 def test_pytrace():
     output = run(sys.executable, pypypath, '-S',
                  stdin="__pytrace__ = 1\nx = 5\nx")
+    output = output.replace('\r\n', '\n')
     assert ('\t<module>:           LOAD_CONST    0 (5)\n'
             '\t<module>:           STORE_NAME    0 (x)\n'
             '\t<module>:           LOAD_CONST    1 (None)\n'

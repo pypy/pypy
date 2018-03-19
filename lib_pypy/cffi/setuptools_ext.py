@@ -81,8 +81,13 @@ def _set_py_limited_api(Extension, kwds):
     it doesn't so far, creating troubles.  That's why we check
     for "not hasattr(sys, 'gettotalrefcount')" (the 2.7 compatible equivalent
     of 'd' not in sys.abiflags). (http://bugs.python.org/issue28401)
+
+    On Windows, it's better not to use py_limited_api until issue #355
+    can be resolved (by having virtualenv copy PYTHON3.DLL).  See also
+    the start of _cffi_include.h.
     """
-    if 'py_limited_api' not in kwds and not hasattr(sys, 'gettotalrefcount'):
+    if ('py_limited_api' not in kwds and not hasattr(sys, 'gettotalrefcount')
+            and sys.platform != 'win32'):
         import setuptools
         try:
             setuptools_major_version = int(setuptools.__version__.partition('.')[0])
@@ -143,8 +148,8 @@ def _add_c_module(dist, ffi, module_name, source, source_extension, kwds):
 
 def _add_py_module(dist, ffi, module_name):
     from distutils.dir_util import mkpath
-    from distutils.command.build_py import build_py
-    from distutils.command.build_ext import build_ext
+    from setuptools.command.build_py import build_py
+    from setuptools.command.build_ext import build_ext
     from distutils import log
     from cffi import recompiler
 
@@ -163,6 +168,17 @@ def _add_py_module(dist, ffi, module_name):
             module_path[-1] += '.py'
             generate_mod(os.path.join(self.build_lib, *module_path))
     dist.cmdclass['build_py'] = build_py_make_mod
+
+    # distutils and setuptools have no notion I could find of a
+    # generated python module.  If we don't add module_name to
+    # dist.py_modules, then things mostly work but there are some
+    # combination of options (--root and --record) that will miss
+    # the module.  So we add it here, which gives a few apparently
+    # harmless warnings about not finding the file outside the
+    # build directory.
+    if dist.py_modules is None:
+        dist.py_modules = []
+    dist.py_modules.append(module_name)
 
     # the following is only for "build_ext -i"
     base_class_2 = dist.cmdclass.get('build_ext', build_ext)

@@ -46,7 +46,7 @@ def _find_vcvarsall(version, x64flag):
         arch = 'x64'
     else:
         arch = 'x86'
-    if version == 140:
+    if version >= 140:
         return msvc.msvc14_get_vc_env(arch)
     else:
         return msvc.msvc9_query_vcvarsall(version / 10.0, arch)
@@ -115,7 +115,7 @@ def _get_msvc_env(vsver, x64flag):
     return env
 
 def find_msvc_env(x64flag=False, ver0=None):
-    vcvers = [140, 90, 100]
+    vcvers = [140, 141, 150, 90, 100]
     if ver0 in vcvers:
         vcvers.insert(0, ver0)
     errs = []
@@ -171,17 +171,17 @@ class MsvcPlatform(Platform):
 
     def __init__(self, cc=None, x64=False, ver0=None):
         self.x64 = x64
+        patch_os_env(self.externals)
+        self.c_environ = os.environ.copy()
         if cc is None:
             msvc_compiler_environ, self.vsver = find_msvc_env(x64, ver0=ver0)
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
+                self.c_environ.update(msvc_compiler_environ)
                 if x64:
                     self.externals_branch = 'win34_%d' % self.vsver
                 else:
                     self.externals_branch = 'win32_%d' % self.vsver
-                patch_env(msvc_compiler_environ, self.externals)
-                self.c_environ = os.environ.copy()
-                self.c_environ.update(msvc_compiler_environ)
         else:
             self.cc = cc
 
@@ -543,17 +543,18 @@ class MsvcPlatform(Platform):
 
 # These are the external libraries, created and maintained by get_externals.py
 # The buildbot runs get_externals before building
-def patch_env(env, externals = Platform.externals):
+def patch_os_env(externals = Platform.externals):
     #print 'adding %s to PATH, INCLUDE, LIB' % basepath
     binpath = externals + r'\bin'
     path = os.environ['PATH']
-    if binpath not in path.split(';'):
+    if binpath not in path:
         path = binpath + ';' + path
-    # make sure externals is in current path for tests and translating
-    os.environ['PATH'] = path
-    env['PATH'] = binpath + ';' + env.get('PATH', '')
-    env['INCLUDE'] = externals + r'\include;' + env.get('INCLUDE', '')
-    env['LIB'] = externals + r'\lib;' + env.get('LIB', '')
+        # make sure externals is in current path for tests and translating
+        os.environ['PATH'] = path
+    if externals not in os.environ.get('INCLUDE', ''):
+        os.environ['INCLUDE'] = externals + r'\include;' + os.environ.get('INCLUDE', '')
+    if externals not in os.environ.get('LIB', ''):
+        os.environ['LIB'] = externals + r'\lib;' + os.environ.get('LIB', '')
     return None
 
 class WinDefinition(posix.Definition):

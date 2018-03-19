@@ -236,11 +236,6 @@ def warn_missing_slot(space, method_name, slot_name, w_type):
 
 def update_all_slots(space, w_type, pto):
     # fill slots in pto
-    # Not very sure about it, but according to
-    # test_call_tp_dealloc, we should not
-    # overwrite slots that are already set: these ones are probably
-    # coming from a parent C type.
-
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
         slot_func_helper = None
         w_descr = w_type.dict_w.get(method_name, None)
@@ -276,8 +271,7 @@ def update_all_slots_builtin(space, w_type, pto):
 def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
     # XXX special case wrapper-functions and use a "specific" slot func
     if len(slot_names) == 1:
-        if not getattr(pto, slot_names[0]):
-            setattr(pto, slot_names[0], slot_func_helper)
+        setattr(pto, slot_names[0], slot_func_helper)
     elif ((w_type is space.w_list or w_type is space.w_tuple) and
             slot_names[0] == 'c_tp_as_number'):
         # XXX hack - how can we generalize this? The problem is method
@@ -312,8 +306,7 @@ def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
             struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
             setattr(pto, slot_names[0], struct)
 
-        if not getattr(struct, slot_names[1]):
-            setattr(struct, slot_names[1], slot_func_helper)
+        setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto, name):
     from pypy.module.cpyext.object import PyObject_HashNotImplemented
@@ -526,33 +519,6 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-@slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real, error=-1)
-def bytes_getbuffer(space, w_str, view, flags):
-    from pypy.module.cpyext.bytesobject import PyBytes_AsString
-    from pypy.module.cpyext.buffer import PyBuffer_FillInfo
-    c_buf = rffi.cast(rffi.VOIDP, PyBytes_AsString(space, w_str))
-    return PyBuffer_FillInfo(space, view, w_str, c_buf,
-                             space.len_w(w_str), 1, flags)
-
-@slot_function([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real, error=-1)
-def bf_getbuffer(space, w_obj, view, flags):
-    from pypy.module.cpyext.buffer import fill_buffer
-    buf = space.buffer_w(w_obj, rffi.cast(lltype.Signed, flags))
-    fill_buffer(space, view, buf, as_pyobj(space, w_obj))
-    return 0
-
-def setup_buffer_procs(space, w_type, pto):
-    bufspec = w_type.layout.typedef.buffer
-    if not bufspec:
-        return
-    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
-    lltype.render_immortal(c_buf)
-    if space.is_w(w_type, space.w_bytes):
-        c_buf.c_bf_getbuffer = llslot(space, bytes_getbuffer)
-    else:
-        c_buf.c_bf_getbuffer = llslot(space, bf_getbuffer)
-    pto.c_tp_as_buffer = c_buf
-
 @slot_function([PyObject], lltype.Void)
 def type_dealloc(space, obj):
     from pypy.module.cpyext.object import _dealloc
@@ -611,8 +577,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
-    # buffer protocol
-    setup_buffer_procs(space, w_type, pto)
 
     state = space.fromcache(State)
     pto.c_tp_free = state.C.PyObject_Free
@@ -730,7 +694,6 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_as_buffer = base.c_tp_as_buffer
         if base.c_tp_as_buffer:
             # inherit base.c_tp_as_buffer functions not inherited from w_type
-            # note: builtin types are handled in setup_buffer_procs
             pto_as = pto.c_tp_as_buffer
             base_as = base.c_tp_as_buffer
             if not pto_as.c_bf_getbuffer:

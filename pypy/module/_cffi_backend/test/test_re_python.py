@@ -114,12 +114,10 @@ class AppTestRecompilerPython:
         from re_python_pysrc import ffi
         lib = ffi.dlopen(self.extmod)
         ffi.dlclose(lib)
-        e = raises(ffi.error, ffi.dlclose, lib)
-        assert str(e.value) == (
-            "library '%s' is already closed" % (self.extmod,))
         e = raises(ffi.error, getattr, lib, 'add42')
         assert str(e.value) == (
             "library '%s' has been closed" % (self.extmod,))
+        ffi.dlclose(lib)   # does not raise
 
     def test_constant_via_lib(self):
         self.fix_path()

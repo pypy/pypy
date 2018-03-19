@@ -640,6 +640,33 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 self.attr1 = 123
         assert module.test_tp_getattro(C(), 123)
 
+    def test_issue_2760_getattr(self):
+        module = self.import_extension('foo', [
+            ("get_foo", "METH_O",
+             '''
+             char* name = "foo";
+             PyTypeObject *tp = Py_TYPE(args);
+             PyObject *res;
+             if (tp->tp_getattr != NULL) {
+                res = (*tp->tp_getattr)(args, name);
+             }
+             else if (tp->tp_getattro != NULL) {
+                 PyObject *w = PyUnicode_FromString(name);
+                 res = (*tp->tp_getattro)(args, w);
+                 Py_DECREF(w);
+             }
+             else {
+                 res = Py_None;
+             }
+             return res;
+             ''')])
+        class Passthrough(object):
+            def __getattr__(self, name):
+                return name
+
+        obj = Passthrough()
+        assert module.get_foo(obj) == 'foo'
+
     def test_nb_int(self):
         module = self.import_extension('foo', [
             ("nb_int", "METH_VARARGS",

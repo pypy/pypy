@@ -175,7 +175,7 @@ The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree"""
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
         with rffi.scoped_unicode2wcharp(filename) as wide_filename:
             c_filename = rffi.cast(rffi.CCHARP, wide_filename)
-            ret = rwinreg.RegLoadKey(hkey, c_subkey, c_filename)
+            ret = rwinreg.RegLoadKeyW(hkey, c_subkey, c_filename)
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegLoadKey')
 
@@ -196,7 +196,7 @@ This function passes NULL for security_attributes to the API."""
     hkey = hkey_w(w_hkey, space)
     with rffi.scoped_unicode2wcharp(filename) as wide_filename:
         c_filename = rffi.cast(rffi.CCHARP, wide_filename)
-        ret = rwinreg.RegSaveKey(hkey, c_filename, None)
+        ret = rwinreg.RegSaveKeyW(hkey, c_filename, None)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegSaveKey')
 
@@ -226,7 +226,7 @@ KEY_SET_VALUE access."""
         c_subkey = rffi.cast(rffi.CCHARP, subkey)
         with rffi.scoped_unicode2wcharp(value) as dataptr:
             c_dataptr = rffi.cast(rffi.CCHARP, dataptr)
-            ret = rwinreg.RegSetValue(hkey, c_subkey, rwinreg.REG_SZ, 
+            ret = rwinreg.RegSetValueW(hkey, c_subkey, rwinreg.REG_SZ,
                                             c_dataptr, len(value))
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegSetValue')
@@ -250,7 +250,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
-            ret = rwinreg.RegQueryValue(hkey, c_subkey, None, bufsize_p)
+            ret = rwinreg.RegQueryValueW(hkey, c_subkey, None, bufsize_p)
             bufSize = intmask(bufsize_p[0])
             if ret == rwinreg.ERROR_MORE_DATA:
                 bufSize = 256
@@ -259,7 +259,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
 
             while True:
                 with lltype.scoped_alloc(rffi.CCHARP.TO, bufSize) as buf:
-                    ret = rwinreg.RegQueryValue(hkey, c_subkey, buf, bufsize_p)
+                    ret = rwinreg.RegQueryValueW(hkey, c_subkey, buf, bufsize_p)
                     if ret == rwinreg.ERROR_MORE_DATA:
                         print 'bufSize was %d, too small' % bufSize
                         # Resize and retry
@@ -440,7 +440,7 @@ the configuration registry.  This helps the registry perform efficiently."""
     try:
         with rffi.scoped_unicode2wcharp(value_name) as wide_vn:
             c_vn = rffi.cast(rffi.CCHARP, wide_vn)
-            ret = rwinreg.RegSetValueEx(hkey, c_vn, 0, typ, buf, buflen)
+            ret = rwinreg.RegSetValueExW(hkey, c_vn, 0, typ, buf, buflen)
     finally:
         lltype.free(buf, flavor='raw')
     if ret != 0:
@@ -460,7 +460,7 @@ value_name is a string indicating the value to query"""
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retDataSize:
-            ret = rwinreg.RegQueryValueEx(hkey, c_subkey, null_dword, null_dword,
+            ret = rwinreg.RegQueryValueExW(hkey, c_subkey, null_dword, null_dword,
                                           None, retDataSize)
             bufSize = intmask(retDataSize[0])
             if ret == rwinreg.ERROR_MORE_DATA:
@@ -472,7 +472,7 @@ value_name is a string indicating the value to query"""
                 with lltype.scoped_alloc(rffi.CCHARP.TO, bufSize) as databuf:
                     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
 
-                        ret = rwinreg.RegQueryValueEx(hkey, c_subkey, null_dword,
+                        ret = rwinreg.RegQueryValueExW(hkey, c_subkey, null_dword,
                                                       retType, databuf, retDataSize)
                         if ret == rwinreg.ERROR_MORE_DATA:
                             # Resize and retry
@@ -505,7 +505,7 @@ If the function fails, an exception is raised."""
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-            ret = rwinreg.RegCreateKey(hkey, c_subkey, rethkey)
+            ret = rwinreg.RegCreateKeyW(hkey, c_subkey, rethkey)
             if ret != 0:
                 raiseWindowsError(space, ret, 'CreateKey')
             return W_HKEY(space, rethkey[0])
@@ -527,7 +527,7 @@ If the function fails, an exception is raised."""
     with rffi.scoped_unicode2wcharp(sub_key) as wide_sub_key:
         c_subkey = rffi.cast(rffi.CCHARP, wide_sub_key)
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-            ret = rwinreg.RegCreateKeyEx(hkey, c_subkey, reserved, None, 0,
+            ret = rwinreg.RegCreateKeyExW(hkey, c_subkey, reserved, None, 0,
                                          access, None, rethkey,
                                          lltype.nullptr(rwin32.LPDWORD.TO))
             if ret != 0:
@@ -549,7 +549,7 @@ is removed.  If the method fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_hkey, space)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
-        ret = rwinreg.RegDeleteKey(hkey, c_subkey)
+        ret = rwinreg.RegDeleteKeyW(hkey, c_subkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegDeleteKey')
 
@@ -562,7 +562,7 @@ value is a string that identifies the value to remove."""
     hkey = hkey_w(w_hkey, space)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
-        ret = rwinreg.RegDeleteValue(hkey, c_subkey)
+        ret = rwinreg.RegDeleteValueW(hkey, c_subkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegDeleteValue')
 
@@ -582,7 +582,7 @@ If the function fails, an EnvironmentError exception is raised."""
     with rffi.scoped_unicode2wcharp(sub_key) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-            ret = rwinreg.RegOpenKeyEx(hkey, c_subkey, reserved, access, rethkey)
+            ret = rwinreg.RegOpenKeyExW(hkey, c_subkey, reserved, access, rethkey)
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegOpenKeyEx')
             return W_HKEY(space, rethkey[0])
@@ -607,7 +607,7 @@ data_type is an integer that identifies the type of the value data."""
 
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retDataSize:
-            ret = rwinreg.RegQueryInfoKey(
+            ret = rwinreg.RegQueryInfoKeyW(
                 hkey, None, null_dword, null_dword,
                 null_dword, null_dword, null_dword,
                 null_dword, retValueSize, retDataSize,
@@ -628,7 +628,7 @@ data_type is an integer that identifies the type of the value data."""
                         with lltype.scoped_alloc(rwin32.LPDWORD.TO,
                                                  1) as retType:
                             c_valuebuf = rffi.cast(rffi.CCHARP, valuebuf)
-                            ret = rwinreg.RegEnumValue(
+                            ret = rwinreg.RegEnumValueW(
                                 hkey, index, c_valuebuf, retValueSize,
                                 null_dword, retType, databuf, retDataSize)
                             if ret == rwinreg.ERROR_MORE_DATA:
@@ -673,7 +673,7 @@ raised, indicating no more values are available."""
     with lltype.scoped_alloc(rffi.CCHARP.TO, 257) as buf:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
             retValueSize[0] = r_uint(257) # includes NULL terminator
-            ret = rwinreg.RegEnumKeyEx(hkey, index, buf, retValueSize,
+            ret = rwinreg.RegEnumKeyExW(hkey, index, buf, retValueSize,
                                        null_dword, None, null_dword,
                                        lltype.nullptr(rwin32.PFILETIME.TO))
             if ret != 0:
@@ -695,7 +695,7 @@ A long integer that identifies when the key was last modified (if available)
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as nValues:
             with lltype.scoped_alloc(rwin32.PFILETIME.TO, 1) as ft:
                 null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
-                ret = rwinreg.RegQueryInfoKey(
+                ret = rwinreg.RegQueryInfoKeyW(
                     hkey, None, null_dword, null_dword,
                     nSubKeys, null_dword, null_dword,
                     nValues, null_dword, null_dword,
@@ -722,7 +722,7 @@ If the function fails, an EnvironmentError exception is raised."""
     machine = space.text_or_none_w(w_machine)
     hkey = hkey_w(w_hkey, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegConnectRegistry(machine, hkey, rethkey)
+        ret = rwinreg.RegConnectRegistryW(machine, hkey, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegConnectRegistry')
         return W_HKEY(space, rethkey[0])

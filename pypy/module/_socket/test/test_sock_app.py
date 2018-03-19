@@ -813,10 +813,10 @@ class AppTestSocketTCP:
     def test_recv_send_timeout(self):
         from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
         cli = socket()
+        cli.settimeout(1.0)
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
         t = socket(fileno=fileno)
-        cli.settimeout(1.0)
         # test recv() timeout
         t.send(b'*')
         buf = cli.recv(100)

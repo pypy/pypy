@@ -1092,9 +1092,11 @@ class AppTestPosix:
             if sys.platform == 'win32':
                 os.chmod(my_path, 0o400)
                 assert (os.stat(my_path).st_mode & 0o600) == 0o400
+                os.chmod(self.path, 0o700)
             else:
                 os.chmod(my_path, 0o200)
                 assert (os.stat(my_path).st_mode & 0o777) == 0o200
+                os.chmod(self.path, 0o700)
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
@@ -1406,6 +1408,22 @@ class AppTestPosix:
             if len(e.value.args) > 2:
                 assert e.value.args[2] == "\\foo\\bar\\baz"
 
+    @py.test.mark.skipif("sys.platform != 'win32'")
+    def test_rename(self):
+        os = self.posix
+        fname = self.path2 + 'rename.txt'
+        with open(fname, "w") as f:
+            f.write("this is a rename test")
+        unicode_name = str(self.udir) + u'/test\u03be.txt'
+        os.rename(fname, unicode_name)
+        with open(unicode_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(unicode_name, fname)
+        with open(fname) as f:
+            assert f.read() == 'this is a rename test'
+        os.unlink(fname)
+
+        
     def test_device_encoding(self):
         import sys
         encoding = self.posix.device_encoding(sys.stdout.fileno())
@@ -1509,6 +1527,8 @@ class AppTestEnvironment(object):
     def test_environ(self):
         import sys, os
         environ = os.environ
+        if not environ:
+            skip('environ not filled in for untranslated tests')
         for k, v in environ.items():
             assert type(k) is str
             assert type(v) is str
