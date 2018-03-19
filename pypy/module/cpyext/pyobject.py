@@ -17,8 +17,13 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
 from rpython.rlib import rawrefcount, jit
-from rpython.rlib.debug import ll_assert, fatalerror
-
+from rpython.rlib.debug import ll_assert, fatalerror, debug_print
+from rpython.rlib.rawrefcount import (
+    REFCNT_MASK, REFCNT_FROM_PYPY, REFCNT_OVERFLOW, REFCNT_CYCLE_BUFFERED,
+    REFCNT_CLR_MASK, REFCNT_CLR_GREEN, REFCNT_CLR_PURPLE,
+    W_MARKER_DEALLOCATING)
+from pypy.module.cpyext.api import slot_function
+from pypy.module.cpyext.typeobjectdefs import visitproc
 
 #________________________________________________________
 # type description
@@ -249,8 +254,6 @@ def track_reference(space, py_obj, w_obj):
     w_obj._cpyext_attach_pyobj(space, py_obj)
 
 
-w_marker_deallocating = W_Root()
-
 @jit.dont_look_inside
 def from_ref(space, ref):
     """
@@ -262,7 +265,7 @@ def from_ref(space, ref):
         return None
     w_obj = rawrefcount.to_obj(W_Root, ref)
     if w_obj is not None:
-        if w_obj is not w_marker_deallocating:
+        if w_obj is not W_MARKER_DEALLOCATING:
             return w_obj
         fatalerror(
             "*** Invalid usage of a dying CPython object ***\n"
@@ -315,7 +318,7 @@ as_pyobj._always_inline_ = 'try'
 
 def pyobj_has_w_obj(pyobj):
     w_obj = rawrefcount.to_obj(W_Root, pyobj)
-    return w_obj is not None and w_obj is not w_marker_deallocating
+    return w_obj is not None and w_obj is not W_MARKER_DEALLOCATING
 
 def w_obj_has_pyobj(w_obj):
     return bool(rawrefcount.from_obj(PyObject, w_obj))
@@ -341,7 +344,7 @@ def get_pyobj_and_incref(space, w_obj, w_userdata=None, immortal=False):
     pyobj = as_pyobj(space, w_obj, w_userdata, immortal=immortal)
     if pyobj:  # != NULL
         assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
-        pyobj.c_ob_refcnt += 1
+        rawrefcount.incref(pyobj)
         keepalive_until_here(w_obj)
     return pyobj
 
@@ -375,7 +378,7 @@ def get_w_obj_and_decref(space, pyobj):
     pyobj = rffi.cast(PyObject, pyobj)
     w_obj = from_ref(space, pyobj)
     if pyobj:
-        pyobj.c_ob_refcnt -= 1
+        rawrefcount.decref(pyobj)
         assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
         keepalive_until_here(w_obj)
     return w_obj
@@ -386,7 +389,7 @@ def incref(space, pyobj):
     assert is_pyobj(pyobj)
     pyobj = rffi.cast(PyObject, pyobj)
     assert pyobj.c_ob_refcnt >= 1
-    pyobj.c_ob_refcnt += 1
+    rawrefcount.incref(pyobj)
 
 @specialize.ll()
 def decref(space, pyobj):
@@ -394,23 +397,64 @@ def decref(space, pyobj):
     assert is_pyobj(pyobj)
     pyobj = rffi.cast(PyObject, pyobj)
     if pyobj:
-        assert pyobj.c_ob_refcnt > 0
-        assert (pyobj.c_ob_pypy_link == 0 or
-                pyobj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY)
-        pyobj.c_ob_refcnt -= 1
-        if pyobj.c_ob_refcnt == 0:
-            state = space.fromcache(State)
-            generic_cpy_call(space, state.C._Py_Dealloc, pyobj)
+        rawrefcount.decref(pyobj)
+        rc = pyobj.c_ob_refcnt
+        if rc & REFCNT_MASK == 0:
+            if rc & REFCNT_FROM_PYPY == 0 and rc & REFCNT_CLR_MASK != REFCNT_CLR_PURPLE:
+                state = space.fromcache(State)
+                generic_cpy_call(space, state.C._Py_Dealloc, pyobj)
+        elif rc & REFCNT_CLR_MASK != REFCNT_CLR_GREEN:
+            possible_root(space, pyobj)
         #else:
         #    w_obj = rawrefcount.to_obj(W_Root, ref)
         #    if w_obj is not None:
         #        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
 
+@jit.dont_look_inside
+def possible_root(space, obj):
+    #debug_print("possible root", obj)
+    rc = obj.c_ob_refcnt
+    if not obj.c_ob_type or not obj.c_ob_type.c_tp_traverse:
+        #debug_print("mark green", obj)
+        rc = rc & ~REFCNT_CLR_MASK | REFCNT_CLR_GREEN
+    elif rc & REFCNT_CLR_MASK != REFCNT_CLR_PURPLE:
+        rc = rc & ~REFCNT_CLR_MASK | REFCNT_CLR_PURPLE
+        if rc & REFCNT_CYCLE_BUFFERED == 0:
+            #debug_print("mark purple", obj)
+            rawrefcount.buffer_pyobj(obj)
+            rc = rc | REFCNT_CYCLE_BUFFERED
+    obj.c_ob_refcnt = rc
+
+@cpython_api([PyObject], lltype.Void)
+def Py_IncRef(space, obj):
+    incref(space, obj)
+
+@cpython_api([PyObject], lltype.Void)
+def Py_DecRef(space, obj):
+    decref(space, obj)
+
+@cpython_api([PyObject], lltype.SignedLongLong, error=CANNOT_FAIL)
+def _Py_RefCnt_Overflow(space, obj):
+    return refcnt_overflow(space, obj)
+
+@specialize.ll()
+def refcnt_overflow(space, obj):
+    if is_pyobj(obj):
+        pyobj = rffi.cast(PyObject, obj)
+    else:
+        pyobj = as_pyobj(space, obj, None)
+    if pyobj:
+        if pyobj.c_ob_refcnt & REFCNT_MASK == REFCNT_OVERFLOW:
+            return REFCNT_OVERFLOW
+        else:
+            return (pyobj.c_ob_refcnt & REFCNT_MASK) + \
+                rawrefcount.overflow_get(pyobj)
+    return 0
 
 @init_function
 def write_w_marker_deallocating(space):
     if we_are_translated():
-        llptr = cast_instance_to_base_ptr(w_marker_deallocating)
+        llptr = cast_instance_to_base_ptr(W_MARKER_DEALLOCATING)
         state = space.fromcache(State)
         state.C.set_marker(rffi.cast(Py_ssize_t, llptr))
 

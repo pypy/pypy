@@ -9,10 +9,12 @@ from pypy.module.cpyext.bytesobject import (
     PyString_ConcatAndDel, PyString_Format, PyString_InternFromString,
     PyString_AsEncodedObject, PyString_AsDecodedObject, _PyString_Eq,
     _PyString_Join)
-from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
-from pypy.module.cpyext.pyobject import decref, from_ref, make_ref
+from pypy.module.cpyext.api import (
+    PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call)
+from pypy.module.cpyext.pyobject import (
+    Py_DecRef, Py_IncRef, _Py_RefCnt_Overflow, from_ref, make_ref, decref)
 from pypy.module.cpyext.buffer import PyObject_AsCharBuffer
-from pypy.module.cpyext.api import PyTypeObjectPtr
+from rpython.rlib import rawrefcount
 
 
 class AppTestBytesObject(AppTestCpythonExtensionBase):
@@ -510,9 +512,9 @@ class TestBytes(BaseApiTest):
         ref = make_ref(space, space.wrap('abc'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref
-        prev_refcnt = ref.c_ob_refcnt
+        prev_refcnt = ref.c_ob_refcnt & rawrefcount.REFCNT_MASK
         PyString_Concat(space, ptr, space.wrap('def'))
-        assert ref.c_ob_refcnt == prev_refcnt - 1
+        assert ref.c_ob_refcnt & rawrefcount.REFCNT_MASK == prev_refcnt - 1
         assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
         with pytest.raises(OperationError):
             PyString_Concat(space, ptr, space.w_None)
@@ -548,9 +550,9 @@ class TestBytes(BaseApiTest):
 
         w_text = space.wrap("text")
         ref = make_ref(space, w_text)
-        prev_refcnt = ref.c_ob_refcnt
+        prev_refcnt = ref.c_ob_refcnt & rawrefcount.REFCNT_MASK
         assert PyObject_AsCharBuffer(space, ref, bufp, lenp) == 0
-        assert ref.c_ob_refcnt == prev_refcnt
+        assert ref.c_ob_refcnt & rawrefcount.REFCNT_MASK == prev_refcnt
         assert lenp[0] == 4
         assert rffi.charp2str(bufp[0]) == 'text'
         lltype.free(bufp, flavor='raw')
@@ -609,3 +611,53 @@ class TestBytes(BaseApiTest):
         w_seq = space.wrap(['a', 'b'])
         w_joined = _PyString_Join(space, w_sep, w_seq)
         assert space.unwrap(w_joined) == 'a<sep>b'
+
+    def test_refcnt_overflow(self, space):
+        ref1 = make_ref(space, space.wrap('foo'))
+        ref1.c_ob_refcnt = rawrefcount.REFCNT_OVERFLOW - 1
+
+        Py_IncRef(space, ref1)
+        assert ref1.c_ob_refcnt & rawrefcount.REFCNT_MASK \
+            == rawrefcount.REFCNT_OVERFLOW
+        assert _Py_RefCnt_Overflow(space, ref1) \
+            == rawrefcount.REFCNT_OVERFLOW
+
+        Py_IncRef(space, ref1)
+        assert ref1.c_ob_refcnt & rawrefcount.REFCNT_MASK \
+            == rawrefcount.REFCNT_OVERFLOW + 1
+        assert _Py_RefCnt_Overflow(space, ref1) \
+            == rawrefcount.REFCNT_OVERFLOW + 1
+
+        Py_IncRef(space, ref1)
+        assert ref1.c_ob_refcnt & rawrefcount.REFCNT_MASK \
+            == rawrefcount.REFCNT_OVERFLOW + 1
+        assert _Py_RefCnt_Overflow(space, ref1) \
+            == rawrefcount.REFCNT_OVERFLOW + 2
+
+        Py_IncRef(space, ref1)
+        assert ref1.c_ob_refcnt & rawrefcount.REFCNT_MASK \
+            == rawrefcount.REFCNT_OVERFLOW + 1
+        assert _Py_RefCnt_Overflow(space, ref1) \
+            == rawrefcount.REFCNT_OVERFLOW + 3
+
+        Py_DecRef(space, ref1)
+        assert ref1.c_ob_refcnt & rawrefcount.REFCNT_MASK \
+            == rawrefcount.REFCNT_OVERFLOW + 1
+        assert _Py_RefCnt_Overflow(space, ref1) \
+            == rawrefcount.REFCNT_OVERFLOW + 2
+
+        Py_DecRef(space, ref1)
+        assert ref1.c_ob_refcnt & rawrefcount.REFCNT_MASK \
+            == rawrefcount.REFCNT_OVERFLOW + 1
+        assert _Py_RefCnt_Overflow(space, ref1) \
+            == rawrefcount.REFCNT_OVERFLOW + 1
+
+        Py_DecRef(space, ref1)
+        assert ref1.c_ob_refcnt & rawrefcount.REFCNT_MASK \
+            == rawrefcount.REFCNT_OVERFLOW
+        assert _Py_RefCnt_Overflow(space, ref1)  \
+            == rawrefcount.REFCNT_OVERFLOW
+
+        Py_DecRef(space, ref1)
+        assert ref1.c_ob_refcnt & rawrefcount.REFCNT_MASK \
+            == rawrefcount.REFCNT_OVERFLOW - 1

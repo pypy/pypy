@@ -11,6 +11,7 @@ from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.error import OperationError, oefmt
+from rpython.rlib.rawrefcount import REFCNT_MASK
 import pypy.module.__builtin__.operation as operation
 
 
@@ -50,7 +51,7 @@ def _PyPy_Malloc(size):
 def _dealloc(space, obj):
     # This frees an object after its refcount dropped to zero, so we
     # assert that it is really zero here.
-    assert obj.c_ob_refcnt == 0
+    assert obj.c_ob_refcnt & REFCNT_MASK == 0
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)

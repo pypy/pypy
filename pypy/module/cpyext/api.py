@@ -208,10 +208,11 @@ CANNOT_FAIL = CannotFail()
 # running and should not themselves release the GIL).
 #
 # **make_generic_cpy_call():** RPython to C, with the GIL held.  Before
-# the call, must assert that the global variable is 0 and set the
-# current thread identifier into the global variable.  After the call,
-# assert that the global variable still contains the current thread id,
-# and reset it to 0.
+# the call, must assert that the global variable is 0 or the current
+# thread identifier (recursive call) and set the current thread identifier
+# into the global variable.  After the call, assert that the global variable
+# still contains the current thread id, and reset it to the value it held
+# before the call.
 #
 # **make_wrapper():** C to RPython; by default assume that the GIL is
 # held, but accepts gil="acquire", "release", "around",
@@ -1763,7 +1764,8 @@ def make_generic_cpy_call(FT, expect_null):
 
         # see "Handling of the GIL" above
         tid = rthread.get_ident()
-        assert cpyext_glob_tid_ptr[0] == 0
+        tid_before = cpyext_glob_tid_ptr[0]
+        assert tid_before == 0 or tid_before == tid
         cpyext_glob_tid_ptr[0] = tid
 
         preexist_error = PyErr_Occurred(space)
@@ -1772,7 +1774,7 @@ def make_generic_cpy_call(FT, expect_null):
             result = call_external_function(func, *boxed_args)
         finally:
             assert cpyext_glob_tid_ptr[0] == tid
-            cpyext_glob_tid_ptr[0] = 0
+            cpyext_glob_tid_ptr[0] = tid_before
             for i, ARG in unrolling_arg_types:
                 # note that this loop is nicely unrolled statically by RPython
                 _pyobj = to_decref[i]

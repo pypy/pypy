@@ -4,18 +4,49 @@
 #  This is meant for pypy's cpyext module, but is a generally
 #  useful interface over our GC.  XXX "pypy" should be removed here
 #
-import sys, weakref, py
+import sys, weakref, py, math
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib import rgc
+from rpython.rlib import rgc, objectmodel
+from pypy.interpreter.baseobjspace import W_Root
 
 
-REFCNT_FROM_PYPY       = sys.maxint // 4 + 1
-REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint // 2 + 1)
+MAX_BIT = int(math.log(sys.maxint, 2))
+
+# Flags
+REFCNT_FROM_PYPY = 1 << MAX_BIT - 2                             # Reference from a pypy object
+REFCNT_FROM_PYPY_LIGHT = (1 << MAX_BIT - 1) + REFCNT_FROM_PYPY  # Light reference from a pypy object
+REFCNT_CYCLE_BUFFERED = 1 << MAX_BIT - 3                        # Object in roots buffer (for potential cycles)
+REFCNT_IN_WAVEFRONT = 1 << MAX_BIT - 4                          # Object in any wavefront
+
+# Offsets and sizes
+REFCNT_CLR_OFFS = MAX_BIT - 7
+REFCNT_CRC_OFFS = REFCNT_CLR_OFFS / 2
+REFCNT_BITS = REFCNT_CRC_OFFS - 1
+
+# Concurrent cycle collection colors
+REFCNT_CLR_BLACK = 0 << REFCNT_CLR_OFFS   # In use or free (default)
+REFCNT_CLR_GRAY = 1 << REFCNT_CLR_OFFS    # Possible member of cycle
+REFCNT_CLR_YELLOW = 2 << REFCNT_CLR_OFFS  # Member of garbage cycle
+REFCNT_CLR_PURPLE = 3 << REFCNT_CLR_OFFS  # Possible root of cycle
+REFCNT_CLR_GREEN = 4 << REFCNT_CLR_OFFS   # Acyclic
+REFCNT_CLR_ORANGE = 5 << REFCNT_CLR_OFFS  # In orange wavefront (might change to YELLOW + IN_WAVEFRONT + phase = 3)
+REFCNT_CLR_MASK = 7 << REFCNT_CLR_OFFS
+
+# Cyclic reference count with overflow bit
+REFCNT_CRC_OVERFLOW = 1 << REFCNT_CRC_OFFS + REFCNT_BITS
+REFCNT_CRC_MASK = (1 << REFCNT_CRC_OFFS + REFCNT_BITS + 1) - 1
+REFCNT_CRC = 1 < REFCNT_CRC_OFFS
+
+# True reference count with overflow bit
+REFCNT_OVERFLOW = 1 << REFCNT_BITS
+REFCNT_MASK = (1 << REFCNT_BITS + 1) - 1
+
 
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
+W_MARKER_DEALLOCATING = W_Root()
 
 
 def _build_pypy_link(p):
@@ -23,6 +54,47 @@ def _build_pypy_link(p):
     _adr2pypy.append(p)
     return res
 
+def incref(pyobj):
+    if pyobj.c_ob_refcnt & REFCNT_OVERFLOW == 0:
+        pyobj.c_ob_refcnt += 1
+    else:
+        if pyobj.c_ob_refcnt & REFCNT_MASK == REFCNT_OVERFLOW:
+            pyobj.c_ob_refcnt += 1
+            overflow_new(pyobj)
+        else:
+            overflow_add(pyobj)
+
+def decref(pyobj):
+    if pyobj.c_ob_refcnt & REFCNT_OVERFLOW == 0:
+        pyobj.c_ob_refcnt -= 1
+    else:
+        if pyobj.c_ob_refcnt & REFCNT_MASK == REFCNT_OVERFLOW:
+            pyobj.c_ob_refcnt -= 1
+        elif overflow_sub(pyobj):
+            pyobj.c_ob_refcnt -= 1
+
+_refcount_overflow = dict()
+
+def overflow_new(obj):
+    _refcount_overflow[objectmodel.current_object_addr_as_int(obj)] = 0
+
+def overflow_add(obj):
+    _refcount_overflow[objectmodel.current_object_addr_as_int(obj)] += 1
+
+def overflow_sub(obj):
+    addr = objectmodel.current_object_addr_as_int(obj)
+    c = _refcount_overflow[addr]
+    if c > 0:
+        _refcount_overflow[addr] = c - 1
+        return False
+    else:
+        _refcount_overflow.pop(addr)
+        return True
+
+def overflow_get(obj):
+    return _refcount_overflow[objectmodel.current_object_addr_as_int(obj)]
+
+# TODO: _cyclic_refcount_overflow = dict()
 
 @not_rpython
 def init(dealloc_trigger_callback=None):
@@ -70,6 +142,10 @@ def mark_deallocating(marker, ob):
     assert ob._obj not in _pypy2ob_rev
     assert not ob.c_ob_pypy_link
     ob.c_ob_pypy_link = _build_pypy_link(marker)
+
+@not_rpython
+def buffer_pyobj(ob):
+    pass  # TODO: implement?
 
 @not_rpython
 def from_obj(OB_PTR_TYPE, p):
@@ -122,7 +198,8 @@ def _collect(track_allocation=True):
     wr_p_list = []
     new_p_list = []
     for ob in reversed(_p_list):
-        if ob.c_ob_refcnt not in (REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT):
+        if ob.c_ob_refcnt & REFCNT_MASK > 0 \
+           or ob.c_ob_refcnt & REFCNT_FROM_PYPY == 0:
             new_p_list.append(ob)
         else:
             p = detach(ob, wr_p_list)
@@ -155,7 +232,8 @@ def _collect(track_allocation=True):
             if ob.c_ob_refcnt >= REFCNT_FROM_PYPY_LIGHT:
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY_LIGHT
                 ob.c_ob_pypy_link = 0
-                if ob.c_ob_refcnt == 0:
+                if ob.c_ob_refcnt & REFCNT_MASK == 0 \
+                   and ob.c_ob_refcnt < REFCNT_FROM_PYPY:
                     lltype.free(ob, flavor='raw',
                                 track_allocation=track_allocation)
             else:
@@ -163,8 +241,9 @@ def _collect(track_allocation=True):
                 assert ob.c_ob_refcnt < int(REFCNT_FROM_PYPY_LIGHT * 0.99)
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY
                 ob.c_ob_pypy_link = 0
-                if ob.c_ob_refcnt == 0:
-                    ob.c_ob_refcnt = 1
+                if ob.c_ob_refcnt & REFCNT_MASK == 0 \
+                   and ob.c_ob_refcnt < REFCNT_FROM_PYPY:
+                    ob.c_ob_refcnt += 1
                     _d_list.append(ob)
             return None
 
@@ -252,6 +331,17 @@ class Entry(ExtRegistryEntry):
                                     func_boehm_eci)
             hop.genop('direct_call', [c_func])
 
+class Entry(ExtRegistryEntry):
+    _about_ = buffer_pyobj
+
+    def compute_result_annotation(self, s_ob):
+        pass
+
+    def specialize_call(self, hop):
+        name = 'gc_rawrefcount_buffer_pyobj'
+        hop.exception_cannot_occur()
+        v_ob = hop.inputarg(hop.args_r[0], arg=0)
+        hop.genop(name, [_unspec_ob(hop, v_ob)])
 
 class Entry(ExtRegistryEntry):
     _about_ = from_obj

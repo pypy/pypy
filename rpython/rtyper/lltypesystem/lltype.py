@@ -564,7 +564,7 @@ class FuncType(ContainerType):
     def _container_example(self):
         def ex(*args):
             return self.RESULT._defl()
-        return _func(self, _callable=ex)
+        return _func(self, {'_callable': ex})
 
     def _trueargs(self):
         return [arg for arg in self.ARGS if arg is not Void]
@@ -2094,7 +2094,7 @@ class _arraylenref(_parentable):
 
 
 class _func(_container):
-    def __init__(self, TYPE, **attrs):
+    def __init__(self, TYPE, attrs):
         attrs.setdefault('_TYPE', TYPE)
         attrs.setdefault('_name', '?')
         attrs.setdefault('_callable', None)
@@ -2303,7 +2303,8 @@ def functionptr(TYPE, name, **attrs):
         hash(tuple(attrs.items()))
     except TypeError:
         raise TypeError("'%r' must be hashable"%attrs)
-    o = _func(TYPE, _name=name, **attrs)
+    attrs['_name'] = name
+    o = _func(TYPE, attrs)
     return _ptr(Ptr(TYPE), o)
 
 def _getconcretetype(v):
