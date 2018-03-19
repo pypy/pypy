@@ -395,13 +395,12 @@ class AppTestSocket:
         if os.name != 'nt':
             raises(OSError, os.close, fileno)
 
-    def test_socket_close_error(self):
-        import _socket, os
-        if os.name == 'nt':
-            skip("Windows sockets are not files")
+    def test_socket_close_exception(self):
+        import errno, _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        os.close(s.fileno())
-        s.close()
+        _socket.socket(fileno=s.fileno()).close()
+        e = raises(OSError, s.close)
+        assert e.value.errno in (errno.EBADF, errno.ENOTSOCK)
 
     def test_socket_connect(self):
         import _socket, os

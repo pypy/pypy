@@ -292,9 +292,8 @@ class W_Socket(W_Root):
         """
         try:
             self.sock.close()
-        except SocketError:
-            # cpython doesn't return any errors on close
-            pass
+        except SocketError as e:
+            raise converted_error(space, e)
         self.may_unregister_rpython_finalizer(space)
 
     def connect_w(self, space, w_addr):
