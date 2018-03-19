@@ -139,9 +139,6 @@ class BaseTestPack(PackSupport):
         self.check('d', 123.456789)
 
     def test_pack_halffloat(self):
-        if self.fmttable is nativefmttable.native_fmttable:
-            # Host Python cannot handle half floats.
-            return
         size = 2
         wbuf = MutableStringBuffer(size)
         self.mypack_into('e', wbuf, 6.5e+04)
