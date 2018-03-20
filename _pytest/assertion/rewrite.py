@@ -265,10 +265,10 @@ def _rewrite_test(state, fn):
         if (not source.startswith(BOM_UTF8) and
             cookie_re.match(source[0:end1]) is None and
             cookie_re.match(source[end1 + 1:end2]) is None):
-            # if hasattr(state, "_indecode"):
-            #     # encodings imported us again, so don't rewrite.
-            #     return None, None
-            # state._indecode = True
+            if hasattr(state, "_indecode"):
+                # encodings imported us again, so don't rewrite.
+                return None, None
+            state._indecode = True
             try:
                 try:
                     source.decode("ascii")
@@ -293,20 +293,9 @@ def _rewrite_test(state, fn):
     except SyntaxError:
         # It's possible that this error is from some bug in the
         # assertion rewriting, but I don't know of a fast way to tell.
-        # state.trace("failed to compile: %r" % (fn,))
+        state.trace("failed to compile: %r" % (fn,))
         return None, None
     return stat, co
-
-
-def create_module(co):
-    """Hack to create a module from a code object created by _rewrite_test()"""
-    mod = imp.new_module(co.co_filename.split('/')[-1].split('.')[0])
-    mod.__file__ = co.co_filename
-    # mod.__cached__ = pyc
-    mod.__loader__ = None
-    exec(co, mod.__dict__)
-    return mod
-
 
 def _make_rewritten_pyc(state, source_stat, pyc, co):
     """Try to dump rewritten code to *pyc*."""
