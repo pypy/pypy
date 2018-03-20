@@ -94,6 +94,10 @@ INVALID = splitcases("""
     async def foo():
         await await fut
 
+    async def foo():
+        yield
+        return 42
+
 """)
 
 

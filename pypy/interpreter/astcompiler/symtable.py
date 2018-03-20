@@ -263,6 +263,9 @@ class FunctionScope(Scope):
 
     def note_return(self, ret):
         if ret.value:
+            if self.is_coroutine and self.is_generator:
+                raise SyntaxError("'return' with value in async generator",
+                                  ret.lineno, ret.col_offset)
             self.return_with_value = True
             self.ret = ret
 
