@@ -205,11 +205,15 @@ class BoehmGcPolicy(BasicGcPolicy):
             # GC_REDIRECT_TO_LOCAL is not supported on Win32 by gc6.8
             pre_include_bits += ["#define GC_REDIRECT_TO_LOCAL 1"]
 
+        hdr_flag = ''
+        if not getattr(self.db.gctransformer, 'NO_HEADER', False):
+            hdr_flag = '-DPYPY_BOEHM_WITH_HEADER'
+
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
             # The following define is required by the thread module,
             # See module/thread/test/test_rthread.py
-            compile_extra=['-DPYPY_USING_BOEHM_GC'],
+            compile_extra=['-DPYPY_USING_BOEHM_GC', hdr_flag],
             ))
 
         gct = self.db.gctransformer
