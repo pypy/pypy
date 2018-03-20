@@ -263,21 +263,21 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
             raise
     raise oefmt(space.w_AssertionError, "DID NOT RAISE")
 
-app_raises = gateway.interp2app_temp(pypyraises)
+app_raises = gateway.interp2app(pypyraises)
 
 def pypyskip(space, w_message):
     """skip a test at app-level. """
     msg = space.unwrap(w_message)
     py.test.skip(msg)
 
-app_skip = gateway.interp2app_temp(pypyskip)
+app_skip = gateway.interp2app(pypyskip)
 
-def py3k_pypyskip(space, w_message): 
-    """skip a test at app-level. """ 
-    msg = space.unwrap(w_message) 
+def py3k_pypyskip(space, w_message):
+    """skip a test at app-level. """
+    msg = space.unwrap(w_message)
     py.test.skip('[py3k] %s' % msg)
 
-app_py3k_skip = gateway.interp2app_temp(py3k_pypyskip)
+app_py3k_skip = gateway.interp2app(py3k_pypyskip)
 
 def raises_w(space, w_ExpectedException, *args, **kwds):
     try:

@@ -1,6 +1,8 @@
 import sys
+import os
 
 import pytest
+from pypy import pypydir
 import pypy.interpreter.function
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import objspace
@@ -19,7 +21,7 @@ class AppTestModule(pytest.Module):
         stat, co = _pytest.assertion.rewrite._rewrite_test(None, py.path.local('%s'))
         mod = _pytest.assertion.rewrite.create_module(co)
         return mod
-        """ % (self.config.rootdir, str(self.fspath)))
+        """ % (os.path.dirname(pypydir), str(self.fspath)))
         mod_dict = w_mod.getdict(space).unwrap(space)
         items = []
         for name, w_obj in mod_dict.items():
