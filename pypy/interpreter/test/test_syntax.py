@@ -89,9 +89,6 @@ INVALID = splitcases("""
         await something()
 
     async def foo():
-        yield
-
-    async def foo():
         yield from []
 
     async def foo():
