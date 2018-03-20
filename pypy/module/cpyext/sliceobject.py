@@ -74,9 +74,8 @@ def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
     normal slices.
 
     Returns 0 on success and -1 on error with exception set."""
-    if not PySlice_Check(space, w_slice):
+    if not isinstance(w_slice, W_SliceObject):
         PyErr_BadInternalCall(space)
-    assert isinstance(w_slice, W_SliceObject)
     start_p[0], stop_p[0], step_p[0], slicelength_p[0] = \
             w_slice.indices4(space, length)
     return 0
@@ -96,9 +95,8 @@ def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     objects in versions of Python prior to 2.3, you would probably do well to
     incorporate the source of PySlice_GetIndicesEx(), suitably renamed,
     in the source of your extension."""
-    if not PySlice_Check(space, w_slice):
+    if not isinstance(w_slice, W_SliceObject):
         PyErr_BadInternalCall(space)
-    assert isinstance(w_slice, W_SliceObject)
     start_p[0], stop_p[0], step_p[0] = \
             w_slice.indices3(space, length)
     return 0
