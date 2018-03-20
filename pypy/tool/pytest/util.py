@@ -99,7 +99,7 @@ def assertrepr_compare(op, left, right, verbose=False):
     left_repr = saferepr(left, maxsize=int(width // 2))
     right_repr = saferepr(right, maxsize=width - len(left_repr))
 
-    summary = u('%s %s %s') % (ecu(left_repr), op, ecu(right_repr))
+    summary = u('%s %s %s') % (left_repr, op, right_repr)
 
     def issequence(x):
         return isinstance(x, Sequence) and not isinstance(x, basestring)

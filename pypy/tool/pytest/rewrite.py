@@ -566,7 +566,7 @@ class AssertionRewriter(ast.NodeVisitor):
         else:
             builtin_name = '__builtin__'
         aliases = [ast.alias(builtin_name, "@py_builtins"),
-                   ast.alias("_pytest.assertion.rewrite", "@pytest_ar")]
+                   ast.alias("pypy.tool.pytest.rewrite", "@pytest_ar")]
         doc = getattr(mod, "docstring", None)
         expect_docstring = doc is None
         if doc is not None and self.is_rewrite_disabled(doc):
