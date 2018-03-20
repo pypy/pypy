@@ -255,7 +255,7 @@ class W_TypeObject(W_Root):
 
     def _set_version_tag(self, version_tag):
         self._version_tag = version_tag
-        self.terminator.mutated_w_cls_version(version_tag)
+        self.terminator.mutated(version_tag is not None)
 
     def getattribute_if_not_from_object(self):
         """ this method returns the applevel __getattribute__ if that is not

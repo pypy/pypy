@@ -76,23 +76,22 @@ class AbstractAttribute(object):
             # XXX can improve the devolved case
             terminator = self._get_terminator()
             return terminator._read_terminator(obj, name, index)
-        #if ( # XXX in the guard_compatible world the following isconstant may never be true?
-        #    jit.isconstant(attr.storageindex) and
-        #    jit.isconstant(obj) and
-        #    not attr.ever_mutated
-        #):
-        #    return self._pure_mapdict_read_storage(obj, attr.storageindex)
-        #else:
-        return obj._mapdict_read_storage(storageindex)
-
-    @jit.elidable
-    def _pure_mapdict_read_storage(self, obj, storageindex):
+        if (
+                jit.isconstant(name) and
+                jit.isconstant(index) and
+                jit.isconstant(obj)
+            ):
+            can_constfold = self.can_constfold_attr_read(name, index)
+            if can_constfold:
+                return _pure_mapdict_read_storage(obj, storageindex)
         return obj._mapdict_read_storage(storageindex)
 
     def write(self, obj, name, index, w_value):
         storageindex = self.find_map_storageindex(name, index)
         if storageindex < 0:
             return self._get_terminator()._write_terminator(obj, name, index, w_value)
+        if self.can_constfold_attr_read(name, index):
+            self.invalidate_ever_mutated(name, index)
         obj._mapdict_write_storage(storageindex, w_value)
         return True
 
@@ -111,6 +110,24 @@ class AbstractAttribute(object):
                 return NOATTR_DEVOLVED_TERMINATOR
             return NOATTR
         return attr.storageindex
+
+    @jit.elidable_compatible(quasi_immut_field_name_for_second_arg="version")
+    def can_constfold_attr_read(self, version, name, index):
+        if version is None:
+            return False
+        attr = self.find_map_attr(name, index)
+        if attr is None:
+            return False
+        return not attr.ever_mutated
+
+    def invalidate_ever_mutated(self, name, index):
+        attr = self.find_map_attr(name, index)
+        assert not attr.ever_mutated
+        attr.ever_mutated = True
+        # XXX is the next line too expensive?
+        # it's necessary for the version to change, to make
+        # can_constfold_attr_read actually elidable
+        self.terminator.mutated(self.version is not None)
 
     @jit.elidable_compatible()
     def find_map_attr(self, name, index):
@@ -384,14 +401,14 @@ class Terminator(AbstractAttribute):
         self.w_cls = w_cls
         self.all_children = None
 
-    def mutated_w_cls_version(self, version):
-        if version is None:
+    def mutated(self, have_version):
+        if not have_version:
             self.version = None
         else:
             self.version = Version()
         if self.all_children is not None:
             for map in self.all_children:
-                if version is None:
+                if not have_version:
                     map.version = None
                 else:
                     map.version = Version()
@@ -437,9 +454,9 @@ class DictTerminator(Terminator):
         Terminator.__init__(self, space, w_cls)
         self.devolved_dict_terminator = DevolvedDictTerminator(space, w_cls)
 
-    def mutated_w_cls_version(self, version):
-        self.devolved_dict_terminator.mutated_w_cls_version(version)
-        Terminator.mutated_w_cls_version(self, version)
+    def mutated(self, have_version):
+        self.devolved_dict_terminator.mutated(have_version)
+        Terminator.mutated(self, have_version)
 
     def materialize_r_dict(self, space, obj, dict_w):
         return self._make_devolved(space)
@@ -500,7 +517,7 @@ class DevolvedDictTerminator(Terminator):
         return Terminator.set_terminator(self, obj, terminator)
 
 class PlainAttribute(AbstractAttribute):
-    _immutable_fields_ = ['name', 'index', 'storageindex', 'back', 'ever_mutated?', 'order']
+    _immutable_fields_ = ['name', 'index', 'storageindex', 'back', 'ever_mutated', 'order']
 
     def __init__(self, name, index, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
@@ -509,7 +526,7 @@ class PlainAttribute(AbstractAttribute):
         self.storageindex = back.length()
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
-        #self.ever_mutated = False # XXX XXX XXX immutability is disabled for now
+        self.ever_mutated = False
         self.order = len(back.cache_attrs) if back.cache_attrs else 0
 
     def _copy_attr(self, obj, new_obj):
@@ -518,9 +535,9 @@ class PlainAttribute(AbstractAttribute):
 
     def delete(self, obj, name, index):
         if index == self.index and name == self.name:
+            if not self.ever_mutated:
+                self.invalidate_ever_mutated(name, index)
             # ok, attribute is deleted
-            #if not self.ever_mutated:
-            #    self.ever_mutated = True
             return self.back.copy(obj)
         new_obj = self.back.delete(obj, name, index)
         if new_obj is not None:
@@ -601,6 +618,13 @@ DICT = 0
 SPECIAL = 1
 INVALID = 2
 SLOTS_STARTING_FROM = 3
+
+
+
+@jit.elidable
+def _pure_mapdict_read_storage(obj, storageindex):
+    return obj._mapdict_read_storage(storageindex)
+
 
 # a little bit of a mess of mixin classes that implement various pieces of
 # objspace user object functionality in terms of mapdict

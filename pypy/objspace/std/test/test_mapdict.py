@@ -17,7 +17,7 @@ space.config = Config
 class Class(object):
     def __init__(self, hasdict=True):
         self.hasdict = hasdict
-        self._version_tag = None
+        self._version_tag = object()
         if hasdict:
             self.terminator = DictTerminator(space, self)
         else:
@@ -32,6 +32,9 @@ class Class(object):
             result = ObjectWithoutDict()
         result.user_setup(sp, self)
         return result
+
+    def mutated(self, _):
+        self._version_tag = object()
 
 class ObjectWithoutDict(ObjectWithoutDict):
     class typedef:
@@ -291,7 +294,7 @@ def test_bug_infinite_loop():
 
 
 def test_attr_immutability(monkeypatch):
-    pytest.skip("disabled for now")
+    from pypy.objspace.std import mapdict
     cls = Class()
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", 10)
@@ -308,7 +311,7 @@ def test_attr_immutability(monkeypatch):
         indices.append(storageindex)
         return obj._mapdict_read_storage(storageindex)
 
-    obj.map._pure_mapdict_read_storage = _pure_mapdict_read_storage
+    monkeypatch.setattr(mapdict, "_pure_mapdict_read_storage", _pure_mapdict_read_storage)
     monkeypatch.setattr(jit, "isconstant", lambda c: True)
 
     assert obj.getdictvalue(space, "a") == 10
@@ -329,7 +332,6 @@ def test_attr_immutability(monkeypatch):
     assert obj2.map is obj.map
 
 def test_attr_immutability_delete():
-    pytest.skip("disabled for now")
     cls = Class()
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", 10)
@@ -1031,14 +1033,14 @@ class AppTestWithMapDictAndCounters(object):
         a.x = 42
         def f():
             return a.x
-        #
+
         res = self.check(f, 'x')
         assert res == (1, 0, 0)
         res = self.check(f, 'x')
         assert res == (0, 1, 0)
         res = self.check(f, 'x')
         assert res == (0, 1, 0)
-        #
+
         a.y = "foo"      # changes the map
         res = self.check(f, 'x')
         assert res == (1, 0, 0)
@@ -1046,8 +1048,18 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 1, 0)
         res = self.check(f, 'x')
         assert res == (0, 1, 0)
-        #
-        a.y = "bar"      # does not change the map any more
+
+        # the following does not change the map, but changes the version since
+        # y goes from immutable to mutable
+        a.y = "bar"
+        res = self.check(f, 'x')
+        assert res == (1, 0, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+
+        a.y = "baz"      # now everything works
         res = self.check(f, 'x')
         assert res == (0, 1, 0)
         res = self.check(f, 'x')
