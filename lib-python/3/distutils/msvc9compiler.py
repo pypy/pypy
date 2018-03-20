@@ -288,6 +288,9 @@ def query_vcvarsall(version, arch="x86"):
                     value = value[:-1]
                 result[key] = removeDuplicates(value)
 
+    except Exception as e:
+        log.debug(repr(e))
+        raise
     finally:
         popen.stdout.close()
         popen.stderr.close()
