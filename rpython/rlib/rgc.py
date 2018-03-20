@@ -378,8 +378,6 @@ def must_be_light_finalizer(func):
 
 class FinalizerQueue(object):
     """A finalizer queue.  See pypy/doc/discussion/finalizer-order.rst.
-    Note: only works with the framework GCs (like minimark).  It is
-    ignored with Boehm or with refcounting (used by tests).
     """
     # Must be subclassed, and the subclass needs these attributes:
     #
