@@ -79,3 +79,14 @@ class AppTestSliceMembers(AppTestCpythonExtensionBase):
              """),
             ])
         assert module.get_ellipsis() is Ellipsis
+
+    def test_typecheck(self):
+        module = self.import_extension('foo', [
+            ("check", "METH_O",
+             """
+                 PySliceObject *slice = (PySliceObject *)args;
+                 return PyLong_FromLong(PySlice_Check(slice));
+             """),
+            ])
+        s = slice(10, 20, 30)
+        assert module.check(s)
