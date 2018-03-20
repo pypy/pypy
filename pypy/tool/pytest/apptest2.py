@@ -4,6 +4,7 @@ import os
 import pytest
 from pypy import pypydir
 import pypy.interpreter.function
+import pypy.tool.pytest.rewrite
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import objspace
 from pypy.tool.pytest import appsupport
@@ -12,16 +13,21 @@ from pypy.tool.pytest import appsupport
 class AppTestModule(pytest.Module):
 
     def collect(self):
+        _, source = pypy.tool.pytest.rewrite._prepare_source(self.fspath)
         space = objspace.gettestobjspace()
-        w_mod = space.appexec([] ,"""():
+        w_rootdir = space.newtext(os.path.dirname(pypydir))
+        w_source = space.newtext(source)
+        w_fname = space.newtext(str(self.fspath))
+        w_mod = space.appexec([w_rootdir, w_source, w_fname],
+                              """(rootdir, source, fname):
         import sys
-        sys.path.insert(0, '%s')
-        import _pytest.assertion.rewrite, py.path
+        sys.path.insert(0, rootdir)
+        from pypy.tool.pytest import rewrite
 
-        stat, co = _pytest.assertion.rewrite._rewrite_test(None, py.path.local('%s'))
-        mod = _pytest.assertion.rewrite.create_module(co)
+        co = rewrite.rewrite_asserts(source, fname)
+        mod = rewrite.create_module(fname, co)
         return mod
-        """ % (os.path.dirname(pypydir), str(self.fspath)))
+        """)
         mod_dict = w_mod.getdict(space).unwrap(space)
         items = []
         for name, w_obj in mod_dict.items():
