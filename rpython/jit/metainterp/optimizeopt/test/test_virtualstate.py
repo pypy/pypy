@@ -538,7 +538,8 @@ class BaseTestGenerateGuards(BaseTest):
         # call with quasi-immut
         box = InputArgRef()
         ccond.register_quasi_immut_field(
-            ResOperation(rop.QUASIIMMUT_FIELD, [box], self.quasiimmutdescr))
+            ResOperation(rop.QUASIIMMUT_FIELD, [box], self.quasiimmutdescr),
+            optimizer=None)
         getfield_op = ResOperation(
                 rop.GETFIELD_GC_I, [box], self.quasifielddescr)
         op = ResOperation(

@@ -64,7 +64,8 @@ class CompatibilityCondition(object):
 
     def register_quasi_immut_field(self, op, optimizer):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
-        assert optimizer.ensure_ptr_info_arg0(op)._compatibility_conditions is self
+        if optimizer is not None:  # for test
+            assert optimizer.ensure_ptr_info_arg0(op)._compatibility_conditions is self
         descr = op.getdescr()
         assert isinstance(descr, QuasiImmutDescr)
         self.last_quasi_immut_field_descr = descr
