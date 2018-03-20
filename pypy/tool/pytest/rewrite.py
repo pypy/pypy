@@ -1,7 +1,6 @@
 """Rewrite assertion AST to produce nice error messages"""
 from __future__ import absolute_import, division, print_function
 import ast
-import errno
 import itertools
 import imp
 import marshal
@@ -11,7 +10,6 @@ import struct
 import sys
 import types
 
-import py
 from . import util
 
 
@@ -39,205 +37,6 @@ if sys.version_info >= (3, 5):
 else:
     def ast_Call(a, b, c):
         return ast.Call(a, b, c, None, None)
-
-
-class AssertionRewritingHook(object):
-    """PEP302 Import hook which rewrites asserts."""
-
-    def __init__(self, config):
-        self.config = config
-        self.fnpats = config.getini("python_files")
-        self.session = None
-        self.modules = {}
-        self._rewritten_names = set()
-        self._register_with_pkg_resources()
-        self._must_rewrite = set()
-
-    def set_session(self, session):
-        self.session = session
-
-    def find_module(self, name, path=None):
-        state = self.config._assertstate
-        state.trace("find_module called for: %s" % name)
-        names = name.rsplit(".", 1)
-        lastname = names[-1]
-        pth = None
-        if path is not None:
-            # Starting with Python 3.3, path is a _NamespacePath(), which
-            # causes problems if not converted to list.
-            path = list(path)
-            if len(path) == 1:
-                pth = path[0]
-        if pth is None:
-            try:
-                fd, fn, desc = imp.find_module(lastname, path)
-            except ImportError:
-                return None
-            if fd is not None:
-                fd.close()
-            tp = desc[2]
-            if tp == imp.PY_COMPILED:
-                if hasattr(imp, "source_from_cache"):
-                    try:
-                        fn = imp.source_from_cache(fn)
-                    except ValueError:
-                        # Python 3 doesn't like orphaned but still-importable
-                        # .pyc files.
-                        fn = fn[:-1]
-                else:
-                    fn = fn[:-1]
-            elif tp != imp.PY_SOURCE:
-                # Don't know what this is.
-                return None
-        else:
-            fn = os.path.join(pth, name.rpartition(".")[2] + ".py")
-
-        fn_pypath = py.path.local(fn)
-        if not self._should_rewrite(name, fn_pypath, state):
-            return None
-
-        self._rewritten_names.add(name)
-
-        # The requested module looks like a test file, so rewrite it. This is
-        # the most magical part of the process: load the source, rewrite the
-        # asserts, and load the rewritten source. We also cache the rewritten
-        # module code in a special pyc. We must be aware of the possibility of
-        # concurrent pytest processes rewriting and loading pycs. To avoid
-        # tricky race conditions, we maintain the following invariant: The
-        # cached pyc is always a complete, valid pyc. Operations on it must be
-        # atomic. POSIX's atomic rename comes in handy.
-        write = not sys.dont_write_bytecode
-        cache_dir = os.path.join(fn_pypath.dirname, "__pycache__")
-        if write:
-            try:
-                os.mkdir(cache_dir)
-            except OSError:
-                e = sys.exc_info()[1].errno
-                if e == errno.EEXIST:
-                    # Either the __pycache__ directory already exists (the
-                    # common case) or it's blocked by a non-dir node. In the
-                    # latter case, we'll ignore it in _write_pyc.
-                    pass
-                elif e in [errno.ENOENT, errno.ENOTDIR]:
-                    # One of the path components was not a directory, likely
-                    # because we're in a zip file.
-                    write = False
-                elif e in [errno.EACCES, errno.EROFS, errno.EPERM]:
-                    state.trace("read only directory: %r" % fn_pypath.dirname)
-                    write = False
-                else:
-                    raise
-        cache_name = fn_pypath.basename[:-3] + PYC_TAIL
-        pyc = os.path.join(cache_dir, cache_name)
-        # Notice that even if we're in a read-only directory, I'm going
-        # to check for a cached pyc. This may not be optimal...
-        co = _read_pyc(fn_pypath, pyc, state.trace)
-        if co is None:
-            state.trace("rewriting %r" % (fn,))
-            source_stat, co = _rewrite_test(self.config, fn_pypath)
-            if co is None:
-                # Probably a SyntaxError in the test.
-                return None
-            if write:
-                _make_rewritten_pyc(state, source_stat, pyc, co)
-        else:
-            state.trace("found cached rewritten pyc for %r" % (fn,))
-        self.modules[name] = co, pyc
-        return self
-
-    def _should_rewrite(self, name, fn_pypath, state):
-        # always rewrite conftest files
-        fn = str(fn_pypath)
-        if fn_pypath.basename == 'conftest.py':
-            state.trace("rewriting conftest file: %r" % (fn,))
-            return True
-
-        if self.session is not None:
-            if self.session.isinitpath(fn):
-                state.trace("matched test file (was specified on cmdline): %r" %
-                            (fn,))
-                return True
-
-        # modules not passed explicitly on the command line are only
-        # rewritten if they match the naming convention for test files
-        for pat in self.fnpats:
-            if fn_pypath.fnmatch(pat):
-                state.trace("matched test file %r" % (fn,))
-                return True
-
-        for marked in self._must_rewrite:
-            if name == marked or name.startswith(marked + '.'):
-                state.trace("matched marked file %r (from %r)" % (name, marked))
-                return True
-
-        return False
-
-    def mark_rewrite(self, *names):
-        """Mark import names as needing to be rewritten.
-
-        The named module or package as well as any nested modules will
-        be rewritten on import.
-        """
-        already_imported = (set(names)
-                            .intersection(sys.modules)
-                            .difference(self._rewritten_names))
-        for name in already_imported:
-            if not AssertionRewriter.is_rewrite_disabled(
-                    sys.modules[name].__doc__ or ""):
-                self._warn_already_imported(name)
-        self._must_rewrite.update(names)
-
-    def _warn_already_imported(self, name):
-        self.config.warn(
-            'P1',
-            'Module already imported so cannot be rewritten: %s' % name)
-
-    def load_module(self, name):
-        # If there is an existing module object named 'fullname' in
-        # sys.modules, the loader must use that existing module. (Otherwise,
-        # the reload() builtin will not work correctly.)
-        if name in sys.modules:
-            return sys.modules[name]
-
-        co, pyc = self.modules.pop(name)
-        # I wish I could just call imp.load_compiled here, but __file__ has to
-        # be set properly. In Python 3.2+, this all would be handled correctly
-        # by load_compiled.
-        sys.modules[name] = create_module(name, co, pyc)
-        return sys.modules[name]
-
-    def is_package(self, name):
-        try:
-            fd, fn, desc = imp.find_module(name)
-        except ImportError:
-            return False
-        if fd is not None:
-            fd.close()
-        tp = desc[2]
-        return tp == imp.PKG_DIRECTORY
-
-    @classmethod
-    def _register_with_pkg_resources(cls):
-        """
-        Ensure package resources can be loaded from this loader. May be called
-        multiple times, as the operation is idempotent.
-        """
-        try:
-            import pkg_resources
-            # access an attribute in case a deferred importer is present
-            pkg_resources.__name__
-        except ImportError:
-            return
-
-        # Since pytest tests are always located in the file system, the
-        #  DefaultProvider is appropriate.
-        pkg_resources.register_loader_type(cls, pkg_resources.DefaultProvider)
-
-    def get_data(self, pathname):
-        """Optional PEP302 get_data API.
-        """
-        with open(pathname, 'rb') as f:
-            return f.read()
 
 
 def _write_pyc(state, co, source_stat, pyc):
@@ -403,7 +202,7 @@ def _saferepr(obj):
     return repr(obj).replace('\n', '\\n')
 
 
-from _pytest.assertion.util import format_explanation as _format_explanation  # noqa
+from .util import format_explanation as _format_explanation  # noqa
 
 
 def _format_assertmsg(obj):

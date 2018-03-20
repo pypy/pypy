@@ -202,3 +202,6 @@ def test_async_for_with_tuple_subclass():
     except Done:
         pass
     assert result == [42]
+
+def test_fail():
+    assert False
