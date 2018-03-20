@@ -133,6 +133,11 @@ for name in ('INT', 'LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
              'TYPE', 'STRING'): # 'STRING' -> 'BYTES' in py3
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
 
+# PyPy-specific flags
+for name in ('FLOAT',):
+    constant_names.append('Py_TPPYPYFLAGS_%s_SUBCLASS' % name)
+
+
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 globals().update(rffi_platform.configure(CConfig_constants))

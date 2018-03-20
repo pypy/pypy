@@ -22,6 +22,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
     Py_TPFLAGS_INT_SUBCLASS, Py_TPFLAGS_STRING_SUBCLASS, # change on py3
+    Py_TPPYPYFLAGS_FLOAT_SUBCLASS,
     )
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
@@ -426,6 +427,9 @@ def inherit_special(space, pto, w_obj, base_pto):
         pto.c_tp_flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
         pto.c_tp_flags |= Py_TPFLAGS_DICT_SUBCLASS
+    # the following types are a pypy-specific extensions, using tp_pypy_flags
+    elif space.issubtype_w(w_obj, space.w_float):
+        pto.c_tp_pypy_flags |= Py_TPPYPYFLAGS_FLOAT_SUBCLASS
 
 def check_descr(space, w_self, w_type):
     if not space.isinstance_w(w_self, w_type):

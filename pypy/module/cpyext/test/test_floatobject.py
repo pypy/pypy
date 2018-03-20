@@ -102,9 +102,11 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
              """
              PyObject* pyobj = PyFloat_FromDouble(1.0);
              PyFloatObject* pfo = (PyFloatObject*)pyobj;
-             int res = PyFloat_Check(pyobj) && PyFloat_CheckExact(pyobj) &&
-                PyFloat_Check(pfo) && PyFloat_CheckExact(pfo);
+             int res = (PyFloat_Check(pyobj) +
+                        PyFloat_CheckExact(pyobj) * 10 +
+                        PyFloat_Check(pfo) * 100 +
+                        PyFloat_CheckExact(pfo) * 1000);
              Py_DecRef(pyobj);
              return PyLong_FromLong(res);"""),
             ])
-        assert module.test() == 1
+        assert module.test() == 1111
