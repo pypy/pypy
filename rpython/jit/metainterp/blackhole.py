@@ -1,6 +1,5 @@
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
-from rpython.jit.metainterp.compile import ResumeAtPositionDescr
 from rpython.jit.metainterp.jitexc import get_llexception, reraise
 from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.history import MissingValue

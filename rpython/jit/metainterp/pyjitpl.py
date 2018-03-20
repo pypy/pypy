@@ -2496,7 +2496,7 @@ class MetaInterp(object):
         self.current_merge_points = []
         self.resumekey = resumedescr
         self.seen_loop_header_for_jdindex = -1
-        if isinstance(key, compile.ResumeAtPositionDescr):
+        if key.resume_at_loop_start:
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
         self.prepare_resume_from_failure(deadframe, inputargs, resumedescr)
         if self.resumekey_original_loop_token is None:   # very rare case

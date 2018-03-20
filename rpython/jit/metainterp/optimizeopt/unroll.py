@@ -342,7 +342,7 @@ class UnrollOptimizer(Optimization):
                     if isinstance(guard, GuardResOp):
                         guard.rd_resume_position = patchguardop.rd_resume_position
                         if guard.opnum == rop.GUARD_COMPATIBLE:
-                            guard.setdescr(compile.GuardCompatibleDescr())
+                            guard.setdescr(compile.ResumeAtPositionForCompatibleDescr())
                         else:
                             guard.setdescr(compile.ResumeAtPositionDescr())
                     self.send_extra_operation(guard)

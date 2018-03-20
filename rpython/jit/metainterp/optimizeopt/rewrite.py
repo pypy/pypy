@@ -542,8 +542,7 @@ class OptRewrite(Optimization):
             raise InvalidLoop('A GUARD_CLASS (%s) was proven to always fail'
                               % r)
         old_guard_op = info.get_last_guard(self.optimizer)
-        if old_guard_op and not isinstance(old_guard_op.getdescr(),
-                                           compile.ResumeAtPositionDescr):
+        if old_guard_op and not old_guard_op.getdescr().resume_at_loop_start:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
             if old_guard_op.getopnum() == rop.GUARD_NONNULL:
@@ -566,8 +565,8 @@ class OptRewrite(Optimization):
         expectedclassbox = op.getarg(1)
         info = self.getptrinfo(op.getarg(0))
         old_guard_op = info.get_last_guard(self.optimizer)
-        update_last_guard = not old_guard_op or isinstance(
-            old_guard_op.getdescr(), compile.ResumeAtPositionDescr)
+        update_last_guard = (not old_guard_op or
+                             old_guard_op.getdescr().resume_at_loop_start)
         self.make_constant_class(op.getarg(0), expectedclassbox, update_last_guard)
 
     def optimize_GUARD_NONNULL_CLASS(self, op):

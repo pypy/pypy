@@ -692,6 +692,8 @@ def make_and_attach_done_descrs(targets):
 class ResumeDescr(AbstractFailDescr):
     _attrs_ = ()
 
+    resume_at_loop_start = False
+
     def clone(self):
         return self
 
@@ -901,7 +903,7 @@ class ResumeGuardCopiedExcDescr(ResumeGuardCopiedDescr):
     pass
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
-    pass
+    resume_at_loop_start = True
 
 class CompileLoopVersionDescr(ResumeGuardDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
@@ -1062,7 +1064,7 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     metainterp_sd.jitlog.start_new_trace(metainterp_sd,
             faildescr=resumekey, entry_bridge=False, jd_name=jd_name)
     #
-    if isinstance(resumekey, ResumeAtPositionDescr):
+    if resumekey.resume_at_loop_start:
         inline_short_preamble = False
     else:
         inline_short_preamble = True
@@ -1108,6 +1110,7 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     new_trace.inputargs = info.renamed_inputargs
     metainterp.retrace_needed(new_trace, info)
     return None
+
 
 class GuardCompatibleDescr(ResumeGuardDescr):
     """ A descr for guard_compatible. All the conditions that a value should
@@ -1212,6 +1215,10 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         if self._compatibility_conditions:
             return self._compatibility_conditions.repr_of_conditions_as_jit_debug(argrepr)
         return []
+
+
+class ResumeAtPositionForCompatibleDescr(GuardCompatibleDescr):
+    resume_at_loop_start = True
 
 
 # ____________________________________________________________

@@ -2,7 +2,6 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-
 class TestCompatible(LLJitMixin):
     def test_simple(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -611,6 +610,59 @@ class TestCompatible(LLJitMixin):
         assert x < 70
         self.check_trace_count(5)
         self.check_resops(call_i=0)
+
+
+    def test_short_preamble_resume_at_loop_start(self):
+        """check that an inserted guard_compatible in the short preamble will always
+        resume at the loop start and not create a bridge (which contains
+        another loop iteration with guards, causing a lot of bridges to
+        appear). Basically do the same as for guard_value in short preambles.
+        """
+        from rpython.rlib.objectmodel import we_are_translated
+
+        class C(object):
+            def __init__(self, x):
+                self.x = x
+
+        p1 = C(1)
+        p1.link = None
+
+        p2 = C(2)
+        p2.link = C(1)
+        p2.link.link = None
+
+        p2a = C(2)
+        p2a.link = C(2)
+        p2a.link.link = C(1)
+
+        driver = jit.JitDriver(greens=[], reds=['n', 'x'])
+
+        @jit.elidable_compatible()
+        def g(o):
+            return o.x
+
+        def f(n, x):
+            res = 0
+            while n > 0:
+                driver.can_enter_jit(n=n, x=x)
+                driver.jit_merge_point(n=n, x=x)
+                x = jit.hint(x, promote_compatible=True)
+                res = g(x)
+                if res == 2:
+                    x = x.link
+                n -= res
+            return res
+
+        def main(x):
+            jit.set_param(driver, 'trace_eagerness', 1)
+            res = f(100, p1)
+            res += f(100, p2)
+            res += f(100, p2a)
+            return res
+
+        x = self.meta_interp(main, [False])
+        self.check_trace_count(4)
+        self.check_resops(int_sub=3)  # not 4!
 
 
     def test_like_objects(self):
