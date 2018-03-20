@@ -193,13 +193,27 @@ NURSARRAY = lltype.Array(llmemory.Address)
 VISIT_FUNCTYPE = rffi.CCallback([PyObject, rffi.VOIDP],
                                 rffi.INT_real)
 
-def traverse(obj, func_ptr):
-    from pypy.module.cpyext.api import generic_cpy_call
-    from pypy.module.cpyext.typeobjectdefs import visitproc
-    if obj.c_ob_type and obj.c_ob_type.c_tp_traverse:
-        visitproc_ptr = rffi.cast(visitproc, func_ptr)
-        generic_cpy_call(True, obj.c_ob_type.c_tp_traverse, obj,
-                         visitproc_ptr, rffi.cast(rffi.VOIDP, obj))
+
+def visit_trace_non_rc_roots(pyobj, self_ptr):
+    from rpython.rlib.rawrefcount import (REFCNT_CLR_BLACK,
+                                          REFCNT_CLR_MASK)
+    from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
+
+    self_adr = rffi.cast(llmemory.Address, self_ptr)
+    self = cast_adr_to_nongc_instance(IncrementalMiniMarkGC, self_adr)
+
+    # if the pyobj is not marked, remember it and if there is a linked pypy
+    # object also remember it
+    if pyobj.c_ob_refcnt & REFCNT_CLR_MASK != REFCNT_CLR_BLACK:
+        pyobject = llmemory.cast_ptr_to_adr(pyobj)
+        self.rrc_more_pyobjects_to_scan.append(pyobject)
+        intobj = pyobj.c_ob_pypy_link
+        if intobj != 0:
+            obj = llmemory.cast_int_to_adr(intobj)
+            hdr = self.header(obj)
+            if not (hdr.tid & GCFLAG_VISITED):
+                self.objects_to_trace.append(obj)
+    return rffi.cast(rffi.INT_real, 0)
 
 # ____________________________________________________________
 
@@ -2346,7 +2360,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.visit_all_objects()
                 #
                 if self.rrc_enabled:
-                    self.rrc_major_collection_trace()
+                   self.rrc_major_collection_trace()
                 #
                 ll_assert(not (self.probably_young_objects_with_finalizers
                                .non_empty()),
@@ -3022,6 +3036,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_p_dict_nurs  = self.AddressDict()  # nursery keys only
             self.rrc_dealloc_trigger_callback = dealloc_trigger_callback
             self.rrc_dealloc_pending = self.AddressStack()
+            self.rrc_pyobjects_to_scan = self.AddressStack()
+            self.rrc_more_pyobjects_to_scan = self.AddressStack()
+            self.rrc_pyobjects_to_trace = self.AddressStack()
             self.rrc_enabled = True
 
     def check_no_more_rawrefcount_state(self):
@@ -3194,8 +3211,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._pyobj(pyobject).c_ob_refcnt = rc
     _rrc_free._always_inline_ = True
 
+    NO_CYCLE_DETECTION = False
+
     def rrc_major_collection_trace(self):
-        self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
+        if self.NO_CYCLE_DETECTION:
+            self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
+        else:
+            self.rrc_major_collection_trace_cycle()
 
     def _rrc_major_trace(self, pyobject, ignore):
         from rpython.rlib.rawrefcount import REFCNT_MASK
@@ -3209,6 +3231,71 @@ class IncrementalMiniMarkGC(MovingGCBase):
             obj = llmemory.cast_int_to_adr(intobj)
             self.objects_to_trace.append(obj)
             self.visit_all_objects()
+
+    def rrc_major_collection_trace_cycle(self):
+        assert not self.objects_to_trace.non_empty()
+        assert not self.rrc_pyobjects_to_scan.non_empty()
+        assert not self.rrc_more_pyobjects_to_scan.non_empty()
+        assert not self.rrc_pyobjects_to_trace.non_empty()
+
+        # initially, scan all old pyobjects which are linked to objects
+        self.rrc_p_list_old.foreach(self._rrc_major_scan_non_rc_roots, None)
+
+        # as long as we find new pyobjects which should be marked, recursively
+        # mark them
+        while self.rrc_pyobjects_to_trace.non_empty():
+            while self.rrc_pyobjects_to_trace.non_empty():
+                pyobj = self.rrc_pyobjects_to_trace.pop()
+                self._rrc_major_trace_non_rc_roots(pyobj)
+
+            # see if we found new pypy objects to trace
+            if self.objects_to_trace.non_empty():
+                self.visit_all_objects()
+            self.objects_to_trace.delete()
+
+            # look if there are some pyobjects with linked objects which were
+            # not marked previously, but are marked now
+            swap = self.rrc_pyobjects_to_scan
+            self.rrc_pyobjects_to_scan = self.rrc_more_pyobjects_to_scan
+            self.rrc_more_pyobjects_to_scan = swap
+            self.rrc_pyobjects_to_scan.foreach(
+                self._rrc_major_scan_non_rc_roots, None)
+            self.rrc_pyobjects_to_scan.delete()
+
+    def traverse(self, pyobject, func_ptr):
+        from pypy.module.cpyext.api import generic_cpy_call_gc
+        from pypy.module.cpyext.typeobjectdefs import visitproc
+        from rpython.rtyper.annlowlevel import cast_nongc_instance_to_adr
+        self_addr = cast_nongc_instance_to_adr(self)
+        pyobj = self._pyobj(pyobject)
+        if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_traverse:
+            visitproc_ptr = rffi.cast(visitproc, func_ptr)
+            generic_cpy_call_gc(pyobj.c_ob_type.c_tp_traverse, pyobj,
+                            visitproc_ptr, rffi.cast(rffi.VOIDP, self_addr))
+            #cast_nongc_instance_to_adr(self)
+
+    def _rrc_major_trace_non_rc_roots(self, pyobject):
+        from rpython.rtyper.annlowlevel import llhelper
+        func_ptr = llhelper(VISIT_FUNCTYPE, visit_trace_non_rc_roots)
+        self.traverse(pyobject, func_ptr)
+
+    def _rrc_major_scan_non_rc_roots(self, pyobject, ignore):
+        from rpython.rlib.rawrefcount import (REFCNT_CLR_BLACK,
+                                              REFCNT_CLR_MASK)
+        # check in the object header of the linked pypy object, if it is marked
+        # or not
+        pyobj = self._pyobj(pyobject)
+        intobj = pyobj.c_ob_pypy_link
+        obj = llmemory.cast_int_to_adr(intobj)
+        hdr = self.header(obj)
+        if hdr.tid & GCFLAG_VISITED:
+            if pyobj.c_ob_refcnt & REFCNT_CLR_MASK != REFCNT_CLR_BLACK:
+                # process the pyobject now
+                self.rrc_pyobjects_to_trace.append(pyobject)
+        else:
+            # save the pyobject for later, in case its linked object becomes
+            # marked
+            self.rrc_more_pyobjects_to_scan.append(pyobject)
 
     def rrc_major_collection_free(self):
         ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 2")

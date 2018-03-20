@@ -112,6 +112,15 @@ def init(dealloc_trigger_callback=None):
     _d_marker = None
     _dealloc_trigger_callback = dealloc_trigger_callback
 
+# def init_traverse(traverse_cpy_call):
+#     global _traverse_cpy_call
+#     _traverse_cpy_call = traverse_cpy_call
+#
+# def traverse_cpy_call(pyobj, visitproc_ptr, arg):
+#     global _traverse_cpy_call
+#     _traverse_cpy_call(pyobj.c_ob_type.c_tp_traverse, pyobj,
+#                        visitproc_ptr, arg)
+
 @not_rpython
 def create_link_pypy(p, ob):
     "a link where the PyPy object contains some or all the data"

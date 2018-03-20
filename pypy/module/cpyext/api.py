@@ -1293,7 +1293,10 @@ def build_bridge(space):
     # if do tuple_attach of the prebuilt empty tuple, we need to call
     # _PyPy_Malloc)
     builder.attach_all(space)
-    
+
+    #import rpython.rlib.rawrefcount
+    #rawrefcount.init_traverse(generic_cpy_call_gc)
+
     setup_init_functions(eci, prefix)
     return modulename.new(ext='')
 
@@ -1716,6 +1719,11 @@ def generic_cpy_call(space, func, *args):
     return make_generic_cpy_call(FT, False)(space, func, *args)
 
 @specialize.ll()
+def generic_cpy_call_gc(func, *args):
+    FT = lltype.typeOf(func).TO
+    return make_generic_cpy_call_gc(FT, False)(func, *args)
+
+@specialize.ll()
 def generic_cpy_call_expect_null(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, True)(space, func, *args)
@@ -1810,6 +1818,78 @@ def make_generic_cpy_call(FT, expect_null):
             elif has_new_error:
                 state = space.fromcache(State)
                 state.check_and_raise_exception()
+
+            return ret
+        return result
+
+    return generic_cpy_call
+
+@specialize.memo()
+def make_generic_cpy_call_gc(FT, expect_null):
+    from pypy.module.cpyext.pyobject import is_pyobj, make_ref, decref
+    from pypy.module.cpyext.pyobject import get_w_obj_and_decref
+    from pypy.module.cpyext.pyerrors import PyErr_Occurred
+    unrolling_arg_types = unrolling_iterable(enumerate(FT.ARGS))
+    RESULT_TYPE = FT.RESULT
+
+    # copied and modified from rffi.py
+    # We need tons of care to ensure that no GC operation and no
+    # exception checking occurs in call_external_function.
+    argnames = ', '.join(['a%d' % i for i in range(len(FT.ARGS))])
+    source = py.code.Source("""
+        def cpy_call_external(funcptr, %(argnames)s):
+            # NB. it is essential that no exception checking occurs here!
+            res = funcptr(%(argnames)s)
+            return res
+    """ % locals())
+    miniglobals = {'__name__':    __name__, # for module name propagation
+                   }
+    exec source.compile() in miniglobals
+    call_external_function = specialize.ll()(miniglobals['cpy_call_external'])
+    call_external_function._dont_inline_ = True
+    call_external_function._gctransformer_hint_close_stack_ = True
+    # don't inline, as a hack to guarantee that no GC pointer is alive
+    # anywhere in call_external_function
+
+    @specialize.ll()
+    def generic_cpy_call(func, *args):
+        boxed_args = ()
+        to_decref = ()
+        assert len(args) == len(FT.ARGS)
+        for i, ARG in unrolling_arg_types:
+            arg = args[i]
+            _pyobj = None
+            if is_PyObject(ARG):
+                assert is_pyobj(arg)
+
+            boxed_args += (arg,)
+            to_decref += (_pyobj,)
+
+        # see "Handling of the GIL" above
+        tid = rthread.get_ident()
+        tid_before = cpyext_glob_tid_ptr[0]
+        assert tid_before == 0 or tid_before == tid
+        cpyext_glob_tid_ptr[0] = tid
+
+        try:
+            # Call the function
+            result = call_external_function(func, *boxed_args)
+        finally:
+            assert cpyext_glob_tid_ptr[0] == tid
+            cpyext_glob_tid_ptr[0] = tid_before
+            for i, ARG in unrolling_arg_types:
+                # note that this loop is nicely unrolled statically by RPython
+                _pyobj = to_decref[i]
+                if _pyobj is not None:
+                    pyobj = rffi.cast(PyObject, _pyobj)
+                    rawrefcount.decref(pyobj)
+
+        if is_PyObject(RESULT_TYPE):
+            ret = None
+
+            # Check for exception consistency
+            # XXX best attempt, will miss preexisting error that is
+            # overwritten with a new error of the same type
 
             return ret
         return result

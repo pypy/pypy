@@ -321,6 +321,8 @@ typedef union _gc_head {
 #define _PyGC_FINALIZED(o) 1
 #define PyType_IS_GC(tp) 1
 
+/* TODO: implement like in cpython
+   (see https://github.com/python/cpython/blob/517da1e58f4c489d4b31579852cde5f7113da08e/Include/objimpl.h#L295) */
 #define PyObject_GC_Track(o)      do { } while(0)
 #define PyObject_GC_UnTrack(o)    do { } while(0)
 #define _PyObject_GC_TRACK(o)     do { } while(0)
