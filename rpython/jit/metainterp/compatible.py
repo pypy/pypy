@@ -32,7 +32,7 @@ class CompatibilityCondition(object):
     def __init__(self, ptr):
         self.known_valid = ptr
         self.conditions = []
-        self.last_quasi_immut_field_op = None
+        self.last_quasi_immut_field_descr = None
         # -1 means "stay on the original trace"
         self.jump_target = -1
         self.frozen = False
