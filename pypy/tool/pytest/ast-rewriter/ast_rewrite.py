@@ -2,35 +2,19 @@
 from __future__ import absolute_import, division, print_function
 import ast
 import itertools
-import imp
 import marshal
-import os
-import re
 import struct
 import sys
-import types
 
-from . import util
+from ast_util import assertrepr_compare, format_explanation as _format_explanation
 
 
 # pytest caches rewritten pycs in __pycache__.
-if hasattr(imp, "get_tag"):
-    PYTEST_TAG = imp.get_tag() + "-PYTEST"
-else:
-    if hasattr(sys, "pypy_version_info"):
-        impl = "pypy"
-    elif sys.platform == "java":
-        impl = "jython"
-    else:
-        impl = "cpython"
-    ver = sys.version_info
-    PYTEST_TAG = "%s-%s%s-PYTEST" % (impl, ver[0], ver[1])
-    del ver, impl
+PYTEST_TAG = sys.implementation.cache_tag + "-PYTEST"
 
 PYC_EXT = ".py" + (__debug__ and "c" or "o")
 PYC_TAIL = "." + PYTEST_TAG + PYC_EXT
 
-ASCII_IS_DEFAULT_ENCODING = sys.version_info[0] < 3
 
 if sys.version_info >= (3, 5):
     ast_Call = ast.Call
@@ -65,60 +49,6 @@ def _write_pyc(state, co, source_stat, pyc):
     return True
 
 
-RN = "\r\n".encode("utf-8")
-N = "\n".encode("utf-8")
-
-cookie_re = re.compile(r"^[ \t\f]*#.*coding[:=][ \t]*[-\w.]+")
-BOM_UTF8 = '\xef\xbb\xbf'
-
-
-def _prepare_source(fn):
-    """Read the source code for re-writing."""
-    try:
-        stat = fn.stat()
-        source = fn.read("rb")
-    except EnvironmentError:
-        return None, None
-    if ASCII_IS_DEFAULT_ENCODING:
-        # ASCII is the default encoding in Python 2. Without a coding
-        # declaration, Python 2 will complain about any bytes in the file
-        # outside the ASCII range. Sadly, this behavior does not extend to
-        # compile() or ast.parse(), which prefer to interpret the bytes as
-        # latin-1. (At least they properly handle explicit coding cookies.) To
-        # preserve this error behavior, we could force ast.parse() to use ASCII
-        # as the encoding by inserting a coding cookie. Unfortunately, that
-        # messes up line numbers. Thus, we have to check ourselves if anything
-        # is outside the ASCII range in the case no encoding is explicitly
-        # declared. For more context, see issue #269. Yay for Python 3 which
-        # gets this right.
-        end1 = source.find("\n")
-        end2 = source.find("\n", end1 + 1)
-        if (not source.startswith(BOM_UTF8) and
-            cookie_re.match(source[0:end1]) is None and
-            cookie_re.match(source[end1 + 1:end2]) is None):
-            try:
-                source.decode("ascii")
-            except UnicodeDecodeError:
-                # Let it fail in real import.
-                return None, None
-    # On Python versions which are not 2.7 and less than or equal to 3.1, the
-    # parser expects *nix newlines.
-    return stat, source
-
-
-def _rewrite_test(config, fn):
-    """Try to read and rewrite *fn* and return the code object."""
-    state = config._assertstate
-    stat, source = _prepare_source(fn)
-    try:
-        co = rewrite_asserts(source, fn.strpath)
-    except SyntaxError:
-        # Let this pop up again in the real import.
-        state.trace("failed to parse/compile: %r" % (fn,))
-        return None, None
-    return stat, co
-
-
 def rewrite_asserts(source, filename):
     """Parse the source code and rewrite asserts statements
 
@@ -132,7 +62,7 @@ def rewrite_asserts(source, filename):
 
 def create_module(filename, co, pyc=None):
     """Create a module from a code object created by rewrite_asserts()"""
-    mod = imp.new_module(filename)
+    mod = type(sys)(filename)
     mod.__file__ = co.co_filename
     if pyc is not None:
         mod.__cached__ = pyc
@@ -143,6 +73,7 @@ def create_module(filename, co, pyc=None):
 
 def _make_rewritten_pyc(state, source_stat, pyc, co):
     """Try to dump rewritten code to *pyc*."""
+    import os
     if sys.platform.startswith("win"):
         # Windows grants exclusive access to open files and doesn't have atomic
         # rename, so just write into the final file.
@@ -202,9 +133,6 @@ def _saferepr(obj):
     return repr(obj).replace('\n', '\\n')
 
 
-from .util import format_explanation as _format_explanation  # noqa
-
-
 def _format_assertmsg(obj):
     """Format the custom assertion message given.
 
@@ -233,7 +161,7 @@ def _call_reprcompare(ops, results, expls, each_obj):
             done = True
         if done:
             break
-    custom = util.assertrepr_compare(ops[i], each_obj[i], each_obj[i + 1])
+    custom = assertrepr_compare(ops[i], each_obj[i], each_obj[i + 1])
     if custom is not None:
         return custom
     return expl
@@ -365,7 +293,7 @@ class AssertionRewriter(ast.NodeVisitor):
         else:
             builtin_name = '__builtin__'
         aliases = [ast.alias(builtin_name, "@py_builtins"),
-                   ast.alias("pypy.tool.pytest.rewrite", "@pytest_ar")]
+                   ast.alias("ast_rewrite", "@pytest_ar")]
         doc = getattr(mod, "docstring", None)
         expect_docstring = doc is None
         if doc is not None and self.is_rewrite_disabled(doc):

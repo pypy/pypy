@@ -4,7 +4,7 @@ import os
 import pytest
 from pypy import pypydir
 import pypy.interpreter.function
-import pypy.tool.pytest.rewrite
+from pypy.tool.pytest import app_rewrite
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import objspace
 from pypy.tool.pytest import appsupport
@@ -13,19 +13,20 @@ from pypy.tool.pytest import appsupport
 class AppTestModule(pytest.Module):
 
     def collect(self):
-        _, source = pypy.tool.pytest.rewrite._prepare_source(self.fspath)
+        _, source = app_rewrite._prepare_source(self.fspath)
         space = objspace.gettestobjspace()
-        w_rootdir = space.newtext(os.path.dirname(pypydir))
+        w_rootdir = space.newtext(
+            os.path.join(pypydir, 'tool', 'pytest', 'ast-rewriter'))
         w_source = space.newtext(source)
         w_fname = space.newtext(str(self.fspath))
         w_mod = space.appexec([w_rootdir, w_source, w_fname],
                               """(rootdir, source, fname):
         import sys
         sys.path.insert(0, rootdir)
-        from pypy.tool.pytest import rewrite
+        from ast_rewrite import rewrite_asserts, create_module
 
-        co = rewrite.rewrite_asserts(source, fname)
-        mod = rewrite.create_module(fname, co)
+        co = rewrite_asserts(source, fname)
+        mod = create_module(fname, co)
         return mod
         """)
         mod_dict = w_mod.getdict(space).unwrap(space)
