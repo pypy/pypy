@@ -1,8 +1,6 @@
 """Utilities for assertion debugging"""
 from __future__ import absolute_import, division, print_function
 
-from collections import Sequence
-
 u = str
 
 # The _reprcompare attribute on the util module is used by the new assertion
@@ -102,7 +100,7 @@ def assertrepr_compare(op, left, right, verbose=False):
     summary = u('%s %s %s') % (left_repr, op, right_repr)
 
     def issequence(x):
-        return isinstance(x, Sequence) and not isinstance(x, basestring)
+        return hasattr(x, '__iter__') and not isinstance(x, basestring)
 
     def istext(x):
         return isinstance(x, basestring)
