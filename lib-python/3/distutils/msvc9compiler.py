@@ -278,7 +278,7 @@ def query_vcvarsall(version, arch="x86"):
         stdout = stdout.decode("mbcs")
         log.debug('-'*30)
         log.debug(stderr.decode('mbcs'))
-        log.debug(stdout.decode('mbcs'))
+        log.debug(stdout)
         log.debug('-'*30)
         for line in stdout.split("\n"):
             line = Reg.convert_mbcs(line)
