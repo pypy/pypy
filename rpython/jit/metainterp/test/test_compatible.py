@@ -531,11 +531,11 @@ class TestCompatible(LLJitMixin):
         main(False)
 
         x = self.meta_interp(main, [True])
-        assert x < 30
 
-        x = self.meta_interp(main, [False])
-        assert x < 30
+        x += self.meta_interp(main, [False])
         self.check_trace_count(7)
+        self.check_resops(call_i=0)
+        assert x < 60
 
     def test_quasi_immutable_merge_short_preamble(self):
         from rpython.rlib.objectmodel import we_are_translated
