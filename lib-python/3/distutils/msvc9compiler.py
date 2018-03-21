@@ -266,7 +266,7 @@ def query_vcvarsall(version, arch="x86"):
 
     if vcvarsall is None:
         raise DistutilsPlatformError("Unable to find vcvarsall.bat")
-    log.debug("Calling 'vcvarsall.bat %s' (version=%s), python=%s", arch, version, sys.executable)
+    log.debug("Calling 'vcvarsall.bat %s' (version=%s)", arch, version)
     popen = subprocess.Popen('"%s" %s & set' % (vcvarsall, arch),
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
@@ -288,9 +288,6 @@ def query_vcvarsall(version, arch="x86"):
                     value = value[:-1]
                 result[key] = removeDuplicates(value)
 
-    except Exception as e:
-        log.debug(repr(e))
-        raise
     finally:
         popen.stdout.close()
         popen.stderr.close()
@@ -298,7 +295,7 @@ def query_vcvarsall(version, arch="x86"):
     if len(result) != len(interesting):
         raise ValueError(str(list(result.keys())))
 
-    log.debug('Got', result)
+    log.debug('Got %s', str(result))
     return result
 
 # More globals
