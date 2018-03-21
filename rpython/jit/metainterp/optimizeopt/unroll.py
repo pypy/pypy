@@ -420,7 +420,7 @@ class UnrollOptimizer(Optimization):
                 arglist = self._map_args(mapping, sop.getarglist())
                 if sop.is_guard():
                     if sop.opnum == rop.GUARD_COMPATIBLE:
-                        descr = compile.GuardCompatibleDescr()
+                        descr = compile.ResumeAtPositionForCompatibleDescr()
                     else:
                         descr = compile.ResumeAtPositionDescr()
                     op = sop.copy_and_change(sop.getopnum(), arglist,
