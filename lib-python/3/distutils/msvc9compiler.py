@@ -266,7 +266,7 @@ def query_vcvarsall(version, arch="x86"):
 
     if vcvarsall is None:
         raise DistutilsPlatformError("Unable to find vcvarsall.bat")
-    log.debug("Calling 'vcvarsall.bat %s' (version=%s)", arch, version)
+    log.debug("Calling 'vcvarsall.bat %s' (version=%s), python=%s", arch, version, sys.executable)
     popen = subprocess.Popen('"%s" %s & set' % (vcvarsall, arch),
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
