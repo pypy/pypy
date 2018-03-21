@@ -13,4 +13,7 @@ Fix for bytestrings in console repl
 
 Update winreg module to use unicode, wide-strings
 
+.. branch: cpyext-py3-instancemethod-attributes
 
+Add missing ``__doc__``, ``__module__``, ``__name__`` attributes to 
+``instancemethod``
