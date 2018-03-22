@@ -300,14 +300,17 @@ class wrap_sq_item(W_PyCWrapperObject):
         index = space.int_w(space.index(w_index))
         return generic_cpy_call(space, func_target, w_self, index)
 
-def wrap_sq_setitem(space, w_self, w_args, func):
-    func_target = rffi.cast(ssizeobjargproc, func)
-    check_num_args(space, w_args, 2)
-    args_w = space.fixedview(w_args)
-    index = space.int_w(space.index(args_w[0]))
-    res = generic_cpy_call(space, func_target, w_self, index, args_w[1])
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_sq_setitem(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ssizeobjargproc, func)
+        w_index = __args__.arguments_w[0]
+        w_value = __args__.arguments_w[1]
+        index = space.int_w(space.index(w_index))
+        res = generic_cpy_call(space, func_target, w_self, index, w_value)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
 def wrap_sq_delitem(space, w_self, w_args, func):
     func_target = rffi.cast(ssizeobjargproc, func)
