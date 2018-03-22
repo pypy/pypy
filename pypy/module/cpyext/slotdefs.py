@@ -79,12 +79,16 @@ def sc_llslot(ctx, v_space, v_func):
 # CPython code copy&pasted inside slotdefs_str, and thus we need to keep the
 # same names as they are used in C.
 
-def wrap_init(space, w_self, w_args, func, w_kwargs):
-    func_init = rffi.cast(initproc, func)
-    res = generic_cpy_call(space, func_init, w_self, w_args, w_kwargs)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return None
+class wrap_init(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_init = rffi.cast(initproc, func)
+        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        w_kwargs = w_kwargs_from_args(space, __args__)
+        res = generic_cpy_call(space, func_init, w_self, py_args, w_kwargs)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return None
 
 class wrap_unaryfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
@@ -859,7 +863,8 @@ class TypeSlot:
         self.slot_names = tuple(("c_" + slot_name).split("."))
         self.slot_func = function
         self.wrapper_func = wrapper1
-        self.wrapper_func_kwds = wrapper2
+        assert wrapper2 is None
+        self.wrapper_func_kwds = None # eventually kill this
         self.doc = doc
 
 # adapted from typeobject.c
@@ -880,13 +885,7 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
 
     function = getattr(userslot, FUNCTION or '!missing', None)
     assert FLAGS == 0 or FLAGS == PyWrapperFlag_KEYWORDS
-    if FLAGS:
-        wrapper1 = None
-        wrapper2 = wrapper
-    else:
-        wrapper1 = wrapper
-        wrapper2 = None
-    return TypeSlot(NAME, SLOT, function, wrapper1, wrapper2, DOC)
+    return TypeSlot(NAME, SLOT, function, wrapper, None, DOC)
 
 def TPSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC):
     return FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, 0)
