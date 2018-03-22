@@ -284,39 +284,6 @@ class W_PyCWrapperObject(W_Root):
                                    self.w_objclass.name))
 
 
-
-class W_PyCWrapperObjectGeneric(W_PyCWrapperObject):
-    """
-    slow generic implementation, it should die eventually
-    """
-
-    def __init__(self, space, pto, method_name, wrapper_func,
-                 wrapper_func_kwds, doc, func, offset=None):
-        W_PyCWrapperObject.__init__(self, space, pto, method_name, doc, func, offset)
-        self.wrapper_func = wrapper_func
-        self.wrapper_func_kwds = wrapper_func_kwds
-
-    def call(self, space, w_self, __args__):
-        #xxx
-        args_w, kw_w = __args__.unpack()
-        w_args = space.newtuple(args_w)
-        w_kw = space.newdict()
-        for key, w_obj in kw_w.items():
-            space.setitem(w_kw, space.newtext(key), w_obj)
-        #
-        func_to_call = self.get_func_to_call()
-        if self.wrapper_func is None:
-            assert self.wrapper_func_kwds is not None
-            return self.wrapper_func_kwds(space, w_self, w_args, func_to_call,
-                                          w_kw)
-        if space.is_true(w_kw):
-            raise oefmt(space.w_TypeError,
-                        "wrapper %s doesn't take any keyword arguments",
-                        self.method_name)
-        return self.wrapper_func(space, w_self, w_args, func_to_call)
-
-
-
 def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
     asking_for_bound = (space.is_none(w_cls) or
                         not space.is_w(w_obj, space.w_None) or

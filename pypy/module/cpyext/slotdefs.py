@@ -40,29 +40,6 @@ Py_NE = 3
 Py_GT = 4
 Py_GE = 5
 
-
-def check_num_args(space, w_ob, n):
-    from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
-    if not PyTuple_CheckExact(space, w_ob):
-        raise oefmt(space.w_SystemError,
-                    "PyArg_UnpackTuple() argument list is not a tuple")
-    if n == space.len_w(w_ob):
-        return
-    raise oefmt(space.w_TypeError,
-                "expected %d arguments, got %d",
-                n, space.len_w(w_ob))
-
-def check_num_argsv(space, w_ob, low, high):
-    from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
-    if not PyTuple_CheckExact(space, w_ob):
-        raise oefmt(space.w_SystemError,
-                    "PyArg_UnpackTuple() argument list is not a tuple")
-    if low <=space.len_w(w_ob) <= high:
-        return
-    raise oefmt(space.w_TypeError,
-                "expected %d-%d arguments, got %d",
-                low, high, space.len_w(w_ob))
-
 @not_rpython
 def llslot(space, func):
     return func.api_func.get_llhelper(space)
@@ -884,9 +861,10 @@ def slot_from_buffer_w(space, typedef):
 missing_wrappers = ['wrap_indexargfunc', 'wrap_delslice', 'wrap_coercefunc']
 for name in missing_wrappers:
     assert name not in globals()
-    def missing_wrapper(space, w_self, w_args, func):
-        print "cpyext: missing slot wrapper " + name
-        raise NotImplementedError("Slot wrapper " + name)
+    class missing_wrapper(W_PyCWrapperObject):
+        def call(self, space, w_self, __args__):
+            print "cpyext: missing slot wrapper " + name
+            raise NotImplementedError("Slot wrapper " + name)
     missing_wrapper.__name__ = name
     globals()[name] = missing_wrapper
 
