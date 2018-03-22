@@ -214,15 +214,10 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
 
 
 class W_PyCWrapperObject(W_Root):
-    _immutable_fields_ = ["arity"]
-    
-    def __init__(self, space, pto, method_name, arity, wrapper_func,
-                 wrapper_func_kwds, doc, func, offset=None):
+
+    def __init__(self, space, pto, method_name, doc, func, offset):
         self.space = space
         self.method_name = method_name
-        self.arity = arity
-        self.wrapper_func = wrapper_func
-        self.wrapper_func_kwds = wrapper_func_kwds
         self.doc = doc
         self.func = func
         self.offset = offset
@@ -231,7 +226,10 @@ class W_PyCWrapperObject(W_Root):
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
 
-    def _get_func_to_call(self):
+    def descr_call(self, space, w_self, __args__):
+        return self.call(space, w_self, __args__)
+
+    def get_func_to_call(self):
         func_to_call = self.func
         if self.offset:
             pto = as_pyobj(self.space, self.w_objclass)
@@ -250,34 +248,51 @@ class W_PyCWrapperObject(W_Root):
         assert func_to_call
         return func_to_call
 
-    def descr_call(self, space, w_self, __args__):
-        if self.arity == -1:
-            # slow, fallback logic: eventually, this should be killed
-            args_w, kw_w = __args__.unpack()
-            w_args = space.newtuple(args_w)
-            w_kw = space.newdict()
-            for key, w_obj in kw_w.items():
-                space.setitem(w_kw, space.newtext(key), w_obj)
-            return self.call(space, w_self, w_args, w_kw)
-        #
-        # new logic
+    def check_args(self, __args__, arity):
         # XXX: check for keywords
         length = len(__args__.arguments_w)
-        if length != self.arity:
+        if length != arity:
             raise oefmt(space.w_TypeError, "expected %d arguments, got %d",
-                        self.arity, length)
-        if self.arity == 1:
-            return self.call_1(space, w_self, __args__)
+                        arity, length)
 
-        assert False, 'should not arrive here'
+    def descr_method_repr(self):
+        return self.space.newtext("<slot wrapper '%s' of '%s' objects>" %
+                                  (self.method_name,
+                                   self.w_objclass.name))
 
-    def call_1(self, space, w_self, __args__):
-        func = self._get_func_to_call()
+
+class W_PyCWrapperObjectBinary(W_PyCWrapperObject):
+
+    def __init__(self, space, pto, method_name, wrapper_func, doc, func, offset):
+        W_PyCWrapperObject.__init__(self, space, pto, method_name, doc, func, offset)
+        self.wrap_binaryfunc = wrapper_func
+
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
         w_o = __args__.arguments_w[0]
-        return self.wrapper_func(space, func, w_self, w_o)
+        return self.wrap_binaryfunc(space, func, w_self, w_o)
 
-    def call(self, space, w_self, w_args, w_kw):
-        func_to_call = self._get_func_to_call()
+
+class W_PyCWrapperObjectGeneric(W_PyCWrapperObject):
+    """
+    slow generic implementation, it should die eventually
+    """
+
+    def __init__(self, space, pto, method_name, wrapper_func,
+                 wrapper_func_kwds, doc, func, offset=None):
+        W_PyCWrapperObject.__init__(self, space, pto, method_name, doc, func, offset)
+        self.wrapper_func = wrapper_func
+        self.wrapper_func_kwds = wrapper_func_kwds
+
+    def call(self, space, w_self, __args__):
+        args_w, kw_w = __args__.unpack()
+        w_args = space.newtuple(args_w)
+        w_kw = space.newdict()
+        for key, w_obj in kw_w.items():
+            space.setitem(w_kw, space.newtext(key), w_obj)
+        #
+        func_to_call = self.get_func_to_call()
         if self.wrapper_func is None:
             assert self.wrapper_func_kwds is not None
             return self.wrapper_func_kwds(space, w_self, w_args, func_to_call,
@@ -288,10 +303,6 @@ class W_PyCWrapperObject(W_Root):
                         self.method_name)
         return self.wrapper_func(space, w_self, w_args, func_to_call)
 
-    def descr_method_repr(self):
-        return self.space.newtext("<slot wrapper '%s' of '%s' objects>" %
-                                  (self.method_name,
-                                   self.w_objclass.name))
 
 
 def cmethod_descr_get(space, w_function, w_obj, w_cls=None):

@@ -25,8 +25,9 @@ from pypy.module.cpyext.api import (
     Py_TPPYPYFLAGS_FLOAT_SUBCLASS,
     )
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
-    W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
-    W_PyCMethodObject, W_PyCFunctionObject)
+    PyCFunction_NewEx, PyCFunction, PyMethodDef,
+    W_PyCMethodObject, W_PyCFunctionObject,
+    W_PyCWrapperObjectGeneric, W_PyCWrapperObjectBinary)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, get_typedescr, make_typedescr,
@@ -339,15 +340,16 @@ def add_operators(space, dict_w, pto):
         if wrapper_func is None and wrapper_func_kwds is None:
             continue
 
-        arity = -1
         from pypy.module.cpyext.slotdefs import wrap_binaryfunc
         if wrapper_func is wrap_binaryfunc:
             # XXX: this is just a quick hack, we need an official way to
-            # specify the arity
-            arity = 1
-
-        w_obj = W_PyCWrapperObject(space, pto, method_name, arity, wrapper_func,
-                wrapper_func_kwds, doc, func_voidp, offset=offset)
+            # specify specialization
+            w_obj = W_PyCWrapperObjectBinary(space, pto, method_name, wrap_binaryfunc,
+                                             doc, func_voidp, offset=offset)
+        else:
+            w_obj = W_PyCWrapperObjectGeneric(space, pto, method_name,  wrapper_func,
+                                              wrapper_func_kwds, doc,
+                                              func_voidp, offset=offset)
         dict_w[method_name] = w_obj
     if pto.c_tp_doc:
         dict_w['__doc__'] = space.newtext(
