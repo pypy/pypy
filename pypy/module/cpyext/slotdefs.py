@@ -421,13 +421,15 @@ def wrap_getbuffer(space, w_self, w_args, func):
         return buf.wrap(space)
 
 def get_richcmp_func(OP_CONST):
-    def inner(space, w_self, w_args, func):
-        func_target = rffi.cast(richcmpfunc, func)
-        check_num_args(space, w_args, 1)
-        w_other, = space.fixedview(w_args)
-        return generic_cpy_call(space, func_target,
-            w_self, w_other, rffi.cast(rffi.INT_real, OP_CONST))
-    return inner
+    class wrap_richcmp(W_PyCWrapperObject):
+        def call(self, space, w_self, __args__):
+            self.check_args(__args__, 1)
+            func = self.get_func_to_call()
+            func_target = rffi.cast(richcmpfunc, func)
+            w_other = __args__.arguments_w[0]
+            return generic_cpy_call(space, func_target,
+                w_self, w_other, rffi.cast(rffi.INT_real, OP_CONST))
+    return wrap_richcmp
 
 richcmp_eq = get_richcmp_func(Py_EQ)
 richcmp_ne = get_richcmp_func(Py_NE)
