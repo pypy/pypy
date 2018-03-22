@@ -658,6 +658,8 @@ class Optimizer(Optimization):
         #
         if opnum == rop.GUARD_COMPATIBLE: # XXX don't share that for now
             self._last_guard_op = None
+        #
+        # can resume data be shared with previous guard(s):
         if (self._last_guard_op and guard_op.getdescr() is None):
             self.metainterp_sd.profiler.count_ops(opnum,
                                             jitprof.Counters.OPT_GUARDS_SHARED)
@@ -672,7 +674,11 @@ class Optimizer(Optimization):
             for farg in op.getfailargs():
                 if farg:
                     self.force_box(farg)
-        if op.getopnum() == rop.GUARD_EXCEPTION:
+
+        if opnum == rop.GUARD_NOT_INVALIDATED:
+            self._last_guard_op = None # XXX don't share the next one either
+
+        if opnum == rop.GUARD_EXCEPTION:
             self._last_guard_op = None
         return op
 

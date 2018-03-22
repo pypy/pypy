@@ -485,8 +485,8 @@ class TestCompatible(LLJitMixin):
 
         c = Counter()
         c.count = 0
-        @jit.elidable_compatible()
-        def g(cls, v):
+        @jit.elidable_compatible(quasi_immut_field_name_for_second_arg='version')
+        def g(cls, version):
             if we_are_translated():
                 c.count += 1
             return cls.x
@@ -497,8 +497,7 @@ class TestCompatible(LLJitMixin):
                 driver.can_enter_jit(n=n, x=x)
                 driver.jit_merge_point(n=n, x=x)
                 x = jit.hint(x, promote_compatible=True)
-                v = x.version
-                res = g(x, x.version)
+                res = g(x)
                 n -= res
                 if n % 11 == 5:
                     n -= 1
@@ -562,8 +561,8 @@ class TestCompatible(LLJitMixin):
 
         c = Counter()
         c.count = 0
-        @jit.elidable_compatible()
-        def g(cls, v):
+        @jit.elidable_compatible(quasi_immut_field_name_for_second_arg='version')
+        def g(cls, version):
             if we_are_translated():
                 c.count += 1
             return cls.x
@@ -580,8 +579,7 @@ class TestCompatible(LLJitMixin):
                 driver.can_enter_jit(n=n)
                 driver.jit_merge_point(n=n)
                 x = jit.hint(glob_b.x, promote_compatible=True)
-                v = x.version
-                res = g(x, v)
+                res = g(x)
                 n -= res
                 if n % 11 == 5:
                     n -= 1
