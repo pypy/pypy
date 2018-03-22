@@ -438,17 +438,19 @@ richcmp_le = get_richcmp_func(Py_LE)
 richcmp_gt = get_richcmp_func(Py_GT)
 richcmp_ge = get_richcmp_func(Py_GE)
 
-def wrap_cmpfunc(space, w_self, w_args, func):
-    func_target = rffi.cast(cmpfunc, func)
-    check_num_args(space, w_args, 1)
-    w_other, = space.fixedview(w_args)
+class wrap_cmpfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(cmpfunc, func)
+        w_other = __args__.arguments_w[0]
 
-    if not space.issubtype_w(space.type(w_self), space.type(w_other)):
-        raise oefmt(space.w_TypeError,
-                    "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
-                    w_self, w_self, w_other)
+        if not space.issubtype_w(space.type(w_self), space.type(w_other)):
+            raise oefmt(space.w_TypeError,
+                        "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
+                        w_self, w_self, w_other)
 
-    return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
+        return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
 
 SLOT_FACTORIES = {}
 def slot_factory(tp_name):
