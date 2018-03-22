@@ -214,6 +214,9 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
 
 
 class W_PyCWrapperObject(W_Root):
+    """
+    Abstract class; for concrete subclasses, see slotdefs.py
+    """
 
     def __init__(self, space, pto, method_name, doc, func, offset):
         self.space = space
@@ -228,6 +231,9 @@ class W_PyCWrapperObject(W_Root):
 
     def descr_call(self, space, w_self, __args__):
         return self.call(space, w_self, __args__)
+
+    def call(self, w_self, __args__):
+        raise NotImplementedError
 
     def get_func_to_call(self):
         func_to_call = self.func
@@ -248,12 +254,15 @@ class W_PyCWrapperObject(W_Root):
         assert func_to_call
         return func_to_call
 
-    def check_args(self, __args__, arity):
-        # XXX: check for keywords
+    def check_args(self, __args__, arity, accept_kw=False):
         length = len(__args__.arguments_w)
         if length != arity:
             raise oefmt(self.space.w_TypeError, "expected %d arguments, got %d",
                         arity, length)
+        if not accept_kw and __args__.keywords:
+            raise oefmt(self.space.w_TypeError,
+                        "wrapper %s doesn't take any keyword arguments",
+                        self.method_name)
 
     def descr_method_repr(self):
         return self.space.newtext("<slot wrapper '%s' of '%s' objects>" %
