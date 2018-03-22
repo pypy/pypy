@@ -917,11 +917,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         return rawstart
 
     def materialize_loop(self, looptoken):
+        """Must be followed by materialize_done() later"""
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         size = self.mc.get_relative_pos()
-        res = self.materialize(self.mc, allblocks,
+        res = self.mc.materialize(self.cpu, allblocks,
                                   gcrootmap=self.cpu.gc_ll_descr.gcrootmap)
         if self.cpu.HAS_CODEMAP:
             self.cpu.codemap.register_codemap(
