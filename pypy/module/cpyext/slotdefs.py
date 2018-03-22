@@ -187,11 +187,13 @@ class wrap_getattr(W_PyCWrapperObject):
         finally:
             rffi.free_charp(name_ptr)
 
-def wrap_getattro(space, w_self, w_args, func):
-    func_target = rffi.cast(getattrofunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    return generic_cpy_call(space, func_target, w_self, args_w[0])
+class wrap_getattro(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(getattrofunc, func)
+        w_name = __args__.arguments_w[0]
+        return generic_cpy_call(space, func_target, w_self, w_name)
 
 class wrap_setattr(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
