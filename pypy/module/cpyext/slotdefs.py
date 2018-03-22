@@ -409,21 +409,23 @@ class wrap_getreadbuffer(W_PyCWrapperObject):
             fq.register_finalizer(view)
             return space.newbuffer(CBuffer(view))
 
-def wrap_getwritebuffer(space, w_self, w_args, func):
-    func_target = rffi.cast(readbufferproc, func)
-    py_type = _get_ob_type(space, w_self)
-    rbp = rffi.cast(rffi.VOIDP, 0)
-    if py_type.c_tp_as_buffer:
-        rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-    with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
-        index = rffi.cast(Py_ssize_t, 0)
-        size = generic_cpy_call(space, func_target, w_self, index, ptr)
-        if size < 0:
-            space.fromcache(State).check_and_raise_exception(always=True)
-        view = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
-                               releasebufferproc=rbp)
-        fq.register_finalizer(view)
-        return space.newbuffer(CBuffer(view))
+class wrap_getwritebuffer(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(readbufferproc, func)
+        py_type = _get_ob_type(space, w_self)
+        rbp = rffi.cast(rffi.VOIDP, 0)
+        if py_type.c_tp_as_buffer:
+            rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
+            index = rffi.cast(Py_ssize_t, 0)
+            size = generic_cpy_call(space, func_target, w_self, index, ptr)
+            if size < 0:
+                space.fromcache(State).check_and_raise_exception(always=True)
+            view = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
+                                   releasebufferproc=rbp)
+            fq.register_finalizer(view)
+            return space.newbuffer(CBuffer(view))
 
 
 class wrap_getbuffer(W_PyCWrapperObject):
