@@ -28,8 +28,9 @@ class BoehmGCTransformer(GCTransformer):
         ll_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
         ll_malloc_varsize = mh.ll_malloc_varsize
 
-        fields = [("hash", lltype.Signed)]
+        fields = []
         if translator and translator.config.translation.reverse_debugger:
+            fields.append(("hash", lltype.Signed))
             fields.append(("uid", lltype.SignedLongLong))
         hints = {'hints': {'gcheader': True}}
         self.HDR = lltype.Struct("header", *fields, **hints)
