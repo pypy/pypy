@@ -606,7 +606,7 @@ class TestCompatible(LLJitMixin):
 
         x = self.meta_interp(main, [False])
         assert x < 70
-        self.check_trace_count(5)
+        self.check_trace_count(6)
         self.check_resops(call_i=0)
 
 
