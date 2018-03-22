@@ -60,6 +60,9 @@ def pytest_addoption(parser):
     group.addoption('--raise-operr', action="store_true",
             default=False, dest="raise_operr",
             help="Show the interp-level OperationError in app-level tests")
+    group.addoption('--applevel-rewrite', action="store_true",
+            default=False, dest="applevel_rewrite",
+            help="Use assert rewriting in app-level test files (slow)")
 
 @pytest.fixture(scope='function')
 def space(request):
@@ -96,7 +99,8 @@ def pytest_pycollect_makemodule(path, parent):
     if not parent.config.getoption('runappdirect'):
         if path.fnmatch(APPLEVEL_FN):
             from pypy.tool.pytest.apptest2 import AppTestModule
-            return AppTestModule(path, parent)
+            rewrite = parent.config.getoption('applevel_rewrite')
+            return AppTestModule(path, parent, rewrite_asserts=rewrite)
         else:
             return PyPyModule(path, parent)
 

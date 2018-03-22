@@ -11,6 +11,9 @@ from pypy.tool.pytest import appsupport
 
 
 class AppTestModule(pytest.Module):
+    def __init__(self, path, parent, rewrite_asserts=False):
+        super(AppTestModule, self).__init__(path, parent)
+        self.rewrite_asserts = rewrite_asserts
 
     def collect(self):
         _, source = app_rewrite._prepare_source(self.fspath)
@@ -19,16 +22,26 @@ class AppTestModule(pytest.Module):
             os.path.join(pypydir, 'tool', 'pytest', 'ast-rewriter'))
         w_source = space.newtext(source)
         w_fname = space.newtext(str(self.fspath))
-        w_mod = space.appexec([w_rootdir, w_source, w_fname],
-                              """(rootdir, source, fname):
-        import sys
-        sys.path.insert(0, rootdir)
-        from ast_rewrite import rewrite_asserts, create_module
+        if self.rewrite_asserts:
+            w_mod = space.appexec([w_rootdir, w_source, w_fname],
+                                """(rootdir, source, fname):
+                import sys
+                sys.path.insert(0, rootdir)
+                from ast_rewrite import rewrite_asserts, create_module
 
-        co = rewrite_asserts(source, fname)
-        mod = create_module(fname, co)
-        return mod
-        """)
+                co = rewrite_asserts(source, fname)
+                mod = create_module(fname, co)
+                return mod
+            """)
+        else:
+            w_mod = space.appexec([w_rootdir, w_source, w_fname],
+                """(rootdir, source, fname):
+                    import sys
+                    sys.path.insert(0, rootdir)
+                    from ast_rewrite import create_module
+                    co = compile(source, fname, 'exec')
+                    return create_module(fname, co)
+            """)
         mod_dict = w_mod.getdict(space).unwrap(space)
         items = []
         for name, w_obj in mod_dict.items():
