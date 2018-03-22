@@ -19,7 +19,8 @@ from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import userslot
 from pypy.module.cpyext.buffer import CBuffer, CPyBuffer, fq
-from pypy.module.cpyext.methodobject import W_PyCWrapperObject
+from pypy.module.cpyext.methodobject import (W_PyCWrapperObject, tuple_from_args_w,
+                                             w_kwargs_from_args)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.unroll import unrolling_iterable
@@ -223,9 +224,13 @@ def wrap_descr_delete(space, w_self, w_args, func):
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_call(space, w_self, w_args, func, w_kwds):
-    func_target = rffi.cast(ternaryfunc, func)
-    return generic_cpy_call(space, func_target, w_self, w_args, w_kwds)
+class wrap_call(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ternaryfunc, func)
+        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        w_kwargs = w_kwargs_from_args(space, __args__)
+        return generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
 
 def wrap_ssizessizeobjargproc(space, w_self, w_args, func):
     func_target = rffi.cast(ssizessizeobjargproc, func)

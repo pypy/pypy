@@ -45,6 +45,18 @@ def cfunction_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
+def w_kwargs_from_args(space, __args__):
+    w_kwargs = None
+    if __args__.keywords:
+        # CCC: we should probably have a @jit.look_inside_iff if the
+        # keyword count is constant, as we do in Arguments.unpack
+        w_kwargs = space.newdict()
+        for i in range(len(__args__.keywords)):
+            key = __args__.keywords[i]
+            w_obj = __args__.keywords_w[i]
+            space.setitem(w_kwargs, space.newtext(key), w_obj)
+    return w_kwargs
+
 class W_PyCFunctionObject(W_Root):
     _immutable_fields_ = ["flags"]
 
@@ -103,15 +115,7 @@ class W_PyCFunctionObject(W_Root):
     def call_keywords(self, space, w_self, __args__):
         func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
         py_args = tuple_from_args_w(space, __args__.arguments_w)
-        w_kwargs = None
-        if __args__.keywords:
-            # CCC: we should probably have a @jit.look_inside_iff if the
-            # keyword count is constant, as we do in Arguments.unpack
-            w_kwargs = space.newdict()
-            for i in range(len(__args__.keywords)):
-                key = __args__.keywords[i]
-                w_obj = __args__.keywords_w[i]
-                space.setitem(w_kwargs, space.newtext(key), w_obj)
+        w_kwargs = w_kwargs_from_args(space, __args__)
         try:
             return generic_cpy_call(space, func, w_self, py_args, w_kwargs)
         finally:
@@ -283,6 +287,7 @@ class W_PyCWrapperObjectGeneric(W_PyCWrapperObject):
         self.wrapper_func_kwds = wrapper_func_kwds
 
     def call(self, space, w_self, __args__):
+        #xxx
         args_w, kw_w = __args__.unpack()
         w_args = space.newtuple(args_w)
         w_kw = space.newdict()

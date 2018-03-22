@@ -343,6 +343,9 @@ def add_operators(space, dict_w, pto):
         # XXX: this is just a quick hack to distinguish the old wrappers from
         # the new ones: eventually, all of them will be subclasses of
         # W_PyCWrapperObject
+        if type(wrapper_func_kwds) is type:
+            assert wrapper_func is None
+            wrapper_func = wrapper_func_kwds
         if type(wrapper_func) is type and issubclass(wrapper_func, W_PyCWrapperObject):
             # new style
             wrapper_class = wrapper_func
