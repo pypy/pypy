@@ -410,8 +410,17 @@ void rpy_reverse_db_call_destructor(void *obj)
 RPY_EXTERN
 Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 {
-    /* XXX This will make all prebuilt objects have id-hash 0. */
-    return obj->h_uid;
+    /* Boehm only */
+    if (obj->h_hash == 0) {
+        /* We never need to record anything: if h_hash is zero (which
+           is the case for all newly allocated objects), then we just
+           copy h_uid.  This gives a stable answer.  This would give
+           0 for all prebuilt objects, but these should not have a
+           null h_hash anyway.
+        */
+        obj->h_hash = obj->h_uid;
+    }
+    return obj->h_hash;
 }
 
 RPY_EXTERN
