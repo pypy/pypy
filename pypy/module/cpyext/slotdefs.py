@@ -19,6 +19,7 @@ from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import userslot
 from pypy.module.cpyext.buffer import CBuffer, CPyBuffer, fq
+from pypy.module.cpyext.methodobject import W_PyCWrapperObject
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.unroll import unrolling_iterable
@@ -84,9 +85,13 @@ def wrap_unaryfunc(space, w_self, w_args, func):
     check_num_args(space, w_args, 0)
     return generic_cpy_call(space, func_unary, w_self)
 
-def wrap_binaryfunc(space, func, w_self, w_x):
-    func_binary = rffi.cast(binaryfunc, func)
-    return generic_cpy_call(space, func_binary, w_self, w_x)
+class W_WrapBinaryFunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_binary = rffi.cast(binaryfunc, func)
+        w_x = __args__.arguments_w[0]
+        return generic_cpy_call(space, func_binary, w_self, w_x)
 
 def _get_ob_type(space, w_obj):
     # please ensure that w_obj stays alive
@@ -915,7 +920,7 @@ slotdefs_str = r"""
 static slotdef slotdefs[] = {
         SQSLOT("__len__", sq_length, slot_sq_length, wrap_lenfunc,
                "x.__len__() <==> len(x)"),
-        SQSLOT("__add__", sq_concat, slot_sq_concat, wrap_binaryfunc,
+        SQSLOT("__add__", sq_concat, slot_sq_concat, W_WrapBinaryFunc,
           "x.__add__(y) <==> x+y"),
         SQSLOT("__mul__", sq_repeat, NULL, wrap_indexargfunc,
           "x.__mul__(n) <==> x*n"),
@@ -943,14 +948,14 @@ static slotdef slotdefs[] = {
         SQSLOT("__contains__", sq_contains, slot_sq_contains, wrap_objobjproc,
                "x.__contains__(y) <==> y in x"),
         SQSLOT("__iadd__", sq_inplace_concat, NULL,
-          wrap_binaryfunc, "x.__iadd__(y) <==> x+=y"),
+          W_WrapBinaryFunc, "x.__iadd__(y) <==> x+=y"),
         SQSLOT("__imul__", sq_inplace_repeat, NULL,
           wrap_indexargfunc, "x.__imul__(y) <==> x*=y"),
 
         MPSLOT("__len__", mp_length, slot_mp_length, wrap_lenfunc,
                "x.__len__() <==> len(x)"),
         MPSLOT("__getitem__", mp_subscript, slot_mp_subscript,
-               wrap_binaryfunc,
+               W_WrapBinaryFunc,
                "x.__getitem__(y) <==> x[y]"),
         MPSLOT("__setitem__", mp_ass_subscript, slot_mp_ass_subscript,
                wrap_objobjargproc,
@@ -1019,35 +1024,35 @@ static slotdef slotdefs[] = {
         NBSLOT("__index__", nb_index, slot_nb_index, wrap_unaryfunc,
                "x[y:z] <==> x[y.__index__():z.__index__()]"),
         IBSLOT("__iadd__", nb_inplace_add, slot_nb_inplace_add,
-               wrap_binaryfunc, "+"),
+               W_WrapBinaryFunc, "+"),
         IBSLOT("__isub__", nb_inplace_subtract, slot_nb_inplace_subtract,
-               wrap_binaryfunc, "-"),
+               W_WrapBinaryFunc, "-"),
         IBSLOT("__imul__", nb_inplace_multiply, slot_nb_inplace_multiply,
-               wrap_binaryfunc, "*"),
+               W_WrapBinaryFunc, "*"),
         IBSLOT("__idiv__", nb_inplace_divide, slot_nb_inplace_divide,
-               wrap_binaryfunc, "/"),
+               W_WrapBinaryFunc, "/"),
         IBSLOT("__imod__", nb_inplace_remainder, slot_nb_inplace_remainder,
-               wrap_binaryfunc, "%"),
+               W_WrapBinaryFunc, "%"),
         IBSLOT("__ipow__", nb_inplace_power, slot_nb_inplace_power,
-               wrap_binaryfunc, "**"),
+               W_WrapBinaryFunc, "**"),
         IBSLOT("__ilshift__", nb_inplace_lshift, slot_nb_inplace_lshift,
-               wrap_binaryfunc, "<<"),
+               W_WrapBinaryFunc, "<<"),
         IBSLOT("__irshift__", nb_inplace_rshift, slot_nb_inplace_rshift,
-               wrap_binaryfunc, ">>"),
+               W_WrapBinaryFunc, ">>"),
         IBSLOT("__iand__", nb_inplace_and, slot_nb_inplace_and,
-               wrap_binaryfunc, "&"),
+               W_WrapBinaryFunc, "&"),
         IBSLOT("__ixor__", nb_inplace_xor, slot_nb_inplace_xor,
-               wrap_binaryfunc, "^"),
+               W_WrapBinaryFunc, "^"),
         IBSLOT("__ior__", nb_inplace_or, slot_nb_inplace_or,
-               wrap_binaryfunc, "|"),
+               W_WrapBinaryFunc, "|"),
         BINSLOT("__floordiv__", nb_floor_divide, slot_nb_floor_divide, "//"),
         RBINSLOT("__rfloordiv__", nb_floor_divide, slot_nb_floor_divide, "//"),
         BINSLOT("__truediv__", nb_true_divide, slot_nb_true_divide, "/"),
         RBINSLOT("__rtruediv__", nb_true_divide, slot_nb_true_divide, "/"),
         IBSLOT("__ifloordiv__", nb_inplace_floor_divide,
-               slot_nb_inplace_floor_divide, wrap_binaryfunc, "//"),
+               slot_nb_inplace_floor_divide, W_WrapBinaryFunc, "//"),
         IBSLOT("__itruediv__", nb_inplace_true_divide,
-               slot_nb_inplace_true_divide, wrap_binaryfunc, "/"),
+               slot_nb_inplace_true_divide, W_WrapBinaryFunc, "/"),
 
         TPSLOT("__str__", tp_str, slot_tp_str, wrap_unaryfunc,
                "x.__str__() <==> str(x)"),
@@ -1062,7 +1067,7 @@ static slotdef slotdefs[] = {
         FLSLOT("__call__", tp_call, slot_tp_call, (wrapperfunc)wrap_call,
                "x.__call__(...) <==> x(...)", PyWrapperFlag_KEYWORDS),
         TPSLOT("__getattribute__", tp_getattro, slot_tp_getattr_hook,
-               wrap_binaryfunc, "x.__getattribute__('name') <==> x.name"),
+               W_WrapBinaryFunc, "x.__getattribute__('name') <==> x.name"),
         TPSLOT("__getattr__", tp_getattro, slot_tp_getattr, NULL, ""),
         TPSLOT("__getattr__", tp_getattr, NULL, NULL, ""),
         TPSLOT("__setattr__", tp_setattro, slot_tp_setattro, wrap_setattr,

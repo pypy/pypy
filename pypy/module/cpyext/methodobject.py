@@ -261,18 +261,6 @@ class W_PyCWrapperObject(W_Root):
                                    self.w_objclass.name))
 
 
-class W_PyCWrapperObjectBinary(W_PyCWrapperObject):
-
-    def __init__(self, space, pto, method_name, wrapper_func, doc, func, offset):
-        W_PyCWrapperObject.__init__(self, space, pto, method_name, doc, func, offset)
-        self.wrap_binaryfunc = wrapper_func
-
-    def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
-        func = self.get_func_to_call()
-        w_o = __args__.arguments_w[0]
-        return self.wrap_binaryfunc(space, func, w_self, w_o)
-
 
 class W_PyCWrapperObjectGeneric(W_PyCWrapperObject):
     """

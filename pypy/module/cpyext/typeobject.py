@@ -27,7 +27,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     PyCFunction_NewEx, PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject,
-    W_PyCWrapperObjectGeneric, W_PyCWrapperObjectBinary)
+    W_PyCWrapperObject, W_PyCWrapperObjectGeneric)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, get_typedescr, make_typedescr,
@@ -340,12 +340,14 @@ def add_operators(space, dict_w, pto):
         if wrapper_func is None and wrapper_func_kwds is None:
             continue
 
-        from pypy.module.cpyext.slotdefs import wrap_binaryfunc
-        if wrapper_func is wrap_binaryfunc:
-            # XXX: this is just a quick hack, we need an official way to
-            # specify specialization
-            w_obj = W_PyCWrapperObjectBinary(space, pto, method_name, wrap_binaryfunc,
-                                             doc, func_voidp, offset=offset)
+        # XXX: this is just a quick hack to distinguish the old wrappers from
+        # the new ones: eventually, all of them will be subclasses of
+        # W_PyCWrapperObject
+        if type(wrapper_func) is type and issubclass(wrapper_func, W_PyCWrapperObject):
+            # new style
+            wrapper_class = wrapper_func
+            w_obj = wrapper_class(space, pto, method_name, doc, func_voidp,
+                                  offset=offset)
         else:
             w_obj = W_PyCWrapperObjectGeneric(space, pto, method_name,  wrapper_func,
                                               wrapper_func_kwds, doc,
