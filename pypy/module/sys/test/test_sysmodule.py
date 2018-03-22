@@ -713,6 +713,33 @@ class AppTestSysModulePortedFromCPython:
         assert not sys.is_finalizing()
         # xxx should also test when it is True, but maybe not worth the effort
 
+    def test_asyncgen_hooks(self):
+        import sys
+        old = sys.get_asyncgen_hooks()
+        assert old.firstiter is None
+        assert old.finalizer is None
+
+        firstiter = lambda *a: None
+        sys.set_asyncgen_hooks(firstiter=firstiter)
+        hooks = sys.get_asyncgen_hooks()
+        assert hooks.firstiter is firstiter
+        assert hooks[0] is firstiter
+        assert hooks.finalizer is None
+        assert hooks[1] is None
+
+        finalizer = lambda *a: None
+        sys.set_asyncgen_hooks(finalizer=finalizer)
+        hooks = sys.get_asyncgen_hooks()
+        assert hooks.firstiter is firstiter
+        assert hooks[0] is firstiter
+        assert hooks.finalizer is finalizer
+        assert hooks[1] is finalizer
+
+        sys.set_asyncgen_hooks(*old)
+        cur = sys.get_asyncgen_hooks()
+        assert cur.firstiter is None
+        assert cur.finalizer is None
+
 
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):

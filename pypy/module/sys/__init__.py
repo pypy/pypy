@@ -116,6 +116,8 @@ class Module(MixedModule):
         'flags'                 : 'app.null_sysflags',
         '_xoptions'             : 'app.null__xoptions',
         'implementation'        : 'app.implementation',
+        'get_asyncgen_hooks'    : 'app.get_asyncgen_hooks',
+        'set_asyncgen_hooks'    : 'app.set_asyncgen_hooks',
 
         # these six attributes are here only during tests;
         # they are removed before translation
