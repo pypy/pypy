@@ -203,40 +203,48 @@ class wrap_delattr(W_PyCWrapperObject):
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_descr_get(space, w_self, w_args, func):
-    func_target = rffi.cast(descrgetfunc, func)
-    args_w = space.fixedview(w_args)
-    if len(args_w) == 1:
-        w_obj, = args_w
-        w_type = None
-    elif len(args_w) == 2:
-        w_obj, w_type = args_w
-    else:
-        raise oefmt(space.w_TypeError,
-                    "expected 1 or 2 arguments, got %d", len(args_w))
-    if w_obj is space.w_None:
-        w_obj = None
-    if w_type is space.w_None:
-        w_type = None
-    if w_obj is None and w_type is None:
-        raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
-    return generic_cpy_call(space, func_target, w_self, w_obj, w_type)
+class wrap_descr_get(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(descrgetfunc, func)
+        length = len(__args__.arguments_w)
+        if length == 1:
+            w_obj = __args__.arguments_w[0]
+            w_type = None
+        elif length == 2:
+            w_obj = __args__.arguments_w[0]
+            w_type = __args__.arguments_w[1]
+        else:
+            raise oefmt(space.w_TypeError,
+                        "expected 1 or 2 arguments, got %d", len(args_w))
+        if w_obj is space.w_None:
+            w_obj = None
+        if w_type is space.w_None:
+            w_type = None
+        if w_obj is None and w_type is None:
+            raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
+        return generic_cpy_call(space, func_target, w_self, w_obj, w_type)
 
-def wrap_descr_set(space, w_self, w_args, func):
-    func_target = rffi.cast(descrsetfunc, func)
-    check_num_args(space, w_args, 2)
-    w_obj, w_value = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_obj, w_value)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_descr_set(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(descrsetfunc, func)
+        w_obj = __args__.arguments_w[0]
+        w_value = __args__.arguments_w[1]
+        res = generic_cpy_call(space, func_target, w_self, w_obj, w_value)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_descr_delete(space, w_self, w_args, func):
-    func_target = rffi.cast(descrsetfunc, func)
-    check_num_args(space, w_args, 1)
-    w_obj, = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_obj, None)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_descr_delete(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(descrsetfunc, func)
+        w_obj = __args__.arguments_w[0]
+        res = generic_cpy_call(space, func_target, w_self, w_obj, None)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
 class wrap_call(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
