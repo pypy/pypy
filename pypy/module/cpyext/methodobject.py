@@ -258,12 +258,22 @@ class W_PyCWrapperObject(W_Root):
         assert func_to_call
         return func_to_call
 
-    def check_args(self, __args__, arity, accept_kw=False):
+    def check_args(self, __args__, arity):
         length = len(__args__.arguments_w)
         if length != arity:
             raise oefmt(self.space.w_TypeError, "expected %d arguments, got %d",
                         arity, length)
-        if not accept_kw and __args__.keywords:
+        if __args__.keywords:
+            raise oefmt(self.space.w_TypeError,
+                        "wrapper %s doesn't take any keyword arguments",
+                        self.method_name)
+
+    def check_argsv(self, __args__, min, max):
+        length = len(__args__.arguments_w)
+        if not min <= length <= max:
+            raise oefmt(self.space.w_TypeError, "expected %d-%d arguments, got %d",
+                        min, max, length)
+        if __args__.keywords:
             raise oefmt(self.space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.method_name)

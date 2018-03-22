@@ -110,49 +110,59 @@ def _get_ob_type(space, w_obj):
     ob_type = as_pyobj(space, space.type(w_obj))
     return rffi.cast(PyTypeObjectPtr, ob_type)
 
-def wrap_binaryfunc_l(space, w_self, w_args, func):
-    func_binary = rffi.cast(binaryfunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    ob_type = _get_ob_type(space, w_self)
-    if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
-        return space.w_NotImplemented
-    return generic_cpy_call(space, func_binary, w_self, args_w[0])
+class wrap_binaryfunc_l(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_binary = rffi.cast(binaryfunc, func)
+        w_value = __args__.arguments_w[0]
+        ob_type = _get_ob_type(space, w_self)
+        if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+            not space.issubtype_w(space.type(w_value), space.type(w_self))):
+            return space.w_NotImplemented
+        return generic_cpy_call(space, func_binary, w_self, w_value)
 
-def wrap_binaryfunc_r(space, w_self, w_args, func):
-    func_binary = rffi.cast(binaryfunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    ob_type = _get_ob_type(space, w_self)
-    if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
-        return space.w_NotImplemented
-    return generic_cpy_call(space, func_binary, args_w[0], w_self)
+class wrap_binaryfunc_r(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_binary = rffi.cast(binaryfunc, func)
+        w_value = __args__.arguments_w[0]
+        ob_type = _get_ob_type(space, w_self)
+        if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+            not space.issubtype_w(space.type(w_value), space.type(w_self))):
+            return space.w_NotImplemented
+        return generic_cpy_call(space, func_binary, w_value, w_self)
 
-def wrap_ternaryfunc(space, w_self, w_args, func):
-    # The third argument is optional
-    func_ternary = rffi.cast(ternaryfunc, func)
-    check_num_argsv(space, w_args, 1, 2)
-    args_w = space.fixedview(w_args)
-    arg3 = space.w_None
-    if len(args_w) > 1:
-        arg3 = args_w[1]
-    return generic_cpy_call(space, func_ternary, w_self, args_w[0], arg3)
+class wrap_ternaryfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        # The third argument is optional
+        self.check_argsv(__args__, 1, 2)
+        func = self.get_func_to_call()
+        func_ternary = rffi.cast(ternaryfunc, func)
+        w_arg0 = __args__.arguments_w[0]
+        if len(__args__.arguments_w) == 2:
+            w_arg1 = __args__.arguments_w[1]
+        else:
+            w_arg1 = space.w_None
+        return generic_cpy_call(space, func_ternary, w_self, w_arg0, w_arg1)
 
-def wrap_ternaryfunc_r(space, w_self, w_args, func):
-    # The third argument is optional
-    func_ternary = rffi.cast(ternaryfunc, func)
-    check_num_argsv(space, w_args, 1, 2)
-    args_w = space.fixedview(w_args)
-    ob_type = _get_ob_type(space, w_self)
-    if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
-        return space.w_NotImplemented
-    arg3 = space.w_None
-    if len(args_w) > 1:
-        arg3 = args_w[1]
-    return generic_cpy_call(space, func_ternary, args_w[0], w_self, arg3)
+class wrap_ternaryfunc_r(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):    
+        # The third argument is optional
+        self.check_argsv(__args__, 1, 2)
+        func = self.get_func_to_call()
+        func_ternary = rffi.cast(ternaryfunc, func)
+        w_arg0 = __args__.arguments_w[0]
+        if len(__args__.arguments_w) == 2:
+            w_arg1 = __args__.arguments_w[1]
+        else:
+            w_arg1 = space.w_None
+        ob_type = _get_ob_type(space, w_self)
+        if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+            not space.issubtype_w(space.type(w_arg0), space.type(w_self))):
+            return space.w_NotImplemented
+        return generic_cpy_call(space, func_ternary, w_arg0, w_self, w_arg1)
 
 class wrap_inquirypred(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
