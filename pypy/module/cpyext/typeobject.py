@@ -312,7 +312,7 @@ def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
 def add_operators(space, dict_w, pto):
     from pypy.module.cpyext.object import PyObject_HashNotImplemented
     hash_not_impl = llslot(space, PyObject_HashNotImplemented)
-    for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
+    for method_name, slot_names, wrapper_class, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
         offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
@@ -337,21 +337,20 @@ def add_operators(space, dict_w, pto):
         func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:
             continue
-        if wrapper_func is None and wrapper_func_kwds is None:
+        if wrapper_class is None:
             continue
 
         # XXX: this is just a quick hack to distinguish the old wrappers from
         # the new ones: eventually, all of them will be subclasses of
         # W_PyCWrapperObject
-        if type(wrapper_func_kwds) is type:
-            assert wrapper_func is None
-            wrapper_func = wrapper_func_kwds
-        if type(wrapper_func) is type and issubclass(wrapper_func, W_PyCWrapperObject):
+        if type(wrapper_class) is type and issubclass(wrapper_class, W_PyCWrapperObject):
             # new style
-            wrapper_class = wrapper_func
             w_obj = wrapper_class(space, pto, method_name, doc, func_voidp,
                                   offset=offset)
         else:
+            # old style
+            wrapper_func = wrapper_class
+            wrapper_func_kwds = None
             w_obj = W_PyCWrapperObjectGeneric(space, pto, method_name,  wrapper_func,
                                               wrapper_func_kwds, doc,
                                               func_voidp, offset=offset)

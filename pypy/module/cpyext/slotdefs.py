@@ -857,14 +857,12 @@ for name in missing_builtin_slots:
 PyWrapperFlag_KEYWORDS = 1
 
 class TypeSlot:
-    def __init__(self, method_name, slot_name, function, wrapper1, wrapper2, doc):
+    def __init__(self, method_name, slot_name, function, wrapper, doc):
         self.method_name = method_name
         self.slot_name = slot_name
         self.slot_names = tuple(("c_" + slot_name).split("."))
         self.slot_func = function
-        self.wrapper_func = wrapper1
-        assert wrapper2 is None
-        self.wrapper_func_kwds = None # eventually kill this
+        self.wrapper_class = wrapper
         self.doc = doc
 
 # adapted from typeobject.c
@@ -885,7 +883,7 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
 
     function = getattr(userslot, FUNCTION or '!missing', None)
     assert FLAGS == 0 or FLAGS == PyWrapperFlag_KEYWORDS
-    return TypeSlot(NAME, SLOT, function, wrapper, None, DOC)
+    return TypeSlot(NAME, SLOT, function, wrapper, DOC)
 
 def TPSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC):
     return FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, 0)
@@ -1174,7 +1172,7 @@ slotdefs_for_tp_slots = unrolling_iterable(
       x.slot_func.api_func if x.slot_func else None) for x in slotdefs])
 
 slotdefs_for_wrappers = unrolling_iterable(
-    [(x.method_name, x.slot_names, x.wrapper_func, x.wrapper_func_kwds, x.doc)
+    [(x.method_name, x.slot_names, x.wrapper_class, x.doc)
      for x in slotdefs])
 
 if __name__ == "__main__":
