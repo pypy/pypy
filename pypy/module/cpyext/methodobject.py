@@ -252,7 +252,7 @@ class W_PyCWrapperObject(W_Root):
         # XXX: check for keywords
         length = len(__args__.arguments_w)
         if length != arity:
-            raise oefmt(space.w_TypeError, "expected %d arguments, got %d",
+            raise oefmt(self.space.w_TypeError, "expected %d arguments, got %d",
                         arity, length)
 
     def descr_method_repr(self):

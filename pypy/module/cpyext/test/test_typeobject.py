@@ -823,6 +823,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ''')
         obj = module.new_obj()
         assert obj[100] == 42
+        raises(TypeError, "obj.__getitem__(100, 101)")
 
     def test_mp_ass_subscript(self):
         module = self.import_extension('foo', [
