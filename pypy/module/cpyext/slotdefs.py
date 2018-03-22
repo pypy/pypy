@@ -271,15 +271,17 @@ def wrap_sq_delitem(space, w_self, w_args, func):
         space.fromcache(State).check_and_raise_exception(always=True)
 
 # Warning, confusing function name (like CPython).  Used only for sq_contains.
-def wrap_objobjproc(space, w_self, w_args, func):
-    func_target = rffi.cast(objobjproc, func)
-    check_num_args(space, w_args, 1)
-    w_value, = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_value)
-    res = rffi.cast(lltype.Signed, res)
-    if res == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.newbool(bool(res))
+class W_WrapObjObjProc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(objobjproc, func)
+        w_value = __args__.arguments_w[0]
+        res = generic_cpy_call(space, func_target, w_self, w_value)
+        res = rffi.cast(lltype.Signed, res)
+        if res == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.newbool(bool(res))
 
 def wrap_objobjargproc(space, w_self, w_args, func):
     func_target = rffi.cast(objobjargproc, func)
@@ -945,7 +947,7 @@ static slotdef slotdefs[] = {
                "x.__delslice__(i, j) <==> del x[i:j]\n\
                \n\
                Use of negative indices is not supported."),
-        SQSLOT("__contains__", sq_contains, slot_sq_contains, wrap_objobjproc,
+        SQSLOT("__contains__", sq_contains, slot_sq_contains, W_WrapObjObjProc,
                "x.__contains__(y) <==> y in x"),
         SQSLOT("__iadd__", sq_inplace_concat, NULL,
           W_WrapBinaryFunc, "x.__iadd__(y) <==> x+=y"),
