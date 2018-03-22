@@ -84,11 +84,9 @@ def wrap_unaryfunc(space, w_self, w_args, func):
     check_num_args(space, w_args, 0)
     return generic_cpy_call(space, func_unary, w_self)
 
-def wrap_binaryfunc(space, w_self, w_args, func):
+def wrap_binaryfunc(space, func, w_self, w_x):
     func_binary = rffi.cast(binaryfunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    return generic_cpy_call(space, func_binary, w_self, args_w[0])
+    return generic_cpy_call(space, func_binary, w_self, w_x)
 
 def _get_ob_type(space, w_obj):
     # please ensure that w_obj stays alive

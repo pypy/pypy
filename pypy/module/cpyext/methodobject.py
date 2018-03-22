@@ -213,12 +213,14 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
                             (self.name, self.w_objclass.getname(self.space)))
 
 
-
 class W_PyCWrapperObject(W_Root):
-    def __init__(self, space, pto, method_name, wrapper_func,
+    _immutable_fields_ = ["arity"]
+    
+    def __init__(self, space, pto, method_name, arity, wrapper_func,
                  wrapper_func_kwds, doc, func, offset=None):
         self.space = space
         self.method_name = method_name
+        self.arity = arity
         self.wrapper_func = wrapper_func
         self.wrapper_func_kwds = wrapper_func_kwds
         self.doc = doc
@@ -229,18 +231,10 @@ class W_PyCWrapperObject(W_Root):
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
 
-    def descr_call(self, space, w_self, __args__):
-        args_w, kw_w = __args__.unpack()
-        w_args = space.newtuple(args_w)
-        w_kw = space.newdict()
-        for key, w_obj in kw_w.items():
-            space.setitem(w_kw, space.newtext(key), w_obj)
-        return self.call(space, w_self, w_args, w_kw)
-
-    def call(self, space, w_self, w_args, w_kw):
+    def _get_func_to_call(self):
         func_to_call = self.func
         if self.offset:
-            pto = as_pyobj(space, self.w_objclass)
+            pto = as_pyobj(self.space, self.w_objclass)
             # make ptr the equivalent of this, using the offsets
             #func_to_call = rffi.cast(rffi.VOIDP, ptr.c_tp_as_number.c_nb_multiply)
             if pto:
@@ -254,6 +248,36 @@ class W_PyCWrapperObject(W_Root):
                 assert False, "failed to convert w_type %s to PyObject" % str(
                                                               self.w_objclass)
         assert func_to_call
+        return func_to_call
+
+    def descr_call(self, space, w_self, __args__):
+        if self.arity == -1:
+            # slow, fallback logic: eventually, this should be killed
+            args_w, kw_w = __args__.unpack()
+            w_args = space.newtuple(args_w)
+            w_kw = space.newdict()
+            for key, w_obj in kw_w.items():
+                space.setitem(w_kw, space.newtext(key), w_obj)
+            return self.call(space, w_self, w_args, w_kw)
+        #
+        # new logic
+        # XXX: check for keywords
+        length = len(__args__.arguments_w)
+        if length != self.arity:
+            raise oefmt(space.w_TypeError, "expected %d arguments, got %d",
+                        self.arity, length)
+        if self.arity == 1:
+            return self.call_1(space, w_self, __args__)
+
+        assert False, 'should not arrive here'
+
+    def call_1(self, space, w_self, __args__):
+        func = self._get_func_to_call()
+        w_o = __args__.arguments_w[0]
+        return self.wrapper_func(space, func, w_self, w_o)
+
+    def call(self, space, w_self, w_args, w_kw):
+        func_to_call = self._get_func_to_call()
         if self.wrapper_func is None:
             assert self.wrapper_func_kwds is not None
             return self.wrapper_func_kwds(space, w_self, w_args, func_to_call,

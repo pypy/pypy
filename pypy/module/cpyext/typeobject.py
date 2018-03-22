@@ -338,7 +338,15 @@ def add_operators(space, dict_w, pto):
             continue
         if wrapper_func is None and wrapper_func_kwds is None:
             continue
-        w_obj = W_PyCWrapperObject(space, pto, method_name, wrapper_func,
+
+        arity = -1
+        from pypy.module.cpyext.slotdefs import wrap_binaryfunc
+        if wrapper_func is wrap_binaryfunc:
+            # XXX: this is just a quick hack, we need an official way to
+            # specify the arity
+            arity = 1
+
+        w_obj = W_PyCWrapperObject(space, pto, method_name, arity, wrapper_func,
                 wrapper_func_kwds, doc, func_voidp, offset=offset)
         dict_w[method_name] = w_obj
     if pto.c_tp_doc:
