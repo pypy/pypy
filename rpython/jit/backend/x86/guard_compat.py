@@ -288,7 +288,7 @@ def build_once_search_tree(assembler):
         mc.JMP_s(0)
 
     assembler.flush_pending_slowpaths(mc)
-    assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
+    assembler.guard_compat_search_tree = assembler.materialize(mc, [])
 
 
 def build_once_guard_compat_recovery(assembler):
@@ -303,7 +303,7 @@ def build_once_guard_compat_recovery(assembler):
     target = assembler.get_target_for_failure_recovery_of_guard_compat()
     mc.JMP(regloc.imm(target))
 
-    assembler.guard_compat_recovery = mc.materialize(assembler.cpu, [])
+    assembler.guard_compat_recovery = assembler.materialize(mc, [])
 
 
 def generate_recovery_stub(assembler, guard_token):

@@ -177,7 +177,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.pop_gcmap(mc)   # cancel the push_gcmap(store=True) in the caller
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
-        self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
+        self._frame_realloc_slowpath = self.materialize(mc, [],
+                                                       "frame_realloc")
 
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
         """ This builds a general call slowpath, for whatever call happens to
@@ -215,7 +216,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self._pop_all_regs_from_frame(mc, [eax], supports_floats, callee_only)
         mc.RET()
         self.flush_pending_slowpaths(mc)
-        return mc.materialize(self.cpu, [])
+        return self.materialize(mc, [], "cond_call")
 
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
@@ -305,7 +306,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.JMP(imm(self.propagate_exception_path))
         self.flush_pending_slowpaths(mc)
         #
-        rawstart = mc.materialize(self.cpu, [])
+        rawstart = self.materialize(mc, [], "malloc")
         return rawstart
 
     def _build_propagate_exception_path(self):
@@ -323,7 +324,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
         #
         self._call_footer()
-        rawstart = self.mc.materialize(self.cpu, [])
+        rawstart = self.materialize(self.mc, [], "propagate_exception")
         self.propagate_exception_path = rawstart
         self.mc = None
 
@@ -368,7 +369,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.ADD_ri(esp.value, WORD)
         mc.JMP(imm(self.propagate_exception_path))
         #
-        rawstart = mc.materialize(self.cpu, [])
+        rawstart = self.materialize(mc, [], "stack_check")
         self.stack_check_slowpath = rawstart
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
@@ -469,7 +470,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             mc.LEA_rs(esp.value, 7 * WORD)
             mc.RET()
 
-        rawstart = mc.materialize(self.cpu, [])
+        rawstart = self.materialize(mc, [], "write_barrier")
         if for_frame:
             self.wb_slowpath[4] = rawstart
         else:
@@ -567,6 +568,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                            ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
+        self.materialize_done(rawstart, full_size, "loop%d" % looptoken.number)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -644,6 +646,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
+        self.materialize_done(rawstart, fullsize,
+                              "loop%d" % original_loop_token.number)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -710,11 +714,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.JMP_l(0)
         self.mc.writeimm32(0)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
+        fullsize = self.mc.get_relative_pos()
         rawstart = self.materialize_loop(looptoken)
         # update the jump (above) to the real trace
         self._patch_jump_to(rawstart + offset, asminfo.rawstart)
         # update the guard to jump right to this custom piece of assembler
         self.patch_jump_for_descr(faildescr, rawstart)
+        self.materialize_done(rawstart, fullsize,
+                              "loop%d" % looptoken.number)
 
     def _patch_jump_to(self, adr_jump_offset, adr_new_target):
         assert adr_jump_offset != 0
@@ -892,13 +899,30 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.writeimm32(allocated_depth)
         mc.copy_to_raw_memory(adr)
 
+    def get_asmmemmgr_blocks(self, looptoken):
+        clt = looptoken.compiled_loop_token
+        if clt.asmmemmgr_blocks is None:
+            clt.asmmemmgr_blocks = []
+        return clt.asmmemmgr_blocks
+
+    def materialize_done(self, rawstart, size, funcname):
+        from rpython.jit.backend.x86.vtune import rpy_vtune_register
+        with rffi.scoped_str2charp("rpyjit." + funcname) as p:
+            rpy_vtune_register(p, rawstart, size)
+
+    def materialize(self, mc, allblocks, funcname, gcrootmap=None):
+        size = mc.get_relative_pos()
+        rawstart = mc.materialize(self.cpu, allblocks, gcrootmap=gcrootmap)
+        self.materialize_done(rawstart, size, funcname)
+        return rawstart
+
     def materialize_loop(self, looptoken):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         size = self.mc.get_relative_pos()
-        res = self.mc.materialize(self.cpu, allblocks,
-                                  self.cpu.gc_ll_descr.gcrootmap)
+        res = self.materialize(self.mc, allblocks,
+                                  gcrootmap=self.cpu.gc_ll_descr.gcrootmap)
         if self.cpu.HAS_CODEMAP:
             self.cpu.codemap.register_codemap(
                 self.codemap_builder.get_final_bytecode(res, size))
@@ -2072,7 +2096,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The _call_footer below does it.
         self._call_footer()
-        rawstart = mc.materialize(self.cpu, [])
+        rawstart = self.materialize(mc, [], "failure_recovery")
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
 
