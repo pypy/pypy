@@ -312,14 +312,17 @@ class wrap_objobjproc(W_PyCWrapperObject):
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newbool(bool(res))
 
-def wrap_objobjargproc(space, w_self, w_args, func):
-    func_target = rffi.cast(objobjargproc, func)
-    check_num_args(space, w_args, 2)
-    w_key, w_value = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_key, w_value)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.w_None
+class wrap_objobjargproc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(objobjargproc, func)
+        w_key = __args__.arguments_w[0]
+        w_value = __args__.arguments_w[1]
+        res = generic_cpy_call(space, func_target, w_self, w_key, w_value)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.w_None
 
 def wrap_delitem(space, w_self, w_args, func):
     func_target = rffi.cast(objobjargproc, func)
