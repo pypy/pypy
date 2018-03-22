@@ -180,23 +180,28 @@ def wrap_getattro(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     return generic_cpy_call(space, func_target, w_self, args_w[0])
 
-def wrap_setattr(space, w_self, w_args, func):
-    func_target = rffi.cast(setattrofunc, func)
-    check_num_args(space, w_args, 2)
-    w_name, w_value = space.fixedview(w_args)
-    # XXX "Carlo Verre hack"?
-    res = generic_cpy_call(space, func_target, w_self, w_name, w_value)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_setattr(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(setattrofunc, func)
+        w_name = __args__.arguments_w[0]
+        w_value = __args__.arguments_w[1]
+        # XXX "Carlo Verre hack"?
+        res = generic_cpy_call(space, func_target, w_self, w_name, w_value)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_delattr(space, w_self, w_args, func):
-    func_target = rffi.cast(setattrofunc, func)
-    check_num_args(space, w_args, 1)
-    w_name, = space.fixedview(w_args)
-    # XXX "Carlo Verre hack"?
-    res = generic_cpy_call(space, func_target, w_self, w_name, None)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_delattr(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(setattrofunc, func)
+        w_name = __args__.arguments_w[0]
+        # XXX "Carlo Verre hack"?
+        res = generic_cpy_call(space, func_target, w_self, w_name, None)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
 def wrap_descr_get(space, w_self, w_args, func):
     func_target = rffi.cast(descrgetfunc, func)
