@@ -6,6 +6,7 @@ from pypy import pypydir
 import pypy.interpreter.function
 from pypy.tool.pytest import app_rewrite
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.module import Module
 from pypy.tool.pytest import objspace
 from pypy.tool.pytest import appsupport
 
@@ -21,7 +22,8 @@ class AppTestModule(pytest.Module):
         w_rootdir = space.newtext(
             os.path.join(pypydir, 'tool', 'pytest', 'ast-rewriter'))
         w_source = space.newtext(source)
-        w_fname = space.newtext(str(self.fspath))
+        fname = str(self.fspath)
+        w_fname = space.newtext(fname)
         if self.rewrite_asserts:
             w_mod = space.appexec([w_rootdir, w_source, w_fname],
                                 """(rootdir, source, fname):
@@ -34,14 +36,7 @@ class AppTestModule(pytest.Module):
                 return mod
             """)
         else:
-            w_mod = space.appexec([w_rootdir, w_source, w_fname],
-                """(rootdir, source, fname):
-                    import sys
-                    sys.path.insert(0, rootdir)
-                    from ast_rewrite import create_module
-                    co = compile(source, fname, 'exec')
-                    return create_module(fname, co)
-            """)
+            w_mod = create_module(space, w_fname, fname, source)
         mod_dict = w_mod.getdict(space).unwrap(space)
         items = []
         for name, w_obj in mod_dict.items():
@@ -54,6 +49,13 @@ class AppTestModule(pytest.Module):
 
     def setup(self):
         pass
+
+def create_module(space, w_name, filename, source):
+    w_mod = Module(space, w_name)
+    w_dict = w_mod.getdict(space)
+    space.setitem(w_dict, space.newtext('__file__'), space.newtext(filename))
+    space.exec_(source, w_dict, w_dict, filename=filename)
+    return w_mod
 
 
 class AppError(Exception):
