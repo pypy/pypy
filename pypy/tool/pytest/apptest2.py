@@ -94,3 +94,8 @@ class AppTestFunction(pytest.Item):
             if appexcinfo.traceback:
                 raise AppError, AppError(appexcinfo), tb
             raise
+
+    def reportinfo(self):
+        """Must return a triple (fspath, lineno, test_name)"""
+        lineno = self.w_obj.code.co_firstlineno
+        return self.parent.fspath, lineno, self.w_obj.name
