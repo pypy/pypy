@@ -889,6 +889,43 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = "foo" in obj
         assert res is True
 
+    def test_sq_ass_slice(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static int
+            sq_ass_slice(PyObject *self, Py_ssize_t a, Py_ssize_t b, PyObject *o)
+            {
+                int expected = (a == 10 && b == 20 &&
+                                PyInt_Check(o) && PyInt_AsLong(o) == 42);
+                if (!expected) {
+                    PyErr_SetString(PyExc_ValueError, "test failed");
+                    return -1;
+                }
+                return 0;
+            }
+            PySequenceMethods tp_as_sequence;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''', more_init='''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                tp_as_sequence.sq_ass_slice = sq_ass_slice;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        obj = module.new_obj()
+        obj[10:20] = 42
+        raises(ValueError, "obj[10:20] = 43")
+        raises(ValueError, "obj[11:20] = 42")
+        raises(ValueError, "obj[10:21] = 42")
+
     def test_tp_iter(self):
         module = self.import_extension('foo', [
            ("tp_iter", "METH_VARARGS",
