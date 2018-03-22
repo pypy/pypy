@@ -938,7 +938,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static int
             sq_ass_item(PyObject *self, Py_ssize_t i, PyObject *o)
             {
-                int expected = (i == 10 && PyInt_Check(o) && PyInt_AsLong(o) == 42);
+                int expected;
+                if (o == NULL)              // delitem
+                    expected = (i == 12);
+                else                        // setitem
+                    expected = (i == 10 && PyInt_Check(o) && PyInt_AsLong(o) == 42);
                 if (!expected) {
                     PyErr_SetString(PyExc_ValueError, "test failed");
                     return -1;
@@ -960,6 +964,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         obj[10] = 42
         raises(ValueError, "obj[10] = 43")
         raises(ValueError, "obj[11] = 42")
+        del obj[12]
+        raises(ValueError, "del obj[13]")
 
     def test_tp_iter(self):
         module = self.import_extension('foo', [

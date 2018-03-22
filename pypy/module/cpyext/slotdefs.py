@@ -312,15 +312,17 @@ class wrap_sq_setitem(W_PyCWrapperObject):
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_sq_delitem(space, w_self, w_args, func):
-    func_target = rffi.cast(ssizeobjargproc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    index = space.int_w(space.index(args_w[0]))
-    null = rffi.cast(PyObject, 0)
-    res = generic_cpy_call(space, func_target, w_self, index, null)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_sq_delitem(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ssizeobjargproc, func)
+        w_index = __args__.arguments_w[0]
+        index = space.int_w(space.index(w_index))
+        null = rffi.cast(PyObject, 0)
+        res = generic_cpy_call(space, func_target, w_self, index, null)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
 # Warning, confusing function name (like CPython).  Used only for sq_contains.
 class wrap_objobjproc(W_PyCWrapperObject):
