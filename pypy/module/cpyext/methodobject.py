@@ -221,6 +221,7 @@ class W_PyCWrapperObject(W_Root):
     """
     Abstract class; for concrete subclasses, see slotdefs.py
     """
+    _immutable_fields_ = ['offset[*]']
 
     def __init__(self, space, pto, method_name, doc, func, offset):
         self.space = space
