@@ -340,13 +340,15 @@ def wrap_next(space, w_self, w_args, func):
         raise OperationError(space.w_StopIteration, space.w_None)
     return w_res
 
-def wrap_hashfunc(space, w_self, w_args, func):
-    func_target = rffi.cast(hashfunc, func)
-    check_num_args(space, w_args, 0)
-    res = generic_cpy_call(space, func_target, w_self)
-    if res == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.newint(res)
+class wrap_hashfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(hashfunc, func)
+        res = generic_cpy_call(space, func_target, w_self)
+        if res == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.newint(res)
 
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
