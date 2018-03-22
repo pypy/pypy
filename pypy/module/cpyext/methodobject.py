@@ -229,6 +229,14 @@ class W_PyCWrapperObject(W_Root):
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
 
+    def descr_call(self, space, w_self, __args__):
+        args_w, kw_w = __args__.unpack()
+        w_args = space.newtuple(args_w)
+        w_kw = space.newdict()
+        for key, w_obj in kw_w.items():
+            space.setitem(w_kw, space.newtext(key), w_obj)
+        return self.call(space, w_self, w_args, w_kw)
+
     def call(self, space, w_self, w_args, w_kw):
         func_to_call = self.func
         if self.offset:
@@ -261,16 +269,6 @@ class W_PyCWrapperObject(W_Root):
                                   (self.method_name,
                                    self.w_objclass.name))
 
-@jit.dont_look_inside
-def cwrapper_descr_call(space, w_self, __args__):
-    self = space.interp_w(W_PyCWrapperObject, w_self)
-    args_w, kw_w = __args__.unpack()
-    w_args = space.newtuple(args_w[1:])
-    w_self = args_w[0]
-    w_kw = space.newdict()
-    for key, w_obj in kw_w.items():
-        space.setitem(w_kw, space.newtext(key), w_obj)
-    return self.call(space, w_self, w_args, w_kw)
 
 def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
     asking_for_bound = (space.is_none(w_cls) or
@@ -323,7 +321,7 @@ W_PyCClassMethodObject.typedef.acceptable_as_base_class = False
 
 W_PyCWrapperObject.typedef = TypeDef(
     'wrapper_descriptor',
-    __call__ = interp2app(cwrapper_descr_call),
+    __call__ = interp2app(W_PyCWrapperObject.descr_call),
     __get__ = interp2app(cmethod_descr_get),
     __name__ = interp_attrproperty('method_name', cls=W_PyCWrapperObject,
         wrapfn="newtext_or_none"),
