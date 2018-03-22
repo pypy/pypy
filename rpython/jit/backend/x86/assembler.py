@@ -39,6 +39,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
+from rpython.jit.backend.x86 import vtune
 
 
 class Assembler386(BaseAssembler, VectorAssemblerMixin):
@@ -906,9 +907,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         return clt.asmmemmgr_blocks
 
     def materialize_done(self, rawstart, size, funcname):
-        from rpython.jit.backend.x86.vtune import rpy_vtune_register
-        with rffi.scoped_str2charp("rpyjit." + funcname) as p:
-            rpy_vtune_register(p, rawstart, size)
+        vtune.register_vtune_symbol("rpyjit." + funcname, rawstart, size)
 
     def materialize(self, mc, allblocks, funcname, gcrootmap=None):
         size = mc.get_relative_pos()
