@@ -569,7 +569,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                            ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
-        self.materialize_done(rawstart, full_size, "loop%d" % looptoken.number)
+        self.materialize_done(rawstart + functionpos, full_size - functionpos,
+                              "loop%d" % looptoken.number)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -647,8 +648,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
-        self.materialize_done(rawstart, fullsize,
-                              "loop%d" % original_loop_token.number)
+        self.materialize_done(rawstart + startpos, fullsize - startpos,
+                              "bridge_%d_0x%x" % (original_loop_token.number,
+                                                  r_uint(descr_number)))
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -722,7 +724,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # update the guard to jump right to this custom piece of assembler
         self.patch_jump_for_descr(faildescr, rawstart)
         self.materialize_done(rawstart, fullsize,
-                              "loop%d" % looptoken.number)
+                              "stiched_bridge%d" % looptoken.number)
 
     def _patch_jump_to(self, adr_jump_offset, adr_new_target):
         assert adr_jump_offset != 0

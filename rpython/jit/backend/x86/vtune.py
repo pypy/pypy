@@ -13,6 +13,7 @@ RPY_EXTERN void rpy_vtune_register(char *, long, long);
     libraries=["dl", "jitprofiling"],
     library_dirs=["/opt/intel/system_studio_2018/vtune_amplifier/lib64/"],
     separate_module_sources=[r"""
+#include "dlfcn.h"
 #include "/opt/intel/system_studio_2018/vtune_amplifier/include/jitprofiling.h"
 
 RPY_EXTERN void rpy_make_dlopen_strong(char *funcname, Signed addr, Signed size)
@@ -27,13 +28,9 @@ RPY_EXTERN void rpy_vtune_register(char *funcname, Signed addr, Signed size)
 {
     iJIT_Method_Load_V2 jmethod = {0};
 
-    fprintf(stderr, "call vtune register\n");
-
     if (iJIT_IsProfilingActive() != iJIT_SAMPLING_ON) {
         return;
     }
-
-    fprintf(stderr, "actually vtune register\n");
 
     jmethod.method_id = iJIT_GetNewMethodID();
     jmethod.method_name = funcname;
