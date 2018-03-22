@@ -154,15 +154,16 @@ def wrap_ternaryfunc_r(space, w_self, w_args, func):
         arg3 = args_w[1]
     return generic_cpy_call(space, func_ternary, args_w[0], w_self, arg3)
 
-
-def wrap_inquirypred(space, w_self, w_args, func):
-    func_inquiry = rffi.cast(inquiry, func)
-    check_num_args(space, w_args, 0)
-    res = generic_cpy_call(space, func_inquiry, w_self)
-    res = rffi.cast(lltype.Signed, res)
-    if res == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.newbool(bool(res))
+class wrap_inquirypred(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_inquiry = rffi.cast(inquiry, func)
+        res = generic_cpy_call(space, func_inquiry, w_self)
+        res = rffi.cast(lltype.Signed, res)
+        if res == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.newbool(bool(res))
 
 def wrap_getattr(space, w_self, w_args, func):
     func_target = rffi.cast(getattrfunc, func)
