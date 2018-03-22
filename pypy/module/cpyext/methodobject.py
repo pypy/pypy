@@ -232,7 +232,7 @@ class W_PyCWrapperObject(W_Root):
     def descr_call(self, space, w_self, __args__):
         return self.call(space, w_self, __args__)
 
-    def call(self, w_self, __args__):
+    def call(self, space, w_self, __args__):
         raise NotImplementedError
 
     def get_func_to_call(self):
