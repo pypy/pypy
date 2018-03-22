@@ -80,10 +80,12 @@ def wrap_init(space, w_self, w_args, func, w_kwargs):
         space.fromcache(State).check_and_raise_exception(always=True)
     return None
 
-def wrap_unaryfunc(space, w_self, w_args, func):
-    func_unary = rffi.cast(unaryfunc, func)
-    check_num_args(space, w_args, 0)
-    return generic_cpy_call(space, func_unary, w_self)
+class W_WrapUnaryFunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_unary = rffi.cast(unaryfunc, func)
+        return generic_cpy_call(space, func_unary, w_self)
 
 class W_WrapBinaryFunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
@@ -994,13 +996,13 @@ static slotdef slotdefs[] = {
                "x.__pow__(y[, z]) <==> pow(x, y[, z])"),
         NBSLOT("__rpow__", nb_power, slot_nb_power, wrap_ternaryfunc_r,
                "y.__rpow__(x[, z]) <==> pow(x, y[, z])"),
-        UNSLOT("__neg__", nb_negative, slot_nb_negative, wrap_unaryfunc, "-x"),
-        UNSLOT("__pos__", nb_positive, slot_nb_positive, wrap_unaryfunc, "+x"),
-        UNSLOT("__abs__", nb_absolute, slot_nb_absolute, wrap_unaryfunc,
+        UNSLOT("__neg__", nb_negative, slot_nb_negative, W_WrapUnaryFunc, "-x"),
+        UNSLOT("__pos__", nb_positive, slot_nb_positive, W_WrapUnaryFunc, "+x"),
+        UNSLOT("__abs__", nb_absolute, slot_nb_absolute, W_WrapUnaryFunc,
                "abs(x)"),
         UNSLOT("__nonzero__", nb_nonzero, slot_nb_nonzero, wrap_inquirypred,
                "x != 0"),
-        UNSLOT("__invert__", nb_invert, slot_nb_invert, wrap_unaryfunc, "~x"),
+        UNSLOT("__invert__", nb_invert, slot_nb_invert, W_WrapUnaryFunc, "~x"),
         BINSLOT("__lshift__", nb_lshift, slot_nb_lshift, "<<"),
         RBINSLOT("__rlshift__", nb_lshift, slot_nb_lshift, "<<"),
         BINSLOT("__rshift__", nb_rshift, slot_nb_rshift, ">>"),
@@ -1013,17 +1015,17 @@ static slotdef slotdefs[] = {
         RBINSLOT("__ror__", nb_or, slot_nb_or, "|"),
         NBSLOT("__coerce__", nb_coerce, slot_nb_coerce, wrap_coercefunc,
                "x.__coerce__(y) <==> coerce(x, y)"),
-        UNSLOT("__int__", nb_int, slot_nb_int, wrap_unaryfunc,
+        UNSLOT("__int__", nb_int, slot_nb_int, W_WrapUnaryFunc,
                "int(x)"),
-        UNSLOT("__long__", nb_long, slot_nb_long, wrap_unaryfunc,
+        UNSLOT("__long__", nb_long, slot_nb_long, W_WrapUnaryFunc,
                "long(x)"),
-        UNSLOT("__float__", nb_float, slot_nb_float, wrap_unaryfunc,
+        UNSLOT("__float__", nb_float, slot_nb_float, W_WrapUnaryFunc,
                "float(x)"),
-        UNSLOT("__oct__", nb_oct, slot_nb_oct, wrap_unaryfunc,
+        UNSLOT("__oct__", nb_oct, slot_nb_oct, W_WrapUnaryFunc,
                "oct(x)"),
-        UNSLOT("__hex__", nb_hex, slot_nb_hex, wrap_unaryfunc,
+        UNSLOT("__hex__", nb_hex, slot_nb_hex, W_WrapUnaryFunc,
                "hex(x)"),
-        NBSLOT("__index__", nb_index, slot_nb_index, wrap_unaryfunc,
+        NBSLOT("__index__", nb_index, slot_nb_index, W_WrapUnaryFunc,
                "x[y:z] <==> x[y.__index__():z.__index__()]"),
         IBSLOT("__iadd__", nb_inplace_add, slot_nb_inplace_add,
                W_WrapBinaryFunc, "+"),
@@ -1056,10 +1058,10 @@ static slotdef slotdefs[] = {
         IBSLOT("__itruediv__", nb_inplace_true_divide,
                slot_nb_inplace_true_divide, W_WrapBinaryFunc, "/"),
 
-        TPSLOT("__str__", tp_str, slot_tp_str, wrap_unaryfunc,
+        TPSLOT("__str__", tp_str, slot_tp_str, W_WrapUnaryFunc,
                "x.__str__() <==> str(x)"),
         TPSLOT("__str__", tp_print, NULL, NULL, ""),
-        TPSLOT("__repr__", tp_repr, slot_tp_repr, wrap_unaryfunc,
+        TPSLOT("__repr__", tp_repr, slot_tp_repr, W_WrapUnaryFunc,
                "x.__repr__() <==> repr(x)"),
         TPSLOT("__repr__", tp_print, NULL, NULL, ""),
         TPSLOT("__cmp__", tp_compare, _PyObject_SlotCompare, wrap_cmpfunc,
@@ -1090,7 +1092,7 @@ static slotdef slotdefs[] = {
                "x.__gt__(y) <==> x>y"),
         TPSLOT("__ge__", tp_richcompare, slot_tp_richcompare, richcmp_ge,
                "x.__ge__(y) <==> x>=y"),
-        TPSLOT("__iter__", tp_iter, slot_tp_iter, wrap_unaryfunc,
+        TPSLOT("__iter__", tp_iter, slot_tp_iter, W_WrapUnaryFunc,
                "x.__iter__() <==> iter(x)"),
         TPSLOT("next", tp_iternext, slot_tp_iternext, wrap_next,
                "x.next() -> the next value, or raise StopIteration"),
