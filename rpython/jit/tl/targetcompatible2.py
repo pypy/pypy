@@ -34,9 +34,8 @@ class A:
 def ec_f2(x):
     return x.i
 
-def run2(n, objects, results):
+def run2(n, xs):
     s = 0
-    xs = [A(i % results) for i in range(objects)]
     while n > 0:
         driver2.can_enter_jit(n=n, s=s, xs=xs)
         driver2.jit_merge_point(n=n, s=s, xs=xs)
@@ -58,9 +57,8 @@ class A:
 def ec_f3(x):
     return x.i
 
-def run3(n, objects, results):
+def run3(n, xs):
     s = 0
-    xs = [A(i % results) for i in range(objects)]
     while n > 0:
         driver3.can_enter_jit(n=n, s=s, xs=xs)
         driver3.jit_merge_point(n=n, s=s, xs=xs)
@@ -83,13 +81,15 @@ def entry_point(args):
     objects = int(args[2])
     results = int(args[3])
 
+    xs = [A(i % results) for i in range(objects)]
+
     print "warming up..."
     if select == 0:
         run1(n)
     elif select == 1:
-        run2(n, objects, results)
+        run2(n, xs)
     elif select == 2:
-        run3(n, objects, results)
+        run3(n, xs)
 
     print "run..."
     
@@ -97,9 +97,9 @@ def entry_point(args):
     if select == 0:
         run1(n)
     elif select == 1:
-        run2(n, objects, results)
+        run2(n, xs)
     elif select == 2:
-        run3(n, objects, results)
+        run3(n, xs)
     stop = time.clock()
     print 'Warmup jitted: (%f seconds)' % (stop - start)
 
