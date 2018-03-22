@@ -351,13 +351,14 @@ class wrap_delitem(W_PyCWrapperObject):
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.w_None
 
-def wrap_ssizessizeargfunc(space, w_self, w_args, func):
-    func_target = rffi.cast(ssizessizeargfunc, func)
-    check_num_args(space, w_args, 2)
-    args_w = space.fixedview(w_args)
-    start = space.int_w(args_w[0])
-    end = space.int_w(args_w[1])
-    return generic_cpy_call(space, func_target, w_self, start, end)
+class wrap_ssizessizeargfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ssizessizeargfunc, func)
+        start = space.int_w(__args__.arguments_w[0])
+        end = space.int_w(__args__.arguments_w[1])
+        return generic_cpy_call(space, func_target, w_self, start, end)
 
 class wrap_next(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
@@ -380,21 +381,23 @@ class wrap_hashfunc(W_PyCWrapperObject):
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newint(res)
 
-def wrap_getreadbuffer(space, w_self, w_args, func):
-    func_target = rffi.cast(readbufferproc, func)
-    py_type = _get_ob_type(space, w_self)
-    rbp = rffi.cast(rffi.VOIDP, 0)
-    if py_type.c_tp_as_buffer:
-        rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-    with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
-        index = rffi.cast(Py_ssize_t, 0)
-        size = generic_cpy_call(space, func_target, w_self, index, ptr)
-        if size < 0:
-            space.fromcache(State).check_and_raise_exception(always=True)
-        view = CPyBuffer(space, ptr[0], size, w_self,
-                               releasebufferproc=rbp)
-        fq.register_finalizer(view)
-        return space.newbuffer(CBuffer(view))
+class wrap_getreadbuffer(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(readbufferproc, func)
+        py_type = _get_ob_type(space, w_self)
+        rbp = rffi.cast(rffi.VOIDP, 0)
+        if py_type.c_tp_as_buffer:
+            rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
+            index = rffi.cast(Py_ssize_t, 0)
+            size = generic_cpy_call(space, func_target, w_self, index, ptr)
+            if size < 0:
+                space.fromcache(State).check_and_raise_exception(always=True)
+            view = CPyBuffer(space, ptr[0], size, w_self,
+                                   releasebufferproc=rbp)
+            fq.register_finalizer(view)
+            return space.newbuffer(CBuffer(view))
 
 def wrap_getwritebuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
@@ -412,45 +415,48 @@ def wrap_getwritebuffer(space, w_self, w_args, func):
         fq.register_finalizer(view)
         return space.newbuffer(CBuffer(view))
 
-def wrap_getbuffer(space, w_self, w_args, func):
-    func_target = rffi.cast(getbufferproc, func)
-    py_type = _get_ob_type(space, w_self)
-    rbp = rffi.cast(rffi.VOIDP, 0)
-    if py_type.c_tp_as_buffer:
-        rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-    with lltype.scoped_alloc(Py_buffer) as pybuf:
-        _flags = 0
-        if space.len_w(w_args) > 0:
-            _flags = space.int_w(space.listview(w_args)[0])
-        flags = rffi.cast(rffi.INT_real,_flags)
-        size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
-        if widen(size) < 0:
-            space.fromcache(State).check_and_raise_exception(always=True)
-        ptr = pybuf.c_buf
-        size = pybuf.c_len
-        ndim = widen(pybuf.c_ndim)
-        shape = None
-        if pybuf.c_shape:
-            shape = [pybuf.c_shape[i]   for i in range(ndim)]
-        strides = None
-        if pybuf.c_strides:
-            strides = [pybuf.c_strides[i] for i in range(ndim)]
-        if pybuf.c_format:
-            format = rffi.charp2str(pybuf.c_format)
-        else:
-            format = 'B'
-        # the CPython docs mandates that you do an incref whenever you call
-        # bf_getbuffer; so, we pass needs_decref=True to ensure that we don't
-        # leak we release the buffer:
-        # https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer
-        buf = CPyBuffer(space, ptr, size, w_self, format=format,
-                            ndim=ndim, shape=shape, strides=strides,
-                            itemsize=pybuf.c_itemsize,
-                            readonly=widen(pybuf.c_readonly),
-                            needs_decref=True,
-                            releasebufferproc = rbp)
-        fq.register_finalizer(buf)
-        return buf.wrap(space)
+
+class wrap_getbuffer(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(getbufferproc, func)
+        py_type = _get_ob_type(space, w_self)
+        rbp = rffi.cast(rffi.VOIDP, 0)
+        if py_type.c_tp_as_buffer:
+            rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        with lltype.scoped_alloc(Py_buffer) as pybuf:
+            _flags = 0
+            if len(__args__.arguments_w) > 0:
+                _flags = space.int_w(__args__.arguments_w[0])
+            flags = rffi.cast(rffi.INT_real,_flags)
+            size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
+            if widen(size) < 0:
+                space.fromcache(State).check_and_raise_exception(always=True)
+            ptr = pybuf.c_buf
+            size = pybuf.c_len
+            ndim = widen(pybuf.c_ndim)
+            shape = None
+            if pybuf.c_shape:
+                shape = [pybuf.c_shape[i]   for i in range(ndim)]
+            strides = None
+            if pybuf.c_strides:
+                strides = [pybuf.c_strides[i] for i in range(ndim)]
+            if pybuf.c_format:
+                format = rffi.charp2str(pybuf.c_format)
+            else:
+                format = 'B'
+            # the CPython docs mandates that you do an incref whenever you call
+            # bf_getbuffer; so, we pass needs_decref=True to ensure that we don't
+            # leak we release the buffer:
+            # https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer
+            buf = CPyBuffer(space, ptr, size, w_self, format=format,
+                                ndim=ndim, shape=shape, strides=strides,
+                                itemsize=pybuf.c_itemsize,
+                                readonly=widen(pybuf.c_readonly),
+                                needs_decref=True,
+                                releasebufferproc = rbp)
+            fq.register_finalizer(buf)
+            return buf.wrap(space)
 
 def get_richcmp_func(OP_CONST):
     class wrap_richcmp(W_PyCWrapperObject):
