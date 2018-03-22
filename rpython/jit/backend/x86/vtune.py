@@ -10,9 +10,10 @@ eci = ExternalCompilationInfo(
     post_include_bits=["""
 RPY_EXTERN void rpy_vtune_register(char *, long, long);
 """],
-    include_dirs=["/opt/intel/vtune_amplifier_xe/include"],
+    include_dirs=["/opt/intel/system_studio_2018/vtune_amplifier/include"],
+    libraries=["dl"],    # otherwise, iJIT_IsProfilingActive() just returns 0
     separate_module_sources=["""
-#include "/opt/intel/vtune_amplifier_xe/sdk/src/ittnotify/jitprofiling.c"
+#include "/opt/intel/system_studio_2018/vtune_amplifier/sdk/src/ittnotify/jitprofiling.c"
 
 RPY_EXTERN void rpy_vtune_register(char *funcname, Signed addr, Signed size)
 {
