@@ -1,6 +1,8 @@
 import py, pytest, sys, textwrap
 from inspect import isclass
 
+APPLEVEL_FN = 'apptest_*.py'
+
 # pytest settings
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
@@ -30,11 +32,9 @@ def pytest_addhooks(pluginmanager):
 def pytest_configure(config):
     global option
     option = config.option
+    config.addinivalue_line('python_files', APPLEVEL_FN)
 
 def pytest_addoption(parser):
-    from rpython.conftest import pytest_addoption
-    pytest_addoption(parser)
-
     group = parser.getgroup("pypy options")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
@@ -45,6 +45,9 @@ def pytest_addoption(parser):
     group.addoption('--raise-operr', action="store_true",
             default=False, dest="raise_operr",
             help="Show the interp-level OperationError in app-level tests")
+    group.addoption('--applevel-rewrite', action="store_true",
+            default=False, dest="applevel_rewrite",
+            help="Use assert rewriting in app-level test files (slow)")
 
 @pytest.fixture(scope='function')
 def space(request):
@@ -75,7 +78,14 @@ def pytest_sessionstart(session):
     ensure_pytest_builtin_helpers()
 
 def pytest_pycollect_makemodule(path, parent):
-    return PyPyModule(path, parent)
+    if path.fnmatch(APPLEVEL_FN):
+        if parent.config.getoption('runappdirect'):
+            return
+        from pypy.tool.pytest.apptest2 import AppTestModule
+        rewrite = parent.config.getoption('applevel_rewrite')
+        return AppTestModule(path, parent, rewrite_asserts=rewrite)
+    else:
+        return PyPyModule(path, parent)
 
 def is_applevel(item):
     from pypy.tool.pytest.apptest import AppTestFunction
@@ -91,7 +101,8 @@ def pytest_collection_modifyitems(config, items):
             else:
                 item.add_marker('interplevel')
 
-class PyPyModule(py.test.collect.Module):
+
+class PyPyModule(pytest.Module):
     """ we take care of collecting classes both at app level
         and at interp-level (because we need to stick a space
         at the class) ourselves.
@@ -174,5 +185,5 @@ def pytest_runtest_setup(item):
             appclass.obj.runappdirect = option.runappdirect
 
 
-def pytest_ignore_collect(path):
+def pytest_ignore_collect(path, config):
     return path.check(link=1)
