@@ -203,6 +203,7 @@ def pytest_runtest_setup(item):
 
 
 def pytest_ignore_collect(path, config):
-    if config.getoption('runappdirect') and not path.fnmatch(APPLEVEL_FN):
+    if (config.getoption('runappdirect') and
+            not path.isdir() and not path.fnmatch(APPLEVEL_FN)):
         return True
     return path.check(link=1)
