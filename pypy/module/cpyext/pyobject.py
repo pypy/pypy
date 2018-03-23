@@ -20,8 +20,7 @@ from rpython.rlib import rawrefcount, jit
 from rpython.rlib.debug import ll_assert, fatalerror, debug_print
 from rpython.rlib.rawrefcount import (
     REFCNT_MASK, REFCNT_FROM_PYPY, REFCNT_OVERFLOW, REFCNT_CYCLE_BUFFERED,
-    REFCNT_CLR_MASK, REFCNT_CLR_GREEN, REFCNT_CLR_PURPLE,
-    W_MARKER_DEALLOCATING)
+    REFCNT_CLR_MASK, REFCNT_CLR_GREEN, REFCNT_CLR_PURPLE)
 from pypy.module.cpyext.api import slot_function
 from pypy.module.cpyext.typeobjectdefs import visitproc
 
@@ -254,6 +253,8 @@ def track_reference(space, py_obj, w_obj):
     w_obj._cpyext_attach_pyobj(space, py_obj)
 
 
+w_marker_deallocating = W_Root()
+
 @jit.dont_look_inside
 def from_ref(space, ref):
     """
@@ -265,7 +266,7 @@ def from_ref(space, ref):
         return None
     w_obj = rawrefcount.to_obj(W_Root, ref)
     if w_obj is not None:
-        if w_obj is not W_MARKER_DEALLOCATING:
+        if w_obj is not w_marker_deallocating:
             return w_obj
         fatalerror(
             "*** Invalid usage of a dying CPython object ***\n"
@@ -318,7 +319,7 @@ as_pyobj._always_inline_ = 'try'
 
 def pyobj_has_w_obj(pyobj):
     w_obj = rawrefcount.to_obj(W_Root, pyobj)
-    return w_obj is not None and w_obj is not W_MARKER_DEALLOCATING
+    return w_obj is not None and w_obj is not w_marker_deallocating
 
 def w_obj_has_pyobj(w_obj):
     return bool(rawrefcount.from_obj(PyObject, w_obj))
@@ -454,7 +455,7 @@ def refcnt_overflow(space, obj):
 @init_function
 def write_w_marker_deallocating(space):
     if we_are_translated():
-        llptr = cast_instance_to_base_ptr(W_MARKER_DEALLOCATING)
+        llptr = cast_instance_to_base_ptr(w_marker_deallocating)
         state = space.fromcache(State)
         state.C.set_marker(rffi.cast(Py_ssize_t, llptr))
 

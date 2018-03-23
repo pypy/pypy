@@ -74,7 +74,6 @@ from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rgc
 from rpython.memory.gc.minimarkpage import out_of_memory
-from pypy.module.cpyext.api import slot_function, PyObject
 from rpython.rtyper.lltypesystem import rffi
 
 #
@@ -190,30 +189,6 @@ FORWARDSTUB = lltype.GcStruct('forwarding_stub',
                               ('forw', llmemory.Address))
 FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
 NURSARRAY = lltype.Array(llmemory.Address)
-VISIT_FUNCTYPE = rffi.CCallback([PyObject, rffi.VOIDP],
-                                rffi.INT_real)
-
-
-def visit_trace_non_rc_roots(pyobj, self_ptr):
-    from rpython.rlib.rawrefcount import (REFCNT_CLR_BLACK,
-                                          REFCNT_CLR_MASK)
-    from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
-
-    self_adr = rffi.cast(llmemory.Address, self_ptr)
-    self = cast_adr_to_nongc_instance(IncrementalMiniMarkGC, self_adr)
-
-    # if the pyobj is not marked, remember it and if there is a linked pypy
-    # object also remember it
-    if pyobj.c_ob_refcnt & REFCNT_CLR_MASK != REFCNT_CLR_BLACK:
-        pyobject = llmemory.cast_ptr_to_adr(pyobj)
-        self.rrc_more_pyobjects_to_scan.append(pyobject)
-        intobj = pyobj.c_ob_pypy_link
-        if intobj != 0:
-            obj = llmemory.cast_int_to_adr(intobj)
-            hdr = self.header(obj)
-            if not (hdr.tid & GCFLAG_VISITED):
-                self.objects_to_trace.append(obj)
-    return rffi.cast(rffi.INT_real, 0)
 
 # ____________________________________________________________
 
@@ -3020,11 +2995,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
                               ('c_ob_pypy_link', lltype.Signed))
     PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
     RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
+    VISIT_FUNCTYPE = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR, rffi.VOIDP],
+                                                rffi.INT_real))
+    RAWREFCOUNT_TRAVERSE = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR,
+                                                       VISIT_FUNCTYPE,
+                                                       rffi.VOIDP],
+                                                      lltype.Void))
 
     def _pyobj(self, pyobjaddr):
-        return llmemory.cast_adr_to_ptr(pyobjaddr, lltype.Ptr(PyObject.TO))
+            return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
 
-    def rawrefcount_init(self, dealloc_trigger_callback):
+    def rawrefcount_init(self, dealloc_trigger_callback, tp_traverse):
         # see pypy/doc/discussion/rawrefcount.rst
         if not self.rrc_enabled:
             self.rrc_p_list_young = self.AddressStack()
@@ -3035,6 +3016,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_p_dict       = self.AddressDict()  # non-nursery keys only
             self.rrc_p_dict_nurs  = self.AddressDict()  # nursery keys only
             self.rrc_dealloc_trigger_callback = dealloc_trigger_callback
+            self.rrc_tp_traverse = tp_traverse
             self.rrc_dealloc_pending = self.AddressStack()
             self.rrc_pyobjects_to_scan = self.AddressStack()
             self.rrc_more_pyobjects_to_scan = self.AddressStack()
@@ -3214,10 +3196,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
     NO_CYCLE_DETECTION = False
 
     def rrc_major_collection_trace(self):
+        debug_start("gc-rrc-trace")
         if self.NO_CYCLE_DETECTION:
             self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
         else:
             self.rrc_major_collection_trace_cycle()
+            self.rrc_p_list_old.foreach(self._rrc_major_trace, None) # for now, remove later
+        debug_stop("gc-rrc-trace")
 
     def _rrc_major_trace(self, pyobject, ignore):
         from rpython.rlib.rawrefcount import REFCNT_MASK
@@ -3238,20 +3223,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
         assert not self.rrc_more_pyobjects_to_scan.non_empty()
         assert not self.rrc_pyobjects_to_trace.non_empty()
 
-        # initially, scan all old pyobjects which are linked to objects
-        self.rrc_p_list_old.foreach(self._rrc_major_scan_non_rc_roots, None)
+        # initially, scan all real pyobjects (not proxies) which are linked to objects
+        #self.rrc_p_list_old.foreach(self._rrc_major_scan_non_rc_roots, None)
+        self.rrc_o_list_old.foreach(self._rrc_major_scan_non_rc_roots, None)
 
         # as long as we find new pyobjects which should be marked, recursively
         # mark them
         while self.rrc_pyobjects_to_trace.non_empty():
             while self.rrc_pyobjects_to_trace.non_empty():
-                pyobj = self.rrc_pyobjects_to_trace.pop()
-                self._rrc_major_trace_non_rc_roots(pyobj)
+                pyobject = self.rrc_pyobjects_to_trace.pop()
+                self._rrc_traverse(pyobject)
 
             # see if we found new pypy objects to trace
             if self.objects_to_trace.non_empty():
                 self.visit_all_objects()
             self.objects_to_trace.delete()
+            self.objects_to_trace = self.AddressStack()
 
             # look if there are some pyobjects with linked objects which were
             # not marked previously, but are marked now
@@ -3261,26 +3248,29 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_pyobjects_to_scan.foreach(
                 self._rrc_major_scan_non_rc_roots, None)
             self.rrc_pyobjects_to_scan.delete()
+            self.rrc_pyobjects_to_scan = self.AddressStack()
 
-    def traverse(self, pyobject, func_ptr):
-        from pypy.module.cpyext.api import generic_cpy_call_gc
-        from pypy.module.cpyext.typeobjectdefs import visitproc
-        from rpython.rtyper.annlowlevel import cast_nongc_instance_to_adr
-        self_addr = cast_nongc_instance_to_adr(self)
-        pyobj = self._pyobj(pyobject)
-        if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_traverse:
-            visitproc_ptr = rffi.cast(visitproc, func_ptr)
-            generic_cpy_call_gc(pyobj.c_ob_type.c_tp_traverse, pyobj,
-                            visitproc_ptr, rffi.cast(rffi.VOIDP, self_addr))
-            #cast_nongc_instance_to_adr(self)
+        self.rrc_more_pyobjects_to_scan.delete()
+        self.rrc_more_pyobjects_to_scan = self.AddressStack()
 
-    def _rrc_major_trace_non_rc_roots(self, pyobject):
-        from rpython.rtyper.annlowlevel import llhelper
-        func_ptr = llhelper(VISIT_FUNCTYPE, visit_trace_non_rc_roots)
-        self.traverse(pyobject, func_ptr)
+    def _rrc_mark_cpyobj(self, pyobj):
+        from rpython.rlib.rawrefcount import (REFCNT_CLR_GRAY,
+                                              REFCNT_CLR_MASK)
+        # if the pyobj is not marked, remember it and if there is a linked pypy
+        # object also remember it
+        if pyobj.c_ob_refcnt & REFCNT_CLR_MASK != REFCNT_CLR_GRAY:
+            pyobj.c_ob_refcnt = REFCNT_CLR_GRAY
+            pyobject = llmemory.cast_ptr_to_adr(pyobj)
+            self.rrc_more_pyobjects_to_scan.append(pyobject)
+            intobj = pyobj.c_ob_pypy_link
+            if intobj != 0:
+                obj = llmemory.cast_int_to_adr(intobj)
+                hdr = self.header(obj)
+                if not (hdr.tid & GCFLAG_VISITED):
+                    self.objects_to_trace.append(obj)
 
     def _rrc_major_scan_non_rc_roots(self, pyobject, ignore):
-        from rpython.rlib.rawrefcount import (REFCNT_CLR_BLACK,
+        from rpython.rlib.rawrefcount import (REFCNT_CLR_GRAY,
                                               REFCNT_CLR_MASK)
         # check in the object header of the linked pypy object, if it is marked
         # or not
@@ -3289,8 +3279,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = llmemory.cast_int_to_adr(intobj)
         hdr = self.header(obj)
         if hdr.tid & GCFLAG_VISITED:
-            if pyobj.c_ob_refcnt & REFCNT_CLR_MASK != REFCNT_CLR_BLACK:
+            if pyobj.c_ob_refcnt & REFCNT_CLR_MASK != REFCNT_CLR_GRAY: # TODO change to black, but make white default
                 # process the pyobject now
+                pyobj.c_ob_refcnt = REFCNT_CLR_GRAY
                 self.rrc_pyobjects_to_trace.append(pyobject)
         else:
             # save the pyobject for later, in case its linked object becomes
@@ -3330,3 +3321,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 surviving_dict.insertclean(obj, pyobject)
         else:
             self._rrc_free(pyobject)
+
+    def _rrc_visit(pyobj, self_ptr):
+        from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
+        #
+        debug_print("visit called!")
+        self_adr = rffi.cast(llmemory.Address, self_ptr)
+        self = cast_adr_to_nongc_instance(IncrementalMiniMarkGC, self_adr)
+        self._rrc_mark_cpyobj(pyobj)
+        return rffi.cast(rffi.INT_real, 0)
+
+    def _rrc_traverse(self, pyobject):
+        from rpython.rtyper.annlowlevel import (cast_nongc_instance_to_adr,
+                                                llhelper)
+        #
+        pyobj = self._pyobj(pyobject)
+        callback_ptr = llhelper(self.VISIT_FUNCTYPE,
+                                IncrementalMiniMarkGC._rrc_visit)
+        self_ptr = rffi.cast(rffi.VOIDP, cast_nongc_instance_to_adr(self))
+        self.rrc_tp_traverse(pyobj, callback_ptr, self_ptr)

@@ -475,7 +475,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if hasattr(GCClass, 'rawrefcount_init'):
             self.rawrefcount_init_ptr = getfn(
                 GCClass.rawrefcount_init,
-                [s_gc, SomePtr(GCClass.RAWREFCOUNT_DEALLOC_TRIGGER)],
+                [s_gc, SomePtr(GCClass.RAWREFCOUNT_DEALLOC_TRIGGER),
+                 SomePtr(GCClass.RAWREFCOUNT_TRAVERSE)],
                 annmodel.s_None)
             self.rawrefcount_create_link_pypy_ptr = getfn(
                 GCClass.rawrefcount_create_link_pypy,
@@ -1314,10 +1315,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.pop_roots(hop, livevars)
 
     def gct_gc_rawrefcount_init(self, hop):
-        [v_fnptr] = hop.spaceop.args
+        [v_fnptr, v_fnptr2] = hop.spaceop.args
         assert v_fnptr.concretetype == self.GCClass.RAWREFCOUNT_DEALLOC_TRIGGER
+        assert v_fnptr2.concretetype == self.GCClass.RAWREFCOUNT_TRAVERSE
         hop.genop("direct_call",
-                  [self.rawrefcount_init_ptr, self.c_const_gc, v_fnptr])
+                  [self.rawrefcount_init_ptr, self.c_const_gc, v_fnptr,
+                   v_fnptr2])
 
     def gct_gc_rawrefcount_create_link_pypy(self, hop):
         [v_gcobj, v_pyobject] = hop.spaceop.args

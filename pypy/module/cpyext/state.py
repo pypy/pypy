@@ -1,8 +1,8 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import executioncontext
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount
 import sys
@@ -70,7 +70,10 @@ class State:
                     decref(space, ob)
                 print 'dealloc_trigger DONE'
                 return "RETRY"
-            rawrefcount.init(dealloc_trigger)
+            def tp_traverse(obj_addr, callback, args):
+                # TODO: implement
+                pass
+            rawrefcount.init(dealloc_trigger, tp_traverse)
         else:
             if space.config.translation.gc == "boehm":
                 action = BoehmPyObjDeallocAction(space)
@@ -79,6 +82,25 @@ class State:
             else:
                 pyobj_dealloc_action = PyObjDeallocAction(space)
                 self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
+
+                def _rawrefcount_tp_traverse(space, pyobj_ptr, callback, args):
+                    from pypy.module.cpyext.api import (generic_cpy_call,
+                                                        PyObject)
+                    from pypy.module.cpyext.typeobjectdefs import visitproc
+                    # convert to pointers with correct types (PyObject)
+                    callback_addr = llmemory.cast_ptr_to_adr(callback)
+                    callback_ptr = llmemory.cast_adr_to_ptr(callback_addr,
+                                                            visitproc)
+                    pyobj_addr = llmemory.cast_ptr_to_adr(pyobj_ptr)
+                    pyobj = llmemory.cast_adr_to_ptr(pyobj_addr, PyObject)
+                    # now call tp_traverse (if possible)
+                    if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_traverse:
+                        generic_cpy_call(space, pyobj.c_ob_type.c_tp_traverse,
+                                         pyobj,
+                                         callback_ptr, args)
+                self.tp_traverse = (lambda o, v, a:
+                                    _rawrefcount_tp_traverse(self.space,
+                                                             o, v, a))
 
     def build_api(self):
         """NOT_RPYTHON
@@ -111,7 +133,9 @@ class State:
                 # does something different. Sigh.
                 rawrefcount.init(
                     llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
-                    self.dealloc_trigger))
+                    self.dealloc_trigger),
+                    llhelper(rawrefcount.RAWREFCOUNT_TRAVERSE,
+                    self.tp_traverse))
             self.builder.attach_all(space)
 
         setup_new_method_def(space)

@@ -1719,11 +1719,6 @@ def generic_cpy_call(space, func, *args):
     return make_generic_cpy_call(FT, False)(space, func, *args)
 
 @specialize.ll()
-def generic_cpy_call_gc(func, *args):
-    FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call_gc(FT, False)(func, *args)
-
-@specialize.ll()
 def generic_cpy_call_expect_null(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, True)(space, func, *args)

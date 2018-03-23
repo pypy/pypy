@@ -53,7 +53,9 @@ class TestRawRefCount(BaseDirectGCTest):
         else:
             rc = REFCNT_FROM_PYPY
         self.trigger = []
-        self.gc.rawrefcount_init(lambda: self.trigger.append(1))
+        self.trigger2 = []
+        self.gc.rawrefcount_init(lambda: self.trigger.append(1),
+                                 lambda: self.trigger2.append(1))
         #
         if create_immortal:
             p1 = lltype.malloc(S, immortal=True)
