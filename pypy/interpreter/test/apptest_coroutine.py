@@ -162,7 +162,7 @@ def test_async_with_exception_context():
 
 
 def test_runtime_warning():
-    import gc, warnings
+    import gc, warnings  # XXX: importing warnings is expensive untranslated
     async def foobaz():
         pass
     with warnings.catch_warnings(record=True) as l:
