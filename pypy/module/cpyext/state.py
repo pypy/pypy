@@ -83,9 +83,8 @@ class State:
                 pyobj_dealloc_action = PyObjDeallocAction(space)
                 self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
 
-                def _rawrefcount_tp_traverse(space, pyobj_ptr, callback, args):
-                    from pypy.module.cpyext.api import (generic_cpy_call,
-                                                        PyObject)
+                def _rawrefcount_tp_traverse(pyobj_ptr, callback, args):
+                    from pypy.module.cpyext.api import PyObject
                     from pypy.module.cpyext.typeobjectdefs import visitproc
                     # convert to pointers with correct types (PyObject)
                     callback_addr = llmemory.cast_ptr_to_adr(callback)
@@ -95,12 +94,10 @@ class State:
                     pyobj = llmemory.cast_adr_to_ptr(pyobj_addr, PyObject)
                     # now call tp_traverse (if possible)
                     if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_traverse:
-                        generic_cpy_call(space, pyobj.c_ob_type.c_tp_traverse,
-                                         pyobj,
-                                         callback_ptr, args)
+                        pyobj.c_ob_type.c_tp_traverse(pyobj, callback_ptr,
+                                                      args)
                 self.tp_traverse = (lambda o, v, a:
-                                    _rawrefcount_tp_traverse(self.space,
-                                                             o, v, a))
+                                    _rawrefcount_tp_traverse(o, v, a))
 
     def build_api(self):
         """NOT_RPYTHON
