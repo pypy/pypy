@@ -340,7 +340,7 @@ def add_operators(space, dict_w, pto):
             continue
 
         assert issubclass(wrapper_class, W_PyCWrapperObject)
-        w_obj = wrapper_class(space, pto, method_name, doc, func_voidp, offset=offset)
+        w_obj = wrapper_class(space, pto, method_name, doc, func_voidp, offset=offset[:])
         dict_w[method_name] = w_obj
     if pto.c_tp_doc:
         dict_w['__doc__'] = space.newtext(
