@@ -82,8 +82,14 @@ class AppTestFunction(pytest.Item):
 
     def execute_appex(self, space, w_func):
         space.getexecutioncontext().set_sys_exc_info(None)
+        sig = w_func.code._signature
+        if sig.varargname or sig.kwargname or sig.kwonlyargnames:
+            raise ValueError(
+                'Test functions may not use *args, **kwargs or '
+                'keyword-only args')
+        args_w = self.get_fixtures(space, sig.argnames)
         try:
-            space.call_function(w_func)
+            space.call_function(w_func, *args_w)
         except OperationError as e:
             if self.config.option.raise_operr:
                 raise
@@ -99,3 +105,15 @@ class AppTestFunction(pytest.Item):
         """Must return a triple (fspath, lineno, test_name)"""
         lineno = self.w_obj.code.co_firstlineno
         return self.parent.fspath, lineno, self.w_obj.name
+
+    def get_fixtures(self, space, fixtures):
+        if not fixtures:
+            return []
+        import imp
+        fixtures_mod = imp.load_source(
+            'fixtures', str(self.parent.fspath.new(basename='fixtures.py')))
+        result = []
+        for name in fixtures:
+            arg = getattr(fixtures_mod, name)(space, self.parent.config)
+            result.append(arg)
+        return result

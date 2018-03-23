@@ -5,6 +5,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'raises': 'interp_pytest.pypyraises',
         'skip': 'interp_pytest.pypyskip',
+        'fixture': 'interp_pytest.fake_fixture',
     }
     appleveldefs = {
         'importorskip': 'app_pytest.importorskip',
