@@ -208,7 +208,7 @@ class wrap_descr_get(W_PyCWrapperObject):
             w_type = __args__.arguments_w[1]
         else:
             raise oefmt(space.w_TypeError,
-                        "expected 1 or 2 arguments, got %d", len(args_w))
+                        "expected 1 or 2 arguments, got %d", len(__args__.arguments_w))
         if w_obj is space.w_None:
             w_obj = None
         if w_type is space.w_None:
