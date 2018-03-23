@@ -240,6 +240,7 @@ class W_PyCWrapperObject(W_Root):
     def call(self, space, w_self, __args__):
         raise NotImplementedError
 
+    @jit.unroll_safe
     def get_func_to_call(self):
         func_to_call = self.func
         if self.offset:
