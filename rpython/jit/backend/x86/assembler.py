@@ -1857,7 +1857,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
-    genop_guard_guard_compatible = genop_guard_guard_value
+    def genop_guard_guard_compatible(self, guard_op, guard_token, locs, ign):
+        self.genop_guard_guard_value(guard_op, guard_token, locs, ign)
+        self.mc.forget_scratch_register()
 
     def _cmp_guard_class(self, locs):
         loc_ptr = locs[0]
