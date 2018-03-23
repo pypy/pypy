@@ -19,9 +19,9 @@ RPY_EXTERN void rpy_vtune_register(char *, long, long);
 RPY_EXTERN void rpy_make_dlopen_strong(char *funcname, Signed addr, Signed size)
 {
     // make *really* sure that dlopen&Co are linked so that vtune is happy
-    dlopen(NULL, 0);
-    dlsym(NULL, NULL);
-    dlclose(NULL);
+    dlopen((void *)0, 0);
+    dlsym((void *)0, (void *)0);
+    dlclose((void *)0);
 }
 
 RPY_EXTERN void rpy_vtune_register(char *funcname, Signed addr, Signed size)
