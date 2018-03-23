@@ -9,6 +9,7 @@ LOOK_FOR_PYTHON3 = 'python3.5'
 PYTHON3 = os.getenv('PYTHON3') or py.path.local.sysfind(LOOK_FOR_PYTHON3)
 if PYTHON3 is not None:
     PYTHON3 = str(PYTHON3)
+HOST_IS_PY3 = sys.version_info[0] > 2
 APPLEVEL_FN = 'apptest_*.py'
 
 # pytest settings
@@ -39,12 +40,16 @@ def pytest_addhooks(pluginmanager):
         pluginmanager.register(LeakFinder())
 
 def pytest_configure(config):
+    if HOST_IS_PY3 and not config.getoption('runappdirect'):
+        raise ValueError(
+            "On top of a Python 3 interpreter, the -A flag is mandatory")
     global option
     option = config.option
     def py3k_skip(message):
         py.test.skip('[py3k] %s' % message)
     py.test.py3k_skip = py3k_skip
-    config.addinivalue_line('python_files', APPLEVEL_FN)
+    if HOST_IS_PY3:
+        config.addinivalue_line('python_files', APPLEVEL_FN)
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
@@ -96,13 +101,14 @@ def pytest_sessionstart(session):
     ensure_pytest_builtin_helpers()
 
 def pytest_pycollect_makemodule(path, parent):
-    if not parent.config.getoption('runappdirect'):
-        if path.fnmatch(APPLEVEL_FN):
-            from pypy.tool.pytest.apptest2 import AppTestModule
-            rewrite = parent.config.getoption('applevel_rewrite')
-            return AppTestModule(path, parent, rewrite_asserts=rewrite)
-        else:
-            return PyPyModule(path, parent)
+    if HOST_IS_PY3:
+        return
+    elif path.fnmatch(APPLEVEL_FN):
+        from pypy.tool.pytest.apptest2 import AppTestModule
+        rewrite = parent.config.getoption('applevel_rewrite')
+        return AppTestModule(path, parent, rewrite_asserts=rewrite)
+    else:
+        return PyPyModule(path, parent)
 
 def is_applevel(item):
     from pypy.tool.pytest.apptest import AppTestFunction
@@ -203,7 +209,6 @@ def pytest_runtest_setup(item):
 
 
 def pytest_ignore_collect(path, config):
-    if (config.getoption('runappdirect') and
-            not path.isdir() and not path.fnmatch(APPLEVEL_FN)):
+    if (HOST_IS_PY3 and not path.isdir() and not path.fnmatch(APPLEVEL_FN)):
         return True
     return path.check(link=1)
