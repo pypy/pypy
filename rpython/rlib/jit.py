@@ -561,6 +561,7 @@ PARAMETER_DOCS = {
     'vec_cost': 'threshold for which traces to bail. Unpacking increases the counter,'\
                 ' vector operation decrease the cost',
     'vec_all': 'try to vectorize trace loops that occur outside of the numpypy library',
+    'guard_value_limit': 'limits the chain of guard_values coming from a single guard_value',
 }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -579,6 +580,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'vec': 0,
               'vec_all': 0,
               'vec_cost': 0,
+              'guard_value_limit': 4,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 

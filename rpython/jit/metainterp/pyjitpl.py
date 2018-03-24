@@ -1215,9 +1215,13 @@ class MIFrame(object):
 
     @arguments("box", "orgpc")
     def _opimpl_guard_value(self, box, orgpc):
-        if self.metainterp.guard_value_counter <= 4:
-            return self.implement_guard_value(box, orgpc)
-        return box
+        limit = self.metainterp.jitdriver_sd.warmstate.guard_value_limit
+        if box is self.metainterp.not_guarded_value_box or self.metainterp.guard_value_counter > limit:
+            # limit reached or guard on the same box as the first elided guard_value
+            self.metainterp.not_guarded_value_box = box
+            return box
+
+        return self.implement_guard_value(box, orgpc)
 
     @arguments("box", "box", "descr", "orgpc")
     def opimpl_str_guard_value(self, box, funcbox, descr, orgpc):
@@ -2432,6 +2436,7 @@ class MetaInterp(object):
         # specialize this function and a few other ones for the '*args'.
         debug_start('jit-tracing')
         self.guard_value_counter = 0
+        self.not_guarded_value_box = None
         self.staticdata._setup_once()
         self.staticdata.profiler.start_tracing()
         assert jitdriver_sd is self.jitdriver_sd
@@ -2465,6 +2470,7 @@ class MetaInterp(object):
         key = resumedescr.get_resumestorage()
         assert isinstance(key, compile.ResumeGuardDescr)
         self.guard_value_counter = key.guard_value_counter + 1
+        self.not_guarded_value_box = None
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
         self.resumekey_original_loop_token = resumedescr.rd_loop_token.loop_token_wref()
