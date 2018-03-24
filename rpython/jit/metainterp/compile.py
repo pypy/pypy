@@ -862,11 +862,13 @@ class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
 
 class ResumeGuardDescr(AbstractResumeGuardDescr):
     _attrs_ = ('rd_numb', 'rd_consts', 'rd_virtuals',
-               'rd_pendingfields', 'status')
+               'rd_pendingfields', 'status', 'guard_value_counter')
     rd_numb = lltype.nullptr(NUMBERING)
     rd_consts = None
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
+
+    guard_value_counter = 0
 
     def copy_all_attributes_from(self, other):
         other = other.get_resumestorage()
@@ -880,6 +882,17 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
             self.rd_vector_info = other.rd_vector_info.clone()
         else:
             other.rd_vector_info = None
+
+    def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
+        for op in new_loop.operations:
+            if op.is_guard():
+                if op.getopnum() == rop.GUARD_VALUE:
+                    descr = op.getdescr()
+                    if isinstance(descr, ResumeGuardDescr):
+                        descr.guard_value_counter = self.guard_value_counter + 1
+                break
+
+        AbstractResumeGuardDescr.compile_and_attach(self, metainterp, new_loop, orig_inputargs)
 
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
