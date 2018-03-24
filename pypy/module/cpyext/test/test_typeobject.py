@@ -1537,4 +1537,29 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             pass
         assert module.test_flags(MyList, Py_TPFLAGS_LIST_SUBCLASS) == 0
 
+    def test_has_pypy_subclass_flag(self):
+        module = self.import_extension('foo', [
+           ("test_pypy_flags", "METH_VARARGS",
+            '''
+                long long in_flag, my_flag;
+                PyObject * obj;
+                if (!PyArg_ParseTuple(args, "OL", &obj, &in_flag))
+                    return NULL;
+                if (!PyType_Check(obj))
+                {
+                    PyErr_SetString(PyExc_ValueError, "input must be type");
+                    return NULL;
+                }
+                my_flag = ((PyTypeObject*)obj)->tp_pypy_flags;
+                if ((my_flag & in_flag) != in_flag)
+                    return PyLong_FromLong(-1);
+                return PyLong_FromLong(0);
+            '''),])
+        # copied from object.h
+        Py_TPPYPYFLAGS_FLOAT_SUBCLASS = (1L<<0)
+
+        class MyFloat(float):
+            pass
+        assert module.test_pypy_flags(float, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
+        assert module.test_pypy_flags(MyFloat, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
 
