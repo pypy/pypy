@@ -364,7 +364,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             self.unimport_module(name)
         self.cleanup()
         state = self.space.fromcache(State)
-        assert not state.operror
+        assert 'operror' not in dir(state)
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
