@@ -311,6 +311,10 @@ typedef struct _typeobject {
 	/* Type attribute cache version tag. Added in version 2.6 */
 	unsigned int tp_version_tag;
 
+    /* PyPy specific extra fields: make sure that they are ALWAYS at the end,
+       for compatibility with CPython */
+    long tp_pypy_flags;
+
 } PyTypeObject;
 
 typedef struct _heaptypeobject {

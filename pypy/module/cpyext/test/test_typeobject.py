@@ -796,6 +796,36 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.tp_init(list, x, ("hi",)) is None
         assert x == ["h", "i"]
 
+    def test_mp_subscript(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static PyObject*
+            mp_subscript(PyObject *self, PyObject *key)
+            {
+                return Py_BuildValue("i", 42);
+            }
+            PyMappingMethods tp_as_mapping;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''', more_init = '''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_mapping = &tp_as_mapping;
+                tp_as_mapping.mp_subscript = (binaryfunc)mp_subscript;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        obj = module.new_obj()
+        assert obj[100] == 42
+        raises(TypeError, "obj.__getitem__(100, 101)")
+        raises(TypeError, "obj.__getitem__(100, a=42)")
+
     def test_mp_ass_subscript(self):
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
@@ -858,6 +888,84 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         obj = module.new_obj()
         res = "foo" in obj
         assert res is True
+
+    def test_sq_ass_slice(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static int
+            sq_ass_slice(PyObject *self, Py_ssize_t a, Py_ssize_t b, PyObject *o)
+            {
+                int expected = (a == 10 && b == 20 &&
+                                PyInt_Check(o) && PyInt_AsLong(o) == 42);
+                if (!expected) {
+                    PyErr_SetString(PyExc_ValueError, "test failed");
+                    return -1;
+                }
+                return 0;
+            }
+            PySequenceMethods tp_as_sequence;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''', more_init='''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                tp_as_sequence.sq_ass_slice = sq_ass_slice;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        obj = module.new_obj()
+        obj[10:20] = 42
+        raises(ValueError, "obj[10:20] = 43")
+        raises(ValueError, "obj[11:20] = 42")
+        raises(ValueError, "obj[10:21] = 42")
+
+    def test_sq_ass_item(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static int
+            sq_ass_item(PyObject *self, Py_ssize_t i, PyObject *o)
+            {
+                int expected;
+                if (o == NULL)              // delitem
+                    expected = (i == 12);
+                else                        // setitem
+                    expected = (i == 10 && PyInt_Check(o) && PyInt_AsLong(o) == 42);
+                if (!expected) {
+                    PyErr_SetString(PyExc_ValueError, "test failed");
+                    return -1;
+                }
+                return 0;
+            }
+            PySequenceMethods tp_as_sequence;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''', more_init='''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                tp_as_sequence.sq_ass_item = sq_ass_item;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        obj = module.new_obj()
+        obj[10] = 42
+        raises(ValueError, "obj[10] = 43")
+        raises(ValueError, "obj[11] = 42")
+        del obj[12]
+        raises(ValueError, "del obj[13]")
 
     def test_tp_iter(self):
         module = self.import_extension('foo', [
@@ -1537,4 +1645,29 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             pass
         assert module.test_flags(MyList, Py_TPFLAGS_LIST_SUBCLASS) == 0
 
+    def test_has_pypy_subclass_flag(self):
+        module = self.import_extension('foo', [
+           ("test_pypy_flags", "METH_VARARGS",
+            '''
+                long long in_flag, my_flag;
+                PyObject * obj;
+                if (!PyArg_ParseTuple(args, "OL", &obj, &in_flag))
+                    return NULL;
+                if (!PyType_Check(obj))
+                {
+                    PyErr_SetString(PyExc_ValueError, "input must be type");
+                    return NULL;
+                }
+                my_flag = ((PyTypeObject*)obj)->tp_pypy_flags;
+                if ((my_flag & in_flag) != in_flag)
+                    return PyLong_FromLong(-1);
+                return PyLong_FromLong(0);
+            '''),])
+        # copied from object.h
+        Py_TPPYPYFLAGS_FLOAT_SUBCLASS = (1L<<0)
+
+        class MyFloat(float):
+            pass
+        assert module.test_pypy_flags(float, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
+        assert module.test_pypy_flags(MyFloat, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
 

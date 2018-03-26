@@ -130,6 +130,13 @@ setup()
 sizeof_double = native_fmttable['d']['size']
 sizeof_float  = native_fmttable['f']['size']
 
+# Copy CPython's behavior of using short's size and alignment for half-floats.
+native_fmttable['e'] = {'size': native_fmttable['h']['size'],
+                        'alignment': native_fmttable['h']['alignment'],
+                        'pack': std.pack_halffloat,
+                        'unpack': std.unpack_halffloat,
+                       }
+
 # ____________________________________________________________
 #
 # A PyPy extension: accepts the 'u' format character in native mode,

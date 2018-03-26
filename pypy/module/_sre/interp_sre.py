@@ -319,12 +319,13 @@ class W_SRE_Pattern(W_Root):
         n = 0
         last_pos = ctx.ZERO
         while not count or n < count:
+            pattern = ctx.pattern
             sub_jitdriver.jit_merge_point(
                 self=self,
                 use_builder=use_builder,
                 filter_is_callable=filter_is_callable,
                 filter_type=type(w_filter),
-                ctx=ctx,
+                ctx=ctx, pattern=pattern,
                 w_filter=w_filter,
                 strbuilder=strbuilder,
                 filter_as_string=filter_as_string,
@@ -401,7 +402,7 @@ sub_jitdriver = jit.JitDriver(
             filter_as_string
             w_string sublist_w
             self""".split(),
-    greens=["filter_is_callable", "use_builder", "filter_type", "ctx.pattern"])
+    greens=["filter_is_callable", "use_builder", "filter_type", "pattern"])
 
 
 def _sub_append_slice(ctx, space, use_builder, sublist_w,

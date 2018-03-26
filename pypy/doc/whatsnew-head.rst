@@ -55,6 +55,10 @@ Refactor cpyext slots.
 Speed up branchy code that does a lot of function inlining by saving one call
 to read the TLS in most bridges.
 
+.. branch: rpython-sprint
+
+Refactor in rpython signatures
+
 .. branch: unicode-utf8-re
 .. branch: utf8-io
 Utf8 handling for unicode
