@@ -58,3 +58,14 @@ to read the TLS in most bridges.
 .. branch: rpython-sprint
 
 Refactor in rpython signatures
+
+
+.. branch: fix-sre-problems:
+
+Fix two (unrelated) JIT bugs manifesting in the re module:
+
+- green fields are broken and were thus disabled, plus their usage removed from
+  the _sre implementation
+
+- in rare "trace is too long" situations, the JIT could break behaviour
+  arbitrarily.
