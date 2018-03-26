@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llstr, hlstr
 
 def entrypoint1(r, string, repeat):
-    r = array2list(r)
+    r = rsre_core.CompiledPattern(array2list(r))
     string = hlstr(string)
     match = None
     for i in range(repeat):
@@ -17,7 +17,7 @@ def entrypoint1(r, string, repeat):
         return match.match_end
 
 def entrypoint2(r, string, repeat):
-    r = array2list(r)
+    r = rsre_core.CompiledPattern(array2list(r))
     string = hlstr(string)
     match = None
     for i in range(repeat):
@@ -48,13 +48,13 @@ class TestJitRSre(support.LLJitMixin):
 
     def meta_interp_match(self, pattern, string, repeat=1):
         r = get_code(pattern)
-        return self.meta_interp(entrypoint1, [list2array(r), llstr(string),
+        return self.meta_interp(entrypoint1, [list2array(r.pattern), llstr(string),
                                               repeat],
                                 listcomp=True, backendopt=True)
 
     def meta_interp_search(self, pattern, string, repeat=1):
         r = get_code(pattern)
-        return self.meta_interp(entrypoint2, [list2array(r), llstr(string),
+        return self.meta_interp(entrypoint2, [list2array(r.pattern), llstr(string),
                                               repeat],
                                 listcomp=True, backendopt=True)
 
