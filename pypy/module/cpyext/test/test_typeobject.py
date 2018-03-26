@@ -1,3 +1,4 @@
+import pytest
 from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -6,8 +7,6 @@ from pypy.module.cpyext.api import generic_cpy_call
 from pypy.module.cpyext.pyobject import make_ref, from_ref, decref, as_pyobj
 from pypy.module.cpyext.typeobject import cts, PyTypeObjectPtr
 
-import sys
-import pytest
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
 
@@ -242,6 +241,29 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         # does not have flag Py_TPFLAGS_BASETYPE
         module = self.import_module(name='foo')
         raises(TypeError, module.MetaType, 'other', (module.fooType,), {})
+
+    def test_sre(self):
+        import sys
+        for m in ['_sre', 'sre_compile', 'sre_constants', 'sre_parse', 're']:
+            # clear out these modules
+            try:
+                del sys.modules[m]
+            except KeyError:
+                pass
+        module = self.import_module(name='_sre')
+        import re
+        assert re.sre_compile._sre is module
+        s = u"Foo " * 1000 + u"Bar"
+        prog = re.compile(u"Foo.*Bar")
+        assert prog.match(s)
+        m = re.search(u"xyz", u"xyzxyz")
+        assert m
+        m = re.search("xyz", "xyzxyz")
+        assert m
+        assert "groupdict" in dir(m)
+        re._cache.clear()
+        re._cache_repl.clear()
+        del prog, m
 
     def test_init_error(self):
         module = self.import_module("foo")
@@ -519,7 +541,7 @@ class TestTypes(BaseApiTest):
 
         py_type = rffi.cast(PyTypeObjectPtr, ref)
         w_dict = from_ref(space, py_type.c_tp_dict)
-        w_name = space.newunicode(u'a')
+        w_name = space.newtext('a')
         space.setitem(w_dict, w_name, space.wrap(1))
         assert space.int_w(space.getattr(w_class, w_name)) == 1
         space.delitem(w_dict, w_name)
@@ -548,6 +570,7 @@ class TestTypes(BaseApiTest):
 
     def test_typeslots(self, space):
         assert cts.macros['Py_tp_doc'] == 56
+
 
 class AppTestSlots(AppTestCpythonExtensionBase):
     def setup_class(cls):
@@ -603,16 +626,21 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_tp_getattro", "METH_VARARGS",
              '''
-                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
-                 PyObject *value = PyTuple_GET_ITEM(args, 1);
+                 #if PY_MAJOR_VERSION > 2
+                 #define PyString_FromString PyUnicode_FromString
+                 #define PyIntObject PyLongObject
+                 #define PyInt_AsLong PyLong_AsLong
+                 #endif
+                 PyObject *name, *obj = PyTuple_GET_ITEM(args, 0);
+                 PyObject *attr, *value = PyTuple_GET_ITEM(args, 1);
                  if (!obj->ob_type->tp_getattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
                      return NULL;
                  }
-                 PyObject *name = PyUnicode_FromString("attr1");
-                 PyObject *attr = obj->ob_type->tp_getattro(obj, name);
-                 if (PyLong_AsLong(attr) != PyLong_AsLong(value))
+                 name = PyString_FromString("attr1");
+                 attr = obj->ob_type->tp_getattro(obj, name);
+                 if (PyInt_AsLong(attr) != PyInt_AsLong(value))
                  {
                      PyErr_SetString(PyExc_ValueError,
                                      "tp_getattro returned wrong value");
@@ -620,7 +648,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                  }
                  Py_DECREF(name);
                  Py_DECREF(attr);
-                 name = PyUnicode_FromString("attr2");
+                 name = PyString_FromString("attr2");
                  attr = obj->ob_type->tp_getattro(obj, name);
                  if (attr == NULL && PyErr_ExceptionMatches(PyExc_AttributeError))
                  {
@@ -644,6 +672,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("get_foo", "METH_O",
              '''
+             #if PY_MAJOR_VERSION > 2
+             #define PyString_FromString PyUnicode_FromString
+             #endif
              char* name = "foo";
              PyTypeObject *tp = Py_TYPE(args);
              PyObject *res;
@@ -651,7 +682,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 res = (*tp->tp_getattr)(args, name);
              }
              else if (tp->tp_getattro != NULL) {
-                 PyObject *w = PyUnicode_FromString(name);
+                 PyObject *w = PyString_FromString(name);
                  res = (*tp->tp_getattro)(args, w);
                  Py_DECREF(w);
              }
@@ -736,17 +767,23 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("tp_call", "METH_VARARGS",
              '''
-                PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
-                PyObject *obj = PyTuple_GET_ITEM(args, 1);
-                PyObject *c_args = PyTuple_GET_ITEM(args, 2);
-                if (!type->tp_call)
-                {
-                    PyErr_SetNone(PyExc_ValueError);
-                    return NULL;
-                }
-                return type->tp_call(obj, c_args, NULL);
-             ''')])
-
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 PyObject *c_args = PyTuple_GET_ITEM(args, 2);
+                 if (!type->tp_call)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return type->tp_call(obj, c_args, NULL);
+             '''
+             )
+            ])
+        class C:
+            def __call__(self, *args):
+                return args
+        ret = module.tp_call(C, C(), ('x', 2))
+        assert ret == ('x', 2)
         class D(type):
             def __call__(self, *args):
                 return "foo! %r" % (args,)
@@ -823,9 +860,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             '''
             )], prologue='''
             static int
+            #if PY_MAJOR_VERSION > 2
+            #define PyString_FromString PyBytes_FromString
+            #define PyInt_Check PyLong_Check
+            #endif
             mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
             {
-                if (PyLong_Check(key)) {
+                if (PyInt_Check(key)) {
                     PyErr_SetNone(PyExc_ZeroDivisionError);
                     return -1;
                 }
@@ -876,43 +917,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = "foo" in obj
         assert res is True
 
-    def test_sq_ass_slice(self):
-        module = self.import_extension('foo', [
-           ("new_obj", "METH_NOARGS",
-            '''
-                PyObject *obj;
-                obj = PyObject_New(PyObject, &Foo_Type);
-                return obj;
-            '''
-            )], prologue='''
-            static int
-            sq_ass_slice(PyObject *self, Py_ssize_t a, Py_ssize_t b, PyObject *o)
-            {
-                int expected = (a == 10 && b == 20 &&
-                                PyInt_Check(o) && PyInt_AsLong(o) == 42);
-                if (!expected) {
-                    PyErr_SetString(PyExc_ValueError, "test failed");
-                    return -1;
-                }
-                return 0;
-            }
-            PySequenceMethods tp_as_sequence;
-            static PyTypeObject Foo_Type = {
-                PyVarObject_HEAD_INIT(NULL, 0)
-                "foo.foo",
-            };
-            ''', more_init='''
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
-                Foo_Type.tp_as_sequence = &tp_as_sequence;
-                tp_as_sequence.sq_ass_slice = sq_ass_slice;
-                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
-            ''')
-        obj = module.new_obj()
-        obj[10:20] = 42
-        raises(ValueError, "obj[10:20] = 43")
-        raises(ValueError, "obj[11:20] = 42")
-        raises(ValueError, "obj[10:21] = 42")
-
     def test_sq_ass_item(self):
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
@@ -922,6 +926,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return obj;
             '''
             )], prologue='''
+            #if PY_MAJOR_VERSION > 2
+            #define PyInt_Check PyLong_Check
+            #define PyInt_AsLong PyLong_AsLong
+            #endif
             static int
             sq_ass_item(PyObject *self, Py_ssize_t i, PyObject *o)
             {
@@ -965,9 +973,14 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return type->tp_iter(obj);'''),
+                 return type->tp_iter(obj);
+             '''
+             ),
            ("tp_iternext", "METH_VARARGS",
             '''
+                 #if PY_MAJOR_VERSION > 2
+                 #define PyString_FromString PyBytes_FromString
+                 #endif
                  PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
                  PyObject *obj = PyTuple_GET_ITEM(args, 1);
                  PyObject *result;
@@ -980,13 +993,16 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                  /* In py3, returning NULL from tp_iternext means the iterator
                   * is exhausted */
                  if (!result && !PyErr_Occurred())
-                     result = PyBytes_FromString("stop!");
-                 return result;''')])
+                     result = PyString_FromString("stop!");
+                 return result;
+             '''
+             )
+            ])
         l = [1]
         it = module.tp_iter(list, l)
         assert type(it) is type(iter([]))
         assert module.tp_iternext(type(it), it) == 1
-        assert module.tp_iternext(type(it), it) == b'stop!'
+        assert module.tp_iternext(type(it), it) == b"stop!"
         #
         class LL(list):
             def __iter__(self):
@@ -1116,31 +1132,35 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 PyObject_HEAD
                 long ival;
             } IntLikeObject;
-
+            #if PY_MAJOR_VERSION > 2
+            #define PyInt_Check PyLong_Check
+            #define PyInt_AsLong PyLong_AsLong
+            #define PyInt_FromLong PyLong_FromLong
+            #endif
             static PyObject *
             intlike_nb_add(PyObject *self, PyObject *other)
             {
                 long val2, val1 = ((IntLikeObject *)(self))->ival;
-                if (PyLong_Check(other)) {
-                  long val2 = PyLong_AsLong(other);
-                  return PyLong_FromLong(val1+val2);
+                if (PyInt_Check(other)) {
+                  long val2 = PyInt_AsLong(other);
+                  return PyInt_FromLong(val1+val2);
                 }
 
                 val2 = ((IntLikeObject *)(other))->ival;
-                return PyLong_FromLong(val1+val2);
+                return PyInt_FromLong(val1+val2);
             }
 
             static PyObject *
             intlike_nb_pow(PyObject *self, PyObject *other, PyObject * z)
             {
                 long val2, val1 = ((IntLikeObject *)(self))->ival;
-                if (PyLong_Check(other)) {
-                  long val2 = PyLong_AsLong(other);
-                  return PyLong_FromLong(val1+val2);
+                if (PyInt_Check(other)) {
+                  long val2 = PyInt_AsLong(other);
+                  return PyInt_FromLong(val1+val2);
                 }
 
                 val2 = ((IntLikeObject *)(other))->ival;
-                return PyLong_FromLong((int)pow(val1,val2));
+                return PyInt_FromLong((int)pow(val1,val2));
              }
 
             PyTypeObject IntLike_Type = {
@@ -1493,9 +1513,12 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             '''
             ), ("forty_two", "METH_O",
             '''
-                return PyLong_FromLong(42);
+                return PyInt_FromLong(42);
             '''
             )], prologue='''
+            #if PY_MAJOR_VERSION > 2
+            #define PyInt_FromLong PyLong_FromLong
+            #endif
             static PyTypeObject Foo_Type = {
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.foo",
@@ -1626,9 +1649,10 @@ class AppTestFlags(AppTestCpythonExtensionBase):
                 return PyLong_FromLong(0);
             '''),])
         # copied from object.h
-        Py_TPPYPYFLAGS_FLOAT_SUBCLASS = (1L<<0)
+        Py_TPPYPYFLAGS_FLOAT_SUBCLASS = (1<<0)
 
         class MyFloat(float):
             pass
         assert module.test_pypy_flags(float, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
         assert module.test_pypy_flags(MyFloat, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
+
