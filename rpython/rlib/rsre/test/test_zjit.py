@@ -11,6 +11,8 @@ def entrypoint1(r, string, repeat):
     match = None
     for i in range(repeat):
         match = rsre_core.match(r, string)
+        if match is None:
+            return -1
     if match is None:
         return -1
     else:
@@ -166,3 +168,9 @@ class TestJitRSre(support.LLJitMixin):
         res = self.meta_interp_search(r"b+", "a"*30 + "b")
         assert res == 30
         self.check_resops(call=0)
+
+    def test_match_jit_bug(self):
+        pattern = ".a" * 2500
+        text = "a" * 6000
+        res = self.meta_interp_match(pattern, text, repeat=10)
+        assert res != -1

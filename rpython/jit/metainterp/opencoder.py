@@ -293,6 +293,7 @@ class Trace(BaseTrace):
         self._start = len(inputargs)
         self._pos = self._start
         self.inputargs = inputargs
+        self.tag_overflow = False
 
     def append(self, v):
         model = get_model(self)
@@ -300,7 +301,8 @@ class Trace(BaseTrace):
             # grow by 2X
             self._ops = self._ops + [rffi.cast(model.STORAGE_TP, 0)] * len(self._ops)
         if not model.MIN_VALUE <= v <= model.MAX_VALUE:
-            raise frontend_tag_overflow()
+            v = 0 # broken value, but that's fine, tracing will stop soon
+            self.tag_overflow = True
         self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
         self._pos += 1
 
@@ -379,6 +381,7 @@ class Trace(BaseTrace):
 
     def record_op(self, opnum, argboxes, descr=None):
         pos = self._index
+        old_pos = self._pos
         self.append(opnum)
         expected_arity = oparity[opnum]
         if expected_arity == -1:
@@ -397,6 +400,10 @@ class Trace(BaseTrace):
         self._count += 1
         if opclasses[opnum].type != 'v':
             self._index += 1
+        if self.tag_overflow:
+            # potentially a broken op is left behind
+            # clean it up
+            self._pos = old_pos
         return pos
 
     def _encode_descr(self, descr):
@@ -424,10 +431,11 @@ class Trace(BaseTrace):
         vref_array = self._list_of_boxes(vref_boxes)
         s = TopSnapshot(combine_uint(jitcode.index, pc), array, vable_array,
                         vref_array)
-        assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
         # guards have no descr
         self._snapshots.append(s)
-        self._ops[self._pos - 1] = rffi.cast(get_model(self).STORAGE_TP, len(self._snapshots) - 1)
+        if not self.tag_overflow: # otherwise we're broken anyway
+            assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
+            self._ops[self._pos - 1] = rffi.cast(get_model(self).STORAGE_TP, len(self._snapshots) - 1)
         return s
 
     def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
@@ -436,10 +444,11 @@ class Trace(BaseTrace):
         vref_array = self._list_of_boxes(vref_boxes)
         s = TopSnapshot(combine_uint(2**16 - 1, 0), [], vable_array,
                         vref_array)
-        assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
         # guards have no descr
         self._snapshots.append(s)
-        self._ops[self._pos - 1] = rffi.cast(get_model(self).STORAGE_TP, len(self._snapshots) - 1)
+        if not self.tag_overflow: # otherwise we're broken anyway
+            assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
+            self._ops[self._pos - 1] = rffi.cast(get_model(self).STORAGE_TP, len(self._snapshots) - 1)
         return s
 
     def create_snapshot(self, jitcode, pc, frame, flag):

@@ -2384,7 +2384,8 @@ class MetaInterp(object):
 
     def blackhole_if_trace_too_long(self):
         warmrunnerstate = self.jitdriver_sd.warmstate
-        if self.history.length() > warmrunnerstate.trace_limit:
+        if (self.history.length() > warmrunnerstate.trace_limit or
+                self.history.trace_tag_overflow()):
             jd_sd, greenkey_of_huge_function = self.find_biggest_function()
             self.history.trace.done()
             self.staticdata.stats.record_aborted(greenkey_of_huge_function)
