@@ -653,6 +653,9 @@ class JitDriver(object):
         self._make_extregistryentries()
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
+        for green in self.greens:
+            if "." in green:
+                raise ValueError("green fields are buggy! if you need them fixed, please talk to us")
         self.get_printable_location = get_printable_location
         self.get_location = get_location
         self.has_unique_id = (get_unique_id is not None)
