@@ -107,20 +107,18 @@ class CompiledPattern(object):
 
 class AbstractMatchContext(object):
     """Abstract base class"""
-    _immutable_fields_ = ['pattern', 'flags', 'end']
+    _immutable_fields_ = ['flags', 'end']
     match_start = 0
     match_end = 0
     match_marks = None
     match_marks_flat = None
     fullmatch_only = False
 
-    def __init__(self, pattern, match_start, end, flags):
+    def __init__(self, match_start, end, flags):
         # 'match_start' and 'end' must be known to be non-negative
         # and they must not be more than len(string).
         check_nonneg(match_start)
         check_nonneg(end)
-        assert isinstance(pattern, CompiledPattern)
-        self.pattern = pattern
         self.match_start = match_start
         self.end = end
         self.flags = flags
@@ -192,8 +190,8 @@ class BufMatchContext(AbstractMatchContext):
 
     _immutable_fields_ = ["_buffer"]
 
-    def __init__(self, pattern, buf, match_start, end, flags):
-        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+    def __init__(self, buf, match_start, end, flags):
+        AbstractMatchContext.__init__(self, match_start, end, flags)
         self._buffer = buf
 
     def str(self, index):
@@ -205,7 +203,7 @@ class BufMatchContext(AbstractMatchContext):
         return rsre_char.getlower(c, self.flags)
 
     def fresh_copy(self, start):
-        return BufMatchContext(self.pattern, self._buffer, start,
+        return BufMatchContext(self._buffer, start,
                                self.end, self.flags)
 
 class StrMatchContext(AbstractMatchContext):
@@ -213,8 +211,8 @@ class StrMatchContext(AbstractMatchContext):
 
     _immutable_fields_ = ["_string"]
 
-    def __init__(self, pattern, string, match_start, end, flags):
-        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+    def __init__(self, string, match_start, end, flags):
+        AbstractMatchContext.__init__(self, match_start, end, flags)
         self._string = string
         if not we_are_translated() and isinstance(string, unicode):
             self.flags |= rsre_char.SRE_FLAG_UNICODE   # for rsre_re.py
@@ -228,7 +226,7 @@ class StrMatchContext(AbstractMatchContext):
         return rsre_char.getlower(c, self.flags)
 
     def fresh_copy(self, start):
-        return StrMatchContext(self.pattern, self._string, start,
+        return StrMatchContext(self._string, start,
                                self.end, self.flags)
 
 class UnicodeMatchContext(AbstractMatchContext):
@@ -236,8 +234,8 @@ class UnicodeMatchContext(AbstractMatchContext):
 
     _immutable_fields_ = ["_unicodestr"]
 
-    def __init__(self, pattern, unicodestr, match_start, end, flags):
-        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+    def __init__(self, unicodestr, match_start, end, flags):
+        AbstractMatchContext.__init__(self, match_start, end, flags)
         self._unicodestr = unicodestr
 
     def str(self, index):
@@ -249,7 +247,7 @@ class UnicodeMatchContext(AbstractMatchContext):
         return rsre_char.getlower(c, self.flags)
 
     def fresh_copy(self, start):
-        return UnicodeMatchContext(self.pattern, self._unicodestr, start,
+        return UnicodeMatchContext(self._unicodestr, start,
                                    self.end, self.flags)
 
 # ____________________________________________________________
@@ -1054,7 +1052,7 @@ def _adjust(start, end, length):
 def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
     assert isinstance(pattern, CompiledPattern)
     start, end = _adjust(start, end, len(string))
-    ctx = StrMatchContext(pattern, string, start, end, flags)
+    ctx = StrMatchContext(string, start, end, flags)
     ctx.fullmatch_only = fullmatch
     if match_context(ctx, pattern):
         return ctx
@@ -1067,7 +1065,7 @@ def fullmatch(pattern, string, start=0, end=sys.maxint, flags=0):
 def search(pattern, string, start=0, end=sys.maxint, flags=0):
     assert isinstance(pattern, CompiledPattern)
     start, end = _adjust(start, end, len(string))
-    ctx = StrMatchContext(pattern, string, start, end, flags)
+    ctx = StrMatchContext(string, start, end, flags)
     if search_context(ctx, pattern):
         return ctx
     else:

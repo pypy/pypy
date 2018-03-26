@@ -114,7 +114,7 @@ class W_SRE_Pattern(W_Root):
                 pos = len(unicodestr)
             if endpos > len(unicodestr):
                 endpos = len(unicodestr)
-            return rsre_core.UnicodeMatchContext(self.code, unicodestr,
+            return rsre_core.UnicodeMatchContext(unicodestr,
                                                  pos, endpos, self.flags)
         elif space.isinstance_w(w_string, space.w_bytes):
             str = space.bytes_w(w_string)
@@ -122,7 +122,7 @@ class W_SRE_Pattern(W_Root):
                 pos = len(str)
             if endpos > len(str):
                 endpos = len(str)
-            return rsre_core.StrMatchContext(self.code, str,
+            return rsre_core.StrMatchContext(str,
                                              pos, endpos, self.flags)
         else:
             buf = space.readbuf_w(w_string)
@@ -132,7 +132,7 @@ class W_SRE_Pattern(W_Root):
                 pos = size
             if endpos > size:
                 endpos = size
-            return rsre_core.BufMatchContext(self.code, buf,
+            return rsre_core.BufMatchContext(buf,
                                              pos, endpos, self.flags)
 
     def getmatch(self, ctx, found):
