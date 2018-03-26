@@ -103,7 +103,7 @@ def annotationoftype(t, bookkeeper=False):
     elif bookkeeper and not hasattr(t, '_freeze_'):
         return SomeInstance(bookkeeper.getuniqueclassdef(t))
     else:
-        raise AssertionError("annotationoftype(%r)" % (t,))
+        raise TypeError("Annotation of type %r not supported" % (t,))
 
 class Sig(object):
 

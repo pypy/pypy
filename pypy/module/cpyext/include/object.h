@@ -218,6 +218,12 @@ given type object has a specified feature.
 #define Py_TPFLAGS_BASE_EXC_SUBCLASS    (1UL << 30)
 #define Py_TPFLAGS_TYPE_SUBCLASS        (1UL << 31)
 
+
+/* These are conceptually the same as the flags above, but they are
+   PyPy-specific and are stored inside tp_pypy_flags */
+#define Py_TPPYPYFLAGS_FLOAT_SUBCLASS (1L<<0)
+
+    
 #define Py_TPFLAGS_DEFAULT  ( \
                  Py_TPFLAGS_HAVE_STACKLESS_EXTENSION | \
                  Py_TPFLAGS_HAVE_VERSION_TAG | \
@@ -236,6 +242,8 @@ given type object has a specified feature.
 #endif
 #define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
 
+#define _PyPy_Type_FastSubclass(t,f) (((t)->tp_pypy_flags & (f)) != 0)
+    
 #define PyType_Check(op) \
     PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
 #define PyType_CheckExact(op) (Py_TYPE(op) == &PyType_Type)
