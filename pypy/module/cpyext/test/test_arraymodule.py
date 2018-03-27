@@ -76,7 +76,9 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         else:
             expected = '\x01\0\0\0' '\x02\0\0\0' '\x03\0\0\0' '\x04\0\0\0'
         assert str(buf) == expected
-        assert str(buffer('') + arr) == expected
+        assert str(buffer('a') + arr) == "a" + expected
+        # python2 special cases empty-buffer + obj
+        assert str(buffer('') + arr) == "array('i', [1, 2, 3, 4])"
 
     def test_releasebuffer(self):
         module = self.import_module(name='array')
