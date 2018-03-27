@@ -172,3 +172,15 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         fd = BytesIO()
         # only test that it works
         fd.write(a)
+
+    def test_getitem_via_PySequence_GetItem(self):
+        module = self.import_module(name='array')
+        a = module.array('i', range(10))
+        # call via tp_as_mapping.mp_subscript
+        assert 5 == a[-5]
+        # PySequence_ITEM used to call space.getitem() which
+        # prefers tp_as_mapping.mp_subscript over tp_as_sequence.sq_item
+        # Now fixed so this test raises (array_item does not add len(a),
+        # array_subscr does)
+        raises(IndexError, module.getitem, a, -5)
+
