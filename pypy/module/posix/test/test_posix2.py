@@ -303,7 +303,7 @@ class AppTestPosix:
         try:
             fid = posix.fdopen(fd)
             fid.read(10)
-        except IOError as e:
+        except OSError as e:
             assert e.errno == errno.EBADF
         else:
             assert False, "using result of fdopen(fd) on closed file must raise"
