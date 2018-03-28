@@ -49,13 +49,6 @@ def expand_sizes_to_signed():
     way up to lltype.Signed for indexes everywhere
     """
 
-def frontend_tag_overflow():
-    # Minor abstraction leak: raise directly the right exception
-    # expected by the rest of the machinery
-    from rpython.jit.metainterp import history
-    from rpython.rlib.jit import Counters
-    raise history.SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-
 class BaseTrace(object):
     pass
 
@@ -306,8 +299,10 @@ class Trace(BaseTrace):
         self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
         self._pos += 1
 
-    def done(self):
+    def tracing_done(self, abandoned_trace=False):
         from rpython.rlib.debug import debug_start, debug_stop, debug_print
+        if not abandoned_trace:
+            assert not self.tag_overflow
 
         self._bigints_dict = {}
         self._refs_dict = llhelper.new_ref_dict_3()
@@ -319,8 +314,6 @@ class Trace(BaseTrace):
         debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(len(self._refs)))
         debug_print(" descrs: " + str(len(self._descrs)))
         debug_stop("jit-trace-done")
-        return 0 # completely different than TraceIter.done, but we have to
-        # share the base class
 
     def length(self):
         return self._pos
