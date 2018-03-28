@@ -2690,6 +2690,8 @@ class MetaInterp(object):
                      try_disabling_unroll=False, exported_state=None):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
+        if self.trace_tag_overflow():
+            raise SwitchToBlackhole(Counter.ABORT_TOO_LONG)
         self.history.trace.tracing_done()
         if not self.partial_trace:
             ptoken = self.get_procedure_token(greenkey)
@@ -2743,6 +2745,8 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         self.history.ends_with_jump = True
+        if self.trace_tag_overflow():
+            raise SwitchToBlackhole(Counter.ABORT_TOO_LONG)
         self.history.trace.tracing_done()
         try:
             target_token = compile.compile_trace(self, self.resumekey,
@@ -2777,6 +2781,8 @@ class MetaInterp(object):
             assert False
         # FIXME: can we call compile_trace?
         self.history.record(rop.FINISH, exits, None, descr=token)
+        if self.trace_tag_overflow():
+            raise SwitchToBlackhole(Counter.ABORT_TOO_LONG)
         self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, exits)
         if target_token is not token:
@@ -2803,6 +2809,8 @@ class MetaInterp(object):
         sd = self.staticdata
         token = sd.exit_frame_with_exception_descr_ref
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
+        if self.trace_tag_overflow():
+            raise SwitchToBlackhole(Counter.ABORT_TOO_LONG)
         self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, [valuebox])
         if target_token is not token:
