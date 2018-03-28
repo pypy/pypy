@@ -86,18 +86,22 @@ class AppTestJitHook(object):
 
         def interp_on_compile():
             di_loop.oplist = cls.oplist
-            pypy_hooks.after_compile(di_loop)
+            if pypy_hooks.are_hooks_enabled():
+                pypy_hooks.after_compile(di_loop)
 
         def interp_on_compile_bridge():
-            pypy_hooks.after_compile_bridge(di_bridge)
+            if pypy_hooks.are_hooks_enabled():
+                pypy_hooks.after_compile_bridge(di_bridge)
 
         def interp_on_optimize():
-            di_loop_optimize.oplist = cls.oplist
-            pypy_hooks.before_compile(di_loop_optimize)
+            if pypy_hooks.are_hooks_enabled():
+                di_loop_optimize.oplist = cls.oplist
+                pypy_hooks.before_compile(di_loop_optimize)
 
         def interp_on_abort():
-            pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
-                                greenkey, 'blah', Logger(MockSD), [])
+            if pypy_hooks.are_hooks_enabled():
+                pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
+                                    greenkey, 'blah', Logger(MockSD), [])
 
         space = cls.space
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
