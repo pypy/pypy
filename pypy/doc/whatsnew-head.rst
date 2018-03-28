@@ -68,3 +68,14 @@ Store error state thread-locally in executioncontext, fixes issue #2764
 Optimize `Py*_Check` for `Bool`, `Float`, `Set`. Also refactor and simplify
 `W_PyCWrapperObject` which is used to call slots from the C-API, greatly
 improving microbenchmarks in https://github.com/antocuni/cpyext-benchmarks
+
+
+.. branch: fix-sre-problems
+
+Fix two (unrelated) JIT bugs manifesting in the re module:
+
+- green fields are broken and were thus disabled, plus their usage removed from
+  the _sre implementation
+
+- in rare "trace is too long" situations, the JIT could break behaviour
+  arbitrarily.
