@@ -299,10 +299,9 @@ class Trace(BaseTrace):
         self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
         self._pos += 1
 
-    def tracing_done(self, abandoned_trace=False):
+    def tracing_done(self):
         from rpython.rlib.debug import debug_start, debug_stop, debug_print
-        if not abandoned_trace:
-            assert not self.tag_overflow
+        assert not self.tag_overflow
 
         self._bigints_dict = {}
         self._refs_dict = llhelper.new_ref_dict_3()
