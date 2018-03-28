@@ -1828,8 +1828,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # from the nursery that we just moved out.
         self.size_objects_made_old += r_uint(self.nursery_surviving_size)
         #
-        debug_print("minor collect, total memory used:",
-                    self.get_total_memory_used())
+        total_memory_used = self.get_total_memory_used()
+        debug_print("minor collect, total memory used:", total_memory_used)
         debug_print("number of pinned objects:",
                     self.pinned_objects_in_nursery)
         if self.DEBUG >= 2:
@@ -1838,6 +1838,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.root_walker.finished_minor_collection()
         #
         debug_stop("gc-minor")
+        self.hooks.on_gc_minor(total_memory_used=total_memory_used,
+                               pinned_objects=self.pinned_objects_in_nursery)
 
     def _reset_flag_old_objects_pointing_to_pinned(self, obj, ignore):
         ll_assert(self.header(obj).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN != 0,

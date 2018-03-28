@@ -70,6 +70,9 @@ class DirectRootWalker(object):
 class BaseDirectGCTest(object):
     GC_PARAMS = {}
 
+    def get_extra_gc_params(self):
+        return {}
+
     def setup_method(self, meth):
         from rpython.config.translationoption import get_combined_translation_config
         config = get_combined_translation_config(translating=True).translation
@@ -78,6 +81,7 @@ class BaseDirectGCTest(object):
         if hasattr(meth, 'GC_PARAMS'):
             GC_PARAMS.update(meth.GC_PARAMS)
         GC_PARAMS['translated_to_c'] = False
+        GC_PARAMS.update(self.get_extra_gc_params())
         self.gc = self.GCClass(config, **GC_PARAMS)
         self.gc.DEBUG = True
         self.rootwalker = DirectRootWalker(self)
