@@ -388,6 +388,10 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     srepat.space = space
     srepat.w_pattern = w_pattern      # the original uncompiled pattern
     srepat.flags = flags
+    # note: we assume that the app-level is caching SRE_Pattern objects,
+    # so that we don't need to do it here.  Creating new SRE_Pattern
+    # objects all the time would be bad for the JIT, which relies on the
+    # identity of the CompiledPattern() object.
     srepat.code = rsre_core.CompiledPattern(code)
     srepat.num_groups = groups
     srepat.w_groupindex = w_groupindex
