@@ -1,3 +1,4 @@
+import pytest
 from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -5,6 +6,7 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import generic_cpy_call
 from pypy.module.cpyext.pyobject import make_ref, from_ref, decref, as_pyobj
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
+
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
 
@@ -136,8 +138,10 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo')
         descr = module.fooType.copy
         assert type(descr).__name__ == 'method_descriptor'
-        assert str(descr) == "<method 'copy' of 'foo.foo' objects>"
-        assert repr(descr) == "<method 'copy' of 'foo.foo' objects>"
+        assert str(descr) in ("<method 'copy' of 'foo.foo' objects>",
+            "<method 'copy' of 'foo' objects>")
+        assert repr(descr) in ("<method 'copy' of 'foo.foo' objects>",
+            "<method 'copy' of 'foo' objects>")
         raises(TypeError, descr, None)
 
     def test_cython_fake_classmethod(self):
@@ -250,7 +254,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         import re
         assert re.sre_compile._sre is module
         s = u"Foo " * 1000 + u"Bar"
-        prog = re.compile(ur"Foo.*Bar")
+        prog = re.compile(u"Foo.*Bar")
         assert prog.match(s)
         m = re.search(u"xyz", u"xyzxyz")
         assert m
@@ -319,7 +323,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
     def test_tp_dict(self):
         foo = self.import_module("foo")
         module = self.import_extension('test', [
-           ("read_tp_dict", "METH_O",
+            ("read_tp_dict", "METH_O",
             '''
                  PyObject *method;
                  if (!args->ob_type->tp_dict)
@@ -420,7 +424,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                      return NULL;
                  Py_DECREF(a1);
                  PyType_Modified(type);
-                 value = PyObject_GetAttrString((PyObject*)type, "a");
+                 value = PyObject_GetAttrString((PyObject *)type, "a");
                  Py_DECREF(value);
 
                  if (PyDict_SetItemString(type->tp_dict, "a",
@@ -428,7 +432,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                      return NULL;
                  Py_DECREF(a2);
                  PyType_Modified(type);
-                 value = PyObject_GetAttrString((PyObject*)type, "a");
+                 value = PyObject_GetAttrString((PyObject *)type, "a");
                  return value;
              '''
              )
@@ -529,7 +533,7 @@ class TestTypes(BaseApiTest):
 
         py_type = rffi.cast(PyTypeObjectPtr, ref)
         w_dict = from_ref(space, py_type.c_tp_dict)
-        w_name = space.wrap('a')
+        w_name = space.newtext('a')
         space.setitem(w_dict, w_name, space.wrap(1))
         assert space.int_w(space.getattr(w_class, w_name)) == 1
         space.delitem(w_dict, w_name)
@@ -611,16 +615,21 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_tp_getattro", "METH_VARARGS",
              '''
+                 #if PY_MAJOR_VERSION > 2
+                 #define PyString_FromString PyUnicode_FromString
+                 #define PyIntObject PyLongObject
+                 #define PyInt_AsLong PyLong_AsLong
+                 #endif
                  PyObject *name, *obj = PyTuple_GET_ITEM(args, 0);
-                 PyIntObject *attr, *value = (PyIntObject*) PyTuple_GET_ITEM(args, 1);
+                 PyObject *attr, *value = PyTuple_GET_ITEM(args, 1);
                  if (!obj->ob_type->tp_getattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
                      return NULL;
                  }
                  name = PyString_FromString("attr1");
-                 attr = (PyIntObject*) obj->ob_type->tp_getattro(obj, name);
-                 if (attr->ob_ival != value->ob_ival)
+                 attr = obj->ob_type->tp_getattro(obj, name);
+                 if (PyInt_AsLong(attr) != PyInt_AsLong(value))
                  {
                      PyErr_SetString(PyExc_ValueError,
                                      "tp_getattro returned wrong value");
@@ -629,7 +638,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                  Py_DECREF(name);
                  Py_DECREF(attr);
                  name = PyString_FromString("attr2");
-                 attr = (PyIntObject*) obj->ob_type->tp_getattro(obj, name);
+                 attr = obj->ob_type->tp_getattro(obj, name);
                  if (attr == NULL && PyErr_ExceptionMatches(PyExc_AttributeError))
                  {
                      PyErr_Clear();
@@ -652,6 +661,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("get_foo", "METH_O",
              '''
+             #if PY_MAJOR_VERSION > 2
+             #define PyString_FromString PyUnicode_FromString
+             #endif
              char* name = "foo";
              PyTypeObject *tp = Py_TYPE(args);
              PyObject *res;
@@ -836,6 +848,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             '''
             )], prologue='''
             static int
+            #if PY_MAJOR_VERSION > 2
+            #define PyString_FromString PyBytes_FromString
+            #define PyInt_Check PyLong_Check
+            #endif
             mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
             {
                 if (PyInt_Check(key)) {
@@ -898,6 +914,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return obj;
             '''
             )], prologue='''
+            #if PY_MAJOR_VERSION > 2
+            #define PyInt_Check PyLong_Check
+            #define PyInt_AsLong PyLong_AsLong
+            #endif
             static int
             sq_ass_slice(PyObject *self, Py_ssize_t a, Py_ssize_t b, PyObject *o)
             {
@@ -935,6 +955,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return obj;
             '''
             )], prologue='''
+            #if PY_MAJOR_VERSION > 2
+            #define PyInt_Check PyLong_Check
+            #define PyInt_AsLong PyLong_AsLong
+            #endif
             static int
             sq_ass_item(PyObject *self, Py_ssize_t i, PyObject *o)
             {
@@ -983,6 +1007,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              ),
            ("tp_iternext", "METH_VARARGS",
             '''
+                 #if PY_MAJOR_VERSION > 2
+                 #define PyString_FromString PyBytes_FromString
+                 #endif
                  PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
                  PyObject *obj = PyTuple_GET_ITEM(args, 1);
                  PyObject *result;
@@ -1002,7 +1029,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         it = module.tp_iter(list, l)
         assert type(it) is type(iter([]))
         assert module.tp_iternext(type(it), it) == 1
-        assert module.tp_iternext(type(it), it) == "stop!"
+        assert module.tp_iternext(type(it), it) == b"stop!"
         #
         class LL(list):
             def __iter__(self):
@@ -1132,7 +1159,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 PyObject_HEAD
                 long ival;
             } IntLikeObject;
-
+            #if PY_MAJOR_VERSION > 2
+            #define PyInt_Check PyLong_Check
+            #define PyInt_AsLong PyLong_AsLong
+            #define PyInt_FromLong PyLong_FromLong
+            #endif
             static PyObject *
             intlike_nb_add(PyObject *self, PyObject *other)
             {
@@ -1476,7 +1507,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             )])
         # used to segfault after some iterations
         for i in range(11):
-            print i
             class A(object):
                 pass
             class B:
@@ -1488,10 +1518,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_getattr_getattro(self):
         module = self.import_module(name='foo')
-        assert module.gettype2.dcba == 'getattro:dcba'
+        assert module.gettype2.dcba == b'getattro:dcba'
         assert (type(module.gettype2).__getattribute__(module.gettype2, 'dcBA')
-            == 'getattro:dcBA')
-        assert module.gettype1.abcd == 'getattr:abcd'
+            == b'getattro:dcBA')
+        assert module.gettype1.abcd == b'getattr:abcd'
         # GetType1 objects have a __getattribute__ method, but this
         # doesn't call tp_getattr at all, also on CPython
         raises(AttributeError, type(module.gettype1).__getattribute__,
@@ -1533,6 +1563,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return PyInt_FromLong(42);
             '''
             )], prologue='''
+            #if PY_MAJOR_VERSION > 2
+            #define PyInt_FromLong PyLong_FromLong
+            #endif
             static PyTypeObject Foo_Type = {
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.foo",
@@ -1635,8 +1668,10 @@ class AppTestFlags(AppTestCpythonExtensionBase):
                     (int, Py_TPFLAGS_INT_SUBCLASS),
                     (list, Py_TPFLAGS_LIST_SUBCLASS),
                     (tuple, Py_TPFLAGS_TUPLE_SUBCLASS),
+                    (bytes, Py_TPFLAGS_STRING_SUBCLASS),
                     (str, Py_TPFLAGS_STRING_SUBCLASS),
                     (unicode, Py_TPFLAGS_UNICODE_SUBCLASS),
+                    (dict, Py_TPFLAGS_DICT_SUBCLASS),
                     (Exception, Py_TPFLAGS_BASE_EXC_SUBCLASS),
                     (type, Py_TPFLAGS_TYPE_SUBCLASS),
                    ):
@@ -1664,7 +1699,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
                 return PyLong_FromLong(0);
             '''),])
         # copied from object.h
-        Py_TPPYPYFLAGS_FLOAT_SUBCLASS = (1L<<0)
+        Py_TPPYPYFLAGS_FLOAT_SUBCLASS = (1<<0)
 
         class MyFloat(float):
             pass
