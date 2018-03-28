@@ -70,7 +70,7 @@ Optimize `Py*_Check` for `Bool`, `Float`, `Set`. Also refactor and simplify
 improving microbenchmarks in https://github.com/antocuni/cpyext-benchmarks
 
 
-.. branch: fix-sre-problems:
+.. branch: fix-sre-problems
 
 Fix two (unrelated) JIT bugs manifesting in the re module:
 
