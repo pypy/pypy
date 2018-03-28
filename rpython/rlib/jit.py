@@ -1094,6 +1094,13 @@ class JitHookInterface(object):
     # of the program!  A line like ``pypy_hooks.foo = ...`` must not
     # appear inside your interpreter's RPython code.
 
+    def are_hooks_enabled(self):
+        """ A hook that is called to check whether the interpreter's hooks are
+        enabled at all. Only if this function returns True, are the other hooks
+        called. Otherwise, nothing happens. This is done because constructing
+        some of the hooks' arguments is expensive, so we'd rather not do it."""
+        return True
+
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         """ A hook called each time a loop is aborted with jitdriver and
         greenkey where it started, reason is a string why it got aborted
