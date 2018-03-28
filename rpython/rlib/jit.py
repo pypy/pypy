@@ -1084,7 +1084,8 @@ class JitHookInterface(object):
     """ This is the main connector between the JIT and the interpreter.
     Several methods on this class will be invoked at various stages
     of JIT running like JIT loops compiled, aborts etc.
-    An instance of this class will be available as policy.jithookiface.
+    An instance of this class has to be passed into the JitPolicy constructor
+    (and will then be available as policy.jithookiface).
     """
     # WARNING: You should make a single prebuilt instance of a subclass
     # of this class.  You can, before translation, initialize some

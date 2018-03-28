@@ -554,6 +554,8 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
                                       original_jitcell_token, loop.operations,
                                       type, greenkey)
             hooks.before_compile(debug_info)
+        else:
+            hooks = None
     operations = get_deep_immutable_oplist(loop.operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
@@ -606,6 +608,8 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                                       original_loop_token, operations, 'bridge',
                                       fail_descr=faildescr)
             hooks.before_compile_bridge(debug_info)
+        else:
+            hooks = None
     operations = get_deep_immutable_oplist(operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
