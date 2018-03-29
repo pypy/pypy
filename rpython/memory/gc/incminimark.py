@@ -2422,6 +2422,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             self.stat_rawmalloced_total_size, " => ",
                             self.rawmalloced_total_size)
                 debug_stop("gc-collect-done")
+                self.hooks.on_gc_collect(
+                    count=self.num_major_collects,
+                    arenas_count_before=self.stat_ac_arenas_count,
+                    arenas_count_after=self.ac.arenas_count,
+                    arenas_bytes=self.ac.total_memory_used,
+                    rawmalloc_bytes_before=self.stat_rawmalloced_total_size,
+                    rawmalloc_bytes_after=self.rawmalloced_total_size)
                 #
                 # Set the threshold for the next major collection to be when we
                 # have allocated 'major_collection_threshold' times more than

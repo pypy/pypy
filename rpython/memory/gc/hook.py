@@ -4,3 +4,10 @@ class GcHooks(object):
         """
         Called after a minor collection
         """
+
+    def on_gc_collect(self, count, arenas_count_before, arenas_count_after,
+                      arenas_bytes, rawmalloc_bytes_before,
+                      rawmalloc_bytes_after):
+        """
+        Called after a major collection is fully done
+        """
