@@ -29,7 +29,7 @@ def st_readline(draw, st_nlines=st.integers(min_value=0, max_value=10)):
 
 @given(data=st_readline(),
        mode=st.sampled_from(['\r', '\n', '\r\n', '']))
-@settings(deadline=None)
+@settings(deadline=None, database=None)
 def test_readline(space, data, mode):
     txt, limits = data
     w_stream = W_BytesIO(space)
