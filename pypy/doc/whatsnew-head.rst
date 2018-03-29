@@ -62,3 +62,13 @@ to read the TLS in most bridges.
 .. branch: rpython-sprint
 
 Refactor in rpython signatures
+
+.. branch: cpyext-tls-operror2
+
+Store error state thread-locally in executioncontext, fixes issue #2764
+
+.. branch: cpyext-fast-typecheck
+
+Optimize `Py*_Check` for `Bool`, `Float`, `Set`. Also refactor and simplify
+`W_PyCWrapperObject` which is used to call slots from the C-API, greatly
+improving microbenchmarks in https://github.com/antocuni/cpyext-benchmarks

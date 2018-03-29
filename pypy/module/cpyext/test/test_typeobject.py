@@ -8,6 +8,7 @@ from pypy.module.cpyext.pyobject import make_ref, from_ref, decref, as_pyobj
 from pypy.module.cpyext.typeobject import cts, PyTypeObjectPtr
 
 
+
 class AppTestTypeObject(AppTestCpythonExtensionBase):
 
     def setup_class(cls):
@@ -917,6 +918,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = "foo" in obj
         assert res is True
 
+            #if PY_MAJOR_VERSION > 2
+            #define PyInt_Check PyLong_Check
+            #define PyInt_AsLong PyLong_AsLong
+            #endif
     def test_sq_ass_item(self):
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
