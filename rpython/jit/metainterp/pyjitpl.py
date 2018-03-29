@@ -2365,7 +2365,9 @@ class MetaInterp(object):
             greenkey = None # we're in the bridge
         else:
             greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
-            self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
+            hooks = self.staticdata.warmrunnerdesc.hooks
+            if hooks.are_hooks_enabled():
+                hooks.on_abort(reason,
                     jd_sd.jitdriver, greenkey,
                     jd_sd.warmstate.get_location_str(greenkey),
                     self.staticdata.logger_ops._make_log_operations(
@@ -2374,9 +2376,10 @@ class MetaInterp(object):
             if self.aborted_tracing_jitdriver is not None:
                 jd_sd = self.aborted_tracing_jitdriver
                 greenkey = self.aborted_tracing_greenkey
-                self.staticdata.warmrunnerdesc.hooks.on_trace_too_long(
-                    jd_sd.jitdriver, greenkey,
-                    jd_sd.warmstate.get_location_str(greenkey))
+                if hooks.are_hooks_enabled():
+                    hooks.on_trace_too_long(
+                        jd_sd.jitdriver, greenkey,
+                        jd_sd.warmstate.get_location_str(greenkey))
                 # no ops for now
                 self.aborted_tracing_jitdriver = None
                 self.aborted_tracing_greenkey = None
