@@ -7,6 +7,11 @@ import os
 from pypy.module._io.interp_bytesio import W_BytesIO
 from pypy.module._io.interp_textio import W_TextIOWrapper, DecodeBuffer
 
+# workaround suggestion for slowness by David McIver:
+# force hypothesis to initialize some lazy stuff
+# (which takes a lot of time, which trips the timer otherwise)
+st.text().example()
+
 def translate_newlines(text):
     text = text.replace(u'\r\n', u'\n')
     text = text.replace(u'\r', u'\n')
