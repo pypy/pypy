@@ -545,15 +545,17 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
         show_procedures(metainterp_sd, loop)
         loop.check_consistency()
 
+    debug_info = None
+    hooks = None
     if metainterp_sd.warmrunnerdesc is not None:
         hooks = metainterp_sd.warmrunnerdesc.hooks
-        debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
-                                  original_jitcell_token, loop.operations,
-                                  type, greenkey)
-        hooks.before_compile(debug_info)
-    else:
-        debug_info = None
-        hooks = None
+        if hooks.are_hooks_enabled():
+            debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
+                                      original_jitcell_token, loop.operations,
+                                      type, greenkey)
+            hooks.before_compile(debug_info)
+        else:
+            hooks = None
     operations = get_deep_immutable_oplist(loop.operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
@@ -597,15 +599,17 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         show_procedures(metainterp_sd)
         seen = dict.fromkeys(inputargs)
         TreeLoop.check_consistency_of_branch(operations, seen)
+    debug_info = None
+    hooks = None
     if metainterp_sd.warmrunnerdesc is not None:
         hooks = metainterp_sd.warmrunnerdesc.hooks
-        debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
-                                  original_loop_token, operations, 'bridge',
-                                  fail_descr=faildescr)
-        hooks.before_compile_bridge(debug_info)
-    else:
-        hooks = None
-        debug_info = None
+        if hooks.are_hooks_enabled():
+            debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
+                                      original_loop_token, operations, 'bridge',
+                                      fail_descr=faildescr)
+            hooks.before_compile_bridge(debug_info)
+        else:
+            hooks = None
     operations = get_deep_immutable_oplist(operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
