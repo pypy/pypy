@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gc.hook import GcHooks
 from rpython.memory.gc.test.test_direct import BaseDirectGCTest, S
 
+
 class MyGcHooks(GcHooks):
 
     def __init__(self):
@@ -9,10 +10,14 @@ class MyGcHooks(GcHooks):
 
     def reset(self):
         self.minors = []
+        self.steps = []
         self.collects = []
 
     def on_gc_minor(self, **kwds):
         self.minors.append(kwds)
+
+    def on_gc_collect_step(self, **kwds):
+        self.steps.append(kwds)
 
     def on_gc_collect(self, **kwds):
         self.collects.append(kwds)
@@ -46,8 +51,15 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
             ]
 
     def test_on_gc_collect(self):
+        from rpython.memory.gc import incminimark as m
         self.malloc(S)
         self.gc.collect()
+        assert self.gc.hooks.steps == [
+            {'oldstate': m.STATE_SCANNING, 'newstate': m.STATE_MARKING},
+            {'oldstate': m.STATE_MARKING, 'newstate': m.STATE_SWEEPING},
+            {'oldstate': m.STATE_SWEEPING, 'newstate': m.STATE_FINALIZING},
+            {'oldstate': m.STATE_FINALIZING, 'newstate': m.STATE_SCANNING}
+        ]
         assert self.gc.hooks.collects == [
             {'count': 1,
              'arenas_count_before': 0,

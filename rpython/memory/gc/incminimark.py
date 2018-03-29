@@ -2243,6 +2243,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # is done before every major collection step
     def major_collection_step(self, reserving_size=0):
         debug_start("gc-collect-step")
+        oldstate = self.gc_state
         debug_print("starting gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
         if self.pinned_objects_in_nursery == 0:
@@ -2480,6 +2481,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
         debug_stop("gc-collect-step")
+        self.hooks.on_gc_collect_step(oldstate=oldstate,
+                                      newstate=self.gc_state)
 
     def _sweep_old_objects_pointing_to_pinned(self, obj, new_list):
         if self.header(obj).tid & GCFLAG_VISITED:

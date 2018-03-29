@@ -5,6 +5,16 @@ class GcHooks(object):
         Called after a minor collection
         """
 
+    def on_gc_collect_step(self, oldstate, newstate):
+        """
+        Called after each individual step of a major collection, in case the GC is
+        incremental.
+
+        ``oldstate`` and ``newstate`` are integers which indicate the GC
+        state; for incminimark, see incminimark.STATE_* and
+        incminimark.GC_STATES.
+        """
+
     def on_gc_collect(self, count, arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
                       rawmalloc_bytes_after):
