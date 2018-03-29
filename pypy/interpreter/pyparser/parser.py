@@ -267,7 +267,6 @@ class Parser(object):
                     while state[1] and not state[0]:
                         self.pop()
                         if self.stack is None:
-                            assert self.stack is None
                             # Parsing is done.
                             return True
                         dfa = self.stack.dfa
@@ -287,7 +286,6 @@ class Parser(object):
                 if is_accepting:
                     self.pop()
                     if self.stack is None:
-                        assert self.stack is None
                         raise ParseError("too much input", token_type, value,
                                          lineno, column, line)
                 else:
