@@ -116,7 +116,7 @@ def find_clean_setarrayitems(collect_analyzer, graph):
 class BaseFrameworkGCTransformer(GCTransformer):
     root_stack_depth = None    # for tests to override
 
-    def __init__(self, translator):
+    def __init__(self, translator, gchooks=None):
         from rpython.memory.gc.base import choose_gc_from_config
 
         super(BaseFrameworkGCTransformer, self).__init__(translator,
@@ -162,7 +162,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.finalizer_queue_indexes = {}
         self.finalizer_handlers = []
 
-        gcdata.gc = GCClass(translator.config.translation, **GC_PARAMS)
+        gcdata.gc = GCClass(translator.config.translation, hooks=gchooks,
+                            **GC_PARAMS)
         root_walker = self.build_root_walker()
         root_walker.finished_minor_collection_func = finished_minor_collection
         self.root_walker = root_walker

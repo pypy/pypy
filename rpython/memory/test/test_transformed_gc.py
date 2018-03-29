@@ -15,6 +15,7 @@ from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.rtyper import llinterp_backend
+from rpython.memory.gc.test.test_hook import MyGcHooks
 
 
 WORD = LONG_BIT // 8
@@ -48,6 +49,7 @@ class GCTest(object):
     gcpolicy = None
     GC_CAN_MOVE = False
     taggedpointers = False
+    gchooks = None
 
     def setup_class(cls):
         cls.marker = lltype.malloc(rffi.CArray(lltype.Signed), 1,
@@ -112,7 +114,8 @@ class GCTest(object):
                 fixup(t)
 
         cbuild = CStandaloneBuilder(t, entrypoint, config=t.config,
-                                    gcpolicy=cls.gcpolicy)
+                                    gcpolicy=cls.gcpolicy,
+                                    gchooks=cls.gchooks)
         cbuild.make_entrypoint_wrapper = False
         db = cbuild.build_database()
         entrypointptr = cbuild.getentrypointptr()
@@ -1404,6 +1407,11 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                          'translated_to_c': False,
                          }
             root_stack_depth = 200
+
+    gchooks = MyGcHooks()
+
+    def setup_method(self, m):
+        self.gchooks.reset()
 
     def define_malloc_array_of_gcptr(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))

@@ -302,9 +302,9 @@ class NoneGcPolicy(BoehmGcPolicy):
 
 class BasicFrameworkGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         if hasattr(self, 'transformerclass'):    # for rpython/memory tests
-            return self.transformerclass(translator)
+            return self.transformerclass(translator, gchooks=gchooks)
         raise NotImplementedError
 
     def struct_setup(self, structdefnode, rtti):
