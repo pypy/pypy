@@ -9,6 +9,7 @@ from rpython.memory.gc.test.test_direct import BaseDirectGCTest, S
 class MyGcHooks(GcHooks):
 
     def __init__(self):
+        GcHooks.__init__(self)
         self.reset()
 
     def reset(self):
@@ -50,6 +51,7 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
         self.size_of_S = llmemory.raw_malloc_usage(size)
 
     def test_on_gc_minor(self):
+        self.gc.hooks.gc_minor_enabled = True
         self.malloc(S)
         self.gc._minor_collection()
         assert self.gc.hooks.minors == [
@@ -67,6 +69,8 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
 
     def test_on_gc_collect(self):
         from rpython.memory.gc import incminimark as m
+        self.gc.hooks.gc_collect_step_enabled = True
+        self.gc.hooks.gc_collect_enabled = True
         self.malloc(S)
         self.gc.collect()
         assert self.gc.hooks.steps == [
@@ -95,3 +99,10 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
              'rawmalloc_bytes_after': 0,
              'rawmalloc_bytes_before': 0}
             ]
+
+    def test_hook_disabled(self):
+        self.gc._minor_collection()
+        self.gc.collect()
+        assert self.gc.hooks.minors == []
+        assert self.gc.hooks.steps == []
+        assert self.gc.hooks.collects == []

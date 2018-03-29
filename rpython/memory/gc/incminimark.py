@@ -1838,8 +1838,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.root_walker.finished_minor_collection()
         #
         debug_stop("gc-minor")
-        self.hooks.on_gc_minor(total_memory_used=total_memory_used,
-                               pinned_objects=self.pinned_objects_in_nursery)
+        if self.hooks.gc_minor_enabled:
+            self.hooks.on_gc_minor(total_memory_used=total_memory_used,
+                                   pinned_objects=self.pinned_objects_in_nursery)
 
     def _reset_flag_old_objects_pointing_to_pinned(self, obj, ignore):
         ll_assert(self.header(obj).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN != 0,
@@ -2423,13 +2424,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             self.stat_rawmalloced_total_size, " => ",
                             self.rawmalloced_total_size)
                 debug_stop("gc-collect-done")
-                self.hooks.on_gc_collect(
-                    count=self.num_major_collects,
-                    arenas_count_before=self.stat_ac_arenas_count,
-                    arenas_count_after=self.ac.arenas_count,
-                    arenas_bytes=self.ac.total_memory_used,
-                    rawmalloc_bytes_before=self.stat_rawmalloced_total_size,
-                    rawmalloc_bytes_after=self.rawmalloced_total_size)
+                if self.hooks.gc_collect_enabled:
+                    self.hooks.on_gc_collect(
+                        count=self.num_major_collects,
+                        arenas_count_before=self.stat_ac_arenas_count,
+                        arenas_count_after=self.ac.arenas_count,
+                        arenas_bytes=self.ac.total_memory_used,
+                        rawmalloc_bytes_before=self.stat_rawmalloced_total_size,
+                        rawmalloc_bytes_after=self.rawmalloced_total_size)
                 #
                 # Set the threshold for the next major collection to be when we
                 # have allocated 'major_collection_threshold' times more than
@@ -2481,8 +2483,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
         debug_stop("gc-collect-step")
-        self.hooks.on_gc_collect_step(oldstate=oldstate,
-                                      newstate=self.gc_state)
+        if self.hooks.gc_collect_step_enabled:
+            self.hooks.on_gc_collect_step(oldstate=oldstate,
+                                          newstate=self.gc_state)
 
     def _sweep_old_objects_pointing_to_pinned(self, obj, new_list):
         if self.header(obj).tid & GCFLAG_VISITED:

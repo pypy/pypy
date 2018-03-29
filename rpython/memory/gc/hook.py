@@ -1,5 +1,10 @@
 class GcHooks(object):
 
+    def __init__(self):
+        self.gc_minor_enabled = False
+        self.gc_collect_step_enabled = False
+        self.gc_collect_enabled = False
+
     def on_gc_minor(self, total_memory_used, pinned_objects):
         """
         Called after a minor collection
