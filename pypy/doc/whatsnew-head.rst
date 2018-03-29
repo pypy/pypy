@@ -79,3 +79,8 @@ Fix two (unrelated) JIT bugs manifesting in the re module:
 
 - in rare "trace is too long" situations, the JIT could break behaviour
   arbitrarily.
+
+
+.. branch: pyparser-improvements
+
+Improve speed of Python parser, improve ParseError messages slightly.
