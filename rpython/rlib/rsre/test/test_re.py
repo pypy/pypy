@@ -426,31 +426,6 @@ class TestRe:
         assert pat.match(p) is not None
         assert pat.match(p).span() == (0,256)
 
-    def test_pickling(self):
-        import pickle
-        self.pickle_test(pickle)
-        import cPickle
-        self.pickle_test(cPickle)
-        # old pickles expect the _compile() reconstructor in sre module
-        import warnings
-        original_filters = warnings.filters[:]
-        try:
-            warnings.filterwarnings("ignore", "The sre module is deprecated",
-                                    DeprecationWarning)
-            from sre import _compile
-        finally:
-            warnings.filters = original_filters
-
-    def pickle_test(self, pickle):
-        oldpat = re.compile('a(?:b|(c|e){1,2}?|d)+?(.)')
-        s = pickle.dumps(oldpat)
-        newpat = pickle.loads(s)
-        # Not using object identity for _sre.py, since some Python builds do
-        # not seem to preserve that in all cases (observed on an UCS-4 build
-        # of 2.4.1).
-        #self.assertEqual(oldpat, newpat)
-        assert oldpat.__dict__ == newpat.__dict__
-
     def test_constants(self):
         assert re.I == re.IGNORECASE
         assert re.L == re.LOCALE

@@ -2202,6 +2202,16 @@ switch_multiply(void)
     Py_RETURN_NONE;
 };
 
+static PyObject *
+getitem(PyObject* self, PyObject * args) {
+    PyObject * obj;
+    int i;
+    if (!PyArg_ParseTuple(args, "Oi", &obj, &i)) {
+        return NULL;
+    }
+    return PySequence_ITEM(obj, i);
+}
+
 PyDoc_STRVAR(module_doc,
 "This module defines an object type which can efficiently represent\n\
 an array of basic values: characters, integers, floating point\n\
@@ -2491,6 +2501,7 @@ static PyMethodDef a_methods[] = {
     {"get_releasebuffer_cnt",   (PyCFunction)get_releasebuffer_cnt, METH_NOARGS, NULL},
     {"create_and_release_buffer",   (PyCFunction)create_and_release_buffer, METH_O, NULL},
     {"same_dealloc",   (PyCFunction)same_dealloc, METH_VARARGS, NULL},
+    {"getitem", (PyCFunction)getitem, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

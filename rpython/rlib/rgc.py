@@ -378,13 +378,12 @@ def must_be_light_finalizer(func):
 
 class FinalizerQueue(object):
     """A finalizer queue.  See pypy/doc/discussion/finalizer-order.rst.
-    Note: only works with the framework GCs (like minimark).  It is
-    ignored with Boehm or with refcounting (used by tests).
     """
     # Must be subclassed, and the subclass needs these attributes:
     #
     #    Class:
     #        the class (or base class) of finalized objects
+    #        --or-- None to handle low-level GCREFs directly
     #
     #    def finalizer_trigger(self):
     #        called to notify that new items have been put in the queue
@@ -397,11 +396,13 @@ class FinalizerQueue(object):
     def next_dead(self):
         if we_are_translated():
             from rpython.rtyper.lltypesystem.lloperation import llop
-            from rpython.rtyper.rclass import OBJECTPTR
-            from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+            from rpython.rtyper.lltypesystem.llmemory import GCREF
+            from rpython.rtyper.annlowlevel import cast_gcref_to_instance
             tag = FinalizerQueue._get_tag(self)
-            ptr = llop.gc_fq_next_dead(OBJECTPTR, tag)
-            return cast_base_ptr_to_instance(self.Class, ptr)
+            ptr = llop.gc_fq_next_dead(GCREF, tag)
+            if self.Class is not None:
+                ptr = cast_gcref_to_instance(self.Class, ptr)
+            return ptr
         try:
             return self._queue.popleft()
         except (AttributeError, IndexError):
@@ -410,14 +411,18 @@ class FinalizerQueue(object):
     @specialize.arg(0)
     @jit.dont_look_inside
     def register_finalizer(self, obj):
-        assert isinstance(obj, self.Class)
+        from rpython.rtyper.lltypesystem.llmemory import GCREF
+        if self.Class is None:
+            assert lltype.typeOf(obj) == GCREF
+        else:
+            assert isinstance(obj, self.Class)
         if we_are_translated():
             from rpython.rtyper.lltypesystem.lloperation import llop
-            from rpython.rtyper.rclass import OBJECTPTR
-            from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+            from rpython.rtyper.annlowlevel import cast_instance_to_gcref
             tag = FinalizerQueue._get_tag(self)
-            ptr = cast_instance_to_base_ptr(obj)
-            llop.gc_fq_register(lltype.Void, tag, ptr)
+            if self.Class is not None:
+                obj = cast_instance_to_gcref(obj)
+            llop.gc_fq_register(lltype.Void, tag, obj)
             return
         else:
             self._untranslated_register_finalizer(obj)

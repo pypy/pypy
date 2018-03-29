@@ -11,7 +11,6 @@ from pypy.module.cpyext.number import (
     PyNumber_Index, PyNumber_Coerce, PyNumber_CoerceEx, PyNumber_Add,
     PyNumber_Multiply, PyNumber_InPlaceMultiply, PyNumber_Absolute,
     PyNumber_Power, PyNumber_InPlacePower)
-from pypy.module.cpyext.floatobject import PyFloat_Check
 from pypy.module.cpyext.intobject import PyInt_CheckExact
 from pypy.module.cpyext.longobject import PyLong_CheckExact
 from pypy.module.cpyext.object import PyObject_Size
@@ -86,7 +85,7 @@ class TestIterator(BaseApiTest):
 
         w_res = from_ref(space, ppl[0])
 
-        assert PyFloat_Check(space, w_res)
+        assert space.isinstance_w(w_res, space.w_float)
         assert space.unwrap(w_res) == 123.
         decref(space, pl)
         decref(space, pf)

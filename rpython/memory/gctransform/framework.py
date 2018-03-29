@@ -1592,8 +1592,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         index = self.get_finalizer_queue_index(hop)
         c_index = rmodel.inputconst(lltype.Signed, index)
         v_ptr = hop.spaceop.args[1]
-        v_ptr = hop.genop("cast_opaque_ptr", [v_ptr],
-                          resulttype=llmemory.GCREF)
+        assert v_ptr.concretetype == llmemory.GCREF
         hop.genop("direct_call", [self.register_finalizer_ptr, self.c_const_gc,
                                   c_index, v_ptr])
 
