@@ -113,22 +113,27 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
             ofs = ops_offset.get(op, 0)
         num = op.getopnum()
         name = op.getopname()
+        repr = logops.repr_of_resop(op)
         if num == rop.DEBUG_MERGE_POINT:
             jd_sd = jitdrivers_sd[op.getarg(0).getint()]
             greenkey = op.getarglist()[3:]
             repr = jd_sd.warmstate.get_location_str(greenkey)
             w_greenkey = wrap_greenkey(space, jd_sd.jitdriver, greenkey, repr)
             l_w.append(DebugMergePoint(space, name,
-                                       logops.repr_of_resop(op),
+                                       repr,
                                        jd_sd.jitdriver.name,
                                        op.getarg(1).getint(),
                                        op.getarg(2).getint(),
                                        w_greenkey))
         elif op.is_guard():
-            l_w.append(GuardOp(name, ofs, logops.repr_of_resop(op),
-                op.getdescr().get_jitcounter_hash()))
+            descr = op.getdescr()
+            if descr is not None: # can be none in on_abort!
+                hash = op.getdescr().get_jitcounter_hash()
+            else:
+                hash = -1
+            l_w.append(GuardOp(name, ofs, repr, hash))
         else:
-            l_w.append(WrappedOp(name, ofs, logops.repr_of_resop(op)))
+            l_w.append(WrappedOp(name, ofs, repr))
     return l_w
 
 @unwrap_spec(offset=int, repr='text', name='text')
