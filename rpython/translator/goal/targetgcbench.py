@@ -1,10 +1,10 @@
 from rpython.translator.goal import gcbench
-from rpython.memory.test.test_transformed_gc import MyGcHooks, GC_HOOKS_STATS
+from rpython.memory.test.test_transformed_gc import MyGcHooks
 
 # _____ Define and setup target ___
 
 def entry_point(argv):
-    GC_HOOKS_STATS.fix_annotation()
+    GC_HOOKS_STATS.reset()
     ret = gcbench.entry_point(argv)
     minors = GC_HOOKS_STATS.minors
     steps = GC_HOOKS_STATS.steps
@@ -16,6 +16,7 @@ def entry_point(argv):
     return ret
 
 gchooks = MyGcHooks()
+GC_HOOKS_STATS = gchooks.stats
 
 def target(*args):
     gcbench.ENABLE_THREADS = False    # not RPython

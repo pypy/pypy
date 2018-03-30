@@ -1398,21 +1398,14 @@ class GcHooksStats(object):
     collects = 0
 
     def reset(self):
-        self.minors = 0
-        self.steps = 0
-        self.collects = 0
+        # the NonConstant are needed so that the annotator annotates the
+        # fields as a generic SomeInteger(), instead of a constant 0. A call
+        # to this method MUST be seen during normal annotation, else the class
+        # is annotated only during GC transform, when it's too late
+        self.minors = NonConstant(0)
+        self.steps = NonConstant(0)
+        self.collects = NonConstant(0)
 
-    @staticmethod
-    def fix_annotation():
-        # this is needed to "fix" the annotation of GcHooksStats early, and
-        # must be called from the "main" program. Else, we change the
-        # annotation during the GC transform, when it's too late
-        if NonConstant(False):
-            GC_HOOKS_STATS.collects += 42
-            GC_HOOKS_STATS.steps += 42
-            GC_HOOKS_STATS.minors += 42
-
-GC_HOOKS_STATS = GcHooksStats()
 
 class MyGcHooks(GcHooks):
 
@@ -1420,17 +1413,18 @@ class MyGcHooks(GcHooks):
         self.gc_minor_enabled = True
         self.gc_collect_step_enabled = True
         self.gc_collect_enabled = True
+        self.stats = GcHooksStats()
 
     def on_gc_minor(self, total_memory_used, pinned_objects):
-        GC_HOOKS_STATS.minors += 1
+        self.stats.minors += 1
 
     def on_gc_collect_step(self, oldstate, newstate):
-        GC_HOOKS_STATS.steps += 1
+        self.stats.steps += 1
         
     def on_gc_collect(self, count, arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
                       rawmalloc_bytes_after):
-        GC_HOOKS_STATS.collects += 1
+        self.stats.collects += 1
 
 
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
@@ -1487,15 +1481,17 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
 
     def define_gc_hooks(cls):
         gchooks = cls.gchooks
+        # it is important that we fish .stats OUTSIDE f(); we cannot see
+        # gchooks from within RPython code
+        stats = gchooks.stats
         def f():
-            GC_HOOKS_STATS.fix_annotation()
-            GC_HOOKS_STATS.reset()
+            stats.reset()
             # trigger two major collections
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
-            return (10000 * GC_HOOKS_STATS.collects +
-                      100 * GC_HOOKS_STATS.steps +
-                        1 * GC_HOOKS_STATS.minors)
+            return (10000 * stats.collects +
+                      100 * stats.steps +
+                        1 * stats.minors)
         return f
 
     def test_gc_hooks(self):
