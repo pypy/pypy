@@ -653,6 +653,9 @@ class JitDriver(object):
         self._make_extregistryentries()
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
+        for green in self.greens:
+            if "." in green:
+                raise ValueError("green fields are buggy! if you need them fixed, please talk to us")
         self.get_printable_location = get_printable_location
         self.get_location = get_location
         self.has_unique_id = (get_unique_id is not None)
@@ -1084,7 +1087,8 @@ class JitHookInterface(object):
     """ This is the main connector between the JIT and the interpreter.
     Several methods on this class will be invoked at various stages
     of JIT running like JIT loops compiled, aborts etc.
-    An instance of this class will be available as policy.jithookiface.
+    An instance of this class has to be passed into the JitPolicy constructor
+    (and will then be available as policy.jithookiface).
     """
     # WARNING: You should make a single prebuilt instance of a subclass
     # of this class.  You can, before translation, initialize some
@@ -1093,6 +1097,13 @@ class JitHookInterface(object):
     # instance *must not* be seen during the normal annotation/rtyping
     # of the program!  A line like ``pypy_hooks.foo = ...`` must not
     # appear inside your interpreter's RPython code.
+
+    def are_hooks_enabled(self):
+        """ A hook that is called to check whether the interpreter's hooks are
+        enabled at all. Only if this function returns True, are the other hooks
+        called. Otherwise, nothing happens. This is done because constructing
+        some of the hooks' arguments is expensive, so we'd rather not do it."""
+        return True
 
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         """ A hook called each time a loop is aborted with jitdriver and

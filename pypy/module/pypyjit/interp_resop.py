@@ -21,9 +21,10 @@ class Cache(object):
     no = 0
 
     def __init__(self, space):
-        self.w_compile_hook = space.w_None
-        self.w_abort_hook = space.w_None
-        self.w_trace_too_long_hook = space.w_None
+        self.w_compile_hook = None
+        self.w_abort_hook = None
+        self.w_trace_too_long_hook = None
+        self.compile_hook_with_ops = False
 
     def getno(self):
         self.no += 1
@@ -58,7 +59,8 @@ def set_compile_hook(space, w_hook, operations=True):
     jit hook won't be called for that.
     """
     cache = space.fromcache(Cache)
-    assert w_hook is not None
+    if space.is_w(w_hook, space.w_None):
+        w_hook = None
     cache.w_compile_hook = w_hook
     cache.compile_hook_with_ops = operations
     cache.in_recursion = NonConstant(False)
@@ -77,7 +79,8 @@ def set_abort_hook(space, w_hook):
     as attributes on JitLoopInfo object.
     """
     cache = space.fromcache(Cache)
-    assert w_hook is not None
+    if space.is_w(w_hook, space.w_None):
+        w_hook = None
     cache.w_abort_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
@@ -92,14 +95,15 @@ def set_trace_too_long_hook(space, w_hook):
         hook(jitdriver_name, greenkey)
     """
     cache = space.fromcache(Cache)
-    assert w_hook is not None
+    if space.is_w(w_hook, space.w_None):
+        w_hook = None
     cache.w_trace_too_long_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
 def wrap_oplist(space, logops, operations, ops_offset=None):
     # this function is called from the JIT
     from rpython.jit.metainterp.resoperation import rop
-    
+
     l_w = []
     jitdrivers_sd = logops.metainterp_sd.jitdrivers_sd
     for op in operations:
@@ -109,22 +113,27 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
             ofs = ops_offset.get(op, 0)
         num = op.getopnum()
         name = op.getopname()
+        repr = logops.repr_of_resop(op)
         if num == rop.DEBUG_MERGE_POINT:
             jd_sd = jitdrivers_sd[op.getarg(0).getint()]
             greenkey = op.getarglist()[3:]
             repr = jd_sd.warmstate.get_location_str(greenkey)
             w_greenkey = wrap_greenkey(space, jd_sd.jitdriver, greenkey, repr)
             l_w.append(DebugMergePoint(space, name,
-                                       logops.repr_of_resop(op),
+                                       repr,
                                        jd_sd.jitdriver.name,
                                        op.getarg(1).getint(),
                                        op.getarg(2).getint(),
                                        w_greenkey))
         elif op.is_guard():
-            l_w.append(GuardOp(name, ofs, logops.repr_of_resop(op),
-                op.getdescr().get_jitcounter_hash()))
+            descr = op.getdescr()
+            if descr is not None: # can be none in on_abort!
+                hash = op.getdescr().get_jitcounter_hash()
+            else:
+                hash = -1
+            l_w.append(GuardOp(name, ofs, repr, hash))
         else:
-            l_w.append(WrappedOp(name, ofs, logops.repr_of_resop(op)))
+            l_w.append(WrappedOp(name, ofs, repr))
     return l_w
 
 @unwrap_spec(offset=int, repr='text', name='text')

@@ -1,9 +1,15 @@
-from rpython.rlib.rsre import rsre_char
+from rpython.rlib.rsre import rsre_char, rsre_core
 from rpython.rlib.rsre.rsre_char import SRE_FLAG_LOCALE, SRE_FLAG_UNICODE
 
 def setup_module(mod):
     from rpython.rlib.unicodedata import unicodedb
     rsre_char.set_unicode_db(unicodedb)
+
+
+def check_charset(pattern, idx, char):
+    p = rsre_core.CompiledPattern(pattern)
+    return rsre_char.check_charset(Ctx(p), p, idx, char)
+
 
 UPPER_PI = 0x3a0
 LOWER_PI = 0x3c0
@@ -157,12 +163,12 @@ def test_general_category():
         pat_neg = [70, ord(cat) | 0x80, 0]
         for c in positive:
             assert unicodedb.category(ord(c)).startswith(cat)
-            assert rsre_char.check_charset(Ctx(pat_pos), 0, ord(c))
-            assert not rsre_char.check_charset(Ctx(pat_neg), 0, ord(c))
+            assert check_charset(pat_pos, 0, ord(c))
+            assert not check_charset(pat_neg, 0, ord(c))
         for c in negative:
             assert not unicodedb.category(ord(c)).startswith(cat)
-            assert not rsre_char.check_charset(Ctx(pat_pos), 0, ord(c))
-            assert rsre_char.check_charset(Ctx(pat_neg), 0, ord(c))
+            assert not check_charset(pat_pos, 0, ord(c))
+            assert check_charset(pat_neg, 0, ord(c))
 
     def cat2num(cat):
         return ord(cat[0]) | (ord(cat[1]) << 8)
@@ -173,17 +179,16 @@ def test_general_category():
         pat_neg = [70, cat2num(cat) | 0x80, 0]
         for c in positive:
             assert unicodedb.category(ord(c)) == cat
-            assert rsre_char.check_charset(Ctx(pat_pos), 0, ord(c))
-            assert not rsre_char.check_charset(Ctx(pat_neg), 0, ord(c))
+            assert check_charset(pat_pos, 0, ord(c))
+            assert not check_charset(pat_neg, 0, ord(c))
         for c in negative:
             assert unicodedb.category(ord(c)) != cat
-            assert not rsre_char.check_charset(Ctx(pat_pos), 0, ord(c))
-            assert rsre_char.check_charset(Ctx(pat_neg), 0, ord(c))
+            assert not check_charset(pat_pos, 0, ord(c))
+            assert check_charset(pat_neg, 0, ord(c))
 
     # test for how the common 'L&' pattern might be compiled
     pat = [70, cat2num('Lu'), 70, cat2num('Ll'), 70, cat2num('Lt'), 0]
-    assert rsre_char.check_charset(Ctx(pat), 0, 65)    # Lu
-    assert rsre_char.check_charset(Ctx(pat), 0, 99)    # Ll
-    assert rsre_char.check_charset(Ctx(pat), 0, 453)   # Lt
-    assert not rsre_char.check_charset(Ctx(pat), 0, 688)    # Lm
-    assert not rsre_char.check_charset(Ctx(pat), 0, 5870)   # Nl
+    assert check_charset(pat, 0, 65)    # Lu
+    assert check_charset(pat, 0, 99)    # Lcheck_charset(pat, 0, 453)   # Lt
+    assert not check_charset(pat, 0, 688)    # Lm
+    assert not check_charset(pat, 0, 5870)   # Nl
