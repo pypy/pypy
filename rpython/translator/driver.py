@@ -413,11 +413,12 @@ class TranslationDriver(SimpleTaskEngine):
             translator.frozen = True
 
         standalone = self.standalone
+        gchooks = self.extra.get('gchooks', None)
 
         if standalone:
             from rpython.translator.c.genc import CStandaloneBuilder
             cbuilder = CStandaloneBuilder(self.translator, self.entry_point,
-                                          config=self.config,
+                                          config=self.config, gchooks=gchooks,
                       secondary_entrypoints=
                       self.secondary_entrypoints + annotated_jit_entrypoints)
         else:
@@ -426,7 +427,8 @@ class TranslationDriver(SimpleTaskEngine):
             cbuilder = CLibraryBuilder(self.translator, self.entry_point,
                                        functions=functions,
                                        name='libtesting',
-                                       config=self.config)
+                                       config=self.config,
+                                       gchooks=gchooks)
         if not standalone:     # xxx more messy
             cbuilder.modulename = self.extmod_name
         database = cbuilder.build_database()

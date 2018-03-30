@@ -1397,6 +1397,16 @@ class GcHooksStats(object):
     steps = 0
     collects = 0
 
+    @staticmethod
+    def fix_annotation():
+        # this is needed to "fix" the annotation of GcHooksStats early, and
+        # must be called from the "main" program. Else, we change the
+        # annotation during the GC transform, when it's too late
+        if NonConstant(False):
+            GC_HOOKS_STATS.collects += 42
+            GC_HOOKS_STATS.steps += 42
+            GC_HOOKS_STATS.minors += 42
+
 GC_HOOKS_STATS = GcHooksStats()
 
 class MyGcHooks(GcHooks):
@@ -1473,14 +1483,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     def define_gc_hooks(cls):
         gchooks = cls.gchooks
         def f():
-            if NonConstant(False):
-                # this is needed to "fix" the annotation of GcHooksStats
-                # early; else, we change the annotation during the GC
-                # transform, when it's too late
-                GC_HOOKS_STATS.collects += 42
-                GC_HOOKS_STATS.steps += 42
-                GC_HOOKS_STATS.minors += 42
-
+            GC_HOOKS_STATS.fix_annotation()
             # trigger two major collections
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
