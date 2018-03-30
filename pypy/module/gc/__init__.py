@@ -34,5 +34,10 @@ class Module(MixedModule):
                 'get_typeids_z': 'referents.get_typeids_z',
                 'get_typeids_list': 'referents.get_typeids_list',
                 'GcRef': 'referents.W_GcRef',
+                'set_hooks': 'hook.set_hooks',
                 })
         MixedModule.__init__(self, space, w_name)
+
+    def setup_after_space_initialization(self):
+        from pypy.module.gc.hook import gchooks
+        gchooks.setspace(self.space)
