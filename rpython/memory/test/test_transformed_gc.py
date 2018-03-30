@@ -1397,6 +1397,11 @@ class GcHooksStats(object):
     steps = 0
     collects = 0
 
+    def reset(self):
+        self.minors = 0
+        self.steps = 0
+        self.collects = 0
+
     @staticmethod
     def fix_annotation():
         # this is needed to "fix" the annotation of GcHooksStats early, and
@@ -1484,6 +1489,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         gchooks = cls.gchooks
         def f():
             GC_HOOKS_STATS.fix_annotation()
+            GC_HOOKS_STATS.reset()
             # trigger two major collections
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
