@@ -14,8 +14,9 @@ from rpython.rlib import rgc
 from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.rtyper import llinterp_backend
-from rpython.memory.gc.test.test_hook import MyGcHooks
+from rpython.memory.gc.hook import GcHooks
 
 
 WORD = LONG_BIT // 8
@@ -1391,6 +1392,32 @@ class TestMiniMarkGC(TestHybridGC):
         assert res([]) == 0
 
 
+class GcHooksStats(object):
+    minors = 0
+    steps = 0
+    collects = 0
+
+GC_HOOKS_STATS = GcHooksStats()
+
+class MyGcHooks(GcHooks):
+
+    def __init__(self):
+        self.gc_minor_enabled = True
+        self.gc_collect_step_enabled = True
+        self.gc_collect_enabled = True
+
+    def on_gc_minor(self, total_memory_used, pinned_objects):
+        GC_HOOKS_STATS.minors += 1
+
+    def on_gc_collect_step(self, oldstate, newstate):
+        GC_HOOKS_STATS.steps += 1
+        
+    def on_gc_collect(self, count, arenas_count_before, arenas_count_after,
+                      arenas_bytes, rawmalloc_bytes_before,
+                      rawmalloc_bytes_after):
+        GC_HOOKS_STATS.collects += 1
+
+
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcname = "incminimark"
 
@@ -1409,9 +1436,6 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             root_stack_depth = 200
 
     gchooks = MyGcHooks()
-
-    def setup_method(self, m):
-        self.gchooks.reset()
 
     def define_malloc_array_of_gcptr(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -1445,6 +1469,38 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         run = self.runner("malloc_struct_of_gcptr")
         res = run([])
         assert res
+
+    def define_gc_hooks(cls):
+        gchooks = cls.gchooks
+        def f():
+            if NonConstant(False):
+                # this is needed to "fix" the annotation of GcHooksStats
+                # early; else, we change the annotation during the GC
+                # transform, when it's too late
+                GC_HOOKS_STATS.collects += 42
+                GC_HOOKS_STATS.steps += 42
+                GC_HOOKS_STATS.minors += 42
+
+            # trigger two major collections
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return (10000 * GC_HOOKS_STATS.collects +
+                      100 * GC_HOOKS_STATS.steps +
+                        1 * GC_HOOKS_STATS.minors)
+        return f
+
+    def test_gc_hooks(self):
+        run = self.runner("gc_hooks")
+        count = run([])
+        collects, count = divmod(count, 10000)
+        steps, minors = divmod(count, 100)
+        #
+        # note: the following asserts are slightly fragile, as they assume
+        # that we do NOT run any minor collection apart the ones triggered by
+        # major_collection_step
+        assert collects == 2           # 2 collections, manually triggered
+        assert steps == 4 * collects   # 4 steps for each major collection
+        assert minors == steps         # one minor collection for each step
 
 # ________________________________________________________________
 # tagged pointers

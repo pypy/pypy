@@ -1,11 +1,8 @@
-from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gc.hook import GcHooks
 from rpython.memory.gc.test.test_direct import BaseDirectGCTest, S
 
 
-# The following class is used also by test_transformed_gc and so it needs to
-# be RPython, that's why we have to use intmask to get consistent types
 class MyGcHooks(GcHooks):
 
     def __init__(self):
@@ -19,7 +16,7 @@ class MyGcHooks(GcHooks):
 
     def on_gc_minor(self, total_memory_used, pinned_objects):
         self.minors.append({
-            'total_memory_used': intmask(total_memory_used),
+            'total_memory_used': total_memory_used,
             'pinned_objects': pinned_objects})
 
     def on_gc_collect_step(self, oldstate, newstate):
@@ -34,9 +31,9 @@ class MyGcHooks(GcHooks):
             'count': count,
             'arenas_count_before': arenas_count_before,
             'arenas_count_after': arenas_count_after,
-            'arenas_bytes': intmask(arenas_bytes),
-            'rawmalloc_bytes_before': intmask(rawmalloc_bytes_before),
-            'rawmalloc_bytes_after': intmask(rawmalloc_bytes_after)})
+            'arenas_bytes': arenas_bytes,
+            'rawmalloc_bytes_before': rawmalloc_bytes_before,
+            'rawmalloc_bytes_after': rawmalloc_bytes_after})
 
 
 class TestIncMiniMarkHooks(BaseDirectGCTest):
