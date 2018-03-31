@@ -364,6 +364,10 @@ class PyPyTarget(object):
         from pypy.module.pypyjit.hooks import pypy_hooks
         return PyPyJitPolicy(pypy_hooks)
 
+    def get_gchooks(self):
+        from pypy.module.gc.hook import gchooks
+        return gchooks
+
     def get_entry_point(self, config):
         space = make_objspace(config)
 
@@ -381,7 +385,7 @@ class PyPyTarget(object):
                      'jitpolicy', 'get_entry_point',
                      'get_additional_config_options']:
             ns[name] = getattr(self, name)
-
+        ns['gchooks'] = self.get_gchooks()
 
 PyPyTarget().interface(globals())
 
