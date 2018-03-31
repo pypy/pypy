@@ -1,5 +1,6 @@
 from rpython.memory.gc.hook import GcHooks
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
@@ -41,6 +42,7 @@ class AppLevelHooks(object):
     def set_hooks(self, space, w_on_gc_minor):
         self.gc_minor_enabled = not space.is_none(w_on_gc_minor)
         self.gc_minor.w_callable = w_on_gc_minor
+        self.gc_minor.fix_annotation()
 
 
 class GcMinorHookAction(AsyncAction):
@@ -49,13 +51,15 @@ class GcMinorHookAction(AsyncAction):
     pinned_objects = 0
 
     def fix_annotation(self):
-        # XXX write comment
+        # the annotation of the class and its attributes must be completed
+        # BEFORE we do the gc transform; this makes sure that everything is
+        # annotated with the correct types
         if NonConstant(False):
-            self.total_memory_used += 42
-            self.pinned_objects += 42
+            self.total_memory_used = NonConstant(r_uint(42))
+            self.pinned_objects = NonConstant(-42)
+            self.fire()
 
     def perform(self, ec, frame):
-        self.fix_annotation()
         w_stats = W_GcMinorStats(self.total_memory_used, self.pinned_objects)
         self.space.call_function(self.w_callable, w_stats)
 
