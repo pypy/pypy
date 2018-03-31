@@ -48,8 +48,8 @@ class GcMinorHookAction(AsyncAction):
 
     def perform(self, ec, frame):
         self.space.call_function(self.w_callable,
-                                 self.space.wrap(self.total_memory_used),
-                                 self.space.wrap(self.pinned_objects))
+                                 self.space.newint(self.total_memory_used),
+                                 self.space.newint(self.pinned_objects))
 
 
 
