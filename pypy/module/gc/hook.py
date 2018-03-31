@@ -9,6 +9,9 @@ class LowLevelGcHooks(GcHooks):
         self.space = space
         self.hooks = space.fromcache(AppLevelHooks)
 
+    def is_gc_minor_enabled(self):
+        return self.hooks.gc_minor_enabled
+
     def on_gc_minor(self, total_memory_used, pinned_objects):
         action = self.hooks.gc_minor
         action.total_memory_used = total_memory_used
@@ -30,10 +33,11 @@ class AppLevelHooks(object):
 
     def __init__(self, space):
         self.space = space
+        self.gc_minor_enabled = False
         self.gc_minor = GcMinorHookAction(space)
 
     def set_hooks(self, space, w_on_gc_minor):
-        # XXX: check for None and enable/disable accordingly
+        self.gc_minor_enabled = not space.is_none(w_on_gc_minor)
         self.gc_minor.w_callable = w_on_gc_minor
 
 

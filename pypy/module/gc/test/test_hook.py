@@ -24,3 +24,10 @@ class AppTestGcHooks(object):
             (10, 20),
             (30, 40),
             ]
+        #
+        gc.set_hooks(on_gc_minor=None)
+        self.fire_gc_minor(50, 60)  # won't fire because the hooks is disabled
+        assert lst == [
+            (10, 20),
+            (30, 40),
+            ]
