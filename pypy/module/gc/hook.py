@@ -1,6 +1,7 @@
 from rpython.memory.gc.hook import GcHooks
-from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.executioncontext import AsyncAction
 
 class LowLevelGcHooks(GcHooks):
@@ -47,11 +48,24 @@ class GcMinorHookAction(AsyncAction):
     pinned_objects = 0
 
     def perform(self, ec, frame):
-        self.space.call_function(self.w_callable,
-                                 self.space.newint(self.total_memory_used),
-                                 self.space.newint(self.pinned_objects))
+        w_stats = W_GcMinorStats(self.total_memory_used, self.pinned_objects)
+        self.space.call_function(self.w_callable, w_stats)
 
 
+class W_GcMinorStats(W_Root):
+
+    def __init__(self, total_memory_used, pinned_objects):
+        self.total_memory_used = total_memory_used
+        self.pinned_objects = pinned_objects
+
+
+W_GcMinorStats.typedef = TypeDef(
+    "GcMinorStats",
+    total_memory_used = interp_attrproperty("total_memory_used",
+                                            cls=W_GcMinorStats, wrapfn="newint"),
+    pinned_objects = interp_attrproperty("pinned_objects",
+                                         cls=W_GcMinorStats, wrapfn="newint"),
+    )
 
 
 def set_hooks(space, w_on_gc_minor):
