@@ -718,7 +718,7 @@ class AsyncGenAThrow(AsyncGenABase):
                     # TODO: add equivalent to CPython's o->agt_gen->ag_closed = 1;
                     w_value = self.async_gen.throw(space.w_GeneratorExit,
                                                    None, None)
-                    if w_value is not None:
+                    if w_value is not None and isinstance(w_value, AsyncGenValueWrapper):
                         raise oefmt(space.w_RuntimeError,
                                     "async generator ignored GeneratorExit")
                 else:

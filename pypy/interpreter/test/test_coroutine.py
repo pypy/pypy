@@ -504,6 +504,39 @@ class AppTestCoroutine:
         raises(RuntimeError, run().send, None)
     """
 
+    def test_async_aclose_await_in_finally(self): """
+        import types
+
+        @types.coroutine
+        def coro():
+            yield 'coro'
+
+        state = 0
+        async def ag():
+            nonlocal state
+            try:
+                yield
+            finally:
+                state = 1
+                await coro()
+                state = 2
+
+        async def run():
+            a = ag()
+            async for i in a:
+                break
+            await a.aclose()
+        a = run()
+        assert state == 0
+        assert a.send(None) == 'coro'
+        assert state == 1
+        try:
+            a.send(None)
+        except StopIteration:
+            pass
+        assert state == 2
+    """
+
     def test_async_anext_close(self): """
         async def ag():
             yield 42
