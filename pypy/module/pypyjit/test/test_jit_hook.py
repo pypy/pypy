@@ -242,7 +242,7 @@ class AppTestJitHook(object):
         assert name == 'pypyjit'
         assert reason == 'ABORT_TOO_LONG'
         assert len(ops) == 4
-        assert ops[0].hash == 0
+        assert ops[2].hash == 0
 
     def test_creation(self):
         from pypyjit import ResOperation
