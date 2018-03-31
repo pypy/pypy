@@ -1,4 +1,5 @@
 from rpython.memory.gc.hook import GcHooks
+from rpython.rlib.nonconst import NonConstant
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
@@ -47,7 +48,14 @@ class GcMinorHookAction(AsyncAction):
     total_memory_used = 0
     pinned_objects = 0
 
+    def fix_annotation(self):
+        # XXX write comment
+        if NonConstant(False):
+            self.total_memory_used += 42
+            self.pinned_objects += 42
+
     def perform(self, ec, frame):
+        self.fix_annotation()
         w_stats = W_GcMinorStats(self.total_memory_used, self.pinned_objects)
         self.space.call_function(self.w_callable, w_stats)
 
