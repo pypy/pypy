@@ -10,10 +10,14 @@ class GcHooks(object):
     trigger a GC collection.
     """
 
-    def __init__(self):
-        self.gc_minor_enabled = False
-        self.gc_collect_step_enabled = False
-        self.gc_collect_enabled = False
+    def is_gc_minor_enabled(self):
+        return False
+
+    def is_gc_collect_step_enabled(self):
+        return False
+
+    def is_gc_collect_enabled(self):
+        return False
 
     def on_gc_minor(self, total_memory_used, pinned_objects):
         """
@@ -43,19 +47,19 @@ class GcHooks(object):
 
     @rgc.no_collect
     def fire_gc_minor(self, total_memory_used, pinned_objects):
-        if self.gc_minor_enabled:
+        if self.is_gc_minor_enabled():
             self.on_gc_minor(total_memory_used, pinned_objects)
 
     @rgc.no_collect
     def fire_gc_collect_step(self, oldstate, newstate):
-        if self.gc_collect_step_enabled:
+        if self.is_gc_collect_step_enabled():
             self.on_gc_collect_step(oldstate, newstate)
 
     @rgc.no_collect
     def fire_gc_collect(self, count, arenas_count_before, arenas_count_after,
                         arenas_bytes, rawmalloc_bytes_before,
                         rawmalloc_bytes_after):
-        if self.gc_collect_enabled:
+        if self.is_gc_collect_enabled():
             self.on_gc_collect(count, arenas_count_before, arenas_count_after,
                                arenas_bytes, rawmalloc_bytes_before,
                                rawmalloc_bytes_after)

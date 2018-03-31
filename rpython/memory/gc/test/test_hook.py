@@ -7,7 +7,19 @@ class MyGcHooks(GcHooks):
 
     def __init__(self):
         GcHooks.__init__(self)
+        self._gc_minor_enabled = False
+        self._gc_collect_step_enabled = False
+        self._gc_collect_enabled = False
         self.reset()
+
+    def is_gc_minor_enabled(self):
+        return self._gc_minor_enabled
+
+    def is_gc_collect_step_enabled(self):
+        return self._gc_collect_step_enabled
+
+    def is_gc_collect_enabled(self):
+        return self._gc_collect_enabled
 
     def reset(self):
         self.minors = []
@@ -48,7 +60,7 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
         self.size_of_S = llmemory.raw_malloc_usage(size)
 
     def test_on_gc_minor(self):
-        self.gc.hooks.gc_minor_enabled = True
+        self.gc.hooks._gc_minor_enabled = True
         self.malloc(S)
         self.gc._minor_collection()
         assert self.gc.hooks.minors == [
@@ -66,8 +78,8 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
 
     def test_on_gc_collect(self):
         from rpython.memory.gc import incminimark as m
-        self.gc.hooks.gc_collect_step_enabled = True
-        self.gc.hooks.gc_collect_enabled = True
+        self.gc.hooks._gc_collect_step_enabled = True
+        self.gc.hooks._gc_collect_enabled = True
         self.malloc(S)
         self.gc.collect()
         assert self.gc.hooks.steps == [

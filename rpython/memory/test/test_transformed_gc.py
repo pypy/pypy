@@ -1410,10 +1410,16 @@ class GcHooksStats(object):
 class MyGcHooks(GcHooks):
 
     def __init__(self):
-        self.gc_minor_enabled = True
-        self.gc_collect_step_enabled = True
-        self.gc_collect_enabled = True
         self.stats = GcHooksStats()
+
+    def is_gc_minor_enabled(self):
+        return True
+
+    def is_gc_collect_step_enabled(self):
+        return True
+
+    def is_gc_collect_enabled(self):
+        return True
 
     def on_gc_minor(self, total_memory_used, pinned_objects):
         self.stats.minors += 1
