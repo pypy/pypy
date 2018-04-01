@@ -414,3 +414,13 @@ def write_w_marker_deallocating(space):
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):
     return rffi.cast(lltype.Signed, ptr)
+
+@cpython_api([PyObject], lltype.Void)
+def Py_IncRef(space, obj):
+    incref(space, obj)
+
+@cpython_api([PyObject], lltype.Void)
+def Py_DecRef(space, obj):
+    decref(space, obj)
+
+
