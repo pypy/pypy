@@ -79,3 +79,10 @@ Fix two (unrelated) JIT bugs manifesting in the re module:
 
 - in rare "trace is too long" situations, the JIT could break behaviour
   arbitrarily.
+
+.. branch: jit-hooks-can-be-disabled
+
+Be more efficient about JIT hooks. Make it possible for the frontend to declare
+that jit hooks are currently not enabled at all. in that case, the list of ops
+does not have to be created in the case of the on_abort hook (which is
+expensive).
