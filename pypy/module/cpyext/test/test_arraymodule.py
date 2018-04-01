@@ -186,3 +186,12 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         # array_subscr does)
         raises(IndexError, module.getitem, a, -5)
 
+    def test_subclass_with_attribute(self):
+        module = self.import_module(name='array')
+        class Sub(module.array):
+            def addattrib(self):
+                print('called addattrib')
+                self.attrib = True
+        import gc
+        module.subclass_with_attribute(Sub, "addattrib", "attrib", gc.collect)
+        
