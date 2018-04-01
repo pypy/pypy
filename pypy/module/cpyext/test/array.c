@@ -2555,7 +2555,6 @@ subclass_with_attribute(PyObject *self, PyObject* args) {
         }
         Py_XDECREF(attrib);
         res = PyObject_Call(collect, tup, NULL);
-        Py_XDECREF(attrib);
         if (res == NULL) {
             Py_DECREF(tup);
             Py_DECREF(sub);
