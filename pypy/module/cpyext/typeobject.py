@@ -858,6 +858,7 @@ def _type_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     # __init__ wraps all slotdefs functions from py_type via add_operators
     w_obj.__init__(space, py_type)
+    w_obj.flag_cpytype = True
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
