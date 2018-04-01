@@ -165,3 +165,11 @@ pass"""
         for linefeed in ["\r\n","\r"]:
             tree = self.parse(fmt % linefeed)
             assert expected_tree == tree
+
+    def test_error_forgotten_chars(self):
+        info = py.test.raises(SyntaxError, self.parse, "if 1\n    print 4")
+        assert "(expected ':')" in info.value.msg
+        info = py.test.raises(SyntaxError, self.parse, "for i in range(10)\n    print i")
+        assert "(expected ':')" in info.value.msg
+        info = py.test.raises(SyntaxError, self.parse, "def f:\n print 1")
+        assert "(expected '(')" in info.value.msg
