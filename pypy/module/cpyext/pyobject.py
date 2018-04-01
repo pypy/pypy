@@ -417,10 +417,11 @@ def _Py_HashPointer(space, ptr):
 
 @cpython_api([PyObject], lltype.Void)
 def Py_IncRef(space, obj):
-    incref(space, obj)
+    # used only ifdef PYPY_DEBUG_REFCOUNT
+    if obj:
+        incref(space, obj)
 
 @cpython_api([PyObject], lltype.Void)
 def Py_DecRef(space, obj):
+    # used only ifdef PYPY_DEBUG_REFCOUNT
     decref(space, obj)
-
-
