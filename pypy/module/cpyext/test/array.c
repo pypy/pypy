@@ -2523,13 +2523,17 @@ subclass_with_attribute(PyObject *self, PyObject* args) {
         return NULL;
     }
     tup = PyTuple_New(0);
+    /*
     #ifdef PYPY_VERSION
         printf("calling addattrib pypylink %lu \n", sub->ob_pypy_link);
     #endif
+    */
     res = PyObject_Call(attrib, tup, NULL);
+    /*
     #ifdef PYPY_VERSION
         printf("after addattrib pypylink %lu \n", sub->ob_pypy_link);
     #endif
+    */
     Py_DECREF(attrib);
     if (res == NULL) {
         Py_DECREF(tup);
@@ -2538,12 +2542,14 @@ subclass_with_attribute(PyObject *self, PyObject* args) {
     }
     Py_DECREF(res);
     for(i=0; i<10; i++) {
+        /*
         #ifdef PYPY_VERSION
             printf("starting loop iteration %d refcnt %lu pypylink %lu \n", i, 
                 sub->ob_refcnt, sub->ob_pypy_link);
         #else
             printf("starting loop iteration %d refcnt %lu\n", i, sub->ob_refcnt);
         #endif
+        */
         attrib =  PyObject_GetAttr(sub, attribname);
         if (!attrib || (attrib == Py_None)) {
             PyErr_SetString(PyExc_ValueError,
