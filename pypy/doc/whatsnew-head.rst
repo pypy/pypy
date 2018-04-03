@@ -91,3 +91,9 @@ expensive).
 .. branch: pyparser-improvements
 
 Improve speed of Python parser, improve ParseError messages slightly.
+
+.. branch: ioctl-arg-size
+
+Work around possible bugs in upstream ioctl users, like CPython allocate at
+least 1024 bytes for the arg in calls to ``ioctl(fd, request, arg)``. Fixes
+issue #2776
