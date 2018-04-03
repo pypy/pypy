@@ -1,7 +1,9 @@
 from rpython.translator.goal import gcbench
-from rpython.memory.test.test_transformed_gc import MyGcHooks
+from rpython.memory.test.test_transformed_gc import MyGcHooks, GcHooksStats
 
 # _____ Define and setup target ___
+
+GC_HOOKS_STATS = GcHooksStats()
 
 def entry_point(argv):
     GC_HOOKS_STATS.reset()
@@ -15,10 +17,9 @@ def entry_point(argv):
     print '    gc-collect:      ', collects
     return ret
 
-gchooks = MyGcHooks()
-GC_HOOKS_STATS = gchooks.stats
+def get_gchooks():
+    return MyGcHooks(GC_HOOKS_STATS)
 
 def target(*args):
     gcbench.ENABLE_THREADS = False    # not RPython
     return entry_point, None
-

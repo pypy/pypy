@@ -1409,8 +1409,8 @@ class GcHooksStats(object):
 
 class MyGcHooks(GcHooks):
 
-    def __init__(self):
-        self.stats = GcHooksStats()
+    def __init__(self, stats=None):
+        self.stats = stats or GcHooksStats()
 
     def is_gc_minor_enabled(self):
         return True

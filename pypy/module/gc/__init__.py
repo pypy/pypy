@@ -37,7 +37,3 @@ class Module(MixedModule):
                 'set_hooks': 'hook.set_hooks',
                 })
         MixedModule.__init__(self, space, w_name)
-
-    def setup_after_space_initialization(self):
-        from pypy.module.gc.hook import gchooks
-        gchooks.setspace(self.space)

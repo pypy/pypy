@@ -413,7 +413,8 @@ class TranslationDriver(SimpleTaskEngine):
             translator.frozen = True
 
         standalone = self.standalone
-        gchooks = self.extra.get('gchooks', None)
+        get_gchooks = self.extra.get('get_gchooks', lambda: None)
+        gchooks = get_gchooks()
 
         if standalone:
             from rpython.translator.c.genc import CStandaloneBuilder

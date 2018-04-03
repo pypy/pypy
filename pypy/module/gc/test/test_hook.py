@@ -1,5 +1,5 @@
 from rpython.rlib.rarithmetic import r_uint
-from pypy.module.gc.hook import gchooks
+from pypy.module.gc.hook import LowLevelGcHooks
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
@@ -7,6 +7,7 @@ class AppTestGcHooks(object):
 
     def setup_class(cls):
         space = cls.space
+        gchooks = space.fromcache(LowLevelGcHooks)
 
         @unwrap_spec(ObjSpace, r_uint, int)
         def fire_gc_minor(space, total_memory_used, pinned_objects):

@@ -215,6 +215,7 @@ class PyPyTarget(object):
     usage = SUPPRESS_USAGE
 
     take_options = True
+    space = None
 
     def opt_parser(self, config):
         parser = to_optparse(config, useoptions=["objspace.*"],
@@ -365,18 +366,20 @@ class PyPyTarget(object):
         return PyPyJitPolicy(pypy_hooks)
 
     def get_gchooks(self):
-        from pypy.module.gc.hook import gchooks
-        return gchooks
+        from pypy.module.gc.hook import LowLevelGcHooks
+        if self.space is None:
+            raise Exception("get_gchooks must be called afeter get_entry_point")
+        return self.space.fromcache(LowLevelGcHooks)
 
     def get_entry_point(self, config):
-        space = make_objspace(config)
+        self.space = make_objspace(config)
 
         # manually imports app_main.py
         filename = os.path.join(pypydir, 'interpreter', 'app_main.py')
         app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
         app.hidden_applevel = False
-        w_dict = app.getwdict(space)
-        entry_point, _ = create_entry_point(space, w_dict)
+        w_dict = app.getwdict(self.space)
+        entry_point, _ = create_entry_point(self.space, w_dict)
 
         return entry_point, None, PyPyAnnotatorPolicy()
 
@@ -385,7 +388,7 @@ class PyPyTarget(object):
                      'jitpolicy', 'get_entry_point',
                      'get_additional_config_options']:
             ns[name] = getattr(self, name)
-        ns['gchooks'] = self.get_gchooks()
+        ns['get_gchooks'] = self.get_gchooks
 
 PyPyTarget().interface(globals())
 

@@ -8,7 +8,7 @@ from pypy.interpreter.executioncontext import AsyncAction
 
 class LowLevelGcHooks(GcHooks):
 
-    def setspace(self, space):
+    def __init__(self, space):
         self.space = space
         self.hooks = space.fromcache(AppLevelHooks)
 
@@ -29,8 +29,6 @@ class LowLevelGcHooks(GcHooks):
                       rawmalloc_bytes_after):
         pass
 
-
-gchooks = LowLevelGcHooks()
 
 class AppLevelHooks(object):
 
