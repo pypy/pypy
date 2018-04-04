@@ -17,8 +17,13 @@ class AppTestGcHooks(object):
         def fire_gc_collect_step(space, oldstate, newstate):
             gchooks.fire_gc_collect_step(oldstate, newstate)
 
+        @unwrap_spec(ObjSpace, int, int, int, r_uint, r_uint, r_uint)
+        def fire_gc_collect(space, a, b, c, d, e, f):
+            gchooks.fire_gc_collect(a, b, c, d, e, f)
+
         cls.w_fire_gc_minor = space.wrap(interp2app(fire_gc_minor))
         cls.w_fire_gc_collect_step = space.wrap(interp2app(fire_gc_collect_step))
+        cls.w_fire_gc_collect = space.wrap(interp2app(fire_gc_collect))
 
     def test_on_gc_minor(self):
         import gc
@@ -58,6 +63,31 @@ class AppTestGcHooks(object):
         assert lst == [
             (10, 20),
             (30, 40),
+            ]
+
+    def test_on_gc_collect(self):
+        import gc
+        lst = []
+        def on_gc_collect(stats):
+            lst.append((stats.count,
+                        stats.arenas_count_before,
+                        stats.arenas_count_after,
+                        stats.arenas_bytes,
+                        stats.rawmalloc_bytes_before,
+                        stats.rawmalloc_bytes_after))
+        gc.set_hooks(on_gc_collect=on_gc_collect)
+        self.fire_gc_collect(1, 2, 3, 4, 5, 6)
+        self.fire_gc_collect(7, 8, 9, 10, 11, 12)
+        assert lst == [
+            (1, 2, 3, 4, 5, 6),
+            (7, 8, 9, 10, 11, 12),
+            ]
+        #
+        gc.set_hooks(on_gc_collect=None)
+        self.fire_gc_collect(42, 42, 42, 42, 42, 42)  # won't fire
+        assert lst == [
+            (1, 2, 3, 4, 5, 6),
+            (7, 8, 9, 10, 11, 12),
             ]
 
     def test_consts(self):
