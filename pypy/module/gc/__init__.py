@@ -35,5 +35,6 @@ class Module(MixedModule):
                 'get_typeids_list': 'referents.get_typeids_list',
                 'GcRef': 'referents.W_GcRef',
                 'set_hooks': 'hook.set_hooks',
+                'GcCollectStepStats': 'hook.W_GcCollectStepStats',
                 })
         MixedModule.__init__(self, space, w_name)

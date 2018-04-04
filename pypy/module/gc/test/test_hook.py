@@ -59,3 +59,12 @@ class AppTestGcHooks(object):
             (10, 20),
             (30, 40),
             ]
+
+    def test_consts(self):
+        import gc
+        S = gc.GcCollectStepStats
+        assert S.STATE_SCANNING == 0
+        assert S.STATE_MARKING == 1
+        assert S.STATE_SWEEPING == 2
+        assert S.STATE_FINALIZING == 3
+        assert S.GC_STATES == ('SCANNING', 'MARKING', 'SWEEPING', 'FINALIZING')

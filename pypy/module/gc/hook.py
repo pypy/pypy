@@ -1,4 +1,5 @@
 from rpython.memory.gc.hook import GcHooks
+from rpython.memory.gc import incminimark 
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -117,6 +118,11 @@ W_GcMinorStats.typedef = TypeDef(
 
 W_GcCollectStepStats.typedef = TypeDef(
     "GcCollectStepStats",
+    STATE_SCANNING = incminimark.STATE_SCANNING,
+    STATE_MARKING = incminimark.STATE_MARKING,
+    STATE_SWEEPING = incminimark.STATE_SWEEPING,
+    STATE_FINALIZING = incminimark.STATE_FINALIZING,
+    GC_STATES = tuple(incminimark.GC_STATES),
     oldstate = interp_attrproperty("oldstate",
                                    cls=W_GcCollectStepStats, wrapfn="newint"),
     newstate = interp_attrproperty("newstate",

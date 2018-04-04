@@ -1,5 +1,7 @@
 from rpython.rlib import rgc
 
+# WARNING: at the moment of writing, gc hooks are implemented only for
+# incminimark. Please add calls to hooks to the other GCs if you need it.
 class GcHooks(object):
     """
     Base class to write your own GC hooks.
