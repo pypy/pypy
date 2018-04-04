@@ -17,3 +17,12 @@ Update winreg module to use unicode, wide-strings
 
 Add missing ``__doc__``, ``__module__``, ``__name__`` attributes to 
 ``instancemethod``
+
+.. branch: winapi
+
+Update support for _winapi cffi module for python3
+
+.. branch: py3.5-refactor-slots
+
+Refactor cpyext slots.
+
