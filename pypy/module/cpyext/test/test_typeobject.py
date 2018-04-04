@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import generic_cpy_call
 from pypy.module.cpyext.pyobject import make_ref, from_ref, decref, as_pyobj
-from pypy.module.cpyext.typeobject import PyTypeObjectPtr
+from pypy.module.cpyext.typeobject import PyTypeObjectPtr, W_PyCTypeObject
 
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
@@ -568,6 +568,23 @@ class TestTypes(BaseApiTest):
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
         assert api.PyErr_Occurred() is None
+
+    def test_subclass_not_PyCTypeObject(self, space, api):
+        pyobj = make_ref(space, api.PyLong_Type)
+        py_type = rffi.cast(PyTypeObjectPtr, pyobj)
+        w_pyclass = W_PyCTypeObject(space, py_type)
+        w_class = space.appexec([w_pyclass], """(base):
+            class Sub(base):
+                def addattrib(self, value):
+                    self.attrib = value
+            return Sub
+            """)
+        assert w_pyclass in w_class.mro_w
+        assert isinstance(w_pyclass, W_PyCTypeObject)
+        assert not isinstance(w_class, W_PyCTypeObject)
+        assert w_pyclass.is_cpytype()
+        # XXX document the current status, not clear if this is desirable
+        assert w_class.is_cpytype()
 
 
 class AppTestSlots(AppTestCpythonExtensionBase):
