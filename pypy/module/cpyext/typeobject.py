@@ -1,6 +1,6 @@
 import os
 
-from rpython.rlib import jit
+from rpython.rlib import jit, rawrefcount
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
 
@@ -516,6 +516,10 @@ class W_PyCTypeObject(W_TypeObject):
         if pto.c_tp_doc:
             self.w_doc = space.newtext(
                 rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
+
+    def _cpyext_attach_pyobj(self, space, py_obj):
+        self._cpy_ref = py_obj
+        rawrefcount.create_link_pyobj(self, py_obj)
 
 @bootstrap_function
 def init_typeobject(space):

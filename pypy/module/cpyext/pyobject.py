@@ -60,10 +60,10 @@ def add_direct_pyobj_storage(cls):
 
     def _cpyext_attach_pyobj(self, space, py_obj):
         self._cpy_ref = py_obj
-        rawrefcount.create_link_pyobj(self, py_obj)
+        rawrefcount.create_link_pypy(self, py_obj)
     cls._cpyext_attach_pyobj = _cpyext_attach_pyobj
 
-add_direct_pyobj_storage(W_BaseCPyObject)
+add_direct_pyobj_storage(W_BaseCPyObject) 
 add_direct_pyobj_storage(W_TypeObject)
 add_direct_pyobj_storage(W_NoneObject)
 add_direct_pyobj_storage(W_BoolObject)
