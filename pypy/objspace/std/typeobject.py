@@ -1199,9 +1199,7 @@ def setup_user_defined_type(w_self, force_new_layout):
     for w_base in w_self.bases_w:
         if not isinstance(w_base, W_TypeObject):
             continue
-        # set only in cpyext type_realize, so user-created types will
-        # still use w_root_attach_pyobj (in cpyext.pyobject)
-        #w_self.flag_cpytype |= w_base.flag_cpytype
+        w_self.flag_cpytype |= w_base.flag_cpytype
         w_self.flag_abstract |= w_base.flag_abstract
         if w_self.flag_map_or_seq == '?':
             w_self.flag_map_or_seq = w_base.flag_map_or_seq
