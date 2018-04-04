@@ -1,0 +1,89 @@
+======================================
+PyPy2.7 and PyPy3.5 v6.0 dual release
+======================================
+
+The PyPy team is proud to release both PyPy2.7 v6.0 (an interpreter supporting
+Python 2.7 syntax), and a PyPy3.5 v6.0 (an interpreter supporting Python
+3.5 syntax). The two releases are both based on much the same codebase, thus
+the dual release.
+
+This release is a feature release following our previous 5.10 incremental
+release in late December 2017, with many improvements in the C-API
+compatability layer and other improvements in speed and CPython compatibility.
+Since the changes affect the included python development header files, all
+c-extension modules must be recompiled for this version.
+
+The Windows PyPy3.5 release is still considered beta-quality. There are issues
+with unicode handling especially around system calls and c-extensions.
+
+The Matplotlib TkAgg backend now works with PyPy. PyGame and pygtk also now can
+work with PyPy.
+
+As always, this release is 100% compatible with the previous one and fixed
+several issues and bugs raised by the growing community of PyPy users.
+We strongly recommend updating.
+
+The utf8 branch that changes internal representation of unicode to utf8 did not
+make it into the release. We also began working on a Python3.6 implementation,
+help is welcome.
+
+We updated the cffi module included in PyPy to version 1.11.4
+
+You can download the v6.0 releases here:
+
+    http://pypy.org/download.html
+
+We would like to thank our donors for the continued support of the PyPy
+project.
+
+We would also like to thank our contributors and
+encourage new people to join the project. PyPy has many
+layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
+improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
+with making RPython's JIT even better.
+
+.. _`PyPy`: index.html
+.. _`RPython`: https://rpython.readthedocs.org
+.. _`modules`: project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: project-ideas.html
+
+What is PyPy?
+=============
+
+PyPy is a very compliant Python interpreter, almost a drop-in replacement for
+CPython 2.7 and CPython 3.5. It's fast (`PyPy and CPython 2.7.x`_ performance comparison)
+due to its integrated tracing JIT compiler.
+
+We also welcome developers of other `dynamic languages`_ to see what RPython
+can do for them.
+
+The PyPy release supports:
+
+  * **x86** machines on most common operating systems
+    (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
+
+  * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
+
+  * big- and little-endian variants of **PPC64** running Linux,
+
+  * **s390x** running Linux
+
+.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
+.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+
+Changelog
+=========
+
+* support ``hastzinfo`` and ``tzinfo`` in the C-API ``PyDateTime*`` structures
+* datetime.h is now more similar to CPython
+* We now support ``PyUnicode_AsUTF{16,32}String``, ``_PyLong_AsByteArray``,
+  ``_PyLong_AsByteArrayO``,
+* PyPy3.5 on Windows is compiled with the Microsoft Visual Compiler v14, like
+  CPython
+* Fix performance of attribute lookup when more than 80 attributes are used
+* Improve performance on passing built-in types to C-API C code
+* Improve the performance of datetime and timedelta by skipping the consistency
+  checks of the datetime values (they are correct by construction)
+* Improve handling of ``bigint`` s, including fixing ``int_divmod``
+* Improve reporting of GC statistics
+* Accept unicode filenames in ``dbm.open()``
