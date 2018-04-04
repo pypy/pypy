@@ -1,7 +1,7 @@
 from rpython.memory.gc.hook import GcHooks
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.executioncontext import AsyncAction
@@ -15,6 +15,9 @@ class LowLevelGcHooks(GcHooks):
     def is_gc_minor_enabled(self):
         return self.hooks.gc_minor_enabled
 
+    def is_gc_collect_step_enabled(self):
+        return self.hooks.gc_collect_step_enabled
+
     def on_gc_minor(self, total_memory_used, pinned_objects):
         action = self.hooks.gc_minor
         action.total_memory_used = total_memory_used
@@ -22,7 +25,10 @@ class LowLevelGcHooks(GcHooks):
         action.fire()
 
     def on_gc_collect_step(self, oldstate, newstate):
-        pass
+        action = self.hooks.gc_collect_step
+        action.oldstate = oldstate
+        action.newstate = newstate
+        action.fire()
 
     def on_gc_collect(self, count, arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
@@ -35,12 +41,18 @@ class AppLevelHooks(object):
     def __init__(self, space):
         self.space = space
         self.gc_minor_enabled = False
+        self.gc_collect_step_enabled = False
         self.gc_minor = GcMinorHookAction(space)
+        self.gc_collect_step = GcCollectStepHookAction(space)
 
-    def set_hooks(self, space, w_on_gc_minor):
+    def set_hooks(self, space, w_on_gc_minor, w_on_gc_collect_step):
         self.gc_minor_enabled = not space.is_none(w_on_gc_minor)
         self.gc_minor.w_callable = w_on_gc_minor
         self.gc_minor.fix_annotation()
+        #
+        self.gc_collect_step_enabled = not space.is_none(w_on_gc_collect_step)
+        self.gc_collect_step.w_callable = w_on_gc_collect_step
+        self.gc_collect_step.fix_annotation()
 
 
 class GcMinorHookAction(AsyncAction):
@@ -62,11 +74,37 @@ class GcMinorHookAction(AsyncAction):
         self.space.call_function(self.w_callable, w_stats)
 
 
+class GcCollectStepHookAction(AsyncAction):
+    w_callable = None
+    oldstate = 0
+    newstate = 0
+
+    def fix_annotation(self):
+        # the annotation of the class and its attributes must be completed
+        # BEFORE we do the gc transform; this makes sure that everything is
+        # annotated with the correct types
+        if NonConstant(False):
+            self.oldstate = NonConstant(42)
+            self.newstate = NonConstant(-42)
+            self.fire()
+
+    def perform(self, ec, frame):
+        w_stats = W_GcCollectStepStats(self.oldstate, self.newstate)
+        self.space.call_function(self.w_callable, w_stats)
+
+
 class W_GcMinorStats(W_Root):
 
     def __init__(self, total_memory_used, pinned_objects):
         self.total_memory_used = total_memory_used
         self.pinned_objects = pinned_objects
+
+
+class W_GcCollectStepStats(W_Root):
+
+    def __init__(self, oldstate, newstate):
+        self.oldstate = oldstate
+        self.newstate = newstate
 
 
 W_GcMinorStats.typedef = TypeDef(
@@ -77,6 +115,18 @@ W_GcMinorStats.typedef = TypeDef(
                                          cls=W_GcMinorStats, wrapfn="newint"),
     )
 
+W_GcCollectStepStats.typedef = TypeDef(
+    "GcCollectStepStats",
+    oldstate = interp_attrproperty("oldstate",
+                                   cls=W_GcCollectStepStats, wrapfn="newint"),
+    newstate = interp_attrproperty("newstate",
+                                   cls=W_GcCollectStepStats, wrapfn="newint"),
+    )
 
-def set_hooks(space, w_on_gc_minor):
-    space.fromcache(AppLevelHooks).set_hooks(space, w_on_gc_minor)
+
+@unwrap_spec(w_on_gc_minor=WrappedDefault(None),
+             w_on_gc_collect_step=WrappedDefault(None))
+def set_hooks(space, w_on_gc_minor=None, w_on_gc_collect_step=None):
+    hooks = space.fromcache(AppLevelHooks)
+    hooks.set_hooks(space, w_on_gc_minor, w_on_gc_collect_step)
+                                             
