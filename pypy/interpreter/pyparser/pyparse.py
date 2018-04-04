@@ -146,7 +146,11 @@ class PythonParser(parser.Parser):
                     w_message = space.str(e.get_w_value(space))
                     raise error.SyntaxError(space.text_w(w_message))
                 raise
+        if enc is not None:
+            compile_info.encoding = enc
+        return self._parse(textsrc, compile_info)
 
+    def _parse(self, textsrc, compile_info):
         flags = compile_info.flags
         if explicit_encoding:
             flags |= consts.PyCF_FOUND_ENCODING
@@ -225,6 +229,9 @@ class PythonParser(parser.Parser):
                             last_value_seen,)
                     else:
                         msg = "invalid syntax"
+                    if e.expected_str is not None:
+                        msg += " (expected '%s')" % e.expected_str
+
                 raise new_err(msg, e.lineno, e.column, e.line,
                               compile_info.filename)
             else:
@@ -232,6 +239,4 @@ class PythonParser(parser.Parser):
         finally:
             # Avoid hanging onto the tree.
             self.root = None
-        if enc is not None:
-            compile_info.encoding = enc
         return tree

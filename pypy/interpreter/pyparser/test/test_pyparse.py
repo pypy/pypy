@@ -245,3 +245,12 @@ stuff = "nothing"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
                            "in position 16: ordinal not in range(128)")
+
+    def test_error_forgotten_chars(self):
+        info = py.test.raises(SyntaxError, self.parse, "if 1\n    print 4")
+        assert "(expected ':')" in info.value.msg
+        info = py.test.raises(SyntaxError, self.parse, "for i in range(10)\n    print i")
+        assert "(expected ':')" in info.value.msg
+        info = py.test.raises(SyntaxError, self.parse, "def f:\n print 1")
+        assert "(expected '(')" in info.value.msg
+

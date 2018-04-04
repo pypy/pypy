@@ -125,8 +125,13 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
                                        op.getarg(2).getint(),
                                        w_greenkey))
         elif op.is_guard():
+            descr = op.getdescr()
+            if descr is not None: # can be none in on_abort!
+                hash = op.getdescr().get_jitcounter_hash()
+            else:
+                hash = r_uint(0)
             l_w.append(GuardOp(name, ofs, logops.repr_of_resop(op),
-                op.getdescr().get_jitcounter_hash()))
+                hash))
         else:
             l_w.append(WrappedOp(name, ofs, logops.repr_of_resop(op)))
     return l_w

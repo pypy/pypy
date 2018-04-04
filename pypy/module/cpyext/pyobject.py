@@ -128,9 +128,6 @@ class BaseCpyTypedescr(object):
                             w_type)
             raise
         track_reference(space, obj, w_obj)
-        if w_type.flag_cpytype:
-            assert isinstance(w_obj, W_BaseCPyObject)
-            w_obj._cpy_ref = obj
         return w_obj
 
 typedescr_cache = {}
