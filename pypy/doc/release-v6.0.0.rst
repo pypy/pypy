@@ -27,20 +27,20 @@ The utf8 branch that changes internal representation of unicode to utf8 did not
 make it into the release. We also began working on a Python3.6 implementation,
 help is welcome.
 
-We updated the cffi module included in PyPy to version 1.11.4
+We updated the cffi module included in PyPy to version 1.11.5
 
 You can download the v6.0 releases here:
 
     http://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
-project.
+project. If PyPy is not quite good enough for your needs, we are available for
+direct consulting work.
 
-We would also like to thank our contributors and
-encourage new people to join the project. PyPy has many
-layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
-improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
-with making RPython's JIT even better.
+We would also like to thank our contributors and encourage new people to join
+the project. PyPy has many layers and we need help with all of them: `PyPy`_
+and `RPython`_ documentation improvements, tweaking popular `modules`_ to run
+on pypy, or general `help`_ with making RPython's JIT even better.
 
 .. _`PyPy`: index.html
 .. _`RPython`: https://rpython.readthedocs.org
@@ -74,6 +74,9 @@ The PyPy release supports:
 Changelog
 =========
 
+* Speed up C-API method calls, and make most Py*_Check calls C macros
+* Speed up C-API slot method calls
+* Enable TkAgg backend support for matplotlib
 * support ``hastzinfo`` and ``tzinfo`` in the C-API ``PyDateTime*`` structures
 * datetime.h is now more similar to CPython
 * We now support ``PyUnicode_AsUTF{16,32}String``, ``_PyLong_AsByteArray``,
@@ -87,3 +90,13 @@ Changelog
 * Improve handling of ``bigint`` s, including fixing ``int_divmod``
 * Improve reporting of GC statistics
 * Accept unicode filenames in ``dbm.open()``
+* Improve RPython support for half-floats
+* Added missing attributes to C-API ``instancemethod`` on pypy3
+* Store error state in thread-local storage for C-API.
+* Fix JIT bugs exposed in the sre module
+* Improve speed of Python parser, improve ParseError messages slightly
+* Handle JIT hooks more efficiently
+
+We also refactored many parts of the JIT bridge optimizations, as well as cpyext
+internals, and together with new contributors fixed issues, added new
+documentation, and cleaned up the codebase.
