@@ -114,16 +114,28 @@ class AppTestGcHooks(object):
 
     def test_clear_queue(self):
         import gc
-        lst = []
-        def on_gc_minor(stats):        lst.append('minor')
-        def on_gc_collect_step(stats): lst.append('step')
-        def on_gc_collect(stats):      lst.append('collect')
-        gc.hooks.on_gc_minor = on_gc_minor
-        gc.hooks.on_gc_collect_step = on_gc_collect_step
-        gc.hooks.on_gc_collect = on_gc_collect
-        #
+        class MyHooks(object):
+
+            def __init__(self):
+                self.lst = []
+
+            def on_gc_minor(self, stats):
+                self.lst.append('minor')
+
+            def on_gc_collect_step(self, stats):
+                self.lst.append('step')
+
+            def on_gc_collect(self, stats):
+                self.lst.append('collect')
+
+        myhooks = MyHooks()
+        gc.hooks.set(myhooks)
         self.fire_many()
-        assert lst == ['minor', 'step', 'collect']
-        lst[:] = []
+        assert myhooks.lst == ['minor', 'step', 'collect']
+        myhooks.lst[:] = []
         self.fire_gc_minor(0, 0)
-        assert lst == ['minor']
+        assert myhooks.lst == ['minor']
+        gc.hooks.reset()
+        assert gc.hooks.on_gc_minor is None
+        assert gc.hooks.on_gc_collect_step is None
+        assert gc.hooks.on_gc_collect is None

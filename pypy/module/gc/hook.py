@@ -91,6 +91,19 @@ class W_AppLevelHooks(W_Root):
         self.gc_collect.w_callable = w_obj
         self.gc_collect.fix_annotation()
 
+    def descr_set(self, space, w_obj):
+        w_a = space.getattr(w_obj, space.newtext('on_gc_minor'))
+        w_b = space.getattr(w_obj, space.newtext('on_gc_collect_step'))
+        w_c = space.getattr(w_obj, space.newtext('on_gc_collect'))
+        self.descr_set_on_gc_minor(space, w_a)
+        self.descr_set_on_gc_collect_step(space, w_b)
+        self.descr_set_on_gc_collect(space, w_c)
+
+    def descr_reset(self, space):
+        self.descr_set_on_gc_minor(space, space.w_None)
+        self.descr_set_on_gc_collect_step(space, space.w_None)
+        self.descr_set_on_gc_collect(space, space.w_None)
+
 
 class GcMinorHookAction(AsyncAction):
     total_memory_used = 0
@@ -218,6 +231,9 @@ W_AppLevelHooks.typedef = TypeDef(
     on_gc_collect = GetSetProperty(
         W_AppLevelHooks.descr_get_on_gc_collect,
         W_AppLevelHooks.descr_set_on_gc_collect),
+
+    set = interp2app(W_AppLevelHooks.descr_set),
+    reset = interp2app(W_AppLevelHooks.descr_reset),
     )
 
 W_GcMinorStats.typedef = TypeDef(
