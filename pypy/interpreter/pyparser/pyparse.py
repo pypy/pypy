@@ -148,12 +148,12 @@ class PythonParser(parser.Parser):
                 raise
         if enc is not None:
             compile_info.encoding = enc
+        if explicit_encoding:
+            compile_info.flags |= consts.PyCF_FOUND_ENCODING
         return self._parse(textsrc, compile_info)
 
     def _parse(self, textsrc, compile_info):
         flags = compile_info.flags
-        if explicit_encoding:
-            flags |= consts.PyCF_FOUND_ENCODING
 
         # The tokenizer is very picky about how it wants its input.
         source_lines = textsrc.splitlines(True)
