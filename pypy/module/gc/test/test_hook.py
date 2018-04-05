@@ -21,9 +21,16 @@ class AppTestGcHooks(object):
         def fire_gc_collect(space, a, b, c, d, e, f):
             gchooks.fire_gc_collect(a, b, c, d, e, f)
 
+        @unwrap_spec(ObjSpace)
+        def fire_many(space):
+            gchooks.fire_gc_minor(0, 0)
+            gchooks.fire_gc_collect_step(0, 0)
+            gchooks.fire_gc_collect(1, 2, 3, 4, 5, 6)
+
         cls.w_fire_gc_minor = space.wrap(interp2app(fire_gc_minor))
         cls.w_fire_gc_collect_step = space.wrap(interp2app(fire_gc_collect_step))
         cls.w_fire_gc_collect = space.wrap(interp2app(fire_gc_collect))
+        cls.w_fire_many = space.wrap(interp2app(fire_many))
 
     def test_on_gc_minor(self):
         import gc
@@ -98,3 +105,19 @@ class AppTestGcHooks(object):
         assert S.STATE_SWEEPING == 2
         assert S.STATE_FINALIZING == 3
         assert S.GC_STATES == ('SCANNING', 'MARKING', 'SWEEPING', 'FINALIZING')
+
+    def test_clear_queue(self):
+        import gc
+        lst = []
+        def on_gc_minor(stats):        lst.append('minor')
+        def on_gc_collect_step(stats): lst.append('step')
+        def on_gc_collect(stats):      lst.append('collect')
+        gc.set_hooks(on_gc_minor=on_gc_minor,
+                     on_gc_collect_step=on_gc_collect_step,
+                     on_gc_collect=on_gc_collect)
+        #
+        self.fire_many()
+        assert lst == ['minor', 'step', 'collect']
+        lst[:] = []
+        self.fire_gc_minor(0, 0)
+        assert lst == ['minor']

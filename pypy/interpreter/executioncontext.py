@@ -430,6 +430,7 @@ class AbstractActionFlag(object):
 
     @rgc.no_collect
     def _fired_actions_append(self, action):
+        assert action._next is None
         if self._fired_actions_first is None:
             self._fired_actions_first = action
             self._fired_actions_last = action
@@ -494,7 +495,7 @@ class AbstractActionFlag(object):
                 while action is not None:
                     action._fired = False
                     action.perform(ec, frame)
-                    action = action._next
+                    action._next, action = None, action._next
 
         self.action_dispatcher = action_dispatcher
 
