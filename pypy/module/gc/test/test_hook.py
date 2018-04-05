@@ -1,3 +1,4 @@
+import pytest
 from rpython.rlib.rarithmetic import r_uint
 from pypy.module.gc.hook import LowLevelGcHooks
 from pypy.interpreter.baseobjspace import ObjSpace
@@ -6,6 +7,8 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 class AppTestGcHooks(object):
 
     def setup_class(cls):
+        if cls.runappdirect:
+            pytest.skip("these tests cannot work with -A")
         space = cls.space
         gchooks = space.fromcache(LowLevelGcHooks)
 
