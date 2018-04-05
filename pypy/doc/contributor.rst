@@ -56,13 +56,13 @@ Contributors
   Niko Matsakis
   Alexander Hesse
   Ludovic Aubry
+  stian
   Jacob Hallen
   Jason Creighton
   Mark Young
   Alex Martelli
   Spenser Bauman
   Michal Bendowski
-  stian
   Jan de Mooij
   Tyler Wade
   Vincent Legoll
@@ -90,10 +90,10 @@ Contributors
   Wenzhu Man
   Konstantin Lopuhin
   John Witulski
+  Jeremy Thurgood
   Greg Price
   Ivan Sichmann Freitas
   Dario Bertini
-  Jeremy Thurgood
   Mark Pearse
   Simon Cross
   Tobias Pape
@@ -112,18 +112,19 @@ Contributors
   Adrian Kuhn
   tav
   Georg Brandl
+  Joannah Nanjekye
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
   Mike Blume
-  Joannah Nanjekye
   Gerald Klix
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
+  Dodan Mihai
   Tim Felgentreff
   Eugene Oden
-  Dodan Mihai
+  Colin Valliant
   Jeff Terrace
   Henry Mason
   Vasily Kuznetsov
@@ -192,12 +193,14 @@ Contributors
   Vaibhav Sood
   Reuben Cummings
   Attila Gobi
+  Floris Bruynooghe
   Christopher Pope
   Tristan Arthur
   Christian Tismer 
   Dan Stromberg
   Carl Meyer
   Florin Papa
+  Arianna Avanzini
   Jens-Uwe Mager
   Valentina Mukhamedzhanova
   Stefano Parmesan
@@ -221,6 +224,7 @@ Contributors
   Mark Williams
   Kunal Grover
   Nathan Taylor
+  Barry Hart
   Travis Francis Athougies
   Yasir Suhail
   Sergey Kishchenko
@@ -228,6 +232,7 @@ Contributors
   Lutz Paelike
   Ian Foote
   Philipp Rustemeuer
+  Logan Chien
   Catalin Gabriel Manciu
   Jacob Oscarson
   Ryan Gonzalez
@@ -263,7 +268,6 @@ Contributors
   Akira Li
   Gustavo Niemeyer
   Rafał Gałczyński
-  Logan Chien
   Lucas Stadler
   roberto@goyle
   Matt Bogosian
@@ -276,6 +280,7 @@ Contributors
   Anna Katrina Dominguez
   Kim Jin Su
   Amber Brown
+  Miro Hrončok
   Anthony Sottile
   Nate Bragg
   Ben Darnell
@@ -283,7 +288,6 @@ Contributors
   Godefroid Chappelle
   Julian Berman
   Michael Hudson-Doyle
-  Floris Bruynooghe
   Stephan Busemann
   Dan Colish
   timo
@@ -325,6 +329,7 @@ Contributors
   Michael Chermside
   Anna Ravencroft
   remarkablerocket
+  Pauli Virtanen
   Petre Vijiac
   Berker Peksag
   Christian Muirhead
@@ -349,6 +354,7 @@ Contributors
   Graham Markall
   Dan Loewenherz
   werat
+  Andrew Stepanov
   Niclas Olofsson
   Chris Pressey
   Tobias Diaz
