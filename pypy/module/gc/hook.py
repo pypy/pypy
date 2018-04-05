@@ -11,25 +11,25 @@ class LowLevelGcHooks(GcHooks):
 
     def __init__(self, space):
         self.space = space
-        self.hooks = space.fromcache(W_AppLevelHooks)
+        self.w_hooks = space.fromcache(W_AppLevelHooks)
 
     def is_gc_minor_enabled(self):
-        return self.hooks.gc_minor_enabled
+        return self.w_hooks.gc_minor_enabled
 
     def is_gc_collect_step_enabled(self):
-        return self.hooks.gc_collect_step_enabled
+        return self.w_hooks.gc_collect_step_enabled
 
     def is_gc_collect_enabled(self):
-        return self.hooks.gc_collect_enabled
+        return self.w_hooks.gc_collect_enabled
 
     def on_gc_minor(self, total_memory_used, pinned_objects):
-        action = self.hooks.gc_minor
+        action = self.w_hooks.gc_minor
         action.total_memory_used = total_memory_used
         action.pinned_objects = pinned_objects
         action.fire()
 
     def on_gc_collect_step(self, oldstate, newstate):
-        action = self.hooks.gc_collect_step
+        action = self.w_hooks.gc_collect_step
         action.oldstate = oldstate
         action.newstate = newstate
         action.fire()
@@ -37,7 +37,7 @@ class LowLevelGcHooks(GcHooks):
     def on_gc_collect(self, count, arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
                       rawmalloc_bytes_after):
-        action = self.hooks.gc_collect
+        action = self.w_hooks.gc_collect
         action.count = count
         action.arenas_count_before = arenas_count_before
         action.arenas_count_after = arenas_count_after
