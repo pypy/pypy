@@ -4,14 +4,14 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.executioncontext import AsyncAction
 
 class LowLevelGcHooks(GcHooks):
 
     def __init__(self, space):
         self.space = space
-        self.hooks = space.fromcache(AppLevelHooks)
+        self.hooks = space.fromcache(W_AppLevelHooks)
 
     def is_gc_minor_enabled(self):
         return self.hooks.gc_minor_enabled
@@ -47,7 +47,7 @@ class LowLevelGcHooks(GcHooks):
         action.fire()
 
 
-class AppLevelHooks(object):
+class W_AppLevelHooks(W_Root):
 
     def __init__(self, space):
         self.space = space
@@ -58,25 +58,38 @@ class AppLevelHooks(object):
         self.gc_collect_step = GcCollectStepHookAction(space)
         self.gc_collect = GcCollectHookAction(space)
 
-    def set_hooks(self, space, w_on_gc_minor, w_on_gc_collect_step,
-                  w_on_gc_collect):
-        self.gc_minor_enabled = not space.is_none(w_on_gc_minor)
-        self.gc_minor.w_callable = w_on_gc_minor
+    def descr_get_on_gc_minor(self, space):
+        return self.gc_minor.w_callable
+
+    def descr_set_on_gc_minor(self, space, w_obj):
+        self.gc_minor_enabled = not space.is_none(w_obj)
+        self.gc_minor.w_callable = w_obj
         self.gc_minor.fix_annotation()
-        #
-        self.gc_collect_step_enabled = not space.is_none(w_on_gc_collect_step)
-        self.gc_collect_step.w_callable = w_on_gc_collect_step
+
+    def descr_get_on_gc_collect_step(self, space):
+        return self.gc_collect_step.w_callable
+
+    def descr_set_on_gc_collect_step(self, space, w_obj):
+        self.gc_collect_step_enabled = not space.is_none(w_obj)
+        self.gc_collect_step.w_callable = w_obj
         self.gc_collect_step.fix_annotation()
-        #
-        self.gc_collect_enabled = not space.is_none(w_on_gc_collect)
-        self.gc_collect.w_callable = w_on_gc_collect
+
+    def descr_get_on_gc_collect(self, space):
+        return self.gc_collect.w_callable
+
+    def descr_set_on_gc_collect(self, space, w_obj):
+        self.gc_collect_enabled = not space.is_none(w_obj)
+        self.gc_collect.w_callable = w_obj
         self.gc_collect.fix_annotation()
 
 
 class GcMinorHookAction(AsyncAction):
-    w_callable = None
     total_memory_used = 0
     pinned_objects = 0
+
+    def __init__(self, space):
+        AsyncAction.__init__(self, space)
+        self.w_callable = space.w_None
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
@@ -93,9 +106,12 @@ class GcMinorHookAction(AsyncAction):
 
 
 class GcCollectStepHookAction(AsyncAction):
-    w_callable = None
     oldstate = 0
     newstate = 0
+
+    def __init__(self, space):
+        AsyncAction.__init__(self, space)
+        self.w_callable = space.w_None
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
@@ -112,13 +128,16 @@ class GcCollectStepHookAction(AsyncAction):
 
 
 class GcCollectHookAction(AsyncAction):
-    w_callable = None
     count = 0
     arenas_count_before = 0
     arenas_count_after = 0
     arenas_bytes = 0
     rawmalloc_bytes_before = 0
     rawmalloc_bytes_after = 0
+
+    def __init__(self, space):
+        AsyncAction.__init__(self, space)
+        self.w_callable = space.w_None
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
@@ -176,6 +195,22 @@ def wrap_many_ints(cls, names):
         d[name] = interp_attrproperty(name, cls=cls, wrapfn="newint")
     return d
 
+
+W_AppLevelHooks.typedef = TypeDef(
+    "GcHooks",
+    on_gc_minor = GetSetProperty(
+        W_AppLevelHooks.descr_get_on_gc_minor,
+        W_AppLevelHooks.descr_set_on_gc_minor),
+
+    on_gc_collect_step = GetSetProperty(
+        W_AppLevelHooks.descr_get_on_gc_collect_step,
+        W_AppLevelHooks.descr_set_on_gc_collect_step),
+
+    on_gc_collect = GetSetProperty(
+        W_AppLevelHooks.descr_get_on_gc_collect,
+        W_AppLevelHooks.descr_set_on_gc_collect),
+    )
+
 W_GcMinorStats.typedef = TypeDef(
     "GcMinorStats",
     **wrap_many_ints(W_GcMinorStats, (
@@ -205,14 +240,3 @@ W_GcCollectStats.typedef = TypeDef(
         "rawmalloc_bytes_before",
         "rawmalloc_bytes_after"))
     )
-
-
-@unwrap_spec(w_on_gc_minor=WrappedDefault(None),
-             w_on_gc_collect_step=WrappedDefault(None),
-             w_on_gc_collect=WrappedDefault(None))
-def set_hooks(space, w_on_gc_minor=None,
-              w_on_gc_collect_step=None,
-              w_on_gc_collect=None):
-    hooks = space.fromcache(AppLevelHooks)
-    hooks.set_hooks(space, w_on_gc_minor, w_on_gc_collect_step, w_on_gc_collect)
-                                             
