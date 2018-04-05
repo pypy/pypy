@@ -8,6 +8,15 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetPropert
 from pypy.interpreter.executioncontext import AsyncAction
 
 class LowLevelGcHooks(GcHooks):
+    """
+    These are the low-level hooks which are called directly from the GC.
+
+    They can't do much, because the base class marks the methods as
+    @rgc.no_collect.
+
+    This is expected to be a singleton, created by space.fromcache, and it is
+    integrated with the translation by targetpypystandalone.get_gchooks
+    """
 
     def __init__(self, space):
         self.space = space
