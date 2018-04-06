@@ -537,6 +537,56 @@ class AppTestCoroutine:
         assert state == 2
     """
 
+    def test_async_aclose_in_finalize_hook_await_in_finally(self): """
+        import gc
+        import sys
+        import types
+
+        @types.coroutine
+        def coro():
+            yield 'coro'
+
+        state = 0
+        async def ag():
+            nonlocal state
+            try:
+                yield
+            finally:
+                state = 1
+                await coro()
+                state = 2
+
+        async def run():
+            a = ag()
+            async for i in a:
+                break
+            del a
+            gc.collect()
+            gc.collect()
+            gc.collect()
+        a = run()
+
+        a2 = None
+        assert sys.get_asyncgen_hooks() == (None, None)
+        def _finalize(g):
+            nonlocal a2
+            a2 = g.aclose()
+        sys.set_asyncgen_hooks(finalizer=_finalize)
+        assert state == 0
+        try:
+            a.send(None)
+        except StopIteration:
+            pass
+        assert a2.send(None) == 'coro'
+        assert state == 1
+        try:
+            a2.send(None)
+        except StopIteration:
+            pass
+        assert state == 2
+        sys.set_asyncgen_hooks(None, None)
+    """
+
     def test_async_anext_close(self): """
         async def ag():
             yield 42

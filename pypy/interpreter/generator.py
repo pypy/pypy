@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock, SApplicationException, Yield
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from pypy.interpreter.astcompiler import consts
-from rpython.rlib import jit, rgc
+from rpython.rlib import jit, rgc, rweakref
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint
 
@@ -588,20 +588,52 @@ class AsyncGenerator(GeneratorOrCoroutine):
     KIND = "async generator"
     KIND_U = u"async_generator"
 
+    def __init__(self, frame, name=None, qualname=None):
+        self.hooks_inited = False
+        GeneratorOrCoroutine.__init__(self, frame, name, qualname)
+
+    def init_hooks(self):
+        if self.hooks_inited:
+            return
+        self.hooks_inited = True
+
+        self.w_finalizer = self.space.appexec([], '''():
+            import sys
+            hooks = sys.get_asyncgen_hooks()
+            return hooks.finalizer''')
+
+    def _finalize_(self):
+        if self.frame is not None and self.frame.lastblock is not None:
+            if self.w_finalizer is not self.space.w_None:
+                # XXX: this is a hack to resurrect the weakref that was cleared
+                # before running _finalize_()
+                if self.space.config.translation.rweakref:
+                    self.frame.f_generator_wref = rweakref.ref(self)
+                try:
+                    self.space.call_function(self.w_finalizer, self)
+                except OperationError as e:
+                    e.write_unraisable(self.space, "async generator finalizer")
+                return
+        GeneratorOrCoroutine._finalize_(self)
+
     def descr__aiter__(self):
         """Return an asynchronous iterator."""
         return self
 
     def descr__anext__(self):
+        self.init_hooks()
         return AsyncGenASend(self, self.space.w_None)
 
     def descr_asend(self, w_arg):
+        self.init_hooks()
         return AsyncGenASend(self, w_arg)
 
     def descr_athrow(self, w_type, w_val=None, w_tb=None):
+        self.init_hooks()
         return AsyncGenAThrow(self, w_type, w_val, w_tb)
 
     def descr_aclose(self):
+        self.init_hooks()
         return AsyncGenAThrow(self, None, None, None)
 
 
