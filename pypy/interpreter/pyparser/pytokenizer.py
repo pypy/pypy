@@ -73,14 +73,14 @@ def generate_tokens(lines, flags):
         logical line; continuation lines are included.
     """
     token_list = []
-    lnum = parenlev = continued = 0
+    lnum = continued = 0
     namechars = NAMECHARS
     numchars = NUMCHARS
     contstr, needcont = '', 0
     contline = None
     indents = [0]
     last_comment = ''
-    parenlevstart = (0, 0, "")
+    parenstack = []
 
     # make the annotator happy
     endDFA = DUMMY_DFA
@@ -123,7 +123,7 @@ def generate_tokens(lines, flags):
                 contline = contline + line
                 continue
 
-        elif parenlev == 0 and not continued:  # new statement
+        elif not parenstack and not continued:  # new statement
             if not line: break
             column = 0
             while pos < max:                   # measure leading whitespace
@@ -152,10 +152,10 @@ def generate_tokens(lines, flags):
 
         else:                                  # continued statement
             if not line:
-                if parenlev > 0:
-                    lnum1, start1, line1 = parenlevstart
+                if parenstack:
+                    _, lnum1, start1, line1 = parenstack[0]
                     raise TokenError("parenthesis is never closed", line1,
-                                     lnum1, start1 + 1, token_list, lnum)
+                                     lnum1, start1, token_list, lnum)
                 raise TokenError("EOF in multi-line statement", line,
                                  lnum, 0, token_list)
             continued = 0
@@ -180,7 +180,7 @@ def generate_tokens(lines, flags):
                     token_list.append((tokens.NUMBER, token, lnum, start, line))
                     last_comment = ''
                 elif initial in '\r\n':
-                    if parenlev <= 0:
+                    if not parenstack:
                         tok = (tokens.NEWLINE, last_comment, lnum, start, line)
                         token_list.append(tok)
                     last_comment = ''
@@ -222,14 +222,20 @@ def generate_tokens(lines, flags):
                     continued = 1
                 else:
                     if initial in '([{':
-                        if parenlev == 0:
-                            parenlevstart = (lnum, start, line)
-                        parenlev = parenlev + 1
+                        parenstack.append((initial, lnum, start, line))
                     elif initial in ')]}':
-                        parenlev = parenlev - 1
-                        if parenlev < 0:
+                        if not parenstack:
                             raise TokenError("unmatched '%s'" % initial, line,
-                                             lnum, start + 1, token_list)
+                                             lnum, start, token_list)
+                        opening, lnum1, start1, line1 = parenstack.pop()
+                        if not ((opening == "(" and initial == ")") or
+                                (opening == "[" and initial == "]") or
+                                (opening == "{" and initial == "}")):
+                            raise TokenError(
+                                    "parenthesis '%s' and '%s' don't match" % (
+                                        opening, initial),
+                                    line1, lnum1, start1, token_list,
+                                    lastlineno=lnum)
                     if token in python_opmap:
                         punct = python_opmap[token]
                     else:

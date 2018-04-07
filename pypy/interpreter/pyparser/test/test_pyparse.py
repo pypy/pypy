@@ -92,12 +92,12 @@ stuff = "nothing"
         exc = py.test.raises(SyntaxError, parse, "x = (\n\n(),\n(),").value
         assert exc.msg == "parenthesis is never closed"
         assert exc.lineno == 1
-        assert exc.offset == 5
+        assert exc.offset == 4
         assert exc.lastlineno == 5
         exc = py.test.raises(SyntaxError, parse, "abc)").value
         assert exc.msg == "unmatched ')'"
         assert exc.lineno == 1
-        assert exc.offset == 4
+        assert exc.offset == 3
 
     def test_is(self):
         self.parse("x is y")
