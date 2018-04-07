@@ -171,7 +171,7 @@ def generate_tokens(lines, flags):
 
                 if start == end:
                     raise TokenError("Unknown character", line,
-                                     lnum, start + 1, token_list)
+                                     lnum, start, token_list)
 
                 pos = end
                 token, initial = line[start:end], line[start]

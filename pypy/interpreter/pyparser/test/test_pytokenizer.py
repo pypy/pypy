@@ -49,3 +49,6 @@ class TestTokenizer(object):
                 assert error.value.lineno == 1
                 assert error.value.lastlineno == 2
 
+
+    def test_unknown_char(self):
+        check_token_error("?", "Unknown character", 0)
