@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import generic_cpy_call
 from pypy.module.cpyext.pyobject import make_ref, from_ref, decref, as_pyobj
-from pypy.module.cpyext.typeobject import PyTypeObjectPtr
+from pypy.module.cpyext.typeobject import PyTypeObjectPtr, W_PyCTypeObject
 
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
@@ -412,33 +412,42 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
     def test_type_dict(self):
         foo = self.import_module("foo")
         module = self.import_extension('test', [
-           ("hack_tp_dict", "METH_O",
+           ("hack_tp_dict", "METH_VARARGS",
             '''
-                 PyTypeObject *type = args->ob_type;
+                 PyTypeObject *type, *obj;
                  PyObject *a1 = PyLong_FromLong(1);
                  PyObject *a2 = PyLong_FromLong(2);
                  PyObject *value;
+                 PyObject * key;
+                 if (!PyArg_ParseTuple(args, "OO", &obj, &key))
+                     return NULL;
+                 type = obj->ob_type;
 
-                 if (PyDict_SetItemString(type->tp_dict, "a",
+                 if (PyDict_SetItem(type->tp_dict, key,
                          a1) < 0)
                      return NULL;
                  Py_DECREF(a1);
                  PyType_Modified(type);
-                 value = PyObject_GetAttrString((PyObject *)type, "a");
+                 value = PyObject_GetAttr((PyObject *)type, key);
                  Py_DECREF(value);
 
-                 if (PyDict_SetItemString(type->tp_dict, "a",
+                 if (PyDict_SetItem(type->tp_dict, key,
                          a2) < 0)
                      return NULL;
                  Py_DECREF(a2);
                  PyType_Modified(type);
-                 value = PyObject_GetAttrString((PyObject *)type, "a");
+                 value = PyObject_GetAttr((PyObject *)type, key);
                  return value;
              '''
              )
             ])
         obj = foo.new()
-        assert module.hack_tp_dict(obj) == 2
+        assert module.hack_tp_dict(obj, "a") == 2
+        class Sub(foo.fooType):
+            pass
+        obj = Sub()
+        assert module.hack_tp_dict(obj, "b") == 2
+        
 
     def test_tp_descr_get(self):
         module = self.import_extension('foo', [
@@ -559,6 +568,23 @@ class TestTypes(BaseApiTest):
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
         assert api.PyErr_Occurred() is None
+
+    def test_subclass_not_PyCTypeObject(self, space, api):
+        pyobj = make_ref(space, api.PyLong_Type)
+        py_type = rffi.cast(PyTypeObjectPtr, pyobj)
+        w_pyclass = W_PyCTypeObject(space, py_type)
+        w_class = space.appexec([w_pyclass], """(base):
+            class Sub(base):
+                def addattrib(self, value):
+                    self.attrib = value
+            return Sub
+            """)
+        assert w_pyclass in w_class.mro_w
+        assert isinstance(w_pyclass, W_PyCTypeObject)
+        assert not isinstance(w_class, W_PyCTypeObject)
+        assert w_pyclass.is_cpytype()
+        # XXX document the current status, not clear if this is desirable
+        assert w_class.is_cpytype()
 
 
 class AppTestSlots(AppTestCpythonExtensionBase):
