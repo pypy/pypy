@@ -143,7 +143,7 @@ def generate_tokens(lines, flags):
                 token_list.append((tokens.INDENT, line[:pos], lnum, 0, line))
                 last_comment = ''
             while column < indents[-1]:
-                indents = indents[:-1]
+                indents.pop()
                 token_list.append((tokens.DEDENT, '', lnum, pos, line))
                 last_comment = ''
             if column != indents[-1]:
