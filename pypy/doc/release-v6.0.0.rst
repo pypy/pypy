@@ -17,8 +17,7 @@ be recompiled for this version.
 The Windows PyPy3.5 release is still considered beta-quality. There are open
 issues with unicode handling especially around system calls and c-extensions.
 
-The Matplotlib TkAgg backend now works with PyPy. PyGame and pygtk also now can
-work with PyPy.
+The Matplotlib TkAgg backend now works with PyPy, as do pygame and pygobject.
 
 As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
