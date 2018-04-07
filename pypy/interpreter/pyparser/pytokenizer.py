@@ -97,7 +97,7 @@ def generate_tokens(lines, flags):
         if contstr:
             if not line:
                 raise TokenError(
-                    "EOF while scanning triple-quoted string literal",
+                    "end of file (EOF) while scanning triple-quoted string literal",
                     strstart[2], strstart[0], strstart[1],
                     token_list, lnum-1)
             endmatch = endDFA.recognize(line)
@@ -156,7 +156,7 @@ def generate_tokens(lines, flags):
                     _, lnum1, start1, line1 = parenstack[0]
                     raise TokenError("parenthesis is never closed", line1,
                                      lnum1, start1, token_list, lnum)
-                raise TokenError("EOF in multi-line statement", line,
+                raise TokenError("end of file (EOF) in multi-line statement", line,
                                  lnum, 0, token_list)
             continued = 0
 
@@ -249,7 +249,7 @@ def generate_tokens(lines, flags):
                 if start < 0:
                     start = pos
                 if start<max and line[start] in single_quoted:
-                    raise TokenError("EOL while scanning string literal",
+                    raise TokenError("end of line (EOL) while scanning string literal",
                              line, lnum, start, token_list)
                 tok = (tokens.ERRORTOKEN, line[pos], lnum, pos, line)
                 token_list.append(tok)
