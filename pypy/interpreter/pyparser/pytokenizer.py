@@ -231,11 +231,13 @@ def generate_tokens(lines, flags):
                         if not ((opening == "(" and initial == ")") or
                                 (opening == "[" and initial == "]") or
                                 (opening == "{" and initial == "}")):
+                            msg = "closing parenthesis '%s' does not match opening parenthesis '%s'" % (
+                                        initial, opening)
+
+                            if lnum1 != lnum:
+                                msg += " on line " + str(lnum1)
                             raise TokenError(
-                                    "parenthesis '%s' and '%s' don't match" % (
-                                        opening, initial),
-                                    line1, lnum1, start1, token_list,
-                                    lastlineno=lnum)
+                                    msg, line, lnum, start, token_list)
                     if token in python_opmap:
                         punct = python_opmap[token]
                     else:

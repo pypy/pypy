@@ -45,12 +45,12 @@ class TestTokenizer(object):
             for j, closing in enumerate(")]}"):
                 if i == j:
                     continue
-                error = pytest.raises(TokenError, tokenize, opening + "1\n" + closing)
-                assert error.value.msg == \
-                        "parenthesis '%s' and '%s' don't match" % (opening, closing)
-                assert error.value.offset == 0
-                assert error.value.lineno == 1
-                assert error.value.lastlineno == 2
+                check_token_error(opening + "1\n" + closing,
+                        "closing parenthesis '%s' does not match opening parenthesis '%s' on line 1" % (closing, opening),
+                        pos=0, line=2)
+                check_token_error(opening + "1" + closing,
+                        "closing parenthesis '%s' does not match opening parenthesis '%s'" % (closing, opening),
+                        pos=2, line=1)
 
 
     def test_unknown_char(self):
