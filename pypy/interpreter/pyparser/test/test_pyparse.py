@@ -81,11 +81,11 @@ stuff = "nothing"
         exc = py.test.raises(SyntaxError, parse, "x = \"blah\n\n\n").value
         assert exc.msg == "EOL while scanning string literal"
         assert exc.lineno == 1
-        assert exc.offset == 5
+        assert exc.offset == 4
         exc = py.test.raises(SyntaxError, parse, "x = '''\n\n\n").value
         assert exc.msg == "EOF while scanning triple-quoted string literal"
         assert exc.lineno == 1
-        assert exc.offset == 5
+        assert exc.offset == 4
         assert exc.lastlineno == 3
         for input in ("())", "(()", "((", "))"):
             py.test.raises(SyntaxError, parse, input)

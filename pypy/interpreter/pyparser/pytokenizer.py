@@ -98,7 +98,7 @@ def generate_tokens(lines, flags):
             if not line:
                 raise TokenError(
                     "EOF while scanning triple-quoted string literal",
-                    strstart[2], strstart[0], strstart[1]+1,
+                    strstart[2], strstart[0], strstart[1],
                     token_list, lnum-1)
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
@@ -248,7 +248,7 @@ def generate_tokens(lines, flags):
                     start = pos
                 if start<max and line[start] in single_quoted:
                     raise TokenError("EOL while scanning string literal",
-                             line, lnum, start+1, token_list)
+                             line, lnum, start, token_list)
                 tok = (tokens.ERRORTOKEN, line[pos], lnum, pos, line)
                 token_list.append(tok)
                 last_comment = ''

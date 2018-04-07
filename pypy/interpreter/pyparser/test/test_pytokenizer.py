@@ -6,11 +6,14 @@ from pypy.interpreter.pyparser.error import TokenError
 def tokenize(s):
     return pytokenizer.generate_tokens(s.splitlines(True) + ["\n"], 0)
 
-def check_token_error(s, msg, pos=-1):
+def check_token_error(s, msg=None, pos=-1, line=-1):
     error = pytest.raises(TokenError, tokenize, s)
-    assert error.value.msg == msg
+    if msg is not None:
+        assert error.value.msg == msg
     if pos != -1:
         assert error.value.offset == pos
+    if line != -1:
+        assert error.value.lineno == line
 
 
 class TestTokenizer(object):
@@ -52,3 +55,9 @@ class TestTokenizer(object):
 
     def test_unknown_char(self):
         check_token_error("?", "Unknown character", 0)
+
+    def test_eol_string(self):
+        check_token_error("x = 'a", pos=4, line=1)
+
+    def test_eof_triple_quoted(self):
+        check_token_error("'''", pos=0, line=1)
