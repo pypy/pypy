@@ -2,8 +2,19 @@ from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.api import PyObject
+from pypy.conftest import option
 
 class AppTestBufferObject(AppTestCpythonExtensionBase):
+
+    def setup_class(cls):
+        from rpython.tool.udir import udir
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        if option.runappdirect:
+            cls.w_udir = str(udir)
+        else:
+            cls.w_udir = cls.space.wrap(str(udir))
+
+
     def test_FromMemory(self):
         module = self.import_extension('foo', [
             ("get_FromMemory", "METH_NOARGS",
@@ -62,3 +73,72 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
         a = array.array('c', 'text')
         b = buffer(a)
         assert module.roundtrip(b) == 'text'
+
+
+    def test_issue2752(self):
+        if not self.runappdirect:
+            skip('too slow, run with -A')
+        module = self.import_extension('foo', [
+            ("test_mod", 'METH_VARARGS',
+            """
+                PyObject *obj, *collect, *tup;
+                Py_buffer bp;
+                char expected_i = '0';
+                if (!PyArg_ParseTuple(args, "OO", &obj, &collect))
+                    return NULL;
+
+                assert(obj);
+
+                if (PyObject_GetBuffer(obj, &bp, PyBUF_SIMPLE) == -1)
+                    return NULL;
+                
+                tup = PyTuple_New(0); /* for collect() */
+                for (size_t i = 0; i < bp.len; ++i)
+                {
+                    if (((unsigned char*)bp.buf)[i] == expected_i)
+                    {
+                        if (++expected_i >= '8')
+                            expected_i = '0';
+                    }
+                    else
+                    {
+                        PyErr_Format(PyExc_ValueError,
+                                "mismatch: 0x%x [%x %x %x %x...] instead of 0x%x on pos=%d (got len=%d)",
+                                ((unsigned char*)bp.buf)[i],
+                                ((unsigned char*)bp.buf)[i+1],
+                                ((unsigned char*)bp.buf)[i+2],
+                                ((unsigned char*)bp.buf)[i+3],
+                        ((unsigned char*)bp.buf)[i+4],
+                        expected_i, i, bp.len);
+                        PyBuffer_Release(&bp);
+                        Py_DECREF(tup);
+                        return NULL;
+                    }
+                }
+
+                PyBuffer_Release(&bp);
+                Py_DECREF(tup);
+                Py_RETURN_NONE;
+            """),
+            ])
+        import io, gc
+        bufsize = 4096
+        with io.open(self.udir + '/test.txt', 'wb') as f:
+            data = b'01234567'
+            for x in range(18):
+                data += data
+            f.write(data)
+        def sub(i):
+            fpos = 0
+            with io.open(self.udir + '/test.txt', 'rb') as f:
+                for j, block in enumerate(iter(lambda: f.read(bufsize), b'')):
+                    try:
+                        module.test_mod(block, gc.collect)
+                    except ValueError as e:
+                        print("%s at top it=%d, read it=%d, fpos=%d"
+                                % (e, i, j, fpos))
+                        assert False
+                fpos = f.tell()
+
+        for x in map(sub, range(100)):
+            pass
