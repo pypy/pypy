@@ -66,22 +66,20 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
 
 
     def test_issue2752(self):
-        if not self.runappdirect:
-            skip('too slow, run with -A')
+        iterations = 10
+        if self.runappdirect:
+            iterations = 2000
         module = self.import_extension('foo', [
             ("test_mod", 'METH_VARARGS',
             """
-                PyObject *obj, *collect, *tup;
+                PyObject *obj;
                 Py_buffer bp;
-                if (!PyArg_ParseTuple(args, "OO", &obj, &collect))
+                if (!PyArg_ParseTuple(args, "O", &obj))
                     return NULL;
-
-                assert(obj);
 
                 if (PyObject_GetBuffer(obj, &bp, PyBUF_SIMPLE) == -1)
                     return NULL;
                 
-                tup = PyTuple_New(0); /* for collect() */
                 if (((unsigned char*)bp.buf)[0] != '0') {
                     PyErr_Format(PyExc_ValueError,
                             "mismatch: 0x%x [%x %x %x %x...] instead of '0' (got len=%d)",
@@ -92,16 +90,13 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                             ((unsigned char*)bp.buf)[4],
                             bp.len);
                     PyBuffer_Release(&bp);
-                    Py_DECREF(tup);
                     return NULL;
                 }
 
                 PyBuffer_Release(&bp);
-                Py_DECREF(tup);
                 Py_RETURN_NONE;
             """),
             ])
-        import io, gc
         bufsize = 4096
         def getdata(bufsize):
             data = b'01234567'
@@ -110,11 +105,11 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                 if len(data) >= bufsize:
                     break
             return data
-        for j in range(2000):
+        for j in range(iterations):
             block = getdata(bufsize)
             assert block[:8] == '01234567'
             try:
-                module.test_mod(block, gc.collect)
+                module.test_mod(block)
             except ValueError as e:
                 print("%s at it=%d" % (e, j))
                 assert False
