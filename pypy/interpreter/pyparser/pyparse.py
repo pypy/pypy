@@ -188,7 +188,9 @@ class PythonParser(parser.Parser):
                     if e.expected_str is not None:
                         msg += " (expected '%s')" % e.expected_str
 
-                raise new_err(msg, e.lineno, e.column, e.line,
+                # parser.ParseError(...).column is 0-based, but the offsets in the
+                # exceptions in the error module are 1-based, hence the '+ 1'
+                raise new_err(msg, e.lineno, e.column + 1, e.line,
                               compile_info.filename)
             else:
                 tree = self.root

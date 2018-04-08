@@ -34,12 +34,12 @@ class TestTokenizer(object):
         for paren in "([{":
             check_token_error(paren + "1 + 2",
                               "parenthesis is never closed",
-                              0)
+                              1)
 
         for paren in ")]}":
             check_token_error("1 + 2" + paren,
                               "unmatched '%s'" % (paren, ),
-                              5)
+                              6)
 
         for i, opening in enumerate("([{"):
             for j, closing in enumerate(")]}"):
@@ -47,17 +47,20 @@ class TestTokenizer(object):
                     continue
                 check_token_error(opening + "1\n" + closing,
                         "closing parenthesis '%s' does not match opening parenthesis '%s' on line 1" % (closing, opening),
-                        pos=0, line=2)
+                        pos=1, line=2)
                 check_token_error(opening + "1" + closing,
+                        "closing parenthesis '%s' does not match opening parenthesis '%s'" % (closing, opening),
+                        pos=3, line=1)
+                check_token_error(opening + closing,
                         "closing parenthesis '%s' does not match opening parenthesis '%s'" % (closing, opening),
                         pos=2, line=1)
 
 
     def test_unknown_char(self):
-        check_token_error("?", "Unknown character", 0)
+        check_token_error("?", "Unknown character", 1)
 
     def test_eol_string(self):
-        check_token_error("x = 'a", pos=4, line=1)
+        check_token_error("x = 'a", pos=5, line=1)
 
     def test_eof_triple_quoted(self):
-        check_token_error("'''", pos=0, line=1)
+        check_token_error("'''", pos=1, line=1)
