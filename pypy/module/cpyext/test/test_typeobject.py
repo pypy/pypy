@@ -1626,6 +1626,64 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             pass
         C(42)   # assert is not aborting
 
+    def test_getset(self):
+        module = self.import_extension('foo', [
+           ("get_instance", "METH_NOARGS",
+            '''
+                return PyObject_New(PyObject, &Foo_Type);
+            '''
+            ), ("get_number", "METH_NOARGS",
+            '''
+                return PyInt_FromLong(my_global_number);
+            '''
+            )], prologue='''
+            #if PY_MAJOR_VERSION > 2
+            #define PyInt_FromLong PyLong_FromLong
+            #endif
+            static long my_global_number;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            static PyObject *bar_get(PyObject *foo, void *closure)
+            {
+                return PyInt_FromLong(1000 + (long)closure);
+            }
+            static PyObject *baz_get(PyObject *foo, void *closure)
+            {
+                return PyInt_FromLong(2000 + (long)closure);
+            }
+            static int baz_set(PyObject *foo, PyObject *x, void *closure)
+            {
+                if (x != NULL)
+                    my_global_number = 3000 + (long)closure + PyInt_AsLong(x);
+                else
+                    my_global_number = 4000 + (long)closure;
+                return 0;
+            }
+            static PyGetSetDef foo_getset[] = {
+                { "bar", bar_get, NULL, "mybardoc", (void *)42 },
+                { "baz", baz_get, baz_set, "mybazdoc", (void *)43 },
+                { NULL }
+            };
+            ''', more_init = '''
+                Foo_Type.tp_getset = foo_getset;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        foo = module.get_instance()
+        assert foo.bar == 1042
+        assert foo.bar == 1042
+        assert foo.baz == 2043
+        foo.baz = 50000
+        assert module.get_number() == 53043
+        e = raises(AttributeError, "foo.bar = 0")
+        assert str(e.value).startswith("attribute 'bar' of '")
+        assert str(e.value).endswith("foo' objects is not writable")
+        del foo.baz
+        assert module.get_number() == 4043
+        raises(AttributeError, "del foo.bar")
+
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
