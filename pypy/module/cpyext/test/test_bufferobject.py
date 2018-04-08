@@ -2,18 +2,8 @@ from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.api import PyObject
-from pypy.conftest import option
 
 class AppTestBufferObject(AppTestCpythonExtensionBase):
-
-    def setup_class(cls):
-        from rpython.tool.udir import udir
-        AppTestCpythonExtensionBase.setup_class.im_func(cls)
-        if option.runappdirect:
-            cls.w_udir = str(udir)
-        else:
-            cls.w_udir = cls.space.wrap(str(udir))
-
 
     def test_FromMemory(self):
         module = self.import_extension('foo', [
@@ -123,22 +113,18 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
             ])
         import io, gc
         bufsize = 4096
-        with io.open(self.udir + '/test.txt', 'wb') as f:
+        def getdata(bufsize):
             data = b'01234567'
             for x in range(18):
                 data += data
-            f.write(data)
-        def sub(i):
-            fpos = 0
-            with io.open(self.udir + '/test.txt', 'rb') as f:
-                for j, block in enumerate(iter(lambda: f.read(bufsize), b'')):
-                    try:
-                        module.test_mod(block, gc.collect)
-                    except ValueError as e:
-                        print("%s at top it=%d, read it=%d, fpos=%d"
-                                % (e, i, j, fpos))
-                        assert False
-                fpos = f.tell()
-
-        for x in map(sub, range(100)):
-            pass
+                if len(data) >= bufsize:
+                    break
+            return data
+        for j, block in enumerate(iter(lambda: getdata(bufsize), b'')):
+            try:
+                module.test_mod(block, gc.collect)
+            except ValueError as e:
+                print("%s at it=%d" % (e, j))
+                assert False
+            if j > 2000:
+                break
