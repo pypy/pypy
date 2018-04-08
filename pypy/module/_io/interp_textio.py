@@ -715,15 +715,20 @@ class W_TextIOWrapper(W_TextIOBase):
         self._writeflush(space)
 
         if size < 0:
-            # Read everything
-            w_bytes = space.call_method(self.w_buffer, "read")
-            w_decoded = space.call_method(self.w_decoder, "decode", w_bytes, space.w_True)
-            check_decoded(space, w_decoded)
-            w_result = space.newunicode(self.decoded.get_chars(-1))
-            w_final = space.add(w_result, w_decoded)
-            self.snapshot = None
-            return w_final
+            return self._read_all(space)
+        else:
+            return self._read(space, size)
 
+    def _read_all(self, space):
+        w_bytes = space.call_method(self.w_buffer, "read")
+        w_decoded = space.call_method(self.w_decoder, "decode", w_bytes, space.w_True)
+        check_decoded(space, w_decoded)
+        w_result = space.newunicode(self.decoded.get_chars(-1))
+        w_final = space.add(w_result, w_decoded)
+        self.snapshot = None
+        return w_final
+
+    def _read(self, space, size):
         remaining = size
         builder = UnicodeBuilder(size)
 
@@ -736,6 +741,7 @@ class W_TextIOWrapper(W_TextIOBase):
             remaining -= len(data)
 
         return space.newunicode(builder.build())
+
 
     def _scan_line_ending(self, limit):
         if self.readuniversal:
@@ -756,8 +762,11 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_attached(space)
         self._check_closed(space)
         self._writeflush(space)
-
         limit = convert_size(space, w_limit)
+        return space.newunicode(self._readline(space, limit))
+
+    def _readline(self, space, limit):
+        # This is a separate function so that readline_w() can be jitted.
         remnant = None
         builder = UnicodeBuilder()
         while True:
@@ -805,8 +814,7 @@ class W_TextIOWrapper(W_TextIOBase):
             # We have consumed the buffer
             self.decoded.reset()
 
-        result = builder.build()
-        return space.newunicode(result)
+        return builder.build()
 
     # _____________________________________________________________
     # write methods
