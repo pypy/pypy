@@ -73,7 +73,6 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
             """
                 PyObject *obj, *collect, *tup;
                 Py_buffer bp;
-                char expected_i = '0';
                 if (!PyArg_ParseTuple(args, "OO", &obj, &collect))
                     return NULL;
 
@@ -83,27 +82,18 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                     return NULL;
                 
                 tup = PyTuple_New(0); /* for collect() */
-                for (size_t i = 0; i < bp.len; ++i)
-                {
-                    if (((unsigned char*)bp.buf)[i] == expected_i)
-                    {
-                        if (++expected_i >= '8')
-                            expected_i = '0';
-                    }
-                    else
-                    {
-                        PyErr_Format(PyExc_ValueError,
-                                "mismatch: 0x%x [%x %x %x %x...] instead of 0x%x on pos=%d (got len=%d)",
-                                ((unsigned char*)bp.buf)[i],
-                                ((unsigned char*)bp.buf)[i+1],
-                                ((unsigned char*)bp.buf)[i+2],
-                                ((unsigned char*)bp.buf)[i+3],
-                        ((unsigned char*)bp.buf)[i+4],
-                        expected_i, i, bp.len);
-                        PyBuffer_Release(&bp);
-                        Py_DECREF(tup);
-                        return NULL;
-                    }
+                if (((unsigned char*)bp.buf)[0] != '0') {
+                    PyErr_Format(PyExc_ValueError,
+                            "mismatch: 0x%x [%x %x %x %x...] instead of '0' (got len=%d)",
+                            ((unsigned char*)bp.buf)[0],
+                            ((unsigned char*)bp.buf)[1],
+                            ((unsigned char*)bp.buf)[2],
+                            ((unsigned char*)bp.buf)[3],
+                            ((unsigned char*)bp.buf)[4],
+                            bp.len);
+                    PyBuffer_Release(&bp);
+                    Py_DECREF(tup);
+                    return NULL;
                 }
 
                 PyBuffer_Release(&bp);
@@ -120,11 +110,11 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                 if len(data) >= bufsize:
                     break
             return data
-        for j, block in enumerate(iter(lambda: getdata(bufsize), b'')):
+        for j in range(2000):
+            block = getdata(bufsize)
+            assert block[:8] == '01234567'
             try:
                 module.test_mod(block, gc.collect)
             except ValueError as e:
                 print("%s at it=%d" % (e, j))
                 assert False
-            if j > 2000:
-                break
