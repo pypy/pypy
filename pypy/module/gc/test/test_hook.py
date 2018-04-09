@@ -12,13 +12,13 @@ class AppTestGcHooks(object):
         space = cls.space
         gchooks = space.fromcache(LowLevelGcHooks)
 
-        @unwrap_spec(ObjSpace, r_uint, int)
-        def fire_gc_minor(space, total_memory_used, pinned_objects):
-            gchooks.fire_gc_minor(total_memory_used, pinned_objects)
+        @unwrap_spec(ObjSpace, int, r_uint, int)
+        def fire_gc_minor(space, duration, total_memory_used, pinned_objects):
+            gchooks.fire_gc_minor(duration, total_memory_used, pinned_objects)
 
-        @unwrap_spec(ObjSpace, int, int)
-        def fire_gc_collect_step(space, oldstate, newstate):
-            gchooks.fire_gc_collect_step(oldstate, newstate)
+        @unwrap_spec(ObjSpace, int, int, int)
+        def fire_gc_collect_step(space, duration, oldstate, newstate):
+            gchooks.fire_gc_collect_step(duration, oldstate, newstate)
 
         @unwrap_spec(ObjSpace, int, int, int, r_uint, r_uint, r_uint)
         def fire_gc_collect(space, a, b, c, d, e, f):
@@ -26,8 +26,8 @@ class AppTestGcHooks(object):
 
         @unwrap_spec(ObjSpace)
         def fire_many(space):
-            gchooks.fire_gc_minor(0, 0)
-            gchooks.fire_gc_collect_step(0, 0)
+            gchooks.fire_gc_minor(0, 0, 0)
+            gchooks.fire_gc_collect_step(0, 0, 0)
             gchooks.fire_gc_collect(1, 2, 3, 4, 5, 6)
 
         cls.w_fire_gc_minor = space.wrap(interp2app(fire_gc_minor))
@@ -45,40 +45,42 @@ class AppTestGcHooks(object):
         import gc
         lst = []
         def on_gc_minor(stats):
-            lst.append((stats.total_memory_used, stats.pinned_objects))
+            tup = (stats.duration, stats.total_memory_used, stats.pinned_objects)
+            lst.append(tup)
         gc.hooks.on_gc_minor = on_gc_minor
-        self.fire_gc_minor(10, 20)
-        self.fire_gc_minor(30, 40)
+        self.fire_gc_minor(10, 20, 30)
+        self.fire_gc_minor(40, 50, 60)
         assert lst == [
-            (10, 20),
-            (30, 40),
+            (10, 20, 30),
+            (40, 50, 60),
             ]
         #
         gc.hooks.on_gc_minor = None
-        self.fire_gc_minor(50, 60)  # won't fire because the hooks is disabled
+        self.fire_gc_minor(70, 80, 90)  # won't fire because the hooks is disabled
         assert lst == [
-            (10, 20),
-            (30, 40),
+            (10, 20, 30),
+            (40, 50, 60),
             ]
 
     def test_on_gc_collect_step(self):
         import gc
         lst = []
         def on_gc_collect_step(stats):
-            lst.append((stats.oldstate, stats.newstate))
+            tup = (stats.duration, stats.oldstate, stats.newstate)
+            lst.append(tup)
         gc.hooks.on_gc_collect_step = on_gc_collect_step
-        self.fire_gc_collect_step(10, 20)
-        self.fire_gc_collect_step(30, 40)
+        self.fire_gc_collect_step(10, 20, 30)
+        self.fire_gc_collect_step(40, 50, 60)
         assert lst == [
-            (10, 20),
-            (30, 40),
+            (10, 20, 30),
+            (40, 50, 60),
             ]
         #
         gc.hooks.on_gc_collect_step = None
-        self.fire_gc_collect_step(50, 60)  # won't fire
+        self.fire_gc_collect_step(70, 80, 90)  # won't fire
         assert lst == [
-            (10, 20),
-            (30, 40),
+            (10, 20, 30),
+            (40, 50, 60),
             ]
 
     def test_on_gc_collect(self):
@@ -136,7 +138,7 @@ class AppTestGcHooks(object):
         self.fire_many()
         assert myhooks.lst == ['minor', 'step', 'collect']
         myhooks.lst[:] = []
-        self.fire_gc_minor(0, 0)
+        self.fire_gc_minor(0, 0, 0)
         assert myhooks.lst == ['minor']
         gc.hooks.reset()
         assert gc.hooks.on_gc_minor is None

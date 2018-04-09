@@ -31,14 +31,16 @@ class LowLevelGcHooks(GcHooks):
     def is_gc_collect_enabled(self):
         return self.w_hooks.gc_collect_enabled
 
-    def on_gc_minor(self, total_memory_used, pinned_objects):
+    def on_gc_minor(self, duration, total_memory_used, pinned_objects):
         action = self.w_hooks.gc_minor
+        action.duration = duration
         action.total_memory_used = total_memory_used
         action.pinned_objects = pinned_objects
         action.fire()
 
-    def on_gc_collect_step(self, oldstate, newstate):
+    def on_gc_collect_step(self, duration, oldstate, newstate):
         action = self.w_hooks.gc_collect_step
+        action.duration = duration
         action.oldstate = oldstate
         action.newstate = newstate
         action.fire()
@@ -106,6 +108,7 @@ class W_AppLevelHooks(W_Root):
 
 
 class GcMinorHookAction(AsyncAction):
+    duration = 0
     total_memory_used = 0
     pinned_objects = 0
 
@@ -118,16 +121,21 @@ class GcMinorHookAction(AsyncAction):
         # BEFORE we do the gc transform; this makes sure that everything is
         # annotated with the correct types
         if NonConstant(False):
+            self.duration = NonConstant(-42)
             self.total_memory_used = NonConstant(r_uint(42))
             self.pinned_objects = NonConstant(-42)
             self.fire()
 
     def perform(self, ec, frame):
-        w_stats = W_GcMinorStats(self.total_memory_used, self.pinned_objects)
+        w_stats = W_GcMinorStats(
+            self.duration,
+            self.total_memory_used,
+            self.pinned_objects)
         self.space.call_function(self.w_callable, w_stats)
 
 
 class GcCollectStepHookAction(AsyncAction):
+    duration = 0
     oldstate = 0
     newstate = 0
 
@@ -140,12 +148,16 @@ class GcCollectStepHookAction(AsyncAction):
         # BEFORE we do the gc transform; this makes sure that everything is
         # annotated with the correct types
         if NonConstant(False):
+            self.duration = NonConstant(-42)
             self.oldstate = NonConstant(-42)
             self.newstate = NonConstant(-42)
             self.fire()
 
     def perform(self, ec, frame):
-        w_stats = W_GcCollectStepStats(self.oldstate, self.newstate)
+        w_stats = W_GcCollectStepStats(
+            self.duration,
+            self.oldstate,
+            self.newstate)
         self.space.call_function(self.w_callable, w_stats)
 
 
@@ -186,14 +198,16 @@ class GcCollectHookAction(AsyncAction):
 
 class W_GcMinorStats(W_Root):
 
-    def __init__(self, total_memory_used, pinned_objects):
+    def __init__(self, duration, total_memory_used, pinned_objects):
+        self.duration = duration
         self.total_memory_used = total_memory_used
         self.pinned_objects = pinned_objects
 
 
 class W_GcCollectStepStats(W_Root):
 
-    def __init__(self, oldstate, newstate):
+    def __init__(self, duration, oldstate, newstate):
+        self.duration = duration
         self.oldstate = oldstate
         self.newstate = newstate
 
@@ -239,6 +253,7 @@ W_AppLevelHooks.typedef = TypeDef(
 W_GcMinorStats.typedef = TypeDef(
     "GcMinorStats",
     **wrap_many_ints(W_GcMinorStats, (
+        "duration",
         "total_memory_used",
         "pinned_objects"))
     )
@@ -251,6 +266,7 @@ W_GcCollectStepStats.typedef = TypeDef(
     STATE_FINALIZING = incminimark.STATE_FINALIZING,
     GC_STATES = tuple(incminimark.GC_STATES),
     **wrap_many_ints(W_GcCollectStepStats, (
+        "duration",
         "oldstate",
         "newstate"))
     )
