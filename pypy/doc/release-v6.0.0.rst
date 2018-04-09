@@ -8,26 +8,26 @@ Python 2.7 syntax), and a PyPy3.5 v6.0 (an interpreter supporting Python
 the dual release.
 
 This release is a feature release following our previous 5.10 incremental
-release in late December 2017, with many improvements in the C-API
-compatability layer and other improvements in speed and CPython compatibility.
-Since the changes affect the included python development header files, all
-c-extension modules must be recompiled for this version.
+release in late December 2017. Our C-API compatability layer ``cpyext`` is
+now much faster (see the `blog post`_) as well as more complete. We have made
+many other improvements in speed and CPython compatibility. Since the changes
+affect the included python development header files, all c-extension modules must
+be recompiled for this version.
 
-The Windows PyPy3.5 release is still considered beta-quality. There are issues
-with unicode handling especially around system calls and c-extensions.
+The Windows PyPy3.5 release is still considered beta-quality. There are open
+issues with unicode handling especially around system calls and c-extensions.
 
-The Matplotlib TkAgg backend now works with PyPy. PyGame and pygtk also now can
-work with PyPy.
+The Matplotlib TkAgg backend now works with PyPy, as do pygame and pygobject.
 
 As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
 We strongly recommend updating.
 
-The utf8 branch that changes internal representation of unicode to utf8 did not
-make it into the release. We also began working on a Python3.6 implementation,
-help is welcome.
-
 We updated the cffi module included in PyPy to version 1.11.5
+
+The utf8 branch that changes internal representation of unicode to utf8 did not
+make it into the release, so there is still more goodness coming. We also
+began working on a Python3.6 implementation, help is welcome.
 
 You can download the v6.0 releases here:
 
@@ -46,6 +46,7 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`modules`: project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: project-ideas.html
+.. _`blog post`: https://morepypy.blogspot.it/2017/10/cape-of-good-hope-for-pypy-hello-from.html
 
 What is PyPy?
 =============
