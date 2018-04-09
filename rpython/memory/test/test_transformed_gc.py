@@ -1421,10 +1421,10 @@ class MyGcHooks(GcHooks):
     def is_gc_collect_enabled(self):
         return True
 
-    def on_gc_minor(self, total_memory_used, pinned_objects):
+    def on_gc_minor(self, duration, total_memory_used, pinned_objects):
         self.stats.minors += 1
 
-    def on_gc_collect_step(self, oldstate, newstate):
+    def on_gc_collect_step(self, duration, oldstate, newstate):
         self.stats.steps += 1
         
     def on_gc_collect(self, count, arenas_count_before, arenas_count_after,

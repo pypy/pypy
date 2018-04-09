@@ -25,13 +25,16 @@ class MyGcHooks(GcHooks):
         self.minors = []
         self.steps = []
         self.collects = []
+        self.durations = []
 
-    def on_gc_minor(self, total_memory_used, pinned_objects):
+    def on_gc_minor(self, duration, total_memory_used, pinned_objects):
+        self.durations.append(duration)
         self.minors.append({
             'total_memory_used': total_memory_used,
             'pinned_objects': pinned_objects})
 
-    def on_gc_collect_step(self, oldstate, newstate):
+    def on_gc_collect_step(self, duration, oldstate, newstate):
+        self.durations.append(duration)
         self.steps.append({
             'oldstate': oldstate,
             'newstate': newstate})
@@ -66,6 +69,7 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
         assert self.gc.hooks.minors == [
             {'total_memory_used': 0, 'pinned_objects': 0}
             ]
+        assert self.gc.hooks.durations[0] > 0
         self.gc.hooks.reset()
         #
         # these objects survive, so the total_memory_used is > 0
@@ -96,6 +100,9 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
              'rawmalloc_bytes_after': 0,
              'rawmalloc_bytes_before': 0}
             ]
+        assert len(self.gc.hooks.durations) == 4 # 4 steps
+        for d in self.gc.hooks.durations:
+            assert d > 0
         self.gc.hooks.reset()
         #
         self.stackroots.append(self.malloc(S))

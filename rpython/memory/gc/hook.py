@@ -21,12 +21,12 @@ class GcHooks(object):
     def is_gc_collect_enabled(self):
         return False
 
-    def on_gc_minor(self, total_memory_used, pinned_objects):
+    def on_gc_minor(self, duration, total_memory_used, pinned_objects):
         """
         Called after a minor collection
         """
 
-    def on_gc_collect_step(self, oldstate, newstate):
+    def on_gc_collect_step(self, duration, oldstate, newstate):
         """
         Called after each individual step of a major collection, in case the GC is
         incremental.
@@ -48,14 +48,14 @@ class GcHooks(object):
     # overridden
 
     @rgc.no_collect
-    def fire_gc_minor(self, total_memory_used, pinned_objects):
+    def fire_gc_minor(self, duration, total_memory_used, pinned_objects):
         if self.is_gc_minor_enabled():
-            self.on_gc_minor(total_memory_used, pinned_objects)
+            self.on_gc_minor(duration, total_memory_used, pinned_objects)
 
     @rgc.no_collect
-    def fire_gc_collect_step(self, oldstate, newstate):
+    def fire_gc_collect_step(self, duration, oldstate, newstate):
         if self.is_gc_collect_step_enabled():
-            self.on_gc_collect_step(oldstate, newstate)
+            self.on_gc_collect_step(duration, oldstate, newstate)
 
     @rgc.no_collect
     def fire_gc_collect(self, count, arenas_count_before, arenas_count_after,
