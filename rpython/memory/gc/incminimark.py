@@ -2430,7 +2430,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             self.rawmalloced_total_size)
                 debug_stop("gc-collect-done")
                 self.hooks.fire_gc_collect(
-                    count=self.num_major_collects,
+                    num_major_collects=self.num_major_collects,
                     arenas_count_before=self.stat_ac_arenas_count,
                     arenas_count_after=self.ac.arenas_count,
                     arenas_bytes=self.ac.total_memory_used,

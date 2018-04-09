@@ -45,11 +45,12 @@ class LowLevelGcHooks(GcHooks):
         action.newstate = newstate
         action.fire()
 
-    def on_gc_collect(self, count, arenas_count_before, arenas_count_after,
+    def on_gc_collect(self, num_major_collects,
+                      arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
                       rawmalloc_bytes_after):
         action = self.w_hooks.gc_collect
-        action.count = count
+        action.num_major_collects = num_major_collects
         action.arenas_count_before = arenas_count_before
         action.arenas_count_after = arenas_count_after
         action.arenas_bytes = arenas_bytes
@@ -162,7 +163,7 @@ class GcCollectStepHookAction(AsyncAction):
 
 
 class GcCollectHookAction(AsyncAction):
-    count = 0
+    num_major_collects = 0
     arenas_count_before = 0
     arenas_count_after = 0
     arenas_bytes = 0
@@ -178,7 +179,7 @@ class GcCollectHookAction(AsyncAction):
         # BEFORE we do the gc transform; this makes sure that everything is
         # annotated with the correct types
         if NonConstant(False):
-            self.count = NonConstant(-42)
+            self.num_major_collects = NonConstant(-42)
             self.arenas_count_before = NonConstant(-42)
             self.arenas_count_after = NonConstant(-42)
             self.arenas_bytes = NonConstant(r_uint(42))
@@ -187,7 +188,7 @@ class GcCollectHookAction(AsyncAction):
             self.fire()
 
     def perform(self, ec, frame):
-        w_stats = W_GcCollectStats(self.count,
+        w_stats = W_GcCollectStats(self.num_major_collects,
                                    self.arenas_count_before,
                                    self.arenas_count_after,
                                    self.arenas_bytes,
@@ -213,10 +214,11 @@ class W_GcCollectStepStats(W_Root):
 
 
 class W_GcCollectStats(W_Root):
-    def __init__(self, count, arenas_count_before, arenas_count_after,
+    def __init__(self, num_major_collects,
+                 arenas_count_before, arenas_count_after,
                  arenas_bytes, rawmalloc_bytes_before,
                  rawmalloc_bytes_after):
-        self.count = count
+        self.num_major_collects = num_major_collects
         self.arenas_count_before = arenas_count_before
         self.arenas_count_after = arenas_count_after
         self.arenas_bytes = arenas_bytes
@@ -274,7 +276,7 @@ W_GcCollectStepStats.typedef = TypeDef(
 W_GcCollectStats.typedef = TypeDef(
     "GcCollectStats",
     **wrap_many_ints(W_GcCollectStats, (
-        "count",
+        "num_major_collects",
         "arenas_count_before",
         "arenas_count_after",
         "arenas_bytes",

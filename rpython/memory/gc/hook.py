@@ -37,7 +37,8 @@ class GcHooks(object):
         """
 
 
-    def on_gc_collect(self, count, arenas_count_before, arenas_count_after,
+    def on_gc_collect(self, num_major_collects,
+                      arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
                       rawmalloc_bytes_after):
         """
@@ -58,10 +59,12 @@ class GcHooks(object):
             self.on_gc_collect_step(duration, oldstate, newstate)
 
     @rgc.no_collect
-    def fire_gc_collect(self, count, arenas_count_before, arenas_count_after,
+    def fire_gc_collect(self, num_major_collects,
+                        arenas_count_before, arenas_count_after,
                         arenas_bytes, rawmalloc_bytes_before,
                         rawmalloc_bytes_after):
         if self.is_gc_collect_enabled():
-            self.on_gc_collect(count, arenas_count_before, arenas_count_after,
+            self.on_gc_collect(num_major_collects,
+                               arenas_count_before, arenas_count_after,
                                arenas_bytes, rawmalloc_bytes_before,
                                rawmalloc_bytes_after)

@@ -87,7 +87,7 @@ class AppTestGcHooks(object):
         import gc
         lst = []
         def on_gc_collect(stats):
-            lst.append((stats.count,
+            lst.append((stats.num_major_collects,
                         stats.arenas_count_before,
                         stats.arenas_count_after,
                         stats.arenas_bytes,

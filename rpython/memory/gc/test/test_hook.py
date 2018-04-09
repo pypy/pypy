@@ -39,11 +39,12 @@ class MyGcHooks(GcHooks):
             'oldstate': oldstate,
             'newstate': newstate})
 
-    def on_gc_collect(self, count, arenas_count_before, arenas_count_after,
+    def on_gc_collect(self, num_major_collects,
+                      arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
                       rawmalloc_bytes_after):
         self.collects.append({
-            'count': count,
+            'num_major_collects': num_major_collects,
             'arenas_count_before': arenas_count_before,
             'arenas_count_after': arenas_count_after,
             'arenas_bytes': arenas_bytes,
@@ -93,7 +94,7 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
             {'oldstate': m.STATE_FINALIZING, 'newstate': m.STATE_SCANNING}
         ]
         assert self.gc.hooks.collects == [
-            {'count': 1,
+            {'num_major_collects': 1,
              'arenas_count_before': 0,
              'arenas_count_after': 0,
              'arenas_bytes': 0,
@@ -108,7 +109,7 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
         self.stackroots.append(self.malloc(S))
         self.gc.collect()
         assert self.gc.hooks.collects == [
-            {'count': 2,
+            {'num_major_collects': 2,
              'arenas_count_before': 1,
              'arenas_count_after': 1,
              'arenas_bytes': self.size_of_S,
