@@ -768,13 +768,14 @@ class AppTestPacket:
     def test_convert_between_tuple_and_sockaddr_ll(self):
         import _socket
         s = _socket.socket(_socket.AF_PACKET, _socket.SOCK_RAW)
-        assert s.getsockname() == ('', 0, 0, 0, '')
+        assert s.getsockname() == ('', 0, 0, 0, b''), 's.getsockname %s' % str(s.getsockname())
         s.bind(('lo', 123))
         a, b, c, d, e = s.getsockname()
         assert (a, b, c) == ('lo', 123, 0)
         assert isinstance(d, int)
-        assert isinstance(e, str)
+        assert isinstance(e, bytes)
         assert 0 <= len(e) <= 8
+        s.close()
 
 
 class AppTestSocketTCP:
