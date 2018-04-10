@@ -5,7 +5,7 @@ from test import test_support
 
 class EOFTestCase(unittest.TestCase):
     def test_EOFC(self):
-        expect = "EOL while scanning string literal (<string>, line 1)"
+        expect = "end of line (EOL) while scanning string literal (<string>, line 1)"
         try:
             eval("""'this is a test\
             """)
@@ -15,7 +15,7 @@ class EOFTestCase(unittest.TestCase):
             raise test_support.TestFailed
 
     def test_EOFS(self):
-        expect = ("EOF while scanning triple-quoted string literal "
+        expect = ("end of file (EOF) while scanning triple-quoted string literal "
                   "(<string>, line 1)")
         try:
             eval("""'''this is a test""")
