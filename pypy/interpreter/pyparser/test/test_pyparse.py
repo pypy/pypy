@@ -45,14 +45,14 @@ class TestPythonParserWithoutSpace:
         exc = py.test.raises(SyntaxError, parse, "name another for").value
         assert exc.msg == "invalid syntax"
         assert exc.lineno == 1
-        assert exc.offset == 5
+        assert exc.offset == 6
         assert exc.text.startswith("name another for")
         exc = py.test.raises(SyntaxError, parse, "x = \"blah\n\n\n").value
-        assert exc.msg == "EOL while scanning string literal"
+        assert exc.msg == "end of line (EOL) while scanning string literal"
         assert exc.lineno == 1
         assert exc.offset == 5
         exc = py.test.raises(SyntaxError, parse, "x = '''\n\n\n").value
-        assert exc.msg == "EOF while scanning triple-quoted string literal"
+        assert exc.msg == "end of file (EOF) while scanning triple-quoted string literal"
         assert exc.lineno == 1
         assert exc.offset == 5
         assert exc.lastlineno == 3
@@ -81,7 +81,7 @@ pass"""
         assert exc.msg == "expected an indented block"
         assert exc.lineno == 3
         assert exc.text.startswith("pass")
-        assert exc.offset == 0
+        assert exc.offset == 1
         input = "hi\n    indented"
         exc = py.test.raises(IndentationError, parse, input).value
         assert exc.msg == "unexpected indent"
@@ -89,6 +89,7 @@ pass"""
         exc = py.test.raises(IndentationError, parse, input).value
         assert exc.msg == "unindent does not match any outer indentation level"
         assert exc.lineno == 3
+        assert exc.offset == 3
 
     def test_taberror(self):
         src = """

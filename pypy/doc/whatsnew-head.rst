@@ -10,3 +10,9 @@ What's new in PyPy2.7 6.0+
 Fix for python-level classes that inherit from C-API types, previously the
 `w_obj` was not necessarily preserved throughout the lifetime of the `pyobj`
 which led to cases where instance attributes were lost. Fixes issue #2793
+
+
+.. branch: pyparser-improvements-2
+
+Improve line offsets that are reported by SyntaxError. Improve error messages
+for a few situations, including mismatched parenthesis.
