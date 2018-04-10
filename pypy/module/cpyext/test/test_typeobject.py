@@ -243,29 +243,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo')
         raises(TypeError, module.MetaType, 'other', (module.fooType,), {})
 
-    def test_sre(self):
-        import sys
-        for m in ['_sre', 'sre_compile', 'sre_constants', 'sre_parse', 're']:
-            # clear out these modules
-            try:
-                del sys.modules[m]
-            except KeyError:
-                pass
-        module = self.import_module(name='_sre')
-        import re
-        assert re.sre_compile._sre is module
-        s = u"Foo " * 1000 + u"Bar"
-        prog = re.compile(u"Foo.*Bar")
-        assert prog.match(s)
-        m = re.search(u"xyz", u"xyzxyz")
-        assert m
-        m = re.search("xyz", "xyzxyz")
-        assert m
-        assert "groupdict" in dir(m)
-        re._cache.clear()
-        re._cache_repl.clear()
-        del prog, m
-
     def test_init_error(self):
         module = self.import_module("foo")
         raises(ValueError, module.InitErrType)
@@ -1597,6 +1574,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             )], prologue='''
             #if PY_MAJOR_VERSION > 2
             #define PyInt_FromLong PyLong_FromLong
+            #define PyInt_AsLong PyLong_AsLong
             #endif
             static long my_global_number;
             static PyTypeObject Foo_Type = {
