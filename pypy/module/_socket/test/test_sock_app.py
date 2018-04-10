@@ -252,11 +252,11 @@ def test_addr_raw_packet():
     w_obj = addr_as_object(rsocket.make_address(c_addr, addrlen), fd, space)
     lltype.free(c_addr_ll, flavor='raw')
     assert space.is_true(space.eq(w_obj, space.newtuple([
-        space.wrap('lo'),
-        space.wrap(socket.ntohs(8)),
-        space.wrap(13),
-        space.wrap(False),
-        space.wrap("abc"),
+        space.newtext('lo'),
+        space.newint(socket.ntohs(8)),
+        space.newint(13),
+        space.newbool(False),
+        space.newbytes("abc"),
         ])))
 
 def test_getnameinfo():
