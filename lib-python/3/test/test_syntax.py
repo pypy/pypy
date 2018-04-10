@@ -110,12 +110,12 @@ SyntaxError: non-default argument follows default argument
 >>> def f(x, None):
 ...     pass
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: invalid syntax (expected ')')
 
 >>> def f(*None):
 ...     pass
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: invalid syntax (expected ')')
 
 >>> def f(**None):
 ...     pass
