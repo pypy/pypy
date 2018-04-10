@@ -1597,6 +1597,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             )], prologue='''
             #if PY_MAJOR_VERSION > 2
             #define PyInt_FromLong PyLong_FromLong
+            #define PyInt_AsLong PyLong_AsLong
             #endif
             static long my_global_number;
             static PyTypeObject Foo_Type = {
