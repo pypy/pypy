@@ -26,8 +26,11 @@ class AppTestGcHooks(object):
 
         @unwrap_spec(ObjSpace)
         def fire_many(space):
-            gchooks.fire_gc_minor(0, 0, 0)
-            gchooks.fire_gc_collect_step(0, 0, 0)
+            gchooks.fire_gc_minor(5, 0, 0)
+            gchooks.fire_gc_minor(7, 0, 0)
+            gchooks.fire_gc_collect_step(5, 0, 0)
+            gchooks.fire_gc_collect_step(15, 0, 0)
+            gchooks.fire_gc_collect_step(22, 0, 0)
             gchooks.fire_gc_collect(1, 2, 3, 4, 5, 6)
 
         cls.w_fire_gc_minor = space.wrap(interp2app(fire_gc_minor))
@@ -45,49 +48,54 @@ class AppTestGcHooks(object):
         import gc
         lst = []
         def on_gc_minor(stats):
-            tup = (stats.duration, stats.total_memory_used, stats.pinned_objects)
-            lst.append(tup)
+            lst.append((stats.count,
+                        stats.duration,
+                        stats.total_memory_used,
+                        stats.pinned_objects))
         gc.hooks.on_gc_minor = on_gc_minor
         self.fire_gc_minor(10, 20, 30)
         self.fire_gc_minor(40, 50, 60)
         assert lst == [
-            (10, 20, 30),
-            (40, 50, 60),
+            (1, 10, 20, 30),
+            (1, 40, 50, 60),
             ]
         #
         gc.hooks.on_gc_minor = None
         self.fire_gc_minor(70, 80, 90)  # won't fire because the hooks is disabled
         assert lst == [
-            (10, 20, 30),
-            (40, 50, 60),
+            (1, 10, 20, 30),
+            (1, 40, 50, 60),
             ]
 
     def test_on_gc_collect_step(self):
         import gc
         lst = []
         def on_gc_collect_step(stats):
-            tup = (stats.duration, stats.oldstate, stats.newstate)
-            lst.append(tup)
+            lst.append((stats.count,
+                        stats.duration,
+                        stats.oldstate,
+                        stats.newstate))
         gc.hooks.on_gc_collect_step = on_gc_collect_step
         self.fire_gc_collect_step(10, 20, 30)
         self.fire_gc_collect_step(40, 50, 60)
         assert lst == [
-            (10, 20, 30),
-            (40, 50, 60),
+            (1, 10, 20, 30),
+            (1, 40, 50, 60),
             ]
         #
         gc.hooks.on_gc_collect_step = None
         self.fire_gc_collect_step(70, 80, 90)  # won't fire
         assert lst == [
-            (10, 20, 30),
-            (40, 50, 60),
+            (1, 10, 20, 30),
+            (1, 40, 50, 60),
             ]
 
     def test_on_gc_collect(self):
         import gc
         lst = []
         def on_gc_collect(stats):
-            lst.append((stats.num_major_collects,
+            lst.append((stats.count,
+                        stats.num_major_collects,
                         stats.arenas_count_before,
                         stats.arenas_count_after,
                         stats.arenas_bytes,
@@ -97,15 +105,15 @@ class AppTestGcHooks(object):
         self.fire_gc_collect(1, 2, 3, 4, 5, 6)
         self.fire_gc_collect(7, 8, 9, 10, 11, 12)
         assert lst == [
-            (1, 2, 3, 4, 5, 6),
-            (7, 8, 9, 10, 11, 12),
+            (1, 1, 2, 3, 4, 5, 6),
+            (1, 7, 8, 9, 10, 11, 12),
             ]
         #
         gc.hooks.on_gc_collect = None
         self.fire_gc_collect(42, 42, 42, 42, 42, 42)  # won't fire
         assert lst == [
-            (1, 2, 3, 4, 5, 6),
-            (7, 8, 9, 10, 11, 12),
+            (1, 1, 2, 3, 4, 5, 6),
+            (1, 7, 8, 9, 10, 11, 12),
             ]
 
     def test_consts(self):
@@ -116,6 +124,28 @@ class AppTestGcHooks(object):
         assert S.STATE_SWEEPING == 2
         assert S.STATE_FINALIZING == 3
         assert S.GC_STATES == ('SCANNING', 'MARKING', 'SWEEPING', 'FINALIZING')
+
+    def test_cumulative(self):
+        import gc
+        class MyHooks(object):
+
+            def __init__(self):
+                self.minors = []
+                self.steps = []
+
+            def on_gc_minor(self, stats):
+                self.minors.append((stats.count, stats.duration))
+
+            def on_gc_collect_step(self, stats):
+                self.steps.append((stats.count, stats.duration))
+
+            on_gc_collect = None
+
+        myhooks = MyHooks()
+        gc.hooks.set(myhooks)
+        self.fire_many()
+        assert myhooks.minors == [(2, 12)]
+        assert myhooks.steps == [(3, 42)]
 
     def test_clear_queue(self):
         import gc
