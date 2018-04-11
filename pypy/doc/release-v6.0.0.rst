@@ -14,10 +14,14 @@ many other improvements in speed and CPython compatibility. Since the changes
 affect the included python development header files, all c-extension modules must
 be recompiled for this version.
 
+First-time python users are often stumped by silly typos and emissions when
+getting started writing code. We have improved our parser to emit more friendly
+`syntax errors`_,  making PyPy not only faster but more friendly.
+
 The Windows PyPy3.5 release is still considered beta-quality. There are open
 issues with unicode handling especially around system calls and c-extensions.
 
-The Matplotlib TkAgg backend now works with PyPy, as do pygame and pygobject.
+The Matplotlib TkAgg backend now works with PyPy, as do pygame and pygobject_.
 
 As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
@@ -47,6 +51,8 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _`modules`: project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: project-ideas.html
 .. _`blog post`: https://morepypy.blogspot.it/2017/10/cape-of-good-hope-for-pypy-hello-from.html
+.. _pygobject: https://lazka.github.io/posts/2018-04_pypy-pygobject/index.html
+.. _`syntax errors`: https://morepypy.blogspot.com/2018/04/improving-syntaxerror-in-pypy.html
 
 What is PyPy?
 =============
