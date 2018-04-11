@@ -161,14 +161,14 @@ List comprehension element unpacking
 Generator expression in function arguments
 PyPy has extended sytax error messages, ignore the detail for compatibility
 
-    >>> list(*x for x in (range(5) for i in range(3))) # doctest: +IGNORE_EXCPTION_DETAIL
+    >>> list(*x for x in (range(5) for i in range(3))) # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
     ...
         list(*x for x in (range(5) for i in range(3)))
                   ^
     SyntaxError: invalid syntax
 
-    >>> dict(**x for x in [{1:2}]) # doctest: +IGNORE_EXCPTION_DETAIL
+    >>> dict(**x for x in [{1:2}]) # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
     ...
         dict(**x for x in [{1:2}])

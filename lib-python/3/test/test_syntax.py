@@ -109,12 +109,12 @@ SyntaxError: non-default argument follows default argument
 
 PyPy has extended sytax error messages, ignore the detail for compatibility
 
->>> def f(x, None): # doctest: +IGNORE_EXCPTION_DETAIL
+>>> def f(x, None): # doctest: +IGNORE_EXCEPTION_DETAIL
 ...     pass
 Traceback (most recent call last):
 SyntaxError: invalid syntax (expected ')')
 
->>> def f(*None): # doctest: +IGNORE_EXCPTION_DETAIL
+>>> def f(*None): # doctest: +IGNORE_EXCEPTION_DETAIL
 ...     pass
 Traceback (most recent call last):
 SyntaxError: invalid syntax (expected ')')
