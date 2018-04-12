@@ -18,9 +18,8 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
 from rpython.rlib import rawrefcount, jit
 from rpython.rlib.debug import ll_assert, fatalerror, debug_print
-from rpython.rlib.rawrefcount import (
-    REFCNT_MASK, REFCNT_FROM_PYPY, REFCNT_OVERFLOW, REFCNT_CYCLE_BUFFERED,
-    REFCNT_CLR_MASK, REFCNT_CLR_GREEN, REFCNT_CLR_PURPLE)
+from rpython.rlib.rawrefcount import (REFCNT_MASK, REFCNT_FROM_PYPY,
+                                      REFCNT_OVERFLOW)
 from pypy.module.cpyext.api import slot_function
 from pypy.module.cpyext.typeobjectdefs import visitproc
 
@@ -401,30 +400,12 @@ def decref(space, pyobj):
         rawrefcount.decref(pyobj)
         rc = pyobj.c_ob_refcnt
         if rc & REFCNT_MASK == 0:
-            if rc & REFCNT_FROM_PYPY == 0 and rc & REFCNT_CLR_MASK != REFCNT_CLR_PURPLE:
-                state = space.fromcache(State)
-                generic_cpy_call(space, state.C._Py_Dealloc, pyobj)
-        elif rc & REFCNT_CLR_MASK != REFCNT_CLR_GREEN:
-            possible_root(space, pyobj)
+            state = space.fromcache(State)
+            generic_cpy_call(space, state.C._Py_Dealloc, pyobj)
         #else:
         #    w_obj = rawrefcount.to_obj(W_Root, ref)
         #    if w_obj is not None:
         #        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
-
-@jit.dont_look_inside
-def possible_root(space, obj):
-    #debug_print("possible root", obj)
-    rc = obj.c_ob_refcnt
-    if not obj.c_ob_type or not obj.c_ob_type.c_tp_traverse:
-        #debug_print("mark green", obj)
-        rc = rc & ~REFCNT_CLR_MASK | REFCNT_CLR_GREEN
-    elif rc & REFCNT_CLR_MASK != REFCNT_CLR_PURPLE:
-        rc = rc & ~REFCNT_CLR_MASK | REFCNT_CLR_PURPLE
-        if rc & REFCNT_CYCLE_BUFFERED == 0:
-            #debug_print("mark purple", obj)
-            rawrefcount.buffer_pyobj(obj)
-            rc = rc | REFCNT_CYCLE_BUFFERED
-    obj.c_ob_refcnt = rc
 
 @cpython_api([PyObject], lltype.Void)
 def Py_IncRef(space, obj):

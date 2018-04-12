@@ -128,13 +128,6 @@ class TestRawRefCount(BaseDirectGCTest):
         r1.base.c_ob_refcnt = 1
         return r1
 
-    def _rawrefcount_buffer_obj(self, obj):
-        from rpython.rlib.rawrefcount import REFCNT_CLR_MASK, REFCNT_CLR_PURPLE
-        rc = obj.base.c_ob_refcnt
-        obj.base.c_ob_refcnt = rc & ~REFCNT_CLR_MASK | REFCNT_CLR_PURPLE
-        objaddr = llmemory.cast_ptr_to_adr(obj)
-        self.gc.rawrefcount_buffer_pyobj(objaddr)
-
     def test_rawrefcount_objects_basic(self, old=False):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_light=True, create_old=old))

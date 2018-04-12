@@ -490,10 +490,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 GCClass.rawrefcount_mark_deallocating,
                 [s_gc, s_gcref, SomeAddress()],
                 annmodel.s_None)
-            self.rawrefcount_buffer_pyobj = getfn(
-                GCClass.rawrefcount_buffer_pyobj,
-                [s_gc, SomeAddress()],
-                annmodel.s_None)
             self.rawrefcount_from_obj_ptr = getfn(
                 GCClass.rawrefcount_from_obj, [s_gc, s_gcref], SomeAddress(),
                 inline = True)
@@ -1345,13 +1341,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call",
                   [self.rawrefcount_mark_deallocating, self.c_const_gc,
                    v_gcobj, v_pyobject])
-
-    def gct_gc_rawrefcount_buffer_pyobj(self, hop):
-        [v_pyobject] = hop.spaceop.args
-        assert v_pyobject.concretetype == llmemory.Address
-        hop.genop("direct_call",
-                  [self.rawrefcount_buffer_pyobj, self.c_const_gc,
-                   v_pyobject])
 
     def gct_gc_rawrefcount_from_obj(self, hop):
         [v_gcobj] = hop.spaceop.args

@@ -17,31 +17,9 @@ MAX_BIT = int(math.log(sys.maxint, 2))
 # Flags
 REFCNT_FROM_PYPY = 1 << MAX_BIT - 2                             # Reference from a pypy object
 REFCNT_FROM_PYPY_LIGHT = (1 << MAX_BIT - 1) + REFCNT_FROM_PYPY  # Light reference from a pypy object
-REFCNT_CYCLE_BUFFERED = 1 << MAX_BIT - 3                        # Object in roots buffer (for potential cycles)
-REFCNT_IN_WAVEFRONT = 1 << MAX_BIT - 4                          # Object in any wavefront
-
-# Offsets and sizes
-REFCNT_CLR_OFFS = MAX_BIT - 7
-REFCNT_CRC_OFFS = REFCNT_CLR_OFFS / 2
-REFCNT_BITS = REFCNT_CRC_OFFS - 1
-
-# Concurrent cycle collection colors
-REFCNT_CLR_BLACK = 0 << REFCNT_CLR_OFFS   # In use or free (default)
-REFCNT_CLR_GRAY = 1 << REFCNT_CLR_OFFS    # Possible member of cycle
-REFCNT_CLR_YELLOW = 2 << REFCNT_CLR_OFFS  # Member of garbage cycle
-REFCNT_CLR_PURPLE = 3 << REFCNT_CLR_OFFS  # Possible root of cycle
-REFCNT_CLR_GREEN = 4 << REFCNT_CLR_OFFS   # Acyclic
-REFCNT_CLR_ORANGE = 5 << REFCNT_CLR_OFFS  # In orange wavefront (might change to YELLOW + IN_WAVEFRONT + phase = 3)
-REFCNT_CLR_MASK = 7 << REFCNT_CLR_OFFS
-
-# Cyclic reference count with overflow bit
-REFCNT_CRC_OVERFLOW = 1 << REFCNT_CRC_OFFS + REFCNT_BITS
-REFCNT_CRC_MASK = (1 << REFCNT_CRC_OFFS + REFCNT_BITS + 1) - 1
-REFCNT_CRC = 1 < REFCNT_CRC_OFFS
-
-# True reference count with overflow bit
-REFCNT_OVERFLOW = 1 << REFCNT_BITS
-REFCNT_MASK = (1 << REFCNT_BITS + 1) - 1
+REFCNT_VISITED = 1 << MAX_BIT - 3                               # Object visited during marking
+REFCNT_OVERFLOW = 1 << MAX_BIT - 4                              # Overflow bit for reference count
+REFCNT_MASK = (REFCNT_OVERFLOW << 1) - 1                        # Mask for reference count (including overflow bit)
 
 PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
                           ('c_ob_refcnt', lltype.Signed),
@@ -101,7 +79,6 @@ def overflow_sub(obj):
 def overflow_get(obj):
     return _refcount_overflow[objectmodel.current_object_addr_as_int(obj)]
 
-# TODO: _cyclic_refcount_overflow = dict()
 
 @not_rpython
 def init(dealloc_trigger_callback=None, tp_traverse=None):
@@ -159,10 +136,6 @@ def mark_deallocating(marker, ob):
     assert ob._obj not in _pypy2ob_rev
     assert not ob.c_ob_pypy_link
     ob.c_ob_pypy_link = _build_pypy_link(marker)
-
-@not_rpython
-def buffer_pyobj(ob):
-    pass  # TODO: implement?
 
 @not_rpython
 def from_obj(OB_PTR_TYPE, p):
@@ -348,18 +321,6 @@ class Entry(ExtRegistryEntry):
             c_func = hop.inputconst(lltype.typeOf(func_boehm_eci),
                                     func_boehm_eci)
             hop.genop('direct_call', [c_func])
-
-class Entry(ExtRegistryEntry):
-    _about_ = buffer_pyobj
-
-    def compute_result_annotation(self, s_ob):
-        pass
-
-    def specialize_call(self, hop):
-        name = 'gc_rawrefcount_buffer_pyobj'
-        hop.exception_cannot_occur()
-        v_ob = hop.inputarg(hop.args_r[0], arg=0)
-        hop.genop(name, [_unspec_ob(hop, v_ob)])
 
 class Entry(ExtRegistryEntry):
     _about_ = from_obj

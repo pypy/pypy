@@ -14,8 +14,7 @@ extern "C" {
 #define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 
 #define PY_REFCNT_FROM_PYPY (4L << ((long)(log(PY_SSIZE_T_MAX) / log(2) - 2)))
-#define PY_REFCNT_GREEN (4L << ((long)(log(PY_SSIZE_T_MAX) / log(2) - 7)))
-#define PY_REFCNT_OVERFLOW (1L << ((long)(log(PY_SSIZE_T_MAX) / log(2) - 7) / 2L - 1L))
+#define PY_REFCNT_OVERFLOW (1L << ((long)(log(PY_SSIZE_T_MAX) / log(2) - 4) - 1L))
 #define PY_REFCNT_MASK ((PY_REFCNT_OVERFLOW << 1L) - 1L)
 #define Py_RETURN_NONE return (((((PyObject *)(Py_None))->ob_refcnt & PY_REFCNT_OVERFLOW) == 0) ? \
                               ((PyObject *)(Py_None))->ob_refcnt++ : Py_IncRef((PyObject *)(Py_None))), Py_None
@@ -48,12 +47,11 @@ we have it for compatibility with CPython.
                                 Py_IncRef((PyObject *)(ob));                            \
                         } while (0)
 #define Py_DECREF(ob)   do {                                                                 \
-                            if (!(((PyObject *)(ob))->ob_refcnt & PY_REFCNT_GREEN) ||        \
-                                (((PyObject *)(ob))->ob_refcnt & PY_REFCNT_OVERFLOW))        \
-                                Py_DecRef((PyObject *)(ob));                                \
+                            if ((((PyObject *)(ob))->ob_refcnt & PY_REFCNT_OVERFLOW))        \
+                                Py_DecRef((PyObject *)(ob));                                 \
                             else if (--((PyObject *)(ob))->ob_refcnt & PY_REFCNT_MASK)       \
                                 ;                                                            \
-                            else if ((!((PyObject *)(ob))->ob_refcnt) & PY_REFCNT_FROM_PYPY) \
+                            else                                                             \
                                 _Py_Dealloc((PyObject *)(ob));                               \
                         } while (0)
 

@@ -3067,9 +3067,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         objint = llmemory.cast_adr_to_int(obj, "symbolic")
         self._pyobj(pyobject).c_ob_pypy_link = objint
 
-    def rawrefcount_buffer_pyobj(self, pyobject):
-        self.rrc_buffered.append(pyobject)
-
     def rawrefcount_from_obj(self, gcobj):
         obj = llmemory.cast_ptr_to_adr(gcobj)
         if self.is_in_nursery(obj):
@@ -3254,12 +3251,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rrc_more_pyobjects_to_scan = self.AddressStack()
 
     def _rrc_mark_cpyobj(self, pyobj):
-        from rpython.rlib.rawrefcount import (REFCNT_CLR_GRAY,
-                                              REFCNT_CLR_MASK)
+        from rpython.rlib.rawrefcount import REFCNT_VISITED
         # if the pyobj is not marked, remember it and if there is a linked pypy
         # object also remember it
-        if pyobj.c_ob_refcnt & REFCNT_CLR_MASK != REFCNT_CLR_GRAY:
-            pyobj.c_ob_refcnt = REFCNT_CLR_GRAY
+        if pyobj.c_ob_refcnt & REFCNT_VISITED != REFCNT_VISITED:
+            pyobj.c_ob_refcnt |= REFCNT_VISITED
             pyobject = llmemory.cast_ptr_to_adr(pyobj)
             self.rrc_more_pyobjects_to_scan.append(pyobject)
             intobj = pyobj.c_ob_pypy_link
@@ -3270,8 +3266,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self.objects_to_trace.append(obj)
 
     def _rrc_major_scan_non_rc_roots(self, pyobject, ignore):
-        from rpython.rlib.rawrefcount import (REFCNT_CLR_GRAY,
-                                              REFCNT_CLR_MASK)
+        from rpython.rlib.rawrefcount import REFCNT_VISITED
         # check in the object header of the linked pypy object, if it is marked
         # or not
         pyobj = self._pyobj(pyobject)
@@ -3279,9 +3274,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = llmemory.cast_int_to_adr(intobj)
         hdr = self.header(obj)
         if hdr.tid & GCFLAG_VISITED:
-            if pyobj.c_ob_refcnt & REFCNT_CLR_MASK != REFCNT_CLR_GRAY: # TODO change to black, but make white default
+            if pyobj.c_ob_refcnt & REFCNT_VISITED != REFCNT_VISITED:
                 # process the pyobject now
-                pyobj.c_ob_refcnt = REFCNT_CLR_GRAY
+                pyobj.c_ob_refcnt |= REFCNT_VISITED
                 self.rrc_pyobjects_to_trace.append(pyobject)
         else:
             # save the pyobject for later, in case its linked object becomes
