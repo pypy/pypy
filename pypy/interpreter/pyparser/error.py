@@ -6,6 +6,7 @@ class SyntaxError(Exception):
                  lastlineno=0):
         self.msg = msg
         self.lineno = lineno
+        # NB: offset is a 1-based index!
         self.offset = offset
         self.text = text
         self.filename = filename

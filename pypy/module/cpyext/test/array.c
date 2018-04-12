@@ -2492,6 +2492,87 @@ same_dealloc(PyObject *self, PyObject *args)
     return PyLong_FromLong(obj1->ob_type->tp_dealloc == obj2->ob_type->tp_dealloc);
 }
 
+static PyObject *
+subclass_with_attribute(PyObject *self, PyObject* args) {
+    /* what happens when we use tp_alloc to create the subclass, then
+     * assign to the w_obj via python, then get the GC to collect?
+     * The w_obj should not be collected!!
+     */
+    PyObject * obj, *sub, *attrib, *funcname, *attribname, *collect, *res, *tup;
+    PyTypeObject * subtype;
+    int i;
+    if (!PyArg_ParseTuple(args, "OOOO", &obj, &funcname, &attribname, &collect)) {
+        return NULL;
+    }
+    if (!PyType_Check(obj)) {
+        PyErr_SetString(PyExc_TypeError,
+            "expected type object");
+        return NULL;
+    }
+    subtype = (PyTypeObject*)obj;
+    sub = subtype->tp_alloc(subtype, 0);
+    if (!sub) {
+        return NULL;
+    }
+    attrib = PyObject_GetAttr(sub, funcname);
+    if (!attrib || (attrib == Py_None) ) {
+        PyErr_SetString(PyExc_ValueError,
+            "could not find function to call");
+        Py_XDECREF(attrib);
+        Py_DECREF(sub);
+        return NULL;
+    }
+    tup = PyTuple_New(0);
+    /*
+    #ifdef PYPY_VERSION
+        printf("calling addattrib pypylink %lu \n", sub->ob_pypy_link);
+    #endif
+    */
+    res = PyObject_Call(attrib, tup, NULL);
+    /*
+    #ifdef PYPY_VERSION
+        printf("after addattrib pypylink %lu \n", sub->ob_pypy_link);
+    #endif
+    */
+    Py_DECREF(attrib);
+    if (res == NULL) {
+        Py_DECREF(tup);
+        Py_DECREF(sub);
+        return NULL;
+    }
+    Py_DECREF(res);
+    for(i=0; i<10; i++) {
+        /*
+        #ifdef PYPY_VERSION
+            printf("starting loop iteration %d refcnt %lu pypylink %lu \n", i, 
+                sub->ob_refcnt, sub->ob_pypy_link);
+        #else
+            printf("starting loop iteration %d refcnt %lu\n", i, sub->ob_refcnt);
+        #endif
+        */
+        attrib =  PyObject_GetAttr(sub, attribname);
+        if (!attrib || (attrib == Py_None)) {
+            PyErr_SetString(PyExc_ValueError,
+                "could not find attrib on object");
+            Py_XDECREF(attrib);
+            Py_DECREF(tup);
+            Py_DECREF(sub);
+            return NULL;
+        }
+        Py_XDECREF(attrib);
+        res = PyObject_Call(collect, tup, NULL);
+        if (res == NULL) {
+            Py_DECREF(tup);
+            Py_DECREF(sub);
+            return NULL;
+        }
+        Py_DECREF(res);
+    }
+    Py_DECREF(tup);
+    Py_DECREF(sub);
+    Py_RETURN_NONE;
+}
+
 /*********************** Install Module **************************/
 
 static PyMethodDef a_methods[] = {
@@ -2502,6 +2583,7 @@ static PyMethodDef a_methods[] = {
     {"create_and_release_buffer",   (PyCFunction)create_and_release_buffer, METH_O, NULL},
     {"same_dealloc",   (PyCFunction)same_dealloc, METH_VARARGS, NULL},
     {"getitem", (PyCFunction)getitem, METH_VARARGS, NULL},
+    {"subclass_with_attribute", (PyCFunction)subclass_with_attribute, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

@@ -1,6 +1,6 @@
 import os
 
-from rpython.rlib import jit
+from rpython.rlib import jit, rawrefcount
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
 
@@ -54,19 +54,26 @@ PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 class W_GetSetPropertyEx(GetSetProperty):
     def __init__(self, getset, w_type):
         self.getset = getset
-        self.name = rffi.charp2str(getset.c_name)
         self.w_type = w_type
-        doc = set = get = None
+        doc = fset = fget = fdel = None
         if doc:
             # XXX dead code?
             doc = rffi.charp2str(getset.c_doc)
         if getset.c_get:
-            get = GettersAndSetters.getter.im_func
+            fget = GettersAndSetters.getter.im_func
         if getset.c_set:
-            set = GettersAndSetters.setter.im_func
-        GetSetProperty.__init__(self, get, set, None, doc,
+            fset = GettersAndSetters.setter.im_func
+            fdel = GettersAndSetters.deleter.im_func
+        GetSetProperty.__init__(self, fget, fset, fdel, doc,
                                 cls=None, use_closure=True,
                                 tag="cpyext_1")
+        self.name = rffi.charp2str(getset.c_name)
+
+    def readonly_attribute(self, space):   # overwritten
+        raise oefmt(space.w_AttributeError,
+            "attribute '%s' of '%N' objects is not writable",
+            self.name, self.w_type)
+
 
 def PyDescr_NewGetSet(space, getset, w_type):
     return W_GetSetPropertyEx(getset, w_type)
@@ -454,6 +461,16 @@ class GettersAndSetters:
             state = space.fromcache(State)
             state.check_and_raise_exception()
 
+    def deleter(self, space, w_self):
+        assert isinstance(self, W_GetSetPropertyEx)
+        check_descr(space, w_self, self.w_type)
+        res = generic_cpy_call(
+            space, self.getset.c_set, w_self, None,
+            self.getset.c_closure)
+        if rffi.cast(lltype.Signed, res) < 0:
+            state = space.fromcache(State)
+            state.check_and_raise_exception()
+
     def member_getter(self, space, w_self):
         assert isinstance(self, W_MemberDescr)
         check_descr(space, w_self, self.w_type)
@@ -516,6 +533,10 @@ class W_PyCTypeObject(W_TypeObject):
         if pto.c_tp_doc:
             self.w_doc = space.newtext(
                 rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
+
+    def _cpyext_attach_pyobj(self, space, py_obj):
+        self._cpy_ref = py_obj
+        rawrefcount.create_link_pyobj(self, py_obj)
 
 @bootstrap_function
 def init_typeobject(space):
@@ -777,7 +798,6 @@ def type_realize(space, py_obj):
     try:
         w_obj = _type_realize(space, py_obj)
     finally:
-        name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
         pto.c_tp_flags &= ~Py_TPFLAGS_READYING
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return w_obj
@@ -884,7 +904,6 @@ def finish_type_1(space, pto, bases_w=None):
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
-        name = rffi.charp2str(cts.cast('char*', base.c_tp_name))
         type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
