@@ -1098,7 +1098,13 @@ class __extend__(pyframe.PyFrame):
         # sub-iterable first before continuing on the next bytecode.
         from pypy.interpreter.generator import Coroutine
         in_generator = self.get_generator()
-        assert in_generator is not None
+        if in_generator is None:
+            # Issue #2768: rare case involving __del__ methods.
+            # XXX This is a workaround, not a proper solution.
+            raise oefmt(self.space.w_RuntimeError,
+                        "PyPy limitation: cannot use 'yield from' or 'await' "
+                        "in a generator/coroutine that has been partially "
+                        "deallocated already, typically seen via __del__")
         w_inputvalue = self.popvalue()    # that's always w_None, actually
         w_gen = self.popvalue()
         #
