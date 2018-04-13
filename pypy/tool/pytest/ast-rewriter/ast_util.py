@@ -10,6 +10,15 @@ u = str
 _reprcompare = None
 
 
+# the re-encoding is needed for python2 repr
+# with non-ascii characters (see issue 877 and 1379)
+def ecu(s):
+    try:
+        return u(s, 'utf-8', 'replace')
+    except TypeError:
+        return s
+
+
 def format_explanation(explanation):
     """This formats an explanation
 
@@ -20,6 +29,7 @@ def format_explanation(explanation):
     for when one explanation needs to span multiple lines, e.g. when
     displaying diffs.
     """
+    explanation = ecu(explanation)
     lines = _split_explanation(explanation)
     result = _format_lines(lines)
     return '\n'.join(result)
@@ -89,6 +99,13 @@ def saferepr(obj, maxsize=None):
     if maxsize is not None:
         s = s[:maxsize]
     return s
+
+def callbinrepr(op, left, right):
+    new_expl = assertrepr_compare(op, left, right)
+    new_expl = [line.replace("\n", "\\n") for line in new_expl]
+    res = "\n~".join(new_expl)
+    res = res.replace("%", "%%")
+    return res
 
 
 def assertrepr_compare(op, left, right, verbose=False):

@@ -23,20 +23,21 @@ class AppTestModule(pytest.Module):
             os.path.join(pypydir, 'tool', 'pytest', 'ast-rewriter'))
         w_source = space.newtext(source)
         fname = str(self.fspath)
+        w_name = space.newtext(str(self.fspath.purebasename))
         w_fname = space.newtext(fname)
         if self.rewrite_asserts:
-            w_mod = space.appexec([w_rootdir, w_source, w_fname],
-                                """(rootdir, source, fname):
+            w_mod = space.appexec([w_rootdir, w_source, w_fname, w_name],
+                                """(rootdir, source, fname, name):
                 import sys
                 sys.path.insert(0, rootdir)
                 from ast_rewrite import rewrite_asserts, create_module
 
                 co = rewrite_asserts(source, fname)
-                mod = create_module(fname, co)
+                mod = create_module(name, co)
                 return mod
             """)
         else:
-            w_mod = create_module(space, w_fname, fname, source)
+            w_mod = create_module(space, w_name, fname, source)
         mod_dict = w_mod.getdict(space).unwrap(space)
         items = []
         for name, w_obj in mod_dict.items():
@@ -51,7 +52,7 @@ class AppTestModule(pytest.Module):
         pass
 
 def create_module(space, w_name, filename, source):
-    w_mod = Module(space, w_name)
+    w_mod = Module(space, w_name, add_package=False)
     w_dict = w_mod.getdict(space)
     space.setitem(w_dict, space.newtext('__file__'), space.newtext(filename))
     space.exec_(source, w_dict, w_dict, filename=filename)
@@ -83,10 +84,9 @@ class AppTestFunction(pytest.Item):
     def execute_appex(self, space, w_func):
         space.getexecutioncontext().set_sys_exc_info(None)
         sig = w_func.code._signature
-        if sig.varargname or sig.kwargname or sig.kwonlyargnames:
+        if sig.varargname or sig.kwargname:
             raise ValueError(
-                'Test functions may not use *args, **kwargs or '
-                'keyword-only args')
+                'Test functions may not use *args or **kwargs')
         args_w = self.get_fixtures(space, sig.argnames)
         try:
             space.call_function(w_func, *args_w)
