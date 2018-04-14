@@ -166,7 +166,7 @@ class PythonParser(parser.Parser):
                     self.grammar = pygram.python_grammar
 
                 for tp, value, lineno, column, line in tokens:
-                    if self.add_token(tp, value, lineno, column, line):
+                    if self.add_token(parser.Token(tp, value, lineno, column, line)):
                         break
             except error.TokenError as e:
                 e.filename = compile_info.filename
@@ -190,7 +190,7 @@ class PythonParser(parser.Parser):
 
                 # parser.ParseError(...).column is 0-based, but the offsets in the
                 # exceptions in the error module are 1-based, hence the '+ 1'
-                raise new_err(msg, e.lineno, e.column + 1, e.line,
+                raise new_err(msg, e.token.lineno, e.token.column + 1, e.token.line,
                               compile_info.filename)
             else:
                 tree = self.root

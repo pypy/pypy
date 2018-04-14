@@ -20,7 +20,7 @@ class SimpleParser(parser.Parser):
         rl = StringIO.StringIO(input + "\n").readline
         gen = tokenize.generate_tokens(rl)
         for tp, value, begin, end, line in gen:
-            if self.add_token(tp, value, begin[0], begin[1], line):
+            if self.add_token(parser.Token(tp, value, begin[0], begin[1], line)):
                 py.test.raises(StopIteration, gen.next)
         return self.root
 
@@ -58,7 +58,7 @@ def tree_from_string(expected, gram):
                 value = "\n"
             else:
                 value = ""
-            n = parser.Terminal(tp, value, 0, 0)
+            n = parser.Terminal(parser.Token(tp, value, 0, 0, ''))
         else:
             tp = gram.symbol_ids[data[0]]
             n = parser.Nonterminal(tp)

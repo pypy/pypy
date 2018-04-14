@@ -65,6 +65,20 @@ class DFA(object):
             b[pos] |= bit
         return str(b)
 
+
+class Token(object):
+    def __init__(self, token_type, value, lineno, column, line):
+        self.token_type = token_type
+        self.value = value
+        self.lineno = lineno
+        # 0-based offset
+        self.column = column
+        self.line = line
+
+    def __repr__(self):
+        return "Token(%s, %s)" % (self.token_type, self.value)
+
+
 class Node(object):
 
     __slots__ = ("type", )
@@ -99,11 +113,11 @@ class Node(object):
 
 class Terminal(Node):
     __slots__ = ("value", "lineno", "column")
-    def __init__(self, type, value, lineno, column):
-        Node.__init__(self, type)
-        self.value = value
-        self.lineno = lineno
-        self.column = column
+    def __init__(self, token):
+        Node.__init__(self, token.token_type)
+        self.value = token.value
+        self.lineno = token.lineno
+        self.column = token.column
 
     def __repr__(self):
         return "Terminal(type=%s, value=%r)" % (self.type, self.value)
@@ -193,20 +207,14 @@ class Nonterminal1(AbstractNonterminal):
 
 class ParseError(Exception):
 
-    def __init__(self, msg, token_type, value, lineno, column, line,
-                 expected=-1, expected_str=None):
+    def __init__(self, msg, token, expected=-1, expected_str=None):
         self.msg = msg
-        self.token_type = token_type
-        self.value = value
-        self.lineno = lineno
-        # this is a 0-based index
-        self.column = column
-        self.line = line
+        self.token = token
         self.expected = expected
         self.expected_str = expected_str
 
     def __str__(self):
-        return "ParserError(%s, %r)" % (self.token_type, self.value)
+        return "ParserError(%s)" % (self.token, )
 
 
 class StackEntry(object):
@@ -249,8 +257,8 @@ class Parser(object):
         self.root = None
         self.stack = StackEntry(None, self.grammar.dfas[start - 256], 0)
 
-    def add_token(self, token_type, value, lineno, column, line):
-        label_index = self.classify(token_type, value, lineno, column, line)
+    def add_token(self, token):
+        label_index = self.classify(token)
         sym_id = 0 # for the annotator
         while True:
             dfa = self.stack.dfa
@@ -261,7 +269,7 @@ class Parser(object):
                 sym_id = self.grammar.labels[i]
                 if label_index == i:
                     # We matched a non-terminal.
-                    self.shift(next_state, token_type, value, lineno, column)
+                    self.shift(next_state, token)
                     state = states[next_state]
                     # While the only possible action is to accept, pop nodes off
                     # the stack.
@@ -278,8 +286,7 @@ class Parser(object):
                     sub_node_dfa = self.grammar.dfas[sym_id - 256]
                     # Check if this token can start a child node.
                     if sub_node_dfa.could_match_token(label_index):
-                        self.push(sub_node_dfa, next_state, sym_id, lineno,
-                                  column)
+                        self.push(sub_node_dfa, next_state, sym_id)
                         break
             else:
                 # We failed to find any arcs to another state, so unless this
@@ -287,8 +294,7 @@ class Parser(object):
                 if is_accepting:
                     self.pop()
                     if self.stack is None:
-                        raise ParseError("too much input", token_type, value,
-                                         lineno, column, line)
+                        raise ParseError("too much input", token)
                 else:
                     # If only one possible input would satisfy, attach it to the
                     # error.
@@ -299,28 +305,26 @@ class Parser(object):
                     else:
                         expected = -1
                         expected_str = None
-                    raise ParseError("bad input", token_type, value, lineno,
-                                     column, line, expected, expected_str)
+                    raise ParseError("bad input", token, expected, expected_str)
 
-    def classify(self, token_type, value, lineno, column, line):
+    def classify(self, token):
         """Find the label for a token."""
-        if token_type == self.grammar.KEYWORD_TOKEN:
-            label_index = self.grammar.keyword_ids.get(value, -1)
+        if token.token_type == self.grammar.KEYWORD_TOKEN:
+            label_index = self.grammar.keyword_ids.get(token.value, -1)
             if label_index != -1:
                 return label_index
-        label_index = self.grammar.token_ids.get(token_type, -1)
+        label_index = self.grammar.token_ids.get(token.token_type, -1)
         if label_index == -1:
-            raise ParseError("invalid token", token_type, value, lineno, column,
-                             line)
+            raise ParseError("invalid token", token)
         return label_index
 
-    def shift(self, next_state, token_type, value, lineno, column):
+    def shift(self, next_state, token):
         """Shift a non-terminal and prepare for the next state."""
-        new_node = Terminal(token_type, value, lineno, column)
+        new_node = Terminal(token)
         self.stack.node_append_child(new_node)
         self.stack.state = next_state
 
-    def push(self, next_dfa, next_state, node_type, lineno, column):
+    def push(self, next_dfa, next_state, node_type):
         """Push a terminal and adjust the current state."""
         self.stack.state = next_state
         self.stack = self.stack.push(next_dfa, 0)
