@@ -33,6 +33,18 @@ class Grammar(object):
         new.token_ids = self.token_ids
         return new
 
+
+    def classify(self, token):
+        """Find the label for a token."""
+        if token.token_type == self.KEYWORD_TOKEN:
+            label_index = self.keyword_ids.get(token.value, -1)
+            if label_index != -1:
+                return label_index
+        label_index = self.token_ids.get(token.token_type, -1)
+        if label_index == -1:
+            raise ParseError("invalid token", token)
+        return label_index
+
     def _freeze_(self):
         # Remove some attributes not used in parsing.
         try:
@@ -271,7 +283,7 @@ class Parser(object):
         self.stack = StackEntry(None, self.grammar.dfas[start - 256], 0)
 
     def add_token(self, token):
-        label_index = self.classify(token)
+        label_index = self.grammar.classify(token)
         sym_id = 0 # for the annotator
         while True:
             dfa = self.stack.dfa
@@ -320,16 +332,6 @@ class Parser(object):
                         expected_str = None
                     raise ParseError("bad input", token, expected, expected_str)
 
-    def classify(self, token):
-        """Find the label for a token."""
-        if token.token_type == self.grammar.KEYWORD_TOKEN:
-            label_index = self.grammar.keyword_ids.get(token.value, -1)
-            if label_index != -1:
-                return label_index
-        label_index = self.grammar.token_ids.get(token.token_type, -1)
-        if label_index == -1:
-            raise ParseError("invalid token", token)
-        return label_index
 
     def shift(self, next_state, token):
         """Shift a non-terminal and prepare for the next state."""
