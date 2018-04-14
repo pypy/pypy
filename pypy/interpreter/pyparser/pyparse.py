@@ -147,7 +147,6 @@ class PythonParser(parser.Parser):
             flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
 
         self.prepare(_targets[compile_info.mode])
-        tp = 0
         try:
             try:
                 # Note: we no longer pass the CO_FUTURE_* to the tokenizer,
@@ -165,8 +164,8 @@ class PythonParser(parser.Parser):
                 else:
                     self.grammar = pygram.python_grammar
 
-                for tp, value, lineno, column, line in tokens:
-                    if self.add_token(parser.Token(tp, value, lineno, column, line)):
+                for token in tokens:
+                    if self.add_token(token):
                         break
             except error.TokenError as e:
                 e.filename = compile_info.filename
@@ -178,7 +177,7 @@ class PythonParser(parser.Parser):
                 # Catch parse errors, pretty them up and reraise them as a
                 # SyntaxError.
                 new_err = error.IndentationError
-                if tp == pygram.tokens.INDENT:
+                if token.token_type == pygram.tokens.INDENT:
                     msg = "unexpected indent"
                 elif e.expected == pygram.tokens.INDENT:
                     msg = "expected an indented block"

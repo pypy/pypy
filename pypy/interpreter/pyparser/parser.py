@@ -78,6 +78,19 @@ class Token(object):
     def __repr__(self):
         return "Token(%s, %s)" % (self.token_type, self.value)
 
+    def __eq__(self, other):
+        # for tests
+        return (
+            self.token_type == other.token_type and
+            self.value == other.value and
+            self.lineno == other.lineno and
+            self.column == other.column and
+            self.line == other.line
+        )
+
+    def __ne__(self, other):
+        return not self == other
+
 
 class Node(object):
 
