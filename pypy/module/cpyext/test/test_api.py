@@ -39,7 +39,7 @@ class BaseApiTest(LeakCheckingTest):
             raise Exception("%s is not callable" % (f,))
         f(*args)
         state = space.fromcache(State)
-        operror = state.operror
+        operror = state.get_exception()
         if not operror:
             raise Exception("DID NOT RAISE")
         if getattr(space, 'w_' + expected_exc.__name__) is not operror.w_type:

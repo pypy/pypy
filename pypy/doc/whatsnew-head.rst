@@ -52,3 +52,13 @@ Update _winapi and internal _winbase_cffi (via _winbase_build) for python 3
 .. branch: refactor-slots
 
 Refactor cpyext slots.
+
+
+.. branch: call-loopinvariant-into-bridges
+
+Speed up branchy code that does a lot of function inlining by saving one call
+to read the TLS in most bridges.
+
+.. branch: rpython-sprint
+
+Refactor in rpython signatures

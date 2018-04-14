@@ -90,6 +90,13 @@ def saferepr(obj, maxsize=None):
         s = s[:maxsize]
     return s
 
+def callbinrepr(op, left, right):
+    new_expl = assertrepr_compare(op, left, right)
+    new_expl = [line.replace("\n", "\\n") for line in new_expl]
+    res = "\n~".join(new_expl)
+    res = res.replace("%", "%%")
+    return res
+
 
 def assertrepr_compare(op, left, right, verbose=False):
     """Return specialised explanations for some operators/operands"""

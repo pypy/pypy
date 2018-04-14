@@ -3,14 +3,21 @@ from __future__ import absolute_import, division, print_function
 import ast
 import itertools
 import marshal
-import struct
 import sys
 
-from ast_util import assertrepr_compare, format_explanation as _format_explanation
+from ast_util import callbinrepr, format_explanation as _format_explanation
 
 
 # pytest caches rewritten pycs in __pycache__.
-PYTEST_TAG = sys.implementation.cache_tag + "-PYTEST"
+if hasattr(sys, "pypy_version_info"):
+    impl = "pypy"
+elif sys.platform == "java":
+    impl = "jython"
+else:
+    impl = "cpython"
+ver = sys.version_info
+PYTEST_TAG = "%s-%s%s-PYTEST" % (impl, ver[0], ver[1])
+del ver, impl
 
 PYC_EXT = ".py" + (__debug__ and "c" or "o")
 PYC_TAIL = "." + PYTEST_TAG + PYC_EXT
@@ -29,6 +36,7 @@ def _write_pyc(state, co, source_stat, pyc):
     # import. However, there's little reason deviate, and I hope
     # sometime to be able to use imp.load_compiled to load them. (See
     # the comment in load_module above.)
+    import struct
     try:
         fp = open(pyc, "wb")
     except IOError:
@@ -91,6 +99,7 @@ def _read_pyc(source, pyc, trace=lambda x: None):
 
     Return rewritten code if successful or None if not.
     """
+    import struct
     try:
         fp = open(pyc, "rb")
     except IOError:
@@ -161,7 +170,7 @@ def _call_reprcompare(ops, results, expls, each_obj):
             done = True
         if done:
             break
-    custom = assertrepr_compare(ops[i], each_obj[i], each_obj[i + 1])
+    custom = callbinrepr(ops[i], each_obj[i], each_obj[i + 1])
     if custom is not None:
         return custom
     return expl

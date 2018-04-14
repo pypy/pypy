@@ -82,10 +82,10 @@ def PyFrame_New(space, tstate, w_code, w_globals, w_locals):
 def PyTraceBack_Here(space, w_frame):
     from pypy.interpreter.pytraceback import record_application_traceback
     state = space.fromcache(State)
-    if state.operror is None:
+    if state.get_exception() is None:
         return -1
     frame = space.interp_w(PyFrame, w_frame)
-    record_application_traceback(space, state.operror, frame, 0)
+    record_application_traceback(space, state.get_exception(), frame, 0)
     return 0
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)

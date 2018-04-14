@@ -198,7 +198,7 @@ def build_pytest_assertion(space):
     w_BuiltinAssertionError = space.getitem(space.builtin.w_dict,
                                             space.wrap('AssertionError'))
     w_metaclass = space.type(w_BuiltinAssertionError)
-    w_init = space.wrap(gateway.interp2app_temp(my_init))
+    w_init = space.wrap(gateway.interp2app(my_init))
     w_dict = space.getattr(w_BuiltinAssertionError, space.wrap('__dict__'))
     w_dict = space.call_method(w_dict, 'copy')
     # fixup __module__, since the new type will be is_heaptype() == True

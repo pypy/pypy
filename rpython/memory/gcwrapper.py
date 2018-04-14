@@ -235,11 +235,11 @@ class GCManagedHeap(object):
             obj = deque.popleft()
         else:
             obj = llmemory.NULL
-        return llmemory.cast_adr_to_ptr(obj, rclass.OBJECTPTR)
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def gc_fq_register(self, fq_tag, ptr):
         index = self.get_finalizer_queue_index(fq_tag)
-        ptr = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+        assert lltype.typeOf(ptr) == llmemory.GCREF
         self.gc.register_finalizer(index, ptr)
 
 # ____________________________________________________________

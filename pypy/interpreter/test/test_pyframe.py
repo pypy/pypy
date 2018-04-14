@@ -1,4 +1,3 @@
-from rpython.tool import udir
 from pypy.conftest import option
 from pypy.interpreter.gateway import interp2app
 

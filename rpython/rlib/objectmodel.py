@@ -120,7 +120,7 @@ def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
-    When not translated, the type of the actual arguments are checked against
+    When not translated, the type of the actual arguments is checked against
     the enforced types every time the function is called. You can disable the
     typechecking by passing ``typecheck=False`` to @enforceargs.
     """
@@ -147,8 +147,7 @@ def enforceargs(*types_, **kwds):
             # they are already homogeneous, so we only check the first
             # item. The case of empty list/dict is handled inside typecheck()
             if isinstance(arg, list):
-                item = arg[0]
-                return [get_type_descr_of_argument(item)]
+                return [get_type_descr_of_argument(arg[0])]
             elif isinstance(arg, dict):
                 key, value = next(arg.iteritems())
                 return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
