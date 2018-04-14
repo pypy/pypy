@@ -736,9 +736,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             shadow = self.nursery_objects_shadows.get(obj)
             ll_assert(shadow != llmemory.NULL,
                       "GCFLAG_HAS_SHADOW but no shadow found")
-            return shadow
+        else:
+            shadow = self._allocate_shadow(obj)
 
-        return self._allocate_shadow(obj, copy=True)
+        if (self.header(obj).tid & GCFLAG_SHADOW_INITIALIZED) == 0:
+            self.header(obj).tid |= GCFLAG_SHADOW_INITIALIZED
+            totalsize = self.get_size(obj)
+            llmemory.raw_memcopy(obj, shadow, totalsize)
+        return shadow
 
     def collect(self, gen=2):
         """Do a minor (gen=0), start a major (gen=1), or do a full
@@ -2644,8 +2649,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
-    @specialize.arg(2)
-    def _allocate_shadow(self, obj, copy=False):
+    def _allocate_shadow(self, obj):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         size = self.get_size(obj)
         shadowhdr = self._malloc_out_of_nursery(size_gc_header +
@@ -2667,12 +2671,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         self.header(obj).tid |= GCFLAG_HAS_SHADOW
         self.nursery_objects_shadows.setitem(obj, shadow)
-
-        if copy:
-            self.header(obj).tid |= GCFLAG_SHADOW_INITIALIZED
-            totalsize = size_gc_header + self.get_size(obj)
-            llmemory.raw_memcopy(obj - size_gc_header, shadow, totalsize)
-
         return shadow
 
     def _find_shadow(self, obj):
