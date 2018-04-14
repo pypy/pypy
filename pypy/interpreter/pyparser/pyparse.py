@@ -153,26 +153,27 @@ class PythonParser(parser.Parser):
                 # which is expected to work independently of them.  It's
                 # certainly the case for all futures in Python <= 2.7.
                 tokens = pytokenizer.generate_tokens(source_lines, flags)
-
-                newflags, last_future_import = (
-                    future.add_future_flags(self.future_flags, tokens))
-                compile_info.last_future_import = last_future_import
-                compile_info.flags |= newflags
-
-                if compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION:
-                    self.grammar = pygram.python_grammar_no_print
-                else:
-                    self.grammar = pygram.python_grammar
-
-                for token in tokens:
-                    if self.add_token(token):
-                        break
             except error.TokenError as e:
                 e.filename = compile_info.filename
                 raise
             except error.TokenIndentationError as e:
                 e.filename = compile_info.filename
                 raise
+
+            newflags, last_future_import = (
+                future.add_future_flags(self.future_flags, tokens))
+            compile_info.last_future_import = last_future_import
+            compile_info.flags |= newflags
+
+            if compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION:
+                self.grammar = pygram.python_grammar_no_print
+            else:
+                self.grammar = pygram.python_grammar
+
+            try:
+                for token in tokens:
+                    if self.add_token(token):
+                        break
             except parser.ParseError as e:
                 # Catch parse errors, pretty them up and reraise them as a
                 # SyntaxError.
