@@ -101,3 +101,15 @@ Improve speed of Python parser, improve ParseError messages slightly.
 Work around possible bugs in upstream ioctl users, like CPython allocate at
 least 1024 bytes for the arg in calls to ``ioctl(fd, request, arg)``. Fixes
 issue #2776
+
+.. branch: cpyext-subclass-setattr
+
+Fix for python-level classes that inherit from C-API types, previously the
+`w_obj` was not necessarily preserved throughout the lifetime of the `pyobj`
+which led to cases where instance attributes were lost. Fixes issue #2793
+
+
+.. branch: pyparser-improvements-2
+
+Improve line offsets that are reported by SyntaxError. Improve error messages
+for a few situations, including mismatched parenthesis.

@@ -159,15 +159,16 @@ List comprehension element unpacking
     SyntaxError: iterable unpacking cannot be used in comprehension
 
 Generator expression in function arguments
+PyPy has extended sytax error messages, ignore the detail for compatibility
 
-    >>> list(*x for x in (range(5) for i in range(3)))
+    >>> list(*x for x in (range(5) for i in range(3))) # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
     ...
         list(*x for x in (range(5) for i in range(3)))
                   ^
     SyntaxError: invalid syntax
 
-    >>> dict(**x for x in [{1:2}])
+    >>> dict(**x for x in [{1:2}]) # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
     ...
         dict(**x for x in [{1:2}])
