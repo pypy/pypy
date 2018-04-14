@@ -671,6 +671,25 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
         assert self.stackroots[1].x == 13
 
+    def test_move_out_of_nursery(self):
+        obj0 = self.malloc(S)
+        obj0.x = 123
+        adr1 = self.gc.move_out_of_nursery(llmemory.cast_ptr_to_adr(obj0))
+        obj1 = llmemory.cast_adr_to_ptr(adr1, lltype.Ptr(S))
+        assert obj1.x == 123
+        #
+        import pytest
+        obj2 = self.malloc(S)
+        obj2.x = 456
+        adr3 = self.gc._find_shadow(llmemory.cast_ptr_to_adr(obj2))
+        obj3 = llmemory.cast_adr_to_ptr(adr3, lltype.Ptr(S))
+        with pytest.raises(lltype.UninitializedMemoryAccess):
+            obj3.x     # the shadow is not populated yet
+        adr4 = self.gc.move_out_of_nursery(llmemory.cast_ptr_to_adr(obj2))
+        assert adr4 == adr3
+        assert obj3.x == 456     # it is populated now
+
+
 class TestIncrementalMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
     def test_malloc_fixedsize_no_cleanup(self):

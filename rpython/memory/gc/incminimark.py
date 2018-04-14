@@ -2670,8 +2670,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         if copy:
             self.header(obj).tid |= GCFLAG_SHADOW_INITIALIZED
-            totalsize = size_gc_header + self.get_size(obj)
-            llmemory.raw_memcopy(obj - size_gc_header, shadow, totalsize)
+            totalsize = self.get_size(obj)
+            llmemory.raw_memcopy(obj, shadow, totalsize)
 
         return shadow
 
