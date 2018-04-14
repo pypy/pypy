@@ -2649,7 +2649,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
-    @specialize.arg(2)
     def _allocate_shadow(self, obj):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         size = self.get_size(obj)
