@@ -109,10 +109,9 @@ class PyPyModule(pytest.Module):
     """
     def accept_regular_test(self):
         if self.config.option.runappdirect:
-            # only collect regular tests if we are in an 'app_test' directory,
-            # or in test_lib_pypy
+            # only collect regular tests if we are in test_lib_pypy
             for name in self.listnames():
-                if "app_test" in name or "test_lib_pypy" in name:
+                if "test_lib_pypy" in name:
                     return True
             return False
         return True
