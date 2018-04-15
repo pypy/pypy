@@ -44,7 +44,7 @@ class AppTestFunction(py.test.collect.Function):
         target = self.obj
         if self.config.option.runappdirect:
             return target()
-        space = gettestobjspace()
+        space = gettestobjspace(**{'objspace.std.reinterpretasserts': True})
         filename = self._getdynfilename(target)
         func = app2interp_temp(target, filename=filename)
         print "executing", func

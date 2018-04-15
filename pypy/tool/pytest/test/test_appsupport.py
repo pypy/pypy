@@ -154,7 +154,7 @@ def test_apptest_fail_plain(testdir):
     result = testdir.runpytest(p)
     assert result.ret == 1
     result.stdout.fnmatch_lines([
-        "*E*application-level*KeyError*42*",
+        "*E*(application-level) AssertionError",
     ])
 
 def test_apptest_fail_rewrite(testdir):
@@ -167,7 +167,9 @@ def test_apptest_fail_rewrite(testdir):
     result = testdir.runpytest(p, "--applevel-rewrite")
     assert result.ret == 1
     result.stdout.fnmatch_lines([
-        "*E*application-level*KeyError*42*",
+        "*E*application-level*AssertionError: assert 'foo' == 'bar'",
+        "*E*- foo*",
+        "*E*+ bar*",
     ])
 
 
