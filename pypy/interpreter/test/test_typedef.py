@@ -423,3 +423,10 @@ class AppTestTypeDef:
     def test_get_with_none_arg(self):
         raises(TypeError, type.__dict__['__mro__'].__get__, None)
         raises(TypeError, type.__dict__['__mro__'].__get__, None, None)
+
+    def test_builtin_readonly_property(self):
+        import sys
+        x = lambda: 5
+        e = raises(AttributeError, 'x.func_globals = {}')
+        if '__pypy__' in sys.builtin_module_names:
+            assert str(e.value) == "readonly attribute 'func_globals'"

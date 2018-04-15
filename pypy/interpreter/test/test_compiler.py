@@ -77,7 +77,7 @@ class TestPythonAstCompiler:
         """)
         assert self.space.unwrap(w_args) == (
             'unindent does not match any outer indentation level',
-            ('<string>', 3, 0, ' y\n'))
+            ('<string>', 3, 2, ' y\n'))
 
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',

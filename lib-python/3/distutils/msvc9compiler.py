@@ -243,7 +243,7 @@ def find_vcvarsall(version):
                 productdir = os.path.join(toolsdir, os.pardir, os.pardir, "VC")
                 productdir = os.path.abspath(productdir)
             if not os.path.isdir(productdir):
-                
+
                 log.debug("%s is not a valid directory" % productdir)
                 return None
         else:
@@ -266,7 +266,7 @@ def query_vcvarsall(version, arch="x86"):
 
     if vcvarsall is None:
         raise DistutilsPlatformError("Unable to find vcvarsall.bat")
-    log.debug("Calling 'vcvarsall.bat %s' (version=%s)", arch, version)
+    log.debug("Calling '%s %s' (version=%s)", vcvarsall, arch, version)
     popen = subprocess.Popen('"%s" %s & set' % (vcvarsall, arch),
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
@@ -276,6 +276,10 @@ def query_vcvarsall(version, arch="x86"):
             raise DistutilsPlatformError(stderr.decode("mbcs"))
 
         stdout = stdout.decode("mbcs")
+        log.debug('-'*30)
+        log.debug(stderr.decode('mbcs'))
+        log.debug(stdout)
+        log.debug('-'*30)
         for line in stdout.split("\n"):
             line = Reg.convert_mbcs(line)
             if '=' not in line:
@@ -295,6 +299,7 @@ def query_vcvarsall(version, arch="x86"):
     if len(result) != len(interesting):
         raise ValueError(str(list(result.keys())))
 
+    log.debug('Got %s', str(result))
     return result
 
 # More globals

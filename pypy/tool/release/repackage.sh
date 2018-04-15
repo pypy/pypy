@@ -1,8 +1,8 @@
 # Edit these appropriately before running this script
 pmaj=2  # python main version
 pmin=7  # python minor version
-maj=5
-min=8
+maj=6
+min=0
 rev=0
 branchname=release-pypy$pmaj.$pmin-$maj.x # ==OR== release-$maj.x  # ==OR== release-$maj.$min.x
 tagname=release-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
