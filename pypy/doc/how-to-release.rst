@@ -40,6 +40,8 @@ Release Steps
   sure things are ported back to the trunk and to the branch as
   necessary.
 
+* Make sure the RPython builds on the buildbot pass with no failures
+
 * Maybe bump the SOABI number in module/imp/importing. This has many
   implications, so make sure the PyPy community agrees to the change.
 

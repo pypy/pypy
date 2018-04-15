@@ -133,6 +133,11 @@ for name in ('INT', 'LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
              'TYPE', 'STRING'): # 'STRING' -> 'BYTES' in py3
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
 
+# PyPy-specific flags
+for name in ('FLOAT',):
+    constant_names.append('Py_TPPYPYFLAGS_%s_SUBCLASS' % name)
+
+
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 globals().update(rffi_platform.configure(CConfig_constants))
@@ -635,7 +640,7 @@ SYMBOLS_C = [
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
-    'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
+    'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar', 'PyInt_FromLong',
