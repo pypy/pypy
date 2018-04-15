@@ -237,7 +237,7 @@ class AppTestFunction(py.test.collect.Function):
         src = extract_docstring_if_empty_function(target)
         if self.config.option.runappdirect:
             return run_with_python(self.config.option.python, src, None)
-        space = gettestobjspace()
+        space = gettestobjspace(**{'objspace.std.reinterpretasserts': True})
         filename = self._getdynfilename(target)
         func = app2interp_temp(src, filename=filename)
         # print "executing", func
