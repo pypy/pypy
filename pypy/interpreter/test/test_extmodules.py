@@ -2,7 +2,7 @@ import sys
 import pytest
 
 from pypy.config.pypyoption import get_pypy_config
-from pypy.objspace.std import StdObjSpace
+from pypy.objspace.std.objspace import StdObjSpace
 from rpython.tool.udir import udir
 
 mod_init = """
