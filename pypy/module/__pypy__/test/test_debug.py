@@ -54,3 +54,8 @@ class AppTestDebug:
         a = debug_read_timestamp()
         b = debug_read_timestamp()
         assert b > a
+
+    def test_debug_get_timestamp_unit(self):
+        from __pypy__ import debug_get_timestamp_unit
+        unit = debug_get_timestamp_unit()
+        assert unit in ('tsc', 'ns', 'QueryPerformanceCounter')

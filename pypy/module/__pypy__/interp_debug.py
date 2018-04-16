@@ -2,7 +2,6 @@ from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib import debug, jit
 from rpython.rlib import rtimer
 
-
 @jit.dont_look_inside
 @unwrap_spec(category='text')
 def debug_start(space, category):
@@ -32,3 +31,11 @@ def debug_flush(space):
 
 def debug_read_timestamp(space):
     return space.newint(rtimer.read_timestamp())
+
+def debug_get_timestamp_unit(space):
+    unit = rtimer.get_timestamp_unit()
+    try:
+        unit_str = rtimer.UNITS[unit]
+    except IndexError:
+        unit_str = 'UNKNOWN(%d)' % unit
+    return space.newtext(unit_str)

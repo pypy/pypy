@@ -83,6 +83,7 @@ class Module(MixedModule):
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'debug_flush'               : 'interp_debug.debug_flush',
         'debug_read_timestamp'      : 'interp_debug.debug_read_timestamp',
+        'debug_get_timestamp_unit'  : 'interp_debug.debug_get_timestamp_unit',
         'builtinify'                : 'interp_magic.builtinify',
         'hidden_applevel'           : 'interp_magic.hidden_applevel',
         'get_hidden_tb'             : 'interp_magic.get_hidden_tb',

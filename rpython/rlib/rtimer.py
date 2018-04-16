@@ -10,8 +10,9 @@ _is_64_bit = r_uint.BITS > 32
 # unit of values returned by read_timestamp. Should be in sync with the ones
 # defined in translator/c/debug_print.h
 UNIT_TSC = 0
-UNIT_NS = 1
+UNIT_NS = 1 # nanoseconds
 UNIT_QUERY_PERFORMANCE_COUNTER = 2
+UNITS = ('tsc', 'ns', 'QueryPerformanceCounter')
 
 def read_timestamp():
     # Returns a longlong on 32-bit, and a regular int on 64-bit.
