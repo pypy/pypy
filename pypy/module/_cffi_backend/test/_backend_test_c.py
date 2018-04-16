@@ -278,6 +278,9 @@ def test_pointer_to_int():
     assert repr(q).startswith("<cdata 'int *' 0x")
     assert p == q
     assert hash(p) == hash(q)
+    e = py.test.raises(TypeError, newp, new_array_type(BPtr, None), None)
+    assert str(e.value) == (
+        "expected new array length or list/tuple/str, not NoneType")
 
 def test_pointer_bool():
     BInt = new_primitive_type("int")
@@ -359,6 +362,9 @@ def test_reading_pointer_to_char():
     assert int(c) == ord(b'A')
     py.test.raises(TypeError, cast, BChar, b'foo')
     py.test.raises(TypeError, cast, BChar, u+'foo')
+    e = py.test.raises(TypeError, newp, new_array_type(BPtr, None), 12.3)
+    assert str(e.value) == (
+        "expected new array length or list/tuple/str, not float")
 
 def test_reading_pointer_to_pointer():
     BVoidP = new_pointer_type(new_void_type())
