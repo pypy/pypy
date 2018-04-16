@@ -34,8 +34,12 @@ def debug_read_timestamp(space):
 
 def debug_get_timestamp_unit(space):
     unit = rtimer.get_timestamp_unit()
-    try:
-        unit_str = rtimer.UNITS[unit]
-    except IndexError:
+    if unit == rtimer.UNIT_TSC:
+        unit_str = 'tsc'
+    elif unit == rtimer.UNIT_NS:
+        unit_str = 'ns'
+    elif unit == rtimer.UNIT_QUERY_PERFORMANCE_COUNTER:
+        unit_str = 'QueryPerformanceCounter'
+    else:
         unit_str = 'UNKNOWN(%d)' % unit
     return space.newtext(unit_str)

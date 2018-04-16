@@ -12,7 +12,6 @@ _is_64_bit = r_uint.BITS > 32
 UNIT_TSC = 0
 UNIT_NS = 1 # nanoseconds
 UNIT_QUERY_PERFORMANCE_COUNTER = 2
-UNITS = ('tsc', 'ns', 'QueryPerformanceCounter')
 
 def read_timestamp():
     # Returns a longlong on 32-bit, and a regular int on 64-bit.
