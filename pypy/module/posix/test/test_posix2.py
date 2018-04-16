@@ -1418,7 +1418,7 @@ class AppTestPosix:
             assert f.read() == 'this is a rename test'
         os.unlink(fname)
 
-        
+
     def test_device_encoding(self):
         import sys
         encoding = self.posix.device_encoding(sys.stdout.fileno())

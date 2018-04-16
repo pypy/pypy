@@ -28,5 +28,3 @@ class TestW_BoolObject:
 
     def test_rbigint_w(self):
         assert self.space.bigint_w(self.true)._digits == [1]
-
-
