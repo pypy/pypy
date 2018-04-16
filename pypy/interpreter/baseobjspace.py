@@ -487,7 +487,7 @@ class ObjSpace(object):
             fullname = importname
             importname = fullname.rsplit('.', 1)[1]
         else:
-            fullname = "pypy.module.%s" % importname
+            fullname = "pypy.module.%s.moduledef" % importname
 
         Module = __import__(fullname,
                             None, None, ["Module"]).Module
