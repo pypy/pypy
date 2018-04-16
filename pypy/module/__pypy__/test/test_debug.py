@@ -48,3 +48,9 @@ class AppTestDebug:
         from __pypy__ import debug_flush
         debug_flush()
         # assert did not crash
+
+    def test_debug_read_timestamp(self):
+        from __pypy__ import debug_read_timestamp
+        a = debug_read_timestamp()
+        b = debug_read_timestamp()
+        assert b > a

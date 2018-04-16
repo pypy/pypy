@@ -1,5 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib import debug, jit
+from rpython.rlib import rtimer
 
 
 @jit.dont_look_inside
@@ -28,3 +29,6 @@ def debug_print_once(space, category, args_w):
 @jit.dont_look_inside
 def debug_flush(space):
     debug.debug_flush()
+
+def debug_read_timestamp(space):
+    return space.newint(rtimer.read_timestamp())
