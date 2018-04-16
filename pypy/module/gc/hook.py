@@ -1,7 +1,7 @@
 from rpython.memory.gc.hook import GcHooks
 from rpython.memory.gc import incminimark 
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import r_uint, r_longlong
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
@@ -113,7 +113,7 @@ class W_AppLevelHooks(W_Root):
 
 class GcMinorHookAction(AsyncAction):
     count = 0
-    duration = 0
+    duration = r_longlong(0)
     total_memory_used = 0
     pinned_objects = 0
 
@@ -123,7 +123,7 @@ class GcMinorHookAction(AsyncAction):
 
     def reset(self):
         self.count = 0
-        self.duration = 0
+        self.duration = r_longlong(0)
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
@@ -131,7 +131,7 @@ class GcMinorHookAction(AsyncAction):
         # annotated with the correct types
         if NonConstant(False):
             self.count = NonConstant(-42)
-            self.duration = NonConstant(-42)
+            self.duration = NonConstant(r_longlong(-42))
             self.total_memory_used = NonConstant(r_uint(42))
             self.pinned_objects = NonConstant(-42)
             self.fire()
@@ -148,7 +148,7 @@ class GcMinorHookAction(AsyncAction):
 
 class GcCollectStepHookAction(AsyncAction):
     count = 0
-    duration = 0
+    duration = r_longlong(0)
     oldstate = 0
     newstate = 0
 
@@ -158,7 +158,7 @@ class GcCollectStepHookAction(AsyncAction):
 
     def reset(self):
         self.count = 0
-        self.duration = 0
+        self.duration = r_longlong(0)
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
@@ -166,7 +166,7 @@ class GcCollectStepHookAction(AsyncAction):
         # annotated with the correct types
         if NonConstant(False):
             self.count = NonConstant(-42)
-            self.duration = NonConstant(-42)
+            self.duration = NonConstant(r_longlong(-42))
             self.oldstate = NonConstant(-42)
             self.newstate = NonConstant(-42)
             self.fire()
@@ -196,7 +196,6 @@ class GcCollectHookAction(AsyncAction):
 
     def reset(self):
         self.count = 0
-        self.duration = 0
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
