@@ -620,22 +620,22 @@ class ObjSpace(object):
     def make_builtins(self):
         "only for initializing the space."
 
-        from pypy.module.exceptions import Module
+        from pypy.module.exceptions.moduledef import Module
         w_name = self.newtext('exceptions')
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
 
-        from pypy.module.sys import Module
+        from pypy.module.imp.moduledef import Module
+        w_name = self.newtext('_imp')
+        mod = Module(self, w_name)
+        mod.install()
+
+        from pypy.module.sys.moduledef import Module
         w_name = self.newtext('sys')
         self.sys = Module(self, w_name)
         self.sys.install()
 
-        from pypy.module.imp import Module
-        w_name = self.newtext('imp')
-        mod = Module(self, w_name)
-        mod.install()
-
-        from pypy.module.__builtin__ import Module
+        from pypy.module.__builtin__.moduledef import Module
         w_name = self.newtext('__builtin__')
         self.builtin = Module(self, w_name)
         w_builtin = self.wrap(self.builtin)
