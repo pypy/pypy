@@ -173,7 +173,7 @@ class MixedModule(Module):
             # build a constant dictionary out of
             # applevel/interplevel definitions
             cls.loaders = loaders = {}
-            pkgroot = cls.__module__
+            pkgroot = cls.__module__.rsplit('.', 1)[0]
             appname = cls.get_applevel_name()
             if cls.submodule_name is not None:
                 appname += '.%s' % (cls.submodule_name,)

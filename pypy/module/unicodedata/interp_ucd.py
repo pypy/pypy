@@ -342,3 +342,8 @@ UCD.typedef = TypeDef("unicodedata.UCD",
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
 ucd_8_0_0 = UCD(unicodedb_8_0_0)
 ucd = ucd_8_0_0
+
+# This is the default unicodedb used in various places:
+# - the unicode type
+# - the regular expression engine
+unicodedb = ucd._unicodedb
