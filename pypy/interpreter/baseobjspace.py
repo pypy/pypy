@@ -517,13 +517,14 @@ class ObjSpace(object):
             return self.__class__.__name__
 
     @not_rpython
-    def setbuiltinmodule(self, importname):
+    def setbuiltinmodule(self, pkgname):
         """load a lazy pypy/module and put it into sys.modules"""
-        if '.' in importname:
-            fullname = importname
-            importname = fullname.rsplit('.', 1)[1]
+        if '.' in pkgname:
+            fullname = "%s.moduledef" % (pkgname,)
+            importname = pkgname.rsplit('.', 1)[1]
         else:
-            fullname = "pypy.module.%s" % importname
+            fullname = "pypy.module.%s.moduledef" % pkgname
+            importname = pkgname
 
         Module = __import__(fullname,
                             None, None, ["Module"]).Module
@@ -626,7 +627,7 @@ class ObjSpace(object):
         self.exceptions_module.install()
 
         from pypy.module.imp.moduledef import Module
-        w_name = self.newtext('_imp')
+        w_name = self.newtext('imp')
         mod = Module(self, w_name)
         mod.install()
 

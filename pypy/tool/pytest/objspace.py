@@ -30,7 +30,7 @@ def maketestobjspace(config=None):
         config = make_config(option)
     if config.objspace.usemodules.thread:
         config.translation.thread = True
-    config.objspace.extmodules = 'pypy.tool.pytest.fake_pytest.moduledef'
+    config.objspace.extmodules = 'pypy.tool.pytest.fake_pytest'
     space = make_objspace(config)
     space.startup() # Initialize all builtin modules
     if config.objspace.std.reinterpretasserts:
