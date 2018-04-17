@@ -53,7 +53,7 @@ class AppTestExtModules(object):
     def setup_class(cls):
         init_extmodule_code()
         conf = get_pypy_config()
-        conf.objspace.extmodules = 'testext.extmod.moduledef'
+        conf.objspace.extmodules = 'testext.extmod'
         old_sys_path[:] = sys.path[:]
         sys.path.insert(0, str(udir))
         space = StdObjSpace(conf)
