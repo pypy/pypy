@@ -48,7 +48,7 @@ def pytest_configure(config):
     def py3k_skip(message):
         py.test.skip('[py3k] %s' % message)
     py.test.py3k_skip = py3k_skip
-    if HOST_IS_PY3:
+    if HOST_IS_PY3 or not config.getoption('runappdirect'):
         config.addinivalue_line('python_files', APPLEVEL_FN)
 
 def pytest_addoption(parser):
