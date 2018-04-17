@@ -813,20 +813,27 @@ class FunctionCodeGenerator(object):
             "if (PYPY_HAVE_DEBUG_PRINTS) { fprintf(PYPY_DEBUG_FILE, %s); %s}"
             % (', '.join(argv), free_line))
 
-    def _op_debug(self, opname, arg):
-        if isinstance(arg, Constant):
-            string_literal = c_string_constant(''.join(arg.value.chars))
-            return "%s(%s);" % (opname, string_literal)
+    def _op_debug(self, macro, op):
+        v_cat, v_timestamp = op.args
+        if isinstance(v_cat, Constant):
+            string_literal = c_string_constant(''.join(v_cat.value.chars))
+            return "%s = %s(%s, %s);" % (self.expr(op.result),
+                                         macro,
+                                         string_literal,
+                                         self.expr(v_timestamp))
         else:
-            x = "%s(RPyString_AsCharP(%s));\n" % (opname, self.expr(arg))
+            x = "%s = %s(RPyString_AsCharP(%s, %s));\n" % (self.expr(op.result),
+                                                           macro,
+                                                           self.expr(v_cat),
+                                                           self.expr(v_timestamp))
             x += "RPyString_FreeCache();"
             return x
 
     def OP_DEBUG_START(self, op):
-        return self._op_debug('PYPY_DEBUG_START', op.args[0])
+        return self._op_debug('PYPY_DEBUG_START', op)
 
     def OP_DEBUG_STOP(self, op):
-        return self._op_debug('PYPY_DEBUG_STOP', op.args[0])
+        return self._op_debug('PYPY_DEBUG_STOP', op)
 
     def OP_HAVE_DEBUG_PRINTS_FOR(self, op):
         arg = op.args[0]
