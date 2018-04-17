@@ -2577,6 +2577,14 @@ class BasicTests:
         res = self.interp_operations(f, [])
         assert res
 
+    def test_get_timestamp_unit(self):
+        import time
+        from rpython.rlib import rtimer
+        def f():
+            return rtimer.get_timestamp_unit()
+        unit = self.interp_operations(f, [])
+        assert unit == rtimer.UNIT_NS
+
     def test_bug688_multiple_immutable_fields(self):
         myjitdriver = JitDriver(greens=[], reds=['counter','context'])
 

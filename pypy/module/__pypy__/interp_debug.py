@@ -1,6 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib import debug, jit
-
+from rpython.rlib import rtimer
 
 @jit.dont_look_inside
 @unwrap_spec(category='text')
@@ -28,3 +28,18 @@ def debug_print_once(space, category, args_w):
 @jit.dont_look_inside
 def debug_flush(space):
     debug.debug_flush()
+
+def debug_read_timestamp(space):
+    return space.newint(rtimer.read_timestamp())
+
+def debug_get_timestamp_unit(space):
+    unit = rtimer.get_timestamp_unit()
+    if unit == rtimer.UNIT_TSC:
+        unit_str = 'tsc'
+    elif unit == rtimer.UNIT_NS:
+        unit_str = 'ns'
+    elif unit == rtimer.UNIT_QUERY_PERFORMANCE_COUNTER:
+        unit_str = 'QueryPerformanceCounter'
+    else:
+        unit_str = 'UNKNOWN(%d)' % unit
+    return space.newtext(unit_str)

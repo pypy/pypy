@@ -696,6 +696,10 @@ def op_ll_read_timestamp():
     from rpython.rlib.rtimer import read_timestamp
     return read_timestamp()
 
+def op_ll_get_timestamp_unit():
+    from rpython.rlib.rtimer import get_timestamp_unit
+    return get_timestamp_unit()
+
 def op_debug_fatalerror(ll_msg):
     from rpython.rtyper.lltypesystem import lltype, rstr
     from rpython.rtyper.llinterp import LLFatalError

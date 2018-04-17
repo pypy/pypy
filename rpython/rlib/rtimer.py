@@ -7,6 +7,11 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 _is_64_bit = r_uint.BITS > 32
 
+# unit of values returned by read_timestamp. Should be in sync with the ones
+# defined in translator/c/debug_print.h
+UNIT_TSC = 0
+UNIT_NS = 1 # nanoseconds
+UNIT_QUERY_PERFORMANCE_COUNTER = 2
 
 def read_timestamp():
     # Returns a longlong on 32-bit, and a regular int on 64-bit.
@@ -16,6 +21,11 @@ def read_timestamp():
         return intmask(x)
     else:
         return longlongmask(x)
+
+def get_timestamp_unit():
+    # an unit which is as arbitrary as the way we build the result of
+    # read_timestamp :)
+    return UNIT_NS
 
 
 class ReadTimestampEntry(ExtRegistryEntry):
@@ -35,3 +45,15 @@ class ReadTimestampEntry(ExtRegistryEntry):
         else:
             resulttype = rffi.LONGLONG
         return hop.genop("ll_read_timestamp", [], resulttype=resulttype)
+
+
+class ReadTimestampEntry(ExtRegistryEntry):
+    _about_ = get_timestamp_unit
+
+    def compute_result_annotation(self):
+        from rpython.annotator.model import SomeInteger
+        return SomeInteger(nonneg=True)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop("ll_get_timestamp_unit", [], resulttype=lltype.Signed)

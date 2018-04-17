@@ -51,6 +51,11 @@ RPY_EXTERN long pypy_have_debug_prints_for(const char *category_prefix);
 RPY_EXTERN long pypy_have_debug_prints;
 RPY_EXPORTED FILE *pypy_debug_file;
 
+/* these should be in sync with the values defined in rlib/rtimer.py */
+#define TIMESTAMP_UNIT_TSC 0
+#define TIMESTAMP_UNIT_NS 1
+#define TIMESTAMP_UNIT_QUERY_PERFORMANCE_COUNTER 2
+
 #define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)
 
 #include "src/asm.h"
@@ -62,11 +67,15 @@ RPY_EXPORTED FILE *pypy_debug_file;
 
 #  ifdef _WIN32
 #    define READ_TIMESTAMP(val) QueryPerformanceCounter((LARGE_INTEGER*)&(val))
+#    define READ_TIMESTAMP_UNIT TIMESTAMP_UNIT_QUERY_PERFORMANCE_COUNTER
 #  else
 
 RPY_EXTERN long long pypy_read_timestamp(void);
 
 #    define READ_TIMESTAMP(val)  (val) = pypy_read_timestamp()
+#    define READ_TIMESTAMP_UNIT TIMESTAMP_UNIT_NS
 
 #  endif
 #endif
+
+#define OP_LL_GET_TIMESTAMP_UNIT(res) res = READ_TIMESTAMP_UNIT

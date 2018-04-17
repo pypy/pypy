@@ -2164,6 +2164,11 @@ class Transformer(object):
             oopspecindex=EffectInfo.OS_MATH_READ_TIMESTAMP,
             extraeffect=EffectInfo.EF_CANNOT_RAISE)
 
+    def rewrite_op_ll_get_timestamp_unit(self, op):
+        op1 = self.prepare_builtin_call(op, "ll_get_timestamp_unit", [])
+        return self.handle_residual_call(op1,
+            extraeffect=EffectInfo.EF_CANNOT_RAISE)
+
     def rewrite_op_jit_force_quasi_immutable(self, op):
         v_inst, c_fieldname = op.args
         descr1 = self.cpu.fielddescrof(v_inst.concretetype.TO,
