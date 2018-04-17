@@ -70,6 +70,7 @@ RPY_EXTERN void op_int_overflowed(void)
 // lfence
 // I don't know how important it is, comment talks about time warps
 
+#define READ_TIMESTAMP_UNIT TIMESTAMP_UNIT_TSC
 
 #ifndef PYPY_CPU_HAS_STANDARD_PRECISION
 /* On x86-32, we have to use the following hacks to set and restore

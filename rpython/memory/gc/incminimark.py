@@ -73,6 +73,7 @@ from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rgc
+from rpython.rlib.rtimer import read_timestamp
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -1643,6 +1644,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """Perform a minor collection: find the objects from the nursery
         that remain alive and move them out."""
         #
+        start = read_timestamp()
         debug_start("gc-minor")
         #
         # All nursery barriers are invalid from this point on.  They
@@ -1830,8 +1832,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # from the nursery that we just moved out.
         self.size_objects_made_old += r_uint(self.nursery_surviving_size)
         #
-        debug_print("minor collect, total memory used:",
-                    self.get_total_memory_used())
+        total_memory_used = self.get_total_memory_used()
+        debug_print("minor collect, total memory used:", total_memory_used)
         debug_print("number of pinned objects:",
                     self.pinned_objects_in_nursery)
         if self.DEBUG >= 2:
@@ -1840,6 +1842,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.root_walker.finished_minor_collection()
         #
         debug_stop("gc-minor")
+        duration = read_timestamp() - start
+        self.hooks.fire_gc_minor(
+            duration=duration,
+            total_memory_used=total_memory_used,
+            pinned_objects=self.pinned_objects_in_nursery)
 
     def _reset_flag_old_objects_pointing_to_pinned(self, obj, ignore):
         ll_assert(self.header(obj).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN != 0,
@@ -2241,7 +2248,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # Note - minor collections seem fast enough so that one
     # is done before every major collection step
     def major_collection_step(self, reserving_size=0):
+        start = read_timestamp()
         debug_start("gc-collect-step")
+        oldstate = self.gc_state
         debug_print("starting gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
         if self.pinned_objects_in_nursery == 0:
@@ -2421,6 +2430,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             self.stat_rawmalloced_total_size, " => ",
                             self.rawmalloced_total_size)
                 debug_stop("gc-collect-done")
+                self.hooks.fire_gc_collect(
+                    num_major_collects=self.num_major_collects,
+                    arenas_count_before=self.stat_ac_arenas_count,
+                    arenas_count_after=self.ac.arenas_count,
+                    arenas_bytes=self.ac.total_memory_used,
+                    rawmalloc_bytes_before=self.stat_rawmalloced_total_size,
+                    rawmalloc_bytes_after=self.rawmalloced_total_size)
                 #
                 # Set the threshold for the next major collection to be when we
                 # have allocated 'major_collection_threshold' times more than
@@ -2472,6 +2488,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
         debug_stop("gc-collect-step")
+        duration = read_timestamp() - start
+        self.hooks.fire_gc_collect_step(
+            duration=duration,
+            oldstate=oldstate,
+            newstate=self.gc_state)
 
     def _sweep_old_objects_pointing_to_pinned(self, obj, new_list):
         if self.header(obj).tid & GCFLAG_VISITED:
