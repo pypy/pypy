@@ -10,3 +10,7 @@ What's new in PyPy2.7 6.0+
 
 Fix a rare GC bug that was introduced more than one year ago, but was
 not diagnosed before issue #2752.
+
+.. branch: gc-hooks
+
+Introduce GC hooks, as documented in doc/gc_info.rst
