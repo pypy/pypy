@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.runicode import unicode_encode_latin_1, unicode_encode_utf_16_helper
 from rpython.rlib.rarithmetic import widen
 
-from pypy.module.unicodedata import unicodedb
+from pypy.objspace.std.unicodeobject import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
     bootstrap_function, CONST_STRING,

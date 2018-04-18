@@ -11,6 +11,7 @@ try:
     has_stdcall = True
 except AttributeError:
     has_stdcall = False
+    FFI_STDCALL = None
 
 
 class Module(MixedModule):

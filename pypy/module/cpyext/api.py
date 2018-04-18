@@ -34,7 +34,6 @@ from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import FdValidator
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -686,8 +685,9 @@ def build_exported_objects():
     # PyExc_AttributeError, PyExc_OverflowError, PyExc_ImportError,
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
+    from pypy.module.exceptions.moduledef import Module
     global all_exceptions
-    all_exceptions = list(exceptions.Module.interpleveldefs)
+    all_exceptions = list(Module.interpleveldefs)
     for exc_name in all_exceptions:
         if exc_name in ('EnvironmentError', 'IOError', 'WindowsError'):
             # FIXME: aliases of OSError cause a clash of names via
