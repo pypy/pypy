@@ -3,7 +3,7 @@ import time
 
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.objectmodel import we_are_translated, always_inline
-from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rlib.rarithmetic import is_valid_int, r_longlong
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
@@ -100,8 +100,8 @@ def _debug_start(category, timestamp):
         _log.debug_start(category)
 
     if timestamp:
-        return c
-    return -42 # random undefined value
+        return r_longlong(c)
+    return r_longlong(-42) # random undefined value
 
 def _debug_stop(category, timestamp):
     c = int(time.clock() * 100)
@@ -111,8 +111,8 @@ def _debug_stop(category, timestamp):
         _log.debug_stop(category)
 
     if timestamp:
-        return c
-    return -42 # random undefined value
+        return r_longlong(c)
+    return r_longlong(-42) # random undefined value
 
 class Entry(ExtRegistryEntry):
     _about_ = _debug_start, _debug_stop
