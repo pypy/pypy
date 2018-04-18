@@ -134,18 +134,20 @@ class AppTestGcHooks(object):
                 self.steps = []
 
             def on_gc_minor(self, stats):
-                self.minors.append((stats.count, stats.duration))
+                self.minors.append((stats.count, stats.duration,
+                                    stats.duration_min, stats.duration_max))
 
             def on_gc_collect_step(self, stats):
-                self.steps.append((stats.count, stats.duration))
+                self.steps.append((stats.count, stats.duration,
+                                   stats.duration_min, stats.duration_max))
 
             on_gc_collect = None
 
         myhooks = MyHooks()
         gc.hooks.set(myhooks)
         self.fire_many()
-        assert myhooks.minors == [(2, 12)]
-        assert myhooks.steps == [(3, 42)]
+        assert myhooks.minors == [(2, 12, 5, 7)]
+        assert myhooks.steps == [(3, 42, 5, 22)]
 
     def test_clear_queue(self):
         import gc

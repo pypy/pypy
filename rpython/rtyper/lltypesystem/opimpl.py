@@ -586,11 +586,11 @@ def op_debug_flush_log():
 def op_debug_print(*args):
     debug.debug_print(*map(_normalize, args))
 
-def op_debug_start(category):
-    debug.debug_start(_normalize(category))
+def op_debug_start(category, timestamp):
+    return debug.debug_start(_normalize(category), timestamp)
 
-def op_debug_stop(category):
-    debug.debug_stop(_normalize(category))
+def op_debug_stop(category, timestamp):
+    return debug.debug_stop(_normalize(category), timestamp)
 
 def op_debug_offset():
     return debug.debug_offset()

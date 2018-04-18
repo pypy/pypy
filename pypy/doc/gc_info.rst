@@ -169,6 +169,12 @@ The attributes for ``GcMinorStats`` are:
     The total time spent inside minor collections since the last hook
     call. See below for more information on the unit.
 
+``duration_min``
+    The duration of the fastest minor collection since the last hook call.
+    
+``duration_max``
+    The duration of the slowest minor collection since the last hook call.
+
  ``total_memory_used``
     The amount of memory used at the end of the minor collection, in
     bytes. This include the memory used in arenas (for GC-managed memory) and
@@ -180,7 +186,7 @@ The attributes for ``GcMinorStats`` are:
 
 The attributes for ``GcCollectStepStats`` are:
 
-``count``, ``duration``
+``count``, ``duration``, ``duration_min``, ``duration_max``
     See above.
 
 ``oldstate``, ``newstate``
