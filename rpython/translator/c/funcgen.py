@@ -822,7 +822,7 @@ class FunctionCodeGenerator(object):
                                          string_literal,
                                          self.expr(v_timestamp))
         else:
-            x = "%s = %s(RPyString_AsCharP(%s, %s));\n" % (self.expr(op.result),
+            x = "%s = %s(RPyString_AsCharP(%s), %s);\n" % (self.expr(op.result),
                                                            macro,
                                                            self.expr(v_cat),
                                                            self.expr(v_timestamp))
