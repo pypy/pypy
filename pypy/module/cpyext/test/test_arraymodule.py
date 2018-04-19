@@ -194,7 +194,4 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
                 self.attrib = True
         import gc
         module.subclass_with_attribute(Sub, "addattrib", "attrib", gc.collect)
-        if self.runappdirect:
-            assert Sub.__module__ == 'pypy.module.cpyext.test.test_arraymodule'
-            assert str(Sub) == "<class 'pypy.module.cpyext.test.test_arraymodule.Sub'>"
-        
+        assert Sub.__module__ == __name__
