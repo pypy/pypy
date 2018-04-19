@@ -3,9 +3,12 @@ from rpython.rlib import debug, jit
 from rpython.rlib import rtimer
 
 @jit.dont_look_inside
-@unwrap_spec(category='text')
-def debug_start(space, category):
-    debug.debug_start(category)
+@unwrap_spec(category='text', timestamp=bool)
+def debug_start(space, category, timestamp=False):
+    res = debug.debug_start(category, timestamp=timestamp)
+    if timestamp:
+        return space.newint(res)
+    return space.w_None
 
 @jit.dont_look_inside
 def debug_print(space, args_w):
@@ -13,10 +16,12 @@ def debug_print(space, args_w):
     debug.debug_print(' '.join(parts))
 
 @jit.dont_look_inside
-@unwrap_spec(category='text')
-def debug_stop(space, category):
-    debug.debug_stop(category)
-
+@unwrap_spec(category='text', timestamp=bool)
+def debug_stop(space, category, timestamp=False):
+    res = debug.debug_stop(category, timestamp=timestamp)
+    if timestamp:
+        return space.newint(res)
+    return space.w_None
 
 @unwrap_spec(category='text')
 def debug_print_once(space, category, args_w):

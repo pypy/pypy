@@ -14,3 +14,7 @@ not diagnosed before issue #2752.
 .. branch: gc-hooks
 
 Introduce GC hooks, as documented in doc/gc_info.rst
+
+.. branch: gc-hook-better-timestamp
+
+Improve GC hooks

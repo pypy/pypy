@@ -120,6 +120,26 @@ def test_debug_print_start_stop():
     assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
 
 
+def test_debug_start_stop_timestamp():
+    import time
+    def f(timestamp):
+        ts_a = debug_start('foo', timestamp=timestamp)
+        # simulate some CPU time
+        t = time.time()
+        while time.time()-t < 0.02:
+            pass
+        ts_b = debug_stop('foo', timestamp=timestamp)
+        return ts_b - ts_a
+
+    assert f(False) == 0
+    assert f(True) > 0
+    #
+    res = interpret(f, [False])
+    assert res == 0
+    res = interpret(f, [True])
+    assert res > 0
+
+
 def test_debug_print_traceback():
     from rpython.translator.c.test.test_genc import compile
     from rpython.rtyper.lltypesystem import lltype

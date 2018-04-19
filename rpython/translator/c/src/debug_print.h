@@ -31,8 +31,8 @@
 #define PYPY_HAVE_DEBUG_PRINTS    (pypy_have_debug_prints & 1 ? \
                                    (pypy_debug_ensure_opened(), 1) : 0)
 #define PYPY_DEBUG_FILE           pypy_debug_file
-#define PYPY_DEBUG_START(cat)     pypy_debug_start(cat)
-#define PYPY_DEBUG_STOP(cat)      pypy_debug_stop(cat)
+#define PYPY_DEBUG_START(cat, ts) pypy_debug_start(cat, ts)
+#define PYPY_DEBUG_STOP(cat, ts)  pypy_debug_stop(cat, ts)
 #define OP_DEBUG_OFFSET(res)      res = pypy_debug_offset()
 #define OP_DEBUG_FORKED(ofs, _)   pypy_debug_forked(ofs)
 #define OP_HAVE_DEBUG_PRINTS(r)   r = (pypy_have_debug_prints & 1)
@@ -42,8 +42,8 @@
 
 /* prototypes (internal use only) */
 RPY_EXTERN void pypy_debug_ensure_opened(void);
-RPY_EXTERN void pypy_debug_start(const char *category);
-RPY_EXTERN void pypy_debug_stop(const char *category);
+RPY_EXTERN long long pypy_debug_start(const char *category, long timestamp);
+RPY_EXTERN long long pypy_debug_stop(const char *category, long timestamp);
 RPY_EXTERN long pypy_debug_offset(void);
 RPY_EXTERN void pypy_debug_forked(long original_offset);
 RPY_EXTERN long pypy_have_debug_prints_for(const char *category_prefix);

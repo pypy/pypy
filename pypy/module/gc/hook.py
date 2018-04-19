@@ -1,7 +1,7 @@
 from rpython.memory.gc.hook import GcHooks
 from rpython.memory.gc import incminimark 
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.rarithmetic import r_uint, r_longlong
+from rpython.rlib.rarithmetic import r_uint, r_longlong, longlongmax
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
@@ -35,6 +35,8 @@ class LowLevelGcHooks(GcHooks):
         action = self.w_hooks.gc_minor
         action.count += 1
         action.duration += duration
+        action.duration_min = min(action.duration_min, duration)
+        action.duration_max = max(action.duration_max, duration)
         action.total_memory_used = total_memory_used
         action.pinned_objects = pinned_objects
         action.fire()
@@ -43,6 +45,8 @@ class LowLevelGcHooks(GcHooks):
         action = self.w_hooks.gc_collect_step
         action.count += 1
         action.duration += duration
+        action.duration_min = min(action.duration_min, duration)
+        action.duration_max = max(action.duration_max, duration)
         action.oldstate = oldstate
         action.newstate = newstate
         action.fire()
@@ -112,18 +116,19 @@ class W_AppLevelHooks(W_Root):
 
 
 class GcMinorHookAction(AsyncAction):
-    count = 0
-    duration = r_longlong(0)
     total_memory_used = 0
     pinned_objects = 0
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
         self.w_callable = space.w_None
+        self.reset()
 
     def reset(self):
         self.count = 0
         self.duration = r_longlong(0)
+        self.duration_min = r_longlong(longlongmax)
+        self.duration_max = r_longlong(0)
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
@@ -132,6 +137,8 @@ class GcMinorHookAction(AsyncAction):
         if NonConstant(False):
             self.count = NonConstant(-42)
             self.duration = NonConstant(r_longlong(-42))
+            self.duration_min = NonConstant(r_longlong(-42))
+            self.duration_max = NonConstant(r_longlong(-42))
             self.total_memory_used = NonConstant(r_uint(42))
             self.pinned_objects = NonConstant(-42)
             self.fire()
@@ -140,6 +147,8 @@ class GcMinorHookAction(AsyncAction):
         w_stats = W_GcMinorStats(
             self.count,
             self.duration,
+            self.duration_min,
+            self.duration_max,
             self.total_memory_used,
             self.pinned_objects)
         self.reset()
@@ -147,18 +156,19 @@ class GcMinorHookAction(AsyncAction):
 
 
 class GcCollectStepHookAction(AsyncAction):
-    count = 0
-    duration = r_longlong(0)
     oldstate = 0
     newstate = 0
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
         self.w_callable = space.w_None
+        self.reset()
 
     def reset(self):
         self.count = 0
         self.duration = r_longlong(0)
+        self.duration_min = r_longlong(longlongmax)
+        self.duration_max = r_longlong(0)
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
@@ -167,6 +177,8 @@ class GcCollectStepHookAction(AsyncAction):
         if NonConstant(False):
             self.count = NonConstant(-42)
             self.duration = NonConstant(r_longlong(-42))
+            self.duration_min = NonConstant(r_longlong(-42))
+            self.duration_max = NonConstant(r_longlong(-42))
             self.oldstate = NonConstant(-42)
             self.newstate = NonConstant(-42)
             self.fire()
@@ -175,6 +187,8 @@ class GcCollectStepHookAction(AsyncAction):
         w_stats = W_GcCollectStepStats(
             self.count,
             self.duration,
+            self.duration_min,
+            self.duration_max,
             self.oldstate,
             self.newstate)
         self.reset()
@@ -182,7 +196,6 @@ class GcCollectStepHookAction(AsyncAction):
 
 
 class GcCollectHookAction(AsyncAction):
-    count = 0
     num_major_collects = 0
     arenas_count_before = 0
     arenas_count_after = 0
@@ -193,6 +206,7 @@ class GcCollectHookAction(AsyncAction):
     def __init__(self, space):
         AsyncAction.__init__(self, space)
         self.w_callable = space.w_None
+        self.reset()
 
     def reset(self):
         self.count = 0
@@ -225,18 +239,24 @@ class GcCollectHookAction(AsyncAction):
 
 class W_GcMinorStats(W_Root):
 
-    def __init__(self, count, duration, total_memory_used, pinned_objects):
+    def __init__(self, count, duration, duration_min, duration_max,
+                 total_memory_used, pinned_objects):
         self.count = count
         self.duration = duration
+        self.duration_min = duration_min
+        self.duration_max = duration_max
         self.total_memory_used = total_memory_used
         self.pinned_objects = pinned_objects
 
 
 class W_GcCollectStepStats(W_Root):
 
-    def __init__(self, count, duration, oldstate, newstate):
+    def __init__(self, count, duration, duration_min, duration_max,
+                 oldstate, newstate):
         self.count = count
         self.duration = duration
+        self.duration_min = duration_min
+        self.duration_max = duration_max
         self.oldstate = oldstate
         self.newstate = newstate
 
@@ -286,6 +306,8 @@ W_GcMinorStats.typedef = TypeDef(
     **wrap_many_ints(W_GcMinorStats, (
         "count",
         "duration",
+        "duration_min",
+        "duration_max",
         "total_memory_used",
         "pinned_objects"))
     )
@@ -300,6 +322,8 @@ W_GcCollectStepStats.typedef = TypeDef(
     **wrap_many_ints(W_GcCollectStepStats, (
         "count",
         "duration",
+        "duration_min",
+        "duration_max",
         "oldstate",
         "newstate"))
     )
