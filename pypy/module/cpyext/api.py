@@ -30,7 +30,7 @@ from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
-from rpython.rlib.rposix import is_valid_fd, validate_fd
+from rpython.rlib.rposix import FdValidator
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module import exceptions
@@ -96,25 +96,24 @@ else:
     dash = ''
 
 def fclose(fp):
-    if not is_valid_fd(c_fileno(fp)):
+    try:
+        with FdValidator(c_fileno(fp)):
+            return c_fclose(fp)
+    except IOError:
         return -1
-    return c_fclose(fp)
 
 def fwrite(buf, sz, n, fp):
-    validate_fd(c_fileno(fp))
-    return c_fwrite(buf, sz, n, fp)
+    with FdValidator(c_fileno(fp)):
+        return c_fwrite(buf, sz, n, fp)
 
 def fread(buf, sz, n, fp):
-    validate_fd(c_fileno(fp))
-    return c_fread(buf, sz, n, fp)
+    with FdValidator(c_fileno(fp)):
+        return c_fread(buf, sz, n, fp)
 
 _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
-    validate_fd(c_fileno(fp))
-    return _feof(fp)
-
-def is_valid_fp(fp):
-    return is_valid_fd(c_fileno(fp))
+    with FdValidator(c_fileno(fp)):
+        return _feof(fp)
 
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
@@ -133,6 +132,11 @@ PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE
 for name in ('INT', 'LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
              'TYPE', 'STRING'): # 'STRING' -> 'BYTES' in py3
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
+
+# PyPy-specific flags
+for name in ('FLOAT',):
+    constant_names.append('Py_TPPYPYFLAGS_%s_SUBCLASS' % name)
+
 
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
@@ -636,7 +640,7 @@ SYMBOLS_C = [
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
-    'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
+    'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar', 'PyInt_FromLong',

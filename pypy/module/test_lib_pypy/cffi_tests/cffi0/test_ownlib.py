@@ -115,8 +115,12 @@ class TestOwnLib(object):
         if sys.platform == 'win32':
             import os
             # did we already build it?
-            if os.path.exists(str(udir.join('testownlib.dll'))):
-                cls.module = str(udir.join('testownlib.dll'))
+            if cls.Backend is CTypesBackend:
+                dll_path = str(udir) + '\\testownlib1.dll'   # only ascii for the ctypes backend
+            else:
+                dll_path = str(udir) + '\\' + (u+'testownlib\u03be.dll')   # non-ascii char
+            if os.path.exists(dll_path):
+                cls.module = dll_path
                 return
             # try (not too hard) to find the version used to compile this python
             # no mingw
@@ -136,8 +140,9 @@ class TestOwnLib(object):
             if os.path.isfile(vcvarsall):
                 cmd = '"%s" %s' % (vcvarsall, arch) + ' & cl.exe testownlib.c ' \
                         ' /LD /Fetestownlib.dll'
-                subprocess.check_call(cmd, cwd = str(udir), shell=True)    
-                cls.module = str(udir.join('testownlib.dll'))
+                subprocess.check_call(cmd, cwd = str(udir), shell=True)
+                os.rename(str(udir) + '\\testownlib.dll', dll_path)
+                cls.module = dll_path
         else:
             subprocess.check_call(
                 'cc testownlib.c -shared -fPIC -o testownlib.so',

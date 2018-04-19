@@ -67,6 +67,18 @@ class TestTupleObject(BaseApiTest):
             assert space.int_w(space.getitem(w_tuple, space.wrap(i))) == 42 + i
         decref(space, ar[0])
 
+        py_tuple = state.ccall("PyTuple_New", 1)
+        ar[0] = py_tuple
+        api._PyTuple_Resize(ar, 1)
+        assert api.PyTuple_Size(ar[0]) == 1
+        decref(space, ar[0])
+
+        py_tuple = state.ccall("PyTuple_New", 1)
+        ar[0] = py_tuple
+        api._PyTuple_Resize(ar, 5)
+        assert api.PyTuple_Size(ar[0]) == 5
+        decref(space, ar[0])
+
         lltype.free(ar, flavor='raw')
 
     def test_setitem(self, space, api):

@@ -1,16 +1,20 @@
-===========================
-What's new in PyPy2.7 5.10+
-===========================
+==========================
+What's new in PyPy2.7 6.0+
+==========================
 
-.. this is a revision shortly after release-pypy2.7-v5.10.0
-.. startrev: 6b024edd9d12
+.. this is a revision shortly after release-pypy-6.0.0
+.. startrev: f22145c34985
 
-.. branch: cpyext-avoid-roundtrip
 
-Big refactoring of some cpyext code, which avoids a lot of nonsense when
-calling C from Python and vice-versa: the result is a big speedup in
-function/method calls, up to 6 times faster.
+.. branch: issue2752
 
-.. branch: cpyext-datetime2
+Fix a rare GC bug that was introduced more than one year ago, but was
+not diagnosed before issue #2752.
 
-Support ``tzinfo`` field on C-API datetime objects, fixes latest pandas HEAD
+.. branch: gc-hooks
+
+Introduce GC hooks, as documented in doc/gc_info.rst
+
+.. branch: gc-hook-better-timestamp
+
+Improve GC hooks

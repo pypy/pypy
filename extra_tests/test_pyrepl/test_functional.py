@@ -7,7 +7,8 @@ import pytest
 import sys
 
 
-def pytest_funcarg__child(request):
+@pytest.fixture()
+def child():
     try:
         import pexpect
     except ImportError:

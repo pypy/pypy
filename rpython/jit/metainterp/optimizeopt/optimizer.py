@@ -688,12 +688,10 @@ class Optimizer(Optimization):
 
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
-        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self, True)
         last_descr = last_guard_op.getdescr()
+        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self, last_descr)
         assert isinstance(last_descr, compile.ResumeGuardDescr)
-        if isinstance(descr, compile.ResumeGuardCopiedDescr):
-            descr.prev = last_descr
-        else:
+        if not isinstance(descr, compile.ResumeGuardCopiedDescr):
             descr.copy_all_attributes_from(last_descr)
         guard_op.setdescr(descr)
         guard_op.setfailargs(last_guard_op.getfailargs())

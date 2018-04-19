@@ -23,6 +23,10 @@
 #include <syscall.h>
 #endif
 
+#ifdef VMPROF_BSD
+#include <sys/syscall.h>
+#endif
+
 #define MAX_FUNC_NAME 1024
 
 #ifdef VMPROF_UNIX

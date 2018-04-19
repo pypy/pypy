@@ -1316,8 +1316,9 @@ class _SSLContext(W_Root):
         if not ctx:
             raise ssl_error(space, "failed to allocate SSL context")
 
-        rgc.add_memory_pressure(10 * 1024 * 1024)
         self = space.allocate_instance(_SSLContext, w_subtype)
+        assert isinstance(self, _SSLContext)
+        rgc.add_memory_pressure(10 * 1024 * 1024, self)
         self.ctx = ctx
         self.check_hostname = False
         self.register_finalizer(space)

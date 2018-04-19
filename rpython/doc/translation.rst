@@ -48,7 +48,7 @@ steps (see also the figure below):
    be present in memory as a form that is "static enough" in the sense of
    :doc:`RPython <rpython>`.
 
-2. The Annotator_ performs a global analysis starting from an specified
+2. The Annotator_ performs a global analysis starting from a specified
    entry point to deduce type and other information about what each
    variable can contain at run-time, :ref:`building flow graphs <flow-graphs>`
    as it encounters them.

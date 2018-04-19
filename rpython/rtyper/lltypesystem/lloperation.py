@@ -445,6 +445,7 @@ LL_OPERATIONS = {
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
     'll_read_timestamp': LLOp(canrun=True),
+    'll_get_timestamp_unit': LLOp(canrun=True),
 
     # __________ GC operations __________
 
@@ -485,6 +486,7 @@ LL_OPERATIONS = {
     'gc_gettypeid'        : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
+    'gc_get_stats'        : LLOp(),
     'gc_fq_next_dead'     : LLOp(),
     'gc_fq_register'      : LLOp(),
     'gc_ignore_finalizer' : LLOp(canrun=True),

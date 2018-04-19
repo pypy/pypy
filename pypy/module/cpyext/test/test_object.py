@@ -244,7 +244,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
 
         if not cls.runappdirect:
             cls.total_mem = 0
-            def add_memory_pressure(estimate):
+            def add_memory_pressure(estimate, object=None):
                 assert estimate >= 0
                 cls.total_mem += estimate
             cls.orig_add_memory_pressure = [rgc.add_memory_pressure]

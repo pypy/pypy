@@ -220,6 +220,15 @@ def debug_checks():
     stats.check_consistency()
 
 # ____________________________________________________________
+# always disabled hooks interface
+
+from rpython.rlib.jit import JitHookInterface
+
+class NoHooksInterface(JitHookInterface):
+    def are_hooks_enabled(self):
+        return False
+
+# ____________________________________________________________
 
 class WarmRunnerDesc(object):
 
@@ -259,7 +268,7 @@ class WarmRunnerDesc(object):
         else:
             self.jitcounter = counter.DeterministicJitCounter()
         #
-        self.hooks = policy.jithookiface
+        self.make_hooks(policy.jithookiface)
         self.make_virtualizable_infos()
         self.make_driverhook_graphs()
         self.make_enter_functions()
@@ -497,6 +506,12 @@ class WarmRunnerDesc(object):
         else:
             self.metainterp_sd.opencoder_model = Model
         self.stats.metainterp_sd = self.metainterp_sd
+
+    def make_hooks(self, hooks):
+        if hooks is None:
+            # interface not overridden, use a special one that is never enabled
+            hooks = NoHooksInterface()
+        self.hooks = hooks
 
     def make_virtualizable_infos(self):
         vinfos = {}

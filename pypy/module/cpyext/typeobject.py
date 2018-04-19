@@ -1,6 +1,6 @@
 import os
 
-from rpython.rlib import jit
+from rpython.rlib import jit, rawrefcount
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
 
@@ -22,16 +22,17 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
     Py_TPFLAGS_INT_SUBCLASS, Py_TPFLAGS_STRING_SUBCLASS, # change on py3
+    Py_TPPYPYFLAGS_FLOAT_SUBCLASS,
     )
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
-    W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction, PyMethodDef,
-    W_PyCMethodObject, W_PyCFunctionObject)
+    PyCFunction_NewEx, PyCFunction, PyMethodDef,
+    W_PyCMethodObject, W_PyCFunctionObject, W_PyCWrapperObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, decref, as_pyobj)
 from pypy.module.cpyext.slotdefs import (
-    slotdefs_for_tp_slots, slotdefs_for_wrappers, build_slot_tp_function,
+    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
     llslot)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
@@ -53,19 +54,26 @@ PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 class W_GetSetPropertyEx(GetSetProperty):
     def __init__(self, getset, w_type):
         self.getset = getset
-        self.name = rffi.charp2str(getset.c_name)
         self.w_type = w_type
-        doc = set = get = None
+        doc = fset = fget = fdel = None
         if doc:
             # XXX dead code?
             doc = rffi.charp2str(getset.c_doc)
         if getset.c_get:
-            get = GettersAndSetters.getter.im_func
+            fget = GettersAndSetters.getter.im_func
         if getset.c_set:
-            set = GettersAndSetters.setter.im_func
-        GetSetProperty.__init__(self, get, set, None, doc,
+            fset = GettersAndSetters.setter.im_func
+            fdel = GettersAndSetters.deleter.im_func
+        GetSetProperty.__init__(self, fget, fset, fdel, doc,
                                 cls=None, use_closure=True,
                                 tag="cpyext_1")
+        self.name = rffi.charp2str(getset.c_name)
+
+    def readonly_attribute(self, space):   # overwritten
+        raise oefmt(space.w_AttributeError,
+            "attribute '%s' of '%N' objects is not writable",
+            self.name, self.w_type)
+
 
 def PyDescr_NewGetSet(space, getset, w_type):
     return W_GetSetPropertyEx(getset, w_type)
@@ -226,22 +234,6 @@ def convert_member_defs(space, dict_w, members, w_type):
             dict_w[name] = w_descr
             i += 1
 
-SLOTS = {}
-@specialize.memo()
-def get_slot_tp_function(space, typedef, name):
-    """Return a description of the slot C function to use for the built-in
-    type for 'typedef'.  The 'name' is the slot name.  This is a memo
-    function that, after translation, returns one of a built-in finite set.
-    """
-    key = (typedef, name)
-    try:
-        return SLOTS[key]
-    except KeyError:
-        slot_func = build_slot_tp_function(space, typedef, name)
-        api_func = slot_func.api_func if slot_func else None
-        SLOTS[key] = api_func
-        return api_func
-
 missing_slots={}
 def warn_missing_slot(space, method_name, slot_name, w_type):
     if not we_are_translated():
@@ -252,11 +244,6 @@ def warn_missing_slot(space, method_name, slot_name, w_type):
 
 def update_all_slots(space, w_type, pto):
     # fill slots in pto
-    # Not very sure about it, but according to
-    # test_call_tp_dealloc, we should not
-    # overwrite slots that are already set: these ones are probably
-    # coming from a parent C type.
-
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
         slot_func_helper = None
         w_descr = w_type.dict_w.get(method_name, None)
@@ -281,19 +268,18 @@ def update_all_slots(space, w_type, pto):
 def update_all_slots_builtin(space, w_type, pto):
     typedef = w_type.layout.typedef
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
-        slot_apifunc = get_slot_tp_function(space, typedef, slot_name)
+        slot_apifunc = get_slot_tp_function(space, typedef, slot_name, method_name)
         if not slot_apifunc:
             warn_missing_slot(space, method_name, slot_name, w_type)
             continue
-        slot_func_helper = slot_apifunc.get_llhelper(space)
-        fill_slot(space, pto, w_type, slot_names, slot_func_helper)
+        slot_llfunc = slot_apifunc.get_llhelper(space)
+        fill_slot(space, pto, w_type, slot_names, slot_llfunc)
 
 @specialize.arg(3)
 def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
     # XXX special case wrapper-functions and use a "specific" slot func
     if len(slot_names) == 1:
-        if not getattr(pto, slot_names[0]):
-            setattr(pto, slot_names[0], slot_func_helper)
+        setattr(pto, slot_names[0], slot_func_helper)
     elif ((w_type is space.w_list or w_type is space.w_tuple) and
             slot_names[0] == 'c_tp_as_number'):
         # XXX hack - how can we generalize this? The problem is method
@@ -327,21 +313,24 @@ def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
             struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
             setattr(pto, slot_names[0], struct)
 
-        if not getattr(struct, slot_names[1]):
-            setattr(struct, slot_names[1], slot_func_helper)
+        setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
     from pypy.module.cpyext.object import PyObject_HashNotImplemented
-    hash_not_impl = PyObject_HashNotImplemented.api_func.get_llhelper(space)
-    for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
+    hash_not_impl = llslot(space, PyObject_HashNotImplemented)
+    for method_name, slot_names, wrapper_class, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
         offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
             if slot_names[0] == 'c_tp_hash':
-                if hash_not_impl == func:
-                    # special case for tp_hash == PyObject_HashNotImplemented
+                # two special cases where __hash__ is explicitly set to None
+                # (which leads to an unhashable type):
+                # 1) tp_hash == PyObject_HashNotImplemented
+                # 2) tp_hash == NULL and either of tp_compare or tp_richcompare are not NULL
+                if hash_not_impl == func or (
+                        not func and (pto.c_tp_compare or pto.c_tp_richcompare)):
                     dict_w[method_name] = space.w_None
                     continue
         else:
@@ -354,10 +343,11 @@ def add_operators(space, dict_w, pto):
         func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:
             continue
-        if wrapper_func is None and wrapper_func_kwds is None:
+        if wrapper_class is None:
             continue
-        w_obj = W_PyCWrapperObject(space, pto, method_name, wrapper_func,
-                wrapper_func_kwds, doc, func_voidp, offset=offset)
+
+        assert issubclass(wrapper_class, W_PyCWrapperObject)
+        w_obj = wrapper_class(space, pto, method_name, doc, func_voidp, offset=offset[:])
         dict_w[method_name] = w_obj
     if pto.c_tp_doc:
         dict_w['__doc__'] = space.newtext(
@@ -445,6 +435,9 @@ def inherit_special(space, pto, w_obj, base_pto):
         pto.c_tp_flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
         pto.c_tp_flags |= Py_TPFLAGS_DICT_SUBCLASS
+    # the following types are a pypy-specific extensions, using tp_pypy_flags
+    elif space.issubtype_w(w_obj, space.w_float):
+        pto.c_tp_pypy_flags |= Py_TPPYPYFLAGS_FLOAT_SUBCLASS
 
 def check_descr(space, w_self, w_type):
     if not space.isinstance_w(w_self, w_type):
@@ -463,6 +456,16 @@ class GettersAndSetters:
         check_descr(space, w_self, self.w_type)
         res = generic_cpy_call(
             space, self.getset.c_set, w_self, w_value,
+            self.getset.c_closure)
+        if rffi.cast(lltype.Signed, res) < 0:
+            state = space.fromcache(State)
+            state.check_and_raise_exception()
+
+    def deleter(self, space, w_self):
+        assert isinstance(self, W_GetSetPropertyEx)
+        check_descr(space, w_self, self.w_type)
+        res = generic_cpy_call(
+            space, self.getset.c_set, w_self, None,
             self.getset.c_closure)
         if rffi.cast(lltype.Signed, res) < 0:
             state = space.fromcache(State)
@@ -530,6 +533,10 @@ class W_PyCTypeObject(W_TypeObject):
         if pto.c_tp_doc:
             self.w_doc = space.newtext(
                 rffi.charp2str(cts.cast('char*', pto.c_tp_doc)))
+
+    def _cpyext_attach_pyobj(self, space, py_obj):
+        self._cpy_ref = py_obj
+        rawrefcount.create_link_pyobj(self, py_obj)
 
 @bootstrap_function
 def init_typeobject(space):
@@ -791,7 +798,6 @@ def type_realize(space, py_obj):
     try:
         w_obj = _type_realize(space, py_obj)
     finally:
-        name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
         pto.c_tp_flags &= ~Py_TPFLAGS_READYING
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return w_obj
@@ -898,7 +904,6 @@ def finish_type_1(space, pto, bases_w=None):
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
-        name = rffi.charp2str(cts.cast('char*', base.c_tp_name))
         type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
