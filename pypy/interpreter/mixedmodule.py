@@ -30,17 +30,21 @@ class MixedModule(Module):
 
     @not_rpython
     def install(self):
-        """install this module, and it's submodules into
+        """Install this module, and its submodules into
         space.builtin_modules"""
         Module.install(self)
         if hasattr(self, "submodules"):
             space = self.space
-            name = space.text_w(self.w_name)
+            pkgname = space.text_w(self.w_name)
             for sub_name, module_cls in self.submodules.iteritems():
                 if module_cls.submodule_name is None:
                     module_cls.submodule_name = sub_name
-                module_name = space.newtext("%s.%s" % (name, sub_name))
-                m = module_cls(space, module_name)
+                else:
+                    assert module_cls.submodule_name == sub_name
+                name = "%s.%s" % (pkgname, sub_name)
+                module_cls.applevel_name = name
+                w_name = space.newtext(name)
+                m = module_cls(space, w_name)
                 m.install()
                 self.submodules_w.append(m)
 
@@ -175,8 +179,6 @@ class MixedModule(Module):
             cls.loaders = loaders = {}
             pkgroot = cls.__module__.rsplit('.', 1)[0]
             appname = cls.get_applevel_name()
-            if cls.submodule_name is not None:
-                appname += '.%s' % (cls.submodule_name,)
             for name, spec in cls.interpleveldefs.items():
                 loaders[name] = getinterpevalloader(pkgroot, spec)
             for name, spec in cls.appleveldefs.items():
