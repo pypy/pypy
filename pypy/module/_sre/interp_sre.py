@@ -144,11 +144,11 @@ class W_SRE_Pattern(W_Root):
         # indexgroup nor groupindex: they are derivated from the pattern.
         return space.newbool(
             self.flags == other.flags and
-            self.code == other.code and
+            self.code.pattern == other.code.pattern and
             space.eq_w(self.w_pattern, other.w_pattern))
 
     def descr_hash(self, space):
-        code = ''.join([chr(c) for c in self.code])
+        code = ''.join([chr(c) for c in self.code.pattern])
         return space.newint(compute_hash(
             (self.flags, code, space.hash_w(self.w_pattern))))
 
