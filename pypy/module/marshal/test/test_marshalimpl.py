@@ -1,5 +1,6 @@
 from pypy.module.marshal import interp_marshal
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std.intobject import W_IntObject
 import sys
 
 
@@ -100,3 +101,15 @@ def test_long_more(space):
         for i in range(100):
             _marshal_check(sign * ((1L << i) - 1L))
             _marshal_check(sign * (1L << i))
+
+def test_int_roundtrip(space):
+    a = 0xffffffff
+    w_a = space.newint(a)
+    m = interp_marshal.StringMarshaller(space, 4)
+    interp_marshal.marshal(space, w_a, m)
+    s = m.get_value()
+    u = interp_marshal.StringUnmarshaller(space, space.newbytes(s))
+    w_res = u.load_w_obj()
+
+    assert type(w_res) is W_IntObject
+    assert w_res.intval == w_a.intval == a

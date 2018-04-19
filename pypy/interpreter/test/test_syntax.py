@@ -713,8 +713,7 @@ class AppTestSyntaxError:
         except SyntaxError as e:
             assert e.lineno == 4
             assert e.text.endswith('a b c d e\n')
-            b_pos = e.text.index('b')
-            assert e.offset in (b_pos, b_pos+1) # b_pos in pypy, b_pos+1 in CPython.
+            assert e.offset == e.text.index('b') + 1 # offset is 1-based
         else:
             raise Exception("no SyntaxError??")
 

@@ -312,7 +312,10 @@ class StdObjSpace(ObjSpace):
         return W_LongObject.fromrarith_int(val)
 
     def newlong_from_rbigint(self, val):
-        return newlong(self, val)
+        try:
+            return self.newint(val.toint())
+        except OverflowError:
+            return newlong(self, val)
 
     def newtuple(self, list_w):
         from pypy.objspace.std.tupleobject import wraptuple

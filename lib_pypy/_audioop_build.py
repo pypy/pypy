@@ -656,4 +656,6 @@ void adcpm2lin(unsigned char* ncp, unsigned char* cp, size_t len,
 ffi.set_source("_audioop_cffi", C_SOURCE)
 
 if __name__ == "__main__":
+    import sys
+    print('using python from', sys.executable)
     ffi.compile(verbose=2)

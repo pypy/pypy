@@ -2365,7 +2365,9 @@ class MetaInterp(object):
             greenkey = None # we're in the bridge
         else:
             greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
-            self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
+            hooks = self.staticdata.warmrunnerdesc.hooks
+            if hooks.are_hooks_enabled():
+                hooks.on_abort(reason,
                     jd_sd.jitdriver, greenkey,
                     jd_sd.warmstate.get_location_str(greenkey),
                     self.staticdata.logger_ops._make_log_operations(
@@ -2374,9 +2376,10 @@ class MetaInterp(object):
             if self.aborted_tracing_jitdriver is not None:
                 jd_sd = self.aborted_tracing_jitdriver
                 greenkey = self.aborted_tracing_greenkey
-                self.staticdata.warmrunnerdesc.hooks.on_trace_too_long(
-                    jd_sd.jitdriver, greenkey,
-                    jd_sd.warmstate.get_location_str(greenkey))
+                if hooks.are_hooks_enabled():
+                    hooks.on_trace_too_long(
+                        jd_sd.jitdriver, greenkey,
+                        jd_sd.warmstate.get_location_str(greenkey))
                 # no ops for now
                 self.aborted_tracing_jitdriver = None
                 self.aborted_tracing_greenkey = None
@@ -2384,9 +2387,9 @@ class MetaInterp(object):
 
     def blackhole_if_trace_too_long(self):
         warmrunnerstate = self.jitdriver_sd.warmstate
-        if self.history.length() > warmrunnerstate.trace_limit:
+        if (self.history.length() > warmrunnerstate.trace_limit or
+                self.history.trace_tag_overflow()):
             jd_sd, greenkey_of_huge_function = self.find_biggest_function()
-            self.history.trace.done()
             self.staticdata.stats.record_aborted(greenkey_of_huge_function)
             self.portal_trace_positions = None
             if greenkey_of_huge_function is not None:
@@ -2689,7 +2692,9 @@ class MetaInterp(object):
                      try_disabling_unroll=False, exported_state=None):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
-        self.history.trace.done()
+        if self.history.trace_tag_overflow():
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        self.history.trace.tracing_done()
         if not self.partial_trace:
             ptoken = self.get_procedure_token(greenkey)
             if ptoken is not None and ptoken.target_tokens is not None:
@@ -2742,7 +2747,9 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         self.history.ends_with_jump = True
-        self.history.trace.done()
+        if self.history.trace_tag_overflow():
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        self.history.trace.tracing_done()
         try:
             target_token = compile.compile_trace(self, self.resumekey,
                 live_arg_boxes[num_green_args:])
@@ -2776,7 +2783,9 @@ class MetaInterp(object):
             assert False
         # FIXME: can we call compile_trace?
         self.history.record(rop.FINISH, exits, None, descr=token)
-        self.history.trace.done()
+        if self.history.trace_tag_overflow():
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, exits)
         if target_token is not token:
             compile.giveup()
@@ -2802,7 +2811,9 @@ class MetaInterp(object):
         sd = self.staticdata
         token = sd.exit_frame_with_exception_descr_ref
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
-        self.history.trace.done()
+        if self.history.trace_tag_overflow():
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, [valuebox])
         if target_token is not token:
             compile.giveup()

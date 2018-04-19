@@ -316,7 +316,7 @@ f'{a * x()}'"""
                             ["f'{3)+(4}'",
                              ])
 
-        self.assertAllRaise(SyntaxError, 'EOL while scanning string literal',
+        self.assertAllRaise(SyntaxError, r'end of line \(EOL\) while scanning string literal',
                             ["f'{\n}'",
                              ])
 
@@ -738,7 +738,7 @@ f'{a * x()}'"""
         self.assertEqual('{d[0]}'.format(d=d), 'integer')
 
     def test_invalid_expressions(self):
-        self.assertAllRaise(SyntaxError, 'invalid syntax',
+        self.assertAllRaise(SyntaxError, "closing parenthesis '.' does not match opening parenthesis '.'",
                             [r"f'{a[4)}'",
                              r"f'{a(4]}'",
                             ])

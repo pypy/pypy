@@ -714,7 +714,10 @@ And more, added later.
 0
 >>> type(i.gi_frame)
 <class 'frame'>
->>> i.gi_running = 42
+
+PyPy prints "readonly attribute 'gi_running'" so ignore the exception detail
+
+>>> i.gi_running = 42 # doctest: +IGNORE_EXCEPTION_DETAIL
 Traceback (most recent call last):
   ...
 AttributeError: readonly attribute

@@ -67,9 +67,10 @@ def PyErr_SetNone(space, w_type):
 @cpython_api([], PyObject, result_borrowed=True)
 def PyErr_Occurred(space):
     state = space.fromcache(State)
-    if state.operror is None:
+    operror = state.get_exception()
+    if operror is None:
         return None
-    return state.operror.w_type     # borrowed ref
+    return operror.w_type     # borrowed ref
 
 @cpython_api([], lltype.Void)
 def PyErr_Clear(space):

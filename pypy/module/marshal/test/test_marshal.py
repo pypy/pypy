@@ -229,7 +229,7 @@ class AppTestMarshal:
                    BadReader(marshal.dumps(value)))
 
 
-@pytest.mark.skipif('config.option.runappdirect')
+@pytest.mark.skipif('config.option.runappdirect or sys.maxint > 2 ** 32')
 class AppTestSmallLong(AppTestMarshal):
     spaceconfig = AppTestMarshal.spaceconfig.copy()
     spaceconfig["objspace.std.withsmalllong"] = True

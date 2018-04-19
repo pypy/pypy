@@ -2,10 +2,17 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import executioncontext
+from pypy.interpreter.executioncontext import ExecutionContext
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount
 import sys
+
+
+# Keep track of exceptions raised in cpyext for a particular execution
+# context.
+ExecutionContext.cpyext_operror = None
+
 
 class State:
     def __init__(self, space):
@@ -18,7 +25,8 @@ class State:
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
-        self.operror = None
+        ec = self.space.getexecutioncontext()
+        ec.cpyext_operror = None
         self.new_method_def = lltype.nullptr(PyMethodDef)
 
         # When importing a package, use this to keep track
@@ -37,17 +45,24 @@ class State:
 
     def set_exception(self, operror):
         self.clear_exception()
-        self.operror = operror
+        ec = self.space.getexecutioncontext()
+        ec.cpyext_operror = operror
 
     def clear_exception(self):
         """Clear the current exception state, and return the operror."""
-        operror = self.operror
-        self.operror = None
+        ec = self.space.getexecutioncontext()
+        operror = ec.cpyext_operror
+        ec.cpyext_operror = None
         return operror
+
+    def get_exception(self):
+        ec = self.space.getexecutioncontext()
+        return ec.cpyext_operror
 
     @specialize.arg(1)
     def check_and_raise_exception(self, always=False):
-        operror = self.operror
+        ec = self.space.getexecutioncontext()
+        operror = ec.cpyext_operror
         if operror:
             self.clear_exception()
             raise operror

@@ -153,7 +153,7 @@ def build_node_tree(space, w_tuple):
         # Raise an exception now and be done with it.
         raise parser_error(space, w_tuple,
                            "Illegal syntax-tree; cannot start with terminal symbol.")
-    node = pyparse.parser.Nonterminal(type, [])
+    node = pyparse.parser.Nonterminal(type)
     build_node_children(space, w_tuple, node, node_state)
     return node
 
@@ -172,7 +172,7 @@ def build_node_children(space, w_tuple, node, node_state):
             strn = space.text_w(w_obj)
             child = pyparse.parser.Terminal(type, strn, node_state.lineno, 0)
         else:
-            child = pyparse.parser.Nonterminal(type, [])
+            child = pyparse.parser.Nonterminal(type)
         node.append_child(child)
         if type >= 256:  # Nonterminal node
             build_node_children(space, w_elem, child, node_state)
@@ -188,8 +188,7 @@ def validate_node(space, tree):
         raise parse_error(space, "Unrecognized node type %d." % type)
     dfa = parser.grammar.dfas[type]
     # Run the DFA for this nonterminal
-    states, first = dfa
-    arcs, is_accepting = states[0]
+    arcs, is_accepting = dfa.states[0]
     for pos in range(tree.num_children()):
         ch = tree.get_child(pos)
         for i, next_state in arcs:
@@ -199,7 +198,7 @@ def validate_node(space, tree):
                 if ch.type >= 256:
                     validate_node(space, ch)
                 # Update the state, and move on to the next child.
-                arcs, is_accepting = states[next_state]
+                arcs, is_accepting = dfa.states[next_state]
                 break
         else:
             raise parse_error(space, "Illegal node")

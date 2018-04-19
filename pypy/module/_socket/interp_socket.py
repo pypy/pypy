@@ -33,7 +33,7 @@ def addr_as_object(addr, fd, space):
                                space.newint(addr.get_protocol()),
                                space.newint(addr.get_pkttype()),
                                space.newint(addr.get_hatype()),
-                               space.newtext(addr.get_haddr())])
+                               space.newbytes(addr.get_haddr())])
     elif rsocket.HAS_AF_UNIX and isinstance(addr, rsocket.UNIXAddress):
         path = addr.get_path()
         if _c.linux and len(path) > 0 and path[0] == '\x00':
