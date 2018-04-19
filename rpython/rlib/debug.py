@@ -133,7 +133,7 @@ class Entry(ExtRegistryEntry):
             opname = fn.__name__[1:] # remove the '_'
             return hop.genop(opname, vlist, resulttype=TIMESTAMP_type)
         else:
-            return hop.inputconst(TIMESTAMP_type, 0)
+            return hop.inputconst(TIMESTAMP_type, r_longlong(0))
 
 
 def have_debug_prints():
