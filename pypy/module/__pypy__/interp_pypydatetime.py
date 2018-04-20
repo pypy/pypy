@@ -5,7 +5,7 @@ from rpython.tool.sourcetools import func_with_new_name
 
 def create_class(name):
     class W_Class(W_Root):
-        'builtin base clasee for datetime.%s to allow interop with cpyext' % name
+        'builtin base class for datetime.%s to allow interop with cpyext' % name
         def descr_new__(space, w_type):
             return space.allocate_instance(W_Class, w_type)
 

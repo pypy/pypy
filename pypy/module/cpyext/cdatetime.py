@@ -40,18 +40,26 @@ def _PyDateTime_Import(space):
     w_type = space.getattr(w_datetime, space.newtext("datetime"))
     datetimeAPI.c_DateTimeType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
+    datetimeAPI.c_DateTimeType.c_tp_basicsize = rffi.sizeof(
+        cts.gettype('PyDateTime_DateTime'))
 
     w_type = space.getattr(w_datetime, space.newtext("time"))
     datetimeAPI.c_TimeType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
+    datetimeAPI.c_TimeType.c_tp_basicsize = rffi.sizeof(
+        cts.gettype('PyDateTime_Time'))
 
     w_type = space.getattr(w_datetime, space.newtext("timedelta"))
     datetimeAPI.c_DeltaType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
+    datetimeAPI.c_DeltaType.c_tp_basicsize = rffi.sizeof(
+        cts.gettype('PyDateTime_Delta'))
 
     w_type = space.getattr(w_datetime, space.newtext("tzinfo"))
     datetimeAPI.c_TZInfoType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
+    datetimeAPI.c_TZInfoType.c_tp_basicsize = rffi.sizeof(
+        cts.gettype('PyDateTime_TZInfo'))
 
     datetimeAPI.c_Date_FromDate = llhelper(
         _PyDate_FromDate.api_func.functype,
@@ -124,7 +132,7 @@ def init_datetime(space):
     # app level datetime.date. If a c-extension class uses datetime.date for its
     # base class and defines a tp_dealloc, we will get this:
     # c_class->tp_dealloc == tp_dealloc_func
-    # c_class->tp_base == datetime.date, 
+    # c_class->tp_base == datetime.date,
     #                     datetime.date->tp_dealloc = _PyPy_subtype_dealloc
     # datetime.date->tp_base = W_DateTime_Date
     #                    W_DateTime_Date->tp_dealloc = _PyPy_subtype_dealloc
