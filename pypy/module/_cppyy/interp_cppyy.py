@@ -322,7 +322,7 @@ class CPPMethod(object):
         # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
         # has been offset to the matching class. Hence, the libffi pointer is
         # uniquely defined and needs to be setup only once.
-        funcaddr = capi.c_get_function_address(self.space, self.scope, self.index)
+        funcaddr = capi.c_function_address_from_index(self.space, self.scope, self.index)
         if funcaddr and cppthis:      # methods only for now
             state = self.space.fromcache(ffitypes.State)
 
@@ -845,24 +845,11 @@ class W_CPPNamespaceDecl(W_CPPScopeDecl):
         return self.space.w_True
 
     def ns__dir__(self):
-        # Collect a list of everything (currently) available in the namespace.
-        # The backend can filter by returning empty strings. Special care is
-        # taken for functions, which need not be unique (overloading).
-        alldir = []
-        for i in range(capi.c_num_scopes(self.space, self)):
-            sname = capi.c_scope_name(self.space, self, i)
-            if sname: alldir.append(self.space.newtext(sname))
-        allmeth = {}
-        for i in range(capi.c_num_methods(self.space, self)):
-            idx = capi.c_method_index_at(self.space, self, i)
-            mname = capi.c_method_name(self.space, self, idx)
-            if mname: allmeth.setdefault(mname, 0)
-        for m in allmeth.keys():
-            alldir.append(self.space.newtext(m))
-        for i in range(capi.c_num_datamembers(self.space, self)):
-            dname = capi.c_datamember_name(self.space, self, i)
-            if dname: alldir.append(self.space.newtext(dname))
-        return self.space.newlist(alldir)
+        alldir = capi.c_get_all_cpp_names(self.space, self)
+        w_alldir = self.space.newlist([])
+        for name in alldir:
+            w_alldir.append(self.space.wrap(name))
+        return w_alldir
         
     def missing_attribute_error(self, name):
         return oefmt(self.space.w_AttributeError,
@@ -890,8 +877,7 @@ class W_CPPClassDecl(W_CPPScopeDecl):
     def _build_methods(self):
         assert len(self.methods) == 0
         methods_temp = {}
-        for i in range(capi.c_num_methods(self.space, self)):
-            idx = capi.c_method_index_at(self.space, self, i)
+        for idx in range(capi.c_num_methods(self.space, self)):
             if capi.c_is_constructor(self.space, self, idx):
                 pyname = '__init__'
             else:

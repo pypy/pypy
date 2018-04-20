@@ -438,9 +438,8 @@ def _init_pythonify():
     gbl.std.move = _cppyy.move
 
     # install a type for enums to refer to
-    # TODO: this is correct for C++98, not for C++11 and in general there will
-    # be the same issue for all typedef'd builtin types
     setattr(gbl, 'internal_enum_type_t', int)
+    setattr(gbl, 'unsigned int',         int)     # if resolved
 
     # install for user access
     _cppyy.gbl = gbl

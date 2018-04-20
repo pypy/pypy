@@ -749,8 +749,6 @@ def get_converter(space, _name, default):
             return InstancePtrPtrConverter(space, clsdecl)
         elif compound == "":
             return InstanceConverter(space, clsdecl)
-    elif capi.c_is_enum(space, clean_name):
-        return _converters['unsigned'](space, default)
 
     #   5) void* or void converter (which fails on use)
     if 0 <= compound.find('*'):
