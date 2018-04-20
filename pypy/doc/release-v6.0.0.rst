@@ -18,6 +18,8 @@ First-time python users are often stumped by silly typos and emissions when
 getting started writing code. We have improved our parser to emit more friendly
 `syntax errors`_,  making PyPy not only faster but more friendly.
 
+The GC now has `hooks`_ to gain more insights into its performance
+
 The Windows PyPy3.5 release is still considered beta-quality. There are open
 issues with unicode handling especially around system calls and c-extensions.
 
@@ -53,6 +55,7 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _`blog post`: https://morepypy.blogspot.it/2017/10/cape-of-good-hope-for-pypy-hello-from.html
 .. _pygobject: https://lazka.github.io/posts/2018-04_pypy-pygobject/index.html
 .. _`syntax errors`: https://morepypy.blogspot.com/2018/04/improving-syntaxerror-in-pypy.html
+.. _`hooks`: gc_info.html#gc-hooks
 
 What is PyPy?
 =============
@@ -101,8 +104,9 @@ Changelog
 * Added missing attributes to C-API ``instancemethod`` on pypy3
 * Store error state in thread-local storage for C-API.
 * Fix JIT bugs exposed in the sre module
-* Improve speed of Python parser, improve ParseError messages slightly
+* Improve speed of Python parser, improve ParseError messages and SyntaxError
 * Handle JIT hooks more efficiently
+* Fix a rare GC bug exposed by intensive use of cpyext `Buffer` s
 
 We also refactored many parts of the JIT bridge optimizations, as well as cpyext
 internals, and together with new contributors fixed issues, added new

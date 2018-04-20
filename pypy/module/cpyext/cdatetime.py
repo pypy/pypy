@@ -149,7 +149,7 @@ def type_attach(space, py_obj, w_obj, w_userdata=None):
         # No tzinfo
         return
     py_datetime = rffi.cast(PyDateTime_Time, py_obj)
-    w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
+    w_tzinfo = space.getattr(w_obj, space.newtext('_tzinfo'))
     if space.is_none(w_tzinfo):
         py_datetime.c_hastzinfo = cts.cast('unsigned char', 0)
         py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
