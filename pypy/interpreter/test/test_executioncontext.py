@@ -37,6 +37,37 @@ class TestExecutionContext:
             pass
         assert i == 9
 
+    def test_action_queue(self):
+        events = []
+
+        class Action1(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('one')
+        
+        class Action2(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('two')
+
+        space = self.space
+        a1 = Action1(space)
+        a2 = Action2(space)
+        a1.fire()
+        a2.fire()
+        space.appexec([], """():
+            n = 5
+            return n + 2
+        """)
+        assert events == ['one', 'two']
+        #
+        events[:] = []
+        a1.fire()
+        space.appexec([], """():
+            n = 5
+            return n + 2
+        """)
+        assert events == ['one']
+
+
     def test_periodic_action(self):
         from pypy.interpreter.executioncontext import ActionFlag
 

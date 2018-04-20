@@ -404,7 +404,7 @@ class AbstractActionFlag(object):
         self._periodic_actions = []
         self._nonperiodic_actions = []
         self.has_bytecode_counter = False
-        self.fired_actions = None
+        self._fired_actions_reset()
         # the default value is not 100, unlike CPython 2.7, but a much
         # larger value, because we use a technique that not only allows
         # but actually *forces* another thread to run whenever the counter
@@ -416,12 +416,27 @@ class AbstractActionFlag(object):
         """Request for the action to be run before the next opcode."""
         if not action._fired:
             action._fired = True
-            if self.fired_actions is None:
-                self.fired_actions = []
-            self.fired_actions.append(action)
+            self._fired_actions_append(action)
             # set the ticker to -1 in order to force action_dispatcher()
             # to run at the next possible bytecode
             self.reset_ticker(-1)
+
+    def _fired_actions_reset(self):
+        # linked list of actions. We cannot use a normal RPython list because
+        # we want AsyncAction.fire() to be marked as @rgc.collect: this way,
+        # we can call it from e.g. GcHooks or cpyext's dealloc_trigger.
+        self._fired_actions_first = None
+        self._fired_actions_last = None
+
+    @rgc.no_collect
+    def _fired_actions_append(self, action):
+        assert action._next is None
+        if self._fired_actions_first is None:
+            self._fired_actions_first = action
+            self._fired_actions_last = action
+        else:
+            self._fired_actions_last._next = action
+            self._fired_actions_last = action
 
     @not_rpython
     def register_periodic_action(self, action, use_bytecode_counter):
@@ -467,9 +482,9 @@ class AbstractActionFlag(object):
                 action.perform(ec, frame)
 
             # nonperiodic actions
-            list = self.fired_actions
-            if list is not None:
-                self.fired_actions = None
+            action = self._fired_actions_first
+            if action:
+                self._fired_actions_reset()
                 # NB. in case there are several actions, we reset each
                 # 'action._fired' to false only when we're about to call
                 # 'action.perform()'.  This means that if
@@ -477,9 +492,10 @@ class AbstractActionFlag(object):
                 # the corresponding perform(), the fire() has no
                 # effect---which is the effect we want, because
                 # perform() will be called anyway.
-                for action in list:
+                while action is not None:
                     action._fired = False
                     action.perform(ec, frame)
+                    action._next, action = None, action._next
 
         self.action_dispatcher = action_dispatcher
 
@@ -512,10 +528,12 @@ class AsyncAction(object):
     to occur between two opcodes, not at a completely random time.
     """
     _fired = False
+    _next = None
 
     def __init__(self, space):
         self.space = space
 
+    @rgc.no_collect
     def fire(self):
         """Request for the action to be run before the next opcode.
         The action must have been registered at space initalization time."""
