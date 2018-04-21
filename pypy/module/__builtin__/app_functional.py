@@ -4,8 +4,7 @@ functional programming.
 """
 
 # ____________________________________________________________
-
-def sorted(iterable, key=None, reverse=False):
+def sorted(iterable, *, key=None, reverse=False):
     "sorted(iterable, key=None, reverse=False) --> new sorted list"
     sorted_lst = list(iterable)
     sorted_lst.sort(key=key, reverse=reverse)

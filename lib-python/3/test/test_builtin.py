@@ -1635,8 +1635,12 @@ class TestSorted(unittest.TestCase):
     def test_bad_arguments(self):
         # Issue #29327: The first argument is positional-only.
         sorted([])
-        with self.assertRaises(TypeError):
-            sorted(iterable=[])
+
+        # pypy doesn't support positional only arguments
+        if check_impl_detail():
+            with self.assertRaises(TypeError):
+                sorted(iterable=[])
+
         # Other arguments are keyword-only
         sorted([], key=None)
         with self.assertRaises(TypeError):

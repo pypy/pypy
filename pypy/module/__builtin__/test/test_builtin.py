@@ -420,6 +420,7 @@ class AppTestBuiltinApp:
         assert sorted_l is not l
         assert sorted_l == ['C', 'b', 'a']
         raises(TypeError, sorted, [], reverse=None)
+        raises(TypeError, sorted, [], None)
 
     def test_reversed_simple_sequences(self):
         l = range(5)
