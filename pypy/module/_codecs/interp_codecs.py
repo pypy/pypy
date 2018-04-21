@@ -1027,5 +1027,6 @@ def escape_encode(space, data, errors='strict'):
 def escape_decode(space, w_data, errors='strict'):
     data = space.getarg_w('s#', w_data)
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
-    result = PyString_DecodeEscape(space, data, errors, None)
+    result, _ = PyString_DecodeEscape(space, data, errors, None)
+
     return space.newtuple([space.newbytes(result), space.newint(len(data))])
