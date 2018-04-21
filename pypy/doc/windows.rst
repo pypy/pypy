@@ -150,7 +150,7 @@ We uses a `repository` parallel to pypy to hold binary compiled versions of the
 build dependencies for windows. As part of the `rpython` setup stage, environment
 variables will be set to use these dependencies. The repository has a README
 file on how to replicate, and a branch for each supported platform. You may run
- the `get_externals.py` utility to checkout the proper branch for your platform
+the `get_externals.py` utility to checkout the proper branch for your platform
 and PyPy version.
 
 .. _repository:  https://bitbucket.org/pypy/external
