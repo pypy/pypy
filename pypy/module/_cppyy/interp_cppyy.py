@@ -848,7 +848,7 @@ class W_CPPNamespaceDecl(W_CPPScopeDecl):
         alldir = capi.c_get_all_cpp_names(self.space, self)
         w_alldir = self.space.newlist([])
         for name in alldir:
-            w_alldir.append(self.space.wrap(name))
+            w_alldir.append(self.space.newtext(name))
         return w_alldir
         
     def missing_attribute_error(self, name):
