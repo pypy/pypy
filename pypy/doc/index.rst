@@ -9,7 +9,7 @@ implementation of the Python_ language.
 
 * If you're interested in trying PyPy out, check out the :doc:`installation instructions <install>`.
 
-* If you want to help develop PyPy, please have a look at :doc:`how to contribute <how-to-contribute>`
+* If you want to help develop PyPy, please have a look at :doc:`contributing <contributing>`
   and get in touch (:ref:`contact`)!
 
 All of the documentation and source code is available under the MIT license,
@@ -63,9 +63,7 @@ Development documentation
 .. toctree::
   :maxdepth: 1
 
-  getting-started-dev
-  how-to-contribute
-  you-want-to-help
+  contributing
   architecture
   configuration
   project-ideas
