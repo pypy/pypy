@@ -57,8 +57,8 @@ Using PyPy
 
 .. _developing-pypy:
 
-Development documentation
--------------------------
+Development
+-----------
 
 .. toctree::
   :maxdepth: 1
@@ -69,11 +69,6 @@ Development documentation
   project-ideas
   project-documentation
   how-to-release
-
-.. TODO: audit ^^
-
-
-.. TODO: Fill this in
 
 
 Further resources
@@ -88,7 +83,6 @@ Further resources
   index-of-release-notes
   index-of-whatsnew
   contributor
-
 
 .. _contact:
 

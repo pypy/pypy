@@ -25,20 +25,26 @@ important lessons that everyone willing to contribute should learn:
 * PyPy uses an entirely different set of tools - most of them included
   in the PyPy repository. There is no Makefile, nor autoconf. More below.
 
-The first thing to remember is that PyPy project is very different than most projects out there.
-It's also different from a classic compiler project, so academic courses
-about compilers often don't apply or lead in the wrong direction.
+The first thing to remember is that PyPy project is very different than most
+projects out there. It's also different from a classic compiler project,
+so academic courses about compilers often don't apply or lead in the wrong
+direction. However, if you want to understand how designing & building a runtime
+works in the real world then this is a great project!
 
 Getting involved
 ----------------
 
-PyPy employs a relatively standard open-source development process.  You are
-invited to join our `pypy-dev mailing list`_, our IRC channel (#pypy on freenode)
-or look at the other :ref:`contact possibilities <contact>`.  Usually we give
-out commit rights fairly liberally, so if you want to do something with PyPy,
-you can become a committer. We also run frequent coding sprints which are
-separately announced and often happen around Python conferences such as
+PyPy employs a relatively standard open-source development process. You are
+encouraged as a first step to join our `pypy-dev mailing list`_ and IRC channel,
+details of which can be found in our :ref:`contact <contact>` section. The folks
+there are very friendly, and can point you in the right direction.
+
+We give out commit rights usually fairly liberally, so if you want to do something
+with PyPy, you can become a committer. We also run frequent coding sprints which
+are separately announced and often happen around Python conferences such as
 EuroPython or PyCon. Upcoming events are usually announced on `the blog`_.
+
+Further Reading: :ref:`Contact <contact>`
 
 .. _the blog: http://morepypy.blogspot.com
 .. _pypy-dev mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
@@ -47,11 +53,16 @@ EuroPython or PyCon. Upcoming events are usually announced on `the blog`_.
 Your first contribution
 -----------------------
 
-The first and most important rule how _not_ to contribute to PyPy is
-"just hacking". This won't work. There are two major reasons why not
--- build times are large and PyPy has very thick layer separation which
-make it harder to "just hack a feature". Instead, reach out on the dev mailing
-list or the IRC channel, and we're more than happy to help! :)
+The first and most important rule how **not** to contribute to PyPy is
+"just hacking a feature". This won't work, and you'll find your PR will typically
+require a lot of re-work. There are a few reasons why not:
+
+* build times are large
+* PyPy has very thick layer separation
+* context of the cPython runtime is often required
+
+Instead, reach out on the dev mailing list or the IRC channel, and we're more
+than happy to help! :)
 
 Some ideas for first contributions are:
 
@@ -65,9 +76,6 @@ Some ideas for first contributions are:
 Source Control
 ==============
 
-Using Mercurial
----------------
-
 PyPy development is based a typical fork/pull request based workflow, centered
 around Mercurial (hg), hosted on Bitbucket. If you have not used this workflow
 before, a good introduction can be found here:
@@ -75,6 +83,9 @@ before, a good introduction can be found here:
     https://www.atlassian.com/git/tutorials/comparing-workflows/forking-workflow
 
 The cycle for a new PyPy contributor goes typically like this:
+
+Fork & Clone
+------------
 
 * Make an account on bitbucket_.
 
@@ -97,6 +108,9 @@ The cycle for a new PyPy contributor goes typically like this:
 
 * Now you have a complete copy of the PyPy repo.  Make a branch
   with a command like ``hg branch name_of_your_branch``.
+
+Edit
+----
 
 * Edit things.  Use ``hg diff`` to see what you changed.  Use ``hg add``
   to make Mercurial aware of new files you added, e.g. new test files.
@@ -132,6 +146,9 @@ The cycle for a new PyPy contributor goes typically like this:
   that your work is not secret and it's fine that way.  We might not
   accept it as is for PyPy, asking you instead to improve some things,
   but we are not going to judge you.
+
+Pull Request
+------------
 
 * The final step is to open a pull request, so that we know that you'd
   like to merge that branch back to the original ``pypy/pypy`` repo.
