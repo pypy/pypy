@@ -833,12 +833,23 @@ class _SSLContext(object):
             options |= lib.SSL_OP_NO_SSLv3
         # Minimal security flags for server and client side context.
         # Client sockets ignore server-side parameters.
-        options |= lib.SSL_OP_NO_COMPRESSION;
-        options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE;
-        options |= lib.SSL_OP_SINGLE_DH_USE;
-        options |= lib.SSL_OP_SINGLE_ECDH_USE;
+        options |= lib.SSL_OP_NO_COMPRESSION
+        options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
+        options |= lib.SSL_OP_SINGLE_DH_USE
+        options |= lib.SSL_OP_SINGLE_ECDH_USE
         lib.SSL_CTX_set_options(self.ctx, options)
         lib.SSL_CTX_set_session_id_context(self.ctx, b"Python", len(b"Python"))
+
+        # A bare minimum cipher list without completely broken cipher suites.
+        # It's far from perfect but gives users a better head start.
+        if lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
+            # SSLv2 needs MD5
+            default_ciphers = b"HIGH:!aNULL:!eNULL"
+        else:
+            default_ciphers = b"HIGH:!aNULL:!eNULL:!MD5"
+        if not lib.SSL_CTX_set_cipher_list(ctx, default_ciphers):
+            lib.ERR_clear_error()
+            raise SSLError("No cipher can be selected.")
 
         if HAS_ECDH:
             # Allow automatic ECDH curve selection (on
