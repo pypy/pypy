@@ -822,10 +822,16 @@ class _SSLContext(object):
             raise ssl_error("failed to allocate SSL context")
         self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
 
+        # Don't check host name by default
         self._check_hostname = False
+        if protocol == PROTOCOL_TLS_CLIENT:
+            self._check_hostname = True
+            self.verify_mode = CERT_REQUIRED
+        else:
+            self._check_hostname = False
+            self.verify_mode = CERT_NONE
 
         # Defaults
-        lib.SSL_CTX_set_verify(self.ctx, lib.SSL_VERIFY_NONE, ffi.NULL)
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if not lib.Cryptography_HAS_SSL2 or protocol != PROTOCOL_SSLv2:
             options |= lib.SSL_OP_NO_SSLv2
@@ -910,7 +916,9 @@ class _SSLContext(object):
         if mode == lib.SSL_VERIFY_NONE and self.check_hostname:
             raise ValueError("Cannot set verify_mode to CERT_NONE when " \
                              "check_hostname is enabled.")
-        lib.SSL_CTX_set_verify(self.ctx, mode, ffi.NULL);
+        # Keep current verify cb
+        verify_cb = lib.SSL_CTX_get_verify_callback(self.ctx)
+        lib.SSL_CTX_set_verify(self.ctx, mode, verify_cb)
 
     @property
     def verify_flags(self):
