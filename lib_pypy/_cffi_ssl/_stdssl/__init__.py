@@ -690,6 +690,16 @@ class _SSLSocket(object):
                 return None
             return _str_with_len(out[0], outlen[0])
 
+    @property
+    def session(self):
+        "Get / set SSLSession."
+        return None
+
+    @property
+    def session_reused(self):
+        "Was the client session reused during handshake?"
+        return bool(lib.SSL_session_reused(self.ssl))
+
 
 def _fs_decode(name):
     return name.decode(sys.getfilesystemencoding())
