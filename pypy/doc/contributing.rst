@@ -32,20 +32,20 @@ about compilers often don't apply or lead in the wrong direction.
 Getting involved
 ----------------
 
-PyPy employs an open development process.  You are invited to join our
-`pypy-dev mailing list`_, our IRC channel (#pypy on freenode) or look at the
-other :ref:`contact possibilities <contact>`.  Usually we give out commit
-rights fairly liberally, so if you want to do something with PyPy, you can
-become a committer. We also run frequent coding sprints which are separately
-announced and often happen around Python conferences such as EuroPython or
-PyCon. Upcoming events are usually announced on `the blog`_.
+PyPy employs relatively standard open-source development process.  You are
+invited to join our `pypy-dev mailing list`_, our IRC channel (#pypy on freenode)
+or look at the other :ref:`contact possibilities <contact>`.  Usually we give
+out commit rights fairly liberally, so if you want to do something with PyPy,
+you can become a committer. We also run frequent coding sprints which are
+separately announced and often happen around Python conferences such as
+EuroPython or PyCon. Upcoming events are usually announced on `the blog`_.
 
 .. _the blog: http://morepypy.blogspot.com
 .. _pypy-dev mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
 
 
-Hacking
---------
+Your first contribution
+-----------------------
 
 The first and most important rule how _not_ to contribute to PyPy is
 "just hacking". This won't work. There are two major reasons why not
@@ -53,15 +53,28 @@ The first and most important rule how _not_ to contribute to PyPy is
 make it harder to "just hack a feature". Instead, reach out on the dev mailing
 list or the IRC channel, and we're more than happy to help! :)
 
+Some ideas for first contributions are:
+
+* Documentation - this will give you an understanding of the pypy architecture
+* Test failures - find a failing test in the `nightly builds`_, and fix it
+* Missing language features - these are listed in our `issue tracker`_
+
+.. _nightly builds: http://buildbot.pypy.org/nightly/
+.. _issue tracker: https://bitbucket.org/pypy/pypy/issues
+
 Source Control
 ==============
 
 Using Mercurial
 ---------------
 
-PyPy development is based on Mercurial (hg).  If you are not used to
-version control, the cycle for a new PyPy contributor goes typically
-like this:
+PyPy development is based a typical fork/pull request based workflow, centered
+around Mercurial (hg). If you have not used this workflow before, a good
+can be found here:
+
+    https://www.atlassian.com/git/tutorials/comparing-workflows/forking-workflow
+
+The cycle for a new PyPy contributor goes typically like this:
 
 * Make an account on bitbucket_.
 
@@ -69,7 +82,7 @@ like this:
   icons).  You get a fork of the repository, e.g. in
   https://bitbucket.org/yourname/pypy/.
 
-* Clone this new repo (i.e. the fork) to your local machine with the command
+* Clone your new repo (i.e. the fork) to your local machine with the command
   ``hg clone ssh://hg@bitbucket.org/yourname/pypy``.  It is a very slow
   operation but only ever needs to be done once.  See also
   http://pypy.org/download.html#building-from-source .
@@ -148,56 +161,6 @@ like this:
 Architecture
 ============
 
-PyPy has layers. The 100 miles view:
-
-* :ref:`RPython <rpython:language>` is the language in which we write interpreters. Not the entire
-  PyPy project is written in RPython, only the parts that are compiled in
-  the translation process. The interesting point is that RPython has no parser,
-  it's compiled from the live python objects, which makes it possible to do
-  all kinds of metaprogramming during import time. In short, Python is a meta
-  programming language for RPython.
-
-  The RPython standard library is to be found in the ``rlib`` subdirectory.
-
-* The translation toolchain - this is the part that takes care of translating
-  RPython to flow graphs and then to C. There is more in the :doc:`architecture <architecture>`
-  document written about it.
-
-  It lives in the ``rpython`` directory: ``flowspace``, ``annotator``
-  and ``rtyper``.
-
-* Python Interpreter and modules
-
-  This is in the ``pypy`` directory.  ``pypy/interpreter`` is a standard
-  interpreter for Python written in RPython.  The fact that it is
-  RPython is not apparent at first.  Built-in modules are written in
-  ``pypy/module/*``.  Some modules that CPython implements in C are
-  simply written in pure Python; they are in the top-level ``lib_pypy``
-  directory.  The standard library of Python (with a few changes to
-  accomodate PyPy) is in ``lib-python``.
-
-* :ref:`Just-in-Time Compiler (JIT) <rpython:jit>`: we have a tracing JIT that traces the
-  interpreter written in RPython, rather than the user program that it
-  interprets.  As a result it applies to any interpreter, i.e. any
-  language.  But getting it to work correctly is not trivial: it
-  requires a small number of precise "hints" and possibly some small
-  refactorings of the interpreter.  The JIT itself also has several
-  almost-independent parts: the tracer itself in ``rpython/jit/metainterp``, the
-  optimizer in ``rpython/jit/metainterp/optimizer`` that optimizes a list of
-  residual operations, and the backend in ``rpython/jit/backend/<machine-name>``
-  that turns it into machine code.  Writing a new backend is a
-  traditional way to get into the project.
-
-* Garbage Collectors (GC): as you may notice if you are used to CPython's
-  C code, there are no ``Py_INCREF/Py_DECREF`` equivalents in RPython code.
-  :ref:`rpython:garbage-collection` is inserted
-  during translation.  Moreover, this is not reference counting; it is a real
-  GC written as more RPython code.  The best one we have so far is in
-  ``rpython/memory/gc/incminimark.py``.
-
-Layers
-------
-
 PyPy has layers. Just like Ogres or onions.
 Those layers help us keep the respective parts separated enough
 to be worked on independently and make the complexity manageable. This is,
@@ -218,43 +181,74 @@ RPython interpreters that perform certain tasks. To see how they translate
 to low-level graphs, run them with ``--view``. To see small interpreters
 with a JIT compiler, use ``--viewloops`` option.
 
-* **python interpreter** - it's the part implemented in the ``pypy/`` directory.
-  It's implemented in RPython, which is a high level static language with
-  classes, garbage collection, just-in-time compiler generation and the ability
-  to call C. A cool part about it is that it can be run untranslated, so all
-  the tests are runnable without translating PyPy.
+Layers
+------
 
-  **interpreter** contains the interpreter core
+RPython
+~~~~~~~
+:ref:`RPython <rpython:language>` is the language in which we write interpreters.
+Not the entire PyPy project is written in RPython, only the parts that are
+compiled in the translation process. The interesting point is that RPython
+has no parser, it's compiled from the live python objects, which makes it
+possible to do all kinds of metaprogramming during import time. In short,
+Python is a meta programming language for RPython.
 
-  **objspace** contains implementations of various objects exported to
-  the Python layer
+The RPython standard library is to be found in the ``rlib`` subdirectory.
 
-  **module** directory contains extension modules written in RPython
+Consult `Getting Started with RPython`_ for further reading
 
-* **rpython compiler** that resides in ``rpython/annotator`` and
-  ``rpython/rtyper`` directories. Consult `Getting Started with RPython`_
-  for further reading
+Translation
+~~~~~~~~~~~
+The translation toolchain - this is the part that takes care of translating
+RPython to flow graphs and then to C. There is more in the
+:doc:`architecture <architecture>` document written about it.
 
-* **JIT generator** lives in ``rpython/jit`` directory. optimizations live
-  in ``rpython/jit/metainterp/optimizeopt``, the main JIT in
-  ``rpython/jit/metainterp`` (runtime part) and
-  ``rpython/jit/codewriter`` (translation-time part). Backends live in
-  ``rpython/jit/backend``.
+It lives in the ``rpython`` directory: ``flowspace``, ``annotator``
+and ``rtyper``.
 
-* **garbage collection** lives in ``rpython/memory``
+PyPy Interpreter
+~~~~~~~~~~~~~~~~
+This is in the ``pypy`` directory.  ``pypy/interpreter`` is a standard
+interpreter for Python written in RPython.  The fact that it is
+RPython is not apparent at first.  Built-in modules are written in
+``pypy/module/*``.  Some modules that CPython implements in C are
+simply written in pure Python; they are in the top-level ``lib_pypy``
+directory.  The standard library of Python (with a few changes to
+accomodate PyPy) is in ``lib-python``.
 
-The rest of directories serve specific niche goal and are unlikely a good
-entry point.
+JIT Compiler
+~~~~~~~~~~~~
+:ref:`Just-in-Time Compiler (JIT) <rpython:jit>`: we have a tracing JIT that traces the
+interpreter written in RPython, rather than the user program that it
+interprets.  As a result it applies to any interpreter, i.e. any
+language.  But getting it to work correctly is not trivial: it
+requires a small number of precise "hints" and possibly some small
+refactorings of the interpreter.  The JIT itself also has several
+almost-independent parts: the tracer itself in ``rpython/jit/metainterp``, the
+optimizer in ``rpython/jit/metainterp/optimizer`` that optimizes a list of
+residual operations, and the backend in ``rpython/jit/backend/<machine-name>``
+that turns it into machine code.  Writing a new backend is a
+traditional way to get into the project.
+
+Garbage Collectors
+~~~~~~~~~~~~~~~~~~
+Garbage Collectors (GC): as you may notice if you are used to CPython's
+C code, there are no ``Py_INCREF/Py_DECREF`` equivalents in RPython code.
+:ref:`rpython:garbage-collection` is inserted
+during translation.  Moreover, this is not reference counting; it is a real
+GC written as more RPython code.  The best one we have so far is in
+``rpython/memory/gc/incminimark.py``.
 
 .. _`Getting started with RPython`: http://rpython.readthedocs.org/en/latest/getting-started.html
 
-Where to start reading the sources
-----------------------------------
+Where to start?
+---------------
 
 PyPy is made from parts that are relatively independent of each other.
 You should start looking at the part that attracts you most (all paths are
-relative to the PyPy top level directory).  You may look at our :doc:`directory reference <dir-reference>`
-or start off at one of the following points:
+relative to the PyPy top level directory).  You may look at our
+:doc:`directory reference <dir-reference>` or start off at one of the following
+points:
 
 *  :source:`pypy/interpreter` contains the bytecode interpreter: bytecode dispatcher
    in :source:`pypy/interpreter/pyopcode.py`, frame and code objects in
@@ -263,7 +257,8 @@ or start off at one of the following points:
    and :source:`pypy/interpreter/argument.py`, the object space interface
    definition in :source:`pypy/interpreter/baseobjspace.py`, modules in
    :source:`pypy/interpreter/module.py` and :source:`pypy/interpreter/mixedmodule.py`.
-   Core types supporting the bytecode interpreter are defined in :source:`pypy/interpreter/typedef.py`.
+   Core types supporting the bytecode interpreter are defined in
+   :source:`pypy/interpreter/typedef.py`.
 
 *  :source:`pypy/interpreter/pyparser` contains a recursive descent parser,
    and grammar files that allow it to parse the syntax of various Python
@@ -274,7 +269,8 @@ or start off at one of the following points:
    contains a modified version of the compiler package from CPython
    that fixes some bugs and is translatable.
 
-*  :source:`pypy/objspace/std` contains the :ref:`Standard object space <standard-object-space>`.  The main file
+*  :source:`pypy/objspace/std` contains the
+   :ref:`Standard object space <standard-object-space>`.  The main file
    is :source:`pypy/objspace/std/objspace.py`.  For each type, the file
    ``xxxobject.py`` contains the implementation for objects of type ``xxx``,
    as a first approximation.  (Some types have multiple implementations.)
@@ -484,7 +480,7 @@ graphviz & pygame for flow graph viewing (highly recommended)
 graphviz and pygame are both necessary if you want to look at generated flow
 graphs:
 
-	graphviz: http://www.graphviz.org/Download.php
+    graphviz: http://www.graphviz.org/Download.php
 
-	pygame: http://www.pygame.org/download.shtml
+    pygame: http://www.pygame.org/download.shtml
 
