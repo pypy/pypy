@@ -3087,7 +3087,7 @@ if _have_threads:
                 with context.wrap_socket(socket.socket()) as s:
                     with self.assertRaises(OSError):
                         s.connect((HOST, server.port))
-            self.assertIn("no shared cipher", str(server.conn_errors[0]))
+            self.assertEqual("NO_SHARED_CIPHER", server.conn_errors[0].reason)
 
         def test_version_basic(self):
             """
