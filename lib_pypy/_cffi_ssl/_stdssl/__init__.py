@@ -695,11 +695,11 @@ class _SSLSocket(object):
     @property
     def session(self):
         "Get / set SSLSession."
-        return Session(self)
+        return SSLSession(self)
 
     @session.setter
     def session(self, value):
-        if not isinstance(value, Session):
+        if not isinstance(value, SSLSession):
             raise TypeError("Value is not a SSLSession.")
         if self.ctx.ctx != value._ctx.ctx:
             raise ValueError("Session refers to a different SSLContext.")
@@ -742,7 +742,7 @@ def cipher_to_tuple(cipher):
     return (cipher_name, cipher_protocol, bits)
 
 
-class Session(object):
+class SSLSession(object):
     def __new__(cls, ssl):
         self = object.__new__(cls)
         session = lib.SSL_get1_session(ssl.ssl)
@@ -753,7 +753,7 @@ class Session(object):
         return self
 
     def __eq__(self, other):
-        if not isinstance(other, Session):
+        if not isinstance(other, SSLSession):
             return NotImplemented;
         return self.id == other.id
 
