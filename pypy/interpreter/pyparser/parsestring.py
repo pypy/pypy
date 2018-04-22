@@ -114,11 +114,11 @@ def parsestr(space, encoding, s):
             v = unicodehelper.decode_utf8(space, substr)
             return space.newunicode(v)
 
-    v, first_escape_error_position = PyString_DecodeEscape(
+    v, first_escape_error_char = PyString_DecodeEscape(
         space, substr, 'strict', encoding)
 
-    if first_escape_error_position is not None:
-        space.warn("invalid excape sequence '\\%c'" % ch,
+    if first_escape_error_char is not None:
+        space.warn("invalid excape sequence '\\%c'" % first_escape_error_char,
             space.w_DeprecationWarning)
 
     return space.newbytes(v)
@@ -164,7 +164,7 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
     builder = StringBuilder(len(s))
     ps = 0
     end = len(s)
-    first_escape_error_position = None
+    first_escape_error_char = None
     while ps < end:
         if s[ps] != '\\':
             # note that the C code has a label here.
@@ -244,13 +244,13 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
             builder.append('\\')
             ps -= 1
             assert ps >= 0
-            if first_escape_error_position is None:
-                first_escape_error_position = ps
+            if first_escape_error_char is None:
+                first_escape_error_char = ch
             continue
             # an arbitry number of unescaped UTF-8 bytes may follow.
 
     buf = builder.build()
-    return buf, first_escape_error_position
+    return buf, first_escape_error_char
 
 
 def isxdigit(ch):
