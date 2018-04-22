@@ -705,7 +705,7 @@ class _SSLSocket(object):
             raise ValueError("Session refers to a different SSLContext.")
         if self.socket_type != SSL_CLIENT:
             raise ValueError("Cannot set session for server-side SSLSocket.")
-        if lib.SSL_is_init_finished(self.ssl):
+        if self.handshake_done:
             raise ValueError("Cannot set session after handshake.")
         if not lib.SSL_set_session(self.ssl, value._session):
             raise pyssl_error(self, 0)
