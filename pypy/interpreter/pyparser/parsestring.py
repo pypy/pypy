@@ -117,7 +117,7 @@ def parsestr(space, encoding, s):
     v, first_escape_error_char = PyString_DecodeEscape(
         space, substr, 'strict', encoding)
 
-    if first_escape_error_char is not None:
+    if first_escape_error_char != -1:
         space.warn("invalid excape sequence '\\%c'" % first_escape_error_char,
             space.w_DeprecationWarning)
 
@@ -164,7 +164,7 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
     builder = StringBuilder(len(s))
     ps = 0
     end = len(s)
-    first_escape_error_char = None
+    first_escape_error_char = -1
     while ps < end:
         if s[ps] != '\\':
             # note that the C code has a label here.
@@ -244,7 +244,7 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
             builder.append('\\')
             ps -= 1
             assert ps >= 0
-            if first_escape_error_char is None:
+            if first_escape_error_char == -1:
                 first_escape_error_char = ch
             continue
             # an arbitry number of unescaped UTF-8 bytes may follow.
