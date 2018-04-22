@@ -761,7 +761,7 @@ class Session(object):
     def id(self):
         lenp = ffi.new("unsigned int*")
         id = lib.SSL_SESSION_get_id(self._session, lenp)
-        return ffi.string(id, lenp[0])
+        return ffi.unpack(id, lenp[0])
 
     @property
     def time(self):
