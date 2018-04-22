@@ -198,6 +198,8 @@ int SSL_renegotiate_pending(SSL *);
 const char *SSL_get_cipher_list(const SSL *, int);
 Cryptography_STACK_OF_SSL_CIPHER *SSL_get_ciphers(const SSL *);
 
+int SSL_is_init_finished(const SSL*);
+
 /*  context */
 void SSL_CTX_free(SSL_CTX *);
 long SSL_CTX_set_timeout(SSL_CTX *, long);
@@ -265,6 +267,10 @@ int SSL_CTX_set_ex_data(SSL_CTX *, int, void *);
 
 SSL_SESSION *SSL_get_session(const SSL *);
 const unsigned char *SSL_SESSION_get_id(const SSL_SESSION *, unsigned int *);
+long SSL_SESSION_get_time(const SSL_SESSION *);
+long SSL_SESSION_get_timeout(const SSL_SESSION *);
+int SSL_SESSION_has_ticket(const SSL_SESSION *);
+long SSL_SESSION_get_ticket_lifetime_hint(const SSL_SESSION *);
 
 /* not a macro, but older OpenSSLs don't pass the args as const */
 char *SSL_CIPHER_description(const SSL_CIPHER *, char *, int);
@@ -508,6 +514,14 @@ size_t SSL_SESSION_get_master_key(const SSL_SESSION *session,
         outlen = session->master_key_length;
     memcpy(out, session->master_key, outlen);
     return outlen;
+}
+
+int SSL_SESSION_has_ticket(const SSL_SESSION *s) {
+    return (s->tlsext_ticklen > 0) ? 1 : 0;
+}
+unsigned long SSL_SESSION_get_ticket_lifetime_hint(const SSL_SESSION *s)
+{
+    return s->tlsext_tick_lifetime_hint;
 }
 #endif
 

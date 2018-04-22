@@ -693,7 +693,20 @@ class _SSLSocket(object):
     @property
     def session(self):
         "Get / set SSLSession."
-        return None
+        return Session(self)
+
+    @session.setter
+    def session(self, value):
+        if not isinstance(value, Session):
+            raise TypeError("Value is not a SSLSession.")
+        if self.ctx.ctx != value._ctx.ctx:
+            raise ValueError("Session refers to a different SSLContext.")
+        if self.socket_type != SSL_CLIENT:
+            raise ValueError("Cannot set session for server-side SSLSocket.")
+        if lib.SSL_is_init_finished(self.ssl):
+            raise ValueError("Cannot set session after handshake.")
+        if not lib.SSL_set_session(self.ssl, value._session):
+            raise pyssl_error(self, 0)
 
     @property
     def session_reused(self):
@@ -726,6 +739,43 @@ def cipher_to_tuple(cipher):
     bits = lib.SSL_CIPHER_get_bits(cipher, ffi.NULL)
     return (cipher_name, cipher_protocol, bits)
 
+
+class Session(object):
+    def __new__(cls, ssl):
+        self = object.__new__(cls)
+        session = lib.SSL_get1_session(ssl.ssl)
+        if not session:
+            return None
+        self._session = ffi.gc(session, lib.SSL_SESSION_free)
+        self._ctx = ssl.ctx
+        return self
+
+    def __eq__(self, other):
+        if not isinstance(other, Session):
+            return NotImplemented;
+        return self.id == other.id
+
+    @property
+    def id(self):
+        lenp = ffi.new("unsigned int*")
+        id = lib.SSL_SESSION_get_id(self._session, lenp)
+        return ffi.string(id, lenp[0])
+
+    @property
+    def time(self):
+        return lib.SSL_SESSION_get_time(self._session)
+
+    @property
+    def timeout(self):
+        return lib.SSL_SESSION_get_timeout(self._session)
+
+    @property
+    def has_ticket(self):
+        return bool(lib.SSL_SESSION_has_ticket(self._session))
+
+    @property
+    def ticket_lifetime_hint(self):
+        return lib.SSL_SESSION_get_ticket_lifetime_hint(self._session)
 
 
 SSL_CTX_STATS_NAMES = """
