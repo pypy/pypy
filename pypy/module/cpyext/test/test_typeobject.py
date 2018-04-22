@@ -833,6 +833,14 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         x = LL.__new__(LL)
         assert module.tp_init(list, x, ("hi",)) is None
         assert x == ["h", "i"]
+        init_called = []
+        class CALL(object):
+            def __init__(self):
+                init_called.append(42)
+        x = object.__new__(CALL)
+        x.__init__()
+        module.tp_init(CALL, x, ())
+        assert len(init_called) == 2
 
     def test_mp_subscript(self):
         module = self.import_extension('foo', [
