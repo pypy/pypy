@@ -64,7 +64,9 @@ CERT_REQUIRED = 2
 
 for name in dir(lib):
     if name.startswith('SSL_OP'):
-        globals()[name[4:]] = getattr(lib, name)
+        value = getattr(lib, name)
+        if value != 0:
+            globals()[name[4:]] = getattr(lib, name)
 
 OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 
@@ -829,6 +831,12 @@ class _SSLContext(object):
             options |= lib.SSL_OP_NO_SSLv2
         if protocol != PROTOCOL_SSLv3:
             options |= lib.SSL_OP_NO_SSLv3
+        # Minimal security flags for server and client side context.
+        # Client sockets ignore server-side parameters.
+        options |= lib.SSL_OP_NO_COMPRESSION;
+        options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE;
+        options |= lib.SSL_OP_SINGLE_DH_USE;
+        options |= lib.SSL_OP_SINGLE_ECDH_USE;
         lib.SSL_CTX_set_options(self.ctx, options)
         lib.SSL_CTX_set_session_id_context(self.ctx, b"Python", len(b"Python"))
 
