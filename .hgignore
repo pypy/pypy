@@ -91,5 +91,3 @@ syntax: regexp
 ^release/
 ^rpython/_cache$
 
-.venv
-.venv-docs
