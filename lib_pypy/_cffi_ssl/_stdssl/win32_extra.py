@@ -18,20 +18,55 @@ a set of OIDs or the boolean True.
     
     result = []
     pCertCtx = ffi.NULL
-    while True:
-        pCertCtx = lib.CertEnumCertificatesInStore(hStore, pCertCtx)
-        if pCertCtx == ffi.NULL:
-            break
-        cert = ffi.buffer(pCertCtx.pbCertEncoded, pCertCtx.cbCertEncoded)[:]
-        enc = certEncodingType(pCertCtx.dwCertEncodingType)
-        keyusage = parseKeyUsage(pCertCtx, lib.CERT_FIND_PROP_ONLY_ENHKEY_USAGE_FLAG)
-        if keyusage is True:
-            keyusage = parseKeyUsage(pCertCtx, lib.CERT_FIND_EXT_ONLY_ENHKEY_USAGE_FLAG)
-        result.append((cert, enc, keyusage))
+    try:
+        while True:
+            pCertCtx = lib.CertEnumCertificatesInStore(hStore, pCertCtx)
+            if pCertCtx == ffi.NULL:
+                break
+            cert = ffi.buffer(pCertCtx.pbCertEncoded, pCertCtx.cbCertEncoded)[:]
+            enc = certEncodingType(pCertCtx.dwCertEncodingType)
+            keyusage = parseKeyUsage(pCertCtx, lib.CERT_FIND_PROP_ONLY_ENHKEY_USAGE_FLAG)
+            if keyusage is True:
+                keyusage = parseKeyUsage(pCertCtx, lib.CERT_FIND_EXT_ONLY_ENHKEY_USAGE_FLAG)
+            result.append((cert, enc, keyusage))
+    finally:
+        if pCertCtx != ffi.NULL:
+            lib.CertFreeCertificateContext(pCertCtx)
+        if not lib.CertCloseStore(hStore, 0):
+            # This error case might shadow another exception.
+            raise WindowsError(*ffi.getwinerror())
+    return result
 
-    if pCertCtx != ffi.NULL:
-        lib.CertFreeCertificateContext(pCertCtx)
-    lib.CertCloseStore(hStore, 0)
+
+def enum_crls(store_name):
+    """Retrieve CRLs from Windows' cert store.
+
+store_name may be one of 'CA', 'ROOT' or 'MY'.  The system may provide
+more cert storages, too.  The function returns a list of (bytes,
+encoding_type) tuples.  The encoding_type flag can be interpreted with
+X509_ASN_ENCODING or PKCS_7_ASN_ENCODING."""
+    hStore = lib.CertOpenStore(lib.CERT_STORE_PROV_SYSTEM_A, 0, ffi.NULL,
+                               lib.CERT_STORE_READONLY_FLAG | lib.CERT_SYSTEM_STORE_LOCAL_MACHINE,
+                               bytes(store_name, "ascii"))
+    if hStore == ffi.NULL:
+        raise WindowsError(*ffi.getwinerror())
+
+    result = []
+    pCrlCtx = ffi.NULL
+    try:
+        while True:
+            pCrlCtx = lib.CertEnumCRLsInStore(hStore, pCrlCtx)
+            if pCrlCtx == ffi.NULL:
+                break
+            crl = ffi.buffer(pCrlCtx.pbCrlEncoded, pCrlCtx.cbCrlEncoded)[:]
+            enc = certEncodingType(pCrlCtx.dwCertEncodingType)
+            result.append((crl, enc))
+    finally:
+        if pCrlCtx != ffi.NULL:
+            lib.CertFreeCRLContext(pCrlCtx)
+        if not lib.CertCloseStore(hStore, 0):
+            # This error case might shadow another exception.
+            raise WindowsError(*ffi.getwinerror())
     return result
 
 

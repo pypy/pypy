@@ -12,12 +12,21 @@ INCLUDES = """
 TYPES = """
 typedef ... *HCERTSTORE;
 typedef ... *HCRYPTPROV_LEGACY;
+
 typedef struct {
     DWORD      dwCertEncodingType;
     BYTE       *pbCertEncoded;
     DWORD      cbCertEncoded;
     ...;
 } CERT_CONTEXT, *PCCERT_CONTEXT;
+
+typedef struct {
+    DWORD      dwCertEncodingType;
+    BYTE       *pbCrlEncoded;
+    DWORD      cbCrlEncoded;
+    ...;
+} CRL_CONTEXT, *PCCRL_CONTEXT;
+
 typedef struct {
     DWORD cUsageIdentifier;
     LPSTR *rgpszUsageIdentifier;
@@ -40,6 +49,9 @@ PCCERT_CONTEXT WINAPI CertEnumCertificatesInStore(
 BOOL WINAPI CertFreeCertificateContext(
          PCCERT_CONTEXT pCertContext
 );
+BOOL WINAPI CertFreeCRLContext(
+         PCCRL_CONTEXT pCrlContext
+);
 BOOL WINAPI CertCloseStore(
          HCERTSTORE hCertStore,
          DWORD      dwFlags
@@ -49,6 +61,10 @@ BOOL WINAPI CertGetEnhancedKeyUsage(
          DWORD              dwFlags,
          PCERT_ENHKEY_USAGE pUsage,
          DWORD              *pcbUsage
+);
+PCCRL_CONTEXT WINAPI CertEnumCRLsInStore(
+         HCERTSTORE    hCertStore,
+         PCCRL_CONTEXT pPrevCrlContext
 );
 """
 
