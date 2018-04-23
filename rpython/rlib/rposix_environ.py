@@ -153,6 +153,8 @@ def make_env_impls(win32=False):
     def envitems_llimpl():
         environ = get_environ()
         result = []
+        if not environ:
+            return result
         i = 0
         while environ[i]:
             name_value = traits.charp2str(environ[i])

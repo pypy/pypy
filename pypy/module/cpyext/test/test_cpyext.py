@@ -364,7 +364,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             self.unimport_module(name)
         self.cleanup()
         state = self.space.fromcache(State)
-        assert not state.operror
+        assert 'operror' not in dir(state)
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
@@ -613,7 +613,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_ssize_t refcnt_after;
             Py_INCREF(true_obj);
             Py_INCREF(true_obj);
-            PyBool_Check(true_obj);
+            if (!PyBool_Check(true_obj))
+                Py_RETURN_NONE;
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(true_obj);
             Py_DECREF(true_obj);

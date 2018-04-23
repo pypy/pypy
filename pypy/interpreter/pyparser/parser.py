@@ -1,6 +1,7 @@
 """
 A CPython inspired RPython parser.
 """
+from rpython.rlib.objectmodel import not_rpython
 
 
 class Grammar(object):
@@ -16,6 +17,7 @@ class Grammar(object):
         self.symbol_names = {}
         self.symbol_to_label = {}
         self.keyword_ids = {}
+        self.token_to_error_string = {}
         self.dfas = []
         self.labels = [0]
         self.token_ids = {}
@@ -41,6 +43,27 @@ class Grammar(object):
             pass
         return True
 
+class DFA(object):
+    def __init__(self, symbol_id, states, first):
+        self.symbol_id = symbol_id
+        self.states = states
+        self.first = self._first_to_string(first)
+
+    def could_match_token(self, label_index):
+        pos = label_index >> 3
+        bit = 1 << (label_index & 0b111)
+        return bool(ord(self.first[label_index >> 3]) & bit)
+
+    @staticmethod
+    @not_rpython
+    def _first_to_string(first):
+        l = sorted(first.keys())
+        b = bytearray(32)
+        for label_index in l:
+            pos = label_index >> 3
+            bit = 1 << (label_index & 0b111)
+            b[pos] |= bit
+        return str(b)
 
 class Node(object):
 
@@ -127,14 +150,17 @@ class AbstractNonterminal(Node):
 
 class Nonterminal(AbstractNonterminal):
     __slots__ = ("_children", )
-    def __init__(self, type, children):
+    def __init__(self, type, children=None):
         Node.__init__(self, type)
+        if children is None:
+            children = []
         self._children = children
 
     def __repr__(self):
         return "Nonterminal(type=%s, children=%r)" % (self.type, self._children)
 
     def get_child(self, i):
+        assert self._children is not None
         return self._children[i]
 
     def num_children(self):
@@ -168,17 +194,43 @@ class Nonterminal1(AbstractNonterminal):
 class ParseError(Exception):
 
     def __init__(self, msg, token_type, value, lineno, column, line,
-                 expected=-1):
+                 expected=-1, expected_str=None):
         self.msg = msg
         self.token_type = token_type
         self.value = value
         self.lineno = lineno
+        # this is a 0-based index
         self.column = column
         self.line = line
         self.expected = expected
+        self.expected_str = expected_str
 
     def __str__(self):
         return "ParserError(%s, %r)" % (self.token_type, self.value)
+
+
+class StackEntry(object):
+    def __init__(self, next, dfa, state):
+        self.next = next
+        self.dfa = dfa
+        self.state = state
+        self.node = None
+
+    def push(self, dfa, state):
+        return StackEntry(self, dfa, state)
+
+    def pop(self):
+        return self.next
+
+    def node_append_child(self, child):
+        node = self.node
+        if node is None:
+            self.node = Nonterminal1(self.dfa.symbol_id, child)
+        elif isinstance(node, Nonterminal1):
+            newnode = self.node = Nonterminal(
+                    self.dfa.symbol_id, [node._child, child])
+        else:
+            self.node.append_child(child)
 
 
 class Parser(object):
@@ -186,7 +238,6 @@ class Parser(object):
     def __init__(self, grammar):
         self.grammar = grammar
         self.root = None
-        self.stack = None
 
     def prepare(self, start=-1):
         """Setup the parser for parsing.
@@ -196,16 +247,15 @@ class Parser(object):
         if start == -1:
             start = self.grammar.start
         self.root = None
-        current_node = Nonterminal(start, [])
-        self.stack = []
-        self.stack.append((self.grammar.dfas[start - 256], 0, current_node))
+        self.stack = StackEntry(None, self.grammar.dfas[start - 256], 0)
 
     def add_token(self, token_type, value, lineno, column, line):
         label_index = self.classify(token_type, value, lineno, column, line)
         sym_id = 0 # for the annotator
         while True:
-            dfa, state_index, node = self.stack[-1]
-            states, first = dfa
+            dfa = self.stack.dfa
+            state_index = self.stack.state
+            states = dfa.states
             arcs, is_accepting = states[state_index]
             for i, next_state in arcs:
                 sym_id = self.grammar.labels[i]
@@ -217,16 +267,17 @@ class Parser(object):
                     # the stack.
                     while state[1] and not state[0]:
                         self.pop()
-                        if not self.stack:
+                        if self.stack is None:
                             # Parsing is done.
                             return True
-                        dfa, state_index, node = self.stack[-1]
-                        state = dfa[0][state_index]
+                        dfa = self.stack.dfa
+                        state_index = self.stack.state
+                        state = dfa.states[state_index]
                     return False
                 elif sym_id >= 256:
                     sub_node_dfa = self.grammar.dfas[sym_id - 256]
                     # Check if this token can start a child node.
-                    if label_index in sub_node_dfa[1]:
+                    if sub_node_dfa.could_match_token(label_index):
                         self.push(sub_node_dfa, next_state, sym_id, lineno,
                                   column)
                         break
@@ -235,7 +286,7 @@ class Parser(object):
                 # state is accepting, it's invalid input.
                 if is_accepting:
                     self.pop()
-                    if not self.stack:
+                    if self.stack is None:
                         raise ParseError("too much input", token_type, value,
                                          lineno, column, line)
                 else:
@@ -243,10 +294,13 @@ class Parser(object):
                     # error.
                     if len(arcs) == 1:
                         expected = sym_id
+                        expected_str = self.grammar.token_to_error_string.get(
+                                arcs[0][0], None)
                     else:
                         expected = -1
+                        expected_str = None
                     raise ParseError("bad input", token_type, value, lineno,
-                                     column, line, expected)
+                                     column, line, expected, expected_str)
 
     def classify(self, token_type, value, lineno, column, line):
         """Find the label for a token."""
@@ -262,26 +316,22 @@ class Parser(object):
 
     def shift(self, next_state, token_type, value, lineno, column):
         """Shift a non-terminal and prepare for the next state."""
-        dfa, state, node = self.stack[-1]
         new_node = Terminal(token_type, value, lineno, column)
-        node.append_child(new_node)
-        self.stack[-1] = (dfa, next_state, node)
+        self.stack.node_append_child(new_node)
+        self.stack.state = next_state
 
     def push(self, next_dfa, next_state, node_type, lineno, column):
         """Push a terminal and adjust the current state."""
-        dfa, state, node = self.stack[-1]
-        new_node = Nonterminal(node_type, [])
-        self.stack[-1] = (dfa, next_state, node)
-        self.stack.append((next_dfa, 0, new_node))
+        self.stack.state = next_state
+        self.stack = self.stack.push(next_dfa, 0)
 
     def pop(self):
         """Pop an entry off the stack and make its node a child of the last."""
-        dfa, state, node = self.stack.pop()
+        top = self.stack
+        self.stack = top.pop()
+        node = top.node
+        assert node is not None
         if self.stack:
-            # we are now done with node, so we can store it more efficiently if
-            # it has just one child
-            if node.num_children() == 1:
-                node = Nonterminal1(node.type, node.get_child(0))
-            self.stack[-1][2].append_child(node)
+            self.stack.node_append_child(node)
         else:
             self.root = node

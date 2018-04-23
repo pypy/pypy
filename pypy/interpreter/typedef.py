@@ -313,12 +313,18 @@ class GetSetProperty(W_Root):
                     self.reqcls, Arguments(space, [w_obj,
                                                    space.newtext(self.name)]))
 
+    def readonly_attribute(self, space):   # overwritten in cpyext
+        if self.name == '<generic property>':
+            raise oefmt(space.w_AttributeError, "readonly attribute")
+        else:
+            raise oefmt(space.w_AttributeError, "readonly attribute '%s'", self.name)
+
     def descr_property_set(self, space, w_obj, w_value):
         """property.__set__(obj, value)
         Change the value of the property of the given obj."""
         fset = self.fset
         if fset is None:
-            raise oefmt(space.w_AttributeError, "readonly attribute")
+            raise self.readonly_attribute(space)
         try:
             fset(self, space, w_obj, w_value)
         except DescrMismatch:
@@ -625,7 +631,7 @@ PyCode.typedef = TypeDef('code',
     co_varnames = GetSetProperty(PyCode.fget_co_varnames),
     co_freevars = GetSetProperty(PyCode.fget_co_freevars),
     co_cellvars = GetSetProperty(PyCode.fget_co_cellvars),
-    co_filename = interp_attrproperty('co_filename', cls=PyCode, wrapfn="newfilename"),
+    co_filename = interp_attrproperty_w('w_filename', cls=PyCode),
     co_name = interp_attrproperty('co_name', cls=PyCode, wrapfn="newtext"),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode, wrapfn="newint"),
     co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode, wrapfn="newbytes"),

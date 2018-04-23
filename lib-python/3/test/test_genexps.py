@@ -83,8 +83,9 @@ Verify that parenthesis are required in a statement
     SyntaxError: invalid syntax
 
 Verify that parenthesis are required when used as a keyword argument value
+PyPy has extended sytax error messages, ignore the detail for compatibility
 
-    >>> dict(a = i for i in range(10))
+    >>> dict(a = i for i in range(10)) # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
        ...
     SyntaxError: invalid syntax

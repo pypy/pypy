@@ -2288,3 +2288,21 @@ def test_char16_char32_type(no_cpp=False):
 
 def test_char16_char32_plain_c():
     test_char16_char32_type(no_cpp=True)
+
+def test_loader_spec():
+    ffi = FFI()
+    lib = verify(ffi, "test_loader_spec", "")
+    if sys.version_info < (3,):
+        assert not hasattr(lib, '__loader__')
+        assert not hasattr(lib, '__spec__')
+    else:
+        assert lib.__loader__ is None
+        assert lib.__spec__ is None
+
+def test_realize_struct_error():
+    ffi = FFI()
+    ffi.cdef("""typedef ... foo_t; struct foo_s { void (*x)(foo_t); };""")
+    lib = verify(ffi, "test_realize_struct_error", """
+        typedef int foo_t; struct foo_s { void (*x)(foo_t); };
+    """)
+    py.test.raises(TypeError, ffi.new, "struct foo_s *")

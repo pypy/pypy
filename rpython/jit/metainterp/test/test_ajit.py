@@ -1,3 +1,4 @@
+import math
 import sys
 
 import py
@@ -2576,6 +2577,14 @@ class BasicTests:
         res = self.interp_operations(f, [])
         assert res
 
+    def test_get_timestamp_unit(self):
+        import time
+        from rpython.rlib import rtimer
+        def f():
+            return rtimer.get_timestamp_unit()
+        unit = self.interp_operations(f, [])
+        assert unit == rtimer.UNIT_NS
+
     def test_bug688_multiple_immutable_fields(self):
         myjitdriver = JitDriver(greens=[], reds=['counter','context'])
 
@@ -3973,7 +3982,6 @@ class BaseLLtypeTests(BasicTests):
         assert res == 3
 
     def test_float_bytes(self):
-        from rpython.rlib.rfloat import isnan
         def f(n):
             ll = float2longlong(n)
             return longlong2float(ll)
@@ -3981,7 +3989,7 @@ class BaseLLtypeTests(BasicTests):
         for x in [2.5, float("nan"), -2.5, float("inf")]:
             # There are tests elsewhere to verify the correctness of this.
             res = self.interp_operations(f, [x])
-            assert res == x or isnan(x) and isnan(res)
+            assert res == x or math.isnan(x) and math.isnan(res)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
@@ -4661,3 +4669,36 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         f() # finishes
         self.meta_interp(f, [])
+
+    def test_trace_too_long_bug(self):
+        driver = JitDriver(greens=[], reds=['i'])
+        @unroll_safe
+        def match(s):
+            l = len(s)
+            p = 0
+            for i in range(2500): # produces too long trace
+                c = s[p]
+                if c != 'a':
+                    return False
+                p += 1
+                if p >= l:
+                    return True
+                c = s[p]
+                if c != '\n':
+                    p += 1
+                    if p >= l:
+                        return True
+                else:
+                    return False
+            return True
+
+        def f(i):
+            while i > 0:
+                driver.jit_merge_point(i=i)
+                match('a' * (500 * i))
+                i -= 1
+            return i
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+

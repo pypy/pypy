@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.unicodeobject import (
     Py_UNICODE, PyUnicodeObject, new_empty_unicode)
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_CLEANUP_SUPPORTED
-from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
+from pypy.module.cpyext.pyobject import decref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 from pypy.module.cpyext.unicodeobject import *
@@ -27,11 +27,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  if(PyUnicode_GetSize(s) != 11) {
                      result = -PyUnicode_GetSize(s);
                  }
-#ifdef PYPY_VERSION
-                 // Slightly silly test that tp_basicsize is reasonable.
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*12)
+                 if(s->ob_type->tp_basicsize != sizeof(PyUnicodeObject))
                      result = s->ob_type->tp_basicsize;
-#endif  // PYPY_VERSION
                  Py_DECREF(s);
                  return PyLong_FromLong(result);
              """),
@@ -359,6 +356,20 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         m = self.import_module('_widechar')
         raises(ValueError, m.test_widechar)
 
+    def test_AsUTFNString(self):
+        module = self.import_extension('foo', [
+            ("asutf8", "METH_O", "return PyUnicode_AsUTF8String(args);"),
+            ("asutf16", "METH_O", "return PyUnicode_AsUTF16String(args);"),
+            ("asutf32", "METH_O", "return PyUnicode_AsUTF32String(args);"),
+            ])
+        u = u'sp\x09m\u1234\U00012345'
+        s = module.asutf8(u)
+        assert s == u.encode('utf-8')
+        s = module.asutf16(u)
+        assert s == u.encode('utf-16')
+        s = module.asutf32(u)
+        assert s == u.encode('utf-32')
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
@@ -413,7 +424,7 @@ class TestUnicode(BaseApiTest):
 
         res = PyUnicode_FromStringAndSize(space, s, 4)
         w_res = from_ref(space, res)
-        Py_DecRef(space, res)
+        decref(space, res)
         assert space.unicode_w(w_res) == u'sp\x09m'
         rffi.free_charp(s)
 
@@ -444,14 +455,28 @@ class TestUnicode(BaseApiTest):
         assert get_wsize(py_uni) == 10
         assert get_wbuffer(py_uni)[1] == 'b'
         assert get_wbuffer(py_uni)[10] == '\x00'
-        Py_DecRef(space, ar[0])
+        decref(space, ar[0])
         lltype.free(ar, flavor='raw')
 
     def test_AsUTF8String(self, space):
-        w_u = space.wrap(u'sp\x09m')
+        w_u = space.wrap(u'sp\x09m\u1234')
         w_res = PyUnicode_AsUTF8String(space, w_u)
         assert space.type(w_res) is space.w_bytes
-        assert space.unwrap(w_res) == 'sp\tm'
+        assert space.unwrap(w_res) == 'sp\tm\xe1\x88\xb4'
+
+    def test_AsUTF16String(self, space):
+        u = u'sp\x09m\u1234\U00012345'
+        w_u = space.wrap(u)
+        w_res = PyUnicode_AsUTF16String(space, w_u)
+        assert space.type(w_res) is space.w_bytes
+        assert space.unwrap(w_res) == u.encode('utf-16')
+
+    def test_AsUTF32String(self, space):
+        u = u'sp\x09m\u1234\U00012345'
+        w_u = space.wrap(u)
+        w_res = PyUnicode_AsUTF32String(space, w_u)
+        assert space.type(w_res) is space.w_bytes
+        assert space.unwrap(w_res) == u.encode('utf-32')
 
     def test_decode_utf8(self, space):
         u = rffi.str2charp(u'sp\x134m'.encode("utf-8"))
@@ -631,8 +656,9 @@ class TestUnicode(BaseApiTest):
     def test_decode(self, space):
         b_text = rffi.str2charp('caf\x82xx')
         b_encoding = rffi.str2charp('cp437')
-        assert space.unicode_w(
-            PyUnicode_Decode(space, b_text, 4, b_encoding, None)) == u'caf\xe9'
+        b_errors = rffi.str2charp('strict')
+        assert space.unicode_w(PyUnicode_Decode(
+            space, b_text, 4, b_encoding, b_errors)) == u'caf\xe9'
 
         w_text = PyUnicode_FromEncodedObject(space, space.newbytes("test"), b_encoding, None)
         assert space.isinstance_w(w_text, space.w_unicode)

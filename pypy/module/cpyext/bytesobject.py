@@ -5,8 +5,8 @@ from pypy.module.cpyext.api import (
     PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref,
+    PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
+    make_typedescr, get_typedescr, as_pyobj, get_w_obj_and_decref,
     pyobj_has_w_obj)
 from pypy.objspace.std.bytesobject import W_BytesObject
 
@@ -203,7 +203,7 @@ def _PyBytes_Resize(space, ref, newsize):
     try:
         py_newstr = new_empty_str(space, newsize)
     except MemoryError:
-        Py_DecRef(space, ref[0])
+        decref(space, ref[0])
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
@@ -212,7 +212,7 @@ def _PyBytes_Resize(space, ref, newsize):
         to_cp = oldsize
     for i in range(to_cp):
         py_newstr.c_ob_sval[i] = py_str.c_ob_sval[i]
-    Py_DecRef(space, ref[0])
+    decref(space, ref[0])
     ref[0] = rffi.cast(PyObject, py_newstr)
     return 0
 
@@ -246,7 +246,7 @@ def PyBytes_ConcatAndDel(space, ref, newpart):
     try:
         PyBytes_Concat(space, ref, newpart)
     finally:
-        Py_DecRef(space, newpart)
+        decref(space, newpart)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def _PyBytes_Join(space, w_sep, w_seq):

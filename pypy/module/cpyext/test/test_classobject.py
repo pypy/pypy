@@ -1,5 +1,6 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
+
 class AppTestInstanceMethod(AppTestCpythonExtensionBase):
     def test_instancemethod(self):
         module = self.import_extension('foo', [
@@ -27,3 +28,29 @@ class AppTestInstanceMethod(AppTestCpythonExtensionBase):
         InstanceMethod.testmethod.attribute = "test"
         assert testfunction.attribute == "test"
         raises(AttributeError, setattr, inst.testmethod, "attribute", "test")
+
+    def test_instancemethod_cpyext_attributes(self):
+        module = self.import_extension('foo', [
+            ("instancemethod_get_doc", "METH_O",
+             """
+                 PyObject* instancemethod = PyInstanceMethod_New(args);
+                 return PyObject_GetAttrString(instancemethod, "__doc__");
+             """),
+            ("instancemethod_get_name", "METH_O",
+             """
+                 PyObject* instancemethod = PyInstanceMethod_New(args);
+                 return PyObject_GetAttrString(instancemethod, "__name__");
+             """),
+            ("instancemethod_get_module", "METH_O",
+             """
+                 PyObject* instancemethod = PyInstanceMethod_New(args);
+                 return PyObject_GetAttrString(instancemethod, "__module__");
+             """)
+        ])
+
+        def testfunction(self):
+            """some doc"""
+            return self
+        assert(module.instancemethod_get_doc(testfunction) == testfunction.__doc__)
+        assert(module.instancemethod_get_module(testfunction) == testfunction.__module__)
+        assert(module.instancemethod_get_name(testfunction) == testfunction.__name__)

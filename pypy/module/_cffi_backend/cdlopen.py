@@ -53,8 +53,7 @@ class W_DlOpenLibObject(W_LibObject):
         self.libhandle = rffi.cast(DLLHANDLE, 0)
 
         if not libhandle:
-            raise oefmt(self.ffi.w_FFIError, "library '%s' is already closed",
-                        self.libname)
+            return
         self.may_unregister_rpython_finalizer(self.ffi.space)
 
         # Clear the dict to force further accesses to do cdlopen_fetch()

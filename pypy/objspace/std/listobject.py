@@ -7,6 +7,7 @@ http://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.htm
 
 """
 
+import math
 import operator
 import sys
 
@@ -14,6 +15,7 @@ from rpython.rlib import debug, jit, rerased
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
     import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
+from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib import longlong2float
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -847,7 +849,12 @@ class ListStrategy(object):
         """Extend w_list from a generic iterable"""
         length_hint = self.space.length_hint(w_iterable, 0)
         if length_hint:
-            w_list._resize_hint(w_list.length() + length_hint)
+            try:
+                newsize_hint = ovfcheck(w_list.length() + length_hint)
+            except OverflowError:
+                pass
+            else:
+                w_list._resize_hint(newsize_hint)
 
         extended = _do_extend_from_iterable(self.space, w_list, w_iterable)
 
@@ -1774,11 +1781,9 @@ class FloatListStrategy(ListStrategy):
 
 
     def _safe_find(self, w_list, obj, start, stop):
-        from rpython.rlib.rfloat import isnan
-        #
         l = self.unerase(w_list.lstorage)
         stop = min(stop, len(l))
-        if not isnan(obj):
+        if not math.isnan(obj):
             for i in range(start, stop):
                 val = l[i]
                 if val == obj:

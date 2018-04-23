@@ -1,4 +1,9 @@
 from os.path import dirname
+import py, sys
+
+if sys.platform == 'win32':
+    py.test.skip("not used on win32") 
+
 
 class AppTestSubprocess:
     spaceconfig = dict(usemodules=('_posixsubprocess', 'signal',

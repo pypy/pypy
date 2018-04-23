@@ -54,17 +54,18 @@ class AppTestStruct(BaseAppTestFFI):
     def setup_class(cls):
         BaseAppTestFFI.setup_class.im_func(cls)
 
+        from rpython.rlib import clibffi
+        from rpython.rlib.rarithmetic import r_uint
+        from rpython.rtyper.lltypesystem import lltype, rffi
+
         if cls.runappdirect:
             cls.w_read_raw_mem = cls.read_raw_mem
         else:
-            @unwrap_spec(addr=int, typename='text', length=int)
+            @unwrap_spec(addr=r_uint, typename='text', length=int)
             def read_raw_mem_w(space, addr, typename, length):
                 return space.wrap(cls.read_raw_mem(addr, typename, length))
             cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem_w))
         #
-        from rpython.rlib import clibffi
-        from rpython.rlib.rarithmetic import r_uint
-        from rpython.rtyper.lltypesystem import lltype, rffi
         dummy_type = lltype.malloc(clibffi.FFI_TYPE_P.TO, flavor='raw')
         dummy_type.c_size = r_uint(123)
         dummy_type.c_alignment = rffi.cast(rffi.USHORT, 0)

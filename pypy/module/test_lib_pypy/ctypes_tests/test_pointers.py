@@ -1,6 +1,6 @@
 import py
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 ctype_types = [c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint,
                  c_long, c_ulong, c_longlong, c_ulonglong, c_double, c_float]
@@ -18,7 +18,7 @@ class TestPointers(BaseCTypesTestChecker):
         ffitype = P.get_ffi_argtype()
         assert P.get_ffi_argtype() is ffitype
         assert ffitype.deref_pointer() is c_int.get_ffi_argtype()
-    
+
     def test_pointer_crash(self):
 
         class A(POINTER(c_ulong)):

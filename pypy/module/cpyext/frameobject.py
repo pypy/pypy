@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObjectFields, cpython_struct,
     CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyobject import (
-    PyObject, Py_DecRef, make_ref, from_ref, track_reference,
+    PyObject, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pystate import PyThreadState
@@ -43,9 +43,9 @@ def frame_attach(space, py_obj, w_obj, w_userdata=None):
 def frame_dealloc(space, py_obj):
     py_frame = rffi.cast(PyFrameObject, py_obj)
     py_code = rffi.cast(PyObject, py_frame.c_f_code)
-    Py_DecRef(space, py_code)
-    Py_DecRef(space, py_frame.c_f_globals)
-    Py_DecRef(space, py_frame.c_f_locals)
+    decref(space, py_code)
+    decref(space, py_frame.c_f_globals)
+    decref(space, py_frame.c_f_locals)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
@@ -82,10 +82,10 @@ def PyFrame_New(space, tstate, w_code, w_globals, w_locals):
 def PyTraceBack_Here(space, w_frame):
     from pypy.interpreter.pytraceback import record_application_traceback
     state = space.fromcache(State)
-    if state.operror is None:
+    if state.get_exception() is None:
         return -1
     frame = space.interp_w(PyFrame, w_frame)
-    record_application_traceback(space, state.operror, frame, 0)
+    record_application_traceback(space, state.get_exception(), frame, 0)
     return 0
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)

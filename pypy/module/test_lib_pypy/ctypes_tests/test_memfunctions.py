@@ -2,7 +2,7 @@
 import py
 import sys
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 class TestMemFunctions(BaseCTypesTestChecker):
     def test_memmove(self):

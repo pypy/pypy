@@ -259,6 +259,48 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         assert module.from_bytearray(False, False) == 0x9ABC41
         assert module.from_bytearray(False, True) == -0x6543BF
 
+    def test_asbytearray(self):
+        module = self.import_extension('foo', [
+            ("as_bytearray", "METH_VARARGS",
+             """
+                 PyObject *result;
+                 PyLongObject *o;
+                 int n, little_endian, is_signed;
+                 unsigned char *bytes;
+                 if (!PyArg_ParseTuple(args, "O!iii", &PyLong_Type, &o, &n,
+                         &little_endian, &is_signed))
+                     return NULL;
+                 bytes = malloc(n);
+                 if (_PyLong_AsByteArray(o, bytes, (size_t)n,
+                                         little_endian, is_signed) != 0)
+                 {
+                     free(bytes);
+                     return NULL;
+                 }
+                 result = PyBytes_FromStringAndSize((const char *)bytes, n);
+                 free(bytes);
+                 return result;
+             """),
+            ])
+        s = module.as_bytearray(0x41BC9A, 4, True, False)
+        assert s == b"\x9A\xBC\x41\x00"
+        s = module.as_bytearray(0x41BC9A, 4, False, False)
+        assert s == b"\x00\x41\xBC\x9A"
+        s = module.as_bytearray(0x41BC9A, 3, True, False)
+        assert s == b"\x9A\xBC\x41"
+        s = module.as_bytearray(0x41BC9A, 3, True, True)
+        assert s == b"\x9A\xBC\x41"
+        s = module.as_bytearray(0x9876, 2, True, False)
+        assert s == b"\x76\x98"
+        s = module.as_bytearray(0x9876 - 0x10000, 2, True, True)
+        assert s == b"\x76\x98"
+        raises(OverflowError, module.as_bytearray,
+                              0x9876, 2, False, True)
+        raises(OverflowError, module.as_bytearray,
+                              -1, 2, True, False)
+        raises(OverflowError, module.as_bytearray,
+                              0x1234567, 3, True, False)
+
     def test_fromunicode(self):
         module = self.import_extension('foo', [
             ("from_unicode", "METH_O",

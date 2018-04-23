@@ -59,6 +59,8 @@ def _my_executable():
                                       os.readlink(executable))
     except OSError:
         pass
+    except AttributeError:
+        pass
     return executable
 
 

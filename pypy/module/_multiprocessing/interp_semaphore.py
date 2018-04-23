@@ -19,7 +19,7 @@ sys_platform = sys.platform
 
 if sys.platform == 'win32':
     from rpython.rlib import rwin32
-    from pypy.module._multiprocessing.interp_win32 import (
+    from pypy.module._multiprocessing.interp_win32_py3 import (
         _GetTickCount, handle_w)
 
     SEM_VALUE_MAX = sys.maxint

@@ -31,8 +31,8 @@
 #define PYPY_HAVE_DEBUG_PRINTS    (pypy_have_debug_prints & 1 ? \
                                    (pypy_debug_ensure_opened(), 1) : 0)
 #define PYPY_DEBUG_FILE           pypy_debug_file
-#define PYPY_DEBUG_START(cat)     pypy_debug_start(cat)
-#define PYPY_DEBUG_STOP(cat)      pypy_debug_stop(cat)
+#define PYPY_DEBUG_START(cat, ts) pypy_debug_start(cat, ts)
+#define PYPY_DEBUG_STOP(cat, ts)  pypy_debug_stop(cat, ts)
 #define OP_DEBUG_OFFSET(res)      res = pypy_debug_offset()
 #define OP_DEBUG_FORKED(ofs, _)   pypy_debug_forked(ofs)
 #define OP_HAVE_DEBUG_PRINTS(r)   r = (pypy_have_debug_prints & 1)
@@ -42,14 +42,19 @@
 
 /* prototypes (internal use only) */
 RPY_EXTERN void pypy_debug_ensure_opened(void);
-RPY_EXTERN void pypy_debug_start(const char *category);
-RPY_EXTERN void pypy_debug_stop(const char *category);
+RPY_EXTERN long long pypy_debug_start(const char *category, long timestamp);
+RPY_EXTERN long long pypy_debug_stop(const char *category, long timestamp);
 RPY_EXTERN long pypy_debug_offset(void);
 RPY_EXTERN void pypy_debug_forked(long original_offset);
 RPY_EXTERN long pypy_have_debug_prints_for(const char *category_prefix);
 
 RPY_EXTERN long pypy_have_debug_prints;
 RPY_EXPORTED FILE *pypy_debug_file;
+
+/* these should be in sync with the values defined in rlib/rtimer.py */
+#define TIMESTAMP_UNIT_TSC 0
+#define TIMESTAMP_UNIT_NS 1
+#define TIMESTAMP_UNIT_QUERY_PERFORMANCE_COUNTER 2
 
 #define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)
 
@@ -62,11 +67,15 @@ RPY_EXPORTED FILE *pypy_debug_file;
 
 #  ifdef _WIN32
 #    define READ_TIMESTAMP(val) QueryPerformanceCounter((LARGE_INTEGER*)&(val))
+#    define READ_TIMESTAMP_UNIT TIMESTAMP_UNIT_QUERY_PERFORMANCE_COUNTER
 #  else
 
 RPY_EXTERN long long pypy_read_timestamp(void);
 
 #    define READ_TIMESTAMP(val)  (val) = pypy_read_timestamp()
+#    define READ_TIMESTAMP_UNIT TIMESTAMP_UNIT_NS
 
 #  endif
 #endif
+
+#define OP_LL_GET_TIMESTAMP_UNIT(res) res = READ_TIMESTAMP_UNIT

@@ -1,7 +1,7 @@
 """Python control flow graph generation and bytecode assembly."""
 
+import math
 import os
-from rpython.rlib import rfloat
 from rpython.rlib.objectmodel import specialize, we_are_translated
 
 from pypy.interpreter.astcompiler import ast, consts, misc, symtable
@@ -269,7 +269,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         w_type = space.type(obj)
         if space.is_w(w_type, space.w_float):
             val = space.float_w(obj)
-            if val == 0.0 and rfloat.copysign(1., val) < 0:
+            if val == 0.0 and math.copysign(1., val) < 0:
                 w_key = space.newtuple([obj, space.w_float, space.w_None])
             else:
                 w_key = space.newtuple([obj, space.w_float])
@@ -279,9 +279,9 @@ class PythonCodeMaker(ast.ASTVisitor):
             real = space.float_w(w_real)
             imag = space.float_w(w_imag)
             real_negzero = (real == 0.0 and
-                            rfloat.copysign(1., real) < 0)
+                            math.copysign(1., real) < 0)
             imag_negzero = (imag == 0.0 and
-                            rfloat.copysign(1., imag) < 0)
+                            math.copysign(1., imag) < 0)
             if real_negzero and imag_negzero:
                 tup = [obj, space.w_complex, space.w_None, space.w_None,
                        space.w_None]

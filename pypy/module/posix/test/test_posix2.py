@@ -17,6 +17,7 @@ if os.name != 'nt':
     USEMODULES += ['fcntl', 'select', '_posixsubprocess', '_socket']
 else:
     USEMODULES += ['_rawffi', 'thread']
+    USEMODULES += ['_rawffi', 'thread', 'signal', '_cffi_backend']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
@@ -1086,9 +1087,11 @@ class AppTestPosix:
             if sys.platform == 'win32':
                 os.chmod(my_path, 0o400)
                 assert (os.stat(my_path).st_mode & 0o600) == 0o400
+                os.chmod(self.path, 0o700)
             else:
                 os.chmod(my_path, 0o200)
                 assert (os.stat(my_path).st_mode & 0o777) == 0o200
+                os.chmod(self.path, 0o700)
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
@@ -1400,6 +1403,22 @@ class AppTestPosix:
             if len(e.value.args) > 2:
                 assert e.value.args[2] == "\\foo\\bar\\baz"
 
+    @py.test.mark.skipif("sys.platform != 'win32'")
+    def test_rename(self):
+        os = self.posix
+        fname = self.path2 + 'rename.txt'
+        with open(fname, "w") as f:
+            f.write("this is a rename test")
+        unicode_name = str(self.udir) + u'/test\u03be.txt'
+        os.rename(fname, unicode_name)
+        with open(unicode_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(unicode_name, fname)
+        with open(fname) as f:
+            assert f.read() == 'this is a rename test'
+        os.unlink(fname)
+
+        
     def test_device_encoding(self):
         import sys
         encoding = self.posix.device_encoding(sys.stdout.fileno())
@@ -1424,6 +1443,7 @@ class AppTestPosix:
                 skip("_getfinalpathname not supported on this platform")
             assert os.path.exists(result)
 
+    @py.test.mark.skipif("sys.platform == 'win32'")
     def test_rtld_constants(self):
         # check presence of major RTLD_* constants
         self.posix.RTLD_LAZY
@@ -1432,6 +1452,7 @@ class AppTestPosix:
         self.posix.RTLD_LOCAL
 
     def test_error_message(self):
+        import sys
         e = raises(OSError, self.posix.open, 'nonexistentfile1', 0)
         assert str(e.value).endswith(": 'nonexistentfile1'")
 
@@ -1442,8 +1463,9 @@ class AppTestPosix:
         e = raises(OSError, self.posix.replace, 'nonexistentfile1', 'bok')
         assert str(e.value).endswith(": 'nonexistentfile1' -> 'bok'")
 
-        e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
-        assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
+        if sys.platform != 'win32':
+            e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
+            assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
 
     if hasattr(rposix, 'getxattr'):
         def test_xattr_simple(self):
@@ -1455,6 +1477,8 @@ class AppTestPosix:
             excinfo = raises(OSError, os.getxattr, self.path, 'user.test')
             assert excinfo.value.filename == self.path
             os.setxattr(self.path, 'user.test', b'', os.XATTR_CREATE, follow_symlinks=False)
+            raises(OSError,
+                os.setxattr, self.path, 'user.test', b'', os.XATTR_CREATE)
             assert os.getxattr(self.path, 'user.test') == b''
             os.setxattr(self.path, b'user.test', b'foo', os.XATTR_REPLACE)
             assert os.getxattr(self.path, 'user.test', follow_symlinks=False) == b'foo'
@@ -1470,12 +1494,13 @@ class AppTestEnvironment(object):
         cls.w_path = space.wrap(str(path))
 
     def test_environ(self):
-        import sys, posix
-        environ = posix.environ
-        item_type = str if sys.platform.startswith('win') else bytes
+        import sys, os
+        environ = os.environ
+        if not environ:
+            skip('environ not filled in for untranslated tests')
         for k, v in environ.items():
-            assert type(k) is item_type
-            assert type(v) is item_type
+            assert type(k) is str
+            assert type(v) is str
         name = next(iter(environ))
         assert environ[name] is not None
         del environ[name]
@@ -1534,25 +1559,25 @@ def check_fsencoding(space, pytestconfig):
 class AppTestPosixUnicode:
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
-        import posix
+        import os
         try:
-            posix.stat(u"ą")
+            os.stat(u"ą")
         except OSError:
             pass
 
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
-        import posix
+        import os
         try:
-            posix.open(u"ą", posix.O_WRONLY)
+            os.open(u"ą", os.O_WRONLY)
         except OSError:
             pass
 
     def test_remove_unicode(self):
         # See 2 above ;)
-        import posix
+        import os
         try:
-            posix.remove(u"ą")
+            os.remove(u"ą")
         except OSError:
             pass
 

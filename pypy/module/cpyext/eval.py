@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
-    cpython_struct, is_valid_fp)
+    cpython_struct)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.funcobject import PyCodeObject
@@ -155,22 +155,19 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     BUF_SIZE = 8192
     source = ""
     filename = rffi.charp2str(filename)
-    buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
-    if not is_valid_fp(fp):
-        lltype.free(buf, flavor='raw')
-        PyErr_SetFromErrno(space, space.w_IOError)
-        return None
-    try:
+    with rffi.scoped_alloc_buffer(BUF_SIZE) as buf:
         while True:
-            count = fread(buf, 1, BUF_SIZE, fp)
+            try:
+                count = fread(buf.raw, 1, BUF_SIZE, fp)
+            except OSError:
+                PyErr_SetFromErrno(space, space.w_IOError)
+                return
             count = rffi.cast(lltype.Signed, count)
-            source += rffi.charpsize2str(buf, count)
+            source += rffi.charpsize2str(buf.raw, count)
             if count < BUF_SIZE:
                 if feof(fp):
                     break
                 PyErr_SetFromErrno(space, space.w_IOError)
-    finally:
-        lltype.free(buf, flavor='raw')
     return run_string(space, source, filename, start, w_globals, w_locals)
 
 # Undocumented function!

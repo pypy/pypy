@@ -1,5 +1,6 @@
 from rpython.rlib.rstacklet import StackletThread
 from rpython.rlib import jit
+from rpython.rlib import rvmprof
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
@@ -241,12 +242,15 @@ def new_stacklet_callback(h, arg):
     self.h = h
     global_state.clear()
     try:
+        rvmprof.start_sampling()
         frame = self.bottomframe
         w_result = frame.execute_frame()
     except Exception as e:
         global_state.propagate_exception = e
     else:
         global_state.w_value = w_result
+    finally:
+        rvmprof.stop_sampling()
     self.sthread.ec.topframeref = jit.vref_None
     global_state.origin = self
     global_state.destination = self

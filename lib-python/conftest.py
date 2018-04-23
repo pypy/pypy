@@ -62,7 +62,7 @@ class RegrTest:
         self.basename = basename
         self._usemodules = usemodules.split() + [
             '_socket', 'binascii', 'time',
-            'select', 'signal', 'faulthandler']
+            'select', 'signal', ]
         if not sys.platform == 'win32':
             self._usemodules.extend(['_posixsubprocess', 'fcntl'])
         self._compiler = compiler

@@ -1,9 +1,9 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import CANNOT_FAIL, cpython_api
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import Method
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w, GetSetProperty
 from pypy.interpreter.gateway import interp2app
 
 
@@ -13,6 +13,15 @@ class InstanceMethod(W_Root):
 
     def __init__(self, w_function):
         self.w_function = w_function
+
+    def fget_name(self, space):
+        return space.getattr(self.w_function, space.newtext("__name__"))
+
+    def fget_module(self, space):
+        return space.getattr(self.w_function, space.newtext("__module__"))
+
+    def fget_docstring(self, space):
+        return space.getattr(self.w_function, space.newtext("__doc__"))
 
     @staticmethod
     def descr_new(space, w_subtype, w_function):
@@ -38,7 +47,10 @@ InstanceMethod.typedef = TypeDef("instancemethod",
     __get__ = interp2app(InstanceMethod.descr_get),
     __repr__ = interp2app(InstanceMethod.descr_repr,
                           descrmismatch='__repr__'),
-    __func__= interp_attrproperty_w('w_function', cls=InstanceMethod),
+    __func__ = interp_attrproperty_w('w_function', cls=InstanceMethod),
+    __name__ = GetSetProperty(InstanceMethod.fget_name, cls=InstanceMethod),
+    __module__ = GetSetProperty(InstanceMethod.fget_module, cls=InstanceMethod),
+    __doc__ = GetSetProperty(InstanceMethod.fget_docstring, cls=InstanceMethod),
 )
 InstanceMethod.typedef.acceptable_as_base_class = False
 

@@ -1854,12 +1854,7 @@ class MetaInterpStaticData(object):
         self._addr2name_keys = []
         self._addr2name_values = []
 
-        self.__dict__.update(compile.make_done_loop_tokens())
-        for val in ['int', 'float', 'ref', 'void']:
-            fullname = 'done_with_this_frame_descr_' + val
-            setattr(self.cpu, fullname, getattr(self, fullname))
-        d = self.exit_frame_with_exception_descr_ref
-        self.cpu.exit_frame_with_exception_descr_ref = d
+        compile.make_and_attach_done_descrs([self, cpu])
 
     def _freeze_(self):
         return True
@@ -1909,8 +1904,8 @@ class MetaInterpStaticData(object):
                     history.REF: 'ref',
                     history.FLOAT: 'float',
                     history.VOID: 'void'}[jd.result_type]
-            tokens = getattr(self, 'loop_tokens_done_with_this_frame_%s' % name)
-            jd.portal_finishtoken = tokens[0].finishdescr
+            token = getattr(self, 'done_with_this_frame_descr_%s' % name)
+            jd.portal_finishtoken = token
             jd.propagate_exc_descr = exc_descr
         #
         self.cpu.propagate_exception_descr = exc_descr
@@ -2370,7 +2365,9 @@ class MetaInterp(object):
             greenkey = None # we're in the bridge
         else:
             greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
-            self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
+            hooks = self.staticdata.warmrunnerdesc.hooks
+            if hooks.are_hooks_enabled():
+                hooks.on_abort(reason,
                     jd_sd.jitdriver, greenkey,
                     jd_sd.warmstate.get_location_str(greenkey),
                     self.staticdata.logger_ops._make_log_operations(
@@ -2379,9 +2376,10 @@ class MetaInterp(object):
             if self.aborted_tracing_jitdriver is not None:
                 jd_sd = self.aborted_tracing_jitdriver
                 greenkey = self.aborted_tracing_greenkey
-                self.staticdata.warmrunnerdesc.hooks.on_trace_too_long(
-                    jd_sd.jitdriver, greenkey,
-                    jd_sd.warmstate.get_location_str(greenkey))
+                if hooks.are_hooks_enabled():
+                    hooks.on_trace_too_long(
+                        jd_sd.jitdriver, greenkey,
+                        jd_sd.warmstate.get_location_str(greenkey))
                 # no ops for now
                 self.aborted_tracing_jitdriver = None
                 self.aborted_tracing_greenkey = None
@@ -2389,9 +2387,9 @@ class MetaInterp(object):
 
     def blackhole_if_trace_too_long(self):
         warmrunnerstate = self.jitdriver_sd.warmstate
-        if self.history.length() > warmrunnerstate.trace_limit:
+        if (self.history.length() > warmrunnerstate.trace_limit or
+                self.history.trace_tag_overflow()):
             jd_sd, greenkey_of_huge_function = self.find_biggest_function()
-            self.history.trace.done()
             self.staticdata.stats.record_aborted(greenkey_of_huge_function)
             self.portal_trace_positions = None
             if greenkey_of_huge_function is not None:
@@ -2463,10 +2461,7 @@ class MetaInterp(object):
     def handle_guard_failure(self, resumedescr, deadframe):
         debug_start('jit-tracing')
         self.staticdata.profiler.start_tracing()
-        if isinstance(resumedescr, compile.ResumeGuardCopiedDescr):
-            key = resumedescr.prev
-        else:
-            key = resumedescr
+        key = resumedescr.get_resumestorage()
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
@@ -2697,7 +2692,9 @@ class MetaInterp(object):
                      try_disabling_unroll=False, exported_state=None):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
-        self.history.trace.done()
+        if self.history.trace_tag_overflow():
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        self.history.trace.tracing_done()
         if not self.partial_trace:
             ptoken = self.get_procedure_token(greenkey)
             if ptoken is not None and ptoken.target_tokens is not None:
@@ -2750,7 +2747,9 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         self.history.ends_with_jump = True
-        self.history.trace.done()
+        if self.history.trace_tag_overflow():
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        self.history.trace.tracing_done()
         try:
             target_token = compile.compile_trace(self, self.resumekey,
                 live_arg_boxes[num_green_args:])
@@ -2770,23 +2769,23 @@ class MetaInterp(object):
         if result_type == history.VOID:
             assert exitbox is None
             exits = []
-            loop_tokens = sd.loop_tokens_done_with_this_frame_void
+            token = sd.done_with_this_frame_descr_void
         elif result_type == history.INT:
             exits = [exitbox]
-            loop_tokens = sd.loop_tokens_done_with_this_frame_int
+            token = sd.done_with_this_frame_descr_int
         elif result_type == history.REF:
             exits = [exitbox]
-            loop_tokens = sd.loop_tokens_done_with_this_frame_ref
+            token = sd.done_with_this_frame_descr_ref
         elif result_type == history.FLOAT:
             exits = [exitbox]
-            loop_tokens = sd.loop_tokens_done_with_this_frame_float
+            token = sd.done_with_this_frame_descr_float
         else:
             assert False
-        # FIXME: kill TerminatingLoopToken?
         # FIXME: can we call compile_trace?
-        token = loop_tokens[0].finishdescr
         self.history.record(rop.FINISH, exits, None, descr=token)
-        self.history.trace.done()
+        if self.history.trace_tag_overflow():
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, exits)
         if target_token is not token:
             compile.giveup()
@@ -2810,9 +2809,11 @@ class MetaInterp(object):
     def compile_exit_frame_with_exception(self, valuebox):
         self.store_token_in_vable()
         sd = self.staticdata
-        token = sd.loop_tokens_exit_frame_with_exception_ref[0].finishdescr
+        token = sd.exit_frame_with_exception_descr_ref
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
-        self.history.trace.done()
+        if self.history.trace_tag_overflow():
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, [valuebox])
         if target_token is not token:
             compile.giveup()

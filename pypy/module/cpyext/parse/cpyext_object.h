@@ -288,6 +288,11 @@ typedef struct _typeobject {
     unsigned int tp_version_tag;
 
     destructor tp_finalize;
+
+    /* PyPy specific extra fields: make sure that they are ALWAYS at the end,
+       for compatibility with CPython */
+    long tp_pypy_flags;
+
 } PyTypeObject;
 
 typedef struct{

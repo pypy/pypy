@@ -52,6 +52,10 @@ class AppTestLock(GenericTestThread):
             assert feedback == [42]
         assert lock.locked() is False
 
+    def test_weakrefable(self):
+        import _thread, weakref
+        weakref.ref(_thread.allocate_lock())
+
     def test_timeout(self):
         import _thread
         assert isinstance(_thread.TIMEOUT_MAX, float)

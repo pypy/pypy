@@ -1,5 +1,4 @@
 import py
-import support
 
 from ctypes import *
 import sys
@@ -96,7 +95,7 @@ class TestKeepalive:
         assert x._objects == {'0': n._objects, '1': n._objects}
         assert x._objects['0'] is n._objects
         assert n._objects is not None
-        
+
     def test_pointer_setitem(self):
         x = c_int(2)
         y = c_int(3)
@@ -165,7 +164,7 @@ class TestKeepalive:
         s.x=3
         a[3].p = pointer(s)
 
-        assert a._objects['0:3']['1'] is s        
+        assert a._objects['0:3']['1'] is s
 
     def test_struct_with_inlined_array(self):
         class S(Structure):
@@ -190,7 +189,7 @@ class TestKeepalive:
     def test_struct_within_struct(self):
         class R(Structure):
             _fields_ = [('p', POINTER(c_int))]
-        
+
         class S(Structure):
             _fields_ = [('b', c_int),
                         ('r', R)]
@@ -208,7 +207,7 @@ class TestKeepalive:
     def test_union_within_union(self):
         class R(Union):
             _fields_ = [('p', POINTER(c_int))]
-        
+
         class S(Union):
             _fields_ = [('b', c_int),
                         ('r', R)]
@@ -217,10 +216,10 @@ class TestKeepalive:
         stuff = c_int(2)
         s.r.p = pointer(stuff)
         assert s._objects == {'0:1': {'1': stuff}}
-        
+
         r = R()
         s.r = r
-        # obscure        
+        # obscure
         assert s._objects == {'1': {}, '0:1': {'1': stuff}}
 
     def test_c_char_p(self):

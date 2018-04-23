@@ -49,6 +49,11 @@ def slot_tp_new(space, w_type, w_args, w_kwds):
                      w_stararg=w_args, w_starstararg=w_kwds)
     return space.call_args(w_impl, args)
 
+@slot_function([PyObject, PyObject, PyObject], PyObject)
+def slot_tp_call(space, w_self, w_args, w_kwds):
+    args = Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)
+    return space.call_args(w_self, args)
+
 # unary functions
 
 @slot_function([PyObject], PyObject)
@@ -106,7 +111,7 @@ def slot_mp_subscript(space, w_obj1, w_obj2):
     return space.getitem(w_obj1, w_obj2)
 
 @slot_function([PyObject, PyObject], PyObject)
-def slot_tp_getattr(space, w_obj1, w_obj2):
+def slot_tp_getattr_hook(space, w_obj1, w_obj2):
     return space.getattr(w_obj1, w_obj2)
 
 @slot_function([PyObject, PyObject, PyObject], PyObject)

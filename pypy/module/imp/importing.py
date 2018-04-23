@@ -259,7 +259,7 @@ def exec_code_module(space, w_mod, code_w, pathname, cpathname,
         if pathname is not None:
             w_pathname = get_sourcefile(space, pathname)
         else:
-            w_pathname = space.newfilename(code_w.co_filename)
+            w_pathname = code_w.w_filename
         if cpathname is not None:
             w_cpathname = space.newfilename(cpathname)
         else:
@@ -353,6 +353,7 @@ def update_code_filenames(space, code_w, pathname, oldname=None):
         return
 
     code_w.co_filename = pathname
+    code_w.w_filename = space.newfilename(pathname)
     constants = code_w.co_consts_w
     for const in constants:
         if const is not None and isinstance(const, PyCode):

@@ -120,7 +120,7 @@ def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
-    When not translated, the type of the actual arguments are checked against
+    When not translated, the type of the actual arguments is checked against
     the enforced types every time the function is called. You can disable the
     typechecking by passing ``typecheck=False`` to @enforceargs.
     """
@@ -137,21 +137,17 @@ def enforceargs(*types_, **kwds):
     def decorator(f):
         def get_annotation(t):
             from rpython.annotator.signature import annotation
-            from rpython.annotator.model import SomeObject, SomeString, SomeUnicodeString
+            from rpython.annotator.model import SomeObject
             if isinstance(t, SomeObject):
                 return t
-            s_result = annotation(t)
-            if (isinstance(s_result, SomeString) or
-                isinstance(s_result, SomeUnicodeString)):
-                return s_result.__class__(can_be_None=True)
-            return s_result
+            return annotation(t)
+
         def get_type_descr_of_argument(arg):
             # we don't want to check *all* the items in list/dict: we assume
             # they are already homogeneous, so we only check the first
             # item. The case of empty list/dict is handled inside typecheck()
             if isinstance(arg, list):
-                item = arg[0]
-                return [get_type_descr_of_argument(item)]
+                return [get_type_descr_of_argument(arg[0])]
             elif isinstance(arg, dict):
                 key, value = next(arg.iteritems())
                 return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
@@ -549,9 +545,9 @@ def _hash_float(f):
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
     from rpython.rlib.rarithmetic import intmask
-    from rpython.rlib.rfloat import isfinite, isinf
+    from rpython.rlib.rfloat import isfinite
     if not isfinite(f):
-        if isinf(f):
+        if math.isinf(f):
             if f < 0.0:
                 return -271828
             else:

@@ -1,3 +1,5 @@
+import pytest
+
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.cdatetime import *
@@ -82,15 +84,13 @@ class TestDatetime(BaseApiTest):
         date = datetime.datetime.fromtimestamp(0)
         assert space.unwrap(space.str(w_date)) == str(date)
 
-    def test_tzinfo(self, space):
-        w_tzinfo = space.appexec(
-            [], """():
-            from datetime import tzinfo
-            return tzinfo()
-        """)
-        assert PyTZInfo_Check(space, w_tzinfo)
-        assert PyTZInfo_CheckExact(space, w_tzinfo)
-        assert not PyTZInfo_Check(space, space.w_None)
+    @pytest.mark.parametrize('name', ['Time', 'DateTime', 'Date', 'Delta'])
+    def test_basicsize(self, space, name):
+        datetime = _PyDateTime_Import(space)
+        py_size = getattr(datetime, "c_%sType" % name).c_tp_basicsize
+        c_size = rffi.sizeof(cts.gettype("PyDateTime_%s" % name))
+        assert py_size == c_size
+
 
 class AppTestDatetime(AppTestCpythonExtensionBase):
     def test_CAPI(self):
@@ -272,3 +272,81 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
             2000, 6, 6, 6, 6, 6, 6)
         assert module.test_time_macros() == datetime.time(6, 6, 6, 6)
         assert module.test_delta_macros() == datetime.timedelta(6, 6, 6)
+
+    def test_tzinfo(self):
+        module = self.import_extension('foo', [
+            ("time_with_tzinfo", "METH_O",
+             """ PyDateTime_IMPORT;
+                 return PyDateTimeAPI->Time_FromTime(
+                    6, 6, 6, 6, args, PyDateTimeAPI->TimeType);
+             """),
+            ("datetime_with_tzinfo", "METH_O",
+             """
+                 PyObject * obj;
+                 int tzrefcnt = args->ob_refcnt;
+                 PyDateTime_IMPORT;
+                 obj = PyDateTimeAPI->DateTime_FromDateAndTime(
+                    2000, 6, 6, 6, 6, 6, 6, args,
+                    PyDateTimeAPI->DateTimeType);
+                if (!((PyDateTime_DateTime*)obj)->hastzinfo)
+                {
+                    Py_DECREF(obj);
+                    PyErr_SetString(PyExc_ValueError, "missing tzinfo");
+                    return NULL;
+                }
+                if (((PyDateTime_DateTime*)obj)->tzinfo->ob_refcnt <= tzrefcnt)
+                {
+                    Py_DECREF(obj);
+                    PyErr_SetString(PyExc_ValueError, "tzinfo refcnt not incremented");
+                    return NULL;
+                }
+                return obj;
+
+             """),
+        ], prologue='#include "datetime.h"\n')
+        from datetime import tzinfo, datetime, timedelta, time
+        # copied from datetime documentation
+        class GMT1(tzinfo):
+           def utcoffset(self, dt):
+               return timedelta(hours=1) + self.dst(dt)
+           def dst(self, dt):
+               return timedelta(0)
+           def tzname(self,dt):
+                return "GMT +1"
+        gmt1 = GMT1()
+        dt1 = module.time_with_tzinfo(gmt1)
+        assert dt1 == time(6, 6, 6, 6, gmt1)
+        assert '+01' in str(dt1)
+        assert module.datetime_with_tzinfo(gmt1) == datetime(
+            2000, 6, 6, 6, 6, 6, 6, gmt1)
+
+    def test_checks(self):
+        module = self.import_extension('foo', [
+            ("checks", "METH_O",
+             """ PyDateTime_IMPORT;
+                 return PyTuple_Pack(10,
+                    PyBool_FromLong(PyDateTime_Check(args)),
+                    PyBool_FromLong(PyDateTime_CheckExact(args)),
+                    PyBool_FromLong(PyDate_Check(args)),
+                    PyBool_FromLong(PyDate_CheckExact(args)),
+                    PyBool_FromLong(PyTime_Check(args)),
+                    PyBool_FromLong(PyTime_CheckExact(args)),
+                    PyBool_FromLong(PyDelta_Check(args)),
+                    PyBool_FromLong(PyDelta_CheckExact(args)),
+                    PyBool_FromLong(PyTZInfo_Check(args)),
+                    PyBool_FromLong(PyTZInfo_CheckExact(args))
+                );
+             """),
+        ], prologue='#include "datetime.h"\n')
+        from datetime import tzinfo, datetime, timedelta, time, date
+        o = date(1, 1, 1)
+        assert module.checks(o) == (False,) * 2 + (True,) * 2 + (False,) * 6
+        o = time(1, 1, 1)
+        assert module.checks(o) == (False,) * 4 + (True,) * 2 + (False,) * 4
+        o = timedelta(1, 1, 1)
+        assert module.checks(o) == (False,) * 6 + (True,) * 2 + (False,) * 2
+        o = datetime(1, 1, 1)
+        assert module.checks(o) == (True,) * 3 + (False,) * 7 # isinstance(datetime, date)
+        o = tzinfo()
+        assert module.checks(o) == (False,) * 8 + (True,) * 2
+

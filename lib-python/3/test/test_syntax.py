@@ -107,15 +107,17 @@ From ast_for_arguments():
 Traceback (most recent call last):
 SyntaxError: non-default argument follows default argument
 
->>> def f(x, None):
-...     pass
-Traceback (most recent call last):
-SyntaxError: invalid syntax
+PyPy has extended sytax error messages, ignore the detail for compatibility
 
->>> def f(*None):
+>>> def f(x, None): # doctest: +IGNORE_EXCEPTION_DETAIL
 ...     pass
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: invalid syntax (expected ')')
+
+>>> def f(*None): # doctest: +IGNORE_EXCEPTION_DETAIL
+...     pass
+Traceback (most recent call last):
+SyntaxError: invalid syntax (expected ')')
 
 >>> def f(**None):
 ...     pass

@@ -1,8 +1,8 @@
 from ctypes import *
 from struct import calcsize
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
-import py
+import pytest
 
 
 class TestSubclasses(BaseCTypesTestChecker):
@@ -143,8 +143,10 @@ class TestStructure(BaseCTypesTestChecker):
         assert X.y.size == sizeof(c_char)
 
         # readonly
-        raises((TypeError, AttributeError), setattr, X.x, "offset", 92)
-        raises((TypeError, AttributeError), setattr, X.x, "size", 92)
+        with pytest.raises((TypeError, AttributeError)):
+            X.x.offset = 92
+        with pytest.raises((TypeError, AttributeError)):
+            X.x.size = 92
 
         class X(Union):
             _fields_ = [("x", c_int),
@@ -157,8 +159,10 @@ class TestStructure(BaseCTypesTestChecker):
         assert X.y.size == sizeof(c_char)
 
         # readonly
-        raises((TypeError, AttributeError), setattr, X.x, "offset", 92)
-        raises((TypeError, AttributeError), setattr, X.x, "size", 92)
+        with pytest.raises((TypeError, AttributeError)):
+            X.x.offset = 92
+        with pytest.raises((TypeError, AttributeError)):
+            X.x.size = 92
 
         # XXX Should we check nested data types also?
         # offset is always relative to the class...
@@ -202,23 +206,28 @@ class TestStructure(BaseCTypesTestChecker):
         d = {"_fields_": [("a", "b"),
                           ("b", "q")],
              "_pack_": -1}
-        raises(ValueError, type(Structure), "X", (Structure,), d)
+        with pytest.raises(ValueError):
+            type(Structure)("X", (Structure,), d)
 
     def test_initializers(self):
         class Person(Structure):
             _fields_ = [("name", c_char*6),
                         ("age", c_int)]
 
-        raises(TypeError, Person, 42)
-        raises(ValueError, Person, "asldkjaslkdjaslkdj")
-        raises(TypeError, Person, "Name", "HI")
+        with pytest.raises(TypeError):
+            Person(42)
+        with pytest.raises(ValueError):
+            Person("asldkjaslkdjaslkdj")
+        with pytest.raises(TypeError):
+            Person("Name", "HI")
 
         # short enough
         assert Person("12345", 5).name == "12345"
         # exact fit
         assert Person("123456", 5).name == "123456"
         # too long
-        raises(ValueError, Person, "1234567", 5)
+        with pytest.raises(ValueError):
+            Person("1234567", 5)
 
 
     def test_keyword_initializers(self):
@@ -246,7 +255,8 @@ class TestStructure(BaseCTypesTestChecker):
     def test_invalid_field_types(self):
         class POINT(Structure):
             pass
-        raises(TypeError, setattr, POINT, "_fields_", [("x", 1), ("y", 2)])
+        with pytest.raises(TypeError):
+            POINT._fields_ = [("x", 1), ("y", 2)]
 
     def test_intarray_fields(self):
         class SomeInts(Structure):
@@ -257,7 +267,8 @@ class TestStructure(BaseCTypesTestChecker):
         assert SomeInts((1, 2, 3, 4)).a[:] == [1, 2, 3, 4]
         # too long
         # XXX Should raise ValueError?, not RuntimeError
-        raises(RuntimeError, SomeInts, (1, 2, 3, 4, 5))
+        with pytest.raises(RuntimeError):
+            SomeInts((1, 2, 3, 4, 5))
 
     def test_nested_initializers(self):
         # test initializing nested structures
@@ -278,7 +289,7 @@ class TestStructure(BaseCTypesTestChecker):
         assert p.age == 5
 
     def test_structures_with_wchar(self):
-        py.test.skip("need unicode support on _rawffi level")
+        pytest.skip("need unicode support on _rawffi level")
         try:
             c_wchar
         except NameError:
@@ -288,18 +299,19 @@ class TestStructure(BaseCTypesTestChecker):
             _fields_ = [("name", c_wchar * 12),
                         ("age", c_int)]
 
-        p = PersonW("Someone")
+        p = PersonW(u"Someone")
         assert p.name == "Someone"
 
-        assert PersonW("1234567890").name == "1234567890"
-        assert PersonW("12345678901").name == "12345678901"
+        assert PersonW(u"1234567890").name == u"1234567890"
+        assert PersonW(u"12345678901").name == u"12345678901"
         # exact fit
-        assert PersonW("123456789012").name == "123456789012"
+        assert PersonW(u"123456789012").name == u"123456789012"
         #too long
-        raises(ValueError, PersonW, "1234567890123")
+        with pytest.raises(ValueError):
+            PersonW(u"1234567890123")
 
     def test_init_errors(self):
-        py.test.skip("not implemented error details")
+        pytest.skip("not implemented error details")
         class Phone(Structure):
             _fields_ = [("areacode", c_char*6),
                         ("number", c_char*12)]
@@ -347,7 +359,7 @@ class TestStructure(BaseCTypesTestChecker):
 ##                             (AttributeError, "class must define a '_fields_' attribute"))
 
     def test_abstract_class(self):
-        py.test.skip("_abstract_ semantics not implemented")
+        pytest.skip("_abstract_ semantics not implemented")
         class X(Structure):
             _abstract_ = "something"
         # try 'X()'
@@ -373,7 +385,7 @@ class TestStructure(BaseCTypesTestChecker):
         assert p.age == 6
 
     def test_subclassing_field_is_a_tuple(self):
-        py.test.skip("subclassing semantics not implemented")
+        pytest.skip("subclassing semantics not implemented")
         class Person(Structure):
             _fields_ = (("name", c_char*6),
                         ("age", c_int))
@@ -542,7 +554,7 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
             raise AssertionError("Structure or union cannot contain itself")
 
     def test_vice_versa(self):
-        py.test.skip("mutually dependent lazily defined structures error semantics")
+        pytest.skip("mutually dependent lazily defined structures error semantics")
         class First(Structure):
             pass
         class Second(Structure):
@@ -563,18 +575,21 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
             pass
         assert sizeof(X) == 0
         X._fields_ = [("a", c_int),]
-        raises(AttributeError, setattr, X, "_fields_", [])
+        with pytest.raises(AttributeError):
+            X._fields_ = []
 
         class X(Structure):
             pass
         X()
-        raises(AttributeError, setattr, X, "_fields_", [])
+        with pytest.raises(AttributeError):
+            X._fields_ = []
 
         class X(Structure):
             pass
         class Y(X):
             pass
-        raises(AttributeError, setattr, X, "_fields_", [])
+        with pytest.raises(AttributeError):
+            X._fields_ = []
         Y.__fields__ = []
 
 

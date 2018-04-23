@@ -1,6 +1,6 @@
 from ctypes import *
-import py
-from support import BaseCTypesTestChecker
+import pytest
+from .support import BaseCTypesTestChecker
 
 def setup_module(mod):
     import conftest
@@ -104,7 +104,8 @@ class BasicTestWrap(BaseCTypesTestChecker):
         # check that the prototype works: we call f with wrong
         # argument types
         cb = AnotherCallback(callback)
-        raises(ArgumentError, f, self.wrap(-10), self.wrap(cb))
+        with pytest.raises(ArgumentError):
+            f(self.wrap(-10), self.wrap(cb))
 
     def test_callbacks_2(self):
         # Can also use simple datatypes as argument type specifiers
@@ -213,4 +214,4 @@ class TestAsParam(BasicTestWrap):
     wrap = AsParamPropertyWrapper
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+

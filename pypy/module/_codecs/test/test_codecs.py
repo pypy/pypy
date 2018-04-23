@@ -589,12 +589,17 @@ class AppTestPartialEvaluation:
         assert b'\x00'.decode('unicode-internal', 'ignore') == ''
 
     def test_backslashreplace(self):
+        import sys
         import codecs
         sin = u"a\xac\u1234\u20ac\u8000\U0010ffff"
-        expected = b"a\\xac\\u1234\\u20ac\\u8000\\U0010ffff"
-        assert sin.encode('ascii', 'backslashreplace') == expected
-        expected = b"a\xac\\u1234\xa4\\u8000\\U0010ffff"
-        assert sin.encode("iso-8859-15", "backslashreplace") == expected
+        if sys.maxunicode > 65535:
+            expected_ascii = b"a\\xac\\u1234\\u20ac\\u8000\\U0010ffff"
+            expected_8859 = b"a\xac\\u1234\xa4\\u8000\\U0010ffff"
+        else:
+            expected_ascii = b"a\\xac\\u1234\\u20ac\\u8000\\udbff\\udfff"
+            expected_8859 = b"a\xac\\u1234\xa4\\u8000\\udbff\\udfff"
+        assert sin.encode('ascii', 'backslashreplace') == expected_ascii
+        assert sin.encode("iso-8859-15", "backslashreplace") == expected_8859
 
         assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == b'a\\xac\u1234\u20ac\u8000'
         assert b'\x00\x60\x80'.decode(
@@ -892,7 +897,7 @@ class AppTestPartialEvaluation:
             assert False, 'cannot test mbcs on this windows system, check code page'
         assert u'test'.encode('mbcs') == b'test'
         assert toencode[0].encode('mbcs') == toencode[1]
-        assert u'\u040a'.encode('mbcs') == b'?'  # some cyrillic letter
+        raises(UnicodeEncodeError, u'\u040a'.encode, 'mbcs')
         assert b'cafx\e9'.decode('mbcs') == u'cafx\e9'
 
     def test_handler_string_result(self):

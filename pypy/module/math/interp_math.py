@@ -67,15 +67,15 @@ def copysign(space, w_x, w_y):
     # No exceptions possible.
     x = _get_double(space, w_x)
     y = _get_double(space, w_y)
-    return space.newfloat(rfloat.copysign(x, y))
+    return space.newfloat(math.copysign(x, y))
 
 def isinf(space, w_x):
     """Return True if x is infinity."""
-    return space.newbool(rfloat.isinf(_get_double(space, w_x)))
+    return space.newbool(math.isinf(_get_double(space, w_x)))
 
 def isnan(space, w_x):
     """Return True if x is not a number."""
-    return space.newbool(rfloat.isnan(_get_double(space, w_x)))
+    return space.newbool(math.isnan(_get_double(space, w_x)))
 
 def isfinite(space, w_x):
     """isfinite(x) -> bool
@@ -358,14 +358,14 @@ def fsum(space, w_iterable):
             if not rfloat.isfinite(v):
                 if rfloat.isfinite(original):
                     raise oefmt(space.w_OverflowError, "intermediate overflow")
-                if rfloat.isinf(original):
+                if math.isinf(original):
                     inf_sum += original
                 special_sum += original
                 del partials[:]
             else:
                 partials.append(v)
     if special_sum != 0.0:
-        if rfloat.isnan(inf_sum):
+        if math.isnan(inf_sum):
             raise oefmt(space.w_ValueError, "-inf + inf")
         return space.newfloat(special_sum)
     hi = 0.0
@@ -473,7 +473,7 @@ only close to themselves."""
     # sign would otherwise have an infinite relative tolerance.
     # Two infinities of the same sign are caught by the equality check
     # above.
-    if rfloat.isinf(a) or rfloat.isinf(b):
+    if math.isinf(a) or math.isinf(b):
         return space.w_False
     #
     # now do the regular computation

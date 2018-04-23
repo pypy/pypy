@@ -252,11 +252,11 @@ def test_addr_raw_packet():
     w_obj = addr_as_object(rsocket.make_address(c_addr, addrlen), fd, space)
     lltype.free(c_addr_ll, flavor='raw')
     assert space.is_true(space.eq(w_obj, space.newtuple([
-        space.wrap('lo'),
-        space.wrap(socket.ntohs(8)),
-        space.wrap(13),
-        space.wrap(False),
-        space.wrap("abc"),
+        space.newtext('lo'),
+        space.newint(socket.ntohs(8)),
+        space.newint(13),
+        space.newbool(False),
+        space.newbytes("abc"),
         ])))
 
 def test_getnameinfo():
@@ -768,13 +768,14 @@ class AppTestPacket:
     def test_convert_between_tuple_and_sockaddr_ll(self):
         import _socket
         s = _socket.socket(_socket.AF_PACKET, _socket.SOCK_RAW)
-        assert s.getsockname() == ('', 0, 0, 0, '')
+        assert s.getsockname() == ('', 0, 0, 0, b''), 's.getsockname %s' % str(s.getsockname())
         s.bind(('lo', 123))
         a, b, c, d, e = s.getsockname()
         assert (a, b, c) == ('lo', 123, 0)
         assert isinstance(d, int)
-        assert isinstance(e, str)
+        assert isinstance(e, bytes)
         assert 0 <= len(e) <= 8
+        s.close()
 
 
 class AppTestSocketTCP:
@@ -814,10 +815,10 @@ class AppTestSocketTCP:
     def test_recv_send_timeout(self):
         from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
         cli = socket()
+        cli.settimeout(1.0)
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
         t = socket(fileno=fileno)
-        cli.settimeout(1.0)
         # test recv() timeout
         t.send(b'*')
         buf = cli.recv(100)

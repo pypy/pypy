@@ -144,7 +144,6 @@ class StdObjSpace(ObjSpace):
         return self.fromcache(TypeCache).getorbuild(typedef)
 
     @not_rpython # only for tests
-    @specialize.argtype(1)
     def wrap(self, x):
         """ Wraps the Python value 'x' into one of the wrapper classes. This
         should only be used for tests, in real code you need to use the
@@ -313,7 +312,10 @@ class StdObjSpace(ObjSpace):
         return W_LongObject.fromrarith_int(val)
 
     def newlong_from_rbigint(self, val):
-        return newlong(self, val)
+        try:
+            return self.newint(val.toint())
+        except OverflowError:
+            return newlong(self, val)
 
     def newtuple(self, list_w):
         from pypy.objspace.std.tupleobject import wraptuple

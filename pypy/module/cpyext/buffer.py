@@ -189,33 +189,6 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
         decref(space, view.c_obj)
     return 0
 
-def fill_buffer(space, view, pybuf, py_obj):
-    view.c_buf = cts.cast('void *', pybuf.get_raw_address())
-    view.c_obj = py_obj
-    if py_obj:
-        incref(space, py_obj)
-    view.c_len = pybuf.getlength()
-    view.c_itemsize = pybuf.getitemsize()
-    rffi.setintfield(view, 'c_readonly', int(pybuf.readonly))
-    rffi.setintfield(view, 'c_ndim', pybuf.getndim())
-    view.c_format = rffi.str2charp(pybuf.getformat())
-    shape = pybuf.getshape()
-    if not shape:
-        view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
-    else:
-        view.c_shape = cts.cast('Py_ssize_t*', view.c__shape)
-        for i, n in enumerate(shape):
-            view.c_shape[i] = n
-    strides = pybuf.getstrides()
-    if not strides:
-        view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
-    else:
-        view.c_strides = cts.cast('Py_ssize_t*', view.c__strides)
-        for i, n in enumerate(strides):
-            view.c_strides[i] = n
-    view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
-    view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
-
 DEFAULT_FMT = rffi.str2charp("B")
 
 @cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,

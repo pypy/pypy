@@ -1,11 +1,16 @@
 import pytest
 try:
-    from hypothesis import given, strategies as st
+    from hypothesis import given, strategies as st, settings
 except ImportError:
     pytest.skip("hypothesis required")
 import os
 from pypy.module._io.interp_bytesio import W_BytesIO
 from pypy.module._io.interp_textio import W_TextIOWrapper, DecodeBuffer
+
+# workaround suggestion for slowness by David McIver:
+# force hypothesis to initialize some lazy stuff
+# (which takes a lot of time, which trips the timer otherwise)
+st.text().example()
 
 def translate_newlines(text):
     text = text.replace(u'\r\n', u'\n')
@@ -29,6 +34,7 @@ def st_readline(draw, st_nlines=st.integers(min_value=0, max_value=10)):
 
 @given(data=st_readline(),
        mode=st.sampled_from(['\r', '\n', '\r\n', '']))
+@settings(deadline=None, database=None)
 def test_readline(space, data, mode):
     txt, limits = data
     w_stream = W_BytesIO(space)

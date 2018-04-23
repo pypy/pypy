@@ -2223,8 +2223,9 @@ def device_encoding(space, fd):
     Return a string describing the encoding of the device if the output
     is a terminal; else return None.
     """
-    if not (rposix.is_valid_fd(fd) and os.isatty(fd)):
-        return space.w_None
+    with rposix.FdValidator(fd):
+        if not (os.isatty(fd)):
+            return space.w_None
     if _WIN32:
         if fd == 0:
             ccp = rwin32.GetConsoleCP()
@@ -2304,13 +2305,13 @@ If follow_symlinks is False, and the last element of the path is a symbolic
         try:
             result = rposix.fgetxattr(path.as_fd, attribute.as_bytes)
         except OSError as e:
-            raise wrap_oserror(space, e, path.as_bytes)
+            raise wrap_oserror2(space, e, path.w_path)
     else:
         try:
             result = rposix.getxattr(path.as_bytes, attribute.as_bytes,
                 follow_symlinks=follow_symlinks)
         except OSError as e:
-            raise wrap_oserror(space, e, path.as_bytes)
+            raise wrap_oserror2(space, e, path.w_path)
     return space.newbytes(result)
 
 @unwrap_spec(path=path_or_fd(), attribute=path_or_fd(allow_fd=False),
@@ -2331,15 +2332,15 @@ If follow_symlinks is False, and the last element of the path is a symbolic
             raise oefmt(space.w_ValueError,
                 "setxattr: cannot use fd and follow_symlinks together")
         try:
-            rposix.fsetxattr(path.as_fd, attribute.as_bytes, value)
+            rposix.fsetxattr(path.as_fd, attribute.as_bytes, value, flags)
         except OSError as e:
-            raise wrap_oserror(space, e, path.as_bytes)
+            raise wrap_oserror2(space, e, path.w_path)
     else:
         try:
-            rposix.setxattr(path.as_bytes, attribute.as_bytes, value,
+            rposix.setxattr(path.as_bytes, attribute.as_bytes, value, flags,
                 follow_symlinks=follow_symlinks)
         except OSError as e:
-            raise wrap_oserror(space, e, path.as_bytes)
+            raise wrap_oserror2(space, e, path.w_path)
 
 
 @unwrap_spec(path=path_or_fd(), attribute=path_or_fd(allow_fd=False),
@@ -2359,13 +2360,13 @@ If follow_symlinks is False, and the last element of the path is a symbolic
         try:
             rposix.fremovexattr(path.as_fd, attribute.as_bytes)
         except OSError as e:
-            raise wrap_oserror(space, e, path.as_bytes)
+            raise wrap_oserror2(space, e, path.w_path)
     else:
         try:
             rposix.removexattr(path.as_bytes, attribute.as_bytes,
                 follow_symlinks=follow_symlinks)
         except OSError as e:
-            raise wrap_oserror(space, e, path.as_bytes)
+            raise wrap_oserror2(space, e, path.w_path)
 
 
 @unwrap_spec(path=path_or_fd(), follow_symlinks=bool)
@@ -2386,12 +2387,12 @@ If follow_symlinks is False, and the last element of the path is a symbolic
         try:
             result = rposix.flistxattr(path.as_fd)
         except OSError as e:
-            raise wrap_oserror(space, e, eintr_retry=False)
+            raise wrap_oserror2(space, e, path.w_path)
     else:
         try:
             result = rposix.listxattr(path.as_bytes, follow_symlinks)
         except OSError as e:
-            raise wrap_oserror(space, e, path.as_bytes)
+            raise wrap_oserror2(space, e, path.w_path)
     return space.newlist([space.newfilename(attr) for attr in result])
 
 

@@ -1,5 +1,6 @@
+import pytest
 from ctypes import *
-from support import BaseCTypesTestChecker
+from .support import BaseCTypesTestChecker
 
 class TestAnon(BaseCTypesTestChecker):
 
@@ -22,18 +23,15 @@ class TestAnon(BaseCTypesTestChecker):
 
     def test_anon_nonseq(self):
         # TypeError: _anonymous_ must be a sequence
-        raises(TypeError,
-                              lambda: type(Structure)("Name",
-                                                      (Structure,),
-                                                      {"_fields_": [], "_anonymous_": 42}))
+        with pytest.raises(TypeError):
+            type(Structure)(
+                "Name", (Structure,), {"_fields_": [], "_anonymous_": 42})
 
     def test_anon_nonmember(self):
         # AttributeError: type object 'Name' has no attribute 'x'
-        raises(AttributeError,
-                              lambda: type(Structure)("Name",
-                                                      (Structure,),
-                                                      {"_fields_": [],
-                                                       "_anonymous_": ["x"]}))
+        with pytest.raises(AttributeError):
+            type(Structure)(
+                "Name", (Structure,), {"_fields_": [], "_anonymous_": ["x"]})
 
     def test_nested(self):
         class ANON_S(Structure):
