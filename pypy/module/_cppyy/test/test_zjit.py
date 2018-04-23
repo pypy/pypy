@@ -137,6 +137,7 @@ class FakeSpace(object):
         executor.get_executor(self, 'int').__class__.c_stubcall = staticmethod(c_call_i)
 
         self.w_AttributeError      = FakeException(self, "AttributeError")
+        self.w_Exception           = FakeException(self, "Exception")
         self.w_KeyError            = FakeException(self, "KeyError")
         self.w_NotImplementedError = FakeException(self, "NotImplementedError")
         self.w_ReferenceError      = FakeException(self, "ReferenceError")

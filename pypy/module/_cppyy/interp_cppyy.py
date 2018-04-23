@@ -19,6 +19,9 @@ INSTANCE_FLAGS_PYTHON_OWNS = 0x0001
 INSTANCE_FLAGS_IS_REF      = 0x0002
 INSTANCE_FLAGS_IS_R_VALUE  = 0x0004
 
+OVERLOAD_FLAGS_USE_FFI     = 0x0001
+
+
 class FastCallNotPossible(Exception):
     pass
 
@@ -186,7 +189,7 @@ class CPPMethod(object):
         return rffi.cast(rffi.VOIDP, loc_idx)
 
     @jit.unroll_safe
-    def call(self, cppthis, args_w):
+    def call(self, cppthis, args_w, useffi):
         jit.promote(self)
 
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
@@ -218,16 +221,25 @@ class CPPMethod(object):
 
         try:
             # attempt to call directly through ffi chain
-            if self._funcaddr:
+            if useffi and self._funcaddr:
                 try:
                     return self.do_fast_call(cppthis, args_w, call_local)
                 except FastCallNotPossible:
                     pass      # can happen if converters or executor does not implement ffi
 
             # ffi chain must have failed; using stub functions instead
-            args = self.prepare_arguments(args_w, call_local)
+            args, stat = self.prepare_arguments(args_w, call_local)
             try:
-                return self.executor.execute(self.space, self.cppmethod, cppthis, len(args_w), args)
+                result = self.executor.execute(
+                    self.space, self.cppmethod, cppthis, len(args_w), args)
+                if stat[0] != rffi.cast(rffi.ULONG, 0):
+                    what = rffi.cast(rffi.CCHARP, stat[1])
+                    pywhat = rffi.charp2str(what)
+                    capi.c_free(self.space, rffi.cast(rffi.VOIDP, what))
+                    if hasattr(self.space, "fake"):
+                        raise OperationError(self.space.w_Exception, self.space.newtext("C++ exception"))
+                    raise oefmt(self.space.w_Exception, pywhat)
+                return result
             finally:
                 self.finalize_call(args, args_w, call_local)
         finally:
@@ -373,7 +385,10 @@ class CPPMethod(object):
                     conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_j), loc_j)
                 capi.c_deallocate_function_args(self.space, args)
                 raise
-        return args
+        stat = rffi.cast(rffi.ULONGP,
+            lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), int(len(args_w))*stride))
+        stat[0] = rffi.cast(rffi.ULONG, 0)
+        return args, stat
 
     @jit.unroll_safe
     def finalize_call(self, args, args_w, call_local):
@@ -435,7 +450,7 @@ class CPPTemplatedCall(CPPMethod):
         # TODO: might have to specialize for CPPTemplatedCall on CPPMethod/CPPFunction here
         CPPMethod.__init__(self, space, declaring_scope, method_index, arg_defs, args_required)
 
-    def call(self, cppthis, args_w):
+    def call(self, cppthis, args_w, useffi):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
         for i in range(len(args_w)):
             try:
@@ -447,10 +462,10 @@ class CPPTemplatedCall(CPPMethod):
                 raise oefmt(self.space.w_TypeError,
                             "non-matching template (got %s where %s expected)",
                             s, self.templ_args[i])
-        return W_CPPBoundMethod(cppthis, self)
+        return W_CPPBoundMethod(cppthis, self, useffi)
 
-    def bound_call(self, cppthis, args_w):
-        return CPPMethod.call(self, cppthis, args_w)
+    def bound_call(self, cppthis, args_w, useffi):
+        return CPPMethod.call(self, cppthis, args_w, useffi)
 
     def __repr__(self):
         return "CPPTemplatedCall: %s" % self.prototype()
@@ -468,11 +483,11 @@ class CPPConstructor(CPPMethod):
     def unpack_cppthis(space, w_cppinstance, declaring_scope):
         return rffi.cast(capi.C_OBJECT, declaring_scope.handle)
 
-    def call(self, cppthis, args_w):
+    def call(self, cppthis, args_w, useffi):
         # Note: this does not return a wrapped instance, just a pointer to the
         # new instance; the overload must still wrap it before returning. Also,
         # cppthis is declaring_scope.handle (as per unpack_cppthis(), above).
-        return CPPMethod.call(self, cppthis, args_w)
+        return CPPMethod.call(self, cppthis, args_w, useffi)
 
     def __repr__(self):
         return "CPPConstructor: %s" % self.prototype()
@@ -485,7 +500,7 @@ class CPPSetItem(CPPMethod):
 
     _immutable_ = True
 
-    def call(self, cppthis, args_w):
+    def call(self, cppthis, args_w, useffi):
         end = len(args_w)-1
         if 0 <= end:
             w_item = args_w[end]
@@ -493,7 +508,7 @@ class CPPSetItem(CPPMethod):
             if self.converters is None:
                 self._setup(cppthis)
             self.executor.set_item(self.space, w_item) # TODO: what about threads?
-        CPPMethod.call(self, cppthis, args_w)
+        CPPMethod.call(self, cppthis, args_w, useffi)
 
 
 class W_CPPOverload(W_Root):
@@ -501,7 +516,7 @@ class W_CPPOverload(W_Root):
     collection of (possibly) overloaded methods or functions. It calls these
     in order and deals with error handling and reporting."""
 
-    _attrs_ = ['space', 'scope', 'functions']
+    _attrs_ = ['space', 'scope', 'functions', 'flags']
     _immutable_fields_ = ['scope', 'functions[*]']
 
     def __init__(self, space, declaring_scope, functions):
@@ -510,6 +525,19 @@ class W_CPPOverload(W_Root):
         assert len(functions)
         from rpython.rlib import debug
         self.functions = debug.make_sure_not_resized(functions)
+        self.flags = 0
+        self.flags |= OVERLOAD_FLAGS_USE_FFI
+
+    # allow user to determine ffi use rules per overload
+    def fget_useffi(self, space):
+        return space.newbool(bool(self.flags & OVERLOAD_FLAGS_USE_FFI))
+
+    @unwrap_spec(value=bool)
+    def fset_useffi(self, space, value):
+        if space.is_true(value):
+            self.flags |= OVERLOAD_FLAGS_USE_FFI
+        else:
+            self.flags &= ~OVERLOAD_FLAGS_USE_FFI
 
     @jit.elidable_promote()
     def is_static(self):
@@ -540,7 +568,7 @@ class W_CPPOverload(W_Root):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                return cppyyfunc.call(cppthis, args_w)
+                return cppyyfunc.call(cppthis, args_w, self.flags & OVERLOAD_FLAGS_USE_FFI)
             except Exception:
                 pass
 
@@ -553,7 +581,7 @@ class W_CPPOverload(W_Root):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                return cppyyfunc.call(cppthis, args_w)
+                return cppyyfunc.call(cppthis, args_w, self.flags & OVERLOAD_FLAGS_USE_FFI)
             except OperationError as e:
                 # special case if there's just one function, to prevent clogging the error message
                 if len(self.functions) == 1:
@@ -588,6 +616,7 @@ W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
     is_static = interp2app(W_CPPOverload.is_static),
     call = interp2app(W_CPPOverload.call),
+    __useffi__ = GetSetProperty(W_CPPOverload.fget_useffi, W_CPPOverload.fset_useffi),
     prototype = interp2app(W_CPPOverload.prototype),
 )
 
@@ -642,17 +671,18 @@ W_CPPTemplateOverload.typedef = TypeDef(
 
 
 class W_CPPBoundMethod(W_Root):
-    _attrs_ = ['cppthis', 'method']
+    _attrs_ = ['cppthis', 'method', 'useffi']
 
-    def __init__(self, cppthis, method):
+    def __init__(self, cppthis, method, useffi):
         self.cppthis = cppthis
         self.method = method
+        self.useffi = useffi
 
     def __call__(self, args_w):
-        return self.method.bound_call(self.cppthis, args_w)
+        return self.method.bound_call(self.cppthis, args_w, self.useffi)
 
     def __repr__(self):
-        return "W_CPPBoundMethod(%s)" % [f.prototype() for f in self.functions]
+        return "W_CPPBoundMethod(%s)" % self.method.prototype()
 
 W_CPPBoundMethod.typedef = TypeDef(
     'CPPBoundMethod',

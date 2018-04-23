@@ -16,6 +16,8 @@ extern "C" {
     typedef long          cppyy_index_t;
     typedef void*         cppyy_funcaddr_t;
 
+    typedef unsigned long cppyy_exctype_t;
+
     /* name to opaque C++ scope representation -------------------------------- */
     RPY_EXTERN
     char* cppyy_resolve_name(const char* cppitem_name);

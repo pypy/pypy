@@ -400,3 +400,11 @@ public:
    std::string gime();
    int gime() const;
 };
+
+
+//===========================================================================
+class Thrower {                    // exception handling testing
+public:
+    void throw_anything();
+    void throw_exception();
+};

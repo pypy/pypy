@@ -15,7 +15,6 @@ class AppTestOVERLOADS:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        env = os.environ
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_overloads = cls.space.appexec([], """():
             import ctypes
