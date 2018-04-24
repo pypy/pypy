@@ -5,6 +5,11 @@ sys.modules['_cffi_src'] = _cffi_src
 from _cffi_ssl._cffi_src.build_openssl import (build_ffi_for_binding,
         _get_openssl_libraries, extra_link_args, compiler_type)
 
+if sys.platform == "win32":
+    pypy_win32_extra = ["pypy_win32_extra"]
+else:
+    pypy_win32_extra = []
+
 ffi = build_ffi_for_binding(
     module_name="_pypy_openssl",
     module_prefix="_cffi_src.openssl.",
@@ -44,10 +49,10 @@ ffi = build_ffi_for_binding(
         "x509_vfy",
         "pkcs7",
         "callbacks",
-    ],
+    ] + pypy_win32_extra,
     libraries=_get_openssl_libraries(sys.platform),
     extra_link_args=extra_link_args(compiler_type()),
 )
 
 if __name__ == '__main__':
-    ffi.compile()
+    ffi.compile(verbose=True)

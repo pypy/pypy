@@ -14,6 +14,8 @@ NOTE: currently, we have the following changes:
 
 * ``_cffi_src/openssl/x509_vfy.py`` for issue #2605 (ca4d0c90f5a1)
 
+* ``_cffi_src/openssl/pypy_win32_extra.py`` for Win32-only functionality like ssl.enum_certificates()
+
 
 # Tests?
 

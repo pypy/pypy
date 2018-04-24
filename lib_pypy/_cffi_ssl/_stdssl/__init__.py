@@ -24,6 +24,7 @@ from select import select
 from enum import IntEnum as _IntEnum
 
 if sys.platform == 'win32':
+    from _cffi_ssl._stdssl.win32_extra import enum_certificates, enum_crls
     HAVE_POLL = False
 else:
     from select import poll, POLLIN, POLLOUT

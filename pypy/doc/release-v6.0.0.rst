@@ -20,16 +20,18 @@ getting started writing code. We have improved our parser to emit more friendly
 
 The GC now has `hooks`_ to gain more insights into its performance
 
-The Windows PyPy3.5 release is still considered beta-quality. There are open
-issues with unicode handling especially around system calls and c-extensions.
-
 The Matplotlib TkAgg backend now works with PyPy, as do pygame and pygobject_.
+
+We updated the `cffi`_ module included in PyPy to version 1.11.5, and the
+`cppyy`_ backend to 0.6.0. Please use these to wrap your C and C++ code,
+respectively, for a JIT friendly experience.
 
 As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
 We strongly recommend updating.
 
-We updated the cffi module included in PyPy to version 1.11.5
+The Windows PyPy3.5 release is still considered beta-quality. There are open
+issues with unicode handling especially around system calls and c-extensions.
 
 The utf8 branch that changes internal representation of unicode to utf8 did not
 make it into the release, so there is still more goodness coming. We also
@@ -56,6 +58,8 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _pygobject: https://lazka.github.io/posts/2018-04_pypy-pygobject/index.html
 .. _`syntax errors`: https://morepypy.blogspot.com/2018/04/improving-syntaxerror-in-pypy.html
 .. _`hooks`: gc_info.html#gc-hooks
+.. _`cffi`: http://cffi.readthedocs.io
+.. _`cppyy`: https://cppyy.readthedocs.io
 
 What is PyPy?
 =============

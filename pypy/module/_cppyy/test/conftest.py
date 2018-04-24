@@ -55,7 +55,7 @@ def pytest_configure(config):
                 separate_module_files=[srcpath.join('dummy_backend.cxx')],
                 include_dirs=[incpath, tstpath, cdir],
                 compile_extra=['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND',
-                               '-fno-strict-aliasing', '-std=c++11'],
+                               '-fno-strict-aliasing', '-std=c++14'],
                 use_cpp_linker=True,
             )
 
@@ -65,7 +65,7 @@ def pytest_configure(config):
                     outputfilename='libcppyy_dummy_backend',
                     standalone=False)
             except CompilationError as e:
-                if '-std=c++11' in str(e):
+                if '-std=c++14' in str(e):
                     global disabled
                     disabled = str(e)
                     return

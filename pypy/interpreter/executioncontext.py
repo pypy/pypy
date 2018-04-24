@@ -479,11 +479,17 @@ class AbstractActionFlag(object):
                 # 'action.fire()' happens to be called any time before
                 # the corresponding perform(), the fire() has no
                 # effect---which is the effect we want, because
-                # perform() will be called anyway.
+                # perform() will be called anyway.  All such pending
+                # actions with _fired == True are still inside the old
+                # chained list.  As soon as we reset _fired to False,
+                # we also reset _next to None and we are ready for
+                # another fire().
                 while action is not None:
+                    next_action = action._next
+                    action._next = None
                     action._fired = False
                     action.perform(ec, frame)
-                    action._next, action = None, action._next
+                    action = next_action
 
         self.action_dispatcher = action_dispatcher
 

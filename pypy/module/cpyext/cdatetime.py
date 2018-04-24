@@ -124,7 +124,7 @@ def init_datetime(space):
     # app level datetime.date. If a c-extension class uses datetime.date for its
     # base class and defines a tp_dealloc, we will get this:
     # c_class->tp_dealloc == tp_dealloc_func
-    # c_class->tp_base == datetime.date, 
+    # c_class->tp_base == datetime.date,
     #                     datetime.date->tp_dealloc = _PyPy_subtype_dealloc
     # datetime.date->tp_base = W_DateTime_Date
     #                    W_DateTime_Date->tp_dealloc = _PyPy_subtype_dealloc
