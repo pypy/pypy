@@ -7,6 +7,7 @@ class Module(MixedModule):
     interpleveldefs = {
         '_resolve_name'          : 'interp_cppyy.resolve_name',
         '_scope_byname'          : 'interp_cppyy.scope_byname',
+        '_is_static_data'        : 'interp_cppyy.is_static_data',
         '_is_template'           : 'interp_cppyy.is_template',
         '_std_string_name'       : 'interp_cppyy.std_string_name',
         '_set_class_generator'   : 'interp_cppyy.set_class_generator',

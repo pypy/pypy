@@ -149,6 +149,24 @@ W_CPPLibrary.typedef = TypeDef(
 W_CPPLibrary.typedef.acceptable_as_base_class = True
 
 
+#-----
+# Classes involved with methods and functions:
+#
+#  CPPMethod:         base class wrapping a single function or method
+#  CPPConstructor:    specialization for allocating a new object
+#  CPPFunction:       specialization for free and static functions
+#  CPPSetItem:        specialization for Python's __setitem__
+#  CPPTemplatedCall:  trampoline to instantiate and bind templated functions
+#  W_CPPOverload, W_CPPConstructorOverload, W_CPPTemplateOverload:
+#     user-facing, app-level, collection of overloads, with specializations
+#     for constructors and templates
+#  W_CPPBoundMethod:  instantiated template method
+#
+# All methods/functions derive from CPPMethod and are collected as overload
+# candidates in user-facing overload classes. Templated methods are a two-step
+# process, where first the template is instantiated (or selected if already
+# available), which returns a callable object that is the actual bound method.
+
 class CPPMethod(object):
     """Dispatcher of methods. Checks the arguments, find the corresponding FFI
     function if available, makes the call, and returns the wrapped result. It
@@ -688,6 +706,18 @@ W_CPPBoundMethod.typedef = TypeDef(
 )
 
 
+#-----
+# Classes for data members:
+#
+#  W_CPPDataMember:        instance data members
+#  W_CPPConstDataMember:   specialization for const data members
+#  W_CPPStaticData:        class-level and global/static data
+#  W_CPPConstStaticData:   specialization for const global/static data
+#
+# Data is represented by an offset which is either a global pointer (static data)
+# or an offset from the start of an instance (data members). The "const"
+# specializations raise when attempting to set their value.
+
 class W_CPPDataMember(W_Root):
     _attrs_ = ['space', 'scope', 'converter', 'offset']
     _immutable_fields = ['scope', 'converter', 'offset']
@@ -697,9 +727,6 @@ class W_CPPDataMember(W_Root):
         self.scope = declaring_scope
         self.converter = converter.get_converter(self.space, type_name, '')
         self.offset = offset
-
-    def is_static(self):
-        return self.space.w_False
 
     def _get_offset(self, cppinstance):
         if cppinstance:
@@ -728,16 +755,25 @@ class W_CPPDataMember(W_Root):
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',
-    is_static = interp2app(W_CPPDataMember.is_static),
     __get__ = interp2app(W_CPPDataMember.get),
     __set__ = interp2app(W_CPPDataMember.set),
 )
 W_CPPDataMember.typedef.acceptable_as_base_class = False
 
-class W_CPPStaticData(W_CPPDataMember):
-    def is_static(self):
-        return self.space.w_True
 
+class W_CPPConstDataMember(W_CPPDataMember):
+    def set(self, w_cppinstance, w_value):
+        raise oefmt(self.space.w_TypeError, "assignment to const data not allowed")
+
+W_CPPConstDataMember.typedef = TypeDef(
+    'CPPConstDataMember',
+    __get__ = interp2app(W_CPPDataMember.get),
+    __set__ = interp2app(W_CPPConstDataMember.set),
+)
+W_CPPConstDataMember.typedef.acceptable_as_base_class = False
+
+
+class W_CPPStaticData(W_CPPDataMember):
     @jit.elidable_promote()
     def _get_offset(self, cppinstance):
         return self.offset
@@ -751,18 +787,33 @@ class W_CPPStaticData(W_CPPDataMember):
 
 W_CPPStaticData.typedef = TypeDef(
     'CPPStaticData',
-    is_static = interp2app(W_CPPStaticData.is_static),
     __get__ = interp2app(W_CPPStaticData.get),
     __set__ = interp2app(W_CPPStaticData.set),
 )
 W_CPPStaticData.typedef.acceptable_as_base_class = False
 
-def is_static(space, w_obj):
+
+class W_CPPConstStaticData(W_CPPStaticData):
+    def set(self, w_cppinstance, w_value):
+        raise oefmt(self.space.w_TypeError, "assignment to const data not allowed")
+
+W_CPPConstStaticData.typedef = TypeDef(
+    'CPPConstStaticData',
+    __get__ = interp2app(W_CPPConstStaticData.get),
+    __set__ = interp2app(W_CPPConstStaticData.set),
+)
+W_CPPConstStaticData.typedef.acceptable_as_base_class = False
+
+
+def is_static_data(space, w_obj):
     try:
         space.interp_w(W_CPPStaticData, w_obj, can_be_None=False)
         return space.w_True
     except Exception:
         return space.w_False
+
+#-----
+
 
 class W_CPPScopeDecl(W_Root):
     _attrs_ = ['space', 'handle', 'name', 'methods', 'datamembers']
@@ -847,7 +898,10 @@ class W_CPPNamespaceDecl(W_CPPScopeDecl):
         offset = capi.c_datamember_offset(self.space, self, dm_idx)
         if offset == -1:
             raise self.missing_attribute_error(dm_name)
-        datamember = W_CPPStaticData(self.space, self, type_name, offset)
+        if capi.c_is_const_data(self.space, self, dm_idx):
+            datamember = W_CPPConstStaticData(self.space, self, type_name, offset)
+        else:
+            datamember = W_CPPStaticData(self.space, self, type_name, offset)
         self.datamembers[dm_name] = datamember
         return datamember
 
@@ -967,8 +1021,13 @@ class W_CPPClassDecl(W_CPPScopeDecl):
             if offset == -1:
                 continue      # dictionary problem; raises AttributeError on use
             is_static = bool(capi.c_is_staticdata(self.space, self, i))
-            if is_static:
+            is_const  = bool(capi.c_is_const_data(self.space, self, i))
+            if is_static and is_const:
+                datamember = W_CPPConstStaticData(self.space, self, type_name, offset)
+            elif is_static:
                 datamember = W_CPPStaticData(self.space, self, type_name, offset)
+            elif is_const:
+                datamember = W_CPPConstDataMember(self.space, self, type_name, offset)
             else:
                 datamember = W_CPPDataMember(self.space, self, type_name, offset)
             self.datamembers[datamember_name] = datamember
