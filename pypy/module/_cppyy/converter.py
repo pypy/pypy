@@ -749,6 +749,9 @@ def get_converter(space, _name, default):
             return InstancePtrPtrConverter(space, clsdecl)
         elif compound == "":
             return InstanceConverter(space, clsdecl)
+    elif "(anonymous)" in name:
+        # special case: enum w/o a type name
+        return _converters["internal_enum_type_t"](space, default)
 
     #   5) void* or void converter (which fails on use)
     if 0 <= compound.find('*'):
