@@ -137,6 +137,7 @@ class FakeSpace(object):
         executor.get_executor(self, 'int').__class__.c_stubcall = staticmethod(c_call_i)
 
         self.w_AttributeError      = FakeException(self, "AttributeError")
+        self.w_Exception           = FakeException(self, "Exception")
         self.w_KeyError            = FakeException(self, "KeyError")
         self.w_NotImplementedError = FakeException(self, "NotImplementedError")
         self.w_ReferenceError      = FakeException(self, "ReferenceError")
@@ -282,7 +283,7 @@ class TestFastPathJIT(LLJitMixin):
             inst = interp_cppyy._bind_object(space, FakeInt(0), cls, True)
             cls.get_overload("__init__").call(inst, [FakeInt(0)])
             cppmethod = cls.get_overload(method_name)
-            assert isinstance(inst, interp_cppyy.W_CPPClass)
+            assert isinstance(inst, interp_cppyy.W_CPPInstance)
             i = 10
             while i > 0:
                 drv.jit_merge_point(inst=inst, cppmethod=cppmethod, i=i)
