@@ -408,6 +408,8 @@ static inline char* cppstring_to_cstring(const std::string& name) {
 
 /* name to opaque C++ scope representation -------------------------------- */
 char* cppyy_resolve_name(const char* cppitem_name) {
+    if (cppyy_is_enum(cppitem_name))
+        return cppstring_to_cstring("internal_enum_type_t");
     return cppstring_to_cstring(cppitem_name);
 }
 
