@@ -14,6 +14,11 @@ many other improvements in speed and CPython compatibility. Since the changes
 affect the included python development header files, all c-extension modules must
 be recompiled for this version.
 
+Until we can work with downstream providers to distruibute builds with PyPy, we
+have made packages for some common packages `available as wheels`_. You may
+compile yourself using ``pip install --no-build-isolation <package>``, the
+``no-build-isolation`` is currently needed for pip v10.
+
 First-time python users are often stumped by silly typos and emissions when
 getting started writing code. We have improved our parser to emit more friendly
 `syntax errors`_,  making PyPy not only faster but more friendly.
@@ -60,6 +65,7 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _`hooks`: gc_info.html#gc-hooks
 .. _`cffi`: http://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
+.. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 
 What is PyPy?
 =============
