@@ -236,9 +236,7 @@ class CPPMethod(object):
                     what = rffi.cast(rffi.CCHARP, stat[1])
                     pywhat = rffi.charp2str(what)
                     capi.c_free(self.space, rffi.cast(rffi.VOIDP, what))
-                    if hasattr(self.space, "fake"):
-                        raise OperationError(self.space.w_Exception, self.space.newtext("C++ exception"))
-                    raise oefmt(self.space.w_Exception, pywhat)
+                    raise OperationError(self.space.w_Exception, self.space.newtext(pywhat))
                 return result
             finally:
                 self.finalize_call(args, args_w, call_local)
