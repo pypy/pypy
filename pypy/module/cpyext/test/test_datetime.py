@@ -1,3 +1,5 @@
+import pytest
+
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.cdatetime import *
@@ -81,6 +83,14 @@ class TestDatetime(BaseApiTest):
         w_date = PyDateTime_FromTimestamp(space, w_args)
         date = datetime.datetime.fromtimestamp(0)
         assert space.unwrap(space.str(w_date)) == str(date)
+
+    @pytest.mark.parametrize('name', ['Time', 'DateTime', 'Date', 'Delta'])
+    def test_basicsize(self, space, name):
+        datetime = _PyDateTime_Import(space)
+        py_size = getattr(datetime, "c_%sType" % name).c_tp_basicsize
+        c_size = rffi.sizeof(cts.gettype("PyDateTime_%s" % name))
+        assert py_size == c_size
+
 
 class AppTestDatetime(AppTestCpythonExtensionBase):
     def test_CAPI(self):
@@ -271,9 +281,9 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                     6, 6, 6, 6, args, PyDateTimeAPI->TimeType);
              """),
             ("datetime_with_tzinfo", "METH_O",
-             """ 
+             """
                  PyObject * obj;
-                 int tzrefcnt = args->ob_refcnt; 
+                 int tzrefcnt = args->ob_refcnt;
                  PyDateTime_IMPORT;
                  obj = PyDateTimeAPI->DateTime_FromDateAndTime(
                     2000, 6, 6, 6, 6, 6, 6, args,
@@ -291,7 +301,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                     return NULL;
                 }
                 return obj;
-                
+
              """),
         ], prologue='#include "datetime.h"\n')
         from datetime import tzinfo, datetime, timedelta, time
@@ -339,4 +349,4 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         assert module.checks(o) == (True,) * 3 + (False,) * 7 # isinstance(datetime, date)
         o = tzinfo()
         assert module.checks(o) == (False,) * 8 + (True,) * 2
-        
+
