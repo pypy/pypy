@@ -379,10 +379,10 @@ class SignalMask(object):
         for w_signum in space.unpackiterable(self.w_signals):
             signum = space.int_w(w_signum)
             check_signum_in_range(space, signum)
-            err = c_sigaddset(self.mask, signum)
-            if err:
-                raise oefmt(space.w_ValueError,
-                            "signal number %d out of range", signum)
+            # bpo-33329: ignore c_sigaddset() return value as it can fail
+            # for some reserved signals, but we want the `range(1, NSIG)`
+            # idiom to allow selecting all valid signals.
+            c_sigaddset(self.mask, signum)
         return self.mask
 
     def __exit__(self, *args):
