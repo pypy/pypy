@@ -764,4 +764,7 @@ class AppTestDATATYPES:
 
         raises(TypeError, f3, f1, 2, 3)
 
+        # TODO: get straightforward access to the overload type
+        f2 = cppyy.gbl.__cppdecl__.get_overload('sum_of_double')
+
         assert 5. == f3(f2, 5., 0.)

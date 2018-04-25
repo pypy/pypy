@@ -128,7 +128,7 @@ def set_function_generator(space, w_callback):
 
 def register_class(space, w_pycppclass):
     w_cppclass = space.findattr(w_pycppclass, space.newtext("__cppdecl__"))
-    cppclass = space.interp_w(W_CPPClassDecl, w_cppclass, can_be_None=False)
+    cppclass = space.interp_w(W_CPPClassDecl, w_cppclass)
     # add back-end specific method pythonizations (doing this on the wrapped
     # class allows simple aliasing of methods)
     capi.pythonize(space, cppclass.name, w_pycppclass)
@@ -195,7 +195,7 @@ class CPPMethod(object):
 
     @staticmethod
     def unpack_cppthis(space, w_cppinstance, declaring_scope):
-        cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+        cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
         cppinstance._nullcheck()
         return cppinstance.get_cppthis(declaring_scope)
 
@@ -442,7 +442,7 @@ class CPPMethod(object):
 
 
 class CPPFunction(CPPMethod):
-    """Global (namespaced) function dispatcher."""
+    """Global (namespaced) / static function dispatcher."""
 
     _immutable_ = True
 
@@ -807,7 +807,7 @@ W_CPPConstStaticData.typedef.acceptable_as_base_class = False
 
 def is_static_data(space, w_obj):
     try:
-        space.interp_w(W_CPPStaticData, w_obj, can_be_None=False)
+        space.interp_w(W_CPPStaticData, w_obj)
         return space.w_True
     except Exception:
         return space.w_False
@@ -1183,7 +1183,7 @@ class W_CPPInstance(W_Root):
         # scopes of the argument classes (TODO: implement that last option)
         try:
             # TODO: expecting w_other to be an W_CPPInstance is too limiting
-            other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
+            other = self.space.interp_w(W_CPPInstance, w_other)
             for name in ["", "__gnu_cxx", "__1"]:
                 nss = scope_byname(self.space, name)
                 meth_idx = capi.c_get_global_operator(
@@ -1205,7 +1205,7 @@ class W_CPPInstance(W_Root):
 
         # fallback 2: direct pointer comparison (the class comparison is needed since
         # the first data member in a struct and the struct have the same address)
-        other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)  # TODO: factor out
+        other = self.space.interp_w(W_CPPInstance, w_other)  # TODO: factor out
         iseq = (self._rawobject == other._rawobject) and (self.clsdecl == other.clsdecl)
         return self.space.newbool(iseq)
 
@@ -1322,7 +1322,7 @@ def wrap_cppinstance(space, rawobject, clsdecl,
                 offset = capi.c_base_offset1(space, actual, clsdecl, rawobject, -1)
                 rawobject = capi.direct_ptradd(rawobject, offset)
                 w_cppdecl = space.findattr(w_pycppclass, space.newtext("__cppdecl__"))
-                clsdecl = space.interp_w(W_CPPClassDecl, w_cppdecl, can_be_None=False)
+                clsdecl = space.interp_w(W_CPPClassDecl, w_cppdecl)
             except Exception:
                 # failed to locate/build the derived class, so stick to the base (note
                 # that only get_pythonized_cppclass is expected to raise, so none of
@@ -1340,7 +1340,7 @@ def wrap_cppinstance(space, rawobject, clsdecl,
 
     # fresh creation
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
-    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
     cppinstance.__init__(space, clsdecl, rawobject, is_ref, python_owns)
     memory_regulator.register(cppinstance)
     return w_cppinstance
@@ -1368,7 +1368,7 @@ def _bind_object(space, w_obj, w_clsdecl, owns=False, cast=False):
     except Exception:
         # accept integer value as address
         rawobject = rffi.cast(capi.C_OBJECT, space.uint_w(w_obj))
-    decl = space.interp_w(W_CPPClassDecl, w_clsdecl, can_be_None=False)
+    decl = space.interp_w(W_CPPClassDecl, w_clsdecl)
     return wrap_cppinstance(space, rawobject, decl, python_owns=owns, do_cast=cast)
 
 @unwrap_spec(owns=bool, cast=bool)
@@ -1384,7 +1384,7 @@ def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
 
 def move(space, w_obj):
     """Casts the given instance into an C++-style rvalue."""
-    obj = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
+    obj = space.interp_w(W_CPPInstance, w_obj)
     if obj:
         obj.flags |= INSTANCE_FLAGS_IS_R_VALUE
     return w_obj

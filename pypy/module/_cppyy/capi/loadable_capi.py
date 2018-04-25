@@ -421,7 +421,7 @@ def c_function_address_from_index(space, cppscope, index):
         _cdata_to_ptr(space, call_capi(space, 'function_address_from_index', args)))
 def c_function_address_from_method(space, cppmethod):
     return rffi.cast(C_FUNC_PTR,
-        _cdata_to_ptr(space, call_capi(space, 'function_address_from_method', _ArgH(cppmethod))))
+        _cdata_to_ptr(space, call_capi(space, 'function_address_from_method', [_ArgH(cppmethod)])))
 
 # handling of function argument buffer ---------------------------------------
 def c_allocate_function_args(space, size):
