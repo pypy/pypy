@@ -116,7 +116,7 @@ Changelog
 * Fix JIT bugs exposed in the sre module
 * Improve speed of Python parser, improve ParseError messages and SyntaxError
 * Handle JIT hooks more efficiently
-* Fix a rare GC bug exposed by intensive use of cpyext `Buffer` s
+* Fix a rare GC bug exposed by intensive use of cpyext ``Buffer`` s
 
 We also refactored many parts of the JIT bridge optimizations, as well as cpyext
 internals, and together with new contributors fixed issues, added new
