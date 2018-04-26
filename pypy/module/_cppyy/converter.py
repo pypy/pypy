@@ -687,6 +687,8 @@ class PyObjectConverter(TypeConverter):
 
 
 class FunctionPointerConverter(TypeConverter):
+    _immutable_fields_ = ['signature']
+
     def __init__(self, space, signature):
         self.signature = signature
 
@@ -780,7 +782,9 @@ def get_converter(space, _name, default):
         return _converters["internal_enum_type_t"](space, default)
     elif "(*)" in name or "::*)" in name:
         # function pointer
-        return FunctionPointerConverter(space, name[name.find("*)")+2:])
+        pos = name.find("*)")
+        if pos > 0:
+            return FunctionPointerConverter(space, name[pos+2:])
 
     #   5) void* or void converter (which fails on use)
     if 0 <= compound.find('*'):
