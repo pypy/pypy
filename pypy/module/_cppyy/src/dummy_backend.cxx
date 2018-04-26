@@ -348,6 +348,7 @@ struct Cppyy_InitPseudoReflectionInfo {
         PUBLIC_CPPYY_DATA3(short,   short,              h);
         PUBLIC_CPPYY_DATA3(ushort,  unsigned short,     H);
         PUBLIC_CPPYY_DATA3(int,     int,                i);
+        PUBLIC_CPPYY_DATA (const_int, const int);
         PUBLIC_CPPYY_DATA3(uint,    unsigned int,       I);
         PUBLIC_CPPYY_DATA3(long,    long,               l);
         PUBLIC_CPPYY_DATA3(ulong,   unsigned long,      L);
@@ -1032,7 +1033,9 @@ int cppyy_is_staticdata(cppyy_scope_t handle, cppyy_index_t idatambr) {
     return s_scopes[handle].m_datambrs[idatambr].m_isstatic;
 }
 
-int cppyy_is_const_data(cppyy_scope_t /* handle */, cppyy_index_t /* idatambr */) {
+int cppyy_is_const_data(cppyy_scope_t handle, cppyy_index_t idatambr) {
+    if (s_scopes[handle].m_datambrs[idatambr].m_name == "m_const_int")
+        return 1;
     return 0;
 }
 
