@@ -152,7 +152,7 @@ Note that PyPy cannot call the hooks immediately after a GC event, but it has
 to wait until it reaches a point in which the interpreter is in a known state
 and calling user-defined code is harmless.  It might happen that multiple
 events occur before the hook is invoked: in this case, you can inspect the
-value ``stats.count`` to know how many times the event occured since the last
+value ``stats.count`` to know how many times the event occurred since the last
 time the hook was called.  Similarly, ``stats.duration`` contains the
 **total** time spent by the GC for this specific event since the last time the
 hook was called.
@@ -163,7 +163,7 @@ only to the **last** event of the series.
 The attributes for ``GcMinorStats`` are:
 
 ``count``
-    The number of minor collections occured since the last hook call.
+    The number of minor collections occurred since the last hook call.
 
 ``duration``
     The total time spent inside minor collections since the last hook
