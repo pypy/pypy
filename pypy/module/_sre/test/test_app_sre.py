@@ -32,7 +32,7 @@ def _test_sre_ctx_(self, str, start, end):
         start = support.Position(start)
     if not isinstance(end, support.Position):
         end = support.Position(end)
-    return support.MatchContextForTests(self.code, str, start, end, self.flags)
+    return support.MatchContextForTests(str, start, end, self.flags)
 
 def _bytepos_to_charindex(self, bytepos):
     if isinstance(self.ctx, support.MatchContextForTests):

@@ -133,7 +133,7 @@ class W_SRE_Pattern(W_Root):
                 endbytepos = rutf8.codepoint_position_at_index(utf8str,
                                 index_storage, endpos)
             ctx = rsre_utf8.Utf8MatchContext(
-                self.code, utf8str, bytepos, endbytepos, self.flags)
+                utf8str, bytepos, endbytepos, self.flags)
             # xxx we store the w_string on the ctx too, for
             # W_SRE_Match.bytepos_to_charindex()
             ctx.w_unicode_obj = w_unicode_obj
@@ -159,14 +159,14 @@ class W_SRE_Pattern(W_Root):
     def fresh_copy(self, ctx):
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
             result = rsre_utf8.Utf8MatchContext(
-                ctx.pattern, ctx._utf8, ctx.match_start, ctx.end, ctx.flags)
+                ctx._utf8, ctx.match_start, ctx.end, ctx.flags)
             result.w_unicode_obj = ctx.w_unicode_obj
         elif isinstance(ctx, rsre_core.StrMatchContext):
             result = self._make_str_match_context(
                 ctx._string, ctx.match_start, ctx.end)
         elif isinstance(ctx, rsre_core.BufMatchContext):
             result = rsre_core.BufMatchContext(
-                ctx.pattern, ctx._buffer, ctx.match_start, ctx.end, ctx.flags)
+                ctx._buffer, ctx.match_start, ctx.end, ctx.flags)
         else:
             raise AssertionError("bad ctx type")
         result.match_end = ctx.match_end
@@ -174,7 +174,7 @@ class W_SRE_Pattern(W_Root):
 
     def _make_str_match_context(self, str, pos, endpos):
         # for tests to override
-        return rsre_core.StrMatchContext(self.code, str,
+        return rsre_core.StrMatchContext(str,
                                          pos, endpos, self.flags)
 
     def getmatch(self, ctx, found):
@@ -319,7 +319,7 @@ class W_SRE_Pattern(W_Root):
         n = 0
         last_pos = ctx.ZERO
         while not count or n < count:
-            pattern = ctx.pattern
+            pattern = self.code
             sub_jitdriver.jit_merge_point(
                 self=self,
                 use_builder=use_builder,

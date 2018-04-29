@@ -12,8 +12,8 @@ class Utf8MatchContext(AbstractMatchContext):
     by this class are expressed in *bytes*, not in characters.
     """
 
-    def __init__(self, pattern, utf8string, match_start, end, flags):
-        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+    def __init__(self, utf8string, match_start, end, flags):
+        AbstractMatchContext.__init__(self, match_start, end, flags)
         self._utf8 = utf8string
 
     def str(self, index):
