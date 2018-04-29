@@ -10,7 +10,7 @@ def get_code_and_re(regexp):
 def test_get_code_repetition():
     c1 = get_code(r"a+")
     c2 = get_code(r"a+")
-    assert c1 == c2
+    assert c1.pattern == c2.pattern
 
 
 class TestMatch:
@@ -306,6 +306,6 @@ class TestMatch:
         rsre_char.set_unicode_db(unicodedb)
         #
         r = get_code(u"[\U00010428-\U0001044f]", re.I)
-        assert r.count(27) == 1       # OPCODE_RANGE
-        r[r.index(27)] = 32           # => OPCODE_RANGE_IGNORE
+        assert r.pattern.count(27) == 1       # OPCODE_RANGE
+        r.pattern[r.pattern.index(27)] = 32   # => OPCODE_RANGE_IGNORE
         assert match(r, u"\U00010428")

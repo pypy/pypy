@@ -992,6 +992,14 @@ class EmptyListStrategy(ListStrategy):
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         strategy = w_other.strategy
+        if step != 1:
+            len2 = strategy.length(w_other)
+            if len2 == 0:
+                return
+            else:
+                raise oefmt(self.space.w_ValueError,
+                            "attempt to assign sequence of size %d to extended "
+                            "slice of size %d", len2, 0)
         storage = strategy.getstorage_copy(w_other)
         w_list.strategy = strategy
         w_list.lstorage = storage

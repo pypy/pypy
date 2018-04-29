@@ -16,7 +16,7 @@
 
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
 
-#ifdef VMPROF_LINUX
+#if defined(VMPROF_LINUX) || defined(VMPROF_BSD)
 #include "unwind/vmprof_unwind.h"
 typedef mcontext_t unw_context_t;
 
@@ -214,7 +214,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     ret = unw_getcontext(&uc);
     if (ret < 0) {
         // could not initialize lib unwind cursor and context
-        fprintf(stderr, "WARNING: unw_getcontext did not retreive context, switching to python profiling mode \n");
+        fprintf(stderr, "WARNING: unw_getcontext did not retrieve context, switching to python profiling mode \n");
         vmp_native_disable();
         return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
     }
@@ -510,13 +510,15 @@ teardown:
 static const char * vmprof_error = NULL;
 static void * libhandle = NULL;
 
-
 #ifdef VMPROF_LINUX
+#include <link.h>
 #define LIBUNWIND "libunwind.so"
 #ifdef __i386__
 #define PREFIX "x86"
+#define LIBUNWIND_SUFFIX ""
 #elif __x86_64__
 #define PREFIX "x86_64"
+#define LIBUNWIND_SUFFIX "-x86_64"
 #endif
 #define U_PREFIX "_U"
 #define UL_PREFIX "_UL"
@@ -524,10 +526,41 @@ static void * libhandle = NULL;
 
 int vmp_native_enable(void) {
 #ifdef VMPROF_LINUX
+    void * oldhandle = NULL;
+    struct link_map * map = NULL;
     if (libhandle == NULL) {
+        // on linux, the wheel includes the libunwind shared object.
+        libhandle = dlopen(NULL, RTLD_NOW);
+        if (libhandle != NULL) {
+            // load the link map, it will contain an entry to
+            // .libs_vmprof/libunwind-...so, this is the file that is
+            // distributed with the wheel.
+            if (dlinfo(libhandle, RTLD_DI_LINKMAP, &map) != 0) {
+                (void)dlclose(libhandle);
+                libhandle = NULL;
+                goto bail_out;
+            }
+            // grab the new handle
+            do {
+                if (strstr(map->l_name, ".libs_vmprof/libunwind" LIBUNWIND_SUFFIX) != NULL) {
+                    oldhandle = libhandle;
+                    libhandle = dlopen(map->l_name, RTLD_LAZY|RTLD_LOCAL);
+                    (void)dlclose(oldhandle);
+                    oldhandle = NULL;
+                    goto loaded_libunwind;
+                }
+                map = map->l_next;
+            } while (map != NULL);
+            // did not find .libs_vmprof/libunwind...
+            (void)dlclose(libhandle);
+            libhandle = NULL;
+        }
+
+        // fallback! try to load the system's libunwind.so
         if ((libhandle = dlopen(LIBUNWIND, RTLD_LAZY | RTLD_LOCAL)) == NULL) {
             goto bail_out;
         }
+loaded_libunwind:
         if ((unw_get_reg = dlsym(libhandle, UL_PREFIX PREFIX "_get_reg")) == NULL) {
             goto bail_out;
         }

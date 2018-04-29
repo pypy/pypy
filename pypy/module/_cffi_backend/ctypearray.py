@@ -70,7 +70,15 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 length = w_u._len()
             return (w_value, length + 1)
         else:
-            explicitlength = space.getindex_w(w_value, space.w_OverflowError)
+            try:
+                explicitlength = space.getindex_w(w_value,
+                                                  space.w_OverflowError)
+            except OperationError as e:
+                if e.match(space, space.w_TypeError):
+                    raise oefmt(space.w_TypeError,
+                        "expected new array length or list/tuple/str, "
+                        "not %T", w_value)
+                raise
             if explicitlength < 0:
                 raise oefmt(space.w_ValueError, "negative array length")
             return (space.w_None, explicitlength)

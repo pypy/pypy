@@ -644,7 +644,10 @@ def get_rpy_memory_usage(gcref):
 def get_rpy_type_index(gcref):
     from rpython.rlib.rarithmetic import intmask
     Class = gcref._x.__class__
-    return intmask(id(Class))
+    i = intmask(id(Class))
+    if i < 0:
+        i = ~i    # always return a positive number, at least
+    return i
 
 def cast_gcref_to_int(gcref):
     # This is meant to be used on cast_instance_to_gcref results.

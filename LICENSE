@@ -6,36 +6,36 @@ License
 Except when otherwise stated (look for LICENSE files in directories or
 information at the beginning of each file) all software and documentation in
 the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', 'lib_pypy',
-'py', and '_pytest' directories is licensed as follows: 
+'py', and '_pytest' directories is licensed as follows:
 
     The MIT License
 
-    Permission is hereby granted, free of charge, to any person 
-    obtaining a copy of this software and associated documentation 
-    files (the "Software"), to deal in the Software without 
-    restriction, including without limitation the rights to use, 
-    copy, modify, merge, publish, distribute, sublicense, and/or 
-    sell copies of the Software, and to permit persons to whom the 
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation
+    files (the "Software"), to deal in the Software without
+    restriction, including without limitation the rights to use,
+    copy, modify, merge, publish, distribute, sublicense, and/or
+    sell copies of the Software, and to permit persons to whom the
     Software is furnished to do so, subject to the following conditions:
 
-    The above copyright notice and this permission notice shall be included 
+    The above copyright notice and this permission notice shall be included
     in all copies or substantial portions of the Software.
 
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
-    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 
 
 PyPy Copyright holders 2003-2018
------------------------------------ 
+--------------------------------
 
 Except when otherwise stated (look for LICENSE files or information at
 the beginning of each file) the files in the 'pypy' directory are each
-copyrighted by one or more of the following people and organizations:    
+copyrighted by one or more of the following people and organizations:
 
   Armin Rigo
   Maciej Fijalkowski
@@ -89,13 +89,13 @@ copyrighted by one or more of the following people and organizations:
   Niko Matsakis
   Alexander Hesse
   Ludovic Aubry
+  stian
   Jacob Hallen
   Jason Creighton
   Mark Young
   Alex Martelli
   Spenser Bauman
   Michal Bendowski
-  stian
   Jan de Mooij
   Tyler Wade
   Vincent Legoll
@@ -123,10 +123,10 @@ copyrighted by one or more of the following people and organizations:
   Wenzhu Man
   Konstantin Lopuhin
   John Witulski
+  Jeremy Thurgood
   Greg Price
   Ivan Sichmann Freitas
   Dario Bertini
-  Jeremy Thurgood
   Mark Pearse
   Simon Cross
   Tobias Pape
@@ -145,18 +145,19 @@ copyrighted by one or more of the following people and organizations:
   Adrian Kuhn
   tav
   Georg Brandl
+  Joannah Nanjekye
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
   Mike Blume
-  Joannah Nanjekye
   Gerald Klix
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
+  Dodan Mihai
   Tim Felgentreff
   Eugene Oden
-  Dodan Mihai
+  Colin Valliant
   Jeff Terrace
   Henry Mason
   Vasily Kuznetsov
@@ -225,12 +226,14 @@ copyrighted by one or more of the following people and organizations:
   Vaibhav Sood
   Reuben Cummings
   Attila Gobi
+  Floris Bruynooghe
   Christopher Pope
   Tristan Arthur
   Christian Tismer 
   Dan Stromberg
   Carl Meyer
   Florin Papa
+  Arianna Avanzini
   Jens-Uwe Mager
   Valentina Mukhamedzhanova
   Stefano Parmesan
@@ -244,15 +247,18 @@ copyrighted by one or more of the following people and organizations:
   Lukas Vacek
   Omer Katz
   Jacek Generowicz
+  Tomasz Dziopa
   Sylvain Thenault
   Jakub Stasiak
   Andrew Dalke
   Alejandro J. Cura
   Vladimir Kryachko
   Gabriel
+  Thomas Hisch
   Mark Williams
   Kunal Grover
   Nathan Taylor
+  Barry Hart
   Travis Francis Athougies
   Yasir Suhail
   Sergey Kishchenko
@@ -260,6 +266,7 @@ copyrighted by one or more of the following people and organizations:
   Lutz Paelike
   Ian Foote
   Philipp Rustemeuer
+  Logan Chien
   Catalin Gabriel Manciu
   Jacob Oscarson
   Ryan Gonzalez
@@ -295,19 +302,20 @@ copyrighted by one or more of the following people and organizations:
   Akira Li
   Gustavo Niemeyer
   Rafał Gałczyński
-  Logan Chien
   Lucas Stadler
   roberto@goyle
   Matt Bogosian
   Yury V. Zaytsev
   florinpapa
   Anders Sigfridsson
+  Matt Jackson
   Nikolay Zinov
   rafalgalczynski@gmail.com
   Joshua Gilbert
   Anna Katrina Dominguez
   Kim Jin Su
   Amber Brown
+  Miro Hrončok
   Anthony Sottile
   Nate Bragg
   Ben Darnell
@@ -315,7 +323,6 @@ copyrighted by one or more of the following people and organizations:
   Godefroid Chappelle
   Julian Berman
   Michael Hudson-Doyle
-  Floris Bruynooghe
   Stephan Busemann
   Dan Colish
   timo
@@ -357,6 +364,7 @@ copyrighted by one or more of the following people and organizations:
   Michael Chermside
   Anna Ravencroft
   remarkablerocket
+  Pauli Virtanen
   Petre Vijiac
   Berker Peksag
   Christian Muirhead
@@ -381,6 +389,7 @@ copyrighted by one or more of the following people and organizations:
   Graham Markall
   Dan Loewenherz
   werat
+  Andrew Stepanov
   Niclas Olofsson
   Chris Pressey
   Tobias Diaz
@@ -395,14 +404,14 @@ copyrighted by one or more of the following people and organizations:
   m@funkyhat.org
   Stefan Marr
 
-  Heinrich-Heine University, Germany 
+  Heinrich-Heine University, Germany
   Open End AB (formerly AB Strakt), Sweden
-  merlinux GmbH, Germany 
-  tismerysoft GmbH, Germany 
-  Logilab Paris, France 
-  DFKI GmbH, Germany 
+  merlinux GmbH, Germany
+  tismerysoft GmbH, Germany
+  Logilab Paris, France
+  DFKI GmbH, Germany
   Impara, Germany
-  Change Maker, Sweden 
+  Change Maker, Sweden
   University of California Berkeley, USA
   Google Inc.
   King's College London
@@ -410,14 +419,14 @@ copyrighted by one or more of the following people and organizations:
 The PyPy Logo as used by http://speed.pypy.org and others was created
 by Samuel Reis and is distributed on terms of Creative Commons Share Alike
 License.
- 
-License for 'lib-python/2.7'
-============================
+
+License for 'lib-python/2.7, lib-python/3'
+==========================================
 
 Except when otherwise stated (look for LICENSE files or copyright/license
-information at the beginning of each file) the files in the 'lib-python/2.7'
+information at the beginning of each file) the files in the 'lib-python'
 directory are all copyrighted by the Python Software Foundation and licensed
-under the terms that you can find here: https://docs.python.org/2/license.html
+under the terms that you can find here: https://docs.python.org/3/license.html
 
 License for 'pypy/module/unicodedata/'
 ======================================
@@ -441,9 +450,9 @@ Copyright (C) 2008 The Android Open Source Project
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-  
+
      http://www.apache.org/licenses/LICENSE-2.0
-  
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.

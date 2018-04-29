@@ -94,7 +94,7 @@ class RefcountingInfo:
 
 class RefcountingGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import refcounting
         return refcounting.RefcountingGCTransformer(translator)
 
@@ -175,7 +175,7 @@ class BoehmInfo:
 
 class BoehmGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import boehm
         return boehm.BoehmGCTransformer(translator)
 
@@ -302,9 +302,9 @@ class NoneGcPolicy(BoehmGcPolicy):
 
 class BasicFrameworkGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         if hasattr(self, 'transformerclass'):    # for rpython/memory tests
-            return self.transformerclass(translator)
+            return self.transformerclass(translator, gchooks=gchooks)
         raise NotImplementedError
 
     def struct_setup(self, structdefnode, rtti):
@@ -439,9 +439,9 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
 
 class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import shadowstack
-        return shadowstack.ShadowStackFrameworkGCTransformer(translator)
+        return shadowstack.ShadowStackFrameworkGCTransformer(translator, gchooks)
 
     def enter_roots_frame(self, funcgen, (c_gcdata, c_numcolors)):
         numcolors = c_numcolors.value
@@ -484,9 +484,9 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
 class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import asmgcroot
-        return asmgcroot.AsmGcRootFrameworkGCTransformer(translator)
+        return asmgcroot.AsmGcRootFrameworkGCTransformer(translator, gchooks)
 
     def GC_KEEPALIVE(self, funcgen, v):
         return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)
