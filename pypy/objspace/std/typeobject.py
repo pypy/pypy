@@ -800,6 +800,8 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
                           dict_w, is_heaptype=True)
     w_type.ready()
+
+    _set_names(space, w_type)
     return w_type
 
 def _calculate_metaclass(space, w_metaclass, bases_w):
@@ -821,6 +823,13 @@ def _precheck_for_new(space, w_type):
     if not isinstance(w_type, W_TypeObject):
         raise oefmt(space.w_TypeError, "X is not a type object (%T)", w_type)
     return w_type
+
+def _set_names(space, w_type):
+    for key, w_value in w_type.dict_w.iteritems():
+        w_meth = space.lookup(w_value, '__set_name__')
+        if w_meth is not None:
+            # XXX what happens when the call raises, gets turned into a RuntimeError?
+            space.get_and_call_function(w_meth, w_value, w_type, space.newtext(key))
 
 
 def descr__init__(space, w_type, __args__):

@@ -1544,3 +1544,15 @@ class AppTestComparesByIdentity:
 
     def test_type_construct_unicode_surrogate_issue(self):
         raises(ValueError, type, 'A\udcdcb', (), {})
+
+    def test_set_name(self):
+        class Descriptor:
+            def __set_name__(self, owner, name):
+                self.owner = owner
+                self.name = name
+
+        class X:
+            a = Descriptor()
+        assert X.a.owner is X
+        assert X.a.name == "a"
+
