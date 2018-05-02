@@ -119,8 +119,8 @@ def parsestr(space, encoding, s):
 
     if first_escape_error_char != '':
         space.warn(
-            space.newtext("invalid escape sequence '\\%c'"
-                             % first_escape_error_char),
+            space.newtext("invalid escape sequence '\\%s'"
+                          % first_escape_error_char),
             space.w_DeprecationWarning)
 
     return space.newbytes(v)
