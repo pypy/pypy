@@ -749,20 +749,26 @@ class W_TypeObject(W_Root):
         return space.newbool(not space.is_w(self, w_other))
 
 
-def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
+def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
+    if len(__args__.arguments_w) not in (1, 3):
+        raise oefmt(space.w_TypeError,
+                    "type.__new__() takes 1 or 3 arguments")
+
+    w_name = __args__.arguments_w[0]
+
     w_typetype = _precheck_for_new(space, w_typetype)
 
     # special case for type(x)
     if (space.is_w(space.type(w_typetype), space.w_type) and
-        w_bases is None and w_dict is None):
+            len(__args__.arguments_w) == 1):
         return space.type(w_name)
-    return _create_new_type(space, w_typetype, w_name, w_bases, w_dict)
+    w_bases = __args__.arguments_w[1]
+    w_dict = __args__.arguments_w[2]
+    return _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__)
 
 
 def _check_new_args(space, w_name, w_bases, w_dict):
-    if w_bases is None or w_dict is None:
-        raise oefmt(space.w_TypeError, "type() takes 1 or 3 arguments")
     if not space.isinstance_w(w_name, space.w_text):
         raise oefmt(space.w_TypeError,
                     "type() argument 1 must be string, not %T", w_name)
@@ -774,7 +780,7 @@ def _check_new_args(space, w_name, w_bases, w_dict):
                     "type() argument 3 must be dict, not %T", w_dict)
 
 
-def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
+def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
     _check_new_args(space, w_name, w_bases, w_dict)
@@ -802,6 +808,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     w_type.ready()
 
     _set_names(space, w_type)
+    _init_subclass(space, w_type, __args__)
     return w_type
 
 def _calculate_metaclass(space, w_metaclass, bases_w):
@@ -831,11 +838,15 @@ def _set_names(space, w_type):
             # XXX what happens when the call raises, gets turned into a RuntimeError?
             space.get_and_call_function(w_meth, w_value, w_type, space.newtext(key))
 
+def _init_subclass(space, w_type, __args__):
+    # bit of a mess, but I didn't feel like implementing the super logic
+    w_super = space.getattr(space.builtin, space.newtext("super"))
+    w_func = space.getattr(space.call_function(w_super, w_type, w_type),
+                           space.newtext("__init_subclass__"))
+    args = __args__.replace_arguments([])
+    space.call_args(w_func, args)
 
 def descr__init__(space, w_type, __args__):
-    if __args__.keywords:
-        raise oefmt(space.w_TypeError,
-                    "type.__init__() takes no keyword arguments")
     if len(__args__.arguments_w) not in (1, 3):
         raise oefmt(space.w_TypeError,
                     "type.__init__() takes 1 or 3 arguments")
@@ -1311,6 +1322,7 @@ def ensure_common_attributes(w_self):
     w_self.mro_w = []      # temporarily
     w_self.hasmro = False
     compute_mro(w_self)
+    ensure_classmethod_init_subclass(w_self)
 
 def ensure_static_new(w_self):
     # special-case __new__, as in CPython:
@@ -1319,6 +1331,12 @@ def ensure_static_new(w_self):
         w_new = w_self.dict_w['__new__']
         if isinstance(w_new, Function):
             w_self.dict_w['__new__'] = StaticMethod(w_new)
+
+def ensure_classmethod_init_subclass(w_self):
+    if '__init_subclass__' in w_self.dict_w:
+        w_init_subclass = w_self.dict_w['__init_subclass__']
+        if isinstance(w_init_subclass, Function):
+            w_self.dict_w['__init_subclass__'] = ClassMethod(w_init_subclass)
 
 def ensure_module_attr(w_self):
     # initialize __module__ in the dict (user-defined types only)

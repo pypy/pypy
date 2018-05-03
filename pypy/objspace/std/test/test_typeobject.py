@@ -1556,3 +1556,43 @@ class AppTestComparesByIdentity:
         assert X.a.owner is X
         assert X.a.name == "a"
 
+    def test_type_init_accepts_kwargs(self):
+        type.__init__(type, "a", (object, ), {}, a=1)
+
+    def test_init_subclass_classmethod(self):
+        assert isinstance(object.__dict__['__init_subclass__'], classmethod)
+        class A(object):
+            subclasses = []
+
+            def __init_subclass__(cls):
+                cls.subclass.append(cls)
+        assert isinstance(A.__dict__['__init_subclass__'], classmethod)
+
+    def test_init_subclass(self):
+        class PluginBase(object):
+            subclasses = []
+
+            def __init_subclass__(cls):
+                cls.subclasses.append(cls)
+
+        class B(PluginBase):
+            pass
+
+        class C(PluginBase):
+            pass
+
+        assert PluginBase.subclasses == [B, C]
+
+
+        class X(object):
+            subclasses = []
+
+            def __init_subclass__(cls, **kwargs):
+                cls.kwargs = kwargs
+
+        exec("""if 1:
+        class Y(X, a=1, b=2):
+            pass
+
+        assert Y.kwargs == dict(a=1, b=2)
+        """)

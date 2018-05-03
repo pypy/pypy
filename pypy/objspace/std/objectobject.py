@@ -122,6 +122,8 @@ def descr__new__(space, w_type, __args__):
 def descr___subclasshook__(space, __args__):
     return space.w_NotImplemented
 
+def descr___init_subclass__(space, w_cls):
+    return space.w_None
 
 def descr__init__(space, w_obj, __args__):
     if _excess_args(__args__):
@@ -284,11 +286,13 @@ W_ObjectObject.typedef = TypeDef("object",
     __doc__ = "The most base type",
     __new__ = interp2app(descr__new__),
     __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True),
+    __init_subclass__ = interp2app(descr___init_subclass__, as_classmethod=True),
 
     # these are actually implemented in pypy.objspace.descroperation
     __getattribute__ = interp2app(Object.descr__getattribute__.im_func),
     __setattr__ = interp2app(Object.descr__setattr__.im_func),
     __delattr__ = interp2app(Object.descr__delattr__.im_func),
+
 
     __init__ = interp2app(descr__init__),
     __class__ = GetSetProperty(descr_get___class__, descr_set___class__),

@@ -359,6 +359,11 @@ class AppTestObject:
         assert o.__ge__(o2) is NotImplemented
         assert o.__gt__(o2) is NotImplemented
 
+    def test_init_subclass(self):
+        object().__init_subclass__() # does not crash
+        object.__init_subclass__() # does not crash
+        raises(TypeError, object.__init_subclass__, 1)
+
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace
     space = objspace.StdObjSpace()
