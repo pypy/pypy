@@ -39,7 +39,7 @@ working_modules.update([
     "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
-    "_csv", "_pypyjson", "_posixsubprocess", "_cppyy", # "micronumpy",
+    "_csv", "_pypyjson", "_posixsubprocess", # "_cppyy", "micronumpy"
     "_jitlog",
 ])
 
