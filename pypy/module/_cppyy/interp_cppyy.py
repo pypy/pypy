@@ -1167,9 +1167,11 @@ class W_CPPInstance(W_Root):
                     "'%s' has no length", self.clsdecl.name)
 
     def instance__cmp__(self, w_other):
-        w_as_builtin = self._get_as_builtin()
-        if w_as_builtin is not None:
-            return self.space.cmp(w_as_builtin, w_other)
+        from pypy.module.sys.version import CPYTHON_VERSION
+        if CPYTHON_VERSION[0] != 3:
+            w_as_builtin = self._get_as_builtin()
+            if w_as_builtin is not None:
+                return self.space.cmp(w_as_builtin, w_other)
         raise oefmt(self.space.w_AttributeError,
                     "'%s' has no attribute __cmp__", self.clsdecl.name)
 
