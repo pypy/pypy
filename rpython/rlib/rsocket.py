@@ -550,7 +550,7 @@ class RSocket(object):
         self.family = family
         self.type = type
         self.proto = proto
-        self.timeout = defaults.timeout
+        self.settimeout(defaults.timeout)
 
     @staticmethod
     def empty_rsocket():
