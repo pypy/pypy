@@ -15,3 +15,6 @@ support anonymous enums, support for function pointer arguments
 
 Make sure 'blocking-ness' of socket is set along with default timeout
 
+.. branch: crypt_h
+
+Include crypt.h for crypt() on Linux
