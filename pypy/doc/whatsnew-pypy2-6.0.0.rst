@@ -121,4 +121,8 @@ Introduce GC hooks, as documented in doc/gc_info.rst
 
 .. branch: gc-hook-better-timestamp
 
-Improve GC hooksd
+Improve GC hooks
+
+.. branch: cppyy-packaging
+
+Update backend to 0.6.0 and support exceptions through wrappers

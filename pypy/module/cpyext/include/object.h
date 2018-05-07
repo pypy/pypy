@@ -333,7 +333,7 @@ typedef union _gc_head {
         } while (0)
 
 #define PyObject_TypeCheck(ob, tp) \
-    ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
+    (Py_TYPE(ob) == (tp) || PyType_IsSubtype(Py_TYPE(ob), (tp)))
 
 #define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
 #define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);

@@ -482,7 +482,7 @@ class AppTestDATATYPES:
         assert c.get_valid_string('aap') == 'aap'
         #assert c.get_invalid_string() == ''
 
-    def test12_copy_contructor(self):
+    def test12_copy_constructor(self):
         """Test copy constructor"""
 
         import _cppyy as cppyy
