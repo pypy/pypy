@@ -2,7 +2,7 @@
 """
 
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module._rawffi import alt
+from pypy.module._rawffi.alt.moduledef import Module as AltModule
 
 class Module(MixedModule):
     interpleveldefs = {
@@ -36,7 +36,7 @@ class Module(MixedModule):
     }
 
     submodules = {
-        'alt': alt.Module,
+        'alt': AltModule,
     }
 
     def buildloaders(cls):

@@ -154,7 +154,7 @@ class MixedModule(Module):
 
     def extra_interpdef(self, name, spec):
         cls = self.__class__
-        pkgroot = cls.__module__
+        pkgroot = cls.__module__.rsplit('.', 1)[0]
         loader = getinterpevalloader(pkgroot, spec)
         space = self.space
         w_obj = loader(space)

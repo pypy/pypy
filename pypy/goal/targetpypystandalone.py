@@ -328,10 +328,10 @@ class PyPyTarget(object):
         translate.log_config(config.objspace, "PyPy config object")
 
         # obscure hack to stuff the translation options into the translated PyPy
-        import pypy.module.sys
+        from pypy.module.sys.moduledef import Module as SysModule
         options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options) # import time
-        pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+        wrapstr = 'space.wrap(%r)' % (options)  # import time
+        SysModule.interpleveldefs['pypy_translation_info'] = wrapstr
         if config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)
 
