@@ -72,7 +72,9 @@ class AppTestCrossing:
         # to allow the generated extension module be loaded first)
         cls.w_test_dct    = cls.space.newtext(test_dct)
         cls.w_pre_imports = cls.space.appexec([], """():
-            import ctypes, _cppyy""")   # prevents leak-checking complaints on ctypes' statics
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()""")   # early import of ctypes
+                  # prevents leak-checking complaints on ctypes' statics
 
     def setup_method(self, func):
         @unwrap_spec(name='text', init='text', body='text')
