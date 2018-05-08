@@ -1,7 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
-    "This module brigdes the cppyy frontend with its backend, through PyPy.\n\
+    "This module bridges the cppyy frontend with its backend, through PyPy.\n\
     See http://cppyy.readthedocs.io/en/latest for full details."
 
     interpleveldefs = {
