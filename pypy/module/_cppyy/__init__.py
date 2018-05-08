@@ -22,7 +22,7 @@ class Module(MixedModule):
     }
 
     appleveldefs = {
-        '_init_pythonify'        : 'pythonify._init_pythonify',
+        '_post_import_startup'   : 'pythonify._post_import_startup',
         'add_pythonization'      : 'pythonify.add_pythonization',
         'Template'               : 'pythonify.CPPTemplate',
     }
@@ -35,9 +35,3 @@ class Module(MixedModule):
         # code generation is not, so give it a chance to run now
         from pypy.module._cppyy import capi
         capi.register_pythonizations(space)
-
-    def startup(self, space):
-        from pypy.module._cppyy import capi
-        capi.verify_backend(space)      # may raise ImportError
-
-        space.call_method(self, '_init_pythonify')

@@ -1,5 +1,5 @@
 # NOT_RPYTHON
-# do not load _cppyy here, see _init_pythonify()
+# do not load _cppyy here, see _post_import_startup()
 import types
 import sys
 
@@ -22,7 +22,7 @@ class CPPMetaNamespace(CPPScope):
 class CPPClass(CPPScope):
     pass
 
-# namespace base class (class base class defined in _init_pythonify)
+# namespace base class (class base class defined in _post_import_startup()
 class CPPNamespace(object):
     __metatype__ = CPPMetaNamespace
 
@@ -407,7 +407,7 @@ def _pythonize(pyclass):
         pyclass.__len__     = return2
 
 
-def _init_pythonify():
+def _post_import_startup():
     # _cppyy should not be loaded at the module level, as that will trigger a
     # call to space.getbuiltinmodule(), which will cause _cppyy to be loaded
     # at pypy-c startup, rather than on the "import _cppyy" statement

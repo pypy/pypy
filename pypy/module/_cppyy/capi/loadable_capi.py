@@ -308,7 +308,7 @@ def call_capi(space, name, args):
         c_call = state.capi_calls[name]
     except KeyError:
         if state.backend is None:
-            load_backend(space)
+            verify_backend(space)
         iface = state.capi_call_ifaces[name]
         cfunc = W_RCTypeFunc(space, iface[0], iface[1], False)
         c_call = state.backend.load_function(cfunc, 'cppyy_'+name)
