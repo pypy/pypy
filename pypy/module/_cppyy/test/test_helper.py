@@ -50,3 +50,14 @@ def test_operator_mapping():
 
     assert helper.map_operator_name(None, "func", 0, "")        == "func"
     assert helper.map_operator_name(None, "some_method", 0, "") == "some_method"
+
+
+def test_namespace_extraction():
+    assert helper.extract_namespace("vector")                        == ""
+    assert helper.extract_namespace("std::vector")                   == "std"
+    assert helper.extract_namespace("std::vector<double>")           == "std"
+    assert helper.extract_namespace("std::vector<std::vector>")      == "std"
+    assert helper.extract_namespace("vector<double>")                == ""
+    assert helper.extract_namespace("vector<std::vector>")           == ""
+    assert helper.extract_namespace("aap::noot::mies::zus")          == "aap::noot::mies"
+
