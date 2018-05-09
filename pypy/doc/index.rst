@@ -41,7 +41,7 @@ Using PyPy
 ----------
 
 .. toctree::
-  :maxdepth: 1
+  :maxdepth: 2
 
   cpython_differences
   extending
@@ -56,7 +56,7 @@ Development
 -----------
 
 .. toctree::
-  :maxdepth: 1
+  :maxdepth: 2
 
   contributing
   architecture
