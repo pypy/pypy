@@ -91,7 +91,7 @@ Fork & Clone
 
 * Go to https://bitbucket.org/pypy/pypy/ and click "fork" (left
   icons).  You get a fork of the repository, e.g. in
-  https://bitbucket.org/yourname/pypy/.
+  `https://bitbucket.org/yourname/pypy/`.
 
 * Clone your new repo (i.e. the fork) to your local machine with the command
   ``hg clone ssh://hg@bitbucket.org/yourname/pypy``.  It is a very slow

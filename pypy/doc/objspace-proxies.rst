@@ -194,7 +194,7 @@ Transparent Proxies use this architecture to provide control back to
 application-level code.
 
 Transparent proxies are implemented on top of the :ref:`standard object
-space <standard-object-space>`, in :source:`pypy/objspace/std/proxy_helpers.py`,
+space <standard-object-space>`, in :source:`pypy/objspace/std/proxyobject.py`,
 :source:`pypy/objspace/std/proxyobject.py` and :source:`pypy/objspace/std/transparent.py`.
 To use them you will need to pass a `--objspace-std-withtproxy`_ option to ``pypy``
 or ``translate.py``.  This registers implementations named :py:class:`W_TransparentXxx`
