@@ -293,7 +293,8 @@ you can find out with the ``--version`` switch.
 
 You will need the `build requirements`_ to run tests successfully, since many of
 them compile little pieces of PyPy and then run the tests inside that minimal
-interpreter
+interpreter. The `cpyext` tests also require `pycparser`, and many tests build
+cases with `hypothesis`.
 
 Now on to running some tests.  PyPy has many different test directories
 and you can use shell completion to point at directories or files::
