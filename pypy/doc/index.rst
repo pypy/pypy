@@ -31,6 +31,7 @@ Getting Started
   introduction
   install
   build
+  windows
   faq
 
 
@@ -44,18 +45,12 @@ Using PyPy
 
   cpython_differences
   extending
-  embedding
   gc_info
   jit-hooks
   stackless
   __pypy__-module
-  objspace-proxies
   sandbox
   stm
-  windows
-
-
-.. _developing-pypy:
 
 Development
 -----------
@@ -77,12 +72,10 @@ Further resources
 .. toctree::
   :maxdepth: 1
 
-  extradoc
-  eventhistory
-  discussions
   index-of-release-notes
   index-of-whatsnew
   contributor
+  glossary
 
 .. _contact:
 

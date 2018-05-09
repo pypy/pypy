@@ -32,7 +32,7 @@ direction. However, if you want to understand how designing & building a runtime
 works in the real world then this is a great project!
 
 Getting involved
-----------------
+^^^^^^^^^^^^^^^^
 
 PyPy employs a relatively standard open-source development process. You are
 encouraged as a first step to join our `pypy-dev mailing list`_ and IRC channel,
@@ -51,7 +51,7 @@ Further Reading: :ref:`Contact <contact>`
 
 
 Your first contribution
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 The first and most important rule how **not** to contribute to PyPy is
 "just hacking a feature". This won't work, and you'll find your PR will typically
@@ -74,7 +74,7 @@ Some ideas for first contributions are:
 .. _issue tracker: https://bitbucket.org/pypy/pypy/issues
 
 Source Control
-==============
+--------------
 
 PyPy development is based a typical fork/pull request based workflow, centered
 around Mercurial (hg), hosted on Bitbucket. If you have not used this workflow
@@ -176,7 +176,7 @@ Pull Request
 
 
 Architecture
-============
+^^^^^^^^^^^^
 
 PyPy has layers. Just like ogres or onions. Those layers help us keep the
 respective parts separated enough to be worked on independently and make the
@@ -224,7 +224,7 @@ points:
    as a first approximation.  (Some types have multiple implementations.)
 
 Building
-========
+^^^^^^^^
 
 For building PyPy, we recommend installing a pre-built PyPy first (see
 :doc:`install`). It is possible to build PyPy with CPython, but it will take a
@@ -234,7 +234,7 @@ times as long.
 Further Reading: :doc:`Build <build>`
 
 Coding Guide
-============
+------------
 
 As well as the usual pep8 and formatting standards, there are a number of
 naming conventions and coding styles that are important to understand before
@@ -243,7 +243,7 @@ browsing the source.
 Further Reading: :doc:`Coding Guide <coding-guide>`
 
 Testing
-=======
+^^^^^^^
 
 Test driven development
 -----------------------
@@ -326,7 +326,7 @@ interpreter.
 .. _`build requirements`: build.html#install-build-time-dependencies
 
 Tooling & Utilities
-===================
+^^^^^^^^^^^^^^^^^^^
 
 If you are interested in the inner workings of the PyPy Python interpreter,
 there are some features of the untranslated Python interpreter that allow you
@@ -433,7 +433,7 @@ PyPy console::
 
 
 Demos
------
+^^^^^
 
 The `example-interpreter`_ repository contains an example interpreter
 written using the RPython translation toolchain.
@@ -442,7 +442,7 @@ written using the RPython translation toolchain.
 
 
 graphviz & pygame for flow graph viewing (highly recommended)
--------------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 graphviz and pygame are both necessary if you want to look at generated flow
 graphs:
