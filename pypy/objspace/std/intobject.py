@@ -895,4 +895,9 @@ def _hash_int(a):
     # The complete list of built-in types whose hash should be
     # consistent is: int, long, bool, float, complex.
     #
+    # Note: the same function in PyPy3 does far more computations.
+    # So you should call _hash_int() only when you want to get the exact
+    # same result as hash(integer) does on app-level, and not merely to
+    # adjust some unrelated hash result from -1 to -2.
+    #
     return a - (a == -1)  # No explicit condition, to avoid JIT bridges
