@@ -361,13 +361,7 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        # For compatibility with CPython, we special-case -1
-        # Make sure this is consistent with the hash of floats and longs.
-        # The complete list of built-in types whose hash should be
-        # consistent is: int, long, bool, float, complex.
-        h = self.intval
-        h -= (h == -1)  # No explicit condition, to avoid JIT bridges
-        return wrapint(space, h)
+        return space.newint(_hash_int(self.intval))
 
     def _int(self, space):
         return self.int(space)
@@ -893,3 +887,12 @@ interpret the base from the string as an integer literal.
     __rpow__ = interp2app(W_IntObject.descr_rpow,
                           doc=W_AbstractIntObject.descr_rpow.__doc__),
 )
+
+
+def _hash_int(a):
+    # For compatibility with CPython, we special-case -1
+    # Make sure this is consistent with the hash of floats and longs.
+    # The complete list of built-in types whose hash should be
+    # consistent is: int, long, bool, float, complex.
+    #
+    return a - (a == -1)  # No explicit condition, to avoid JIT bridges

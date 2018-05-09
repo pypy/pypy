@@ -23,7 +23,7 @@ class TestW_SpecialisedTupleObject():
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
         assert w_tuple.__class__.__name__ == 'W_SpecialisedTupleObject_ii'
 
-    def hash_test(self, values, must_be_specialized=True):
+    def hash_test(self, values, must_be_specialized):
         N_values_w = [self.space.wrap(value) for value in values]
         S_values_w = [self.space.wrap(value) for value in values]
         N_w_tuple = W_TupleObject(N_values_w)
