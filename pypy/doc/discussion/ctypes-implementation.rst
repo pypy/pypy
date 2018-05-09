@@ -141,28 +141,3 @@ We did not try the following examples:
 
 .. _pyglet: http://pyglet.org/
 
-
-ctypes configure
------------------
-
-We also released ``ctypes-configure``, which is an experimental package
-trying to approach the portability issues of ctypes-based code.
-
-idea
-~~~~
-
-One of ctypes problems is that ctypes programs are usually not very
-platform-independent. We created ctypes_configure, which invokes c
-compiler (via distutils) for various platform-dependent details like
-exact sizes of types (for example size_t), ``#defines``, exact outline of
-structures etc. It replaces in this regard code generator (h2py).
-
-installation
-~~~~~~~~~~~~
-
-``easy_install ctypes_configure``
-
-usage
-~~~~~
-
-:source:`ctypes_configure/doc/sample.py` explains in details how to use it.
