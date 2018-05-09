@@ -14,7 +14,8 @@ class AppTestDATATYPES:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
         cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
 
@@ -192,6 +193,10 @@ class AppTestDATATYPES:
             b[i] = 28
             for i in range(self.N):
                 assert eval('c.m_%s_array2[i]' % names[j]) == b[i]
+
+        # can not write to constant data
+        assert c.m_const_int == 17
+        raises(TypeError, setattr, c, 'm_const_int', 71)
 
         c.__destruct__()
 
@@ -465,6 +470,10 @@ class AppTestDATATYPES:
         assert gbl.kApple  == 78
         assert gbl.kBanana == 29
         assert gbl.kCitrus == 34
+
+        assert gbl.EnumSpace.E
+        assert gbl.EnumSpace.EnumClass.E1 == -1   # anonymous
+        assert gbl.EnumSpace.EnumClass.E2 == -1   # named type
 
     def test11_string_passing(self):
         """Test passing/returning of a const char*"""
@@ -743,3 +752,22 @@ class AppTestDATATYPES:
 
         c.s_voidp = c2
         address_equality_test(c.s_voidp, c2)
+
+    def test21_function_pointers(self):
+        """Function pointer passing"""
+
+        import _cppyy as cppyy
+
+        f1 = cppyy.gbl.sum_of_int
+        f2 = cppyy.gbl.sum_of_double
+        f3 = cppyy.gbl.call_double_double
+
+        assert 5 == f1(2, 3)
+        assert 5. == f2(5., 0.)
+
+        raises(TypeError, f3, f1, 2, 3)
+
+        # TODO: get straightforward access to the overload type
+        f2 = cppyy.gbl.__cppdecl__.get_overload('sum_of_double')
+
+        assert 5. == f3(f2, 5., 0.)

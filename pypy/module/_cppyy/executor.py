@@ -293,6 +293,9 @@ def get_executor(space, name):
             return InstancePtrExecutor(space, cppclass)
         elif compound == '**' or compound == '*&':
             return InstancePtrPtrExecutor(space, cppclass)
+    elif "(anonymous)" in name:
+        # special case: enum w/o a type name
+        return _executors["internal_enum_type_t"](space, None)
 
     # 4) additional special cases
     if compound == '*':

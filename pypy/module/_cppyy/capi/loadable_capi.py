@@ -308,7 +308,7 @@ def call_capi(space, name, args):
         c_call = state.capi_calls[name]
     except KeyError:
         if state.backend is None:
-            load_backend(space)
+            verify_backend(space)
         iface = state.capi_call_ifaces[name]
         cfunc = W_RCTypeFunc(space, iface[0], iface[1], False)
         c_call = state.backend.load_function(cfunc, 'cppyy_'+name)
@@ -421,7 +421,7 @@ def c_function_address_from_index(space, cppscope, index):
         _cdata_to_ptr(space, call_capi(space, 'function_address_from_index', args)))
 def c_function_address_from_method(space, cppmethod):
     return rffi.cast(C_FUNC_PTR,
-        _cdata_to_ptr(space, call_capi(space, 'function_address_from_method', _ArgH(cppmethod))))
+        _cdata_to_ptr(space, call_capi(space, 'function_address_from_method', [_ArgH(cppmethod)])))
 
 # handling of function argument buffer ---------------------------------------
 def c_allocate_function_args(space, size):
