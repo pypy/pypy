@@ -43,6 +43,7 @@ from rpython.rlib.debug import fatalerror_notb
 from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.module.cpyext.cparser import CTypeSpace
+from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 
 DEBUG_WRAPPER = True
 
@@ -974,6 +975,8 @@ def make_wrapper_second_level(space, argtypesw, restype,
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
 
+        print "start to pypy"
+
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
         _gil_auto = False
@@ -1085,6 +1088,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
         rffi.stackcounter.stacks_counter -= 1
 
         _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
+
+        print "end to pypy"
+
         return retval
 
     wrapper_second_level._dont_inline_ = True
@@ -1773,8 +1779,10 @@ def make_generic_cpy_call(FT, expect_null):
 
         preexist_error = PyErr_Occurred(space)
         try:
+            print "start cpyext_call"
             # Call the function
             result = call_external_function(func, *boxed_args)
+            print "end cpyext_call"
         finally:
             assert cpyext_glob_tid_ptr[0] == tid
             cpyext_glob_tid_ptr[0] = tid_before

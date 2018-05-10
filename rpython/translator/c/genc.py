@@ -177,6 +177,8 @@ class CBuilder(object):
         defines = defines.copy()
         if self.config.translation.countmallocs:
             defines['COUNT_OP_MALLOCS'] = 1
+        if self.config.translation.cpyextgc == "boehm":
+            defines['CPYEXT_BOEHM'] = 1
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
         if CBuilder.have___thread is None:
