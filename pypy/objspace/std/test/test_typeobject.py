@@ -1556,6 +1556,17 @@ class AppTestComparesByIdentity:
         assert X.a.owner is X
         assert X.a.name == "a"
 
+    def test_set_name_error(self):
+        class Descriptor:
+            __set_name__ = None
+        def make_class():
+            class A:
+                d = Descriptor()
+        excinfo = raises(RuntimeError, make_class)
+        assert isinstance(excinfo.value.__cause__, TypeError)
+        assert str(excinfo.value) == "Error calling __set_name__ on 'Descriptor' instance 'd' in 'A'"
+        print(excinfo.value)
+
     def test_type_init_accepts_kwargs(self):
         type.__init__(type, "a", (object, ), {}, a=1)
 
