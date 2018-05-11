@@ -849,7 +849,7 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_KeyError):
                 raise
             raise oefmt(self.space.w_NameError,
-                        "name %R is not defined", w_varname)
+                        "__annotations__ not found")
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
@@ -958,10 +958,17 @@ class __extend__(pyframe.PyFrame):
             self.space.setitem_str(w_locals, '__annotations__', w_annotations)
 
     def STORE_ANNOTATION(self, varindex, next_instr):
+        space = self.space
         varname = self.getname_u(varindex)
         w_newvalue = self.popvalue()
-        self.space.setitem_str(self.getorcreatedebug().w_locals.getitem_str('__annotations__'), varname,
-                               w_newvalue)
+        w_locals = self.getorcreatedebug().w_locals
+        try:
+            w_annotations = space.getitem(w_locals, space.newtext('__annotations__'))
+        except OperationError as e:
+            if e.match(space, space.w_KeyError):
+                raise oefmt(space.w_NameError, CANNOT_CATCH_MSG)
+            raise
+        self.space.setitem_str(w_annotations, varname, w_newvalue)
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)

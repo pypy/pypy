@@ -111,3 +111,24 @@ class AppTestAnnotations:
             except:
                 assert False
         '''
+
+    def test_locals_arent_dicts(self):
+        class O:
+            def __init__(self):
+                self.dct = {}
+            def __getitem__(self, name):
+                return self.dct[name]
+            def __setitem__(self, name, value):
+                self.dct[name] = value
+        # don't crash if locals aren't just a normal dict
+        exec("a: int; assert __annotations__['a'] == int", {}, O())
+
+    def test_NameError_if_annotations_are_gone(self):
+        exec("""if 1:
+            raises(NameError, '''if 1:
+                class A:
+                    del __annotations__
+                    a: int
+            ''')
+        """)
+
