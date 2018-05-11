@@ -32,7 +32,7 @@ from test import inspect_fodder2 as mod2
 from test import support
 
 from test.test_import import _ready_to_import
-if check_impl_detail():
+if support.check_impl_detail():
     import _pickle
 
 
