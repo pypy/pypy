@@ -140,7 +140,7 @@ def build_class(space, w_func, w_name, __args__):
         if w_cell.empty():
             # will become an error in Python 3.7
             space.warn(space.newtext(
-                "__class__ not set defining %s as %s ."
+                "__class__ not set defining %s as %s . "
                 "Was __classcell__ propagated to type.__new__?" % (
                     space.text_w(w_name),
                     space.text_w(space.str(w_class))
