@@ -1109,6 +1109,8 @@ class AppTestCompiler(object):
         assert f() == (4, 3, 2, 1), repr(f())
         """
 
+    # the following couple of tests are from test_super.py in the stdlib
+
     def test_classcell(self):
         """
         test_class = None
@@ -1175,6 +1177,24 @@ class AppTestCompiler(object):
                     return __class__
         ''')
 
+        """
+
+    def test_class_mro(self):
+        """
+        test_class = None
+
+        class Meta(type):
+            def mro(self):
+                # self.f() doesn't work yet...
+                self.__dict__["f"]()
+                return super().mro()
+
+        class A(metaclass=Meta):
+            def f():
+                nonlocal test_class
+                test_class = __class__
+
+        assert test_class is A
         """
 
 

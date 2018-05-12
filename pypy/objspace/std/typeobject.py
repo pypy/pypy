@@ -803,13 +803,15 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
         key = space.text_w(w_key)
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
-    W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
-                          dict_w, is_heaptype=True)
 
     # store the w_type in __classcell__
     w_classcell = dict_w.get("__classcell__", None)
     if w_classcell:
         _store_type_in_classcell(space, w_type, w_classcell, dict_w)
+
+    W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
+                          dict_w, is_heaptype=True)
+
 
     w_type.ready()
 
