@@ -496,7 +496,7 @@ class __extend__(SomeDict):
             return SomeTuple((s_key, s_Int))
         raise ValueError(variant)
 
-    def method_get(self, key, dfl):
+    def method_get(self, key, dfl=s_None):
         position = getbookkeeper().position_key
         self.dictdef.generalize_key(key)
         self.dictdef.generalize_value(dfl)

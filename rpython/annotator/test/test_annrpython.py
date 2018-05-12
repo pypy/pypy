@@ -688,6 +688,16 @@ class TestAnnotateTestCase:
         assert isinstance(dictvalue(s), annmodel.SomeInteger)
         assert not dictvalue(s).nonneg
 
+    def test_dict_get(self):
+        def f1(i, j):
+            d = {i: ''}
+            return d.get(j)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f1, [int, int])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.can_be_None
+
+
     def test_exception_deduction(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.exception_deduction, [])

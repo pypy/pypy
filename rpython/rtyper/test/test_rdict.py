@@ -208,6 +208,16 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(func, ())
         assert res == 421
 
+    def test_dict_get_no_second_arg(self):
+        def func():
+            dic = self.newdict()
+            x1 = dic.get('hi', 'a')
+            x2 = dic.get('blah')
+            return (x1 == 'a') * 10 + (x2 is None)
+            return x1 * 10 + x2
+        res = self.interpret(func, ())
+        assert res == 11
+
     def test_dict_get_empty(self):
         def func():
             # this time without writing to the dict
