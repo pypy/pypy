@@ -768,7 +768,7 @@ class TestClassesAndFunctions(unittest.TestCase):
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_getfullargspec_builtin_methods(self):
-        if check_impl_detail():
+        if support.check_impl_detail():
             self.assertFullArgSpecEquals(_pickle.Pickler.dump,
                                         args_e=['self', 'obj'], formatted='(self, obj)')
 
@@ -2012,7 +2012,7 @@ class TestSignatureObject(unittest.TestCase):
 
         # normal method
         # (PyMethodDescr_Type, "method_descriptor")
-        if check_impl_detail():
+        if support.check_impl_detail():
             test_unbound_method(_pickle.Pickler.dump)
             d = _pickle.Pickler(io.StringIO())
             test_callable(d.dump)
