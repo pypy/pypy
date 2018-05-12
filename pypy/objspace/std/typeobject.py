@@ -759,10 +759,14 @@ def descr__new__(space, w_typetype, __args__):
 
     w_typetype = _precheck_for_new(space, w_typetype)
 
-    # special case for type(x)
-    if (space.is_w(space.type(w_typetype), space.w_type) and
-            len(__args__.arguments_w) == 1):
-        return space.type(w_name)
+    # special case for type(x), but not Metaclass(x)
+    if len(__args__.arguments_w) == 1:
+        if space.is_w(w_typetype, space.w_type):
+            return space.type(w_name)
+        else:
+            raise oefmt(space.w_TypeError,
+                        "%N.__new__() takes 3 arguments (1 given)",
+                        w_typetype)
     w_bases = __args__.arguments_w[1]
     w_dict = __args__.arguments_w[2]
     return _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__)

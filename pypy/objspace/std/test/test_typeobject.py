@@ -1607,3 +1607,9 @@ class AppTestComparesByIdentity:
 
         assert Y.kwargs == dict(a=1, b=2)
         """)
+
+    def test_onearg_type_only_for_type(self):
+        class Meta(type):
+            pass
+
+        raises(TypeError, Meta, 5)
