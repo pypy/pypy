@@ -1826,6 +1826,8 @@ class ClassCodeGenerator(PythonCodeGenerator):
         if scope == symtable.SCOPE_CELL_CLASS:
             # Return the cell where to store __class__
             self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__class__"])
+            self.emit_op(ops.DUP_TOP)
+            self.name_op("__classcell__", ast.Store)
         else:
             # This happens when nobody references the cell
             self.load_const(self.space.w_None)

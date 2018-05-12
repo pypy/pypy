@@ -93,6 +93,8 @@ def exec_(space, w_prog, w_globals=None, w_locals=None):
     frame.exec_(w_prog, w_globals, w_locals)
 
 def build_class(space, w_func, w_name, __args__):
+    from pypy.objspace.std.typeobject import _calculate_metaclass, W_TypeObject
+    from pypy.interpreter.nestedscope import Cell
     if not isinstance(w_func, Function):
         raise oefmt(space.w_TypeError, "__build_class__: func must be a function")
     bases_w, kwds_w = __args__.unpack()
@@ -109,7 +111,6 @@ def build_class(space, w_func, w_name, __args__):
     if isclass:
         # w_meta is really a class, so check for a more derived
         # metaclass, or possible metaclass conflicts
-        from pypy.objspace.std.typeobject import _calculate_metaclass
         w_meta = _calculate_metaclass(space, w_meta, bases_w)
 
     try:
@@ -135,6 +136,22 @@ def build_class(space, w_func, w_name, __args__):
                      keywords=keywords,
                      keywords_w=kwds_w.values())
     w_class = space.call_args(w_meta, args)
-    if isinstance(w_cell, Cell):
-        w_cell.set(w_class)
+    if isinstance(w_cell, Cell) and isinstance(w_class, W_TypeObject):
+        if w_cell.empty():
+            # will become an error in Python 3.7
+            space.warn(space.newtext(
+                "__class__ not set defining %s as %s ."
+                "Was __classcell__ propagated to type.__new__?" % (
+                    space.text_w(w_name),
+                    space.text_w(space.str(w_class))
+                )),
+                space.w_DeprecationWarning)
+            w_cell.set(w_class)
+        else:
+            w_class_from_cell = w_cell.get()
+            if not space.is_w(w_class, w_class_from_cell):
+                raise oefmt(
+                        space.w_TypeError,
+                        "__class__ set to %s defining %s as %s",
+                        w_class_from_cell, w_name, w_class)
     return w_class

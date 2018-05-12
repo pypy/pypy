@@ -1109,6 +1109,74 @@ class AppTestCompiler(object):
         assert f() == (4, 3, 2, 1), repr(f())
         """
 
+    def test_classcell(self):
+        """
+        test_class = None
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                nonlocal test_class
+                self = super().__new__(cls, name, bases, namespace)
+                test_class = self.f()
+                return self
+        class A(metaclass=Meta):
+            @staticmethod
+            def f():
+                return __class__
+        assert test_class is A
+        """
+
+    def test_classcell_missing(self):
+        """
+        # Some metaclasses may not pass the original namespace to type.__new__
+        # We test that case here by forcibly deleting __classcell__
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                namespace.pop('__classcell__', None)
+                return super().__new__(cls, name, bases, namespace)
+
+        class WithClassRef(metaclass=Meta):
+            def f(self):
+                return __class__
+
+        # Check __class__ still gets set despite the warning
+        assert WithClassRef().f() is WithClassRef
+        """
+
+    def test_classcell_overwrite(self):
+        """
+        # Overwriting __classcell__ with nonsense is explicitly prohibited
+        class Meta(type):
+            def __new__(cls, name, bases, namespace, cell):
+                namespace['__classcell__'] = cell
+                return super().__new__(cls, name, bases, namespace)
+
+        raises(TypeError, '''if 1:
+            class A(metaclass=Meta, cell=object()):
+                pass
+        ''')
+        """
+
+    def test_classcell_wrong_cell(self):
+        """
+        # Pointing the cell reference at the wrong class is prohibited
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                cls = super().__new__(cls, name, bases, namespace)
+                B = type("B", (), namespace)
+                return cls
+
+        # works, no __class__
+        class A(metaclass=Meta):
+            pass
+
+        raises(TypeError, '''if 1:
+            class A(metaclass=Meta):
+                def f(self):
+                    return __class__
+        ''')
+
+        """
+
 
 class AppTestOptimizer(object):
     def setup_class(cls):
@@ -1438,3 +1506,5 @@ class AppTestExceptions:
         assert eval(code) == u'\xc2\u20ac'
         code = b'u"""\\\n# -*- coding: ascii -*-\n\xc2\xa4"""\n'
         assert eval(code) == u'# -*- coding: ascii -*-\n\xa4'
+
+

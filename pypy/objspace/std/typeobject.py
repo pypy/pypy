@@ -805,11 +805,27 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
                           dict_w, is_heaptype=True)
+
+    # store the w_type in __classcell__
+    w_classcell = dict_w.get("__classcell__")
+    if w_classcell:
+        _store_type_in_classcell(space, w_type, w_classcell, dict_w)
+
     w_type.ready()
 
     _set_names(space, w_type)
     _init_subclass(space, w_type, __args__)
     return w_type
+
+def _store_type_in_classcell(space, w_type, w_classcell, dict_w):
+    from pypy.interpreter.nestedscope import Cell
+    if isinstance(w_classcell, Cell):
+        w_classcell.set(w_type)
+    else:
+        raise oefmt(space.w_TypeError,
+                    "__classcell__ must be a nonlocal cell, not %T",
+                    w_classcell)
+    del dict_w['__classcell__']
 
 def _calculate_metaclass(space, w_metaclass, bases_w):
     """Determine the most derived metatype"""
