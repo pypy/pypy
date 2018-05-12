@@ -807,7 +807,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
                           dict_w, is_heaptype=True)
 
     # store the w_type in __classcell__
-    w_classcell = dict_w.get("__classcell__")
+    w_classcell = dict_w.get("__classcell__", None)
     if w_classcell:
         _store_type_in_classcell(space, w_type, w_classcell, dict_w)
 
