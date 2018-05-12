@@ -76,6 +76,7 @@ import pypy.module.cpyext.pystrtod
 import pypy.module.cpyext.pytraceback
 import pypy.module.cpyext.methodobject
 import pypy.module.cpyext.dictproxyobject
+import pypy.module.cpyext.marshal
 import pypy.module.cpyext.genobject
 import pypy.module.cpyext.namespaceobject
 

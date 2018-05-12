@@ -12,6 +12,7 @@ from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.executioncontext import ExecutionContext
 import pypy.module.__builtin__.operation as operation
 
 
@@ -420,3 +421,27 @@ def PyObject_LengthHint(space, w_o, defaultvalue):
 def _PyPyGC_AddMemoryPressure(space, report):
     from rpython.rlib import rgc
     rgc.add_memory_pressure(report)
+
+
+ExecutionContext.cpyext_recursive_repr = None
+
+@cpython_api([PyObject], rffi.INT_real, error=-1)
+def Py_ReprEnter(space, w_obj):
+    ec = space.getexecutioncontext()
+    d = ec.cpyext_recursive_repr
+    if d is None:
+        d = ec.cpyext_recursive_repr = {}
+    if w_obj in d:
+        return 1
+    d[w_obj] = None
+    return 0
+
+@cpython_api([PyObject], lltype.Void)
+def Py_ReprLeave(space, w_obj):
+    ec = space.getexecutioncontext()
+    d = ec.cpyext_recursive_repr
+    if d is not None:
+        try:
+            del d[w_obj]
+        except KeyError:
+            pass

@@ -172,6 +172,17 @@ class W_PyCFunctionObject(W_Root):
                 return space.newtext(txtsig)
         return space.w_None
 
+    def fget_module(self, space):
+        if self.w_module is None:
+            return space.w_None
+        return self.w_module
+
+    def fset_module(self, space, w_module):
+        self.w_module = w_module
+
+    def fdel_module(self, space):
+        self.w_module = space.w_None
+
 class W_PyCMethodObject(W_PyCFunctionObject):
 
     def __init__(self, space, ml, w_type):
@@ -333,7 +344,9 @@ W_PyCFunctionObject.typedef = TypeDef(
     __call__ = interp2app(W_PyCFunctionObject.descr_call),
     __doc__ = GetSetProperty(W_PyCFunctionObject.get_doc),
     __text_signature__ = GetSetProperty(W_PyCFunctionObject.get_txtsig),
-    __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject),
+    __module__ = GetSetProperty(W_PyCFunctionObject.fget_module,
+                                W_PyCFunctionObject.fset_module,
+                                W_PyCFunctionObject.fdel_module),
     __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject,
         wrapfn="newtext_or_none"),
     )

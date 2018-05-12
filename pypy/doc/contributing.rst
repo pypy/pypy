@@ -293,7 +293,8 @@ you can find out with the ``--version`` switch.
 
 You will need the `build requirements`_ to run tests successfully, since many of
 them compile little pieces of PyPy and then run the tests inside that minimal
-interpreter
+interpreter. The `cpyext` tests also require `pycparser`, and many tests build
+cases with `hypothesis`.
 
 Now on to running some tests.  PyPy has many different test directories
 and you can use shell completion to point at directories or files::
@@ -324,6 +325,24 @@ interpreter.
 .. _py.test testing tool: http://pytest.org
 .. _py.test usage and invocations: http://pytest.org/latest/usage.html#usage
 .. _`build requirements`: build.html#install-build-time-dependencies
+
+Testing After Translation
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+While the usual invocation of `pytest` translates a piece of RPython code and
+runs it, we have a test extension to run tests without translation, directly
+on the host python. This is very convenient for modules such as `cpyext`, to
+compare and contrast test results between CPython and PyPy. Untranslated tests
+are invoked by using the `-A` or `--runappdirect` option to `pytest`::
+
+    python2 pytest.py -A pypy/module/cpyext/test
+
+where `python2` can be either `python2` or `pypy2`. On the `py3` branch, the
+collection phase must be run with `python2` so untranslated tests are run
+with::
+
+    cpython2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
+
 
 Tooling & Utilities
 ^^^^^^^^^^^^^^^^^^^

@@ -61,7 +61,7 @@ include_dirs = [
 
 configure_eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
-        includes=['Python.h', 'stdarg.h', 'structmember.h'],
+        includes=['Python.h', 'stdarg.h', 'structmember.h', 'marshal.h'],
         compile_extra=['-DPy_BUILD_CORE'])
 
 class CConfig:
@@ -119,6 +119,7 @@ def feof(fp):
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
 udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_marshal_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 
 constant_names = """
@@ -1233,14 +1234,11 @@ def build_bridge(space):
         global_objects.append('PyTypeObject _PyExc_%s;' % name)
     global_code = '\n'.join(global_objects)
 
-    prologue = ("#include <Python.h>\n"
-                "#include <structmember.h>\n"
+    prologue = ("#include <Python.h>\n" +
+                "#include <structmember.h>\n" +
+                "#include <marshal.h>\n" +
+                ("#include <pypy_numpy.h>\n" if use_micronumpy else "") +
                 "#include <src/thread.c>\n")
-    if use_micronumpy:
-        prologue = ("#include <Python.h>\n"
-                    "#include <structmember.h>\n"
-                    "#include <pypy_numpy.h>\n"
-                    "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
