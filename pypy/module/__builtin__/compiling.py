@@ -152,6 +152,6 @@ def build_class(space, w_func, w_name, __args__):
             if not space.is_w(w_class, w_class_from_cell):
                 raise oefmt(
                         space.w_TypeError,
-                        "__class__ set to %s defining %s as %s",
+                        "__class__ set to %S defining %S as %S",
                         w_class_from_cell, w_name, w_class)
     return w_class
