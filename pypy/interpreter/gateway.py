@@ -499,6 +499,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
 
+    @staticmethod
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
         unwrap_info.apply_over(unwrap_spec)
@@ -529,7 +530,6 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
             exec compile2(source) in unwrap_info.miniglobals, d
             fastfunc = d['fastfunc_%s_%d' % (func.__name__.replace('-', '_'), narg)]
         return narg, fastfunc
-    make_fastfunc = staticmethod(make_fastfunc)
 
 
 def int_unwrapping_space_method(typ):
