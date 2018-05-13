@@ -619,6 +619,18 @@ class AppTestListObject(object):
         assert l == [1.2, 2.3, 3.4, 4.5]
         assert l is l0
 
+    def test_extend_iterable_length_hint_overflow(self):
+        import sys
+        class CustomIterable(object):
+            def __iter__(self):
+                if False:
+                    yield
+            def __length_hint__(self):
+                return sys.maxsize
+        a = [1, 2, 3, 4]
+        a.extend(CustomIterable())
+        assert a == [1, 2, 3, 4]
+
     def test_sort(self):
         l = l0 = [1, 5, 3, 0]
         l.sort()
@@ -1067,6 +1079,15 @@ class AppTestListObject(object):
         l = [0.0, 1.1, 2.2, 3.3, 4.4, 5.5]
         l[::3] = ('a', 'b')
         assert l == ['a', 1.1, 2.2, 'b', 4.4, 5.5]
+
+        l_int = [5]; l_int.pop()   # IntListStrategy
+        l_empty = []               # EmptyListStrategy
+        raises(ValueError, "l_int[::-1] = [42]")
+        raises(ValueError, "l_int[::7] = [42]")
+        raises(ValueError, "l_empty[::-1] = [42]")
+        raises(ValueError, "l_empty[::7] = [42]")
+        l_int[::1] = [42]; assert l_int == [42]
+        l_empty[::1] = [42]; assert l_empty == [42]
 
     def test_setslice_with_self(self):
         l = [1,2,3,4]

@@ -7,7 +7,7 @@ import sys
 # Metaclasses are needed to store C++ static data members as properties. Since
 # the interp-level does not support metaclasses, they are created at app-level.
 # These are the metaclass base classes:
-class CPPMetaScope(type):
+class CPPScope(type):
     def __getattr__(self, name):
         try:
             return get_scoped_pycppitem(self, name)  # will cache on self
@@ -15,11 +15,11 @@ class CPPMetaScope(type):
             raise AttributeError("%s object has no attribute '%s' (details: %s)" %
                                  (self, name, str(e)))
 
-class CPPMetaNamespace(CPPMetaScope):
+class CPPMetaNamespace(CPPScope):
     def __dir__(self):
         return self.__cppdecl__.__dir__()
 
-class CPPMetaClass(CPPMetaScope):
+class CPPClass(CPPScope):
     pass
 
 # namespace base class (class base class defined in _init_pythonify)
@@ -173,7 +173,7 @@ def make_cppclass(scope, cl_name, decl):
     # get a list of base classes for class creation
     bases = [get_pycppclass(base) for base in decl.get_base_names()]
     if not bases:
-        bases = [CPPClass,]
+        bases = [CPPInstance,]
     else:
         # it's possible that the required class now has been built if one of
         # the base classes uses it in e.g. a function interface
@@ -214,7 +214,7 @@ def make_cppclass(scope, cl_name, decl):
 
     # create a metaclass to allow properties (for static data write access)
     metabases = [type(base) for base in bases]
-    metacpp = type(CPPMetaScope)(cl_name+'_meta', _drop_cycles(metabases), d_meta)
+    metacpp = type(CPPScope)(cl_name+'_meta', _drop_cycles(metabases), d_meta)
 
     # create the python-side C++ class
     pycls = metacpp(cl_name, _drop_cycles(bases), d_class)
@@ -412,11 +412,11 @@ def _init_pythonify():
     # at pypy-c startup, rather than on the "import _cppyy" statement
     import _cppyy
 
-    # root of all proxy classes: CPPClass in pythonify exists to combine the
-    # CPPMetaScope metaclass with the interp-level CPPClassBase
-    global CPPClass
-    class CPPClass(_cppyy.CPPClassBase):
-        __metaclass__ = CPPMetaScope
+    # root of all proxy classes: CPPInstance in pythonify exists to combine
+    # the CPPScope metaclass with the interp-level CPPInstanceBase
+    global CPPInstance
+    class CPPInstance(_cppyy.CPPInstanceBase):
+        __metaclass__ = CPPScope
         pass
 
     # class generator callback
@@ -438,9 +438,8 @@ def _init_pythonify():
     gbl.std.move = _cppyy.move
 
     # install a type for enums to refer to
-    # TODO: this is correct for C++98, not for C++11 and in general there will
-    # be the same issue for all typedef'd builtin types
     setattr(gbl, 'internal_enum_type_t', int)
+    setattr(gbl, 'unsigned int',         int)     # if resolved
 
     # install for user access
     _cppyy.gbl = gbl

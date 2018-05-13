@@ -5,18 +5,6 @@
 extern void _PyPy_Free(void *ptr);
 extern void *_PyPy_Malloc(Py_ssize_t size);
 
-void
-Py_IncRef(PyObject *o)
-{
-    Py_XINCREF(o);
-}
-
-void
-Py_DecRef(PyObject *o)
-{
-    Py_XDECREF(o);
-}
-
 /* 
  * The actual value of this variable will be the address of
  * pyobject.w_marker_deallocating, and will be set by

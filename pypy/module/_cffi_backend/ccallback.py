@@ -229,7 +229,9 @@ class W_CDataCallback(W_ExternPython):
                 "different from the 'ffi.h' file seen at compile-time)")
 
     def py_invoke(self, ll_res, ll_args):
+        key_pycode = self.key_pycode
         jitdriver1.jit_merge_point(callback=self,
+                                   key_pycode=key_pycode,
                                    ll_res=ll_res,
                                    ll_args=ll_args)
         self.do_invoke(ll_res, ll_args)
@@ -291,7 +293,7 @@ def get_printable_location1(key_pycode):
     return 'cffi_callback ' + key_pycode.get_repr()
 
 jitdriver1 = jit.JitDriver(name='cffi_callback',
-                           greens=['callback.key_pycode'],
+                           greens=['key_pycode'],
                            reds=['ll_res', 'll_args', 'callback'],
                            get_printable_location=get_printable_location1)
 

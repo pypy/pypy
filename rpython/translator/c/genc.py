@@ -64,13 +64,14 @@ class CBuilder(object):
     split = False
 
     def __init__(self, translator, entrypoint, config, gcpolicy=None,
-            secondary_entrypoints=()):
+                 gchooks=None, secondary_entrypoints=()):
         self.translator = translator
         self.entrypoint = entrypoint
         self.entrypoint_name = getattr(self.entrypoint, 'func_name', None)
         self.originalentrypoint = entrypoint
         self.config = config
         self.gcpolicy = gcpolicy    # for tests only, e.g. rpython/memory/
+        self.gchooks = gchooks
         self.eci = self.get_eci()
         self.secondary_entrypoints = secondary_entrypoints
 
@@ -93,6 +94,7 @@ class CBuilder(object):
         exctransformer = translator.getexceptiontransformer()
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
+                              gchooks=self.gchooks,
                               exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox,

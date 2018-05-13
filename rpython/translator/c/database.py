@@ -29,6 +29,7 @@ class LowLevelDatabase(object):
 
     def __init__(self, translator=None, standalone=False,
                  gcpolicyclass=None,
+                 gchooks=None,
                  exctransformer=None,
                  thread_enabled=False,
                  sandbox=False,
@@ -60,7 +61,7 @@ class LowLevelDatabase(object):
         self.namespace = CNameManager()
 
         if translator is not None:
-            self.gctransformer = self.gcpolicy.gettransformer(translator)
+            self.gctransformer = self.gcpolicy.gettransformer(translator, gchooks)
         self.completed = False
 
         self.instrument_ncounter = 0

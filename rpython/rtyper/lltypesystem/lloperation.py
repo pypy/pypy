@@ -451,6 +451,7 @@ LL_OPERATIONS = {
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
     'll_read_timestamp': LLOp(revdb_protect=True, canrun=True),
+    'll_get_timestamp_unit': LLOp(revdb_protect=True, canrun=True),
 
     # __________ GC operations __________
 
