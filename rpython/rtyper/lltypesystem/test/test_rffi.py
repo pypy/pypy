@@ -814,6 +814,35 @@ class TestCRffi(BaseTestRffi):
     def test_generate_return_char_tests(self):
         py.test.skip("GenC does not handle char return values correctly")
 
+    def test__get_raw_address_buf_from_string(self):
+        from rpython.rlib import rgc
+        from rpython.rtyper.lltypesystem import rffi
+
+        def check_content(strings, rawptrs):
+            for i in range(len(strings)):
+                p = rawptrs[i]
+                expected = strings[i] + '\x00'
+                for j in range(len(expected)):
+                    assert p[j] == expected[j]
+
+        def f(n):
+            strings = [str(i) for i in range(n)]
+            rawptrs = [rffi._get_raw_address_buf_from_string(s)
+                       for s in strings]
+            check_content(strings, rawptrs)
+            rgc.collect(); rgc.collect(); rgc.collect()
+            check_content(strings, rawptrs)
+            del strings
+            rgc.collect(); rgc.collect(); rgc.collect()
+            return 42
+
+        rffi._StrFinalizerQueue.print_debugging = True
+        try:
+            xf = self.compile(f, [int], gcpolicy="incminimark")
+            assert xf(10000) == 42
+        finally:
+            rffi._StrFinalizerQueue.print_debugging = False
+
 def test_enforced_args():
     from rpython.annotator.model import s_None
     from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator

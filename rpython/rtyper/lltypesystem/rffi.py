@@ -809,6 +809,7 @@ def make_string_mappings(strtype):
             lltype.free(cp, flavor='raw', track_allocation=True)
         else:
             lltype.free(cp, flavor='raw', track_allocation=False)
+    free_charp._annenforceargs_ = [None, bool]
 
     # str -> already-existing char[maxsize]
     def str2chararray(s, array, maxsize):
@@ -1330,14 +1331,6 @@ c_memset = llexternal("memset",
         )
 
 
-class RawBytes(object):
-    # literal copy of _cffi_backend/func.py
-    def __init__(self, string):
-        self.ptr = str2charp(string, track_allocation=False)
-    def __del__(self):
-        if free_charp is not None:    # CPython shutdown
-            free_charp(self.ptr, track_allocation=False)
-
 # NOTE: This is not a weak key dictionary, thus keeping a lot of stuff alive.
 TEST_RAW_ADDR_KEEP_ALIVE = {}
 
@@ -1346,8 +1339,6 @@ def get_raw_address_of_string(string):
     """Returns a 'char *' that is valid as long as the rpython string object is alive.
     Two calls to to this function, given the same string parameter,
     are guaranteed to return the same pointer.
-
-    NOTE: may raise ValueError on some GCs, but not the default one.
     """
     assert isinstance(string, str)
     from rpython.rtyper.annlowlevel import llstr
@@ -1357,11 +1348,11 @@ def get_raw_address_of_string(string):
 
     if we_are_translated():
         if rgc.must_split_gc_address_space():
-            raise ValueError("cannot return a pointer in the gcstring")
+            return _get_raw_address_buf_from_string(string)
         if rgc.can_move(string):
             string = rgc.move_out_of_nursery(string)
             if rgc.can_move(string):
-                raise ValueError("cannot make string immovable")
+                return _get_raw_address_buf_from_string(string)
 
         # string cannot move now! return the address
         lldata = llstr(string)
@@ -1374,6 +1365,48 @@ def get_raw_address_of_string(string):
     else:
         global TEST_RAW_ADDR_KEEP_ALIVE
         if string in TEST_RAW_ADDR_KEEP_ALIVE:
-            return TEST_RAW_ADDR_KEEP_ALIVE[string].ptr
-        TEST_RAW_ADDR_KEEP_ALIVE[string] = rb = RawBytes(string)
-        return rb.ptr
+            return TEST_RAW_ADDR_KEEP_ALIVE[string]
+        result = str2charp(string, track_allocation=False)
+        TEST_RAW_ADDR_KEEP_ALIVE[string] = result
+        return result
+
+class _StrFinalizerQueue(rgc.FinalizerQueue):
+    Class = None              # to use GCREFs directly
+    print_debugging = False   # set to True from test_rffi
+    def finalizer_trigger(self):
+        from rpython.rtyper.annlowlevel import hlstr
+        from rpython.rtyper.lltypesystem import rstr
+        from rpython.rlib.debug import debug_print
+        from rpython.rlib import objectmodel
+        debug_print("HI THERE")
+        while True:
+            gcptr = self.next_dead()
+            if not gcptr:
+                break
+            ll_string = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), gcptr)
+            string = hlstr(ll_string)
+            key = objectmodel.compute_unique_id(string)
+            ptr = self.raw_copies.get(key, lltype.nullptr(CCHARP.TO))
+            debug_print(ptr)
+            if ptr:
+                if self.print_debugging:
+                    debug_print("freeing [", ptr, "]")
+                free_charp(ptr, track_allocation=False)
+_fq_addr_from_string = _StrFinalizerQueue()
+_fq_addr_from_string.raw_copies = {}    # {GCREF: CCHARP}
+
+def _get_raw_address_buf_from_string(string):
+    # Slowish but ok because it's not supposed to be used from a
+    # regular PyPy.  It's only used with non-standard GCs like RevDB
+    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rlib import objectmodel
+    key = objectmodel.compute_unique_id(string)
+    try:
+        ptr = _fq_addr_from_string.raw_copies[key]
+    except KeyError:
+        ptr = str2charp(string, track_allocation=False)
+        _fq_addr_from_string.raw_copies[key] = ptr
+        ll_string = llstr(string)
+        gcptr = lltype.cast_opaque_ptr(llmemory.GCREF, ll_string)
+        _fq_addr_from_string.register_finalizer(gcptr)
+    return ptr
