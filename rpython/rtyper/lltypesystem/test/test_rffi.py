@@ -826,7 +826,7 @@ class TestCRffi(BaseTestRffi):
                     assert p[j] == expected[j]
 
         def f(n):
-            strings = [str(i) for i in range(n)]
+            strings = ["foo%d" % i for i in range(n)]
             rawptrs = [rffi._get_raw_address_buf_from_string(s)
                        for s in strings]
             check_content(strings, rawptrs)
@@ -838,10 +838,23 @@ class TestCRffi(BaseTestRffi):
 
         rffi._StrFinalizerQueue.print_debugging = True
         try:
-            xf = self.compile(f, [int], gcpolicy="incminimark")
-            assert xf(10000) == 42
+            xf = self.compile(f, [int], gcpolicy="incminimark",
+                              return_stderr=True)
         finally:
             rffi._StrFinalizerQueue.print_debugging = False
+
+        os.environ['PYPYLOG'] = ':-'
+        try:
+            error = xf(10000)
+        finally:
+            del os.environ['PYPYLOG']
+
+        import re
+        r = re.compile(r"freeing str [[] [0-9a-fx]+ []]")
+        matches = r.findall(error)
+        assert len(matches) == 10000        # must be all 10000 strings,
+        assert len(set(matches)) == 10000   # and no duplicates
+
 
 def test_enforced_args():
     from rpython.annotator.model import s_None

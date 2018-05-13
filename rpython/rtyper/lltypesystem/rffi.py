@@ -1376,9 +1376,7 @@ class _StrFinalizerQueue(rgc.FinalizerQueue):
     def finalizer_trigger(self):
         from rpython.rtyper.annlowlevel import hlstr
         from rpython.rtyper.lltypesystem import rstr
-        from rpython.rlib.debug import debug_print
         from rpython.rlib import objectmodel
-        debug_print("HI THERE")
         while True:
             gcptr = self.next_dead()
             if not gcptr:
@@ -1387,10 +1385,10 @@ class _StrFinalizerQueue(rgc.FinalizerQueue):
             string = hlstr(ll_string)
             key = objectmodel.compute_unique_id(string)
             ptr = self.raw_copies.get(key, lltype.nullptr(CCHARP.TO))
-            debug_print(ptr)
             if ptr:
                 if self.print_debugging:
-                    debug_print("freeing [", ptr, "]")
+                    from rpython.rlib.debug import debug_print
+                    debug_print("freeing str [", ptr, "]")
                 free_charp(ptr, track_allocation=False)
 _fq_addr_from_string = _StrFinalizerQueue()
 _fq_addr_from_string.raw_copies = {}    # {GCREF: CCHARP}
