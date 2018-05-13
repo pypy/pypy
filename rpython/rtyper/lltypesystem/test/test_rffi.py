@@ -832,6 +832,10 @@ class TestCRffi(BaseTestRffi):
             check_content(strings, rawptrs)
             rgc.collect(); rgc.collect(); rgc.collect()
             check_content(strings, rawptrs)
+            for i in range(len(strings)):   # check that it still returns the
+                                            # same raw ptrs
+                p1 = rffi._get_raw_address_buf_from_string(strings[i])
+                assert rawptrs[i] == p1
             del strings
             rgc.collect(); rgc.collect(); rgc.collect()
             return 42
