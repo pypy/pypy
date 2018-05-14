@@ -28,18 +28,18 @@ class W_BytesBuilder(W_Root):
         self.builder.append_slice(s, start, end)
 
     def descr_build(self, space):
-        s = self.builder.build()
+        w_s = space.newbytes(self.builder.build())
         # after build(), we can continue to append more strings
         # to the same builder.  This is supported since
         # 2ff5087aca28 in RPython.
-        return space.newbytes(s)
+        return w_s
 
     def descr_len(self, space):
         if self.builder is None:
             raise oefmt(space.w_ValueError, "no length of built builder")
         return space.newint(self.builder.getlength())
 
-W_BytesBuilder.typedef = TypeDef('BytesBuilder',
+W_BytesBuilder.typedef = TypeDef("BytesBuilder",
     __new__ = interp2app(func_with_new_name(
                                 W_BytesBuilder.descr__new__.im_func,
                                 'BytesBuilder_new')),
@@ -50,7 +50,7 @@ W_BytesBuilder.typedef = TypeDef('BytesBuilder',
 )
 W_BytesBuilder.typedef.acceptable_as_base_class = False
 
-class W_StringBuilder(W_Root):
+class W_UnicodeBuilder(W_Root):
     def __init__(self, space, size):
         if size < 0:
             self.builder = UnicodeBuilder()
@@ -59,7 +59,7 @@ class W_StringBuilder(W_Root):
 
     @unwrap_spec(size=int)
     def descr__new__(space, w_subtype, size=-1):
-        return W_StringBuilder(space, size)
+        return W_UnicodeBuilder(space, size)
 
     @unwrap_spec(s=unicode)
     def descr_append(self, space, s):
@@ -72,24 +72,25 @@ class W_StringBuilder(W_Root):
         self.builder.append_slice(s, start, end)
 
     def descr_build(self, space):
-        s = self.builder.build()
+        w_s = space.newunicode(self.builder.build())
         # after build(), we can continue to append more strings
         # to the same builder.  This is supported since
         # 2ff5087aca28 in RPython.
-        return space.newunicode(s)
+        return w_s
 
     def descr_len(self, space):
         if self.builder is None:
             raise oefmt(space.w_ValueError, "no length of built builder")
         return space.newint(self.builder.getlength())
 
-W_StringBuilder.typedef = TypeDef('StringBuilder',
+W_UnicodeBuilder.typedef = TypeDef("StringBuilder",
     __new__ = interp2app(func_with_new_name(
-                                W_StringBuilder.descr__new__.im_func,
-                                'StringBuilder_new')),
-    append = interp2app(W_StringBuilder.descr_append),
-    append_slice = interp2app(W_StringBuilder.descr_append_slice),
-    build = interp2app(W_StringBuilder.descr_build),
-    __len__ = interp2app(W_StringBuilder.descr_len),
+                                W_UnicodeBuilder.descr__new__.im_func,
+                                'UnicodeBuilder_new')),
+    append = interp2app(W_UnicodeBuilder.descr_append),
+    append_slice = interp2app(W_UnicodeBuilder.descr_append_slice),
+    build = interp2app(W_UnicodeBuilder.descr_build),
+    __len__ = interp2app(W_UnicodeBuilder.descr_len),
 )
-W_StringBuilder.typedef.acceptable_as_base_class = False
+W_UnicodeBuilder.typedef.acceptable_as_base_class = False
+W_StringBuilder = W_UnicodeBuilder
