@@ -7,6 +7,9 @@ time zone and DST data sources.
 import time as _time
 import math as _math
 
+# for cpyext, use these as base classes
+from __pypy__._pypydatetime import dateinterop, deltainterop, timeinterop
+
 def _cmp(x, y):
     return 0 if x == y else 1 if x > y else -1
 
@@ -332,8 +335,7 @@ def _divide_and_round(a, b):
 
     return q
 
-
-class timedelta:
+class timedelta(deltainterop):
     """Represent the difference between two datetime objects.
 
     Supported operators:
@@ -446,7 +448,7 @@ class timedelta:
         if abs(d) > 999999999:
             raise OverflowError("timedelta # of days is too large: %d" % d)
 
-        self = object.__new__(cls)
+        self = deltainterop.__new__(cls)
         self._days = d
         self._seconds = s
         self._microseconds = us
@@ -655,7 +657,7 @@ timedelta.max = timedelta(days=999999999, hours=23, minutes=59, seconds=59,
                           microseconds=999999)
 timedelta.resolution = timedelta(microseconds=1)
 
-class date:
+class date(dateinterop):
     """Concrete date type.
 
     Constructors:
@@ -695,12 +697,12 @@ class date:
         if month is None and isinstance(year, bytes) and len(year) == 4 and \
                 1 <= year[2] <= 12:
             # Pickle support
-            self = object.__new__(cls)
+            self = dateinterop.__new__(cls)
             self.__setstate(year)
             self._hashcode = -1
             return self
         year, month, day = _check_date_fields(year, month, day)
-        self = object.__new__(cls)
+        self = dateinterop.__new__(cls)
         self._year = year
         self._month = month
         self._day = day
@@ -1026,7 +1028,7 @@ class tzinfo:
 
 _tzinfo_class = tzinfo
 
-class time:
+class time(timeinterop):
     """Time with time zone.
 
     Constructors:
@@ -1063,14 +1065,14 @@ class time:
         """
         if isinstance(hour, bytes) and len(hour) == 6 and hour[0]&0x7F < 24:
             # Pickle support
-            self = object.__new__(cls)
+            self = timeinterop.__new__(cls)
             self.__setstate(hour, minute or None)
             self._hashcode = -1
             return self
         hour, minute, second, microsecond, fold = _check_time_fields(
             hour, minute, second, microsecond, fold)
         _check_tzinfo_arg(tzinfo)
-        self = object.__new__(cls)
+        self = timeinterop.__new__(cls)
         self._hour = hour
         self._minute = minute
         self._second = second
@@ -1376,7 +1378,7 @@ class datetime(date):
                 microsecond=0, tzinfo=None, *, fold=0):
         if isinstance(year, bytes) and len(year) == 10 and 1 <= year[2]&0x7F <= 12:
             # Pickle support
-            self = object.__new__(cls)
+            self = dateinterop.__new__(cls)
             self.__setstate(year, month)
             self._hashcode = -1
             return self
@@ -1384,7 +1386,7 @@ class datetime(date):
         hour, minute, second, microsecond, fold = _check_time_fields(
             hour, minute, second, microsecond, fold)
         _check_tzinfo_arg(tzinfo)
-        self = object.__new__(cls)
+        self = dateinterop.__new__(cls)
         self._year = year
         self._month = month
         self._day = day

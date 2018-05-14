@@ -287,6 +287,9 @@ class OptimizingVisitor(ast.ASTVisitor):
 
     def visit_Tuple(self, tup):
         """Try to turn tuple building into a constant."""
+        if tup.ctx != ast.Load:
+            return tup   # Don't do the rest for assignment or delete targets.
+                         # It would replace Tuple([]) with Constant('()')!
         if tup.elts:
             consts_w = [None]*len(tup.elts)
             for i in range(len(tup.elts)):

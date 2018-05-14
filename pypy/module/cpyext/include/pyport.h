@@ -128,4 +128,36 @@ typedef size_t Py_uhash_t;
 #else
 #endif
 
+/*
+ * Hide GCC attributes from compilers that don't support them.
+ */
+#if (!defined(__GNUC__) || __GNUC__ < 2 || \
+     (__GNUC__ == 2 && __GNUC_MINOR__ < 7) ) && \
+    !defined(RISCOS)
+#define Py_GCC_ATTRIBUTE(x)
+#else
+#define Py_GCC_ATTRIBUTE(x) __attribute__(x)
+#endif
+
+/*
+ * Specify alignment on compilers that support it.
+ */
+#if defined(__GNUC__) && __GNUC__ >= 3
+#define Py_ALIGNED(x) __attribute__((aligned(x)))
+#else
+#define Py_ALIGNED(x)
+#endif
+
+/*
+ * Older Microsoft compilers don't support the C99 long long literal suffixes,
+ * so these will be defined in PC/pyconfig.h for those compilers.
+ */
+#ifndef Py_LL
+#define Py_LL(x) x##LL
+#endif
+
+#ifndef Py_ULL
+#define Py_ULL(x) Py_LL(x##U)
+#endif
+
 #endif /* Py_PYPORT_H */

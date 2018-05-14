@@ -63,7 +63,7 @@ class GcRewriterAssembler(object):
     def remember_known_length(self, op, val):
         self._known_lengths[op] = val
 
-    def remember_setarrayitem_occured(self, op, index):
+    def remember_setarrayitem_occurred(self, op, index):
         op = self.get_box_replacement(op)
         try:
             subs = self._setarrayitems_occurred[op]
@@ -456,7 +456,7 @@ class GcRewriterAssembler(object):
         array_box = op.getarg(0)
         index_box = op.getarg(1)
         if not isinstance(array_box, ConstPtr) and index_box.is_constant():
-            self.remember_setarrayitem_occured(array_box, index_box.getint())
+            self.remember_setarrayitem_occurred(array_box, index_box.getint())
 
     def clear_varsize_gc_fields(self, kind, descr, result, v_length, opnum):
         if self.gc_ll_descr.malloc_zero_filled:

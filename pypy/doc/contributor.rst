@@ -214,6 +214,7 @@ Contributors
   Lukas Vacek
   Omer Katz
   Jacek Generowicz
+  Tomasz Dziopa
   Sylvain Thenault
   Jakub Stasiak
   Andrew Dalke
@@ -274,6 +275,7 @@ Contributors
   Yury V. Zaytsev
   florinpapa
   Anders Sigfridsson
+  Matt Jackson
   Nikolay Zinov
   rafalgalczynski@gmail.com
   Joshua Gilbert

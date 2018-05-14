@@ -5,6 +5,9 @@ import sys
 
 if sys.platform.startswith('darwin'):
     eci = ExternalCompilationInfo()
+elif sys.platform.startswith('linux'):
+    # crypt() is defined only in crypt.h on some Linux variants (eg. Fedora 28)
+    eci = ExternalCompilationInfo(libraries=['crypt'], includes=["crypt.h"])
 else:
     eci = ExternalCompilationInfo(libraries=['crypt'])
 c_crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP,

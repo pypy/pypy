@@ -40,26 +40,18 @@ def _PyDateTime_Import(space):
     w_type = space.getattr(w_datetime, space.newtext("datetime"))
     datetimeAPI.c_DateTimeType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
-    datetimeAPI.c_DateTimeType.c_tp_basicsize = rffi.sizeof(
-        cts.gettype('PyDateTime_DateTime'))
 
     w_type = space.getattr(w_datetime, space.newtext("time"))
     datetimeAPI.c_TimeType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
-    datetimeAPI.c_TimeType.c_tp_basicsize = rffi.sizeof(
-        cts.gettype('PyDateTime_Time'))
 
     w_type = space.getattr(w_datetime, space.newtext("timedelta"))
     datetimeAPI.c_DeltaType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
-    datetimeAPI.c_DeltaType.c_tp_basicsize = rffi.sizeof(
-        cts.gettype('PyDateTime_Delta'))
 
     w_type = space.getattr(w_datetime, space.newtext("tzinfo"))
     datetimeAPI.c_TZInfoType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
-    datetimeAPI.c_TZInfoType.c_tp_basicsize = rffi.sizeof(
-        cts.gettype('PyDateTime_TZInfo'))
 
     datetimeAPI.c_Date_FromDate = llhelper(
         _PyDate_FromDate.api_func.functype,

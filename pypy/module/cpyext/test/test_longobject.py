@@ -136,6 +136,9 @@ class TestLongObject(BaseApiTest):
         assert api._PyLong_Sign(space.wraplong(0L)) == 0
         assert api._PyLong_Sign(space.wraplong(2L)) == 1
         assert api._PyLong_Sign(space.wraplong(-2L)) == -1
+        assert api._PyLong_Sign(space.wrap(0)) == 0
+        assert api._PyLong_Sign(space.wrap(42)) == 1
+        assert api._PyLong_Sign(space.wrap(-42)) == -1
 
         assert api._PyLong_NumBits(space.wrap(0)) == 0
         assert api._PyLong_NumBits(space.wrap(1)) == 1

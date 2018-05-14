@@ -33,6 +33,7 @@ class AppTestCPPYY:
         cls.w_lib, cls.w_instantiate, cls.w_example01, cls.w_payload = \
                    cls.space.unpackiterable(cls.space.appexec([], """():
             import _cppyy, ctypes
+            _cppyy._post_import_startup()
             lib = ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)
             def cpp_instantiate(tt, *args):
                 inst = _cppyy._bind_object(0, tt, True)

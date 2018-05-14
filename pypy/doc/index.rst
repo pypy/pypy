@@ -9,7 +9,7 @@ implementation of the Python_ language.
 
 * If you're interested in trying PyPy out, check out the :doc:`installation instructions <install>`.
 
-* If you want to help develop PyPy, please have a look at :doc:`how to contribute <how-to-contribute>`
+* If you want to help develop PyPy, please have a look at :doc:`contributing <contributing>`
   and get in touch (:ref:`contact`)!
 
 All of the documentation and source code is available under the MIT license,
@@ -31,6 +31,7 @@ Getting Started
   introduction
   install
   build
+  windows
   faq
 
 
@@ -40,42 +41,29 @@ Using PyPy
 ----------
 
 .. toctree::
-  :maxdepth: 1
+  :maxdepth: 2
 
   cpython_differences
   extending
-  embedding
   gc_info
   jit-hooks
   stackless
   __pypy__-module
-  objspace-proxies
   sandbox
   stm
-  windows
 
-
-.. _developing-pypy:
-
-Development documentation
--------------------------
+Development
+-----------
 
 .. toctree::
-  :maxdepth: 1
+  :maxdepth: 2
 
-  getting-started-dev
-  how-to-contribute
-  you-want-to-help
+  contributing
   architecture
   configuration
   project-ideas
   project-documentation
   how-to-release
-
-.. TODO: audit ^^
-
-
-.. TODO: Fill this in
 
 
 Further resources
@@ -84,13 +72,10 @@ Further resources
 .. toctree::
   :maxdepth: 1
 
-  extradoc
-  eventhistory
-  discussions
   index-of-release-notes
   index-of-whatsnew
   contributor
-
+  glossary
 
 .. _contact:
 
@@ -118,7 +103,7 @@ Meeting PyPy developers
     the `development mailing list`_.
 
 .. _#pypy on irc.freenode.net: irc://irc.freenode.net/pypy
-.. _here: http://www.tismer.com/pypy/irc-logs/pypy/
+.. _here: https://botbot.me/freenode/pypy/
 .. _Development mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _Commit mailing list: http://mail.python.org/mailman/listinfo/pypy-commit
 .. _Development bug/feature tracker: https://bitbucket.org/pypy/pypy/issues

@@ -61,7 +61,7 @@ we have it for compatibility with CPython.
 #endif
 PyAPI_FUNC(void) Py_IncRef(PyObject *);
 PyAPI_FUNC(void) Py_DecRef(PyObject *);
-extern Py_ssize_t _pypy_rawrefcount_w_marker_deallocating;
+extern void *_pypy_rawrefcount_w_marker_deallocating;
 PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
 
 
@@ -322,7 +322,7 @@ typedef union _gc_head {
         } while (0)
 
 #define PyObject_TypeCheck(ob, tp) \
-    ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
+    (Py_TYPE(ob) == (tp) || PyType_IsSubtype(Py_TYPE(ob), (tp)))
 
 #define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
 #define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
