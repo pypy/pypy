@@ -6,8 +6,8 @@ class AppTestMarshal(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("mloads", "METH_O",
              """
-                 char *input = PyString_AsString(args);
-                 Py_ssize_t length = PyString_Size(args);
+                 char *input = PyBytes_AsString(args);
+                 Py_ssize_t length = PyBytes_Size(args);
                  return PyMarshal_ReadObjectFromString(input, length);
              """)],
             prologue='#include <marshal.h>')
