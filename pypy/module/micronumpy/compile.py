@@ -86,6 +86,8 @@ class FakeSpace(ObjSpace):
     w_buffer = W_TypeObject("buffer")
     w_type = W_TypeObject("type")
 
+    reverse_debugging = None
+
     def __init__(self, config=None):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild

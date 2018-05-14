@@ -839,8 +839,11 @@ class FunctionCodeGenerator(object):
     def OP_DEBUG_PRINT(self, op):
         # XXX
         from rpython.rtyper.lltypesystem.rstr import STR
-        format = ['{%d} ']
-        argv = ['(int)getpid()']
+        format = []
+        argv = []
+        if self.db.reverse_debugger:
+            format.append('{%d} ')
+            argv.append('(int)getpid()')
         free_line = ""
         for arg in op.args:
             T = arg.concretetype
