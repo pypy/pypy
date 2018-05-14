@@ -59,6 +59,7 @@ def distb(tb=None):
 
 def disassemble(co, lasti=-1):
     """Disassemble a code object."""
+    XXX
     code = co.co_code
     labels = findlabels(code)
     linestarts = dict(findlinestarts(co))
