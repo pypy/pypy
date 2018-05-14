@@ -148,6 +148,8 @@ class Block(object):
         code = []
         for instr in self.instructions:
             instr.encode(code)
+        assert len(code) == self.code_size()
+        assert len(code) & 1 == 0
         return ''.join(code)
 
 
@@ -197,6 +199,13 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.lineno_set = False
         self.lineno = 0
         self.add_none_to_final_return = True
+
+    def _check_consistency(self, blocks):
+        current_off = 0
+        for block in blocks:
+            assert block.offset == current_off
+            for instr in block.instructions:
+                current_off += instr.size()
 
     def new_block(self):
         return Block()
@@ -328,14 +337,12 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _resolve_block_targets(self, blocks):
         """Compute the arguments of jump instructions."""
-        last_extended_arg_count = 0
         # The reason for this loop is extended jumps.  EXTENDED_ARG
-        # extends the bytecode size, so it might invalidate the offsets
-        # we've already given.  Thus we have to loop until the number of
-        # extended args is stable.  Any extended jump at all is
-        # extremely rare, so performance is not too concerning.
+        # extends the bytecode size, so it might invalidate the offsets we've
+        # already given.  Thus we have to loop until the size of all jump
+        # instructions is stable. Any extended jump at all is extremely rare,
+        # so performance should not be too concerning.
         while True:
-            extended_arg_count = 0
             offset = 0
             force_redo = False
             # Calculate the code offset of each block.
@@ -345,7 +352,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             for block in blocks:
                 offset = block.offset
                 for instr in block.instructions:
-                    offset += instr.size()
+                    size = instr.size()
+                    offset += size
                     if instr.has_jump:
                         target, absolute = instr.jump
                         op = instr.opcode
@@ -364,22 +372,21 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     instr.opcode = ops.RETURN_VALUE
                                     instr.arg = 0
                                     instr.has_jump = False
-                                    # The size of the code changed,
+                                    # The size of the code maybe have changed,
                                     # we have to trigger another pass
-                                    force_redo = True
+                                    if instr.size() != size:
+                                        force_redo = True
                                     continue
                         if absolute:
                             jump_arg = target.offset
                         else:
                             jump_arg = target.offset - offset
                         instr.arg = jump_arg
-                        if jump_arg > 0xFFFF:
-                            extended_arg_count += 1
-            if (extended_arg_count == last_extended_arg_count and
-                not force_redo):
-                break
-            else:
-                last_extended_arg_count = extended_arg_count
+                        if instr.size() != size:
+                            force_redo = True
+            if not force_redo:
+                self._check_consistency(blocks)
+                return
 
     def _build_consts_array(self):
         """Turn the applevel constants dictionary into a list."""
