@@ -40,11 +40,9 @@ Heinrich-Heine Universitaet Duesseldorf from the *2nd to the 9th of June*.
 Main focus of the sprint will be on the goals of the upcoming June 0.9
 release.
 
-Read more in `the sprint announcement`__, see who is  planning to attend
-on the `people page`_.
+Read more about `the sprint`__
 
-__ https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/announce.html
-.. _people page: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/people.txt
+__ https://bitbucket.org/pypy/extradoc/src/extradoc/sprintinfo/ddorf2006/
 
 
 PyPy sprint at Akihabara (Tokyo, Japan)

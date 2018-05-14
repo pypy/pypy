@@ -686,6 +686,34 @@ class PyObjectConverter(TypeConverter):
         decref(space, rffi.cast(PyObject, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 
+class FunctionPointerConverter(TypeConverter):
+    _immutable_fields_ = ['signature']
+
+    def __init__(self, space, signature):
+        self.signature = signature
+
+    def convert_argument(self, space, w_obj, address, call_local):
+        # TODO: atm, does not actually get an overload, but a staticmethod
+        from pypy.module._cppyy.interp_cppyy import W_CPPOverload
+        cppol = space.interp_w(W_CPPOverload, w_obj)
+
+        # find the function with matching signature
+        for i in range(len(cppol.functions)):
+            m = cppol.functions[i]
+            if m.signature(False) == self.signature:
+                x = rffi.cast(rffi.VOIDPP, address)
+                x[0] = rffi.cast(rffi.VOIDP,
+                    capi.c_function_address_from_method(space, m.cppmethod))
+                address = rffi.cast(capi.C_OBJECT, address)
+                ba = rffi.cast(rffi.CCHARP, address)
+                ba[capi.c_function_arg_typeoffset(space)] = 'p'
+                return
+
+        # lookup failed
+        raise oefmt(space.w_TypeError,
+                    "no overload found matching %s", self.signature)
+
+
 class MacroConverter(TypeConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         # TODO: get the actual type info from somewhere ...
@@ -749,6 +777,14 @@ def get_converter(space, _name, default):
             return InstancePtrPtrConverter(space, clsdecl)
         elif compound == "":
             return InstanceConverter(space, clsdecl)
+    elif "(anonymous)" in name:
+        # special case: enum w/o a type name
+        return _converters["internal_enum_type_t"](space, default)
+    elif "(*)" in name or "::*)" in name:
+        # function pointer
+        pos = name.find("*)")
+        if pos > 0:
+            return FunctionPointerConverter(space, name[pos+2:])
 
     #   5) void* or void converter (which fails on use)
     if 0 <= compound.find('*'):

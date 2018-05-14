@@ -8,7 +8,7 @@ from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from rpython.tool.sourcetools import func_with_new_name
 
 
-class W_StringBuilder(W_Root):
+class W_BytesBuilder(W_Root):
     def __init__(self, space, size):
         if size < 0:
             self.builder = StringBuilder()
@@ -17,7 +17,7 @@ class W_StringBuilder(W_Root):
 
     @unwrap_spec(size=int)
     def descr__new__(space, w_subtype, size=-1):
-        return W_StringBuilder(space, size)
+        return W_BytesBuilder(space, size)
 
     @unwrap_spec(s='bytes')
     def descr_append(self, space, s):
@@ -41,16 +41,17 @@ class W_StringBuilder(W_Root):
             raise oefmt(space.w_ValueError, "no length of built builder")
         return space.newint(self.builder.getlength())
 
-W_StringBuilder.typedef = TypeDef("StringBuilder",
+W_BytesBuilder.typedef = TypeDef("StringBuilder",
     __new__ = interp2app(func_with_new_name(
-                                W_StringBuilder.descr__new__.im_func,
-                                'StringBuilder_new')),
-    append = interp2app(W_StringBuilder.descr_append),
-    append_slice = interp2app(W_StringBuilder.descr_append_slice),
-    build = interp2app(W_StringBuilder.descr_build),
-    __len__ = interp2app(W_StringBuilder.descr_len),
+                                W_BytesBuilder.descr__new__.im_func,
+                                'BytesBuilder_new')),
+    append = interp2app(W_BytesBuilder.descr_append),
+    append_slice = interp2app(W_BytesBuilder.descr_append_slice),
+    build = interp2app(W_BytesBuilder.descr_build),
+    __len__ = interp2app(W_BytesBuilder.descr_len),
 )
-W_StringBuilder.typedef.acceptable_as_base_class = False
+W_BytesBuilder.typedef.acceptable_as_base_class = False
+W_StringBuilder = W_BytesBuilder
 
 class W_UnicodeBuilder(W_Root):
     def __init__(self, space, size):

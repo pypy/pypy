@@ -15,7 +15,8 @@ class AppTestSTLVECTOR:
         cls.w_N = cls.space.newint(13)
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlvector = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_builtin_type_vector_types(self):

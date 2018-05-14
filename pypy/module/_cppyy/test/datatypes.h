@@ -1,5 +1,5 @@
 // copied from RtypesCore.h ...
-#if defined(R__WIN32)
+#if defined(R__WIN32) && !defined(__CINT__)
 typedef __int64          Long64_t;  //Portable signed long integer 8 bytes
 typedef unsigned __int64 ULong64_t; //Portable unsigned long integer 8 bytes
 #else
@@ -26,8 +26,13 @@ extern std::vector<EFruit> vecFruits;
 
 //===========================================================================
 namespace EnumSpace {
-   enum E {E1 = 1, E2};
-};
+    enum E {E1 = 1, E2};
+    class EnumClass {
+    public:
+        enum    {E1 = -1};
+        enum EE {E2 = -1};
+    };
+}
 
 
 //===========================================================================
@@ -243,6 +248,7 @@ public:
     short                m_short;
     unsigned short       m_ushort;
     int                  m_int;
+    const int            m_const_int;   // special case: const testing
     unsigned int         m_uint;
     long                 m_long;
     unsigned long        m_ulong;
@@ -364,3 +370,9 @@ bool is_global_pod(CppyyTestPod* t);
 void set_global_pod(CppyyTestPod* t);
 CppyyTestPod* get_global_pod();
 CppyyTestPod* get_null_pod();
+
+
+//= function pointer passing ================================================
+int sum_of_int(int i1, int i2);
+double sum_of_double(double d1, double d2);
+double call_double_double(double (*d)(double, double), double d1, double d2);
