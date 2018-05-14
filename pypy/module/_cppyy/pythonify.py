@@ -1,5 +1,5 @@
 # NOT_RPYTHON
-# do not load _cppyy here, see _init_pythonify()
+# do not load _cppyy here, see _post_import_startup()
 import types
 import sys
 
@@ -7,7 +7,7 @@ import sys
 # Metaclasses are needed to store C++ static data members as properties. Since
 # the interp-level does not support metaclasses, they are created at app-level.
 # These are the metaclass base classes:
-class CPPMetaScope(type):
+class CPPScope(type):
     def __getattr__(self, name):
         try:
             return get_scoped_pycppitem(self, name)  # will cache on self
@@ -15,14 +15,14 @@ class CPPMetaScope(type):
             raise AttributeError("%s object has no attribute '%s' (details: %s)" %
                                  (self, name, str(e)))
 
-class CPPMetaNamespace(CPPMetaScope):
+class CPPMetaNamespace(CPPScope):
     def __dir__(self):
         return self.__cppdecl__.__dir__()
 
-class CPPMetaClass(CPPMetaScope):
+class CPPClass(CPPScope):
     pass
 
-# namespace base class (class base class defined in _init_pythonify)
+# namespace base class (class base class defined in _post_import_startup()
 class CPPNamespace(object):
     __metatype__ = CPPMetaNamespace
 
@@ -169,11 +169,12 @@ def make_method(meth_name, cppol):
     return method
 
 def make_cppclass(scope, cl_name, decl):
+    import _cppyy
 
     # get a list of base classes for class creation
     bases = [get_pycppclass(base) for base in decl.get_base_names()]
     if not bases:
-        bases = [CPPClass,]
+        bases = [CPPInstance,]
     else:
         # it's possible that the required class now has been built if one of
         # the base classes uses it in e.g. a function interface
@@ -209,12 +210,12 @@ def make_cppclass(scope, cl_name, decl):
     for d_name in decl.get_datamember_names():
         cppdm = decl.get_datamember(d_name)
         d_class[d_name] = cppdm
-        if cppdm.is_static():
+        if _cppyy._is_static_data(cppdm):
             d_meta[d_name] = cppdm
 
     # create a metaclass to allow properties (for static data write access)
     metabases = [type(base) for base in bases]
-    metacpp = type(CPPMetaScope)(cl_name+'_meta', _drop_cycles(metabases), d_meta)
+    metacpp = type(CPPScope)(cl_name+'_meta', _drop_cycles(metabases), d_meta)
 
     # create the python-side C++ class
     pycls = metacpp(cl_name, _drop_cycles(bases), d_class)
@@ -278,7 +279,7 @@ def get_scoped_pycppitem(scope, name):
         try:
             cppdm = scope.__cppdecl__.get_datamember(name)
             setattr(scope, name, cppdm)
-            if cppdm.is_static():
+            if _cppyy._is_static_data(cppdm):
                 setattr(scope.__class__, name, cppdm)
             pycppitem = getattr(scope, name)      # gets actual property value
         except AttributeError:
@@ -406,17 +407,17 @@ def _pythonize(pyclass):
         pyclass.__len__     = return2
 
 
-def _init_pythonify():
+def _post_import_startup():
     # _cppyy should not be loaded at the module level, as that will trigger a
     # call to space.getbuiltinmodule(), which will cause _cppyy to be loaded
     # at pypy-c startup, rather than on the "import _cppyy" statement
     import _cppyy
 
-    # root of all proxy classes: CPPClass in pythonify exists to combine the
-    # CPPMetaScope metaclass with the interp-level CPPClassBase
-    global CPPClass
-    class CPPClass(_cppyy.CPPClassBase):
-        __metaclass__ = CPPMetaScope
+    # root of all proxy classes: CPPInstance in pythonify exists to combine
+    # the CPPScope metaclass with the interp-level CPPInstanceBase
+    global CPPInstance
+    class CPPInstance(_cppyy.CPPInstanceBase):
+        __metaclass__ = CPPScope
         pass
 
     # class generator callback
@@ -438,9 +439,8 @@ def _init_pythonify():
     gbl.std.move = _cppyy.move
 
     # install a type for enums to refer to
-    # TODO: this is correct for C++98, not for C++11 and in general there will
-    # be the same issue for all typedef'd builtin types
     setattr(gbl, 'internal_enum_type_t', int)
+    setattr(gbl, 'unsigned int',         int)     # if resolved
 
     # install for user access
     _cppyy.gbl = gbl

@@ -410,7 +410,6 @@ class W_FloatObject(W_Root):
 
     def descr_hash(self, space):
         h = _hash_float(space, self.floatval)
-        h -= (h == -1)
         return space.newint(h)
 
     def descr_format(self, space, w_spec):
@@ -761,7 +760,8 @@ def _hash_float(space, v):
     x = ((x << e) & HASH_MODULUS) | x >> (HASH_BITS - e)
 
     x = intmask(intmask(x) * sign)
-    return -2 if x == -1 else x
+    x -= (x == -1)
+    return x
 
 
 def _divmod_w(space, w_float1, w_float2):

@@ -62,7 +62,7 @@ class TestNumber(BaseCTypesTestChecker):
             assert t(h).value == h
 
     def test_typeerror(self):
-        # Only numbers are allowed in the contructor,
+        # Only numbers are allowed in the constructor,
         # otherwise TypeError is raised
         for t in signed_types + unsigned_types + float_types:
             with pytest.raises(TypeError):

@@ -70,7 +70,12 @@ class PointerType(_CDataMeta):
         self._ffiarray = ffiarray
         self.__init__ = __init__
         self._type_ = TP
-        self._ffiargtype = _ffi.types.Pointer(TP.get_ffi_argtype())
+
+    def _build_ffiargtype(self):
+        return _ffi.types.Pointer(self._type_.get_ffi_argtype())
+
+    def _deref_ffiargtype(self):
+        return self._type_.get_ffi_argtype()
 
     from_address = cdata_from_address
 

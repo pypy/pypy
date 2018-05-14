@@ -999,7 +999,7 @@ class ClassesPBCRepr(Repr):
                 classdef.has_no_attrs()):
                 # special case for instanciating simple built-in
                 # exceptions: always return the same prebuilt instance,
-                # and ignore any arguments passed to the contructor.
+                # and ignore any arguments passed to the constructor.
                 r_instance = rclass.getinstancerepr(hop.rtyper, classdef)
                 example = r_instance.get_reusable_prebuilt_instance()
                 hop.exception_cannot_occur()

@@ -1222,13 +1222,6 @@ def PyMarshal_WriteObjectToFile(space, value, file, version):
     version indicates the file format."""
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyMarshal_WriteObjectToString(space, value, version):
-    """Return a string object containing the marshalled representation of value.
-
-    version indicates the file format."""
-    raise NotImplementedError
-
 @cpython_api([FILE], lltype.Signed, error=-1)
 def PyMarshal_ReadLongFromFile(space, file):
     """Return a C long from the data stream in a FILE* opened
@@ -1260,14 +1253,6 @@ def PyMarshal_ReadLastObjectFromFile(space, file):
     file.  Only use these variant if you are certain that you won't be reading
     anything else from the file.  On error, sets the appropriate exception
     (EOFError or TypeError) and returns NULL."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
-def PyMarshal_ReadObjectFromString(space, string, len):
-    """Return a Python object from the data stream in a character buffer
-    containing len bytes pointed to by string.  On error, sets the
-    appropriate exception (EOFError or TypeError) and returns
-    NULL."""
     raise NotImplementedError
 
 @cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)

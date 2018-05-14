@@ -1,5 +1,7 @@
 #include "advancedcpp.h"
 
+#include <stdexcept>
+
 
 // for testing of default arguments
 #define IMPLEMENT_DEFAULTER_CLASS(type, tname)                               \
@@ -112,3 +114,13 @@ std::string overload_one_way::gime() { return "aap"; }
 
 std::string overload_the_other_way::gime() { return "aap"; }
 int overload_the_other_way::gime() const { return 1; }
+
+
+// exception handling testing
+void Thrower::throw_anything() {
+    throw 1;
+}
+
+void Thrower::throw_exception() {
+    throw std::runtime_error("C++ function failed");
+}

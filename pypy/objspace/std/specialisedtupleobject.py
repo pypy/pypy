@@ -71,10 +71,6 @@ def make_specialised_class(typetuple):
                 value = getattr(self, 'value%s' % i)
                 if typetuple[i] == object:
                     y = space.int_w(space.hash(value))
-                elif typetuple[i] == int:
-                    # mimic cpythons behavior of a hash value of -2 for -1
-                    y = value
-                    y -= (y == -1)  # No explicit condition, to avoid JIT bridges
                 elif typetuple[i] == float:
                     # get the correct hash for float which is an
                     # integer & other less frequent cases

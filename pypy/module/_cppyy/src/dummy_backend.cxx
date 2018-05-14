@@ -348,6 +348,7 @@ struct Cppyy_InitPseudoReflectionInfo {
         PUBLIC_CPPYY_DATA3(short,   short,              h);
         PUBLIC_CPPYY_DATA3(ushort,  unsigned short,     H);
         PUBLIC_CPPYY_DATA3(int,     int,                i);
+        PUBLIC_CPPYY_DATA (const_int, const int);
         PUBLIC_CPPYY_DATA3(uint,    unsigned int,       I);
         PUBLIC_CPPYY_DATA3(long,    long,               l);
         PUBLIC_CPPYY_DATA3(ulong,   unsigned long,      L);
@@ -407,11 +408,9 @@ static inline char* cppstring_to_cstring(const std::string& name) {
 
 
 /* name to opaque C++ scope representation -------------------------------- */
-int cppyy_num_scopes(cppyy_scope_t handle) {
-    return 0;
-}
-
 char* cppyy_resolve_name(const char* cppitem_name) {
+    if (cppyy_is_enum(cppitem_name))
+        return cppstring_to_cstring("internal_enum_type_t");
     return cppstring_to_cstring(cppitem_name);
 }
 
@@ -851,10 +850,13 @@ cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int
     return (cppyy_object_t)result;
 }
 
-cppyy_funcaddr_t cppyy_get_function_address(cppyy_scope_t /* scope */, cppyy_index_t /* idx */) {
+cppyy_funcaddr_t cppyy_function_address_from_index(cppyy_scope_t /* scope */, cppyy_index_t /* idx */) {
     return (cppyy_funcaddr_t)0;
 }
 
+cppyy_funcaddr_t cppyy_function_address_from_method(cppyy_method_t /* method */) {
+    return (cppyy_funcaddr_t)0;
+}
 
 /* handling of function argument buffer ----------------------------------- */
 void* cppyy_allocate_function_args(int nargs) {
@@ -926,10 +928,6 @@ int cppyy_num_methods(cppyy_scope_t handle) {
     return s_scopes[handle].m_methods.size();
 }
 
-cppyy_index_t cppyy_method_index_at(cppyy_scope_t /* scope */, int imeth) {
-    return (cppyy_index_t)imeth;
-}
-
 char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t method_index) {
     return cppstring_to_cstring(s_scopes[handle].m_methods[(int)method_index].m_name);
 }
@@ -978,12 +976,25 @@ cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index
     return (cppyy_method_t)0;
 }
 
+cppyy_index_t cppyy_get_global_operator(cppyy_scope_t /* scope */,
+        cppyy_scope_t /* lc */, cppyy_scope_t /* rc */, const char* /* op */) {
+    return (cppyy_index_t)-1;
+}
+
 
 /* method properties -----------------------------------------------------  */
+int cppyy_is_publicmethod(cppyy_type_t /* handle */, cppyy_index_t /* method_index */) {
+    return 1;
+}
+
 int cppyy_is_constructor(cppyy_type_t handle, cppyy_index_t method_index) {
     if (s_scopes.find(handle) != s_scopes.end())
         return s_scopes[handle].m_methods[method_index].m_type == kConstructor;
     assert(!"unknown class in cppyy_is_constructor");
+    return 0;
+}
+
+int cppyy_is_destructor(cppyy_type_t /* handle */, cppyy_index_t /* method_index */) {
     return 0;
 }
 
@@ -1014,12 +1025,22 @@ ptrdiff_t cppyy_datamember_offset(cppyy_scope_t handle, int idatambr) {
 
 
 /* data member properties ------------------------------------------------  */
-int cppyy_is_publicdata(cppyy_scope_t handle, int idatambr) {
+int cppyy_is_publicdata(cppyy_scope_t /* handle */, cppyy_index_t /* idatambr */) {
     return 1;
 }
 
-int cppyy_is_staticdata(cppyy_scope_t handle, int idatambr) {
+int cppyy_is_staticdata(cppyy_scope_t handle, cppyy_index_t idatambr) {
     return s_scopes[handle].m_datambrs[idatambr].m_isstatic;
+}
+
+int cppyy_is_const_data(cppyy_scope_t handle, cppyy_index_t idatambr) {
+    if (s_scopes[handle].m_datambrs[idatambr].m_name == "m_const_int")
+        return 1;
+    return 0;
+}
+
+int cppyy_is_enum_data(cppyy_scope_t /* handle */, cppyy_index_t /* idatambr */) {
+    return 0;
 }
 
 

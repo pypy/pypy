@@ -67,7 +67,7 @@ setup.py install``.  (Note: `pypy` here instead of `python`.)  As usual
 you may need to run the command with `sudo` for a global installation.
 The other commands of ``setup.py`` are available too, like ``build``.
 
-.. _PyPI: https://pypi.python.org/pypi
+.. _PyPI: https://pypi.org
 .. _`use virtualenv (as documented here)`: install.html#installing-using-virtualenv
 
 
@@ -360,7 +360,7 @@ interpreter; preliminary versions of a `JavaScript interpreter`_
 (produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
 Scheme and an Io implementation; both of these are unfinished at the moment.
 
-.. _Topaz: http://topazruby.com/
+.. _Topaz: http://docs.topazruby.com/en/latest/
 .. _Hippy: http://morepypy.blogspot.ch/2012/07/hello-everyone.html
 .. _JavaScript interpreter: https://bitbucket.org/pypy/lang-js/
 .. _Prolog interpreter: https://bitbucket.org/cfbolz/pyrolog/

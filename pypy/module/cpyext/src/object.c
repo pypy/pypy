@@ -14,14 +14,14 @@ extern void *_PyPy_Malloc(Py_ssize_t size);
  * tests we cannot call set_marker(), so we need to set a special value
  * directly here)
  */
-Py_ssize_t _pypy_rawrefcount_w_marker_deallocating = 0xDEADFFF;
+void* _pypy_rawrefcount_w_marker_deallocating = (void*) 0xDEADFFF;
 
 void
 _Py_Dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
     /* this is the same as rawrefcount.mark_deallocating() */
-    obj->ob_pypy_link = _pypy_rawrefcount_w_marker_deallocating;
+    obj->ob_pypy_link = (Py_ssize_t)_pypy_rawrefcount_w_marker_deallocating;
     pto->tp_dealloc(obj);
 }
 

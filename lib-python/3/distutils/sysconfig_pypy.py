@@ -63,39 +63,9 @@ _config_vars = None
 
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
-    so_ext = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
-
-    g = {}
-    g['CC'] = "cc -pthread"
-    g['CXX'] = "c++ -pthread"
-    g['OPT'] = "-DNDEBUG -O2"
-    g['CFLAGS'] = "-DNDEBUG -O2"
-    g['CCSHARED'] = "-fPIC"
-    g['LDSHARED'] = "cc -pthread -shared"
-    g['EXT_SUFFIX'] = so_ext
-    g['SHLIB_SUFFIX'] = ".so"
-    g['SO'] = so_ext  # deprecated in Python 3, for backward compatibility
-    g['AR'] = "ar"
-    g['ARFLAGS'] = "rc"
-    g['EXE'] = ""
-    g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
-    g['VERSION'] = get_python_version()
-
-    if sys.platform[:6] == "darwin":
-        import platform
-        if platform.machine() == 'i386':
-            if platform.architecture()[0] == '32bit':
-                arch = 'i386'
-            else:
-                arch = 'x86_64'
-        else:
-            # just a guess
-            arch = platform.machine()
-        g['LDSHARED'] += ' -undefined dynamic_lookup'
-        g['CC'] += ' -arch %s' % (arch,)
-
+    from _sysconfigdata import build_time_vars
     global _config_vars
-    _config_vars = g
+    _config_vars = build_time_vars
 
 
 def _init_nt():
@@ -221,4 +191,3 @@ def customize_compiler(compiler):
 
 from .sysconfig_cpython import (
     parse_makefile, _variable_rx, expand_makefile_vars)
-
