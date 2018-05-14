@@ -1237,6 +1237,18 @@ class LLFrame(object):
         raise NotImplementedError
     def op_revdb_call_destructor(self, *args):
         raise NotImplementedError
+    def op_revdb_strtod(self, *args):
+        raise NotImplementedError
+    def op_revdb_frexp(self, *args):
+        raise NotImplementedError
+    def op_revdb_modf(self, *args):
+        raise NotImplementedError
+    def op_revdb_dtoa(self, *args):
+        raise NotImplementedError
+    def op_revdb_do_next_call(self, *args):
+        raise NotImplementedError
+    def op_revdb_set_thread_breakpoint(self, *args):
+        raise NotImplementedError
 
 
 class Tracer(object):
