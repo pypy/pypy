@@ -641,11 +641,20 @@ class AppTestMethod:
 
 
 class TestMethod:
-    def setup_method(self, method):
-        def c(self, bar):
-            return bar
-        code = PyCode._from_code(self.space, c.__code__)
-        self.fn = Function(self.space, code, self.space.newdict())
+    @classmethod
+    def compile(cls, src):
+        assert src.strip().startswith("def ")
+        compiler = cls.space.createcompiler()
+        code = compiler.compile(src, '<hello>', 'exec', 0).co_consts_w[0]
+        return Function(cls.space, code, cls.space.newdict())
+
+    def setup_class(cls):
+        src = """
+def c(self, bar):
+    return bar
+        """
+        cls.fn = cls.compile(src)
+
 
     def test_get(self):
         space = self.space
@@ -670,9 +679,7 @@ class TestMethod:
     def test_method_get(self):
         space = self.space
         # Create some function for this test only
-        def m(self): return self
-        func = Function(space, PyCode._from_code(self.space, m.__code__),
-                        space.newdict())
+        func = self.compile("def m(self): return self")
         # Some shorthands
         obj1 = space.wrap(23)
         obj2 = space.wrap(42)
@@ -694,6 +701,11 @@ class TestMethod:
         assert meth3 is func
 
 class TestShortcuts(object):
+    def compile(self, src):
+        assert src.strip().startswith("def ")
+        compiler = self.space.createcompiler()
+        code = compiler.compile(src, '<hello>', 'exec', 0).co_consts_w[0]
+        return Function(self.space, code, self.space.newdict())
 
     def test_call_function(self):
         space = self.space
@@ -701,14 +713,15 @@ class TestShortcuts(object):
         d = {}
         for i in range(10):
             args = "(" + ''.join(["a%d," % a for a in range(i)]) + ")"
-            exec """
+            src = """
 def f%s:
     return %s
-""" % (args, args) in d
+""" % (args, args)
+            exec src in d
             f = d['f']
             res = f(*range(i))
-            code = PyCode._from_code(self.space, f.__code__)
-            fn = Function(self.space, code, self.space.newdict())
+            fn = self.compile(src)
+            code = fn.code
 
             assert fn.code.fast_natural_arity == i|PyCode.FLATPYCALL
             if i < 5:
@@ -727,18 +740,18 @@ def f%s:
     def test_flatcall(self):
         space = self.space
 
-        def f(a):
-            return a
-        code = PyCode._from_code(self.space, f.__code__)
-        fn = Function(self.space, code, self.space.newdict())
+        src = """
+def f(a):
+    return a"""
+        fn = self.compile(src)
 
         assert fn.code.fast_natural_arity == 1|PyCode.FLATPYCALL
 
         def bomb(*args):
             assert False, "shortcutting should have avoided this"
 
-        code.funcrun = bomb
-        code.funcrun_obj = bomb
+        fn.code.funcrun = bomb
+        fn.code.funcrun_obj = bomb
 
         w_3 = space.newint(3)
         w_res = space.call_function(fn, w_3)
@@ -754,18 +767,19 @@ def f%s:
     def test_flatcall_method(self):
         space = self.space
 
-        def f(self, a):
-            return a
-        code = PyCode._from_code(self.space, f.__code__)
-        fn = Function(self.space, code, self.space.newdict())
+        src = """
+def f(self, a):
+    return a
+"""
+        fn = self.compile(src)
 
         assert fn.code.fast_natural_arity == 2|PyCode.FLATPYCALL
 
         def bomb(*args):
             assert False, "shortcutting should have avoided this"
 
-        code.funcrun = bomb
-        code.funcrun_obj = bomb
+        fn.code.funcrun = bomb
+        fn.code.funcrun_obj = bomb
 
         w_3 = space.newint(3)
         w_res = space.appexec([fn, w_3], """(f, x):
@@ -782,9 +796,11 @@ def f%s:
     def test_flatcall_default_arg(self):
         space = self.space
 
-        def f(a, b):
-            return a+b
-        code = PyCode._from_code(self.space, f.__code__)
+        src = """
+def f(a, b):
+    return a+b
+"""
+        code = self.compile(src).code
         fn = Function(self.space, code, self.space.newdict(),
                       defs_w=[space.newint(1)])
 
@@ -811,9 +827,11 @@ def f%s:
     def test_flatcall_default_arg_method(self):
         space = self.space
 
-        def f(self, a, b):
-            return a+b
-        code = PyCode._from_code(self.space, f.__code__)
+        src = """
+def f(self, a, b):
+    return a+b
+        """
+        code = self.compile(src).code
         fn = Function(self.space, code, self.space.newdict(),
                       defs_w=[space.newint(1)])
 
