@@ -4,6 +4,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import rgc
 
 
 class W_Allocator(W_Root):
@@ -24,10 +25,12 @@ class W_Allocator(W_Root):
             else:
                 ptr = lltype.malloc(rffi.CCHARP.TO, datasize,
                                     flavor='raw', zero=False)
-            return cdataobj.W_CDataNewStd(space, ptr, ctype, length)
+            w_res = cdataobj.W_CDataNewStd(space, ptr, ctype, length)
+            rgc.add_memory_pressure(datasize, w_res)
+            return w_res
         else:
             w_raw_cdata = space.call_function(self.w_alloc,
-                                              space.wrap(datasize))
+                                              space.newint(datasize))
             if not isinstance(w_raw_cdata, cdataobj.W_CData):
                 raise oefmt(space.w_TypeError,
                             "alloc() must return a cdata object (got %T)",
@@ -50,6 +53,7 @@ class W_Allocator(W_Root):
             if self.w_free is not None:
                 res.w_free = self.w_free
                 res.register_finalizer(space)
+            rgc.add_memory_pressure(datasize, res)
             return res
 
     @unwrap_spec(w_init=WrappedDefault(None))
@@ -76,7 +80,7 @@ def new_allocator(ffi, w_alloc, w_free, should_clear_after_alloc):
     if w_alloc is None and w_free is not None:
         raise oefmt(space.w_TypeError, "cannot pass 'free' without 'alloc'")
     alloc = W_Allocator(ffi, w_alloc, w_free, bool(should_clear_after_alloc))
-    return space.wrap(alloc)
+    return alloc
 
 
 default_allocator = W_Allocator(None, None, None, should_clear_after_alloc=True)

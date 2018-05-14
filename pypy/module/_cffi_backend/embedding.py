@@ -38,7 +38,7 @@ def load_embedded_cffi_module(space, version, init_struct):
     compiler = space.createcompiler()
     pycode = compiler.compile(code, "<init code for '%s'>" % name, 'exec', 0)
     w_globals = space.newdict(module=True)
-    space.setitem_str(w_globals, "__builtins__", space.wrap(space.builtin))
+    space.setitem_str(w_globals, "__builtins__", space.builtin)
     pycode.exec_code(space, w_globals, w_globals)
 
 
@@ -63,6 +63,8 @@ def pypy_init_embedded_cffi_module(version, init_struct):
             load_embedded_cffi_module(space, version, init_struct)
             res = 0
         except OperationError as operr:
+            from pypy.module._cffi_backend import errorbox
+            ecap = errorbox.start_error_capture(space)
             operr.write_unraisable(space, "initialization of '%s'" % name,
                                    with_traceback=True)
             space.appexec([], r"""():
@@ -71,6 +73,7 @@ def pypy_init_embedded_cffi_module(version, init_struct):
                                  sys.pypy_version_info[:3])
                 sys.stderr.write('sys.path: %r\n' % (sys.path,))
             """)
+            errorbox.stop_error_capture(space, ecap)
             res = -1
         if must_leave:
             space.threadlocals.leave_thread(space)

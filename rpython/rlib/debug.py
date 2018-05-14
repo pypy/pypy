@@ -2,8 +2,8 @@ import sys
 import time
 
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rlib.objectmodel import we_are_translated, always_inline
+from rpython.rlib.rarithmetic import is_valid_int, r_longlong
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
@@ -74,34 +74,66 @@ else:
     _start_colors_2 = ""
     _stop_colors = ""
 
-def debug_start(category):
+@always_inline
+def debug_start(category, timestamp=False):
+    """
+    Start a PYPYLOG section.
+
+    By default, the return value is undefined.  If timestamp is True, always
+    return the current timestamp, even if PYPYLOG is not set.
+    """
+    return _debug_start(category, timestamp)
+
+@always_inline
+def debug_stop(category, timestamp=False):
+    """
+    Stop a PYPYLOG section. See debug_start for docs about timestamp
+    """
+    return _debug_stop(category, timestamp)
+
+
+def _debug_start(category, timestamp):
     c = int(time.clock() * 100)
     print >> sys.stderr, '%s[%x] {%s%s' % (_start_colors_1, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_start(category)
 
-def debug_stop(category):
+    if timestamp:
+        return r_longlong(c)
+    return r_longlong(-42) # random undefined value
+
+def _debug_stop(category, timestamp):
     c = int(time.clock() * 100)
     print >> sys.stderr, '%s[%x] %s}%s' % (_start_colors_2, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_stop(category)
 
-class Entry(ExtRegistryEntry):
-    _about_ = debug_start, debug_stop
+    if timestamp:
+        return r_longlong(c)
+    return r_longlong(-42) # random undefined value
 
-    def compute_result_annotation(self, s_category):
-        return None
+class Entry(ExtRegistryEntry):
+    _about_ = _debug_start, _debug_stop
+
+    def compute_result_annotation(self, s_category, s_timestamp):
+        from rpython.rlib.rtimer import s_TIMESTAMP
+        return s_TIMESTAMP
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem.rstr import string_repr
+        from rpython.rlib.rtimer import TIMESTAMP_type
         fn = self.instance
-        vlist = hop.inputargs(string_repr)
+        _, r_timestamp = hop.args_r
+        vlist = hop.inputargs(string_repr, r_timestamp)
         hop.exception_cannot_occur()
         t = hop.rtyper.annotator.translator
         if t.config.translation.log:
-            hop.genop(fn.__name__, vlist)
+            opname = fn.__name__[1:] # remove the '_'
+            return hop.genop(opname, vlist, resulttype=TIMESTAMP_type)
+        else:
+            return hop.inputconst(TIMESTAMP_type, r_longlong(0))
 
 
 def have_debug_prints():
@@ -290,6 +322,9 @@ class Entry(ExtRegistryEntry):
 def mark_dict_non_null(d):
     """ Mark dictionary as having non-null keys and values. A warning would
     be emitted (not an error!) in case annotation disagrees.
+
+    This doesn't work for r_dicts. For them, pass
+    r_dict(..., force_non_null=True) to the constructor.
     """
     assert isinstance(d, dict)
     return d
@@ -443,13 +478,91 @@ static void pypy__allow_attach(void) {
             except OSError as e:
                 os.write(2, "Could not start GDB: %s" % (
                     os.strerror(e.errno)))
-                raise SystemExit
+                os._exit(1)
         else:
             time.sleep(1)  # give the GDB time to attach
 
 else:
+    def make_vs_attach_eci():
+        # The COM interface to the Debugger has to be compiled as a .cpp file by
+        # Visual C. So we generate the source and then add a commandline switch
+        # to treat this source file as C++
+        import os
+        eci = ExternalCompilationInfo(post_include_bits=["""
+#ifdef __cplusplus
+extern "C" {
+#endif
+RPY_EXPORTED void AttachToVS();
+#ifdef __cplusplus
+}
+#endif
+                                      """],
+                                      separate_module_sources=["""
+#import "libid:80cc9f66-e7d8-4ddd-85b6-d9e6cd0e93e2" version("8.0") lcid("0") raw_interfaces_only named_guids
+extern "C" RPY_EXPORTED void AttachToVS() {
+    CoInitialize(0);
+    HRESULT hr;
+    CLSID Clsid;
+
+    CLSIDFromProgID(L"VisualStudio.DTE", &Clsid);
+    IUnknown *Unknown;
+    if (FAILED(GetActiveObject(Clsid, 0, &Unknown))) {
+        puts("Could not attach to Visual Studio (is it not running?");
+        return;
+    }
+
+    EnvDTE::_DTE *Interface;
+    hr = Unknown->QueryInterface(&Interface);
+    if (FAILED(GetActiveObject(Clsid, 0, &Unknown))) {
+        puts("Could not open COM interface to Visual Studio (no permissions?)");
+        return;
+    }
+
+    EnvDTE::Debugger *Debugger;
+    puts("Waiting for Visual Studio Debugger to become idle");
+    while (FAILED(Interface->get_Debugger(&Debugger)));
+
+    EnvDTE::Processes *Processes;
+    while (FAILED(Debugger->get_LocalProcesses(&Processes)));
+
+    long Count = 0;
+    if (FAILED(Processes->get_Count(&Count))) {
+        puts("Cannot query Process count");
+    }
+
+    for (int i = 0; i <= Count; i++) {
+        EnvDTE::Process *Process;
+        if (FAILED(Processes->Item(variant_t(i), &Process))) {
+            continue;
+        }
+
+        long ProcessID;
+        while (FAILED(Process->get_ProcessID(&ProcessID)));
+
+        if (ProcessID == GetProcessId(GetCurrentProcess())) {
+            printf("Found process ID %d\\n", ProcessID);
+            Process->Attach();
+            Debugger->Break(false);
+            CoUninitialize();
+            return;
+        }
+    }
+}
+                                      """]
+        )
+        eci = eci.convert_sources_to_files()
+        d = eci._copy_attributes()
+        cfile = d['separate_module_files'][0]
+        cppfile = cfile.replace(".c", "_vsdebug.cpp")
+        os.rename(cfile, cppfile)
+        d['separate_module_files'] = [cppfile]
+        return ExternalCompilationInfo(**d)
+
+    ll_attach = rffi.llexternal("AttachToVS", [], lltype.Void,
+                                compilation_info=make_vs_attach_eci())
     def impl_attach_gdb():
-        print "Don't know how to attach GDB on Windows"
+        #ll_attach()
+        print "AttachToVS is disabled at the moment (compilation failure)"
 
 register_external(attach_gdb, [], result=None,
                   export_name="impl_attach_gdb", llimpl=impl_attach_gdb)

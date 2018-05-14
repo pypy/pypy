@@ -23,9 +23,12 @@ from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
     DescrMismatch)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
+
+from rpython.rlib.signature import signature, finishsigs
+from rpython.rlib import types as sigtypes
 
 
 # internal non-translatable parts:
@@ -61,8 +64,8 @@ class Unwrapper(object):
     def _freeze_(self):
         return True
 
+    @not_rpython
     def unwrap(self, space, w_value):
-        """NOT_RPYTHON"""
         raise NotImplementedError
 
 
@@ -142,10 +145,25 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_bufferstr(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit_str_or_None(self, el, app_sig):
+    def visit_text_or_none(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit_str0(self, el, app_sig):
+    def visit_bytes(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_bytes0(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_text(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_text0(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_fsencode(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_fsencode_or_none(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit_nonnegint(self, el, app_sig):
@@ -271,11 +289,26 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
 
-    def visit_str_or_None(self, typ):
-        self.run_args.append("space.str_or_None_w(%s)" % (self.scopenext(),))
+    def visit_text_or_none(self, typ):
+        self.run_args.append("space.text_or_none_w(%s)" % (self.scopenext(),))
 
-    def visit_str0(self, typ):
-        self.run_args.append("space.str0_w(%s)" % (self.scopenext(),))
+    def visit_bytes(self, typ):
+        self.run_args.append("space.bytes_w(%s)" % (self.scopenext(),))
+
+    def visit_bytes0(self, typ):
+        self.run_args.append("space.bytes0_w(%s)" % (self.scopenext(),))
+
+    def visit_text(self, typ):
+        self.run_args.append("space.text_w(%s)" % (self.scopenext(),))
+
+    def visit_text0(self, typ):
+        self.run_args.append("space.text0_w(%s)" % (self.scopenext(),))
+
+    def visit_fsencode(self, typ):
+        self.run_args.append("space.fsencode_w(%s)" % (self.scopenext(),))
+
+    def visit_fsencode_or_none(self, typ):
+        self.run_args.append("space.fsencode_or_none_w(%s)" % (self.scopenext(),))
 
     def visit_nonnegint(self, typ):
         self.run_args.append("space.gateway_nonnegint_w(%s)" % (
@@ -347,8 +380,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 class BuiltinActivation(object):
     _immutable_ = True
 
+    @not_rpython
     def __init__(self, behavior):
-        """NOT_RPYTHON"""
         self.behavior = behavior
 
     def _run(self, space, scope_w):
@@ -421,11 +454,26 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_bufferstr(self, typ):
         self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
 
-    def visit_str_or_None(self, typ):
-        self.unwrap.append("space.str_or_None_w(%s)" % (self.nextarg(),))
+    def visit_text_or_none(self, typ):
+        self.unwrap.append("space.text_or_none_w(%s)" % (self.nextarg(),))
 
-    def visit_str0(self, typ):
-        self.unwrap.append("space.str0_w(%s)" % (self.nextarg(),))
+    def visit_bytes(self, typ):
+        self.unwrap.append("space.bytes_w(%s)" % (self.nextarg(),))
+
+    def visit_bytes0(self, typ):
+        self.unwrap.append("space.bytes0_w(%s)" % (self.nextarg(),))
+
+    def visit_text(self, typ):
+        self.unwrap.append("space.text_w(%s)" % (self.nextarg(),))
+
+    def visit_text0(self, typ):
+        self.unwrap.append("space.text0_w(%s)" % (self.nextarg(),))
+
+    def visit_fsencode(self, typ):
+        self.unwrap.append("space.fsencode_w(%s)" % (self.nextarg(),))
+
+    def visit_fsencode_or_none(self, typ):
+        self.unwrap.append("space.fsencode_or_none_w(%s)" % (self.nextarg(),))
 
     def visit_nonnegint(self, typ):
         self.unwrap.append("space.gateway_nonnegint_w(%s)" % (self.nextarg(),))
@@ -558,6 +606,8 @@ def build_unwrap_spec(func, argnames, self_type=None):
                              "the name of an argument of the following "
                              "function" % (name,))
 
+    assert str not in unwrap_spec   # use 'text' or 'bytes' instead of str
+
     return unwrap_spec
 
 
@@ -571,9 +621,9 @@ class BuiltinCode(Code):
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
 
+    @not_rpython
     def __init__(self, func, unwrap_spec=None, self_type=None,
                  descrmismatch=None, doc=None):
-        "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         Code.__init__(self, func.__name__)
@@ -669,7 +719,7 @@ class BuiltinCode(Code):
         mod = space.interp_w(MixedModule, w_mod)
         builtin_code = mod.get('builtin_code')
         return space.newtuple([builtin_code,
-                               space.newtuple([space.wrap(self.identifier)])])
+                               space.newtuple([space.newtext(self.identifier)])])
 
     @staticmethod
     def find(space, identifier):
@@ -680,7 +730,7 @@ class BuiltinCode(Code):
         return self.sig
 
     def getdocstring(self, space):
-        return space.wrap(self.docstring)
+        return space.newtext_or_none(self.docstring)
 
     def funcrun(self, func, args):
         return BuiltinCode.funcrun_obj(self, func, None, args)
@@ -777,11 +827,17 @@ class BuiltinCode0(BuiltinCode):
             w_result = space.w_None
         return w_result
 
+w_root_or_none = sigtypes.instance(W_Root, can_be_None=True)
 
+@finishsigs
 class BuiltinCode1(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 1
 
+    @signature(sigtypes.self(), sigtypes.any(),
+               w_root_or_none,
+               w_root_or_none,
+               returns=w_root_or_none)
     def fastcall_1(self, space, w_func, w1):
         try:
             w_result = self.fastfunc_1(space, w1)
@@ -798,10 +854,16 @@ class BuiltinCode1(BuiltinCode):
         return w_result
 
 
+@finishsigs
 class BuiltinCode2(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 2
 
+    @signature(sigtypes.self(), sigtypes.any(),
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               returns=w_root_or_none)
     def fastcall_2(self, space, w_func, w1, w2):
         try:
             w_result = self.fastfunc_2(space, w1, w2)
@@ -818,10 +880,17 @@ class BuiltinCode2(BuiltinCode):
         return w_result
 
 
+@finishsigs
 class BuiltinCode3(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 3
 
+    @signature(sigtypes.self(), sigtypes.any(),
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               returns=w_root_or_none)
     def fastcall_3(self, space, func, w1, w2, w3):
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
@@ -837,12 +906,20 @@ class BuiltinCode3(BuiltinCode):
             w_result = space.w_None
         return w_result
 
-
+@finishsigs
 class BuiltinCode4(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 4
 
+    @signature(sigtypes.self(), sigtypes.any(),
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               w_root_or_none,
+               returns=w_root_or_none)
     def fastcall_4(self, space, func, w1, w2, w3, w4):
+        from rpython.rlib.debug import check_annotation
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except DescrMismatch:
@@ -892,10 +969,10 @@ class interp2app(W_Root):
 
     instancecache = {}
 
+    @not_rpython
     def __new__(cls, f, app_name=None, unwrap_spec=None, descrmismatch=None,
                 as_classmethod=False, doc=None):
 
-        "NOT_RPYTHON"
         # f must be a function whose name does NOT start with 'app_'
         self_type = None
         if hasattr(f, 'im_func'):
@@ -936,8 +1013,8 @@ class interp2app(W_Root):
             self._staticdefs = zip(argnames[-len(defaults):], defaults)
         return self
 
+    @not_rpython
     def _getdefaults(self, space):
-        "NOT_RPYTHON"
         defs_w = []
         for name, defaultval in self._staticdefs:
             if name.startswith('w_'):
@@ -980,7 +1057,7 @@ class interp2app(W_Root):
 
     # lazy binding to space
 
-    def __spacebind__(self, space):
+    def spacebind(self, space):
         # we first make a real Function object out of it
         # and the result is a wrapped version of this Function.
         return self.get_function(space)
@@ -993,8 +1070,8 @@ class interp2app(W_Root):
 
 
 class GatewayCache(SpaceCache):
+    @not_rpython
     def build(cache, gateway):
-        "NOT_RPYTHON"
         space = cache.space
         defs = gateway._getdefaults(space) # needs to be implemented by subclass
         code = gateway._code
@@ -1009,6 +1086,8 @@ class GatewayCache(SpaceCache):
             assert space._code_of_sys_exc_info is None
             space._code_of_sys_exc_info = code
         #
+        if hasattr(space, '_see_interp2app'):
+            space._see_interp2app(gateway)      # only for fake/objspace.py
         return fn
 
 
@@ -1056,14 +1135,14 @@ class ApplevelClass:
 
     def buildmodule(self, space, name='applevel'):
         from pypy.interpreter.module import Module
-        return Module(space, space.wrap(name), self.getwdict(space))
+        return Module(space, space.newtext(name), self.getwdict(space))
 
     def wget(self, space, name):
         w_globals = self.getwdict(space)
-        return space.getitem(w_globals, space.wrap(name))
+        return space.getitem(w_globals, space.newtext(name))
 
+    @not_rpython
     def interphook(self, name):
-        "NOT_RPYTHON"
         def appcaller(space, *args_w):
             if not isinstance(space, ObjSpace):
                 raise TypeError("first argument must be a space instance.")
@@ -1100,17 +1179,18 @@ class ApplevelCache(SpaceCache):
     """NOT_RPYTHON
     The cache mapping each applevel instance to its lazily built w_dict"""
 
+    @not_rpython
     def build(self, app):
-        "NOT_RPYTHON.  Called indirectly by Applevel.getwdict()."
+        "Called indirectly by Applevel.getwdict()."
         return build_applevel_dict(app, self.space)
 
 
 # __________ pure applevel version __________
 
+@not_rpython
 def build_applevel_dict(self, space):
-    "NOT_RPYTHON"
     w_glob = space.newdict(module=True)
-    space.setitem(w_glob, space.wrap('__name__'), space.wrap(self.modname))
+    space.setitem(w_glob, space.newtext('__name__'), space.newtext(self.modname))
     space.exec_(self.source, w_glob, w_glob,
                 hidden_applevel=self.hidden_applevel,
                 filename=self.filename)
@@ -1119,8 +1199,9 @@ def build_applevel_dict(self, space):
 # ____________________________________________________________
 
 
+@not_rpython
 def appdef(source, applevel=ApplevelClass, filename=None):
-    """ NOT_RPYTHON: build an app-level helper function, like for example:
+    """ build an app-level helper function, like for example:
     myfunc = appdef('''myfunc(x, y):
                            return x+y
                     ''')
@@ -1166,6 +1247,6 @@ class applevel_temp(ApplevelClass):
 
 
 # app2interp_temp is used for testing mainly
+@not_rpython
 def app2interp_temp(func, applevel_temp=applevel_temp, filename=None):
-    """ NOT_RPYTHON """
     return appdef(func, applevel_temp, filename=filename)

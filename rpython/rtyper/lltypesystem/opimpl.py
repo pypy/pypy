@@ -586,11 +586,11 @@ def op_debug_flush_log():
 def op_debug_print(*args):
     debug.debug_print(*map(_normalize, args))
 
-def op_debug_start(category):
-    debug.debug_start(_normalize(category))
+def op_debug_start(category, timestamp):
+    return debug.debug_start(_normalize(category), timestamp)
 
-def op_debug_stop(category):
-    debug.debug_stop(_normalize(category))
+def op_debug_stop(category, timestamp):
+    return debug.debug_stop(_normalize(category), timestamp)
 
 def op_debug_offset():
     return debug.debug_offset()
@@ -696,6 +696,10 @@ def op_ll_read_timestamp():
     from rpython.rlib.rtimer import read_timestamp
     return read_timestamp()
 
+def op_ll_get_timestamp_unit():
+    from rpython.rlib.rtimer import get_timestamp_unit
+    return get_timestamp_unit()
+
 def op_debug_fatalerror(ll_msg):
     from rpython.rtyper.lltypesystem import lltype, rstr
     from rpython.rtyper.llinterp import LLFatalError
@@ -709,7 +713,14 @@ def op_raw_store(p, ofs, newvalue):
     TVAL = lltype.typeOf(newvalue)
     p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
     p[0] = newvalue
-op_gc_store = op_raw_store
+
+def op_gc_store(p, ofs, newvalue):
+    from rpython.rtyper.lltypesystem import rffi
+    if lltype.typeOf(p) is not llmemory.Address:
+        p = llmemory.cast_ptr_to_adr(p)
+    TVAL = lltype.typeOf(newvalue)
+    p = llmemory.cast_adr_to_ptr(p + ofs, lltype.Ptr(lltype.FixedSizeArray(TVAL, 1)))
+    p[0] = newvalue
 
 def op_raw_load(TVAL, p, ofs):
     from rpython.rtyper.lltypesystem import rffi
@@ -729,6 +740,17 @@ def op_gc_load_indexed(TVAL, p, index, scale, base_ofs):
     return p[0]
 op_gc_load_indexed.need_result_type = True
 
+def op_gc_store_indexed(p, index, newvalue, scale, base_ofs):
+    # 'base_ofs' should be a CompositeOffset(..., ArrayItemsOffset).
+    # 'scale' should be a llmemory.sizeof().
+    from rpython.rtyper.lltypesystem import rffi
+    TVAL = lltype.typeOf(newvalue)
+    ofs = base_ofs + scale * index
+    if isinstance(ofs, int):
+        return op_raw_store(p, ofs, newvalue)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), llmemory.cast_ptr_to_adr(p) + ofs)
+    p[0] = newvalue
+
 def op_likely(x):
     assert isinstance(x, bool)
     return x
@@ -738,6 +760,12 @@ def op_unlikely(x):
     return x
 
 def op_gc_ignore_finalizer(obj):
+    pass
+
+def op_gc_move_out_of_nursery(obj):
+    return obj
+
+def op_revdb_do_next_call():
     pass
 
 # ____________________________________________________________

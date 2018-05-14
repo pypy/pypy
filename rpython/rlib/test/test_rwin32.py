@@ -15,19 +15,6 @@ def test_get_osfhandle():
     py.test.raises(OSError, rwin32.get_osfhandle, fd)
     rwin32.get_osfhandle(0)
 
-def test_get_osfhandle_raising():
-    #try to test what kind of exception get_osfhandle raises w/out fd validation
-    py.test.skip('Crashes python')
-    fid = open(str(udir.join('validate_test.txt')), 'w')
-    fd = fid.fileno()
-    fid.close()
-    def validate_fd(fd):
-        return 1
-    _validate_fd = rwin32.validate_fd
-    rwin32.validate_fd = validate_fd
-    raises(WindowsError, rwin32.get_osfhandle, fd)
-    rwin32.validate_fd = _validate_fd
-
 def test_open_process():
     pid = rwin32.GetCurrentProcessId()
     assert pid != 0
@@ -64,3 +51,7 @@ def test_formaterror():
     msg = rwin32.FormatError(34)
     assert '%2' in msg
 
+def test_formaterror_unicode():
+    msg = rwin32.FormatErrorW(34)
+    assert type(msg) is unicode
+    assert u'%2' in msg

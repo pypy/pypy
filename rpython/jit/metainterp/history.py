@@ -404,7 +404,6 @@ class JitCellToken(AbstractDescr):
     target_tokens = None
     failed_states = None
     retraced_count = 0
-    terminating = False # see TerminatingLoopToken in compile.py
     invalidated = False
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled
@@ -702,6 +701,9 @@ class History(object):
     def length(self):
         return self.trace._count - len(self.trace.inputargs)
 
+    def trace_tag_overflow(self):
+        return self.trace.tag_overflow
+
     def get_trace_position(self):
         return self.trace.cut_point()
 
@@ -726,15 +728,7 @@ class History(object):
             op.setref_base(value)
 
     def _record_op(self, opnum, argboxes, descr=None):
-        from rpython.jit.metainterp.opencoder import FrontendTagOverflow
-
-        try:
-            return self.trace.record_op(opnum, argboxes, descr)
-        except FrontendTagOverflow:
-            # note that with the default settings this one should not
-            # happen - however if we hit that case, we don't get
-            # anything disabled
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+        return self.trace.record_op(opnum, argboxes, descr)
 
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
@@ -943,7 +937,7 @@ class Stats(object):
         return insns
 
     def check_simple_loop(self, expected=None, **check):
-        """ Usefull in the simplest case when we have only one trace ending with
+        """ Useful in the simplest case when we have only one trace ending with
         a jump back to itself and possibly a few bridges.
         Only the operations within the loop formed by that single jump will
         be counted.

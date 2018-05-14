@@ -196,7 +196,7 @@ class Primitive(object):
         return w_obj
 
     def to_builtin_type(self, space, box):
-        return space.wrap(self.for_computation(self.unbox(box)))
+        raise NotImplementedError("has to be provided by subclass")
 
     def _coerce(self, space, w_item):
         raise NotImplementedError
@@ -398,7 +398,7 @@ class Bool(BaseType, Primitive):
         return self.box(space.is_true(w_item))
 
     def to_builtin_type(self, space, w_item):
-        return space.wrap(self.unbox(w_item))
+        return space.newbool(self.unbox(w_item))
 
     def str_format(self, box, add_quotes=True):
         return "True" if self.unbox(box) else "False"
@@ -454,12 +454,15 @@ class Bool(BaseType, Primitive):
             return Float64(self.space).box(self.unbox(v))
         # numpy 1.10 compatibility
         raise oefmt(self.space.w_TypeError, "ufunc casting failure")
-            
-            
+
+
 
 class Integer(Primitive):
     _mixin_ = True
     signed = True
+
+    def to_builtin_type(self, space, box):
+        return space.newint(self.for_computation(self.unbox(box)))
 
     def _base_coerce(self, space, w_item):
         if w_item is None:
@@ -736,6 +739,9 @@ class Float(Primitive):
     _mixin_ = True
     strlen = 32
 
+    def to_builtin_type(self, space, box):
+        return space.newfloat(self.for_computation(self.unbox(box)))
+
     def _coerce(self, space, w_item):
         if w_item is None:
             return self.box(0.0)
@@ -761,7 +767,7 @@ class Float(Primitive):
         except ZeroDivisionError:
             if v1 == v2 == 0.0:
                 return rfloat.NAN
-            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+            return math.copysign(rfloat.INFINITY, v1 * v2)
 
     @simple_binary_op
     def floordiv(self, v1, v2):
@@ -770,7 +776,7 @@ class Float(Primitive):
         except ZeroDivisionError:
             if v1 == v2 == 0.0:
                 return rfloat.NAN
-            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+            return math.copysign(rfloat.INFINITY, v1 * v2)
 
     @simple_binary_op
     def mod(self, v1, v2):
@@ -787,7 +793,7 @@ class Float(Primitive):
             # fmod returns different results across platforms; ensure
             # it has the same sign as the denominator; we'd like to do
             # "mod = v2 * 0.0", but that may get optimized away
-            mod = rfloat.copysign(0.0, v2)
+            mod = math.copysign(0.0, v2)
         return mod
 
     @simple_binary_op
@@ -799,7 +805,7 @@ class Float(Primitive):
         except OverflowError:
             if math.modf(v2)[0] == 0 and math.modf(v2 / 2)[0] != 0:
                 # Odd integer powers result in the same sign as the base
-                return rfloat.copysign(rfloat.INFINITY, v1)
+                return math.copysign(rfloat.INFINITY, v1)
             return rfloat.INFINITY
 
     @simple_binary_op
@@ -810,13 +816,13 @@ class Float(Primitive):
     def sign(self, v):
         if v == 0.0:
             return 0.0
-        if rfloat.isnan(v):
+        if math.isnan(v):
             return rfloat.NAN
-        return rfloat.copysign(1.0, v)
+        return math.copysign(1.0, v)
 
     @raw_unary_op
     def signbit(self, v):
-        return rfloat.copysign(1.0, v) < 0.0
+        return math.copysign(1.0, v) < 0.0
 
     @simple_unary_op
     def fabs(self, v):
@@ -824,27 +830,27 @@ class Float(Primitive):
 
     @simple_binary_op
     def max(self, v1, v2):
-        return v1 if v1 >= v2 or rfloat.isnan(v1) else v2
+        return v1 if v1 >= v2 or math.isnan(v1) else v2
 
     @simple_binary_op
     def min(self, v1, v2):
-        return v1 if v1 <= v2 or rfloat.isnan(v1) else v2
+        return v1 if v1 <= v2 or math.isnan(v1) else v2
 
     @raw_binary_op
     def argmax(self, v1, v2):
-        return v1 >= v2 or rfloat.isnan(v1)
+        return v1 >= v2 or math.isnan(v1)
 
     @raw_binary_op
     def argmin(self, v1, v2):
-        return v1 <= v2 or rfloat.isnan(v1)
+        return v1 <= v2 or math.isnan(v1)
 
     @simple_binary_op
     def fmax(self, v1, v2):
-        return v1 if v1 >= v2 or rfloat.isnan(v2) else v2
+        return v1 if v1 >= v2 or math.isnan(v2) else v2
 
     @simple_binary_op
     def fmin(self, v1, v2):
-        return v1 if v1 <= v2 or rfloat.isnan(v2) else v2
+        return v1 if v1 <= v2 or math.isnan(v2) else v2
 
     @simple_binary_op
     def fmod(self, v1, v2):
@@ -856,7 +862,7 @@ class Float(Primitive):
     @simple_unary_op
     def reciprocal(self, v):
         if v == 0.0:
-            return rfloat.copysign(rfloat.INFINITY, v)
+            return math.copysign(rfloat.INFINITY, v)
         return 1.0 / v
 
     @simple_unary_op
@@ -870,9 +876,9 @@ class Float(Primitive):
     @specialize.argtype(1)
     def round(self, v, decimals=0):
         raw = self.for_computation(self.unbox(v))
-        if rfloat.isinf(raw):
+        if math.isinf(raw):
             return v
-        elif rfloat.isnan(raw):
+        elif math.isnan(raw):
             return v
         ans = rfloat.round_double(raw, decimals, half_even=True)
         return self.box(ans)
@@ -980,11 +986,11 @@ class Float(Primitive):
 
     @raw_unary_op
     def isnan(self, v):
-        return rfloat.isnan(v)
+        return math.isnan(v)
 
     @raw_unary_op
     def isinf(self, v):
-        return rfloat.isinf(v)
+        return math.isinf(v)
 
     @raw_unary_op
     def isfinite(self, v):
@@ -1183,7 +1189,7 @@ class ComplexFloating(object):
             return imag_str
 
         real_str = str_format(real)
-        op = '+' if imag >= 0 or rfloat.isnan(imag) else ''
+        op = '+' if imag >= 0 or math.isnan(imag) else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
     def runpack_str(self, space, s, native):
@@ -1312,7 +1318,7 @@ class ComplexFloating(object):
             return rcomplex.c_div(v1, v2)
         except ZeroDivisionError:
             if rcomplex.c_abs(*v1) == 0 or \
-                    (rfloat.isnan(v1[0]) and rfloat.isnan(v1[1])):
+                    (math.isnan(v1[0]) and math.isnan(v1[1])):
                 return rfloat.NAN, rfloat.NAN
             return rfloat.INFINITY, rfloat.INFINITY
 
@@ -1347,12 +1353,12 @@ class ComplexFloating(object):
     @raw_unary_op
     def isnan(self, v):
         '''a complex number is nan if one of the parts is nan'''
-        return rfloat.isnan(v[0]) or rfloat.isnan(v[1])
+        return math.isnan(v[0]) or math.isnan(v[1])
 
     @raw_unary_op
     def isinf(self, v):
         '''a complex number is inf if one of the parts is inf'''
-        return rfloat.isinf(v[0]) or rfloat.isinf(v[1])
+        return math.isinf(v[0]) or math.isinf(v[1])
 
     def _eq(self, v1, v2):
         return v1[0] == v2[0] and v1[1] == v2[1]
@@ -1368,7 +1374,7 @@ class ComplexFloating(object):
 
     def _lt(self, v1, v2):
         (r1, i1), (r2, i2) = v1, v2
-        if r1 < r2 and not rfloat.isnan(i1) and not rfloat.isnan(i2):
+        if r1 < r2 and not math.isnan(i1) and not math.isnan(i2):
             return True
         if r1 == r2 and i1 < i2:
             return True
@@ -1453,7 +1459,7 @@ class ComplexFloating(object):
                 ratio = i2 / r2
                 denom = r2 + i2 * ratio
                 rr = (r1 + i1 * ratio) / denom
-        elif rfloat.isnan(r2):
+        elif math.isnan(r2):
             rr = rfloat.NAN
         else:
             ratio = r2 / i2
@@ -1497,7 +1503,7 @@ class ComplexFloating(object):
         sign of complex number could be either the point closest to the unit circle
         or {-1,0,1}, for compatability with numpy we choose the latter
         '''
-        if rfloat.isnan(v[0]) or rfloat.isnan(v[1]):
+        if math.isnan(v[0]) or math.isnan(v[1]):
             return rfloat.NAN, 0
         if v[0] == 0.0:
             if v[1] == 0:
@@ -1528,11 +1534,11 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def reciprocal(self, v):
-        if rfloat.isinf(v[1]) and rfloat.isinf(v[0]):
+        if math.isinf(v[1]) and math.isinf(v[0]):
             return rfloat.NAN, rfloat.NAN
-        if rfloat.isinf(v[0]):
-            return (rfloat.copysign(0., v[0]),
-                    rfloat.copysign(0., -v[1]))
+        if math.isinf(v[0]):
+            return (math.copysign(0., v[0]),
+                    math.copysign(0., -v[1]))
         a2 = v[0]*v[0] + v[1]*v[1]
         try:
             return rcomplex.c_div((v[0], -v[1]), (a2, 0.))
@@ -1569,13 +1575,13 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def exp(self, v):
-        if rfloat.isinf(v[1]):
-            if rfloat.isinf(v[0]):
+        if math.isinf(v[1]):
+            if math.isinf(v[0]):
                 if v[0] < 0:
                     return 0., 0.
                 return rfloat.INFINITY, rfloat.NAN
             elif (rfloat.isfinite(v[0]) or \
-                                 (rfloat.isinf(v[0]) and v[0] > 0)):
+                                 (math.isinf(v[0]) and v[0] > 0)):
                 return rfloat.NAN, rfloat.NAN
         try:
             return rcomplex.c_exp(*v)
@@ -1597,13 +1603,13 @@ class ComplexFloating(object):
     def expm1(self, v):
         # duplicate exp() so in the future it will be easier
         # to implement seterr
-        if rfloat.isinf(v[1]):
-            if rfloat.isinf(v[0]):
+        if math.isinf(v[1]):
+            if math.isinf(v[0]):
                 if v[0] < 0:
                     return -1., 0.
                 return rfloat.NAN, rfloat.NAN
             elif (rfloat.isfinite(v[0]) or \
-                                 (rfloat.isinf(v[0]) and v[0] > 0)):
+                                 (math.isinf(v[0]) and v[0] > 0)):
                 return rfloat.NAN, rfloat.NAN
         try:
             res = rcomplex.c_exp(*v)
@@ -1616,29 +1622,29 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def sin(self, v):
-        if rfloat.isinf(v[0]):
+        if math.isinf(v[0]):
             if v[1] == 0.:
                 return rfloat.NAN, 0.
             if rfloat.isfinite(v[1]):
                 return rfloat.NAN, rfloat.NAN
-            elif not rfloat.isnan(v[1]):
+            elif not math.isnan(v[1]):
                 return rfloat.NAN, rfloat.INFINITY
         return rcomplex.c_sin(*v)
 
     @complex_unary_op
     def cos(self, v):
-        if rfloat.isinf(v[0]):
+        if math.isinf(v[0]):
             if v[1] == 0.:
                 return rfloat.NAN, 0.0
             if rfloat.isfinite(v[1]):
                 return rfloat.NAN, rfloat.NAN
-            elif not rfloat.isnan(v[1]):
+            elif not math.isnan(v[1]):
                 return rfloat.INFINITY, rfloat.NAN
         return rcomplex.c_cos(*v)
 
     @complex_unary_op
     def tan(self, v):
-        if rfloat.isinf(v[0]) and rfloat.isfinite(v[1]):
+        if math.isinf(v[0]) and rfloat.isfinite(v[1]):
             return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tan(*v)
 
@@ -1663,29 +1669,29 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def sinh(self, v):
-        if rfloat.isinf(v[1]):
+        if math.isinf(v[1]):
             if rfloat.isfinite(v[0]):
                 if v[0] == 0.0:
                     return 0.0, rfloat.NAN
                 return rfloat.NAN, rfloat.NAN
-            elif not rfloat.isnan(v[0]):
+            elif not math.isnan(v[0]):
                 return rfloat.INFINITY, rfloat.NAN
         return rcomplex.c_sinh(*v)
 
     @complex_unary_op
     def cosh(self, v):
-        if rfloat.isinf(v[1]):
+        if math.isinf(v[1]):
             if rfloat.isfinite(v[0]):
                 if v[0] == 0.0:
                     return rfloat.NAN, 0.0
                 return rfloat.NAN, rfloat.NAN
-            elif not rfloat.isnan(v[0]):
+            elif not math.isnan(v[0]):
                 return rfloat.INFINITY, rfloat.NAN
         return rcomplex.c_cosh(*v)
 
     @complex_unary_op
     def tanh(self, v):
-        if rfloat.isinf(v[1]) and rfloat.isfinite(v[0]):
+        if math.isinf(v[1]) and rfloat.isfinite(v[0]):
             return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tanh(*v)
 
@@ -1923,12 +1929,12 @@ class ObjectType(Primitive, BaseType):
 
     def str_format(self, box, add_quotes=True):
         if not add_quotes:
-            as_str = self.space.str_w(self.space.repr(self.unbox(box)))
+            as_str = self.space.text_w(self.space.repr(self.unbox(box)))
             as_strl = len(as_str) - 1
             if as_strl>1 and as_str[0] == "'" and as_str[as_strl] == "'":
                 as_str = as_str[1:as_strl]
             return as_str
-        return self.space.str_w(self.space.repr(self.unbox(box)))
+        return self.space.text_w(self.space.repr(self.unbox(box)))
 
     def runpack_str(self, space, s, native):
         raise oefmt(space.w_NotImplementedError,
@@ -2015,17 +2021,17 @@ class ObjectType(Primitive, BaseType):
 
     @simple_binary_op
     def pow(self, v1, v2):
-        return self.space.pow(v1, v2, self.space.wrap(1))
+        return self.space.pow(v1, v2, self.space.newint(1))
 
     @simple_unary_op
     def reciprocal(self, v1):
-        return self.space.div(self.space.wrap(1.0), v1)
+        return self.space.div(self.space.newfloat(1.0), v1)
 
     @simple_unary_op
     def sign(self, v):
-        zero = self.space.wrap(0)
-        one = self.space.wrap(1)
-        m_one = self.space.wrap(-1)
+        zero = self.space.newint(0)
+        one = self.space.newint(1)
+        m_one = self.space.newint(-1)
         if self.space.is_true(self.space.gt(v, zero)):
             return one
         elif self.space.is_true(self.space.lt(v, zero)):
@@ -2158,8 +2164,8 @@ class StringType(FlexibleType):
         if isinstance(w_item, boxes.W_StringBox):
             return w_item
         if w_item is None:
-            w_item = space.wrap('')
-        arg = space.str_w(space.str(w_item))
+            w_item = space.newbytes('')
+        arg = space.text_w(space.str(w_item))
         arr = VoidBoxStorage(dtype.elsize, dtype)
         with arr as storage:
             j = min(len(arg), dtype.elsize)
@@ -2196,7 +2202,7 @@ class StringType(FlexibleType):
 
     # XXX move the rest of this to base class when UnicodeType is supported
     def to_builtin_type(self, space, box):
-        return space.wrap(self.to_str(box))
+        return space.newbytes(self.to_str(box))
 
     @str_binary_op
     def eq(self, v1, v2):
@@ -2308,7 +2314,7 @@ class UnicodeType(FlexibleType):
         assert isinstance(item, boxes.W_UnicodeBox)
         if add_quotes:
             w_unicode = self.to_builtin_type(self.space, item)
-            return self.space.str_w(self.space.repr(w_unicode))
+            return self.space.text_w(self.space.repr(w_unicode))
         else:
             # Same as W_UnicodeBox.descr_repr() but without quotes and prefix
             from rpython.rlib.runicode import unicode_encode_unicode_escape
@@ -2317,7 +2323,7 @@ class UnicodeType(FlexibleType):
 
     def to_builtin_type(self, space, box):
         assert isinstance(box, boxes.W_UnicodeBox)
-        return space.wrap(box._value)
+        return space.newunicode(box._value)
 
     def eq(self, v1, v2):
         assert isinstance(v1, boxes.W_UnicodeBox)
@@ -2469,7 +2475,7 @@ class VoidType(FlexibleType):
                 read_val = dtype.read(item.arr, ofs, 0)
             if isinstance (read_val, boxes.W_StringBox):
                 # StringType returns a str
-                read_val = space.wrap(dtype.itemtype.to_str(read_val))
+                read_val = space.newbytes(dtype.itemtype.to_str(read_val))
             ret_unwrapped = ret_unwrapped + [read_val,]
         if len(ret_unwrapped) == 0:
             raise oefmt(space.w_NotImplementedError,
@@ -2490,7 +2496,7 @@ def record_coerce(typ, space, dtype, w_item):
                 for i in range(len(dtype.names)):
                     name = dtype.names[i]
                     if name in w_item.dtype.names:
-                        items_w[i] = w_item.descr_getitem(space, space.wrap(name[0]))
+                        items_w[i] = w_item.descr_getitem(space, space.newtext(name[0]))
         elif w_item is not None:
             if space.isinstance_w(w_item, space.w_tuple):
                 if len(dtype.names) != space.len_w(w_item):

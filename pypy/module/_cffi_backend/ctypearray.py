@@ -36,8 +36,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
         datasize = self.size
         #
         if datasize < 0:
-            from pypy.module._cffi_backend import misc
-            w_init, length = misc.get_new_array_length(space, w_init)
+            w_init, length = self.get_new_array_length(w_init)
             try:
                 datasize = ovfcheck(length * self.ctitem.size)
             except OverflowError:
@@ -52,6 +51,37 @@ class W_CTypeArray(W_CTypePtrOrArray):
             with cdata as ptr:
                 self.convert_from_object(ptr, w_init)
         return cdata
+
+    def get_new_array_length(self, w_value):
+        space = self.space
+        if (space.isinstance_w(w_value, space.w_list) or
+            space.isinstance_w(w_value, space.w_tuple)):
+            return (w_value, space.int_w(space.len(w_value)))
+        elif space.isinstance_w(w_value, space.w_bytes):
+            # from a string, we add the null terminator
+            s = space.bytes_w(w_value)
+            return (w_value, len(s) + 1)
+        elif space.isinstance_w(w_value, space.w_unicode):
+            from pypy.module._cffi_backend import wchar_helper
+            u = space.unicode_w(w_value)
+            if self.ctitem.size == 2:
+                length = wchar_helper.unicode_size_as_char16(u)
+            else:
+                length = wchar_helper.unicode_size_as_char32(u)
+            return (w_value, length + 1)
+        else:
+            try:
+                explicitlength = space.getindex_w(w_value,
+                                                  space.w_OverflowError)
+            except OperationError as e:
+                if e.match(space, space.w_TypeError):
+                    raise oefmt(space.w_TypeError,
+                        "expected new array length or list/tuple/str, "
+                        "not %T", w_value)
+                raise
+            if explicitlength < 0:
+                raise oefmt(space.w_ValueError, "negative array length")
+            return (space.w_None, explicitlength)
 
     def _check_subscript_index(self, w_cdata, i):
         space = self.space
@@ -97,10 +127,10 @@ class W_CTypeArray(W_CTypePtrOrArray):
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
-            return self.space.wrap(self.ctitem)
+            return self.ctitem
         if attrchar == 'l':     # length
             if self.length >= 0:
-                return self.space.wrap(self.length)
+                return self.space.newint(self.length)
             else:
                 return self.space.w_None
         return W_CTypePtrOrArray._fget(self, attrchar)
@@ -121,7 +151,7 @@ class W_CDataIter(W_Root):
         self._stop = rffi.ptradd(self._next, length * ctitem.size)
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         result = self._next

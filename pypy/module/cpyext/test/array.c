@@ -1864,14 +1864,17 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
     {
         int ii, nn;
+        PyObject *ret;
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
         int i = ((PyIntObject*)v)->ob_ival;
-        PyObject * ret = PyList_New(n*i);
+        Py_DECREF(v);
+        ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
             {
                 v = PyList_GetItem(obj1, nn);
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn+ii*n, v);
             }
         return ret;
@@ -1879,24 +1882,27 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
     {
         int ii, nn;
+        PyObject *ret;
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
         int i = ((PyIntObject*)v)->ob_ival;
-        PyObject * ret = PyList_New(n*i);
+        Py_DECREF(v);
+        ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
             {
                 v = PyList_GetItem(obj2, nn);
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn+ii*n, v);
             }
         return ret;
     }
     else if(obj1->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
-            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name); 
+            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name);
     else if(obj2->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
-            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name); 
+            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name);
     Py_INCREF(Py_NotImplemented);
     return Py_NotImplemented;
 }
@@ -1914,43 +1920,53 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
     if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
     {
         int nn;
+        PyObject *ret;
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
         int i = ((PyIntObject*)v)->ob_ival;
-        PyObject * ret = PyList_New(n);
+        Py_DECREF(v);
+        ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             v = PyList_GetItem(obj1, nn);
             if (PyInt_Check(v))
                 PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
             else
+            {
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn, v);
+            }
         }
         return ret;
     }
     else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
     {
         int nn;
+        PyObject *ret;
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
         int i = ((PyIntObject*)v)->ob_ival;
-        PyObject * ret = PyList_New(n);
+        Py_DECREF(v);
+        ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             v = PyList_GetItem(obj2, nn);
             if (PyInt_Check(v))
                 PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
             else
+            {
+                Py_INCREF(v);
                 PyList_SetItem(ret, nn, v);
+            }
         }
         return ret;
     }
     else if(obj1->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
-            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name); 
+            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name);
     else if(obj2->ob_type == &Arraytype)
         fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
-            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name); 
+            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name);
     Py_INCREF(Py_NotImplemented);
     return Py_NotImplemented;
 }
@@ -2006,6 +2022,39 @@ array_buffer_getsegcount(arrayobject *self, Py_ssize_t *lenp)
     return 1;
 }
 
+static int
+array_getbuffer(PyObject* obj, Py_buffer* view, int flags)
+{
+    int ret;
+    arrayobject* self = (arrayobject*)obj;
+    ret = PyBuffer_FillInfo(view, obj, self->ob_item,
+            Py_SIZE(self)*self->ob_descr->itemsize, 0, flags);
+    if (ret < 0) {
+        return ret;
+    }
+    if ((flags & PyBUF_ND) != PyBUF_ND) {
+        // numpy effectively does this
+        view->ndim = 0;
+        view->shape = NULL;
+    }
+    return ret;
+}
+
+static long releasebuffer_cnt = 0;
+
+static PyObject *
+get_releasebuffer_cnt(void)
+{
+    return PyLong_FromLong(releasebuffer_cnt);
+}
+
+static void
+array_releasebuffer(arrayobject* self, Py_buffer* view)
+{
+    releasebuffer_cnt++;
+    return;
+}
+
 static PySequenceMethods array_as_sequence = {
     (lenfunc)array_length,                      /*sq_length*/
     (binaryfunc)array_concat,               /*sq_concat*/
@@ -2024,6 +2073,8 @@ static PyBufferProcs array_as_buffer = {
     (writebufferproc)array_buffer_getwritebuf,
     (segcountproc)array_buffer_getsegcount,
     NULL,
+    (getbufferproc)array_getbuffer,
+    (releasebufferproc)array_releasebuffer
 };
 
 static PyObject *
@@ -2151,6 +2202,16 @@ switch_multiply(void)
     Py_RETURN_NONE;
 };
 
+static PyObject *
+getitem(PyObject* self, PyObject * args) {
+    PyObject * obj;
+    int i;
+    if (!PyArg_ParseTuple(args, "Oi", &obj, &i)) {
+        return NULL;
+    }
+    return PySequence_ITEM(obj, i);
+}
+
 PyDoc_STRVAR(module_doc,
 "This module defines an object type which can efficiently represent\n\
 an array of basic values: characters, integers, floating point\n\
@@ -2237,7 +2298,7 @@ static PyTypeObject ArrayBasetype = {
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     &array_as_buffer,                           /* tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | 
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
     Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_CHECKTYPES,  /* tp_flags */
     arraytype_doc,                              /* tp_doc */
     0,                                          /* tp_traverse */
@@ -2280,8 +2341,9 @@ static PyTypeObject Arraytype = {
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     &array_as_buffer,                           /* tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | 
-    Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_CHECKTYPES,  /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
+    Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_CHECKTYPES |
+    Py_TPFLAGS_HAVE_NEWBUFFER,                  /* tp_flags */
     arraytype_doc,                              /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -2409,7 +2471,107 @@ readbuffer_as_string(PyObject *self, PyObject *args)
     return PyString_FromStringAndSize((char*)ptr, size);
 }
 
+static PyObject *
+create_and_release_buffer(PyObject *self, PyObject *obj)
+{
+    Py_buffer view;
+    int res = PyObject_GetBuffer(obj, &view, 0);
+    if (res < 0)
+        return NULL;
+    PyBuffer_Release(&view);
+    Py_RETURN_NONE;
+}
 
+static PyObject *
+same_dealloc(PyObject *self, PyObject *args)
+{
+    PyObject *obj1, *obj2;
+    if (!PyArg_ParseTuple(args, "OO", &obj1, &obj2)) {
+        return NULL;
+    }
+    return PyLong_FromLong(obj1->ob_type->tp_dealloc == obj2->ob_type->tp_dealloc);
+}
+
+static PyObject *
+subclass_with_attribute(PyObject *self, PyObject* args) {
+    /* what happens when we use tp_alloc to create the subclass, then
+     * assign to the w_obj via python, then get the GC to collect?
+     * The w_obj should not be collected!!
+     */
+    PyObject * obj, *sub, *attrib, *funcname, *attribname, *collect, *res, *tup;
+    PyTypeObject * subtype;
+    int i;
+    if (!PyArg_ParseTuple(args, "OOOO", &obj, &funcname, &attribname, &collect)) {
+        return NULL;
+    }
+    if (!PyType_Check(obj)) {
+        PyErr_SetString(PyExc_TypeError,
+            "expected type object");
+        return NULL;
+    }
+    subtype = (PyTypeObject*)obj;
+    sub = subtype->tp_alloc(subtype, 0);
+    if (!sub) {
+        return NULL;
+    }
+    attrib = PyObject_GetAttr(sub, funcname);
+    if (!attrib || (attrib == Py_None) ) {
+        PyErr_SetString(PyExc_ValueError,
+            "could not find function to call");
+        Py_XDECREF(attrib);
+        Py_DECREF(sub);
+        return NULL;
+    }
+    tup = PyTuple_New(0);
+    /*
+    #ifdef PYPY_VERSION
+        printf("calling addattrib pypylink %lu \n", sub->ob_pypy_link);
+    #endif
+    */
+    res = PyObject_Call(attrib, tup, NULL);
+    /*
+    #ifdef PYPY_VERSION
+        printf("after addattrib pypylink %lu \n", sub->ob_pypy_link);
+    #endif
+    */
+    Py_DECREF(attrib);
+    if (res == NULL) {
+        Py_DECREF(tup);
+        Py_DECREF(sub);
+        return NULL;
+    }
+    Py_DECREF(res);
+    for(i=0; i<10; i++) {
+        /*
+        #ifdef PYPY_VERSION
+            printf("starting loop iteration %d refcnt %lu pypylink %lu \n", i, 
+                sub->ob_refcnt, sub->ob_pypy_link);
+        #else
+            printf("starting loop iteration %d refcnt %lu\n", i, sub->ob_refcnt);
+        #endif
+        */
+        attrib =  PyObject_GetAttr(sub, attribname);
+        if (!attrib || (attrib == Py_None)) {
+            PyErr_SetString(PyExc_ValueError,
+                "could not find attrib on object");
+            Py_XDECREF(attrib);
+            Py_DECREF(tup);
+            Py_DECREF(sub);
+            return NULL;
+        }
+        Py_XDECREF(attrib);
+        res = PyObject_Call(collect, tup, NULL);
+        if (res == NULL) {
+            Py_DECREF(tup);
+            Py_DECREF(sub);
+            return NULL;
+        }
+        Py_DECREF(res);
+    }
+    Py_DECREF(tup);
+    Py_DECREF(sub);
+    Py_RETURN_NONE;
+}
 
 /*********************** Install Module **************************/
 
@@ -2417,6 +2579,11 @@ static PyMethodDef a_methods[] = {
     {"_reconstruct",   (PyCFunction)_reconstruct, METH_VARARGS, NULL},
     {"switch_multiply",   (PyCFunction)switch_multiply, METH_NOARGS, NULL},
     {"readbuffer_as_string",   (PyCFunction)readbuffer_as_string, METH_VARARGS, NULL},
+    {"get_releasebuffer_cnt",   (PyCFunction)get_releasebuffer_cnt, METH_NOARGS, NULL},
+    {"create_and_release_buffer",   (PyCFunction)create_and_release_buffer, METH_O, NULL},
+    {"same_dealloc",   (PyCFunction)same_dealloc, METH_VARARGS, NULL},
+    {"getitem", (PyCFunction)getitem, METH_VARARGS, NULL},
+    {"subclass_with_attribute", (PyCFunction)subclass_with_attribute, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

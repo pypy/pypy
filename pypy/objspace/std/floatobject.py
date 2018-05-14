@@ -7,8 +7,8 @@ from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
 from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
-    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN, copysign,
-    float_as_rbigint_ratio, formatd, isfinite, isinf, isnan)
+    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN,
+    float_as_rbigint_ratio, formatd, isfinite)
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
@@ -27,7 +27,7 @@ def float2string(x, code, precision):
     # we special-case explicitly inf and nan here
     if isfinite(x):
         s = formatd(x, code, precision, DTSF_ADD_DOT_0)
-    elif isinf(x):
+    elif math.isinf(x):
         if x > 0.0:
             s = "inf"
         else:
@@ -224,16 +224,16 @@ class W_FloatObject(W_Root):
         return w_obj
 
     @staticmethod
-    @unwrap_spec(kind=str)
+    @unwrap_spec(kind='text')
     def descr___getformat__(space, w_cls, kind):
         if kind == "float":
-            return space.wrap(_float_format)
+            return space.newtext(_float_format)
         elif kind == "double":
-            return space.wrap(_double_format)
+            return space.newtext(_double_format)
         raise oefmt(space.w_ValueError, "only float and double are valid")
 
     @staticmethod
-    @unwrap_spec(s=str)
+    @unwrap_spec(s='text')
     def descr_fromhex(space, w_cls, s):
         length = len(s)
         i = 0
@@ -372,7 +372,7 @@ class W_FloatObject(W_Root):
             i += 1
         if i != length:
             raise oefmt(space.w_ValueError, "invalid hex string")
-        w_float = space.wrap(sign * value)
+        w_float = space.newfloat(sign * value)
         return space.call_function(w_cls, w_float)
 
     def _to_float(self, space, w_obj):
@@ -384,15 +384,15 @@ class W_FloatObject(W_Root):
             return W_FloatObject(space.float_w(w_obj))
 
     def descr_repr(self, space):
-        return space.wrap(float2string(self.floatval, 'r', 0))
+        return space.newtext(float2string(self.floatval, 'r', 0))
 
     def descr_str(self, space):
-        return space.wrap(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
+        return space.newtext(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
 
     def descr_hash(self, space):
         h = _hash_float(space, self.floatval)
         h -= (h == -1)
-        return space.wrap(h)
+        return space.newint(h)
 
     def descr_format(self, space, w_spec):
         return newformat.run_formatter(space, w_spec, "format_float", self)
@@ -533,7 +533,7 @@ class W_FloatObject(W_Root):
             # fmod returns different results across platforms; ensure
             # it has the same sign as the denominator; we'd like to do
             # "mod = y * 0.0", but that may get optimized away
-            mod = copysign(0.0, y)
+            mod = math.copysign(0.0, y)
 
         return W_FloatObject(mod)
 
@@ -584,7 +584,7 @@ class W_FloatObject(W_Root):
         return space.float(self)
 
     def descr_get_imag(self, space):
-        return space.wrap(0.0)
+        return space.newfloat(0.0)
 
     def descr_conjugate(self, space):
         return space.float(self)
@@ -593,7 +593,7 @@ class W_FloatObject(W_Root):
         v = self.floatval
         if not rfloat.isfinite(v):
             return space.w_False
-        return space.wrap(math.floor(v) == v)
+        return space.newbool(math.floor(v) == v)
 
     def descr_as_integer_ratio(self, space):
         value = self.floatval
@@ -617,10 +617,10 @@ class W_FloatObject(W_Root):
         if not isfinite(value):
             return self.descr_str(space)
         if value == 0.0:
-            if copysign(1., value) == -1.:
-                return space.wrap("-0x0.0p+0")
+            if math.copysign(1., value) == -1.:
+                return space.newtext("-0x0.0p+0")
             else:
-                return space.wrap("0x0.0p+0")
+                return space.newtext("0x0.0p+0")
         mant, exp = math.frexp(value)
         shift = 1 - max(rfloat.DBL_MIN_EXP - exp, 0)
         mant = math.ldexp(mant, shift)
@@ -641,9 +641,9 @@ class W_FloatObject(W_Root):
         exp = abs(exp)
         s = ''.join(result)
         if value < 0.0:
-            return space.wrap("-0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("-0x%sp%s%d" % (s, sign, exp))
         else:
-            return space.wrap("0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("0x%sp%s%d" % (s, sign, exp))
 
 
 W_FloatObject.typedef = TypeDef("float",
@@ -704,7 +704,7 @@ Convert a string or number to a floating point number, if possible.''',
 
 
 def _hash_float(space, v):
-    if isnan(v):
+    if math.isnan(v):
         return 0
 
     # This is designed so that Python numbers of different types
@@ -798,16 +798,16 @@ def _pow(space, x, y):
     if y == 0.0:
         # x**0 is 1, even 0**0
         return 1.0
-    if isnan(x):
+    if math.isnan(x):
         # nan**y = nan, unless y == 0
         return x
-    if isnan(y):
+    if math.isnan(y):
         # x**nan = nan, unless x == 1; x**nan = x
         if x == 1.0:
             return 1.0
         else:
             return y
-    if isinf(y):
+    if math.isinf(y):
         # x**inf is: 0.0 if abs(x) < 1; 1.0 if abs(x) == 1; inf if
         # abs(x) > 1 (including case where x infinite)
         #
@@ -820,7 +820,7 @@ def _pow(space, x, y):
             return INFINITY
         else:
             return 0.0
-    if isinf(x):
+    if math.isinf(x):
         # (+-inf)**w is: inf for w positive, 0 for w negative; in oth
         # cases, we need to add the appropriate sign if w is an odd
         # integer.
@@ -832,7 +832,7 @@ def _pow(space, x, y):
                 return abs(x)
         else:
             if y_is_odd:
-                return copysign(0.0, x)
+                return math.copysign(0.0, x)
             else:
                 return 0.0
 
@@ -846,7 +846,7 @@ def _pow(space, x, y):
     # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
     # -           pipermail/python-bugs-list/2003-March/016795.html
     if x < 0.0:
-        if isnan(y):
+        if math.isnan(y):
             return NAN
         if math.floor(y) != y:
             raise PowDomainError

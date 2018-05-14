@@ -6,10 +6,11 @@ import struct
 
 from rpython.rlib import jit, longlong2float
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_singlefloat, widen
+from rpython.rlib.rarithmetic import r_singlefloat, widen, intmask
 from rpython.rlib.rstruct import standardfmttable as std
 from rpython.rlib.rstruct.standardfmttable import native_is_bigendian
 from rpython.rlib.rstruct.error import StructError
+from rpython.rlib.rstruct.ieee import pack_float_to_buffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
@@ -26,35 +27,26 @@ native_fmttable = {
 # ____________________________________________________________
 
 
-range_8_unroll = unrolling_iterable(list(reversed(range(8))))
-range_4_unroll = unrolling_iterable(list(reversed(range(4))))
-
 def pack_double(fmtiter):
     doubleval = fmtiter.accept_float_arg()
+    if std.pack_fastpath(rffi.DOUBLE)(fmtiter, doubleval):
+        return
+    # slow path
     value = longlong2float.float2longlong(doubleval)
-    if fmtiter.bigendian:
-        for i in range_8_unroll:
-            x = (value >> (8*i)) & 0xff
-            fmtiter.result.append(chr(x))
-    else:
-        for i in range_8_unroll:
-            fmtiter.result.append(chr(value & 0xff))
-            value >>= 8
-
+    pack_float_to_buffer(fmtiter.wbuf, fmtiter.pos, value, 8, fmtiter.bigendian)
+    fmtiter.advance(8)
 
 def pack_float(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     floatval = r_singlefloat(doubleval)
+    if std.pack_fastpath(rffi.FLOAT)(fmtiter, floatval):
+        return
+    # slow path
     value = longlong2float.singlefloat2uint(floatval)
     value = widen(value)
-    if fmtiter.bigendian:
-        for i in range_4_unroll:
-            x = (value >> (8*i)) & 0xff
-            fmtiter.result.append(chr(x))
-    else:
-        for i in range_4_unroll:
-            fmtiter.result.append(chr(value & 0xff))
-            value >>= 8
+    value = intmask(value)
+    pack_float_to_buffer(fmtiter.wbuf, fmtiter.pos, value, 4, fmtiter.bigendian)
+    fmtiter.advance(4)
 
 # ____________________________________________________________
 #
@@ -138,6 +130,13 @@ setup()
 sizeof_double = native_fmttable['d']['size']
 sizeof_float  = native_fmttable['f']['size']
 
+# Copy CPython's behavior of using short's size and alignment for half-floats.
+native_fmttable['e'] = {'size': native_fmttable['h']['size'],
+                        'alignment': native_fmttable['h']['alignment'],
+                        'pack': std.pack_halffloat,
+                        'unpack': std.unpack_halffloat,
+                       }
+
 # ____________________________________________________________
 #
 # A PyPy extension: accepts the 'u' format character in native mode,
@@ -151,7 +150,8 @@ def pack_unichar(fmtiter):
     if len(unistr) != 1:
         raise StructError("expected a unicode string of length 1")
     c = unistr[0]   # string->char conversion for the annotator
-    unichar.pack_unichar(c, fmtiter.result)
+    unichar.pack_unichar(c, fmtiter.wbuf, fmtiter.pos)
+    fmtiter.advance(unichar.UNICODE_SIZE)
 
 @specialize.argtype(0)
 def unpack_unichar(fmtiter):

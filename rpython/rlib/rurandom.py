@@ -57,6 +57,8 @@ if sys.platform == 'win32':
                              immortal=True, zero=True)
 
     def urandom(context, n, signal_checker=None):
+        # NOTE: no dictionaries here: rsiphash24 calls this to
+        # initialize the random seed of string hashes
         provider = context[0]
         if not provider:
             # This handle is never explicitly released. The operating
@@ -97,8 +99,11 @@ else:  # Posix implementation
         eci = eci.merge(ExternalCompilationInfo(includes=['linux/random.h']))
         class CConfig:
             _compilation_info_ = eci
-            GRND_NONBLOCK = rffi_platform.ConstantInteger('GRND_NONBLOCK')
+            GRND_NONBLOCK = rffi_platform.DefinedConstantInteger(
+                'GRND_NONBLOCK')
         globals().update(rffi_platform.configure(CConfig))
+        if GRND_NONBLOCK is None:
+            GRND_NONBLOCK = 0x0001      # from linux/random.h
 
         # On Linux, use the syscall() function because the GNU libc doesn't
         # expose the Linux getrandom() syscall yet.
@@ -139,6 +144,8 @@ else:  # Posix implementation
 
     def urandom(context, n, signal_checker=None):
         "Read n bytes from /dev/urandom."
+        # NOTE: no dictionaries here: rsiphash24 calls this to
+        # initialize the random seed of string hashes
         result = []
         if SYS_getrandom is not None:
             n = _getrandom(n, result, signal_checker)

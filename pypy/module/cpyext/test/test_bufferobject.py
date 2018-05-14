@@ -2,9 +2,9 @@ from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.api import PyObject
-from pypy.module.cpyext.pyobject import Py_DecRef
 
 class AppTestBufferObject(AppTestCpythonExtensionBase):
+
     def test_FromMemory(self):
         module = self.import_extension('foo', [
             ("get_FromMemory", "METH_NOARGS",
@@ -63,59 +63,61 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
         a = array.array('c', 'text')
         b = buffer(a)
         assert module.roundtrip(b) == 'text'
-        
-    def test_releasebuffer(self):
+
+
+    def test_issue2752(self):
+        iterations = 10
+        if self.runappdirect:
+            iterations = 2000
         module = self.import_extension('foo', [
-            ("create_test", "METH_NOARGS",
-             """
+            ("test_mod", 'METH_VARARGS',
+            """
                 PyObject *obj;
-                obj = PyObject_New(PyObject, (PyTypeObject*)type);
-                return obj;
-             """),
-            ("get_cnt", "METH_NOARGS",
-             'return PyLong_FromLong(cnt);')], prologue="""
-                static float test_data = 42.f;
-                static int cnt=0;
-                static PyHeapTypeObject * type=NULL;
+                Py_buffer bp;
+                if (!PyArg_ParseTuple(args, "O", &obj))
+                    return NULL;
 
-                int getbuffer(PyObject *obj, Py_buffer *view, int flags) {
-
-                    cnt ++;
-                    memset(view, 0, sizeof(Py_buffer));
-                    view->obj = obj;
-                    view->ndim = 0;
-                    view->buf = (void *) &test_data;
-                    view->itemsize = sizeof(float);
-                    view->len = 1;
-                    view->strides = NULL;
-                    view->shape = NULL;
-                    view->format = "f";
-                    return 0;
+                if (PyObject_GetBuffer(obj, &bp, PyBUF_SIMPLE) == -1)
+                    return NULL;
+                
+                if (((unsigned char*)bp.buf)[0] != '0') {
+                    void * buf = (void*)bp.buf;
+                    unsigned char val[4];
+                    char * s = PyString_AsString(obj);
+                    memcpy(val, bp.buf, 4);
+                    PyBuffer_Release(&bp);
+                    if (PyObject_GetBuffer(obj, &bp, PyBUF_SIMPLE) == -1)
+                        return NULL;
+                    PyErr_Format(PyExc_ValueError,
+                            "mismatch: %p [%x %x %x %x...] now %p [%x %x %x %x...] as str '%s'",
+                            buf, val[0], val[1], val[2], val[3],
+                            (void *)bp.buf,
+                            ((unsigned char*)bp.buf)[0],
+                            ((unsigned char*)bp.buf)[1],
+                            ((unsigned char*)bp.buf)[2],
+                            ((unsigned char*)bp.buf)[3],
+                            s);
+                    PyBuffer_Release(&bp);
+                    return NULL;
                 }
 
-                void releasebuffer(PyObject *obj, Py_buffer *view) { 
-                    cnt --;
-                }
-            """, more_init="""
-                type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
-
-                type->ht_type.tp_name = "Test";
-                type->ht_type.tp_basicsize = sizeof(PyObject);
-                type->ht_name = PyString_FromString("Test");
-                type->ht_type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
-                                          Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_NEWBUFFER;
-                type->ht_type.tp_flags &= ~Py_TPFLAGS_HAVE_GC;
-
-                type->ht_type.tp_as_buffer = &type->as_buffer;
-                type->as_buffer.bf_getbuffer = getbuffer;
-                type->as_buffer.bf_releasebuffer = releasebuffer;
-
-                if (PyType_Ready(&type->ht_type) < 0) INITERROR;
-            """, )
-        import gc
-        assert module.get_cnt() == 0
-        a = memoryview(module.create_test())
-        assert module.get_cnt() == 1
-        del a
-        gc.collect(); gc.collect(); gc.collect()
-        assert module.get_cnt() == 0
+                PyBuffer_Release(&bp);
+                Py_RETURN_NONE;
+            """),
+            ])
+        bufsize = 4096
+        def getdata(bufsize):
+            data = b'01234567'
+            for x in range(18):
+                data += data
+                if len(data) >= bufsize:
+                    break
+            return data
+        for j in range(iterations):
+            block = getdata(bufsize)
+            assert block[:8] == '01234567'
+            try:
+                module.test_mod(block)
+            except ValueError as e:
+                print("%s at it=%d" % (e, j))
+                assert False

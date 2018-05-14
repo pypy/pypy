@@ -1070,8 +1070,8 @@ class ASTBuilder(object):
                 raw = "0" + raw
         if negative:
             raw = "-" + raw
-        w_num_str = self.space.wrap(raw)
-        w_base = self.space.wrap(base)
+        w_num_str = self.space.newtext(raw)
+        w_base = self.space.newint(base)
         if raw[-1] in "lL":
             tp = self.space.w_long
             return self.space.call_function(tp, w_num_str, w_base)
@@ -1096,20 +1096,25 @@ class ASTBuilder(object):
             encoding = self.compile_info.encoding
             flags = self.compile_info.flags
             unicode_literals = flags & consts.CO_FUTURE_UNICODE_LITERALS
-            try:
-                sub_strings_w = [parsestring.parsestr(space, encoding, atom_node.get_child(i).get_value(),
-                                                      unicode_literals)
-                                 for i in range(atom_node.num_children())]
-            except error.OperationError as e:
-                if not e.match(space, space.w_UnicodeError):
-                    raise
-                # UnicodeError in literal: turn into SyntaxError
-                self.error(e.errorstr(space), atom_node)
-                sub_strings_w = [] # please annotator
+            sub_strings_w = []
+            for index in range(atom_node.num_children()):
+                child = atom_node.get_child(index)
+                try:
+                    sub_strings_w.append(parsestring.parsestr(space, encoding, child.get_value(),
+                                                              unicode_literals))
+                except error.OperationError as e:
+                    if not e.match(space, space.w_UnicodeError):
+                        raise
+                    # UnicodeError in literal: turn into SyntaxError
+                    e.normalize_exception(space)
+                    errmsg = space.text_w(space.str(e.get_w_value(space)))
+                    if child is None:
+                        child = atom_node
+                    raise self.error('(unicode error) %s' % errmsg, child)
             # This implements implicit string concatenation.
             if len(sub_strings_w) > 1:
                 w_sub_strings = space.newlist(sub_strings_w)
-                w_join = space.getattr(space.wrap(""), space.wrap("join"))
+                w_join = space.getattr(space.newtext(""), space.newtext("join"))
                 final_string = space.call_function(w_join, w_sub_strings)
             else:
                 final_string = sub_strings_w[0]

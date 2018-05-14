@@ -37,7 +37,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     # the 2.6 behavior and always return a number in range(-2**31, 2**31).
     checksum = unsigned_to_signed_32bit(checksum)
 
-    return space.wrap(checksum)
+    return space.newint(checksum)
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')
@@ -53,7 +53,7 @@ def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     # See comments in crc32() for the following line
     checksum = unsigned_to_signed_32bit(checksum)
 
-    return space.wrap(checksum)
+    return space.newint(checksum)
 
 
 class Cache:
@@ -62,7 +62,7 @@ class Cache:
 
 def zlib_error(space, msg):
     w_error = space.fromcache(Cache).w_error
-    return OperationError(w_error, space.wrap(msg))
+    return OperationError(w_error, space.newtext(msg))
 
 
 @unwrap_spec(string='bufferstr', level=int)
@@ -83,7 +83,7 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
             rzlib.deflateEnd(stream)
     except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
-    return space.wrap(result)
+    return space.newbytes(result)
 
 
 @unwrap_spec(string='bufferstr', wbits="c_int", bufsize=int)
@@ -105,7 +105,7 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
             rzlib.inflateEnd(stream)
     except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
-    return space.wrap(result)
+    return space.newbytes(result)
 
 
 class ZLibObject(W_Root):
@@ -176,7 +176,7 @@ class Compress(ZLibObject):
                 self.unlock()
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
-        return space.wrap(result)
+        return space.newbytes(result)
 
     @unwrap_spec(mode="c_int")
     def flush(self, space, mode=rzlib.Z_FINISH):
@@ -206,7 +206,7 @@ class Compress(ZLibObject):
                 self.unlock()
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
-        return space.wrap(result)
+        return space.newbytes(result)
 
 
 @unwrap_spec(level=int, method=int, wbits=int, memLevel=int, strategy=int)
@@ -222,7 +222,7 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
     stream = space.interp_w(Compress, stream)
     Compress.__init__(stream, space, level,
                       method, wbits, memLevel, strategy)
-    return space.wrap(stream)
+    return stream
 
 
 Compress.typedef = TypeDef(
@@ -303,7 +303,7 @@ class Decompress(ZLibObject):
 
         string, finished, unused_len = result
         self._save_unconsumed_input(data, finished, unused_len)
-        return space.wrap(string)
+        return space.newbytes(string)
 
     def flush(self, space, w_length=None):
         """
@@ -328,7 +328,7 @@ class Decompress(ZLibObject):
         else:
             string, finished, unused_len = result
             self._save_unconsumed_input(data, finished, unused_len)
-        return space.wrap(string)
+        return space.newbytes(string)
 
 
 @unwrap_spec(wbits=int)
@@ -339,7 +339,7 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS):
     stream = space.allocate_instance(Decompress, w_subtype)
     stream = space.interp_w(Decompress, stream)
     Decompress.__init__(stream, space, wbits)
-    return space.wrap(stream)
+    return stream
 
 
 Decompress.typedef = TypeDef(
@@ -347,8 +347,8 @@ Decompress.typedef = TypeDef(
     __new__ = interp2app(Decompress___new__),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
-    unused_data = interp_attrproperty('unused_data', Decompress),
-    unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress),
+    unused_data = interp_attrproperty('unused_data', Decompress, wrapfn="newbytes"),
+    unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress, wrapfn="newbytes"),
     __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
 
 Optional arg wbits is the window buffer size.

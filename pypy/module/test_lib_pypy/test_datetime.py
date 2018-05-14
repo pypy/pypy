@@ -2,10 +2,12 @@
 
 from __future__ import absolute_import
 import py
+from pypy.module.test_lib_pypy.support import import_lib_pypy
 
 
 class BaseTestDatetime:
     def test_repr(self):
+        import datetime
         checks = (
             (datetime.date(2015, 6, 8), "datetime.date(2015, 6, 8)"),
             (datetime.datetime(2015, 6, 8, 12, 34, 56), "datetime.datetime(2015, 6, 8, 12, 34, 56)"),
@@ -18,6 +20,7 @@ class BaseTestDatetime:
             assert repr(obj) == expected
 
     def test_repr_overridden(self):
+        import datetime
         class date_safe(datetime.date):
             pass
 
@@ -42,6 +45,7 @@ class BaseTestDatetime:
             assert repr(obj) == expected
 
     def test_attributes(self):
+        import datetime
         for x in [datetime.date.today(),
                   datetime.time(),
                   datetime.datetime.utcnow(),
@@ -50,6 +54,7 @@ class BaseTestDatetime:
             raises(AttributeError, 'x.abc = 1')
 
     def test_timedelta_init_long(self):
+        import datetime
         td = datetime.timedelta(microseconds=20000000000000000000)
         assert td.days == 231481481
         assert td.seconds == 41600
@@ -58,6 +63,7 @@ class BaseTestDatetime:
         assert td.seconds == 41600
 
     def test_unpickle(self):
+        import datetime
         e = raises(TypeError, datetime.date, '123')
         assert e.value.args[0] == 'an integer is required'
         e = raises(TypeError, datetime.time, '123')
@@ -66,17 +72,16 @@ class BaseTestDatetime:
         assert e.value.args[0] == 'an integer is required'
 
         datetime.time('\x01' * 6, None)
-        with raises(TypeError) as e:
-            datetime.time('\x01' * 6, 123)
-        assert str(e.value) == "bad tzinfo state arg"
+        exc = raises(TypeError, datetime.time, '\x01' * 6, 123)
+        assert str(exc.value) == "bad tzinfo state arg"
 
         datetime.datetime('\x01' * 10, None)
-        with raises(TypeError) as e:
-            datetime.datetime('\x01' * 10, 123)
-        assert str(e.value) == "bad tzinfo state arg"
+        exc = raises(TypeError, datetime.datetime, '\x01' * 10, 123)
+        assert str(exc.value) == "bad tzinfo state arg"
 
     def test_strptime(self):
         import time, sys
+        import datetime
         if sys.version_info < (2, 6):
             py.test.skip("needs the _strptime module")
 
@@ -87,6 +92,7 @@ class BaseTestDatetime:
         assert expected == got
 
     def test_datetime_rounding(self):
+        import datetime
         b = 0.0000001
         a = 0.9999994
 
@@ -100,6 +106,7 @@ class BaseTestDatetime:
         assert datetime.datetime.utcfromtimestamp(a).second == 1
 
     def test_more_datetime_rounding(self):
+        import datetime
         # this test verified on top of CPython 2.7 (using a plain
         # "import datetime" above)
         expected_results = {
@@ -126,6 +133,7 @@ class BaseTestDatetime:
             assert repr(dt) == expected_results[t]
 
     def test_utcfromtimestamp(self):
+        import datetime
         """Confirm that utcfromtimestamp and fromtimestamp give consistent results.
 
         Based on danchr's test script in https://bugs.pypy.org/issue986
@@ -151,19 +159,19 @@ class BaseTestDatetime:
             time.tzset()
 
     def test_utcfromtimestamp_microsecond(self):
+        import datetime
         dt = datetime.datetime.utcfromtimestamp(0)
         assert isinstance(dt.microsecond, int)
 
     def test_default_args(self):
-        with py.test.raises(TypeError):
-            datetime.datetime()
-        with py.test.raises(TypeError):
-            datetime.datetime(10)
-        with py.test.raises(TypeError):
-            datetime.datetime(10, 10)
+        import datetime
+        raises(TypeError, datetime.datetime)
+        raises(TypeError, datetime.datetime, 10)
+        raises(TypeError, datetime.datetime, 10, 10)
         datetime.datetime(10, 10, 10)
 
     def test_check_arg_types(self):
+        import datetime
         import decimal
         class Number:
             def __init__(self, value):
@@ -188,38 +196,29 @@ class BaseTestDatetime:
             assert type(dtxx.month) is int
             assert type(dtxx.second) is int
 
-        with py.test.raises(TypeError) as e:
-            datetime.datetime(10, 10, '10')
-        assert str(e.value) == 'an integer is required'
+        exc = raises(TypeError, datetime.datetime,10, 10, '10')
+        assert str(exc.value) == 'an integer is required'
 
         f10 = Number(10.9)
-        with py.test.raises(TypeError) as e:
-            datetime.datetime(10, 10, f10)
-        assert str(e.value) == '__int__ method should return an integer'
+        exc = raises(TypeError, datetime.datetime, 10, 10, f10)
+        assert str(exc.value) == '__int__ method should return an integer'
 
         class Float(float):
             pass
         s10 = Float(10.9)
-        with py.test.raises(TypeError) as e:
-            datetime.datetime(10, 10, s10)
-        assert str(e.value) == 'integer argument expected, got float'
+        exc = raises(TypeError, datetime.datetime, 10, 10, s10)
+        assert str(exc.value) == 'integer argument expected, got float'
 
-        with py.test.raises(TypeError):
-            datetime.datetime(10., 10, 10)
-        with py.test.raises(TypeError):
-            datetime.datetime(10, 10., 10)
-        with py.test.raises(TypeError):
-            datetime.datetime(10, 10, 10.)
-        with py.test.raises(TypeError):
-            datetime.datetime(10, 10, 10, 10.)
-        with py.test.raises(TypeError):
-            datetime.datetime(10, 10, 10, 10, 10.)
-        with py.test.raises(TypeError):
-            datetime.datetime(10, 10, 10, 10, 10, 10.)
-        with py.test.raises(TypeError):
-            datetime.datetime(10, 10, 10, 10, 10, 10, 10.)
+        raises(TypeError, datetime.datetime, 10., 10, 10)
+        raises(TypeError, datetime.datetime, 10, 10., 10)
+        raises(TypeError, datetime.datetime, 10, 10, 10.)
+        raises(TypeError, datetime.datetime, 10, 10, 10, 10.)
+        raises(TypeError, datetime.datetime, 10, 10, 10, 10, 10.)
+        raises(TypeError, datetime.datetime, 10, 10, 10, 10, 10, 10.)
+        raises(TypeError, datetime.datetime, 10, 10, 10, 10, 10, 10, 10.)
 
     def test_utcnow_microsecond(self):
+        import datetime
         import copy
 
         dt = datetime.datetime.utcnow()
@@ -228,34 +227,34 @@ class BaseTestDatetime:
         copy.copy(dt)
 
     def test_radd(self):
+        import datetime
         class X(object):
             def __radd__(self, other):
                 return "radd"
         assert datetime.date(10, 10, 10) + X() == "radd"
 
     def test_raises_if_passed_naive_datetime_and_start_or_end_time_defined(self):
+        import datetime
         class Foo(datetime.tzinfo):
             def utcoffset(self, dt):
                 return datetime.timedelta(0.1)
         naive = datetime.datetime(2014, 9, 22)
         aware = datetime.datetime(2014, 9, 22, tzinfo=Foo())
-        with py.test.raises(TypeError) as e:
-            naive == aware
-        assert str(e.value) == "can't compare offset-naive and offset-aware datetimes"
-        with py.test.raises(TypeError) as e:
-            naive - aware
-        assert str(e.value) == "can't subtract offset-naive and offset-aware datetimes"
+        exc = raises(TypeError, naive.__eq__, aware)
+        assert str(exc.value) == "can't compare offset-naive and offset-aware datetimes"
+        exc = raises(TypeError, naive.__sub__, aware)
+        assert str(exc.value) == "can't subtract offset-naive and offset-aware datetimes"
         naive = datetime.time(7, 32, 12)
         aware = datetime.time(7, 32, 12, tzinfo=Foo())
-        with py.test.raises(TypeError) as e:
-            naive == aware
-        assert str(e.value) == "can't compare offset-naive and offset-aware times"
+        exc = raises(TypeError, naive.__eq__, aware)
+        assert str(exc.value) == "can't compare offset-naive and offset-aware times"
 
     def test_future_types_newint(self):
+        import datetime
         try:
             from future.types.newint import newint
         except ImportError:
-            py.test.skip('requires future')
+            skip('requires future')
 
         dt_from_ints = datetime.datetime(2015, 12, 31, 12, 34, 56)
         dt_from_newints = datetime.datetime(newint(2015), newint(12), newint(31), newint(12), newint(34), newint(56))
@@ -310,12 +309,14 @@ class BaseTestDatetime:
         assert td_div_newint_int == td_div_newint_newint
 
     def test_return_types(self):
+        import datetime
         td = datetime.timedelta(5)
         assert type(td.total_seconds()) is float
         class sub(datetime.timedelta): pass
         assert type(+sub()) is datetime.timedelta
 
     def test_subclass_date(self):
+        import datetime
         # replace() should return a subclass but not call __new__ or __init__.
         class MyDate(datetime.date):
             forbidden = False
@@ -331,6 +332,7 @@ class BaseTestDatetime:
         assert d2 == datetime.date(2016, 2, 5)
 
     def test_subclass_time(self):
+        import datetime
         # replace() should return a subclass but not call __new__ or __init__.
         class MyTime(datetime.time):
             forbidden = False
@@ -346,6 +348,7 @@ class BaseTestDatetime:
         assert d2 == datetime.time(5, 2, 3)
 
     def test_subclass_datetime(self):
+        import datetime
         # replace() should return a subclass but not call __new__ or __init__.
         class MyDatetime(datetime.datetime):
             forbidden = False
@@ -362,12 +365,12 @@ class BaseTestDatetime:
 
 
 class TestDatetimeHost(BaseTestDatetime):
-    def setup_class(cls):
-        global datetime
-        import datetime
+    pass
 
 
-class TestDatetimePyPy(BaseTestDatetime):
+class AppTestDatetimePyPy(BaseTestDatetime):
+    spaceconfig = dict(usemodules=['__pypy__', 'struct'])
     def setup_class(cls):
-        global datetime
-        from lib_pypy import datetime
+        space = cls.space
+        #cls.w___pypy__ = import_lib_pypy(space, '__pypy__')
+        cls.w_datetime = import_lib_pypy(space, 'datetime')

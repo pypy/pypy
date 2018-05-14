@@ -94,7 +94,7 @@ class RefcountingInfo:
 
 class RefcountingGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import refcounting
         return refcounting.RefcountingGCTransformer(translator)
 
@@ -175,7 +175,7 @@ class BoehmInfo:
 
 class BoehmGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import boehm
         return boehm.BoehmGCTransformer(translator)
 
@@ -205,11 +205,15 @@ class BoehmGcPolicy(BasicGcPolicy):
             # GC_REDIRECT_TO_LOCAL is not supported on Win32 by gc6.8
             pre_include_bits += ["#define GC_REDIRECT_TO_LOCAL 1"]
 
+        hdr_flag = ''
+        if not getattr(self.db.gctransformer, 'NO_HEADER', False):
+            hdr_flag = '-DPYPY_BOEHM_WITH_HEADER'
+
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
             # The following define is required by the thread module,
             # See module/thread/test/test_rthread.py
-            compile_extra=['-DPYPY_USING_BOEHM_GC'],
+            compile_extra=['-DPYPY_USING_BOEHM_GC', hdr_flag],
             ))
 
         gct = self.db.gctransformer
@@ -300,9 +304,9 @@ class NoneGcPolicy(BoehmGcPolicy):
 
 class BasicFrameworkGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         if hasattr(self, 'transformerclass'):    # for rpython/memory tests
-            return self.transformerclass(translator)
+            return self.transformerclass(translator, gchooks=gchooks)
         raise NotImplementedError
 
     def struct_setup(self, structdefnode, rtti):
@@ -437,15 +441,54 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
 
 class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import shadowstack
-        return shadowstack.ShadowStackFrameworkGCTransformer(translator)
+        return shadowstack.ShadowStackFrameworkGCTransformer(translator, gchooks)
+
+    def enter_roots_frame(self, funcgen, (c_gcdata, c_numcolors)):
+        numcolors = c_numcolors.value
+        # XXX hard-code the field name here
+        gcpol_ss = '%s->gcd_inst_root_stack_top' % funcgen.expr(c_gcdata)
+        #
+        yield ('typedef struct { void %s; } pypy_ss_t;'
+                   % ', '.join(['*s%d' % i for i in range(numcolors)]))
+        yield 'pypy_ss_t *ss;'
+        funcgen.gcpol_ss = gcpol_ss
+
+    def OP_GC_PUSH_ROOTS(self, funcgen, op):
+        raise Exception("gc_push_roots should be removed by postprocess_graph")
+
+    def OP_GC_POP_ROOTS(self, funcgen, op):
+        raise Exception("gc_pop_roots should be removed by postprocess_graph")
+
+    def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
+        return 'ss = (pypy_ss_t *)%s; %s = (void *)(ss+1);' % (
+            funcgen.gcpol_ss, funcgen.gcpol_ss)
+
+    def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):
+        return '%s = (void *)ss;' % funcgen.gcpol_ss
+
+    def OP_GC_SAVE_ROOT(self, funcgen, op):
+        num = op.args[0].value
+        exprvalue = funcgen.expr(op.args[1])
+        return 'ss->s%d = (void *)%s;\t/* gc_save_root */' % (num, exprvalue)
+
+    def OP_GC_RESTORE_ROOT(self, funcgen, op):
+        num = op.args[0].value
+        exprvalue = funcgen.expr(op.args[1])
+        typename = funcgen.db.gettype(op.args[1].concretetype)
+        result = '%s = (%s)ss->s%d;' % (exprvalue, cdecl(typename, ''), num)
+        if isinstance(op.args[1], Constant):
+            return '/* %s\t* gc_restore_root */' % result
+        else:
+            return '%s\t/* gc_restore_root */' % result
+
 
 class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import asmgcroot
-        return asmgcroot.AsmGcRootFrameworkGCTransformer(translator)
+        return asmgcroot.AsmGcRootFrameworkGCTransformer(translator, gchooks)
 
     def GC_KEEPALIVE(self, funcgen, v):
         return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)

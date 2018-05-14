@@ -15,6 +15,7 @@ from rpython.rtyper.lltypesystem.lltype import (
     RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, Void, FuncType, Bool, Signed,
     functionptr, attachRuntimeTypeInfo)
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.rmodel import (
@@ -170,7 +171,6 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(rstr.STR)),
-                            ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
                             hints={'immutable': True,
                                    'static_immutable': True}))
@@ -339,7 +339,6 @@ class ClassRepr(Repr):
 
     def fill_vtable_root(self, vtable):
         """Initialize the head of the vtable."""
-        vtable.hash = hash(self)
         # initialize the 'subclassrange_*' and 'name' fields
         if self.classdef is not None:
             #vtable.parenttypeptr = self.rbase.getvtable()
@@ -478,6 +477,13 @@ class InstanceRepr(Repr):
         self.lowleveltype = Ptr(self.object_type)
         self.gcflavor = gcflavor
 
+    def has_special_memory_pressure(self, tp):
+        if 'special_memory_pressure' in tp._flds:
+            return True
+        if 'super' in tp._flds:
+            return self.has_special_memory_pressure(tp._flds['super'])
+        return False
+
     def _setup_repr(self, llfields=None, hints=None, adtmeths=None):
         # NOTE: don't store mutable objects like the dicts below on 'self'
         #       before they are fully built, to avoid strange bugs in case
@@ -525,6 +531,16 @@ class InstanceRepr(Repr):
             for name, attrdef in attrs:
                 if not attrdef.readonly and self.is_quasi_immutable(name):
                     llfields.append(('mutate_' + name, OBJECTPTR))
+
+            bookkeeper = self.rtyper.annotator.bookkeeper
+            if self.classdef in bookkeeper.memory_pressure_types:
+                # we don't need to add it if it's already there for some of
+                # the parent type
+                if not self.has_special_memory_pressure(self.rbase.object_type):
+                    llfields.append(('special_memory_pressure', lltype.Signed))
+                    fields['special_memory_pressure'] = (
+                        'special_memory_pressure',
+                        self.rtyper.getrepr(lltype_to_annotation(lltype.Signed)))
 
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
@@ -624,7 +640,8 @@ class InstanceRepr(Repr):
 
     def _parse_field_list(self, fields, accessor, hints):
         ranking = {}
-        for name in fields:
+        for fullname in fields:
+            name = fullname
             quasi = False
             if name.endswith('?[*]'):   # a quasi-immutable field pointing to
                 name = name[:-4]        # an immutable array
@@ -647,6 +664,12 @@ class InstanceRepr(Repr):
                 raise TyperError(
                     "can't have _immutable_ = True and a quasi-immutable field "
                     "%s in class %s" % (name, self.classdef))
+            if rank in (IR_QUASIIMMUTABLE_ARRAY, IR_IMMUTABLE_ARRAY):
+                from rpython.rtyper.rlist import AbstractBaseListRepr
+                if not isinstance(r, AbstractBaseListRepr):
+                    raise TyperError(
+                        "_immutable_fields_ = [%r] in %r, but %r is not a list "
+                        "(got %r)" % (fullname, self, name, r))
             ranking[mangled_name] = rank
         accessor.initialize(self.object_type, ranking)
         return ranking
@@ -659,6 +682,8 @@ class InstanceRepr(Repr):
         while base.classdef is not None:
             base = base.rbase
             for fieldname in base.fields:
+                if fieldname == 'special_memory_pressure':
+                    continue
                 try:
                     mangled, r = base._get_field(fieldname)
                 except KeyError:
@@ -713,6 +738,9 @@ class InstanceRepr(Repr):
                            resulttype=Ptr(self.object_type))
         ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)
+        if self.has_special_memory_pressure(self.object_type):
+            self.setfield(vptr, 'special_memory_pressure',
+                inputconst(lltype.Signed, 0), llops)
         # initialize instance attributes from their defaults from the class
         if self.classdef is not None:
             flds = self.allinstancefields.keys()
@@ -786,7 +814,6 @@ class InstanceRepr(Repr):
     def initialize_prebuilt_instance(self, value, classdef, result):
         # must fill in the hash cache before the other ones
         # (see test_circular_hash_initialization)
-        self.initialize_prebuilt_hash(value, result)
         self._initialize_data_flattenrec(self.initialize_prebuilt_data,
                                          value, classdef, result)
 
@@ -841,18 +868,18 @@ class InstanceRepr(Repr):
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         from rpython.rlib.rarithmetic import r_uint
         if not i:
-            return rstr.null_str
+            return rstr.conststr("NULL")
         instance = cast_pointer(OBJECTPTR, i)
         # Two choices: the first gives a fast answer but it can change
         # (typically only once) during the life of the object.
         #uid = r_uint(cast_ptr_to_int(i))
         uid = r_uint(llop.gc_id(lltype.Signed, i))
         #
-        res = rstr.instance_str_prefix
+        res = rstr.conststr("<")
         res = rstr.ll_strconcat(res, instance.typeptr.name)
-        res = rstr.ll_strconcat(res, rstr.instance_str_infix)
+        res = rstr.ll_strconcat(res, rstr.conststr(" object at 0x"))
         res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
-        res = rstr.ll_strconcat(res, rstr.instance_str_suffix)
+        res = rstr.ll_strconcat(res, rstr.conststr(">"))
         return res
 
     def get_ll_eq_function(self):
@@ -943,11 +970,6 @@ class InstanceRepr(Repr):
             # OBJECT part
             rclass = getclassrepr(self.rtyper, classdef)
             result.typeptr = rclass.getvtable()
-
-    def initialize_prebuilt_hash(self, value, result):
-        llattrvalue = getattr(value, '__precomputed_identity_hash', None)
-        if llattrvalue is not None:
-            lltype.init_identity_hash(result, llattrvalue)
 
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
@@ -1092,7 +1114,6 @@ def attr_reverse_size((_, T)):
         return -sizeof(T)
     except StandardError:
         return None
-
 
 # ____________________________________________________________
 #

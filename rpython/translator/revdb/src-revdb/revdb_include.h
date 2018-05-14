@@ -261,6 +261,9 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define OP_GC_RAWREFCOUNT_CREATE_LINK_PYPY(gcobj, pyobj, r)   \
     rpy_reverse_db_rawrefcount_create_link_pypy(gcobj, pyobj)
 
+#define OP_GC_RAWREFCOUNT_CREATE_LINK_PYOBJ(gcobj, pyobj, r)   \
+    rpy_reverse_db_rawrefcount_create_link_pypy(gcobj, pyobj)
+
 #define OP_GC_RAWREFCOUNT_FROM_OBJ(gcobj, r)   \
     r = rpy_reverse_db_rawrefcount_from_obj(gcobj)
 

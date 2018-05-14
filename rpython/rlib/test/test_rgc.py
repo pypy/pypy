@@ -304,6 +304,74 @@ def test_nonmoving_raw_ptr_for_resizable_list():
     data = subprocess.check_output([str(exename), '.', '.', '.'])
     assert data.strip().endswith('OK!')
 
+
+def test_nonmoving_raw_ptr_for_resizable_list_getslice():
+    def f(n):
+        lst = ['a', 'b', 'c', 'd', 'e']
+        lst = rgc.resizable_list_supporting_raw_ptr(lst)
+        lst = lst[:3]
+        lst.append(chr(n))
+        assert lst[3] == chr(n)
+        assert lst[-1] == chr(n)
+        #
+        ptr = rgc.nonmoving_raw_ptr_for_resizable_list(lst)
+        assert lst[:] == ['a', 'b', 'c', chr(n)]
+        assert lltype.typeOf(ptr) == rffi.CCHARP
+        assert [ptr[i] for i in range(4)] == ['a', 'b', 'c', chr(n)]
+        return lst
+    #
+    # direct untranslated run
+    lst = f(35)
+    assert isinstance(lst, rgc._ResizableListSupportingRawPtr)
+    #
+    # llinterp run
+    interpret(f, [35])
+
+
+def test_ll_for_resizable_list():
+    def f(n):
+        lst = ['a', 'b', 'c']
+        lst = rgc.resizable_list_supporting_raw_ptr(lst)
+        lst.append(chr(n))
+        assert lst[3] == chr(n)
+        assert lst[-1] == chr(n)
+        #
+        ll_list = rgc.ll_for_resizable_list(lst)
+        assert lst[:] == ['a', 'b', 'c', chr(n)]
+        assert ll_list.length == 4
+        assert [ll_list.items[i] for i in range(4)] == ['a', 'b', 'c', chr(n)]
+        #
+        lst[-3] = 'X'
+        assert ll_list.items[1] == 'X'
+        ll_list.items[2] = 'Y'
+        assert lst[-2] == 'Y'
+        #
+        return lst
+    #
+    # direct untranslated run
+    lst = f(35)
+    assert isinstance(lst, rgc._ResizableListSupportingRawPtr)
+    #
+    # llinterp run
+    interpret(f, [35])
+    #
+    # compilation with the GC transformer
+    import subprocess
+    from rpython.translator.interactive import Translation
+    #
+    def main(argv):
+        f(len(argv))
+        print "OK!"
+        return 0
+    #
+    t = Translation(main, gc="incminimark")
+    t.disable(['backendopt'])
+    t.set_backend_extra_options(c_debug_defines=True)
+    exename = t.compile()
+    data = subprocess.check_output([str(exename), '.', '.', '.'])
+    assert data.strip().endswith('OK!')
+
+
 def test_ListSupportingRawPtr_direct():
     lst = ['a', 'b', 'c']
     lst = rgc.resizable_list_supporting_raw_ptr(lst)
@@ -351,14 +419,15 @@ def test_ListSupportingRawPtr_direct():
 
     p = lst
     check_nonresizing()
-    assert lst._raw_items is None
-    lst._nonmoving_raw_ptr_for_resizable_list()
-    p = lst._raw_items
+    assert lst._ll_list is None
+    p = lst._nonmoving_raw_ptr_for_resizable_list()
+    ll_list = rgc.ll_for_resizable_list(lst)
+    assert ll_list is lst._ll_list
     check_nonresizing()
-    assert lst._raw_items == p
-    assert p[0] == 'a'
-    assert p[1] == 'b'
-    assert p[2] == 'c'
+    assert lst._ll_list == ll_list
+    assert p[0] == ll_list.items[0] == 'a'
+    assert p[1] == ll_list.items[1] == 'b'
+    assert p[2] == ll_list.items[2] == 'c'
 
     def do_resizing_operation():
         del lst[1]
@@ -397,7 +466,7 @@ def test_ListSupportingRawPtr_direct():
     assert lst == ['a', 'b', 'c']
     for expect in do_resizing_operation():
         assert lst == expect
-        assert lst._raw_items is None
+        assert lst._ll_list is None
         lst = ['a', 'b', 'c']
         lst = rgc.resizable_list_supporting_raw_ptr(lst)
         lst._nonmoving_raw_ptr_for_resizable_list()
@@ -530,3 +599,94 @@ class TestFinalizerQueue:
 
         e = py.test.raises(TyperError, gengraph, f, [])
         assert str(e.value).startswith('the RPython-level __del__() method in')
+
+    def test_translated_boehm(self):
+        self._test_translated(use_gc="boehm", llcase=False)
+
+    def test_translated_boehm_ll(self):
+        self._test_translated(use_gc="boehm", llcase=True)
+
+    def test_translated_incminimark(self):
+        self._test_translated(use_gc="incminimark", llcase=False)
+
+    def test_translated_incminimark_ll(self):
+        self._test_translated(use_gc="incminimark", llcase=True)
+
+    def _test_translated(self, use_gc, llcase):
+        import subprocess
+        from rpython.rlib import objectmodel
+        from rpython.translator.interactive import Translation
+        #
+        class Seen:
+            count = 0
+        class MySimpleFQ(rgc.FinalizerQueue):
+            if not llcase:
+                Class = T_Root
+            else:
+                Class = None
+            def finalizer_trigger(self):
+                seen.count += 1
+        seen = Seen()
+        fq = MySimpleFQ()
+        if not llcase:
+            EMPTY = None
+            llbuilder = T_Int
+        else:
+            from rpython.rtyper.annlowlevel import llstr
+            EMPTY = lltype.nullptr(llmemory.GCREF.TO)
+            def llbuilder(n):
+                return lltype.cast_opaque_ptr(llmemory.GCREF, llstr(str(n)))
+
+        def subfunc():
+            w0 = llbuilder(40); fq.register_finalizer(w0)
+            w1 = llbuilder(41); fq.register_finalizer(w1)
+            w2 = llbuilder(42); fq.register_finalizer(w2)
+            w3 = llbuilder(43); fq.register_finalizer(w3)
+            w4 = llbuilder(44); fq.register_finalizer(w4)
+            w5 = llbuilder(45); fq.register_finalizer(w5)
+            w6 = llbuilder(46); fq.register_finalizer(w6)
+            w7 = llbuilder(47); fq.register_finalizer(w7)
+            w8 = llbuilder(48); fq.register_finalizer(w8)
+            w9 = llbuilder(49); fq.register_finalizer(w9)
+            gc.collect()
+            assert seen.count == 0
+            assert fq.next_dead() is EMPTY
+            objectmodel.keepalive_until_here(w0)
+            objectmodel.keepalive_until_here(w1)
+            objectmodel.keepalive_until_here(w2)
+            objectmodel.keepalive_until_here(w3)
+            objectmodel.keepalive_until_here(w4)
+            objectmodel.keepalive_until_here(w5)
+            objectmodel.keepalive_until_here(w6)
+            objectmodel.keepalive_until_here(w7)
+            objectmodel.keepalive_until_here(w8)
+            objectmodel.keepalive_until_here(w9)
+
+        def main(argv):
+            assert fq.next_dead() is EMPTY
+            subfunc()
+            gc.collect(); gc.collect(); gc.collect()
+            assert seen.count > 0
+            n = fq.next_dead()
+            while True:
+                if not llcase:
+                    assert type(n) is T_Int and 40 <= n.x <= 49
+                else:
+                    from rpython.rtyper.lltypesystem.rstr import STR
+                    assert lltype.typeOf(n) is llmemory.GCREF
+                    p = lltype.cast_opaque_ptr(lltype.Ptr(STR), n)
+                    assert len(p.chars) == 2
+                    assert p.chars[0] == "4"
+                    assert "0" <= p.chars[1] <= "9"
+                n = fq.next_dead()
+                if n is EMPTY:
+                    break
+            print "OK!"
+            return 0
+        #
+        t = Translation(main, gc=use_gc)
+        t.disable(['backendopt'])
+        t.set_backend_extra_options(c_debug_defines=True)
+        exename = t.compile()
+        data = subprocess.check_output([str(exename), '.', '.', '.'])
+        assert data.strip().endswith('OK!')

@@ -23,11 +23,13 @@ of success with the mingw32 port of gcc.
 Installing Visual Compiler v9 (for Python 2.7)
 ----------------------------------------------
 
-This compiler, while the standard one for Python 2.7, is depricated. Microsoft has
+This compiler, while the standard one for Python 2.7, is deprecated. Microsoft has
 made it available as the `Microsoft Visual C++ Compiler for Python 2.7`_ (the link
-was checked in Nov 2016). Note that the compiler suite will be installed in
-``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``.
-Using a current version of ``setuptools`` will be able to find it there. For
+was checked in Nov 2016). Note that the compiler suite may be installed in
+``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``
+or in
+``C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python``.
+A current version of ``setuptools`` will be able to find it there. For
 Windows 10, you must right-click the download, and under ``Properties`` ->
 ``Compatibility`` mark it as ``Run run this program in comatibility mode for``
 ``Previous version...``. Also, you must download and install the ``.Net Framework 3.5``,
@@ -37,11 +39,25 @@ discovered the problem).
 
 .. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/en-us/download/details.aspx?id=44266
 
+Installing "Build Tools for Visual Studio 2017" (for Python 3)
+--------------------------------------------------------------
+
+As documented in the CPython Wiki_, CPython now recommends Visual C++ version
+14.0. A compact version of the compiler suite can be obtained from Microsoft_
+downloads, search the page for "Build Tools for Visual Studio 2017".
+
+You will also need to install the the `Windows SDK`_ in order to use the 
+`mt.exe` mainfest compiler.
+
+.. _Wiki: https://wiki.python.org/moin/WindowsCompilers
+.. _Microsoft: https://www.visualstudio.com/downloads
+.. _`Windows SDK`: https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk
+
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test translation using Visual Studio 2008, Express
-Edition.  Other configurations may work as well.
+We routinely test translation of PyPy 2.7 using v9 and PyPy 3 with vc14.
+Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
 for the compiler, so you do not need to run vcvars before translation.
@@ -80,6 +96,31 @@ slower translation::
 
 .. _build instructions: http://pypy.org/download.html#building-from-source
 
+Setting Up Visual Studio 9.0 for building SSL in Python3
+--------------------------------------------------------
+
+On Python3, the ``ssl`` module is based on ``cffi``, and requires a build step after
+translation. However ``distutils`` does not support the Micorosft-provided Visual C
+compiler, and ``cffi`` depends on ``distutils`` to find the compiler. The
+traditional solution to this problem is to install the ``setuptools`` module
+via running ``-m ensurepip`` which installs ``pip`` and ``setuptools``. However
+``pip`` requires ``ssl``. So we have a chicken-and-egg problem: ``ssl`` depends on
+``cffi`` which depends on ``setuptools``, which depends on ``ensurepip``, which
+depends on ``ssl``.
+
+In order to solve this, the buildbot sets an environment varaible that helps
+``distutils`` find the compiler without ``setuptools``::
+
+     set VS90COMNTOOLS=C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0\VC\bin
+
+or whatever is appropriate for your machine. Note that this is not enough, you
+must also copy the ``vcvarsall.bat`` file fron the ``...\9.0`` directory to the
+``...\9.0\VC`` directory, and edit it, changing the lines that set
+``VCINSTALLDIR`` and ``WindowsSdkDir``::
+
+    set VCINSTALLDIR=%~dp0\
+    set WindowsSdkDir=%~dp0\..\WinSDK\
+
 
 Preparing Windows for the large build
 -------------------------------------
@@ -105,164 +146,14 @@ translate with.
 Installing external packages
 ----------------------------
 
-On Windows, there is no standard place where to download, build and
-install third-party libraries.  We recommend installing them in the parent
-directory of the pypy checkout.  For example, if you installed pypy in
-``d:\pypy\trunk\`` (This directory contains a README file), the base
-directory is ``d:\pypy``. You must then set the
-INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
+We uses a `repository` parallel to pypy to hold binary compiled versions of the
+build dependencies for windows. As part of the `rpython` setup stage, environment
+variables will be set to use these dependencies. The repository has a README
+file on how to replicate, and a branch for each supported platform. You may run
+ the `get_externals.py` utility to checkout the proper branch for your platform
+and PyPy version.
 
-
-Abridged method (for -Ojit builds using Visual Studio 2008)
------------------------------------------------------------
-
-Download the versions of all the external packages from
-https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
-(for 2.4 release and later) or
-https://bitbucket.org/pypy/pypy/downloads/local.zip
-(for pre-2.4 versions)
-Then expand it into the base directory (base_dir) and modify your environment
-to reflect this::
-
-    set PATH=<base_dir>\bin;<base_dir>\tcltk\bin;%PATH%
-    set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%
-    set LIB=<base_dir>\lib;<base_dir>\tcltk\lib;%LIB%
-
-Now you should be good to go. If you choose this method, you do not need
-to download/build anything else. 
-
-Nonabrided method (building from scratch)
------------------------------------------
-
-If you want to, you can rebuild everything from scratch by continuing.
-
-
-The Boehm garbage collector
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This library is needed if you plan to use the ``--gc=boehm`` translation
-option (this is the default at some optimization levels like ``-O1``,
-but unneeded for high-performance translations like ``-O2``).
-You may get it at
-http://hboehm.info/gc/gc_source/gc-7.1.tar.gz
-
-Versions 7.0 and 7.1 are known to work; the 6.x series won't work with
-RPython. Unpack this folder in the base directory.
-The default GC_abort(...) function in misc.c will try to open a MessageBox.
-You may want to disable this with the following patch::
-
-    --- a/misc.c    Sun Apr 20 14:08:27 2014 +0300
-    +++ b/misc.c    Sun Apr 20 14:08:37 2014 +0300
-    @@ -1058,7 +1058,7 @@
-     #ifndef PCR
-      void GC_abort(const char *msg)
-       {
-       -#   if defined(MSWIN32)
-       +#   if 0 && defined(MSWIN32)
-              (void) MessageBoxA(NULL, msg, "Fatal error in gc", MB_ICONERROR|MB_OK);
-               #   else
-                      GC_err_printf("%s\n", msg);
-
-Then open a command prompt::
-
-    cd gc-7.1
-    nmake -f NT_THREADS_MAKEFILE
-    copy Release\gc.dll <somewhere in the PATH>
-
-
-The zlib compression library
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Download http://www.gzip.org/zlib/zlib-1.2.3.tar.gz and extract it in
-the base directory.  Then compile as a static library::
-
-    cd zlib-1.2.3
-    nmake -f win32\Makefile.msc
-    copy zlib.lib <somewhere in LIB>
-    copy zlib.h zconf.h <somewhere in INCLUDE>
-
-
-The bz2 compression library
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Get the same version of bz2 used by python and compile as a static library::
-
-    svn export http://svn.python.org/projects/external/bzip2-1.0.6
-    cd bzip2-1.0.6
-    nmake -f makefile.msc
-    copy libbz2.lib <somewhere in LIB>
-    copy bzlib.h <somewhere in INCLUDE>
-
-
-The sqlite3 database library
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-PyPy uses cffi to interact with sqlite3.dll. Only the dll is needed, the cffi
-wrapper is compiled when the module is imported for the first time.
-The sqlite3.dll should be version 3.6.21 for CPython2.7 compatablility.
-
-
-The expat XML parser
-~~~~~~~~~~~~~~~~~~~~
-
-Download the source code of expat on sourceforge:
-http://sourceforge.net/projects/expat/ and extract it in the base directory.
-Version 2.1.0 is known to pass tests. Then open the project file ``expat.dsw``
-with Visual Studio; follow the instruction for converting the project files,
-switch to the "Release" configuration, use the ``expat_static`` project,
-reconfigure the runtime for Multi-threaded DLL (/MD) and build.
-
-Then, copy the file ``win32\bin\release\libexpat.lib`` somewhere in somewhere
-in LIB, and both ``lib\expat.h`` and ``lib\expat_external.h`` somewhere in
-INCLUDE.
-
-
-The OpenSSL library
-~~~~~~~~~~~~~~~~~~~
-
-OpenSSL needs a Perl interpreter to configure its makefile.  You may
-use the one distributed by ActiveState, or the one from cygwin.::
-
-    svn export http://svn.python.org/projects/external/openssl-1.0.1i
-    cd openssl-1.0.1i
-    perl Configure VC-WIN32 no-idea no-mdc2
-    ms\do_ms.bat
-    nmake -f ms\nt.mak install
-
-Then, copy the files ``out32\*.lib`` somewhere in
-somewhere in LIB, and the entire ``include\openssl`` directory as-is somewhere
-in INCLUDE.
-
-
-TkInter module support
-~~~~~~~~~~~~~~~~~~~~~~
-
-Note that much of this is taken from the cpython build process.
-Tkinter is imported via cffi, so the module is optional. To recreate the tcltk
-directory found for the release script, create the dlls, libs, headers and
-runtime by running::
-
-	svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85
-	svn export http://svn.python.org/projects/external/tk-8.5.2.0 tk85
-	cd tcl85\win
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all
-	nmake -f makefile.vc DEBUG=0 INSTALLDIR=..\..\tcltk install
-	cd ..\..\tk85\win
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 install
-
-Now you should have a tcktk\bin, tcltk\lib, and tcltk\include directory ready
-for use. The release packaging script will pick up the tcltk runtime in the lib
-directory and put it in the archive.
-
-The lzma compression library
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Python 3.3 ship with CFFI wrappers for the lzma library, which can be
-downloaded from this site http://tukaani.org/xz. Python 3.3-3.5 use version
-5.0.5, a prebuilt version can be downloaded from
-http://tukaani.org/xz/xz-5.0.5-windows.zip, check the signature
-http://tukaani.org/xz/xz-5.0.5-windows.zip.sig
-
+.. _repository:  https://bitbucket.org/pypy/external
 
 Using the mingw compiler
 ------------------------
@@ -334,9 +225,9 @@ large enough to (occasionally) contain a pointer value cast to an
 integer.  The simplest fix is to make sure that it is so, but it will
 give the following incompatibility between CPython and PyPy on Win64:
 
-CPython: ``sys.maxint == 2**32-1, sys.maxsize == 2**64-1``
+CPython: ``sys.maxint == 2**31-1, sys.maxsize == 2**63-1``
 
-PyPy: ``sys.maxint == sys.maxsize == 2**64-1``
+PyPy: ``sys.maxint == sys.maxsize == 2**63-1``
 
 ...and, correspondingly, PyPy supports ints up to the larger value of
 sys.maxint before they are converted to ``long``.  The first decision
@@ -354,7 +245,7 @@ it CPython64/64.
 It is probably not too much work if the goal is only to get a translated
 PyPy executable, and to run all tests before translation.  But you need
 to start somewhere, and you should start with some tests in
-rpython/translator/c/test/, like ``test_standalone.py`` and
+``rpython/translator/c/test/``, like ``test_standalone.py`` and
 ``test_newgc.py``: try to have them pass on top of CPython64/64.
 
 Keep in mind that this runs small translations, and some details may go
@@ -364,7 +255,7 @@ It should be equal to ``long`` on every other platform, but on Win64 it
 should be something like ``long long``.
 
 What is more generally needed is to review all the C files in
-rpython/translator/c/src for the word ``long``, because this means a
+``rpython/translator/c/src`` for the word ``long``, because this means a
 32-bit integer even on Win64.  Replace it with ``Signed`` most of the
 times.  You can replace one with the other without breaking anything on
 any other platform, so feel free to.

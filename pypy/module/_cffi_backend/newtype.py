@@ -23,13 +23,34 @@ alignment_of_pointer = alignment(rffi.CCHARP)
 # ____________________________________________________________
 
 class UniqueCache:
+    for_testing = False    # set to True on the class level in test_c.py
+
     def __init__(self, space):
         self.ctvoid = None      # Cache for the 'void' type
         self.ctvoidp = None     # Cache for the 'void *' type
         self.ctchara = None     # Cache for the 'char[]' type
         self.primitives = {}    # Cache for {name: primitive_type}
         self.functions = []     # see _new_function_type()
-        self.for_testing = False
+        self.functions_packed = None     # only across translation
+
+    def _cleanup_(self):
+        import gc
+        assert self.functions_packed is None
+        # Note: a full PyPy translation may still have
+        # 'self.functions == []' at this point, possibly depending
+        # on details.  Code tested directly in test_ffi_obj
+        gc.collect()
+        funcs = []
+        for weakdict in self.functions:
+            funcs += weakdict._dict.values()
+        del self.functions[:]
+        self.functions_packed = funcs if len(funcs) > 0 else None
+
+    def unpack_functions(self):
+        for fct in self.functions_packed:
+            _record_function_type(self, fct)
+        self.functions_packed = None
+
 
 def _clean_cache(space):
     "NOT_RPYTHON"
@@ -45,8 +66,8 @@ def _clean_cache(space):
 
 PRIMITIVE_TYPES = {}
 
-def eptype(name, TYPE, ctypecls):
-    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE), alignment(TYPE)
+def eptype(name, TYPE, ctypecls, rep=1):
+    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE) * rep, alignment(TYPE)
 
 def eptypesize(name, size, ctypecls):
     for TYPE in [lltype.Signed, lltype.SignedLongLong, rffi.SIGNEDCHAR,
@@ -73,6 +94,9 @@ eptype("double", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveFloat)
 eptype("long double", rffi.LONGDOUBLE, ctypeprim.W_CTypePrimitiveLongDouble)
 eptype("_Bool",  lltype.Bool,          ctypeprim.W_CTypePrimitiveBool)
 
+eptype("float _Complex",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveComplex, rep=2)
+eptype("double _Complex", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveComplex, rep=2)
+
 eptypesize("int8_t",   1, ctypeprim.W_CTypePrimitiveSigned)
 eptypesize("uint8_t",  1, ctypeprim.W_CTypePrimitiveUnsigned)
 eptypesize("int16_t",  2, ctypeprim.W_CTypePrimitiveSigned)
@@ -86,6 +110,9 @@ eptype("intptr_t",  rffi.INTPTR_T,  ctypeprim.W_CTypePrimitiveSigned)
 eptype("uintptr_t", rffi.UINTPTR_T, ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("size_t",    rffi.SIZE_T,    ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("ssize_t",   rffi.SSIZE_T,   ctypeprim.W_CTypePrimitiveSigned)
+
+eptypesize("char16_t", 2, ctypeprim.W_CTypePrimitiveUniChar)
+eptypesize("char32_t", 4, ctypeprim.W_CTypePrimitiveUniChar)
 
 _WCTSigned = ctypeprim.W_CTypePrimitiveSigned
 _WCTUnsign = ctypeprim.W_CTypePrimitiveUnsigned
@@ -132,7 +159,7 @@ else:
     eptypesize("int_fast64_t",  8, _WCTSigned)
     eptypesize("uint_fast64_t", 8, _WCTUnsign)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_primitive_type(space, name):
     return _new_primitive_type(space, name)
 
@@ -146,7 +173,7 @@ def _new_primitive_type(space, name):
     try:
         ctypecls, size, align = PRIMITIVE_TYPES[name]
     except KeyError:
-        raise OperationError(space.w_KeyError, space.wrap(name))
+        raise OperationError(space.w_KeyError, space.newtext(name))
     ctype = ctypecls(space, size, name, len(name), align)
     unique_cache.primitives[name] = ctype
     return ctype
@@ -259,11 +286,11 @@ def complete_sflags(sflags):
 # ____________________________________________________________
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_struct_type(space, name):
     return ctypestruct.W_CTypeStruct(space, name)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_union_type(space, name):
     return ctypestruct.W_CTypeUnion(space, name)
 
@@ -310,7 +337,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         field_w = space.fixedview(w_field)
         if not (2 <= len(field_w) <= 4):
             raise oefmt(space.w_TypeError, "bad field descr")
-        fname = space.str_w(field_w[0])
+        fname = space.text_w(field_w[0])
         ftype = space.interp_w(ctypeobj.W_CType, field_w[1])
         fbitsize = -1
         foffset = -1
@@ -569,13 +596,13 @@ def _new_chara_type(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(name=str, w_basectype=ctypeobj.W_CType)
+@unwrap_spec(name='text', w_basectype=ctypeobj.W_CType)
 def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
         raise oefmt(space.w_ValueError, "tuple args must have the same size")
-    enumerators = [space.str_w(w) for w in enumerators_w]
+    enumerators = [space.text_w(w) for w in enumerators_w]
     #
     if (not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveSigned) and
         not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveUnsigned)):
@@ -622,7 +649,7 @@ def _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi):
     for w_arg in fargs:
         y = compute_identity_hash(w_arg)
         x = intmask((1000003 * x) ^ y)
-    x ^= (ellipsis - abi)
+    x ^= ellipsis + 2 * abi
     if unique_cache.for_testing:    # constant-folded to False in translation;
         x &= 3                      # but for test, keep only 2 bits of hash
     return x
@@ -646,6 +673,8 @@ def _get_function_type(space, fargs, fresult, ellipsis, abi):
     # one such dict, but in case of hash collision, there might be
     # more.
     unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.functions_packed is not None:
+        unique_cache.unpack_functions()
     func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
     for weakdict in unique_cache.functions:
         ctype = weakdict.get(func_hash)
@@ -674,13 +703,18 @@ def _build_function_type(space, fargs, fresult, ellipsis, abi):
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis, abi)
     unique_cache = space.fromcache(UniqueCache)
-    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
+    _record_function_type(unique_cache, fct)
+    return fct
+
+def _record_function_type(unique_cache, fct):
+    from pypy.module._cffi_backend import ctypefunc
+    #
+    func_hash = _func_key_hash(unique_cache, fct.fargs, fct.ctitem,
+                               fct.ellipsis, fct.abi)
     for weakdict in unique_cache.functions:
         if weakdict.get(func_hash) is None:
-            weakdict.set(func_hash, fct)
             break
     else:
         weakdict = rweakref.RWeakValueDictionary(int, ctypefunc.W_CTypeFunc)
         unique_cache.functions.append(weakdict)
-        weakdict.set(func_hash, fct)
-    return fct
+    weakdict.set(func_hash, fct)

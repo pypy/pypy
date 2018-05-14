@@ -4,37 +4,40 @@ PyPy: Python in Python Implementation
 
 Welcome to PyPy!
 
-PyPy is both an implementation of the Python programming language, and
-an extensive compiler framework for dynamic language implementations.
-You can build self-contained Python implementations which execute
-independently from CPython.
+PyPy is an interperter that implements the Python programming language, based
+on the RPython compiler framework for dynamic language implementations.
 
-The home page is:
+The home page for the interpreter is:
 
     http://pypy.org/
 
-If you want to help developing PyPy, this document might help you:
+If you want to help developing PyPy, this documentation might help you:
 
     http://doc.pypy.org/
 
-It will also point you to the rest of the documentation which is generated
-from files in the pypy/doc directory within the source repositories. Enjoy
-and send us feedback!
+More documentation about the RPython framework can be found here
 
-    the pypy-dev team <pypy-dev@python.org>
+    http://rpython.readthedocs.io
 
+The source for the documentation is in the pypy/doc directory 
+
+Using PyPy instead of CPython
+=============================
+
+Please read the information at http://pypy.org to find the correct way to
+download and use PyPy as an alternative to CPython. 
 
 Building
 ========
 
-build with:
+Building PyPy is not the recommended way to obtain the PyPy alternative python
+interpreter. It is time-consuming and requires significant computing resources.
+More information can be found here
 
-.. code-block:: console
+    http://doc.pypy.org/en/latest/build.html
 
-    $ rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
+Enjoy and send us feedback!
 
-This ends up with ``pypy-c`` binary in the main pypy directory. We suggest
-to use virtualenv with the resulting pypy-c as the interpreter; you can
-find more details about various installation schemes here:
+    the pypy-dev team <pypy-dev@python.org>
 
-    http://doc.pypy.org/en/latest/install.html
+

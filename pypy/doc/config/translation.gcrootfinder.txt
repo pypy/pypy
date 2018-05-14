@@ -9,10 +9,8 @@ alternatives:
 - ``--gcrootfinder=asmgcc``: use assembler hackery to find the
   roots directly from the normal stack.  This is a bit faster,
   but platform specific.  It works so far with GCC or MSVC,
-  on i386 and x86-64.  It is tested only on Linux (where it is
-  the default) so other platforms (as well as MSVC) may need
-  various fixes before they can be used.
+  on i386 and x86-64.  It is tested only on Linux 
+  so other platforms (as well as MSVC) may need
+  various fixes before they can be used. Note asmgcc will be deprecated
+  at some future date, and does not work with clang.
 
-You may have to force the use of the shadowstack root finder if
-you are running into troubles or if you insist on translating
-PyPy with other compilers like clang.

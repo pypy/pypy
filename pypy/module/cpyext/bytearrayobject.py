@@ -3,12 +3,12 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.bytearrayobject import new_bytearray
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
+    cpython_api, cpython_struct, build_type_checkers,
+    PyVarObjectFields, Py_ssize_t, CONST_STRING)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, Py_DecRef, make_ref, from_ref,
-    make_typedescr, get_typedescr, Py_IncRef)
+    PyObject, PyObjectP, make_ref, from_ref,
+    make_typedescr, get_typedescr)
 # Type PyByteArrayObject represents a mutable array of bytes.
 # The Python API is that of a sequence;
 # the bytes are mapped to ints in [0, 256).
@@ -83,7 +83,7 @@ def PyByteArray_Resize(space, w_obj, newlen):
             space.call_method(w_obj, 'extend', space.newbytes('\x00' * (newlen - oldlen)))
         elif oldlen > newlen:
             assert newlen >= 0
-            space.delslice(w_obj, space.wrap(newlen), space.wrap(oldlen))
+            space.delslice(w_obj, space.newint(newlen), space.newint(oldlen))
         return 0
     else:
         raise oefmt(space.w_TypeError,

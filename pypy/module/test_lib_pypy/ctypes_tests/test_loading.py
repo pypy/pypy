@@ -1,4 +1,4 @@
-import py
+import pytest
 from ctypes import *
 import sys
 import os, StringIO
@@ -27,14 +27,17 @@ class TestLoader:
         def test_load(self):
             CDLL(libc_name)
             CDLL(os.path.basename(libc_name))
-            raises(OSError, CDLL, self.unknowndll)
+            with pytest.raises(OSError):
+                CDLL(self.unknowndll)
 
     if libc_name is not None and os.path.basename(libc_name) == "libc.so.6":
         def test_load_version(self):
             cdll.LoadLibrary("libc.so.6")
             # linux uses version, libc 9 should not exist
-            raises(OSError, cdll.LoadLibrary, "libc.so.9")
-            raises(OSError, cdll.LoadLibrary, self.unknowndll)
+            with pytest.raises(OSError):
+                cdll.LoadLibrary("libc.so.9")
+            with pytest.raises(OSError):
+                cdll.LoadLibrary(self.unknowndll)
 
     def test_find(self):
         for name in ("c", "m"):
@@ -42,6 +45,12 @@ class TestLoader:
             if lib:
                 cdll.LoadLibrary(lib)
                 CDLL(lib)
+
+    def test__handle(self):
+        lib = find_library("c")
+        if lib:
+            cdll = CDLL(lib)
+            assert type(cdll._handle) in (int, long)
 
     if os.name in ("nt", "ce"):
         def test_load_library(self):
@@ -74,7 +83,5 @@ class TestLoader:
             f_name_addr = c_void_p.from_address(a_name).value
             assert hex(f_ord_addr) == hex(f_name_addr)
 
-            raises(AttributeError, dll.__getitem__, 1234)
-
-if __name__ == "__main__":
-    unittest.main()
+            with pytest.raises(AttributeError):
+                dll[1234]

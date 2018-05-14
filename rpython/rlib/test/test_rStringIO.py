@@ -91,6 +91,10 @@ def test_readline():
     assert f.readline() == 'baz'
     assert f.readline() == ''
 
+    f.seek(100000, 0)
+    assert f.tell() == 100000
+    assert f.readline() == ''
+
 def test_truncate():
     f = RStringIO()
     f.truncate(20)

@@ -12,17 +12,23 @@ packages, if you require additional modules we recommend creating a virtualenv
 and using pip. 
 
 .. _prebuilt-pypy:
+
 Download a pre-built PyPy
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The quickest way to start using PyPy is to download a prebuilt binary for your
-OS and architecture.  You can either use the `most recent release`_ or one of
-our `development nightly build`_.  Please note that the nightly builds are not
+OS and architecture.  You may be able to use either use the
+`most recent release`_ or one of our `development nightly build`_. These
+builds depend on dynamically linked libraries that may not be available on your
+OS. See the section about `Linux binaries` for more info and alternatives that
+may work on your system.
+
+Please note that the nightly builds are not
 guaranteed to be as stable as official releases, use them at your own risk.
 
 .. _most recent release: http://pypy.org/download.html
 .. _development nightly build: http://buildbot.pypy.org/nightly/trunk/
-
+.. _Linux binaries: http://pypy.org/download.html#linux-binaries-and-common-distributions
 
 Installing PyPy
 ~~~~~~~~~~~~~~~
@@ -32,10 +38,10 @@ file, with no need to install it in any specific location:
 
 .. code-block:: console
 
-    $ tar xf pypy-2.1.tar.bz2
-    $ ./pypy-2.1/bin/pypy
-    Python 2.7.3 (480845e6b1dd, Jul 31 2013, 11:05:31)
-    [PyPy 2.1.0 with GCC 4.4.3] on linux2
+    $ tar xf pypy-x.y.z.tar.bz2
+    $ ./pypy-x.y.z/bin/pypy
+    Python 2.7.x (xxxxxxxxxxxx, Date, Time)
+    [PyPy x.y.z with GCC x.y.z] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``PyPy is an exciting technology
     that lets you to write fast, portable, multi-platform interpreters with less
@@ -57,6 +63,7 @@ explained below; then you can directly use pip inside virtualenvs):
 .. code-block:: console
 
     $ ./pypy-xxx/bin/pypy -m ensurepip
+    $ ./pypy-xxx/bin/pip install -U pip wheel # to upgrade to the latest versions
     $ ./pypy-xxx/bin/pip install pygments  # for example
 
 Third party libraries will be installed in ``pypy-xxx/site-packages``, and
@@ -67,9 +74,9 @@ Installing using virtualenv
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 It is often convenient to run pypy inside a virtualenv.  To do this
-you need a recent version of virtualenv -- 1.6.1 or greater.  You can
+you need a version of virtualenv -- 1.6.1 or greater.  You can
 then install PyPy both from a precompiled tarball or from a mercurial
-checkout::
+checkout after translation::
 
 	# from a tarball
 	$ virtualenv -p /opt/pypy-xxx/bin/pypy my-pypy-env
@@ -77,7 +84,17 @@ checkout::
 	# from the mercurial checkout
 	$ virtualenv -p /path/to/pypy/pypy/translator/goal/pypy-c my-pypy-env
 
-Note that bin/python is now a symlink to bin/pypy.
+	# in any case activate it
+	$ source my-pypy-env/bin/activate
+
+Note that my-pypy-env/bin/python is now a symlink to my-pypy-env/bin/pypy
+so you should be able to run pypy simply by typing::
+
+    $ python
+
+You should still upgrade pip and wheel to the latest versions via::
+
+    $ my-pypy-env/bin/pip install -U pip wheel
 
 .. _pip: http://pypi.python.org/pypi/pip
 .. _ensurepip: https://docs.python.org/2.7/library/ensurepip.html

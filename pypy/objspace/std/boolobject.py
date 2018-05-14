@@ -45,7 +45,7 @@ class W_BoolObject(W_IntObject):
         return space.newbool(space.is_true(w_obj))
 
     def descr_repr(self, space):
-        return space.wrap('True' if self.intval else 'False')
+        return space.newtext('True' if self.intval else 'False')
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_nonzero(self, space):

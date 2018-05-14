@@ -1,3 +1,4 @@
+import math
 from rpython.rtyper.lltypesystem.lltype import (Struct, Array, FixedSizeArray,
     FuncType, typeOf, GcStruct, GcArray, RttiStruct, ContainerType, parentlink,
     Void, OpaqueType, Float, RuntimeTypeInfo, getRuntimeTypeInfo, Char,
@@ -8,11 +9,13 @@ from rpython.translator.c.support import USESLOTS # set to False if necessary wh
 from rpython.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
-from rpython.rlib import exports
-from rpython.rlib.rfloat import isfinite, isinf
+from rpython.rlib import exports, objectmodel
+from rpython.rlib.rfloat import isfinite
 
 
-def needs_gcheader(T):
+def needs_gcheader(gctransformer, T):
+    if getattr(gctransformer, 'NO_HEADER', False):   # for boehm
+        return False
     if not isinstance(T, ContainerType):
         return False
     if T._gckind != 'gc':
@@ -87,7 +90,7 @@ class StructDefNode(NodeWithDependencies):
         STRUCT = self.STRUCT
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(STRUCT, who_asks=self)
-        if needs_gcheader(self.STRUCT):
+        if needs_gcheader(db.gctransformer, self.STRUCT):
             HDR = db.gcpolicy.struct_gcheader_definition(self)
             if HDR is not None:
                 gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
@@ -213,7 +216,7 @@ class ArrayDefNode(NodeWithDependencies):
         self.computegcinfo(db.gcpolicy)
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
-        if needs_gcheader(ARRAY):
+        if needs_gcheader(db.gctransformer, ARRAY):
             HDR = db.gcpolicy.array_gcheader_definition(self)
             if HDR is not None:
                 gc_field = ("_gcheader", db.gettype(HDR, who_asks=self))
@@ -462,16 +465,12 @@ class ContainerNode(Node):
         self.implementationtypename = db.gettype(
             T, varlength=self.getvarlength())
         parent, parentindex = parentlink(obj)
-        ## mangled = False
         if obj in exports.EXPORTS_obj2name:
             self.name = exports.EXPORTS_obj2name[obj]
             self.globalcontainer = 2    # meh
         elif parent is None:
             self.name = db.namespace.uniquename('g_' + self.basename())
             self.globalcontainer = True
-            ## if db.reverse_debugger and T._gckind != 'gc':
-            ##     from rpython.translator.revdb import gencsupp
-            ##     mangled = gencsupp.mangle_name_prebuilt_raw(db, self, T)
         else:
             self.globalcontainer = False
             parentnode = db.getcontainernode(parent)
@@ -479,7 +478,6 @@ class ContainerNode(Node):
             self.name = defnode.access_expr(parentnode.name, parentindex)
         if self.typename != self.implementationtypename:
             if db.gettypedefnode(T).extra_union_for_varlength:
-                 ## and not mangled:
                 self.name += '.b'
         self._funccodegen_owner = None
 
@@ -500,17 +498,14 @@ class ContainerNode(Node):
         return getattr(self.obj, self.eci_name, None)
 
     def get_declaration(self):
-        name = self.name
-        ## if name.startswith('RPY_RDB_A(') and name.endswith(')'):
-        ##     name = name[len('RPY_RDB_A('):-1]
-        if name[-2:] == '.b':
+        if self.name[-2:] == '.b':
             # xxx fish fish
             assert self.implementationtypename.startswith('struct ')
             assert self.implementationtypename.endswith(' @')
             uniontypename = 'union %su @' % self.implementationtypename[7:-2]
-            return uniontypename, name[:-2], True
+            return uniontypename, self.name[:-2], True
         else:
-            return self.implementationtypename, name, False
+            return self.implementationtypename, self.name, False
 
     def forward_declaration(self):
         if llgroup.member_of_group(self.obj):
@@ -554,8 +549,8 @@ class StructNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         ContainerNode.__init__(self, db, T, obj)
-        if needs_gcheader(T):
-            gct = self.db.gctransformer
+        gct = self.db.gctransformer
+        if needs_gcheader(gct, T):
             if gct is not None:
                 self.gc_init = gct.gcheader_initdata(self.obj)
             else:
@@ -585,18 +580,28 @@ class StructNode(ContainerNode):
 
         data = []
 
-        if needs_gcheader(T):
+        if needs_gcheader(self.db.gctransformer, T):
             data.append(('gcheader', self.gc_init))
 
         for name in defnode.fieldnames:
             data.append((name, getattr(self.obj, name)))
+
+        if T._hints.get('remove_hash'):
+            # hack for rstr.STR and UNICODE: remove their .hash value
+            # and write 0 in the C sources, if we're using a non-default
+            # hash function.
+            if hasattr(self.db.translator, 'll_hash_string'):
+                i = 0
+                while data[i][0] != 'hash':
+                    i += 1
+                data[i] = ('hash', 0)
 
         # Reasonably, you should only initialise one of the fields of a union
         # in C.  This is possible with the syntax '.fieldname value' or
         # '.fieldname = value'.  But here we don't know which of the
         # fields need initialization, so XXX we pick the first one
         # arbitrarily.
-        if hasattr(T, "_hints") and T._hints.get('union'):
+        if T._hints.get('union'):
             data = data[0:1]
 
         if 'get_padding_drop' in T._hints:
@@ -631,51 +636,6 @@ class StructNode(ContainerNode):
 
 assert not USESLOTS or '__dict__' not in dir(StructNode)
 
-class GcStructNodeWithHash(StructNode):
-    # for the outermost level of nested structures, if it has a _hash_cache_.
-    nodekind = 'struct'
-    if USESLOTS:
-        __slots__ = ()
-
-    def get_hash_typename(self):
-        return 'struct _hashT_%s @' % self.name
-
-    def forward_declaration(self):
-        T = self.getTYPE()
-        assert self.typename == self.implementationtypename  # no array part
-        hash_typename = self.get_hash_typename()
-        hash_offset = self.db.gctransformer.get_hash_offset(T)
-        yield '%s {' % cdecl(hash_typename, '')
-        yield '\tunion {'
-        yield '\t\t%s;' % cdecl(self.implementationtypename, 'head')
-        yield '\t\tchar pad[%s];' % name_signed(hash_offset, self.db)
-        yield '\t} u;'
-        yield '\tlong hash;'
-        yield '};'
-        yield '%s;' % (
-            forward_cdecl(hash_typename, '_hash_' + self.name,
-                          self.db.standalone, self.is_thread_local()),)
-        yield '#define %s _hash_%s.u.head' % (self.name, self.name)
-
-    def implementation(self):
-        hash_typename = self.get_hash_typename()
-        hash = self.db.gctransformer.get_prebuilt_hash(self.obj)
-        assert hash is not None
-        lines = list(self.initializationexpr())
-        lines.insert(0, '%s = { {' % (
-            cdecl(hash_typename, '_hash_' + self.name,
-                  self.is_thread_local()),))
-        lines.append('}, %s /* hash */ };' % name_signed(hash, self.db))
-        return lines
-
-def gcstructnode_factory(db, T, obj):
-    if (db.gctransformer and
-            db.gctransformer.get_prebuilt_hash(obj) is not None):
-        cls = GcStructNodeWithHash
-    else:
-        cls = StructNode
-    return cls(db, T, obj)
-
 
 class ArrayNode(ContainerNode):
     nodekind = 'array'
@@ -684,8 +644,8 @@ class ArrayNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         ContainerNode.__init__(self, db, T, obj)
-        if needs_gcheader(T):
-            gct = self.db.gctransformer
+        gct = self.db.gctransformer
+        if needs_gcheader(gct, T):
             if gct is not None:
                 self.gc_init = gct.gcheader_initdata(self.obj)
             else:
@@ -708,7 +668,7 @@ class ArrayNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
         yield '{'
-        if needs_gcheader(T):
+        if needs_gcheader(self.db.gctransformer, T):
             lines = generic_initializationexpr(self.db, self.gc_init, 'gcheader',
                                                '%sgcheader' % (decoration,))
             for line in lines:
@@ -797,7 +757,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
         comma = ','
         if typeOf(value) == Float and not isfinite(value):
             db.late_initializations.append(('%s' % access_expr, db.get(value)))
-            if isinf(value):
+            if math.isinf(value):
                 name = '-+'[value > 0] + 'inf'
             else:
                 name = 'NaN'
@@ -806,14 +766,6 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             expr = db.get(value)
             if typeOf(value) is Void:
                 comma = ''
-            ## elif expr.startswith('(&RPY_RDB_A('):
-            ##     # can't use this in static initialization code if we
-            ##     # are inside a GC struct or a static_immutable struct.
-            ##     # (It is not needed inside other raw structs, but we
-            ##     # don't try to optimize that here.)
-            ##     assert db.reverse_debugger
-            ##     db.late_initializations.append(('%s' % access_expr, expr))
-            ##     expr = 'NULL /* patched later with %s */' % (expr,)
         expr += comma
         i = expr.find('\n')
         if i < 0:
@@ -864,8 +816,7 @@ class FuncNode(FuncNodeBase):
                 self.name, self.db.standalone, is_exported=is_exported))
 
     def graphs_to_patch(self):
-        for i in self.funcgen.graphs_to_patch():
-            yield i
+        return self.funcgen.graphs_to_patch()
 
     def implementation(self):
         funcgen = self.funcgen
@@ -1073,7 +1024,7 @@ class GroupNode(ContainerNode):
 
 ContainerNodeFactory = {
     Struct:       StructNode,
-    GcStruct:     gcstructnode_factory,
+    GcStruct:     StructNode,
     Array:        ArrayNode,
     GcArray:      ArrayNode,
     FixedSizeArray: FixedSizeArrayNode,

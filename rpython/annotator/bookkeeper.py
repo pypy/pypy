@@ -15,7 +15,8 @@ from rpython.annotator.model import (
     SomeDict, SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple, SomeException,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
+    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty,
+    AnnotatorError)
 from rpython.annotator.classdesc import ClassDef, ClassDesc
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -70,6 +71,7 @@ class Bookkeeper(object):
 
         self.needs_generic_instantiate = {}
         self.thread_local_fields = set()
+        self.memory_pressure_types = set()
 
         self.register_builtins()
 
@@ -193,13 +195,14 @@ class Bookkeeper(object):
             listdef.generalize_range_step(flags['range_step'])
         return SomeList(listdef)
 
-    def getdictdef(self, is_r_dict=False, force_non_null=False):
+    def getdictdef(self, is_r_dict=False, force_non_null=False, simple_hash_eq=False):
         """Get the DictDef associated with the current position."""
         try:
             dictdef = self.dictdefs[self.position_key]
         except KeyError:
             dictdef = DictDef(self, is_r_dict=is_r_dict,
-                              force_non_null=force_non_null)
+                              force_non_null=force_non_null,
+                              simple_hash_eq=simple_hash_eq)
             self.dictdefs[self.position_key] = dictdef
         return dictdef
 
@@ -287,7 +290,7 @@ class Bookkeeper(object):
                     for ek, ev in items:
                         result.dictdef.generalize_key(self.immutablevalue(ek))
                         result.dictdef.generalize_value(self.immutablevalue(ev))
-                        result.dictdef.seen_prebuilt_key(ek)
+                        #dictdef.seen_prebuilt_key(ek)---not needed any more
                     seen_elements = len(items)
                     # if the dictionary grew during the iteration,
                     # start over again
@@ -343,7 +346,7 @@ class Bookkeeper(object):
         elif x is None:
             return s_None
         else:
-            raise Exception("Don't know how to represent %r" % (x,))
+            raise AnnotatorError("Don't know how to represent %r" % (x,))
         result.const = x
         return result
 
@@ -363,7 +366,7 @@ class Bookkeeper(object):
                 result = self.newfuncdesc(pyobj)
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:
-                    raise Exception("ClassDesc for object not supported")
+                    raise AnnotatorError("ClassDesc for object not supported")
                 if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types
                     result = self.getfrozen(pyobj)
                 else:
@@ -400,7 +403,7 @@ class Bookkeeper(object):
                         msg = "object with a __call__ is not RPython"
                     else:
                         msg = "unexpected prebuilt constant"
-                    raise Exception("%s: %r" % (msg, pyobj))
+                    raise AnnotatorError("%s: %r" % (msg, pyobj))
                 result = self.getfrozen(pyobj)
             self.descs[obj_key] = result
             return result
@@ -546,10 +549,8 @@ class Bookkeeper(object):
         (position_key, "first") and (position_key, "second").
 
         In general, "unique_key" should somehow uniquely identify where
-        the call is in the source code, and "callback" can be either a
-        position_key to reflow from when we see more general results,
-        or a real callback function that will be called with arguments
-        # "(annotator, called_graph)" whenever the result is generalized.
+        the call is in the source code, and "callback" is a
+        position_key to reflow from when we see more general results.
 
         "replace" can be set to a list of old unique_key values to
         forget now, because the given "unique_key" replaces them.
@@ -589,7 +590,7 @@ def origin_of_meth(boundmeth):
         for name, value in dict.iteritems():
             if value is func:
                 return cls, name
-    raise Exception("could not match bound-method to attribute name: %r" % (boundmeth,))
+    raise AnnotatorError("could not match bound-method to attribute name: %r" % (boundmeth,))
 
 def ishashable(x):
     try:

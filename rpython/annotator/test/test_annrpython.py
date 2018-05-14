@@ -2141,28 +2141,6 @@ class TestAnnotateTestCase:
         assert (fdesc.get_s_signatures((2, (), False))
                 == [([someint,someint],someint)])
 
-    def test_emulated_pbc_call_callback(self):
-        def f(a,b):
-            return a + b
-        from rpython.annotator import annrpython
-        a = annrpython.RPythonAnnotator()
-        from rpython.annotator import model as annmodel
-
-        memo = []
-        def callb(ann, graph):
-            memo.append(annmodel.SomeInteger() == ann.binding(graph.getreturnvar()))
-
-        s_f = a.bookkeeper.immutablevalue(f)
-        s = a.bookkeeper.emulate_pbc_call('f', s_f, [annmodel.SomeInteger(), annmodel.SomeInteger()],
-                                          callback=callb)
-        assert s == annmodel.SomeImpossibleValue()
-        a.complete()
-
-        assert a.binding(graphof(a, f).getreturnvar()).knowntype == int
-        assert len(memo) >= 1
-        for t in memo:
-            assert t
-
     def test_iterator_union(self):
         def it(d):
             return d.iteritems()
@@ -3704,25 +3682,6 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.const == 0
 
-    def test_hash_sideeffect(self):
-        class X:
-            pass
-        x1 = X()
-        x2 = X()
-        x3 = X()
-        d = {(2, x1): 5, (3, x2): 7}
-        def f(n, m):
-            if   m == 1: x = x1
-            elif m == 2: x = x2
-            else:        x = x3
-            return d[n, x]
-        a = self.RPythonAnnotator()
-        s = a.build_types(f, [int, int])
-        assert s.knowntype == int
-        assert hasattr(x1, '__precomputed_identity_hash')
-        assert hasattr(x2, '__precomputed_identity_hash')
-        assert not hasattr(x3, '__precomputed_identity_hash')
-
     def test_contains_of_empty_dict(self):
         class A(object):
             def meth(self):
@@ -4603,7 +4562,7 @@ class TestAnnotateTestCase:
             return Ellipsis
         a = self.RPythonAnnotator()
         e = py.test.raises(Exception, a.build_types, f, [])
-        assert str(e.value) == "Don't know how to represent Ellipsis"
+        assert "Don't know how to represent Ellipsis" in str(e.value)
 
     def test_must_be_light_finalizer(self):
         from rpython.rlib import rgc
@@ -4662,6 +4621,25 @@ class TestAnnotateTestCase:
         a.build_types(f, [int])
         s_exc = a.binding(graphof(a, f).exceptblock.inputargs[1])
         assert not s_exc.can_be_none()
+
+    def test_specialize_argtype_with_subclasses(self):
+        # checks that specialize:argtype() makes two copies of a
+        # function f(), one for the base class and one for the subclass
+        class A:
+            def foo(self):
+                return 123
+        class B(A):
+            def foo(self):
+                return 456
+        def f(x):
+            return x.foo()
+        f._annspecialcase_ = "specialize:argtype(0)"
+        def h(y):
+            if y > 5:
+                f(A())
+            return f(B())
+        a = self.RPythonAnnotator()
+        assert a.build_types(h, [int]).const == 456
 
 
 def g(n):

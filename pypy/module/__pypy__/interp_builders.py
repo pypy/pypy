@@ -6,7 +6,11 @@ from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
 from rpython.tool.sourcetools import func_with_new_name
 
 
-def create_builder(name, strtype, builder_cls):
+def create_builder(name, strtype, builder_cls, newmethod):
+    if strtype is str:
+        unwrap = 'bytes'
+    else:
+        unwrap = unicode
     class W_Builder(W_Root):
         def __init__(self, space, size):
             if size < 0:
@@ -14,37 +18,31 @@ def create_builder(name, strtype, builder_cls):
             else:
                 self.builder = builder_cls(size)
 
-        def _check_done(self, space):
-            if self.builder is None:
-                raise oefmt(space.w_ValueError,
-                            "Can't operate on a built builder")
-
         @unwrap_spec(size=int)
         def descr__new__(space, w_subtype, size=-1):
             return W_Builder(space, size)
 
-        @unwrap_spec(s=strtype)
+        @unwrap_spec(s=unwrap)
         def descr_append(self, space, s):
-            self._check_done(space)
             self.builder.append(s)
 
-        @unwrap_spec(s=strtype, start=int, end=int)
+        @unwrap_spec(s=unwrap, start=int, end=int)
         def descr_append_slice(self, space, s, start, end):
-            self._check_done(space)
             if not 0 <= start <= end <= len(s):
                 raise oefmt(space.w_ValueError, "bad start/stop")
             self.builder.append_slice(s, start, end)
 
         def descr_build(self, space):
-            self._check_done(space)
-            w_s = space.wrap(self.builder.build())
-            self.builder = None
+            w_s = getattr(space, newmethod)(self.builder.build())
+            # after build(), we can continue to append more strings
+            # to the same builder.  This is supported since
+            # 2ff5087aca28 in RPython.
             return w_s
 
         def descr_len(self, space):
             if self.builder is None:
                 raise oefmt(space.w_ValueError, "no length of built builder")
-            return space.wrap(self.builder.getlength())
+            return space.newint(self.builder.getlength())
 
     W_Builder.__name__ = "W_%s" % name
     W_Builder.typedef = TypeDef(name,
@@ -59,5 +57,5 @@ def create_builder(name, strtype, builder_cls):
     W_Builder.typedef.acceptable_as_base_class = False
     return W_Builder
 
-W_StringBuilder = create_builder("StringBuilder", str, StringBuilder)
-W_UnicodeBuilder = create_builder("UnicodeBuilder", unicode, UnicodeBuilder)
+W_StringBuilder = create_builder("StringBuilder", str, StringBuilder, "newbytes")
+W_UnicodeBuilder = create_builder("UnicodeBuilder", unicode, UnicodeBuilder, "newunicode")

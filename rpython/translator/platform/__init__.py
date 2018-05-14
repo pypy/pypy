@@ -37,7 +37,10 @@ class ExecutionResult(object):
 class Platform(object):
     name = "abstract platform"
     c_environ = None
-
+    # which branch to check out in get_external.py
+    externals_branch='default'
+    # where to put the externals, as an absolute path
+    externals = str(py.path.local(__file__).parts()[-5] / 'externals')
     relevant_environ = ()
     log_errors = True
 
@@ -102,7 +105,7 @@ class Platform(object):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], profopt=False, config=None):
         raise NotImplementedError("Pure abstract baseclass")
 
     def __repr__(self):
@@ -129,7 +132,7 @@ class Platform(object):
     # some helpers which seem to be cross-platform enough
 
     def _execute_c_compiler(self, cc, args, outname, cwd=None):
-        log.execute(cc + ' ' + ' '.join(args))
+        #log.execute(cc + ' ' + ' '.join(args))
         # 'cc' can also contain some options for the C compiler;
         # e.g. it can be "gcc -m32".  We handle it by splitting on ' '.
         cclist = cc.split()
@@ -151,8 +154,9 @@ class Platform(object):
                 # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
         else:
-            for line in stderr.splitlines():
-                log.WARNING(line)
+            if self.log_errors:
+                for line in stderr.splitlines():
+                    log.WARNING(line)
 
     def _make_o_file(self, cfile, ext):
         """Create an object file name under the udir for a .c file"""
@@ -260,7 +264,8 @@ if sys.platform.startswith('linux'):
     # Only required on armhf and mips{,el}, not armel. But there's no way to
     # detect armhf without shelling out
     if (platform.architecture()[0] == '64bit'
-            or platform.machine().startswith(('arm', 'mips', 'ppc'))):
+            or platform.machine().startswith(
+                ('arm', 'm68k', 'mips', 'parisc', 'ppc', 'sh4'))):
         host_factory = LinuxPIC
     else:
         host_factory = Linux
@@ -318,24 +323,16 @@ elif sys.platform == 'cygwin':
     else:
         host_factory = Cygwin64
 else:
-    # pray
-    from rpython.translator.platform.distutils_platform import DistutilsPlatform
-    host_factory = DistutilsPlatform
+    raise ValueError('unknown sys.platform "%s"', sys.platform)
 
 platform = host = host_factory()
 
 def pick_platform(new_platform, cc):
     if new_platform == 'host':
         return host_factory(cc)
-    elif new_platform == 'maemo':
-        from rpython.translator.platform.maemo import Maemo
-        return Maemo(cc)
     elif new_platform == 'arm':
         from rpython.translator.platform.arm import ARM
         return ARM(cc)
-    elif new_platform == 'distutils':
-        from rpython.translator.platform.distutils_platform import DistutilsPlatform
-        return DistutilsPlatform()
     else:
         raise ValueError("platform = %s" % (new_platform,))
 

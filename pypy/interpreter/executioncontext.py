@@ -1,15 +1,15 @@
 import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib import jit, rgc, objectmodel
 
 TICK_COUNTER_STEP = 100
 
 def app_profile_call(space, w_callable, frame, event, w_arg):
     space.call_function(w_callable,
-                        space.wrap(frame),
-                        space.wrap(event), w_arg)
+                        frame,
+                        space.newtext(event), w_arg)
 
 class ExecutionContext(object):
     """An ExecutionContext holds the state of an execution thread
@@ -64,9 +64,8 @@ class ExecutionContext(object):
         return frame
 
     def enter(self, frame):
-        if self.space.config.translation.reverse_debugger:
-            from pypy.interpreter.reverse_debugging import enter_call
-            enter_call(self.topframeref(), frame)
+        if self.space.reverse_debugging:
+            self._revdb_enter(frame)
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
@@ -87,9 +86,8 @@ class ExecutionContext(object):
                 # be accessed also later
                 frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
-            if self.space.config.translation.reverse_debugger:
-                from pypy.interpreter.reverse_debugging import leave_call
-                leave_call(self.topframeref(), got_exception)
+            if self.space.reverse_debugging:
+                self._revdb_leave(got_exception)
 
     # ________________________________________________________________
 
@@ -159,9 +157,8 @@ class ExecutionContext(object):
         Like bytecode_trace() but doesn't invoke any other events besides the
         trace function.
         """
-        if self.space.config.translation.reverse_debugger:
-            from pypy.interpreter.reverse_debugging import potential_stop_point
-            potential_stop_point(frame)
+        if self.space.reverse_debugging:
+            self._revdb_potential_stop_point(frame)
         if (frame.get_w_f_trace() is None or self.is_tracing or
             self.gettrace() is None):
             return
@@ -332,7 +329,7 @@ class ExecutionContext(object):
             if operr is not None:
                 w_value = operr.get_w_value(space)
                 w_arg = space.newtuple([operr.w_type, w_value,
-                                     space.wrap(operr.get_traceback())])
+                                        operr.get_w_traceback(space)])
 
             d = frame.getorcreatedebug()
             if d.w_locals is not None:
@@ -343,9 +340,11 @@ class ExecutionContext(object):
             self.is_tracing += 1
             try:
                 try:
-                    w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
+                    w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
-                        d.w_f_trace = None
+                        # bug-to-bug compatibility with CPython
+                        # http://bugs.python.org/issue11992
+                        pass   #d.w_f_trace = None
                     else:
                         d.w_f_trace = w_result
                 except:
@@ -392,6 +391,21 @@ class ExecutionContext(object):
         if self.space.check_signal_action is not None:
             self.space.check_signal_action.perform(self, None)
 
+    def _revdb_enter(self, frame):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import enter_call
+        enter_call(self.topframeref(), frame)
+
+    def _revdb_leave(self, got_exception):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import leave_call
+        leave_call(self.topframeref(), got_exception)
+
+    def _revdb_potential_stop_point(self, frame):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import potential_stop_point
+        potential_stop_point(frame)
+
     def _freeze_(self):
         raise Exception("ExecutionContext instances should not be seen during"
                         " translation.  Now is a good time to inspect the"
@@ -411,7 +425,7 @@ class AbstractActionFlag(object):
         self._periodic_actions = []
         self._nonperiodic_actions = []
         self.has_bytecode_counter = False
-        self.fired_actions = None
+        self._fired_actions_reset()
         # the default value is not 100, unlike CPython 2.7, but a much
         # larger value, because we use a technique that not only allows
         # but actually *forces* another thread to run whenever the counter
@@ -423,15 +437,31 @@ class AbstractActionFlag(object):
         """Request for the action to be run before the next opcode."""
         if not action._fired:
             action._fired = True
-            if self.fired_actions is None:
-                self.fired_actions = []
-            self.fired_actions.append(action)
+            self._fired_actions_append(action)
             # set the ticker to -1 in order to force action_dispatcher()
             # to run at the next possible bytecode
             self.reset_ticker(-1)
 
+    def _fired_actions_reset(self):
+        # linked list of actions. We cannot use a normal RPython list because
+        # we want AsyncAction.fire() to be marked as @rgc.collect: this way,
+        # we can call it from e.g. GcHooks or cpyext's dealloc_trigger.
+        self._fired_actions_first = None
+        self._fired_actions_last = None
+
+    @rgc.no_collect
+    def _fired_actions_append(self, action):
+        assert action._next is None
+        if self._fired_actions_first is None:
+            self._fired_actions_first = action
+            self._fired_actions_last = action
+        else:
+            self._fired_actions_last._next = action
+            self._fired_actions_last = action
+
+    @not_rpython
     def register_periodic_action(self, action, use_bytecode_counter):
-        """NOT_RPYTHON:
+        """
         Register the PeriodicAsyncAction action to be called whenever the
         tick counter becomes smaller than 0.  If 'use_bytecode_counter' is
         True, make sure that we decrease the tick counter at every bytecode.
@@ -473,19 +503,26 @@ class AbstractActionFlag(object):
                 action.perform(ec, frame)
 
             # nonperiodic actions
-            list = self.fired_actions
-            if list is not None:
-                self.fired_actions = None
+            action = self._fired_actions_first
+            if action:
+                self._fired_actions_reset()
                 # NB. in case there are several actions, we reset each
                 # 'action._fired' to false only when we're about to call
                 # 'action.perform()'.  This means that if
                 # 'action.fire()' happens to be called any time before
                 # the corresponding perform(), the fire() has no
                 # effect---which is the effect we want, because
-                # perform() will be called anyway.
-                for action in list:
+                # perform() will be called anyway.  All such pending
+                # actions with _fired == True are still inside the old
+                # chained list.  As soon as we reset _fired to False,
+                # we also reset _next to None and we are ready for
+                # another fire().
+                while action is not None:
+                    next_action = action._next
+                    action._next = None
                     action._fired = False
                     action.perform(ec, frame)
+                    action = next_action
 
         self.action_dispatcher = action_dispatcher
 
@@ -494,7 +531,6 @@ class ActionFlag(AbstractActionFlag):
     """The normal class for space.actionflag.  The signal module provides
     a different one."""
     _ticker = 0
-    _ticker_count = -1     # xxx only for reverse_debugger.py
 
     def get_ticker(self):
         return self._ticker
@@ -519,10 +555,12 @@ class AsyncAction(object):
     to occur between two opcodes, not at a completely random time.
     """
     _fired = False
+    _next = None
 
     def __init__(self, space):
         self.space = space
 
+    @rgc.no_collect
     def fire(self):
         """Request for the action to be run before the next opcode.
         The action must have been registered at space initalization time."""
@@ -617,7 +655,7 @@ def report_error(space, e, where, w_obj):
         msg = ("RPython exception %s in %s<%s at 0x%s> ignored\n" % (
                    str(e), where, space.type(w_obj).name, addrstring))
         space.call_method(space.sys.get('stderr'), 'write',
-                          space.wrap(msg))
+                          space.newtext(msg))
 
 
 def make_finalizer_queue(W_Root, space):

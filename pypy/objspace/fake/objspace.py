@@ -1,10 +1,6 @@
 from rpython.annotator.model import SomeInstance, s_None
-from pypy.interpreter import argument, gateway
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.objspace.std.sliceobject import W_SliceObject
-from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
+from rpython.rlib.objectmodel import (instantiate, we_are_translated, specialize,
+    not_rpython)
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -12,6 +8,13 @@ from rpython.rtyper.lltypesystem import lltype
 from pypy.tool.option import make_config
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.translator.translator import TranslationContext
+
+from pypy.tool.option import make_config
+from pypy.interpreter import argument, gateway
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
+from pypy.interpreter.buffer import StringBuffer, SimpleView
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.sliceobject import W_SliceObject
 
 
 class W_MyObject(W_Root):
@@ -40,11 +43,10 @@ class W_MyObject(W_Root):
         is_root(w_subtype)
 
     def buffer_w(self, space, flags):
-        return StringBuffer("foobar")
+        return SimpleView(StringBuffer("foobar"))
 
     def str_w(self, space):
         return NonConstant("foobar")
-    identifier_w = bytes_w = str_w
 
     def unicode_w(self, space):
         return NonConstant(u"foobar")
@@ -57,7 +59,10 @@ class W_MyObject(W_Root):
 
     def bigint_w(self, space, allow_conversion=True):
         from rpython.rlib.rbigint import rbigint
-        return rbigint.fromint(NonConstant(42))
+        x = 42
+        if we_are_translated():
+            x = NonConstant(x)
+        return rbigint.fromint(x)
 
 class W_MyListObj(W_MyObject):
     def append(self, w_other):
@@ -120,7 +125,10 @@ class Entry(ExtRegistryEntry):
 
 BUILTIN_TYPES = ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict',
                  'unicode', 'complex', 'slice', 'bool', 'basestring', 'object',
-                 'bytearray', 'buffer', 'set', 'frozenset']
+                 'set', 'frozenset', 'bytearray', 'buffer', 'memoryview']
+
+INTERP_TYPES = ['function', 'builtin_function', 'module', 'getset_descriptor',
+                'instance', 'classobj']
 
 class FakeObjSpace(ObjSpace):
     is_fake_objspace = True
@@ -141,8 +149,8 @@ class FakeObjSpace(ObjSpace):
         is_root(w_obj)
         return NonConstant(False)
 
+    @not_rpython
     def unwrap(self, w_obj):
-        "NOT_RPYTHON"
         raise NotImplementedError
 
     def newdict(self, module=False, instance=False, kwargs=False,
@@ -172,6 +180,7 @@ class FakeObjSpace(ObjSpace):
         W_SliceObject(w_start, w_end, w_step)
         return w_some_obj()
 
+    @specialize.argtype(1)
     def newint(self, x):
         return w_some_obj()
 
@@ -190,11 +199,11 @@ class FakeObjSpace(ObjSpace):
     def newseqiter(self, x):
         return w_some_obj()
 
-    def newbuffer(self, x):
+    def newmemoryview(self, x):
         return w_some_obj()
 
+    @not_rpython
     def marshal_w(self, w_obj):
-        "NOT_RPYTHON"
         raise NotImplementedError
 
     def newbytes(self, x):
@@ -203,27 +212,26 @@ class FakeObjSpace(ObjSpace):
     def newunicode(self, x):
         return w_some_obj()
 
-    @specialize.argtype(1)
+    newtext = newbytes
+    newtext_or_none = newbytes
+    newfilename = newbytes
+
+    @not_rpython
     def wrap(self, x):
         if not we_are_translated():
-            if isinstance(x, gateway.interp2app):
-                self._see_interp2app(x)
-            if isinstance(x, GetSetProperty):
-                self._see_getsetproperty(x)
+            if isinstance(x, W_Root):
+                x.spacebind(self)
         if isinstance(x, r_singlefloat):
             self._wrap_not_rpython(x)
         if isinstance(x, list):
             if x == []: # special case: it is used e.g. in sys/__init__.py
                 return w_some_obj()
-            self._wrap_not_rpython(x)
+            raise NotImplementedError
         return w_some_obj()
 
-    def _wrap_not_rpython(self, x):
-        "NOT_RPYTHON"
-        raise NotImplementedError
-
+    @not_rpython
     def _see_interp2app(self, interp2app):
-        "NOT_RPYTHON"
+        """Called by GatewayCache.build()"""
         activation = interp2app._code.activation
         def check():
             scope_w = [w_some_obj()] * NonConstant(42)
@@ -232,8 +240,9 @@ class FakeObjSpace(ObjSpace):
         check = func_with_new_name(check, 'check__' + interp2app.name)
         self._seen_extras.append(check)
 
+    @not_rpython
     def _see_getsetproperty(self, getsetproperty):
-        "NOT_RPYTHON"
+        """Called by GetSetProperty.spacebind()"""
         space = self
         def checkprop():
             getsetproperty.fget(getsetproperty, space, w_some_obj())
@@ -357,6 +366,7 @@ class FakeObjSpace(ObjSpace):
         ann = t.buildannotator()
         def _do_startup():
             self.threadlocals.enter_thread(self)
+            W_SliceObject(w_some_obj(), w_some_obj(), w_some_obj())
         ann.build_types(_do_startup, [], complete_now=False)
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
@@ -384,7 +394,10 @@ class FakeObjSpace(ObjSpace):
         for name in (ObjSpace.ConstantTable +
                      ObjSpace.ExceptionTable +
                      BUILTIN_TYPES):
-            setattr(space, 'w_' + name, w_some_obj())
+            if name != "str":
+                setattr(space, 'w_' + name, w_some_obj())
+        space.w_bytes = w_some_obj()
+        space.w_text = w_some_obj()
         space.w_type = w_some_type()
         #
         for (name, _, arity, _) in ObjSpace.MethodTable:
@@ -414,7 +427,9 @@ class FakeObjSpace(ObjSpace):
 @specialize.memo()
 def see_typedef(space, typedef):
     assert isinstance(typedef, TypeDef)
-    if typedef.name not in BUILTIN_TYPES:
+    if typedef.name not in BUILTIN_TYPES and typedef.name not in INTERP_TYPES:
+        print
+        print '------ seeing typedef %r ------' % (typedef.name,)
         for name, value in typedef.rawdict.items():
             space.wrap(value)
 

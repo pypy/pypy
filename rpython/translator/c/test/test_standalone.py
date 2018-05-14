@@ -1,5 +1,6 @@
 import py
 import sys, os, re
+import textwrap
 
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.config.translationoption import SUPPORT__THREAD
@@ -241,20 +242,22 @@ class TestStandalone(StandaloneTests):
             os.write(1, str(tot))
             return 0
         from rpython.translator.interactive import Translation
-        # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', profopt="100")
-        # no counters
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs="10", shared=True)
         t.backendopt()
         exe = t.compile()
-        out = py.process.cmdexec("%s 500" % exe)
-        assert int(out) == 500*501/2
-        t = Translation(entry_point, backend='c', profopt="100",
-                        noprofopt=True)
-        # no counters
+        assert (os.path.isfile("%s" % exe))
+
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs="10", shared=False)
         t.backendopt()
         exe = t.compile()
-        out = py.process.cmdexec("%s 500" % exe)
-        assert int(out) == 500*501/2
+        assert (os.path.isfile("%s" % exe))
+
+        import rpython.translator.goal.targetrpystonedalone as rpy
+        t = Translation(rpy.entry_point, backend='c', profopt=True, profoptargs='1000', shared=False)
+        t.backendopt()
+        exe = t.compile()
+        assert (os.path.isfile("%s" % exe))
+
 
     if hasattr(os, 'setpgrp'):
         def test_os_setpgrp(self):
@@ -279,13 +282,12 @@ class TestStandalone(StandaloneTests):
             return 0
         from rpython.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', profopt="")
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs='10', shared=True)
         # no counters
         t.backendopt()
         exe = t.compile()
         #py.process.cmdexec(exe)
-        t = Translation(entry_point, backend='c', profopt="",
-                        noprofopt=True)
+        t = Translation(entry_point, backend='c', profopt=True, profoptargs='10', shared=True)
         # no counters
         t.backendopt()
         exe = t.compile()
@@ -517,6 +519,52 @@ class TestStandalone(StandaloneTests):
         assert out.strip() == 'got:.-1.'
         assert not err
         assert path.check(file=0)
+
+    def test_debug_start_stop_timestamp(self):
+        import sys
+        import time
+        from rpython.rlib.rtimer import read_timestamp
+        def entry_point(argv):
+            timestamp = int(argv[1])
+            ts1 = debug_start("foo", timestamp=timestamp)
+            ts2 = read_timestamp()
+            ts3 = debug_stop("foo", timestamp=timestamp)
+            print ts1
+            print ts2
+            print ts3
+            return 0
+        t, cbuilder = self.compile(entry_point)
+
+        def parse_out(out):
+            lines = out.strip().splitlines()
+            ts1, ts2, ts3 = lines
+            return int(ts1), int(ts2), int(ts3)
+
+        # check with PYPYLOG :-
+        out, err = cbuilder.cmdexec("1", err=True, env={'PYPYLOG': ':-'})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts3 > ts2 > ts1
+        expected = ('[%x] {foo\n' % ts1 +
+                    '[%x] foo}\n' % ts3)
+        assert err == expected
+
+        # check with PYPYLOG profiling only
+        out, err = cbuilder.cmdexec("1", err=True, env={'PYPYLOG': '-'})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts3 > ts2 > ts1
+        expected = ('[%x] {foo\n' % ts1 +
+                    '[%x] foo}\n' % ts3)
+        assert err == expected
+
+        # check with PYPYLOG undefined
+        out, err = cbuilder.cmdexec("1", err=True, env={})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts3 > ts2 > ts1
+
+        # check with PYPYLOG undefined and timestamp=False
+        out, err = cbuilder.cmdexec("0", err=True, env={})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts1 == ts3 == 42;
 
     def test_debug_print_start_stop_nonconst(self):
         def entry_point(argv):
@@ -1062,21 +1110,43 @@ class TestStandalone(StandaloneTests):
         out = cbuilder.cmdexec('')
         assert out.strip() == expected
 
+    def test_call_at_startup(self):
+        from rpython.rtyper.extregistry import ExtRegistryEntry
 
-class TestMaemo(TestStandalone):
-    def setup_class(cls):
-        py.test.skip("TestMaemo: tests skipped for now")
-        from rpython.translator.platform.maemo import check_scratchbox
-        check_scratchbox()
-        config = get_combined_translation_config(translating=True)
-        config.translation.platform = 'maemo'
-        cls.config = config
+        class State:
+            seen = 0
+        state = State()
+        def startup():
+            state.seen += 1
+        def enablestartup():
+            "NOT_RPYTHON"
+        def entry_point(argv):
+            state.seen += 100
+            assert state.seen == 101
+            print 'ok'
+            enablestartup()
+            return 0
 
-    def test_profopt(self):
-        py.test.skip("Unsupported")
+        class Entry(ExtRegistryEntry):
+            _about_ = enablestartup
 
-    def test_prof_inline(self):
-        py.test.skip("Unsupported")
+            def compute_result_annotation(self):
+                bk = self.bookkeeper
+                s_callable = bk.immutablevalue(startup)
+                key = (enablestartup,)
+                bk.emulate_pbc_call(key, s_callable, [])
+
+            def specialize_call(self, hop):
+                hop.exception_cannot_occur()
+                bk = hop.rtyper.annotator.bookkeeper
+                s_callable = bk.immutablevalue(startup)
+                r_callable = hop.rtyper.getrepr(s_callable)
+                ll_init = r_callable.get_unique_llfn().value
+                bk.annotator.translator._call_at_startup.append(ll_init)
+
+        t, cbuilder = self.compile(entry_point)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == 'ok'
 
 
 class TestThread(object):
@@ -1085,7 +1155,7 @@ class TestThread(object):
 
     def compile(self, entry_point, no__thread=True):
         t = TranslationContext(self.config)
-        t.config.translation.gc = "semispace"
+        t.config.translation.gc = "incminimark"
         t.config.translation.gcrootfinder = self.gcrootfinder
         t.config.translation.thread = True
         t.config.translation.no__thread = no__thread

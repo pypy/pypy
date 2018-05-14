@@ -244,6 +244,10 @@ def look_inside_iff(predicate):
     return inner
 
 def oopspec(spec):
+    """ The JIT compiler won't look inside this decorated function,
+        but instead during translation, rewrites it according to the handler in
+        rpython/jit/codewriter/jtransform.py.
+    """
     def decorator(func):
         func.oopspec = spec
         return func
@@ -637,8 +641,6 @@ class JitDriver(object):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
-        if get_unique_id is not None:
-            assert is_recursive, "get_unique_id and is_recursive must be specified at the same time"
         for v in self.virtualizables:
             assert v in self.reds
         # if reds are automatic, they won't be passed to jit_merge_point, so
@@ -651,8 +653,12 @@ class JitDriver(object):
         self._make_extregistryentries()
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
+        for green in self.greens:
+            if "." in green:
+                raise ValueError("green fields are buggy! if you need them fixed, please talk to us")
         self.get_printable_location = get_printable_location
         self.get_location = get_location
+        self.has_unique_id = (get_unique_id is not None)
         if get_unique_id is None:
             get_unique_id = lambda *args: 0
         self.get_unique_id = get_unique_id
@@ -1081,7 +1087,8 @@ class JitHookInterface(object):
     """ This is the main connector between the JIT and the interpreter.
     Several methods on this class will be invoked at various stages
     of JIT running like JIT loops compiled, aborts etc.
-    An instance of this class will be available as policy.jithookiface.
+    An instance of this class has to be passed into the JitPolicy constructor
+    (and will then be available as policy.jithookiface).
     """
     # WARNING: You should make a single prebuilt instance of a subclass
     # of this class.  You can, before translation, initialize some
@@ -1090,6 +1097,13 @@ class JitHookInterface(object):
     # instance *must not* be seen during the normal annotation/rtyping
     # of the program!  A line like ``pypy_hooks.foo = ...`` must not
     # appear inside your interpreter's RPython code.
+
+    def are_hooks_enabled(self):
+        """ A hook that is called to check whether the interpreter's hooks are
+        enabled at all. Only if this function returns True, are the other hooks
+        called. Otherwise, nothing happens. This is done because constructing
+        some of the hooks' arguments is expensive, so we'd rather not do it."""
+        return True
 
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         """ A hook called each time a loop is aborted with jitdriver and

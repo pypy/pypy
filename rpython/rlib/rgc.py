@@ -421,13 +421,12 @@ def must_be_light_finalizer(func):
 
 class FinalizerQueue(object):
     """A finalizer queue.  See pypy/doc/discussion/finalizer-order.rst.
-    Note: only works with the framework GCs (like minimark).  It is
-    ignored with Boehm or with refcounting (used by tests).
     """
     # Must be subclassed, and the subclass needs these attributes:
     #
     #    Class:
     #        the class (or base class) of finalized objects
+    #        --or-- None to handle low-level GCREFs directly
     #
     #    def finalizer_trigger(self):
     #        called to notify that new items have been put in the queue
@@ -440,11 +439,13 @@ class FinalizerQueue(object):
     def next_dead(self):
         if we_are_translated():
             from rpython.rtyper.lltypesystem.lloperation import llop
-            from rpython.rtyper.rclass import OBJECTPTR
-            from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+            from rpython.rtyper.lltypesystem.llmemory import GCREF
+            from rpython.rtyper.annlowlevel import cast_gcref_to_instance
             tag = FinalizerQueue._get_tag(self)
-            ptr = llop.gc_fq_next_dead(OBJECTPTR, tag)
-            return cast_base_ptr_to_instance(self.Class, ptr)
+            ptr = llop.gc_fq_next_dead(GCREF, tag)
+            if self.Class is not None:
+                ptr = cast_gcref_to_instance(self.Class, ptr)
+            return ptr
         try:
             return self._queue.popleft()
         except (AttributeError, IndexError):
@@ -453,14 +454,18 @@ class FinalizerQueue(object):
     @specialize.arg(0)
     @jit.dont_look_inside
     def register_finalizer(self, obj):
-        assert isinstance(obj, self.Class)
+        from rpython.rtyper.lltypesystem.llmemory import GCREF
+        if self.Class is None:
+            assert lltype.typeOf(obj) == GCREF
+        else:
+            assert isinstance(obj, self.Class)
         if we_are_translated():
             from rpython.rtyper.lltypesystem.lloperation import llop
-            from rpython.rtyper.rclass import OBJECTPTR
-            from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+            from rpython.rtyper.annlowlevel import cast_instance_to_gcref
             tag = FinalizerQueue._get_tag(self)
-            ptr = cast_instance_to_base_ptr(obj)
-            llop.gc_fq_register(lltype.Void, tag, ptr)
+            if self.Class is not None:
+                obj = cast_instance_to_gcref(obj)
+            llop.gc_fq_register(lltype.Void, tag, obj)
             return
         else:
             self._untranslated_register_finalizer(obj)
@@ -578,6 +583,30 @@ def may_ignore_finalizer(obj):
     from rpython.rtyper.lltypesystem.lloperation import llop
     llop.gc_ignore_finalizer(lltype.Void, obj)
 
+@jit.dont_look_inside
+def move_out_of_nursery(obj):
+    """ Returns another object which is a copy of obj; but at any point
+        (either now or in the future) the returned object might suddenly
+        become identical to the one returned.
+
+        NOTE: Only use for immutable objects!
+
+        NOTE: Might fail on some GCs!  You have to check again
+        can_move() afterwards.  It should always work with the default
+        GC.  With Boehm, can_move() is always False so
+        move_out_of_nursery() should never be called in the first place.
+    """
+    return obj
+
+class MoveOutOfNurseryEntry(ExtRegistryEntry):
+    _about_ = move_out_of_nursery
+
+    def compute_result_annotation(self, s_obj):
+        return s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
 
 # ____________________________________________________________
 
@@ -617,21 +646,31 @@ def _keep_object(x):
         return False
     return type(x).__module__ != '__builtin__'   # keep non-builtins
 
-def add_memory_pressure(estimate):
+def add_memory_pressure(estimate, object=None):
     """Add memory pressure for OpaquePtrs."""
     pass
 
 class AddMemoryPressureEntry(ExtRegistryEntry):
     _about_ = add_memory_pressure
 
-    def compute_result_annotation(self, s_nbytes):
+    def compute_result_annotation(self, s_nbytes, s_object=None):
         from rpython.annotator import model as annmodel
+        if s_object is not None:
+            if not isinstance(s_object, annmodel.SomeInstance):
+                raise Exception("Wrong kind of object passed to "
+                                "add memory pressure")
+            self.bookkeeper.memory_pressure_types.add(s_object.classdef)
         return annmodel.s_None
 
     def specialize_call(self, hop):
-        [v_size] = hop.inputargs(lltype.Signed)
+        v_size = hop.inputarg(lltype.Signed, 0)
+        if len(hop.args_v) == 2:
+            v_obj = hop.inputarg(hop.args_r[1], 1)
+            args = [v_size, v_obj]
+        else:
+            args = [v_size]
         hop.exception_cannot_occur()
-        return hop.genop('gc_add_memory_pressure', [v_size],
+        return hop.genop('gc_add_memory_pressure', args,
                          resulttype=lltype.Void)
 
 
@@ -648,7 +687,10 @@ def get_rpy_memory_usage(gcref):
 def get_rpy_type_index(gcref):
     from rpython.rlib.rarithmetic import intmask
     Class = gcref._x.__class__
-    return intmask(id(Class))
+    i = intmask(id(Class))
+    if i < 0:
+        i = ~i    # always return a positive number, at least
+    return i
 
 def cast_gcref_to_int(gcref):
     # This is meant to be used on cast_instance_to_gcref results.
@@ -658,6 +700,17 @@ def cast_gcref_to_int(gcref):
         return lltype.cast_ptr_to_int(gcref)
     else:
         return id(gcref._x)
+
+(TOTAL_MEMORY, TOTAL_ALLOCATED_MEMORY, TOTAL_MEMORY_PRESSURE,
+ PEAK_MEMORY, PEAK_ALLOCATED_MEMORY, TOTAL_ARENA_MEMORY,
+ TOTAL_RAWMALLOCED_MEMORY, PEAK_ARENA_MEMORY, PEAK_RAWMALLOCED_MEMORY,
+ NURSERY_SIZE) = range(10)
+
+@not_rpython
+def get_stats(stat_no):
+    """ Long docstring goes here
+    """
+    raise NotImplementedError
 
 @not_rpython
 def dump_rpy_heap(fd):
@@ -852,6 +905,18 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_type_index', vlist,
                          resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_stats
+    def compute_result_annotation(self, s_no):
+        from rpython.annotator.model import SomeInteger
+        if not isinstance(s_no, SomeInteger):
+            raise Exception("expecting an integer")
+        return SomeInteger()
+    def specialize_call(self, hop):
+        args = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_get_stats', args, resulttype=lltype.Signed)
 
 @not_rpython
 def _is_rpy_instance(gcref):
@@ -1070,17 +1135,17 @@ class _ResizableListSupportingRawPtr(list):
     rgc.nonmoving_raw_ptr_for_resizable_list() might be
     used if needed.  For now, only supports lists of chars.
     """
-    __slots__ = ('_raw_items',)   # either None or a rffi.CCHARP
+    __slots__ = ('_ll_list',)   # either None or a struct of TYPE=LIST_OF(Char)
 
     def __init__(self, lst):
-        self._raw_items = None
+        self._ll_list = None
         self.__from_list(lst)
 
     def __resize(self):
         """Called before an operation changes the size of the list"""
-        if self._raw_items is not None:
+        if self._ll_list is not None:
             list.__init__(self, self.__as_list())
-            self._raw_items = None
+            self._ll_list = None
 
     def __from_list(self, lst):
         """Initialize the list from a copy of the list 'lst'."""
@@ -1091,46 +1156,46 @@ class _ResizableListSupportingRawPtr(list):
             return
         if len(self) != len(lst):
             self.__resize()
-        if self._raw_items is None:
+        if self._ll_list is None:
             list.__init__(self, lst)
         else:
-            assert len(self) == self._raw_items._obj.getlength() == len(lst)
+            assert len(self) == self._ll_list.length == len(lst)
             for i in range(len(self)):
-                self._raw_items[i] = lst[i]
+                self._ll_list.items[i] = lst[i]
 
     def __as_list(self):
         """Return a list (the same or a different one) which contains the
         items in the regular way."""
-        if self._raw_items is None:
+        if self._ll_list is None:
             return self
-        length = self._raw_items._obj.getlength()
+        length = self._ll_list.length
         assert length == len(self)
-        return [self._raw_items[i] for i in range(length)]
+        return [self._ll_list.items[i] for i in range(length)]
 
     def __getitem__(self, index):
-        if self._raw_items is None:
+        if self._ll_list is None:
             return list.__getitem__(self, index)
         if index < 0:
             index += len(self)
         if not (0 <= index < len(self)):
             raise IndexError
-        return self._raw_items[index]
+        return self._ll_list.items[index]
 
     def __setitem__(self, index, new):
-        if self._raw_items is None:
+        if self._ll_list is None:
             return list.__setitem__(self, index, new)
         if index < 0:
             index += len(self)
         if not (0 <= index < len(self)):
             raise IndexError
-        self._raw_items[index] = new
+        self._ll_list.items[index] = new
 
     def __delitem__(self, index):
         self.__resize()
         list.__delitem__(self, index)
 
     def __getslice__(self, i, j):
-        return list.__getslice__(self.__as_list(), i, j)
+        return self.__class__(list.__getslice__(self.__as_list(), i, j))
 
     def __setslice__(self, i, j, new):
         lst = self.__as_list()
@@ -1237,15 +1302,23 @@ class _ResizableListSupportingRawPtr(list):
         list.sort(lst, *args, **kwds)
         self.__from_list(lst)
 
-    def _nonmoving_raw_ptr_for_resizable_list(self):
-        if self._raw_items is None:
+    def _get_ll_list(self):
+        from rpython.rtyper.lltypesystem import rffi
+        from rpython.rtyper.lltypesystem.rlist import LIST_OF
+        if self._ll_list is None:
+            LIST = LIST_OF(lltype.Char)
             existing_items = list(self)
-            from rpython.rtyper.lltypesystem import lltype, rffi
-            self._raw_items = lltype.malloc(rffi.CCHARP.TO, len(self),
-                                           flavor='raw', immortal=True)
+            n = len(self)
+            self._ll_list = lltype.malloc(LIST, immortal=True)
+            self._ll_list.length = n
+            self._ll_list.items = lltype.malloc(LIST.items.TO, n)
             self.__from_list(existing_items)
-            assert self._raw_items is not None
-        return self._raw_items
+            assert self._ll_list is not None
+        return self._ll_list
+
+    def _nonmoving_raw_ptr_for_resizable_list(self):
+        ll_list = self._get_ll_list()
+        return ll_nonmovable_raw_ptr_for_resizable_list(ll_list)
 
 def resizable_list_supporting_raw_ptr(lst):
     return _ResizableListSupportingRawPtr(lst)
@@ -1254,6 +1327,18 @@ def nonmoving_raw_ptr_for_resizable_list(lst):
     assert isinstance(lst, _ResizableListSupportingRawPtr)
     return lst._nonmoving_raw_ptr_for_resizable_list()
 
+def ll_for_resizable_list(lst):
+    """
+    This is the equivalent of llstr(), but for lists. It can be called only if
+    the list has been created by calling resizable_list_supporting_raw_ptr().
+
+    In theory, all the operations on lst are immediately visible also on
+    ll_list. However, support for that is incomplete in
+    _ResizableListSupportingRawPtr and as such, the pointer becomes invalid as
+    soon as you call a resizing operation on lst.
+    """
+    assert isinstance(lst, _ResizableListSupportingRawPtr)
+    return lst._get_ll_list()
 
 def _check_resizable_list_of_chars(s_list):
     from rpython.annotator import model as annmodel
@@ -1275,6 +1360,10 @@ class Entry(ExtRegistryEntry):
         return s_list
 
     def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem.rlist import LIST_OF
+        if hop.args_r[0].LIST != LIST_OF(lltype.Char):
+            raise ValueError('Resizable list of chars does not have the '
+                             'expected low-level type')
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], 0)
 
@@ -1292,6 +1381,24 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()   # ignoring MemoryError
         return hop.gendirectcall(ll_nonmovable_raw_ptr_for_resizable_list,
                                  v_list)
+
+class Entry(ExtRegistryEntry):
+    _about_ = ll_for_resizable_list
+
+    def compute_result_annotation(self, s_list):
+        from rpython.rtyper.lltypesystem.rlist import LIST_OF
+        from rpython.rtyper.llannotation import lltype_to_annotation
+        _check_resizable_list_of_chars(s_list)
+        LIST = LIST_OF(lltype.Char)
+        return lltype_to_annotation(lltype.Ptr(LIST))
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        assert hop.args_r[0].lowleveltype == hop.r_result.lowleveltype
+        v_ll_list, = hop.inputargs(*hop.args_r)
+        return hop.genop('same_as', [v_ll_list],
+                         resulttype = hop.r_result.lowleveltype)
+
 
 @jit.dont_look_inside
 def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):

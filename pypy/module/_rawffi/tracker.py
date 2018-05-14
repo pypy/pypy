@@ -24,7 +24,7 @@ def num_of_allocated_objects(space):
     if not tracker.DO_TRACING:
         raise oefmt(space.w_RuntimeError,
                     "DO_TRACING not enabled in this PyPy")
-    return space.wrap(len(tracker.alloced))
+    return space.newint(len(tracker.alloced))
 
 def print_alloced_objects(space):
     xxx

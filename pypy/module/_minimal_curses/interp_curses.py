@@ -1,94 +1,73 @@
-
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.module._minimal_curses import _curses
+from pypy.module._minimal_curses import fficurses
+from rpython.rtyper.lltypesystem import lltype, rffi
+
 
 class ModuleInfo:
-    def __init__(self):
+    def __init__(self, space):
         self.setupterm_called = False
 
-module_info = ModuleInfo()
+def check_setup_invoked(space):
+    if not space.fromcache(ModuleInfo).setupterm_called:
+        raise curses_error(space, "must call (at least) setupterm() first")
 
-class curses_error(Exception):
-    def __init__(self, msg):
-        self.msg = msg
 
-from rpython.annotator.classdesc import FORCE_ATTRIBUTES_INTO_CLASSES
-from rpython.annotator.model import SomeString
-
-# this is necessary due to annmixlevel
-FORCE_ATTRIBUTES_INTO_CLASSES[curses_error] = {'msg': SomeString()}
-
-def convert_error(space, error):
-    msg = error.msg
+def curses_error(space, errmsg):
     w_module = space.getbuiltinmodule('_minimal_curses')
-    w_exception_class = space.getattr(w_module, space.wrap('error'))
-    w_exception = space.call_function(w_exception_class, space.wrap(msg))
+    w_exception_class = space.getattr(w_module, space.newtext('error'))
+    w_exception = space.call_function(w_exception_class, space.newtext(errmsg))
     return OperationError(w_exception_class, w_exception)
 
-def _curses_setupterm_null(fd):
-    # NOT_RPYTHON
-    try:
-        _curses.setupterm(None, fd)
-    except _curses.error as e:
-        raise curses_error(e.args[0])
-
-def _curses_setupterm(termname, fd):
-    # NOT_RPYTHON
-    try:
-        _curses.setupterm(termname, fd)
-    except _curses.error as e:
-        raise curses_error(e.args[0])
 
 @unwrap_spec(fd=int)
 def setupterm(space, w_termname=None, fd=-1):
     if fd == -1:
         w_stdout = space.getattr(space.getbuiltinmodule('sys'),
-                                 space.wrap('stdout'))
+                                 space.newtext('stdout'))
         fd = space.int_w(space.call_function(space.getattr(w_stdout,
-                                             space.wrap('fileno'))))
-    try:
-        if space.is_none(w_termname):
-            _curses_setupterm_null(fd)
-        else:
-            _curses_setupterm(space.str_w(w_termname), fd)
-    except curses_error as e:
-        raise convert_error(space, e)
+                                             space.newtext('fileno'))))
+    if space.is_none(w_termname):
+        termname = None
+    else:
+        termname = space.text_w(w_termname)
 
-class TermError(Exception):
-    pass
+    with rffi.scoped_str2charp(termname) as ll_term:
+        fd = rffi.cast(rffi.INT, fd)
+        ll_errmsg = fficurses.rpy_curses_setupterm(ll_term, fd)
+    if ll_errmsg:
+        raise curses_error(space, rffi.charp2str(ll_errmsg))
 
-def _curses_tigetstr(capname):
-    # NOT_RPYTHON
-    try:
-        res = _curses.tigetstr(capname)
-    except _curses.error as e:
-        raise curses_error(e.args[0])
-    if res is None:
-        raise TermError
-    return res
+    space.fromcache(ModuleInfo).setupterm_called = True
 
-def _curses_tparm(s, args):
-    # NOT_RPYTHON
-    try:
-        return _curses.tparm(s, *args)
-    except _curses.error as e:
-        raise curses_error(e.args[0])
-
-@unwrap_spec(capname=str)
+@unwrap_spec(capname='text')
 def tigetstr(space, capname):
-    try:
-        result = _curses_tigetstr(capname)
-    except TermError:
-        return space.w_None
-    except curses_error as e:
-        raise convert_error(space, e)
-    return space.newbytes(result)
+    check_setup_invoked(space)
+    with rffi.scoped_str2charp(capname) as ll_capname:
+        ll_result = fficurses.rpy_curses_tigetstr(ll_capname)
+        if ll_result:
+            return space.newbytes(rffi.charp2str(ll_result))
+        else:
+            return space.w_None
 
-@unwrap_spec(s=str)
+@unwrap_spec(s='text')
 def tparm(space, s, args_w):
+    check_setup_invoked(space)
     args = [space.int_w(a) for a in args_w]
-    try:
-        return space.newbytes(_curses_tparm(s, args))
-    except curses_error as e:
-        raise convert_error(space, e)
+    # nasty trick stolen from CPython
+    x0 = args[0] if len(args) > 0 else 0
+    x1 = args[1] if len(args) > 1 else 0
+    x2 = args[2] if len(args) > 2 else 0
+    x3 = args[3] if len(args) > 3 else 0
+    x4 = args[4] if len(args) > 4 else 0
+    x5 = args[5] if len(args) > 5 else 0
+    x6 = args[6] if len(args) > 6 else 0
+    x7 = args[7] if len(args) > 7 else 0
+    x8 = args[8] if len(args) > 8 else 0
+    with rffi.scoped_str2charp(s) as ll_str:
+        ll_result = fficurses.rpy_curses_tparm(ll_str, x0, x1, x2, x3,
+                                               x4, x5, x6, x7, x8)
+        if ll_result:
+            return space.newbytes(rffi.charp2str(ll_result))
+        else:
+            raise curses_error(space, "tparm() returned NULL")

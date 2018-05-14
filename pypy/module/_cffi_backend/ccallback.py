@@ -95,7 +95,7 @@ class W_ExternPython(W_CData):
 
     def _repr_extra(self):
         space = self.space
-        return 'calling ' + space.str_w(space.repr(self.w_callable))
+        return 'calling ' + space.text_w(space.repr(self.w_callable))
 
     def write_error_return_value(self, ll_res):
         error_string = self.error_string
@@ -171,25 +171,30 @@ class W_ExternPython(W_CData):
 
     @jit.dont_look_inside
     def handle_applevel_exception(self, e, ll_res, extra_line):
+        from pypy.module._cffi_backend import errorbox
         space = self.space
         self.write_error_return_value(ll_res)
         if self.w_onerror is None:
+            ecap = errorbox.start_error_capture(space)
             self.print_error(e, extra_line)
+            errorbox.stop_error_capture(space, ecap)
         else:
             try:
                 e.normalize_exception(space)
                 w_t = e.w_type
                 w_v = e.get_w_value(space)
-                w_tb = space.wrap(e.get_traceback())
+                w_tb = e.get_w_traceback(space)
                 w_res = space.call_function(self.w_onerror, w_t, w_v, w_tb)
                 if not space.is_none(w_res):
                     self.convert_result(ll_res, w_res)
             except OperationError as e2:
                 # double exception! print a double-traceback...
+                ecap = errorbox.start_error_capture(space)
                 self.print_error(e, extra_line)    # original traceback
                 e2.write_unraisable(space, '', with_traceback=True,
                             extra_line="\nDuring the call to 'onerror', "
                                        "another exception occurred:\n\n")
+                errorbox.stop_error_capture(space, ecap)
 
 
 class W_CDataCallback(W_ExternPython):
@@ -224,7 +229,9 @@ class W_CDataCallback(W_ExternPython):
                 "different from the 'ffi.h' file seen at compile-time)")
 
     def py_invoke(self, ll_res, ll_args):
+        key_pycode = self.key_pycode
         jitdriver1.jit_merge_point(callback=self,
+                                   key_pycode=key_pycode,
                                    ll_res=ll_res,
                                    ll_args=ll_args)
         self.do_invoke(ll_res, ll_args)
@@ -286,7 +293,7 @@ def get_printable_location1(key_pycode):
     return 'cffi_callback ' + key_pycode.get_repr()
 
 jitdriver1 = jit.JitDriver(name='cffi_callback',
-                           greens=['callback.key_pycode'],
+                           greens=['key_pycode'],
                            reds=['ll_res', 'll_args', 'callback'],
                            get_printable_location=get_printable_location1)
 

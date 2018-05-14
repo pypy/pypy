@@ -110,38 +110,6 @@ class Test__ffi(BaseTestPyPyC):
         loops = log.loops_by_id('sleep')
         assert len(loops) == 1 # make sure that we actually JITted the loop
 
-    def test_ctypes_call(self):
-        from rpython.rlib.test.test_clibffi import get_libm_name
-        def main(libm_name):
-            import ctypes
-            libm = ctypes.CDLL(libm_name)
-            fabs = libm.fabs
-            fabs.argtypes = [ctypes.c_double]
-            fabs.restype = ctypes.c_double
-            x = -4
-            i = 0
-            while i < 300:
-                x = fabs(x)
-                x = x - 100
-                i += 1
-            return fabs._ptr.getaddr(), x
-
-        libm_name = get_libm_name(sys.platform)
-        log = self.run(main, [libm_name], import_site=True)
-        fabs_addr, res = log.result
-        assert res == -4.0
-        loop, = log.loops_by_filename(self.filepath)
-        ops = loop.allops()
-        opnames = log.opnames(ops)
-        assert opnames.count('new_with_vtable') == 1 # only the virtualref
-        py.test.skip("XXX re-optimize _ffi for the JIT?")
-        assert opnames.count('call_release_gil') == 1
-        idx = opnames.index('call_release_gil')
-        call = ops[idx]
-        assert (call.args[0] == 'ConstClass(fabs)' or    # e.g. OS/X
-                int(call.args[0]) == fabs_addr)
-
-
     def test__ffi_struct(self):
         def main():
             from _rawffi.alt import _StructDescr, Field, types
@@ -407,27 +375,58 @@ class Test__ffi(BaseTestPyPyC):
         log = self.run(main, [300])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-        i161 = int_lt(i160, i43)
+        i106 = getfield_gc_i(p20, descr=...)
+        i161 = int_lt(i106, i43)
         guard_true(i161, descr=...)
-        i162 = int_add(i160, 1)
-        setfield_gc(p22, i162, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current .>)
+        i162 = int_add(i106, 1)
+        p110 = getfield_gc_r(p16, descr=...)
+        setfield_gc(p20, i162, descr=...)
+        guard_value(p110, ConstPtr(ptr111), descr=...)
         guard_not_invalidated(descr=...)
         p163 = force_token()
         p164 = force_token()
-        p167 = call_r(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=5>)
+        p118 = getfield_gc_r(p16, descr=...)
+        p120 = getarrayitem_gc_r(p118, 0, descr=...)
+        guard_value(p120, ConstPtr(ptr121), descr=...)
+        p122 = getfield_gc_r(p120, descr=...)
+        guard_value(p122, ConstPtr(ptr123), descr=...)
+        p125 = getfield_gc_r(p16, descr=...)
+        guard_nonnull_class(p125, ..., descr=...)
+        p127 = getfield_gc_r(p125, descr=...)
+        guard_value(p127, ConstPtr(ptr128), descr=...)
+        p129 = getfield_gc_r(p127, descr=...)
+        guard_value(p129, ConstPtr(ptr130), descr=...)
+        p132 = call_r(ConstClass(_ll_0_alloc_with_del___), descr=...)
         guard_no_exception(descr=...)
-        i112 = int_signext(i160, 2)
-        setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
-        setfield_gc(p167, -1, descr=<FieldS pypy.module._cffi_backend.cdataobj.W_CDataNewOwning.inst_allocated_length .+>)
-        i114 = int_ne(i160, i112)
-        guard_false(i114, descr=...)
-        --TICK--
-        i123 = arraylen_gc(p67, descr=<ArrayP .>)
-        i119 = call_i(ConstClass(_ll_1_raw_malloc_varsize_zero__Signed), 6, descr=<Calli . i EF=5 OS=110>)
-        check_memory_error(i119)
-        raw_store(i119, 0, i160, descr=<ArrayS 2>)
-        raw_store(i119, 2, i160, descr=<ArrayS 2>)
-        raw_store(i119, 4, i160, descr=<ArrayS 2>)
-        setfield_gc(p167, i119, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__ptr .+>)
+        p133 = force_token()
+        p134 = new_with_vtable(descr=...)
+        setfield_gc(p134, ..., descr=...)
+        setfield_gc(p134, ConstPtr(null), descr=...)
+        setfield_gc(p48, p134, descr=...)
+        setfield_gc(p132, ..., descr=...)
+        i138 = call_i(ConstClass(_ll_1_raw_malloc_varsize_zero__Signed), 6, descr=...)
+        check_memory_error(i138)
+        setfield_gc(p132, i138, descr=...)
+        setfield_gc(p132, ConstPtr(ptr139), descr=...)
+        setfield_gc(p132, -1, descr=...)
+        setfield_gc(p0, p133, descr=...)
+        call_may_force_n(ConstClass(_ll_2_gc_add_memory_pressure__Signed_pypy_module__cffi_backend_cdataobj_W_CDataNewStdPtr), 6, p132, descr=...)
+        guard_not_forced(descr=...)
+        guard_no_exception(descr=...)
+        i144 = int_add(i138, 0)
+        i146 = int_signext(i106, 2)
+        i147 = int_ne(i106, i146)
+        guard_false(i147, descr=...)
+        setarrayitem_raw(i144, 0, i106, descr=...)
+        i150 = int_add(i138, 2)
+        setarrayitem_raw(i150, 0, i106, descr=...)
+        i153 = int_add(i138, 4)
+        setarrayitem_raw(i153, 0, i106, descr=...)
+        p156 = getfield_gc_r(p48, descr=...)
+        i158 = getfield_raw_i(..., descr=...)
+        setfield_gc(p48, p49, descr=...)
+        setfield_gc(p134, ConstPtr(null), descr=...)
+        i160 = int_lt(i158, 0)
+        guard_false(i160, descr=...)
         jump(..., descr=...)
         """)

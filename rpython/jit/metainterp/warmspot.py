@@ -52,12 +52,19 @@ def apply_jit(translator, backend_name="auto", inline=False,
         jd.jitdriver.is_recursive = True
     else:
         count_recursive = 0
+        invalid = 0
         for jd in warmrunnerdesc.jitdrivers_sd:
             count_recursive += jd.jitdriver.is_recursive
+            invalid += (jd.jitdriver.has_unique_id and
+                           not jd.jitdriver.is_recursive)
         if count_recursive == 0:
             raise Exception("if you have more than one jitdriver, at least"
                 " one of them has to be marked with is_recursive=True,"
                 " none found")
+        if invalid > 0:
+            raise Exception("found %d jitdriver(s) with 'get_unique_id=...' "
+                            "specified but without 'is_recursive=True'" %
+                            (invalid,))
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_vec(vec)
@@ -213,6 +220,15 @@ def debug_checks():
     stats.check_consistency()
 
 # ____________________________________________________________
+# always disabled hooks interface
+
+from rpython.rlib.jit import JitHookInterface
+
+class NoHooksInterface(JitHookInterface):
+    def are_hooks_enabled(self):
+        return False
+
+# ____________________________________________________________
 
 class WarmRunnerDesc(object):
 
@@ -252,7 +268,7 @@ class WarmRunnerDesc(object):
         else:
             self.jitcounter = counter.DeterministicJitCounter()
         #
-        self.hooks = policy.jithookiface
+        self.make_hooks(policy.jithookiface)
         self.make_virtualizable_infos()
         self.make_driverhook_graphs()
         self.make_enter_functions()
@@ -490,6 +506,12 @@ class WarmRunnerDesc(object):
         else:
             self.metainterp_sd.opencoder_model = Model
         self.stats.metainterp_sd = self.metainterp_sd
+
+    def make_hooks(self, hooks):
+        if hooks is None:
+            # interface not overridden, use a special one that is never enabled
+            hooks = NoHooksInterface()
+        self.hooks = hooks
 
     def make_virtualizable_infos(self):
         vinfos = {}

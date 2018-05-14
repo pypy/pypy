@@ -1,5 +1,4 @@
-
-import py, sys
+import py, sys, math
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
@@ -10,7 +9,6 @@ from rpython.jit.metainterp import pyjitpl, history, jitexc
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter import codewriter, longlong
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
-from rpython.rlib.rfloat import isnan
 from rpython.rlib.jit import ENABLE_ALL_OPTS
 from rpython.translator.backendopt.all import backend_optimizations
 
@@ -19,7 +17,8 @@ def _get_jitcodes(testself, CPUClass, func, values,
                   supports_floats=True,
                   supports_longlong=False,
                   supports_singlefloats=False,
-                  translationoptions={}, **kwds):
+                  translationoptions={},
+                  backendopt_inline_threshold=0, **kwds):
     from rpython.jit.codewriter import support
 
     class FakeJitCell(object):
@@ -59,7 +58,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         FakeWarmRunnerState.enable_opts = {}
 
     func._jit_unroll_safe_ = True
-    rtyper = support.annotate(func, values,
+    rtyper = support.annotate(func, values, inline=backendopt_inline_threshold,
                               translationoptions=translationoptions)
     graphs = rtyper.annotator.translator.graphs
     testself.all_graphs = graphs
@@ -273,11 +272,11 @@ class JitMixin:
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
         result2 = _run_with_pyjitpl(self, args, stats)
-        assert result1 == result2 or isnan(result1) and isnan(result2)
+        assert result1 == result2 or math.isnan(result1) and math.isnan(result2)
         # try to run it by running the code compiled just before
         df, result3 = _run_with_machine_code(self, args)
         self._lastframe = df
-        assert result1 == result3 or result3 == NotImplemented or isnan(result1) and isnan(result3)
+        assert result1 == result3 or result3 == NotImplemented or math.isnan(result1) and math.isnan(result3)
         #
         if (longlong.supports_longlong and
             isinstance(result1, longlong.r_float_storage)):

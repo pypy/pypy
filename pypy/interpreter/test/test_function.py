@@ -1,4 +1,4 @@
-import pytest
+import pytest, sys
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, descr_function_get
 from pypy.interpreter.pycode import PyCode
@@ -95,8 +95,8 @@ class AppTestFunctionIntrospection:
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
-            raises(TypeError, "dir.func_code = f.func_code")
-            raises(TypeError, "list.append.im_func.func_code = f.func_code")
+        raises(TypeError, "dir.func_code = f.func_code")
+        raises(TypeError, "list.append.im_func.func_code = f.func_code")
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
@@ -342,6 +342,11 @@ class AppTestFunction:
         raises(ValueError, type(f).__setstate__, f, (1, 2, 3))
 
 class AppTestMethod:
+    def setup_class(cls):
+        cls.w_runappdirect_on_cpython = cls.space.wrap(
+            cls.runappdirect and
+            '__pypy__' not in sys.builtin_module_names)
+
     def test_simple_call(self):
         class A(object):
             def func(self, arg2):
@@ -560,7 +565,18 @@ class AppTestMethod:
         assert A().m == X()
         assert X() == A().m
 
-    @pytest.mark.skipif("config.option.runappdirect")
+    def test_method_equals_with_identity(self):
+        from types import MethodType
+        class CallableBadEq(object):
+            def __call__(self):
+                pass
+            def __eq__(self, other):
+                raise ZeroDivisionError
+        func = CallableBadEq()
+        meth = MethodType(func, object)
+        assert meth == meth
+        assert meth == MethodType(func, object)
+
     def test_method_identity(self):
         class A(object):
             def m(self):
@@ -577,19 +593,24 @@ class AppTestMethod:
 
         a = A()
         a2 = A()
-        assert a.m is a.m
-        assert id(a.m) == id(a.m)
-        assert a.m is not a.n
-        assert id(a.m) != id(a.n)
-        assert a.m is not a2.m
-        assert id(a.m) != id(a2.m)
+        x = a.m; y = a.m
+        assert x is not y
+        assert id(x) != id(y)
+        assert x == y
+        assert x is not a.n
+        assert id(x) != id(a.n)
+        assert x is not a2.m
+        assert id(x) != id(a2.m)
 
-        assert A.m is A.m
-        assert id(A.m) == id(A.m)
-        assert A.m is not A.n
-        assert id(A.m) != id(A.n)
-        assert A.m is not B.m
-        assert id(A.m) != id(B.m)
+        if not self.runappdirect_on_cpython:
+            assert A.m is A.m
+            assert id(A.m) == id(A.m)
+        assert A.m == A.m
+        x = A.m
+        assert x is not A.n
+        assert id(x) != id(A.n)
+        assert x is not B.m
+        assert id(x) != id(B.m)
 
 
 class TestMethod:
@@ -649,7 +670,7 @@ class TestMethod:
         assert meth4.call_args(args) == obj2
         # Check method returned from unbound_method.__get__()
         # --- with an incompatible class
-        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_str)
+        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_text)
         assert space.is_w(w_meth5, w_meth3)
         # Same thing, with an old-style class
         w_oldclass = space.call_function(
@@ -660,7 +681,7 @@ class TestMethod:
         # Reverse order of old/new styles
         w_meth7 = descr_function_get(space, func, space.w_None, w_oldclass)
         meth7 = space.unwrap(w_meth7)
-        w_meth8 = meth7.descr_method_get(space.wrap('hello'), space.w_str)
+        w_meth8 = meth7.descr_method_get(space.wrap('hello'), space.w_text)
         assert space.is_w(w_meth8, w_meth7)
 
 class TestShortcuts(object):

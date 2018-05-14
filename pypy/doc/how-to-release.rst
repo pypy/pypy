@@ -5,8 +5,8 @@ Release Policy
 ++++++++++++++
 
 We try to create a stable release a few times a year. These are released on
-a branch named like release-2.x or release-4.x, and each release is tagged,
-for instance release-4.0.1. 
+a branch named like release-pypy3.5-v2.x or release-pypy3.5-v4.x, and each
+release is tagged, for instance release-pypy3.5-v4.0.1. 
 
 After release, inevitably there are bug fixes. It is the responsibility of
 the commiter who fixes a bug to make sure this fix is on the release branch,
@@ -33,12 +33,17 @@ Release Steps
 * If needed, make a release branch
 * Bump the
   pypy version number in module/sys/version.py and in
-  module/cpyext/include/patchlevel.h and . The branch
+  module/cpyext/include/patchlevel.h and in doc/conf.py. The branch
   will capture the revision number of this change for the release.
 
   Some of the next updates may be done before or after branching; make
   sure things are ported back to the trunk and to the branch as
   necessary.
+
+* Make sure the RPython builds on the buildbot pass with no failures
+
+* Maybe bump the SOABI number in module/imp/importing. This has many
+  implications, so make sure the PyPy community agrees to the change.
 
 * Update and write documentation
 
@@ -59,7 +64,7 @@ Release Steps
   * go to pypy/tool/release and run
     ``force-builds.py <release branch>``
     The following JIT binaries should be built, however, we need more buildbots
-    windows, linux-32, linux-64, osx64, armhf-raring, armhf-raspberrian, armel,
+    windows, linux-32, linux-64, osx64, armhf-raspberrian, armel,
     freebsd64 
 
   * wait for builds to complete, make sure there are no failures

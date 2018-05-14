@@ -210,7 +210,6 @@ def _ll_2_list_pop(l, index):
     return rlist.ll_pop(rlist.dum_checkidx, l, index)
 _ll_2_list_append = rlist.ll_append
 _ll_2_list_extend = rlist.ll_extend
-_ll_3_list_insert = rlist.ll_insert_nonneg
 _ll_2_list_delslice_startonly = rlist.ll_listdelslice_startonly
 _ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
 _ll_2_list_inplace_mul = rlist.ll_inplace_mul
@@ -286,6 +285,9 @@ def _ll_0_ll_read_timestamp():
     from rpython.rlib import rtimer
     return rtimer.read_timestamp()
 
+def _ll_0_ll_get_timestamp_unit():
+    from rpython.rlib import rtimer
+    return rtimer.get_timestamp_unit()
 
 # math support
 # ------------
@@ -676,6 +678,8 @@ class LLtypeHelpers:
 
     def _ll_1_gc_add_memory_pressure(num):
         llop.gc_add_memory_pressure(lltype.Void, num)
+    def _ll_2_gc_add_memory_pressure(num, obj):
+        llop.gc_add_memory_pressure(lltype.Void, num, obj)
 
 
 def setup_extra_builtin(rtyper, oopspec_name, nb_args, extra=None):

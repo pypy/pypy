@@ -17,10 +17,10 @@ def test_repeat_one_with_backref():
     # it's a valid optimization because \1 is always one character long
     r = [MARK, 0, ANY, MARK, 1, REPEAT_ONE, 6, 0, MAXREPEAT, 
          GROUPREF, 0, SUCCESS, SUCCESS]
-    assert rsre_core.match(r, "aaa").match_end == 3
+    assert rsre_core.match(rsre_core.CompiledPattern(r), "aaa").match_end == 3
 
 def test_min_repeat_one_with_backref():
     # Python 3.5 compiles "(.)\1*?b" using MIN_REPEAT_ONE
     r = [MARK, 0, ANY, MARK, 1, MIN_REPEAT_ONE, 6, 0, MAXREPEAT,
          GROUPREF, 0, SUCCESS, LITERAL, 98, SUCCESS]
-    assert rsre_core.match(r, "aaab").match_end == 4
+    assert rsre_core.match(rsre_core.CompiledPattern(r), "aaab").match_end == 4

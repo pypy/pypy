@@ -28,12 +28,12 @@ class BoehmGCTransformer(GCTransformer):
         ll_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
         ll_malloc_varsize = mh.ll_malloc_varsize
 
-        fields = [("hash", lltype.Signed)]
+        fields = []
         if translator and translator.config.translation.reverse_debugger:
+            fields.append(("hash", lltype.Signed))
             fields.append(("uid", lltype.SignedLongLong))
         hints = {'hints': {'gcheader': True}}
         self.HDR = lltype.Struct("header", *fields, **hints)
-        HDRPTR = lltype.Ptr(self.HDR)
 
         if self.translator:
             self.malloc_fixedsize_ptr = self.inittime_helper(
@@ -56,14 +56,12 @@ class BoehmGCTransformer(GCTransformer):
 
             if not translator.config.translation.reverse_debugger:
                 def ll_identityhash(addr):
-                    obj = llmemory.cast_adr_to_ptr(addr, HDRPTR)
-                    h = obj.hash
-                    if h == 0:
-                        obj.hash = h = ~llmemory.cast_adr_to_int(addr)
+                    h = ~llmemory.cast_adr_to_int(addr)
                     return h
                 self.identityhash_ptr = self.inittime_helper(
                     ll_identityhash, [llmemory.Address], lltype.Signed,
                     inline=False)
+                self.NO_HEADER = True
 
             self.mixlevelannotator.finish()   # for now
             self.mixlevelannotator.backend_optimize()
@@ -221,8 +219,9 @@ class BoehmGCTransformer(GCTransformer):
         hop.genop('int_invert', [v_int], resultvar=hop.spaceop.result)
 
     def gcheader_initdata(self, obj):
+        if not self.translator.config.translation.reverse_debugger:
+            return GCTransform.gcheader_initdata(self, obj)
         hdr = lltype.malloc(self.HDR, immortal=True, zero=True)
-        hdr.hash = lltype.identityhash_nocache(obj._as_ptr())
         return hdr._obj
 
 

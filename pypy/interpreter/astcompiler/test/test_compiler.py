@@ -725,6 +725,19 @@ class TestCompiler:
         else:
             raise Exception("DID NOT RAISE")
 
+    def test_indent_error_filename(self):
+        source = py.code.Source("""
+        def f():
+          x
+         y
+        """)
+        try:
+            self.simple_test(source, None, None)
+        except IndentationError as e:
+            assert e.filename == '<test>'
+        else:
+            raise Exception("DID NOT RAISE")
+
     def test_kwargs_last(self):
         py.test.raises(SyntaxError, self.simple_test, "int(base=10, '2')",
                        None, None)
@@ -943,12 +956,16 @@ class TestCompiler:
     def test_revdb_metavar(self):
         from pypy.interpreter.reverse_debugging import dbstate, setup_revdb
         self.space.config.translation.reverse_debugger = True
-        setup_revdb(self.space)
-        dbstate.standard_code = False
-        dbstate.metavars = [self.space.wrap(6)]
-        self.simple_test("x = 7*$0", "x", 42)
-        dbstate.standard_code = True
-        self.error_test("x = 7*$0", SyntaxError)
+        self.space.reverse_debugging = True
+        try:
+            setup_revdb(self.space)
+            dbstate.standard_code = False
+            dbstate.metavars = [self.space.wrap(6)]
+            self.simple_test("x = 7*$0", "x", 42)
+            dbstate.standard_code = True
+            self.error_test("x = 7*$0", SyntaxError)
+        finally:
+            self.space.reverse_debugging = False
 
 
 class AppTestCompiler:

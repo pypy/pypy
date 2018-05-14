@@ -1114,5 +1114,40 @@ class LoopTest(object):
         # one guard_false got removed
         self.check_resops(guard_false=4, guard_true=5)
 
+    def test_heapcache_bug(self):
+        class W_Object(object):
+            _attrs_ = []
+        class W_Nil(W_Object):
+            _attrs_ = []
+        class W_Cons(W_Object):
+            _attrs_ = ['first', 'rest']
+            _immutable_fields_ = ['first', 'rest']
+            def __init__(self, v1, v2):
+                self.first = v1
+                self.rest = v2
+
+        def reverse(xs):
+            result = W_Nil()
+            while isinstance(xs, W_Cons):
+                result = W_Cons(xs.first, result)
+                xs = xs.rest
+            return result
+
+        driver = JitDriver(reds=['repetitions', 'v'], greens=['pc'],
+                       get_printable_location=lambda pc: str(pc))
+        def entry_point():
+            repetitions = 0
+            while repetitions < 10:
+                pc = 0
+                v = W_Nil()
+                while pc < 10:
+                    driver.jit_merge_point(v=v, repetitions=repetitions, pc=pc)
+                    v = reverse(W_Cons(pc + 1, W_Cons(pc + 2, W_Cons(pc + 3, W_Cons(pc + 4, W_Nil())))))
+                    pc = pc + 1
+                repetitions += 1
+        
+        self.meta_interp(entry_point, [])
+
+
 class TestLLtype(LoopTest, LLJitMixin):
     pass

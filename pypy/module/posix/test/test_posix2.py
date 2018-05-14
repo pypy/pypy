@@ -18,7 +18,7 @@ if os.name != 'nt':
     USEMODULES += ['fcntl']
 else:
     # On windows, os.popen uses the subprocess module
-    USEMODULES += ['_rawffi', 'thread', 'signal']
+    USEMODULES += ['_rawffi', 'thread', 'signal', '_cffi_backend']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
@@ -31,9 +31,15 @@ def setup_module(mod):
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
-    unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+    if sys.platform == 'darwin':
+        # see issue https://bugs.python.org/issue31380
+        unicode_dir = udir.ensure('fixc5x9fier.txt', dir=True)
+        file_name = 'cafxe9'
+    else:
+        unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+        file_name = 'caf\xe9'
     unicode_dir.join('somefile').write('who cares?')
-    unicode_dir.join('caf\xe9').write('who knows?')
+    unicode_dir.join(file_name).write('who knows?')
     mod.unicode_dir = unicode_dir
 
     # in applevel tests, os.stat uses the CPython os.stat.
@@ -294,8 +300,13 @@ class AppTestPosix:
 
         # There used to be code here to ensure that fcntl is not faked
         # but we can't do that cleanly any more
-        exc = raises(OSError, posix.fdopen, fd)
-        assert exc.value.errno == errno.EBADF
+        try:
+            fid = posix.fdopen(fd)
+            fid.read(10)
+        except OSError as e:
+            assert e.errno == errno.EBADF
+        else:
+            assert False, "using result of fdopen(fd) on closed file must raise"
 
     def test_fdopen_hackedbuiltins(self):
         "Same test, with __builtins__.file removed"
@@ -325,8 +336,17 @@ class AppTestPosix:
         path = self.path
         posix = self.posix
         fd = posix.open(path, posix.O_RDONLY)
-        exc = raises(OSError, posix.fdopen, fd, 'w')
-        assert str(exc.value) == "[Errno 22] Invalid argument"
+        # compatability issue - using Visual Studio 10 and above no
+        # longer raises on fid creation, only when _using_ fid
+        # win32 python2 raises IOError on flush(), win32 python3 raises OSError
+        try:
+            fid = posix.fdopen(fd, 'w')
+            fid.write('abc')
+            fid.flush()
+        except  (OSError, IOError) as e:
+            assert e.errno in (9, 22)
+        else:
+            assert False, "expected OSError"
         posix.close(fd)  # fd should not be closed
 
     def test_getcwd(self):
@@ -368,11 +388,11 @@ class AppTestPosix:
         pdir = self.pdir + '/file1'
         posix = self.posix
 
-        assert posix.access(pdir, posix.R_OK)
-        assert posix.access(pdir, posix.W_OK)
+        assert posix.access(pdir, posix.R_OK) is True
+        assert posix.access(pdir, posix.W_OK) is True
         import sys
         if sys.platform != "win32":
-            assert not posix.access(pdir, posix.X_OK)
+            assert posix.access(pdir, posix.X_OK) is False
 
     def test_times(self):
         """
@@ -951,9 +971,12 @@ class AppTestPosix:
             if sys.platform == 'win32':
                 os.chmod(self.path, 0400)
                 assert (os.stat(self.path).st_mode & 0600) == 0400
+                os.chmod(self.path, 0700)
             else:
                 os.chmod(self.path, 0200)
                 assert (os.stat(self.path).st_mode & 0777) == 0200
+                os.chmod(self.path, 0700)
+            os.unlink(self.path)
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
@@ -963,6 +986,7 @@ class AppTestPosix:
             assert (os.fstat(f.fileno()).st_mode & 0777) == 0200
             f.close()
             assert (os.stat(self.path).st_mode & 0777) == 0200
+            os.unlink(self.path)
 
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):
@@ -1155,6 +1179,21 @@ class AppTestPosix:
             if len(e.value.args) > 2:
                 assert e.value.args[2] == "\\foo\\bar\\baz"
 
+    @py.test.mark.skipif("sys.platform != 'win32'")
+    def test_rename(self):
+        os = self.posix
+        with open(self.path, "w") as f:
+            f.write("this is a rename test")
+        unicode_name = str(self.udir) + u'/test\u03be.txt'
+        os.rename(self.path, unicode_name)
+        with open(unicode_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(unicode_name, self.path)
+        with open(self.path) as f:
+            assert f.read() == 'this is a rename test'
+        os.unlink(self.path)
+
+        
 
 class AppTestEnvironment(object):
     def setup_class(cls):

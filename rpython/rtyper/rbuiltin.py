@@ -347,19 +347,20 @@ typer_for(enumerate)(rrange.rtype_builtin_enumerate)
 # annotation of low-level types
 
 @typer_for(lltype.malloc)
-def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
-                 i_add_memory_pressure=None, i_nonmovable=None):
+def rtype_malloc(hop, i_flavor=None, i_immortal=None, i_zero=None,
+        i_track_allocation=None, i_add_memory_pressure=None, i_nonmovable=None):
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
     kwds_v = parse_kwds(
         hop,
         (i_flavor, lltype.Void),
+        (i_immortal, None),
         (i_zero, None),
         (i_track_allocation, None),
         (i_add_memory_pressure, None),
         (i_nonmovable, None))
-    (v_flavor, v_zero, v_track_allocation,
+    (v_flavor, v_immortal, v_zero, v_track_allocation,
      v_add_memory_pressure, v_nonmovable) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
@@ -716,9 +717,9 @@ def rtype_builtin_hasattr(hop):
 @typer_for(OrderedDict)
 @typer_for(objectmodel.r_dict)
 @typer_for(objectmodel.r_ordereddict)
-def rtype_dict_constructor(hop, i_force_non_null=None):
-    # 'i_force_non_null' is ignored here; if it has any effect, it
-    # has already been applied to 'hop.r_result'
+def rtype_dict_constructor(hop, i_force_non_null=None, i_simple_hash_eq=None):
+    # 'i_force_non_null' and 'i_simple_hash_eq' are ignored here; if they have any
+    # effect, it has already been applied to 'hop.r_result'
     hop.exception_cannot_occur()
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)

@@ -145,6 +145,9 @@ def llexternal(name, args, result, _callable=None,
         # Also, _nowrapper functions cannot release the GIL, by default.
         invoke_around_handlers = not sandboxsafe and not _nowrapper
 
+    if _nowrapper and isinstance(_callable, ll2ctypes.LL2CtypesCallable):
+        kwds['_real_integer_addr'] = _callable.get_real_address
+
     if random_effects_on_gcobjs not in (False, True):
         random_effects_on_gcobjs = (
             invoke_around_handlers or   # because it can release the GIL
@@ -752,7 +755,9 @@ LONGDOUBLEP = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={'nolength': True}))
 
 # Signed, Signed *
 SIGNED = lltype.Signed
-SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
+SIGNEDP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+SIGNEDPP = lltype.Ptr(lltype.Array(SIGNEDP, hints={'nolength': True}))
+
 
 # various type mapping
 
@@ -804,6 +809,7 @@ def make_string_mappings(strtype):
             lltype.free(cp, flavor='raw', track_allocation=True)
         else:
             lltype.free(cp, flavor='raw', track_allocation=False)
+    free_charp._annenforceargs_ = [None, bool]
 
     # str -> already-existing char[maxsize]
     def str2chararray(s, array, maxsize):
@@ -828,7 +834,7 @@ def make_string_mappings(strtype):
         return assert_str0(charpsize2str(cp, size))
     charp2str._annenforceargs_ = [lltype.SomePtr(TYPEP)]
 
-    # str -> char*, bool, bool
+    # str -> char*, flag
     # Can't inline this because of the raw address manipulation.
     @jit.dont_look_inside
     def get_nonmovingbuffer(data):
@@ -879,6 +885,7 @@ def make_string_mappings(strtype):
         # pinned.
     get_nonmovingbuffer._always_inline_ = 'try' # get rid of the returned tuple
     get_nonmovingbuffer._annenforceargs_ = [strtype]
+
 
     @jit.dont_look_inside
     def get_nonmovingbuffer_final_null(data):
@@ -1014,6 +1021,7 @@ def make_string_mappings(strtype):
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
+CWCHARPP = lltype.Ptr(lltype.Array(CWCHARP, hints={'nolength': True}))
 
 def liststr2charpp(l):
     """ list[str] -> char**, NULL terminated
@@ -1080,8 +1088,9 @@ def sizeof(tp):
         if size is None:
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
-    if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
-        return globals()['r_void*'].BITS/8
+    if (tp is lltype.Signed or isinstance(tp, lltype.Ptr) 
+                            or tp is llmemory.Address):
+        return LONG_BIT/8
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
@@ -1094,8 +1103,6 @@ def sizeof(tp):
         # :-/
         return sizeof_c_type("long double")
     assert isinstance(tp, lltype.Number)
-    if tp is lltype.Signed:
-        return LONG_BIT/8
     return tp._type.BITS/8
 sizeof._annspecialcase_ = 'specialize:memo'
 
@@ -1240,8 +1247,11 @@ class scoped_unicode2wcharp:
 
 
 class scoped_nonmovingbuffer:
+
     def __init__(self, data):
         self.data = data
+    __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=False)]
+
     def __enter__(self):
         self.buf, self.flag = get_nonmovingbuffer(self.data)
         return self.buf
@@ -1319,3 +1329,82 @@ c_memset = llexternal("memset",
             releasegil=False,
             calling_conv='c',
         )
+
+
+# NOTE: This is not a weak key dictionary, thus keeping a lot of stuff alive.
+TEST_RAW_ADDR_KEEP_ALIVE = {}
+
+@jit.dont_look_inside
+def get_raw_address_of_string(string):
+    """Returns a 'char *' that is valid as long as the rpython string object is alive.
+    Two calls to to this function, given the same string parameter,
+    are guaranteed to return the same pointer.
+    """
+    assert isinstance(string, str)
+    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rtyper.lltypesystem.rstr import STR
+    from rpython.rtyper.lltypesystem import llmemory
+    from rpython.rlib import rgc
+
+    if we_are_translated():
+        if rgc.must_split_gc_address_space():
+            return _get_raw_address_buf_from_string(string)
+        if rgc.can_move(string):
+            string = rgc.move_out_of_nursery(string)
+            if rgc.can_move(string):
+                return _get_raw_address_buf_from_string(string)
+
+        # string cannot move now! return the address
+        lldata = llstr(string)
+        data_start = (llmemory.cast_ptr_to_adr(lldata) +
+                      offsetof(STR, 'chars') +
+                      llmemory.itemoffsetof(STR.chars, 0))
+        data_start = cast(CCHARP, data_start)
+        data_start[len(string)] = '\x00'   # write the final extra null
+        return data_start
+    else:
+        global TEST_RAW_ADDR_KEEP_ALIVE
+        if string in TEST_RAW_ADDR_KEEP_ALIVE:
+            return TEST_RAW_ADDR_KEEP_ALIVE[string]
+        result = str2charp(string, track_allocation=False)
+        TEST_RAW_ADDR_KEEP_ALIVE[string] = result
+        return result
+
+class _StrFinalizerQueue(rgc.FinalizerQueue):
+    Class = None              # to use GCREFs directly
+    print_debugging = False   # set to True from test_rffi
+    def finalizer_trigger(self):
+        from rpython.rtyper.annlowlevel import hlstr
+        from rpython.rtyper.lltypesystem import rstr
+        from rpython.rlib import objectmodel
+        while True:
+            gcptr = self.next_dead()
+            if not gcptr:
+                break
+            ll_string = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), gcptr)
+            string = hlstr(ll_string)
+            key = objectmodel.compute_unique_id(string)
+            ptr = self.raw_copies.get(key, lltype.nullptr(CCHARP.TO))
+            if ptr:
+                if self.print_debugging:
+                    from rpython.rlib.debug import debug_print
+                    debug_print("freeing str [", ptr, "]")
+                free_charp(ptr, track_allocation=False)
+_fq_addr_from_string = _StrFinalizerQueue()
+_fq_addr_from_string.raw_copies = {}    # {GCREF: CCHARP}
+
+def _get_raw_address_buf_from_string(string):
+    # Slowish but ok because it's not supposed to be used from a
+    # regular PyPy.  It's only used with non-standard GCs like RevDB
+    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rlib import objectmodel
+    key = objectmodel.compute_unique_id(string)
+    try:
+        ptr = _fq_addr_from_string.raw_copies[key]
+    except KeyError:
+        ptr = str2charp(string, track_allocation=False)
+        _fq_addr_from_string.raw_copies[key] = ptr
+        ll_string = llstr(string)
+        gcptr = lltype.cast_opaque_ptr(llmemory.GCREF, ll_string)
+        _fq_addr_from_string.register_finalizer(gcptr)
+    return ptr

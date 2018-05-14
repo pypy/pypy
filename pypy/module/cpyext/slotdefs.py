@@ -4,29 +4,30 @@ import re
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib import rgc # Force registration of gc.collect
 from pypy.module.cpyext.api import (
-    cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
-    mangle_name, pypy_decl, Py_buffer, Py_bufferP)
+    slot_function, generic_cpy_call, PyObject, Py_ssize_t,
+    Py_TPFLAGS_CHECKTYPES, Py_buffer, Py_bufferP, PyTypeObjectPtr)
 from pypy.module.cpyext.typeobjectdefs import (
-    unaryfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
+    unaryfunc, ternaryfunc, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    readbufferproc, getbufferproc, releasebufferproc, ssizessizeobjargproc)
-from pypy.module.cpyext.pyobject import make_ref, decref
+    readbufferproc, getbufferproc, ssizessizeobjargproc)
+from pypy.module.cpyext.pyobject import make_ref, from_ref, as_pyobj, decref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext import userslot
+from pypy.module.cpyext.buffer import CBuffer, CPyBuffer, fq
+from pypy.module.cpyext.methodobject import (W_PyCWrapperObject, tuple_from_args_w,
+                                             w_kwargs_from_args)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
-from rpython.rlib.buffer import Buffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.tool.sourcetools import func_renamer
 from rpython.flowspace.model import Constant
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.rtyper.annlowlevel import llhelper
 from pypy.module.sys.version import CPYTHON_VERSION
 
 PY3 = CPYTHON_VERSION[0] == 3
@@ -39,32 +40,9 @@ Py_NE = 3
 Py_GT = 4
 Py_GE = 5
 
-
-def check_num_args(space, w_ob, n):
-    from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
-    if not PyTuple_CheckExact(space, w_ob):
-        raise oefmt(space.w_SystemError,
-                    "PyArg_UnpackTuple() argument list is not a tuple")
-    if n == space.len_w(w_ob):
-        return
-    raise oefmt(space.w_TypeError,
-                "expected %d arguments, got %d",
-                n, space.len_w(w_ob))
-
-def check_num_argsv(space, w_ob, low, high):
-    from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
-    if not PyTuple_CheckExact(space, w_ob):
-        raise oefmt(space.w_SystemError,
-                    "PyArg_UnpackTuple() argument list is not a tuple")
-    if low <=space.len_w(w_ob) <= high:
-        return
-    raise oefmt(space.w_TypeError,
-                "expected %d-%d arguments, got %d",
-                low, high, space.len_w(w_ob))
-
 @not_rpython
 def llslot(space, func):
-    return llhelper(func.api_func.functype, func.api_func.get_wrapper(space))
+    return func.api_func.get_llhelper(space)
 
 @register_flow_sc(llslot)
 def sc_llslot(ctx, v_space, v_func):
@@ -72,417 +50,416 @@ def sc_llslot(ctx, v_space, v_func):
     get_llhelper = v_func.value.api_func.get_llhelper
     return ctx.appcall(get_llhelper, v_space)
 
+# NOTE: the following wrap_* are subclasses of W_PyCWrapperObject, even if
+# they don't follow the usual W_* naming convention for subclasses of W_Root:
+# we do this because we automatically generate most of the slots from the
+# CPython code copy&pasted inside slotdefs_str, and thus we need to keep the
+# same names as they are used in C.
 
-def wrap_init(space, w_self, w_args, func, w_kwargs):
-    func_init = rffi.cast(initproc, func)
-    res = generic_cpy_call(space, func_init, w_self, w_args, w_kwargs)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return None
+class wrap_init(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_init = rffi.cast(initproc, func)
+        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        w_kwargs = w_kwargs_from_args(space, __args__)
+        res = generic_cpy_call(space, func_init, w_self, py_args, w_kwargs)
+        decref(space, py_args)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return None
 
-def wrap_unaryfunc(space, w_self, w_args, func):
-    func_unary = rffi.cast(unaryfunc, func)
-    check_num_args(space, w_args, 0)
-    return generic_cpy_call(space, func_unary, w_self)
+class wrap_unaryfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_unary = rffi.cast(unaryfunc, func)
+        return generic_cpy_call(space, func_unary, w_self)
 
-def wrap_binaryfunc(space, w_self, w_args, func):
-    func_binary = rffi.cast(binaryfunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    return generic_cpy_call(space, func_binary, w_self, args_w[0])
+class wrap_binaryfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_binary = rffi.cast(binaryfunc, func)
+        w_x = __args__.arguments_w[0]
+        return generic_cpy_call(space, func_binary, w_self, w_x)
 
-def wrap_binaryfunc_l(space, w_self, w_args, func):
-    func_binary = rffi.cast(binaryfunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    ref = make_ref(space, w_self)
-    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
-        return space.w_NotImplemented
-    decref(space, ref)
-    return generic_cpy_call(space, func_binary, w_self, args_w[0])
+def _get_ob_type(space, w_obj):
+    # please ensure that w_obj stays alive
+    ob_type = as_pyobj(space, space.type(w_obj))
+    return rffi.cast(PyTypeObjectPtr, ob_type)
 
-def wrap_binaryfunc_r(space, w_self, w_args, func):
-    func_binary = rffi.cast(binaryfunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    ref = make_ref(space, w_self)
-    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
-        return space.w_NotImplemented
-    decref(space, ref)
-    return generic_cpy_call(space, func_binary, args_w[0], w_self)
+class wrap_binaryfunc_l(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_binary = rffi.cast(binaryfunc, func)
+        w_value = __args__.arguments_w[0]
+        ob_type = _get_ob_type(space, w_self)
+        if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+            not space.issubtype_w(space.type(w_value), space.type(w_self))):
+            return space.w_NotImplemented
+        return generic_cpy_call(space, func_binary, w_self, w_value)
 
-def wrap_ternaryfunc(space, w_self, w_args, func):
-    # The third argument is optional
-    func_ternary = rffi.cast(ternaryfunc, func)
-    check_num_argsv(space, w_args, 1, 2)
-    args_w = space.fixedview(w_args)
-    arg3 = space.w_None
-    if len(args_w) > 1:
-        arg3 = args_w[1]
-    return generic_cpy_call(space, func_ternary, w_self, args_w[0], arg3)
+class wrap_binaryfunc_r(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_binary = rffi.cast(binaryfunc, func)
+        w_value = __args__.arguments_w[0]
+        ob_type = _get_ob_type(space, w_self)
+        if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+            not space.issubtype_w(space.type(w_value), space.type(w_self))):
+            return space.w_NotImplemented
+        return generic_cpy_call(space, func_binary, w_value, w_self)
 
-def wrap_ternaryfunc_r(space, w_self, w_args, func):
-    # The third argument is optional
-    func_ternary = rffi.cast(ternaryfunc, func)
-    check_num_argsv(space, w_args, 1, 2)
-    args_w = space.fixedview(w_args)
-    ref = make_ref(space, w_self)
-    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
-        return space.w_NotImplemented
-    decref(space, ref)
-    arg3 = space.w_None
-    if len(args_w) > 1:
-        arg3 = args_w[1]
-    return generic_cpy_call(space, func_ternary, args_w[0], w_self, arg3)
+class wrap_ternaryfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        # The third argument is optional
+        self.check_argsv(__args__, 1, 2)
+        func = self.get_func_to_call()
+        func_ternary = rffi.cast(ternaryfunc, func)
+        w_arg0 = __args__.arguments_w[0]
+        if len(__args__.arguments_w) == 2:
+            w_arg1 = __args__.arguments_w[1]
+        else:
+            w_arg1 = space.w_None
+        return generic_cpy_call(space, func_ternary, w_self, w_arg0, w_arg1)
 
+class wrap_ternaryfunc_r(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):    
+        # The third argument is optional
+        self.check_argsv(__args__, 1, 2)
+        func = self.get_func_to_call()
+        func_ternary = rffi.cast(ternaryfunc, func)
+        w_arg0 = __args__.arguments_w[0]
+        if len(__args__.arguments_w) == 2:
+            w_arg1 = __args__.arguments_w[1]
+        else:
+            w_arg1 = space.w_None
+        ob_type = _get_ob_type(space, w_self)
+        if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+            not space.issubtype_w(space.type(w_arg0), space.type(w_self))):
+            return space.w_NotImplemented
+        return generic_cpy_call(space, func_ternary, w_arg0, w_self, w_arg1)
 
-def wrap_inquirypred(space, w_self, w_args, func):
-    func_inquiry = rffi.cast(inquiry, func)
-    check_num_args(space, w_args, 0)
-    args_w = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_inquiry, w_self)
-    res = rffi.cast(lltype.Signed, res)
-    if res == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(bool(res))
+class wrap_inquirypred(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_inquiry = rffi.cast(inquiry, func)
+        res = generic_cpy_call(space, func_inquiry, w_self)
+        res = rffi.cast(lltype.Signed, res)
+        if res == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.newbool(bool(res))
 
-def wrap_getattr(space, w_self, w_args, func):
-    func_target = rffi.cast(getattrfunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    name_ptr = rffi.str2charp(space.str_w(args_w[0]))
-    try:
-        return generic_cpy_call(space, func_target, w_self, name_ptr)
-    finally:
-        rffi.free_charp(name_ptr)
+class wrap_getattr(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(getattrfunc, func)
+        w_name = __args__.arguments_w[0]
+        name_ptr = rffi.str2charp(space.text_w(w_name))
+        try:
+            return generic_cpy_call(space, func_target, w_self, name_ptr)
+        finally:
+            rffi.free_charp(name_ptr)
 
-def wrap_getattro(space, w_self, w_args, func):
-    func_target = rffi.cast(getattrofunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    return generic_cpy_call(space, func_target, w_self, args_w[0])
+class wrap_getattro(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(getattrofunc, func)
+        w_name = __args__.arguments_w[0]
+        return generic_cpy_call(space, func_target, w_self, w_name)
 
-def wrap_setattr(space, w_self, w_args, func):
-    func_target = rffi.cast(setattrofunc, func)
-    check_num_args(space, w_args, 2)
-    w_name, w_value = space.fixedview(w_args)
-    # XXX "Carlo Verre hack"?
-    res = generic_cpy_call(space, func_target, w_self, w_name, w_value)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_setattr(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(setattrofunc, func)
+        w_name = __args__.arguments_w[0]
+        w_value = __args__.arguments_w[1]
+        # XXX "Carlo Verre hack"?
+        res = generic_cpy_call(space, func_target, w_self, w_name, w_value)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_delattr(space, w_self, w_args, func):
-    func_target = rffi.cast(setattrofunc, func)
-    check_num_args(space, w_args, 1)
-    w_name, = space.fixedview(w_args)
-    # XXX "Carlo Verre hack"?
-    res = generic_cpy_call(space, func_target, w_self, w_name, None)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_delattr(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(setattrofunc, func)
+        w_name = __args__.arguments_w[0]
+        # XXX "Carlo Verre hack"?
+        res = generic_cpy_call(space, func_target, w_self, w_name, None)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_descr_get(space, w_self, w_args, func):
-    func_target = rffi.cast(descrgetfunc, func)
-    args_w = space.fixedview(w_args)
-    if len(args_w) == 1:
-        w_obj, = args_w
-        w_type = None
-    elif len(args_w) == 2:
-        w_obj, w_type = args_w
-    else:
-        raise oefmt(space.w_TypeError,
-                    "expected 1 or 2 arguments, got %d", len(args_w))
-    if w_obj is space.w_None:
-        w_obj = None
-    if w_type is space.w_None:
-        w_type = None
-    if w_obj is None and w_type is None:
-        raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
-    return generic_cpy_call(space, func_target, w_self, w_obj, w_type)
+class wrap_descr_get(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(descrgetfunc, func)
+        length = len(__args__.arguments_w)
+        if length == 1:
+            w_obj = __args__.arguments_w[0]
+            w_type = None
+        elif length == 2:
+            w_obj = __args__.arguments_w[0]
+            w_type = __args__.arguments_w[1]
+        else:
+            raise oefmt(space.w_TypeError,
+                        "expected 1 or 2 arguments, got %d", len(__args__.arguments_w))
+        if w_obj is space.w_None:
+            w_obj = None
+        if w_type is space.w_None:
+            w_type = None
+        if w_obj is None and w_type is None:
+            raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
+        return generic_cpy_call(space, func_target, w_self, w_obj, w_type)
 
-def wrap_descr_set(space, w_self, w_args, func):
-    func_target = rffi.cast(descrsetfunc, func)
-    check_num_args(space, w_args, 2)
-    w_obj, w_value = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_obj, w_value)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_descr_set(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(descrsetfunc, func)
+        w_obj = __args__.arguments_w[0]
+        w_value = __args__.arguments_w[1]
+        res = generic_cpy_call(space, func_target, w_self, w_obj, w_value)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_descr_delete(space, w_self, w_args, func):
-    func_target = rffi.cast(descrsetfunc, func)
-    check_num_args(space, w_args, 1)
-    w_obj, = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_obj, None)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_descr_delete(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(descrsetfunc, func)
+        w_obj = __args__.arguments_w[0]
+        res = generic_cpy_call(space, func_target, w_self, w_obj, None)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_call(space, w_self, w_args, func, w_kwds):
-    func_target = rffi.cast(ternaryfunc, func)
-    return generic_cpy_call(space, func_target, w_self, w_args, w_kwds)
+class wrap_call(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ternaryfunc, func)
+        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        w_kwargs = w_kwargs_from_args(space, __args__)
+        ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
+        decref(space, py_args)
+        return ret
 
-def wrap_ssizessizeobjargproc(space, w_self, w_args, func):
-    func_target = rffi.cast(ssizessizeobjargproc, func)
-    check_num_args(space, w_args, 3)
-    args_w = space.fixedview(w_args)
-    i = space.int_w(space.index(args_w[0]))
-    j = space.int_w(space.index(args_w[1]))
-    w_y = args_w[2]
-    res = generic_cpy_call(space, func_target, w_self, i, j, w_y)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_ssizessizeobjargproc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 3)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ssizessizeobjargproc, func)
+        i = space.int_w(space.index(__args__.arguments_w[0]))
+        j = space.int_w(space.index(__args__.arguments_w[1]))
+        w_y = __args__.arguments_w[2]
+        res = generic_cpy_call(space, func_target, w_self, i, j, w_y)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_lenfunc(space, w_self, w_args, func):
-    func_len = rffi.cast(lenfunc, func)
-    check_num_args(space, w_args, 0)
-    return space.wrap(generic_cpy_call(space, func_len, w_self))
+class wrap_lenfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_len = rffi.cast(lenfunc, func)
+        res = generic_cpy_call(space, func_len, w_self)
+        if widen(res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.newint(res)
 
-def wrap_sq_item(space, w_self, w_args, func):
-    func_target = rffi.cast(ssizeargfunc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    index = space.int_w(space.index(args_w[0]))
-    return generic_cpy_call(space, func_target, w_self, index)
+class wrap_sq_item(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ssizeargfunc, func)
+        w_index = __args__.arguments_w[0]
+        index = space.int_w(space.index(w_index))
+        return generic_cpy_call(space, func_target, w_self, index)
 
-def wrap_sq_setitem(space, w_self, w_args, func):
-    func_target = rffi.cast(ssizeobjargproc, func)
-    check_num_args(space, w_args, 2)
-    args_w = space.fixedview(w_args)
-    index = space.int_w(space.index(args_w[0]))
-    res = generic_cpy_call(space, func_target, w_self, index, args_w[1])
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_sq_setitem(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ssizeobjargproc, func)
+        w_index = __args__.arguments_w[0]
+        w_value = __args__.arguments_w[1]
+        index = space.int_w(space.index(w_index))
+        res = generic_cpy_call(space, func_target, w_self, index, w_value)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
-def wrap_sq_delitem(space, w_self, w_args, func):
-    func_target = rffi.cast(ssizeobjargproc, func)
-    check_num_args(space, w_args, 1)
-    args_w = space.fixedview(w_args)
-    index = space.int_w(space.index(args_w[0]))
-    null = lltype.nullptr(PyObject.TO)
-    res = generic_cpy_call(space, func_target, w_self, index, null)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
+class wrap_sq_delitem(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ssizeobjargproc, func)
+        w_index = __args__.arguments_w[0]
+        index = space.int_w(space.index(w_index))
+        null = rffi.cast(PyObject, 0)
+        res = generic_cpy_call(space, func_target, w_self, index, null)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
 
 # Warning, confusing function name (like CPython).  Used only for sq_contains.
-def wrap_objobjproc(space, w_self, w_args, func):
-    func_target = rffi.cast(objobjproc, func)
-    check_num_args(space, w_args, 1)
-    w_value, = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_value)
-    res = rffi.cast(lltype.Signed, res)
-    if res == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(bool(res))
-
-def wrap_objobjargproc(space, w_self, w_args, func):
-    func_target = rffi.cast(objobjargproc, func)
-    check_num_args(space, w_args, 2)
-    w_key, w_value = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_key, w_value)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.w_None
-
-def wrap_delitem(space, w_self, w_args, func):
-    func_target = rffi.cast(objobjargproc, func)
-    check_num_args(space, w_args, 1)
-    w_key, = space.fixedview(w_args)
-    res = generic_cpy_call(space, func_target, w_self, w_key, None)
-    if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.w_None
-
-def wrap_ssizessizeargfunc(space, w_self, w_args, func):
-    func_target = rffi.cast(ssizessizeargfunc, func)
-    check_num_args(space, w_args, 2)
-    args_w = space.fixedview(w_args)
-    start = space.int_w(args_w[0])
-    end = space.int_w(args_w[1])
-    return generic_cpy_call(space, func_target, w_self, start, end)
-
-def wrap_next(space, w_self, w_args, func):
-    from pypy.module.cpyext.api import generic_cpy_call_expect_null
-    func_target = rffi.cast(iternextfunc, func)
-    check_num_args(space, w_args, 0)
-    w_res = generic_cpy_call_expect_null(space, func_target, w_self)
-    if not w_res and not PyErr_Occurred(space):
-        raise OperationError(space.w_StopIteration, space.w_None)
-    return w_res
-
-def wrap_hashfunc(space, w_self, w_args, func):
-    func_target = rffi.cast(hashfunc, func)
-    check_num_args(space, w_args, 0)
-    res = generic_cpy_call(space, func_target, w_self)
-    if res == -1:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(res)
-
-class CPyBuffer(Buffer):
-    # Similar to Py_buffer
-    _immutable_ = True
-
-    def __init__(self, space, ptr, size, w_obj, format='B', shape=None,
-                strides=None, ndim=1, itemsize=1, readonly=True,
-                releasebuffer=None):
-        self.space = space
-        self.ptr = ptr
-        self.size = size
-        self.w_obj = w_obj # kept alive
-        self.pyobj = make_ref(space, w_obj)
-        self.format = format
-        if not shape:
-            self.shape = [size]
-        else:
-            self.shape = shape
-        if not strides:
-            self.strides = [1]
-        else:
-            self.strides = strides
-        self.ndim = ndim
-        self.itemsize = itemsize
-        self.readonly = readonly
-        self.releasebufferproc = releasebuffer
-
-    def releasebuffer(self):
-        if self.pyobj:
-            decref(self.space, self.pyobj)
-            self.pyobj = lltype.nullptr(PyObject.TO)
-        else:
-            #do not call twice
-            return
-        if self.releasebufferproc:        
-            func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
-            with lltype.scoped_alloc(Py_buffer) as pybuf:
-                pybuf.c_buf = self.ptr
-                pybuf.c_len = self.size
-                pybuf.c_ndim = rffi.cast(rffi.INT_real, self.ndim)
-                for i in range(self.ndim):
-                    pybuf.c_shape[i] = self.shape[i]
-                    pybuf.c_strides[i] = self.strides[i]
-                pybuf.c_format = rffi.str2charp(self.format)
-                generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
-            self.releasebufferproc = rffi.cast(rffi.VOIDP, 0)
-
-    def getlength(self):
-        return self.size
-
-    def getitem(self, index):
-        return self.ptr[index]
-
-    def get_raw_address(self):
-        return rffi.cast(rffi.CCHARP, self.ptr)
-
-    def getformat(self):
-        return self.format
-
-    def getshape(self):
-        return self.shape
-
-    def getstrides(self):
-        return self.strides
-
-    def getitemsize(self):
-        return self.itemsize
-
-    def getndim(self):
-        return self.ndim
-
-    def setitem(self, index, char):
-        # absolutely no safety checks, what could go wrong?
-        self.ptr[index] = char
-
-class FQ(rgc.FinalizerQueue):
-    Class = CPyBuffer
-    def finalizer_trigger(self):
-        while 1:
-            buf  = self.next_dead()
-            if not buf:
-                break
-            buf.releasebuffer()
-
-fq = FQ()
-
-def wrap_getreadbuffer(space, w_self, w_args, func):
-    func_target = rffi.cast(readbufferproc, func)
-    py_obj = make_ref(space, w_self)
-    py_type = py_obj.c_ob_type
-    releasebuffer = rffi.cast(rffi.VOIDP, 0)
-    if py_type.c_tp_as_buffer:
-        releasebuffer = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-    decref(space, py_obj)
-    with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
-        index = rffi.cast(Py_ssize_t, 0)
-        size = generic_cpy_call(space, func_target, w_self, index, ptr)
-        if size < 0:
+class wrap_objobjproc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(objobjproc, func)
+        w_value = __args__.arguments_w[0]
+        res = generic_cpy_call(space, func_target, w_self, w_value)
+        res = rffi.cast(lltype.Signed, res)
+        if res == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
-        buf = CPyBuffer(space, ptr[0], size, w_self, 
-                               releasebuffer=releasebuffer)
-        fq.register_finalizer(buf)
-        return space.newbuffer(buf)
+        return space.newbool(bool(res))
 
-def wrap_getwritebuffer(space, w_self, w_args, func):
-    func_target = rffi.cast(readbufferproc, func)
-    py_obj = make_ref(space, w_self)
-    py_type = py_obj.c_ob_type
-    decref(space, py_obj)
-    releasebuffer = rffi.cast(rffi.VOIDP, 0)
-    if py_type.c_tp_as_buffer:
-        releasebuffer = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-    with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
-        index = rffi.cast(Py_ssize_t, 0)
-        size = generic_cpy_call(space, func_target, w_self, index, ptr)
-        if size < 0:
+class wrap_objobjargproc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(objobjargproc, func)
+        w_key = __args__.arguments_w[0]
+        w_value = __args__.arguments_w[1]
+        res = generic_cpy_call(space, func_target, w_self, w_key, w_value)
+        if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
-        buf = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
-                               releasebuffer=releasebuffer)
-        fq.register_finalizer(buf)
-        return space.newbuffer(buf)
+        return space.w_None
 
-def wrap_getbuffer(space, w_self, w_args, func):
-    func_target = rffi.cast(getbufferproc, func)
-    py_obj = make_ref(space, w_self)
-    py_type = py_obj.c_ob_type
-    releasebuffer = rffi.cast(rffi.VOIDP, 0)
-    if py_type.c_tp_as_buffer:
-        releasebuffer = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-    decref(space, py_obj)
-    with lltype.scoped_alloc(Py_buffer) as pybuf:
-        _flags = 0
-        if space.len_w(w_args) > 0:
-            _flags = space.int_w(space.listview(w_args)[0])
-        flags = rffi.cast(rffi.INT_real,_flags)
-        size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
-        if widen(size) < 0:
+class wrap_delitem(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(objobjargproc, func)
+        w_key = __args__.arguments_w[0]
+        null = rffi.cast(PyObject, 0)
+        res = generic_cpy_call(space, func_target, w_self, w_key, null)
+        if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
-        ptr = pybuf.c_buf
-        size = pybuf.c_len
-        ndim = widen(pybuf.c_ndim)
-        shape =   [pybuf.c_shape[i]   for i in range(ndim)]
-        if pybuf.c_strides:
-            strides = [pybuf.c_strides[i] for i in range(ndim)]
-        else:
-            strides = [1]
-        if pybuf.c_format:
-            format = rffi.charp2str(pybuf.c_format)
-        else:
-            format = 'B'
-        buf = CPyBuffer(space, ptr, size, w_self, format=format,
-                            ndim=ndim, shape=shape, strides=strides,
-                            itemsize=pybuf.c_itemsize,
-                            readonly=widen(pybuf.c_readonly),
-                            releasebuffer = releasebuffer)
-        fq.register_finalizer(buf)
-        return space.newbuffer(buf)
+        return space.w_None
+
+class wrap_ssizessizeargfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ssizessizeargfunc, func)
+        start = space.int_w(__args__.arguments_w[0])
+        end = space.int_w(__args__.arguments_w[1])
+        return generic_cpy_call(space, func_target, w_self, start, end)
+
+class wrap_next(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        from pypy.module.cpyext.api import generic_cpy_call_expect_null
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(iternextfunc, func)
+        w_res = generic_cpy_call_expect_null(space, func_target, w_self)
+        if not w_res and not PyErr_Occurred(space):
+            raise OperationError(space.w_StopIteration, space.w_None)
+        return w_res
+
+class wrap_hashfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(hashfunc, func)
+        res = generic_cpy_call(space, func_target, w_self)
+        if res == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.newint(res)
+
+class wrap_getreadbuffer(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(readbufferproc, func)
+        py_type = _get_ob_type(space, w_self)
+        rbp = rffi.cast(rffi.VOIDP, 0)
+        if py_type.c_tp_as_buffer:
+            rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
+            index = rffi.cast(Py_ssize_t, 0)
+            size = generic_cpy_call(space, func_target, w_self, index, ptr)
+            if size < 0:
+                space.fromcache(State).check_and_raise_exception(always=True)
+            view = CPyBuffer(space, ptr[0], size, w_self,
+                                   releasebufferproc=rbp)
+            fq.register_finalizer(view)
+            return space.newbuffer(CBuffer(view))
+
+class wrap_getwritebuffer(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(readbufferproc, func)
+        py_type = _get_ob_type(space, w_self)
+        rbp = rffi.cast(rffi.VOIDP, 0)
+        if py_type.c_tp_as_buffer:
+            rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
+            index = rffi.cast(Py_ssize_t, 0)
+            size = generic_cpy_call(space, func_target, w_self, index, ptr)
+            if size < 0:
+                space.fromcache(State).check_and_raise_exception(always=True)
+            view = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
+                                   releasebufferproc=rbp)
+            fq.register_finalizer(view)
+            return space.newbuffer(CBuffer(view))
+
+
+class wrap_getbuffer(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        func = self.get_func_to_call()
+        func_target = rffi.cast(getbufferproc, func)
+        py_type = _get_ob_type(space, w_self)
+        rbp = rffi.cast(rffi.VOIDP, 0)
+        if py_type.c_tp_as_buffer:
+            rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
+        with lltype.scoped_alloc(Py_buffer) as pybuf:
+            _flags = 0
+            if len(__args__.arguments_w) > 0:
+                _flags = space.int_w(__args__.arguments_w[0])
+            flags = rffi.cast(rffi.INT_real,_flags)
+            size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
+            if widen(size) < 0:
+                space.fromcache(State).check_and_raise_exception(always=True)
+            ptr = pybuf.c_buf
+            size = pybuf.c_len
+            ndim = widen(pybuf.c_ndim)
+            shape = None
+            if pybuf.c_shape:
+                shape = [pybuf.c_shape[i]   for i in range(ndim)]
+            strides = None
+            if pybuf.c_strides:
+                strides = [pybuf.c_strides[i] for i in range(ndim)]
+            if pybuf.c_format:
+                format = rffi.charp2str(pybuf.c_format)
+            else:
+                format = 'B'
+            # the CPython docs mandates that you do an incref whenever you call
+            # bf_getbuffer; so, we pass needs_decref=True to ensure that we don't
+            # leak we release the buffer:
+            # https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer
+            buf = CPyBuffer(space, ptr, size, w_self, format=format,
+                                ndim=ndim, shape=shape, strides=strides,
+                                itemsize=pybuf.c_itemsize,
+                                readonly=widen(pybuf.c_readonly),
+                                needs_decref=True,
+                                releasebufferproc = rbp)
+            fq.register_finalizer(buf)
+            return buf.wrap(space)
 
 def get_richcmp_func(OP_CONST):
-    def inner(space, w_self, w_args, func):
-        func_target = rffi.cast(richcmpfunc, func)
-        check_num_args(space, w_args, 1)
-        w_other, = space.fixedview(w_args)
-        return generic_cpy_call(space, func_target,
-            w_self, w_other, rffi.cast(rffi.INT_real, OP_CONST))
-    return inner
+    class wrap_richcmp(W_PyCWrapperObject):
+        def call(self, space, w_self, __args__):
+            self.check_args(__args__, 1)
+            func = self.get_func_to_call()
+            func_target = rffi.cast(richcmpfunc, func)
+            w_other = __args__.arguments_w[0]
+            return generic_cpy_call(space, func_target,
+                w_self, w_other, rffi.cast(rffi.INT_real, OP_CONST))
+    return wrap_richcmp
 
 richcmp_eq = get_richcmp_func(Py_EQ)
 richcmp_ne = get_richcmp_func(Py_NE)
@@ -491,253 +468,441 @@ richcmp_le = get_richcmp_func(Py_LE)
 richcmp_gt = get_richcmp_func(Py_GT)
 richcmp_ge = get_richcmp_func(Py_GE)
 
-def wrap_cmpfunc(space, w_self, w_args, func):
-    func_target = rffi.cast(cmpfunc, func)
-    check_num_args(space, w_args, 1)
-    w_other, = space.fixedview(w_args)
+class wrap_cmpfunc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(cmpfunc, func)
+        w_other = __args__.arguments_w[0]
 
-    if not space.issubtype_w(space.type(w_self), space.type(w_other)):
-        raise oefmt(space.w_TypeError,
-                    "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
-                    w_self, w_self, w_other)
+        if not space.issubtype_w(space.type(w_self), space.type(w_other)):
+            raise oefmt(space.w_TypeError,
+                        "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
+                        w_self, w_self, w_other)
 
-    return space.wrap(generic_cpy_call(space, func_target, w_self, w_other))
+        return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
 
-from rpython.rlib.nonconst import NonConstant
+SLOT_FACTORIES = {}
+def slot_factory(tp_name):
+    def decorate(func):
+        SLOT_FACTORIES[tp_name] = func
+        return func
+    return decorate
+
 
 SLOTS = {}
-
 @specialize.memo()
-def get_slot_tp_function(space, typedef, name):
+def get_slot_tp_function(space, typedef, name, method_name):
+    """Return a description of the slot C function to use for the built-in
+    type for 'typedef'.  The 'name' is the slot name.  This is a memo
+    function that, after translation, returns one of a built-in finite set.
+    """
     key = (typedef, name)
     try:
         return SLOTS[key]
     except KeyError:
-        slot_func = build_slot_tp_function(space, typedef, name)
+        slot_func = SLOT_FACTORIES[name](space, typedef, name, method_name)
         api_func = slot_func.api_func if slot_func else None
         SLOTS[key] = api_func
         return api_func
 
-def build_slot_tp_function(space, typedef, name):
+
+def make_unary_slot(space, typedef, name, attr):
     w_type = space.gettypeobject(typedef)
-
-    header = pypy_decl
-    if mangle_name('', typedef.name) is None:
-        header = None
-    handled = False
-    # unary functions
-    for tp_name, attr in [('tp_as_number.c_nb_int', '__int__'),
-                          ('tp_as_number.c_nb_long', '__long__'),
-                          ('tp_as_number.c_nb_float', '__float__'),
-                          ('tp_as_number.c_nb_negative', '__neg__'),
-                          ('tp_as_number.c_nb_positive', '__pos__'),
-                          ('tp_as_number.c_nb_absolute', '__abs__'),
-                          ('tp_as_number.c_nb_invert', '__invert__'),
-                          ('tp_as_number.c_nb_index', '__index__'),
-                          ('tp_as_number.c_nb_hex', '__hex__'),
-                          ('tp_as_number.c_nb_oct', '__oct__'),
-                          ('tp_str', '__str__'),
-                          ('tp_repr', '__repr__'),
-                          ('tp_iter', '__iter__'),
-                          ]:
-        if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
-            if slot_fn is None:
-                return
-
-            @cpython_api([PyObject], PyObject, header=header)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self):
-                return space.call_function(slot_fn, w_self)
-            handled = True
-
-    # binary functions
-    for tp_name, attr in [('tp_as_number.c_nb_add', '__add__'),
-                          ('tp_as_number.c_nb_subtract', '__sub__'),
-                          ('tp_as_number.c_nb_multiply', '__mul__'),
-                          ('tp_as_number.c_nb_divide', '__div__'),
-                          ('tp_as_number.c_nb_remainder', '__mod__'),
-                          ('tp_as_number.c_nb_divmod', '__divmod__'),
-                          ('tp_as_number.c_nb_lshift', '__lshift__'),
-                          ('tp_as_number.c_nb_rshift', '__rshift__'),
-                          ('tp_as_number.c_nb_and', '__and__'),
-                          ('tp_as_number.c_nb_xor', '__xor__'),
-                          ('tp_as_number.c_nb_or', '__or__'),
-                          ('tp_as_sequence.c_sq_concat', '__add__'),
-                          ('tp_as_sequence.c_sq_inplace_concat', '__iadd__')
-                          ]:
-        if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
-            if slot_fn is None:
-                return
-
-            @cpython_api([PyObject, PyObject], PyObject, header=header)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self, w_arg):
-                return space.call_function(slot_fn, w_self, w_arg)
-            handled = True
-
-    # binary-with-Py_ssize_t-type
-    for tp_name, attr in [('tp_as_sequence.c_sq_item', '__getitem'),
-                          ('tp_as_sequence.c_sq_repeat', '__mul__'),
-                          ('tp_as_sequence.c_sq_repeat', '__mul__'),
-                          ('tp_as_sequence.c_sq_inplace_repeat', '__imul__'),
-                          ]:
-        if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
-            if slot_fn is None:
-                return
-
-            @cpython_api([PyObject, Py_ssize_t], PyObject, header=header)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self, arg):
-                return space.call_function(slot_fn, w_self, space.wrap(arg))
-            handled = True
-
-    # ternary functions
-    for tp_name, attr in [('tp_as_number.c_nb_power', '__pow__'),
-                          ]:
-        if name == tp_name:
-            slot_fn = w_type.getdictvalue(space, attr)
-            if slot_fn is None:
-                return
-
-            @cpython_api([PyObject, PyObject, PyObject], PyObject, header=header)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-            def slot_func(space, w_self, w_arg1, w_arg2):
-                return space.call_function(slot_fn, w_self, w_arg1, w_arg2)
-            handled = True
-
-    if handled:
-        pass
-    elif name == 'tp_setattro':
-        setattr_fn = w_type.getdictvalue(space, '__setattr__')
-        delattr_fn = w_type.getdictvalue(space, '__delattr__')
-        if setattr_fn is None:
-            return
-
-        @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real,
-                     error=-1, header=header)
-        @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
-        def slot_tp_setattro(space, w_self, w_name, w_value):
-            if w_value is not None:
-                space.call_function(setattr_fn, w_self, w_name, w_value)
-            else:
-                space.call_function(delattr_fn, w_self, w_name)
-            return 0
-        slot_func = slot_tp_setattro
-    elif name == 'tp_getattro':
-        getattr_fn = w_type.getdictvalue(space, '__getattribute__')
-        if getattr_fn is None:
-            return
-
-        @cpython_api([PyObject, PyObject], PyObject, header=header)
-        @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
-        def slot_tp_getattro(space, w_self, w_name):
-            return space.call_function(getattr_fn, w_self, w_name)
-        slot_func = slot_tp_getattro
-    elif name == 'tp_call':
-        call_fn = w_type.getdictvalue(space, '__call__')
-        if call_fn is None:
-            return
-
-        @cpython_api([PyObject, PyObject, PyObject], PyObject, header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_call(space, w_self, w_args, w_kwds):
-            args = Arguments(space, [w_self],
-                             w_stararg=w_args, w_starstararg=w_kwds)
-            return space.call_args(call_fn, args)
-        slot_func = slot_tp_call
-
-    elif name == 'tp_iternext':
-        iternext_fn = w_type.getdictvalue(space, 'next')
-        if iternext_fn is None:
-            return
-
-        @cpython_api([PyObject], PyObject, header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_iternext(space, w_self):
-            try:
-                return space.call_function(iternext_fn, w_self)
-            except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                return None
-        slot_func = slot_tp_iternext
-
-    elif name == 'tp_init':
-        init_fn = w_type.getdictvalue(space, '__init__')
-        if init_fn is None:
-            return
-
-        @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1,
-                     header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_init(space, w_self, w_args, w_kwds):
-            args = Arguments(space, [w_self],
-                             w_stararg=w_args, w_starstararg=w_kwds)
-            space.call_args(init_fn, args)
-            return 0
-        slot_func = slot_tp_init
-    elif name == 'tp_new':
-        new_fn = w_type.getdictvalue(space, '__new__')
-        if new_fn is None:
-            return
-
-        @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, header=None)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_new(space, w_self, w_args, w_kwds):
-            args = Arguments(space, [w_self],
-                             w_stararg=w_args, w_starstararg=w_kwds)
-            return space.call_args(space.get(new_fn, w_self), args)
-        slot_func = slot_tp_new
-    elif name == 'tp_as_buffer.c_bf_getbuffer':
-        buff_fn = w_type.getdictvalue(space, '__buffer__')
-        if buff_fn is None:
-            return
-        @cpython_api([PyObject, Py_bufferP, rffi.INT_real],
-                rffi.INT_real, header=None, error=-1)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def buff_w(space, w_self, view, flags):
-            args = Arguments(space, [space.newint(flags)])
-            w_obj = space.call_args(space.get(buff_fn, w_self), args)
-            if view:
-                #like PyObject_GetBuffer
-                flags = widen(flags)
-                buf = space.buffer_w(w_obj, flags)
-                try:
-                    view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-                    view.c_obj = make_ref(space, w_obj)
-                except ValueError:
-                    w_s = space.newbytes(buf.as_str())
-                    view.c_obj = make_ref(space, w_s)
-                    view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
-                                    space.str_w(w_s), track_allocation=False))
-                    rffi.setintfield(view, 'c_readonly', 1)
-                ret = fill_Py_buffer(space, buf, view)
-                return ret
-            return 0
-        # XXX remove this when it no longer crashes a translated PyPy
-        return
-        slot_func = buff_w
-    else:
-        # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
-        # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
-        # richcmpfunc(s)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
         return
 
+    @slot_function([PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self):
+        return space.call_function(slot_fn, w_self)
     return slot_func
+
+UNARY_SLOTS = [
+    'tp_as_number.c_nb_int',
+    'tp_as_number.c_nb_long',
+    'tp_as_number.c_nb_float',
+    'tp_as_number.c_nb_negative',
+    'tp_as_number.c_nb_positive',
+    'tp_as_number.c_nb_absolute',
+    'tp_as_number.c_nb_invert',
+    'tp_as_number.c_nb_index',
+    'tp_as_number.c_nb_hex',
+    'tp_as_number.c_nb_oct',
+    'tp_str',
+    'tp_repr',
+    'tp_iter']
+for name in UNARY_SLOTS:
+    slot_factory(name)(make_unary_slot)
+
+def make_unary_slot_int(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
+        return
+    @slot_function([PyObject], lltype.Signed, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_obj):
+        return space.int_w(space.call_function(slot_fn, w_obj))
+    return slot_func
+
+UNARY_SLOTS_INT = [
+    'tp_hash',
+    'tp_as_sequence.c_sq_length',
+    'tp_as_mapping.c_mp_length',]
+for name in UNARY_SLOTS_INT:
+    slot_factory(name)(make_unary_slot_int)
+
+
+def make_binary_slot(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, w_arg):
+        return space.call_function(slot_fn, w_self, w_arg)
+    return slot_func
+
+BINARY_SLOTS = [
+    'tp_as_number.c_nb_add',
+    'tp_as_number.c_nb_subtract',
+    'tp_as_number.c_nb_multiply',
+    'tp_as_number.c_nb_divide',
+    'tp_as_number.c_nb_remainder',
+    'tp_as_number.c_nb_divmod',
+    'tp_as_number.c_nb_lshift',
+    'tp_as_number.c_nb_rshift',
+    'tp_as_number.c_nb_and',
+    'tp_as_number.c_nb_xor',
+    'tp_as_number.c_nb_or',
+    'tp_as_sequence.c_sq_concat',
+    'tp_as_sequence.c_sq_inplace_concat',
+    'tp_as_mapping.c_mp_subscript',]
+for name in BINARY_SLOTS:
+    slot_factory(name)(make_binary_slot)
+
+
+def make_binary_slot_int(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
+        return
+
+    @slot_function([PyObject, Py_ssize_t], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, arg):
+        return space.call_function(slot_fn, w_self, space.newint(arg))
+    return slot_func
+
+BINARY_SLOTS_INT = [
+    'tp_as_sequence.c_sq_item',
+    'tp_as_sequence.c_sq_repeat',
+    'tp_as_sequence.c_sq_repeat',
+    'tp_as_sequence.c_sq_inplace_repeat',]
+for name in BINARY_SLOTS_INT:
+    slot_factory(name)(make_binary_slot_int)
+
+@slot_factory('tp_as_number.c_nb_power')
+def make_nb_power(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_fn = w_type.lookup(attr)
+    if slot_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, w_arg1, w_arg2):
+        return space.call_function(slot_fn, w_self, w_arg1, w_arg2)
+    return slot_func
+
+@slot_factory('tp_as_mapping.c_mp_ass_subscript')
+def make_sq_set_item(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_ass = w_type.lookup(attr)
+    if slot_ass is None:
+        return
+    slot_del = w_type.lookup('__delitem__')
+    if slot_del is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, w_arg1, arg2):
+        if arg2:
+            w_arg2 = from_ref(space, rffi.cast(PyObject, arg2))
+            space.call_function(slot_ass, w_self, w_arg1, w_arg2)
+        else:
+            space.call_function(slot_del, w_self, w_arg1)
+        return 0
+    return slot_func
+
+
+@slot_factory('tp_as_sequence.c_sq_ass_item')
+def make_sq_ass_item(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    slot_ass = w_type.lookup(attr)
+    if slot_ass is None:
+        return
+    slot_del = w_type.lookup('__delitem__')
+    if slot_del is None:
+        return
+
+    @slot_function([PyObject, lltype.Signed, PyObject], rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_func(space, w_self, arg1, arg2):
+        if arg2:
+            w_arg2 = from_ref(space, rffi.cast(PyObject, arg2))
+            space.call_function(slot_ass, w_self, space.newint(arg1), w_arg2)
+        else:
+            space.call_function(slot_del, w_self, space.newint(arg1))
+        return 0
+    return slot_func
+
+def make_tp_setattro(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    setattr_fn = w_type.lookup('__setattr__')
+    delattr_fn = w_type.lookup('__delattr__')
+    if setattr_fn is None or delattr_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], rffi.INT_real,
+                    error=-1)
+    @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
+    def slot_tp_setattro(space, w_self, w_name, w_value):
+        if w_value is not None:
+            space.call_function(setattr_fn, w_self, w_name, w_value)
+        else:
+            space.call_function(delattr_fn, w_self, w_name)
+        return 0
+    return slot_tp_setattro
+
+@slot_factory('tp_getattro')
+def make_tp_getattro(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    getattr_fn = w_type.lookup('__getattribute__')
+    if getattr_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
+    def slot_tp_getattro(space, w_self, w_name):
+        return space.call_function(getattr_fn, w_self, w_name)
+    return slot_tp_getattro
+
+@slot_factory('tp_call')
+def make_tp_call(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    call_fn = w_type.lookup('__call__')
+    if call_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_call(space, w_self, w_args, w_kwds):
+        args = Arguments(space, [w_self],
+                            w_stararg=w_args, w_starstararg=w_kwds)
+        return space.call_args(call_fn, args)
+    return slot_tp_call
+
+@slot_factory('tp_iternext')
+def make_tp_iternext(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    iternext_fn = w_type.lookup('next')
+    if iternext_fn is None:
+        return
+
+    @slot_function([PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_iternext(space, w_self):
+        try:
+            return space.call_function(iternext_fn, w_self)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            return None
+    return slot_tp_iternext
+
+@slot_factory('tp_init')
+def make_tp_init(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    init_fn = w_type.lookup('__init__')
+    if init_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_init(space, w_self, w_args, w_kwds):
+        args = Arguments(space, [w_self],
+                            w_stararg=w_args, w_starstararg=w_kwds)
+        space.call_args(init_fn, args)
+        return 0
+    return slot_tp_init
+
+@slot_factory('tp_new')
+def make_tp_new(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    new_fn = w_type.lookup('__new__')
+    if new_fn is None:
+        return
+
+    @slot_function([PyTypeObjectPtr, PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_new(space, w_self, w_args, w_kwds):
+        args = Arguments(space, [w_self],
+                            w_stararg=w_args, w_starstararg=w_kwds)
+        return space.call_args(space.get(new_fn, w_self), args)
+    return slot_tp_new
+
+@slot_factory('tp_as_buffer.c_bf_getbuffer')
+def make_bf_getbuffer(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    buff_fn = w_type.lookup('__buffer__')
+    if buff_fn is not None:
+        return slot_from___buffer__(space, typedef, buff_fn)
+    elif typedef.buffer:
+        return slot_from_buffer_w(space, typedef)
+    else:
+        return None
+
+@slot_factory('tp_descr_get')
+def make_tp_descr_get(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    get_fn = w_type.lookup('__get__')
+    if get_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], PyObject)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_descr_get(space, w_self, w_obj, w_value):
+        if w_obj is None:
+            w_obj = space.w_None
+        return space.call_function(get_fn, w_self, w_obj, w_value)
+    return slot_tp_descr_get
+
+@slot_factory('tp_descr_set')
+def make_tp_descr_set(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    set_fn = w_type.lookup('__set__')
+    delete_fn = w_type.lookup('__delete__')
+    if set_fn is None and delete_fn is None:
+        return
+
+    @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_descr_set(space, w_self, w_obj, w_value):
+        if w_value is not None:
+            if set_fn is None:
+                raise oefmt(space.w_TypeError,
+                            "%s object has no __set__", typedef.name)
+            space.call_function(set_fn, w_self, w_obj, w_value)
+        else:
+            if delete_fn is None:
+                raise oefmt(space.w_TypeError,
+                            "%s object has no __delete__", typedef.name)
+            space.call_function(delete_fn, w_self, w_obj)
+        return 0
+    return slot_tp_descr_set
+
+
+def slot_from___buffer__(space, typedef, buff_fn):
+    name = 'bf_getbuffer'
+    @slot_function([PyObject, Py_bufferP, rffi.INT_real],
+            rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name, typedef.name))
+    def buff_w(space, w_self, c_view, flags):
+        args = Arguments(space, [space.newint(flags)])
+        w_obj = space.call_args(space.get(buff_fn, w_self), args)
+        if c_view:
+            #like PyObject_GetBuffer
+            flags = widen(flags)
+            buf = space.buffer_w(w_obj, flags)
+            try:
+                c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                c_view.c_obj = make_ref(space, w_obj)
+            except ValueError:
+                s = buf.as_str()
+                w_s = space.newbytes(s)
+                c_view.c_obj = make_ref(space, w_s)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                        s, track_allocation=False))
+                rffi.setintfield(c_view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, c_view)
+            return ret
+        return 0
+    return buff_w
+
+def slot_from_buffer_w(space, typedef):
+    name = 'bf_getbuffer'
+    @slot_function([PyObject, Py_bufferP, rffi.INT_real],
+            rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name, typedef.name))
+    def buff_w(space, w_self, c_view, flags):
+        w_obj = w_self
+        if c_view:
+            #like PyObject_GetBuffer
+            flags = widen(flags)
+            buf = space.buffer_w(w_obj, flags)
+            try:
+                c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                c_view.c_obj = make_ref(space, w_obj)
+            except ValueError:
+                s = buf.as_str()
+                w_s = space.newbytes(s)
+                c_view.c_obj = make_ref(space, w_s)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                        s, track_allocation=False))
+                rffi.setintfield(c_view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, c_view)
+            return ret
+        return 0
+    return buff_w
+
+missing_wrappers = ['wrap_indexargfunc', 'wrap_delslice', 'wrap_coercefunc']
+for name in missing_wrappers:
+    assert name not in globals()
+    class missing_wrapper(W_PyCWrapperObject):
+        def call(self, space, w_self, __args__):
+            print "cpyext: missing slot wrapper " + name
+            raise NotImplementedError("Slot wrapper " + name)
+    missing_wrapper.__name__ = name
+    globals()[name] = missing_wrapper
+
+def make_missing_slot(space, typedef, name, attr):
+    return None
+
+missing_builtin_slots = [
+    'tp_print', 'tp_compare', 'tp_getattr', 'tp_setattr', 'tp_setattro',
+    'tp_richcompare', 'tp_del', 'tp_as_buffer.c_bf_getwritebuffer',
+    'tp_as_number.c_nb_nonzero', 'tp_as_number.c_nb_coerce',
+    'tp_as_number.c_nb_inplace_add', 'tp_as_number.c_nb_inplace_subtract',
+    'tp_as_number.c_nb_inplace_multiply', 'tp_as_number.c_nb_inplace_divide',
+    'tp_as_number.c_nb_inplace_remainder', 'tp_as_number.c_nb_inplace_power',
+    'tp_as_number.c_nb_inplace_lshift', 'tp_as_number.c_nb_inplace_rshift',
+    'tp_as_number.c_nb_inplace_and', 'tp_as_number.c_nb_inplace_xor',
+    'tp_as_number.c_nb_inplace_or',
+    'tp_as_number.c_nb_floor_divide', 'tp_as_number.c_nb_true_divide',
+    'tp_as_number.c_nb_inplace_floor_divide', 'tp_as_number.c_nb_inplace_true_divide',
+    'tp_as_sequence.c_sq_slice', 'tp_as_sequence.c_sq_ass_slice',
+    'tp_as_sequence.c_sq_contains',
+    'tp_as_buffer.c_bf_getreadbuffer',
+    ]
+for name in missing_builtin_slots:
+    slot_factory(name)(make_missing_slot)
+
 
 PyWrapperFlag_KEYWORDS = 1
 
 class TypeSlot:
-    def __init__(self, method_name, slot_name, function, wrapper1, wrapper2, doc):
+    def __init__(self, method_name, slot_name, function, wrapper, doc):
         self.method_name = method_name
         self.slot_name = slot_name
-        self.slot_names = ("c_" + slot_name).split(".")
+        self.slot_names = tuple(("c_" + slot_name).split("."))
         self.slot_func = function
-        self.wrapper_func = wrapper1
-        self.wrapper_func_kwds = wrapper2
+        self.wrapper_class = wrapper
         self.doc = doc
 
 # adapted from typeobject.c
@@ -745,7 +910,7 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
     if WRAPPER is None:
         wrapper = None
     else:
-        wrapper = globals().get(WRAPPER, Ellipsis)
+        wrapper = globals()[WRAPPER]
 
     # irregular interface, because of tp_getattr/tp_getattro confusion
     if NAME == "__getattr__":
@@ -756,23 +921,9 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
         else:
             assert False
 
-    function = globals().get(FUNCTION, None)
+    function = getattr(userslot, FUNCTION or '!missing', None)
     assert FLAGS == 0 or FLAGS == PyWrapperFlag_KEYWORDS
-    if FLAGS:
-        if wrapper is Ellipsis:
-            @func_renamer(WRAPPER)
-            def wrapper(space, w_self, w_args, func, w_kwds):
-                raise NotImplementedError("Wrapper for slot " + NAME)
-        wrapper1 = None
-        wrapper2 = wrapper
-    else:
-        if wrapper is Ellipsis:
-            @func_renamer(WRAPPER)
-            def wrapper(space, w_self, w_args, func):
-                raise NotImplementedError("Wrapper for slot " + NAME)
-        wrapper1 = wrapper
-        wrapper2 = None
-    return TypeSlot(NAME, SLOT, function, wrapper1, wrapper2, DOC)
+    return TypeSlot(NAME, SLOT, function, wrapper, DOC)
 
 def TPSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC):
     return FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, 0)
@@ -815,11 +966,12 @@ def RBINSLOTNOTINFIX(NAME, SLOT, FUNCTION, DOC):
 # Copy new slotdefs from typeobject.c
 # Remove comments and tabs
 # Done.
+# XXX NOTE that we already tweaked that string manually!
 slotdefs_str = r"""
 static slotdef slotdefs[] = {
         SQSLOT("__len__", sq_length, slot_sq_length, wrap_lenfunc,
                "x.__len__() <==> len(x)"),
-        SQSLOT("__add__", sq_concat, NULL, wrap_binaryfunc,
+        SQSLOT("__add__", sq_concat, slot_sq_concat, wrap_binaryfunc,
           "x.__add__(y) <==> x+y"),
         SQSLOT("__mul__", sq_repeat, NULL, wrap_indexargfunc,
           "x.__mul__(n) <==> x*n"),
@@ -967,8 +1119,7 @@ static slotdef slotdefs[] = {
                "x.__call__(...) <==> x(...)", PyWrapperFlag_KEYWORDS),
         TPSLOT("__getattribute__", tp_getattro, slot_tp_getattr_hook,
                wrap_binaryfunc, "x.__getattribute__('name') <==> x.name"),
-        TPSLOT("__getattribute__", tp_getattr, NULL, NULL, ""),
-        TPSLOT("__getattr__", tp_getattro, slot_tp_getattr_hook, NULL, ""),
+        TPSLOT("__getattr__", tp_getattro, slot_tp_getattr, NULL, ""),
         TPSLOT("__getattr__", tp_getattr, NULL, NULL, ""),
         TPSLOT("__setattr__", tp_setattro, slot_tp_setattro, wrap_setattr,
                "x.__setattr__('name', value) <==> x.name = value"),
@@ -1061,7 +1212,7 @@ slotdefs_for_tp_slots = unrolling_iterable(
       x.slot_func.api_func if x.slot_func else None) for x in slotdefs])
 
 slotdefs_for_wrappers = unrolling_iterable(
-    [(x.method_name, x.slot_names, x.wrapper_func, x.wrapper_func_kwds, x.doc)
+    [(x.method_name, x.slot_names, x.wrapper_class, x.doc)
      for x in slotdefs])
 
 if __name__ == "__main__":

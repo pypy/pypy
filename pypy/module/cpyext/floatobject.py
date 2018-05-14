@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
     cpython_struct,
-    CANNOT_FAIL, cpython_api, PyObject, build_type_checkers, CONST_STRING)
+    CANNOT_FAIL, cpython_api, PyObject, CONST_STRING)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
 from pypy.interpreter.error import OperationError
@@ -38,11 +38,9 @@ def float_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
-PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float")
-
 @cpython_api([lltype.Float], PyObject)
 def PyFloat_FromDouble(space, value):
-    return space.wrap(value)
+    return space.newfloat(value)
 
 @cpython_api([PyObject], lltype.Float, error=-1)
 def PyFloat_AsDouble(space, w_obj):

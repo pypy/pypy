@@ -1,4 +1,3 @@
-
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
 from _ctypes.primitive import SimpleType, _SimpleCData
 from _ctypes.basics import ArgumentError, keepalive_key
@@ -9,13 +8,16 @@ from _rawffi import alt as _ffi
 import sys
 import traceback
 
-try: from __pypy__ import builtinify
-except ImportError: builtinify = lambda f: f
+
+try:
+    from __pypy__ import builtinify
+except ImportError:
+    builtinify = lambda f: f
 
 # XXX this file needs huge refactoring I fear
 
-PARAMFLAG_FIN   = 0x1
-PARAMFLAG_FOUT  = 0x2
+PARAMFLAG_FIN = 0x1
+PARAMFLAG_FOUT = 0x2
 PARAMFLAG_FLCID = 0x4
 PARAMFLAG_COMBINED = PARAMFLAG_FIN | PARAMFLAG_FOUT | PARAMFLAG_FLCID
 
@@ -24,9 +26,9 @@ VALID_PARAMFLAGS = (
     PARAMFLAG_FIN,
     PARAMFLAG_FIN | PARAMFLAG_FOUT,
     PARAMFLAG_FIN | PARAMFLAG_FLCID
-    )
+)
 
-WIN64 = sys.platform == 'win32' and sys.maxint == 2**63 - 1
+WIN64 = sys.platform == 'win32' and sys.maxint == 2 ** 63 - 1
 
 
 def get_com_error(errcode, riid, pIunk):
@@ -34,6 +36,7 @@ def get_com_error(errcode, riid, pIunk):
     # XXX need C support code
     from _ctypes import COMError
     return COMError(errcode, None, None)
+
 
 @builtinify
 def call_function(func, args):
@@ -94,13 +97,8 @@ class CFuncPtr(_CData):
                         "item %d in _argtypes_ has no from_param method" % (
                             i + 1,))
             self._argtypes_ = list(argtypes)
-            self._check_argtypes_for_fastpath()
-    argtypes = property(_getargtypes, _setargtypes)
 
-    def _check_argtypes_for_fastpath(self):
-        if all([hasattr(argtype, '_ffiargshape_') for argtype in self._argtypes_]):
-            fastpath_cls = make_fastpath_subclass(self.__class__)
-            fastpath_cls.enable_fastpath_maybe(self)
+    argtypes = property(_getargtypes, _setargtypes)
 
     def _getparamflags(self):
         return self._paramflags
@@ -126,26 +124,25 @@ class CFuncPtr(_CData):
                 raise TypeError(
                     "paramflags must be a sequence of (int [,string [,value]]) "
                     "tuples"
-                    )
+                )
             if not isinstance(flag, int):
                 raise TypeError(
                     "paramflags must be a sequence of (int [,string [,value]]) "
                     "tuples"
-                    )
+                )
             _flag = flag & PARAMFLAG_COMBINED
             if _flag == PARAMFLAG_FOUT:
                 typ = self._argtypes_[idx]
                 if getattr(typ, '_ffiargshape_', None) not in ('P', 'z', 'Z'):
                     raise TypeError(
                         "'out' parameter %d must be a pointer type, not %s"
-                        % (idx+1, type(typ).__name__)
-                        )
+                        % (idx + 1, type(typ).__name__)
+                    )
             elif _flag not in VALID_PARAMFLAGS:
                 raise TypeError("paramflag value %d not supported" % flag)
         self._paramflags = paramflags
 
     paramflags = property(_getparamflags, _setparamflags)
-
 
     def _getrestype(self):
         return self._restype_
@@ -156,7 +153,7 @@ class CFuncPtr(_CData):
             from ctypes import c_int
             restype = c_int
         if not (isinstance(restype, _CDataMeta) or restype is None or
-                callable(restype)):
+                    callable(restype)):
             raise TypeError("restype must be a type, a callable, or None")
         self._restype_ = restype
 
@@ -168,15 +165,18 @@ class CFuncPtr(_CData):
 
     def _geterrcheck(self):
         return getattr(self, '_errcheck_', None)
+
     def _seterrcheck(self, errcheck):
         if not callable(errcheck):
             raise TypeError("The errcheck attribute must be callable")
         self._errcheck_ = errcheck
+
     def _delerrcheck(self):
         try:
             del self._errcheck_
         except AttributeError:
             pass
+
     errcheck = property(_geterrcheck, _seterrcheck, _delerrcheck)
 
     def _ffishapes(self, args, restype):
@@ -188,7 +188,7 @@ class CFuncPtr(_CData):
                 raise TypeError("invalid result type for callback function")
             restype = restype._ffiargshape_
         else:
-            restype = 'O' # void
+            restype = 'O'  # void
         return argtypes, restype
 
     def _set_address(self, address):
@@ -201,7 +201,7 @@ class CFuncPtr(_CData):
 
     def __init__(self, *args):
         self.name = None
-        self._objects = {keepalive_key(0):self}
+        self._objects = {keepalive_key(0): self}
         self._needs_free = True
 
         # Empty function object -- this is needed for casts
@@ -222,9 +222,7 @@ class CFuncPtr(_CData):
             if self._argtypes_ is None:
                 self._argtypes_ = []
             self._ptr = self._getfuncptr_fromaddress(self._argtypes_, restype)
-            self._check_argtypes_for_fastpath()
             return
-
 
         # A callback into python
         if callable(argument) and not argsl:
@@ -259,7 +257,7 @@ class CFuncPtr(_CData):
         if (sys.platform == 'win32' and isinstance(argument, (int, long))
             and argsl):
             ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
-            self._com_index =  argument + 0x1000
+            self._com_index = argument + 0x1000
             self.name = argsl.pop(0)
             if argsl:
                 self.paramflags = argsl.pop(0)
@@ -281,6 +279,7 @@ class CFuncPtr(_CData):
             except SystemExit as e:
                 handle_system_exit(e)
                 raise
+
         return f
 
     def __call__(self, *args, **kwargs):
@@ -317,7 +316,7 @@ class CFuncPtr(_CData):
             except:
                 exc_info = sys.exc_info()
                 traceback.print_tb(exc_info[2], file=sys.stderr)
-                print >>sys.stderr, "%s: %s" % (exc_info[0].__name__, exc_info[1])
+                print >> sys.stderr, "%s: %s" % (exc_info[0].__name__, exc_info[1])
                 return 0
             if self._restype_ is not None:
                 return res
@@ -328,7 +327,7 @@ class CFuncPtr(_CData):
             # really slow".  Now we don't worry that much about slowness
             # of ctypes, and it's strange to get warnings for perfectly-
             # legal code.
-            #warnings.warn('C function without declared arguments called',
+            # warnings.warn('C function without declared arguments called',
             #              RuntimeWarning, stacklevel=2)
             argtypes = []
 
@@ -337,7 +336,7 @@ class CFuncPtr(_CData):
             if not args:
                 raise ValueError(
                     "native COM method call without 'this' parameter"
-                    )
+                )
             thisvalue = args[0]
             thisarg = cast(thisvalue, POINTER(POINTER(c_void_p)))
             keepalives, newargs, argtypes, outargs, errcheckargs = (
@@ -366,7 +365,6 @@ class CFuncPtr(_CData):
         return tuple(outargs)
 
     def _call_funcptr(self, funcptr, *newargs):
-
         if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
             tmp = _rawffi.get_errno()
             _rawffi.set_errno(get_errno())
@@ -431,8 +429,8 @@ class CFuncPtr(_CData):
             ffiargs = [argtype.get_ffi_argtype() for argtype in argtypes]
             ffires = restype.get_ffi_argtype()
             return _ffi.FuncPtr.fromaddr(ptr, '', ffiargs, ffires, self._flags_)
-        
-        cdll = self.dll._handle
+
+        cdll = self.dll.__pypy_dll__
         try:
             ffi_argtypes = [argtype.get_ffi_argtype() for argtype in argtypes]
             ffi_restype = restype.get_ffi_argtype()
@@ -450,7 +448,7 @@ class CFuncPtr(_CData):
             # funcname -> _funcname@<n>
             # where n is 0, 4, 8, 12, ..., 128
             for i in range(33):
-                mangled_name = "_%s@%d" % (self.name, i*4)
+                mangled_name = "_%s@%d" % (self.name, i * 4)
                 try:
                     return cdll.getfunc(mangled_name,
                                         ffi_argtypes, ffi_restype,
@@ -492,7 +490,7 @@ class CFuncPtr(_CData):
         for argtype, arg in zip(argtypes, args):
             param = argtype.from_param(arg)
             _type_ = getattr(argtype, '_type_', None)
-            if _type_ == 'P': # special-case for c_void_p
+            if _type_ == 'P':  # special-case for c_void_p
                 param = param._get_buffer_value()
             elif self._is_primitive(argtype):
                 param = param.value
@@ -604,7 +602,8 @@ class CFuncPtr(_CData):
         """
         # hack for performance: if restype is a "simple" primitive type, don't
         # allocate the buffer because it's going to be thrown away immediately
-        if self._is_primitive(restype) and not restype._is_pointer_like():
+        if (self._is_primitive(restype) and restype._type_ != '?'
+            and not restype._is_pointer_like()):
             return result
         #
         shape = restype._ffishape_
@@ -667,69 +666,11 @@ class CFuncPtr(_CData):
             self._needs_free = False
 
 
-def make_fastpath_subclass(CFuncPtr):
-    if CFuncPtr._is_fastpath:
-        return CFuncPtr
-    #
-    try:
-        return make_fastpath_subclass.memo[CFuncPtr]
-    except KeyError:
-        pass
-
-    class CFuncPtrFast(CFuncPtr):
-
-        _is_fastpath = True
-        _slowpath_allowed = True # set to False by tests
-
-        @classmethod
-        def enable_fastpath_maybe(cls, obj):
-            if (obj.callable is None and
-                obj._com_index is None):
-                obj.__class__ = cls
-
-        def __rollback(self):
-            assert self._slowpath_allowed
-            self.__class__ = CFuncPtr
-
-        # disable the fast path if we reset argtypes
-        def _setargtypes(self, argtypes):
-            self.__rollback()
-            self._setargtypes(argtypes)
-        argtypes = property(CFuncPtr._getargtypes, _setargtypes)
-
-        def _setcallable(self, func):
-            self.__rollback()
-            self.callable = func
-        callable = property(lambda x: None, _setcallable)
-
-        def _setcom_index(self, idx):
-            self.__rollback()
-            self._com_index = idx
-        _com_index = property(lambda x: None, _setcom_index)
-
-        def __call__(self, *args):
-            thisarg = None
-            argtypes = self._argtypes_
-            restype = self._restype_
-            funcptr = self._getfuncptr(argtypes, restype, thisarg)
-            try:
-                result = self._call_funcptr(funcptr, *args)
-                result, _ = self._do_errcheck(result, args)
-            except (TypeError, ArgumentError, UnicodeDecodeError):
-                assert self._slowpath_allowed
-                return CFuncPtr.__call__(self, *args)
-            return result
-
-    make_fastpath_subclass.memo[CFuncPtr] = CFuncPtrFast
-    return CFuncPtrFast
-make_fastpath_subclass.memo = {}
-
-
 def handle_system_exit(e):
     # issue #1194: if we get SystemExit here, then exit the interpreter.
     # Highly obscure imho but some people seem to depend on it.
     if sys.flags.inspect:
-        return   # Don't exit if -i flag was given.
+        return  # Don't exit if -i flag was given.
     else:
         code = e.code
         if isinstance(code, int):

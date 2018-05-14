@@ -104,9 +104,7 @@ GCFLAG_VISITED      = first_gcflag << 2
 
 # The following flag is set on nursery objects of which we asked the id
 # or the identityhash.  It means that a space of the size of the object
-# has already been allocated in the nonmovable part.  The same flag is
-# abused to mark prebuilt objects whose hash has been taken during
-# translation and is statically recorded.
+# has already been allocated in the nonmovable part.
 GCFLAG_HAS_SHADOW   = first_gcflag << 3
 
 # The following flag is set temporarily on some objects during a major
@@ -149,9 +147,6 @@ class MiniMarkGC(MovingGCBase):
     # by GCFLAG_xxx above.
     HDR = lltype.Struct('header', ('tid', lltype.Signed))
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', GCFLAG_HAS_SHADOW
-    # ^^^ prebuilt objects may have the flag GCFLAG_HAS_SHADOW;
-    #     then they are one word longer, the extra word storing the hash.
 
     _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
 
@@ -833,7 +828,7 @@ class MiniMarkGC(MovingGCBase):
             if self.max_heap_size < self.next_major_collection_threshold:
                 self.next_major_collection_threshold = self.max_heap_size
 
-    def raw_malloc_memory_pressure(self, sizehint):
+    def raw_malloc_memory_pressure(self, sizehint, adr):
         self.next_major_collection_threshold -= sizehint
         if self.next_major_collection_threshold < 0:
             # cannot trigger a full collection now, but we can ensure
@@ -1404,8 +1399,15 @@ class MiniMarkGC(MovingGCBase):
                         if cardbyte & 1:
                             if interval_stop > length:
                                 interval_stop = length
-                                ll_assert(cardbyte <= 1 and bytes == 0,
-                                          "premature end of object")
+                                #--- the sanity check below almost always
+                                #--- passes, except in situations like
+                                #--- test_writebarrier_before_copy_manually\
+                                #    _copy_card_bits
+                                #ll_assert(cardbyte <= 1 and bytes == 0,
+                                #          "premature end of object")
+                                ll_assert(bytes == 0, "premature end of object")
+                                if interval_stop <= interval_start:
+                                    break
                             self.trace_and_drag_out_of_nursery_partial(
                                 obj, interval_start, interval_stop)
                         #
@@ -1641,6 +1643,7 @@ class MiniMarkGC(MovingGCBase):
         # with a finalizer and all objects reachable from there (and also
         # moves some objects from 'objects_with_finalizers' to
         # 'run_finalizers').
+        self.kept_alive_by_finalizer = r_uint(0)
         if self.old_objects_with_finalizers.non_empty():
             self.deal_with_objects_with_finalizers()
         #
@@ -1683,6 +1686,9 @@ class MiniMarkGC(MovingGCBase):
         # we currently have -- but no more than 'max_delta' more than
         # we currently have.
         total_memory_used = float(self.get_total_memory_used())
+        total_memory_used -= float(self.kept_alive_by_finalizer)
+        if total_memory_used < 0:
+            total_memory_used = 0
         bounded = self.set_major_threshold_from(
             min(total_memory_used * self.major_collection_threshold,
                 total_memory_used + self.max_delta),
@@ -1781,6 +1787,11 @@ class MiniMarkGC(MovingGCBase):
         MovingGCBase.enumerate_all_roots(self, callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
+    def enum_live_with_finalizers(self, callback, arg):
+        self.probably_young_objects_with_finalizers.foreach(callback, arg, 2)
+        self.old_objects_with_finalizers.foreach(callback, arg, 2)
+    enum_live_with_finalizers._annspecialcase_ = 'specialize:arg(1)'
+
     @staticmethod
     def _collect_obj(obj, objects_to_trace):
         objects_to_trace.append(obj)
@@ -1868,40 +1879,22 @@ class MiniMarkGC(MovingGCBase):
         return shadow
     _find_shadow._dont_inline_ = True
 
-    @specialize.arg(2)
-    def id_or_identityhash(self, gcobj, is_hash):
+    def id_or_identityhash(self, gcobj):
         """Implement the common logic of id() and identityhash()
         of an object, given as a GCREF.
         """
         obj = llmemory.cast_ptr_to_adr(gcobj)
-        #
         if self.is_valid_gc_object(obj):
             if self.is_in_nursery(obj):
                 obj = self._find_shadow(obj)
-            elif is_hash:
-                if self.header(obj).tid & GCFLAG_HAS_SHADOW:
-                    #
-                    # For identityhash(), we need a special case for some
-                    # prebuilt objects: their hash must be the same before
-                    # and after translation.  It is stored as an extra word
-                    # after the object.  But we cannot use it for id()
-                    # because the stored value might clash with a real one.
-                    size = self.get_size(obj)
-                    i = (obj + size).signed[0]
-                    # Important: the returned value is not mangle_hash()ed!
-                    return i
-        #
-        i = llmemory.cast_adr_to_int(obj)
-        if is_hash:
-            i = mangle_hash(i)
-        return i
+        return llmemory.cast_adr_to_int(obj)
     id_or_identityhash._always_inline_ = True
 
     def id(self, gcobj):
-        return self.id_or_identityhash(gcobj, False)
+        return self.id_or_identityhash(gcobj)
 
     def identityhash(self, gcobj):
-        return self.id_or_identityhash(gcobj, True)
+        return mangle_hash(self.id_or_identityhash(gcobj))
 
     # ----------
     # Finalizers
@@ -2022,8 +2015,11 @@ class MiniMarkGC(MovingGCBase):
     def _bump_finalization_state_from_0_to_1(self, obj):
         ll_assert(self._finalization_state(obj) == 0,
                   "unexpected finalization state != 0")
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + self.get_size(obj)
         hdr = self.header(obj)
         hdr.tid |= GCFLAG_FINALIZATION_ORDERING
+        self.kept_alive_by_finalizer += raw_malloc_usage(totalsize)
 
     def _recursively_bump_finalization_state_from_2_to_3(self, obj):
         ll_assert(self._finalization_state(obj) == 2,

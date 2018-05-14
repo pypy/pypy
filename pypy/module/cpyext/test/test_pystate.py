@@ -35,7 +35,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                 PyEval_InitThreads();
                 state0 = PyGILState_Ensure(); /* hangs here */
                 if (val != 0)
-                { 
+                {
                     state1 = PyGILState_Ensure();
                     PyGILState_Release(state1);
                 }
@@ -69,12 +69,11 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         assert module.get() == 3
 
     def test_basic_threadstate_dance(self):
-        if self.runappdirect:
-            py.test.xfail('segfault: on cpython cannot Get() a NULL tstate')
         module = self.import_extension('foo', [
                 ("dance", "METH_NOARGS",
                  """
                      PyThreadState *old_tstate, *new_tstate;
+                     PyObject *d;
 
                      PyEval_InitThreads();
 
@@ -83,8 +82,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                          return PyLong_FromLong(0);
                      }
 
-                     new_tstate = PyThreadState_Get(); /* fails on cpython */
-                     if (new_tstate != NULL) {
+                     d = PyThreadState_GetDict(); /* fails on cpython */
+                     if (d != NULL) {
                          return PyLong_FromLong(1);
                      }
 
@@ -141,6 +140,62 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         res = module.bounce()
         assert res == 3
 
+    def test_thread_and_gil(self):
+        module = self.import_extension('foo', [
+            ("bounce", "METH_NOARGS",
+            """
+            PyThreadState * tstate;
+            PyObject *dict;
+            PyGILState_STATE gilstate;
+
+            if (PyEval_ThreadsInitialized() == 0)
+            {
+            PyEval_InitThreads();
+            }
+            tstate = PyEval_SaveThread();
+            if (tstate == NULL) {
+                return PyLong_FromLong(0);
+            }
+            dict = PyThreadState_GetDict();
+            if (dict != NULL) {
+            return PyLong_FromLong(1);
+            }
+            gilstate = PyGILState_Ensure();
+            dict = PyThreadState_GetDict();
+            if (dict == NULL) {
+            return PyLong_FromLong(2);
+            }
+            PyGILState_Release(gilstate);
+            PyEval_RestoreThread(tstate);
+
+            if (PyThreadState_Get() != tstate) {
+                return PyLong_FromLong(3);
+            }
+
+            return PyLong_FromLong(4);
+            """)])
+        res = module.bounce()
+        assert res == 4
+
+    def test_nested_pygilstate_ensure(self):
+        module = self.import_extension('foo', [
+            ("bounce", "METH_NOARGS",
+            """
+            PyGILState_STATE gilstate;
+            PyObject *dict;
+
+            if (PyEval_ThreadsInitialized() == 0)
+                PyEval_InitThreads();
+            dict = PyThreadState_GetDict();
+            gilstate = PyGILState_Ensure();
+            PyGILState_Release(gilstate);
+            if (PyThreadState_GetDict() != dict)
+                return PyLong_FromLong(-2);
+            return PyLong_FromLong(4);
+            """)])
+        res = module.bounce()
+        assert res == 4
+
     def test_threadsinitialized(self):
         module = self.import_extension('foo', [
                 ("test", "METH_NOARGS",
@@ -151,8 +206,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         res = module.test()
         print "got", res
         assert res in (0, 1)
-        
-        
+
+
 class AppTestState(AppTestCpythonExtensionBase):
 
     def test_frame_tstate_tracing(self):

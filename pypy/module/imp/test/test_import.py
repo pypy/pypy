@@ -108,7 +108,7 @@ def setup_directory_structure(space):
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
     if conftest.option.runappdirect:
-        import marshal, stat, struct, os, imp
+        import marshal, stat, struct, imp
         code = py.code.Source(p.join("x.py").read()).compile()
         s3 = marshal.dumps(code)
         s2 = struct.pack("<i", os.stat(str(p.join("x.py")))[stat.ST_MTIME])
@@ -138,6 +138,15 @@ def setup_directory_structure(space):
         pass
     p.join('x.py').rename(p.join('x.pyw'))
 
+    if hasattr(p, "mksymlinkto"):
+        p = root.join("devnullpkg")
+        p.ensure(dir=True)
+        p.join("__init__.py").mksymlinkto(os.devnull)
+
+    p = root.join("onlypyw")
+    p.ensure(dir=True)
+    p.join("__init__.pyw")
+
     return str(root)
 
 def _load_source_module(space, w_modname, w_mod, *args, **kwds):
@@ -153,7 +162,7 @@ def _load_compiled_module(space, w_modname, w_mod, *args, **kwds):
 def _setup(space):
     dn = setup_directory_structure(space)
     return space.appexec([space.wrap(dn)], """
-        (dn): 
+        (dn):
             import sys
             path = list(sys.path)
             sys.path.insert(0, dn)
@@ -352,7 +361,19 @@ class AppTestImport:
         assert sys == o
 
     def test_import_fromlist_must_not_contain_unicodes(self):
-        raises(TypeError, __import__, 'encodings', None, None, [u'xxx'])
+        import sys
+        ver = sys.version_info
+        exc = raises(TypeError, __import__, 'encodings', None, None, [u'xxx'])
+        if ver > (2, 7, 12):
+            assert 'must be str' in exc.value.message
+        exc = raises(TypeError, __import__, 'encodings', None, None, [123])
+        if ver > (2, 7, 12):
+            assert 'must be str' in exc.value.message
+        # issue 2524
+        raises(ImportError, __import__, 'xxxbadmodule', fromlist=[u'xx'])
+        mod = __import__('collections', fromlist=[u'defaultdict'])
+        assert mod is not None
+        
 
     def test_import_relative_back_to_absolute2(self):
         from pkg import abs_x_y
@@ -795,6 +816,15 @@ class AppTestImport:
             reload(sys)
         assert not output
 
+    def test_dir_with_only_pyw(self):
+        def imp():
+            import onlypyw
+        raises(ImportError, imp)
+
+    @pytest.mark.skipif(not hasattr(py.path.local, "mksymlinkto"), reason="requires symlinks")
+    def test_dev_null_init_file(self):
+        import devnullpkg
+
 
 class TestAbi:
     def test_abi_tag(self):
@@ -1030,7 +1060,7 @@ class TestPycStuff:
 
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()
-        
+
     def test_load_source_module_importerror(self):
         # the .pyc file is created before executing the module
         space = self.space
@@ -1139,11 +1169,11 @@ class TestPycStuff:
                     stream.close()
 
 
-def test_PYTHONPATH_takes_precedence(space): 
+def test_PYTHONPATH_takes_precedence(space):
     if sys.platform == "win32":
         py.test.skip("unresolved issues with win32 shell quoting rules")
-    from pypy.interpreter.test.test_zpy import pypypath 
-    extrapath = udir.ensure("pythonpath", dir=1) 
+    from pypy.interpreter.test.test_zpy import pypypath
+    extrapath = udir.ensure("pythonpath", dir=1)
     extrapath.join("sched.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)

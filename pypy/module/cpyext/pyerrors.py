@@ -6,7 +6,7 @@ from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, from_ref, Py_DecRef)
+    PyObject, PyObjectP, make_ref, from_ref, decref, get_w_obj_and_decref)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from rpython.rlib import rposix, jit
@@ -21,7 +21,7 @@ def PyErr_SetObject(space, w_type, w_value):
 @cpython_api([PyObject, CONST_STRING], lltype.Void)
 def PyErr_SetString(space, w_type, message_ptr):
     message = rffi.charp2str(message_ptr)
-    PyErr_SetObject(space, w_type, space.wrap(message))
+    PyErr_SetObject(space, w_type, space.newtext(message))
 
 @cpython_api([PyObject], lltype.Void, error=CANNOT_FAIL)
 def PyErr_SetNone(space, w_type):
@@ -31,9 +31,10 @@ def PyErr_SetNone(space, w_type):
 @cpython_api([], PyObject, result_borrowed=True)
 def PyErr_Occurred(space):
     state = space.fromcache(State)
-    if state.operror is None:
+    operror = state.get_exception()
+    if operror is None:
         return None
-    return state.operror.w_type     # borrowed ref
+    return operror.w_type     # borrowed ref
 
 @cpython_api([], lltype.Void)
 def PyErr_Clear(space):
@@ -58,14 +59,14 @@ def PyErr_Fetch(space, ptype, pvalue, ptraceback):
     if operror:
         ptype[0] = make_ref(space, operror.w_type)
         pvalue[0] = make_ref(space, operror.get_w_value(space))
-        ptraceback[0] = make_ref(space, space.wrap(operror.get_traceback()))
+        ptraceback[0] = make_ref(space, operror.get_w_traceback(space))
     else:
         ptype[0] = lltype.nullptr(PyObject.TO)
         pvalue[0] = lltype.nullptr(PyObject.TO)
         ptraceback[0] = lltype.nullptr(PyObject.TO)
 
 @cpython_api([PyObject, PyObject, PyObject], lltype.Void)
-def PyErr_Restore(space, w_type, w_value, w_traceback):
+def PyErr_Restore(space, py_type, py_value, py_traceback):
     """Set  the error indicator from the three objects.  If the error indicator is
     already set, it is cleared first.  If the objects are NULL, the error
     indicator is cleared.  Do not pass a NULL type and non-NULL value or
@@ -80,13 +81,14 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     error indicator temporarily; use PyErr_Fetch() to save the current
     exception state."""
     state = space.fromcache(State)
+    w_type = get_w_obj_and_decref(space, py_type)
+    w_value = get_w_obj_and_decref(space, py_value)
+    w_traceback = get_w_obj_and_decref(space, py_traceback)
+    # XXX do something with w_traceback
     if w_type is None:
         state.clear_exception()
         return
     state.set_exception(OperationError(w_type, w_value))
-    Py_DecRef(space, w_type)
-    Py_DecRef(space, w_value)
-    Py_DecRef(space, w_traceback)
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
@@ -95,11 +97,21 @@ def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
     not an instance of the  same class.  This function can be used to instantiate
     the class in that case.  If the values are already normalized, nothing happens.
     The delayed normalization is implemented to improve performance."""
-    operr = OperationError(from_ref(space, exc_p[0]),
-                           from_ref(space, val_p[0]))
+    if exc_p[0]:
+        w_etype = from_ref(space, exc_p[0])
+    else:
+        # There is no exception, so nothing to do
+        return
+    if val_p[0]:
+        w_evalue = from_ref(space, val_p[0])
+    else:
+        # On CPython, PyErr_SetNone actually sets val to NULL.
+        # Sensible code should probably never trigger this path on PyPy, but...
+        w_evalue = space.w_None
+    operr = OperationError(w_etype, w_evalue)
     operr.normalize_exception(space)
-    Py_DecRef(space, exc_p[0])
-    Py_DecRef(space, val_p[0])
+    decref(space, exc_p[0])
+    decref(space, val_p[0])
     exc_p[0] = make_ref(space, operr.w_type)
     val_p[0] = make_ref(space, operr.get_w_value(space))
 
@@ -112,7 +124,7 @@ def PyErr_BadArgument(space):
     error indicator."""
     raise oefmt(space.w_TypeError, "bad argument type for built-in operation")
 
-@cpython_api([], lltype.Void)
+@cpython_api([], lltype.Void, error=None)
 def PyErr_BadInternalCall(space):
     raise oefmt(space.w_SystemError, "Bad internal call!")
 
@@ -151,7 +163,7 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     if llfilename:
         filename = rffi.charp2str(llfilename)
-        w_filename = space.wrap(filename)
+        w_filename = space.newbytes(filename)
     else:
         w_filename = space.w_None
 
@@ -170,13 +182,13 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     msg = os.strerror(errno)
     if w_value:
         w_error = space.call_function(w_type,
-                                      space.wrap(errno),
-                                      space.wrap(msg),
+                                      space.newint(errno),
+                                      space.newtext(msg),
                                       w_value)
     else:
         w_error = space.call_function(w_type,
-                                      space.wrap(errno),
-                                      space.wrap(msg))
+                                      space.newint(errno),
+                                      space.newtext(msg))
     raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)
@@ -252,11 +264,11 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     documentation.  There is no C API for warning control."""
     if w_category is None:
         w_category = space.w_None
-    w_message = space.wrap(rffi.charp2str(message_ptr))
-    w_stacklevel = space.wrap(rffi.cast(lltype.Signed, stacklevel))
+    w_message = space.newtext(rffi.charp2str(message_ptr))
+    w_stacklevel = space.newint(rffi.cast(lltype.Signed, stacklevel))
 
-    w_module = PyImport_Import(space, space.wrap("warnings"))
-    w_warn = space.getattr(w_module, space.wrap("warn"))
+    w_module = PyImport_Import(space, space.newtext("warnings"))
+    w_warn = space.getattr(w_module, space.newtext("warn"))
     space.call_function(w_warn, w_message, w_category, w_stacklevel)
     return 0
 
@@ -286,7 +298,7 @@ def PyErr_PrintEx(space, set_sys_last_vars):
 
     w_type = operror.w_type
     w_value = operror.get_w_value(space)
-    w_tb = space.wrap(operror.get_traceback())
+    w_tb = operror.get_w_traceback(space)
 
     if rffi.cast(lltype.Signed, set_sys_last_vars):
         space.sys.setdictvalue(space, "last_type", w_type)
@@ -317,10 +329,10 @@ def PyErr_Display(space, w_type, w_value, tb):
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyTraceBack_Print(space, w_tb, w_file):
-    space.call_method(w_file, "write", space.wrap(
+    space.call_method(w_file, "write", space.newtext(
         'Traceback (most recent call last):\n'))
     w_traceback = space.call_method(space.builtin, '__import__',
-                                    space.wrap("traceback"))
+                                    space.newtext("traceback"))
     space.call_method(w_traceback, "print_tb", w_tb, space.w_None, w_file)
     return 0
 
@@ -338,7 +350,7 @@ def PyErr_WriteUnraisable(space, w_where):
     state = space.fromcache(State)
     operror = state.clear_exception()
     if operror:
-        operror.write_unraisable(space, space.str_w(space.repr(w_where)))
+        operror.write_unraisable(space, space.text_w(space.repr(w_where)))
 
 @cpython_api([], lltype.Void)
 def PyErr_SetInterrupt(space):
@@ -373,14 +385,14 @@ def PyErr_GetExcInfo(space, ptype, pvalue, ptraceback):
     if operror:
         ptype[0] = make_ref(space, operror.w_type)
         pvalue[0] = make_ref(space, operror.get_w_value(space))
-        ptraceback[0] = make_ref(space, space.wrap(operror.get_traceback()))
+        ptraceback[0] = make_ref(space, operror.get_w_traceback(space))
     else:
         ptype[0] = lltype.nullptr(PyObject.TO)
         pvalue[0] = lltype.nullptr(PyObject.TO)
         ptraceback[0] = lltype.nullptr(PyObject.TO)
 
 @cpython_api([PyObject, PyObject, PyObject], lltype.Void)
-def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
+def PyErr_SetExcInfo(space, py_type, py_value, py_traceback):
     """---Cython extension---
 
     Set the exception info, as known from ``sys.exc_info()``.  This refers
@@ -388,14 +400,17 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
     freshly raised.  This function steals the references of the arguments.
     To clear the exception state, pass *NULL* for all three arguments.
     For general rules about the three arguments, see :c:func:`PyErr_Restore`.
- 
+
     .. note::
- 
+
        This function is not normally used by code that wants to handle
        exceptions.  Rather, it can be used when code needs to save and
        restore the exception state temporarily.  Use
        :c:func:`PyErr_GetExcInfo` to read the exception state.
     """
+    w_type = get_w_obj_and_decref(space, py_type)
+    w_value = get_w_obj_and_decref(space, py_value)
+    w_traceback = get_w_obj_and_decref(space, py_traceback)
     if w_value is None or space.is_w(w_value, space.w_None):
         operror = None
     else:
@@ -409,9 +424,6 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
     #
     ec = space.getexecutioncontext()
     ec.set_sys_exc_info(operror)
-    Py_DecRef(space, w_type)
-    Py_DecRef(space, w_value)
-    Py_DecRef(space, w_traceback)
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyOS_InterruptOccurred(space):

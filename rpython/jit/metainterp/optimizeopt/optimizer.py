@@ -24,19 +24,8 @@ CONST_ZERO_FLOAT = Const._new(0.0)
 llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
-def check_no_forwarding(lsts):
-    for lst in lsts:
-        for op in lst:
-            assert op.get_forwarded() is None
-
 class LoopInfo(object):
     label_op = None
-
-    def _check_no_forwarding(self):
-        pass
-
-    def forget_optimization_info(self):
-        pass
 
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps, jump_op):
@@ -284,7 +273,6 @@ class Optimizer(Optimization):
         self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
         self.interned_refs = self.cpu.ts.new_ref_dict()
-        self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.pendingfields = None # set temporarily to a list, normally by
                                   # heap.py, as we're about to generate a guard
@@ -297,6 +285,7 @@ class Optimizer(Optimization):
         self.optrewrite = None
         self.optearlyforce = None
         self.optunroll = None
+        self._really_emitted_operation = None
 
         self._last_guard_op = None
 
@@ -566,8 +555,7 @@ class Optimizer(Optimization):
         return (BasicLoopInfo(trace.inputargs, self.quasi_immutable_deps, last_op),
                 self._newoperations)
 
-    @staticmethod
-    def _clean_optimization_info(lst):
+    def _clean_optimization_info(self, lst):
         for op in lst:
             if op.get_forwarded() is not None:
                 op.set_forwarded(None)
@@ -700,12 +688,10 @@ class Optimizer(Optimization):
 
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
-        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self, True)
         last_descr = last_guard_op.getdescr()
+        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self, last_descr)
         assert isinstance(last_descr, compile.ResumeGuardDescr)
-        if isinstance(descr, compile.ResumeGuardCopiedDescr):
-            descr.prev = last_descr
-        else:
+        if not isinstance(descr, compile.ResumeGuardCopiedDescr):
             descr.copy_all_attributes_from(last_descr)
         guard_op.setdescr(descr)
         guard_op.setfailargs(last_guard_op.getfailargs())

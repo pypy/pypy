@@ -46,7 +46,7 @@ class Module(MixedModule):
         space.check_signal_action = interp_signal.CheckSignalAction(space)
         space.actionflag.register_periodic_action(space.check_signal_action,
                                                   use_bytecode_counter=False)
-        if space.config.translation.reverse_debugger:
+        if space.reverse_debugging:
             from pypy.interpreter.reverse_debugging import RDBSignalActionFlag
             space.actionflag.__class__ = RDBSignalActionFlag
         else:

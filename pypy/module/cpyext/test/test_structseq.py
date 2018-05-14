@@ -2,7 +2,6 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.api import PyObject
-from pypy.module.cpyext.pyobject import Py_DecRef
 
 class AppTestStructSeq(AppTestCpythonExtensionBase):
     def test_StructSeq(self):

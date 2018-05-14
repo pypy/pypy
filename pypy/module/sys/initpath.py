@@ -117,7 +117,7 @@ def compute_stdlib_path(state, prefix):
 
     if state is not None:    # 'None' for testing only
         lib_extensions = os.path.join(lib_pypy, '__extensions__')
-        state.w_lib_extensions = state.space.wrap(lib_extensions)
+        state.w_lib_extensions = state.space.newtext(lib_extensions)
         importlist.append(lib_extensions)
 
     importlist.append(lib_pypy)
@@ -147,17 +147,17 @@ def compute_stdlib_path_maybe(state, prefix):
         return None
 
 
-@unwrap_spec(executable='str0')
+@unwrap_spec(executable='fsencode')
 def pypy_find_executable(space, executable):
-    return space.wrap(find_executable(executable))
+    return space.newtext(find_executable(executable))
 
 
-@unwrap_spec(filename='str0')
+@unwrap_spec(filename='fsencode')
 def pypy_resolvedirof(space, filename):
-    return space.wrap(resolvedirof(filename))
+    return space.newtext(resolvedirof(filename))
 
 
-@unwrap_spec(executable='str0')
+@unwrap_spec(executable='fsencode')
 def pypy_find_stdlib(space, executable):
     path, prefix = None, None
     if executable != '*':
@@ -171,10 +171,10 @@ def pypy_find_stdlib(space, executable):
                 path, prefix = find_stdlib(get_state(space), dyn_path)
         if path is None:
             return space.w_None
-    w_prefix = space.wrap(prefix)
-    space.setitem(space.sys.w_dict, space.wrap('prefix'), w_prefix)
-    space.setitem(space.sys.w_dict, space.wrap('exec_prefix'), w_prefix)
-    return space.newlist([space.wrap(p) for p in path])
+    w_prefix = space.newtext(prefix)
+    space.setitem(space.sys.w_dict, space.newtext('prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.newtext('exec_prefix'), w_prefix)
+    return space.newlist([space.newtext(p) for p in path])
 
 
 # ____________________________________________________________

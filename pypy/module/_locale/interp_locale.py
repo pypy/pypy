@@ -13,36 +13,36 @@ W_Error = _new_exception('Error', W_Exception, 'locale error')
 import sys
 
 def make_error(space, msg):
-    return OperationError(space.gettypeobject(W_Error.typedef), space.wrap(msg))
+    return OperationError(space.gettypeobject(W_Error.typedef), space.newtext(msg))
 
 def rewrap_error(space, e):
     return OperationError(space.gettypeobject(W_Error.typedef),
-                          space.wrap(e.message))
+                          space.newtext(e.message))
 
 def _fixup_ulcase(space):
     stringmod = space.call_function(
         space.getattr(space.getbuiltinmodule('__builtin__'),
-                      space.wrap('__import__')), space.wrap('string'))
+                      space.newtext('__import__')), space.newtext('string'))
     # create uppercase map string
     ul = []
     for c in xrange(256):
         if rlocale.isupper(c):
             ul.append(chr(c))
-    space.setattr(stringmod, space.wrap('uppercase'), space.wrap(''.join(ul)))
+    space.setattr(stringmod, space.newtext('uppercase'), space.newbytes(''.join(ul)))
 
     # create lowercase string
     ul = []
     for c in xrange(256):
         if rlocale.islower(c):
             ul.append(chr(c))
-    space.setattr(stringmod, space.wrap('lowercase'), space.wrap(''.join(ul)))
+    space.setattr(stringmod, space.newtext('lowercase'), space.newbytes(''.join(ul)))
 
     # create letters string
     ul = []
     for c in xrange(256):
         if rlocale.isalpha(c):
             ul.append(chr(c))
-    space.setattr(stringmod, space.wrap('letters'), space.wrap(''.join(ul)))
+    space.setattr(stringmod, space.newtext('letters'), space.newbytes(''.join(ul)))
 
 @unwrap_spec(category=int)
 def setlocale(space, category, w_locale=None):
@@ -51,7 +51,7 @@ def setlocale(space, category, w_locale=None):
     if space.is_none(w_locale):
         locale = None
     else:
-        locale = space.str_w(w_locale)
+        locale = space.text_w(w_locale)
     try:
         result = rlocale.setlocale(category, locale)
     except rlocale.LocaleError as e:
@@ -61,12 +61,12 @@ def setlocale(space, category, w_locale=None):
     if category in (rlocale.LC_CTYPE, rlocale.LC_ALL):
         _fixup_ulcase(space)
 
-    return space.wrap(result)
+    return space.newtext(result)
 
 def _w_copy_grouping(space, text):
-    groups = [ space.wrap(ord(group)) for group in text ]
+    groups = [ space.newint(ord(group)) for group in text ]
     if groups:
-        groups.append(space.wrap(0))
+        groups.append(space.newint(0))
     return space.newlist(groups)
 
 def localeconv(space):
@@ -75,43 +75,42 @@ def localeconv(space):
 
     # Numeric information
     w_result = space.newdict()
-    w = space.wrap
-    space.setitem(w_result, w("decimal_point"),
-                  w(rffi.charp2str(lp.c_decimal_point)))
-    space.setitem(w_result, w("thousands_sep"),
-                  w(rffi.charp2str(lp.c_thousands_sep)))
-    space.setitem(w_result, w("grouping"),
+    space.setitem(w_result, space.newtext("decimal_point"),
+                  space.newtext(rffi.charp2str(lp.c_decimal_point)))
+    space.setitem(w_result, space.newtext("thousands_sep"),
+                  space.newtext(rffi.charp2str(lp.c_thousands_sep)))
+    space.setitem(w_result, space.newtext("grouping"),
                   _w_copy_grouping(space, rffi.charp2str(lp.c_grouping)))
-    space.setitem(w_result, w("int_curr_symbol"),
-                  w(rffi.charp2str(lp.c_int_curr_symbol)))
-    space.setitem(w_result, w("currency_symbol"),
-                  w(rffi.charp2str(lp.c_currency_symbol)))
-    space.setitem(w_result, w("mon_decimal_point"),
-                  w(rffi.charp2str(lp.c_mon_decimal_point)))
-    space.setitem(w_result, w("mon_thousands_sep"),
-                  w(rffi.charp2str(lp.c_mon_thousands_sep)))
-    space.setitem(w_result, w("mon_grouping"),
+    space.setitem(w_result, space.newtext("int_curr_symbol"),
+                  space.newtext(rffi.charp2str(lp.c_int_curr_symbol)))
+    space.setitem(w_result, space.newtext("currency_symbol"),
+                  space.newtext(rffi.charp2str(lp.c_currency_symbol)))
+    space.setitem(w_result, space.newtext("mon_decimal_point"),
+                  space.newtext(rffi.charp2str(lp.c_mon_decimal_point)))
+    space.setitem(w_result, space.newtext("mon_thousands_sep"),
+                  space.newtext(rffi.charp2str(lp.c_mon_thousands_sep)))
+    space.setitem(w_result, space.newtext("mon_grouping"),
                   _w_copy_grouping(space, rffi.charp2str(lp.c_mon_grouping)))
-    space.setitem(w_result, w("positive_sign"),
-                  w(rffi.charp2str(lp.c_positive_sign)))
-    space.setitem(w_result, w("negative_sign"),
-                  w(rffi.charp2str(lp.c_negative_sign)))
-    space.setitem(w_result, w("int_frac_digits"),
-                  w(lp.c_int_frac_digits))
-    space.setitem(w_result, w("frac_digits"),
-                  w(lp.c_frac_digits))
-    space.setitem(w_result, w("p_cs_precedes"),
-                  w(lp.c_p_cs_precedes))
-    space.setitem(w_result, w("p_sep_by_space"),
-                  w(lp.c_p_sep_by_space))
-    space.setitem(w_result, w("n_cs_precedes"),
-                  w(lp.c_n_cs_precedes))
-    space.setitem(w_result, w("n_sep_by_space"),
-                  w(lp.c_n_sep_by_space))
-    space.setitem(w_result, w("p_sign_posn"),
-                  w(lp.c_p_sign_posn))
-    space.setitem(w_result, w("n_sign_posn"),
-                  w(lp.c_n_sign_posn))
+    space.setitem(w_result, space.newtext("positive_sign"),
+                  space.newtext(rffi.charp2str(lp.c_positive_sign)))
+    space.setitem(w_result, space.newtext("negative_sign"),
+                  space.newtext(rffi.charp2str(lp.c_negative_sign)))
+    space.setitem(w_result, space.newtext("int_frac_digits"),
+                  space.newint(lp.c_int_frac_digits))
+    space.setitem(w_result, space.newtext("frac_digits"),
+                  space.newint(lp.c_frac_digits))
+    space.setitem(w_result, space.newtext("p_cs_precedes"),
+                  space.newint(lp.c_p_cs_precedes))
+    space.setitem(w_result, space.newtext("p_sep_by_space"),
+                  space.newint(lp.c_p_sep_by_space))
+    space.setitem(w_result, space.newtext("n_cs_precedes"),
+                  space.newint(lp.c_n_cs_precedes))
+    space.setitem(w_result, space.newtext("n_sep_by_space"),
+                  space.newint(lp.c_n_sep_by_space))
+    space.setitem(w_result, space.newtext("p_sign_posn"),
+                  space.newint(lp.c_p_sign_posn))
+    space.setitem(w_result, space.newtext("n_sign_posn"),
+                  space.newint(lp.c_n_sign_posn))
 
     return w_result
 
@@ -122,14 +121,14 @@ _wcscoll = rlocale.external('wcscoll', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
 def strcoll(space, w_s1, w_s2):
     "string,string -> int. Compares two strings according to the locale."
 
-    if (space.isinstance_w(w_s1, space.w_str) and
-        space.isinstance_w(w_s2, space.w_str)):
+    if (space.isinstance_w(w_s1, space.w_bytes) and
+        space.isinstance_w(w_s2, space.w_bytes)):
 
-        s1, s2 = space.str_w(w_s1), space.str_w(w_s2)
+        s1, s2 = space.bytes_w(w_s1), space.bytes_w(w_s2)
         s1_c = rffi.str2charp(s1)
         s2_c = rffi.str2charp(s2)
         try:
-            return space.wrap(_strcoll(s1_c, s2_c))
+            return space.newint(_strcoll(s1_c, s2_c))
         finally:
             rffi.free_charp(s1_c)
             rffi.free_charp(s2_c)
@@ -144,12 +143,12 @@ def strcoll(space, w_s1, w_s2):
         rffi.free_wcharp(s1_c)
         rffi.free_wcharp(s2_c)
 
-    return space.wrap(result)
+    return space.newint(result)
 
 _strxfrm = rlocale.external('strxfrm',
                     [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T)
 
-@unwrap_spec(s=str)
+@unwrap_spec(s='text')
 def strxfrm(space, s):
     "string -> string. Returns a string that behaves for cmp locale-aware."
     n1 = len(s) + 1
@@ -174,7 +173,7 @@ def strxfrm(space, s):
     val = rffi.charp2str(buf)
     lltype.free(buf, flavor="raw")
 
-    return space.wrap(val)
+    return space.newtext(val)
 
 if rlocale.HAVE_LANGINFO:
 
@@ -184,7 +183,7 @@ if rlocale.HAVE_LANGINFO:
         Return the value for the locale information associated with key."""
 
         try:
-            return space.wrap(rlocale.nl_langinfo(key))
+            return space.newtext(rlocale.nl_langinfo(key))
         except ValueError:
             raise oefmt(space.w_ValueError, "unsupported langinfo constant")
 
@@ -194,19 +193,19 @@ if rlocale.HAVE_LANGINFO:
 if rlocale.HAVE_LIBINTL:
     _gettext = rlocale.external('gettext', [rffi.CCHARP], rffi.CCHARP)
 
-    @unwrap_spec(msg=str)
+    @unwrap_spec(msg='text')
     def gettext(space, msg):
         """gettext(msg) -> string
         Return translation of msg."""
         msg_c = rffi.str2charp(msg)
         try:
-            return space.wrap(rffi.charp2str(_gettext(msg_c)))
+            return space.newtext(rffi.charp2str(_gettext(msg_c)))
         finally:
             rffi.free_charp(msg_c)
 
     _dgettext = rlocale.external('dgettext', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 
-    @unwrap_spec(msg=str)
+    @unwrap_spec(msg='text')
     def dgettext(space, w_domain, msg):
         """dgettext(domain, msg) -> string
         Return translation of msg in domain."""
@@ -222,7 +221,7 @@ if rlocale.HAVE_LIBINTL:
             finally:
                 rffi.free_charp(msg_c)
         else:
-            domain = space.str_w(w_domain)
+            domain = space.text_w(w_domain)
             domain_c = rffi.str2charp(domain)
             msg_c = rffi.str2charp(msg)
             try:
@@ -235,12 +234,12 @@ if rlocale.HAVE_LIBINTL:
                 rffi.free_charp(domain_c)
                 rffi.free_charp(msg_c)
 
-        return space.wrap(result)
+        return space.newtext(result)
 
     _dcgettext = rlocale.external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT],
                                                                 rffi.CCHARP)
 
-    @unwrap_spec(msg=str, category=int)
+    @unwrap_spec(msg='text', category=int)
     def dcgettext(space, w_domain, msg, category):
         """dcgettext(domain, msg, category) -> string
         Return translation of msg in domain and category."""
@@ -257,7 +256,7 @@ if rlocale.HAVE_LIBINTL:
             finally:
                 rffi.free_charp(msg_c)
         else:
-            domain = space.str_w(w_domain)
+            domain = space.text_w(w_domain)
             domain_c = rffi.str2charp(domain)
             msg_c = rffi.str2charp(msg)
             try:
@@ -271,7 +270,7 @@ if rlocale.HAVE_LIBINTL:
                 rffi.free_charp(domain_c)
                 rffi.free_charp(msg_c)
 
-        return space.wrap(result)
+        return space.newtext(result)
 
 
     _textdomain = rlocale.external('textdomain', [rffi.CCHARP], rffi.CCHARP)
@@ -285,7 +284,7 @@ if rlocale.HAVE_LIBINTL:
             result = _textdomain(domain)
             result = rffi.charp2str(result)
         else:
-            domain = space.str_w(w_domain)
+            domain = space.text_w(w_domain)
             domain_c = rffi.str2charp(domain)
             try:
                 result = _textdomain(domain_c)
@@ -296,13 +295,13 @@ if rlocale.HAVE_LIBINTL:
             finally:
                 rffi.free_charp(domain_c)
 
-        return space.wrap(result)
+        return space.newtext(result)
 
     _bindtextdomain = rlocale.external('bindtextdomain', [rffi.CCHARP, rffi.CCHARP],
                                                                 rffi.CCHARP,
                                        save_err=rffi.RFFI_SAVE_ERRNO)
 
-    @unwrap_spec(domain=str)
+    @unwrap_spec(domain='text')
     def bindtextdomain(space, domain, w_dir):
         """bindtextdomain(domain, dir) -> string
         Bind the C library's domain to dir."""
@@ -315,7 +314,7 @@ if rlocale.HAVE_LIBINTL:
             finally:
                 rffi.free_charp(domain_c)
         else:
-            dir = space.str_w(w_dir)
+            dir = space.text_w(w_dir)
             domain_c = rffi.str2charp(domain)
             dir_c = rffi.str2charp(dir)
             try:
@@ -326,14 +325,14 @@ if rlocale.HAVE_LIBINTL:
 
         if not dirname:
             errno = rposix.get_saved_errno()
-            raise OperationError(space.w_OSError, space.wrap(errno))
-        return space.wrap(rffi.charp2str(dirname))
+            raise OperationError(space.w_OSError, space.newint(errno))
+        return space.newtext(rffi.charp2str(dirname))
 
     _bind_textdomain_codeset = rlocale.external('bind_textdomain_codeset',
                                     [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 
     if rlocale.HAVE_BIND_TEXTDOMAIN_CODESET:
-        @unwrap_spec(domain=str)
+        @unwrap_spec(domain='text')
         def bind_textdomain_codeset(space, domain, w_codeset):
             """bind_textdomain_codeset(domain, codeset) -> string
             Bind the C library's domain to codeset."""
@@ -346,7 +345,7 @@ if rlocale.HAVE_LIBINTL:
                 finally:
                     rffi.free_charp(domain_c)
             else:
-                codeset = space.str_w(w_codeset)
+                codeset = space.text_w(w_codeset)
                 domain_c = rffi.str2charp(domain)
                 codeset_c = rffi.str2charp(codeset)
                 try:
@@ -358,9 +357,9 @@ if rlocale.HAVE_LIBINTL:
             if not result:
                 return space.w_None
             else:
-                return space.wrap(rffi.charp2str(result))
+                return space.newtext(rffi.charp2str(result))
 
 if sys.platform == 'win32':
     def getdefaultlocale(space):
         language, encoding = rlocale.getdefaultlocale()
-        return space.newtuple([space.wrap(language), space.wrap(encoding)])
+        return space.newtuple([space.newtext(language), space.newtext(encoding)])

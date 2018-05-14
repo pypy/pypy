@@ -85,7 +85,11 @@ c_thread_releaselock_NOAUTO = c_thread_releaselock
 
 
 def allocate_lock():
-    return Lock(allocate_ll_lock())
+    # Add some memory pressure for the size of the lock because it is an
+    # Opaque object
+    lock = Lock(allocate_ll_lock())
+    rgc.add_memory_pressure(TLOCKP_SIZE, lock)
+    return lock
 
 @specialize.arg(0)
 def ll_start_new_thread(func):
@@ -108,9 +112,9 @@ def get_ident():
     else:
         try:
             import thread
-            return thread.get_ident()
         except ImportError:
-            return 1
+            return 42
+        return thread.get_ident()
 
 def get_or_make_ident():
     if we_are_translated():
@@ -244,9 +248,6 @@ def allocate_ll_lock():
     if rffi.cast(lltype.Signed, res) <= 0:
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
-    # Add some memory pressure for the size of the lock because it is an
-    # Opaque object
-    rgc.add_memory_pressure(TLOCKP_SIZE)
     return ll_lock
 
 def free_ll_lock(ll_lock):
@@ -428,7 +429,11 @@ class ThreadLocalReference(ThreadLocalField):
                 gc._trace_callback(callback, arg, p + offset)
             llop.threadlocalref_release(lltype.Void)
         _lambda_trace_tlref = lambda: _trace_tlref
-        TRACETLREF = lltype.GcStruct('TRACETLREF')
+        # WAAAH obscurity: can't use a name that may be non-unique,
+        # otherwise the types compare equal, even though we call
+        # register_custom_trace_hook() to register different trace
+        # functions...
+        TRACETLREF = lltype.GcStruct('TRACETLREF%d' % unique_id)
         _tracetlref_obj = lltype.malloc(TRACETLREF, immortal=True)
 
     @staticmethod
