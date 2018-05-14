@@ -129,7 +129,7 @@ class TestCompiler:
         self.simple_test(stmt, "type(x)", int)
 
     def test_tuple_assign(self):
-        yield self.error_test, "() = 1", SyntaxError
+        yield self.simple_test, "() = []", "1", 1
         yield self.simple_test, "x,= 1,", "x", 1
         yield self.simple_test, "x,y = 1,2", "x,y", (1, 2)
         yield self.simple_test, "x,y,z = 1,2,3", "x,y,z", (1, 2, 3)
@@ -1482,3 +1482,12 @@ class TestOptimizations:
             return f'ab{x}cd'
         """
         code, blocks = generate_function_code(source, self.space)
+
+    def test_empty_tuple_target(self):
+        source = """def f():
+            () = ()
+            del ()
+            [] = []
+            del []
+        """
+        generate_function_code(source, self.space)
