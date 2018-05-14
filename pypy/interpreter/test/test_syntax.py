@@ -752,6 +752,33 @@ pass
         exc = raises(SyntaxError, compile, code, 'foo', 'exec')
         assert exc.value.offset in (19, 20) # pypy, cpython
 
+    def test_empty_tuple_target(self): """
+        def f(n):
+            () = ()
+            ((), ()) = [[], []]
+            del ()
+            del ((), ())
+            [] = {}
+            ([], ()) = [[], ()]
+            [[], ()] = ((), [])
+            del []
+            del [[], ()]
+            for () in [(), []]: pass
+            for [] in ([],): pass
+            class Zen:
+                def __enter__(self): return ()
+                def __exit__(self, *args): pass
+            with Zen() as (): pass
+            () = [2, 3] * n
+        f(0)
+        try:
+            f(5)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("should have raised")
+        """
+
 
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)

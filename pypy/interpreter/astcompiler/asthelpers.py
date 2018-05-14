@@ -83,10 +83,7 @@ class __extend__(ast.Tuple):
         if self.elts:
             for elt in self.elts:
                 elt.set_context(space, ctx)
-            self.ctx = ctx
-        else:
-            # Assignment to () raises an error.
-            ast.expr.set_context(self, space, ctx)
+        self.ctx = ctx
 
 class __extend__(ast.Lambda):
 
