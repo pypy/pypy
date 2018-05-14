@@ -216,6 +216,7 @@ class PyCode(eval.Code):
         """
         Hack to initialize the code object from a real (CPython) one.
         """
+        XXX
         assert isinstance(code, types.CodeType)
         newconsts_w = [None] * len(code.co_consts)
         num = 0
