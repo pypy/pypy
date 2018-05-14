@@ -65,7 +65,7 @@ class ExecutionContext(object):
 
     def enter(self, frame):
         if self.space.reverse_debugging:
-            self.space.reverse_debugging.enter_call(self.topframeref(), frame)
+            self._revdb_enter(frame)
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
@@ -87,8 +87,7 @@ class ExecutionContext(object):
                 frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
             if self.space.reverse_debugging:
-                self.space.reverse_debugging.leave_call(self.topframeref(),
-                                                        got_exception)
+                self._revdb_leave(got_exception)
 
     # ________________________________________________________________
 
@@ -159,7 +158,7 @@ class ExecutionContext(object):
         trace function.
         """
         if self.space.reverse_debugging:
-            self.space.reverse_debugging.potential_stop_point(frame)
+            self._revdb_potential_stop_point(frame)
         if (frame.get_w_f_trace() is None or self.is_tracing or
             self.gettrace() is None):
             return
@@ -391,6 +390,21 @@ class ExecutionContext(object):
         (i.e. call the signal handlers)."""
         if self.space.check_signal_action is not None:
             self.space.check_signal_action.perform(self, None)
+
+    def _revdb_enter(self, frame):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import enter_call
+        enter_call(self.topframeref(), frame)
+
+    def _revdb_leave(self, got_exception):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import leave_call
+        leave_call(self.topframeref(), got_exception)
+
+    def _revdb_potential_stop_point(self, frame):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import potential_stop_point
+        potential_stop_point(frame)
 
     def _freeze_(self):
         raise Exception("ExecutionContext instances should not be seen during"

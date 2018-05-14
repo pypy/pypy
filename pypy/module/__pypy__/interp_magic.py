@@ -209,4 +209,5 @@ def side_effects_ok(space):
     return space.newbool(space._side_effects_ok())
 
 def revdb_stop(space):
-    space.reverse_debugging.stop_point()
+    from pypy.interpreter.reverse_debugging import stop_point
+    stop_point()

@@ -375,33 +375,34 @@ class Entry(ExtRegistryEntry):
 
 
 def revdb_flag_io_disabled():
-    revdb = _import_revdb()
-    if revdb and revdb.flag_io_disabled():
-        return revdb
-    return None
+    if not revdb_enabled():
+        return False
+    return _revdb_flag_io_disabled()
 
-def _import_revdb():
-    "NOT_RPYTHON"
-    return None
+def _revdb_flag_io_disabled():
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.flag_io_disabled()
+
+@not_rpython
+def revdb_enabled():
+    return False
 
 class Entry(ExtRegistryEntry):
-    _about_ = _import_revdb
+    _about_ = revdb_enabled
 
     def compute_result_annotation(self):
-        revdb = None
+        from rpython.annotator import model as annmodel
         config = self.bookkeeper.annotator.translator.config
         if config.translation.reverse_debugger:
-            from rpython.rlib import revdb
-        return self.bookkeeper.immutablevalue(revdb)
+            return annmodel.s_True
+        else:
+            return annmodel.s_False
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
-        revdb = None
-        config = hop.rtyper.annotator.translator.config
-        if config.translation.reverse_debugger:
-            from rpython.rlib import revdb
         hop.exception_cannot_occur()
-        return hop.inputconst(lltype.Void, revdb)
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 # ____________________________________________________________
 

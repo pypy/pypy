@@ -54,9 +54,8 @@ dg_freedtoa = rffi.llexternal(
 def strtod(input):
     if len(input) > _INT_LIMIT:
         raise MemoryError
-    revdb = objectmodel.revdb_flag_io_disabled()
-    if revdb:
-        return revdb.emulate_strtod(input)
+    if objectmodel.revdb_flag_io_disabled():
+        return _revdb_strtod(input)
     end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
     try:
         # note: don't use the class scoped_view_charp here, it
@@ -241,9 +240,8 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0,
          special_strings=lower_special_strings, upper=False):
     if precision > _INT_LIMIT:
         raise MemoryError
-    revdb = objectmodel.revdb_flag_io_disabled()
-    if revdb:
-        return revdb.emulate_dtoa(value)
+    if objectmodel.revdb_flag_io_disabled():
+        return _revdb_dtoa(value)
     decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     try:
         sign_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
@@ -307,3 +305,13 @@ def dtoa_formatd(value, code, precision, flags):
 
     return dtoa(value, code, mode=mode, precision=precision, flags=flags,
                 special_strings=special_strings, upper=upper)
+
+def _revdb_strtod(input):
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.emulate_strtod(input)
+
+def _revdb_dtoa(value):
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.emulate_dtoa(value)
