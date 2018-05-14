@@ -2468,7 +2468,8 @@ class UnicodeEscapeTest(unittest.TestCase):
                 with self.assertWarns(DeprecationWarning):
                     check(b"\\" + b, "\\" + chr(i))
             if b.upper() not in b'UN':
-                with self.assertWarns(DeprecationWarning):
+                with self.assertWarns(DeprecationWarning,
+                                      msg="character {} did not raise an exception".format(i)):
                     check(b"\\" + b.upper(), "\\" + chr(i-32))
         with self.assertWarns(DeprecationWarning):
             check(br"\8", "\\8")
