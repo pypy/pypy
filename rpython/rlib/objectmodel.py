@@ -373,17 +373,35 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, translator.config)
 
-def _import_revdb():
-    from rpython.rlib import revdb
-    return revdb
 
 def revdb_flag_io_disabled():
-    config = fetch_translated_config()
-    if config is not None and config.translation.reverse_debugger:
-        revdb = _import_revdb()
-        if revdb.flag_io_disabled():
-            return revdb
+    revdb = _import_revdb()
+    if revdb and revdb.flag_io_disabled():
+        return revdb
     return None
+
+def _import_revdb():
+    "NOT_RPYTHON"
+    return None
+
+class Entry(ExtRegistryEntry):
+    _about_ = _import_revdb
+
+    def compute_result_annotation(self):
+        revdb = None
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.reverse_debugger:
+            from rpython.rlib import revdb
+        return self.bookkeeper.immutablevalue(revdb)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        revdb = None
+        config = hop.rtyper.annotator.translator.config
+        if config.translation.reverse_debugger:
+            from rpython.rlib import revdb
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Void, revdb)
 
 # ____________________________________________________________
 
