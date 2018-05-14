@@ -1008,6 +1008,7 @@ class TestCompiler:
         ("C4.__doc__", 'docstring'),
         ("C4.__doc__", 'docstring'),
         ("__doc__", None),])
+
     def test_remove_docstring(self, expr, result):
         source = '"module_docstring"\n' + """if 1:
         def f1():
