@@ -1,4 +1,5 @@
 import os
+from pytest import raises
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.astcompiler import ast
