@@ -166,16 +166,20 @@ return next yielded value or raise StopIteration."""
             # Normal case: the call above raises Yield.
             # We reach this point if the iterable is exhausted.
             last_instr = jit.promote(frame.last_instr)
+            assert last_instr & 1 == 0
             assert last_instr >= 0
-            return r_uint(last_instr + 1)
+            return r_uint(last_instr + 2)
 
         if isinstance(w_arg_or_err, SApplicationException):
             return frame.handle_generator_error(w_arg_or_err.operr)
 
         last_instr = jit.promote(frame.last_instr)
         if last_instr != -1:
+            assert last_instr & 1 == 0
             frame.pushvalue(w_arg_or_err)
-        return r_uint(last_instr + 1)
+            return r_uint(last_instr + 2)
+        else:
+            return r_uint(0)
 
     def next_yield_from(self, frame, w_yf, w_inputvalue_or_err):
         """Fetch the next item of the current 'yield from', push it on

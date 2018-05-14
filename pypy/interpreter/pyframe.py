@@ -774,6 +774,7 @@ class PyFrame(W_Root):
             block.cleanupstack(self)
 
         self.getorcreatedebug().f_lineno = new_lineno
+        assert new_lasti & 1 == 0
         self.last_instr = new_lasti
 
     def get_last_lineno(self):

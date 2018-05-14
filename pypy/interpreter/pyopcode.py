@@ -62,6 +62,7 @@ class __extend__(pyframe.PyFrame):
         co_code = pycode.co_code
         try:
             while True:
+                assert next_instr & 1 == 0
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
             return self.popvalue()
@@ -152,22 +153,17 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
         while True:
+            assert next_instr & 1 == 0
             self.last_instr = intmask(next_instr)
             if jit.we_are_jitted():
                 ec.bytecode_only_trace(self)
             else:
                 ec.bytecode_trace(self)
             next_instr = r_uint(self.last_instr)
+            assert next_instr & 1 == 0
             opcode = ord(co_code[next_instr])
-            next_instr += 1
-
-            if opcode >= HAVE_ARGUMENT:
-                lo = ord(co_code[next_instr])
-                hi = ord(co_code[next_instr+1])
-                next_instr += 2
-                oparg = (hi * 256) | lo
-            else:
-                oparg = 0
+            oparg = ord(co_code[next_instr + 1])
+            next_instr += 2
 
             # note: the structure of the code here is such that it makes
             # (after translation) a big "if/elif" chain, which is then
@@ -175,12 +171,11 @@ class __extend__(pyframe.PyFrame):
 
             while opcode == opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
+                arg = ord(co_code[next_instr + 1])
                 if opcode < HAVE_ARGUMENT:
                     raise BytecodeCorruption
-                lo = ord(co_code[next_instr+1])
-                hi = ord(co_code[next_instr+2])
-                next_instr += 3
-                oparg = (oparg * 65536) | (hi * 256) | lo
+                next_instr += 2
+                oparg = (oparg << 8) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
                 w_returnvalue = self.popvalue()
