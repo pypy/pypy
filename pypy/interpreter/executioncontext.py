@@ -64,9 +64,8 @@ class ExecutionContext(object):
         return frame
 
     def enter(self, frame):
-        if self.space.config.translation.reverse_debugger:
-            from pypy.interpreter.reverse_debugging import enter_call
-            enter_call(self.topframeref(), frame)
+        if self.space.reverse_debugging:
+            self.space.reverse_debugging.enter_call(self.topframeref(), frame)
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
@@ -87,9 +86,9 @@ class ExecutionContext(object):
                 # be accessed also later
                 frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
-            if self.space.config.translation.reverse_debugger:
-                from pypy.interpreter.reverse_debugging import leave_call
-                leave_call(self.topframeref(), got_exception)
+            if self.space.reverse_debugging:
+                self.space.reverse_debugging.leave_call(self.topframeref(),
+                                                        got_exception)
 
     # ________________________________________________________________
 
@@ -159,9 +158,8 @@ class ExecutionContext(object):
         Like bytecode_trace() but doesn't invoke any other events besides the
         trace function.
         """
-        if self.space.config.translation.reverse_debugger:
-            from pypy.interpreter.reverse_debugging import potential_stop_point
-            potential_stop_point(frame)
+        if self.space.reverse_debugging:
+            self.space.reverse_debugging.potential_stop_point(frame)
         if (frame.get_w_f_trace() is None or self.is_tracing or
             self.gettrace() is None):
             return
@@ -519,7 +517,6 @@ class ActionFlag(AbstractActionFlag):
     """The normal class for space.actionflag.  The signal module provides
     a different one."""
     _ticker = 0
-    _ticker_count = -1     # xxx only for reverse_debugger.py
 
     def get_ticker(self):
         return self._ticker

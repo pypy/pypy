@@ -3,7 +3,7 @@ from rpython.rlib import rfloat
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib import jit, revdb
+from rpython.rlib import jit, objectmodel
 from rpython.rlib.rstring import StringBuilder
 import py, sys
 
@@ -54,7 +54,8 @@ dg_freedtoa = rffi.llexternal(
 def strtod(input):
     if len(input) > _INT_LIMIT:
         raise MemoryError
-    if revdb.flag_io_disabled():
+    revdb = objectmodel.revdb_flag_io_disabled()
+    if revdb:
         return revdb.emulate_strtod(input)
     end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
     try:
@@ -240,7 +241,8 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0,
          special_strings=lower_special_strings, upper=False):
     if precision > _INT_LIMIT:
         raise MemoryError
-    if revdb.flag_io_disabled():
+    revdb = objectmodel.revdb_flag_io_disabled()
+    if revdb:
         return revdb.emulate_dtoa(value)
     decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     try:

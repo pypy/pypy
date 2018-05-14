@@ -4,7 +4,7 @@ import py
 import sys
 
 from rpython.translator import cdir
-from rpython.rlib import jit, rposix, revdb
+from rpython.rlib import jit, rposix, objectmodel
 from rpython.rlib.rfloat import INFINITY, NAN, isfinite
 from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -185,7 +185,8 @@ def ll_math_frexp(x):
         mantissa = x
         exponent = 0
     else:
-        if revdb.flag_io_disabled():
+        revdb = objectmodel.revdb_flag_io_disabled()
+        if revdb:
             return revdb.emulate_frexp(x)
         exp_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
@@ -223,7 +224,8 @@ def ll_math_ldexp(x, exp):
 def ll_math_modf(x):
     # some platforms don't do the right thing for NaNs and
     # infinities, so we take care of special cases directly.
-    if revdb.flag_io_disabled():
+    revdb = objectmodel.revdb_flag_io_disabled()
+    if revdb:
         return revdb.emulate_modf(x)
     if not isfinite(x):
         if math.isnan(x):

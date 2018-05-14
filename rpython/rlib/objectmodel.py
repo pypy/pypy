@@ -373,6 +373,18 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, translator.config)
 
+def _import_revdb():
+    from rpython.rlib import revdb
+    return revdb
+
+def revdb_flag_io_disabled():
+    config = fetch_translated_config()
+    if config is not None and config.translation.reverse_debugger:
+        revdb = _import_revdb()
+        if revdb.flag_io_disabled():
+            return revdb
+    return None
+
 # ____________________________________________________________
 
 class FREED_OBJECT(object):

@@ -272,6 +272,9 @@ class Transformer(object):
     def rewrite_op_unlikely(self, op):
         return None   # "no real effect"
 
+    def rewrite_op_revdb_do_next_call(self, op):
+        return []    # ignored, only for revdb
+
     def rewrite_op_raw_malloc_usage(self, op):
         if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
             return   # the operation disappears

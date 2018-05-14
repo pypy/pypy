@@ -1211,12 +1211,11 @@ class LLFrame(object):
         exc_data.exc_value = lltype.typeOf(evalue)._defl()
         return bool(etype)
 
-    def op_revdb_stop_point(self, *args):
-        pass
-
     def op_gc_move_out_of_nursery(self, obj):
         raise NotImplementedError("gc_move_out_of_nursery")
 
+    def op_revdb_stop_point(self, *args):
+        pass
     def op_revdb_send_answer(self, *args):
         raise NotImplementedError
     def op_revdb_breakpoint(self, *args):
@@ -1225,10 +1224,8 @@ class LLFrame(object):
         raise NotImplementedError
     def op_revdb_get_unique_id(self, *args):
         raise NotImplementedError
-
     def op_revdb_watch_save_state(self, *args):
         return False
-
     def op_revdb_watch_restore_state(self, *args):
         raise NotImplementedError
     def op_revdb_weakref_create(self, *args):

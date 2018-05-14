@@ -162,7 +162,7 @@ def _load_compiled_module(space, w_modname, w_mod, *args, **kwds):
 def _setup(space):
     dn = setup_directory_structure(space)
     return space.appexec([space.wrap(dn)], """
-        (dn): 
+        (dn):
             import sys
             path = list(sys.path)
             sys.path.insert(0, dn)
@@ -1060,7 +1060,7 @@ class TestPycStuff:
 
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()
-        
+
     def test_load_source_module_importerror(self):
         # the .pyc file is created before executing the module
         space = self.space
@@ -1169,11 +1169,11 @@ class TestPycStuff:
                     stream.close()
 
 
-def test_PYTHONPATH_takes_precedence(space): 
+def test_PYTHONPATH_takes_precedence(space):
     if sys.platform == "win32":
         py.test.skip("unresolved issues with win32 shell quoting rules")
-    from pypy.interpreter.test.test_zpy import pypypath 
-    extrapath = udir.ensure("pythonpath", dir=1) 
+    from pypy.interpreter.test.test_zpy import pypypath
+    extrapath = udir.ensure("pythonpath", dir=1)
     extrapath.join("sched.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)

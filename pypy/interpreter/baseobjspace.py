@@ -442,6 +442,16 @@ class ObjSpace(object):
             config = get_pypy_config(translating=False)
         self.config = config
 
+        if self.config.translation.reverse_debugger:
+            # pre-import and attach to the space.  This avoids a regular
+            # translation seeing and executing the imports even if it
+            # turns out that self.config.translation.reverse_debugger is
+            # False.
+            from pypy.interpreter import reverse_debugging
+            self.reverse_debugging = reverse_debugging
+        else:
+            self.reverse_debugging = None
+
         self.builtin_modules = {}
         self.reloading_modules = {}
 
@@ -458,9 +468,8 @@ class ObjSpace(object):
 
     def startup(self):
         # To be called before using the space
-        if self.config.translation.reverse_debugger:
-            from pypy.interpreter.reverse_debugging import setup_revdb
-            setup_revdb(self)
+        if self.reverse_debugging:
+            self.reverse_debugging.setup_revdb(self)
 
         self.threadlocals.enter_thread(self)
 
@@ -902,9 +911,8 @@ class ObjSpace(object):
         #     if not space._side_effects_ok():
         #         don't cache.
         #
-        if self.config.translation.reverse_debugger:
-            from pypy.interpreter.reverse_debugging import dbstate
-            return dbstate.standard_code
+        if self.reverse_debugging:
+            return self.reverse_debugging.dbstate.standard_code
         return True
 
     def is_interned_str(self, s):

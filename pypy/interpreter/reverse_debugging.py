@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import gateway, typedef, pycode, pytraceback, pyframe
 from pypy.module.marshal import interp_marshal
-from pypy.interpreter.executioncontext import AbstractActionFlag
+from pypy.interpreter.executioncontext import AbstractActionFlag, ActionFlag
 
 
 class DBState:
@@ -222,10 +222,10 @@ class NonStandardCode(object):
     def __enter__(self):
         dbstate.standard_code = False
         self.t = dbstate.space.actionflag._ticker
-        self.c = dbstate.space.actionflag._ticker_count
+        self.c = dbstate.space.actionflag._ticker_revdb_count
     def __exit__(self, *args):
         dbstate.space.actionflag._ticker = self.t
-        dbstate.space.actionflag._ticker_count = self.c
+        dbstate.space.actionflag._ticker_revdb_count = self.c
         dbstate.standard_code = True
 non_standard_code = NonStandardCode()
 
@@ -802,6 +802,8 @@ def _run_watch(space, prog):
 # ____________________________________________________________
 
 
+ActionFlag._ticker_revdb_count = -1
+
 class RDBSignalActionFlag(AbstractActionFlag):
     # Used instead of pypy.module.signal.interp_signal.SignalActionFlag
     # when we have reverse-debugging.  That other class would work too,
@@ -818,7 +820,7 @@ class RDBSignalActionFlag(AbstractActionFlag):
 
     _SIG_TICKER_COUNT = 100
     _ticker = 0
-    _ticker_count = _SIG_TICKER_COUNT * 10
+    _ticker_revdb_count = _SIG_TICKER_COUNT * 10
 
     def get_ticker(self):
         return self._ticker
@@ -831,10 +833,10 @@ class RDBSignalActionFlag(AbstractActionFlag):
 
     def decrement_ticker(self, by):
         if we_are_translated():
-            c = self._ticker_count - 1
+            c = self._ticker_revdb_count - 1
             if c < 0:
                 c = self._update_ticker_from_signals()
-            self._ticker_count = c
+            self._ticker_revdb_count = c
         #if self.has_bytecode_counter:    # this 'if' is constant-folded
         #    print ("RDBSignalActionFlag: has_bytecode_counter: "
         #           "not supported for now")

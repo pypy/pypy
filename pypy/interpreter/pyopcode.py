@@ -1053,9 +1053,8 @@ class __extend__(pyframe.PyFrame):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
         #
-        if self.space.config.translation.reverse_debugger:
-            from pypy.interpreter.reverse_debugging import jump_backward
-            jump_backward(self, jumpto)
+        if self.space.reverse_debugging:
+            self.space.reverse_debugging.jump_backward(self, jumpto)
         #
         return jumpto
 
@@ -1311,9 +1310,8 @@ class __extend__(pyframe.PyFrame):
         self.space.setitem(w_dict, w_key, w_value)
 
     def LOAD_REVDB_VAR(self, oparg, next_instr):
-        if self.space.config.translation.reverse_debugger:
-            from pypy.interpreter.reverse_debugging import load_metavar
-            w_var = load_metavar(oparg)
+        if self.space.reverse_debugging:
+            w_var = self.space.reverse_debugging.load_metavar(oparg)
             self.pushvalue(w_var)
         else:
             self.MISSING_OPCODE(oparg, next_instr)
