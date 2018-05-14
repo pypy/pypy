@@ -21,6 +21,8 @@ class Instruction(object):
     def __init__(self, opcode, arg=0):
         self.opcode = opcode
         self.arg = arg
+        if opcode < ops.HAVE_ARGUMENT:
+            assert arg == 0
         self.lineno = 0
         self.has_jump = False
 
@@ -28,9 +30,33 @@ class Instruction(object):
         """Return the size of bytes of this instruction when it is
         encoded.
         """
-        if self.opcode >= ops.HAVE_ARGUMENT:
-            return (6 if self.arg > 0xFFFF else 3)
-        return 1
+        if self.arg <= 0xff:
+            return 2
+        if self.arg <= 0xffff:
+            return 4
+        if self.arg <= 0xffffff:
+            return 6
+        return 8
+
+    def encode(self, code):
+        opcode = self.opcode
+
+        arg = self.arg
+        size = self.size()
+        if size == 8:
+            code.append(chr(ops.EXTENDED_ARG))
+            code.append(chr((arg >> 24) & 0xff))
+            assert ((arg >> 24) & 0xff) == (arg >> 24)
+        if size >= 6:
+            code.append(chr(ops.EXTENDED_ARG))
+            code.append(chr((arg >> 16) & 0xff))
+        if size >= 4:
+            code.append(chr(ops.EXTENDED_ARG))
+            code.append(chr((arg >> 8) & 0xff))
+        if size >= 2:
+            code.append(chr(opcode))
+            code.append(chr(arg & 0xff))
+
 
     def jump_to(self, target, absolute=False):
         """Indicate the target this jump instruction.
@@ -121,20 +147,7 @@ class Block(object):
         """Encode the instructions in this block into bytecode."""
         code = []
         for instr in self.instructions:
-            opcode = instr.opcode
-            if opcode >= ops.HAVE_ARGUMENT:
-                arg = instr.arg
-                if instr.arg > 0xFFFF:
-                    ext = arg >> 16
-                    code.append(chr(ops.EXTENDED_ARG))
-                    code.append(chr(ext & 0xFF))
-                    code.append(chr(ext >> 8))
-                    arg &= 0xFFFF
-                code.append(chr(opcode))
-                code.append(chr(arg & 0xFF))
-                code.append(chr(arg >> 8))
-            else:
-                code.append(chr(opcode))
+            instr.encode(code)
         return ''.join(code)
 
 
