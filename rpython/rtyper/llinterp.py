@@ -1242,8 +1242,8 @@ class LLFrame(object):
         raise NotImplementedError
     def op_revdb_dtoa(self, *args):
         raise NotImplementedError
-    def op_revdb_do_next_call(self, *args):
-        raise NotImplementedError
+    def op_revdb_do_next_call(self):
+        pass
     def op_revdb_set_thread_breakpoint(self, *args):
         raise NotImplementedError
 
