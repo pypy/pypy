@@ -1,4 +1,3 @@
-XX X X
 import sys
 from rpython.rlib.objectmodel import we_are_translated, fetch_translated_config
 from rpython.rlib.objectmodel import specialize
