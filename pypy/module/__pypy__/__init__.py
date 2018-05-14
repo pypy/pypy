@@ -147,5 +147,6 @@ class Module(MixedModule):
             self.extra_interpdef('jit_backend_features',
                                     'space.wrap(%r)' % features)
         if self.space.config.translation.reverse_debugger:
-            self.extra_interpdef('revdb_stop',
-                                 'interp_magic.revdb_stop')
+            self.extra_interpdef('revdb_stop', 'interp_magic.revdb_stop')
+        else:
+            self.extra_interpdef('revdb_stop', 'space.w_None')

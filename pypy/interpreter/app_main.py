@@ -83,10 +83,7 @@ def run_toplevel(f, *fargs, **fkwds):
     sys.excepthook(), catching SystemExit, printing a newline after
     sys.stdout if needed, etc.
     """
-    try:
-        from __pypy__ import revdb_stop
-    except ImportError:
-        revdb_stop = None
+    from __pypy__ import revdb_stop
     try:
         # run it
         try:
