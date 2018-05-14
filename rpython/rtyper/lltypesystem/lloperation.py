@@ -606,7 +606,7 @@ LL_OPERATIONS = {
     'revdb_dtoa':           LLOp(sideeffects=False),
     'revdb_modf':           LLOp(sideeffects=False),
     'revdb_frexp':          LLOp(sideeffects=False),
-    'revdb_do_next_call':   LLOp(),
+    'revdb_do_next_call':   LLOp(canrun=True),
 }
 # ***** Run test_lloperation after changes. *****
 
