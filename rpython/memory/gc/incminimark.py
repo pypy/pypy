@@ -1836,6 +1836,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_print("minor collect, total memory used:", total_memory_used)
         debug_print("number of pinned objects:",
                     self.pinned_objects_in_nursery)
+        debug_print("total size of surviving objects:", self.nursery_surviving_size)
         if self.DEBUG >= 2:
             self.debug_check_consistency()     # expensive!
         #
@@ -2401,7 +2402,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # a total object size of at least '3 * nursery_size' bytes
                 # is processed.
                 limit = 3 * self.nursery_size // self.small_request_threshold
-                self.free_unvisited_rawmalloc_objects_step(limit)
+                nobjects = self.free_unvisited_rawmalloc_objects_step(limit)
+                debug_print("freeing raw objects:", limit-nobjects,
+                            "freed, limit was", limit)
                 done = False    # the 2nd half below must still be done
             else:
                 # Ask the ArenaCollection to visit a fraction of the objects.
@@ -2411,6 +2414,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 limit = 3 * self.nursery_size // self.ac.page_size
                 done = self.ac.mass_free_incremental(self._free_if_unvisited,
                                                      limit)
+                status = done and "No more pages left." or "More to do."
+                debug_print("freeing GC objects, up to", limit, "pages.", status)
             # XXX tweak the limits above
             #
             if done:
