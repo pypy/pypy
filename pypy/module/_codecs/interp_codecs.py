@@ -949,10 +949,17 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
-    result, consumed = runicode.str_decode_unicode_escape(
+    result, consumed, first_escape_error_char = runicode.str_decode_unicode_escape(
         string, len(string), errors,
         final, state.decode_error_handler,
         unicode_name_handler)
+
+    if first_escape_error_char is not None:
+        space.warn(
+            space.newtext("invalid escape sequence '\\%s'"
+                          % str(first_escape_error_char)),
+            space.w_DeprecationWarning
+        )
 
     return space.newtuple([space.newunicode(result), space.newint(consumed)])
 

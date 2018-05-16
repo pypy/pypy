@@ -1435,10 +1435,11 @@ def str_decode_unicode_escape(s, size, errors, final=False,
         errorhandler = default_unicode_error_decode
 
     if size == 0:
-        return u'', 0
+        return u'', 0, None
 
     builder = UnicodeBuilder(size)
     pos = 0
+    first_escape_error_char = None
     while pos < size:
         ch = s[pos]
 
@@ -1541,10 +1542,11 @@ def str_decode_unicode_escape(s, size, errors, final=False,
                                         message, s, pos-1, look+1)
                 builder.append(res)
         else:
+            first_escape_error_char = unichr(ord(ch))
             builder.append(u'\\')
             builder.append(unichr(ord(ch)))
 
-    return builder.build(), pos
+    return builder.build(), pos, first_escape_error_char
 
 def make_unicode_escape_function(pass_printable=False, unicode_output=False,
                                  quotes=False, prefix=None):

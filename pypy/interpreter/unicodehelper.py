@@ -117,7 +117,7 @@ def decode_unicode_escape(space, string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
-    result, consumed = runicode.str_decode_unicode_escape(
+    result, consumed, first_escape_error_char = runicode.str_decode_unicode_escape(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space),
         unicodedata_handler=unicodedata_handler)
