@@ -59,26 +59,6 @@ def clean_type(name):
         name = name[:_find_qualifier_index(name)]
     return name.strip(' ')
 
-def extract_namespace(name):
-    # find the namespace the named class lives in, take care of templates
-    tpl_open = 0
-    for pos in xrange(len(name)-1, 1, -1):
-        c = name[pos]
-
-        # count '<' and '>' to be able to skip template contents
-        if c == '>':
-            tpl_open += 1
-        elif c == '<':
-            tpl_open -= 1
-
-        # collect name up to "::"
-        elif tpl_open == 0 and c == ':' and name[pos-1] == ':':
-            # found the extend of the scope ... done
-            return name[0:pos-1]
-
-    # no namespace; assume outer scope
-    return ""
-
 
 #- operator mappings --------------------------------------------------------
 _operator_mappings = {}

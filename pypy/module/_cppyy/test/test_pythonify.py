@@ -378,13 +378,13 @@ class AppTestPYTHONIFY_UI:
 
         import _cppyy
 
-        def example01a_pythonize(pyclass):
-            assert pyclass.__name__ == 'example01a'
-            def getitem(self, idx):
-                return self.addDataToInt(idx)
-            pyclass.__getitem__ = getitem
+        def example01a_pythonize(pyclass, name):
+            if name == 'example01a':
+                def getitem(self, idx):
+                    return self.addDataToInt(idx)
+                pyclass.__getitem__ = getitem
 
-        _cppyy.add_pythonization('example01a', example01a_pythonize)
+        _cppyy.add_pythonization(example01a_pythonize)
 
         e = _cppyy.gbl.example01a(1)
 

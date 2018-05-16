@@ -14,6 +14,7 @@ from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from pypy.module._cffi_backend import ctypefunc
 from pypy.module._cppyy import converter, executor, ffitypes, helper
 
+CLASS_FLAGS_IS_PINNED      = 0x0001
 
 INSTANCE_FLAGS_PYTHON_OWNS = 0x0001
 INSTANCE_FLAGS_IS_REF      = 0x0002
@@ -131,7 +132,7 @@ def register_class(space, w_pycppclass):
     cppclass = space.interp_w(W_CPPClassDecl, w_cppclass)
     # add back-end specific method pythonizations (doing this on the wrapped
     # class allows simple aliasing of methods)
-    capi.pythonize(space, cppclass.name, w_pycppclass)
+    capi.pythonize(space, w_pycppclass, cppclass.name)
     state = space.fromcache(State)
     state.cppclass_registry[rffi.cast(rffi.LONG, cppclass.handle)] = w_pycppclass
 
@@ -816,14 +817,15 @@ def is_static_data(space, w_obj):
 
 
 class W_CPPScopeDecl(W_Root):
-    _attrs_ = ['space', 'handle', 'name', 'methods', 'datamembers']
+    _attrs_ = ['space', 'handle', 'flags', 'name', 'methods', 'datamembers']
     _immutable_fields_ = ['handle', 'name']
 
     def __init__(self, space, opaque_handle, final_scoped_name):
         self.space = space
-        self.name = final_scoped_name
         assert lltype.typeOf(opaque_handle) == capi.C_SCOPE
         self.handle = opaque_handle
+        self.flags = 0
+        self.name = final_scoped_name
         self.methods = {}
         # Do not call "self._build_methods()" here, so that a distinction can
         #  be made between testing for existence (i.e. existence in the cache
@@ -1316,7 +1318,7 @@ def wrap_cppinstance(space, rawobject, clsdecl,
 
     # cast to actual if requested and possible
     w_pycppclass = None
-    if do_cast and rawobject:
+    if do_cast and rawobject and not (clsdecl.flags & CLASS_FLAGS_IS_PINNED):
         actual = capi.c_actual_class(space, clsdecl, rawobject)
         if actual != clsdecl.handle:
             try:
@@ -1390,3 +1392,13 @@ def move(space, w_obj):
     if obj:
         obj.flags |= INSTANCE_FLAGS_IS_R_VALUE
     return w_obj
+
+
+# pythonization interface ---------------------------------------------------
+
+# do not auto-cast to given type
+@unwrap_spec(w_pycppclass=W_Root)
+def _pin_type(space, w_pycppclass):
+    w_clsdecl = space.findattr(w_pycppclass, space.newtext("__cppdecl__"))
+    decl = space.interp_w(W_CPPClassDecl, w_clsdecl)
+    decl.flags |= CLASS_FLAGS_IS_PINNED

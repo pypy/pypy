@@ -676,7 +676,7 @@ def _method_alias(space, w_pycppclass, m1, m2):
     space.setattr(w_pycppclass, space.newtext(m1),
                   space.getattr(w_pycppclass, space.newtext(m2)))
 
-def pythonize(space, name, w_pycppclass):
+def pythonize(space, w_pycppclass, name):
     if name == "string":
         space.setattr(w_pycppclass, space.newtext("c_str"), _pythonizations["stdstring_c_str"])
         _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "c_str")

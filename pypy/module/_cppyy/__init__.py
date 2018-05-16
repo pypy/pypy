@@ -19,12 +19,14 @@ class Module(MixedModule):
         '_bind_object'           : 'interp_cppyy._bind_object',
         'bind_object'            : 'interp_cppyy.bind_object',
         'move'                   : 'interp_cppyy.move',
+        '_pin_type'              : 'interp_cppyy._pin_type',
     }
 
     appleveldefs = {
         '_post_import_startup'   : 'pythonify._post_import_startup',
-        'add_pythonization'      : 'pythonify.add_pythonization',
         'Template'               : 'pythonify.CPPTemplate',
+        'add_pythonization'      : 'pythonify.add_pythonization',
+        'remove_pythonization'   : 'pythonify.remove_pythonization',
     }
 
     def __init__(self, space, *args):

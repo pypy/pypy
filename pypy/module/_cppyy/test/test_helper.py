@@ -53,11 +53,12 @@ def test_operator_mapping():
 
 
 def test_namespace_extraction():
-    assert helper.extract_namespace("vector")                        == ""
-    assert helper.extract_namespace("std::vector")                   == "std"
-    assert helper.extract_namespace("std::vector<double>")           == "std"
-    assert helper.extract_namespace("std::vector<std::vector>")      == "std"
-    assert helper.extract_namespace("vector<double>")                == ""
-    assert helper.extract_namespace("vector<std::vector>")           == ""
-    assert helper.extract_namespace("aap::noot::mies::zus")          == "aap::noot::mies"
+    from pypy.module._cppyy import pythonify
 
+    assert pythonify.extract_namespace("vector")[0]                     == ""
+    assert pythonify.extract_namespace("std::vector")[0]                == "std"
+    assert pythonify.extract_namespace("std::vector<double>")[0]        == "std"
+    assert pythonify.extract_namespace("std::vector<std::vector>")[0]   == "std"
+    assert pythonify.extract_namespace("vector<double>")[0]             == ""
+    assert pythonify.extract_namespace("vector<std::vector>")[0]        == ""
+    assert pythonify.extract_namespace("aap::noot::mies::zus")[0]       == "aap::noot::mies"

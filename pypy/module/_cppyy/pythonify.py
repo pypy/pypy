@@ -227,7 +227,7 @@ def make_cppclass(scope, cl_name, decl):
     # needs to run first, so that the generic pythonizations can use them
     import _cppyy
     _cppyy._register_class(pycls)
-    _pythonize(pycls)
+    _pythonize(pycls, pycls.__cppname__)
     return pycls
 
 def make_cpptemplatetype(scope, template_name):
@@ -291,6 +291,27 @@ def get_scoped_pycppitem(scope, name):
     raise AttributeError("'%s' has no attribute '%s'" % (str(scope), name))
 
 
+# helper for pythonization API
+def extract_namespace(name):
+    # find the namespace the named class lives in, take care of templates
+    tpl_open = 0
+    for pos in xrange(len(name)-1, 1, -1):
+        c = name[pos]
+
+        # count '<' and '>' to be able to skip template contents
+        if c == '>':
+            tpl_open += 1
+        elif c == '<':
+            tpl_open -= 1
+
+        # collect name up to "::"
+        elif tpl_open == 0 and c == ':' and name[pos-1] == ':':
+            # found the extend of the scope ... done
+            return name[:pos-1], name[pos+1:]
+
+    # no namespace; assume outer scope
+    return '', name
+
 # pythonization by decoration (move to their own file?)
 def python_style_getitem(self, idx):
     # python-style indexing: check for size and allow indexing from the back
@@ -314,15 +335,7 @@ def python_style_sliceable_getitem(self, slice_or_idx):
     else:
         return python_style_getitem(self, slice_or_idx)
 
-
-_pythonizations = {}
-def _pythonize(pyclass):
-
-    try:
-        _pythonizations[pyclass.__name__](pyclass)
-    except KeyError:
-        pass
-
+def _pythonize(pyclass, name):
     # general note: use 'in pyclass.__dict__' rather than 'hasattr' to prevent
     # adding pythonizations multiple times in derived classes
 
@@ -363,10 +376,10 @@ def _pythonize(pyclass):
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
     # not on vector, which is pythonized in the capi (interp-level; there is
     # also the fallback on the indexed __getitem__, but that is slower)
-    if not 'vector' in pyclass.__name__[:11] and \
+    if not 'vector' in name[:11] and \
             ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
-        if _cppyy._scope_byname(pyclass.__cppname__+'::iterator') or \
-                _cppyy._scope_byname(pyclass.__cppname__+'::const_iterator'):
+        if _cppyy._scope_byname(name+'::iterator') or \
+                _cppyy._scope_byname(name+'::const_iterator'):
             def __iter__(self):
                 i = self.begin()
                 while i != self.end():
@@ -386,7 +399,7 @@ def _pythonize(pyclass):
             pyclass.__getitem__ = python_style_getitem
 
     # string comparisons
-    if pyclass.__name__ == _cppyy._std_string_name():
+    if name == _cppyy._std_string_name():
         def eq(self, other):
             if type(other) == pyclass:
                 return self.c_str() == other.c_str()
@@ -396,7 +409,7 @@ def _pythonize(pyclass):
         pyclass.__str__ = pyclass.c_str
 
     # std::pair unpacking through iteration
-    if 'std::pair' == pyclass.__name__[:9] or 'pair' == pyclass.__name__[:4]:
+    if 'std::pair' == name[:9]:
         def getitem(self, idx):
             if idx == 0: return self.first
             if idx == 1: return self.second
@@ -406,6 +419,16 @@ def _pythonize(pyclass):
         pyclass.__getitem__ = getitem
         pyclass.__len__     = return2
 
+    # user provided, custom pythonizations
+    try:
+        ns_name, cl_name = extract_namespace(name)
+        pythonizors = _pythonizations[ns_name]
+        name = cl_name
+    except KeyError:
+        pythonizors = _pythonizations['']   # global scope
+
+    for p in pythonizors:
+        p(pyclass, name)
 
 def _post_import_startup():
     # _cppyy should not be loaded at the module level, as that will trigger a
@@ -450,11 +473,26 @@ def _post_import_startup():
 
 
 # user-defined pythonizations interface
-_pythonizations = {}
-def add_pythonization(class_name, callback):
-    """Takes a class name and a callback. The callback should take a single
-    argument, the class proxy, and is called the first time the named class
-    is bound."""
-    if not callable(callback):
-        raise TypeError("given '%s' object is not callable" % str(callback))
-    _pythonizations[class_name] = callback
+_pythonizations = {'' : list()}
+def add_pythonization(pythonizor, scope = ''):
+    """<pythonizor> should be a callable taking two arguments: a class proxy,
+    and its C++ name. It is called on each time a named class from <scope>
+    (the global one by default, but a relevant C++ namespace is recommended)
+    is bound.
+    """
+    if not callable(pythonizor):
+        raise TypeError("given '%s' object is not callable" % str(pythonizor))
+    try:
+        _pythonizations[scope].append(pythonizor)
+    except KeyError:
+        _pythonizations[scope] = list()
+        _pythonizations[scope].append(pythonizor)
+
+def remove_pythonization(pythonizor, scope = ''):
+    """Remove previously registered <pythonizor> from <scope>.
+    """
+    try:
+        _pythonizations[scope].remove(pythonizor)
+        return True
+    except (KeyError, ValueError):
+        return False
