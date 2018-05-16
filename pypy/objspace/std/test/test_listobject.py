@@ -120,8 +120,8 @@ class TestW_ListObject(object):
         assert self.space.eq_w(self.space.next(w_iter), w(5))
         assert self.space.eq_w(self.space.next(w_iter), w(3))
         assert self.space.eq_w(self.space.next(w_iter), w(99))
-        raises(OperationError, self.space.next, w_iter)
-        raises(OperationError, self.space.next, w_iter)
+        py.test.raises(OperationError, self.space.next, w_iter)
+        py.test.raises(OperationError, self.space.next, w_iter)
 
     def test_contains(self):
         w = self.space.wrap

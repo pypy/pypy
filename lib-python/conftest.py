@@ -423,6 +423,7 @@ testmap = [
     RegrTest('test_sys_setprofile.py', core=True),
     RegrTest('test_sys_settrace.py', core=True),
     RegrTest('test_sysconfig.py'),
+    RegrTest('test_sysconfig_pypy.py'),
     RegrTest('test_syslog.py'),
     RegrTest('test_tarfile.py'),
     RegrTest('test_tcl.py'),
