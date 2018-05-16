@@ -1,3 +1,4 @@
+import pytest
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.interpreter.error import OperationError
 
@@ -11,8 +12,8 @@ class TestW_IterObject:
         self.body0(w_iter)
 
     def body0(self, w_iter):
-        raises(OperationError, self.space.next, w_iter)
-        raises(OperationError, self.space.next, w_iter)
+        pytest.raises(OperationError, self.space.next, w_iter)
+        pytest.raises(OperationError, self.space.next, w_iter)
 
     def test_iter(self):
         w = self.space.wrap
