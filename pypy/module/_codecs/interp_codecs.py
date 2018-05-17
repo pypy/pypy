@@ -621,8 +621,6 @@ def _find_implementation(impl_name):
     try:
         func = getattr(unicodehelper, impl_name)
     except AttributeError:
-        if hasattr(runicode, 'py3k_' + impl_name):
-            impl_name = 'py3k_' + impl_name
         func = getattr(runicode, impl_name)
     return func
 
