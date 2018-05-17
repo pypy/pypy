@@ -175,7 +175,7 @@ class __extend__(pyframe.PyFrame):
                 if opcode < HAVE_ARGUMENT:
                     raise BytecodeCorruption
                 next_instr += 2
-                oparg = (oparg << 8) | arg
+                oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
                 w_returnvalue = self.popvalue()
