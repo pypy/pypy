@@ -2374,7 +2374,8 @@ class TestAnnotateTestCase:
     def test_stored_bound_method_2(self):
         # issue 129
         class H:
-            pass
+            def h(self):
+                raise NotImplementedError("abstract method")
         class H1(H):
             def h(self):
                 return 42
@@ -3049,6 +3050,7 @@ class TestAnnotateTestCase:
     def test_slots_check(self):
         class Base(object):
             __slots__ = 'x'
+            def m(self): raise NotImplementedError("abstract")
         class A(Base):
             __slots__ = 'y'
             def m(self):
@@ -3098,6 +3100,7 @@ class TestAnnotateTestCase:
     def test_enforced_attrs_check(self):
         class Base(object):
             _attrs_ = 'x'
+            def m(self): raise NotImplementedError("abstract")
         class A(Base):
             _attrs_ = 'y'
             def m(self):
@@ -3166,6 +3169,45 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         a.build_types(f, [bool])
+
+    def test_enforce_settled(self):
+        class A(object):
+            _settled_ = True
+
+            def m(self):
+                raise NotImplementedError
+
+        class B(A):
+
+            def m(self):
+                return 1
+
+            def n(self):
+                return 1
+
+        def fun(x):
+            if x:
+                a = A()
+            else:
+                a = B()
+
+            return a.m()
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [bool])
+        assert s.knowntype == int
+
+        def fun(x):
+            if x:
+                a = A()
+            else:
+                a = B()
+
+            return a.n()
+
+        a = self.RPythonAnnotator()
+        with py.test.raises(AnnotatorError):
+            a.build_types(fun, [bool])
 
     def test_float_cmp(self):
         def fun(x, y):

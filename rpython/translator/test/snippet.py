@@ -375,7 +375,9 @@ def inheritance2():
     return _getstuff(d), _getstuff(e)
 
 class F:
-    pass
+    def m(self, x):
+        raise NotImplementedError("abstract base")
+
 class G(F):
     def m(self, x):
         return self.m2(x)
