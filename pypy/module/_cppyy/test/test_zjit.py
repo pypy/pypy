@@ -17,19 +17,6 @@ if os.getenv("CPPYY_DISABLE_FASTPATH"):
 # (note that the module is not otherwise used in the test itself)
 import pypy.module.cpyext
 
-# change capi's direct_ptradd and exchange_address to being jit-opaque
-@jit.dont_look_inside
-def _opaque_direct_ptradd(ptr, offset):
-    address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
-capi.direct_ptradd = _opaque_direct_ptradd
-
-@jit.dont_look_inside
-def _opaque_exchange_address(ptr, cif_descr, index):
-    offset = rffi.cast(rffi.LONG, cif_descr.exchange_args[index])
-    return rffi.ptradd(ptr, offset)
-capi.exchange_address = _opaque_exchange_address
-
 # add missing alt_errno (??)
 def get_tlobj(self):
     try:

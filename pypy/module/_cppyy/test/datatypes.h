@@ -99,6 +99,8 @@ public:
 
     bool*           get_bool_array();
     bool*           get_bool_array2();
+    unsigned char*  get_uchar_array();
+    unsigned char*  get_uchar_array2();
     short*          get_short_array();
     short*          get_short_array2();
     unsigned short* get_ushort_array();
@@ -217,6 +219,7 @@ public:
     void set_enum_cr(const EWhat&);
 
 // passers
+    unsigned char*  pass_array(unsigned char*);
     short*          pass_array(short*);
     unsigned short* pass_array(unsigned short*);
     int*            pass_array(int*);
@@ -226,6 +229,7 @@ public:
     float*          pass_array(float*);
     double*         pass_array(double*);
 
+    unsigned char*  pass_void_array_B(void* a) { return pass_array((unsigned char*)a); }
     short*          pass_void_array_h(void* a) { return pass_array((short*)a); }
     unsigned short* pass_void_array_H(void* a) { return pass_array((unsigned short*)a); }
     int*            pass_void_array_i(void* a) { return pass_array((int*)a); }
@@ -265,6 +269,8 @@ public:
 // array types
     bool            m_bool_array[N];
     bool*           m_bool_array2;
+    unsigned char   m_uchar_array[N];
+    unsigned char*  m_uchar_array2;
     short           m_short_array[N];
     short*          m_short_array2;
     unsigned short  m_ushort_array[N];

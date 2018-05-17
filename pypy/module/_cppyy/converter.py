@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib import rfloat, rawrefcount
 
 from pypy.module._rawffi.interp_rawffi import letter2tp
-from pypy.module._rawffi.array import W_Array, W_ArrayInstance
+from pypy.module._rawffi.array import W_ArrayInstance
 
 from pypy.module._cppyy import helper, capi, ffitypes
 
@@ -130,20 +130,6 @@ class TypeConverter(object):
         pass
 
 
-class ArrayCache(object):
-    def __init__(self, space):
-        self.space = space
-    def __getattr__(self, name):
-        if name.startswith('array_'):
-            typecode = name[len('array_'):]
-            arr = self.space.interp_w(W_Array, letter2tp(self.space, typecode))
-            setattr(self, name, arr)
-            return arr
-        raise AttributeError(name)
-
-    def _freeze_(self):
-        return True
-
 class ArrayTypeConverterMixin(object):
     _mixin_ = True
     _immutable_fields_ = ['size']
@@ -162,9 +148,7 @@ class ArrayTypeConverterMixin(object):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONG, address_value)
-        cache = space.fromcache(ArrayCache)
-        arr = getattr(cache, 'array_' + self.typecode)
-        return arr.fromaddress(space, address, self.size)
+        return W_ArrayInstance(space, letter2tp(space, self.typecode), self.size, address)
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
@@ -205,17 +189,15 @@ class PtrTypeConverterMixin(object):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONGP, address_value)
-        cache = space.fromcache(ArrayCache)
-        arr = getattr(cache, 'array_' + self.typecode)
-        return arr.fromaddress(space, address[0], self.size)
+        return W_ArrayInstance(space, letter2tp(space, self.typecode), self.size, address[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy only the pointer value
         rawobject = get_rawobject_nonnull(space, w_obj)
-        byteptr = rffi.cast(rffi.CCHARPP, capi.direct_ptradd(rawobject, offset))
+        byteptr = rffi.cast(rffi.VOIDPP, capi.direct_ptradd(rawobject, offset))
         buf = space.getarg_w('s*', w_value)
         try:
-            byteptr[0] = buf.get_raw_address()
+            byteptr[0] = rffi.cast(rffi.VOIDP, buf.get_raw_address())
         except ValueError:
             raise oefmt(space.w_TypeError,
                         "raw buffer interface not supported")
@@ -337,6 +319,10 @@ class CharConverter(ffitypes.typeid(rffi.CHAR), TypeConverter):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
         address[0] = self._unwrap_object(space, w_value)
 
+
+class UCharConverter(ffitypes.typeid(rffi.UCHAR), CharConverter):
+    pass
+
 class FloatConverter(ffitypes.typeid(rffi.FLOAT), FloatTypeConverterMixin, TypeConverter):
     _immutable_fields_ = ['default']
 
@@ -449,12 +435,12 @@ class VoidPtrConverter(TypeConverter):
         # returned as a long value for the address (INTPTR_T is not proper
         # per se, but rffi does not come with a PTRDIFF_T)
         address = self._get_raw_address(space, w_obj, offset)
-        ptrval = rffi.cast(rffi.ULONG, rffi.cast(rffi.VOIDPP, address)[0])
-        if ptrval == 0:
+        ptrval = rffi.cast(rffi.ULONGP, address)[0]
+        if ptrval == rffi.cast(rffi.ULONG, 0):
             from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
-        arr = space.interp_w(W_Array, letter2tp(space, 'P'))
-        return arr.fromaddress(space, ptrval, sys.maxint)
+        shape = letter2tp(space, 'P')
+        return W_ArrayInstance(space, shape, sys.maxint/shape.size, ptrval)
 
     def to_memory(self, space, w_obj, w_value, offset):
         address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
@@ -797,6 +783,7 @@ def get_converter(space, _name, default):
 
 _converters["bool"]                     = BoolConverter
 _converters["char"]                     = CharConverter
+_converters["unsigned char"]            = UCharConverter
 _converters["float"]                    = FloatConverter
 _converters["const float&"]             = ConstFloatRefConverter
 _converters["double"]                   = DoubleConverter
@@ -886,6 +873,7 @@ def _build_array_converters():
     "NOT_RPYTHON"
     array_info = (
         ('b', rffi.sizeof(rffi.UCHAR),      ("bool",)),    # is debatable, but works ...
+        ('B', rffi.sizeof(rffi.UCHAR),      ("unsigned char",)),
         ('h', rffi.sizeof(rffi.SHORT),      ("short int", "short")),
         ('H', rffi.sizeof(rffi.USHORT),     ("unsigned short int", "unsigned short")),
         ('i', rffi.sizeof(rffi.INT),        ("int",)),
@@ -901,9 +889,11 @@ def _build_array_converters():
 
     for tcode, tsize, names in array_info:
         class ArrayConverter(ArrayTypeConverterMixin, TypeConverter):
+            _immutable_fields_ = ['typecode', 'typesize']
             typecode = tcode
             typesize = tsize
         class PtrConverter(PtrTypeConverterMixin, TypeConverter):
+            _immutable_fields_ = ['typecode', 'typesize']
             typecode = tcode
             typesize = tsize
         for name in names:
@@ -919,7 +909,6 @@ _build_array_converters()
 def _add_aliased_converters():
     "NOT_RPYTHON"
     aliases = (
-        ("char",                            "unsigned char"), # TODO: check
         ("char",                            "signed char"),   # TODO: check
         ("const char*",                     "char*"),
 

@@ -267,11 +267,12 @@ class CPPMethod(object):
     def do_fast_call(self, cppthis, args_w, call_local):
         if self.cif_descr == lltype.nullptr(jit_libffi.CIF_DESCRIPTION):
             raise FastCallNotPossible
+        jit.promote(self)
         cif_descr = self.cif_descr
         buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size, flavor='raw')
         try:
             # this pointer
-            data = capi.exchange_address(buffer, cif_descr, 0)
+            data = rffi.ptradd(buffer, cif_descr.exchange_args[0])
             x = rffi.cast(rffi.LONGP, data)       # LONGP needed for test_zjit.py
             x[0] = rffi.cast(rffi.LONG, cppthis)
 
@@ -280,11 +281,11 @@ class CPPMethod(object):
             for i in range(len(args_w)):
                 conv = self.converters[i]
                 w_arg = args_w[i]
-                data = capi.exchange_address(buffer, cif_descr, i+1)
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[i+1])
                 conv.convert_argument_libffi(self.space, w_arg, data, call_local)
             for j in range(i+1, len(self.arg_defs)):
                 conv = self.converters[j]
-                data = capi.exchange_address(buffer, cif_descr, j+1)
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[j+1])
                 conv.default_argument_libffi(self.space, data)
 
             assert self._funcaddr
@@ -296,7 +297,7 @@ class CPPMethod(object):
         return w_res
 
     # from ctypefunc; have my own version for annotater purposes and to disable
-    # memory tracking (method live time is longer than the tests)
+    # memory tracking (method life time is longer than the tests)
     @jit.dont_look_inside
     def _rawallocate(self, builder):
         builder.space = self.space
@@ -309,7 +310,7 @@ class CPPMethod(object):
         # allocate the buffer
         if we_are_translated():
             rawmem = lltype.malloc(rffi.CCHARP.TO, builder.nb_bytes,
-                                   flavor='raw', track_allocation=False)
+                                   flavor='raw')
             rawmem = rffi.cast(jit_libffi.CIF_DESCRIPTION_P, rawmem)
         else:
             # gross overestimation of the length below, but too bad
@@ -352,7 +353,7 @@ class CPPMethod(object):
         # has been offset to the matching class. Hence, the libffi pointer is
         # uniquely defined and needs to be setup only once.
         funcaddr = capi.c_function_address_from_index(self.space, self.scope, self.index)
-        if funcaddr and cppthis:      # methods only for now
+        if funcaddr and cppthis:      # TODO: methods only for now
             state = self.space.fromcache(ffitypes.State)
 
             # argument type specification (incl. cppthis)

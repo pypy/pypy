@@ -5,7 +5,7 @@ from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import jit_libffi
 
-from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
+from pypy.module._rawffi.interp_rawffi import letter2tp
 from pypy.module._rawffi.array import W_Array, W_ArrayInstance
 
 from pypy.module._cppyy import helper, capi, ffitypes
@@ -56,11 +56,11 @@ class PtrTypeExecutor(FunctionExecutor):
             raise NotImplementedError
         lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ptrval = rffi.cast(rffi.ULONG, lresult)
-        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.newtext(self.typecode)))
-        if ptrval == 0:
+        if ptrval == rffi.cast(rffi.ULONG, 0):
             from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
-        return arr.fromaddress(space, ptrval, sys.maxint)
+        shape = letter2tp(space, self.typecode)
+        return W_ArrayInstance(space, shape, sys.maxint/shape.size, ptrval)
 
 
 class VoidExecutor(FunctionExecutor):

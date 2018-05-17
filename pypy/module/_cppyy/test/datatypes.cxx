@@ -29,6 +29,7 @@ CppyyTestData::CppyyTestData() : m_const_int(17), m_owns_arrays(false)
     m_voidp   = (void*)0;
 
     m_bool_array2   = new bool[N];
+    m_uchar_array2  = new unsigned char[N];
     m_short_array2  = new short[N];
     m_ushort_array2 = new unsigned short[N];
     m_int_array2    = new int[N];
@@ -42,6 +43,8 @@ CppyyTestData::CppyyTestData() : m_const_int(17), m_owns_arrays(false)
     for (int i = 0; i < N; ++i) {
         m_bool_array[i]    =  bool(i%2);
         m_bool_array2[i]   =  bool((i+1)%2);
+        m_uchar_array[i]   =   1u*i;
+        m_uchar_array2[i]  =   2u*i;
         m_short_array[i]   =  -1*i;
         m_short_array2[i]  =  -2*i;
         m_ushort_array[i]  =   3u*i;
@@ -114,6 +117,8 @@ void*                CppyyTestData::get_voidp()   { return m_voidp; }
 
 bool*           CppyyTestData::get_bool_array()    { return m_bool_array; }
 bool*           CppyyTestData::get_bool_array2()   { return m_bool_array2; }
+unsigned char*  CppyyTestData::get_uchar_array()   { return m_uchar_array; }
+unsigned char*  CppyyTestData::get_uchar_array2()  { return m_uchar_array2; }
 short*          CppyyTestData::get_short_array()   { return m_short_array; }
 short*          CppyyTestData::get_short_array2()  { return m_short_array2; }
 unsigned short* CppyyTestData::get_ushort_array()  { return m_ushort_array; }
@@ -233,6 +238,7 @@ void CppyyTestData::set_ldouble_cr(const long double& ld)        { m_ldouble = l
 void CppyyTestData::set_enum_cr(const EWhat& w)                  { m_enum    = w; }
 
 //- passers -----------------------------------------------------------------
+unsigned char*  CppyyTestData::pass_array(unsigned char* a)  { return a; }
 short*          CppyyTestData::pass_array(short* a)          { return a; }
 unsigned short* CppyyTestData::pass_array(unsigned short* a) { return a; }
 int*            CppyyTestData::pass_array(int* a)            { return a; }
