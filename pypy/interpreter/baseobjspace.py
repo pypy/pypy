@@ -33,6 +33,7 @@ class W_Root(object):
     __slots__ = ('__weakref__',)
     _must_be_light_finalizer_ = True
     user_overridden_class = False
+    _settled_ = True
 
     def getdict(self, space):
         return None
@@ -196,6 +197,8 @@ class W_Root(object):
 
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
+        return None
+    def _mapdict_init_empty(self, terminator):
         return None
     def _set_mapdict_map(self, map):
         raise NotImplementedError
@@ -913,9 +916,11 @@ class ObjSpace(object):
         """Unpack an iterable into a real (interpreter-level) list.
 
         Raise an OperationError(w_ValueError) if the length is wrong."""
+        from pypy.interpreter.generator import GeneratorIterator
         w_iterator = self.iter(w_iterable)
         if expected_length == -1:
             if self.is_generator(w_iterator):
+                assert isinstance(w_iterator, GeneratorIterator)
                 # special hack for speed
                 lst_w = []
                 w_iterator.unpack_into(lst_w)

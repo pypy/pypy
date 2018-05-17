@@ -808,6 +808,9 @@ class ListStrategy(object):
     def getitems(self, w_list):
         return self.getitems_copy(w_list)
 
+    def getitems_fixedsize(self, w_list):
+        raise NotImplementedError
+
     def getitems_copy(self, w_list):
         raise NotImplementedError
 
@@ -856,11 +859,13 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def extend(self, w_list, w_any):
+        from pypy.interpreter.generator import GeneratorIterator
         space = self.space
         if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
                                            space._uses_list_iter(w_any)):
             self._extend_from_list(w_list, w_any)
         elif space.is_generator(w_any):
+            assert isinstance(w_any, GeneratorIterator)
             w_any.unpack_into_w(w_list)
         else:
             self._extend_from_iterable(w_list, w_any)
