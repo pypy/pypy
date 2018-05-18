@@ -118,6 +118,18 @@ def test_debug_print_start_stop(debuglog):
     assert res is True
     assert debuglog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
 
+def test_debuglog_summary(debuglog):
+    debug_start('foo')
+    debug_start('bar') # this is nested, so not counted in the summary by default
+    debug_stop('bar')
+    debug_stop('foo')
+    debug_start('foo')
+    debug_stop('foo')
+    debug_start('bar')
+    debug_stop('bar')
+    #
+    assert debuglog.summary() == {'foo': 2, 'bar': 1}
+    assert debuglog.summary(flatten=True) == {'foo': 2, 'bar': 2}
 
 def test_debug_start_stop_timestamp():
     import time
