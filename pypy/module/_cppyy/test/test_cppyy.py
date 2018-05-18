@@ -18,7 +18,7 @@ class TestCPPYYImplementation:
         w_cppyyclass = interp_cppyy.scope_byname(space, "example01")
         w_cppyyclass2 = interp_cppyy.scope_byname(space, "example01")
         assert space.is_w(w_cppyyclass, w_cppyyclass2)
-        adddouble = w_cppyyclass.methods["staticAddToDouble"]
+        adddouble = w_cppyyclass.overloads["staticAddToDouble"]
         func, = adddouble.functions
         assert func.executor is None
         func._setup(None)     # creates executor

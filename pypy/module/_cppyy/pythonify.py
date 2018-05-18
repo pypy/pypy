@@ -36,23 +36,22 @@ class CPPTemplate(object):
             self._scope = scope
 
     def _arg_to_str(self, arg):
-        try:
-            arg = arg.__cppname__
-        except AttributeError:
-            if arg == str:
-                import _cppyy
-                arg = _cppyy._std_string_name()
-            elif type(arg) != str:
-                arg = arg.__name__
-        return arg
+      # arguments are strings representing types, types, or builtins
+        if type(arg) == str:
+            return arg                       # string describing type
+        elif hasattr(arg, '__cppname__'):
+            return arg.__cppname__           # C++ bound type
+        elif arg == str:
+            import _cppyy
+            return _cppyy._std_string_name() # special case pystr -> C++ string
+        elif isinstance(arg, type):          # builtin types
+            return arg.__name__
+        return str(arg)                      # builtin values
 
     def __call__(self, *args):
         fullname = ''.join(
             [self._name, '<', ','.join(map(self._arg_to_str, args))])
-        if fullname[-1] == '>':
-            fullname += ' >'
-        else:
-            fullname += '>'
+        fullname += '>'
         return getattr(self._scope, fullname)
 
     def __getitem__(self, *args):

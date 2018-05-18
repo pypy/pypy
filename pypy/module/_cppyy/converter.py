@@ -700,6 +700,24 @@ class FunctionPointerConverter(TypeConverter):
                     "no overload found matching %s", self.signature)
 
 
+class SmartPtrCppObjectConverter(TypeConverter):
+    _immutable_fields = ['smart', 'raw', 'deref']
+
+    def __init__(self, space, smartdecl, raw, deref):
+        from pypy.module._cppyy.interp_cppyy import W_CPPClassDecl, get_pythonized_cppclass
+        self.smartdecl = smartdecl
+        w_raw   = get_pythonized_cppclass(space, raw)
+        self.rawdecl   = space.interp_w(W_CPPClassDecl,
+            space.findattr(w_raw, space.newtext("__cppdecl__")))
+        self.deref     = deref
+
+    def from_memory(self, space, w_obj, w_pycppclass, offset):
+        address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
+        from pypy.module._cppyy import interp_cppyy
+        return interp_cppyy.wrap_cppinstance(space, address,
+            self.rawdecl, smartdecl=self.smartdecl, deref=self.deref, do_cast=False)
+
+
 class MacroConverter(TypeConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         # TODO: get the actual type info from somewhere ...
@@ -715,26 +733,25 @@ def get_converter(space, _name, default):
     #   1) full, exact match
     #       1a) const-removed match
     #   2) match of decorated, unqualified type
-    #   3) accept ref as pointer (for the stubs, const& can be
-    #       by value, but that does not work for the ffi path)
-    #   4) generalized cases (covers basically all user classes)
-    #   5) void* or void converter (which fails on use)
+    #   3) generalized cases (covers basically all user classes)
+    #       3a) smart pointers
+    #   4) void* or void converter (which fails on use)
 
     name = capi.c_resolve_name(space, _name)
 
-    #   1) full, exact match
+    # full, exact match
     try:
         return _converters[name](space, default)
     except KeyError:
         pass
 
-    #   1a) const-removed match
+    # const-removed match
     try:
         return _converters[helper.remove_const(name)](space, default)
     except KeyError:
         pass
 
-    #   2) match of decorated, unqualified type
+    # match of decorated, unqualified type
     compound = helper.compound(name)
     clean_name = capi.c_resolve_name(space, helper.clean_type(name))
     try:
@@ -744,15 +761,19 @@ def get_converter(space, _name, default):
     except KeyError:
         pass
 
-    #   3) TODO: accept ref as pointer
-
-    #   4) generalized cases (covers basically all user classes)
+    # generalized cases (covers basically all user classes)
     from pypy.module._cppyy import interp_cppyy
     scope_decl = interp_cppyy.scope_byname(space, clean_name)
     if scope_decl:
-        # type check for the benefit of the annotator
         from pypy.module._cppyy.interp_cppyy import W_CPPClassDecl
         clsdecl = space.interp_w(W_CPPClassDecl, scope_decl, can_be_None=False)
+
+        # check smart pointer type
+        check_smart = capi.c_smartptr_info(space, clean_name)
+        if check_smart[0]:
+            return SmartPtrCppObjectConverter(space, clsdecl, check_smart[1], check_smart[2])
+
+        # type check for the benefit of the annotator
         if compound == "*":
             return InstancePtrConverter(space, clsdecl)
         elif compound == "&":
@@ -772,7 +793,7 @@ def get_converter(space, _name, default):
         if pos > 0:
             return FunctionPointerConverter(space, name[pos+2:])
 
-    #   5) void* or void converter (which fails on use)
+    # void* or void converter (which fails on use)
     if 0 <= compound.find('*'):
         return VoidPtrConverter(space, default)  # "user knows best"
 

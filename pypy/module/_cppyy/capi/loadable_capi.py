@@ -207,6 +207,8 @@ class State(object):
             'num_bases'                : ([c_type],                   c_int),
             'base_name'                : ([c_type, c_int],            c_ccharp),
             'is_subtype'               : ([c_type, c_type],           c_int),
+            'smartptr_info'            : ([c_ccharp, c_voidp, c_voidp],         c_int),
+            'add_smartptr_type'        : ([c_ccharp],                 c_void),
 
             'base_offset'              : ([c_type, c_type, c_object, c_int],    c_ptrdiff_t),
 
@@ -479,6 +481,21 @@ def c_is_subtype(space, derived, base):
     if derived == base:
         return bool(1)
     return space.bool_w(call_capi(space, 'is_subtype', [_ArgH(derived.handle), _ArgH(base.handle)]))
+def c_smartptr_info(space, name):
+    out_raw   = lltype.malloc(rffi.ULONGP.TO, 1, flavor='raw', zero=True)
+    out_deref = lltype.malloc(rffi.ULONGP.TO, 1, flavor='raw', zero=True)
+    try:
+        args = [_ArgS(name),
+           _ArgP(rffi.cast(rffi.VOIDP, out_raw)), _ArgP(rffi.cast(rffi.VOIDP, out_deref))]
+        result = space.bool_w(call_capi(space, 'smartptr_info', args))
+        raw   = rffi.cast(C_TYPE, out_raw[0])
+        deref = rffi.cast(C_METHOD, out_deref[0])
+    finally:
+        lltype.free(out_deref, flavor='raw')
+        lltype.free(out_raw, flavor='raw')
+    return (result, raw, deref)
+def c_add_smartptr_type(space, name):
+    return space.bool_w(call_capi(space, 'add_smartptr_type', [_ArgS(name)]))
 
 def _c_base_offset(space, derived_h, base_h, address, direction):
     args = [_ArgH(derived_h), _ArgH(base_h), _ArgH(address), _ArgL(direction)]
