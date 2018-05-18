@@ -307,11 +307,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # if the scope contained an annotated variable assignemt,
         # this will emit the requisite SETUP_ANNOTATIONS
         if self.scope.contains_annotated and not isinstance(self, AbstractFunctionCodeGenerator):
-            self.emit_op(ops.SETUP_ANNOTATIONS)
+            return self.emit_op(ops.SETUP_ANNOTATIONS)
 
     def visit_Module(self, mod):
-        if not self._handle_body(mod.body):
-            self.first_lineno = self.lineno = 1
+        self._handle_body(mod.body)
 
     def visit_Interactive(self, mod):
         self.interactive = True
@@ -1685,6 +1684,12 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
                                      symbols, compile_info, qualname=None)
 
     def _compile(self, tree):
+        if isinstance(tree, ast.Module):
+            if tree.body:
+                self.first_lineno = tree.body[0].lineno
+            else:
+                self.first_lineno = self.lineno = 1
+
         self._maybe_setup_annotations()
         tree.walkabout(self)
 
