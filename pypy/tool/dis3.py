@@ -394,6 +394,8 @@ def findlinestarts(code):
     lineno = code.co_firstlineno
     addr = 0
     for byte_incr, line_incr in zip(byte_increments, line_increments):
+        byte_incr = ord(byte_incr)
+        line_incr = ord(line_incr)
         if byte_incr:
             if lineno != lastlineno:
                 yield (addr, lineno)
