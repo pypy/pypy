@@ -645,7 +645,7 @@ SYMBOLS_C = [
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar', 'PyInt_FromLong',
-    'PyTuple_New',
+    'PyTuple_New', '_Py_Dealloc',
 ]
 TYPES = {}
 FORWARD_DECLS = []
