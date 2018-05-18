@@ -37,6 +37,10 @@ class DebugLog(list):
         assert False, ("nesting error: no start corresponding to stop %r" %
                        (category,))
 
+    def reset(self):
+        # only for tests: empty the log
+        self[:] = []
+
     def __repr__(self):
         import pprint
         return pprint.pformat(list(self))

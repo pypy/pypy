@@ -1,5 +1,5 @@
-
 import py
+import pytest
 from rpython.rlib.debug import (check_annotation, make_sure_not_resized,
                              debug_print, debug_start, debug_stop,
                              have_debug_prints, debug_offset, debug_flush,
@@ -9,6 +9,12 @@ from rpython.rlib.debug import (check_annotation, make_sure_not_resized,
                              NotAListOfChars)
 from rpython.rlib import debug
 from rpython.rtyper.test.test_llinterp import interpret, gengraph
+
+@pytest.fixture
+def debuglog(monkeypatch):
+    dlog = debug.DebugLog()
+    monkeypatch.setattr(debug, '_log', dlog)
+    return dlog
 
 def test_check_annotation():
     class Error(Exception):
@@ -94,7 +100,7 @@ def test_check_list_of_chars():
     py.test.raises(NotAListOfChars, "interpret(g, [3])")
 
 
-def test_debug_print_start_stop():
+def test_debug_print_start_stop(debuglog):
     def f(x):
         debug_start("mycat")
         debug_print("foo", 2, "bar", x)
@@ -103,21 +109,14 @@ def test_debug_print_start_stop():
         debug_offset()  # should not explode at least
         return have_debug_prints()
 
-    try:
-        debug._log = dlog = debug.DebugLog()
-        res = f(3)
-        assert res is True
-    finally:
-        debug._log = None
-    assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
+    res = f(3)
+    assert res is True
+    assert debuglog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
+    debuglog.reset()
 
-    try:
-        debug._log = dlog = debug.DebugLog()
-        res = interpret(f, [3])
-        assert res is True
-    finally:
-        debug._log = None
-    assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
+    res = interpret(f, [3])
+    assert res is True
+    assert debuglog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
 
 
 def test_debug_start_stop_timestamp():
