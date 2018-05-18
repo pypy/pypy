@@ -625,7 +625,6 @@ class StdStringConverter(InstanceConverter):
 
 class StdStringRefConverter(InstancePtrConverter):
     _immutable_fields_ = ['cppclass', 'typecode']
-
     typecode    = 'V'
 
     def __init__(self, space, extra):
@@ -701,7 +700,8 @@ class FunctionPointerConverter(TypeConverter):
 
 
 class SmartPtrCppObjectConverter(TypeConverter):
-    _immutable_fields = ['smart', 'raw', 'deref']
+    _immutable_fields = ['smartdecl', 'rawdecl', 'deref']
+    typecode    = 'V'
 
     def __init__(self, space, smartdecl, raw, deref):
         from pypy.module._cppyy.interp_cppyy import W_CPPClassDecl, get_pythonized_cppclass
@@ -710,6 +710,35 @@ class SmartPtrCppObjectConverter(TypeConverter):
         self.rawdecl   = space.interp_w(W_CPPClassDecl,
             space.findattr(w_raw, space.newtext("__cppdecl__")))
         self.deref     = deref
+
+    def _unwrap_object(self, space, w_obj):
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+        if isinstance(w_obj, W_CPPInstance):
+            # w_obj could carry a 'hidden' smart ptr or be one, cover both cases
+            have_match = False
+            if w_obj.smartdecl and capi.c_is_subtype(space, w_obj.smartdecl, self.smartdecl):
+                # hidden case, do not derefence when getting obj address
+                have_match = True
+                rawobject = w_obj._rawobject      # TODO: this direct access if fugly
+                offset = capi.c_base_offset(space, w_obj.smartdecl, self.smartdecl, rawobject, 1)
+            elif capi.c_is_subtype(space, w_obj.clsdecl, self.smartdecl):
+                # exposed smart pointer
+                have_match = True
+                rawobject = w_obj.get_rawobject()
+                offset = capi.c_base_offset(space, w_obj.clsdecl, self.smartdecl, rawobject, 1)
+            if have_match:
+                obj_address = capi.direct_ptradd(rawobject, offset)
+                return rffi.cast(capi.C_OBJECT, obj_address)
+
+        raise oefmt(space.w_TypeError,
+                    "cannot pass %T as %s", w_obj, self.clsdecl.name)
+
+    def convert_argument(self, space, w_obj, address, call_local):
+        x = rffi.cast(rffi.VOIDPP, address)
+        x[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
+        address = rffi.cast(capi.C_OBJECT, address)
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset(space)] = self.typecode
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
