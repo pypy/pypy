@@ -112,10 +112,14 @@ class Attribute(object):
                     if not homedef.check_missing_attribute_update(attr):
                         for desc in s_newvalue.descriptions:
                             if desc.selfclassdef is None:
-                                raise AnnotatorError(
+                                print AnnotatorError(
                                     "demoting method %s from %s to class "
-                                    "%s not allowed" % (self.name, desc.originclassdef, homedef)
+                                    "%s not allowed\n" % (self.name, desc.originclassdef, homedef) +
+                                    "either you need to add an abstract method to the base class\n" +
+                                    "or you need an assert isinstance(...) to ensure the annotator " +
+                                    "that the instance is of the right class"
                                 )
+                                break
 
         # check for attributes forbidden by slots or _attrs_
         if homedef.classdesc.all_enforced_attrs is not None:

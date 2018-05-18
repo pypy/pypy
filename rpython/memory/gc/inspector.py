@@ -103,6 +103,9 @@ class BaseWalker(object):
             self.seen = AddressDict()
         self.pending = AddressStack()
 
+    def processobj(self, obj):
+        raise NotImplementedError("abstract base class")
+
     def delete(self):
         if self.gcflag == 0:
             self.seen.delete()
