@@ -13,6 +13,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
 from rpython.rlib.debug import debug_print
+from rpython.rlib.test.test_debug import debuglog
 import pdb
 WORD = LONG_BIT // 8
 
@@ -770,4 +771,22 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
                 assert elem.prev == lltype.nullptr(S)
                 assert elem.next == lltype.nullptr(S)
 
-            
+    def test_enable_disable(self, debuglog):
+        def large_malloc():
+            # malloc an object which is large enough to trigger a major collection
+            threshold = self.gc.next_major_collection_threshold
+            self.malloc(VAR, int(threshold/8))
+            summary = debuglog.summary()
+            debuglog.reset()
+            return summary
+        #
+        summary = large_malloc()
+        assert sorted(summary.keys()) == ['gc-collect-step', 'gc-minor']
+        #
+        self.gc.disable()
+        summary = large_malloc()
+        assert sorted(summary.keys()) == ['gc-minor']
+        #
+        self.gc.enable()
+        summary = large_malloc()
+        assert sorted(summary.keys()) == ['gc-collect-step', 'gc-minor']

@@ -376,6 +376,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rawmalloced_peak_size = r_uint(0)
 
         self.gc_state = STATE_SCANNING
+
+        # if the GC is disabled, it runs only minor collections; major
+        # collections need to be manually triggered by explicitly calling
+        # collect()
+        self.enabled = True
         #
         # Two lists of all objects with finalizers.  Actually they are lists
         # of pairs (finalization_queue_nr, object).  "probably young objects"
@@ -510,6 +515,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Estimate this number conservatively
             bigobj = self.nonlarge_max + 1
             self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
+
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
 
     def _nursery_memory_size(self):
         extra = self.nonlarge_max + 1
@@ -758,11 +769,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def minor_collection_with_major_progress(self, extrasize=0):
-        """Do a minor collection.  Then, if there is already a major GC
-        in progress, run at least one major collection step.  If there is
-        no major GC but the threshold is reached, start a major GC.
+        """Do a minor collection.  Then, if the GC is enabled and there
+        is already a major GC in progress, run at least one major collection
+        step.  If there is no major GC but the threshold is reached, start a
+        major GC.
         """
         self._minor_collection()
+        if not self.enabled:
+            return
 
         # If the gc_state is STATE_SCANNING, we're not in the middle
         # of an incremental major collection.  In that case, wait
