@@ -760,7 +760,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if gen < 0:
             self._minor_collection()   # dangerous! no major GC cycle progress
         elif gen <= 1:
-            self.minor_collection_with_major_progress()
+            self.minor_collection_with_major_progress(force_enabled=True)
             if gen == 1 and self.gc_state == STATE_SCANNING:
                 self.major_collection_step()
         else:
@@ -768,14 +768,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rrc_invoke_callback()
 
 
-    def minor_collection_with_major_progress(self, extrasize=0):
+    def minor_collection_with_major_progress(self, extrasize=0,
+                                             force_enabled=False):
         """Do a minor collection.  Then, if the GC is enabled and there
         is already a major GC in progress, run at least one major collection
         step.  If there is no major GC but the threshold is reached, start a
         major GC.
         """
         self._minor_collection()
-        if not self.enabled:
+        if not self.enabled and not force_enabled:
             return
 
         # If the gc_state is STATE_SCANNING, we're not in the middle

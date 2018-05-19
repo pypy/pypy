@@ -790,3 +790,28 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         self.gc.enable()
         summary = large_malloc()
         assert sorted(summary.keys()) == ['gc-collect-step', 'gc-minor']
+
+    def test_call_collect_when_disabled(self, debuglog):
+        # malloc an object and put it the old generation
+        s = self.malloc(S)
+        s.x = 42
+        self.stackroots.append(s)
+        self.gc.collect()
+        s = self.stackroots.pop()
+        #
+        self.gc.disable()
+        self.gc.collect(1) # start a major collect
+        assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
+        assert s.x == 42 # s is not freed yet
+        #
+        debuglog.reset()
+        self.gc.collect(1) # run one more step
+        assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
+        assert s.x == 42 # s is not freed yet
+        #
+        debuglog.reset()
+        self.gc.collect() # finish the major collection
+        summary = debuglog.summary()
+        assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
+        # s is freed
+        py.test.raises(RuntimeError, 's.x')
