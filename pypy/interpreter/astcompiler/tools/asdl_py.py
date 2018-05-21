@@ -435,9 +435,6 @@ class AST(object):
     def mutate_over(self, visitor):
         raise AssertionError("mutate_over() implementation not provided")
 
-    def to_object(self, space):
-        raise NotImplementedError("abstract base class")
-
 
 class NodeVisitorNotImplemented(Exception):
     pass
