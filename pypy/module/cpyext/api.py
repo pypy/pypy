@@ -1133,10 +1133,11 @@ def setup_init_functions(eci, prefix):
 
 def attach_c_functions(space, eci, prefix):
     state = space.fromcache(State)
-    state.C._Py_Dealloc = rffi.llexternal('_Py_Dealloc',
-                                         [PyObject], lltype.Void,
-                                         compilation_info=eci,
-                                         _nowrapper=True)
+    state.C._Py_Dealloc = rffi.llexternal(
+        mangle_name(prefix, '_Py_Dealloc'),
+        [PyObject], lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True)
     state.C.PyObject_Free = rffi.llexternal(
         mangle_name(prefix, 'PyObject_Free'),
         [rffi.VOIDP], lltype.Void,
