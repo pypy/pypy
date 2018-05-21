@@ -769,6 +769,9 @@ class ListStrategy(object):
     def __init__(self, space):
         self.space = space
 
+    def get_empty_storage(self, sizehint):
+        raise NotImplementedError
+
     def get_sizehint(self):
         return -1
 
@@ -808,6 +811,9 @@ class ListStrategy(object):
     def getitems(self, w_list):
         return self.getitems_copy(w_list)
 
+    def getitems_fixedsize(self, w_list):
+        raise NotImplementedError
+
     def getitems_copy(self, w_list):
         raise NotImplementedError
 
@@ -822,6 +828,9 @@ class ListStrategy(object):
 
     def getitems_float(self, w_list):
         return None
+
+    def getitems_unroll(self, w_list):
+        raise NotImplementedError
 
     def getstorage_copy(self, w_list):
         raise NotImplementedError
@@ -856,11 +865,13 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def extend(self, w_list, w_any):
+        from pypy.interpreter.generator import GeneratorIterator
         space = self.space
         if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
                                            space._uses_list_iter(w_any)):
             self._extend_from_list(w_list, w_any)
         elif space.is_generator(w_any):
+            assert isinstance(w_any, GeneratorIterator)
             w_any.unpack_into_w(w_list)
         else:
             self._extend_from_iterable(w_list, w_any)
@@ -1075,6 +1086,16 @@ class BaseRangeListStrategy(ListStrategy):
         strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
         w_list.lstorage = strategy.erase(items)
 
+    def step(self, w_list):
+        raise NotImplementedError
+
+    def _getitems_range(self, w_list, wrap_items):
+        raise NotImplementedError
+    _getitems_range_unroll = _getitems_range
+
+    def _getitem_range_unwrapped(self, w_list, i):
+        raise NotImplementedError
+
     def wrap(self, intval):
         return self.space.newint(intval)
 
@@ -1099,7 +1120,7 @@ class BaseRangeListStrategy(ListStrategy):
         w_other.lstorage = w_list.lstorage
 
     def getitem(self, w_list, i):
-        return self.wrap(self._getitem_unwrapped(w_list, i))
+        return self.wrap(self._getitem_range_unwrapped(w_list, i))
 
     def getitems_int(self, w_list):
         return self._getitems_range(w_list, False)
@@ -1189,7 +1210,7 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
     def step(self, w_list):
         return 1
 
-    def _getitem_unwrapped(self, w_list, i):
+    def _getitem_range_unwrapped(self, w_list, i):
         length = self.unerase(w_list.lstorage)[0]
         if i < 0:
             i += length
@@ -1267,7 +1288,7 @@ class RangeListStrategy(BaseRangeListStrategy):
     def step(self, w_list):
         return self.unerase(w_list.lstorage)[1]
 
-    def _getitem_unwrapped(self, w_list, i):
+    def _getitem_range_unwrapped(self, w_list, i):
         v = self.unerase(w_list.lstorage)
         start = v[0]
         step = v[1]

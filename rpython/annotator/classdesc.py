@@ -102,13 +102,24 @@ class Attribute(object):
 
     def validate(self, homedef):
         s_newvalue = self.s_value
-        # check for after-the-fact method additions
+        homedesc = homedef.classdesc
+        # check for method demotion and after-the-fact method additions
         if isinstance(s_newvalue, SomePBC):
             attr = self.name
             if s_newvalue.getKind() == MethodDesc:
                 # is method
                 if homedef.classdesc.read_attribute(attr, None) is None:
-                    homedef.check_missing_attribute_update(attr)
+                    if not homedef.check_missing_attribute_update(attr):
+                        for desc in s_newvalue.descriptions:
+                            if desc.selfclassdef is None:
+                                print AnnotatorError(
+                                    "demoting method %s from %s to class "
+                                    "%s not allowed\n" % (self.name, desc.originclassdef, homedef) +
+                                    "either you need to add an abstract method to the base class\n" +
+                                    "or you need an assert isinstance(...) to ensure the annotator " +
+                                    "that the instance is of the right class"
+                                )
+                                break
 
         # check for attributes forbidden by slots or _attrs_
         if homedef.classdesc.all_enforced_attrs is not None:
@@ -489,6 +500,7 @@ class ClassDesc(Desc):
     knowntype = type
     instance_level = False
     all_enforced_attrs = None   # or a set
+    settled = False
     _detect_invalid_attrs = None
 
     def __init__(self, bookkeeper, cls,
@@ -558,6 +570,9 @@ class ClassDesc(Desc):
 
         if base is not object:
             self.basedesc = bookkeeper.getdesc(base)
+
+        if '_settled_' in cls.__dict__:
+            self.settled = bool(cls.__dict__['_settled_'])
 
         if '__slots__' in cls.__dict__ or '_attrs_' in cls.__dict__:
             attrs = {}

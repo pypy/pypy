@@ -301,6 +301,7 @@ class W_DictMultiObject(W_Root):
         """
         strategy = self.get_strategy()
         strategy.move_to_end(self, w_key, last_flag)
+            # XXX this should be in the default move_to_end method!
 
     def nondescr_popitem_first(self, space):
         """Not exposed directly to app-level, but via __pypy__.popitem_first().
@@ -498,6 +499,9 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
+    def switch_to_object_strategy(self, w_dict):
+        raise NotImplementedError
+
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
     def w_keys(self, w_dict):
@@ -583,6 +587,36 @@ class DictStrategy(object):
 
     def prepare_update(self, w_dict, num_extra):
         pass
+
+    def length(self, w_dict):
+        raise NotImplementedError
+
+    def getitem(self, w_dict, w_key):
+        raise NotImplementedError
+
+    def getitem_str(self, w_dict, key):
+        raise NotImplementedError
+
+    def setitem(self, w_dict, w_key, w_value):
+        raise NotImplementedError
+
+    def setitem_str(self, w_dict, key, w_value):
+        raise NotImplementedError
+
+    def delitem(self, w_dict, w_key):
+        raise NotImplementedError
+
+    def setdefault(self, w_dict, w_key, w_default):
+        raise NotImplementedError
+
+    def iterkeys(self, w_dict):
+        raise NotImplementedError
+
+    def itervalues(self, w_dict):
+        raise NotImplementedError
+
+    def iteritems(self, w_dict):
+        raise NotImplementedError
 
     def move_to_end(self, w_dict, w_key, last_flag):
         # fall-back
@@ -807,11 +841,21 @@ class BaseIteratorImplementation(object):
 class BaseKeyIterator(BaseIteratorImplementation):
     next_key = _new_next('key')
 
+    def next_key_entry(self):
+        raise NotImplementedError
+
+
 class BaseValueIterator(BaseIteratorImplementation):
     next_value = _new_next('value')
 
+    def next_value_entry(self):
+        raise NotImplementedError
+
 class BaseItemIterator(BaseIteratorImplementation):
     next_item = _new_next('item')
+
+    def next_item_entry(self):
+        raise NotImplementedError
 
 
 def create_iterator_classes(dictimpl):
@@ -1447,6 +1491,7 @@ class W_BaseDictMultiIterObject(W_Root):
 class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
     def descr_next(self, space):
         iteratorimplementation = self.iteratorimplementation
+        assert isinstance(iteratorimplementation, BaseKeyIterator)
         w_key = iteratorimplementation.next_key()
         if w_key is not None:
             return w_key
@@ -1455,6 +1500,7 @@ class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
 class W_DictMultiIterValuesObject(W_BaseDictMultiIterObject):
     def descr_next(self, space):
         iteratorimplementation = self.iteratorimplementation
+        assert isinstance(iteratorimplementation, BaseValueIterator)
         w_value = iteratorimplementation.next_value()
         if w_value is not None:
             return w_value
@@ -1463,6 +1509,7 @@ class W_DictMultiIterValuesObject(W_BaseDictMultiIterObject):
 class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
     def descr_next(self, space):
         iteratorimplementation = self.iteratorimplementation
+        assert isinstance(iteratorimplementation, BaseItemIterator)
         w_key, w_value = iteratorimplementation.next_item()
         if w_key is not None:
             return space.newtuple([w_key, w_value])
