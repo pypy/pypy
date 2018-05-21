@@ -216,6 +216,7 @@ def_op('BUILD_TUPLE_UNPACK', 152)
 def_op('BUILD_SET_UNPACK', 153)
 
 def_op('FORMAT_VALUE', 155)   # in CPython 3.6, but available in PyPy from 3.5
+def_op("BUILD_CONST_KEY_MAP", 156)
 def_op('BUILD_STRING', 157)   # in CPython 3.6, but available in PyPy from 3.5
 
 # pypy modification, experimental bytecode

@@ -757,7 +757,7 @@ def _compute_MAKE_CLOSURE(arg):
     return -2 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_MAKE_FUNCTION(arg):
-    return -1 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
+    return -1 - bool(arg & 0x01) - bool(arg & 0x02) - bool(arg & 0x04) - bool(arg & 0x08)
 
 def _compute_BUILD_SLICE(arg):
     if arg == 3:
@@ -793,6 +793,9 @@ def _compute_FORMAT_VALUE(arg):
 
 def _compute_BUILD_STRING(arg):
     return 1 - arg
+
+def _compute_BUILD_CONST_KEY_MAP(arg):
+    return  -arg
 
 
 _stack_effect_computers = {}
