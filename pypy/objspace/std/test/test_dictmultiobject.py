@@ -227,6 +227,13 @@ class AppTest_DictObject:
         raises(KeyError, d.pop, "abc")
         assert len(d) == 2
 
+    def test_pop_empty_bug(self):
+        d = {}
+        assert d.pop(1, 2) == 2
+        def f(**d): return d
+        d = f()
+        assert d.pop(1, 2) == 2
+
     def test_pop_kwargs(self):
         def kw(**d): return d
         d = kw(o=2, t=4)

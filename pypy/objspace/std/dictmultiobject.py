@@ -727,7 +727,10 @@ class EmptyDictStrategy(DictStrategy):
         self.space.raise_key_error(w_key)
 
     def pop(self, w_dict, w_key, w_default):
-        raise KeyError
+        if w_default is not None:
+            return w_default
+        else:
+            raise KeyError
 
     # ---------- iterator interface ----------------
 
