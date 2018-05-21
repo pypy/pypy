@@ -57,9 +57,6 @@ class Buffer(object):
         """Return the size in bytes."""
         raise NotImplementedError
 
-    def get_raw_address(self):
-        raise NotImplementedError
-
     def __len__(self):
         res = self.getlength()
         assert res >= 0
@@ -166,7 +163,7 @@ class GCBuffer(Buffer):
     def decorate(targetcls):
         """
         Create and attach specialized versions of typed_{read,write}. We need to
-        do this because the JIT codewriters mandates that base_ofs is an
+        do this becase the JIT codewriters mandates that base_ofs is an
         RPython constant.
         """
         if targetcls.__bases__ != (GCBuffer,):

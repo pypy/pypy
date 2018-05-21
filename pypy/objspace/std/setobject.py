@@ -31,9 +31,6 @@ class W_BaseSetObject(W_Root):
         reprlist = [repr(w_item) for w_item in self.getkeys()]
         return "<%s(%s)(%s)>" % (self.__class__.__name__, self.strategy, ', '.join(reprlist))
 
-    def _newobj(self, space, w_iterable):
-        raise NotImplementedError
-
     def from_storage_and_strategy(self, storage, strategy):
         obj = self._newobj(self.space, None)
         assert isinstance(obj, W_BaseSetObject)
@@ -704,12 +701,6 @@ class SetStrategy(object):
 
     #def unerase(self, storage):
     #    raise NotImplementedError
-
-    def may_contain_equal_elements(self, strategy):
-        return True
-
-    def _intersect_wrapped(self, w_set, w_other):
-        raise NotImplementedError
 
     # __________________ methods called on W_SetObject _________________
 
@@ -1631,8 +1622,8 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
         if type(w_item) is not W_IntObject:
             break
     else:
-        strategy = w_set.strategy = space.fromcache(IntegerSetStrategy)
-        w_set.sstorage = strategy.get_storage_from_list(iterable_w)
+        w_set.strategy = space.fromcache(IntegerSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 
     # check for strings
@@ -1640,8 +1631,8 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
         if type(w_item) is not W_BytesObject:
             break
     else:
-        strategy = w_set.strategy = space.fromcache(BytesSetStrategy)
-        w_set.sstorage = strategy.get_storage_from_list(iterable_w)
+        w_set.strategy = space.fromcache(BytesSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 
     # check for unicode
@@ -1649,8 +1640,8 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
         if type(w_item) is not W_UnicodeObject:
             break
     else:
-        strategy = w_set.strategy = space.fromcache(UnicodeSetStrategy)
-        w_set.sstorage = strategy.get_storage_from_list(iterable_w)
+        w_set.strategy = space.fromcache(UnicodeSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 
     # check for compares by identity
@@ -1658,12 +1649,12 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
         if not space.type(w_item).compares_by_identity():
             break
     else:
-        strategy = w_set.strategy = space.fromcache(IdentitySetStrategy)
-        w_set.sstorage = strategy.get_storage_from_list(iterable_w)
+        w_set.strategy = space.fromcache(IdentitySetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 
-    strategy = w_set.strategy = space.fromcache(ObjectSetStrategy)
-    w_set.sstorage = strategy.get_storage_from_list(iterable_w)
+    w_set.strategy = space.fromcache(ObjectSetStrategy)
+    w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
 
 
 create_set_driver = jit.JitDriver(name='create_set',
