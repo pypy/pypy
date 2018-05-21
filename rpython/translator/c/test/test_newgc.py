@@ -1812,6 +1812,45 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         res = self.run("ignore_finalizer")
         assert res == 1    # translated: x1 is removed from the list
 
+    def define_enable_disable(self):
+        class Counter(object):
+            val = 0
+        counter = Counter()
+        class X(object):
+            def __del__(self):
+                counter.val += 1
+        def f(should_disable):
+            x1 = X()
+            rgc.collect() # make x1 old
+            assert not rgc.can_move(x1)
+            x1 = None
+            #
+            if should_disable:
+                gc.disable()
+                assert not gc.isenabled()
+            # try to trigger a major collection
+            N = 100 # this should be enough, increase if not
+            lst = []
+            for i in range(N):
+                lst.append(chr(i%256) * (1024*1024))
+                #print i, counter.val
+            #
+            gc.enable()
+            assert gc.isenabled()
+            return counter.val
+        return f
+
+    def test_enable_disable(self):
+        # first, run with normal gc. If the assert fails it means that in the
+        # loop we don't allocate enough mem to trigger a major collection. Try
+        # to increase N
+        deleted = self.run("enable_disable", 0)
+        assert deleted == 1, 'This should not fail, try to increment N'
+        #
+        # now, run with gc.disable: this should NOT free x1
+        deleted = self.run("enable_disable", 1)
+        assert deleted == 0
+
 
 # ____________________________________________________________________
 

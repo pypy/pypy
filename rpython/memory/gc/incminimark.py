@@ -522,6 +522,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def disable(self):
         self.enabled = False
 
+    def isenabled(self):
+        return self.enabled
+
     def _nursery_memory_size(self):
         extra = self.nonlarge_max + 1
         return self.nursery_size + extra

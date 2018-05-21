@@ -309,6 +309,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
+        self.enable_ptr = getfn(GCClass.enable.im_func, [s_gc], annmodel.s_None)
+        self.disable_ptr = getfn(GCClass.disable.im_func, [s_gc], annmodel.s_None)
+        self.isenabled_ptr = getfn(GCClass.isenabled.im_func, [s_gc],
+                                   annmodel.s_Bool)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
                                   [s_gc, SomeAddress()],
                                   annmodel.SomeBool())
@@ -883,6 +887,21 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.collect_ptr, self.c_const_gc, v_gen],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
+
+    def gct_gc__enable(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self.enable_ptr, self.c_const_gc],
+                  resultvar=op.result)
+
+    def gct_gc__disable(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self.disable_ptr, self.c_const_gc],
+                  resultvar=op.result)
+
+    def gct_gc__isenabled(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self.isenabled_ptr, self.c_const_gc],
+                  resultvar=op.result)
 
     def gct_gc_can_move(self, hop):
         op = hop.spaceop
