@@ -185,7 +185,8 @@ class W_FileIO(W_RawIOBase):
                                 "Cannot use closefd=False with file name")
 
                 if space.is_none(w_opener):
-                    from pypy.module.posix.interp_posix import dispatch_filename
+                    from pypy.module.posix.interp_posix import dispatch_filename, fspath
+                    w_name = fspath(space, w_name)
                     while True:
                         try:
                             self.fd = dispatch_filename(rposix.open)(
