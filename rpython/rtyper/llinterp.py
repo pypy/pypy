@@ -819,6 +819,15 @@ class LLFrame(object):
     def op_gc__collect(self, *gen):
         self.heap.collect(*gen)
 
+    def op_gc__enable(self):
+        self.heap.enable()
+
+    def op_gc__disable(self):
+        self.heap.disable()
+
+    def op_gc__isenabled(self):
+        return self.heap.isenabled()
+
     def op_gc_heap_stats(self):
         raise NotImplementedError
 

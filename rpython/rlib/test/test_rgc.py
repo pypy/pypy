@@ -39,6 +39,24 @@ def test_collect_0():
 
     assert res is None
 
+def test_enable_disable():
+    def f():
+        gc.enable()
+        a = gc.isenabled()
+        gc.disable()
+        b = gc.isenabled()
+        return a and not b
+
+    t, typer, graph = gengraph(f, [])
+    blockops = list(graph.iterblockops())
+    opnames = [op.opname for block, op in blockops
+               if op.opname.startswith('gc__')]
+    assert opnames == ['gc__enable', 'gc__isenabled',
+                       'gc__disable', 'gc__isenabled']
+    res = interpret(f, [])
+    assert res
+
+
 def test_can_move():
     T0 = lltype.GcStruct('T')
     T1 = lltype.GcArray(lltype.Float)

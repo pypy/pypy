@@ -13,6 +13,9 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 # General GC features
 
 collect = gc.collect
+enable = gc.enable
+disable = gc.disable
+isenabled = gc.isenabled
 
 def set_max_heap_size(nbytes):
     """Limit the heap size to n bytes.
@@ -123,6 +126,32 @@ class CollectEntry(ExtRegistryEntry):
         if len(hop.args_s) == 1:
             args_v = hop.inputargs(lltype.Signed)
         return hop.genop('gc__collect', args_v, resulttype=hop.r_result)
+
+
+class EnableDisableEntry(ExtRegistryEntry):
+    _about_ = (gc.enable, gc.disable)
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        opname = self.instance.__name__
+        return hop.genop('gc__%s' % opname, hop.args_v, resulttype=hop.r_result)
+
+
+class IsEnabledEntry(ExtRegistryEntry):
+    _about_ = gc.isenabled
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.s_Bool
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc__isenabled', hop.args_v, resulttype=hop.r_result)
+
 
 class SetMaxHeapSizeEntry(ExtRegistryEntry):
     _about_ = set_max_heap_size
