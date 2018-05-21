@@ -1612,4 +1612,7 @@ class AppTestComparesByIdentity:
         class Meta(type):
             pass
 
-        raises(TypeError, Meta, 5)
+        info = raises(TypeError, Meta, 5)
+        assert "takes exactly 3 arguments (1 given)" in str(info.value)
+        info = raises(TypeError, Meta, 5, 7)
+        assert "takes exactly 3 arguments (1 given)" in str(info.value)

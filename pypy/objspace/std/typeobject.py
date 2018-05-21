@@ -752,8 +752,13 @@ class W_TypeObject(W_Root):
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
     if len(__args__.arguments_w) not in (1, 3):
-        raise oefmt(space.w_TypeError,
-                    "type.__new__() takes 1 or 3 arguments")
+        if space.is_w(w_typetype, space.w_type):
+            raise oefmt(space.w_TypeError,
+                        "type.__new__() takes 1 or 3 arguments")
+        else:
+            raise oefmt(space.w_TypeError,
+                        "%N.__new__() takes exactly 3 arguments (1 given)",
+                        w_typetype)
 
     w_name = __args__.arguments_w[0]
 
@@ -765,7 +770,7 @@ def descr__new__(space, w_typetype, __args__):
             return space.type(w_name)
         else:
             raise oefmt(space.w_TypeError,
-                        "%N.__new__() takes 3 arguments (1 given)",
+                        "%N.__new__() takes exactly 3 arguments (1 given)",
                         w_typetype)
     w_bases = __args__.arguments_w[1]
     w_dict = __args__.arguments_w[2]
