@@ -1491,3 +1491,18 @@ class TestOptimizations:
             del []
         """
         generate_function_code(source, self.space)
+
+    def test_make_constant_map(self):
+        source = """def f():
+            return {"A": 1, "b": 2}
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_MAP not in counts
+        source = """def f():
+            return {"a": 1, "b": {}, 1: {"a": x}}
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_MAP] == 1 # the empty dict
+        assert counts[ops.BUILD_CONST_KEY_MAP] == 2
+
+

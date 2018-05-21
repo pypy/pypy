@@ -1296,28 +1296,46 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         containers = 0
         elements = 0
         is_unpacking = False
+        all_constant_keys_w = None
         if d.values:
+            if len(d.keys) < 0xffff:
+                all_constant_keys_w = []
+                for key in d.keys:
+                    if key is None or key.as_constant() is None:
+                        all_constant_keys_w = None
+                        break
+                    else:
+                        all_constant_keys_w.append(key.as_constant())
             for i in range(len(d.values)):
                 key = d.keys[i]
                 is_unpacking = key is None
                 if elements == 0xFFFF or (elements and is_unpacking):
+                    assert all_constant_keys_w is None
                     self.emit_op_arg(ops.BUILD_MAP, elements)
                     containers += 1
                     elements = 0
                 if is_unpacking:
+                    assert all_constant_keys_w is None
                     d.values[i].walkabout(self)
                     containers += 1
                 else:
-                    key.walkabout(self)
+                    if not all_constant_keys_w:
+                        key.walkabout(self)
                     d.values[i].walkabout(self)
                     elements += 1
         if elements or containers == 0:
-            self.emit_op_arg(ops.BUILD_MAP, elements)
-            containers += 1
+            if all_constant_keys_w:
+                w_tup = self.space.newtuple(all_constant_keys_w)
+                self.load_const(w_tup)
+                self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, elements)
+            else:
+                self.emit_op_arg(ops.BUILD_MAP, elements)
+                containers += 1
         # If there is more than one dict, they need to be merged into
         # a new dict. If there is one dict and it's an unpacking, then
         #it needs to be copied into a new dict.
         while containers > 1 or is_unpacking:
+            assert all_constant_keys_w is None
             oparg = min(containers, 255)
             self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
             containers -= (oparg - 1)
