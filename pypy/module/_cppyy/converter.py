@@ -699,8 +699,8 @@ class FunctionPointerConverter(TypeConverter):
                     "no overload found matching %s", self.signature)
 
 
-class SmartPtrCppObjectConverter(TypeConverter):
-    _immutable_fields = ['smartdecl', 'rawdecl', 'deref']
+class SmartPointerConverter(TypeConverter):
+    _immutable_fields = ['typecode', 'smartdecl', 'rawdecl', 'deref']
     typecode    = 'V'
 
     def __init__(self, space, smartdecl, raw, deref):
@@ -745,6 +745,19 @@ class SmartPtrCppObjectConverter(TypeConverter):
         from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppinstance(space, address,
             self.rawdecl, smartdecl=self.smartdecl, deref=self.deref, do_cast=False)
+
+class SmartPointerPtrConverter(SmartPointerConverter):
+    typecode    = 'o'
+
+    def from_memory(self, space, w_obj, w_pycppclass, offset):
+        self._is_abstract(space)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        self._is_abstract(space)
+
+
+class SmartPointerRefConverter(SmartPointerPtrConverter):
+    typecode    = 'V'
 
 
 class MacroConverter(TypeConverter):
@@ -800,7 +813,13 @@ def get_converter(space, _name, default):
         # check smart pointer type
         check_smart = capi.c_smartptr_info(space, clean_name)
         if check_smart[0]:
-            return SmartPtrCppObjectConverter(space, clsdecl, check_smart[1], check_smart[2])
+            if compound == '':
+                return SmartPointerConverter(space, clsdecl, check_smart[1], check_smart[2])
+            elif compound == '*':
+                return SmartPointerPtrConverter(space, clsdecl, check_smart[1], check_smart[2])
+            elif compound == '&':
+                return SmartPointerRefConverter(space, clsdecl, check_smart[1], check_smart[2])
+            # fall through: can still return smart pointer in non-smart way
 
         # type check for the benefit of the annotator
         if compound == "*":

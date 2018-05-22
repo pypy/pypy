@@ -1284,9 +1284,15 @@ class W_CPPInstance(W_Root):
             return wrap_cppinstance(self.space, self._rawobject, self.smartdecl, do_cast=False)
 
     def destruct(self):
-        if self._rawobject and not (self.flags & INSTANCE_FLAGS_IS_REF):
+        if self._rawobject:
+            if self.smartdecl and self.deref:
+                klass = self.smartdecl
+            elif not (self.flags & INSTANCE_FLAGS_IS_REF):
+                klass = self.clsdecl
+            else:
+                return
             memory_regulator.unregister(self)
-            capi.c_destruct(self.space, self.clsdecl, self._rawobject)
+            capi.c_destruct(self.space, klass, self._rawobject)
             self._rawobject = capi.C_NULL_OBJECT
 
     def _finalize_(self):

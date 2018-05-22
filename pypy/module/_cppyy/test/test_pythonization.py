@@ -133,15 +133,21 @@ class AppTestPYTHONIZATION:
 
         mine = pz.gime_mine_ptr()
         assert type(mine) == Countable
+        assert mine.m_check == 0xcdcdcdcd
         assert type(mine.__smartptr__()) == cppyy.gbl.std.shared_ptr(Countable)
+        assert mine.__smartptr__().get().m_check == 0xcdcdcdcd
         assert mine.say_hi() == "Hi!"
 
         mine = pz.gime_mine_ref()
         assert type(mine) == Countable
+        assert mine.m_check == 0xcdcdcdcd
         assert type(mine.__smartptr__()) == cppyy.gbl.std.shared_ptr(Countable)
+        assert mine.__smartptr__().get().m_check == 0xcdcdcdcd
         assert mine.say_hi() == "Hi!"
 
         mine = pz.gime_mine()
         assert type(mine) == Countable
+        assert mine.m_check == 0xcdcdcdcd
         assert type(mine.__smartptr__()) == cppyy.gbl.std.shared_ptr(Countable)
+        assert mine.__smartptr__().get().m_check == 0xcdcdcdcd
         assert mine.say_hi() == "Hi!"
