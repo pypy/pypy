@@ -18,3 +18,7 @@ Make sure 'blocking-ness' of socket is set along with default timeout
 .. branch: crypt_h
 
 Include crypt.h for crypt() on Linux
+
+.. branch: gc-more-logging
+
+Log additional gc-minor and gc-collect-step info in the PYPYLOG

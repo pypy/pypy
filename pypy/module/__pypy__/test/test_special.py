@@ -135,7 +135,10 @@ class AppTestJitFeatures(object):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_jit_backend_features(self):
-        from __pypy__ import jit_backend_features
+        try:
+            from __pypy__ import jit_backend_features
+        except ImportError:
+            skip("compiled without jit")
         supported_types = jit_backend_features
         assert isinstance(supported_types, list)
         for x in supported_types:
