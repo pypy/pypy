@@ -1,5 +1,5 @@
 # NOT_RPYTHON
-# do not load _cppyy here, see _init_pythonify()
+# do not load _cppyy here, see _post_import_startup()
 import types
 import sys
 
@@ -22,7 +22,7 @@ class CPPMetaNamespace(CPPScope):
 class CPPClass(CPPScope):
     pass
 
-# namespace base class (class base class defined in _init_pythonify)
+# namespace base class (class base class defined in _post_import_startup()
 class CPPNamespace(object):
     __metatype__ = CPPMetaNamespace
 
@@ -169,6 +169,7 @@ def make_method(meth_name, cppol):
     return method
 
 def make_cppclass(scope, cl_name, decl):
+    import _cppyy
 
     # get a list of base classes for class creation
     bases = [get_pycppclass(base) for base in decl.get_base_names()]
@@ -209,7 +210,7 @@ def make_cppclass(scope, cl_name, decl):
     for d_name in decl.get_datamember_names():
         cppdm = decl.get_datamember(d_name)
         d_class[d_name] = cppdm
-        if cppdm.is_static():
+        if _cppyy._is_static_data(cppdm):
             d_meta[d_name] = cppdm
 
     # create a metaclass to allow properties (for static data write access)
@@ -278,7 +279,7 @@ def get_scoped_pycppitem(scope, name):
         try:
             cppdm = scope.__cppdecl__.get_datamember(name)
             setattr(scope, name, cppdm)
-            if cppdm.is_static():
+            if _cppyy._is_static_data(cppdm):
                 setattr(scope.__class__, name, cppdm)
             pycppitem = getattr(scope, name)      # gets actual property value
         except AttributeError:
@@ -406,7 +407,7 @@ def _pythonize(pyclass):
         pyclass.__len__     = return2
 
 
-def _init_pythonify():
+def _post_import_startup():
     # _cppyy should not be loaded at the module level, as that will trigger a
     # call to space.getbuiltinmodule(), which will cause _cppyy to be loaded
     # at pypy-c startup, rather than on the "import _cppyy" statement

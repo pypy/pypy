@@ -128,7 +128,7 @@ def set_function_generator(space, w_callback):
 
 def register_class(space, w_pycppclass):
     w_cppclass = space.findattr(w_pycppclass, space.newtext("__cppdecl__"))
-    cppclass = space.interp_w(W_CPPClassDecl, w_cppclass, can_be_None=False)
+    cppclass = space.interp_w(W_CPPClassDecl, w_cppclass)
     # add back-end specific method pythonizations (doing this on the wrapped
     # class allows simple aliasing of methods)
     capi.pythonize(space, cppclass.name, w_pycppclass)
@@ -148,6 +148,24 @@ W_CPPLibrary.typedef = TypeDef(
 )
 W_CPPLibrary.typedef.acceptable_as_base_class = True
 
+
+#-----
+# Classes involved with methods and functions:
+#
+#  CPPMethod:         base class wrapping a single function or method
+#  CPPConstructor:    specialization for allocating a new object
+#  CPPFunction:       specialization for free and static functions
+#  CPPSetItem:        specialization for Python's __setitem__
+#  CPPTemplatedCall:  trampoline to instantiate and bind templated functions
+#  W_CPPOverload, W_CPPConstructorOverload, W_CPPTemplateOverload:
+#     user-facing, app-level, collection of overloads, with specializations
+#     for constructors and templates
+#  W_CPPBoundMethod:  instantiated template method
+#
+# All methods/functions derive from CPPMethod and are collected as overload
+# candidates in user-facing overload classes. Templated methods are a two-step
+# process, where first the template is instantiated (or selected if already
+# available), which returns a callable object that is the actual bound method.
 
 class CPPMethod(object):
     """Dispatcher of methods. Checks the arguments, find the corresponding FFI
@@ -177,7 +195,7 @@ class CPPMethod(object):
 
     @staticmethod
     def unpack_cppthis(space, w_cppinstance, declaring_scope):
-        cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+        cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
         cppinstance._nullcheck()
         return cppinstance.get_cppthis(declaring_scope)
 
@@ -424,7 +442,7 @@ class CPPMethod(object):
 
 
 class CPPFunction(CPPMethod):
-    """Global (namespaced) function dispatcher."""
+    """Global (namespaced) / static function dispatcher."""
 
     _immutable_ = True
 
@@ -688,6 +706,18 @@ W_CPPBoundMethod.typedef = TypeDef(
 )
 
 
+#-----
+# Classes for data members:
+#
+#  W_CPPDataMember:        instance data members
+#  W_CPPConstDataMember:   specialization for const data members
+#  W_CPPStaticData:        class-level and global/static data
+#  W_CPPConstStaticData:   specialization for const global/static data
+#
+# Data is represented by an offset which is either a global pointer (static data)
+# or an offset from the start of an instance (data members). The "const"
+# specializations raise when attempting to set their value.
+
 class W_CPPDataMember(W_Root):
     _attrs_ = ['space', 'scope', 'converter', 'offset']
     _immutable_fields = ['scope', 'converter', 'offset']
@@ -697,9 +727,6 @@ class W_CPPDataMember(W_Root):
         self.scope = declaring_scope
         self.converter = converter.get_converter(self.space, type_name, '')
         self.offset = offset
-
-    def is_static(self):
-        return self.space.w_False
 
     def _get_offset(self, cppinstance):
         if cppinstance:
@@ -728,16 +755,25 @@ class W_CPPDataMember(W_Root):
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',
-    is_static = interp2app(W_CPPDataMember.is_static),
     __get__ = interp2app(W_CPPDataMember.get),
     __set__ = interp2app(W_CPPDataMember.set),
 )
 W_CPPDataMember.typedef.acceptable_as_base_class = False
 
-class W_CPPStaticData(W_CPPDataMember):
-    def is_static(self):
-        return self.space.w_True
 
+class W_CPPConstDataMember(W_CPPDataMember):
+    def set(self, w_cppinstance, w_value):
+        raise oefmt(self.space.w_TypeError, "assignment to const data not allowed")
+
+W_CPPConstDataMember.typedef = TypeDef(
+    'CPPConstDataMember',
+    __get__ = interp2app(W_CPPDataMember.get),
+    __set__ = interp2app(W_CPPConstDataMember.set),
+)
+W_CPPConstDataMember.typedef.acceptable_as_base_class = False
+
+
+class W_CPPStaticData(W_CPPDataMember):
     @jit.elidable_promote()
     def _get_offset(self, cppinstance):
         return self.offset
@@ -751,18 +787,33 @@ class W_CPPStaticData(W_CPPDataMember):
 
 W_CPPStaticData.typedef = TypeDef(
     'CPPStaticData',
-    is_static = interp2app(W_CPPStaticData.is_static),
     __get__ = interp2app(W_CPPStaticData.get),
     __set__ = interp2app(W_CPPStaticData.set),
 )
 W_CPPStaticData.typedef.acceptable_as_base_class = False
 
-def is_static(space, w_obj):
+
+class W_CPPConstStaticData(W_CPPStaticData):
+    def set(self, w_cppinstance, w_value):
+        raise oefmt(self.space.w_TypeError, "assignment to const data not allowed")
+
+W_CPPConstStaticData.typedef = TypeDef(
+    'CPPConstStaticData',
+    __get__ = interp2app(W_CPPConstStaticData.get),
+    __set__ = interp2app(W_CPPConstStaticData.set),
+)
+W_CPPConstStaticData.typedef.acceptable_as_base_class = False
+
+
+def is_static_data(space, w_obj):
     try:
-        space.interp_w(W_CPPStaticData, w_obj, can_be_None=False)
+        space.interp_w(W_CPPStaticData, w_obj)
         return space.w_True
     except Exception:
         return space.w_False
+
+#-----
+
 
 class W_CPPScopeDecl(W_Root):
     _attrs_ = ['space', 'handle', 'name', 'methods', 'datamembers']
@@ -847,7 +898,10 @@ class W_CPPNamespaceDecl(W_CPPScopeDecl):
         offset = capi.c_datamember_offset(self.space, self, dm_idx)
         if offset == -1:
             raise self.missing_attribute_error(dm_name)
-        datamember = W_CPPStaticData(self.space, self, type_name, offset)
+        if capi.c_is_const_data(self.space, self, dm_idx):
+            datamember = W_CPPConstStaticData(self.space, self, type_name, offset)
+        else:
+            datamember = W_CPPStaticData(self.space, self, type_name, offset)
         self.datamembers[dm_name] = datamember
         return datamember
 
@@ -967,8 +1021,13 @@ class W_CPPClassDecl(W_CPPScopeDecl):
             if offset == -1:
                 continue      # dictionary problem; raises AttributeError on use
             is_static = bool(capi.c_is_staticdata(self.space, self, i))
-            if is_static:
+            is_const  = bool(capi.c_is_const_data(self.space, self, i))
+            if is_static and is_const:
+                datamember = W_CPPConstStaticData(self.space, self, type_name, offset)
+            elif is_static:
                 datamember = W_CPPStaticData(self.space, self, type_name, offset)
+            elif is_const:
+                datamember = W_CPPConstDataMember(self.space, self, type_name, offset)
             else:
                 datamember = W_CPPDataMember(self.space, self, type_name, offset)
             self.datamembers[datamember_name] = datamember
@@ -1124,7 +1183,7 @@ class W_CPPInstance(W_Root):
         # scopes of the argument classes (TODO: implement that last option)
         try:
             # TODO: expecting w_other to be an W_CPPInstance is too limiting
-            other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
+            other = self.space.interp_w(W_CPPInstance, w_other)
             for name in ["", "__gnu_cxx", "__1"]:
                 nss = scope_byname(self.space, name)
                 meth_idx = capi.c_get_global_operator(
@@ -1146,7 +1205,7 @@ class W_CPPInstance(W_Root):
 
         # fallback 2: direct pointer comparison (the class comparison is needed since
         # the first data member in a struct and the struct have the same address)
-        other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)  # TODO: factor out
+        other = self.space.interp_w(W_CPPInstance, w_other)  # TODO: factor out
         iseq = (self._rawobject == other._rawobject) and (self.clsdecl == other.clsdecl)
         return self.space.newbool(iseq)
 
@@ -1167,9 +1226,11 @@ class W_CPPInstance(W_Root):
                     "'%s' has no length", self.clsdecl.name)
 
     def instance__cmp__(self, w_other):
-        w_as_builtin = self._get_as_builtin()
-        if w_as_builtin is not None:
-            return self.space.cmp(w_as_builtin, w_other)
+        from pypy.module.sys.version import CPYTHON_VERSION
+        if CPYTHON_VERSION[0] != 3:
+            w_as_builtin = self._get_as_builtin()
+            if w_as_builtin is not None:
+                return self.space.cmp(w_as_builtin, w_other)
         raise oefmt(self.space.w_AttributeError,
                     "'%s' has no attribute __cmp__", self.clsdecl.name)
 
@@ -1263,7 +1324,7 @@ def wrap_cppinstance(space, rawobject, clsdecl,
                 offset = capi.c_base_offset1(space, actual, clsdecl, rawobject, -1)
                 rawobject = capi.direct_ptradd(rawobject, offset)
                 w_cppdecl = space.findattr(w_pycppclass, space.newtext("__cppdecl__"))
-                clsdecl = space.interp_w(W_CPPClassDecl, w_cppdecl, can_be_None=False)
+                clsdecl = space.interp_w(W_CPPClassDecl, w_cppdecl)
             except Exception:
                 # failed to locate/build the derived class, so stick to the base (note
                 # that only get_pythonized_cppclass is expected to raise, so none of
@@ -1281,7 +1342,7 @@ def wrap_cppinstance(space, rawobject, clsdecl,
 
     # fresh creation
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
-    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
     cppinstance.__init__(space, clsdecl, rawobject, is_ref, python_owns)
     memory_regulator.register(cppinstance)
     return w_cppinstance
@@ -1309,7 +1370,7 @@ def _bind_object(space, w_obj, w_clsdecl, owns=False, cast=False):
     except Exception:
         # accept integer value as address
         rawobject = rffi.cast(capi.C_OBJECT, space.uint_w(w_obj))
-    decl = space.interp_w(W_CPPClassDecl, w_clsdecl, can_be_None=False)
+    decl = space.interp_w(W_CPPClassDecl, w_clsdecl)
     return wrap_cppinstance(space, rawobject, decl, python_owns=owns, do_cast=cast)
 
 @unwrap_spec(owns=bool, cast=bool)
@@ -1325,7 +1386,7 @@ def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
 
 def move(space, w_obj):
     """Casts the given instance into an C++-style rvalue."""
-    obj = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
+    obj = space.interp_w(W_CPPInstance, w_obj)
     if obj:
         obj.flags |= INSTANCE_FLAGS_IS_R_VALUE
     return w_obj

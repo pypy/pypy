@@ -430,7 +430,6 @@ class MIFrame(object):
             for const1 in switchdict.const_keys_in_order:
                 box = self.execute(rop.INT_EQ, valuebox, const1)
                 assert box.getint() == 0
-                target = switchdict.dict[const1.getint()]
                 self.metainterp.generate_guard(rop.GUARD_FALSE, box,
                                                resumepc=orgpc)
         else:

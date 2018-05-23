@@ -8,13 +8,18 @@ Python 2.7 syntax), and a PyPy3.5 v6.0 (an interpreter supporting Python
 the dual release.
 
 This release is a feature release following our previous 5.10 incremental
-release in late December 2017. Our C-API compatability layer ``cpyext`` is
+release in late December 2017. Our C-API compatibility layer ``cpyext`` is
 now much faster (see the `blog post`_) as well as more complete. We have made
 many other improvements in speed and CPython compatibility. Since the changes
 affect the included python development header files, all c-extension modules must
 be recompiled for this version.
 
-First-time python users are often stumped by silly typos and emissions when
+Until we can work with downstream providers to distribute builds with PyPy, we
+have made packages for some common packages `available as wheels`_. You may
+compile yourself using ``pip install --no-build-isolation <package>``, the
+``no-build-isolation`` is currently needed for pip v10.
+
+First-time python users are often stumped by silly typos and omissions when
 getting started writing code. We have improved our parser to emit more friendly
 `syntax errors`_,  making PyPy not only faster but more friendly.
 
@@ -60,6 +65,7 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _`hooks`: gc_info.html#gc-hooks
 .. _`cffi`: http://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
+.. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 
 What is PyPy?
 =============
@@ -110,7 +116,7 @@ Changelog
 * Fix JIT bugs exposed in the sre module
 * Improve speed of Python parser, improve ParseError messages and SyntaxError
 * Handle JIT hooks more efficiently
-* Fix a rare GC bug exposed by intensive use of cpyext `Buffer` s
+* Fix a rare GC bug exposed by intensive use of cpyext ``Buffer`` s
 
 We also refactored many parts of the JIT bridge optimizations, as well as cpyext
 internals, and together with new contributors fixed issues, added new
