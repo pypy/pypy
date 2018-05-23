@@ -29,8 +29,8 @@
 #define PY_VERSION		"3.5.3"
 
 /* PyPy version as a string */
-#define PYPY_VERSION "6.0.0"
-#define PYPY_VERSION_NUM  0x06000000
+#define PYPY_VERSION "6.1.0-alpha0"
+#define PYPY_VERSION_NUM  0x06010000
 
 /* Defined to mean a PyPy where cpyext holds more regular references
    to PyObjects, e.g. staying alive as long as the internal PyPy object
