@@ -1240,6 +1240,20 @@ class TestCompiler:
         src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
         yield self.st, src, 'z', 0xd8
 
+    def test_revdb_metavar(self):
+        from pypy.interpreter.reverse_debugging import dbstate, setup_revdb
+        self.space.config.translation.reverse_debugger = True
+        self.space.reverse_debugging = True
+        try:
+            setup_revdb(self.space)
+            dbstate.standard_code = False
+            dbstate.metavars = [self.space.wrap(6)]
+            self.simple_test("x = 7*$0", "x", 42)
+            dbstate.standard_code = True
+            self.error_test("x = 7*$0", SyntaxError)
+        finally:
+            self.space.reverse_debugging = False
+
 
 class AppTestCompiler:
 

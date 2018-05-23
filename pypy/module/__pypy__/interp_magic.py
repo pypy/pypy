@@ -189,3 +189,23 @@ def fsencode(space, w_obj):
 def fsdecode(space, w_obj):
     """Direct access to the interp-level fsdecode()"""
     return space.fsdecode(w_obj)
+
+def side_effects_ok(space):
+    """For use with the reverse-debugger: this function normally returns
+    True, but will return False if we are evaluating a debugging command
+    like a watchpoint.  You are responsible for not doing any side effect
+    at all (including no caching) when evaluating watchpoints.  This
+    function is meant to help a bit---you can write:
+
+        if not __pypy__.side_effects_ok():
+            skip the caching logic
+
+    inside getter methods or properties, to make them usable from
+    watchpoints.  Note that you need to re-run ``REVDB=.. pypy''
+    after changing the Python code.
+    """
+    return space.newbool(space._side_effects_ok())
+
+def revdb_stop(space):
+    from pypy.interpreter.reverse_debugging import stop_point
+    stop_point()

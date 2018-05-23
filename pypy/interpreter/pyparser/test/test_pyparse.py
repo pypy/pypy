@@ -147,6 +147,15 @@ if 1:
             tree = self.parse(fmt % linefeed)
             assert expected_tree == tree
 
+    def test_revdb_dollar_num(self):
+        self.parse('$0')
+        self.parse('$5')
+        self.parse('$42')
+        self.parse('2+$42.attrname')
+        py.test.raises(SyntaxError, self.parse, '$')
+        py.test.raises(SyntaxError, self.parse, '$a')
+        py.test.raises(SyntaxError, self.parse, '$.5')
+
     def test_py3k_reject_old_binary_literal(self):
         py.test.raises(SyntaxError, self.parse, '0777')
 

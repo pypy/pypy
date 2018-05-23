@@ -88,11 +88,17 @@ def run_toplevel(f, *fargs, **fkwds):
     run_protected() handles details like forwarding exceptions to
     sys.excepthook(), catching SystemExit, etc.
     """
+    if '__pypy__' in sys.builtin_module_names:
+        from __pypy__ import revdb_stop
+    else:
+        revdb_stop = None
     try:
         # run it
         try:
             f(*fargs, **fkwds)
         finally:
+            if revdb_stop:
+                revdb_stop()
             sys.settrace(None)
             sys.setprofile(None)
     except SystemExit as e:

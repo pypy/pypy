@@ -1264,6 +1264,11 @@ class ASTBuilder(object):
                 else:
                     # a dictionary display
                     return self.handle_dictdisplay(maker, atom_node)
+        elif first_child_type == tokens.REVDBMETAVAR:
+            string = atom_node.get_child(0).get_value()
+            return ast.RevDBMetaVar(int(string[1:]),
+                                    atom_node.get_lineno(),
+                                    atom_node.get_column())
         else:
             raise AssertionError("unknown atom")
 

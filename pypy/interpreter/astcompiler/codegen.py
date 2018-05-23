@@ -1519,6 +1519,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             fmt.format_spec.walkabout(self)
         self.emit_op_arg(ops.FORMAT_VALUE, arg)
 
+    def _revdb_metavar(self, node):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import dbstate
+        if not dbstate.standard_code:
+            self.emit_op_arg(ops.LOAD_REVDB_VAR, node.metavar)
+            return True
+        return False
+
+    def visit_RevDBMetaVar(self, node):
+        if self.space.reverse_debugging and self._revdb_metavar(node):
+            return
+        self.error("Unknown character ('$NUM' is only valid in the "
+                   "reverse-debugger)", node)
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
