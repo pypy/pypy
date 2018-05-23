@@ -83,7 +83,10 @@ def run_toplevel(f, *fargs, **fkwds):
     sys.excepthook(), catching SystemExit, printing a newline after
     sys.stdout if needed, etc.
     """
-    from __pypy__ import revdb_stop
+    if '__pypy__' in sys.builtin_module_names:
+        from __pypy__ import revdb_stop
+    else:
+        revdb_stop = None
     try:
         # run it
         try:
