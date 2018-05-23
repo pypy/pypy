@@ -452,7 +452,8 @@ class ExceptionTransformer(object):
     def setup_excdata(self):
         EXCDATA = lltype.Struct('ExcData',
             ('exc_type',  self.lltype_of_exception_type),
-            ('exc_value', self.lltype_of_exception_value))
+            ('exc_value', self.lltype_of_exception_value),
+            hints={'is_excdata': True})
         self.EXCDATA = EXCDATA
 
         exc_data = lltype.malloc(EXCDATA, immortal=True)

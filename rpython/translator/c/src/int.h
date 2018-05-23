@@ -160,7 +160,6 @@
 #define OP_CAST_INT_TO_LONGLONGLONG(x,r) r = (__int128_t)(x)
 #define OP_CAST_CHAR_TO_INT(x,r)    r = (Signed)((unsigned char)(x))
 #define OP_CAST_INT_TO_CHAR(x,r)    r = (char)(x)
-#define OP_CAST_PTR_TO_INT(x,r)     r = (Signed)(x)    /* XXX */
 
 #define OP_TRUNCATE_LONGLONG_TO_INT(x,r) r = (Signed)(x)
 #define OP_TRUNCATE_LONGLONGLONG_TO_INT(x,r) r = (Signed)(x)

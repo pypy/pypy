@@ -425,6 +425,9 @@ class AstValidator(ast.ASTVisitor):
         node.slice.walkabout(self)
         self._validate_expr(node.value)
 
+    def visit_RevDBMetaVar(self, node):
+        pass
+
     # Subscripts
     def visit_Slice(self, node):
         if node.lower:
