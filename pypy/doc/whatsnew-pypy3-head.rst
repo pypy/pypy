@@ -12,3 +12,8 @@ Fix multiprocessing regression on newer glibcs
 .. branch: py3.5-user-site-impl
 
 Use implementation-specific site directories in sysconfig like in Python2
+
+.. branch: py3.5-reverse-debugger
+
+The reverse-debugger branch has been merged.  For more information, see
+https://bitbucket.org/pypy/revdb
