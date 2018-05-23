@@ -532,19 +532,18 @@ def command_locals(cmd, extra):
             prepare_print_environment(space)
             space.appexec([space.sys,
                            frame.getdictscope()], """(sys, locals):
-                lst = locals.keys()
-                lst.sort()
-                print 'Locals:'
+                lst = sorted(locals.keys())
+                print('Locals:')
                 for key in lst:
                     try:
-                        print '    %s =' % key,
+                        print('    %s =' % key, end=' ', flush=True)
                         s = '%r' % locals[key]
                         if len(s) > 140:
                             s = s[:100] + '...' + s[-30:]
-                        print s
+                        print(s)
                     except:
                         exc, val, tb = sys.exc_info()
-                        print '!<%s: %r>' % (exc, val)
+                        print('!<%s: %r>' % (exc, val))
             """)
         except OperationError as e:
             revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
