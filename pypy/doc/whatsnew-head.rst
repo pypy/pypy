@@ -22,3 +22,8 @@ Include crypt.h for crypt() on Linux
 .. branch: gc-more-logging
 
 Log additional gc-minor and gc-collect-step info in the PYPYLOG
+
+.. branch: reverse-debugger
+
+The reverse-debugger branch has been merged.  For more information, see
+https://bitbucket.org/pypy/revdb
