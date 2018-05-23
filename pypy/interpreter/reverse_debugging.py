@@ -332,6 +332,7 @@ def descr_set_softspace(space, revdb, w_newvalue):
 W_RevDBOutput.typedef = typedef.TypeDef(
     "revdb_output",
     write = gateway.interp2app(W_RevDBOutput.descr_write),
+    # XXX is 'softspace' still necessary in Python 3?
     softspace = typedef.GetSetProperty(descr_get_softspace,
                                        descr_set_softspace,
                                        cls=W_RevDBOutput),
