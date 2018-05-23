@@ -290,7 +290,7 @@ class AppTest_DictObject:
         import __pypy__
         def kw(**d): return d
         for d in [{}, {1: 2, 3: 4, 5: 6}, {"a": 5, "b": 2, "c": 6}, kw(a=1, b=2)]:
-            assert list(__pypy__.reversed_dict(d)) == list(d.keys()[::-1])
+            assert list(__pypy__.reversed_dict(d)) == list(d.keys())[::-1]
         raises(TypeError, __pypy__.reversed_dict, 42)
 
     def test_reversed_dict_runtimeerror(self):
