@@ -707,7 +707,7 @@ def command_breakpoints(cmd, extra):
             if kind == 'B':
                 add_breakpoint(name, i)
             elif kind == 'W':
-                code = interp_marshal.loads(space, space.newtext(name))
+                code = interp_marshal.loads(space, space.newbytes(name))
                 watch_progs.append((code, i, ''))
     dbstate.watch_progs = watch_progs[:]
 lambda_breakpoints = lambda: command_breakpoints
