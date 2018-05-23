@@ -205,11 +205,15 @@ class BoehmGcPolicy(BasicGcPolicy):
             # GC_REDIRECT_TO_LOCAL is not supported on Win32 by gc6.8
             pre_include_bits += ["#define GC_REDIRECT_TO_LOCAL 1"]
 
+        hdr_flag = ''
+        if not getattr(self.db.gctransformer, 'NO_HEADER', False):
+            hdr_flag = '-DPYPY_BOEHM_WITH_HEADER'
+
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
             # The following define is required by the thread module,
             # See module/thread/test/test_rthread.py
-            compile_extra=['-DPYPY_USING_BOEHM_GC'],
+            compile_extra=['-DPYPY_USING_BOEHM_GC', hdr_flag],
             ))
 
         gct = self.db.gctransformer
@@ -240,12 +244,10 @@ class BoehmGcPolicy(BasicGcPolicy):
         yield 'boehm_gc_startup_code();'
 
     def get_real_weakref_type(self):
-        from rpython.memory.gctransform import boehm
-        return boehm.WEAKLINK
+        return self.db.gctransformer.WEAKLINK
 
     def convert_weakref_to(self, ptarget):
-        from rpython.memory.gctransform import boehm
-        return boehm.convert_weakref_to(ptarget)
+        return self.db.gctransformer.convert_weakref_to(ptarget)
 
     def OP_GC__COLLECT(self, funcgen, op):
         return 'GC_gcollect();'

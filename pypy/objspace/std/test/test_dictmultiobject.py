@@ -1273,6 +1273,9 @@ class FakeSpace:
     def fromcache(self, cls):
         return cls(self)
 
+    def _side_effects_ok(self):
+        return True
+
     w_StopIteration = StopIteration
     w_None = None
     w_NoneType = type(None, None)

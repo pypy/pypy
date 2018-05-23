@@ -36,7 +36,13 @@
 #define OP_DEBUG_OFFSET(res)      res = pypy_debug_offset()
 #define OP_DEBUG_FORKED(ofs, _)   pypy_debug_forked(ofs)
 #define OP_HAVE_DEBUG_PRINTS(r)   r = (pypy_have_debug_prints & 1)
-#define OP_DEBUG_FLUSH() fflush(pypy_debug_file)
+
+#ifdef RPY_REVERSE_DEBUGGER
+RPY_EXTERN void rpy_reverse_db_teardown(void);
+#  define OP_DEBUG_FLUSH() fflush(pypy_debug_file); rpy_reverse_db_teardown()
+#else
+#  define OP_DEBUG_FLUSH() fflush(pypy_debug_file)
+#endif
 
 /************************************************************/
 

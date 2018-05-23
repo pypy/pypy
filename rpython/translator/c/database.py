@@ -32,10 +32,14 @@ class LowLevelDatabase(object):
                  gchooks=None,
                  exctransformer=None,
                  thread_enabled=False,
-                 sandbox=False):
+                 sandbox=False,
+                 split_gc_address_space=False,
+                 reverse_debugger=False):
         self.translator = translator
         self.standalone = standalone
         self.sandbox    = sandbox
+        self.split_gc_address_space = split_gc_address_space
+        self.reverse_debugger       = reverse_debugger
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicyclass(self, thread_enabled)
