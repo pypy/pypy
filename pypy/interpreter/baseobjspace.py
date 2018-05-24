@@ -433,6 +433,8 @@ class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://pypy.readthedocs.org/en/latest/objspace.html"""
 
+    reverse_debugging = False
+
     @not_rpython
     def __init__(self, config=None):
         "Basic initialization of objects."
@@ -444,6 +446,7 @@ class ObjSpace(object):
             from pypy.config.pypyoption import get_pypy_config
             config = get_pypy_config(translating=False)
         self.config = config
+        self.reverse_debugging = config.translation.reverse_debugger
 
         self.builtin_modules = {}
         self.reloading_modules = {}
@@ -461,6 +464,9 @@ class ObjSpace(object):
 
     def startup(self):
         # To be called before using the space
+        if self.reverse_debugging:
+            self._revdb_startup()
+
         self.threadlocals.enter_thread(self)
 
         # Initialize already imported builtin modules
@@ -871,7 +877,8 @@ class ObjSpace(object):
         w_s1 = self.interned_strings.get(s)
         if w_s1 is None:
             w_s1 = w_s
-            self.interned_strings.set(s, w_s1)
+            if self._side_effects_ok():
+                self.interned_strings.set(s, w_s1)
         return w_s1
 
     def new_interned_str(self, s):
@@ -881,8 +888,38 @@ class ObjSpace(object):
         w_s1 = self.interned_strings.get(s)
         if w_s1 is None:
             w_s1 = self.newtext(s)
-            self.interned_strings.set(s, w_s1)
+            if self._side_effects_ok():
+                self.interned_strings.set(s, w_s1)
         return w_s1
+
+    def _revdb_startup(self):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import setup_revdb
+        setup_revdb(self)
+
+    def _revdb_standard_code(self):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import dbstate
+        return dbstate.standard_code
+
+    def _side_effects_ok(self):
+        # For the reverse debugger: we run compiled watchpoint
+        # expressions in a fast way that will crash if they have
+        # side-effects.  The obvious Python code with side-effects is
+        # documented "don't do that"; but some non-obvious side
+        # effects are also common, like interning strings (from
+        # unmarshalling the code object containing the watchpoint
+        # expression) to the two attribute caches in mapdict.py and
+        # typeobject.py.  For now, we have to identify such places
+        # that are not acceptable for "reasonable" read-only
+        # watchpoint expressions, and write:
+        #
+        #     if not space._side_effects_ok():
+        #         don't cache.
+        #
+        if self.reverse_debugging:
+            return self._revdb_standard_code()
+        return True
 
     def is_interned_str(self, s):
         # interface for marshal_impl

@@ -437,6 +437,8 @@ class __extend__(pyframe.PyFrame):
                 self.WITH_CLEANUP(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_VALUE.index:
                 self.YIELD_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
+                self.LOAD_REVDB_VAR(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1047,9 +1049,16 @@ class __extend__(pyframe.PyFrame):
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
 
+    def _revdb_jump_backward(self, jumpto):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import jump_backward
+        jump_backward(self, jumpto)
+
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
+        if self.space.reverse_debugging:
+            self._revdb_jump_backward(jumpto)
         return jumpto
 
     def JUMP_FORWARD(self, jumpby, next_instr):
@@ -1302,6 +1311,18 @@ class __extend__(pyframe.PyFrame):
         w_value = self.popvalue()
         w_dict = self.peekvalue()
         self.space.setitem(w_dict, w_key, w_value)
+
+    def _revdb_load_var(self, oparg):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import load_metavar
+        w_var = load_metavar(oparg)
+        self.pushvalue(w_var)
+
+    def LOAD_REVDB_VAR(self, oparg, next_instr):
+        if self.space.reverse_debugging:
+            self._revdb_load_var(oparg)
+        else:
+            self.MISSING_OPCODE(oparg, next_instr)
 
 
 ### ____________________________________________________________ ###

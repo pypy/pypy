@@ -1115,37 +1115,16 @@ def str_decode_utf_32(s, errors, final=True,
                                                          errorhandler, "native")
     return result, c, lgt
 
-def py3k_str_decode_utf_32(s, size, errors, final=True,
-                           errorhandler=None):
-    result, c, lgt, _ = str_decode_utf_32_helper(s, errors, final,
-                                 errorhandler, "native", 'utf-32-' + BYTEORDER2,
-        allow_surrogates=False)
-    return result, c, lgt
-
 def str_decode_utf_32_be(s, errors, final=True,
                          errorhandler=None):
     result, c, lgt, _ = str_decode_utf_32_helper(s, errors, final,
                                                          errorhandler, "big")
     return result, c, lgt
 
-def py3k_str_decode_utf_32_be(s, size, errors, final=True,
-                              errorhandler=None):
-    result, c, lgt, _ = str_decode_utf_32_helper(
-        s, errors, final, errorhandler, "big", 'utf-32-be',
-        allow_surrogates=False)
-    return result, c, lgt
-
 def str_decode_utf_32_le(s, errors, final=True,
                          errorhandler=None):
     result, c, lgt, _ = str_decode_utf_32_helper(s, errors, final,
                                                          errorhandler, "little")
-    return result, c, lgt
-
-def py3k_str_decode_utf_32_le(s, size, errors, final=True,
-                              errorhandler=None):
-    result, c, lgt, _ = str_decode_utf_32_helper(
-        s, errors, final, errorhandler, "little", 'utf-32-le',
-        allow_surrogates=False)
     return result, c, lgt
 
 BOM32_DIRECT  = intmask(0x0000FEFF)
@@ -1174,7 +1153,7 @@ def str_decode_utf_32_helper(s, errors, final,
         if size >= 4:
             bom = intmask(
                 (ord(s[iorder[3]]) << 24) | (ord(s[iorder[2]]) << 16) |
-                (ord(s[iorder[1]]) << 8)  | ord(s[iorder[0]]))
+                (ord(s[iorder[1]]) << 8) | ord(s[iorder[0]]))
             if BYTEORDER == 'little':
                 if bom == BOM32_DIRECT:
                     pos += 4
@@ -1198,7 +1177,6 @@ def str_decode_utf_32_helper(s, errors, final,
     if bo == -1:
         # force little endian
         iorder = [0, 1, 2, 3]
-
     elif bo == 1:
         # force big endian
         iorder = [3, 2, 1, 0]
@@ -1312,24 +1290,6 @@ def utf8_encode_utf_32_le(s, errors,
                              errorhandler=None, allow_surrogates=True):
     return unicode_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "little")
-
-def py3k_unicode_encode_utf_32(s, size, errors,
-                               errorhandler=None, allow_surrogates=True):
-    return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
-                                        allow_surrogates, "native",
-                                        'utf-32-' + BYTEORDER2)
-
-def py3k_unicode_encode_utf_32_be(s, size, errors,
-                                  errorhandler=None, allow_surrogates=True):
-    return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
-                                        allow_surrogates, "big",
-                                        'utf-32-be')
-
-def py3k_unicode_encode_utf_32_le(s, size, errors,
-                                  errorhandler=None, allow_surrogates=True):
-    return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
-                                        allow_surrogates, "little",
-                                        'utf-32-le')
 # ____________________________________________________________
 # unicode-internal
 

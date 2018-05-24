@@ -714,6 +714,14 @@ def op_raw_store(p, ofs, newvalue):
     p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
     p[0] = newvalue
 
+def op_gc_store(p, ofs, newvalue):
+    from rpython.rtyper.lltypesystem import rffi
+    if lltype.typeOf(p) is not llmemory.Address:
+        p = llmemory.cast_ptr_to_adr(p)
+    TVAL = lltype.typeOf(newvalue)
+    p = llmemory.cast_adr_to_ptr(p + ofs, lltype.Ptr(lltype.FixedSizeArray(TVAL, 1)))
+    p[0] = newvalue
+
 def op_raw_load(TVAL, p, ofs):
     from rpython.rtyper.lltypesystem import rffi
     p = rffi.cast(llmemory.Address, p)
@@ -756,6 +764,9 @@ def op_gc_ignore_finalizer(obj):
 
 def op_gc_move_out_of_nursery(obj):
     return obj
+
+def op_revdb_do_next_call():
+    pass
 
 # ____________________________________________________________
 
