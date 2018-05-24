@@ -1,7 +1,19 @@
 import py
-
+import pytest
+from rpython.rlib import rgc
+from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 class AppTestGC(object):
+
+    def setup_class(cls):
+        if cls.runappdirect:
+            pytest.skip("these tests cannot work with -A")
+        space = cls.space
+        def rgc_isenabled(space):
+            return space.newbool(rgc.isenabled())
+        cls.w_rgc_isenabled = space.wrap(interp2app(rgc_isenabled))
+
     def test_collect(self):
         import gc
         gc.collect() # mostly a "does not crash" kind of test
@@ -63,12 +75,16 @@ class AppTestGC(object):
     def test_enable(self):
         import gc
         assert gc.isenabled()
+        assert self.rgc_isenabled()
         gc.disable()
         assert not gc.isenabled()
+        assert not self.rgc_isenabled()
         gc.enable()
         assert gc.isenabled()
+        assert self.rgc_isenabled()
         gc.enable()
         assert gc.isenabled()
+        assert self.rgc_isenabled()
 
     def test_gc_collect_overrides_gc_disable(self):
         import gc
