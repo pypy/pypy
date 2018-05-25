@@ -1,12 +1,13 @@
 import sys
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
-from rpython.rlib import runicode
+from rpython.rlib import runicode, jit, nonconst
 from rpython.rlib.runicode import (
     default_unicode_error_encode, default_unicode_error_decode,
     MAXUNICODE, BYTEORDER, BYTEORDER2, UNICHR)
+from rpython.tool.sourcetools import func_with_new_name
 
 _WIN32 = sys.platform == 'win32'
 _MACOSX = sys.platform == 'darwin'
@@ -85,7 +86,7 @@ def fsencode(space, w_uni):
                                     force_replace=False)
     elif _MACOSX:
         uni = space.unicode_w(w_uni)
-        bytes = runicode.unicode_encode_utf_8_impl(
+        bytes = unicode_encode_utf_8_impl(
             uni, len(uni), 'surrogateescape',
             errorhandler=state.encode_error_handler,
             allow_surrogates=False)
@@ -149,10 +150,101 @@ def encode_utf8(space, uni, allow_surrogates=False):
     # allowed, either paired or lone.  A paired surrogate is considered
     # like the non-BMP character it stands for.  See also *_utf8sp().
     assert isinstance(uni, unicode)
-    return runicode.unicode_encode_utf_8(
+    return unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=encode_error_handler(space),
         allow_surrogates=allow_surrogates)
+
+@jit.elidable
+def unicode_encode_utf_8(s, size, errors, errorhandler=None,
+                         allow_surrogates=False):
+    # In this function, allow_surrogates can be:
+    #
+    #  * True:  surrogates are always allowed.  A valid surrogate pair
+    #           is replaced with the non-BMP unicode char it stands for,
+    #           which is then encoded as 4 bytes.
+    #
+    #  * False: surrogates are always forbidden.
+    #
+    # See also unicode_encode_utf8sp().
+    #
+    if errorhandler is None:
+        errorhandler = default_unicode_error_encode
+    return unicode_encode_utf_8_elidable(s, size, errors, errorhandler,
+                                         allow_surrogates=allow_surrogates)
+
+def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
+                              allow_surrogates=False):
+    assert(size >= 0)
+    result = StringBuilder(size)
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
+        if ch < 0x80:
+            # Encode ASCII
+            result.append(chr(ch))
+        elif ch < 0x0800:
+            # Encode Latin-1
+            result.append(chr((0xc0 | (ch >> 6))))
+            result.append(chr((0x80 | (ch & 0x3f))))
+        else:
+            # Encode UCS2 Unicode ordinals
+            if ch < 0x10000:
+                # Special case: check for high surrogate
+                if 0xD800 <= ch <= 0xDFFF:
+                    if pos != size:
+                        ch2 = ord(s[pos])
+                        # Check for low surrogate and combine the two to
+                        # form a UCS4 value
+                        if ((allow_surrogates or MAXUNICODE < 65536
+                             or is_narrow_host()) and
+                            ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF):
+                            ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
+                            assert ch3 >= 0
+                            pos += 1
+                            _encodeUCS4(result, ch3)
+                            continue
+                    # note: if the program only ever calls this with
+                    # allow_surrogates=True, then we'll never annotate
+                    # the following block of code, and errorhandler()
+                    # will never be called.  This causes RPython
+                    # problems.  Avoid it with the nonconst hack.
+                    if not allow_surrogates or nonconst.NonConstant(False):
+                        ru, rs, pos = errorhandler(errors, 'utf8',
+                                                   'surrogates not allowed',
+                                                   s, pos-1, pos)
+                        if rs is not None:
+                            # py3k only
+                            result.append(rs)
+                            continue
+                        for ch in ru:
+                            if ord(ch) < 0x80:
+                                result.append(chr(ord(ch)))
+                            else:
+                                errorhandler('strict', 'utf8',
+                                             'surrogates not allowed',
+                                             s, pos-1, pos)
+                        continue
+                    # else: Fall through and handles isolated high surrogates
+                result.append((chr((0xe0 | (ch >> 12)))))
+                result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
+                result.append((chr((0x80 | (ch & 0x3f)))))
+            else:
+                _encodeUCS4(result, ch)
+    return result.build()
+unicode_encode_utf_8_elidable = jit.elidable(
+    func_with_new_name(unicode_encode_utf_8_impl,
+                       "unicode_encode_utf_8_elidable"))
+
+
+def _encodeUCS4(result, ch):
+    # Encode UCS4 Unicode ordinals
+    result.append((chr((0xf0 | (ch >> 18)))))
+    result.append((chr((0x80 | ((ch >> 12) & 0x3f)))))
+    result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
+    result.append((chr((0x80 | (ch & 0x3f)))))
+
 
 def encode_utf8sp(space, uni):
     # Surrogate-preserving utf-8 encoding.  Any surrogate character
@@ -370,3 +462,7 @@ def unicode_encode_utf_32_le(s, size, errors,
     return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
                                         allow_surrogates, "little",
                                         'utf-32-le')
+
+
+def is_narrow_host():
+    return not we_are_translated() and sys.maxunicode == 0xFFFF

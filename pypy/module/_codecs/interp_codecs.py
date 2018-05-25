@@ -10,6 +10,7 @@ from rpython.rlib.runicode import (
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter import unicodehelper
+from pypy.interpreter.unicodehelper import unicode_encode_utf_8_impl
 from pypy.module.unicodedata import unicodedb
 
 
@@ -737,7 +738,7 @@ def utf_8_encode(space, uni, errors="strict"):
     # NB. can't call unicode_encode_utf_8() directly because that's
     # an @elidable function nowadays.  Instead, we need the _impl().
     # (The problem is the errorhandler, which calls arbitrary Python.)
-    result = runicode.unicode_encode_utf_8_impl(
+    result = unicode_encode_utf_8_impl(
         uni, len(uni), errors, state.encode_error_handler,
         allow_surrogates=False)
     return space.newtuple([space.newbytes(result), space.newint(len(uni))])
