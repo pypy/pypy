@@ -274,7 +274,7 @@ if 1:
             tree = self.parse(x)
         for x in INVALID_UNDERSCORE_LITERALS:
             print x
-            raises(SyntaxError, self.parse, "x = %s" % x)
+            py.test.raises(SyntaxError, self.parse, "x = %s" % x)
 
 
 class TestPythonParserWithSpace:
