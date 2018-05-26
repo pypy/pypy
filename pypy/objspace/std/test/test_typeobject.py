@@ -95,8 +95,6 @@ class AppTestTypeObject:
         class A(type):
             pass
 
-        assert A("hello") is str
-
         # Make sure type(x) doesn't call x.__class__.__init__
         class T(type):
             counter = 0
