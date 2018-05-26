@@ -369,7 +369,7 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                         # check if the first character is a high surrogate,
                         # and the second character is a low surrogate. If so,
                         # they should be handled collectively.
-                        if ch <= 0xDBFF and 0xDC80 <= ch2 <= 0xDFFFF:
+                        if ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFFF:
                             # pos should be incremented regardless.
                             # by doing so, it ensures the lower surrogate
                             # is also included in the characters considered
