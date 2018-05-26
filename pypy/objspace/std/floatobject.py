@@ -205,10 +205,16 @@ class W_FloatObject(W_Root):
     def descr__new__(space, w_floattype, w_x):
         def _string_to_float(space, w_source, string):
             try:
-                return rfloat.string_to_float(string)
-            except ParseStringError as e:
-                raise oefmt(space.w_ValueError,
-                            "could not convert string to float: %R", w_source)
+                string = _remove_underscores(string)
+            except ValueError:
+                pass
+            else:
+                try:
+                    return rfloat.string_to_float(string)
+                except ParseStringError as e:
+                    pass
+            raise oefmt(space.w_ValueError,
+                        "could not convert string to float: %R", w_source)
 
         w_value = w_x     # 'x' is the keyword argument name in CPython
         if space.lookup(w_value, "__float__") is not None:
@@ -727,6 +733,26 @@ Convert a string or number to a floating point number, if possible.''',
     as_integer_ratio = interp2app(W_FloatObject.descr_as_integer_ratio),
     hex = interp2app(W_FloatObject.descr_hex),
 )
+
+def _remove_underscores(string):
+    i = 0
+    prev = '?'
+    res = []
+    for i in range(len(string)):
+        c = string[i]
+        if c == '_':
+            # undercores can only come after digits
+            if not ord('0') <= ord(prev) <= ord('9'):
+                raise ValueError
+        else:
+            res.append(c)
+            # undercores can only come before digits
+            if prev == '_' and not ord('0') <= ord(c) <= ord('9'):
+                raise ValueError
+        prev = c
+    if prev == "_": # not allowed at end
+        raise ValueError
+    return "".join(res)
 
 
 def _hash_float(space, v):

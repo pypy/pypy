@@ -13,7 +13,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.objspace.std import newformat
-from pypy.objspace.std.floatobject import _hash_float
+from pypy.objspace.std.floatobject import _hash_float, _remove_underscores
 from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
 
 HASH_IMAG = 1000003
@@ -284,6 +284,11 @@ class W_ComplexObject(W_Root):
                 raise oefmt(space.w_TypeError, "complex() can't take second"
                                                " arg if first is a string")
             unistr = unicode_to_decimal_w(space, w_real)
+            try:
+                unistr = _remove_underscores(unistr)
+            except ValueError:
+                raise oefmt(space.w_ValueError,
+                            "complex() arg is a malformed string")
             try:
                 realstr, imagstr = _split_complex(unistr)
             except ValueError:
