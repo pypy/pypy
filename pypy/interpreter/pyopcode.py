@@ -1433,21 +1433,12 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def BUILD_SET_UNPACK(self, itemcount, next_instr):
         space = self.space
-        w_sum = space.newset()
+        w_set = space.newset()
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
-            # cannot use w_sum.update, w_item might not be a set
-            iterator = space.iter(w_item)
-            while True:
-                try:
-                    w_value = space.next(iterator)
-                except OperationError:
-                    break
-                w_sum.add(w_value)
-        while itemcount != 0:
-            self.popvalue()
-            itemcount -= 1
-        self.pushvalue(w_sum)
+            space.call_method(w_set, "update", w_item)
+        self.popvalues(itemcount)
+        self.pushvalue(w_set)
 
     @jit.unroll_safe
     def list_unpack_helper(frame, itemcount):
