@@ -801,7 +801,8 @@ class AppTestPartialEvaluation:
         utf-8 should not longer allow surrogates,
         and should return back full surrogate pairs.
         """
-        e = raises(UnicodeEncodeError, u"\udc80\ud800\udfff".encode, "utf-8")
+        e = raises(UnicodeEncodeError, u"\udc80\ud800\udfff".encode, "utf-8",
+                   "surrogateescape").value
         assert e.object[e.start:e.end] == u'\ud800\udfff'
 
     def test_charmap_encode(self):

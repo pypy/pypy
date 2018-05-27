@@ -10,7 +10,9 @@ from rpython.rlib.runicode import (
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter import unicodehelper
-from pypy.interpreter.unicodehelper import unicode_encode_utf_8_impl
+from pypy.interpreter.unicodehelper import (
+    unicode_encode_utf_8_impl,
+    str_decode_unicode_escape)
 from pypy.module.unicodedata import unicodedb
 
 
@@ -950,7 +952,7 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
-    result, consumed, first_escape_error_char = runicode.str_decode_unicode_escape(
+    result, consumed, first_escape_error_char = str_decode_unicode_escape(
         string, len(string), errors,
         final, state.decode_error_handler,
         unicode_name_handler)
