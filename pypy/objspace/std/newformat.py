@@ -455,7 +455,7 @@ def make_formatting_class(for_unicode):
             self._align = default_align
             self._alternate = False
             self._sign = "\0"
-            self._thousands_sep = False
+            self._thousands_sep = "\0"
             self._precision = -1
             the_type = default_type
             spec = self.spec
@@ -488,8 +488,17 @@ def make_formatting_class(for_unicode):
                 i += 1
             self._width, i = _parse_int(self.space, spec, i, length)
             if length != i and spec[i] == ",":
-                self._thousands_sep = True
+                self._thousands_sep = ","
                 i += 1
+            if length != i and spec[i] == "_":
+                if self._thousands_sep != "\0":
+                    raise oefmt(
+                        space.w_ValueError, "Cannot specify both ',' and '_'.")
+                self._thousands_sep = "_"
+                i += 1
+                if length != i and spec[i] == ",":
+                    raise oefmt(
+                        space.w_ValueError, "Cannot specify both ',' and '_'.")
             if length != i and spec[i] == ".":
                 i += 1
                 self._precision, i = _parse_int(self.space, spec, i, length)
@@ -509,7 +518,7 @@ def make_formatting_class(for_unicode):
                     the_type = presentation_type
                 i += 1
             self._type = the_type
-            if self._thousands_sep:
+            if self._thousands_sep != "\0":
                 tp = self._type
                 if (tp == "d" or
                     tp == "e" or
@@ -522,8 +531,15 @@ def make_formatting_class(for_unicode):
                     tp == "\0"):
                     # ok
                     pass
+                elif self._thousands_sep == "_" and (
+                        tp == "b" or
+                        tp == "o" or
+                        tp == "x" or
+                        tp == "X"):
+                    pass # ok
                 else:
-                    raise oefmt(space.w_ValueError, "invalid type with ','")
+                    raise oefmt(space.w_ValueError,
+                                "invalid type with ',' or '_'")
             return False
 
         def _calc_padding(self, string, length):
@@ -601,10 +617,13 @@ def make_formatting_class(for_unicode):
         def _get_locale(self, tp):
             if tp == "n":
                 dec, thousands, grouping = rlocale.numeric_formatting()
-            elif self._thousands_sep:
+            elif self._thousands_sep != "\0":
+                thousands = self._thousands_sep
                 dec = "."
-                thousands = ","
                 grouping = "\3"
+                if tp in "boxX":
+                    assert self._thousands_sep == "_"
+                    grouping = "\4"
             else:
                 dec = "."
                 thousands = ""
