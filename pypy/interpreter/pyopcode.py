@@ -1447,9 +1447,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount, 0, -1):
             w_item = frame.peekvalue(i-1)
             w_sum.extend(w_item)
-        while itemcount != 0:
-            frame.popvalue()
-            itemcount -= 1
+        self.popalues(itemcount)
         return w_sum
 
     @jit.unroll_safe
@@ -1489,9 +1487,7 @@ class __extend__(pyframe.PyFrame):
             space.call_method(w_dict, 'update', w_item)
         if with_call and space.len_w(w_dict) < expected_length:
             self._build_map_unpack_error(itemcount)
-        while itemcount > 0:
-            self.popvalue()
-            itemcount -= 1
+        self.popvalues(itemcount)
         self.pushvalue(w_dict)
 
     @jit.dont_look_inside
