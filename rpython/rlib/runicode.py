@@ -361,27 +361,20 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
         else:
             # Encode UCS2 Unicode ordinals
             if ch < 0x10000:
-                # Special case: check for surrogates
+                # Special case: check for high surrogate
                 if 0xD800 <= ch <= 0xDFFF:
-                    error_start_pos = pos - 1
                     if pos != size:
                         ch2 = ord(s[pos])
-                        # check if the first character is a high surrogate,
-                        # and the second character is a low surrogate. If so,
-                        # they should be handled collectively.
-                        if ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFFF:
-                            # pos should be incremented regardless.
-                            # by doing so, it ensures the lower surrogate
-                            # is also included in the characters considered
-                            # in the errorhandler.
+                        # Check for low surrogate and combine the two to
+                        # form a UCS4 value
+                        if ((allow_surrogates or MAXUNICODE < 65536
+                             or is_narrow_host()) and
+                            ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF):
+                            ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
+                            assert ch3 >= 0
                             pos += 1
-                            # if we allow surrogates, we should combine
-                            # the two and form a UCS4 value
-                            if allow_surrogates or MAXUNICODE < 65535 or is_narrow_host():
-                                ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
-                                assert ch3 >= 0
-                                _encodeUCS4(result, ch3)
-                                continue
+                            _encodeUCS4(result, ch3)
+                            continue
                     # note: if the program only ever calls this with
                     # allow_surrogates=True, then we'll never annotate
                     # the following block of code, and errorhandler()
@@ -390,7 +383,7 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                     if not allow_surrogates or nonconst.NonConstant(False):
                         ru, rs, pos = errorhandler(errors, 'utf8',
                                                    'surrogates not allowed',
-                                                   s, error_start_pos, pos)
+                                                   s, pos-1, pos)
                         if rs is not None:
                             # py3k only
                             result.append(rs)
@@ -401,7 +394,7 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                             else:
                                 errorhandler('strict', 'utf8',
                                              'surrogates not allowed',
-                                             s, pos - 1 , pos)
+                                             s, pos-1, pos)
                         continue
                     # else: Fall through and handles isolated high surrogates
                 result.append((chr((0xe0 | (ch >> 12)))))
@@ -1442,11 +1435,10 @@ def str_decode_unicode_escape(s, size, errors, final=False,
         errorhandler = default_unicode_error_decode
 
     if size == 0:
-        return u'', 0, None
+        return u'', 0
 
     builder = UnicodeBuilder(size)
     pos = 0
-    first_escape_error_char = None
     while pos < size:
         ch = s[pos]
 
@@ -1549,11 +1541,10 @@ def str_decode_unicode_escape(s, size, errors, final=False,
                                         message, s, pos-1, look+1)
                 builder.append(res)
         else:
-            first_escape_error_char = unichr(ord(ch))
             builder.append(u'\\')
             builder.append(unichr(ord(ch)))
 
-    return builder.build(), pos, first_escape_error_char
+    return builder.build(), pos
 
 def make_unicode_escape_function(pass_printable=False, unicode_output=False,
                                  quotes=False, prefix=None):

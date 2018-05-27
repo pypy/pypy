@@ -3,7 +3,10 @@ import pytest
 import struct
 import sys
 from pypy.interpreter.unicodehelper import (
-    encode_utf8, decode_utf8, unicode_encode_utf_32_be, str_decode_utf_32_be)
+    encode_utf8, decode_utf8,
+    unicode_encode_utf_8,
+    unicode_encode_utf_32_be, str_decode_utf_32_be
+)
 from pypy.interpreter.unicodehelper import encode_utf8sp, decode_utf8sp
 
 
@@ -27,6 +30,35 @@ def test_encode_utf8():
     # and .pyc file storage, which collapse the two surrogates into one
     c = u"\udc00"
     py.test.raises(Hit, encode_utf8, space, u"\ud800" + c)
+
+
+def test_encode_utf_8_combine_surrogates():
+    """
+    In the case of a surrogate pair, the error handler should
+    return back a start and stop position of the full surrogate
+    pair (new behavior inherited from python3.6)
+    """
+    u = u"\udc80\ud800\udfff"
+
+    handler_num = 0
+
+    def errorhandler(errors, encoding, msg, s, start, end):
+        """
+        This handler will be called twice, so asserting both times:
+
+        1. the first time, 0xDC80 will be handled as a single surrogate,
+           since it is a standalone character and an invalid surrogate.
+        2. the second time, the characters will be 0xD800 and 0xDFFF, since
+           that is a valid surrogate pair.
+        """
+        assert s[start:end] in [u'\udc80', u'\uD800\uDFFF']
+        return [], None, end
+
+    unicode_encode_utf_8(
+        u, len(u), True,
+        errorhandler=errorhandler,
+        allow_surrogates=False
+    )
 
 def test_encode_utf8_allow_surrogates():
     sp = FakeSpace()
