@@ -189,7 +189,7 @@ testmap = [
     RegrTest('test_descrtut.py', core=True),
     RegrTest('test_devpoll.py'),
     RegrTest('test_dict.py', core=True),
-    RegrTest('test_dict_version.py'),
+    RegrTest('test_dict_version.py', skip="implementation detail"),
     RegrTest('test_dictcomps.py', core=True),
     RegrTest('test_dictviews.py', core=True),
     RegrTest('test_difflib.py'),
