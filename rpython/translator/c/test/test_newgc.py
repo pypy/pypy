@@ -1851,6 +1851,39 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         deleted = self.run("enable_disable", 1)
         assert deleted == 0
 
+    def define_collect_step(self):
+        class Counter(object):
+            val = 0
+        counter = Counter()
+        class X(object):
+            def __del__(self):
+                counter.val += 1
+        def f():
+            x1 = X()
+            rgc.collect() # make x1 old
+            assert not rgc.can_move(x1)
+            x1 = None
+            #
+            gc.disable()
+            n = 0
+            while True:
+                n += 1
+                if rgc.collect_step():
+                    break
+                if n == 100:
+                    print 'Endless loop!'
+                    assert False, 'this looks like an endless loop'
+                
+            if n < 4: # we expect at least 4 steps
+                print 'Too few steps! n =', n
+                assert False
+            return counter.val
+        return f
+
+    def test_collect_step(self):
+        deleted = self.run("collect_step")
+        assert deleted == 1
+
 
 # ____________________________________________________________________
 

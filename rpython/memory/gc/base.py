@@ -159,6 +159,9 @@ class GCBase(object):
     def isenabled(self):
         return True
 
+    def collect_step(self):
+        return True
+
     def malloc(self, typeid, length=0, zero=False):
         """NOT_RPYTHON
         For testing.  The interface used by the gctransformer is

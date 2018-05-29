@@ -819,6 +819,9 @@ class LLFrame(object):
     def op_gc__collect(self, *gen):
         self.heap.collect(*gen)
 
+    def op_gc__collect_step(self):
+        return self.heap.collect_step()
+
     def op_gc__enable(self):
         self.heap.enable()
 

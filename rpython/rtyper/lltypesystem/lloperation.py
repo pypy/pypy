@@ -450,6 +450,7 @@ LL_OPERATIONS = {
     # __________ GC operations __________
 
     'gc__collect':          LLOp(canmallocgc=True),
+    'gc__collect_step':     LLOp(canmallocgc=True),
     'gc__enable':           LLOp(),
     'gc__disable':          LLOp(),
     'gc__isenabled':        LLOp(),

@@ -17,6 +17,14 @@ enable = gc.enable
 disable = gc.disable
 isenabled = gc.isenabled
 
+def collect_step():
+    """
+    If the GC is incremental, run a single gc-collect-step. Return True when
+    the major collection is completed.
+    If the GC is not incremental, do nothing.
+    """
+    return True
+
 def set_max_heap_size(nbytes):
     """Limit the heap size to n bytes.
     """
@@ -151,6 +159,18 @@ class IsEnabledEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         return hop.genop('gc__isenabled', hop.args_v, resulttype=hop.r_result)
+
+
+class CollectStepEntry(ExtRegistryEntry):
+    _about_ = collect_step
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.s_Bool
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc__collect_step', hop.args_v, resulttype=hop.r_result)
 
 
 class SetMaxHeapSizeEntry(ExtRegistryEntry):

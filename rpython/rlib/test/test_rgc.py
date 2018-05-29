@@ -56,6 +56,19 @@ def test_enable_disable():
     res = interpret(f, [])
     assert res
 
+def test_collect_step():
+    def f():
+        return rgc.collect_step()
+
+    assert f()
+    t, typer, graph = gengraph(f, [])
+    blockops = list(graph.iterblockops())
+    opnames = [op.opname for block, op in blockops
+               if op.opname.startswith('gc__')]
+    assert opnames == ['gc__collect_step']
+    res = interpret(f, [])
+    assert res
+
 
 def test_can_move():
     T0 = lltype.GcStruct('T')

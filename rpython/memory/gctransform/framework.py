@@ -309,6 +309,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
+        self.collect_step_ptr = getfn(GCClass.collect_step.im_func, [s_gc],
+                                      annmodel.s_Bool)
         self.enable_ptr = getfn(GCClass.enable.im_func, [s_gc], annmodel.s_None)
         self.disable_ptr = getfn(GCClass.disable.im_func, [s_gc], annmodel.s_None)
         self.isenabled_ptr = getfn(GCClass.isenabled.im_func, [s_gc],
@@ -885,6 +887,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
             v_gen = rmodel.inputconst(lltype.Signed, 9)
         livevars = self.push_roots(hop)
         hop.genop("direct_call", [self.collect_ptr, self.c_const_gc, v_gen],
+                  resultvar=op.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc__collect_step(self, hop):
+        op = hop.spaceop
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call", [self.collect_step_ptr, self.c_const_gc],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 
