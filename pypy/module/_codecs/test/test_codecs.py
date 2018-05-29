@@ -796,6 +796,15 @@ class AppTestPartialEvaluation:
             test_sequence = before_sequence + ill_surrogate + after_sequence
             raises(UnicodeDecodeError, test_sequence.decode, encoding)
 
+    def test_lone_surrogates_utf_8(self):
+        """
+        utf-8 should not longer allow surrogates,
+        and should return back full surrogate pairs.
+        """
+        e = raises(UnicodeEncodeError, u"\udc80\ud800\udfff".encode, "utf-8",
+                   "surrogateescape").value
+        assert e.object[e.start:e.end] == u'\ud800\udfff'
+
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == b'xxx'
 

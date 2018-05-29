@@ -6,7 +6,7 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
-    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii,
+    unicode_encode_ascii, fast_str_decode_ascii,
     unicode_encode_utf8_forbid_surrogates, SurrogateError)
 from rpython.rlib import jit
 
@@ -564,7 +564,7 @@ def encode_object(space, w_object, encoding, errors):
         if encoding is None or encoding == 'utf-8':
             u = space.unicode_w(w_object)
             eh = unicodehelper.encode_error_handler(space)
-            return space.newbytes(unicode_encode_utf_8(
+            return space.newbytes(unicodehelper.unicode_encode_utf_8(
                     u, len(u), errors, errorhandler=eh))
         elif encoding == 'ascii':
             u = space.unicode_w(w_object)

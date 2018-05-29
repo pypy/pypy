@@ -117,12 +117,6 @@ def parsestr(space, encoding, s):
     v, first_escape_error_char = PyString_DecodeEscape(
         space, substr, 'strict', encoding)
 
-    if first_escape_error_char != '':
-        space.warn(
-            space.newtext("invalid escape sequence '\\%s'"
-                          % first_escape_error_char),
-            space.w_DeprecationWarning)
-
     return space.newbytes(v)
 
 def decode_unicode_utf8(space, s, ps, q):
@@ -252,6 +246,13 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
             # an arbitry number of unescaped UTF-8 bytes may follow.
 
     buf = builder.build()
+
+    if first_escape_error_char != '':
+        space.warn(
+            space.newtext("invalid escape sequence '\\%s'"
+                          % first_escape_error_char),
+            space.w_DeprecationWarning)
+
     return buf, first_escape_error_char
 
 

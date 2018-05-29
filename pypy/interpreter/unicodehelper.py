@@ -1,12 +1,13 @@
 import sys
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
-from rpython.rlib import runicode
+from rpython.rlib import runicode, jit, nonconst
 from rpython.rlib.runicode import (
     default_unicode_error_encode, default_unicode_error_decode,
     MAXUNICODE, BYTEORDER, BYTEORDER2, UNICHR)
+from rpython.tool.sourcetools import func_with_new_name
 
 _WIN32 = sys.platform == 'win32'
 _MACOSX = sys.platform == 'darwin'
@@ -85,7 +86,7 @@ def fsencode(space, w_uni):
                                     force_replace=False)
     elif _MACOSX:
         uni = space.unicode_w(w_uni)
-        bytes = runicode.unicode_encode_utf_8_impl(
+        bytes = unicode_encode_utf_8_impl(
             uni, len(uni), 'surrogateescape',
             errorhandler=state.encode_error_handler,
             allow_surrogates=False)
@@ -117,11 +118,175 @@ def decode_unicode_escape(space, string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
-    result, consumed = runicode.str_decode_unicode_escape(
+    result, consumed, first_escape_error_char = str_decode_unicode_escape(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space),
         unicodedata_handler=unicodedata_handler)
     return result
+
+
+hexdigits = "0123456789ABCDEFabcdef"
+
+
+def hexescape(builder, s, pos, digits,
+              encoding, errorhandler, message, errors):
+    chr = 0
+    if pos + digits > len(s):
+        endinpos = pos
+        while endinpos < len(s) and s[endinpos] in hexdigits:
+            endinpos += 1
+        res, pos = errorhandler(errors, encoding,
+                                message, s, pos-2, endinpos)
+        builder.append(res)
+    else:
+        try:
+            chr = r_uint(int(s[pos:pos+digits], 16))
+        except ValueError:
+            endinpos = pos
+            while s[endinpos] in hexdigits:
+                endinpos += 1
+            res, pos = errorhandler(errors, encoding,
+                                    message, s, pos-2, endinpos)
+            builder.append(res)
+        else:
+            # when we get here, chr is a 32-bit unicode character
+            if chr <= MAXUNICODE:
+                builder.append(UNICHR(chr))
+                pos += digits
+
+            elif chr <= 0x10ffff:
+                chr -= 0x10000L
+                builder.append(unichr(0xD800 + (chr >> 10)))
+                builder.append(unichr(0xDC00 + (chr & 0x03FF)))
+                pos += digits
+            else:
+                message = "illegal Unicode character"
+                res, pos = errorhandler(errors, encoding,
+                                        message, s, pos-2, pos+digits)
+                builder.append(res)
+    return pos
+
+
+def str_decode_unicode_escape(s, size, errors, final=False,
+                              errorhandler=None,
+                              unicodedata_handler=None):
+    if errorhandler is None:
+        errorhandler = default_unicode_error_decode
+
+    if size == 0:
+        return u'', 0, None
+
+    builder = UnicodeBuilder(size)
+    pos = 0
+    first_escape_error_char = None
+    while pos < size:
+        ch = s[pos]
+
+        # Non-escape characters are interpreted as Unicode ordinals
+        if ch != '\\':
+            builder.append(unichr(ord(ch)))
+            pos += 1
+            continue
+
+        # - Escapes
+        pos += 1
+        if pos >= size:
+            message = "\\ at end of string"
+            res, pos = errorhandler(errors, "unicodeescape",
+                                    message, s, pos-1, size)
+            builder.append(res)
+            continue
+
+        ch = s[pos]
+        pos += 1
+        # \x escapes
+        if ch == '\n': pass
+        elif ch == '\\': builder.append(u'\\')
+        elif ch == '\'': builder.append(u'\'')
+        elif ch == '\"': builder.append(u'\"')
+        elif ch == 'b' : builder.append(u'\b')
+        elif ch == 'f' : builder.append(u'\f')
+        elif ch == 't' : builder.append(u'\t')
+        elif ch == 'n' : builder.append(u'\n')
+        elif ch == 'r' : builder.append(u'\r')
+        elif ch == 'v' : builder.append(u'\v')
+        elif ch == 'a' : builder.append(u'\a')
+        elif '0' <= ch <= '7':
+            x = ord(ch) - ord('0')
+            if pos < size:
+                ch = s[pos]
+                if '0' <= ch <= '7':
+                    pos += 1
+                    x = (x<<3) + ord(ch) - ord('0')
+                    if pos < size:
+                        ch = s[pos]
+                        if '0' <= ch <= '7':
+                            pos += 1
+                            x = (x<<3) + ord(ch) - ord('0')
+            builder.append(unichr(x))
+        # hex escapes
+        # \xXX
+        elif ch == 'x':
+            digits = 2
+            message = "truncated \\xXX escape"
+            pos = hexescape(builder, s, pos, digits,
+                            "unicodeescape", errorhandler, message, errors)
+
+        # \uXXXX
+        elif ch == 'u':
+            digits = 4
+            message = "truncated \\uXXXX escape"
+            pos = hexescape(builder, s, pos, digits,
+                            "unicodeescape", errorhandler, message, errors)
+
+        #  \UXXXXXXXX
+        elif ch == 'U':
+            digits = 8
+            message = "truncated \\UXXXXXXXX escape"
+            pos = hexescape(builder, s, pos, digits,
+                            "unicodeescape", errorhandler, message, errors)
+
+        # \N{name}
+        elif ch == 'N' and unicodedata_handler is not None:
+            message = "malformed \\N character escape"
+            look = pos
+
+            if look < size and s[look] == '{':
+                # look for the closing brace
+                while look < size and s[look] != '}':
+                    look += 1
+                if look < size and s[look] == '}':
+                    # found a name.  look it up in the unicode database
+                    message = "unknown Unicode character name"
+                    name = s[pos+1:look]
+                    code = unicodedata_handler.call(name)
+                    if code < 0:
+                        res, pos = errorhandler(errors, "unicodeescape",
+                                                message, s, pos-1, look+1)
+                        builder.append(res)
+                        continue
+                    pos = look + 1
+                    if code <= MAXUNICODE:
+                        builder.append(UNICHR(code))
+                    else:
+                        code -= 0x10000L
+                        builder.append(unichr(0xD800 + (code >> 10)))
+                        builder.append(unichr(0xDC00 + (code & 0x03FF)))
+                else:
+                    res, pos = errorhandler(errors, "unicodeescape",
+                                            message, s, pos-1, look+1)
+                    builder.append(res)
+            else:
+                res, pos = errorhandler(errors, "unicodeescape",
+                                        message, s, pos-1, look+1)
+                builder.append(res)
+        else:
+            first_escape_error_char = unichr(ord(ch))
+            builder.append(u'\\')
+            builder.append(unichr(ord(ch)))
+
+    return builder.build(), pos, first_escape_error_char
+
 
 def decode_raw_unicode_escape(space, string):
     result, consumed = runicode.str_decode_raw_unicode_escape(
@@ -149,10 +314,108 @@ def encode_utf8(space, uni, allow_surrogates=False):
     # allowed, either paired or lone.  A paired surrogate is considered
     # like the non-BMP character it stands for.  See also *_utf8sp().
     assert isinstance(uni, unicode)
-    return runicode.unicode_encode_utf_8(
+    return unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=encode_error_handler(space),
         allow_surrogates=allow_surrogates)
+
+@jit.elidable
+def unicode_encode_utf_8(s, size, errors, errorhandler=None,
+                         allow_surrogates=False):
+    # In this function, allow_surrogates can be:
+    #
+    #  * True:  surrogates are always allowed.  A valid surrogate pair
+    #           is replaced with the non-BMP unicode char it stands for,
+    #           which is then encoded as 4 bytes.
+    #
+    #  * False: surrogates are always forbidden.
+    #
+    # See also unicode_encode_utf8sp().
+    #
+    if errorhandler is None:
+        errorhandler = default_unicode_error_encode
+    return unicode_encode_utf_8_elidable(s, size, errors, errorhandler,
+                                         allow_surrogates=allow_surrogates)
+
+def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
+                              allow_surrogates=False):
+    assert(size >= 0)
+    result = StringBuilder(size)
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
+        if ch < 0x80:
+            # Encode ASCII
+            result.append(chr(ch))
+        elif ch < 0x0800:
+            # Encode Latin-1
+            result.append(chr((0xc0 | (ch >> 6))))
+            result.append(chr((0x80 | (ch & 0x3f))))
+        else:
+            # Encode UCS2 Unicode ordinals
+            if ch < 0x10000:
+                # Special case: check for surrogates
+                if 0xD800 <= ch <= 0xDFFF:
+                    error_start_pos = pos - 1
+                    if pos != size:
+                        ch2 = ord(s[pos])
+                        # check if the first character is a high surrogate,
+                        # and the second character is a low surrogate. If so,
+                        # they should be handled collectively.
+                        if ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFFF:
+                            # pos should be incremented regardless.
+                            # by doing so, it ensures the lower surrogate
+                            # is also included in the characters considered
+                            # in the errorhandler.
+                            pos += 1
+                            # if we allow surrogates, we should combine
+                            # the two and form a UCS4 value
+                            if allow_surrogates or MAXUNICODE < 65535 or is_narrow_host():
+                                ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
+                                assert ch3 >= 0
+                                _encodeUCS4(result, ch3)
+                                continue
+                    # note: if the program only ever calls this with
+                    # allow_surrogates=True, then we'll never annotate
+                    # the following block of code, and errorhandler()
+                    # will never be called.  This causes RPython
+                    # problems.  Avoid it with the nonconst hack.
+                    if not allow_surrogates or nonconst.NonConstant(False):
+                        ru, rs, pos = errorhandler(errors, 'utf8',
+                                                   'surrogates not allowed',
+                                                   s, error_start_pos, pos)
+                        if rs is not None:
+                            # py3k only
+                            result.append(rs)
+                            continue
+                        for ch in ru:
+                            if ord(ch) < 0x80:
+                                result.append(chr(ord(ch)))
+                            else:
+                                errorhandler('strict', 'utf8',
+                                             'surrogates not allowed',
+                                             s, pos - 1 , pos)
+                        continue
+                    # else: Fall through and handles isolated high surrogates
+                result.append((chr((0xe0 | (ch >> 12)))))
+                result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
+                result.append((chr((0x80 | (ch & 0x3f)))))
+            else:
+                _encodeUCS4(result, ch)
+    return result.build()
+unicode_encode_utf_8_elidable = jit.elidable(
+    func_with_new_name(unicode_encode_utf_8_impl,
+                       "unicode_encode_utf_8_elidable"))
+
+
+def _encodeUCS4(result, ch):
+    # Encode UCS4 Unicode ordinals
+    result.append((chr((0xf0 | (ch >> 18)))))
+    result.append((chr((0x80 | ((ch >> 12) & 0x3f)))))
+    result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
+    result.append((chr((0x80 | (ch & 0x3f)))))
+
 
 def encode_utf8sp(space, uni):
     # Surrogate-preserving utf-8 encoding.  Any surrogate character
@@ -586,3 +849,7 @@ def unicode_encode_utf_32_le(s, size, errors,
     return unicode_encode_utf_32_helper(s, size, errors, errorhandler,
                                         allow_surrogates, "little",
                                         'utf-32-le')
+
+
+def is_narrow_host():
+    return not we_are_translated() and sys.maxunicode == 0xFFFF
