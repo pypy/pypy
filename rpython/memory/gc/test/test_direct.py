@@ -821,3 +821,16 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
         # s is freed
         py.test.raises(RuntimeError, 's.x')
+
+    def test_collect_step(self, debuglog):
+        n = 0
+        while True:
+            debuglog.reset()
+            done = self.gc.collect_step()
+            summary = debuglog.summary()
+            assert summary == {'gc-minor': 1, 'gc-collect-step': 1}
+            if done:
+                break
+            n += 1
+            if n == 100:
+                assert False, 'this looks like an endless loop'
