@@ -771,6 +771,12 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
                 assert elem.prev == lltype.nullptr(S)
                 assert elem.next == lltype.nullptr(S)
 
+    def test_collect_0(self, debuglog):
+        self.gc.collect(1) # start a major
+        debuglog.reset()
+        self.gc.collect(0) # do ONLY a minor
+        assert debuglog.summary() == {'gc-minor': 1}
+
     def test_enable_disable(self, debuglog):
         def large_malloc():
             # malloc an object which is large enough to trigger a major collection

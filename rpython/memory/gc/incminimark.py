@@ -760,7 +760,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def collect(self, gen=2):
         """Do a minor (gen=0), start a major (gen=1), or do a full
         major (gen>=2) collection."""
-        if gen < 0:
+        if gen <= 0:
             self._minor_collection()   # dangerous! no major GC cycle progress
         elif gen <= 1:
             self.minor_collection_with_major_progress(force_enabled=True)
