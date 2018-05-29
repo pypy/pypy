@@ -480,3 +480,10 @@ class AppTestInternalMethods:
         assert isinstance(first, str)
         for x, y in l:
             assert isinstance(y, str)
+
+    def test_unknown_presentation_error_message(self):
+        class x(int):
+            pass
+
+        excinfo = raises(ValueError, "{:j}".format, x(1))
+        assert str(excinfo.value) == "unknown format code j for object of type 'x'"

@@ -581,9 +581,9 @@ def make_formatting_class(for_unicode):
             else:
                 return rstring.StringBuilder()
 
-        def _unknown_presentation(self, tp):
+        def _unknown_presentation(self, w_val):
             raise oefmt(self.space.w_ValueError,
-                        "unknown presentation for %s: '%s'", tp, self._type)
+                        "unknown format code %s for object of type '%T'", self._type, w_val)
 
         def format_string(self, w_string):
             space = self.space
@@ -593,7 +593,7 @@ def make_formatting_class(for_unicode):
             if self._parse_spec("s", "<"):
                 return self.wrap(string)
             if self._type != "s":
-                self._unknown_presentation("string")
+                self._unknown_presentation(w_string)
             if self._sign != "\0":
                 raise oefmt(space.w_ValueError,
                             "Sign not allowed in string format specifier")
@@ -955,7 +955,7 @@ def make_formatting_class(for_unicode):
                 w_float = space.float(w_num)
                 return self._format_float(w_float)
             else:
-                self._unknown_presentation("int" if kind == INT_KIND else "long")
+                self._unknown_presentation(w_num)
 
         def _parse_number(self, s, i):
             """Determine if s has a decimal point, and the index of the first #
@@ -1038,7 +1038,7 @@ def make_formatting_class(for_unicode):
                 tp == "n" or
                 tp == "%"):
                 return self._format_float(w_float)
-            self._unknown_presentation("float")
+            self._unknown_presentation(w_float)
 
         def _format_complex(self, w_complex):
             flags = 0
@@ -1197,7 +1197,7 @@ def make_formatting_class(for_unicode):
                 tp == "G" or
                 tp == "n"):
                 return self._format_complex(w_complex)
-            self._unknown_presentation("complex")
+            self._unknown_presentation(w_complex)
     return Formatter
 
 unicode_formatter = make_formatting_class(for_unicode=True)
