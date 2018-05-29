@@ -2,7 +2,7 @@ import sys
 
 class AppTestCodecs:
     spaceconfig = {
-        "usemodules": ['unicodedata', 'struct', 'binascii'],
+        "usemodules": ['unicodedata', 'struct', 'binascii', '_warnings'],
     }
 
     def test_register_noncallable(self):
@@ -999,3 +999,16 @@ class AppTestPartialEvaluation:
         errors = []
         assert sin.encode("iso-8859-15", "test.record") == b"\xac\xa4"
         assert errors == [u'\u1234\u1234', u'\u8000']
+
+    def test_warn_escape_decode(self):
+        import warnings
+        import codecs
+
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter("always")
+            codecs.unicode_escape_decode(b'\\A')
+
+        assert isinstance(l[0].message, DeprecationWarning)
+
+
+
