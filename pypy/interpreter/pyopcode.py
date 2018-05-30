@@ -1447,7 +1447,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount, 0, -1):
             w_item = frame.peekvalue(i-1)
             w_sum.extend(w_item)
-        self.popalues(itemcount)
+        frame.popvalues(itemcount)
         return w_sum
 
     @jit.unroll_safe
