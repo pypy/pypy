@@ -21,8 +21,9 @@ def collect_step():
     """
     If the GC is incremental, run a single gc-collect-step. Return True when
     the major collection is completed.
-    If the GC is not incremental, do nothing.
+    If the GC is not incremental, do a full collection and return True.
     """
+    gc.collect()
     return True
 
 def set_max_heap_size(nbytes):

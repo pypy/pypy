@@ -3,6 +3,7 @@ import pytest
 from rpython.rlib import rgc
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.module.gc.interp_gc import StepCollector
 
 class AppTestGC(object):
 
@@ -99,6 +100,24 @@ class AppTestGC(object):
         assert deleted == [1]
         gc.enable()
 
+    def test_gc_collect_step(self):
+        import gc
+
+        class X(object):
+            deleted = 0
+            def __del__(self):
+                X.deleted += 1
+
+        gc.disable()
+        X(); X(); X();
+        n = 0
+        while True:
+            n += 1
+            if gc.collect_step():
+                break
+
+        assert n >= 2 # at least one step + 1 finalizing
+        assert X.deleted == 3
 
 class AppTestGcDumpHeap(object):
     pytestmark = py.test.mark.xfail(run=False)
@@ -172,3 +191,36 @@ class AppTestGcMethodCache(object):
         gc.collect()    # the classes C should all go away here
         for r in rlist:
             assert r() is None
+
+
+def test_StepCollector():
+    class MyStepCollector(StepCollector):
+        my_steps = 0
+        my_done = False
+        my_finalized = 0
+
+        def _collect_step(self):
+            self.my_steps += 1
+            return self.my_done
+
+        def _run_finalizers(self):
+            self.my_finalized += 1
+
+    sc = MyStepCollector(space=None)
+    assert not sc.do()
+    assert sc.my_steps == 1
+    assert not sc.do()
+    assert sc.my_steps == 2
+    sc.my_done = True
+    assert not sc.do()
+    assert sc.my_steps == 3
+    assert sc.my_finalized == 0
+    assert sc.finalizing
+    assert sc.do()
+    assert sc.my_steps == 3
+    assert sc.my_finalized == 1
+    assert not sc.finalizing
+    assert not sc.do()
+    assert sc.my_steps == 4
+    assert sc.my_finalized == 1
+

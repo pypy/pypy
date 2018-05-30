@@ -16,7 +16,9 @@ def collect(space, generation=0):
     cache.clear()
 
     rgc.collect()
+    _run_finalizers(space)
 
+def _run_finalizers(space):
     # if we are running in gc.disable() mode but gc.collect() is called,
     # we should still call the finalizers now.  We do this as an attempt
     # to get closer to CPython's behavior: in Py3.5 some tests
@@ -78,6 +80,43 @@ def disable_finalizers(space):
     uda.finalizers_lock_count += 1
     if uda.pending_with_disabled_del is None:
         uda.pending_with_disabled_del = []
+
+
+class StepCollector(object):
+    """
+    Invoke rgc.collect_step() until we are done, then run the app-level
+    finalizers as a separate step
+    """
+
+    def __init__(self, space):
+        self.space = space
+        self.finalizing = False
+
+    def do(self):
+        if self.finalizing:
+            self._run_finalizers()
+            self.finalizing = False
+            return True # everything done
+        else:
+            done = self._collect_step()
+            if done:
+                self.finalizing = True
+            return False # still something to do
+
+    def _collect_step(self):
+        return rgc.collect_step()
+
+    def _run_finalizers(self):
+        _run_finalizers(self.space)
+
+def collect_step(space):
+    """
+    If the GC is incremental, run a single gc-collect-step. Return True when
+    the major collection is completed.
+    If the GC is not incremental, do a full collection and return True.
+    """
+    sc = space.fromcache(StepCollector)
+    return space.newbool(sc.do())
 
 # ____________________________________________________________
 

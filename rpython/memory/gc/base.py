@@ -160,6 +160,7 @@ class GCBase(object):
         return True
 
     def collect_step(self):
+        self.collect()
         return True
 
     def malloc(self, typeid, length=0, zero=False):
