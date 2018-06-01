@@ -79,8 +79,10 @@ class W_ScandirIterator(W_Root):
         self._close()
 
     def _close(self):
-        rposix_scandir.closedir(self.dirp)
-        self.dirp = rposix_scandir.NULL_DIRP
+        dirp = self.dirp
+        if dirp:
+            self.dirp = rposix_scandir.NULL_DIRP
+            rposix_scandir.closedir(dirp)
 
     def iter_w(self):
         return self
