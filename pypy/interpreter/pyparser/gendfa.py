@@ -1,11 +1,15 @@
 #! /usr/bin/env python
-"""Module genPytokenize
+"""Module gendfa
 
 Generates finite state automata for recognizing Python tokens.  These are hand
 coded versions of the regular expressions originally appearing in Ping's
 tokenize module in the Python standard library.
 
 When run from the command line, this should pretty print the DFA machinery.
+
+To regenerate the dfa, run::
+
+    $ python gendfa.py > dfa_generated.py
 
 $Id: genPytokenize.py,v 1.1 2003/10/02 17:37:17 jriehl Exp $
 """
@@ -140,7 +144,10 @@ def makePyPseudoDFA ():
     special = group(states,
                     makeEOL(),
                     groupStr(states, "@:;.,`"))
-    funny = group(states, operator, bracket, special)
+    revdb_metavar = chain(states,
+                          groupStr(states, "$"),
+                          atleastonce(states, makeDigits()))
+    funny = group(states, operator, bracket, special, revdb_metavar)
     # ____________________________________________________________
     def makeStrPrefix ():
         return chain(states,
@@ -337,7 +344,7 @@ def main ():
     print output("single3DFA", "NonGreedyDFA", dfa, states)
     dfa, states = endDFAMap["'"]
     print output("singleDFA", "DFA", dfa, states)
-    dfa, states = endDFAMap["\""]
+    dfa, states = endDFAMap['"']
     print output("doubleDFA", "DFA", dfa, states)
 
 # ______________________________________________________________________

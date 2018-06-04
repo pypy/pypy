@@ -8,26 +8,35 @@ Python 2.7 syntax), and a PyPy3.5 v6.0 (an interpreter supporting Python
 the dual release.
 
 This release is a feature release following our previous 5.10 incremental
-release in late December 2017. Our C-API compatability layer ``cpyext`` is
+release in late December 2017. Our C-API compatibility layer ``cpyext`` is
 now much faster (see the `blog post`_) as well as more complete. We have made
 many other improvements in speed and CPython compatibility. Since the changes
 affect the included python development header files, all c-extension modules must
 be recompiled for this version.
 
-First-time python users are often stumped by silly typos and emissions when
+Until we can work with downstream providers to distribute builds with PyPy, we
+have made packages for some common packages `available as wheels`_. You may
+compile yourself using ``pip install --no-build-isolation <package>``, the
+``no-build-isolation`` is currently needed for pip v10.
+
+First-time python users are often stumped by silly typos and omissions when
 getting started writing code. We have improved our parser to emit more friendly
 `syntax errors`_,  making PyPy not only faster but more friendly.
 
-The Windows PyPy3.5 release is still considered beta-quality. There are open
-issues with unicode handling especially around system calls and c-extensions.
+The GC now has `hooks`_ to gain more insights into its performance
 
 The Matplotlib TkAgg backend now works with PyPy, as do pygame and pygobject_.
+
+We updated the `cffi`_ module included in PyPy to version 1.11.5, and the
+`cppyy`_ backend to 0.6.0. Please use these to wrap your C and C++ code,
+respectively, for a JIT friendly experience.
 
 As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
 We strongly recommend updating.
 
-We updated the cffi module included in PyPy to version 1.11.5
+The Windows PyPy3.5 release is still considered beta-quality. There are open
+issues with unicode handling especially around system calls and c-extensions.
 
 The utf8 branch that changes internal representation of unicode to utf8 did not
 make it into the release, so there is still more goodness coming. We also
@@ -53,6 +62,10 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _`blog post`: https://morepypy.blogspot.it/2017/10/cape-of-good-hope-for-pypy-hello-from.html
 .. _pygobject: https://lazka.github.io/posts/2018-04_pypy-pygobject/index.html
 .. _`syntax errors`: https://morepypy.blogspot.com/2018/04/improving-syntaxerror-in-pypy.html
+.. _`hooks`: gc_info.html#gc-hooks
+.. _`cffi`: http://cffi.readthedocs.io
+.. _`cppyy`: https://cppyy.readthedocs.io
+.. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 
 What is PyPy?
 =============
@@ -101,8 +114,9 @@ Changelog
 * Added missing attributes to C-API ``instancemethod`` on pypy3
 * Store error state in thread-local storage for C-API.
 * Fix JIT bugs exposed in the sre module
-* Improve speed of Python parser, improve ParseError messages slightly
+* Improve speed of Python parser, improve ParseError messages and SyntaxError
 * Handle JIT hooks more efficiently
+* Fix a rare GC bug exposed by intensive use of cpyext ``Buffer`` s
 
 We also refactored many parts of the JIT bridge optimizations, as well as cpyext
 internals, and together with new contributors fixed issues, added new

@@ -25,7 +25,7 @@ Installing Visual Compiler v9 (for Python 2.7)
 
 This compiler, while the standard one for Python 2.7, is deprecated. Microsoft has
 made it available as the `Microsoft Visual C++ Compiler for Python 2.7`_ (the link
-was checked in Nov 2016). Note that the compiler suite may be installed in
+was checked in May 2018). Note that the compiler suite may be installed in
 ``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``
 or in
 ``C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python``.
@@ -37,7 +37,7 @@ otherwise ``mt.exe`` will silently fail. Installation will begin automatically
 by running the mt.exe command by hand from a DOS window (that is how the author
 discovered the problem).
 
-.. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/en-us/download/details.aspx?id=44266
+.. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/EN-US/DOWNLOAD/DETAILS.ASPX?ID=44266
 
 Installing "Build Tools for Visual Studio 2017" (for Python 3)
 --------------------------------------------------------------
@@ -150,7 +150,7 @@ We uses a `repository` parallel to pypy to hold binary compiled versions of the
 build dependencies for windows. As part of the `rpython` setup stage, environment
 variables will be set to use these dependencies. The repository has a README
 file on how to replicate, and a branch for each supported platform. You may run
- the `get_externals.py` utility to checkout the proper branch for your platform
+the `get_externals.py` utility to checkout the proper branch for your platform
 and PyPy version.
 
 .. _repository:  https://bitbucket.org/pypy/external

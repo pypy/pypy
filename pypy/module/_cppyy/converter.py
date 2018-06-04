@@ -22,8 +22,8 @@ from pypy.module._cppyy import helper, capi, ffitypes
 
 
 def get_rawobject(space, w_obj, can_be_None=True):
-    from pypy.module._cppyy.interp_cppyy import W_CPPClass
-    cppinstance = space.interp_w(W_CPPClass, w_obj, can_be_None=can_be_None)
+    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=can_be_None)
     if cppinstance:
         rawobject = cppinstance.get_rawobject()
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
@@ -31,15 +31,15 @@ def get_rawobject(space, w_obj, can_be_None=True):
     return capi.C_NULL_OBJECT
 
 def set_rawobject(space, w_obj, address):
-    from pypy.module._cppyy.interp_cppyy import W_CPPClass
-    cppinstance = space.interp_w(W_CPPClass, w_obj, can_be_None=True)
+    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if cppinstance:
         assert lltype.typeOf(cppinstance._rawobject) == capi.C_OBJECT
         cppinstance._rawobject = rffi.cast(capi.C_OBJECT, address)
 
 def get_rawobject_nonnull(space, w_obj):
-    from pypy.module._cppyy.interp_cppyy import W_CPPClass
-    cppinstance = space.interp_w(W_CPPClass, w_obj, can_be_None=True)
+    from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if cppinstance:
         cppinstance._nullcheck()
         rawobject = cppinstance.get_rawobject()
@@ -502,8 +502,8 @@ class InstanceRefConverter(TypeConverter):
         self.clsdecl = clsdecl
 
     def _unwrap_object(self, space, w_obj):
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass
-        if isinstance(w_obj, W_CPPClass):
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+        if isinstance(w_obj, W_CPPInstance):
             from pypy.module._cppyy.interp_cppyy import INSTANCE_FLAGS_IS_R_VALUE
             if w_obj.flags & INSTANCE_FLAGS_IS_R_VALUE:
                 # reject moves as all are explicit
@@ -534,8 +534,8 @@ class InstanceRefConverter(TypeConverter):
 class InstanceMoveConverter(InstanceRefConverter):
     def _unwrap_object(self, space, w_obj):
         # moving is same as by-ref, but have to check that move is allowed
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass, INSTANCE_FLAGS_IS_R_VALUE
-        if isinstance(w_obj, W_CPPClass):
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance, INSTANCE_FLAGS_IS_R_VALUE
+        if isinstance(w_obj, W_CPPInstance):
             if w_obj.flags & INSTANCE_FLAGS_IS_R_VALUE:
                 w_obj.flags &= ~INSTANCE_FLAGS_IS_R_VALUE
                 return InstanceRefConverter._unwrap_object(self, space, w_obj)
@@ -598,8 +598,8 @@ class InstancePtrPtrConverter(InstancePtrConverter):
         raise FastCallNotPossible
 
     def finalize_call(self, space, w_obj, call_local):
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass
-        assert isinstance(w_obj, W_CPPClass)
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+        assert isinstance(w_obj, W_CPPInstance)
         r = rffi.cast(rffi.VOIDPP, call_local)
         w_obj._rawobject = rffi.cast(capi.C_OBJECT, r[0])
 
@@ -617,8 +617,8 @@ class StdStringConverter(InstanceConverter):
         InstanceConverter.__init__(self, space, cppclass)
 
     def _unwrap_object(self, space, w_obj):
-        from pypy.module._cppyy.interp_cppyy import W_CPPClass
-        if isinstance(w_obj, W_CPPClass):
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+        if isinstance(w_obj, W_CPPInstance):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
             return capi.c_stdstring2stdstring(space, arg)
         else:
@@ -686,6 +686,34 @@ class PyObjectConverter(TypeConverter):
         decref(space, rffi.cast(PyObject, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 
+class FunctionPointerConverter(TypeConverter):
+    _immutable_fields_ = ['signature']
+
+    def __init__(self, space, signature):
+        self.signature = signature
+
+    def convert_argument(self, space, w_obj, address, call_local):
+        # TODO: atm, does not actually get an overload, but a staticmethod
+        from pypy.module._cppyy.interp_cppyy import W_CPPOverload
+        cppol = space.interp_w(W_CPPOverload, w_obj)
+
+        # find the function with matching signature
+        for i in range(len(cppol.functions)):
+            m = cppol.functions[i]
+            if m.signature(False) == self.signature:
+                x = rffi.cast(rffi.VOIDPP, address)
+                x[0] = rffi.cast(rffi.VOIDP,
+                    capi.c_function_address_from_method(space, m.cppmethod))
+                address = rffi.cast(capi.C_OBJECT, address)
+                ba = rffi.cast(rffi.CCHARP, address)
+                ba[capi.c_function_arg_typeoffset(space)] = 'p'
+                return
+
+        # lookup failed
+        raise oefmt(space.w_TypeError,
+                    "no overload found matching %s", self.signature)
+
+
 class MacroConverter(TypeConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         # TODO: get the actual type info from somewhere ...
@@ -749,8 +777,14 @@ def get_converter(space, _name, default):
             return InstancePtrPtrConverter(space, clsdecl)
         elif compound == "":
             return InstanceConverter(space, clsdecl)
-    elif capi.c_is_enum(space, clean_name):
-        return _converters['unsigned'](space, default)
+    elif "(anonymous)" in name:
+        # special case: enum w/o a type name
+        return _converters["internal_enum_type_t"](space, default)
+    elif "(*)" in name or "::*)" in name:
+        # function pointer
+        pos = name.find("*)")
+        if pos > 0:
+            return FunctionPointerConverter(space, name[pos+2:])
 
     #   5) void* or void converter (which fails on use)
     if 0 <= compound.find('*'):

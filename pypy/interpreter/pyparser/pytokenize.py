@@ -17,7 +17,6 @@ from pypy.interpreter.pyparser.dfa_generated import *
 
 __all__ = [ "tokenize" ]
 
-
 endDFAs = {"'" : singleDFA,
            '"' : doubleDFA,
            'r' : None,

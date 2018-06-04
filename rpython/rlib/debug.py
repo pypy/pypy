@@ -2,8 +2,8 @@ import sys
 import time
 
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rlib.objectmodel import we_are_translated, always_inline
+from rpython.rlib.rarithmetic import is_valid_int, r_longlong
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
@@ -74,34 +74,66 @@ else:
     _start_colors_2 = ""
     _stop_colors = ""
 
-def debug_start(category):
+@always_inline
+def debug_start(category, timestamp=False):
+    """
+    Start a PYPYLOG section.
+
+    By default, the return value is undefined.  If timestamp is True, always
+    return the current timestamp, even if PYPYLOG is not set.
+    """
+    return _debug_start(category, timestamp)
+
+@always_inline
+def debug_stop(category, timestamp=False):
+    """
+    Stop a PYPYLOG section. See debug_start for docs about timestamp
+    """
+    return _debug_stop(category, timestamp)
+
+
+def _debug_start(category, timestamp):
     c = int(time.clock() * 100)
     print >> sys.stderr, '%s[%x] {%s%s' % (_start_colors_1, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_start(category)
 
-def debug_stop(category):
+    if timestamp:
+        return r_longlong(c)
+    return r_longlong(-42) # random undefined value
+
+def _debug_stop(category, timestamp):
     c = int(time.clock() * 100)
     print >> sys.stderr, '%s[%x] %s}%s' % (_start_colors_2, c,
                                            category, _stop_colors)
     if _log is not None:
         _log.debug_stop(category)
 
-class Entry(ExtRegistryEntry):
-    _about_ = debug_start, debug_stop
+    if timestamp:
+        return r_longlong(c)
+    return r_longlong(-42) # random undefined value
 
-    def compute_result_annotation(self, s_category):
-        return None
+class Entry(ExtRegistryEntry):
+    _about_ = _debug_start, _debug_stop
+
+    def compute_result_annotation(self, s_category, s_timestamp):
+        from rpython.rlib.rtimer import s_TIMESTAMP
+        return s_TIMESTAMP
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem.rstr import string_repr
+        from rpython.rlib.rtimer import TIMESTAMP_type
         fn = self.instance
-        vlist = hop.inputargs(string_repr)
+        _, r_timestamp = hop.args_r
+        vlist = hop.inputargs(string_repr, r_timestamp)
         hop.exception_cannot_occur()
         t = hop.rtyper.annotator.translator
         if t.config.translation.log:
-            hop.genop(fn.__name__, vlist)
+            opname = fn.__name__[1:] # remove the '_'
+            return hop.genop(opname, vlist, resulttype=TIMESTAMP_type)
+        else:
+            return hop.inputconst(TIMESTAMP_type, r_longlong(0))
 
 
 def have_debug_prints():
@@ -159,7 +191,9 @@ class Entry(ExtRegistryEntry):
 
 
 def debug_flush():
-    """ Flushes the debug file
+    """ Flushes the debug file.
+
+    With the reverse-debugger, it also closes the output log.
     """
     pass
 

@@ -1000,6 +1000,11 @@ class LLFrame(object):
         return self.op_raw_load(RESTYPE, _address_of_thread_local(), offset)
     op_threadlocalref_get.need_result_type = True
 
+    op_threadlocalref_load = op_threadlocalref_get
+
+    def op_threadlocalref_store(self, offset, value):
+        self.op_raw_store(_address_of_thread_local(), offset, value)
+
     def op_threadlocalref_acquire(self, prev):
         raise NotImplementedError
     def op_threadlocalref_release(self, prev):
@@ -1016,7 +1021,8 @@ class LLFrame(object):
 
     def op_boehm_malloc(self, size):
         assert lltype.typeOf(size) == lltype.Signed
-        return llmemory.raw_malloc(size)
+        raw = llmemory.raw_malloc(size)
+        return llmemory.cast_adr_to_ptr(raw, llmemory.GCREF)
     op_boehm_malloc_atomic = op_boehm_malloc
 
     def op_boehm_register_finalizer(self, p, finalizer):
@@ -1081,6 +1087,8 @@ class LLFrame(object):
         elif getattr(addr, 'is_fake_thread_local_addr', False):
             assert type(offset) is CDefinedIntSymbolic
             self.llinterpreter.get_tlobj()[offset.expr] = value
+        elif isinstance(offset, llmemory.ArrayLengthOffset):
+            assert len(addr.ptr) == value  # invalid ArrayLengthOffset
         else:
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
@@ -1205,6 +1213,39 @@ class LLFrame(object):
 
     def op_gc_move_out_of_nursery(self, obj):
         raise NotImplementedError("gc_move_out_of_nursery")
+
+    def op_revdb_stop_point(self, *args):
+        pass
+    def op_revdb_send_answer(self, *args):
+        raise NotImplementedError
+    def op_revdb_breakpoint(self, *args):
+        raise NotImplementedError
+    def op_revdb_get_value(self, *args):
+        raise NotImplementedError
+    def op_revdb_get_unique_id(self, *args):
+        raise NotImplementedError
+    def op_revdb_watch_save_state(self, *args):
+        return False
+    def op_revdb_watch_restore_state(self, *args):
+        raise NotImplementedError
+    def op_revdb_weakref_create(self, *args):
+        raise NotImplementedError
+    def op_revdb_weakref_deref(self, *args):
+        raise NotImplementedError
+    def op_revdb_call_destructor(self, *args):
+        raise NotImplementedError
+    def op_revdb_strtod(self, *args):
+        raise NotImplementedError
+    def op_revdb_frexp(self, *args):
+        raise NotImplementedError
+    def op_revdb_modf(self, *args):
+        raise NotImplementedError
+    def op_revdb_dtoa(self, *args):
+        raise NotImplementedError
+    def op_revdb_do_next_call(self):
+        pass
+    def op_revdb_set_thread_breakpoint(self, *args):
+        raise NotImplementedError
 
 
 class Tracer(object):

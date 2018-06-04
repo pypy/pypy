@@ -272,6 +272,9 @@ class Transformer(object):
     def rewrite_op_unlikely(self, op):
         return None   # "no real effect"
 
+    def rewrite_op_revdb_do_next_call(self, op):
+        return []    # ignored, only for revdb
+
     def rewrite_op_raw_malloc_usage(self, op):
         if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
             return   # the operation disappears
@@ -2162,6 +2165,11 @@ class Transformer(object):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
         return self.handle_residual_call(op1,
             oopspecindex=EffectInfo.OS_MATH_READ_TIMESTAMP,
+            extraeffect=EffectInfo.EF_CANNOT_RAISE)
+
+    def rewrite_op_ll_get_timestamp_unit(self, op):
+        op1 = self.prepare_builtin_call(op, "ll_get_timestamp_unit", [])
+        return self.handle_residual_call(op1,
             extraeffect=EffectInfo.EF_CANNOT_RAISE)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):

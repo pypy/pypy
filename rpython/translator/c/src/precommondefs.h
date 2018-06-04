@@ -73,6 +73,9 @@
 #  define RPY_EXTERN   extern _RPY_HIDDEN
 #endif
 
+#ifdef _WIN32
+#  define inline _inline
+#endif
 
 #endif /* __PYPY_PRECOMMONDEFS_H */
 

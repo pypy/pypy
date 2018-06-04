@@ -37,6 +37,78 @@ class TestExecutionContext:
             pass
         assert i == 9
 
+    def test_action_queue(self):
+        events = []
+
+        class Action1(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('one')
+        
+        class Action2(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('two')
+
+        space = self.space
+        a1 = Action1(space)
+        a2 = Action2(space)
+        a1.fire()
+        a2.fire()
+        space.appexec([], """():
+            n = 5
+            return n + 2
+        """)
+        assert events == ['one', 'two']
+        #
+        events[:] = []
+        a1.fire()
+        space.appexec([], """():
+            n = 5
+            return n + 2
+        """)
+        assert events == ['one']
+
+    def test_fire_inside_perform(self):
+        # test what happens if we call AsyncAction.fire() while we are in the
+        # middle of an AsyncAction.perform(). In particular, this happens when
+        # PyObjectDeallocAction.fire() is called by rawrefcount: see issue
+        # 2805
+        events = []
+
+        class Action1(executioncontext.AsyncAction):
+            _count = 0
+            
+            def perform(self, ec, frame):
+                events.append('one')
+                if self._count == 0:
+                    # a1 is no longer in the queue, so it will be enqueued
+                    a1.fire()
+                    #
+                    # a2 is still in the queue, so the fire() is ignored and
+                    # it's performed in its normal order, i.e. BEFORE a3
+                    a2.fire()
+                self._count += 1
+
+        class Action2(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('two')
+
+        class Action3(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('three')
+
+        space = self.space
+        a1 = Action1(space)
+        a2 = Action2(space)
+        a3 = Action3(space)
+        a1.fire()
+        a2.fire()
+        a3.fire()
+        space.appexec([], """():
+            pass
+        """)
+        assert events == ['one', 'two', 'three', 'one']
+
+
     def test_periodic_action(self):
         from pypy.interpreter.executioncontext import ActionFlag
 

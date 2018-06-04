@@ -22,7 +22,8 @@ class AppTestADVANCEDCPP:
     def setup_class(cls):
         cls.w_test_dct = cls.space.newtext(test_dct)
         cls.w_advanced = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_default_arguments(self):
@@ -656,3 +657,22 @@ class AppTestADVANCEDCPP:
         # TODO: currently fails b/c double** not understood as &double*
         #assert cppyy.gbl.my_global_ptr[0] == 1234.
 
+    def test22_exceptions(self):
+        """Catching of C++ exceptions"""
+
+        import _cppyy as cppyy
+        Thrower = cppyy.gbl.Thrower
+
+        # TODO: clean up this interface:
+        Thrower.__cppdecl__.get_overload('throw_anything').__useffi__  = False
+        Thrower.__cppdecl__.get_overload('throw_exception').__useffi__ = False
+
+        t = Thrower()
+
+        assert raises(Exception, t.throw_anything)
+        assert raises(Exception, t.throw_exception)
+
+        try:
+            t.throw_exception()
+        except Exception, e:
+            "C++ function failed" in str(e)

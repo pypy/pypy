@@ -3,16 +3,27 @@ What's new in PyPy2.7 6.0+
 ==========================
 
 .. this is a revision shortly after release-pypy-6.0.0
-.. startrev: 2e04adf1b89f
+.. startrev: e50e11af23f1
 
-.. branch: cpyext-subclass-setattr
+.. branch: cppyy-packaging
 
-Fix for python-level classes that inherit from C-API types, previously the
-`w_obj` was not necessarily preserved throughout the lifetime of the `pyobj`
-which led to cases where instance attributes were lost. Fixes issue #2793
+Upgrade to backend 0.6.0, support exception handling from wrapped functions,
+update enum handling, const correctness for data members and associated tests,
+support anonymous enums, support for function pointer arguments
 
+.. branch: socket_default_timeout_blockingness
 
-.. branch: pyparser-improvements-2
+Make sure 'blocking-ness' of socket is set along with default timeout
 
-Improve line offsets that are reported by SyntaxError. Improve error messages
-for a few situations, including mismatched parenthesis.
+.. branch: crypt_h
+
+Include crypt.h for crypt() on Linux
+
+.. branch: gc-more-logging
+
+Log additional gc-minor and gc-collect-step info in the PYPYLOG
+
+.. branch: reverse-debugger
+
+The reverse-debugger branch has been merged.  For more information, see
+https://bitbucket.org/pypy/revdb

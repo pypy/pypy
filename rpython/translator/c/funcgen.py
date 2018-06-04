@@ -170,7 +170,15 @@ class FunctionCodeGenerator(object):
 
     # ____________________________________________________________
 
+    extra_return_text = None
+
     def cfunction_body(self):
+        if self.db.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            (extra_enter_text, self.extra_return_text) = (
+                gencsupp.prepare_function(self))
+            if extra_enter_text:
+                yield extra_enter_text
         graph = self.graph
 
         # ----- for gc_enter_roots_frame
@@ -225,6 +233,8 @@ class FunctionCodeGenerator(object):
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
+                if self.extra_return_text:
+                    yield self.extra_return_text
                 yield 'return %s;' % retval
                 return
             elif block.exitswitch is None:
@@ -312,7 +322,8 @@ class FunctionCodeGenerator(object):
         macro = 'OP_%s' % op.opname.upper()
         line = None
         if (op.opname.startswith('gc_') and
-            op.opname not in ('gc_load_indexed', 'gc_store_indexed')):
+            op.opname not in ('gc_load_indexed', 'gc_store',
+                              'gc_store_indexed')):
             meth = getattr(self.gcpolicy, macro, None)
             if meth:
                 line = meth(self, op)
@@ -324,6 +335,11 @@ class FunctionCodeGenerator(object):
             lst = [self.expr(v) for v in op.args]
             lst.append(self.expr(op.result))
             line = '%s(%s);' % (macro, ', '.join(lst))
+        if self.db.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            if op.opname in gencsupp.set_revdb_protected:
+                line = gencsupp.emit(line, self.lltypename(op.result),
+                                     self.expr(op.result))
         if "\n" not in line:
             yield line
         else:
@@ -437,11 +453,16 @@ class FunctionCodeGenerator(object):
             # skip assignment of 'void' return value
             r = self.expr(v_result)
             line = '%s = %s' % (r, line)
-        if targets:
+        else:
+            r = None
+        if targets is not None:
             for graph in targets:
                 if getattr(graph, 'inhibit_tail_call', False):
                     line += '\nPYPY_INHIBIT_TAIL_CALL();'
                     break
+        elif self.db.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            line = gencsupp.emit_residual_call(self, line, v_result, r)
         return line
 
     def OP_DIRECT_CALL(self, op):
@@ -474,12 +495,21 @@ class FunctionCodeGenerator(object):
         return 'abort();  /* jit_conditional_call_value */'
 
     # low-level operations
-    def generic_get(self, op, sourceexpr):
+    def generic_get(self, op, sourceexpr, accessing_mem=True):
         T = self.lltypemap(op.result)
         newvalue = self.expr(op.result, special_case_void=False)
         result = '%s = %s;' % (newvalue, sourceexpr)
         if T is Void:
             result = '/* %s */' % result
+        if self.db.reverse_debugger:
+            S = self.lltypemap(op.args[0]).TO
+            if (S._gckind != 'gc' and not S._hints.get('is_excdata')
+                    and not S._hints.get('static_immutable')
+                    and not S._hints.get('ignore_revdb')
+                    and accessing_mem):
+                from rpython.translator.revdb import gencsupp
+                result = gencsupp.emit(result, self.lltypename(op.result),
+                                       newvalue)
         return result
 
     def generic_set(self, op, targetexpr):
@@ -488,9 +518,14 @@ class FunctionCodeGenerator(object):
         T = self.lltypemap(op.args[-1])
         if T is Void:
             result = '/* %s */' % result
+        if self.db.reverse_debugger:
+            S = self.lltypemap(op.args[0]).TO
+            if S._gckind != 'gc' and not S._hints.get('is_excdata'):
+                from rpython.translator.revdb import gencsupp
+                result = gencsupp.emit_void(result)
         return result
 
-    def OP_GETFIELD(self, op, ampersand=''):
+    def OP_GETFIELD(self, op, ampersand='', accessing_mem=True):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
@@ -498,7 +533,7 @@ class FunctionCodeGenerator(object):
         expr = ampersand + structdef.ptr_access_expr(self.expr(op.args[0]),
                                                      op.args[1].value,
                                                      baseexpr_is_const)
-        return self.generic_get(op, expr)
+        return self.generic_get(op, expr, accessing_mem=accessing_mem)
 
     def OP_BARE_SETFIELD(self, op):
         assert isinstance(op.args[1], Constant)
@@ -514,9 +549,9 @@ class FunctionCodeGenerator(object):
         RESULT = self.lltypemap(op.result).TO
         if (isinstance(RESULT, FixedSizeArray) or
                 (isinstance(RESULT, Array) and barebonearray(RESULT))):
-            return self.OP_GETFIELD(op, ampersand='')
+            return self.OP_GETFIELD(op, ampersand='', accessing_mem=False)
         else:
-            return self.OP_GETFIELD(op, ampersand='&')
+            return self.OP_GETFIELD(op, ampersand='&', accessing_mem=False)
 
     def OP_GETARRAYSIZE(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
@@ -524,8 +559,7 @@ class FunctionCodeGenerator(object):
             return '%s = %d;' % (self.expr(op.result),
                                  ARRAY.length)
         else:
-            return '%s = %s->length;' % (self.expr(op.result),
-                                         self.expr(op.args[0]))
+            return self.generic_get(op, '%s->length;' % self.expr(op.args[0]))
 
     def OP_GETARRAYITEM(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
@@ -589,8 +623,7 @@ class FunctionCodeGenerator(object):
             return '%s = %d;'%(self.expr(op.result), ARRAY.length)
         else:
             assert isinstance(ARRAY, Array)
-            return '%s = %s.length;'%(self.expr(op.result), expr)
-
+            return self.generic_get(op, '%s.length;' % expr)
 
 
     def OP_PTR_NONZERO(self, op):
@@ -610,20 +643,32 @@ class FunctionCodeGenerator(object):
                                      self.expr(op.args[0]),
                                      self.expr(op.args[1]))
 
+    def _op_boehm_malloc(self, op, is_atomic):
+        expr_result = self.expr(op.result)
+        res = 'OP_BOEHM_ZERO_MALLOC(%s, %s, void*, %d, 0);' % (
+            self.expr(op.args[0]),
+            expr_result,
+            is_atomic)
+        if self.db.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            res += gencsupp.record_malloc_uid(expr_result)
+        return res
+
     def OP_BOEHM_MALLOC(self, op):
-        return 'OP_BOEHM_ZERO_MALLOC(%s, %s, void*, 0, 0);' % (self.expr(op.args[0]),
-                                                               self.expr(op.result))
+        return self._op_boehm_malloc(op, 0)
 
     def OP_BOEHM_MALLOC_ATOMIC(self, op):
-        return 'OP_BOEHM_ZERO_MALLOC(%s, %s, void*, 1, 0);' % (self.expr(op.args[0]),
-                                                               self.expr(op.result))
+        return self._op_boehm_malloc(op, 1)
 
     def OP_BOEHM_REGISTER_FINALIZER(self, op):
+        if self.db.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            return gencsupp.boehm_register_finalizer(self, op)
         return 'GC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);' \
                % (self.expr(op.args[0]), self.expr(op.args[1]))
 
     def OP_DIRECT_FIELDPTR(self, op):
-        return self.OP_GETFIELD(op, ampersand='&')
+        return self.OP_GETFIELD(op, ampersand='&', accessing_mem=False)
 
     def OP_DIRECT_ARRAYITEMS(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
@@ -645,7 +690,23 @@ class FunctionCodeGenerator(object):
                 self.expr(op.args[0]),
                 self.expr(op.args[1]))
 
+    def _check_split_gc_address_space(self, op):
+        if self.db.split_gc_address_space:
+            TYPE = self.lltypemap(op.result)
+            TSRC = self.lltypemap(op.args[0])
+            gcdst = isinstance(TYPE, Ptr) and TYPE.TO._gckind == 'gc'
+            gcsrc = isinstance(TSRC, Ptr) and TSRC.TO._gckind == 'gc'
+            if gcsrc != gcdst:
+                raise Exception(
+                  "cast between pointer types changes the address\n"
+                  "space, but the 'split_gc_address_space' option is enabled:\n"
+                  "  func: %s\n"
+                  "    op: %s\n"
+                  "  from: %s\n"
+                  "    to: %s" % (self.graph, op, TSRC, TYPE))
+
     def OP_CAST_POINTER(self, op):
+        self._check_split_gc_address_space(op)
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
         result = []
@@ -658,12 +719,25 @@ class FunctionCodeGenerator(object):
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
+    def OP_CAST_PTR_TO_INT(self, op):
+        if self.db.reverse_debugger:
+            TSRC = self.lltypemap(op.args[0])
+            if isinstance(TSRC, Ptr) and TSRC.TO._gckind == 'gc':
+                from rpython.translator.revdb import gencsupp
+                return gencsupp.cast_gcptr_to_int(self, op)
+        return self.OP_CAST_POINTER(op)
+
+    def OP_REVDB_DO_NEXT_CALL(self, op):
+        self.revdb_do_next_call = True
+        return "/* revdb_do_next_call */"
+
     def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
         return ('%s = *(long *)(((char *)%s) + RPY_SIZE_OF_GCHEADER);'
                 '  /* length_of_simple_gcarray_from_opaque */'
             % (self.expr(op.result), self.expr(op.args[0])))
 
     def OP_CAST_INT_TO_PTR(self, op):
+        self._check_split_gc_address_space(op)
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
         return "%s = (%s)%s;" % (self.expr(op.result), cdecl(typename, ""),
@@ -704,6 +778,7 @@ class FunctionCodeGenerator(object):
            '((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0] = %(value)s;'
            % locals())
     OP_BARE_RAW_STORE = OP_RAW_STORE
+    OP_GC_STORE = OP_RAW_STORE     # the difference is only in 'revdb_protect'
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])
@@ -742,6 +817,7 @@ class FunctionCodeGenerator(object):
           % locals())
 
     def OP_CAST_PRIMITIVE(self, op):
+        self._check_split_gc_address_space(op)
         TYPE = self.lltypemap(op.result)
         val =  self.expr(op.args[0])
         result = self.expr(op.result)
@@ -765,6 +841,9 @@ class FunctionCodeGenerator(object):
         from rpython.rtyper.lltypesystem.rstr import STR
         format = []
         argv = []
+        if self.db.reverse_debugger:
+            format.append('{%d} ')
+            argv.append('(int)getpid()')
         free_line = ""
         for arg in op.args:
             T = arg.concretetype
@@ -813,20 +892,27 @@ class FunctionCodeGenerator(object):
             "if (PYPY_HAVE_DEBUG_PRINTS) { fprintf(PYPY_DEBUG_FILE, %s); %s}"
             % (', '.join(argv), free_line))
 
-    def _op_debug(self, opname, arg):
-        if isinstance(arg, Constant):
-            string_literal = c_string_constant(''.join(arg.value.chars))
-            return "%s(%s);" % (opname, string_literal)
+    def _op_debug(self, macro, op):
+        v_cat, v_timestamp = op.args
+        if isinstance(v_cat, Constant):
+            string_literal = c_string_constant(''.join(v_cat.value.chars))
+            return "%s = %s(%s, %s);" % (self.expr(op.result),
+                                         macro,
+                                         string_literal,
+                                         self.expr(v_timestamp))
         else:
-            x = "%s(RPyString_AsCharP(%s));\n" % (opname, self.expr(arg))
+            x = "%s = %s(RPyString_AsCharP(%s), %s);\n" % (self.expr(op.result),
+                                                           macro,
+                                                           self.expr(v_cat),
+                                                           self.expr(v_timestamp))
             x += "RPyString_FreeCache();"
             return x
 
     def OP_DEBUG_START(self, op):
-        return self._op_debug('PYPY_DEBUG_START', op.args[0])
+        return self._op_debug('PYPY_DEBUG_START', op)
 
     def OP_DEBUG_STOP(self, op):
-        return self._op_debug('PYPY_DEBUG_STOP', op.args[0])
+        return self._op_debug('PYPY_DEBUG_STOP', op)
 
     def OP_HAVE_DEBUG_PRINTS_FOR(self, op):
         arg = op.args[0]
@@ -952,8 +1038,8 @@ class FunctionCodeGenerator(object):
             return None    # use the default
 
     def OP_THREADLOCALREF_GET(self, op):
-        typename = self.db.gettype(op.result.concretetype)
         if isinstance(op.args[0], Constant):
+            typename = self.db.gettype(op.result.concretetype)
             assert isinstance(op.args[0].value, CDefinedIntSymbolic)
             fieldname = op.args[0].value.expr
             assert fieldname.startswith('RPY_TLOFS_')
@@ -963,7 +1049,19 @@ class FunctionCodeGenerator(object):
                 cdecl(typename, ''),
                 fieldname)
         else:
-            return 'OP_THREADLOCALREF_GET_NONCONST(%s, %s, %s);' % (
-                cdecl(typename, ''),
-                self.expr(op.args[0]),
-                self.expr(op.result))
+            # this is used for the fall-back path in the JIT
+            return self.OP_THREADLOCALREF_LOAD(op)
+
+    def OP_THREADLOCALREF_LOAD(self, op):
+        typename = self.db.gettype(op.result.concretetype)
+        return 'OP_THREADLOCALREF_LOAD(%s, %s, %s);' % (
+            cdecl(typename, ''),
+            self.expr(op.args[0]),
+            self.expr(op.result))
+
+    def OP_THREADLOCALREF_STORE(self, op):
+        typename = self.db.gettype(op.args[1].concretetype)
+        return 'OP_THREADLOCALREF_STORE(%s, %s, %s);' % (
+            cdecl(typename, ''),
+            self.expr(op.args[0]),
+            self.expr(op.args[1]))
