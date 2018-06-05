@@ -160,10 +160,9 @@ class PythonParser(parser.Parser):
                 compile_info.last_future_import = last_future_import
                 compile_info.flags |= newflags
 
-                if compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION:
-                    self.grammar = pygram.python_grammar_no_print
-                else:
-                    self.grammar = pygram.python_grammar
+                self.grammar = pygram.choose_grammar(
+                    print_function=compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION,
+                    revdb=self.space.config.translation.reverse_debugger)
 
                 for tp, value, lineno, column, line in tokens:
                     if self.add_token(tp, value, lineno, column, line):
