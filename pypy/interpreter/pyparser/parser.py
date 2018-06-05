@@ -138,11 +138,16 @@ class Node(object):
 
 class Terminal(Node):
     __slots__ = ("value", "lineno", "column")
-    def __init__(self, token):
-        Node.__init__(self, token.token_type)
-        self.value = token.value
-        self.lineno = token.lineno
-        self.column = token.column
+    def __init__(self, type, value, lineno, column):
+        Node.__init__(self, type)
+        self.value = value
+        self.lineno = lineno
+        self.column = column
+
+    @staticmethod
+    def fromtoken(token):
+        return Terminal(
+            token.token_type, token.value, token.lineno, token.column)
 
     def __repr__(self):
         return "Terminal(type=%s, value=%r)" % (self.type, self.value)
@@ -335,7 +340,7 @@ class Parser(object):
 
     def shift(self, next_state, token):
         """Shift a non-terminal and prepare for the next state."""
-        new_node = Terminal(token)
+        new_node = Terminal.fromtoken(token)
         self.stack.node_append_child(new_node)
         self.stack.state = next_state
 
