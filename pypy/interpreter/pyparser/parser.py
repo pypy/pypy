@@ -28,6 +28,7 @@ class Grammar(object):
         new.symbol_ids = self.symbol_ids
         new.symbols_names = self.symbol_names
         new.keyword_ids = self.keyword_ids
+        new.token_to_error_string = self.token_to_error_string
         new.dfas = self.dfas
         new.labels = self.labels
         new.token_ids = self.token_ids
