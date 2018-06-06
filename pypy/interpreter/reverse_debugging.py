@@ -298,7 +298,7 @@ def fetch_cur_frame(silent=False):
     else:
         frame = ec.topframeref()
     if frame is None and not silent:
-        revdb.send_output("No stack.\n")
+        revdb.send_print("No stack.")
     return frame
 
 def compile(source, mode):
@@ -358,8 +358,7 @@ def revdb_displayhook(space, w_obj):
     if space.isinstance_w(w_repr, space.w_unicode):
         w_repr = space.call_method(w_repr, 'encode',
                                    space.newtext('utf-8'))   # safe?
-    revdb.send_output(space.bytes_w(w_repr))
-    revdb.send_output("\n")
+    revdb.send_print(space.bytes_w(w_repr))
 
 @gateway.unwrap_spec(name='text0', level=int)
 def revdb_importhook(space, name, w_globals=None,
@@ -427,14 +426,14 @@ def command_print(cmd, expression):
                 # traceback', which might not be doable without using I/O
                 tb = operationerr.get_traceback()
                 if tb is not None:
-                    revdb.send_output("Traceback (most recent call last):\n")
+                    revdb.send_print("Traceback (most recent call last):")
                     while tb is not None:
                         if not isinstance(tb, pytraceback.PyTraceback):
-                            revdb.send_output("  ??? %s\n" % tb)
+                            revdb.send_print("  ??? %s" % tb)
                             break
                         show_frame(tb.frame, tb.get_lineno(), indent='  ')
                         tb = tb.next
-                revdb.send_output('%s\n' % operationerr.errorstr(space))
+                revdb.send_print(operationerr.errorstr(space))
 
                 # set the sys.last_xxx attributes
                 w_type = operationerr.w_type
@@ -446,7 +445,7 @@ def command_print(cmd, expression):
                 space.setitem(w_dict, space.newtext('last_traceback'), w_tb)
 
         except OperationError as e:
-            revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
+            revdb.send_print(e.errorstr(space, use_repr=True))
 lambda_print = lambda: command_print
 
 
@@ -477,7 +476,7 @@ def display_function_part(frame, max_lines_before, max_lines_after):
     ellipsis_after = False
     if first_lineno < current_lineno - max_lines_before - 1:
         first_lineno = current_lineno - max_lines_before
-        revdb.send_output("...\n")
+        revdb.send_print("...")
     if final_lineno > current_lineno + max_lines_after + 1:
         final_lineno = current_lineno + max_lines_after
         ellipsis_after = True
@@ -496,26 +495,26 @@ def display_function_part(frame, max_lines_before, max_lines_after):
         revdb.send_linecache(code.co_filename, i, strip=False)
     #
     if ellipsis_after:
-        revdb.send_output("...\n")
+        revdb.send_print("...")
 
 def command_backtrace(cmd, extra):
     frame = fetch_cur_frame(silent=True)
     if cmd.c_arg1 == 0:
         if frame is not None:
-            revdb.send_output("%s:\n" % (
+            revdb.send_print("%s:" % (
                 file_and_lineno(frame, frame.get_last_lineno()),))
         display_function_part(frame, max_lines_before=8, max_lines_after=5)
     elif cmd.c_arg1 == 2:
         display_function_part(frame, max_lines_before=1000,max_lines_after=1000)
     else:
-        revdb.send_output("Current call stack (most recent call last):\n")
+        revdb.send_print("Current call stack (most recent call last):")
         if frame is None:
-            revdb.send_output("  (empty)\n")
+            revdb.send_print("  (empty)")
         frames = []
         while frame is not None:
             frames.append(frame)
             if len(frames) == 200:
-                revdb.send_output("  ...\n")
+                revdb.send_print("  ...")
                 break
             frame = frame.get_f_back()
         while len(frames) > 0:
@@ -547,7 +546,7 @@ def command_locals(cmd, extra):
                         print('!<%s: %r>' % (exc, val))
             """)
         except OperationError as e:
-            revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
+            revdb.send_print(e.errorstr(space, use_repr=True))
 lambda_locals = lambda: command_locals
 
 # ____________________________________________________________
@@ -631,7 +630,7 @@ def add_breakpoint_fileline(filename, lineno, i):
 def add_breakpoint(name, i):
     # if it is empty, complain
     if not name:
-        revdb.send_output("Empty breakpoint name\n")
+        revdb.send_print("Empty breakpoint name")
         revdb.send_change_breakpoint(i)
         return
     # if it is surrounded by < >, it is the name of a code object
@@ -651,9 +650,9 @@ def add_breakpoint(name, i):
                 assert n >= 0
                 name = name[:n]
             if not valid_identifier(name):
-                revdb.send_output(
+                revdb.send_print(
                     'Note: "%s()" doesn''t look like a function name. '
-                    'Setting breakpoint anyway\n' % name)
+                    'Setting breakpoint anyway' % name)
             add_breakpoint_funcname(name, i)
             name += '()'
             if name != original_name:
@@ -666,7 +665,7 @@ def add_breakpoint(name, i):
         try:
             lineno = int(name[j+1:])
         except ValueError:
-            revdb.send_output('expected a line number after colon\n')
+            revdb.send_print('expected a line number after colon')
             revdb.send_change_breakpoint(i)
             return
         filename = name[:j]
@@ -684,9 +683,9 @@ def add_breakpoint(name, i):
         pass    # use unmodified
     elif not filename.lower().endswith('.py'):
         # use unmodified, but warn
-        revdb.send_output(
+        revdb.send_print(
             'Note: "%s" doesn''t look like a Python filename. '
-            'Setting breakpoint anyway\n' % (filename,))
+            'Setting breakpoint anyway' % (filename,))
 
     add_breakpoint_fileline(filename, lineno, i)
     name = '%s:%d' % (filename, lineno)

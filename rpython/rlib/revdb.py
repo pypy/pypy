@@ -46,6 +46,9 @@ def send_answer(cmd, arg1=0, arg2=0, arg3=0, extra=""):
 def send_output(text):
     send_answer(ANSWER_TEXT, extra=text)
 
+def send_print(text):
+    send_answer(ANSWER_TEXT, 1, extra=text)   # adds a newline
+
 def send_nextnid(unique_id):
     send_answer(ANSWER_NEXTNID, unique_id)
 

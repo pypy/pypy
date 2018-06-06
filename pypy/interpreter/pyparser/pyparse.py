@@ -163,48 +163,57 @@ class PythonParser(parser.Parser):
             flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
 
         self.prepare(_targets[compile_info.mode])
-        tp = 0
         try:
-            last_value_seen = None
-            next_value_seen = None
+            last_token_seen = None
+            next_token_seen = None
             try:
                 # Note: we no longer pass the CO_FUTURE_* to the tokenizer,
                 # which is expected to work independently of them.  It's
                 # certainly the case for all futures in Python <= 2.7.
                 tokens = pytokenizer.generate_tokens(source_lines, flags)
+            except error.TokenError as e:
+                e.filename = compile_info.filename
+                raise
+            except error.TokenIndentationError as e:
+                e.filename = compile_info.filename
+                raise
 
-                newflags, last_future_import = (
-                    future.add_future_flags(self.future_flags, tokens))
-                compile_info.last_future_import = last_future_import
-                compile_info.flags |= newflags
-                self.grammar = pygram.python_grammar
+            newflags, last_future_import = (
+                future.add_future_flags(self.future_flags, tokens))
+            compile_info.last_future_import = last_future_import
+            compile_info.flags |= newflags
+
+            self.grammar = pygram.choose_grammar(
+                print_function=True,
+                revdb=self.space.config.translation.reverse_debugger)
+            try:
                 tokens_stream = iter(tokens)
 
-                for tp, value, lineno, column, line in tokens_stream:
-                    next_value_seen = value
-                    if self.add_token(tp, value, lineno, column, line):
+                for token in tokens_stream:
+                    next_token_seen = token
+                    if self.add_token(token):
                         break
-                    last_value_seen = value
-                last_value_seen = None
-                next_value_seen = None
+                    last_token_seen = token
+                last_token_seen = None
+                next_token_seen = None
 
                 if compile_info.mode == 'single':
-                    for tp, value, lineno, column, line in tokens_stream:
-                        if tp == pygram.tokens.ENDMARKER:
+                    for token in tokens_stream:
+                        if token.token_type == pygram.tokens.ENDMARKER:
                             break
-                        if tp == pygram.tokens.NEWLINE:
+                        if token.token_type == pygram.tokens.NEWLINE:
                             continue
 
-                        if tp == pygram.tokens.COMMENT:
-                            for tp, _, _, _, _ in tokens_stream:
-                                if tp == pygram.tokens.NEWLINE:
+                        if token.token_type == pygram.tokens.COMMENT:
+                            for token in tokens_stream:
+                                if token.token_type == pygram.tokens.NEWLINE:
                                     break
                         else:
                             new_err = error.SyntaxError
                             msg = ("multiple statements found while "
                                    "compiling a single statement")
-                            raise new_err(msg, lineno, column,
-                                          line, compile_info.filename)
+                            raise new_err(msg, token.lineno, token.column,
+                                          token.line, compile_info.filename)
 
             except error.TokenError as e:
                 e.filename = compile_info.filename
@@ -216,17 +225,18 @@ class PythonParser(parser.Parser):
                 # Catch parse errors, pretty them up and reraise them as a
                 # SyntaxError.
                 new_err = error.IndentationError
-                if tp == pygram.tokens.INDENT:
+                if token.token_type == pygram.tokens.INDENT:
                     msg = "unexpected indent"
                 elif e.expected == pygram.tokens.INDENT:
                     msg = "expected an indented block"
                 else:
                     new_err = error.SyntaxError
-                    if (last_value_seen in ('print', 'exec') and
-                            bool(next_value_seen) and
-                            next_value_seen != '('):
+                    if (last_token_seen is not None and
+                            last_token_seen.value in ('print', 'exec') and
+                            next_token_seen is not None and
+                            next_token_seen.value != '('):
                         msg = "Missing parentheses in call to '%s'" % (
-                            last_value_seen,)
+                            last_token_seen,)
                     else:
                         msg = "invalid syntax"
                     if e.expected_str is not None:
@@ -234,7 +244,7 @@ class PythonParser(parser.Parser):
 
                 # parser.ParseError(...).column is 0-based, but the offsets in the
                 # exceptions in the error module are 1-based, hence the '+ 1'
-                raise new_err(msg, e.lineno, e.column + 1, e.line,
+                raise new_err(msg, e.token.lineno, e.token.column + 1, e.token.line,
                               compile_info.filename)
             else:
                 tree = self.root

@@ -12,6 +12,8 @@ exception is raised if the entry asked for cannot be found.
 
 from _pwdgrp_cffi import ffi, lib
 import _structseq
+import thread
+_lock = thread.allocate_lock()
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -54,10 +56,11 @@ def getpwuid(uid):
     Return the password database entry for the given numeric user ID.
     See pwd.__doc__ for more on password database entries.
     """
-    pw = lib.getpwuid(uid)
-    if not pw:
-        raise KeyError("getpwuid(): uid not found: %s" % uid)
-    return _mkpwent(pw)
+    with _lock:
+        pw = lib.getpwuid(uid)
+        if not pw:
+            raise KeyError("getpwuid(): uid not found: %s" % uid)
+        return _mkpwent(pw)
 
 @builtinify
 def getpwnam(name):
@@ -70,10 +73,11 @@ def getpwnam(name):
     if not isinstance(name, basestring):
         raise TypeError("expected string")
     name = str(name)
-    pw = lib.getpwnam(name)
-    if not pw:
-        raise KeyError("getpwname(): name not found: %s" % name)
-    return _mkpwent(pw)
+    with _lock:
+        pw = lib.getpwnam(name)
+        if not pw:
+            raise KeyError("getpwname(): name not found: %s" % name)
+        return _mkpwent(pw)
 
 @builtinify
 def getpwall():
@@ -83,13 +87,14 @@ def getpwall():
     See pwd.__doc__ for more on password database entries.
     """
     users = []
-    lib.setpwent()
-    while True:
-        pw = lib.getpwent()
-        if not pw:
-            break
-        users.append(_mkpwent(pw))
-    lib.endpwent()
+    with _lock:
+        lib.setpwent()
+        while True:
+            pw = lib.getpwent()
+            if not pw:
+                break
+            users.append(_mkpwent(pw))
+        lib.endpwent()
     return users
 
 __all__ = ('struct_passwd', 'getpwuid', 'getpwnam', 'getpwall')
