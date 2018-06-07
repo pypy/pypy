@@ -68,9 +68,11 @@ def get_rawbuffer(space, w_obj):
         pass
     # array type
     try:
+        if hasattr(space, "fake"):
+            raise NotImplementedError
         arr = space.interp_w(W_ArrayInstance, w_obj, can_be_None=True)
-        #if arr:
-            #return rffi.cast(rffi.VOIDP, space.uint_w(arr.getbuffer(space)))
+        if arr:
+            return rffi.cast(rffi.VOIDP, space.uint_w(arr.getbuffer(space)))
     except Exception:
         pass
     # pre-defined nullptr
