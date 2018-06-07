@@ -268,19 +268,19 @@ class TestFastPathJIT(LLJitMixin):
         def f():
             cls  = interp_cppyy.scope_byname(space, "example01")
             inst = interp_cppyy._bind_object(space, FakeInt(0), cls, True)
-            cls.get_overload("__init__").call(inst, [FakeInt(0)])
+            cls.get_overload("__init__").descr_get(inst, []).call([FakeInt(0)])
             cppmethod = cls.get_overload(method_name)
             assert isinstance(inst, interp_cppyy.W_CPPInstance)
             i = 10
             while i > 0:
                 drv.jit_merge_point(inst=inst, cppmethod=cppmethod, i=i)
-                cppmethod.call(inst, [FakeInt(i)])
+                cppmethod.descr_get(inst, []).call([FakeInt(i)])
                 i -= 1
             return 7
         f()
         space = FakeSpace()
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
-        self.check_jitcell_token_count(1)   # same for fast and slow path??
+        self.check_jitcell_token_count(0)   # same for fast and slow path??
         # rely on replacement of capi calls to raise exception instead (see FakeSpace.__init__)
 
     @py.test.mark.dont_track_allocations("cppmethod.cif_descr kept 'leaks'")

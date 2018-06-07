@@ -88,7 +88,7 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
                     assert obj._voidp != rffi.cast(rffi.VOIDP, 0)
                     data = rffi.cast(rffi.VOIDPP, data)
                     data[0] = obj._voidp
-                else:    # only other use is sring
+                else:    # only other use is string
                     assert obj.tc == 's'
                     n = len(obj._string)
                     assert raw_string == rffi.cast(rffi.CCHARP, 0)
@@ -183,8 +183,7 @@ class State(object):
             'constructor'  : ([c_method, c_object, c_int, c_voidp],   c_object),
             'call_o'       : ([c_method, c_object, c_int, c_voidp, c_type],     c_object),
 
-            'function_address_from_index'  : ([c_scope, c_index],     c_voidp), # TODO: verify
-            'function_address_from_method' : ([c_method],             c_voidp), # id.
+            'function_address' : ([c_method],                         c_voidp), # TODO: verify
 
             # handling of function argument buffer
             'allocate_function_args'   : ([c_int],                    c_voidp),
@@ -216,30 +215,30 @@ class State(object):
             'num_methods'              : ([c_scope],                  c_int),
             'method_indices_from_name' : ([c_scope, c_ccharp],        c_index_array),
 
-            'method_name'              : ([c_scope, c_index],         c_ccharp),
-            'method_mangled_name'      : ([c_scope, c_index],         c_ccharp),
-            'method_result_type'       : ([c_scope, c_index],         c_ccharp),
-            'method_num_args'          : ([c_scope, c_index],         c_int),
-            'method_req_args'          : ([c_scope, c_index],         c_int),
-            'method_arg_type'          : ([c_scope, c_index, c_int],  c_ccharp),
-            'method_arg_default'       : ([c_scope, c_index, c_int],  c_ccharp),
-            'method_signature'         : ([c_scope, c_index, c_int],  c_ccharp),
-            'method_prototype'         : ([c_scope, c_index, c_int],  c_ccharp),
+            'get_method'               : ([c_scope, c_index],         c_method),
+
+            'method_name'              : ([c_method],                 c_ccharp),
+            'method_mangled_name'      : ([c_method],                 c_ccharp),
+            'method_result_type'       : ([c_method],                 c_ccharp),
+            'method_num_args'          : ([c_method],                 c_int),
+            'method_req_args'          : ([c_method],                 c_int),
+            'method_arg_type'          : ([c_method, c_int],          c_ccharp),
+            'method_arg_default'       : ([c_method, c_int],          c_ccharp),
+            'method_signature'         : ([c_method, c_int],          c_ccharp),
+            'method_prototype'         : ([c_scope, c_method, c_int], c_ccharp),
             'is_const_method'          : ([c_method],                 c_int),
 
             'exists_method_template'   : ([c_scope, c_ccharp],        c_int),
             'method_is_template'       : ([c_scope, c_index],         c_int),
-            'method_num_template_args' : ([c_scope, c_index],         c_int),
-            'method_template_arg_name' : ([c_scope, c_index, c_index],          c_ccharp),
+            'get_method_template'      : ([c_scope, c_ccharp, c_ccharp],        c_method),
 
-            'get_method'               : ([c_scope, c_index],         c_method),
             'get_global_operator'      : ([c_scope, c_scope, c_scope, c_ccharp],   c_index),
 
             # method properties
-            'is_public_method'         : ([c_type, c_index],          c_int),
-            'is_constructor'           : ([c_type, c_index],          c_int),
-            'is_destructor'            : ([c_type, c_index],          c_int),
-            'is_staticmethod'          : ([c_type, c_index],          c_int),
+            'is_public_method'         : ([c_method],                 c_int),
+            'is_constructor'           : ([c_method],                 c_int),
+            'is_destructor'            : ([c_method],                 c_int),
+            'is_staticmethod'          : ([c_method],                 c_int),
 
             # data member reflection information
             'num_datamembers'          : ([c_scope],                  c_int),
@@ -417,13 +416,9 @@ def c_call_o(space, cppmethod, cppobject, nargs, cargs, cppclass):
     args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs), _ArgH(cppclass.handle)]
     return _cdata_to_cobject(space, call_capi(space, 'call_o', args))
 
-def c_function_address_from_index(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
+def c_function_address(space, cppmethod):
     return rffi.cast(C_FUNC_PTR,
-        _cdata_to_ptr(space, call_capi(space, 'function_address_from_index', args)))
-def c_function_address_from_method(space, cppmethod):
-    return rffi.cast(C_FUNC_PTR,
-        _cdata_to_ptr(space, call_capi(space, 'function_address_from_method', [_ArgH(cppmethod)])))
+        _cdata_to_ptr(space, call_capi(space, 'function_address', [_ArgH(cppmethod)])))
 
 # handling of function argument buffer ---------------------------------------
 def c_allocate_function_args(space, size):
@@ -527,30 +522,34 @@ def c_method_indices_from_name(space, cppscope, name):
     c_free(space, rffi.cast(rffi.VOIDP, indices))   # c_free defined below
     return py_indices
 
-def c_method_name(space, cppscope, index):
+def c_get_method(space, cppscope, index):
     args = [_ArgH(cppscope.handle), _ArgL(index)]
-    return charp2str_free(space, call_capi(space, 'method_name', args))
-def c_method_result_type(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
-    return charp2str_free(space, call_capi(space, 'method_result_type', args))
-def c_method_num_args(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
-    return space.int_w(call_capi(space, 'method_num_args', args))
-def c_method_req_args(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
-    return space.int_w(call_capi(space, 'method_req_args', args))
-def c_method_arg_type(space, cppscope, index, arg_index):
-    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(arg_index)]
+    return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method', args)))
+
+def c_method_name(space, cppmeth):
+    return charp2str_free(space, call_capi(space, 'method_name', [_ArgH(cppmeth)]))
+def c_method_mangled_name(space, cppmeth):
+    return charp2str_free(space, call_capi(space, 'method_mangled_name', [_ArgH(cppmeth)]))
+def c_method_result_type(space, cppmeth):
+    return charp2str_free(space, call_capi(space, 'method_result_type', [_ArgH(cppmeth)]))
+def c_method_num_args(space, cppmeth):
+    return space.int_w(call_capi(space, 'method_num_args', [_ArgH(cppmeth)]))
+def c_method_req_args(space, cppmeth):
+    return space.int_w(call_capi(space, 'method_req_args', [_ArgH(cppmeth)]))
+def c_method_arg_type(space, cppmeth, arg_index):
+    args = [_ArgH(cppmeth), _ArgL(arg_index)]
     return charp2str_free(space, call_capi(space, 'method_arg_type', args))
-def c_method_arg_default(space, cppscope, index, arg_index):
-    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(arg_index)]
+def c_method_arg_default(space, cppmeth, arg_index):
+    args = [_ArgH(cppmeth), _ArgL(arg_index)]
     return charp2str_free(space, call_capi(space, 'method_arg_default', args))
-def c_method_signature(space, cppscope, index, show_formalargs=True):
-    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(show_formalargs)]
+def c_method_signature(space, cppmeth, show_formalargs=True):
+    args = [_ArgH(cppmeth), _ArgL(show_formalargs)]
     return charp2str_free(space, call_capi(space, 'method_signature', args))
-def c_method_prototype(space, cppscope, index, show_formalargs=True):
-    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(show_formalargs)]
+def c_method_prototype(space, cppscope, cppmeth, show_formalargs=True):
+    args = [_ArgH(cppscope.handle), _ArgH(cppmeth), _ArgL(show_formalargs)]
     return charp2str_free(space, call_capi(space, 'method_prototype', args))
+def c_is_const_method(space, cppmeth):
+    return space.bool_w(call_capi(space, 'is_const_method', [_ArgH(cppmeth)]))
 
 def c_exists_method_template(space, cppscope, name):
     args = [_ArgH(cppscope.handle), _ArgS(name)]
@@ -558,21 +557,10 @@ def c_exists_method_template(space, cppscope, name):
 def c_method_is_template(space, cppscope, index):
     args = [_ArgH(cppscope.handle), _ArgL(index)]
     return space.bool_w(call_capi(space, 'method_is_template', args))
-def _c_method_num_template_args(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
-    return space.int_w(call_capi(space, 'method_num_template_args', args)) 
-def c_template_args(space, cppscope, index):
-    nargs = _c_method_num_template_args(space, cppscope, index)
-    arg1 = _ArgH(cppscope.handle)
-    arg2 = _ArgL(index)
-    args = [c_resolve_name(space, charp2str_free(space,
-                call_capi(space, 'method_template_arg_name', [arg1, arg2, _ArgL(iarg)]))
-            ) for iarg in range(nargs)]
-    return args
 
-def c_get_method(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
-    return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method', args)))
+def c_get_method_template(space, cppscope, name):
+    args = [_ArgH(cppscope.handle), _ArgS(name)]
+    return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method_template', args)))
 def c_get_global_operator(space, nss, lc, rc, op):
     if nss is not None:
         args = [_ArgH(nss.handle), _ArgH(lc.handle), _ArgH(rc.handle), _ArgS(op)]
@@ -580,18 +568,14 @@ def c_get_global_operator(space, nss, lc, rc, op):
     return rffi.cast(WLAVC_INDEX, -1)
 
 # method properties ----------------------------------------------------------
-def c_is_public_method(space, cppclass, index):
-    args = [_ArgH(cppclass.handle), _ArgL(index)]
-    return space.bool_w(call_capi(space, 'is_public_method', args))
-def c_is_constructor(space, cppclass, index):
-    args = [_ArgH(cppclass.handle), _ArgL(index)]
-    return space.bool_w(call_capi(space, 'is_constructor', args))
-def c_is_destructor(space, cppclass, index):
-    args = [_ArgH(cppclass.handle), _ArgL(index)]
-    return space.bool_w(call_capi(space, 'is_destructor', args))
-def c_is_staticmethod(space, cppclass, index):
-    args = [_ArgH(cppclass.handle), _ArgL(index)]
-    return space.bool_w(call_capi(space, 'is_staticmethod', args))
+def c_is_public_method(space, cppmeth):
+    return space.bool_w(call_capi(space, 'is_public_method', [_ArgH(cppmeth)]))
+def c_is_constructor(space, cppmeth):
+    return space.bool_w(call_capi(space, 'is_constructor', [_ArgH(cppmeth)]))
+def c_is_destructor(space, cppmeth):
+    return space.bool_w(call_capi(space, 'is_destructor', [_ArgH(cppmeth)]))
+def c_is_staticmethod(space, cppmeth):
+    return space.bool_w(call_capi(space, 'is_staticmethod', [_ArgH(cppmeth)]))
 
 # data member reflection information -----------------------------------------
 def c_num_datamembers(space, cppscope):

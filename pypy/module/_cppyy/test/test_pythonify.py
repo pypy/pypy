@@ -318,7 +318,7 @@ class AppTestPYTHONIFY:
 
        _cppyy.gbl.example01.fresh = _cppyy.gbl.installableAddOneToInt
 
-       e =  _cppyy.gbl.example01(0)
+       e = _cppyy.gbl.example01(0)
        assert 2 == e.fresh(1)
        assert 3 == e.fresh(2)
 

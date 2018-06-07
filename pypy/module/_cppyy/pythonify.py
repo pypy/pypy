@@ -111,14 +111,6 @@ def make_module_name(scope):
         return scope.__module__ + '.' + scope.__name__
     return 'cppyy'
 
-def make_static_function(func_name, cppol):
-    def function(*args):
-        return cppol.call(None, *args)
-    function.__name__ = func_name
-    function.__doc__ = cppol.prototype()
-    return staticmethod(function)
-
-
 def make_cppnamespace(scope, name, decl):
     # build up a representation of a C++ namespace (namespaces are classes)
 
@@ -147,7 +139,6 @@ def _drop_cycles(bases):
                 break
     return tuple(bases)
 
-
 def make_new(decl):
     def __new__(cls, *args):
         # create a place-holder only as there may be a derived class defined
@@ -159,13 +150,6 @@ def make_new(decl):
             instance.__class__ = cls     # happens for derived class
         return instance
     return __new__
-
-def make_method(meth_name, cppol):
-    def method(self, *args):
-        return cppol.call(self, *args)
-    method.__name__ = meth_name
-    method.__doc__ = cppol.prototype()
-    return method
 
 def make_cppclass(scope, cl_name, decl):
     import _cppyy
@@ -188,7 +172,7 @@ def make_cppclass(scope, cl_name, decl):
     # prepare dictionary for python-side C++ class representation
     def dispatch(self, m_name, signature):
         cppol = decl.__dispatch__(m_name, signature)
-        return types.MethodType(make_method(m_name, cppol), self, type(self))
+        return types.MethodType(cppol, self, type(self))
     d_class = {"__cppdecl__"   : decl,
          "__new__"      : make_new(decl),
          "__module__"   : make_module_name(scope),
@@ -199,10 +183,7 @@ def make_cppclass(scope, cl_name, decl):
     # insert (static) methods into the class dictionary
     for m_name in decl.get_method_names():
         cppol = decl.get_overload(m_name)
-        if cppol.is_static():
-            d_class[m_name] = make_static_function(m_name, cppol)
-        else:
-            d_class[m_name] = make_method(m_name, cppol)
+        d_class[m_name] = cppol
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the metaclass (needed for property setters)
@@ -267,8 +248,7 @@ def get_scoped_pycppitem(scope, name):
     if not cppitem:
         try:
             cppitem = scope.__cppdecl__.get_overload(name)
-            pycppitem = make_static_function(name, cppitem)
-            setattr(scope.__class__, name, pycppitem)
+            setattr(scope.__class__, name, cppitem)
             pycppitem = getattr(scope, name)      # binds function as needed
         except AttributeError:
             pass

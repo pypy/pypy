@@ -69,8 +69,8 @@ def get_rawbuffer(space, w_obj):
     # array type
     try:
         arr = space.interp_w(W_ArrayInstance, w_obj, can_be_None=True)
-        if arr:
-            return rffi.cast(rffi.VOIDP, space.uint_w(arr.getbuffer(space)))
+        #if arr:
+            #return rffi.cast(rffi.VOIDP, space.uint_w(arr.getbuffer(space)))
     except Exception:
         pass
     # pre-defined nullptr
@@ -384,7 +384,7 @@ class CStringConverter(TypeConverter):
         arg = space.text_w(w_obj)
         x[0] = rffi.cast(rffi.LONG, rffi.str2charp(arg))
         ba = rffi.cast(rffi.CCHARP, address)
-        ba[capi.c_function_arg_typeoffset(space)] = 'o'
+        ba[capi.c_function_arg_typeoffset(space)] = 'p'
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = self._get_raw_address(space, w_obj, offset)
@@ -500,7 +500,7 @@ class InstanceRefConverter(TypeConverter):
                 obj_address = capi.direct_ptradd(rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
         raise oefmt(space.w_TypeError,
-                    "cannot pass %T as %s", w_obj, self.clsdecl.name)
+                    "cannot pass %T instance as %s", w_obj, self.clsdecl.name)
 
     def cffi_type(self, space):
         state = space.fromcache(ffitypes.State)
@@ -615,8 +615,7 @@ class StdStringConverter(InstanceConverter):
             address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
             assign = self.clsdecl.get_overload("__assign__")
             from pypy.module._cppyy import interp_cppyy
-            assign.call(
-                interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False), [w_value])
+            assign.call_impl(address, [w_value])
         except Exception:
             InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 
@@ -687,8 +686,7 @@ class FunctionPointerConverter(TypeConverter):
             m = cppol.functions[i]
             if m.signature(False) == self.signature:
                 x = rffi.cast(rffi.VOIDPP, address)
-                x[0] = rffi.cast(rffi.VOIDP,
-                    capi.c_function_address_from_method(space, m.cppmethod))
+                x[0] = rffi.cast(rffi.VOIDP, capi.c_function_address(space, m.cppmethod))
                 address = rffi.cast(capi.C_OBJECT, address)
                 ba = rffi.cast(rffi.CCHARP, address)
                 ba[capi.c_function_arg_typeoffset(space)] = 'p'
@@ -731,7 +729,7 @@ class SmartPointerConverter(TypeConverter):
                 return rffi.cast(capi.C_OBJECT, obj_address)
 
         raise oefmt(space.w_TypeError,
-                    "cannot pass %T as %s", w_obj, self.clsdecl.name)
+                    "cannot pass %T instance as %s", w_obj, self.rawdecl.name)
 
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
@@ -799,6 +797,8 @@ def get_converter(space, _name, default):
     try:
         # array_index may be negative to indicate no size or no size found
         array_size = helper.array_size(_name)     # uses original arg
+        # TODO: using clean_name here drops const (e.g. const char[] will
+        # never be seen this way)
         return _a_converters[clean_name+compound](space, array_size)
     except KeyError:
         pass
@@ -971,6 +971,7 @@ def _build_array_converters():
 
     # special case, const char* w/ size and w/o '\0'
     _a_converters["const char[]"] = CStringConverterWithSize
+    _a_converters["char[]"]       = _a_converters["const char[]"]     # debatable
 
 _build_array_converters()
 

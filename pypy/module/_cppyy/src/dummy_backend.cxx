@@ -924,6 +924,15 @@ int cppyy_num_bases(cppyy_type_t /*handle*/) {
 
 
 /* method/function reflection information --------------------------------- */
+cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index) {
+    if (s_scopes.find(handle) != s_scopes.end()) {
+        long id = s_scopes[handle].m_method_offset + (long)method_index;
+        return (cppyy_method_t)id;
+    }
+    assert(!"unknown class in cppyy_get_method");
+    return (cppyy_method_t)0;
+}
+
 int cppyy_num_methods(cppyy_scope_t handle) {
     return s_scopes[handle].m_methods.size();
 }
@@ -948,18 +957,15 @@ char* cppyy_method_arg_type(cppyy_scope_t handle, cppyy_index_t method_index, in
     return cppstring_to_cstring(s_scopes[handle].m_methods[method_index].m_argtypes[arg_index]);
 }
 
-char* cppyy_method_arg_default(
-        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* arg_index */) {
+char* cppyy_method_arg_default(cppyy_method_t, int /* arg_index */) {
     return cppstring_to_cstring("");
 }
 
-char* cppyy_method_signature(
-        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* show_formalargs */) {
+char* cppyy_method_signature(cppyy_method_t, int /* show_formalargs */) {
     return cppstring_to_cstring("");
 }
 
-char* cppyy_method_prototype(
-        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* show_formalargs */) {
+char* cppyy_method_prototype(cppyy_scope_t, cppyy_method_t, int /* show_formalargs */) {
     return cppstring_to_cstring("");
 }
 
@@ -967,15 +973,6 @@ int cppyy_method_is_template(cppyy_scope_t /* handle */, cppyy_index_t /* method
     return 0;
 }
     
-cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index) {
-    if (s_scopes.find(handle) != s_scopes.end()) {
-        long id = s_scopes[handle].m_method_offset + (long)method_index;
-        return (cppyy_method_t)id;
-    }
-    assert(!"unknown class in cppyy_get_method");
-    return (cppyy_method_t)0;
-}
-
 cppyy_index_t cppyy_get_global_operator(cppyy_scope_t /* scope */,
         cppyy_scope_t /* lc */, cppyy_scope_t /* rc */, const char* /* op */) {
     return (cppyy_index_t)-1;
