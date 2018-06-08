@@ -442,6 +442,8 @@ class __extend__(pyframe.PyFrame):
                 self.FORMAT_VALUE(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_STRING.index:
                 self.BUILD_STRING(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
+                self.LOAD_REVDB_VAR(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1141,9 +1143,16 @@ class __extend__(pyframe.PyFrame):
         # final result and returns.  In that case, we can just continue
         # with the next bytecode.
 
+    def _revdb_jump_backward(self, jumpto):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import jump_backward
+        jump_backward(self, jumpto)
+
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
+        if self.space.reverse_debugging:
+            self._revdb_jump_backward(jumpto)
         return jumpto
 
     def JUMP_FORWARD(self, jumpby, next_instr):
@@ -1451,21 +1460,12 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def BUILD_SET_UNPACK(self, itemcount, next_instr):
         space = self.space
-        w_sum = space.newset()
+        w_set = space.newset()
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
-            # cannot use w_sum.update, w_item might not be a set
-            iterator = space.iter(w_item)
-            while True:
-                try:
-                    w_value = space.next(iterator)
-                except OperationError:
-                    break
-                w_sum.add(w_value)
-        while itemcount != 0:
-            self.popvalue()
-            itemcount -= 1
-        self.pushvalue(w_sum)
+            space.call_method(w_set, "update", w_item)
+        self.popvalues(itemcount)
+        self.pushvalue(w_set)
 
     @jit.unroll_safe
     def list_unpack_helper(frame, itemcount):
@@ -1474,9 +1474,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount, 0, -1):
             w_item = frame.peekvalue(i-1)
             w_sum.extend(w_item)
-        while itemcount != 0:
-            frame.popvalue()
-            itemcount -= 1
+        frame.popvalues(itemcount)
         return w_sum
 
     @jit.unroll_safe
@@ -1516,9 +1514,7 @@ class __extend__(pyframe.PyFrame):
             space.call_method(w_dict, 'update', w_item)
         if with_call and space.len_w(w_dict) < expected_length:
             self._build_map_unpack_error(itemcount)
-        while itemcount > 0:
-            self.popvalue()
-            itemcount -= 1
+        self.popvalues(itemcount)
         self.pushvalue(w_dict)
 
     @jit.dont_look_inside
@@ -1685,6 +1681,19 @@ class __extend__(pyframe.PyFrame):
         self.dropvalues(itemcount)
         w_res = space.newunicode(u''.join(lst))
         self.pushvalue(w_res)
+
+    def _revdb_load_var(self, oparg):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import load_metavar
+        w_var = load_metavar(oparg)
+        self.pushvalue(w_var)
+
+    def LOAD_REVDB_VAR(self, oparg, next_instr):
+        if self.space.reverse_debugging:
+            self._revdb_load_var(oparg)
+        else:
+            self.MISSING_OPCODE(oparg, next_instr)
+
 
 ### ____________________________________________________________ ###
 

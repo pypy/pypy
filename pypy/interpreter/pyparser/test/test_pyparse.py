@@ -6,10 +6,11 @@ from pypy.interpreter.pyparser.error import SyntaxError, IndentationError, TabEr
 from pypy.interpreter.astcompiler import consts
 
 
-class TestPythonParserWithoutSpace:
+class TestPythonParser:
+    spaceconfig = {}
 
     def setup_class(self):
-        self.parser = pyparse.PythonParser(None)
+        self.parser = pyparse.PythonParser(self.space)
 
     def parse(self, source, mode="exec", info=None):
         if info is None:
@@ -35,6 +36,34 @@ class TestPythonParserWithoutSpace:
         info = pyparse.CompileInfo("<test>", "exec")
         tree = self.parse("""foo = '日本'""", info=info)
         assert info.encoding == 'utf-8'
+
+    def test_encoding(self):
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parse("""# coding: latin-1
+stuff = "nothing"
+""", info=info)
+        assert tree.type == syms.file_input
+        assert info.encoding == "iso-8859-1"
+        sentence = u"u'Die Männer ärgern sich!'"
+        input = (u"# coding: utf-7\nstuff = %s" % (sentence,)).encode("utf-7")
+        tree = self.parse(input, info=info)
+        assert info.encoding == "utf-7"
+        input = "# coding: iso-8859-15\nx"
+        self.parse(input, info=info)
+        assert info.encoding == "iso-8859-15"
+        input = "\xEF\xBB\xBF# coding: utf-8\nx"
+        self.parse(input, info=info)
+        assert info.encoding == "utf-8"
+        input = "\xEF\xBB\xBF# coding: latin-1\nx"
+        exc = py.test.raises(SyntaxError, self.parse, input).value
+        assert exc.msg == "UTF-8 BOM with latin-1 coding cookie"
+        input = "# coding: not-here"
+        exc = py.test.raises(SyntaxError, self.parse, input).value
+        assert exc.msg == "Unknown encoding: not-here"
+        input = u"# coding: ascii\n\xe2".encode('utf-8')
+        exc = py.test.raises(SyntaxError, self.parse, input).value
+        assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
+                           "in position 16: ordinal not in range(128)")
 
     def test_unicode_identifier(self):
         tree = self.parse("a日本 = 32")
@@ -146,6 +175,13 @@ if 1:
         for linefeed in ["\r\n","\r"]:
             tree = self.parse(fmt % linefeed)
             assert expected_tree == tree
+
+    def test_revdb_dollar_num(self):
+        assert not self.space.config.translation.reverse_debugger
+        py.test.raises(SyntaxError, self.parse, '$0')
+        py.test.raises(SyntaxError, self.parse, '$0 + 5')
+        py.test.raises(SyntaxError, self.parse,
+                "from __future__ import print_function\nx = ($0, print)")
 
     def test_py3k_reject_old_binary_literal(self):
         py.test.raises(SyntaxError, self.parse, '0777')
@@ -336,4 +372,18 @@ stuff = "nothing"
         assert "(expected ':')" in info.value.msg
         info = py.test.raises(SyntaxError, self.parse, "def f:\n print 1")
         assert "(expected '(')" in info.value.msg
+
+class TestPythonParserRevDB(TestPythonParser):
+    spaceconfig = {"translation.reverse_debugger": True}
+
+    def test_revdb_dollar_num(self):
+        self.parse('$0')
+        self.parse('$5')
+        self.parse('$42')
+        self.parse('2+$42.attrname')
+        self.parse("from __future__ import print_function\nx = ($0, print)")
+        py.test.raises(SyntaxError, self.parse, '$')
+        py.test.raises(SyntaxError, self.parse, '$a')
+        py.test.raises(SyntaxError, self.parse, '$.5')
+
 

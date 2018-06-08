@@ -24,6 +24,15 @@ build_time_vars = {
     'VERSION': sys.version[:3]
 }
 
+if find_executable("gcc"):
+    build_time_vars.update({
+        "CC": "gcc -pthread",
+        "GNULD": "yes",
+        "LDSHARED": "gcc -pthread -shared",
+    })
+    if find_executable("g++"):
+        build_time_vars["CXX"] = "g++ -pthread"
+
 if sys.platform[:6] == "darwin":
     import platform
     if platform.machine() == 'i386':
@@ -36,12 +45,6 @@ if sys.platform[:6] == "darwin":
         arch = platform.machine()
     build_time_vars['LDSHARED'] += ' -undefined dynamic_lookup'
     build_time_vars['CC'] += ' -arch %s' % (arch,)
+    if "CXX" in build_time_vars:
+        build_time_vars['CXX'] += ' -arch %s' % (arch,)
 
-if find_executable("gcc"):
-    build_time_vars.update({
-        "CC": "gcc -pthread",
-        "GNULD": "yes",
-        "LDSHARED": "gcc -pthread -shared",
-    })
-    if find_executable("g++"):
-        build_time_vars["CXX"] = "g++ -pthread"

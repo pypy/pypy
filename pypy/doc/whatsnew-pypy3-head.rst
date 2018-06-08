@@ -13,6 +13,13 @@ Fix multiprocessing regression on newer glibcs
 
 Use implementation-specific site directories in sysconfig like in Python2
 
+
 .. branch: alex_gaynor/remove-an-unneeded-call-into-openssl-th-1526429141011
 
 Remove an unneeded call into OpenSSL, from cpython https://github.com/python/cpython/pull/6887
+
+
+.. branch: py3.5-reverse-debugger
+
+The reverse-debugger branch has been merged.  For more information, see
+https://bitbucket.org/pypy/revdb

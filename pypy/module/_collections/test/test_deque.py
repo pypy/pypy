@@ -372,6 +372,20 @@ class AppTestBasic:
             assert d == deque('a' * n)
             assert d.maxlen is None
 
+    def test_deque_repeat_big(self):
+        import sys
+        from _collections import deque
+        d = deque([0])
+        d *= 2**8
+        if sys.maxsize <= 2147483647:
+            raises(MemoryError, d.__mul__, 2**24)
+            raises(MemoryError, d.__rmul__, 2**24)
+            raises(MemoryError, d.__imul__, 2**24)
+        else:
+            raises(MemoryError, d.__mul__, 2**56)
+            raises(MemoryError, d.__rmul__, 2**56)
+            raises(MemoryError, d.__imul__, 2**56)
+
     def test_deque_insert(self):
         from _collections import deque
         for i in range(0,11):

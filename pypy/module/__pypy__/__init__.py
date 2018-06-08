@@ -105,6 +105,7 @@ class Module(MixedModule):
         '_promote'                   : 'interp_magic._promote',
         'normalize_exc'             : 'interp_magic.normalize_exc',
         'StdErrPrinter'             : 'interp_stderrprinter.W_StdErrPrinter',
+        'side_effects_ok'           : 'interp_magic.side_effects_ok',
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
         'fsencode'                  : 'interp_magic.fsencode',
         'fsdecode'                  : 'interp_magic.fsdecode',
@@ -144,3 +145,7 @@ class Module(MixedModule):
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',
                                     'space.wrap(%r)' % features)
+        if self.space.config.translation.reverse_debugger:
+            self.extra_interpdef('revdb_stop', 'interp_magic.revdb_stop')
+        else:
+            self.extra_interpdef('revdb_stop', 'space.w_None')

@@ -265,7 +265,7 @@ class TestInterpreter:
             return a, b, c, d
         """
         assert self.codetest(code, "f", [1, 2], {"d" : 4, "c" : 3}) == (1, 2, 3, 4)
-    
+
     def test_build_set_unpack(self):
         code = """ def f():
             return {*range(4), 4, *(5, 6, 7)}
@@ -274,13 +274,28 @@ class TestInterpreter:
         res = self.codetest(code, "f", [])
         l_res = space.call_function(space.w_list, res)
         assert space.unwrap(l_res) == [0, 1, 2, 3, 4, 5, 6, 7]
-        
+
+    def test_build_set_unpack_exception(self):
+        code = """ if 1:
+        def g():
+            yield 1
+            yield 2
+            raise TypeError
+        def f():
+            try:
+                {*g(), 1, 2}
+            except TypeError:
+                return True
+            return False
+        """
+        assert self.codetest(code, "f", [])
+
     def test_build_tuple_unpack(self):
         code = """ def f():
             return (*range(4), 4)
         """
         assert self.codetest(code, "f", []) == (0, 1, 2, 3, 4)
-    
+
     def test_build_list_unpack(self):
         code = """ def f():
             return [*range(4), 4]

@@ -23,7 +23,7 @@ def multiprocessing_recv(space, handle, buffersize):
     with rffi.scoped_alloc_buffer(buffersize) as buf:
         read_bytes = socketrecv(handle, buf.raw, buffersize, 0)
         if read_bytes >= 0:
-            return space.newtext(buf.str(read_bytes))
+            return space.newbytes(buf.str(read_bytes))
     raise getWindowsError(space)
 
 @unwrap_spec(handle=int, data='bufferstr')

@@ -5,6 +5,8 @@
 import os
 from _pwdgrp_cffi import ffi, lib
 import _structseq
+import thread
+_lock = thread.allocate_lock()
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -33,37 +35,39 @@ def _group_from_gstruct(res):
 
 @builtinify
 def getgrgid(gid):
-    try:
-        res = lib.getgrgid(gid)
-    except TypeError:
-        gid = int(gid)
-        res = lib.getgrgid(gid)
-        import warnings
-        warnings.warn("group id must be int", DeprecationWarning)
-    if not res:
-        # XXX maybe check error eventually
-        raise KeyError(gid)
-    return _group_from_gstruct(res)
-
+    with _lock:
+        try:
+            res = lib.getgrgid(gid)
+        except TypeError:
+            gid = int(gid)
+            res = lib.getgrgid(gid)
+            import warnings
+            warnings.warn("group id must be int", DeprecationWarning)
+        if not res:
+            # XXX maybe check error eventually
+            raise KeyError(gid)
+        return _group_from_gstruct(res)
 @builtinify
 def getgrnam(name):
     if not isinstance(name, str):
         raise TypeError("expected string")
-    res = lib.getgrnam(os.fsencode(name))
-    if not res:
-        raise KeyError("'getgrnam(): name not found: %s'" % name)
-    return _group_from_gstruct(res)
+    with _lock:
+        res = lib.getgrnam(os.fsencode(name))
+        if not res:
+            raise KeyError("'getgrnam(): name not found: %s'" % name)
+        return _group_from_gstruct(res)
 
 @builtinify
 def getgrall():
-    lib.setgrent()
     lst = []
-    while 1:
-        p = lib.getgrent()
-        if not p:
-            break
-        lst.append(_group_from_gstruct(p))
-    lib.endgrent()
+    with _lock:
+        lib.setgrent()
+        while 1:
+            p = lib.getgrent()
+            if not p:
+                break
+            lst.append(_group_from_gstruct(p))
+        lib.endgrent()
     return lst
 
 __all__ = ('struct_group', 'getgrgid', 'getgrnam', 'getgrall')

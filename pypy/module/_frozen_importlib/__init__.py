@@ -1,4 +1,5 @@
 import os
+from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module.sys import initpath
 from pypy.module._frozen_importlib import interp_import
@@ -77,8 +78,17 @@ class Module(MixedModule):
 
     def startup(self, space):
         """Copy our __import__ to builtins."""
+        if not we_are_translated():
+            self.startup_at_translation_time_only(space)
+        self.space.builtin.setdictvalue(space, '__import__', self.w_import)
+
+    def startup_at_translation_time_only(self, space):
+        # Issue #2834
+        # Call _bootstrap._install() at translation time only, not at
+        # runtime.  By looking around what it does, this should not
+        # freeze any machine-specific paths.  I *think* it only sets up
+        # stuff that depends on the platform.
         w_install = self.getdictvalue(space, '_install')
         space.call_function(w_install,
                             space.getbuiltinmodule('sys'),
                             space.getbuiltinmodule('_imp'))
-        self.space.builtin.setdictvalue(space, '__import__', self.w_import)

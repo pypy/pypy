@@ -660,7 +660,7 @@ SYMBOLS_C = [
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar',
-    'PyTuple_New',
+    'PyTuple_New', '_Py_Dealloc',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1150,10 +1150,11 @@ def setup_init_functions(eci, prefix):
 
 def attach_c_functions(space, eci, prefix):
     state = space.fromcache(State)
-    state.C._Py_Dealloc = rffi.llexternal('_Py_Dealloc',
-                                         [PyObject], lltype.Void,
-                                         compilation_info=eci,
-                                         _nowrapper=True)
+    state.C._Py_Dealloc = rffi.llexternal(
+        mangle_name(prefix, '_Py_Dealloc'),
+        [PyObject], lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True)
     state.C.PyObject_Free = rffi.llexternal(
         mangle_name(prefix, 'PyObject_Free'),
         [rffi.VOIDP], lltype.Void,

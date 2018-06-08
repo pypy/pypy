@@ -1168,7 +1168,7 @@ class TestAstBuilder:
         assert isinstance(s, ast.Bytes)
         assert space.eq_w(s.s, space.newbytes("hi implicitly extra"))
         raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
-        sentence = u"Die Männer ärgen sich!"
+        sentence = u"Die Männer ärgern sich!"
         source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
         info = pyparse.CompileInfo("<test>", "exec")
         tree = self.parser.parse_source(source.encode("utf-7"), info)

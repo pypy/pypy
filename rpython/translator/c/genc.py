@@ -78,6 +78,8 @@ class CBuilder(object):
     def get_eci(self):
         pypy_include_dir = py.path.local(__file__).join('..')
         include_dirs = [pypy_include_dir]
+        if self.config.translation.reverse_debugger:
+            include_dirs.append(pypy_include_dir.join('..', 'revdb'))
         return ExternalCompilationInfo(include_dirs=include_dirs)
 
     def build_database(self):
@@ -95,7 +97,11 @@ class CBuilder(object):
                               gchooks=self.gchooks,
                               exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
-                              sandbox=self.config.translation.sandbox)
+                              sandbox=self.config.translation.sandbox,
+                              split_gc_address_space=
+                                 self.config.translation.split_gc_address_space,
+                              reverse_debugger=
+                                 self.config.translation.reverse_debugger)
         self.db = db
 
         # give the gc a chance to register interest in the start-up functions it
@@ -116,6 +122,10 @@ class CBuilder(object):
                 db.get(getfunctionptr(bk.getdesc(func).getuniquegraph()))
 
             self.c_entrypoint_name = pfname
+
+        if self.config.translation.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            gencsupp.prepare_database(db)
 
         for obj in exports.EXPORTS_obj2name.keys():
             db.getcontainernode(obj)
@@ -161,7 +171,8 @@ class CBuilder(object):
     # use generate_source(defines=DEBUG_DEFINES) to force the #definition
     # of the macros that enable debugging assertions
     DEBUG_DEFINES = {'RPY_ASSERT': 1,
-                     'RPY_LL_ASSERT': 1}
+                     'RPY_LL_ASSERT': 1,
+                     'RPY_REVDB_PRINT_ALL': 1}
 
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
@@ -181,6 +192,8 @@ class CBuilder(object):
             defines['COUNT_OP_MALLOCS'] = 1
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
+        if self.config.translation.reverse_debugger:
+            defines['RPY_REVERSE_DEBUGGER'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
@@ -290,6 +303,9 @@ class CStandaloneBuilder(CBuilder):
             SetErrorMode(old_mode)
         if res.returncode != 0:
             if expect_crash:
+                if type(expect_crash) is int and expect_crash != res.returncode:
+                    raise Exception("Returned %d, but expected %d" % (
+                        res.returncode, expect_crash))
                 return res.out, res.err
             print >> sys.stderr, res.err
             raise Exception("Returned %d" % (res.returncode,))
@@ -725,6 +741,8 @@ class SourceGenerator:
 
         print >> f, '#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name)
         print >> f, '#include "src/g_include.h"'
+        if self.database.reverse_debugger:
+            print >> f, '#include "revdb_def.h"'
         print >> f
 
         nextralines = 11 + 1
@@ -765,6 +783,8 @@ class SourceGenerator:
                     print >> fc, '#include "preimpl.h"'
                     print >> fc, '#define PYPY_FILE_NAME "%s"' % name
                     print >> fc, '#include "src/g_include.h"'
+                    if self.database.reverse_debugger:
+                        print >> fc, '#include "revdb_def.h"'
                     print >> fc
                 print >> fc, MARKER
                 for node, impl in nodeiter:
@@ -803,6 +823,10 @@ def gen_threadlocal_structdef(f, database):
     for field in fields:
         print >> f, ('#define RPY_TLOFS_%s  offsetof(' % field.fieldname +
                      'struct pypy_threadlocal_s, %s)' % field.fieldname)
+    if fields:
+        print >> f, '#define RPY_TLOFSFIRST  RPY_TLOFS_%s' % fields[0].fieldname
+    else:
+        print >> f, '#define RPY_TLOFSFIRST  sizeof(struct pypy_threadlocal_s)'
     print >> f, 'struct pypy_threadlocal_s {'
     print >> f, '\tint ready;'
     print >> f, '\tchar *stack_end;'
@@ -868,7 +892,7 @@ def commondefs(defines):
     defines['PYPY_LONG_BIT'] = LONG_BIT
     defines['PYPY_LONGLONG_BIT'] = LONGLONG_BIT
 
-def add_extra_files(eci):
+def add_extra_files(database, eci):
     srcdir = py.path.local(__file__).join('..', 'src')
     files = [
         srcdir / 'entrypoint.c',       # ifdef PYPY_STANDALONE
@@ -887,6 +911,9 @@ def add_extra_files(eci):
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
+    if database.reverse_debugger:
+        from rpython.translator.revdb import gencsupp
+        files += gencsupp.extra_files()
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 
@@ -934,7 +961,10 @@ def gen_source(database, modulename, targetdir,
         n = database.instrument_ncounter
         print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
         fi.close()
+    if database.reverse_debugger:
+        from rpython.translator.revdb import gencsupp
+        gencsupp.write_revdb_def_file(database, targetdir.join('revdb_def.h'))
 
-    eci = add_extra_files(eci)
+    eci = add_extra_files(database, eci)
     eci = eci.convert_sources_to_files()
     return eci, filename, sg.getextrafiles(), headers_to_precompile

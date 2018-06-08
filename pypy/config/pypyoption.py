@@ -61,6 +61,11 @@ translation_modules.update([
     "termios", "_minimal_curses",
 ])
 
+reverse_debugger_disable_modules = set([
+    "_continuation", "_vmprof", "_multiprocessing",
+    "micronumpy",
+    ])
+
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
 if sys.platform == "win32":
@@ -297,6 +302,9 @@ def enable_allworkingmodules(config):
     modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
+    if config.translation.reverse_debugger:
+        for mod in reverse_debugger_disable_modules:
+            setattr(config.objspace.usemodules, mod, False)
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]

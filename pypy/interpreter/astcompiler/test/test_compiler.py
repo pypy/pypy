@@ -31,7 +31,7 @@ def generate_function_code(expr, space):
     generator._resolve_block_targets(blocks)
     return generator, blocks
 
-class TestCompiler:
+class BaseTestCompiler:
     """These tests compile snippets of code and check them by
     running them with our own interpreter.  These are thus not
     completely *unit* tests, but given that our interpreter is
@@ -96,6 +96,9 @@ class TestCompiler:
 
     def error_test(self, source, exc_type):
         py.test.raises(exc_type, self.simple_test, source, None, None)
+
+
+class TestCompiler(BaseTestCompiler):
 
     def test_issue_713(self):
         func = "def f(_=2): return (_ if _ else _) if False else _"
@@ -1245,6 +1248,24 @@ class TestCompiler:
         yield self.st, src, 'z', 0xd8
         src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
         yield self.st, src, 'z', 0xd8
+
+
+class TestCompilerRevDB(BaseTestCompiler):
+    spaceconfig = {"translation.reverse_debugger": True}
+
+    def test_revdb_metavar(self):
+        from pypy.interpreter.reverse_debugging import dbstate, setup_revdb
+        self.space.config.translation.reverse_debugger = True
+        self.space.reverse_debugging = True
+        try:
+            setup_revdb(self.space)
+            dbstate.standard_code = False
+            dbstate.metavars = [self.space.wrap(6)]
+            self.simple_test("x = 7*$0", "x", 42)
+            dbstate.standard_code = True
+            self.error_test("x = 7*$0", SyntaxError)
+        finally:
+            self.space.reverse_debugging = False
 
 
 class AppTestCompiler:

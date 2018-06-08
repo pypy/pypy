@@ -418,6 +418,21 @@ class AppTestAppComplexTest:
         assert complex(s) == 1+2j
         assert complex('\N{EM SPACE}(\N{EN SPACE}1+1j ) ') == 1+1j
 
+    def test_constructor_bad_error_message(self):
+        err = raises(TypeError, complex, {}).value
+        assert "float" not in str(err)
+        assert str(err) == "complex() first argument must be a string or a number, not 'dict'"
+        err = raises(TypeError, complex, 1, {}).value
+        assert "float" not in str(err)
+        assert str(err) == "complex() second argument must be a number, not 'dict'"
+
+    def test_error_messages(self):
+        err = raises(ZeroDivisionError, "1+1j / 0").value
+        assert str(err) == "complex division by zero"
+        err = raises(TypeError, "1+1j // 0").value
+        assert str(err) == "can't take floor of complex number."
+
+
     def test_hash(self):
         for x in range(-30, 30):
             assert hash(x) == hash(complex(x, 0))
