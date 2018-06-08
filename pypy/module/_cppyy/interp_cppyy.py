@@ -677,7 +677,7 @@ class W_CPPTemplateOverload(W_CPPOverload):
          W_CPPOverload.__init__(self, space, declaring_scope, functions, flags)
          self.name = name
          self.overloads = {}
-         self.master = None
+         self.master = self
 
     @unwrap_spec(args_w='args_w')
     def descr_get(self, w_cppinstance, args_w):
@@ -685,15 +685,36 @@ class W_CPPTemplateOverload(W_CPPOverload):
             return self  # unbound
         cppol = W_CPPTemplateOverload(self.space, self.name, self.scope, self.functions, self.flags)
         cppol.w_this = w_cppinstance
-        cppol.master = self
+        cppol.master = self.master
         return cppol     # bound
+
+    @unwrap_spec(args_w='args_w')
+    def call(self, args_w):
+        # direct call means attempt to deduce types ourselves
+        # first, try to match with existing methods
+        for cppol in self.master.overloads.values():
+            try:
+                cppol.descr_get(self.w_this, []).call(args_w)
+            except Exception as e:
+                pass    # completely ignore for now; have to see whether errors become confusing
+
+        # if all failed, then try to deduce type
+        types_w = [self.space.type(obj_w) for obj_w in args_w]
+        method = self.getitem(types_w)
+        return method.call(args_w)
 
     @unwrap_spec(args_w='args_w')
     def getitem(self, args_w):
         space = self.space
+
+        if space.isinstance_w(args_w[0], space.w_tuple):
+            w_args = args_w[0]
+        else:
+            w_args = space.newtuple(args_w)
+
         tmpl_args = ''
-        for i in range(len(args_w)):
-            w_obj = args_w[i]
+        for i in range(space.len_w(w_args)):
+            w_obj = space.getitem(w_args, space.newint(i))
             if space.isinstance_w(w_obj, space.w_text):
                 s = space.text_w(w_obj)      # string describing type
             elif space.isinstance_w(w_obj, space.w_type):
@@ -712,22 +733,23 @@ class W_CPPTemplateOverload(W_CPPOverload):
         fullname = self.name+'<'+tmpl_args+'>'
 
         # find/instantiate new callable function
-        master = self.master
-        if not master:
-            master = self
         try:
-            return master.overloads[fullname].descr_get(self.w_this, [])
+            return self.master.overloads[fullname].descr_get(self.w_this, [])
         except KeyError:
             pass
 
         cppmeth = capi.c_get_method_template(space, self.scope, fullname)
+        if not cppmeth:
+            raise oefmt(self.space.w_AttributeError,
+                "scope '%s' has no function %s", self.scope.name, fullname)
+
         funcs = []
         ftype = self.scope._make_cppfunction(fullname, cppmeth, funcs)
         if ftype & FUNCTION_IS_STATIC:
             cppol = W_CPPStaticOverload(space, self.scope, funcs[:], self.flags)
         else:
             cppol = W_CPPOverload(space, self.scope, funcs[:], self.flags)
-        master.overloads[fullname] = cppol
+        self.master.overloads[fullname] = cppol
         return cppol.descr_get(self.w_this, [])
 
     def __repr__(self):
