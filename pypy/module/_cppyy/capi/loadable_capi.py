@@ -69,7 +69,8 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
         space = self.space
         cif_descr = self.cif_descr
         size = cif_descr.exchange_size
-        raw_string = rffi.cast(rffi.CCHARP, 0)    # only ever have one in the CAPI
+        raw_string1 = rffi.cast(rffi.CCHARP, 0)
+        raw_string2 = rffi.cast(rffi.CCHARP, 0)   # have max two in any CAPI
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
             for i in range(len(args)):
@@ -91,11 +92,15 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
                 else:    # only other use is string
                     assert obj.tc == 's'
                     n = len(obj._string)
-                    assert raw_string == rffi.cast(rffi.CCHARP, 0)
-                    # XXX could use rffi.get_nonmovingbuffer_final_null()
-                    raw_string = rffi.str2charp(obj._string)
                     data = rffi.cast(rffi.CCHARPP, data)
-                    data[0] = raw_string
+                    if raw_string1 == rffi.cast(rffi.CCHARP, 0):
+                        # XXX could use rffi.get_nonmovingbuffer_final_null()
+                        raw_string1 = rffi.str2charp(obj._string)
+                        data[0] = raw_string1
+                    else:
+                        assert raw_string2 == rffi.cast(rffi.CCHARP, 0)
+                        raw_string2 = rffi.str2charp(obj._string)
+                        data[0] = raw_string2
 
             jit_libffi.jit_ffi_call(cif_descr,
                                     rffi.cast(rffi.VOIDP, funcaddr),
@@ -106,8 +111,10 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
             # immediate unwrapping, the round-trip is removed
             w_res = self.ctitem.copy_and_convert_to_object(resultdata)
         finally:
-            if raw_string != rffi.cast(rffi.CCHARP, 0):
-                rffi.free_charp(raw_string)
+            if raw_string1 != rffi.cast(rffi.CCHARP, 0):
+                rffi.free_charp(raw_string1)
+            if raw_string2 != rffi.cast(rffi.CCHARP, 0):
+                rffi.free_charp(raw_string2)
             lltype.free(buffer, flavor='raw')
         return w_res
 
@@ -218,6 +225,7 @@ class State(object):
             'get_method'               : ([c_scope, c_index],         c_method),
 
             'method_name'              : ([c_method],                 c_ccharp),
+            'method_full_name'         : ([c_method],                 c_ccharp),
             'method_mangled_name'      : ([c_method],                 c_ccharp),
             'method_result_type'       : ([c_method],                 c_ccharp),
             'method_num_args'          : ([c_method],                 c_int),
@@ -528,6 +536,8 @@ def c_get_method(space, cppscope, index):
 
 def c_method_name(space, cppmeth):
     return charp2str_free(space, call_capi(space, 'method_name', [_ArgH(cppmeth)]))
+def c_method_full_name(space, cppmeth):
+    return charp2str_free(space, call_capi(space, 'method_full_name', [_ArgH(cppmeth)]))
 def c_method_mangled_name(space, cppmeth):
     return charp2str_free(space, call_capi(space, 'method_mangled_name', [_ArgH(cppmeth)]))
 def c_method_result_type(space, cppmeth):
@@ -558,8 +568,8 @@ def c_method_is_template(space, cppscope, index):
     args = [_ArgH(cppscope.handle), _ArgL(index)]
     return space.bool_w(call_capi(space, 'method_is_template', args))
 
-def c_get_method_template(space, cppscope, name):
-    args = [_ArgH(cppscope.handle), _ArgS(name)]
+def c_get_method_template(space, cppscope, name, proto):
+    args = [_ArgH(cppscope.handle), _ArgS(name), _ArgS(proto)]
     return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method_template', args)))
 def c_get_global_operator(space, nss, lc, rc, op):
     if nss is not None:

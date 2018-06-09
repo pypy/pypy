@@ -61,6 +61,10 @@ class FakeString(FakeBase):
     typename = "str"
     def __init__(self, val):
         self.val = val
+class FakeTuple(FakeBase):
+    typename = "tuple"
+    def __init__(self, val):
+        self.val = val
 class FakeType(FakeBase):
     typename = "type"
     def __init__(self, name):
@@ -171,6 +175,13 @@ class FakeSpace(object):
     @specialize.argtype(1)
     def newtext(self, obj):
         return FakeString(obj)
+
+    @specialize.argtype(1)
+    def newtuple(self, obj):
+        return FakeTuple(obj)
+
+    def getitem(self, coll, i):
+        return coll.val[i.val]
 
     def float_w(self, w_obj, allow_conversion=True):
         assert isinstance(w_obj, FakeFloat)

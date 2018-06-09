@@ -492,8 +492,8 @@ class InstanceRefConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         from pypy.module._cppyy.interp_cppyy import W_CPPInstance
         if isinstance(w_obj, W_CPPInstance):
-            from pypy.module._cppyy.interp_cppyy import INSTANCE_FLAGS_IS_R_VALUE
-            if w_obj.flags & INSTANCE_FLAGS_IS_R_VALUE:
+            from pypy.module._cppyy.interp_cppyy import INSTANCE_FLAGS_IS_RVALUE
+            if w_obj.flags & INSTANCE_FLAGS_IS_RVALUE:
                 # reject moves as all are explicit
                 raise ValueError("lvalue expected")
             if capi.c_is_subtype(space, w_obj.clsdecl, self.clsdecl):
@@ -522,11 +522,18 @@ class InstanceRefConverter(TypeConverter):
 class InstanceMoveConverter(InstanceRefConverter):
     def _unwrap_object(self, space, w_obj):
         # moving is same as by-ref, but have to check that move is allowed
-        from pypy.module._cppyy.interp_cppyy import W_CPPInstance, INSTANCE_FLAGS_IS_R_VALUE
-        if isinstance(w_obj, W_CPPInstance):
-            if w_obj.flags & INSTANCE_FLAGS_IS_R_VALUE:
-                w_obj.flags &= ~INSTANCE_FLAGS_IS_R_VALUE
-                return InstanceRefConverter._unwrap_object(self, space, w_obj)
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance, INSTANCE_FLAGS_IS_RVALUE
+        obj = space.interp_w(W_CPPInstance, w_obj)
+        if obj:
+            if obj.flags & INSTANCE_FLAGS_IS_RVALUE:
+                obj.flags &= ~INSTANCE_FLAGS_IS_RVALUE
+                try:
+                    return InstanceRefConverter._unwrap_object(self, space, w_obj)
+                except Exception:
+                    # TODO: if the method fails on some other converter, then the next
+                    # overload can not be an rvalue anymore
+                    obj.flags |= INSTANCE_FLAGS_IS_RVALUE
+                    raise
         raise oefmt(space.w_ValueError, "object is not an rvalue")
 
 

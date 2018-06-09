@@ -135,6 +135,8 @@ extern "C" {
     RPY_EXTERN
     char* cppyy_method_name(cppyy_method_t);
     RPY_EXTERN
+    char* cppyy_method_full_name(cppyy_method_t);
+    RPY_EXTERN
     char* cppyy_method_mangled_name(cppyy_method_t);
     RPY_EXTERN
     char* cppyy_method_result_type(cppyy_method_t);
@@ -158,7 +160,7 @@ extern "C" {
     RPY_EXTERN
     int cppyy_method_is_template(cppyy_scope_t scope, cppyy_index_t idx);
     RPY_EXTERN
-    cppyy_method_t cppyy_get_method_template(cppyy_scope_t scope, const char* name);
+    cppyy_method_t cppyy_get_method_template(cppyy_scope_t scope, const char* name, const char* proto);
 
     RPY_EXTERN
     cppyy_index_t cppyy_get_global_operator(

@@ -18,7 +18,7 @@ CLASS_FLAGS_IS_PINNED      = 0x0001
 
 INSTANCE_FLAGS_PYTHON_OWNS = 0x0001
 INSTANCE_FLAGS_IS_REF      = 0x0002
-INSTANCE_FLAGS_IS_R_VALUE  = 0x0004
+INSTANCE_FLAGS_IS_RVALUE   = 0x0004
 
 OVERLOAD_FLAGS_USE_FFI     = 0x0001
 
@@ -679,39 +679,8 @@ class W_CPPTemplateOverload(W_CPPOverload):
          self.overloads = {}
          self.master = self
 
-    @unwrap_spec(args_w='args_w')
-    def descr_get(self, w_cppinstance, args_w):
-        if self.space.is_w(w_cppinstance, self.space.w_None):
-            return self  # unbound
-        cppol = W_CPPTemplateOverload(self.space, self.name, self.scope, self.functions, self.flags)
-        cppol.w_this = w_cppinstance
-        cppol.master = self.master
-        return cppol     # bound
-
-    @unwrap_spec(args_w='args_w')
-    def call(self, args_w):
-        # direct call means attempt to deduce types ourselves
-        # first, try to match with existing methods
-        for cppol in self.master.overloads.values():
-            try:
-                cppol.descr_get(self.w_this, []).call(args_w)
-            except Exception as e:
-                pass    # completely ignore for now; have to see whether errors become confusing
-
-        # if all failed, then try to deduce type
-        types_w = [self.space.type(obj_w) for obj_w in args_w]
-        method = self.getitem(types_w)
-        return method.call(args_w)
-
-    @unwrap_spec(args_w='args_w')
-    def getitem(self, args_w):
+    def construct_template_args(self, w_args):
         space = self.space
-
-        if space.isinstance_w(args_w[0], space.w_tuple):
-            w_args = args_w[0]
-        else:
-            w_args = space.newtuple(args_w)
-
         tmpl_args = ''
         for i in range(space.len_w(w_args)):
             w_obj = space.getitem(w_args, space.newint(i))
@@ -728,29 +697,80 @@ class W_CPPTemplateOverload(W_CPPOverload):
             else:
                 # builtin types etc.
                 s = space.text_w(space.str(w_obj))
+            # map python types -> C++ types
+            if s == 'str': s = 'std::string'
             if i != 0: tmpl_args += ', '
             tmpl_args += s
-        fullname = self.name+'<'+tmpl_args+'>'
+        return tmpl_args
 
+    def find_method_template(self, name, proto = ''):
         # find/instantiate new callable function
-        try:
-            return self.master.overloads[fullname].descr_get(self.w_this, [])
-        except KeyError:
-            pass
-
-        cppmeth = capi.c_get_method_template(space, self.scope, fullname)
+        space = self.space
+        cppmeth = capi.c_get_method_template(space, self.scope, name, proto)
         if not cppmeth:
             raise oefmt(self.space.w_AttributeError,
-                "scope '%s' has no function %s", self.scope.name, fullname)
+                "scope '%s' has no function %s", self.scope.name, name)
 
         funcs = []
-        ftype = self.scope._make_cppfunction(fullname, cppmeth, funcs)
+        ftype = self.scope._make_cppfunction(name, cppmeth, funcs)
         if ftype & FUNCTION_IS_STATIC:
             cppol = W_CPPStaticOverload(space, self.scope, funcs[:], self.flags)
         else:
             cppol = W_CPPOverload(space, self.scope, funcs[:], self.flags)
-        self.master.overloads[fullname] = cppol
-        return cppol.descr_get(self.w_this, [])
+        return cppol
+
+    @unwrap_spec(args_w='args_w')
+    def descr_get(self, w_cppinstance, args_w):
+        if self.space.is_w(w_cppinstance, self.space.w_None):
+            return self  # unbound
+        cppol = W_CPPTemplateOverload(self.space, self.name, self.scope, self.functions, self.flags)
+        cppol.w_this = w_cppinstance
+        cppol.master = self.master
+        return cppol     # bound
+
+    @unwrap_spec(args_w='args_w')
+    def call(self, args_w):
+        # direct call means attempt to deduce types ourselves
+        # first, try to match with existing methods
+        for cppol in self.master.overloads.values():
+            try:
+                cppol.descr_get(self.w_this, []).call(args_w)
+            except Exception:
+                pass    # completely ignore for now; have to see whether errors become confusing
+
+        # if all failed, then try to deduce from argument types
+        w_types = self.space.newtuple([self.space.type(obj_w) for obj_w in args_w])
+        proto = self.construct_template_args(w_types)
+        method = self.find_method_template(self.name, proto)
+
+        # only cache result if the name retains the full template
+        if len(method.functions) == 1:
+            fullname = capi.c_method_full_name(self.space, method.functions[0].cppmethod)
+            if 0 <= fullname.rfind('>'):
+                self.master.overloads[fullname] = method
+
+        return method.descr_get(self.w_this, []).call(args_w)
+
+    @unwrap_spec(args_w='args_w')
+    def getitem(self, args_w):
+        space = self.space
+
+        if space.isinstance_w(args_w[0], space.w_tuple):
+            w_args = args_w[0]
+        else:
+            w_args = space.newtuple(args_w)
+
+        tmpl_args = self.construct_template_args(w_args)
+        fullname = self.name+'<'+tmpl_args+'>'
+        try:
+            method = self.master.overloads[fullname]
+        except KeyError:
+            method = self.find_method_template(fullname)
+
+        # cache result (name is always full templated name)
+        self.master.overloads[fullname] = method
+
+        return method.descr_get(self.w_this, [])
 
     def __repr__(self):
         return "W_CPPTemplateOverload(%s)" % [f.prototype() for f in self.functions]
@@ -1502,7 +1522,7 @@ def move(space, w_obj):
     """Casts the given instance into an C++-style rvalue."""
     obj = space.interp_w(W_CPPInstance, w_obj)
     if obj:
-        obj.flags |= INSTANCE_FLAGS_IS_R_VALUE
+        obj.flags |= INSTANCE_FLAGS_IS_RVALUE
     return w_obj
 
 

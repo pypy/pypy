@@ -124,7 +124,7 @@ class AppTestTEMPLATES:
         import _cppyy
         Obj1                  = _cppyy.gbl.AttrTesting.Obj1
         Obj2                  = _cppyy.gbl.AttrTesting.Obj2
-        select_template_arg   = _cppyy.gbl.AttrTesting.has_var1
+        select_template_arg   = _cppyy.gbl.AttrTesting.select_template_arg
 
        #assert select_template_arg[0, Obj1, Obj2].argument == Obj1
         assert select_template_arg[1, Obj1, Obj2].argument == Obj2

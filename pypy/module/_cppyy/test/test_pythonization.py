@@ -75,6 +75,9 @@ class AppTestPYTHONIZATION:
 
         import _cppyy as cppyy
 
+        # TODO: disabled for now until decided on proper naming/iface
+        return
+
         cppyy.gbl.pyzables.GimeDerived._creates = True
 
         result = cppyy.gbl.pyzables.GimeDerived()

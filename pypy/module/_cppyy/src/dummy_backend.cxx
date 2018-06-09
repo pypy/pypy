@@ -941,6 +941,10 @@ char* cppyy_method_name(cppyy_method_t method) {
     return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_name);
 }
 
+char* cppyy_method_full_name(cppyy_method_t method) {
+    return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_name);
+}
+
 char* cppyy_method_result_type(cppyy_method_t method) {
     return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_returntype);
 }
