@@ -11,6 +11,13 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 str0 = annmodel.s_Str0
 
+def llexternal(name, args, result, **kwds):
+    # Issue #2840
+    # All functions defined here should be releasegil=False, both
+    # because it doesn't make much sense to release the GIL and
+    # because the OS environment functions are usually not thread-safe
+    return rffi.llexternal(name, args, result, releasegil=False, **kwds)
+
 # ____________________________________________________________
 #
 # Annotation support to control access to 'os.environ' in the RPython
@@ -66,7 +73,7 @@ class OsEnvironController(Controller):
 prefix = ''
 if sys.platform.startswith('darwin'):
     CCHARPPP = rffi.CArrayPtr(rffi.CCHARPP)
-    _os_NSGetEnviron = rffi.llexternal(
+    _os_NSGetEnviron = llexternal(
         '_NSGetEnviron', [], CCHARPPP,
         compilation_info=ExternalCompilationInfo(includes=['crt_externs.h'])
         )
@@ -119,14 +126,13 @@ def r_getenv(name):
 def r_putenv(name, value):
     just_a_placeholder
 
-os_getenv = rffi.llexternal('getenv', [rffi.CCHARP], rffi.CCHARP,
-                            releasegil=False)
-os_putenv = rffi.llexternal(prefix + 'putenv', [rffi.CCHARP], rffi.INT,
+os_getenv = llexternal('getenv', [rffi.CCHARP], rffi.CCHARP)
+os_putenv = llexternal(prefix + 'putenv', [rffi.CCHARP], rffi.INT,
                             save_err=rffi.RFFI_SAVE_ERRNO)
 if _WIN32:
-    _wgetenv = rffi.llexternal('_wgetenv', [rffi.CWCHARP], rffi.CWCHARP,
-                               compilation_info=eci, releasegil=False)
-    _wputenv = rffi.llexternal('_wputenv', [rffi.CWCHARP], rffi.INT,
+    _wgetenv = llexternal('_wgetenv', [rffi.CWCHARP], rffi.CWCHARP,
+                               compilation_info=eci)
+    _wputenv = llexternal('_wputenv', [rffi.CWCHARP], rffi.INT,
                                compilation_info=eci,
                                save_err=rffi.RFFI_SAVE_LASTERROR)
 
@@ -206,7 +212,7 @@ def r_unsetenv(name):
 REAL_UNSETENV = False
 
 if hasattr(__import__(os.name), 'unsetenv'):
-    os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], rffi.INT,
+    os_unsetenv = llexternal('unsetenv', [rffi.CCHARP], rffi.INT,
                                   save_err=rffi.RFFI_SAVE_ERRNO)
 
     def unsetenv_llimpl(name):
