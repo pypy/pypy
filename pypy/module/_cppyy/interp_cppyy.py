@@ -162,10 +162,11 @@ W_CPPLibrary.typedef.acceptable_as_base_class = True
 #   - overloads: user-facing collections of overloaded functions
 #   - wrappers: internal holders of the individual C++ methods
 #
-#  W_CPPOverload:             instance methods (base class)
-#  W_CPPConstructorOverload:  constructors
-#  W_CPPStaticOverload:       free and static functions
-#  W_CPPTemplateOverload:     templated methods/functions
+#  W_CPPOverload:                 instance methods (base class)
+#  W_CPPConstructorOverload:      constructors
+#  W_CPPStaticOverload:           free and static functions
+#  W_CPPTemplateOverload:         templated methods
+#  W_CPPTemplateStaticOveload:    templated free and static functions
 #
 #  CPPMethod:         a single function or method (base class)
 #  CPPSetItem:        specialization for Python's __setitem__
@@ -666,18 +667,10 @@ W_CPPConstructorOverload.typedef = TypeDef(
 )
 
 
-class W_CPPTemplateOverload(W_CPPOverload):
-    """App-level dispatcher to allow both lookup/instantiation of templated methods and
-    dispatch among overloads between templated and non-templated overloads."""
+class TemplateOverloadMixin(object):
+    """Mixin to instantiate templated methods/functions."""
 
-    _attrs_ = ['name', 'overloads', 'master']
-    _immutable_fields_ = ['name']
-
-    def __init__(self, space, name, declaring_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
-         W_CPPOverload.__init__(self, space, declaring_scope, functions, flags)
-         self.name = name
-         self.overloads = {}
-         self.master = self
+    _mixin_ = True
 
     def construct_template_args(self, w_args):
         space = self.space
@@ -719,19 +712,8 @@ class W_CPPTemplateOverload(W_CPPOverload):
             cppol = W_CPPOverload(space, self.scope, funcs[:], self.flags)
         return cppol
 
-    @unwrap_spec(args_w='args_w')
-    def descr_get(self, w_cppinstance, args_w):
-        if self.space.is_w(w_cppinstance, self.space.w_None):
-            return self  # unbound
-        cppol = W_CPPTemplateOverload(self.space, self.name, self.scope, self.functions, self.flags)
-        cppol.w_this = w_cppinstance
-        cppol.master = self.master
-        return cppol     # bound
-
-    @unwrap_spec(args_w='args_w')
-    def call(self, args_w):
-        # direct call means attempt to deduce types ourselves
-        # first, try to match with existing methods
+    def instantiation_from_args(self, args_w):
+        # try to match with run-time instantiations
         for cppol in self.master.overloads.values():
             try:
                 cppol.descr_get(self.w_this, []).call(args_w)
@@ -772,6 +754,42 @@ class W_CPPTemplateOverload(W_CPPOverload):
 
         return method.descr_get(self.w_this, [])
 
+
+class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
+    """App-level dispatcher to allow both lookup/instantiation of templated methods and
+    dispatch among overloads between templated and non-templated method."""
+
+    _attrs_ = ['name', 'overloads', 'master']
+    _immutable_fields_ = ['name']
+
+    def __init__(self, space, name, declaring_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
+         W_CPPOverload.__init__(self, space, declaring_scope, functions, flags)
+         self.name = name
+         self.overloads = {}
+         self.master = self
+
+    @unwrap_spec(args_w='args_w')
+    def descr_get(self, w_cppinstance, args_w):
+        # like W_CPPOverload, but returns W_CPPTemplateOverload
+        if self.space.is_w(w_cppinstance, self.space.w_None):
+            return self  # unbound, so no new instance needed
+        cppol = W_CPPTemplateOverload(self.space, self.name, self.scope, self.functions, self.flags)
+        cppol.w_this = w_cppinstance
+        return cppol     # bound
+
+    @unwrap_spec(args_w='args_w')
+    def call(self, args_w):
+        # direct call: either pick non-templated overload or attempt to deduce
+        # the template instantiation from the argument types
+
+        # try existing overloads or compile-time instantiations
+        try:
+            return W_CPPOverload.call(self, args_w)
+        except Exception:
+            pass
+
+        return self.instantiation_from_args(args_w)
+
     def __repr__(self):
         return "W_CPPTemplateOverload(%s)" % [f.prototype() for f in self.functions]
 
@@ -782,6 +800,57 @@ W_CPPTemplateOverload.typedef = TypeDef(
     __call__    = interp2app(W_CPPTemplateOverload.call),
     __useffi__  = GetSetProperty(W_CPPTemplateOverload.fget_useffi, W_CPPTemplateOverload.fset_useffi),
     __doc__     = GetSetProperty(W_CPPTemplateOverload.fget_doc)
+)
+
+class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
+    """App-level dispatcher to allow both lookup/instantiation of templated methods and
+    dispatch among overloads between templated and non-templated method."""
+
+    _attrs_ = ['name', 'overloads', 'master']
+    _immutable_fields_ = ['name']
+
+    def __init__(self, space, name, declaring_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
+         W_CPPStaticOverload.__init__(self, space, declaring_scope, functions, flags)
+         self.name = name
+         self.overloads = {}
+         self.master = self
+
+    @unwrap_spec(args_w='args_w')
+    def descr_get(self, w_cppinstance, args_w):
+        # like W_CPPStaticOverload, but returns W_CPPTemplateStaticOverload
+        if isinstance(w_cppinstance, W_CPPInstance):
+            cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance)
+            if cppinstance.clsdecl.handle != self.scope.handle:
+                cppol = W_CPPTemplateStaticOverload(self.space, self.name, self.scope, self.functions, self.flags)
+                cppol.w_this = w_cppinstance
+                cppol.master = self.master
+                return cppol       # bound
+        return self      # unbound
+
+    @unwrap_spec(args_w='args_w')
+    def call(self, args_w):
+        # direct call: either pick non-templated overload or attempt to deduce
+        # the template instantiation from the argument types
+
+        # try existing overloads or compile-time instantiations
+        try:
+            return W_CPPStaticOverload.call(self, args_w)
+        except Exception:
+            pass
+
+        # try new instantiation
+        return self.instantiation_from_args(args_w)
+
+    def __repr__(self):
+        return "W_CPPTemplateStaticOverload(%s)" % [f.prototype() for f in self.functions]
+
+W_CPPTemplateStaticOverload.typedef = TypeDef(
+    'CPPTemplateStaticOverload',
+    __get__     = interp2app(W_CPPTemplateStaticOverload.descr_get),
+    __getitem__ = interp2app(W_CPPTemplateStaticOverload.getitem),
+    __call__    = interp2app(W_CPPTemplateStaticOverload.call),
+    __useffi__  = GetSetProperty(W_CPPTemplateStaticOverload.fget_useffi, W_CPPTemplateStaticOverload.fset_useffi),
+    __doc__     = GetSetProperty(W_CPPTemplateStaticOverload.fget_doc)
 )
 
 
@@ -1006,10 +1075,10 @@ class W_CPPNamespaceDecl(W_CPPScopeDecl):
                 if capi.c_method_is_template(self.space, self, idx):
                     templated = True
             if templated:
-                return W_CPPTemplateOverload(self.space, meth_name, self, cppfunctions[:])
+                return W_CPPTemplateStaticOverload(self.space, meth_name, self, cppfunctions[:])
             return W_CPPStaticOverload(self.space, self, cppfunctions[:])
         elif capi.c_exists_method_template(self.space, self, meth_name):
-            return W_CPPTemplateOverload(self.space, meth_name, self, [])
+            return W_CPPTemplateStaticOverload(self.space, meth_name, self, [])
         raise self.missing_attribute_error(meth_name)
 
     def find_datamember(self, dm_name):
@@ -1092,9 +1161,14 @@ class W_CPPClassDecl(W_CPPScopeDecl):
             if ftype & FUNCTION_IS_CONSTRUCTOR:
                 overload = W_CPPConstructorOverload(self.space, self, methods[:])
             elif ftype & FUNCTION_IS_STATIC:
-                overload = W_CPPStaticOverload(self.space, self, methods[:])
+                if ftype & FUNCTION_IS_TEMPLATE:
+                    cppname = capi.c_method_name(self.space, methods[0].cppmethod)
+                    overload = W_CPPTemplateStaticOverload(self.space, cppname, self, methods[:])
+                else:
+                    overload = W_CPPStaticOverload(self.space, self, methods[:])
             elif ftype & FUNCTION_IS_TEMPLATE:
-                overload = W_CPPTemplateOverload(self.space, pyname, self, methods[:])
+                cppname = capi.c_method_name(self.space, methods[0].cppmethod)
+                overload = W_CPPTemplateOverload(self.space, cppname, self, methods[:])
             else:
                 overload = W_CPPOverload(self.space, self, methods[:])
             self.overloads[pyname] = overload

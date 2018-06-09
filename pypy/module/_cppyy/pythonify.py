@@ -8,9 +8,9 @@ import sys
 # the interp-level does not support metaclasses, they are created at app-level.
 # These are the metaclass base classes:
 class CPPScope(type):
-    def __getattr__(self, name, type_only=False):
+    def __getattr__(self, name):
         try:
-            return get_scoped_pycppitem(self, name, type_only)  # will cache on self
+            return get_scoped_pycppitem(self, name)  # will cache on self
         except Exception as e:
             raise AttributeError("%s object has no attribute '%s' (details: %s)" %
                                  (self, name, str(e)))
@@ -53,10 +53,13 @@ class CPPTemplate(object):
             [self._name, '<', ','.join(map(self._arg_to_str, args))])
         fullname += '>'
         try:
-            return getattr(self._scope, fullname, True)
-        except AttributeError:
+            return self._scope.__dict__[fullname]
+        except KeyError:
             pass
-        raise TypeError("%s does not exist" % fullname)
+        result = get_scoped_pycppitem(self._scope, fullname, True)
+        if not result:
+            raise TypeError("%s does not exist" % fullname)
+        return result
 
     def __getitem__(self, *args):
         if args and type(args[0]) == tuple:
