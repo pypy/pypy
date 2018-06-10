@@ -76,9 +76,7 @@ extern "C" {
     cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, cppyy_type_t result_type);
 
     RPY_EXTERN
-    cppyy_funcaddr_t cppyy_function_address_from_index(cppyy_scope_t scope, cppyy_index_t idx);
-    RPY_EXTERN
-    cppyy_funcaddr_t cppyy_function_address_from_method(cppyy_method_t method);
+    cppyy_funcaddr_t cppyy_function_address(cppyy_method_t method);
 
     /* handling of function argument buffer ----------------------------------- */
     RPY_EXTERN
@@ -132,23 +130,28 @@ extern "C" {
     cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* name);
 
     RPY_EXTERN
-    char* cppyy_method_name(cppyy_scope_t scope, cppyy_index_t idx);
+    cppyy_method_t cppyy_get_method(cppyy_scope_t scope, cppyy_index_t idx);
+
     RPY_EXTERN
-    char* cppyy_method_mangled_name(cppyy_scope_t scope, cppyy_index_t idx);
+    char* cppyy_method_name(cppyy_method_t);
     RPY_EXTERN
-    char* cppyy_method_result_type(cppyy_scope_t scope, cppyy_index_t idx);
+    char* cppyy_method_full_name(cppyy_method_t);
     RPY_EXTERN
-    int cppyy_method_num_args(cppyy_scope_t scope, cppyy_index_t idx);
+    char* cppyy_method_mangled_name(cppyy_method_t);
     RPY_EXTERN
-    int cppyy_method_req_args(cppyy_scope_t scope, cppyy_index_t idx);
+    char* cppyy_method_result_type(cppyy_method_t);
     RPY_EXTERN
-    char* cppyy_method_arg_type(cppyy_scope_t scope, cppyy_index_t idx, int arg_index);
+    int cppyy_method_num_args(cppyy_method_t);
     RPY_EXTERN
-    char* cppyy_method_arg_default(cppyy_scope_t scope, cppyy_index_t idx, int arg_index);
+    int cppyy_method_req_args(cppyy_method_t);
     RPY_EXTERN
-    char* cppyy_method_signature(cppyy_scope_t scope, cppyy_index_t idx, int show_formalargs);
+    char* cppyy_method_arg_type(cppyy_method_t, int arg_index);
     RPY_EXTERN
-    char* cppyy_method_prototype(cppyy_scope_t scope, cppyy_index_t idx, int show_formalargs);
+    char* cppyy_method_arg_default(cppyy_method_t, int arg_index);
+    RPY_EXTERN
+    char* cppyy_method_signature(cppyy_method_t, int show_formalargs);
+    RPY_EXTERN
+    char* cppyy_method_prototype(cppyy_scope_t scope, cppyy_method_t idx, int show_formalargs);
     RPY_EXTERN
     int cppyy_is_const_method(cppyy_method_t);
 
@@ -157,25 +160,21 @@ extern "C" {
     RPY_EXTERN
     int cppyy_method_is_template(cppyy_scope_t scope, cppyy_index_t idx);
     RPY_EXTERN
-    int cppyy_method_num_template_args(cppyy_scope_t scope, cppyy_index_t idx);
-    RPY_EXTERN
-    char* cppyy_method_template_arg_name(cppyy_scope_t scope, cppyy_index_t idx, cppyy_index_t iarg);
+    cppyy_method_t cppyy_get_method_template(cppyy_scope_t scope, const char* name, const char* proto);
 
-    RPY_EXTERN
-    cppyy_method_t cppyy_get_method(cppyy_scope_t scope, cppyy_index_t idx);
     RPY_EXTERN
     cppyy_index_t cppyy_get_global_operator(
         cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op);
 
     /* method properties ------------------------------------------------------ */
     RPY_EXTERN
-    int cppyy_is_publicmethod(cppyy_type_t type, cppyy_index_t idx);
+    int cppyy_is_publicmethod(cppyy_method_t);
     RPY_EXTERN
-    int cppyy_is_constructor(cppyy_type_t type, cppyy_index_t idx);
+    int cppyy_is_constructor(cppyy_method_t);
     RPY_EXTERN
-    int cppyy_is_destructor(cppyy_type_t type, cppyy_index_t idx);
+    int cppyy_is_destructor(cppyy_method_t);
     RPY_EXTERN
-    int cppyy_is_staticmethod(cppyy_type_t type, cppyy_index_t idx);
+    int cppyy_is_staticmethod(cppyy_method_t);
 
     /* data member reflection information ------------------------------------- */
     RPY_EXTERN
