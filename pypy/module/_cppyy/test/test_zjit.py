@@ -71,7 +71,9 @@ class FakeType(FakeBase):
         self.name = name
         self.__name__ = name
     def getname(self, space, name):
-        return self.name
+        if sys.hexversion < 0x3000000:
+            return self.name
+        return unicode(self.name)
 class FakeBuffer(FakeBase):
     typedname = "buffer"
     def __init__(self, val):
@@ -108,9 +110,11 @@ class FakeConfig(object):
 class FakeSpace(object):
     fake = True
 
-    w_None = None
-    w_str = FakeType("str")
-    w_int = FakeType("int")
+    w_None  = None
+    w_str   = FakeType("str")
+    w_text  = FakeType("str")
+    w_bytes = FakeType("str")
+    w_int   = FakeType("int")
     w_float = FakeType("float")
 
     def __init__(self):

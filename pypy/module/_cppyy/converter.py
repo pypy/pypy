@@ -391,7 +391,7 @@ class CStringConverter(TypeConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = self._get_raw_address(space, w_obj, offset)
         charpptr = rffi.cast(rffi.CCHARPP, address)
-        return space.newbytes(rffi.charp2str(charpptr[0]))
+        return space.newtext(rffi.charp2str(charpptr[0]))
 
     def free_argument(self, space, arg, call_local):
         lltype.free(rffi.cast(rffi.CCHARPP, arg)[0], flavor='raw')
@@ -408,7 +408,7 @@ class CStringConverterWithSize(CStringConverter):
         strsize = self.size
         if charpptr[self.size-1] == '\0':
             strsize = self.size-1  # rffi will add \0 back
-        return space.newbytes(rffi.charpsize2str(charpptr, strsize))
+        return space.newtext(rffi.charpsize2str(charpptr, strsize))
 
 
 class VoidPtrConverter(TypeConverter):

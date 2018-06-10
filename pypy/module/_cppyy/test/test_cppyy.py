@@ -50,9 +50,13 @@ class AppTestCPPYY:
         import sys, math
         t = self.example01
 
+        pylong = int
+        if sys.hexversion < 0x3000000:
+            pylong = long
+
         res = t.get_overload("staticAddOneToInt")(1)
         assert res == 2
-        res = t.get_overload("staticAddOneToInt")(1L)
+        res = t.get_overload("staticAddOneToInt")(pylong(1))
         assert res == 2
         res = t.get_overload("staticAddOneToInt")(1, 2)
         assert res == 4

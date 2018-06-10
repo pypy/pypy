@@ -4,10 +4,22 @@ import types
 import sys
 
 
-# Metaclasses are needed to store C++ static data members as properties. Since
-# the interp-level does not support metaclasses, they are created at app-level.
-# These are the metaclass base classes:
-class CPPScope(type):
+# Metaclasses are needed to store C++ static data members as properties and to
+# provide Python language features such as a customized __dir__ for namespaces
+# and __getattr__ for both. These features are used for lazy lookup/creation.
+# Since the interp-level does not support metaclasses, this is all done at the
+# app-level.
+#
+# C++ namespaces: are represented as Python classes, with CPPNamespace as the
+#   base class, which is at the moment just a label, and CPPNamespaceMeta as
+#   the base class of their invididualized meta class.
+#
+# C++ classes: are represented as Python classes, with CPPClass as the base
+#   class, which is a subclass of the interp-level CPPInstance. The former
+#   sets up the Python-class behavior for bound classes, the latter adds the
+#   bound object behavior that lives at the class level.
+
+class CPPScopeMeta(type):
     def __getattr__(self, name):
         try:
             return get_scoped_pycppitem(self, name)  # will cache on self
@@ -15,18 +27,57 @@ class CPPScope(type):
             raise AttributeError("%s object has no attribute '%s' (details: %s)" %
                                  (self, name, str(e)))
 
-class CPPMetaNamespace(CPPScope):
+class CPPNamespaceMeta(CPPScopeMeta):
     def __dir__(self):
         return self.__cppdecl__.__dir__()
 
-class CPPClass(CPPScope):
+class CPPClassMeta(CPPScopeMeta):
     pass
 
-# namespace base class (class base class defined in _post_import_startup()
-class CPPNamespace(object):
-    __metatype__ = CPPMetaNamespace
+# from six.py ---
+# Copyright (c) 2010-2017 Benjamin Peterson
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+def with_metaclass(meta, *bases):
+    """Create a base class with a metaclass."""
+    # This requires a bit of explanation: the basic idea is to make a dummy
+    # metaclass for one level of class instantiation that replaces itself with
+    # the actual metaclass.
+    class metaclass(type):
+
+        def __new__(cls, name, this_bases, d):
+            return meta(name, bases, d)
+
+        @classmethod
+        def __prepare__(cls, name, this_bases):
+            return meta.__prepare__(name, bases)
+    return type.__new__(metaclass, 'temporary_class', (), {})
+# --- end from six.py
+
+# C++ namespace base class (the C++ class base class defined in _post_import_startup)
+class CPPNamespace(with_metaclass(CPPNamespaceMeta, object)):
+     pass
 
 
+# TODO: this can be moved to the interp level (and share template argument
+# construction with function templates there)
 class CPPTemplate(object):
     def __init__(self, name, scope=None):
         self._name = name
@@ -123,7 +174,7 @@ def make_cppnamespace(scope, name, decl):
 
     # create a metaclass to allow properties (for static data write access)
     import _cppyy
-    ns_meta = type(name+'_meta', (CPPMetaNamespace,), {})
+    ns_meta = type(CPPNamespace)(name+'_meta', (CPPNamespaceMeta,), {})
 
     # create the python-side C++ namespace representation, cache in scope if given
     d = {"__cppdecl__" : decl,
@@ -164,7 +215,7 @@ def make_cppclass(scope, cl_name, decl):
     # get a list of base classes for class creation
     bases = [get_pycppclass(base) for base in decl.get_base_names()]
     if not bases:
-        bases = [CPPInstance,]
+        bases = [CPPClass,]
     else:
         # it's possible that the required class now has been built if one of
         # the base classes uses it in e.g. a function interface
@@ -202,10 +253,10 @@ def make_cppclass(scope, cl_name, decl):
 
     # create a metaclass to allow properties (for static data write access)
     metabases = [type(base) for base in bases]
-    metacpp = type(CPPScope)(cl_name+'_meta', _drop_cycles(metabases), d_meta)
+    cl_meta = type(CPPClassMeta)(cl_name+'_meta', _drop_cycles(metabases), d_meta)
 
     # create the python-side C++ class
-    pycls = metacpp(cl_name, _drop_cycles(bases), d_class)
+    pycls = cl_meta(cl_name, _drop_cycles(bases), d_class)
 
     # store the class on its outer scope
     setattr(scope, cl_name, pycls)
@@ -284,7 +335,7 @@ def get_scoped_pycppitem(scope, name, type_only=False):
 def extract_namespace(name):
     # find the namespace the named class lives in, take care of templates
     tpl_open = 0
-    for pos in xrange(len(name)-1, 1, -1):
+    for pos in range(len(name)-1, 1, -1):
         c = name[pos]
 
         # count '<' and '>' to be able to skip template contents
@@ -425,11 +476,11 @@ def _post_import_startup():
     # at pypy-c startup, rather than on the "import _cppyy" statement
     import _cppyy
 
-    # root of all proxy classes: CPPInstance in pythonify exists to combine
-    # the CPPScope metaclass with the interp-level CPPInstanceBase
-    global CPPInstance
-    class CPPInstance(_cppyy.CPPInstanceBase):
-        __metaclass__ = CPPScope
+    # root of all proxy classes: CPPClass in pythonify exists to combine the
+    # CPPClassMeta metaclass (for Python-side class behavior) with the
+    # interp-level CPPInstance (for bound object behavior)
+    global CPPClass
+    class CPPClass(with_metaclass(CPPClassMeta, _cppyy.CPPInstance)):
         pass
 
     # class generator callback

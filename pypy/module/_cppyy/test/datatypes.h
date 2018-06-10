@@ -44,16 +44,16 @@ public:
         m_cc_called(true), m_x(s.m_x), m_y(s.m_y), m_z(s.m_z), m_t(s.m_t) {}
 
     double operator[](int i) {
-       if (i == 0) return m_x;
-       if (i == 1) return m_y;
-       if (i == 2) return m_z;
-       if (i == 3) return m_t;
-       return -1;
+        if (i == 0) return m_x;
+        if (i == 1) return m_y;
+        if (i == 2) return m_z;
+        if (i == 3) return m_t;
+        return -1;
     }
 
     bool operator==(const FourVector& o) {
-       return (m_x == o.m_x && m_y == o.m_y &&
-               m_z == o.m_z && m_t == o.m_t);
+        return (m_x == o.m_x && m_y == o.m_y &&
+                m_z == o.m_z && m_t == o.m_t);
     }
 
 public:

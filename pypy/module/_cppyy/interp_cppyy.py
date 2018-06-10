@@ -1470,7 +1470,9 @@ W_CPPInstance.typedef = TypeDef(
     __init__ = interp2app(W_CPPInstance.instance__init__),
     __eq__ = interp2app(W_CPPInstance.instance__eq__),
     __ne__ = interp2app(W_CPPInstance.instance__ne__),
+    # should be based on python version, but syntax is simpler this way
     __nonzero__ = interp2app(W_CPPInstance.instance__nonzero__),
+    __bool__ = interp2app(W_CPPInstance.instance__nonzero__),
     __len__ = interp2app(W_CPPInstance.instance__len__),
     __cmp__ = interp2app(W_CPPInstance.instance__cmp__),
     __repr__ = interp2app(W_CPPInstance.instance__repr__),
