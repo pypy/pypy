@@ -89,6 +89,13 @@ class AppTestTEMPLATES:
         #_cppyy.gbl.SomeNS.tuplify(s, 1, 4., "aap")
         #assert s.str() == '(1, 4, aap)
 
+        _cppyy.gbl.gInterpreter.Declare("""
+            template<typename... myTypes>
+            int test04_variadic_func() { return sizeof...(myTypes); }
+        """)
+
+        assert _cppyy.gbl.test04_variadic_func['int', 'double', 'void*']() == 3
+
     def test05_variadic_overload(self):
         """Call an overloaded variadic function"""
 
