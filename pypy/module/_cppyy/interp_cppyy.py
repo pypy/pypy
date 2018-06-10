@@ -712,7 +712,7 @@ class TemplateOverloadMixin(object):
             cppol = W_CPPOverload(space, self.scope, funcs[:], self.flags)
         return cppol
 
-    def instantiation_from_args(self, args_w):
+    def instantiation_from_args(self, name, args_w):
         # try to match with run-time instantiations
         for cppol in self.master.overloads.values():
             try:
@@ -723,7 +723,7 @@ class TemplateOverloadMixin(object):
         # if all failed, then try to deduce from argument types
         w_types = self.space.newtuple([self.space.type(obj_w) for obj_w in args_w])
         proto = self.construct_template_args(w_types)
-        method = self.find_method_template(self.name, proto)
+        method = self.find_method_template(name, proto)
 
         # only cache result if the name retains the full template
         if len(method.functions) == 1:
@@ -733,8 +733,7 @@ class TemplateOverloadMixin(object):
 
         return method.descr_get(self.w_this, []).call(args_w)
 
-    @unwrap_spec(args_w='args_w')
-    def getitem(self, args_w):
+    def getitem_impl(self, name, args_w):
         space = self.space
 
         if space.isinstance_w(args_w[0], space.w_tuple):
@@ -743,7 +742,7 @@ class TemplateOverloadMixin(object):
             w_args = space.newtuple(args_w)
 
         tmpl_args = self.construct_template_args(w_args)
-        fullname = self.name+'<'+tmpl_args+'>'
+        fullname = name+'<'+tmpl_args+'>'
         try:
             method = self.master.overloads[fullname]
         except KeyError:
@@ -788,7 +787,11 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
         except Exception:
             pass
 
-        return self.instantiation_from_args(args_w)
+        return self.instantiation_from_args(self.name, args_w)
+
+    @unwrap_spec(args_w='args_w')
+    def getitem(self, args_w):
+        return self.getitem_impl(self.name, args_w)
 
     def __repr__(self):
         return "W_CPPTemplateOverload(%s)" % [f.prototype() for f in self.functions]
@@ -839,7 +842,11 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
             pass
 
         # try new instantiation
-        return self.instantiation_from_args(args_w)
+        return self.instantiation_from_args(self.name, args_w)
+
+    @unwrap_spec(args_w='args_w')
+    def getitem(self, args_w):
+        return self.getitem_impl(self.name, args_w)
 
     def __repr__(self):
         return "W_CPPTemplateStaticOverload(%s)" % [f.prototype() for f in self.functions]
