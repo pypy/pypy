@@ -118,12 +118,18 @@ typedef DWORD pthread_key_t;
 RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 
 
-/* only for the fall-back path in the JIT */
-#define OP_THREADLOCALREF_GET_NONCONST(RESTYPE, offset, r)      \
+#define OP_THREADLOCALREF_LOAD(RESTYPE, offset, r)              \
     do {                                                        \
         char *a;                                                \
         OP_THREADLOCALREF_ADDR(a);                              \
         r = *(RESTYPE *)(a + offset);                           \
+    } while (0)
+
+#define OP_THREADLOCALREF_STORE(VALTYPE, offset, value)         \
+    do {                                                        \
+        char *a;                                                \
+        OP_THREADLOCALREF_ADDR(a);                              \
+        *(VALTYPE *)(a + offset) = value;                       \
     } while (0)
 
 

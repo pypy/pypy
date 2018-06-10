@@ -27,11 +27,9 @@ def chr(space, w_ascii):
 @unwrap_spec(code=int)
 def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
-    # XXX range checking!
-    try:
-        c = UNICHR(code)
-    except ValueError:
+    if code < 0 or code > 0x10FFFF:
         raise oefmt(space.w_ValueError, "unichr() arg out of range")
+    c = UNICHR(code)
     return space.newunicode(c)
 
 def len(space, w_obj):

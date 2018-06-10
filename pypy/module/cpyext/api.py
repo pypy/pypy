@@ -60,7 +60,7 @@ include_dirs = [
 
 configure_eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
-        includes=['Python.h', 'stdarg.h', 'structmember.h'],
+        includes=['Python.h', 'stdarg.h', 'structmember.h', 'marshal.h'],
         compile_extra=['-DPy_BUILD_CORE'])
 
 class CConfig:
@@ -118,6 +118,7 @@ def feof(fp):
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
 udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_marshal_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 
 constant_names = """
@@ -644,7 +645,7 @@ SYMBOLS_C = [
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar', 'PyInt_FromLong',
-    'PyTuple_New',
+    'PyTuple_New', '_Py_Dealloc',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -1132,10 +1133,11 @@ def setup_init_functions(eci, prefix):
 
 def attach_c_functions(space, eci, prefix):
     state = space.fromcache(State)
-    state.C._Py_Dealloc = rffi.llexternal('_Py_Dealloc',
-                                         [PyObject], lltype.Void,
-                                         compilation_info=eci,
-                                         _nowrapper=True)
+    state.C._Py_Dealloc = rffi.llexternal(
+        mangle_name(prefix, '_Py_Dealloc'),
+        [PyObject], lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True)
     state.C.PyObject_Free = rffi.llexternal(
         mangle_name(prefix, 'PyObject_Free'),
         [rffi.VOIDP], lltype.Void,
@@ -1163,8 +1165,8 @@ def attach_c_functions(space, eci, prefix):
         '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
-                   Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
-                   eci, _nowrapper=True, c_type='Py_ssize_t')
+                   rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
+                   eci, _nowrapper=True, c_type='void *')
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
         '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
@@ -1221,14 +1223,11 @@ def build_bridge(space):
         global_objects.append('PyTypeObject _PyExc_%s;' % name)
     global_code = '\n'.join(global_objects)
 
-    prologue = ("#include <Python.h>\n"
-                "#include <structmember.h>\n"
+    prologue = ("#include <Python.h>\n" +
+                "#include <structmember.h>\n" +
+                "#include <marshal.h>\n" +
+                ("#include <pypy_numpy.h>\n" if use_micronumpy else "") +
                 "#include <src/thread.c>\n")
-    if use_micronumpy:
-        prologue = ("#include <Python.h>\n"
-                    "#include <structmember.h>\n"
-                    "#include <pypy_numpy.h>\n"
-                    "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
