@@ -77,6 +77,10 @@ double my_global_double = 12.;
 double my_global_array[500];
 static double sd = 1234.;
 double* my_global_ptr = &sd;
+some_int_holder my_global_int_holders[5] = {
+    some_int_holder(13), some_int_holder(42), some_int_holder(88),
+    some_int_holder(-1), some_int_holder(17) };
+
 
 // for life-line and identity testing
 int some_class_with_data::some_data::s_num_data = 0;

@@ -1,7 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
-    "This module brigdes the cppyy frontend with its backend, through PyPy.\n\
+    "This module bridges the cppyy frontend with its backend, through PyPy.\n\
     See http://cppyy.readthedocs.io/en/latest for full details."
 
     interpleveldefs = {
@@ -14,17 +14,19 @@ class Module(MixedModule):
         '_set_function_generator': 'interp_cppyy.set_function_generator',
         '_register_class'        : 'interp_cppyy.register_class',
         '_get_nullptr'           : 'interp_cppyy.get_nullptr',
-        'CPPInstanceBase'        : 'interp_cppyy.W_CPPInstance',
+        'CPPInstance'            : 'interp_cppyy.W_CPPInstance',
         'addressof'              : 'interp_cppyy.addressof',
         '_bind_object'           : 'interp_cppyy._bind_object',
         'bind_object'            : 'interp_cppyy.bind_object',
         'move'                   : 'interp_cppyy.move',
+        '_pin_type'              : 'interp_cppyy._pin_type',
     }
 
     appleveldefs = {
         '_post_import_startup'   : 'pythonify._post_import_startup',
-        'add_pythonization'      : 'pythonify.add_pythonization',
         'Template'               : 'pythonify.CPPTemplate',
+        'add_pythonization'      : 'pythonify.add_pythonization',
+        'remove_pythonization'   : 'pythonify.remove_pythonization',
     }
 
     def __init__(self, space, *args):

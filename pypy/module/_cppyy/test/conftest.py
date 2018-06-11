@@ -10,7 +10,7 @@ def pytest_runtest_setup(item):
             import os
             tst = os.path.basename(item.location[0])
             if not tst in ('test_helper.py', 'test_cppyy.py', 'test_pythonify.py',
-                           'test_datatypes.py'):
+                           'test_datatypes.py', 'test_pythonization.py'):
                 py.test.skip("genreflex is not installed")
             import re
             if tst == 'test_pythonify.py' and \
@@ -18,6 +18,9 @@ def pytest_runtest_setup(item):
                 py.test.skip("genreflex is not installed")
             elif tst == 'test_datatypes.py' and \
                 not re.search("AppTestDATATYPES.test0[1-7]", item.location[2]):
+                py.test.skip("genreflex is not installed")
+            elif tst == 'test_pythonization.py' and \
+                not re.search("AppTestPYTHONIZATION.test0[0]", item.location[2]):
                 py.test.skip("genreflex is not installed")
 
 def pytest_ignore_collect(path, config):

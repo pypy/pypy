@@ -50,3 +50,15 @@ def test_operator_mapping():
 
     assert helper.map_operator_name(None, "func", 0, "")        == "func"
     assert helper.map_operator_name(None, "some_method", 0, "") == "some_method"
+
+
+def test_namespace_extraction():
+    from pypy.module._cppyy import pythonify
+
+    assert pythonify.extract_namespace("vector")[0]                     == ""
+    assert pythonify.extract_namespace("std::vector")[0]                == "std"
+    assert pythonify.extract_namespace("std::vector<double>")[0]        == "std"
+    assert pythonify.extract_namespace("std::vector<std::vector>")[0]   == "std"
+    assert pythonify.extract_namespace("vector<double>")[0]             == ""
+    assert pythonify.extract_namespace("vector<std::vector>")[0]        == ""
+    assert pythonify.extract_namespace("aap::noot::mies::zus")[0]       == "aap::noot::mies"

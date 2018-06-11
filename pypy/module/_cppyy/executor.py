@@ -5,7 +5,7 @@ from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import jit_libffi
 
-from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
+from pypy.module._rawffi.interp_rawffi import letter2tp
 from pypy.module._rawffi.array import W_Array, W_ArrayInstance
 
 from pypy.module._cppyy import helper, capi, ffitypes
@@ -56,11 +56,11 @@ class PtrTypeExecutor(FunctionExecutor):
             raise NotImplementedError
         lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ptrval = rffi.cast(rffi.ULONG, lresult)
-        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.newtext(self.typecode)))
-        if ptrval == 0:
+        if ptrval == rffi.cast(rffi.ULONG, 0):
             from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
-        return arr.fromaddress(space, ptrval, sys.maxint)
+        shape = letter2tp(space, self.typecode)
+        return W_ArrayInstance(space, shape, sys.maxint/shape.size, ptrval)
 
 
 class VoidExecutor(FunctionExecutor):
@@ -125,7 +125,6 @@ class NumericRefExecutorMixin(object):
 
 
 class CStringExecutor(FunctionExecutor):
-
     def execute(self, space, cppmethod, cppthis, num_args, args):
         lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ccpresult = rffi.cast(rffi.CCHARP, lresult)
@@ -140,7 +139,6 @@ class CStringExecutor(FunctionExecutor):
 
 
 class ConstructorExecutor(FunctionExecutor):
-
     def execute(self, space, cppmethod, cpptype, num_args, args):
         from pypy.module._cppyy import interp_cppyy
         newthis = capi.c_constructor(space, cppmethod, cpptype, num_args, args)
@@ -148,52 +146,52 @@ class ConstructorExecutor(FunctionExecutor):
         return space.newlong(rffi.cast(rffi.LONG, newthis))   # really want ptrdiff_t here
 
 
-class InstancePtrExecutor(FunctionExecutor):
-    _immutable_fields_ = ['cppclass']
+class InstanceExecutor(FunctionExecutor):
+    # For return of a C++ instance by pointer: MyClass* func()
+    _immutable_fields_ = ['clsdecl']
 
-    def __init__(self, space, cppclass):
-        FunctionExecutor.__init__(self, space, cppclass)
-        self.cppclass = cppclass
+    def __init__(self, space, clsdecl):
+        FunctionExecutor.__init__(self, space, clsdecl)
+        self.clsdecl = clsdecl
+
+    def _wrap_result(self, space, obj):
+        from pypy.module._cppyy import interp_cppyy
+        return interp_cppyy.wrap_cppinstance(space,
+            obj, self.clsdecl, do_cast=False, python_owns=True, fresh=True)
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        oresult = capi.c_call_o(space, cppmethod, cppthis, num_args, args, self.clsdecl)
+        return self._wrap_result(space, rffi.cast(capi.C_OBJECT, oresult))
+
+
+class InstancePtrExecutor(InstanceExecutor):
+    # For return of a C++ instance by pointer: MyClass* func()
 
     def cffi_type(self, space):
         state = space.fromcache(ffitypes.State)
         return state.c_voidp
 
-    def execute(self, space, cppmethod, cppthis, num_args, args):
+    def _wrap_result(self, space, obj):
         from pypy.module._cppyy import interp_cppyy
-        long_result = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
-        ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        pyres = interp_cppyy.wrap_cppinstance(space, ptr_result, self.cppclass)
-        return pyres
+        return interp_cppyy.wrap_cppinstance(space, obj, self.clsdecl)
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
+        return self._wrap_result(space, rffi.cast(capi.C_OBJECT, lresult))
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
-        result = rffi.ptradd(buffer, cif_descr.exchange_result)
-        from pypy.module._cppyy import interp_cppyy
-        ptr_result = rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, result)[0])
-        return interp_cppyy.wrap_cppinstance(space, ptr_result, self.cppclass)
+        presult = rffi.ptradd(buffer, cif_descr.exchange_result)
+        obj = rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, presult)[0])
+        return self._wrap_result(space, obj)
 
 class InstancePtrPtrExecutor(InstancePtrExecutor):
+    # For return of a C++ instance by ptr-to-ptr or ptr-to-ref: MyClass*& func()
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        from pypy.module._cppyy import interp_cppyy
-        voidp_result = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
-        ref_address = rffi.cast(rffi.VOIDPP, voidp_result)
-        ptr_result = rffi.cast(capi.C_OBJECT, ref_address[0])
-        return interp_cppyy.wrap_cppinstance(space, ptr_result, self.cppclass)
-
-    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
-        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
-        raise FastCallNotPossible
-
-class InstanceExecutor(InstancePtrExecutor):
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        from pypy.module._cppyy import interp_cppyy
-        long_result = capi.c_call_o(space, cppmethod, cppthis, num_args, args, self.cppclass)
-        ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.wrap_cppinstance(space, ptr_result, self.cppclass,
-                                             do_cast=False, python_owns=True, fresh=True)
+        presult = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
+        ref = rffi.cast(rffi.VOIDPP, presult)
+        return self._wrap_result(space, rffi.cast(capi.C_OBJECT, ref[0]))
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
@@ -201,27 +199,24 @@ class InstanceExecutor(InstancePtrExecutor):
 
 
 class StdStringExecutor(InstancePtrExecutor):
-
     def execute(self, space, cppmethod, cppthis, num_args, args):
         cstr, cstr_len = capi.c_call_s(space, cppmethod, cppthis, num_args, args)
         pystr = rffi.charpsize2str(cstr, cstr_len)
         capi.c_free(space, rffi.cast(rffi.VOIDP, cstr))
-        return space.newbytes(pystr)
+        return space.newbytes(pystr) 
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
 class StdStringRefExecutor(InstancePtrExecutor):
-
-    def __init__(self, space, cppclass):
+    def __init__(self, space, clsdecl):
         from pypy.module._cppyy import interp_cppyy
-        cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
-        InstancePtrExecutor.__init__(self, space, cppclass)
+        clsdecl = interp_cppyy.scope_byname(space, capi.std_string_name)
+        InstancePtrExecutor.__init__(self, space, clsdecl)
 
 
 class PyObjectExecutor(PtrTypeExecutor):
-
     def wrap_result(self, space, lresult):
         space.getbuiltinmodule("cpyext")
         from pypy.module.cpyext.pyobject import PyObject, from_ref, make_ref, decref
@@ -245,6 +240,41 @@ class PyObjectExecutor(PtrTypeExecutor):
         return self.wrap_result(space, rffi.cast(rffi.LONGP, result)[0])
 
 
+class SmartPointerExecutor(InstanceExecutor):
+    _immutable_fields_ = ['smartdecl', 'deref']
+
+    def __init__(self, space, smartdecl, raw, deref):
+        from pypy.module._cppyy.interp_cppyy import W_CPPClassDecl, get_pythonized_cppclass
+        w_raw   = get_pythonized_cppclass(space, raw)
+        rawdecl = space.interp_w(W_CPPClassDecl, space.findattr(w_raw, space.newtext("__cppdecl__")))
+        InstanceExecutor.__init__(self, space, rawdecl)
+        self.smartdecl = smartdecl
+        self.deref     = deref
+
+    def _wrap_result(self, space, obj):
+        from pypy.module._cppyy import interp_cppyy
+        return interp_cppyy.wrap_cppinstance(space, obj, self.clsdecl,
+            self.smartdecl, self.deref, do_cast=False, python_owns=True, fresh=True)
+
+class SmartPointerPtrExecutor(InstancePtrExecutor):
+    _immutable_fields_ = ['smartdecl', 'deref']
+
+    def __init__(self, space, smartdecl, raw, deref):
+        # TODO: share this with SmartPointerExecutor through in mixin
+        from pypy.module._cppyy.interp_cppyy import W_CPPClassDecl, get_pythonized_cppclass
+        w_raw   = get_pythonized_cppclass(space, raw)
+        rawdecl = space.interp_w(W_CPPClassDecl, space.findattr(w_raw, space.newtext("__cppdecl__")))
+        InstancePtrExecutor.__init__(self, space, rawdecl)
+        self.smartdecl = smartdecl
+        self.deref     = deref
+
+    def _wrap_result(self, space, obj):
+        from pypy.module._cppyy import interp_cppyy
+        # TODO: this is a pointer to a smart pointer, take ownership on the smart one?
+        return interp_cppyy.wrap_cppinstance(space, obj, self.clsdecl,
+            self.smartdecl, self.deref, do_cast=False)
+
+
 _executors = {}
 def get_executor(space, name):
     # Matching of 'name' to an executor factory goes through up to four levels:
@@ -257,7 +287,7 @@ def get_executor(space, name):
 
     name = capi.c_resolve_name(space, name)
 
-    #   1) full, qualified match
+    # full, qualified match
     try:
         return _executors[name](space, None)
     except KeyError:
@@ -266,13 +296,13 @@ def get_executor(space, name):
     compound = helper.compound(name)
     clean_name = capi.c_resolve_name(space, helper.clean_type(name))
 
-    #   1a) clean lookup
+    # clean lookup
     try:
         return _executors[clean_name+compound](space, None)
     except KeyError:
         pass
 
-    #   2) drop '&': by-ref is pretty much the same as by-value, python-wise
+    # drop '&': by-ref is pretty much the same as by-value, python-wise
     if compound and compound[len(compound)-1] == '&':
         # TODO: this does not actually work with Reflex (?)
         try:
@@ -280,19 +310,29 @@ def get_executor(space, name):
         except KeyError:
             pass
 
-    #   3) types/classes, either by ref/ptr or by value
+    # types/classes, either by ref/ptr or by value
     from pypy.module._cppyy import interp_cppyy
     cppclass = interp_cppyy.scope_byname(space, clean_name)
     if cppclass:
         # type check for the benefit of the annotator
         from pypy.module._cppyy.interp_cppyy import W_CPPClassDecl
-        cppclass = space.interp_w(W_CPPClassDecl, cppclass, can_be_None=False)
+        clsdecl = space.interp_w(W_CPPClassDecl, cppclass, can_be_None=False)
+
+        # check smart pointer type
+        check_smart = capi.c_smartptr_info(space, clean_name)
+        if check_smart[0]:
+            if compound == '':
+                return SmartPointerExecutor(space, clsdecl, check_smart[1], check_smart[2])
+            elif compound == '*' or compound == '&':
+                return SmartPointerPtrExecutor(space, clsdecl, check_smart[1], check_smart[2])
+            # fall through: can still return smart pointer in non-smart way
+
         if compound == '':
-            return InstanceExecutor(space, cppclass)
+            return InstanceExecutor(space, clsdecl)
         elif compound == '*' or compound == '&':
-            return InstancePtrExecutor(space, cppclass)
+            return InstancePtrExecutor(space, clsdecl)
         elif compound == '**' or compound == '*&':
-            return InstancePtrPtrExecutor(space, cppclass)
+            return InstancePtrPtrExecutor(space, clsdecl)
     elif "(anonymous)" in name:
         # special case: enum w/o a type name
         return _executors["internal_enum_type_t"](space, None)

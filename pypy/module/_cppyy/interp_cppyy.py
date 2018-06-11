@@ -14,12 +14,20 @@ from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from pypy.module._cffi_backend import ctypefunc
 from pypy.module._cppyy import converter, executor, ffitypes, helper
 
+CLASS_FLAGS_IS_PINNED      = 0x0001
 
 INSTANCE_FLAGS_PYTHON_OWNS = 0x0001
 INSTANCE_FLAGS_IS_REF      = 0x0002
-INSTANCE_FLAGS_IS_R_VALUE  = 0x0004
+INSTANCE_FLAGS_IS_RVALUE   = 0x0004
 
 OVERLOAD_FLAGS_USE_FFI     = 0x0001
+
+FUNCTION_IS_GLOBAL         = 0x0001
+FUNCTION_IS_STATIC         = 0x0001
+FUNCTION_IS_METHOD         = 0x0002
+FUNCTION_IS_CONSTRUCTOR    = 0x0004
+FUNCTION_IS_TEMPLATE       = 0x0008
+FUNCTION_IS_SETITEM        = 0x0010
 
 
 class FastCallNotPossible(Exception):
@@ -100,9 +108,9 @@ def scope_byname(space, final_scoped_name):
         state.cppscope_cache[final_scoped_name] = cppscope
 
         if not isns:
-            # build methods/data; TODO: also defer this for classes (a functional __dir__
+            # build overloads/data; TODO: also defer this for classes (a functional __dir__
             # and instrospection for help() is enough and allows more lazy loading)
-            cppscope._build_methods()
+            cppscope._build_overloads()
             cppscope._find_datamembers()
 
         return cppscope
@@ -131,7 +139,7 @@ def register_class(space, w_pycppclass):
     cppclass = space.interp_w(W_CPPClassDecl, w_cppclass)
     # add back-end specific method pythonizations (doing this on the wrapped
     # class allows simple aliasing of methods)
-    capi.pythonize(space, cppclass.name, w_pycppclass)
+    capi.pythonize(space, w_pycppclass, cppclass.name)
     state = space.fromcache(State)
     state.cppclass_registry[rffi.cast(rffi.LONG, cppclass.handle)] = w_pycppclass
 
@@ -150,17 +158,18 @@ W_CPPLibrary.typedef.acceptable_as_base_class = True
 
 
 #-----
-# Classes involved with methods and functions:
+# Classes involved with methods and functions come at two levels:
+#   - overloads: user-facing collections of overloaded functions
+#   - wrappers: internal holders of the individual C++ methods
 #
-#  CPPMethod:         base class wrapping a single function or method
-#  CPPConstructor:    specialization for allocating a new object
-#  CPPFunction:       specialization for free and static functions
+#  W_CPPOverload:                 instance methods (base class)
+#  W_CPPConstructorOverload:      constructors
+#  W_CPPStaticOverload:           free and static functions
+#  W_CPPTemplateOverload:         templated methods
+#  W_CPPTemplateStaticOveload:    templated free and static functions
+#
+#  CPPMethod:         a single function or method (base class)
 #  CPPSetItem:        specialization for Python's __setitem__
-#  CPPTemplatedCall:  trampoline to instantiate and bind templated functions
-#  W_CPPOverload, W_CPPConstructorOverload, W_CPPTemplateOverload:
-#     user-facing, app-level, collection of overloads, with specializations
-#     for constructors and templates
-#  W_CPPBoundMethod:  instantiated template method
 #
 # All methods/functions derive from CPPMethod and are collected as overload
 # candidates in user-facing overload classes. Templated methods are a two-step
@@ -173,15 +182,15 @@ class CPPMethod(object):
     also takes care of offset casting and recycling of known objects through
     the memory_regulator."""
 
-    _attrs_ = ['space', 'scope', 'index', 'cppmethod', 'arg_defs', 'args_required',
+    _attrs_ = ['space', 'scope', 'cppmethod', 'arg_defs', 'args_required',
                'converters', 'executor', '_funcaddr', 'cif_descr', 'uses_local']
-    _immutable_ = True
+    _immutable_fields_ = ['scope', 'cppmethod', 'arg_defs', 'args_required',
+                          'converters', 'executor', 'uses_local']
 
-    def __init__(self, space, declaring_scope, method_index, arg_defs, args_required):
+    def __init__(self, space, declaring_scope, cppmethod, arg_defs, args_required):
         self.space = space
         self.scope = declaring_scope
-        self.index = method_index
-        self.cppmethod = capi.c_get_method(self.space, self.scope, method_index)
+        self.cppmethod = cppmethod
         self.arg_defs = arg_defs
         self.args_required = args_required
 
@@ -192,12 +201,6 @@ class CPPMethod(object):
         self.cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
         self._funcaddr = lltype.nullptr(capi.C_FUNC_PTR.TO)
         self.uses_local = False
-
-    @staticmethod
-    def unpack_cppthis(space, w_cppinstance, declaring_scope):
-        cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
-        cppinstance._nullcheck()
-        return cppinstance.get_cppthis(declaring_scope)
 
     def _address_from_local_buffer(self, call_local, idx):
         if not call_local:
@@ -266,11 +269,12 @@ class CPPMethod(object):
     def do_fast_call(self, cppthis, args_w, call_local):
         if self.cif_descr == lltype.nullptr(jit_libffi.CIF_DESCRIPTION):
             raise FastCallNotPossible
+        jit.promote(self)
         cif_descr = self.cif_descr
         buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size, flavor='raw')
         try:
             # this pointer
-            data = capi.exchange_address(buffer, cif_descr, 0)
+            data = rffi.ptradd(buffer, cif_descr.exchange_args[0])
             x = rffi.cast(rffi.LONGP, data)       # LONGP needed for test_zjit.py
             x[0] = rffi.cast(rffi.LONG, cppthis)
 
@@ -279,11 +283,11 @@ class CPPMethod(object):
             for i in range(len(args_w)):
                 conv = self.converters[i]
                 w_arg = args_w[i]
-                data = capi.exchange_address(buffer, cif_descr, i+1)
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[i+1])
                 conv.convert_argument_libffi(self.space, w_arg, data, call_local)
             for j in range(i+1, len(self.arg_defs)):
                 conv = self.converters[j]
-                data = capi.exchange_address(buffer, cif_descr, j+1)
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[j+1])
                 conv.default_argument_libffi(self.space, data)
 
             assert self._funcaddr
@@ -295,7 +299,7 @@ class CPPMethod(object):
         return w_res
 
     # from ctypefunc; have my own version for annotater purposes and to disable
-    # memory tracking (method live time is longer than the tests)
+    # memory tracking (method life time is longer than the tests)
     @jit.dont_look_inside
     def _rawallocate(self, builder):
         builder.space = self.space
@@ -308,7 +312,7 @@ class CPPMethod(object):
         # allocate the buffer
         if we_are_translated():
             rawmem = lltype.malloc(rffi.CCHARP.TO, builder.nb_bytes,
-                                   flavor='raw', track_allocation=False)
+                                   flavor='raw')
             rawmem = rffi.cast(jit_libffi.CIF_DESCRIPTION_P, rawmem)
         else:
             # gross overestimation of the length below, but too bad
@@ -340,7 +344,7 @@ class CPPMethod(object):
         self.converters = [converter.get_converter(self.space, arg_type, arg_dflt)
                                for arg_type, arg_dflt in self.arg_defs]
         self.executor = executor.get_executor(
-            self.space, capi.c_method_result_type(self.space, self.scope, self.index))
+            self.space, capi.c_method_result_type(self.space, self.cppmethod))
 
         for conv in self.converters:
             if conv.uses_local:
@@ -350,8 +354,8 @@ class CPPMethod(object):
         # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
         # has been offset to the matching class. Hence, the libffi pointer is
         # uniquely defined and needs to be setup only once.
-        funcaddr = capi.c_function_address_from_index(self.space, self.scope, self.index)
-        if funcaddr and cppthis:      # methods only for now
+        funcaddr = capi.c_function_address(self.space, self.cppmethod)
+        if funcaddr and cppthis:      # TODO: methods only for now
             state = self.space.fromcache(ffitypes.State)
 
             # argument type specification (incl. cppthis)
@@ -418,10 +422,10 @@ class CPPMethod(object):
         capi.c_deallocate_function_args(self.space, args)
 
     def signature(self, show_formalargs=True):
-        return capi.c_method_signature(self.space, self.scope, self.index, show_formalargs)
+        return capi.c_method_signature(self.space, self.cppmethod, show_formalargs)
 
     def prototype(self, show_formalargs=True):
-        return capi.c_method_prototype(self.space, self.scope, self.index, show_formalargs)
+        return capi.c_method_prototype(self.space, self.scope, self.cppmethod, show_formalargs)
 
     def priority(self):
         total_arg_priority = 0
@@ -431,8 +435,11 @@ class CPPMethod(object):
 
     @rgc.must_be_light_finalizer
     def __del__(self):
-        if self.cif_descr:
-            lltype.free(self.cif_descr, flavor='raw')
+        try:
+            if self.cif_descr:
+                lltype.free(self.cif_descr, flavor='raw')
+        except Exception:     # TODO: happens for templates, why?
+            pass
 
     def __repr__(self):
         return "CPPMethod: %s" % self.prototype()
@@ -441,80 +448,12 @@ class CPPMethod(object):
         assert 0, "you should never have a pre-built instance of this!"
 
 
-class CPPFunction(CPPMethod):
-    """Global (namespaced) / static function dispatcher."""
-
-    _immutable_ = True
-
-    @staticmethod
-    def unpack_cppthis(space, w_cppinstance, declaring_scope):
-        return capi.C_NULL_OBJECT
-
-    def __repr__(self):
-        return "CPPFunction: %s" % self.prototype()
-
-
-class CPPTemplatedCall(CPPMethod):
-    """Method dispatcher that first resolves the template instance."""
-
-    _attrs_ = ['space', 'templ_args']
-    _immutable_ = True
-
-    def __init__(self, space, templ_args, declaring_scope, method_index, arg_defs, args_required):
-        self.space = space
-        self.templ_args = templ_args
-        # TODO: might have to specialize for CPPTemplatedCall on CPPMethod/CPPFunction here
-        CPPMethod.__init__(self, space, declaring_scope, method_index, arg_defs, args_required)
-
-    def call(self, cppthis, args_w, useffi):
-        assert lltype.typeOf(cppthis) == capi.C_OBJECT
-        for i in range(len(args_w)):
-            try:
-                s = self.space.text_w(args_w[i])
-            except OperationError:
-                s = self.space.text_w(self.space.getattr(args_w[i], self.space.newtext('__name__')))
-            s = capi.c_resolve_name(self.space, s)
-            if s != self.templ_args[i]:
-                raise oefmt(self.space.w_TypeError,
-                            "non-matching template (got %s where %s expected)",
-                            s, self.templ_args[i])
-        return W_CPPBoundMethod(cppthis, self, useffi)
-
-    def bound_call(self, cppthis, args_w, useffi):
-        return CPPMethod.call(self, cppthis, args_w, useffi)
-
-    def __repr__(self):
-        return "CPPTemplatedCall: %s" % self.prototype()
-
-
-class CPPConstructor(CPPMethod):
-    """Method dispatcher that constructs new objects. This method can not have
-    a fast path, as the allocation of the object is currently left to the
-    reflection layer only, since the C++ class may have an overloaded operator
-    new, disallowing malloc here."""
-
-    _immutable_ = True
-
-    @staticmethod
-    def unpack_cppthis(space, w_cppinstance, declaring_scope):
-        return rffi.cast(capi.C_OBJECT, declaring_scope.handle)
-
-    def call(self, cppthis, args_w, useffi):
-        # Note: this does not return a wrapped instance, just a pointer to the
-        # new instance; the overload must still wrap it before returning. Also,
-        # cppthis is declaring_scope.handle (as per unpack_cppthis(), above).
-        return CPPMethod.call(self, cppthis, args_w, useffi)
-
-    def __repr__(self):
-        return "CPPConstructor: %s" % self.prototype()
-
-
 class CPPSetItem(CPPMethod):
     """Method dispatcher specific to Python's __setitem__ mapped onto C++'s
     operator[](int). The former function takes an extra argument to assign to
     the return type of the latter."""
 
-    _immutable_ = True
+    _attrs_ = []
 
     def call(self, cppthis, args_w, useffi):
         end = len(args_w)-1
@@ -528,46 +467,44 @@ class CPPSetItem(CPPMethod):
 
 
 class W_CPPOverload(W_Root):
-    """Dispatcher that is actually available at the app-level: it is a
-    collection of (possibly) overloaded methods or functions. It calls these
-    in order and deals with error handling and reporting."""
+    """App-level dispatcher: controls a collection of (potentially) overloaded methods
+    or functions. Calls these in order and deals with error handling and reporting."""
 
-    _attrs_ = ['space', 'scope', 'functions', 'flags']
+    _attrs_ = ['space', 'scope', 'functions', 'flags', 'w_this']
     _immutable_fields_ = ['scope', 'functions[*]']
 
-    def __init__(self, space, declaring_scope, functions):
-        self.space = space
-        self.scope = declaring_scope
-        assert len(functions)
+    def __init__(self, space, declaring_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
+        self.space  = space
+        self.scope  = declaring_scope
         from rpython.rlib import debug
         self.functions = debug.make_sure_not_resized(functions)
-        self.flags = 0
-        self.flags |= OVERLOAD_FLAGS_USE_FFI
+        self.flags  = flags
+        self.w_this = self.space.w_None
 
-    # allow user to determine ffi use rules per overload
-    def fget_useffi(self, space):
-        return space.newbool(bool(self.flags & OVERLOAD_FLAGS_USE_FFI))
+    @unwrap_spec(args_w='args_w')
+    def descr_get(self, w_cppinstance, args_w):
+        if self.space.is_w(w_cppinstance, self.space.w_None):
+            return self  # unbound, so no new instance needed
+        cppol = W_CPPOverload(self.space, self.scope, self.functions, self.flags)
+        cppol.w_this = w_cppinstance
+        return cppol     # bound
 
-    @unwrap_spec(value=bool)
-    def fset_useffi(self, space, value):
-        if space.is_true(value):
-            self.flags |= OVERLOAD_FLAGS_USE_FFI
+    @unwrap_spec(args_w='args_w')
+    def call(self, args_w):
+        if self.space.is_w(self.w_this, self.space.w_None) and len(args_w):
+            w_this = args_w[0]
+            args_w = args_w[1:]
         else:
-            self.flags &= ~OVERLOAD_FLAGS_USE_FFI
-
-    @jit.elidable_promote()
-    def is_static(self):
-        if isinstance(self.functions[0], CPPFunction):
-            return self.space.w_True
-        return self.space.w_False
+            w_this = self.w_this
+        cppinstance = self.space.interp_w(W_CPPInstance, w_this)
+        cppinstance._nullcheck()
+        if not capi.c_is_subtype(self.space, cppinstance.clsdecl, self.scope):
+            raise oefmt(self.space.w_TypeError,
+                "cannot pass %T instance as %s", w_this, self.scope.name)
+        return self.call_impl(cppinstance.get_cppthis(self.scope), args_w)
 
     @jit.unroll_safe
-    @unwrap_spec(args_w='args_w')
-    def call(self, w_cppinstance, args_w):
-        # instance handling is specific to the function type only, so take it out
-        # of the loop over function overloads
-        cppthis = self.functions[0].unpack_cppthis(
-            self.space, w_cppinstance, self.functions[0].scope)
+    def call_impl(self, cppthis, args_w):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
 
         # The following code tries out each of the functions in order. If
@@ -625,38 +562,96 @@ class W_CPPOverload(W_Root):
             sig += '\n'+self.functions[i].prototype()
         return self.space.newtext(sig)
 
+    # allow user to determine ffi use rules per overload
+    def fget_useffi(self, space):
+        return space.newbool(bool(self.flags & OVERLOAD_FLAGS_USE_FFI))
+
+    @unwrap_spec(value=bool)
+    def fset_useffi(self, space, value):
+        if space.is_true(value):
+            self.flags |= OVERLOAD_FLAGS_USE_FFI
+        else:
+            self.flags &= ~OVERLOAD_FLAGS_USE_FFI
+
+    def fget_doc(self, space):
+        return self.prototype()
+
     def __repr__(self):
         return "W_CPPOverload(%s)" % [f.prototype() for f in self.functions]
 
 W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
-    is_static = interp2app(W_CPPOverload.is_static),
-    call = interp2app(W_CPPOverload.call),
+    __get__    = interp2app(W_CPPOverload.descr_get),
+    __call__   = interp2app(W_CPPOverload.call),
     __useffi__ = GetSetProperty(W_CPPOverload.fget_useffi, W_CPPOverload.fset_useffi),
-    prototype = interp2app(W_CPPOverload.prototype),
+    __doc__    = GetSetProperty(W_CPPOverload.fget_doc)
+)
+
+
+# overload collection of static (class and free) functions; these differ
+# from methods only in the handling of 'cppthis'
+class W_CPPStaticOverload(W_CPPOverload):
+    _attrs_ = []
+
+    @unwrap_spec(args_w='args_w')
+    def descr_get(self, w_cppinstance, args_w):
+        if isinstance(w_cppinstance, W_CPPInstance):
+            # two possibilities: this is a static function called on an
+            # instance and w_this must not be set, or a free function rebound
+            # onto a class and w_this should be set
+            cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance)
+            if cppinstance.clsdecl.handle != self.scope.handle:
+                cppol = W_CPPStaticOverload(self.space, self.scope, self.functions, self.flags)
+                cppol.w_this = w_cppinstance
+                return cppol       # bound
+        return self      # unbound
+
+    @unwrap_spec(args_w='args_w')
+    def call(self, args_w):
+        if not self.space.is_w(self.w_this, self.space.w_None):
+            # free function used as bound method, put self back into args_w
+            cppinstance = self.space.interp_w(W_CPPInstance, self.w_this)
+            cppinstance._nullcheck()
+            args_w = [self.w_this] + args_w
+        return self.call_impl(capi.C_NULL_OBJECT, args_w)
+
+    def __repr__(self):
+        return "W_CPPStaticOverload(%s)" % [f.prototype() for f in self.functions]
+
+W_CPPStaticOverload.typedef = TypeDef(
+    'CPPStaticOverload',
+    __get__    = interp2app(W_CPPStaticOverload.descr_get),
+    __call__   = interp2app(W_CPPStaticOverload.call),
+    __useffi__ = GetSetProperty(W_CPPStaticOverload.fget_useffi, W_CPPStaticOverload.fset_useffi),
+    __doc__    = GetSetProperty(W_CPPStaticOverload.fget_doc)
 )
 
 
 class W_CPPConstructorOverload(W_CPPOverload):
-    @jit.elidable_promote()
-    def is_static(self):
-        return self.space.w_False
+    _attrs_ = []
 
-    @jit.elidable_promote()
-    def unpack_cppthis(self, w_cppinstance):
-        return rffi.cast(capi.C_OBJECT, self.scope.handle)
-
-    @jit.unroll_safe
     @unwrap_spec(args_w='args_w')
-    def call(self, w_cppinstance, args_w):
+    def descr_get(self, w_cppinstance, args_w):
+        if self.space.is_w(w_cppinstance, self.space.w_None):
+            return self  # unbound (TODO: probably useless)
+        cppol = W_CPPConstructorOverload(self.space, self.scope, self.functions, self.flags)
+        cppol.w_this = w_cppinstance
+        return cppol     # bound
+
+    @unwrap_spec(args_w='args_w')
+    def call(self, args_w):
         # TODO: factor out the following:
         if capi.c_is_abstract(self.space, self.scope.handle):
             raise oefmt(self.space.w_TypeError,
                         "cannot instantiate abstract class '%s'",
                         self.scope.name)
-        w_result = W_CPPOverload.call(self, w_cppinstance, args_w)
+        if self.space.is_w(self.w_this, self.space.w_None) and len(args_w):
+            cppinstance = self.space.interp_w(W_CPPInstance, args_w[0])
+            args_w = args_w[1:]
+        else:
+            cppinstance = self.space.interp_w(W_CPPInstance, self.w_this)
+        w_result = self.call_impl(rffi.cast(capi.C_OBJECT, self.scope.handle), args_w)
         newthis = rffi.cast(capi.C_OBJECT, self.space.uint_w(w_result))
-        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if cppinstance is not None:
             cppinstance._rawobject = newthis
             memory_regulator.register(cppinstance)
@@ -666,43 +661,203 @@ class W_CPPConstructorOverload(W_CPPOverload):
 
 W_CPPConstructorOverload.typedef = TypeDef(
     'CPPConstructorOverload',
-    is_static = interp2app(W_CPPConstructorOverload.is_static),
-    call = interp2app(W_CPPConstructorOverload.call),
-    prototype = interp2app(W_CPPConstructorOverload.prototype),
+    __get__    = interp2app(W_CPPConstructorOverload.descr_get),
+    __call__   = interp2app(W_CPPConstructorOverload.call),
+    __doc__    = GetSetProperty(W_CPPConstructorOverload.fget_doc)
 )
 
 
-class W_CPPTemplateOverload(W_CPPOverload):
+class TemplateOverloadMixin(object):
+    """Mixin to instantiate templated methods/functions."""
+
+    _mixin_ = True
+
+    def construct_template_args(self, w_args):
+        space = self.space
+        tmpl_args = ''
+        for i in range(space.len_w(w_args)):
+            w_obj = space.getitem(w_args, space.newint(i))
+            if space.isinstance_w(w_obj, space.w_text):
+                s = space.text_w(w_obj)      # string describing type
+            elif space.isinstance_w(w_obj, space.w_type):
+                try:
+                    # cppyy bound types
+                    name = space.getattr(w_obj, space.newtext('__cppname__'))
+                except OperationError:
+                    # generic python types
+                    name = space.getattr(w_obj, space.newtext('__name__'))
+                s = space.text_w(name)
+            else:
+                # builtin types etc.
+                s = space.text_w(space.str(w_obj))
+            # map python types -> C++ types
+            if s == 'str': s = 'std::string'
+            if i != 0: tmpl_args += ', '
+            tmpl_args += s
+        return tmpl_args
+
+    def find_method_template(self, name, proto = ''):
+        # find/instantiate new callable function
+        space = self.space
+        cppmeth = capi.c_get_method_template(space, self.scope, name, proto)
+        if not cppmeth:
+            raise oefmt(self.space.w_AttributeError,
+                "scope '%s' has no function %s", self.scope.name, name)
+
+        funcs = []
+        ftype = self.scope._make_cppfunction(name, cppmeth, funcs)
+        if ftype & FUNCTION_IS_STATIC:
+            cppol = W_CPPStaticOverload(space, self.scope, funcs[:], self.flags)
+        else:
+            cppol = W_CPPOverload(space, self.scope, funcs[:], self.flags)
+        return cppol
+
+    def instantiation_from_args(self, name, args_w):
+        # try to match with run-time instantiations
+        for cppol in self.master.overloads.values():
+            try:
+                cppol.descr_get(self.w_this, []).call(args_w)
+            except Exception:
+                pass    # completely ignore for now; have to see whether errors become confusing
+
+        # if all failed, then try to deduce from argument types
+        w_types = self.space.newtuple([self.space.type(obj_w) for obj_w in args_w])
+        proto = self.construct_template_args(w_types)
+        method = self.find_method_template(name, proto)
+
+        # only cache result if the name retains the full template
+        if len(method.functions) == 1:
+            fullname = capi.c_method_full_name(self.space, method.functions[0].cppmethod)
+            if 0 <= fullname.rfind('>'):
+                self.master.overloads[fullname] = method
+
+        return method.descr_get(self.w_this, []).call(args_w)
+
+    def getitem_impl(self, name, args_w):
+        space = self.space
+
+        if space.isinstance_w(args_w[0], space.w_tuple):
+            w_args = args_w[0]
+        else:
+            w_args = space.newtuple(args_w)
+
+        tmpl_args = self.construct_template_args(w_args)
+        fullname = name+'<'+tmpl_args+'>'
+        try:
+            method = self.master.overloads[fullname]
+        except KeyError:
+            method = self.find_method_template(fullname)
+
+        # cache result (name is always full templated name)
+        self.master.overloads[fullname] = method
+
+        return method.descr_get(self.w_this, [])
+
+
+class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
+    """App-level dispatcher to allow both lookup/instantiation of templated methods and
+    dispatch among overloads between templated and non-templated method."""
+
+    _attrs_ = ['name', 'overloads', 'master']
+    _immutable_fields_ = ['name']
+
+    def __init__(self, space, name, declaring_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
+         W_CPPOverload.__init__(self, space, declaring_scope, functions, flags)
+         self.name = name
+         self.overloads = {}
+         self.master = self
+
     @unwrap_spec(args_w='args_w')
-    def __getitem__(self, args_w):
-        pass
+    def descr_get(self, w_cppinstance, args_w):
+        # like W_CPPOverload, but returns W_CPPTemplateOverload
+        if self.space.is_w(w_cppinstance, self.space.w_None):
+            return self  # unbound, so no new instance needed
+        cppol = W_CPPTemplateOverload(self.space, self.name, self.scope, self.functions, self.flags)
+        cppol.w_this = w_cppinstance
+        return cppol     # bound
+
+    @unwrap_spec(args_w='args_w')
+    def call(self, args_w):
+        # direct call: either pick non-templated overload or attempt to deduce
+        # the template instantiation from the argument types
+
+        # try existing overloads or compile-time instantiations
+        try:
+            return W_CPPOverload.call(self, args_w)
+        except Exception:
+            pass
+
+        return self.instantiation_from_args(self.name, args_w)
+
+    @unwrap_spec(args_w='args_w')
+    def getitem(self, args_w):
+        return self.getitem_impl(self.name, args_w)
 
     def __repr__(self):
         return "W_CPPTemplateOverload(%s)" % [f.prototype() for f in self.functions]
 
 W_CPPTemplateOverload.typedef = TypeDef(
     'CPPTemplateOverload',
-    __getitem__ = interp2app(W_CPPTemplateOverload.call),
+    __get__     = interp2app(W_CPPTemplateOverload.descr_get),
+    __getitem__ = interp2app(W_CPPTemplateOverload.getitem),
+    __call__    = interp2app(W_CPPTemplateOverload.call),
+    __useffi__  = GetSetProperty(W_CPPTemplateOverload.fget_useffi, W_CPPTemplateOverload.fset_useffi),
+    __doc__     = GetSetProperty(W_CPPTemplateOverload.fget_doc)
 )
 
+class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
+    """App-level dispatcher to allow both lookup/instantiation of templated methods and
+    dispatch among overloads between templated and non-templated method."""
 
-class W_CPPBoundMethod(W_Root):
-    _attrs_ = ['cppthis', 'method', 'useffi']
+    _attrs_ = ['name', 'overloads', 'master']
+    _immutable_fields_ = ['name']
 
-    def __init__(self, cppthis, method, useffi):
-        self.cppthis = cppthis
-        self.method = method
-        self.useffi = useffi
+    def __init__(self, space, name, declaring_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
+         W_CPPStaticOverload.__init__(self, space, declaring_scope, functions, flags)
+         self.name = name
+         self.overloads = {}
+         self.master = self
 
-    def __call__(self, args_w):
-        return self.method.bound_call(self.cppthis, args_w, self.useffi)
+    @unwrap_spec(args_w='args_w')
+    def descr_get(self, w_cppinstance, args_w):
+        # like W_CPPStaticOverload, but returns W_CPPTemplateStaticOverload
+        if isinstance(w_cppinstance, W_CPPInstance):
+            cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance)
+            if cppinstance.clsdecl.handle != self.scope.handle:
+                cppol = W_CPPTemplateStaticOverload(self.space, self.name, self.scope, self.functions, self.flags)
+                cppol.w_this = w_cppinstance
+                cppol.master = self.master
+                return cppol       # bound
+        return self      # unbound
+
+    @unwrap_spec(args_w='args_w')
+    def call(self, args_w):
+        # direct call: either pick non-templated overload or attempt to deduce
+        # the template instantiation from the argument types
+
+        # try existing overloads or compile-time instantiations
+        try:
+            return W_CPPStaticOverload.call(self, args_w)
+        except Exception:
+            pass
+
+        # try new instantiation
+        return self.instantiation_from_args(self.name, args_w)
+
+    @unwrap_spec(args_w='args_w')
+    def getitem(self, args_w):
+        return self.getitem_impl(self.name, args_w)
 
     def __repr__(self):
-        return "W_CPPBoundMethod(%s)" % self.method.prototype()
+        return "W_CPPTemplateStaticOverload(%s)" % [f.prototype() for f in self.functions]
 
-W_CPPBoundMethod.typedef = TypeDef(
-    'CPPBoundMethod',
-    __call__ = interp2app(W_CPPBoundMethod.__call__),
+W_CPPTemplateStaticOverload.typedef = TypeDef(
+    'CPPTemplateStaticOverload',
+    __get__     = interp2app(W_CPPTemplateStaticOverload.descr_get),
+    __getitem__ = interp2app(W_CPPTemplateStaticOverload.getitem),
+    __call__    = interp2app(W_CPPTemplateStaticOverload.call),
+    __useffi__  = GetSetProperty(W_CPPTemplateStaticOverload.fget_useffi, W_CPPTemplateStaticOverload.fset_useffi),
+    __doc__     = GetSetProperty(W_CPPTemplateStaticOverload.fget_doc)
 )
 
 
@@ -813,38 +968,48 @@ def is_static_data(space, w_obj):
         return space.w_False
 
 #-----
-
+# Classes for data members:
+#
+# W_CPPScopeDecl         : scope base class
+# W_CPPNamespaceDecl     : namespace scope
+# W_CPPClassDecl         : class scope
+#
+# Namespaces and classes mainly differ in lookups of methods. Whereas classes
+# can grown templated methods, namespaces are wide open to any additions. Such
+# lookups are triggered from get_scoped_pycppitem (in pythonify.py). Further
+# specialization is done on the type of data/methods that each can have.
 
 class W_CPPScopeDecl(W_Root):
-    _attrs_ = ['space', 'handle', 'name', 'methods', 'datamembers']
+    _attrs_ = ['space', 'handle', 'flags', 'name', 'overloads', 'datamembers']
     _immutable_fields_ = ['handle', 'name']
 
     def __init__(self, space, opaque_handle, final_scoped_name):
         self.space = space
-        self.name = final_scoped_name
         assert lltype.typeOf(opaque_handle) == capi.C_SCOPE
         self.handle = opaque_handle
-        self.methods = {}
-        # Do not call "self._build_methods()" here, so that a distinction can
+        self.flags = 0
+        self.name = final_scoped_name
+        self.overloads = {}
+        # Do not call "self._build_overloadss()" here, so that a distinction can
         #  be made between testing for existence (i.e. existence in the cache
         #  of classes) and actual use. Point being that a class can use itself,
         #  e.g. as a return type or an argument to one of its methods.
 
         self.datamembers = {}
-        # Idem as for self.methods: a type could hold itself by pointer.
+        # Idem as for self.overloads: a type could hold itself by pointer.
 
     def get_method_names(self):
-        return self.space.newlist([self.space.newtext(name) for name in self.methods])
+        return self.space.newlist([self.space.newtext(name) for name in self.overloads])
 
     @unwrap_spec(name='text')
     def get_overload(self, name):
         try:
-            return self.methods[name]
+            return self.overloads[name]
         except KeyError:
             pass
-        new_method = self.find_overload(name)
-        self.methods[name] = new_method
-        return new_method
+        new_ol = self.find_overload(name)
+        self.overloads[name] = new_ol
+        return new_ol
 
     def get_datamember_names(self):
         return self.space.newlist([self.space.newtext(name) for name in self.datamembers])
@@ -880,18 +1045,19 @@ class W_CPPScopeDecl(W_Root):
 # classes for inheritance. Both are python classes, though, and refactoring
 # may be in order at some point.
 class W_CPPNamespaceDecl(W_CPPScopeDecl):
-    _attrs_ = ['space', 'handle', 'name', 'methods', 'datamembers']
+    _attrs_ = ['space', 'handle', 'name', 'overloads', 'datamembers']
     _immutable_fields_ = ['handle', 'name']
 
-    def _make_cppfunction(self, pyname, index):
-        num_args = capi.c_method_num_args(self.space, self, index)
-        args_required = capi.c_method_req_args(self.space, self, index)
+    def _make_cppfunction(self, pyname, cppmeth, funcs):
+        num_args = capi.c_method_num_args(self.space, cppmeth)
+        args_required = capi.c_method_req_args(self.space, cppmeth)
         arg_defs = []
         for i in range(num_args):
-            arg_type = capi.c_method_arg_type(self.space, self, index, i)
-            arg_dflt = capi.c_method_arg_default(self.space, self, index, i)
+            arg_type = capi.c_method_arg_type(self.space, cppmeth, i)
+            arg_dflt = capi.c_method_arg_default(self.space, cppmeth, i)
             arg_defs.append((arg_type, arg_dflt))
-        return CPPFunction(self.space, self, index, arg_defs, args_required)
+        funcs.append(CPPMethod(self.space, self, cppmeth, arg_defs, args_required))
+        return FUNCTION_IS_GLOBAL
 
     def _make_datamember(self, dm_name, dm_idx):
         type_name = capi.c_datamember_type(self.space, self, dm_idx)
@@ -907,14 +1073,20 @@ class W_CPPNamespaceDecl(W_CPPScopeDecl):
 
     def find_overload(self, meth_name):
         indices = capi.c_method_indices_from_name(self.space, self, meth_name)
-        if not indices:
-            raise self.missing_attribute_error(meth_name)
-        cppfunctions = []
-        for meth_idx in indices:
-            f = self._make_cppfunction(meth_name, meth_idx)
-            cppfunctions.append(f)
-        overload = W_CPPOverload(self.space, self, cppfunctions)
-        return overload
+        if indices:
+            cppfunctions, ftype = [], 0
+            templated = False
+            for idx in indices:
+                cppmeth = capi.c_get_method(self.space, self, idx)
+                ftype |= self._make_cppfunction(meth_name, cppmeth, cppfunctions)
+                if capi.c_method_is_template(self.space, self, idx):
+                    templated = True
+            if templated:
+                return W_CPPTemplateStaticOverload(self.space, meth_name, self, cppfunctions[:])
+            return W_CPPStaticOverload(self.space, self, cppfunctions[:])
+        elif capi.c_exists_method_template(self.space, self, meth_name):
+            return W_CPPTemplateStaticOverload(self.space, meth_name, self, [])
+        raise self.missing_attribute_error(meth_name)
 
     def find_datamember(self, dm_name):
         dm_idx = capi.c_datamember_index(self.space, self, dm_name)
@@ -953,62 +1125,83 @@ W_CPPNamespaceDecl.typedef.acceptable_as_base_class = False
 
 
 class W_CPPClassDecl(W_CPPScopeDecl):
-    _attrs_ = ['space', 'handle', 'name', 'methods', 'datamembers']
-    _immutable_fields_ = ['handle', 'name', 'methods[*]', 'datamembers[*]']
+    _attrs_ = ['space', 'handle', 'name', 'overloads', 'datamembers']
+    _immutable_fields_ = ['handle', 'name', 'overloads[*]', 'datamembers[*]']
 
-    def _build_methods(self):
-        assert len(self.methods) == 0
-        methods_temp = {}
+    def _build_overloads(self):
+        assert len(self.overloads) == 0
+        methods_tmp = {}; ftype_tmp = {}
         for idx in range(capi.c_num_methods(self.space, self)):
-            if capi.c_is_constructor(self.space, self, idx):
+            cppmeth = capi.c_get_method(self.space, self, idx)
+            if capi.c_is_constructor(self.space, cppmeth):
                 pyname = '__init__'
             else:
                 pyname = helper.map_operator_name(self.space,
-                    capi.c_method_name(self.space, self, idx),
-                    capi.c_method_num_args(self.space, self, idx),
-                    capi.c_method_result_type(self.space, self, idx))
-            cppmethod = self._make_cppfunction(pyname, idx)
-            methods_temp.setdefault(pyname, []).append(cppmethod)
+                    capi.c_method_name(self.space, cppmeth),
+                    capi.c_method_num_args(self.space, cppmeth),
+                    capi.c_method_result_type(self.space, cppmeth))
+            try:
+                methods = methods_tmp[pyname]
+            except KeyError:
+                methods_tmp[pyname] = []; ftype_tmp[pyname] = 0
+                methods = methods_tmp[pyname]
+            ftype_tmp[pyname] |= self._make_cppfunction(pyname, cppmeth, methods)
+            if capi.c_method_is_template(self.space, self, idx):
+                ftype_tmp[pyname] |= FUNCTION_IS_TEMPLATE
         # the following covers the case where the only kind of operator[](idx)
         # returns are the ones that produce non-const references; these can be
         # used for __getitem__ just as much as for __setitem__, though
-        if not "__getitem__" in methods_temp:
+        if not "__getitem__" in methods_tmp:
             try:
-                for m in methods_temp["__setitem__"]:
-                    cppmethod = self._make_cppfunction("__getitem__", m.index)
-                    methods_temp.setdefault("__getitem__", []).append(cppmethod)
+                si_methods = methods_tmp["__setitem__"]
+                gi_methods = []; ftype = 0
+                for m in si_methods:
+                    ftype |= self._make_cppfunction("__getitem__", m.cppmethod, gi_methods)
+                methods_tmp["__getitem__"] = gi_methods; ftype_tmp["__getitem__"] = ftype
             except KeyError:
                 pass          # just means there's no __setitem__ either
 
-        # create the overload methods from the method sets
-        for pyname, methods in methods_temp.iteritems():
+        # create the overloads from the method sets
+        for pyname, methods in methods_tmp.iteritems():
+            ftype = ftype_tmp[pyname]
             CPPMethodSort(methods).sort()
-            if pyname == '__init__':
+            if ftype & FUNCTION_IS_CONSTRUCTOR:
                 overload = W_CPPConstructorOverload(self.space, self, methods[:])
+            elif ftype & FUNCTION_IS_STATIC:
+                if ftype & FUNCTION_IS_TEMPLATE:
+                    cppname = capi.c_method_name(self.space, methods[0].cppmethod)
+                    overload = W_CPPTemplateStaticOverload(self.space, cppname, self, methods[:])
+                else:
+                    overload = W_CPPStaticOverload(self.space, self, methods[:])
+            elif ftype & FUNCTION_IS_TEMPLATE:
+                cppname = capi.c_method_name(self.space, methods[0].cppmethod)
+                overload = W_CPPTemplateOverload(self.space, cppname, self, methods[:])
             else:
                 overload = W_CPPOverload(self.space, self, methods[:])
-            self.methods[pyname] = overload
+            self.overloads[pyname] = overload
 
-    def _make_cppfunction(self, pyname, index):
-        num_args = capi.c_method_num_args(self.space, self, index)
-        args_required = capi.c_method_req_args(self.space, self, index)
+    def _make_cppfunction(self, pyname, cppmeth, funcs):
+        num_args = capi.c_method_num_args(self.space, cppmeth)
+        args_required = capi.c_method_req_args(self.space, cppmeth)
         arg_defs = []
         for i in range(num_args):
-            arg_type = capi.c_method_arg_type(self.space, self, index, i)
-            arg_dflt = capi.c_method_arg_default(self.space, self, index, i)
+            arg_type = capi.c_method_arg_type(self.space, cppmeth, i)
+            arg_dflt = capi.c_method_arg_default(self.space, cppmeth, i)
             arg_defs.append((arg_type, arg_dflt))
-        if capi.c_is_constructor(self.space, self, index):
-            cppfunction = CPPConstructor(self.space, self, index, arg_defs, args_required)
-        elif capi.c_method_is_template(self.space, self, index):
-            templ_args = capi.c_template_args(self.space, self, index)
-            cppfunction = CPPTemplatedCall(self.space, templ_args, self, index, arg_defs, args_required)
-        elif capi.c_is_staticmethod(self.space, self, index):
-            cppfunction = CPPFunction(self.space, self, index, arg_defs, args_required)
-        elif pyname == "__setitem__":
-            cppfunction = CPPSetItem(self.space, self, index, arg_defs, args_required)
+        ftype = 0
+        if pyname == "__setitem__":
+            cppfunction = CPPSetItem(self.space, self, cppmeth, arg_defs, args_required)
+            ftype = FUNCTION_IS_SETITEM
         else:
-            cppfunction = CPPMethod(self.space, self, index, arg_defs, args_required)
-        return cppfunction
+            cppfunction = CPPMethod(self.space, self, cppmeth, arg_defs, args_required)
+            if capi.c_is_constructor(self.space, cppmeth):
+                ftype = FUNCTION_IS_CONSTRUCTOR
+            elif capi.c_is_staticmethod(self.space, cppmeth):
+                ftype = FUNCTION_IS_STATIC
+            else:
+                ftype = FUNCTION_IS_METHOD
+        funcs.append(cppfunction)
+        return ftype
 
     def _find_datamembers(self):
         num_datamembers = capi.c_num_datamembers(self.space, self)
@@ -1032,8 +1225,8 @@ class W_CPPClassDecl(W_CPPScopeDecl):
                 datamember = W_CPPDataMember(self.space, self, type_name, offset)
             self.datamembers[datamember_name] = datamember
 
-    def find_overload(self, name):
-        raise self.missing_attribute_error(name)
+    def find_overload(self, meth_name):
+        raise self.missing_attribute_error(meth_name)
 
     def find_datamember(self, name):
         raise self.missing_attribute_error(name)
@@ -1103,13 +1296,14 @@ W_CPPComplexClassDecl.typedef.acceptable_as_base_class = False
 
 
 class W_CPPInstance(W_Root):
-    _attrs_ = ['space', 'clsdecl', '_rawobject', 'flags',
+    _attrs_ = ['space', 'clsdecl', '_rawobject', 'smartdecl', 'deref', 'flags',
                'finalizer_registered']
-    _immutable_fields_ = ['clsdecl']
+    _immutable_fields_ = ['clsdecl', 'smartdecl', 'deref']
 
     finalizer_registered = False
 
-    def __init__(self, space, decl, rawobject, isref, python_owns):
+    def __init__(self, space, decl, rawobject, isref, python_owns,
+                 smartdecl=None, deref=rffi.cast(capi.C_METHOD, 0)):
         self.space = space
         self.clsdecl = decl
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
@@ -1117,11 +1311,13 @@ class W_CPPInstance(W_Root):
         self._rawobject = rawobject
         assert not isref or not python_owns
         self.flags = 0
-        if isref:
+        if isref or (smartdecl and deref):
             self.flags |= INSTANCE_FLAGS_IS_REF
         if python_owns:
             self.flags |= INSTANCE_FLAGS_PYTHON_OWNS
             self._opt_register_finalizer()
+        self.smartdecl = smartdecl
+        self.deref     = deref
 
     def _opt_register_finalizer(self):
         if not self.finalizer_registered and not hasattr(self.space, "fake"):
@@ -1153,6 +1349,11 @@ class W_CPPInstance(W_Root):
     def get_rawobject(self):
         if not (self.flags & INSTANCE_FLAGS_IS_REF):
             return self._rawobject
+        elif self.smartdecl and self.deref:
+            args = capi.c_allocate_function_args(self.space, 0)
+            rawptr = capi.c_call_l(self.space, self.deref, self._rawobject, 0, args)
+            capi.c_deallocate_function_args(self.space, args)
+            return rffi.cast(capi.C_OBJECT, rawptr)
         else:
             ptrptr = rffi.cast(rffi.VOIDPP, self._rawobject)
             return rffi.cast(capi.C_OBJECT, ptrptr[0])
@@ -1189,11 +1390,13 @@ class W_CPPInstance(W_Root):
                 meth_idx = capi.c_get_global_operator(
                     self.space, nss, self.clsdecl, other.clsdecl, "operator==")
                 if meth_idx != -1:
-                    f = nss._make_cppfunction("operator==", meth_idx)
-                    ol = W_CPPOverload(self.space, nss, [f])
+                    funcs = []
+                    cppmeth = capi.c_get_method(self.space, nss, meth_idx)
+                    nss._make_cppfunction("operator==", cppmeth, funcs)
+                    ol = W_CPPStaticOverload(self.space, nss, funcs[:])
                     # TODO: cache this operator (not done yet, as the above does not
                     # select all overloads)
-                    return ol.call(self, [self, w_other])
+                    return ol.call([self, w_other])
         except OperationError as e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
@@ -1241,10 +1444,20 @@ class W_CPPInstance(W_Root):
         return self.space.newtext("<%s object at 0x%x>" %
                                (self.clsdecl.name, rffi.cast(rffi.ULONG, self.get_rawobject())))
 
+    def smartptr(self):
+        if self._rawobject and self.smartdecl:
+            return wrap_cppinstance(self.space, self._rawobject, self.smartdecl, do_cast=False)
+
     def destruct(self):
-        if self._rawobject and not (self.flags & INSTANCE_FLAGS_IS_REF):
+        if self._rawobject:
+            if self.smartdecl and self.deref:
+                klass = self.smartdecl
+            elif not (self.flags & INSTANCE_FLAGS_IS_REF):
+                klass = self.clsdecl
+            else:
+                return
             memory_regulator.unregister(self)
-            capi.c_destruct(self.space, self.clsdecl, self._rawobject)
+            capi.c_destruct(self.space, klass, self._rawobject)
             self._rawobject = capi.C_NULL_OBJECT
 
     def _finalize_(self):
@@ -1257,10 +1470,13 @@ W_CPPInstance.typedef = TypeDef(
     __init__ = interp2app(W_CPPInstance.instance__init__),
     __eq__ = interp2app(W_CPPInstance.instance__eq__),
     __ne__ = interp2app(W_CPPInstance.instance__ne__),
+    # should be based on python version, but syntax is simpler this way
     __nonzero__ = interp2app(W_CPPInstance.instance__nonzero__),
+    __bool__ = interp2app(W_CPPInstance.instance__nonzero__),
     __len__ = interp2app(W_CPPInstance.instance__len__),
     __cmp__ = interp2app(W_CPPInstance.instance__cmp__),
     __repr__ = interp2app(W_CPPInstance.instance__repr__),
+    __smartptr__ = interp2app(W_CPPInstance.smartptr),
     __destruct__ = interp2app(W_CPPInstance.destruct),
 )
 W_CPPInstance.typedef.acceptable_as_base_class = True
@@ -1311,12 +1527,13 @@ def get_interface_func(space, w_callable, npar):
     return space.call_function(state.w_fngen_callback, w_callable, space.newint(npar))
 
 def wrap_cppinstance(space, rawobject, clsdecl,
+                     smartdecl=None, deref=rffi.cast(capi.C_METHOD, 0),
                      do_cast=True, python_owns=False, is_ref=False, fresh=False):
     rawobject = rffi.cast(capi.C_OBJECT, rawobject)
 
     # cast to actual if requested and possible
     w_pycppclass = None
-    if do_cast and rawobject:
+    if do_cast and rawobject and not (clsdecl.flags & CLASS_FLAGS_IS_PINNED):
         actual = capi.c_actual_class(space, clsdecl, rawobject)
         if actual != clsdecl.handle:
             try:
@@ -1343,7 +1560,7 @@ def wrap_cppinstance(space, rawobject, clsdecl,
     # fresh creation
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
     cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
-    cppinstance.__init__(space, clsdecl, rawobject, is_ref, python_owns)
+    cppinstance.__init__(space, clsdecl, rawobject, is_ref, python_owns, smartdecl, deref)
     memory_regulator.register(cppinstance)
     return w_cppinstance
 
@@ -1388,5 +1605,15 @@ def move(space, w_obj):
     """Casts the given instance into an C++-style rvalue."""
     obj = space.interp_w(W_CPPInstance, w_obj)
     if obj:
-        obj.flags |= INSTANCE_FLAGS_IS_R_VALUE
+        obj.flags |= INSTANCE_FLAGS_IS_RVALUE
     return w_obj
+
+
+# pythonization interface ---------------------------------------------------
+
+# do not auto-cast to given type
+@unwrap_spec(w_pycppclass=W_Root)
+def _pin_type(space, w_pycppclass):
+    w_clsdecl = space.findattr(w_pycppclass, space.newtext("__cppdecl__"))
+    decl = space.interp_w(W_CPPClassDecl, w_clsdecl)
+    decl.flags |= CLASS_FLAGS_IS_PINNED

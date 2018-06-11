@@ -17,19 +17,6 @@ if os.getenv("CPPYY_DISABLE_FASTPATH"):
 # (note that the module is not otherwise used in the test itself)
 import pypy.module.cpyext
 
-# change capi's direct_ptradd and exchange_address to being jit-opaque
-@jit.dont_look_inside
-def _opaque_direct_ptradd(ptr, offset):
-    address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
-capi.direct_ptradd = _opaque_direct_ptradd
-
-@jit.dont_look_inside
-def _opaque_exchange_address(ptr, cif_descr, index):
-    offset = rffi.cast(rffi.LONG, cif_descr.exchange_args[index])
-    return rffi.ptradd(ptr, offset)
-capi.exchange_address = _opaque_exchange_address
-
 # add missing alt_errno (??)
 def get_tlobj(self):
     try:
@@ -74,12 +61,18 @@ class FakeString(FakeBase):
     typename = "str"
     def __init__(self, val):
         self.val = val
+class FakeTuple(FakeBase):
+    typename = "tuple"
+    def __init__(self, val):
+        self.val = val
 class FakeType(FakeBase):
     typename = "type"
     def __init__(self, name):
         self.name = name
         self.__name__ = name
     def getname(self, space, name):
+        if sys.hexversion < 0x3000000:
+            return self.name
         return unicode(self.name)
 class FakeBuffer(FakeBase):
     typedname = "buffer"
@@ -117,9 +110,11 @@ class FakeConfig(object):
 class FakeSpace(object):
     fake = True
 
-    w_None = None
-    w_str = FakeType("str")
-    w_int = FakeType("int")
+    w_None  = None
+    w_str   = FakeType("str")
+    w_text  = FakeType("str")
+    w_bytes = FakeType("str")
+    w_int   = FakeType("int")
     w_float = FakeType("float")
 
     def __init__(self):
@@ -184,6 +179,13 @@ class FakeSpace(object):
     @specialize.argtype(1)
     def newtext(self, obj):
         return FakeString(obj)
+
+    @specialize.argtype(1)
+    def newtuple(self, obj):
+        return FakeTuple(obj)
+
+    def getitem(self, coll, i):
+        return coll.val[i.val]
 
     def float_w(self, w_obj, allow_conversion=True):
         assert isinstance(w_obj, FakeFloat)
@@ -281,19 +283,19 @@ class TestFastPathJIT(LLJitMixin):
         def f():
             cls  = interp_cppyy.scope_byname(space, "example01")
             inst = interp_cppyy._bind_object(space, FakeInt(0), cls, True)
-            cls.get_overload("__init__").call(inst, [FakeInt(0)])
+            cls.get_overload("__init__").descr_get(inst, []).call([FakeInt(0)])
             cppmethod = cls.get_overload(method_name)
             assert isinstance(inst, interp_cppyy.W_CPPInstance)
             i = 10
             while i > 0:
                 drv.jit_merge_point(inst=inst, cppmethod=cppmethod, i=i)
-                cppmethod.call(inst, [FakeInt(i)])
+                cppmethod.descr_get(inst, []).call([FakeInt(i)])
                 i -= 1
             return 7
         f()
         space = FakeSpace()
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
-        self.check_jitcell_token_count(1)   # same for fast and slow path??
+        self.check_jitcell_token_count(0)   # same for fast and slow path??
         # rely on replacement of capi calls to raise exception instead (see FakeSpace.__init__)
 
     @py.test.mark.dont_track_allocations("cppmethod.cif_descr kept 'leaks'")
