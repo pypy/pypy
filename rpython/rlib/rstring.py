@@ -7,7 +7,7 @@ from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, not_rpython
-from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH
+from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH, intmask
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
@@ -15,17 +15,41 @@ from rpython.tool.pairtype import pairtype
 
 # -------------- public API for string functions -----------------------
 
-@specialize.argtype(0)
-def _isspace(char):
+@specialize.ll_and_arg(2)
+def _isspace(s, pos, isutf8=False):
+    if isutf8:
+        from rpython.rlib import rutf8
+        return rutf8.isspace(s, pos)
+    char = s[pos]
     if isinstance(char, str):
         return char.isspace()
     else:
         assert isinstance(char, unicode)
         return unicodedb.isspace(ord(char))
 
+@specialize.ll_and_arg(2)
+def _incr(s, pos, isutf8):
+    if isutf8:
+        from rpython.rlib.rutf8 import next_codepoint_pos
+        assert pos >= 0
+        r = next_codepoint_pos(s, pos)
+        assert r >= 0
+        return r
+    else:
+        return pos + 1
 
-@specialize.argtype(0, 1)
-def split(value, by=None, maxsplit=-1):
+@specialize.ll_and_arg(2)
+def _decr(s, pos, isutf8):
+    if isutf8:
+        from rpython.rlib.rutf8 import prev_codepoint_pos
+        if pos <= 0:
+            return -1
+        return intmask(prev_codepoint_pos(s, pos))
+    else:
+        return pos - 1
+
+@specialize.ll_and_arg(3)
+def split(value, by=None, maxsplit=-1, isutf8=False):
     if by is None:
         length = len(value)
         i = 0
@@ -33,9 +57,9 @@ def split(value, by=None, maxsplit=-1):
         while True:
             # find the beginning of the next word
             while i < length:
-                if not _isspace(value[i]):
+                if not _isspace(value, i, isutf8):
                     break   # found
-                i += 1
+                i = _incr(value, i, isutf8)
             else:
                 break  # end of string, finished
 
@@ -43,18 +67,25 @@ def split(value, by=None, maxsplit=-1):
             if maxsplit == 0:
                 j = length   # take all the rest of the string
             else:
-                j = i + 1
-                while j < length and not _isspace(value[j]):
-                    j += 1
+                j = _incr(value, i, isutf8)
+                while j < length and not _isspace(value, j, isutf8):
+                    j = _incr(value, j, isutf8)
                 maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
             # the word is value[i:j]
             res.append(value[i:j])
 
             # continue to look from the character following the space after the word
-            i = j + 1
+            if j < length:
+                i = _incr(value, j, isutf8)
+            else:
+                break
         return res
+    else:
+        return _split_by(value, by, maxsplit)
 
+@specialize.argtype(0)
+def _split_by(value, by, maxsplit):
     if isinstance(value, unicode):
         assert isinstance(by, unicode)
     if isinstance(value, str):
@@ -65,6 +96,8 @@ def split(value, by=None, maxsplit=-1):
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
+    # XXX measure if preallocating the result list to the correct
+    #     size is faster, should be
 
     start = 0
     if bylen == 1:
@@ -101,8 +134,8 @@ def split(value, by=None, maxsplit=-1):
     return res
 
 
-@specialize.argtype(0, 1)
-def rsplit(value, by=None, maxsplit=-1):
+@specialize.ll_and_arg(3)
+def rsplit(value, by=None, maxsplit=-1, isutf8=False):
     if by is None:
         res = []
 
@@ -110,33 +143,40 @@ def rsplit(value, by=None, maxsplit=-1):
         while True:
             # starting from the end, find the end of the next word
             while i >= 0:
-                if not _isspace(value[i]):
+                if not _isspace(value, i, isutf8):
                     break   # found
-                i -= 1
+                i = _decr(value, i, isutf8)
             else:
                 break  # end of string, finished
 
-            # find the start of the word
-            # (more precisely, 'j' will be the space character before the word)
+            # find the start of the word as 'j1'
             if maxsplit == 0:
-                j = -1   # take all the rest of the string
+                j1 = 0   # take all the rest of the string
+                j = -1
             else:
-                j = i - 1
-                while j >= 0 and not _isspace(value[j]):
-                    j -= 1
+                j1 = i
+                while True:
+                    j = _decr(value, j1, isutf8)
+                    if j < 0 or _isspace(value, j, isutf8):
+                        break
+                    j1 = j
                 maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-            # the word is value[j+1:i+1]
-            j1 = j + 1
+            # the word is value[j1:i+1]
             assert j1 >= 0
-            res.append(value[j1:i+1])
+            i1 = _incr(value, i, isutf8)
+            res.append(value[j1:i1])
 
             # continue to look from the character before the space before the word
-            i = j - 1
+            i = _decr(value, j, isutf8)
 
         res.reverse()
         return res
+    else:
+        return _rsplit_by(value, by, maxsplit)
 
+@specialize.argtype(0)
+def _rsplit_by(value, by, maxsplit):
     if isinstance(value, unicode):
         assert isinstance(by, unicode)
     if isinstance(value, str):
@@ -169,6 +209,11 @@ def rsplit(value, by=None, maxsplit=-1):
 @specialize.argtype(0, 1)
 @jit.elidable
 def replace(input, sub, by, maxsplit=-1):
+    return replace_count(input, sub, by, maxsplit)[0]
+
+@specialize.ll_and_arg(4)
+@jit.elidable
+def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
     if isinstance(input, str):
         Builder = StringBuilder
     elif isinstance(input, unicode):
@@ -177,10 +222,10 @@ def replace(input, sub, by, maxsplit=-1):
         assert isinstance(input, list)
         Builder = ByteListBuilder
     if maxsplit == 0:
-        return input
+        return input, 0
 
 
-    if not sub:
+    if not sub and not isutf8:
         upper = len(input)
         if maxsplit > 0 and maxsplit < upper + 2:
             upper = maxsplit - 1
@@ -200,9 +245,16 @@ def replace(input, sub, by, maxsplit=-1):
             builder.append(input[i])
         builder.append(by)
         builder.append_slice(input, upper, len(input))
+        replacements = upper + 1
     else:
         # First compute the exact result size
-        cnt = count(input, sub, 0, len(input))
+        if sub:
+            cnt = count(input, sub, 0, len(input))
+        else:
+            assert isutf8
+            from rpython.rlib import rutf8
+            cnt = rutf8.codepoints_in_utf8(input) + 1
+
         if cnt > maxsplit and maxsplit > 0:
             cnt = maxsplit
         diff_len = len(by) - len(sub)
@@ -211,23 +263,36 @@ def replace(input, sub, by, maxsplit=-1):
             result_size = ovfcheck(result_size + len(input))
         except OverflowError:
             raise
+        replacements = cnt
 
         builder = Builder(result_size)
         start = 0
         sublen = len(sub)
 
-        while maxsplit != 0:
-            next = find(input, sub, start, len(input))
-            if next < 0:
-                break
-            builder.append_slice(input, start, next)
-            builder.append(by)
-            start = next + sublen
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+        if sublen == 0:
+            assert isutf8
+            from rpython.rlib import rutf8
+            while True:
+                builder.append(by)
+                maxsplit -= 1
+                if start == len(input) or maxsplit == 0:
+                    break
+                next = rutf8.next_codepoint_pos(input, start)
+                builder.append_slice(input, start, next)
+                start = next
+        else:
+            while maxsplit != 0:
+                next = find(input, sub, start, len(input))
+                if next < 0:
+                    break
+                builder.append_slice(input, start, next)
+                builder.append(by)
+                start = next + sublen
+                maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         builder.append_slice(input, start, len(input))
 
-    return builder.build()
+    return builder.build(), replacements
 
 def _normalize_start_end(length, start, end):
     if start < 0:

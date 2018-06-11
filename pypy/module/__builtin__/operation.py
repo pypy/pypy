@@ -7,7 +7,8 @@ import math
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from rpython.rlib.runicode import UNICHR
+from rpython.rlib.rfloat import isfinite, round_double, round_away
+from rpython.rlib import rfloat, rutf8
 import __builtin__
 
 def abs(space, w_val):
@@ -29,8 +30,8 @@ def chr(space, code):
     "Return a Unicode string of one character with the given ordinal."
     if code < 0 or code > 0x10FFFF:
         raise oefmt(space.w_ValueError, "chr() arg out of range")
-    c = UNICHR(code)
-    return space.newunicode(c)
+    s = rutf8.unichr_as_utf8(code, allow_surrogates=True)
+    return space.newutf8(s, 1)
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."

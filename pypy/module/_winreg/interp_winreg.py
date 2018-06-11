@@ -727,11 +727,12 @@ If the function fails, an EnvironmentError exception is raised."""
             raiseWindowsError(space, ret, 'RegConnectRegistry')
         return W_HKEY(space, rethkey[0])
 
-@unwrap_spec(source=unicode)
-def ExpandEnvironmentStrings(space, source):
+def ExpandEnvironmentStrings(space, w_source):
     "string = ExpandEnvironmentStrings(string) - Expand environment vars."
     try:
-        return space.newunicode(rwinreg.ExpandEnvironmentStrings(source))
+        source, source_ulen = space.utf8_len_w(w_source)
+        res, res_ulen = rwinreg.ExpandEnvironmentStrings(source, source_ulen)
+        return space.newutf8(res, res_ulen)
     except WindowsError as e:
         raise wrap_oserror(space, e)
 

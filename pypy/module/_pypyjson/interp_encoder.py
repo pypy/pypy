@@ -1,5 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.runicode import str_decode_utf_8
+from rpython.rlib import rutf8
 from pypy.interpreter import unicodehelper
 
 

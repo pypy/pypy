@@ -750,7 +750,7 @@ def _getfullpathname(space, w_path):
         if space.isinstance_w(w_path, space.w_unicode):
             path = FileEncoder(space, w_path)
             fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.newunicode(fullpath)
+            w_fullpath = u2utf8(space, fullpath)
         else:
             path = space.bytesbuf0_w(w_path)
             fullpath = rposix.getfullpathname(path)
@@ -777,7 +777,7 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
         else:
-            return space.newunicode(cur)
+            return u2utf8(space, cur)
 else:
     def getcwd(space):
         """Return the current working directory as a string."""

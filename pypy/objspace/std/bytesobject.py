@@ -1,6 +1,6 @@
 """The builtin bytes implementation"""
 
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
 from rpython.rlib.rstring import StringBuilder
@@ -415,6 +415,11 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def bytes_w(self, space):
         return self._value
+
+    def utf8_w(self, space):
+        # Use the default encoding.                                             
+        encoding = getdefaultencoding(space)
+        return space.utf8_w(decode_object(space, self, encoding, None))
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)

@@ -555,25 +555,32 @@ class TestGateway:
         w_app_g3_r = space.wrap(app_g3_r)
         space.raises_w(space.w_TypeError, space.call_function,w_app_g3_r,w(1.0))
 
-    def test_interp2app_unwrap_spec_unicode(self):
+    def test_interp2app_unwrap_spec_utf8(self):
         space = self.space
         w = space.wrap
-        def g3_u(space, uni):
-            return space.wrap(len(uni))
+        def g3_u(space, utf8):
+            return space.wrap(utf8)
         app_g3_u = gateway.interp2app_temp(g3_u,
                                          unwrap_spec=[gateway.ObjSpace,
-                                                      unicode])
+                                                      'utf8'])
         w_app_g3_u = space.wrap(app_g3_u)
+        encoded = u"gęść".encode('utf8')
         assert self.space.eq_w(
-            space.call_function(w_app_g3_u, w(u"foo")),
-            w(3))
+            space.call_function(w_app_g3_u, w(u"gęść")),
+            w(encoded))
         assert self.space.eq_w(
-            space.call_function(w_app_g3_u, w("baz")),
-            w(3))
+            space.call_function(w_app_g3_u, w("foo")),
+            w("foo"))
         space.raises_w(space.w_TypeError, space.call_function, w_app_g3_u,
                w(None))
         space.raises_w(space.w_TypeError, space.call_function, w_app_g3_u,
                w(42))
+        w_ascii = space.appexec([], """():
+            import sys
+            return sys.getdefaultencoding() == 'ascii'""")
+        if space.is_true(w_ascii):
+            raises(gateway.OperationError, space.call_function, w_app_g3_u,
+                   w("\x80"))
 
     def test_interp2app_unwrap_spec_unwrapper(self):
         space = self.space

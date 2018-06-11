@@ -146,7 +146,7 @@ class TestW_DictObject(object):
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(2))])
-        assert self.space.listview_unicode(w_d) == [u"a", u"b"]
+        assert self.space.listview_utf8(w_d) == ["a", "b"]
 
     def test_listview_int_dict(self):
         w = self.space.wrap
@@ -175,14 +175,14 @@ class TestW_DictObject(object):
         w_l = self.space.call_function(self.space.w_list, w_k)
         assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
 
+        #---the rest is for listview_unicode(), which is disabled---
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
-        monkeypatch.undo()
-        w_d = self.space.newdict()
-        w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
-        w_k = self.space.call_method(w_d, "keys")
-        w_l = self.space.call_function(self.space.w_list, w_k)
-        assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
+        # monkeypatch.undo()
+        # w_d = self.space.newdict()
+        # w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
+        # w_l = self.space.call_method(w_d, "keys")
+        # assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
 
 class AppTest_DictObject:
     def setup_class(cls):

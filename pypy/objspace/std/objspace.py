@@ -13,7 +13,7 @@ from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
 from rpython.rlib.objectmodel import import_from_mixin, we_are_translated
 from rpython.rlib.objectmodel import not_rpython
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
@@ -167,7 +167,9 @@ class StdObjSpace(ObjSpace):
                 return self._wrap_string_old(x)
             return self.newunicode(unicode_x)
         if isinstance(x, unicode):
-            return self.newunicode(x)
+            x = x.encode('utf8')
+            lgt = rutf8.check_utf8(x, True)
+            return self.newutf8(x, lgt)
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
@@ -334,8 +336,10 @@ class StdObjSpace(ObjSpace):
         return self.newlist_unicode([
             decode_utf8(self, s, allow_surrogates=True) for s in list_t])
 
-    def newlist_unicode(self, list_u):
-        return W_ListObject.newlist_unicode(self, list_u)
+    def newlist_utf8(self, list_u, is_ascii):
+        if is_ascii:
+            return W_ListObject.newlist_utf8(self, list_u)
+        return ObjSpace.newlist_utf8(self, list_u, False)
 
     def newlist_int(self, list_i):
         return W_ListObject.newlist_int(self, list_i)
@@ -391,13 +395,13 @@ class StdObjSpace(ObjSpace):
             return self.w_None
         return self.newtext(s)
 
+    def newutf8(self, utf8s, length):
+        assert utf8s is not None
+        assert isinstance(utf8s, str)
+        return W_UnicodeObject(utf8s, length)
+
     def newfilename(self, s):
         return self.fsdecode(self.newbytes(s))
-
-    def newunicode(self, uni):
-        assert uni is not None
-        assert isinstance(uni, unicode)
-        return W_UnicodeObject(uni)
 
     def type(self, w_obj):
         jit.promote(w_obj.__class__)
@@ -534,19 +538,20 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_bytes()
         return None
 
-    def listview_unicode(self, w_obj):
+    def listview_utf8(self, w_obj):
         # note: uses exact type checking for objects with strategies,
         # and isinstance() for others.  See test_listobject.test_uses_custom...
         if type(w_obj) is W_ListObject:
-            return w_obj.getitems_unicode()
+            return w_obj.getitems_utf8()
         if type(w_obj) is W_DictObject:
-            return w_obj.listview_unicode()
+            return w_obj.listview_utf8()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
-            return w_obj.listview_unicode()
-        if isinstance(w_obj, W_UnicodeObject) and self._uses_unicode_iter(w_obj):
-            return w_obj.listview_unicode()
+            return w_obj.listview_utf8()
+        if (isinstance(w_obj, W_UnicodeObject) and self._uni_uses_no_iter(w_obj)
+            and w_obj.is_ascii()):
+            return w_obj.listview_utf8()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-            return w_obj.getitems_unicode()
+            return w_obj.getitems_utf8()
         return None
 
     def listview_int(self, w_obj):

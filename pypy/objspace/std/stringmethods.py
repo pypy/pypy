@@ -472,61 +472,45 @@ class StringMethods(object):
     def _lower_in_str(self, value, i):
         # overridden in unicodeobject.py
         return self._lower(value[i])
-
+        
+    # This is not used for W_UnicodeObject.
     def descr_partition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         value = self._val(space)
 
-        if self._use_rstr_ops(space, w_sub):
-            sub = self._op_val(space, w_sub)
-            sublen = len(sub)
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
+        sub = _get_buffer(space, w_sub)
+        sublen = sub.getlength()
+        if sublen == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
 
-            pos = value.find(sub)
-        else:
-            sub = space.readbuf_w(w_sub)
-            sublen = sub.getlength()
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
-
-            pos = find(value, sub, 0, len(value))
-            if pos != -1 and isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
+        pos = find(value, sub, 0, len(value))
+        if pos != -1 and isinstance(self, W_BytearrayObject):
+            w_sub = self._new_from_buffer(sub)
 
         if pos == -1:
-            if isinstance(self, W_BytearrayObject):
-                self = self._new(value)
+            self = self._new(value)
             return space.newtuple([self, self._empty(), self._empty()])
         else:
             return space.newtuple(
                 [self._sliced(space, value, 0, pos, self), w_sub,
                  self._sliced(space, value, pos + sublen, len(value), self)])
 
+    # This is not used for W_UnicodeObject.
     def descr_rpartition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         value = self._val(space)
 
-        if self._use_rstr_ops(space, w_sub):
-            sub = self._op_val(space, w_sub)
-            sublen = len(sub)
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
+        sub = _get_buffer(space, w_sub)
+        sublen = sub.getlength()
+        if sublen == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
 
-            pos = value.rfind(sub)
-        else:
-            sub = space.readbuf_w(w_sub)
-            sublen = sub.getlength()
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
-
-            pos = rfind(value, sub, 0, len(value))
-            if pos != -1 and isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
+        pos = rfind(value, sub, 0, len(value))
+        if pos != -1 and isinstance(self, W_BytearrayObject):
+            w_sub = self._new_from_buffer(sub)
 
         if pos == -1:
-            if isinstance(self, W_BytearrayObject):
-                self = self._new(value)
+            self = self._new(value)
             return space.newtuple([self._empty(), self._empty(), self])
         else:
             return space.newtuple(
@@ -599,12 +583,14 @@ class StringMethods(object):
                 eol = pos
             strs.append(value[sol:eol])
         if pos < length:
+            # XXX is this code reachable?
             strs.append(value[pos:length])
         return self._newlist_unwrapped(space, strs)
 
     def _generic_name(self):
         return "bytes"
 
+    # This is overridden in unicodeobject, _startswith_tuple is not.
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
@@ -626,12 +612,14 @@ class StringMethods(object):
                 return space.w_True
         return space.w_False
 
+    # This is overridden in unicodeobject, _startswith_tuple is not.
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
         if start > len(value):
             return False
         return startswith(value, prefix, start, end)
 
+    # This is overridden in unicodeobject, _endswith_tuple is not.
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
@@ -653,6 +641,7 @@ class StringMethods(object):
                 return space.w_True
         return space.w_False
 
+    # This is overridden in unicodeobject, but _endswith_tuple is not.
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
         if start > len(value):
@@ -803,6 +792,7 @@ class StringMethods(object):
 
     def descr_getnewargs(self, space):
         return space.newtuple([self._new(self._val(space))])
+
 
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops

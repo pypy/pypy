@@ -7,11 +7,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.runicode import MAXUNICODE
 from rpython.rlib.unicodedata import unicodedb_8_0_0, unicodedb_3_2_0
-from rpython.rlib.runicode import code_to_unichr, ord_accepts_surrogate
-import sys
+from rpython.rlib.rutf8 import Utf8StringBuilder, unichr_as_utf8
 
 
 # Contants for Hangul characters
@@ -30,49 +27,17 @@ SCount = (LCount*NCount)
 # unicode code point.
 
 
-if MAXUNICODE > 0xFFFF:
-    # Target is wide build
-    def unichr_to_code_w(space, w_unichr):
-        if not space.isinstance_w(w_unichr, space.w_unicode):
-            raise oefmt(
-                space.w_TypeError, 'argument 1 must be unicode, not %T',
-                w_unichr)
+# Target is wide build
+def unichr_to_code_w(space, w_unichr):
+    if not space.isinstance_w(w_unichr, space.w_unicode):
+        raise oefmt(
+            space.w_TypeError, 'argument 1 must be unicode, not %T',
+            w_unichr)
 
-        if not we_are_translated() and sys.maxunicode == 0xFFFF:
-            # Host CPython is narrow build, accept surrogates
-            try:
-                return ord_accepts_surrogate(space.unicode_w(w_unichr))
-            except TypeError:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
-        else:
-            if not space.len_w(w_unichr) == 1:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
-            return space.int_w(space.ord(w_unichr))
-
-else:
-    # Target is narrow build
-    def unichr_to_code_w(space, w_unichr):
-        if not space.isinstance_w(w_unichr, space.w_unicode):
-            raise oefmt(
-                space.w_TypeError, 'argument 1 must be unicode, not %T',
-                w_unichr)
-
-        if not we_are_translated() and sys.maxunicode > 0xFFFF:
-            # Host CPython is wide build, forbid surrogates
-            if not space.len_w(w_unichr) == 1:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
-            return space.int_w(space.ord(w_unichr))
-
-        else:
-            # Accept surrogates
-            try:
-                return ord_accepts_surrogate(space.unicode_w(w_unichr))
-            except TypeError:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
+    if not space.len_w(w_unichr) == 1:
+        raise oefmt(space.w_TypeError,
+                    "need a single Unicode character as parameter")
+    return space.int_w(space.ord(w_unichr))
 
 
 class UCD(W_Root):
@@ -117,9 +82,9 @@ class UCD(W_Root):
         sequence = self._lookup_named_sequence(code)
         if sequence is not None:
             # named sequences only contain UCS2 codes, no surrogates &co.
-            return space.newunicode(sequence)
+            return space.newutf8(unichr_as_utf8(code), 1)
 
-        return space.newunicode(code_to_unichr(code))
+
 
     def name(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
@@ -322,7 +287,10 @@ class UCD(W_Root):
         return self.build(space, result, stop=next_insert)
 
     def build(self, space, r, stop):
-        return space.newunicode(u''.join([unichr(i) for i in r[:stop]]))
+        builder = Utf8StringBuilder(stop * 3)
+        for i in range(stop):
+            builder.append_code(r[i])
+        return space.newutf8(builder.build(), stop)
 
 
 methods = {}

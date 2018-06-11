@@ -590,6 +590,14 @@ class BaseTestRffi:
         res = fn(expected_extra_mallocs=range(30))
         assert res == 32 * len(d)
 
+    def test_wcharp_to_utf8(self):
+        wchar = lltype.malloc(CWCHARP.TO, 3, flavor='raw')
+        wchar[0] = u'\u1234'
+        wchar[1] = u'\x80'
+        wchar[2] = u'a'
+        assert wcharpsize2utf8(wchar, 3).decode("utf8") == u'\u1234\x80a'
+        lltype.free(wchar, flavor='raw')
+
 class TestRffiInternals:
     def test_struct_create(self):
         X = CStruct('xx', ('one', INT))

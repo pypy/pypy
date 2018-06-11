@@ -58,6 +58,7 @@ class ASTBuilder(object):
         self.space = space
         self.compile_info = compile_info
         self.root_node = n
+        # used in f-strings
         self.recursive_parser = recursive_parser
 
     def build_ast(self):

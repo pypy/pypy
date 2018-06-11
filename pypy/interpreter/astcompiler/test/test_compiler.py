@@ -1264,9 +1264,6 @@ class TestCompilerRevDB(BaseTestCompiler):
 
 class AppTestCompiler:
 
-    def setup_class(cls):
-        cls.w_maxunicode = cls.space.wrap(sys.maxunicode)
-
     def test_docstring_not_loaded(self):
         import io, dis, sys
         ns = {}
