@@ -7,9 +7,9 @@ What's new in PyPy2.7 6.0+
 
 .. branch: cppyy-packaging
 
-Upgrade to backend 0.6.0, support exception handling from wrapped functions,
-update enum handling, const correctness for data members and associated tests,
-support anonymous enums, support for function pointer arguments
+Upgrade to backend 1.1.0, improved handling of templated methods and
+functions (in particular automatic deduction of types), improved pythonization
+interface, and a range of compatibility fixes for Python3
 
 .. branch: socket_default_timeout_blockingness
 
@@ -28,9 +28,11 @@ Log additional gc-minor and gc-collect-step info in the PYPYLOG
 The reverse-debugger branch has been merged.  For more information, see
 https://bitbucket.org/pypy/revdb
 
+.. branch: pyparser-improvements-3
+
+Small refactorings in the Python parser.
+
 .. branch: unicode-utf8-re
 .. branch: utf8-io
 
 Utf8 handling for unicode
-
-

@@ -86,6 +86,9 @@ def check_add_breakpoint(input, curfilename=None,
         if msg[0] == revdb.ANSWER_TEXT:
             assert got_output is None
             got_output = msg[-1]
+            assert msg[1] in (0, 1)
+            if msg[1]:
+                got_output += "\n"
         elif msg[0] == revdb.ANSWER_CHBKPT:
             assert got_chbkpt is None
             assert msg[1] == 5

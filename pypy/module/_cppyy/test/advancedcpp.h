@@ -266,8 +266,8 @@ public:
 class some_comparable {
 };
 
-bool operator==(const some_comparable& c1, const some_comparable& c2 );
-bool operator!=( const some_comparable& c1, const some_comparable& c2 );
+bool operator==(const some_comparable& c1, const some_comparable& c2);
+bool operator!=(const some_comparable& c1, const some_comparable& c2);
 
 
 //===========================================================================
@@ -275,6 +275,17 @@ extern double my_global_double;    // a couple of globals for access testing
 extern double my_global_array[500];
 extern double* my_global_ptr;
 static const char my_global_string[] = "aap " " noot " " mies";
+
+class some_int_holder {
+public:
+    some_int_holder(int val) : m_val(val) {}
+
+public:
+    int m_val;
+    char gap[7];
+};
+extern some_int_holder my_global_int_holders[5];
+
 
 //===========================================================================
 class some_class_with_data {       // for life-line and identity testing

@@ -93,7 +93,12 @@ class AppTestCrossing:
             %(body)s
 
             PyMODINIT_FUNC
-            init%(name)s(void) {
+            #if PY_MAJOR_VERSION >= 3
+            PyInit_%(name)s(void)
+            #else
+            init%(name)s(void) 
+            #endif
+            {
             %(init)s
             }
             """ % dict(name=name, init=init, body=body)
@@ -116,8 +121,20 @@ class AppTestCrossing:
         name = 'bar'
 
         init = """
-        if (Py_IsInitialized())
+        #if PY_MAJOR_VERSION >= 3
+            static struct PyModuleDef moduledef = {
+                PyModuleDef_HEAD_INIT,
+                "bar", "Module Doc", -1, methods, NULL, NULL, NULL, NULL,
+            };
+        #endif
+
+        if (Py_IsInitialized()) {
+        #if PY_MAJOR_VERSION >= 3
+            PyObject *module = PyModule_Create(&moduledef);
+        #else
             Py_InitModule("bar", methods);
+        #endif
+        }
         """
 
         # note: only the symbols are needed for C, none for python

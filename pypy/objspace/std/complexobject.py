@@ -128,7 +128,7 @@ def str_format(x):
     return format_float(x, 'g', DTSF_STR_PRECISION)
 
 
-def unpackcomplex(space, w_complex, strict_typing=True):
+def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
     """
     convert w_complex into a complex and return the unwrapped (real, imag)
     tuple. If strict_typing==True, we also typecheck the value returned by
@@ -180,7 +180,20 @@ def unpackcomplex(space, w_complex, strict_typing=True):
         raise oefmt(space.w_TypeError,
                     "complex number expected, got '%T'", w_complex)
     #
-    return (space.float_w(space.float(w_complex)), 0.0)
+    try:
+        return (space.float_w(space.float(w_complex)), 0.0)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        if firstarg:
+            raise oefmt(space.w_TypeError,
+                        "complex() first argument must be a string or a number, not '%T'",
+                         w_complex)
+        else:
+            raise oefmt(space.w_TypeError,
+                        "complex() second argument must be a number, not '%T'",
+                         w_complex)
+
 
 
 class W_ComplexObject(W_Root):
@@ -326,7 +339,8 @@ class W_ComplexObject(W_Root):
             if not noarg2:
                 # complex(x, y) == x+y*j, even if 'y' is already a complex.
                 realval2, imagval2 = unpackcomplex(space, w_imag,
-                                                   strict_typing=False)
+                                                   strict_typing=False,
+                                                   firstarg=False)
 
                 # try to preserve the signs of zeroes of realval and realval2
                 if imagval2 != 0.0:
@@ -476,7 +490,7 @@ class W_ComplexObject(W_Root):
         try:
             return self.div(w_rhs)
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_rtruediv(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -485,7 +499,7 @@ class W_ComplexObject(W_Root):
         try:
             return w_lhs.div(self)
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_floordiv(self, space, w_rhs):
         w_rhs = self._to_complex(space, w_rhs)
@@ -495,7 +509,7 @@ class W_ComplexObject(W_Root):
         try:
             return self.divmod(space, w_rhs)[0]
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_rfloordiv(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -505,7 +519,7 @@ class W_ComplexObject(W_Root):
         try:
             return w_lhs.divmod(space, self)[0]
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_mod(self, space, w_rhs):
         w_rhs = self._to_complex(space, w_rhs)
@@ -514,7 +528,7 @@ class W_ComplexObject(W_Root):
         try:
             return self.divmod(space, w_rhs)[1]
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex modulo by zero")
 
     def descr_rmod(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -523,7 +537,7 @@ class W_ComplexObject(W_Root):
         try:
             return w_lhs.divmod(space, self)[1]
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex modulo by zero")
 
     def descr_divmod(self, space, w_rhs):
         w_rhs = self._to_complex(space, w_rhs)
@@ -532,7 +546,7 @@ class W_ComplexObject(W_Root):
         try:
             div, mod = self.divmod(space, w_rhs)
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex divmod by zero")
         return space.newtuple([div, mod])
 
     def descr_rdivmod(self, space, w_lhs):
@@ -542,7 +556,7 @@ class W_ComplexObject(W_Root):
         try:
             div, mod = w_lhs.divmod(space, self)
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex divmod by zero")
         return space.newtuple([div, mod])
 
     @unwrap_spec(w_third_arg=WrappedDefault(None))

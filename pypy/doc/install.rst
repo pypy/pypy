@@ -20,7 +20,7 @@ The quickest way to start using PyPy is to download a prebuilt binary for your
 OS and architecture.  You may be able to use either use the
 `most recent release`_ or one of our `development nightly build`_. These
 builds depend on dynamically linked libraries that may not be available on your
-OS. See the section about `Linux binaries` for more info and alternatives that
+OS. See the section about `Linux binaries`_ for more info and alternatives that
 may work on your system.
 
 Please note that the nightly builds are not

@@ -38,7 +38,7 @@ stuff = "nothing"
 """, info=info)
         assert tree.type == syms.file_input
         assert info.encoding == "iso-8859-1"
-        sentence = u"u'Die Männer ärgen sich!'"
+        sentence = u"u'Die Männer ärgern sich!'"
         input = (u"# coding: utf-7\nstuff = %s" % (sentence,)).encode("utf-7")
         tree = self.parse(input, info=info)
         assert info.encoding == "utf-7"
@@ -168,13 +168,11 @@ pass"""
             assert expected_tree == tree
 
     def test_revdb_dollar_num(self):
-        self.parse('$0')
-        self.parse('$5')
-        self.parse('$42')
-        self.parse('2+$42.attrname')
-        py.test.raises(SyntaxError, self.parse, '$')
-        py.test.raises(SyntaxError, self.parse, '$a')
-        py.test.raises(SyntaxError, self.parse, '$.5')
+        assert not self.space.config.translation.reverse_debugger
+        py.test.raises(SyntaxError, self.parse, '$0')
+        py.test.raises(SyntaxError, self.parse, '$0 + 5')
+        py.test.raises(SyntaxError, self.parse,
+                "from __future__ import print_function\nx = ($0, print)")
 
     def test_error_forgotten_chars(self):
         info = py.test.raises(SyntaxError, self.parse, "if 1\n    print 4")
@@ -183,3 +181,18 @@ pass"""
         assert "(expected ':')" in info.value.msg
         info = py.test.raises(SyntaxError, self.parse, "def f:\n print 1")
         assert "(expected '(')" in info.value.msg
+
+class TestPythonParserRevDB(TestPythonParser):
+    spaceconfig = {"translation.reverse_debugger": True}
+
+    def test_revdb_dollar_num(self):
+        self.parse('$0')
+        self.parse('$5')
+        self.parse('$42')
+        self.parse('2+$42.attrname')
+        self.parse("from __future__ import print_function\nx = ($0, print)")
+        py.test.raises(SyntaxError, self.parse, '$')
+        py.test.raises(SyntaxError, self.parse, '$a')
+        py.test.raises(SyntaxError, self.parse, '$.5')
+
+
