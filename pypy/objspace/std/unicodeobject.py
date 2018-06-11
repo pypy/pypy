@@ -6,8 +6,9 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import (
     StringBuilder, split, rsplit, UnicodeBuilder, replace_count, startswith,
-    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii,
-    unicode_encode_utf8_forbid_surrogates, SurrogateError, endswith)
+    endswith)
+from rpython.rlib.runicode import (
+    unicode_encode_utf8_forbid_surrogates, SurrogateError)
 from rpython.rlib import rutf8, jit
 
 from pypy.interpreter import unicodehelper
@@ -1851,4 +1852,4 @@ def g_encode_utf8(value):
     return unicode_encode_utf8_forbid_surrogates(value, len(value))
 
 _repr_function = rutf8.make_utf8_escape_function(
-    pass_printable=True, unicode_output=True, quotes=True, prefix='')
+    pass_printable=True, quotes=True, prefix='')

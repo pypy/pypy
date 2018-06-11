@@ -4,7 +4,7 @@ from hypothesis import given, strategies
 import struct
 import sys
 from pypy.interpreter.unicodehelper import (
-    encode_utf8, decode_utf8, unicode_encode_utf_32_be, str_decode_utf_32_be)
+    encode_utf8, str_decode_utf8, utf8_encode_utf_32_be, str_decode_utf_32_be)
 from pypy.interpreter.unicodehelper import encode_utf8sp, decode_utf8sp
 
 

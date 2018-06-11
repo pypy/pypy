@@ -247,9 +247,7 @@ class W_Root(object):
 
     def unicode_w(self, space):
         self._typed_unwrap_error(space, "string")
-
-    def text_w(self, space):
-        self._typed_unwrap_error(space, "string")
+    realunicode_w = unicode_w
 
     def utf8_w(self, space):
         self._typed_unwrap_error(space, "unicode")
@@ -1732,7 +1730,6 @@ class ObjSpace(object):
         return rstring.assert_str0(result)
 
     realtext_w = text_w         # Python 2 compatibility
-    realunicode_w = unicode_w
 
     def fsencode(space, w_obj):
         from pypy.interpreter.unicodehelper import fsencode

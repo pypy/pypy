@@ -86,7 +86,7 @@ class CodecState(object):
                 newpos = -1
             else:
                 if newpos < 0:
-                newpos = length + newpos
+                    newpos = length + newpos
             if newpos < 0 or newpos > length:
                 raise oefmt(space.w_IndexError,
                             "position %d from error handler out of bounds",

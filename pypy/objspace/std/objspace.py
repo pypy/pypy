@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.interpreter.unicodehelper import decode_utf8
+from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.objspace.std import frame, transparent, callmethod
 from pypy.objspace.descroperation import (
     DescrOperation, get_attribute_name, raiseattrerror)
@@ -165,7 +165,7 @@ class StdObjSpace(ObjSpace):
                 unicode_x = x.decode('ascii')
             except UnicodeDecodeError:
                 return self._wrap_string_old(x)
-            return self.newunicode(unicode_x)
+            return self.newtext(unicode_x)
         if isinstance(x, unicode):
             x = x.encode('utf8')
             lgt = rutf8.check_utf8(x, True)
@@ -192,7 +192,7 @@ class StdObjSpace(ObjSpace):
             else:
                 lst.append(unichr(ch))
         unicode_x = u''.join(lst)
-        return self.newunicode(unicode_x)
+        return self.newtext(unicode_x)
 
     @not_rpython # only for tests
     def _wrap_not_rpython(self, x):
@@ -334,7 +334,7 @@ class StdObjSpace(ObjSpace):
 
     def newlist_text(self, list_t):
         return self.newlist_unicode([
-            decode_utf8(self, s, allow_surrogates=True) for s in list_t])
+            str_decode_utf8(self, s, allow_surrogates=True) for s in list_t])
 
     def newlist_utf8(self, list_u, is_ascii):
         if is_ascii:
@@ -388,7 +388,7 @@ class StdObjSpace(ObjSpace):
         return W_BytearrayObject(l)
 
     def newtext(self, s):
-        return self.newunicode(decode_utf8(self, s, allow_surrogates=True))
+        return self.newtext(str_decode_utf8(self, s, allow_surrogates=True))
 
     def newtext_or_none(self, s):
         if s is None:

@@ -12,7 +12,7 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.unicodehelper import decode_utf8
+from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.objspace.std.util import negate
 
 
@@ -1184,7 +1184,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
     def decodekey_str(self, key):
-        return decode_utf8(self.space, key, allow_surrogates=True)
+        return str_decode_utf8(self.space, key, allow_surrogates=True)
 
     def setitem_str(self, w_dict, key, w_value):
         assert key is not None
