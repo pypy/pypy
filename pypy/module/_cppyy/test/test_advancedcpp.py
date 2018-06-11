@@ -663,9 +663,8 @@ class AppTestADVANCEDCPP:
         import _cppyy as cppyy
         Thrower = cppyy.gbl.Thrower
 
-        # TODO: clean up this interface:
-        Thrower.__cppdecl__.get_overload('throw_anything').__useffi__  = False
-        Thrower.__cppdecl__.get_overload('throw_exception').__useffi__ = False
+        Thrower.throw_anything.__useffi__  = False
+        Thrower.throw_exception.__useffi__ = False
 
         t = Thrower()
 
@@ -674,5 +673,5 @@ class AppTestADVANCEDCPP:
 
         try:
             t.throw_exception()
-        except Exception, e:
+        except Exception as e:
             "C++ function failed" in str(e)
