@@ -408,10 +408,16 @@ def _pythonize(pyclass, name):
 
     # map push_back -> __iadd__ (generally true for STL)
     if 'push_back' in pyclass.__dict__ and not '__iadd__' in pyclass.__dict__:
-        def __iadd__(self, ll):
-            [self.push_back(x) for x in ll]
-            return self
-        pyclass.__iadd__ = __iadd__
+        if 'reserve' in pyclass.__dict__:
+            def iadd(self, ll):
+                self.reserve(len(ll))
+                for x in ll: self.push_back(x)
+                return self
+        else:
+            def iadd(self, ll):
+                for x in ll: self.push_back(x)
+                return self
+        pyclass.__iadd__ = iadd
 
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
     # not on vector, which is pythonized in the capi (interp-level; there is
