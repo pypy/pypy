@@ -1827,7 +1827,7 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    value = _rpy_unicode_to_decimal_w(space, w_unistr._value)
+    value = _rpy_unicode_to_decimal_w(space, w_unistr.utf8_w(space))
     return unicodehelper.encode_utf8(space, value,
                                      allow_surrogates=allow_surrogates)
 

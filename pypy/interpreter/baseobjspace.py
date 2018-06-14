@@ -424,7 +424,7 @@ class ObjSpace(object):
         self.builtin_modules = {}
         self.reloading_modules = {}
 
-        self.interned_strings = make_weak_value_dictionary(self, unicode, W_Root)
+        self.interned_strings = make_weak_value_dictionary(self, str, W_Root)
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
         make_finalizer_queue(W_Root, self)
@@ -826,7 +826,7 @@ class ObjSpace(object):
         assert isinstance(w_u, W_Root)   # and is not None
         u = self.unicode_w(w_u)
         if not we_are_translated():
-            assert type(u) is unicode
+            assert type(u) is str
         w_u1 = self.interned_strings.get(u)
         if w_u1 is None:
             w_u1 = w_u
@@ -839,12 +839,12 @@ class ObjSpace(object):
         # returns a "text" object (ie str in python2 and unicode in python3)
         if not we_are_translated():
             assert type(s) is str
-        u = s.decode('utf-8')
-        w_s1 = self.interned_strings.get(u)
+        #u = s.decode('utf-8')
+        w_s1 = self.interned_strings.get(s)
         if w_s1 is None:
-            w_s1 = self.newunicode(u)
+            w_s1 = self.newtext(s)
             if self._side_effects_ok():
-                self.interned_strings.set(u, w_s1)
+                self.interned_strings.set(s, w_s1)
         return w_s1
 
     def _revdb_startup(self):
@@ -1619,7 +1619,7 @@ class ObjSpace(object):
             an utf-8 encoded rpython string.
         """
         assert w_obj is not None
-        return w_obj.text_w(self)
+        return w_obj.utf8_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
     def str_w(self, w_obj):

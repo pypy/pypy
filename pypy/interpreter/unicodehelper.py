@@ -3,7 +3,7 @@ import sys
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import rutf8
+from rpython.rlib import rutf8, runicode
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.unicodedata import unicodedb

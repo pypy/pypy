@@ -1184,7 +1184,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
     def decodekey_str(self, key):
-        return str_decode_utf8(self.space, key, allow_surrogates=True)
+        return str_decode_utf8(key, "string", True, None, allow_surrogates=True)[0]
 
     def setitem_str(self, w_dict, key, w_value):
         assert key is not None

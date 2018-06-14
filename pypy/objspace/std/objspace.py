@@ -388,7 +388,8 @@ class StdObjSpace(ObjSpace):
         return W_BytearrayObject(l)
 
     def newtext(self, s):
-        return self.newtext(str_decode_utf8(self, s, allow_surrogates=True))
+        lgt = rutf8.check_utf8(s, True)
+        return W_UnicodeObject(s, lgt)
 
     def newtext_or_none(self, s):
         if s is None:

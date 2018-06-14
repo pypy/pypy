@@ -11,7 +11,6 @@ from pypy.interpreter.unicodehelper import encode_utf8sp, decode_utf8sp
 class Hit(Exception):
     pass
 
-from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
 from pypy.interpreter import unicodehelper as uh
 from pypy.module._codecs.interp_codecs import CodecState
