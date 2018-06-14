@@ -672,24 +672,33 @@ class TemplateOverloadMixin(object):
 
     _mixin_ = True
 
-    def construct_template_args(self, w_args):
+    def construct_template_args(self, w_tpArgs, args_w = None):
         space = self.space
         tmpl_args = ''
-        for i in range(space.len_w(w_args)):
-            w_obj = space.getitem(w_args, space.newint(i))
-            if space.isinstance_w(w_obj, space.w_text):
-                s = space.text_w(w_obj)      # string describing type
-            elif space.isinstance_w(w_obj, space.w_type):
+        for i in range(space.len_w(w_tpArgs)):
+            w_tp = space.getitem(w_tpArgs, space.newint(i))
+            if space.isinstance_w(w_tp, space.w_text):
+                s = space.text_w(w_tp)      # string describing type
+            elif space.isinstance_w(w_tp, space.w_type):
                 try:
                     # cppyy bound types
-                    name = space.getattr(w_obj, space.newtext('__cppname__'))
+                    s = space.text_w(space.getattr(w_tp, space.newtext('__cppname__')))
+                    if args_w:
+                        # try to specialize the type match for the given object
+                        cppinstance = self.space.interp_w(W_CPPInstance, args_w[i])
+                        if cppinstance.flags & INSTANCE_FLAGS_IS_RVALUE:
+                            sugar = "&&"
+                        elif cppinstance.flags & INSTANCE_FLAGS_IS_REF:
+                            sugar = "*"
+                        else:
+                            sugar = "&"
+                        s += sugar
                 except OperationError:
                     # generic python types
-                    name = space.getattr(w_obj, space.newtext('__name__'))
-                s = space.text_w(name)
+                    s = space.text_w(space.getattr(w_tp, space.newtext('__name__')))
             else:
                 # builtin types etc.
-                s = space.text_w(space.str(w_obj))
+                s = space.text_w(space.str(w_tp))
             # map python types -> C++ types
             if s == 'str': s = 'std::string'
             if i != 0: tmpl_args += ', '
@@ -722,7 +731,7 @@ class TemplateOverloadMixin(object):
 
         # if all failed, then try to deduce from argument types
         w_types = self.space.newtuple([self.space.type(obj_w) for obj_w in args_w])
-        proto = self.construct_template_args(w_types)
+        proto = self.construct_template_args(w_types, args_w)
         method = self.find_method_template(name, proto)
 
         # only cache result if the name retains the full template
