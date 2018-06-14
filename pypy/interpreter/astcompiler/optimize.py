@@ -326,7 +326,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                     # produce compatible pycs.
                     if (self.space.isinstance_w(w_obj, self.space.w_unicode) and
                         self.space.isinstance_w(w_const, self.space.w_unicode)):
-                        #unistr = self.space.unicode_w(w_const)
+                        #unistr = self.space.utf8_w(w_const)
                         #if len(unistr) == 1:
                         #    ch = ord(unistr[0])
                         #else:

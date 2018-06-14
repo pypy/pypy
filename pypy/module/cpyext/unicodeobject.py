@@ -72,7 +72,7 @@ def new_empty_unicode(space, length):
 
 def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
-    value = space.unicode_w(w_obj)
+    value = space.utf8_w(w_obj).decode()
     set_wsize(py_obj, len(value))
     set_wbuffer(py_obj, lltype.nullptr(rffi.CWCHARP.TO))
     _readify(space, py_obj, value)
@@ -353,7 +353,7 @@ def PyUnicode_AsUnicodeAndSize(space, ref, psize):
     if not get_wbuffer(ref):
         # Copy unicode buffer
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
-        u = space.unicode_w(w_unicode)
+        u = space.utf8_w(w_unicode).decode()
         set_wbuffer(ref, rffi.unicode2wcharp(u))
         set_wsize(ref, len(u))
     if psize:
@@ -943,7 +943,7 @@ def PyUnicode_CompareWithASCIIString(space, w_uni, string):
     than, equal, and greater than, respectively. It is best to pass only
     ASCII-encoded strings, but the function interprets the input string as
     ISO-8859-1 if it contains non-ASCII characters."""
-    uni = space.unicode_w(w_uni)
+    uni = space.utf8_w(w_uni).decode()
     i = 0
     # Compare Unicode string and source character set string
     while i < len(uni) and string[i] != '\0':
@@ -1054,7 +1054,7 @@ def PyUnicode_Splitlines(space, w_str, keepend):
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PyUnicode_Substring(space, w_str, start, end):
-    usrc = space.unicode_w(w_str)
+    usrc = space.utf8_w(w_str).decode()
     length = len(usrc)
     if start < 0 or end < 0:
         raise oefmt(space.w_IndexError, "string index out of range")

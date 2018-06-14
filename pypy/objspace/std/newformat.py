@@ -572,7 +572,7 @@ def make_formatting_class(for_unicode):
             space = self.space
             if not space.is_w(space.type(w_string), space.w_unicode):
                 w_string = space.str(w_string)
-            string = space.unicode_w(w_string)
+            string = space.utf8_w(w_string)
             if self._parse_spec("s", "<"):
                 return self.wrap(string)
             if self._type != "s":

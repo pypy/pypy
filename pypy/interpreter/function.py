@@ -337,7 +337,7 @@ class Function(W_Root):
 
         self.space = space
         self.name = space.text_w(w_name)
-        self.qualname = space.unicode_w(w_qualname)
+        self.qualname = space.utf8_w(w_qualname)
         self.code = space.interp_w(Code, w_code)
         if not space.is_w(w_closure, space.w_None):
             from pypy.interpreter.nestedscope import Cell
@@ -434,7 +434,7 @@ class Function(W_Root):
 
     def fset_func_qualname(self, space, w_name):
         try:
-            self.qualname = space.unicode_w(w_name)
+            self.qualname = space.utf8_w(w_name)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,
@@ -549,13 +549,13 @@ class Method(W_Root):
             name = self.w_function.getname(self.space)
         else:
             try:
-                name = space.unicode_w(w_name)
+                name = space.utf8_w(w_name)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
                 name = u'?'
-        objrepr = space.unicode_w(space.repr(self.w_instance))
-        s = u'<bound method %s of %s>' % (name, objrepr)
+        objrepr = space.utf8_w(space.repr(self.w_instance))
+        s = b'<bound method %s of %s>' % (name, objrepr)
         return space.newtext(s)
 
     def descr_method_getattribute(self, w_attr):

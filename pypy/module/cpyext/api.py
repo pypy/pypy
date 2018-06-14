@@ -1707,13 +1707,13 @@ def create_extension_module(space, w_spec):
         else:
             look_for = also_look_for
     assert look_for is not None
-    msg = u"function %s not found in library %s" % (
-        look_for.decode('utf-8'), space.unicode_w(space.newfilename(path)))
+    msg = b"function %s not found in library %s" % (
+        look_for.decode('utf-8'), space.utf8_w(space.newfilename(path)))
     w_path = space.newfilename(path)
     raise_import_error(space, space.newtext(msg), w_name, w_path)
 
 def get_init_name(space, w_name):
-    name_u = space.unicode_w(w_name)
+    name_u = space.utf8_w(w_name).decode()
     basename_u = name_u.split(u'.')[-1]
     try:
         basename = basename_u.encode('ascii')

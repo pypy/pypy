@@ -247,9 +247,9 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     w_stderr = space.sys.get("stderr")
 
     # Print "filename:lineno: category: text\n"
-    message = u"%s:%d: %s: %s\n" % (space.unicode_w(w_filename), lineno,
-                                    space.unicode_w(w_name),
-                                    space.unicode_w(w_text))
+    message = b"%s:%d: %s: %s\n" % (space.utf8_w(w_filename), lineno,
+                                    space.utf8_w(w_name),
+                                    space.utf8_w(w_text))
     space.call_method(w_stderr, "write", space.newtext(message))
 
     # Print "  source_line\n"
@@ -267,7 +267,7 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
 
     if not w_sourceline:
         return
-    line = space.unicode_w(w_sourceline)
+    line = space.utf8_w(w_sourceline)
     if not line:
         return
 

@@ -754,7 +754,7 @@ class W_ArrayBase(W_Root):
             return space.newtext("array('%s')" % self.typecode)
         elif self.typecode == "u":
             r = space.repr(self.descr_tounicode(space))
-            s = u"array('u', %s)" % space.unicode_w(r)
+            s = b"array('b', %s)" % space.utf8_w(r)
             return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))

@@ -80,7 +80,7 @@ class W_Root(object):
 
     def getname(self, space):
         try:
-            return space.unicode_w(space.getattr(self, space.newtext('__name__')))
+            return space.utf8_w(space.getattr(self, space.newtext('__name__')))
         except OperationError as e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
                 return u'?'
@@ -244,10 +244,6 @@ class W_Root(object):
 
     def bytes_w(self, space):
         self._typed_unwrap_error(space, "bytes")
-
-    def unicode_w(self, space):
-        self._typed_unwrap_error(space, "string")
-    realunicode_w = unicode_w
 
     def utf8_w(self, space):
         self._typed_unwrap_error(space, "unicode")
@@ -824,7 +820,7 @@ class ObjSpace(object):
 
     def new_interned_w_str(self, w_u):
         assert isinstance(w_u, W_Root)   # and is not None
-        u = self.unicode_w(w_u)
+        u = self.utf8_w(w_u)
         if not we_are_translated():
             assert type(u) is str
         w_u1 = self.interned_strings.get(u)
@@ -1719,8 +1715,8 @@ class ObjSpace(object):
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
 
-    def unicode0_w(self, w_obj):
-        "Like unicode_w, but rejects strings with NUL bytes."
+    def utf8_0_w(self, w_obj):
+        "Like utf8_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
         result = w_obj.utf8_w(self).decode('utf8')
         if u'\x00' in result:

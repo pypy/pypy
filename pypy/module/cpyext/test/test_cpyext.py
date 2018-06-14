@@ -101,7 +101,7 @@ def preload_expr(space, expr):
 
 def is_interned_string(space, w_obj):
     try:
-        u = space.unicode_w(w_obj)
+        u = space.utf8_w(w_obj)
     except OperationError:
         return False
     return space.interned_strings.get(u) is not None

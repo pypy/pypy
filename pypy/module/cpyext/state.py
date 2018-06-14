@@ -141,7 +141,7 @@ class State:
             argv = space.sys.get('argv')
             if space.len_w(argv):
                 argv0 = space.getitem(argv, space.newint(0))
-                progname = space.unicode_w(argv0)
+                progname = space.utf8_w(argv0).decode()
             else:
                 progname = u"pypy3"
             self.programname = rffi.unicode2wcharp(progname)

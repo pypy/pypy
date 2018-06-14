@@ -218,17 +218,17 @@ def create_spec_for_method(space, w_function, w_type):
 
 def create_spec_for_function(space, w_func):
     assert isinstance(w_func, Function)
-    pre = u'built-in function ' if isinstance(w_func, BuiltinFunction) else u''
+    pre = b'built-in function ' if isinstance(w_func, BuiltinFunction) else b''
     if w_func.w_module is not None:
-        module = space.unicode_w(w_func.w_module)
-        if module != u'builtins':
-            return u'<%s%s.%s>' % (pre, module, w_func.getname(space))
-    return u'<%s%s>' % (pre, w_func.getname(space))
+        module = space.utf8_w(w_func.w_module)
+        if module != b'builtins':
+            return b'<%s%s.%s>' % (pre, module, w_func.getname(space))
+    return b'<%s%s>' % (pre, w_func.getname(space))
 
 
 def create_spec_for_object(space, w_type):
     class_name = w_type.getname(space)
-    return u"<'%s' object>" % (class_name,)
+    return b"<'%s' object>" % (class_name,)
 
 
 class W_DelayedBuiltinStr(W_Root):

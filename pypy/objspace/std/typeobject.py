@@ -204,7 +204,7 @@ class W_TypeObject(W_Root):
             w_qualname = self.dict_w.pop('__qualname__', None)
             if w_qualname is not None:
                 if space.isinstance_w(w_qualname, space.w_unicode):
-                    self.qualname = space.unicode_w(w_qualname)
+                    self.qualname = space.utf8_w(w_qualname)
                 elif not self.flag_cpytype:
                     raise oefmt(space.w_TypeError,
                                 "type __qualname__ must be a str, not %T",
@@ -723,9 +723,9 @@ class W_TypeObject(W_Root):
         if w_mod is None or not space.isinstance_w(w_mod, space.w_text):
             mod = None
         else:
-            mod = space.unicode_w(w_mod)
-        if mod is not None and mod != u'builtins':
-            return space.newtext(u"<class '%s.%s'>" % (mod, self.getqualname(space)))
+            mod = space.utf8_w(w_mod)
+        if mod is not None and mod != b'builtins':
+            return space.newtext(b"<class '%s.%s'>" % (mod, self.getqualname(space)))
         else:
             return space.newtext("<class '%s'>" % (self.name,))
 
@@ -869,7 +869,7 @@ def descr_set__qualname__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__qualname__", w_type)
-    w_type.qualname = space.unicode_w(w_value)
+    w_type.qualname = space.utf8_w(w_value)
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
@@ -1158,7 +1158,7 @@ def slot_w(space, w_name):
     if not space.isinstance_w(w_name, space.w_text):
         raise oefmt(space.w_TypeError,
             "__slots__ items must be strings, not '%T'", w_name)
-    if not _isidentifier(space.unicode_w(w_name)):
+    if not _isidentifier(space.utf8_w(w_name)):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
     return w_name.text_w(space)
 

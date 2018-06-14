@@ -150,10 +150,10 @@ class W_BaseException(W_Root):
 
     def descr_repr(self, space):
         if self.args_w:
-            args_repr = space.unicode_w(
+            args_repr = space.utf8_w(
                 space.repr(space.newtuple(self.args_w)))
         else:
-            args_repr = u"()"
+            args_repr = b"()"
         clsname = self.getclass(space).getname(space)
         return space.newtext(clsname + args_repr)
 
@@ -587,38 +587,38 @@ class W_OSError(W_Exception):
 
     def descr_str(self, space):
         if self.w_errno:
-            errno = space.unicode_w(space.str(self.w_errno))
+            errno = space.utf8_w(space.str(self.w_errno))
         else:
-            errno = u""
+            errno = b""
         if self.w_strerror:
-            strerror = space.unicode_w(space.str(self.w_strerror))
+            strerror = space.utf8_w(space.str(self.w_strerror))
         else:
-            strerror = u""
+            strerror = b""
         if rwin32.WIN32 and self.w_winerror:
-            winerror = space.unicode_w(space.str(self.w_winerror))
+            winerror = space.utf8_w(space.str(self.w_winerror))
             # If available, winerror has the priority over errno
             if self.w_filename:
                 if self.w_filename2:
-                    return space.newtext(u"[WinError %s] %s: %s -> %s" % (
+                    return space.newtext(b"[WinError %s] %s: %s -> %s" % (
                         winerror, strerror,
-                        space.unicode_w(space.repr(self.w_filename)),
-                        space.unicode_w(space.repr(self.w_filename2))))
-                return space.newtext(u"[WinError %s] %s: %s" % (
+                        space.utf8_w(space.repr(self.w_filename)),
+                        space.utf8_w(space.repr(self.w_filename2))))
+                return space.newtext(b"[WinError %s] %s: %s" % (
                     winerror, strerror,
-                    space.unicode_w(space.repr(self.w_filename))))
-            return space.newtext(u"[WinError %s] %s" % (
+                    space.utf8_w(space.repr(self.w_filename))))
+            return space.newtext(b"[WinError %s] %s" % (
                 winerror, strerror))
         if self.w_filename:
             if self.w_filename2:
-                return space.newtext(u"[Errno %s] %s: %s -> %s" % (
+                return space.newtext(b"[Errno %s] %s: %s -> %s" % (
                     errno, strerror,
-                    space.unicode_w(space.repr(self.w_filename)),
-                    space.unicode_w(space.repr(self.w_filename2))))
-            return space.newtext(u"[Errno %s] %s: %s" % (
+                    space.utf8_w(space.repr(self.w_filename)),
+                    space.utf8_w(space.repr(self.w_filename2))))
+            return space.newtext(b"[Errno %s] %s: %s" % (
                 errno, strerror,
-                space.unicode_w(space.repr(self.w_filename))))
+                space.utf8_w(space.repr(self.w_filename))))
         if self.w_errno and self.w_strerror:
-            return space.newtext(u"[Errno %s] %s" % (
+            return space.newtext(b"[Errno %s] %s" % (
                 errno, strerror))
         return W_BaseException.descr_str(self, space)
 
@@ -785,7 +785,7 @@ class W_SyntaxError(W_Exception):
             values_w = space.fixedview(self.args_w[1])
             w_tuple = space.newtuple(values_w + [self.w_lastlineno])
             args_w = [self.args_w[0], w_tuple]
-            args_repr = space.unicode_w(space.repr(space.newtuple(args_w)))
+            args_repr = space.utf8_w(space.repr(space.newtuple(args_w)))
             clsname = self.getclass(space).getname(space)
             return space.newtext(clsname + args_repr)
         else:
@@ -793,15 +793,15 @@ class W_SyntaxError(W_Exception):
 
     # CPython Issue #21669: Custom error for 'print' & 'exec' as statements
     def _report_missing_parentheses(self, space):
-        text = space.unicode_w(self.w_text)
-        if u'(' in text:
+        text = space.utf8_w(self.w_text)
+        if b'(' in text:
             # Use default error message for any line with an opening paren
             return
         # handle the simple statement case
         if self._check_for_legacy_statements(space, text, 0):
             return
         # Handle the one-line complex statement case
-        pos = text.find(u':')
+        pos = text.find(b':')
         if pos < 0:
             return
         # Check again, starting from just after the colon
@@ -817,11 +817,11 @@ class W_SyntaxError(W_Exception):
         if start > 0:
             text = text[start:]
         # Check for legacy print statements
-        if text.startswith(u"print "):
+        if text.startswith(b"print "):
             self.w_msg = space.newtext("Missing parentheses in call to 'print'")
             return True
         # Check for legacy exec statements
-        if text.startswith(u"exec "):
+        if text.startswith(b"exec "):
             self.w_msg = space.newtext("Missing parentheses in call to 'exec'")
             return True
         return False

@@ -566,7 +566,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if not space.is_w(space.type(w_hexstring), space.w_unicode):
             raise oefmt(space.w_TypeError, "must be str, not %T", w_hexstring)
         from pypy.objspace.std.bytearrayobject import _hexstring_to_array
-        hexstring = space.unicode_w(w_hexstring)
+        hexstring = space.utf8_w(w_hexstring)
         bytes = ''.join(_hexstring_to_array(space, hexstring))
         return W_BytesObject(bytes)
 

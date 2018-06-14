@@ -447,14 +447,14 @@ def make_formatter_subclass(do_unicode):
                 # arbitrary unicode chars if w_value is an arbitrary unicode
                 # string
                 w_value = self.space.repr(w_value)
-                self.std_wp(self.space.unicode_w(w_value))
+                self.std_wp(self.space.utf8_w(w_value))
 
         def fmt_a(self, w_value):
             from pypy.objspace.std.unicodeobject import ascii_from_object
             w_value = ascii_from_object(self.space, w_value)
             # %a calls ascii(), which should return an ascii unicode string
             if do_unicode:
-                value = self.space.unicode_w(w_value)
+                value = self.space.utf8_w(w_value)
             else:
                 value = self.space.text_w(w_value)
             self.std_wp(value)
@@ -498,7 +498,7 @@ def make_formatter_subclass(do_unicode):
                 raise oefmt(space.w_TypeError, "%c requires int or single byte")
             else:
                 if space.isinstance_w(w_value, space.w_unicode):
-                    ustr = space.unicode_w(w_value)
+                    ustr = space.utf8_w(w_value)
                     if len(ustr) == 1:
                         self.std_wp(ustr)
                         return

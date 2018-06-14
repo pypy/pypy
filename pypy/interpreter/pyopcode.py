@@ -1081,8 +1081,8 @@ class __extend__(pyframe.PyFrame):
             try:
                 w_pkgname = space.getattr(
                     w_module, space.newtext('__name__'))
-                w_fullname = space.newtext(u'%s.%s' %
-                    (space.unicode_w(w_pkgname), space.unicode_w(w_name)))
+                w_fullname = space.newtext(b'%s.%s' %
+                    (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
                 return space.getitem(space.sys.get('modules'), w_fullname)
             except OperationError:
                 raise oefmt(
@@ -1331,7 +1331,7 @@ class __extend__(pyframe.PyFrame):
     def _make_function(self, oparg, freevars=None):
         space = self.space
         w_qualname = self.popvalue()
-        qualname = self.space.unicode_w(w_qualname)
+        qualname = self.space.utf8_w(w_qualname)
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(PyCode, w_codeobj)
         if freevars is not None:
@@ -1647,7 +1647,7 @@ class __extend__(pyframe.PyFrame):
         lst = []
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
-            lst.append(space.unicode_w(w_item))
+            lst.append(space.utf8_w(w_item))
         self.dropvalues(itemcount)
         w_res = space.newtext(u''.join(lst))
         self.pushvalue(w_res)

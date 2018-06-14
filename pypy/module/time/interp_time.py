@@ -616,7 +616,7 @@ def _gettmarg(space, w_tup, allowNone=True):
             # it saves the string that is later deleted when this
             # function is called again. A refactoring of this module
             # could remove this
-            tm_zone = encode_utf8(space, space.unicode_w(tup_w[9]), allow_surrogates=True)
+            tm_zone = space.utf8_w(tup_w[9])
             malloced_str = rffi.str2charp(tm_zone, track_allocation=False)
             if old_tm_zone != lltype.nullptr(rffi.CCHARP.TO):
                 rffi.free_charp(old_tm_zone, track_allocation=False)

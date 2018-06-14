@@ -75,10 +75,6 @@ class FakeSpace(object):
         assert isinstance(w_x, W_String)
         return w_x.strval
 
-    def unicode_w(self, w_x):
-        assert isinstance(w_x, W_Unicode)
-        return w_x.unival
-
     @dont_inline
     def call_method(self, obj, name, arg):
         assert name == 'append'

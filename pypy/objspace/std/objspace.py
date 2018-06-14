@@ -762,12 +762,12 @@ class StdObjSpace(ObjSpace):
             w_module = w_type.lookup("__module__")
             if w_module is not None:
                 try:
-                    modulename = self.unicode_w(w_module)
+                    modulename = self.utf8_w(w_module)
                 except OperationError as e:
                     if not e.match(self, self.w_TypeError):
                         raise
                 else:
-                    classname = u'%s.%s' % (modulename, classname)
+                    classname = b'%s.%s' % (modulename, classname)
         else:
             classname = w_type.name.decode('utf-8')
         return classname

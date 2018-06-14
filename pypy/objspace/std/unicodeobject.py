@@ -210,15 +210,15 @@ class W_UnicodeObject(W_Root):
 
     @staticmethod
     def descr_maketrans(space, w_type, w_x, w_y=None, w_z=None):
-        y = None if space.is_none(w_y) else space.unicode_w(w_y)
-        z = None if space.is_none(w_z) else space.unicode_w(w_z)
+        y = None if space.is_none(w_y) else space.utf8_w(w_y)
+        z = None if space.is_none(w_z) else space.utf8_w(w_z)
         w_new = space.newdict()
 
         if y is not None:
             # x must be a string too, of equal length
             ylen = len(y)
             try:
-                x = space.unicode_w(w_x)
+                x = space.utf8_w(w_x)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -257,7 +257,7 @@ class W_UnicodeObject(W_Root):
                 w_key, w_value = space.unpackiterable(w_item, 2)
                 if space.isinstance_w(w_key, space.w_unicode):
                     # convert string keys to integer keys
-                    key = space.unicode_w(w_key)
+                    key = space.utf8_w(w_key)
                     if len(key) != 1:
                         raise oefmt(space.w_ValueError,
                                     "string keys in translate table must be "
@@ -283,7 +283,7 @@ class W_UnicodeObject(W_Root):
         if space.is_w(space.type(self), space.w_unicode):
             return self
         # Subtype -- return genuine unicode string with the same value.
-        return space.newtext(space.unicode_w(self))
+        return space.newtext(space.utf8_w(self))
 
     def descr_hash(self, space):
         x = compute_hash(self._utf8)

@@ -103,10 +103,10 @@ class W_AbstractTupleObject(W_Root):
         items = self.tolist()
         if len(items) == 1:
             return space.newtext(
-                u"(" + space.unicode_w(space.repr(items[0])) + u",)")
-        tmp = u", ".join([space.unicode_w(space.repr(item))
+                b"(" + space.utf8_w(space.repr(items[0])) + b",)")
+        tmp = b", ".join([space.utf8_w(space.repr(item))
                           for item in items])
-        return space.newtext(u"(" + tmp + u")")
+        return space.newtext(b"(" + tmp + b")")
 
     def descr_hash(self, space):
         raise NotImplementedError

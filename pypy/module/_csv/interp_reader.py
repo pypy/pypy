@@ -73,13 +73,13 @@ class W_Reader(W_Root):
                             break
                 raise
             self.line_num += 1
-            line = space.unicode_w(w_line)
+            line = space.utf8_w(w_line)
             for c in line:
-                if c == u'\0':
+                if c == b'\0':
                     raise self.error(u"line contains NULL byte")
 
                 if state == START_RECORD:
-                    if c == u'\n' or c == u'\r':
+                    if c == b'\n' or c == b'\r':
                         state = EAT_CRNL
                         continue
                     # normal character - handle as START_FIELD

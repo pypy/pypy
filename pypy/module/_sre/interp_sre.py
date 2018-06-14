@@ -111,7 +111,7 @@ class W_SRE_Pattern(W_Root):
 
     def repr_w(self):
         space = self.space
-        u = space.unicode_w(space.repr(self.w_pattern))
+        u = space.utf8_w(space.repr(self.w_pattern)).decode()
         if len(u) > 200:
             u = u[:200]
         flag_items = []
@@ -163,8 +163,8 @@ class W_SRE_Pattern(W_Root):
         string = None
         buf = None
         space = self.space
-        if space.isinstance_w(w_string, space.w_unicode):
-            unicodestr = space.unicode_w(w_string)
+        if space.isinstance_w(w_string, space.w_utf8):
+            unicodestr = space.utf8_w(w_string).decode()
             length = len(unicodestr)
         elif space.isinstance_w(w_string, space.w_bytes):
             string = space.bytes_w(w_string)
@@ -565,7 +565,7 @@ class W_SRE_Match(W_Root):
         ctx = self.ctx
         start, end = ctx.match_start, ctx.match_end
         w_s = slice_w(space, ctx, start, end, space.w_None)
-        u = space.unicode_w(space.repr(w_s))
+        u = space.utf8_w(space.repr(w_s)).decode()
         if len(u) > 50:
             u = u[:50]
         return space.newtext(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' %

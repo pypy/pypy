@@ -639,7 +639,7 @@ getting the advantage of providing document type information to the parser.
         """Parse(data[, isfinal])
 Parse XML data.  `isfinal' should be true at end of input."""
         if space.isinstance_w(w_data, space.w_unicode):
-            data = encode_utf8(space, w_data.unicode_w(space))
+            data = encode_utf8(space, w_data.utf8_w(space))
             # Explicitly set UTF-8 encoding. Return code ignored.
             XML_SetEncoding(self.itself, "utf-8")
         else:

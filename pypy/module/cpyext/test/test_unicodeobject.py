@@ -658,8 +658,8 @@ class TestUnicode(BaseApiTest):
         b_text = rffi.str2charp('caf\x82xx')
         b_encoding = rffi.str2charp('cp437')
         b_errors = rffi.str2charp('strict')
-        assert space.unicode_w(PyUnicode_Decode(
-            space, b_text, 4, b_encoding, b_errors)) == u'caf\xe9'
+        assert space.utf8_w(PyUnicode_Decode(
+            space, b_text, 4, b_encoding, b_errors)).decode() == u'caf\xe9'
         assert (space.utf8_w(
             PyUnicode_Decode(space, b_text, 4, b_encoding, None)) ==
             u'caf\xe9'.encode("utf-8"))

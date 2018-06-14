@@ -1291,9 +1291,9 @@ class FakeSpace:
         assert isinstance(string, str)
         return string
 
-    def unicode_w(self, u):
-        assert isinstance(u, unicode)
-        return u
+    def utf8_w(self, b):
+        assert isinstance(u, str)
+        return b
 
     def int_w(self, integer, allow_conversion=True):
         assert isinstance(integer, int)

@@ -453,7 +453,7 @@ class PyCode(eval.Code):
         space = self.space
         # co_name should be an identifier
         name = self.co_name.decode('utf-8')
-        fn = space.unicode_w(self.w_filename)
-        return space.newtext(u'<code object %s at 0x%s, file "%s", line %d>' % (
+        fn = space.utf_8(self.w_filename)
+        return space.newtext(b'<code object %s at 0x%s, file "%s", line %d>' % (
             name, unicode(self.getaddrstring(space)), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))

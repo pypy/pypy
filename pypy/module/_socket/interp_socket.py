@@ -233,8 +233,8 @@ class W_Socket(W_Root):
     def _dealloc_warn(self):
         space = self.space
         try:
-            msg = (u"unclosed %s" %
-                   space.unicode_w(space.repr(self)))
+            msg = (b"unclosed %s" %
+                   space.utf8_w(space.repr(self)))
             space.warn(space.newtext(msg), space.w_ResourceWarning)
         except OperationError as e:
             # Spurious errors can appear at shutdown

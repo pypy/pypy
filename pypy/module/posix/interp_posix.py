@@ -2258,7 +2258,7 @@ if _WIN32:
                                space.newint(info[2])])
 
     def _getfinalpathname(space, w_path):
-        path = space.unicode_w(w_path)
+        path = space.utf8_w(w_path)
         try:
             result = nt._getfinalpathname(path)
         except nt.LLNotImplemented as e:

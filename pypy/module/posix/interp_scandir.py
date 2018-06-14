@@ -27,7 +27,7 @@ def scandir(space, w_path=None):
         if space.isinstance_w(w_path, space.w_bytes):
             raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
                                            " on Windows, use Unicode instead")
-        path = space.unicode_w(w_path)
+        path = space.utf8_w(w_path)
         result_is_bytes = False
 
     # 'path' is always bytes on posix and always unicode on windows
@@ -157,8 +157,8 @@ class W_DirEntry(W_Root):
         self.w_name = w_name
 
     def descr_repr(self, space):
-        u = space.unicode_w(space.repr(self.w_name))
-        return space.newtext(u"<DirEntry %s>" % u)
+        u = space.utf8_w(space.repr(self.w_name))
+        return space.newtext(b"<DirEntry %s>" % u)
 
     def fget_name(self, space):
         return self.w_name

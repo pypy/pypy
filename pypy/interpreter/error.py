@@ -507,9 +507,9 @@ def get_operrcls2(valuefmt):
                     if fmt == 'd':
                         result = str(value).decode('ascii')
                     elif fmt == 'R':
-                        result = space.unicode_w(space.repr(value))
+                        result = space.utf8_w(space.repr(value))
                     elif fmt == 'S':
-                        result = space.unicode_w(space.str(value))
+                        result = space.utf8_w(space.str(value))
                     elif fmt == 'T':
                         result = _decode_utf8(space.type(value).name)
                     elif fmt == 'N':
@@ -565,8 +565,8 @@ def oefmt(w_type, valuefmt, *args):
 
     %8 - The result of arg.decode('utf-8')
     %N - The result of w_arg.getname(space)
-    %R - The result of space.unicode_w(space.repr(w_arg))
-    %S - The result of space.unicode_w(space.str(w_arg))
+    %R - The result of space.utf8_w(space.repr(w_arg))
+    %S - The result of space.utf8_w(space.str(w_arg))
     %T - The result of space.type(w_arg).name
 
     """

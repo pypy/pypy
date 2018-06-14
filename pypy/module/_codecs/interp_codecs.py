@@ -101,7 +101,7 @@ class CodecState(object):
                                      startpos, endpos):
             w_replace, newpos = errorhandler(errors, encoding, reason, input,
                                              startpos, endpos)
-            return space.unicode_w(w_replace), newpos
+            return space.utf8_w(w_replace), newpos
         return decode_call_errorhandler
 
     def make_encode_errorhandler(self, space):
@@ -111,7 +111,7 @@ class CodecState(object):
             w_replace, newpos = errorhandler(errors, encoding, reason, input,
                                              startpos, endpos)
             if space.isinstance_w(w_replace, space.w_unicode):
-                return space.unicode_w(w_replace), None, newpos
+                return space.utf8_w(w_replace), None, newpos
             return None, space.bytes_w(w_replace), newpos
         return encode_call_errorhandler
 
@@ -1052,7 +1052,7 @@ def unicode_internal_encode(space, w_uni, errors="strict"):
     if errors is None:
         errors = 'strict'
     if space.isinstance_w(w_uni, space.w_unicode):
-        uni = space.unicode_w(w_uni)
+        uni = space.utf8_w(w_uni)
         state = space.fromcache(CodecState)
         result = runicode.unicode_encode_unicode_internal(
             uni, len(uni), errors, state.encode_error_handler)
