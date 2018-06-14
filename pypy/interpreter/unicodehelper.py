@@ -991,7 +991,8 @@ def decode_utf8sp(space, string):
     # Surrogate-preserving utf-8 decoding.  Assuming there is no
     # encoding error, it should always be reversible, and the reverse is
     # encode_utf8sp().
-    return decode_utf8(space, string, allow_surrogates=True)
+    return str_decode_utf8(string, "string", True, decode_error_handler(space),
+                           allow_surrogates=True)
 
 
 # ____________________________________________________________

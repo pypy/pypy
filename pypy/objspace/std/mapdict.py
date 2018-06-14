@@ -433,7 +433,7 @@ class PlainAttribute(AbstractAttribute):
     def materialize_str_dict(self, space, obj, str_dict):
         new_obj = self.back.materialize_str_dict(space, obj, str_dict)
         if self.index == DICT:
-            uni_name = str_decode_utf8(space, self.name)
+            uni_name = str_decode_utf8(self.name, "string", True, None)[0]
             str_dict[uni_name] = obj._mapdict_read_storage(self.storageindex)
         else:
             self._copy_attr(obj, new_obj)

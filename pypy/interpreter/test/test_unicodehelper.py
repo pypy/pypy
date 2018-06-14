@@ -16,7 +16,7 @@ from pypy.interpreter import unicodehelper as uh
 from pypy.module._codecs.interp_codecs import CodecState
 
 def decode_utf8(u):
-    return str_decode_utf8(u, True, "strict", None)
+    return str_decode_utf8(u, "strict", True, None)
 
 def test_encode_utf8_allow_surrogates():
     sp = FakeSpace()

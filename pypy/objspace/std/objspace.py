@@ -334,7 +334,8 @@ class StdObjSpace(ObjSpace):
 
     def newlist_text(self, list_t):
         return self.newlist_unicode([
-            str_decode_utf8(self, s, allow_surrogates=True) for s in list_t])
+            str_decode_utf8(s, "string", True, None, allow_surrogates=True)[0]
+                     for s in list_t])
 
     def newlist_utf8(self, list_u, is_ascii):
         if is_ascii:
