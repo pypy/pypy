@@ -11,7 +11,7 @@ def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatErrorW(errcode)
     w_errcode = space.newint(errcode)
     raise OperationError(space.w_WindowsError,
-                         space.newtuple([w_errcode, space.newunicode(message),
+                         space.newtuple([w_errcode, space.newtext(message),
                                         space.w_None, w_errcode]))
 
 class W_HKEY(W_Root):
@@ -33,7 +33,7 @@ class W_HKEY(W_Root):
         return space.newint(self.as_int())
 
     def descr_repr(self, space):
-        return space.newunicode(u"<PyHKEY:0x%x>" % (self.as_int(),))
+        return space.newtext(u"<PyHKEY:0x%x>" % (self.as_int(),))
 
     def descr_int(self, space):
         return space.newint(self.as_int())
@@ -271,7 +271,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
                         raiseWindowsError(space, ret, 'RegQueryValue')
                     length = intmask(bufsize_p[0] - 1) / 2
                     wide_buf = rffi.cast(rffi.CWCHARP, buf)
-                    return space.newunicode(rffi.wcharp2unicoden(wide_buf, length))
+                    return space.newtext(rffi.wcharp2unicoden(wide_buf, length))
 
 def convert_to_regdata(space, w_value, typ):
     '''
@@ -378,7 +378,7 @@ def convert_from_regdata(space, buf, buflen, typ):
             if buf[buflen - 1] == '\x00':
                 buflen -= 1
             s = rffi.wcharp2unicoden(buf, buflen)
-        w_s = space.newunicode(s)
+        w_s = space.newtext(s)
         return w_s
 
     elif typ == rwinreg.REG_MULTI_SZ:
@@ -396,7 +396,7 @@ def convert_from_regdata(space, buf, buflen, typ):
             if len(s) == 0:
                 break
             s = u''.join(s)
-            l.append(space.newunicode(s))
+            l.append(space.newtext(s))
             i += 1
         return space.newlist(l)
 
@@ -645,7 +645,7 @@ data_type is an integer that identifies the type of the value data."""
 
                             length = intmask(retDataSize[0])
                             return space.newtuple([
-                                space.newunicode(rffi.wcharp2unicode(valuebuf)),
+                                space.newtext(rffi.wcharp2unicode(valuebuf)),
                                 convert_from_regdata(space, databuf,
                                                      length, retType[0]),
                                 space.newint(intmask(retType[0])),
@@ -678,7 +678,7 @@ raised, indicating no more values are available."""
                                        lltype.nullptr(rwin32.PFILETIME.TO))
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegEnumKeyEx')
-            return space.newunicode(rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP, buf)))
+            return space.newtext(rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP, buf)))
 
 def QueryInfoKey(space, w_hkey):
     """tuple = QueryInfoKey(key) - Returns information about a key.

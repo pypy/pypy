@@ -134,7 +134,7 @@ class W_SRE_Pattern(W_Root):
         else:
             usep = u', '
             uflags = u'|'.join([item.decode('latin-1') for item in flag_items])
-        return space.newunicode(u're.compile(%s%s%s)' % (u, usep, uflags))
+        return space.newtext(u're.compile(%s%s%s)' % (u, usep, uflags))
 
     def fget_groupindex(self, space):
         w_groupindex = self.w_groupindex
@@ -568,7 +568,7 @@ class W_SRE_Match(W_Root):
         u = space.unicode_w(space.repr(w_s))
         if len(u) > 50:
             u = u[:50]
-        return space.newunicode(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
+        return space.newtext(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 
     def cannot_copy_w(self):

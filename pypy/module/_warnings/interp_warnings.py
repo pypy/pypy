@@ -250,7 +250,7 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     message = u"%s:%d: %s: %s\n" % (space.unicode_w(w_filename), lineno,
                                     space.unicode_w(w_name),
                                     space.unicode_w(w_text))
-    space.call_method(w_stderr, "write", space.newunicode(message))
+    space.call_method(w_stderr, "write", space.newtext(message))
 
     # Print "  source_line\n"
     if not w_sourceline:
@@ -277,7 +277,7 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
         if c not in u' \t\014':
             message = u"  %s\n" % (line[i:],)
             break
-    space.call_method(w_stderr, "write", space.newunicode(message))
+    space.call_method(w_stderr, "write", space.newtext(message))
 
 def do_warn(space, w_message, w_category, stacklevel):
     context_w = setup_context(space, stacklevel)

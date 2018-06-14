@@ -14,7 +14,7 @@ from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
     if space.is_none(w_path):
-        w_path = space.newunicode(u".")
+        w_path = space.newtext(u".")
 
     if not _WIN32:
         if space.isinstance_w(w_path, space.w_bytes):
@@ -45,7 +45,7 @@ def scandir(space, w_path=None):
     else:
         if len(path_prefix) > 0 and path_prefix[-1] not in (u'\\', u'/', u':'):
             path_prefix += u'\\'
-        w_path_prefix = space.newunicode(path_prefix)
+        w_path_prefix = space.newtext(path_prefix)
     if rposix.HAVE_FSTATAT:
         dirfd = rposix.c_dirfd(dirp)
     else:
@@ -153,12 +153,12 @@ class W_DirEntry(W_Root):
             if not scandir_iterator.result_is_bytes:
                 w_name = self.space.fsdecode(w_name)
         else:
-            w_name = self.space.newunicode(name)
+            w_name = self.space.newtext(name)
         self.w_name = w_name
 
     def descr_repr(self, space):
         u = space.unicode_w(space.repr(self.w_name))
-        return space.newunicode(u"<DirEntry %s>" % u)
+        return space.newtext(u"<DirEntry %s>" % u)
 
     def fget_name(self, space):
         return self.w_name

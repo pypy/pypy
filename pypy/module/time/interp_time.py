@@ -459,8 +459,8 @@ def _init_timezone(space):
 
     _set_module_object(space, "timezone", space.newint(timezone))
     _set_module_object(space, 'daylight', space.newint(daylight))
-    tzname_w = [space.newunicode(tzname[0].decode('latin-1')),
-                space.newunicode(tzname[1].decode('latin-1'))]
+    tzname_w = [space.newtext(tzname[0].decode('latin-1')),
+                space.newtext(tzname[1].decode('latin-1'))]
     _set_module_object(space, 'tzname', space.newtuple(tzname_w))
     _set_module_object(space, 'altzone', space.newint(altzone))
 
@@ -556,7 +556,7 @@ def _tm_to_tuple(space, t):
         # CPython calls PyUnicode_DecodeLocale here should we do the same?
         tm_zone = decode_utf8(space, rffi.charp2str(t.c_tm_zone),
                               allow_surrogates=True)
-        extra = [space.newunicode(tm_zone),
+        extra = [space.newtext(tm_zone),
                  space.newint(rffi.getintfield(t, 'c_tm_gmtoff'))]
         w_time_tuple = space.newtuple(time_tuple + extra)
     else:
@@ -579,7 +579,7 @@ def _gettmarg(space, w_tup, allowNone=True):
         lltype.free(t_ref, flavor='raw')
         if not pbuf:
             raise OperationError(space.w_ValueError,
-                                 space.newunicode(_get_error_msg()))
+                                 space.newtext(_get_error_msg()))
         return pbuf
 
     tup_w = space.fixedview(w_tup)
@@ -745,7 +745,7 @@ def gmtime(space, w_seconds=None):
 
     if not p:
         raise OperationError(space.w_ValueError,
-                             space.newunicode(_get_error_msg()))
+                             space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def localtime(space, w_seconds=None):
@@ -763,7 +763,7 @@ def localtime(space, w_seconds=None):
 
     if not p:
         raise OperationError(space.w_OSError,
-                             space.newunicode(_get_error_msg()))
+                             space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def mktime(space, w_tup):

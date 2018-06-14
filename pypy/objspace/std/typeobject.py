@@ -725,7 +725,7 @@ class W_TypeObject(W_Root):
         else:
             mod = space.unicode_w(w_mod)
         if mod is not None and mod != u'builtins':
-            return space.newunicode(u"<class '%s.%s'>" % (mod, self.getqualname(space)))
+            return space.newtext(u"<class '%s.%s'>" % (mod, self.getqualname(space)))
         else:
             return space.newtext("<class '%s'>" % (self.name,))
 
@@ -846,7 +846,7 @@ def _check(space, w_type, msg="descriptor is for 'type'"):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newunicode(w_type.getname(space))
+    return space.newtext(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -863,7 +863,7 @@ def descr_set__name__(space, w_type, w_value):
 
 def descr_get__qualname__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newunicode(w_type.getqualname(space))
+    return space.newtext(w_type.getqualname(space))
 
 def descr_set__qualname__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -1453,7 +1453,7 @@ def mro_error(space, orderlists):
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
     # Can't use oefmt() here, since names is a list of unicodes
-    raise OperationError(space.w_TypeError, space.newunicode(
+    raise OperationError(space.w_TypeError, space.newtext(
         u"cycle among base classes: " + u' < '.join(names)))
 
 

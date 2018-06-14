@@ -95,7 +95,6 @@ class DummySpace(object):
     def wrap(self, obj):
         return obj
     newtext = wrap
-    newunicode = wrap
 
     def text_w(self, s):
         return self.unicode_w(s).encode('utf-8')

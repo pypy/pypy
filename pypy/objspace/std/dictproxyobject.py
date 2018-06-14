@@ -44,7 +44,7 @@ class W_DictProxyObject(W_Root):
         return space.str(self.w_mapping)
 
     def descr_repr(self, space):
-        return space.newunicode(u"mappingproxy(%s)" %
+        return space.newtext(u"mappingproxy(%s)" %
                                 (space.unicode_w(space.repr(self.w_mapping)),))
 
     @unwrap_spec(w_default=WrappedDefault(None))

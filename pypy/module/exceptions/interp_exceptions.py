@@ -155,7 +155,7 @@ class W_BaseException(W_Root):
         else:
             args_repr = u"()"
         clsname = self.getclass(space).getname(space)
-        return space.newunicode(clsname + args_repr)
+        return space.newtext(clsname + args_repr)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -599,26 +599,26 @@ class W_OSError(W_Exception):
             # If available, winerror has the priority over errno
             if self.w_filename:
                 if self.w_filename2:
-                    return space.newunicode(u"[WinError %s] %s: %s -> %s" % (
+                    return space.newtext(u"[WinError %s] %s: %s -> %s" % (
                         winerror, strerror,
                         space.unicode_w(space.repr(self.w_filename)),
                         space.unicode_w(space.repr(self.w_filename2))))
-                return space.newunicode(u"[WinError %s] %s: %s" % (
+                return space.newtext(u"[WinError %s] %s: %s" % (
                     winerror, strerror,
                     space.unicode_w(space.repr(self.w_filename))))
-            return space.newunicode(u"[WinError %s] %s" % (
+            return space.newtext(u"[WinError %s] %s" % (
                 winerror, strerror))
         if self.w_filename:
             if self.w_filename2:
-                return space.newunicode(u"[Errno %s] %s: %s -> %s" % (
+                return space.newtext(u"[Errno %s] %s: %s -> %s" % (
                     errno, strerror,
                     space.unicode_w(space.repr(self.w_filename)),
                     space.unicode_w(space.repr(self.w_filename2))))
-            return space.newunicode(u"[Errno %s] %s: %s" % (
+            return space.newtext(u"[Errno %s] %s: %s" % (
                 errno, strerror,
                 space.unicode_w(space.repr(self.w_filename))))
         if self.w_errno and self.w_strerror:
-            return space.newunicode(u"[Errno %s] %s" % (
+            return space.newtext(u"[Errno %s] %s" % (
                 errno, strerror))
         return W_BaseException.descr_str(self, space)
 
@@ -787,7 +787,7 @@ class W_SyntaxError(W_Exception):
             args_w = [self.args_w[0], w_tuple]
             args_repr = space.unicode_w(space.repr(space.newtuple(args_w)))
             clsname = self.getclass(space).getname(space)
-            return space.newunicode(clsname + args_repr)
+            return space.newtext(clsname + args_repr)
         else:
             return W_Exception.descr_repr(self, space)
 

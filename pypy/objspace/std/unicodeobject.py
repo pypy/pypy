@@ -34,7 +34,7 @@ class W_UnicodeObject(W_Root):
 
     @enforceargs(utf8str=str)
     def __init__(self, utf8str, length):
-        assert isinstance(utf8str, str)
+        assert isinstance(utf8str, bytes)
         assert length >= 0
         self._utf8 = utf8str
         self._length = length
@@ -283,7 +283,7 @@ class W_UnicodeObject(W_Root):
         if space.is_w(space.type(self), space.w_unicode):
             return self
         # Subtype -- return genuine unicode string with the same value.
-        return space.newunicode(space.unicode_w(self))
+        return space.newtext(space.unicode_w(self))
 
     def descr_hash(self, space):
         x = compute_hash(self._utf8)
@@ -350,7 +350,7 @@ class W_UnicodeObject(W_Root):
                 arg = __args__.keywords[i].decode('utf-8')
             except UnicodeDecodeError:
                 continue   # uh, just skip that
-            space.setitem(w_kwds, space.newunicode(arg),
+            space.setitem(w_kwds, space.newtext(arg),
                           __args__.keywords_w[i])
 
     def descr_format(self, space, __args__):

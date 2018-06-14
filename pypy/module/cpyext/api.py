@@ -1710,7 +1710,7 @@ def create_extension_module(space, w_spec):
     msg = u"function %s not found in library %s" % (
         look_for.decode('utf-8'), space.unicode_w(space.newfilename(path)))
     w_path = space.newfilename(path)
-    raise_import_error(space, space.newunicode(msg), w_name, w_path)
+    raise_import_error(space, space.newtext(msg), w_name, w_path)
 
 def get_init_name(space, w_name):
     name_u = space.unicode_w(w_name)
@@ -1720,7 +1720,7 @@ def get_init_name(space, w_name):
         return 'PyInit_%s' % (basename,)
     except UnicodeEncodeError:
         basename = space.bytes_w(encode_object(
-            space, space.newunicode(basename_u), 'punycode', None))
+            space, space.newtext(basename_u), 'punycode', None))
         basename = basename.replace('-', '_')
         return 'PyInitU_%s' % (basename,)
 

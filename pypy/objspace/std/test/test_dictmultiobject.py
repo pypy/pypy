@@ -1304,10 +1304,6 @@ class FakeSpace:
             return obj.decode('ascii')
         return obj
 
-    def newunicode(self, u):
-        assert isinstance(u, unicode)
-        return u
-
     def newtext(self, string):
         assert isinstance(string, str)
         return string.decode('utf-8')

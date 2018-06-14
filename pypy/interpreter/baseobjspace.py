@@ -107,7 +107,7 @@ class W_Root(object):
 
     def getrepr(self, space, info, moreinfo=u''):
         addrstring = unicode(self.getaddrstring(space))
-        return space.newunicode(u"<%s at 0x%s%s>" % (info, addrstring, moreinfo))
+        return space.newtext(u"<%s at 0x%s%s>" % (info, addrstring, moreinfo))
 
     def getslotvalue(self, index):
         raise NotImplementedError

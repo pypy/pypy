@@ -371,9 +371,9 @@ def marshal_pycode(space, w_pycode, m):
     m.atom_str(TYPE_STRING, x.co_code)
     _marshal_tuple(space, x.co_consts_w, m)
     _marshal_tuple(space, x.co_names_w, m)   # list of w_unicodes
-    co_varnames_w = [space.newunicode(_decode_utf8(space, s)) for s in x.co_varnames]
-    co_freevars_w = [space.newunicode(_decode_utf8(space, s)) for s in x.co_freevars]
-    co_cellvars_w = [space.newunicode(_decode_utf8(space, s)) for s in x.co_cellvars]
+    co_varnames_w = [space.newtext(_decode_utf8(space, s)) for s in x.co_varnames]
+    co_freevars_w = [space.newtext(_decode_utf8(space, s)) for s in x.co_freevars]
+    co_cellvars_w = [space.newtext(_decode_utf8(space, s)) for s in x.co_cellvars]
     _marshal_tuple(space, co_varnames_w, m)  # more lists, now of w_unicodes
     _marshal_tuple(space, co_freevars_w, m)
     _marshal_tuple(space, co_cellvars_w, m)
@@ -453,7 +453,7 @@ def marshal_unicode(space, w_unicode, m):
 @unmarshaller(TYPE_UNICODE)
 def unmarshal_unicode(space, u, tc):
     uc = _decode_utf8(space, u.get_str())
-    return space.newunicode(uc)
+    return space.newtext(uc)
 
 @unmarshaller(TYPE_INTERNED)
 def unmarshal_interned(space, u, tc):
@@ -466,7 +466,7 @@ def _unmarshal_ascii(u, short_length, interned):
     else:
         lng = u.get_lng()
     s = u.get(lng)
-    w_u = u.space.newunicode(s.decode('latin-1'))
+    w_u = u.space.newtext(s.decode('latin-1'))
     if interned:
         w_u = u.space.new_interned_w_str(w_u)
     return w_u

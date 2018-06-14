@@ -755,7 +755,7 @@ class W_ArrayBase(W_Root):
         elif self.typecode == "u":
             r = space.repr(self.descr_tounicode(space))
             s = u"array('u', %s)" % space.unicode_w(r)
-            return space.newunicode(s)
+            return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))
             s = "array('%s', %s)" % (self.typecode, space.text_w(r))
@@ -1141,7 +1141,7 @@ def make_array(mytype):
                     raise oefmt(space.w_ValueError,
                                 "array contains a unicode character out of "
                                 "range(0x110000)")
-                return space.newunicode(item)
+                return space.newtext(item)
             assert 0, "unreachable"
 
         # interface

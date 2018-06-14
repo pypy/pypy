@@ -42,7 +42,7 @@ class GeneratorOrCoroutine(W_Root):
 
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)
-        return space.newunicode(u"<%s object %s at 0x%s>" %
+        return space.newtext(u"<%s object %s at 0x%s>" %
                           (unicode(self.KIND),
                            self.get_qualname(),
                            unicode(addrstring)))
@@ -215,7 +215,7 @@ return next yielded value or raise StopIteration."""
             e2.record_context(space, space.getexecutioncontext())
             raise e2
         else:
-            space.warn(space.newunicode(u"generator '%s' raised StopIteration"
+            space.warn(space.newtext(u"generator '%s' raised StopIteration"
                                         % self.get_qualname()),
                        space.w_PendingDeprecationWarning)
 
@@ -306,7 +306,7 @@ return next yielded value or raise StopIteration."""
                         "__name__ must be set to a string object")
 
     def descr__qualname__(self, space):
-        return space.newunicode(self.get_qualname())
+        return space.newtext(self.get_qualname())
 
     def descr_set__qualname__(self, space, w_name):
         try:
@@ -398,7 +398,7 @@ class Coroutine(GeneratorOrCoroutine):
            self.frame.last_instr == -1:
             space = self.space
             msg = u"coroutine '%s' was never awaited" % self.get_qualname()
-            space.warn(space.newunicode(msg), space.w_RuntimeWarning)
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
         GeneratorOrCoroutine._finalize_(self)
 
 

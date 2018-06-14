@@ -219,7 +219,7 @@ def make_template_formatting_class(for_unicode):
             if index == -1:
                 kwarg = name[:i]
                 if self.is_unicode:
-                    w_kwarg = space.newunicode(kwarg)
+                    w_kwarg = space.newtext(kwarg)
                 else:
                     w_kwarg = space.newbytes(kwarg)
                 w_arg = space.getitem(self.w_kwargs, w_kwarg)

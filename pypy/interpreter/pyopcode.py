@@ -1081,7 +1081,7 @@ class __extend__(pyframe.PyFrame):
             try:
                 w_pkgname = space.getattr(
                     w_module, space.newtext('__name__'))
-                w_fullname = space.newunicode(u'%s.%s' %
+                w_fullname = space.newtext(u'%s.%s' %
                     (space.unicode_w(w_pkgname), space.unicode_w(w_name)))
                 return space.getitem(space.sys.get('modules'), w_fullname)
             except OperationError:
@@ -1626,7 +1626,7 @@ class __extend__(pyframe.PyFrame):
         if (oparg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
             w_spec = self.popvalue()
         else:
-            w_spec = space.newunicode(u'')
+            w_spec = space.newtext(u'')
         w_value = self.popvalue()
         #
         conversion = oparg & consts.FVC_MASK
@@ -1649,7 +1649,7 @@ class __extend__(pyframe.PyFrame):
             w_item = self.peekvalue(i)
             lst.append(space.unicode_w(w_item))
         self.dropvalues(itemcount)
-        w_res = space.newunicode(u''.join(lst))
+        w_res = space.newtext(u''.join(lst))
         self.pushvalue(w_res)
 
     def _revdb_load_var(self, oparg):

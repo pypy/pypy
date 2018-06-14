@@ -23,7 +23,7 @@ def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
 
 def f_constant_string(astbuilder, joined_pieces, u, atom_node):
     space = astbuilder.space
-    add_constant_string(astbuilder, joined_pieces, space.newunicode(u),
+    add_constant_string(astbuilder, joined_pieces, space.newtext(u),
                         atom_node)
 
 def f_string_compile(astbuilder, source, atom_node):

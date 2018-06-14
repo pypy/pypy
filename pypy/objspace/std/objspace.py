@@ -382,13 +382,18 @@ class StdObjSpace(ObjSpace):
         return W_MemoryView(view)
 
     def newbytes(self, s):
-        assert isinstance(s, str)
+        assert isinstance(s, bytes)
         return W_BytesObject(s)
 
     def newbytearray(self, l):
         return W_BytearrayObject(l)
 
+    @specialize.argtype(1)
     def newtext(self, s):
+        if isinstance(s, str):
+            s, lgt, chk = str_decode_utf8(s, "string", True, None,
+                                           allow_surrogates=True)
+            return W_UnicodeObject(s, lgt)
         lgt = rutf8.check_utf8(s, True)
         return W_UnicodeObject(s, lgt)
 
@@ -399,7 +404,6 @@ class StdObjSpace(ObjSpace):
 
     def newutf8(self, utf8s, length):
         assert utf8s is not None
-        assert isinstance(utf8s, str)
         return W_UnicodeObject(utf8s, length)
 
     def newfilename(self, s):

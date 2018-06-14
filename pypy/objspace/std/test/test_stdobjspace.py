@@ -14,7 +14,7 @@ class TestW_StdObjSpace:
 
     def test_utf8(self):
         assert self.space.isinstance_w(self.space.newtext("abc"), self.space.w_unicode)
-        assert self.space.eq_w(self.space.newtext("üöä"), self.space.newunicode(u"üöä"))
+        assert self.space.eq_w(self.space.newtext("üöä"), self.space.newtext(u"üöä"))
 
     def test_str_w_non_str(self):
         raises(OperationError,self.space.str_w,self.space.wrap(None))

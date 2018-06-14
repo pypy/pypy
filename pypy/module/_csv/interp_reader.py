@@ -31,7 +31,7 @@ class W_Reader(W_Root):
         msg = u'line %d: %s' % (self.line_num, msg)
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.newtext('Error'))
-        raise OperationError(w_error, space.newunicode(msg))
+        raise OperationError(w_error, space.newtext(msg))
 
     def add_char(self, field_builder, c):
         assert field_builder is not None
@@ -44,9 +44,9 @@ class W_Reader(W_Root):
         field = field_builder.build()
         if self.numeric_field:
             self.numeric_field = False
-            w_obj = space.call_function(space.w_float, space.newunicode(field))
+            w_obj = space.call_function(space.w_float, space.newtext(field))
         else:
-            w_obj = space.newunicode(field)
+            w_obj = space.newtext(field)
         self.fields_w.append(w_obj)
 
     def next_w(self):

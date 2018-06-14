@@ -87,7 +87,7 @@ def fsdecode(space, w_string):
         return space.call_method(w_string, 'decode',
                                  getfilesystemencoding(space),
                                  space.newtext('surrogateescape'))
-    return space.newunicode(uni)
+    return space.newtext(uni)
 
 def fsencode(space, w_uni):
     from pypy.module._codecs import interp_codecs

@@ -838,7 +838,7 @@ dir_fd may not be implemented on your platform.
 def strerror(space, code):
     """Translate an error code to a message string."""
     try:
-        return space.newunicode(_strerror(code))
+        return space.newtext(_strerror(code))
     except ValueError:
         raise oefmt(space.w_ValueError, "strerror() argument out of range")
 
@@ -885,7 +885,7 @@ if _WIN32:
         # started through main() instead of wmain()
         rwin32._wgetenv(u"")
         for key, value in rwin32._wenviron_items():
-            space.setitem(w_env, space.newunicode(key), space.newunicode(value))
+            space.setitem(w_env, space.newtext(key), space.newunicode(value))
 
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
@@ -935,7 +935,7 @@ On some platforms, path may also be specified as an open file descriptor;
   the file descriptor must refer to a directory.
   If this functionality is unavailable, using it raises NotImplementedError."""
     if space.is_none(w_path):
-        w_path = space.newunicode(u".")
+        w_path = space.newtext(u".")
     if space.isinstance_w(w_path, space.w_bytes):
         # XXX CPython doesn't follow this path either if w_path is,
         # for example, a memoryview or another buffer type
@@ -968,7 +968,7 @@ On some platforms, path may also be specified as an open file descriptor;
     result_w = [None] * len_result
     for i in range(len_result):
         if _WIN32:
-            result_w[i] = space.newunicode(result[i])
+            result_w[i] = space.newtext(result[i])
         else:
             result_w[i] = space.newfilename(result[i])
     return space.newlist(result_w)
@@ -2266,7 +2266,7 @@ if _WIN32:
                                  space.newtext(e.msg))
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-        return space.newunicode(result)
+        return space.newtext(result)
 
 
 def chflags():

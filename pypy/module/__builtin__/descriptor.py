@@ -37,7 +37,7 @@ class W_Super(W_Root):
             starttype_name = self.w_starttype.getname(space)
         else:
             starttype_name = u'NULL'
-        return space.newunicode(u"<super: <class '%s'>, %s>" % (
+        return space.newtext(u"<super: <class '%s'>, %s>" % (
             starttype_name, objtype_name))
 
     def get(self, space, w_obj, w_type=None):

@@ -235,7 +235,7 @@ class W_Socket(W_Root):
         try:
             msg = (u"unclosed %s" %
                    space.unicode_w(space.repr(self)))
-            space.warn(space.newunicode(msg), space.w_ResourceWarning)
+            space.warn(space.newtext(msg), space.w_ResourceWarning)
         except OperationError as e:
             # Spurious errors can appear at shutdown
             if e.match(space, space.w_Warning):
@@ -863,9 +863,9 @@ def converted_error(space, e, eintr_retry=False):
             if eintr_retry:
                 return       # only return None if eintr_retry==True
         w_exception = space.call_function(w_exception_class, space.newint(e.errno),
-                                      space.newunicode(message))
+                                      space.newtext(message))
     else:
-        w_exception = space.call_function(w_exception_class, space.newunicode(message))
+        w_exception = space.call_function(w_exception_class, space.newtext(message))
     raise OperationError(w_exception_class, w_exception)
 
 def explicit_socket_error(space, msg):

@@ -135,7 +135,7 @@ def test_wrap_oserror():
         w_None = None
         def wrap(self, obj):
             return [obj]
-        newint = newtext = newunicode = newfilename = wrap
+        newint = newtext = newfilename = wrap
         def call_function(self, exc, w_errno, w_msg, w_filename=None, *args):
             return (exc, w_errno, w_msg, w_filename)
     space = FakeSpace()

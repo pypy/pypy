@@ -298,7 +298,7 @@ def backslashreplace_errors(space, w_exc):
             oc = ord(obj[pos])
             raw_unicode_escape_helper_unicode(builder, oc)
             pos += 1
-        return space.newtuple([space.newunicode(builder.build()), w_end])
+        return space.newtuple([space.newtext(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         obj = space.bytes_w(space.getattr(w_exc, space.newtext('object')))
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
@@ -310,7 +310,7 @@ def backslashreplace_errors(space, w_exc):
             oc = ord(obj[pos])
             raw_unicode_escape_helper_unicode(builder, oc)
             pos += 1
-        return space.newtuple([space.newunicode(builder.build()), w_end])
+        return space.newtuple([space.newtext(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -456,7 +456,7 @@ def surrogatepass_errors(space, w_exc):
             ch = 0
         if ch == 0:
             raise OperationError(space.type(w_exc), w_exc)
-        return space.newtuple([space.newunicode(unichr(ch)),
+        return space.newtuple([space.newtext(unichr(ch)),
                                space.newint(start + bytelength)])
     else:
         raise oefmt(space.w_TypeError,
@@ -495,7 +495,7 @@ def surrogateescape_errors(space, w_exc):
         if not consumed:
             # codec complained about ASCII byte.
             raise OperationError(space.type(w_exc), w_exc)
-        return space.newtuple([space.newunicode(replace),
+        return space.newtuple([space.newtext(replace),
                                space.newint(start + consumed)])
     else:
         raise oefmt(space.w_TypeError,
@@ -746,7 +746,7 @@ if hasattr(runicode, 'str_decode_mbcs'):
             string, len(string), errors,
             final, state.decode_error_handler,
             force_ignore=False)
-        return space.newtuple([space.newunicode(result), space.newint(consumed)])
+        return space.newtuple([space.newtext(result), space.newint(consumed)])
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"
@@ -1014,7 +1014,7 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
     result, consumed = runicode.str_decode_raw_unicode_escape(
         string, len(string), errors,
         final, state.decode_error_handler)
-    return space.newtuple([space.newunicode(result), space.newint(consumed)])
+    return space.newtuple([space.newtext(result), space.newint(consumed)])
 
 # ____________________________________________________________
 # Unicode-internal

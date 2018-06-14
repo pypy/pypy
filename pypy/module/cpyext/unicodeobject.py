@@ -920,7 +920,7 @@ def PyUnicode_TransformDecimalToASCII(space, s, size):
             if decimal >= 0:
                 ch = unichr(ord('0') + decimal)
         result.append(ch)
-    return space.newunicode(result.build())
+    return space.newtext(result.build())
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
@@ -1064,4 +1064,4 @@ def PyUnicode_Substring(space, w_str, start, end):
         if end > length:
             end = length
         result = usrc[start:end]
-    return space.newunicode(result)
+    return space.newtext(result)

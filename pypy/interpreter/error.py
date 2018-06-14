@@ -307,7 +307,7 @@ class OperationError(Exception):
         w_value = self._w_value
         if w_value is None:
             value = self._compute_value(space)
-            self._w_value = w_value = space.newunicode(value)
+            self._w_value = w_value = space.newtext(value)
         return w_value
 
     def _compute_value(self, space):
@@ -626,7 +626,7 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
             msg = u'Windows Error %d' % winerror
         w_errno = space.w_None
         w_winerror = space.newint(winerror)
-        w_msg = space.newunicode(msg)
+        w_msg = space.newtext(msg)
     else:
         errno = e.errno
         if errno == EINTR:
@@ -640,7 +640,7 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
             msg = u'error %d' % errno
         w_errno = space.newint(errno)
         w_winerror = space.w_None
-        w_msg = space.newunicode(msg)
+        w_msg = space.newtext(msg)
 
     if w_filename is None:
         w_filename = space.w_None
@@ -672,7 +672,7 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
 def exception_from_errno(space, w_type, errno):
     msg = strerror(errno)
     w_error = space.call_function(w_type, space.newint(errno),
-                                  space.newunicode(msg))
+                                  space.newtext(msg))
     return OperationError(w_type, w_error)
 
 def exception_from_saved_errno(space, w_type):

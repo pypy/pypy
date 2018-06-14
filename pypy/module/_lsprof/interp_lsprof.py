@@ -253,7 +253,7 @@ class W_DelayedBuiltinStr(W_Root):
                 s = create_spec_for_object(space, self.w_type)
             else:
                 s = create_spec_for_method(space, self.w_func, self.w_type)
-            self.w_string = space.newunicode(s)
+            self.w_string = space.newtext(s)
         return self.w_string
 
 W_DelayedBuiltinStr.typedef = TypeDef(
