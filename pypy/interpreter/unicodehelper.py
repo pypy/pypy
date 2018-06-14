@@ -93,12 +93,12 @@ def fsencode(space, w_uni):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     if _WIN32:
-        uni = space.unicode_w(w_uni)
+        uni = space.utf8_w(w_uni)
         bytes = unicode_encode_mbcs(uni, len(uni), 'strict',
                                     errorhandler=encode_error_handler(space),
                                     force_replace=False)
     elif _MACOSX:
-        uni = space.unicode_w(w_uni)
+        uni = space.utf8_w(w_uni)
         bytes = runicode.unicode_encode_utf_8_impl(
             uni, len(uni), 'surrogateescape',
             errorhandler=state.encode_error_handler,
@@ -110,8 +110,8 @@ def fsencode(space, w_uni):
         # instead
         from pypy.module._codecs.locale import (
             unicode_encode_locale_surrogateescape)
-        uni = space.unicode_w(w_uni)
-        if u'\x00' in uni:
+        uni = space.utf8_w(w_uni)
+        if b'\x00' in uni:
             raise oefmt(space.w_ValueError, "embedded null character")
         bytes = unicode_encode_locale_surrogateescape(
             uni, errorhandler=encode_error_handler(space))

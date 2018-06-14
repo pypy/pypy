@@ -6,14 +6,19 @@ import sys
 from pypy.interpreter.unicodehelper import (
     encode_utf8, str_decode_utf8, utf8_encode_utf_32_be, str_decode_utf_32_be)
 from pypy.interpreter.unicodehelper import encode_utf8sp, decode_utf8sp
-
+from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
+from pypy.interpreter import unicodehelper as uh
+from pypy.module._codecs.interp_codecs import CodecState
 
 class Hit(Exception):
     pass
 
-from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
-from pypy.interpreter import unicodehelper as uh
-from pypy.module._codecs.interp_codecs import CodecState
+class FakeSpace:
+    def __getattr__(self, name):
+        if name in ('w_UnicodeEncodeError', 'w_UnicodeDecodeError'):
+            raise Hit
+        raise AttributeError(name)
+
 
 def decode_utf8(u):
     return str_decode_utf8(u, "strict", True, None)
@@ -82,18 +87,23 @@ def test_decode_utf8sp():
 
 @pytest.mark.parametrize('unich', [u"\ud800", u"\udc80"])
 def test_utf32_surrogates(unich):
-    assert (unicode_encode_utf_32_be(unich, 1, None) ==
+    assert (utf8_encode_utf_32_be(unich.encode('utf-8'), None) ==
             struct.pack('>i', ord(unich)))
     with pytest.raises(UnicodeEncodeError):
-        unicode_encode_utf_32_be(unich, 1, None, allow_surrogates=False)
+        def errorhandler(errors, enc, msg, b, startingpos, endingpos):
+             u = b.decode('utf-8')
+             raise UnicodeEncodeError(enc, u, startingpos, endingpos, msg)
+        utf8_encode_utf_32_be(unich.encode('utf-8'), None, errorhandler,
+                              allow_surrogates=False)
 
     def replace_with(ru, rs):
         def errorhandler(errors, enc, msg, u, startingpos, endingpos):
             if errors == 'strict':
                 raise UnicodeEncodeError(enc, u, startingpos, endingpos, msg)
-            return ru, rs, endingpos
-        return unicode_encode_utf_32_be(
-            u"<%s>" % unich, 3, None,
+            return ru.encode('utf-8'), endingpos
+        uch = u"<%s>" % unich
+        return utf8_encode_utf_32_be(
+            uch.encode('utf8'), None,
             errorhandler, allow_surrogates=False)
     assert replace_with(u'rep', None) == u'<rep>'.encode('utf-32-be')
     assert (replace_with(None, '\xca\xfe\xca\xfe') ==
