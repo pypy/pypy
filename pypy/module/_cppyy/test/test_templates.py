@@ -13,7 +13,7 @@ class AppTestTEMPLATES:
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
-        cls.w_datatypes = cls.space.appexec([], """():
+        cls.w_templates = cls.space.appexec([], """():
             import ctypes, _cppyy
             _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
@@ -84,10 +84,11 @@ class AppTestTEMPLATES:
 
         import _cppyy
 
-        s = _cppyy.gbl.std.ostringstream()
-        #s << '('
-        #_cppyy.gbl.SomeNS.tuplify(s, 1, 4., "aap")
-        #assert s.str() == '(1, 4, aap)
+        s = _cppyy.gbl.std.ostringstream('(', _cppyy.gbl.std.ios_base.ate)
+        # Fails; selects void* overload (?!)
+        #s << "("
+        _cppyy.gbl.SomeNS.tuplify(s, 1, 4., "aap")
+        assert s.str() == "(1, 4, aap, NULL)"
 
         _cppyy.gbl.gInterpreter.Declare("""
             template<typename... myTypes>
@@ -133,7 +134,7 @@ class AppTestTEMPLATES:
         Obj2                  = _cppyy.gbl.AttrTesting.Obj2
         select_template_arg   = _cppyy.gbl.AttrTesting.select_template_arg
 
-       #assert select_template_arg[0, Obj1, Obj2].argument == Obj1
+      # assert select_template_arg[0, Obj1, Obj2].argument == Obj1
         assert select_template_arg[1, Obj1, Obj2].argument == Obj2
         raises(TypeError, select_template_arg.__getitem__, 2, Obj1, Obj2)
 
@@ -169,7 +170,7 @@ class AppTestTEMPLATES:
 
 
       # TODO: the ref_value property is inaccessible (offset == -1)
-      # assert cppyy.gbl.BaseClassWithStatic["size_t"].ref_value == 42
+      # assert _cppyy.gbl.BaseClassWithStatic["size_t"].ref_value == 42
 
         b1 = _cppyy.gbl.DerivedClassUsingStatic["size_t"](  0)
         b2 = _cppyy.gbl.DerivedClassUsingStatic["size_t"](100)
@@ -179,3 +180,62 @@ class AppTestTEMPLATES:
 
       # assert b2.ref_value == 42
         assert b2.m_value   == 42
+
+
+class AppTestBOOSTANY:
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
+
+    def setup_class(cls):
+        cls.w_test_dct  = cls.space.newtext(test_dct)
+        cls.w_templates = cls.space.appexec([], """():
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()""")
+
+    def test01_any_class(self):
+        """Usage of boost::any"""
+
+        import _cppyy
+
+        if not _cppyy.gbl.gInterpreter.Declare('#include "boost/any.hpp"'):
+            import warnings
+            warnings.warn('skipping boost/any testing')
+            return
+
+        assert _cppyy.gbl.boost
+        assert _cppyy.gbl.boost.any
+
+        std, boost = _cppyy.gbl.std, _cppyy.gbl.boost
+
+        assert std.list[boost.any]
+
+        val = boost.any()
+        # test both by-ref and by rvalue
+        v = std.vector[int]()
+        val.__assign__(v)
+        val.__assign__(std.move(std.vector[int](range(100))))
+
+        _cppyy.gbl.gInterpreter.ProcessLine(
+            "namespace _cppyy_internal { auto* stdvectid = &typeid(std::vector<int>); }")
+
+        assert val.type() == _cppyy.gbl._cppyy_internal.stdvectid
+
+        extract = boost.any_cast[std.vector[int]](val)
+        assert type(extract) is std.vector[int]
+        assert len(extract) == 100
+        extract += range(100)
+        assert len(extract) == 200
+
+        val.__assign__(std.move(extract))   # move forced
+
+        # TODO: we hit boost::any_cast<int>(boost::any* operand) instead
+        # of the reference version which raises
+        boost.any_cast.__useffi__ = False
+        try:
+          # raises(Exception, boost.any_cast[int], val)
+            assert not boost.any_cast[int](val)
+        except Exception:
+          # getting here is good, too ...
+            pass
+
+        extract = boost.any_cast[std.vector[int]](val)
+        assert len(extract) == 200

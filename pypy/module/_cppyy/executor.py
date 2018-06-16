@@ -26,7 +26,7 @@ from pypy.module._cppyy import helper, capi, ffitypes
 
 NULL = lltype.nullptr(jit_libffi.FFI_TYPE_P.TO)
 
-class FunctionExecutor(object):
+class Executor(object):
     def __init__(self, space, extra):
         pass
 
@@ -43,7 +43,7 @@ class FunctionExecutor(object):
         raise FastCallNotPossible
 
 
-class PtrTypeExecutor(FunctionExecutor):
+class PtrTypeExecutor(Executor):
     _immutable_fields_ = ['typecode']
     typecode = 'P'
 
@@ -63,7 +63,7 @@ class PtrTypeExecutor(FunctionExecutor):
         return W_ArrayInstance(space, shape, sys.maxint/shape.size, ptrval)
 
 
-class VoidExecutor(FunctionExecutor):
+class VoidExecutor(Executor):
     def cffi_type(self, space):
         state = space.fromcache(ffitypes.State)
         return state.c_void
@@ -96,7 +96,7 @@ class NumericRefExecutorMixin(object):
     _mixin_ = True
 
     def __init__(self, space, extra):
-        FunctionExecutor.__init__(self, space, extra)
+        Executor.__init__(self, space, extra)
         self.do_assign = False
         self.item = rffi.cast(self.c_type, 0)
 
@@ -124,7 +124,7 @@ class NumericRefExecutorMixin(object):
             rffi.cast(self.c_ptrtype, rffi.cast(rffi.VOIDPP, result)[0]))
 
 
-class CStringExecutor(FunctionExecutor):
+class CStringExecutor(Executor):
     def execute(self, space, cppmethod, cppthis, num_args, args):
         lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ccpresult = rffi.cast(rffi.CCHARP, lresult)
@@ -134,7 +134,7 @@ class CStringExecutor(FunctionExecutor):
         return space.newbytes(result)
 
 
-class ConstructorExecutor(FunctionExecutor):
+class ConstructorExecutor(Executor):
     def execute(self, space, cppmethod, cpptype, num_args, args):
         from pypy.module._cppyy import interp_cppyy
         newthis = capi.c_constructor(space, cppmethod, cpptype, num_args, args)
@@ -142,12 +142,12 @@ class ConstructorExecutor(FunctionExecutor):
         return space.newlong(rffi.cast(rffi.LONG, newthis))   # really want ptrdiff_t here
 
 
-class InstanceExecutor(FunctionExecutor):
+class InstanceExecutor(Executor):
     # For return of a C++ instance by pointer: MyClass* func()
     _immutable_fields_ = ['clsdecl']
 
     def __init__(self, space, clsdecl):
-        FunctionExecutor.__init__(self, space, clsdecl)
+        Executor.__init__(self, space, clsdecl)
         self.clsdecl = clsdecl
 
     def _wrap_result(self, space, obj):
@@ -338,7 +338,7 @@ def get_executor(space, name):
         return _executors['void*'](space, None)  # allow at least passing of the pointer
 
     # currently used until proper lazy instantiation available in interp_cppyy
-    return FunctionExecutor(space, None)
+    return Executor(space, None)
  
 
 _executors["void"]                = VoidExecutor
@@ -374,10 +374,10 @@ def _build_basic_executors():
     )
 
     for c_type, stub, names in type_info:
-        class BasicExecutor(ffitypes.typeid(c_type), NumericExecutorMixin, FunctionExecutor):
+        class BasicExecutor(ffitypes.typeid(c_type), NumericExecutorMixin, Executor):
             _immutable_ = True
             c_stubcall  = staticmethod(stub)
-        class BasicRefExecutor(ffitypes.typeid(c_type), NumericRefExecutorMixin, FunctionExecutor):
+        class BasicRefExecutor(ffitypes.typeid(c_type), NumericRefExecutorMixin, Executor):
             def cffi_type(self, space):
                 state = space.fromcache(ffitypes.State)
                 return state.c_voidp
