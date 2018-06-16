@@ -119,7 +119,7 @@ class UCharTypeMixin(object):
                 value = space.bytes_w(w_value)
             if len(value) != 1:
                 raise oefmt(space.w_ValueError,
-                            "usigned char expected, got string of size %d", len(value))
+                            "unsigned char expected, got string of size %d", len(value))
 
         value = rffi.cast(rffi.CHAR, value[0])
         return value     # turn it into a "char" to the annotator

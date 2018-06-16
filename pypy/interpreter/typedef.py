@@ -688,7 +688,7 @@ Function.typedef = TypeDef("function",
 Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef(
-    "method",
+    "instancemethod",
     __doc__ = """instancemethod(function, instance, class)
 
 Create an instance method object.""",
