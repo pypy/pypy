@@ -706,7 +706,7 @@ class FunctionPointerConverter(TypeConverter):
                     "no overload found matching %s", self.signature)
 
 
-class SmartPointerConverter(TypeConverter):
+class SmartPtrConverter(TypeConverter):
     _immutable_fields = ['typecode', 'smartdecl', 'rawdecl', 'deref']
     typecode    = 'V'
 
@@ -753,7 +753,7 @@ class SmartPointerConverter(TypeConverter):
         return interp_cppyy.wrap_cppinstance(space, address,
             self.rawdecl, smartdecl=self.smartdecl, deref=self.deref, do_cast=False)
 
-class SmartPointerPtrConverter(SmartPointerConverter):
+class SmartPtrPtrConverter(SmartPtrConverter):
     typecode    = 'o'
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
@@ -763,7 +763,7 @@ class SmartPointerPtrConverter(SmartPointerConverter):
         self._is_abstract(space)
 
 
-class SmartPointerRefConverter(SmartPointerPtrConverter):
+class SmartPtrRefConverter(SmartPtrPtrConverter):
     typecode    = 'V'
 
 
@@ -804,6 +804,12 @@ def get_converter(space, _name, default):
     compound = helper.compound(name)
     clean_name = capi.c_resolve_name(space, helper.clean_type(name))
     try:
+        return _converters[clean_name+compound](space, default)
+    except KeyError:
+        pass
+
+    # arrays
+    try:
         # array_index may be negative to indicate no size or no size found
         array_size = helper.array_size(_name)     # uses original arg
         # TODO: using clean_name here drops const (e.g. const char[] will
@@ -823,11 +829,11 @@ def get_converter(space, _name, default):
         check_smart = capi.c_smartptr_info(space, clean_name)
         if check_smart[0]:
             if compound == '':
-                return SmartPointerConverter(space, clsdecl, check_smart[1], check_smart[2])
+                return SmartPtrConverter(space, clsdecl, check_smart[1], check_smart[2])
             elif compound == '*':
-                return SmartPointerPtrConverter(space, clsdecl, check_smart[1], check_smart[2])
+                return SmartPtrPtrConverter(space, clsdecl, check_smart[1], check_smart[2])
             elif compound == '&':
-                return SmartPointerRefConverter(space, clsdecl, check_smart[1], check_smart[2])
+                return SmartPtrRefConverter(space, clsdecl, check_smart[1], check_smart[2])
             # fall through: can still return smart pointer in non-smart way
 
         # type check for the benefit of the annotator

@@ -107,7 +107,7 @@ int some_bar() {
 }
 
 inline std::string tuplify(std::ostringstream& out) {
-    out.seekp(-2, out.cur); out << ')';
+    out << "NULL)";
     return out.str();
 }
 
