@@ -721,11 +721,11 @@ class TemplateOverloadMixin(object):
             cppol = W_CPPOverload(space, self.scope, funcs[:], self.flags)
         return cppol
 
-    def instantiation_from_args(self, name, args_w):
+    def instantiate_and_call(self, name, args_w):
         # try to match with run-time instantiations
         for cppol in self.master.overloads.values():
             try:
-                cppol.descr_get(self.w_this, []).call(args_w)
+                return cppol.descr_get(self.w_this, []).call(args_w)
             except Exception:
                 pass    # completely ignore for now; have to see whether errors become confusing
 
@@ -735,9 +735,17 @@ class TemplateOverloadMixin(object):
         method = self.find_method_template(name, proto)
 
         # only cache result if the name retains the full template
-        if len(method.functions) == 1:
-            fullname = capi.c_method_full_name(self.space, method.functions[0].cppmethod)
-            if 0 <= fullname.rfind('>'):
+        fullname = capi.c_method_full_name(self.space, method.functions[0].cppmethod)
+        if 0 <= fullname.rfind('>'):
+            try:
+                existing = self.master.overloads[fullname]
+                allf = existing.functions + method.functions
+                if isinstance(existing, W_CPPStaticOverload):
+                    cppol = W_CPPStaticOverload(self.space, self.scope, allf, self.flags)
+                else:
+                    cppol = W_CPPOverload(self.space, self.scope, allf, self.flags)
+                self.master.overloads[fullname] = cppol
+            except KeyError:
                 self.master.overloads[fullname] = method
 
         return method.descr_get(self.w_this, []).call(args_w)
@@ -756,9 +764,12 @@ class TemplateOverloadMixin(object):
             method = self.master.overloads[fullname]
         except KeyError:
             method = self.find_method_template(fullname)
-
-        # cache result (name is always full templated name)
-        self.master.overloads[fullname] = method
+            # cache result (name is always full templated name)
+            self.master.overloads[fullname] = method
+            # also cache on "official" name (may include default template arguments)
+            c_fullname = capi.c_method_full_name(self.space, method.functions[0].cppmethod)
+            if c_fullname != fullname:
+                self.master.overloads[c_fullname] = method
 
         return method.descr_get(self.w_this, [])
 
@@ -783,6 +794,7 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
             return self  # unbound, so no new instance needed
         cppol = W_CPPTemplateOverload(self.space, self.name, self.scope, self.functions, self.flags)
         cppol.w_this = w_cppinstance
+        cppol.master = self.master
         return cppol     # bound
 
     @unwrap_spec(args_w='args_w')
@@ -796,7 +808,7 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
         except Exception:
             pass
 
-        return self.instantiation_from_args(self.name, args_w)
+        return self.instantiate_and_call(self.name, args_w)
 
     @unwrap_spec(args_w='args_w')
     def getitem(self, args_w):
@@ -851,7 +863,7 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
             pass
 
         # try new instantiation
-        return self.instantiation_from_args(self.name, args_w)
+        return self.instantiate_and_call(self.name, args_w)
 
     @unwrap_spec(args_w='args_w')
     def getitem(self, args_w):

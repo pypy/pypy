@@ -422,8 +422,8 @@ def _pythonize(pyclass, name):
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
     # not on vector, which is pythonized in the capi (interp-level; there is
     # also the fallback on the indexed __getitem__, but that is slower)
-    if not 'vector' in name[:11] and \
-            ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
+# TODO:    if not (0 <= name.find('vector') <= 5):
+    if ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
         if _cppyy._scope_byname(name+'::iterator') or \
                 _cppyy._scope_byname(name+'::const_iterator'):
             def __iter__(self):
@@ -435,6 +435,20 @@ def _pythonize(pyclass, name):
                 raise StopIteration
             pyclass.__iter__ = __iter__
         # else: rely on numbered iteration
+
+    # add python collection based initializer
+    if 0 <= name.find('vector') <= 5:
+        pyclass.__real_init__ = pyclass.__init__
+        def vector_init(self, *args):
+            if len(args) == 1 and isinstance(args[0], (tuple, list)):
+                ll = args[0]
+                self.__real_init__()
+                self.reserve(len(ll))
+                for item in ll:
+                    self.push_back(item)
+                return
+            return self.__real_init__(*args)
+        pyclass.__init__ = vector_init
 
     # combine __getitem__ and __len__ to make a pythonized __getitem__
     if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
@@ -476,7 +490,13 @@ def _pythonize(pyclass, name):
     for p in pythonizors:
         p(pyclass, name)
 
+cppyyIsInitialized = False
 def _post_import_startup():
+    # run only once (function is explicitly called in testing)
+    global cppyyIsInitialized
+    if cppyyIsInitialized:
+        return
+
     # _cppyy should not be loaded at the module level, as that will trigger a
     # call to space.getbuiltinmodule(), which will cause _cppyy to be loaded
     # at pypy-c startup, rather than on the "import _cppyy" statement
@@ -516,6 +536,9 @@ def _post_import_startup():
 
     # install nullptr as a unique reference
     _cppyy.nullptr = _cppyy._get_nullptr()
+
+    # done
+    cppyyIsInitialized = True
 
 
 # user-defined pythonizations interface

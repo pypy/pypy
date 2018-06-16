@@ -804,6 +804,12 @@ def get_converter(space, _name, default):
     compound = helper.compound(name)
     clean_name = capi.c_resolve_name(space, helper.clean_type(name))
     try:
+        return _converters[clean_name+compound](space, default)
+    except KeyError:
+        pass
+
+    # arrays
+    try:
         # array_index may be negative to indicate no size or no size found
         array_size = helper.array_size(_name)     # uses original arg
         # TODO: using clean_name here drops const (e.g. const char[] will
