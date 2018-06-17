@@ -1183,54 +1183,43 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
-    def decodekey_str(self, key):
-        return str_decode_utf8(key, "string", True, None, allow_surrogates=True)[0]
+    ## def setitem_str(self, w_dict, key, w_value):
+    ##     assert key is not None
+    ##     self.unerase(w_dict.dstorage)[key] = w_value
 
-    def setitem_str(self, w_dict, key, w_value):
-        assert key is not None
-        self.unerase(w_dict.dstorage)[self.decodekey_str(key)] = w_value
+    ## def getitem(self, w_dict, w_key):
+    ##     space = self.space
+    ##     # -- This is called extremely often.  Hack for performance --
+    ##     if type(w_key) is space.StringObjectCls:
+    ##         return self.getitem_str(w_dict, w_key.unwrap(space))
+    ##     # -- End of performance hack --
+    ##     return AbstractTypedStrategy.getitem(self, w_dict, w_key)
 
-    def getitem(self, w_dict, w_key):
-        space = self.space
-        # -- This is called extremely often.  Hack for performance --
-        if type(w_key) is space.UnicodeObjectCls:
-            return self.unerase(w_dict.dstorage).get(w_key.unwrap(space), None)
-        # -- End of performance hack --
-        return AbstractTypedStrategy.getitem(self, w_dict, w_key)
-
-    def getitem_str(self, w_dict, key):
-        assert key is not None
-        return self.unerase(w_dict.dstorage).get(self.decodekey_str(key), None)
+    ## def getitem_str(self, w_dict, key):
+    ##     assert key is not None
+    ##     return self.unerase(w_dict.dstorage).get(key, None)
 
     def listview_utf8(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
 
-    def w_keys(self, w_dict):
-        return self.space.newlist_unicode(self.listview_unicode(w_dict))
+    ## def w_keys(self, w_dict):
+    ##     return self.space.newlist_bytes(self.listview_bytes(w_dict))
 
     def wrapkey(space, key):
         return space.newutf8(key, len(key))
 
-    @jit.look_inside_iff(lambda self, w_dict:
-                         w_dict_unrolling_heuristic(w_dict))
-    def view_as_kwargs(self, w_dict):
-        d = self.unerase(w_dict.dstorage)
-        l = len(d)
-        keys, values = [None] * l, [None] * l
-        i = 0
-        for key, val in d.iteritems():
-            keys[i] = key.encode('utf-8')
-            values[i] = val
-            i += 1
-        return keys, values
-
-    def get_storage_fromkeys(self, keys_w, w_fill):
-        """Return an initialized storage with keys and fill values"""
-        storage = {}
-        mark_dict_non_null(storage)
-        for key in keys_w:
-            storage[key] = w_fill
-        return self.erase(storage)
+    ## @jit.look_inside_iff(lambda self, w_dict:
+    ##                      w_dict_unrolling_heuristic(w_dict))
+    ## def view_as_kwargs(self, w_dict):
+    ##     d = self.unerase(w_dict.dstorage)
+    ##     l = len(d)
+    ##     keys, values = [None] * l, [None] * l
+    ##     i = 0
+    ##     for key, val in d.iteritems():
+    ##         keys[i] = key
+    ##         values[i] = val
+    ##         i += 1
+    ##     return keys, values
 
 create_iterator_classes(UnicodeDictStrategy)
 

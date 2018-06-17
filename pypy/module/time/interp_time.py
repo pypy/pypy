@@ -5,7 +5,7 @@ from pypy.interpreter.error import (OperationError, oefmt,
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
-from pypy.interpreter.unicodehelper import decode_utf8, encode_utf8
+from pypy.interpreter.unicodehelper import str_decode_utf8
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
     intmask, r_ulonglong, r_longfloat, widen, ovfcheck, ovfcheck_float_to_int)
@@ -554,7 +554,7 @@ def _tm_to_tuple(space, t):
 
     if HAS_TM_ZONE:
         # CPython calls PyUnicode_DecodeLocale here should we do the same?
-        tm_zone = decode_utf8(space, rffi.charp2str(t.c_tm_zone),
+        tm_zone = str_decode_utf8(rffi.charp2str(t.c_tm_zone),
                               allow_surrogates=True)
         extra = [space.newtext(tm_zone),
                  space.newint(rffi.getintfield(t, 'c_tm_gmtoff'))]

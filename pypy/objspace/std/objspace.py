@@ -159,13 +159,7 @@ class StdObjSpace(ObjSpace):
             else:
                 return self.newint(x)
         if isinstance(x, str):
-            # this hack is temporary: look at the comment in
-            # test_stdstdobjspace.test_wrap_string
-            try:
-                unicode_x = x.decode('ascii')
-            except UnicodeDecodeError:
-                return self._wrap_string_old(x)
-            return self.newtext(unicode_x)
+            return self.newtext(x)
         if isinstance(x, unicode):
             x = x.encode('utf8')
             lgt = rutf8.check_utf8(x, True)
@@ -390,11 +384,17 @@ class StdObjSpace(ObjSpace):
 
     @specialize.argtype(1)
     def newtext(self, s):
-        if isinstance(s, str):
+        if isinstance(s, unicode):
+            s, lgt = s.encode('utf8'), len(s)
+        elif isinstance(s, str):
             s, lgt, chk = str_decode_utf8(s, "string", True, None,
                                            allow_surrogates=True)
-            return W_UnicodeObject(s, lgt)
-        lgt = rutf8.check_utf8(s, True)
+        elif isinstance(s, tuple):
+            # result of decode_utf8
+            s, lgt, chk = s
+        else:
+            # XXX what is s ?
+            lgt = rutf8.check_utf8(s, True)
         return W_UnicodeObject(s, lgt)
 
     def newtext_or_none(self, s):

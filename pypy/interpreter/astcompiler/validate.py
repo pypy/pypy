@@ -409,7 +409,7 @@ class AstValidator(ast.ASTVisitor):
     def visit_Str(self, node):
         space = self.space
         w_type = space.type(node.s)
-        if w_type != space.w_str:
+        if w_type != space.w_unicode:
             raise oefmt(space.w_TypeError, "non-string type in Str")
 
     def visit_Bytes(self, node):

@@ -387,7 +387,7 @@ def format_method(space, w_string, args, w_kwargs, is_unicode):
     if is_unicode:
         template = unicode_template_formatter(space,
                                               space.utf8_w(w_string))
-        r = template.build(args)
+        r = template.build(args, w_kwargs)
         lgt = rutf8.check_utf8(r, True)
         return space.newutf8(r, lgt)
     else:

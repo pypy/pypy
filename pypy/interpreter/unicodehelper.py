@@ -168,8 +168,9 @@ def check_utf8_or_raise(space, string, start=0, end=-1):
     result, consumed = runicode.str_decode_utf_8(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space),
-        allow_surrogates=allow_surrogates)
-    return result
+        # XXX handle surrogates
+        allow_surrogates=False)
+    return len(result)
 
 def str_decode_ascii(s, errors, final, errorhandler):
     try:
@@ -1211,8 +1212,8 @@ def utf8_encode_utf_16_le(s, errors,
 
 def str_decode_utf_32(s, errors, final=True,
                       errorhandler=None):
-    result, c, lgt, _ = str_decode_utf_32_helper(s, errors, final,
-        s, size, errors, final, errorhandler, "native", 'utf-32-' + BYTEORDER2,
+    result, c, lgt, _ = str_decode_utf_32_helper(
+        s, errors, final, errorhandler, "native", 'utf-32-' + BYTEORDER2,
         allow_surrogates=False)
     return result, c, lgt
 

@@ -883,7 +883,7 @@ class ObjSpace(object):
             u = s.decode('utf-8')
         except UnicodeDecodeError:
             return None
-        return self.interned_strings.get(u)   # may be None
+        return self.interned_strings.get(s)   # may be None
 
     @specialize.arg(1)
     def descr_self_interp_w(self, RequiredClass, w_obj):
@@ -1718,10 +1718,10 @@ class ObjSpace(object):
     def utf8_0_w(self, w_obj):
         "Like utf8_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
-        result = w_obj.utf8_w(self).decode('utf8')
-        if u'\x00' in result:
+        result = w_obj.utf8_w(self)
+        if '\x00' in result:
             raise oefmt(self.w_ValueError,
-                        "argument must be a unicode string without NUL "
+                        "argument must be a utf8 string without NUL "
                         "characters")
         return rstring.assert_str0(result)
 

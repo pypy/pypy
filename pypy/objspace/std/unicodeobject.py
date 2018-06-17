@@ -90,7 +90,7 @@ class W_UnicodeObject(W_Root):
     def text_w(self, space):
         try:
             identifier = jit.conditional_call_elidable(
-                                self._utf8, g_encode_utf8, self._value)
+                                self._utf8, g_encode_utf8, self._length)
         except SurrogateError as e:
             raise OperationError(space.w_UnicodeEncodeError,
                     space.newtuple([space.newtext('utf-8'),
@@ -126,13 +126,15 @@ class W_UnicodeObject(W_Root):
         return True
 
     @staticmethod
-    def convert_arg_to_w_unicode(space, w_other):
+    def convert_arg_to_w_unicode(space, w_other, strict=None):
         if isinstance(w_other, W_UnicodeObject):
             return w_other
         if space.isinstance_w(w_other, space.w_bytes):
             return unicode_from_bytes(space, w_other)
-        raise oefmt(space.w_TypeError,
-                    "Can't convert '%T' object to str implicitly", w_other)
+        if strict:
+            raise oefmt(space.w_TypeError,
+                "%s arg must be None, unicode or str", strict)
+        return unicode_from_encoded_object(space, w_other, None, "strict")
 
     def convert_to_w_unicode(self, space):
         return self
@@ -190,6 +192,8 @@ class W_UnicodeObject(W_Root):
         if w_object is None:
             w_value = W_UnicodeObject.EMPTY
         else:
+            if w_encoding and w_encoding._utf8 == 'unicode_internal':
+                import pdb;pdb.set_trace()
             encoding, errors = _get_encoding_and_errors(space, w_encoding,
                                                         w_errors)
             if encoding is None and errors is None:
@@ -292,7 +296,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_eq(self, space, w_other):
         try:
-            res = self._utf8 == self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 == self.convert_arg_to_w_unicode(space, w_other,
+                                                        strict='__eq__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -301,7 +306,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_ne(self, space, w_other):
         try:
-            res = self._utf8 != self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 != self.convert_arg_to_w_unicode(space, w_other,
+                                                     strict='__neq__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -1056,7 +1062,7 @@ class W_UnicodeObject(W_Root):
     def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._utf8
-        chars = self.convert_arg_to_w_unicode(space, w_chars, strict=name)._utf8
+        chars = self.convert_arg_to_w_unicode(space, w_chars)._utf8
 
         lpos = 0
         rpos = len(value)

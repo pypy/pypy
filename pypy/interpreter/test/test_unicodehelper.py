@@ -23,6 +23,17 @@ class FakeSpace:
 def decode_utf8(u):
     return str_decode_utf8(u, "strict", True, None)
 
+def test_encode_utf8():
+    space = FakeSpace()
+    assert encode_utf8(space, u"abc") == "abc"
+    assert encode_utf8(space, u"\u1234") == "\xe1\x88\xb4"
+    py.test.raises(Hit, encode_utf8, space, u"\ud800")
+    py.test.raises(Hit, encode_utf8, space, u"\udc00")
+    # for the following test, go to lengths to avoid CPython's optimizer
+    # and .pyc file storage, which collapse the two surrogates into one
+    c = u"\udc00"
+    py.test.raises(Hit, encode_utf8, space, u"\ud800" + c)
+
 def test_encode_utf8_allow_surrogates():
     sp = FakeSpace()
     assert encode_utf8(sp, u"\ud800", allow_surrogates=True) == "\xed\xa0\x80"
