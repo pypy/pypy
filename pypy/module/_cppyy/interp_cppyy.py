@@ -185,7 +185,7 @@ class CPPMethod(object):
     _attrs_ = ['space', 'scope', 'cppmethod', 'arg_defs', 'args_required',
                'converters', 'executor', '_funcaddr', 'cif_descr', 'uses_local']
     _immutable_fields_ = ['scope', 'cppmethod', 'arg_defs', 'args_required',
-                          'converters', 'executor', 'uses_local']
+               'converters', 'executor', '_funcaddr', 'cif_descr', 'uses_local']
 
     def __init__(self, space, declaring_scope, cppmethod, arg_defs, args_required):
         self.space = space
@@ -249,7 +249,7 @@ class CPPMethod(object):
                     pass      # can happen if converters or executor does not implement ffi
 
             # ffi chain must have failed; using stub functions instead
-            args, stat = self.prepare_arguments(args_w, call_local)
+            args, stat = self.prepare_arguments(args_w)
             try:
                 result = self.executor.execute(
                     self.space, self.cppmethod, cppthis, len(args_w), args)
@@ -260,7 +260,7 @@ class CPPMethod(object):
                     raise OperationError(self.space.w_Exception, self.space.newtext(pywhat))
                 return result
             finally:
-                self.finalize_call(args, args_w, call_local)
+                self.finalize_call(args, args_w)
         finally:
             if call_local:
                 lltype.free(call_local, flavor='raw')
@@ -386,7 +386,7 @@ class CPPMethod(object):
             self._funcaddr = funcaddr
 
     @jit.unroll_safe
-    def prepare_arguments(self, args_w, call_local):
+    def prepare_arguments(self, args_w):
         args = capi.c_allocate_function_args(self.space, len(args_w))
         stride = capi.c_function_arg_sizeof(self.space)
         for i in range(len(args_w)):
@@ -394,15 +394,13 @@ class CPPMethod(object):
             w_arg = args_w[i]
             try:
                 arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
-                loc_i = self._address_from_local_buffer(call_local, i)
-                conv.convert_argument(self.space, w_arg, rffi.cast(capi.C_OBJECT, arg_i), loc_i)
+                conv.convert_argument(self.space, w_arg, rffi.cast(capi.C_OBJECT, arg_i))
             except:
                 # fun :-(
                 for j in range(i):
                     conv = self.converters[j]
                     arg_j = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), j*stride)
-                    loc_j = self._address_from_local_buffer(call_local, j)
-                    conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_j), loc_j)
+                    conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_j))
                 capi.c_deallocate_function_args(self.space, args)
                 raise
         stat = rffi.cast(rffi.ULONGP,
@@ -411,14 +409,13 @@ class CPPMethod(object):
         return args, stat
 
     @jit.unroll_safe
-    def finalize_call(self, args, args_w, call_local):
+    def finalize_call(self, args, args_w):
         stride = capi.c_function_arg_sizeof(self.space)
         for i in range(len(args_w)):
             conv = self.converters[i]
             arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
-            loc_i = self._address_from_local_buffer(call_local, i)
-            conv.finalize_call(self.space, args_w[i], loc_i)
-            conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_i), loc_i)
+            conv.finalize_call(self.space, args_w[i])
+            conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_i))
         capi.c_deallocate_function_args(self.space, args)
 
     def signature(self, show_formalargs=True):
