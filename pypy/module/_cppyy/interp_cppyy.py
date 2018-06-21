@@ -183,9 +183,9 @@ class CPPMethod(object):
     the memory_regulator."""
 
     _attrs_ = ['space', 'scope', 'cppmethod', 'arg_defs', 'args_required',
-               'converters', 'executor', '_funcaddr', 'cif_descr', 'uses_local']
+               'converters', 'executor', '_funcaddr', 'cif_descr']
     _immutable_fields_ = ['scope', 'cppmethod', 'arg_defs', 'args_required',
-               'converters', 'executor', '_funcaddr', 'cif_descr', 'uses_local']
+               'converters', 'executor', '_funcaddr', 'cif_descr']
 
     def __init__(self, space, declaring_scope, cppmethod, arg_defs, args_required):
         self.space = space
@@ -200,14 +200,6 @@ class CPPMethod(object):
         self.executor = None
         self.cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
         self._funcaddr = lltype.nullptr(capi.C_FUNC_PTR.TO)
-        self.uses_local = False
-
-    def _address_from_local_buffer(self, call_local, idx):
-        if not call_local:
-            return call_local
-        stride = 2*rffi.sizeof(rffi.VOIDP)
-        loc_idx = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, call_local), idx*stride)
-        return rffi.cast(rffi.VOIDP, loc_idx)
 
     @jit.unroll_safe
     def call(self, cppthis, args_w, useffi):
@@ -233,45 +225,35 @@ class CPPMethod(object):
             except Exception:
                 pass
 
-        # some calls, e.g. for ptr-ptr or reference need a local array to store data for
-        # the duration of the call
-        if self.uses_local:
-            call_local = lltype.malloc(rffi.VOIDP.TO, 2*len(args_w), flavor='raw')
-        else:
-            call_local = lltype.nullptr(rffi.VOIDP.TO)
-
-        try:
-            # attempt to call directly through ffi chain
-            if useffi and self._funcaddr:
-                try:
-                    return self.do_fast_call(cppthis, args_w, call_local)
-                except FastCallNotPossible:
-                    pass      # can happen if converters or executor does not implement ffi
-
-            # ffi chain must have failed; using stub functions instead
-            args, stat = self.prepare_arguments(args_w)
+        # attempt to call directly through ffi chain
+        if useffi and self._funcaddr:
             try:
-                result = self.executor.execute(
-                    self.space, self.cppmethod, cppthis, len(args_w), args)
-                if stat[0] != rffi.cast(rffi.ULONG, 0):
-                    what = rffi.cast(rffi.CCHARP, stat[1])
-                    pywhat = rffi.charp2str(what)
-                    capi.c_free(self.space, rffi.cast(rffi.VOIDP, what))
-                    raise OperationError(self.space.w_Exception, self.space.newtext(pywhat))
-                return result
-            finally:
-                self.finalize_call(args, args_w)
+                return self.do_fast_call(cppthis, args_w)
+            except FastCallNotPossible:
+                pass      # can happen if converters or executor does not implement ffi
+
+        # ffi chain must have failed; using stub functions instead
+        args, stat = self.prepare_arguments(args_w)
+        try:
+            result = self.executor.execute(
+                self.space, self.cppmethod, cppthis, len(args_w), args)
+            if stat[0] != rffi.cast(rffi.ULONG, 0):
+                what = rffi.cast(rffi.CCHARP, stat[1])
+                pywhat = rffi.charp2str(what)
+                capi.c_free(self.space, rffi.cast(rffi.VOIDP, what))
+                raise OperationError(self.space.w_Exception, self.space.newtext(pywhat))
+            return result
         finally:
-            if call_local:
-                lltype.free(call_local, flavor='raw')
+            self.finalize_call(args, args_w)
 
     @jit.unroll_safe
-    def do_fast_call(self, cppthis, args_w, call_local):
+    def do_fast_call(self, cppthis, args_w):
         if self.cif_descr == lltype.nullptr(jit_libffi.CIF_DESCRIPTION):
             raise FastCallNotPossible
         jit.promote(self)
         cif_descr = self.cif_descr
-        buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size, flavor='raw')
+        # add extra space for const-ref support (see converter.py)
+        buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size+len(args_w)*rffi.sizeof(rffi.DOUBLE), flavor='raw')
         try:
             # this pointer
             data = rffi.ptradd(buffer, cif_descr.exchange_args[0])
@@ -284,7 +266,8 @@ class CPPMethod(object):
                 conv = self.converters[i]
                 w_arg = args_w[i]
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[i+1])
-                conv.convert_argument_libffi(self.space, w_arg, data, call_local)
+                scratch = rffi.ptradd(buffer, cif_descr.exchange_size+i*rffi.sizeof(rffi.DOUBLE))
+                conv.convert_argument_libffi(self.space, w_arg, data, scratch)
             for j in range(i+1, len(self.arg_defs)):
                 conv = self.converters[j]
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[j+1])
@@ -345,11 +328,6 @@ class CPPMethod(object):
                                for arg_type, arg_dflt in self.arg_defs]
         self.executor = executor.get_executor(
             self.space, capi.c_method_result_type(self.space, self.cppmethod))
-
-        for conv in self.converters:
-            if conv.uses_local:
-                self.uses_local = True
-                break
 
         # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
         # has been offset to the matching class. Hence, the libffi pointer is

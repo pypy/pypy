@@ -82,10 +82,9 @@ def get_rawbuffer(space, w_obj):
 
 
 class TypeConverter(object):
-    _immutable_fields_ = ['cffi_name', 'uses_local', 'name']
+    _immutable_fields_ = ['cffi_name', 'name']
 
     cffi_name  = None
-    uses_local = False
     name       = ""
 
     def __init__(self, space, extra):
@@ -111,7 +110,7 @@ class TypeConverter(object):
     def convert_argument(self, space, w_obj, address):
         self._is_abstract(space)
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
@@ -208,7 +207,7 @@ class PtrTypeConverterMixin(object):
 class NumericTypeConverterMixin(object):
     _mixin_ = True
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
 
@@ -228,21 +227,18 @@ class NumericTypeConverterMixin(object):
 
 class ConstRefNumericTypeConverterMixin(NumericTypeConverterMixin):
     _mixin_ = True
-    _immutable_fields_ = ['uses_local']
-
-    uses_local = True
 
     def cffi_type(self, space):
         state = space.fromcache(ffitypes.State)
         return state.c_voidp
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
-        assert rffi.sizeof(self.c_type) <= 2*rffi.sizeof(rffi.VOIDP)  # see interp_cppyy.py
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         obj = self._unwrap_object(space, w_obj)
-        typed_buf = rffi.cast(self.c_ptrtype, call_local)
+        typed_buf = rffi.cast(self.c_ptrtype, scratch)
         typed_buf[0] = obj
         x = rffi.cast(rffi.VOIDPP, address)
-        x[0] = call_local
+        x[0] = scratch
+
 
 class IntTypeConverterMixin(NumericTypeConverterMixin):
     _mixin_ = True
@@ -284,7 +280,7 @@ class BoolConverter(ffitypes.typeid(bool), TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'b'
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         x = rffi.cast(rffi.LONGP, address)
         x[0] = self._unwrap_object(space, w_obj)
 
@@ -309,7 +305,7 @@ class CharConverter(ffitypes.typeid(rffi.CHAR), TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'b'
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
 
@@ -348,7 +344,7 @@ class ConstFloatRefConverter(FloatConverter):
         state = space.fromcache(ffitypes.State)
         return state.c_voidp
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
@@ -429,7 +425,7 @@ class VoidPtrConverter(TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'o'
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = self._unwrap_object(space, w_obj)
 
@@ -517,7 +513,7 @@ class InstanceRefConverter(TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = self.typecode
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
 
@@ -541,7 +537,7 @@ class InstanceMoveConverter(InstanceRefConverter):
 
 class InstanceConverter(InstanceRefConverter):
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible       # TODO: by-value is a jit_libffi special case
 
@@ -590,7 +586,7 @@ class InstancePtrPtrConverter(InstancePtrConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = self.typecode
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         # TODO: finalize_call not yet called for fast call (see interp_cppyy.py)
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
@@ -663,7 +659,7 @@ class PyObjectConverter(TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'a'
 
-    def convert_argument_libffi(self, space, w_obj, address, call_local):
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
         # TODO: free_argument not yet called for fast call (see interp_cppyy.py)
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
