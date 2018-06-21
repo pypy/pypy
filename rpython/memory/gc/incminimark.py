@@ -2458,25 +2458,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
                 self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
                 #
-                # Print statistics
-                debug_start("gc-collect-done")
-                debug_print("arenas:               ",
-                            self.stat_ac_arenas_count, " => ",
-                            self.ac.arenas_count)
-                debug_print("bytes used in arenas: ",
-                            self.ac.total_memory_used)
-                debug_print("bytes raw-malloced:   ",
-                            self.stat_rawmalloced_total_size, " => ",
-                            self.rawmalloced_total_size)
-                debug_stop("gc-collect-done")
-                self.hooks.fire_gc_collect(
-                    num_major_collects=self.num_major_collects,
-                    arenas_count_before=self.stat_ac_arenas_count,
-                    arenas_count_after=self.ac.arenas_count,
-                    arenas_bytes=self.ac.total_memory_used,
-                    rawmalloc_bytes_before=self.stat_rawmalloced_total_size,
-                    rawmalloc_bytes_after=self.rawmalloced_total_size)
-                #
                 # Set the threshold for the next major collection to be when we
                 # have allocated 'major_collection_threshold' times more than
                 # we currently have -- but no more than 'max_delta' more than
@@ -2489,6 +2470,27 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     min(total_memory_used * self.major_collection_threshold,
                         total_memory_used + self.max_delta),
                     reserving_size)
+                #
+                # Print statistics
+                debug_start("gc-collect-done")
+                debug_print("arenas:               ",
+                            self.stat_ac_arenas_count, " => ",
+                            self.ac.arenas_count)
+                debug_print("bytes used in arenas: ",
+                            self.ac.total_memory_used)
+                debug_print("bytes raw-malloced:   ",
+                            self.stat_rawmalloced_total_size, " => ",
+                            self.rawmalloced_total_size)
+                debug_print("next major collection threshold: ",
+                            self.next_major_collection_threshold)
+                debug_stop("gc-collect-done")
+                self.hooks.fire_gc_collect(
+                    num_major_collects=self.num_major_collects,
+                    arenas_count_before=self.stat_ac_arenas_count,
+                    arenas_count_after=self.ac.arenas_count,
+                    arenas_bytes=self.ac.total_memory_used,
+                    rawmalloc_bytes_before=self.stat_rawmalloced_total_size,
+                    rawmalloc_bytes_after=self.rawmalloced_total_size)
                 #
                 # Max heap size: gives an upper bound on the threshold.  If we
                 # already have at least this much allocated, raise MemoryError.
