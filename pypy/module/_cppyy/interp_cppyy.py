@@ -456,8 +456,7 @@ class W_CPPOverload(W_Root):
         self.flags  = flags
         self.w_this = self.space.w_None
 
-    @unwrap_spec(args_w='args_w')
-    def descr_get(self, w_cppinstance, args_w):
+    def descr_get(self, w_cppinstance, w_cls=None):
         if self.space.is_w(w_cppinstance, self.space.w_None):
             return self  # unbound, so no new instance needed
         cppol = W_CPPOverload(self.space, self.scope, self.functions, self.flags)
@@ -568,8 +567,7 @@ W_CPPOverload.typedef = TypeDef(
 class W_CPPStaticOverload(W_CPPOverload):
     _attrs_ = []
 
-    @unwrap_spec(args_w='args_w')
-    def descr_get(self, w_cppinstance, args_w):
+    def descr_get(self, w_cppinstance, w_cls=None):
         if isinstance(w_cppinstance, W_CPPInstance):
             # two possibilities: this is a static function called on an
             # instance and w_this must not be set, or a free function rebound
@@ -605,8 +603,7 @@ W_CPPStaticOverload.typedef = TypeDef(
 class W_CPPConstructorOverload(W_CPPOverload):
     _attrs_ = []
 
-    @unwrap_spec(args_w='args_w')
-    def descr_get(self, w_cppinstance, args_w):
+    def descr_get(self, w_cppinstance, w_cls=None):
         if self.space.is_w(w_cppinstance, self.space.w_None):
             return self  # unbound (TODO: probably useless)
         cppol = W_CPPConstructorOverload(self.space, self.scope, self.functions, self.flags)
@@ -700,7 +697,7 @@ class TemplateOverloadMixin(object):
         # try to match with run-time instantiations
         for cppol in self.master.overloads.values():
             try:
-                return cppol.descr_get(self.w_this, []).call(args_w)
+                return cppol.descr_get(self.w_this).call(args_w)
             except Exception:
                 pass    # completely ignore for now; have to see whether errors become confusing
 
@@ -723,7 +720,7 @@ class TemplateOverloadMixin(object):
             except KeyError:
                 self.master.overloads[fullname] = method
 
-        return method.descr_get(self.w_this, []).call(args_w)
+        return method.descr_get(self.w_this).call(args_w)
 
     def getitem_impl(self, name, args_w):
         space = self.space
@@ -746,7 +743,7 @@ class TemplateOverloadMixin(object):
             if c_fullname != fullname:
                 self.master.overloads[c_fullname] = method
 
-        return method.descr_get(self.w_this, [])
+        return method.descr_get(self.w_this)
 
 
 class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
@@ -762,8 +759,7 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
          self.overloads = {}
          self.master = self
 
-    @unwrap_spec(args_w='args_w')
-    def descr_get(self, w_cppinstance, args_w):
+    def descr_get(self, w_cppinstance, w_cls=None):
         # like W_CPPOverload, but returns W_CPPTemplateOverload
         if self.space.is_w(w_cppinstance, self.space.w_None):
             return self  # unbound, so no new instance needed
@@ -814,8 +810,7 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
          self.overloads = {}
          self.master = self
 
-    @unwrap_spec(args_w='args_w')
-    def descr_get(self, w_cppinstance, args_w):
+    def descr_get(self, w_cppinstance, w_cls=None):
         # like W_CPPStaticOverload, but returns W_CPPTemplateStaticOverload
         if isinstance(w_cppinstance, W_CPPInstance):
             cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance)
