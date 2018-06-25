@@ -114,7 +114,7 @@ def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     buffer, rtype = rfloat.double_to_string(val, format_code,
                                             intmask(precision),
                                             intmask(flags))
-    if ptype != lltype.nullptr(rffi.INTP.TO):
-        ptype[0] = rffi.cast(rffi.INT, DOUBLE_TO_STRING_TYPES_MAP[rtype])
+    if ptype != lltype.nullptr(INTP_real.TO):
+        ptype[0] = rffi.cast(rffi.INT_real, DOUBLE_TO_STRING_TYPES_MAP[rtype])
     bufp = rffi.str2charp(buffer)
     return bufp

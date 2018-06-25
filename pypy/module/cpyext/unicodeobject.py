@@ -576,7 +576,7 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
         None, # errorhandler
         byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, byteorder)
 
     return space.newunicode(result)
 
@@ -632,7 +632,7 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
         None, # errorhandler
         byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, byteorder)
 
     return space.newunicode(result)
 

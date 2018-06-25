@@ -133,7 +133,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
     return -1
 
-@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], rffi.LONGLONG,
+@cpython_api([PyObject, INTP_real], rffi.LONGLONG,
              error=-1)
 def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     """

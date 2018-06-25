@@ -228,7 +228,7 @@ def PyObject_Cmp(space, w_o1, w_o2, result):
     comparison is returned in result.  Returns -1 on failure.  This is the
     equivalent of the Python statement result = cmp(o1, o2)."""
     res = space.int_w(space.cmp(w_o1, w_o2))
-    result[0] = rffi.cast(rffi.INT, res)
+    result[0] = rffi.cast(rffi.INT_real, res)
     return 0
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
