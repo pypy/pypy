@@ -1,6 +1,6 @@
 import errno
 from pypy.interpreter.error import oefmt
-from pypy.module.cpyext.api import cpython_api, CONST_STRING
+from pypy.module.cpyext.api import cpython_api, CONST_STRING, INTP_real
 from pypy.module.cpyext.pyobject import PyObject
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
@@ -80,7 +80,7 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
         if not user_endptr:
             lltype.free(endptr, flavor='raw')
 
-@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, rffi.INTP], rffi.CCHARP)
+@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, INTP_real], rffi.CCHARP)
 def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     """Convert a double val to a string using supplied
     format_code, precision, and flags.

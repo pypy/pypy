@@ -772,6 +772,9 @@ def is_PyObject(TYPE):
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
 
+# int *
+INTP_real = rffi.CArrayPtr(rffi.INT_real)
+
 def configure_types():
     for config in (CConfig, CConfig2):
         for name, TYPE in rffi_platform.configure(config).iteritems():
