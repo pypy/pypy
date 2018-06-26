@@ -1007,7 +1007,9 @@ class AppTestPartialEvaluation:
         with warnings.catch_warnings(record=True) as l:
             warnings.simplefilter("always")
             codecs.unicode_escape_decode(b'\\A')
+            codecs.unicode_escape_decode(b"\\A")
 
+        assert len(l) == 2
         assert isinstance(l[0].message, DeprecationWarning)
 
 
