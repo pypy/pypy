@@ -643,7 +643,7 @@ SYMBOLS_C = [
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
     'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar',
-    '_PyObject_GC_New', '_PyObject_GC_NewVar',
+    '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar', 'PyInt_FromLong',
     'PyTuple_New', '_Py_Dealloc',
 ]
