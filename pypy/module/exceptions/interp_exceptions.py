@@ -235,6 +235,13 @@ class W_BaseException(W_Root):
         self.descr_settraceback(space, w_traceback)
         return self
 
+    def _cleanup_(self):
+        raise Exception("Prebuilt instances of (subclasses of) BaseException "
+                        "must be avoided in Python 3.x.  They have mutable "
+                        "attributes related to tracebacks, so whenever they "
+                        "are raised in the actual program they will "
+                        "accumulate more frames and never free them.")
+
 def _new(cls, basecls=None):
     if basecls is None:
         basecls = cls
