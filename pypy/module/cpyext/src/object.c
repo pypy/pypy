@@ -60,6 +60,11 @@ _PyObject_New(PyTypeObject *type)
     return (PyObject*)_PyObject_NewVar(type, 0);
 }
 
+PyObject * _PyObject_GC_Malloc(size_t size)
+{
+    return (PyObject *)PyObject_Malloc(size);
+}
+
 PyObject * _PyObject_GC_New(PyTypeObject *type)
 {
     return _PyObject_New(type);

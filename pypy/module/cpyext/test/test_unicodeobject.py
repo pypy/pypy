@@ -4,7 +4,8 @@ from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.unicodeobject import (
     Py_UNICODE, PyUnicodeObject, new_empty_unicode)
-from pypy.module.cpyext.api import PyObjectP, PyObject, Py_CLEANUP_SUPPORTED
+from pypy.module.cpyext.api import (PyObjectP, PyObject, 
+                           Py_CLEANUP_SUPPORTED, INTP_real)
 from pypy.module.cpyext.pyobject import decref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
@@ -726,7 +727,7 @@ class TestUnicode(BaseApiTest):
                     value = 1
                 else:
                     value = 0
-                pendian = lltype.malloc(INT_realP.TO, 1, flavor='raw')
+                pendian = lltype.malloc(INTP_real.TO, 1, flavor='raw')
                 pendian[0] = rffi.cast(rffi.INT_real, value)
             else:
                 pendian = None
@@ -739,7 +740,7 @@ class TestUnicode(BaseApiTest):
             rffi.free_charp(strict_charp)
             if pendian:
                 if realendian is not None:
-                    assert rffi.cast(rffi.INT, realendian) == pendian[0]
+                    assert rffi.cast(rffi.INT_real, realendian) == pendian[0]
                 lltype.free(pendian, flavor='raw')
 
         test("\x61\x00\x62\x00\x63\x00\x64\x00", -1)
@@ -762,7 +763,7 @@ class TestUnicode(BaseApiTest):
                     value = 1
                 else:
                     value = 0
-                pendian = lltype.malloc(INT_realP.TO, 1, flavor='raw')
+                pendian = lltype.malloc(INTP_real.TO, 1, flavor='raw')
                 pendian[0] = rffi.cast(rffi.INT_real, value)
             else:
                 pendian = None
