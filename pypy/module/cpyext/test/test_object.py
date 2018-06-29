@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 from pypy.module.cpyext.api import (
-    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT)
+    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT, INTP_real)
 from pypy.module.cpyext.object import (
     PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
     PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
@@ -205,7 +205,7 @@ class TestObject(BaseApiTest):
 
     def test_cmp(self, space, api):
         w = space.wrap
-        with lltype.scoped_alloc(rffi.INTP.TO, 1) as ptr:
+        with lltype.scoped_alloc(INTP_real.TO, 1) as ptr:
             assert api.PyObject_Cmp(w(42), w(72), ptr) == 0
             assert ptr[0] == -1
             assert api.PyObject_Cmp(w("a"), w("a"), ptr) == 0
