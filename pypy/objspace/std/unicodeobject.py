@@ -1234,6 +1234,15 @@ def ascii_from_object(space, w_obj):
     w_encoded = encode_object(space, w_repr, 'ascii', 'backslashreplace')
     return decode_object(space, w_encoded, 'ascii', None)
 
+def unicode_from_string(space, w_bytes):
+    # this is a performance and bootstrapping hack
+    encoding = getdefaultencoding(space)
+    if encoding != 'ascii':
+        return unicode_from_encoded_object(space, w_bytes, encoding, "strict")
+    s = space.bytes_w(w_bytes)
+    unicodehelper.check_ascii_or_raise(space, s)
+    return W_UnicodeObject(s, len(s))
+
 
 class UnicodeDocstrings:
     """str(object='') -> str

@@ -3,10 +3,8 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib import runicode
-from rpython.rlib.runicode import (
-    code_to_unichr, MAXUNICODE,
-    raw_unicode_escape_helper_unicode)
-from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
+from rpython.rlib.runicode import ( raw_unicode_escape_helper_unicode)
+from rpython.rlib import rutf8
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -96,24 +94,10 @@ class CodecState(object):
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):
-        errorhandler = self._make_errorhandler(space, True)
-        def decode_call_errorhandler(errors, encoding, reason, input,
-                                     startpos, endpos):
-            w_replace, newpos = errorhandler(errors, encoding, reason, input,
-                                             startpos, endpos)
-            return space.utf8_w(w_replace), newpos
-        return decode_call_errorhandler
+        return self._make_errorhandler(space, True)
 
     def make_encode_errorhandler(self, space):
-        errorhandler = self._make_errorhandler(space, False)
-        def encode_call_errorhandler(errors, encoding, reason, input,
-                                     startpos, endpos):
-            w_replace, newpos = errorhandler(errors, encoding, reason, input,
-                                             startpos, endpos)
-            if space.isinstance_w(w_replace, space.w_unicode):
-                return space.utf8_w(w_replace), None, newpos
-            return None, space.bytes_w(w_replace), newpos
-        return encode_call_errorhandler
+        return self._make_errorhandler(space, False)
 
     def get_unicodedata_handler(self, space):
         if self.unicodedata_handler:
@@ -336,9 +320,9 @@ def namereplace_errors(space, w_exc):
             except KeyError:
                 raw_unicode_escape_helper_unicode(builder, oc)
             else:
-                builder.append(u'\\N{')
-                builder.append(unicode(name))
-                builder.append(u'}')
+                builder.append('\\N{')
+                builder.append(name)
+                builder.append('}')
             pos = rutf8.next_codepoint_pos(obj, pos)
         r = builder.build()
         lgt = rutf8.check_utf8(r, True)
@@ -662,14 +646,18 @@ def make_encoder_wrapper(name):
 def make_utf_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
     func = _find_implementation(rname)
-    @unwrap_spec(uni=unicode, errors='text_or_none')
-    def wrap_encoder(space, uni, errors="strict"):
+    @unwrap_spec(errors='text_or_none')
+    def wrap_encoder(space, w_arg, errors="strict"):
+        from pypy.interpreter import unicodehelper
+
+        w_arg = unicodehelper.convert_arg_to_w_unicode(space, w_arg, rname)
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
-        result = func(uni, len(uni), errors, state.encode_error_handler,
+        utf8len = w_arg._length
+        result = func(w_arg._utf8, errors, state.encode_error_handler,
                       allow_surrogates=False)
-        return space.newtuple([space.newbytes(result), space.newint(len(uni))])
+        return space.newtuple([space.newbytes(result), space.newint(utf8len)])
     wrap_encoder.__name__ = func.__name__
     globals()[name] = wrap_encoder
 
@@ -750,8 +738,9 @@ if hasattr(runicode, 'str_decode_mbcs'):
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"
-@unwrap_spec(uni=unicode, errors='text_or_none')
-def utf_8_encode(space, uni, errors="strict"):
+@unwrap_spec(errors='text_or_none')
+def utf_8_encode(space, w_obj, errors="strict"):
+    utf8, lgt = space.utf8_len_w(w_obj)
     if errors is None:
         errors = 'strict'
     state = space.fromcache(CodecState)
@@ -759,9 +748,9 @@ def utf_8_encode(space, uni, errors="strict"):
     # an @elidable function nowadays.  Instead, we need the _impl().
     # (The problem is the errorhandler, which calls arbitrary Python.)
     result = runicode.unicode_encode_utf_8_impl(
-        uni, len(uni), errors, state.encode_error_handler,
+        utf8, lgt, errors, state.encode_error_handler,
         allow_surrogates=False)
-    return space.newtuple([space.newbytes(result), space.newint(len(uni))])
+    return space.newtuple([space.newbytes(result), space.newint(lgt)])
 
 @unwrap_spec(string='bufferstr', errors='text_or_none',
              w_final = WrappedDefault(False))
