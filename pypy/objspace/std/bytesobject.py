@@ -14,6 +14,8 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 from pypy.objspace.std.formatting import mod_format, FORMAT_BYTES
+from pypy.objspace.std.unicodeobject import (encode_object, getdefaultencoding,
+           decode_object)
 
 class W_AbstractBytesObject(W_Root):
     __slots__ = ()
@@ -688,7 +690,6 @@ def newbytesdata_w(space, w_source, encoding, errors):
             raise oefmt(space.w_TypeError,
                 "encoding without string argument (got '%T' instead)",
                 w_source)
-        from pypy.objspace.std.unicodeobject import encode_object
         w_source = encode_object(space, w_source, encoding, errors)
         # and continue with the encoded string
     elif errors is not None:

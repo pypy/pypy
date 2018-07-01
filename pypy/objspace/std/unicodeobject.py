@@ -1144,14 +1144,13 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
 
 
 def encode_object(space, w_object, encoding, errors):
-    w_encoder = None
-    if encoding is None:
-        # Get the encoder functions as a wrapped object.
-        # This lookup is cached.
-        w_encoder = space.sys.get_w_default_encoder()
     if errors is None or errors == 'strict':
-        if ((encoding is None and space.sys.defaultencoding == 'ascii') or
-             encoding == 'ascii'):
+        if encoding is None or encoding == 'utf-8':
+            utf8 = space.utf8_w(w_object)
+            if rutf8.has_surrogates(utf8):
+                utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
+            return space.newbytes(utf8)
+        elif encoding == 'ascii':
             s = space.utf8_w(w_object)
             try:
                 rutf8.check_ascii(s)
@@ -1161,21 +1160,11 @@ def encode_object(space, w_object, encoding, errors):
                     a.pos, a.pos + 1)
                 assert False, "always raises"
             return space.newbytes(s)
-        if ((encoding is None and space.sys.defaultencoding == 'utf8') or
-             encoding == 'utf-8' or encoding == 'utf8' or encoding == 'UTF-8'):
-            utf8 = space.utf8_w(w_object)
-            if rutf8.has_surrogates(utf8):
-                utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
-            return space.newbytes(utf8)
-    if w_encoder is None:
-        from pypy.module._codecs.interp_codecs import lookup_codec
-        w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
-    if errors is None:
-        w_errors = space.newtext('strict')
-    else:
-        w_errors = space.newtext(errors)
-    w_restuple = space.call_function(w_encoder, w_object, w_errors)
-    w_retval = space.getitem(w_restuple, space.newint(0))
+
+    from pypy.module._codecs.interp_codecs import encode_text
+    if encoding is None:
+        encoding = space.sys.defaultencoding
+    w_retval = encode_text(space, w_object, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_bytes):
         raise oefmt(space.w_TypeError,
                     "'%s' encoder returned '%T' instead of 'bytes'; "
