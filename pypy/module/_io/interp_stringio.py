@@ -46,7 +46,7 @@ class UnicodeIO(object):
         limit = self._convert_limit(limit)
         start = self.pos
         if start >= len(self.data):
-            return u''
+            return ''
         end = start + limit
         pos = start
         while pos < end:
@@ -70,7 +70,7 @@ class UnicodeIO(object):
         start = self.pos
         limit = self._convert_limit(limit)
         if start >= len(self.data):
-            return u''
+            return ''
         end = start + limit
         found = False
         for pos in range(start, end - len(marker) + 1):
