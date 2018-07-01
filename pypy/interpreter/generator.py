@@ -288,7 +288,7 @@ return next yielded value or raise StopIteration."""
         if self.frame is None:
             return     # nothing to do in this case
         space = self.space
-        operr = get_generator_exit(space)
+        operr = None
         # note: w_yielded_from is always None if 'self.running'
         w_yf = self.w_yielded_from
         if w_yf is not None:
@@ -296,6 +296,8 @@ return next yielded value or raise StopIteration."""
                 self._gen_close_iter(space)
             except OperationError as e:
                 operr = e
+        if operr is None:
+            operr = OperationError(space.w_GeneratorExit, space.w_None)
         try:
             self.send_error(operr)
         except OperationError as e:
@@ -470,11 +472,6 @@ def stopiteration_value(space, w_value):
     raise OperationError(space.w_StopIteration,
                          space.call_function(space.w_StopIteration, w_value))
 
-
-@specialize.memo()
-def get_generator_exit(space):
-    return OperationError(space.w_GeneratorExit,
-                          space.call_function(space.w_GeneratorExit))
 
 def gen_close_iter(space, w_yf):
     # This helper function is used by close() and throw() to

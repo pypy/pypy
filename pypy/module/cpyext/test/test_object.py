@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 from pypy.module.cpyext.api import (
-    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT)
+    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT, INTP_real)
 from pypy.module.cpyext.object import (
     PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
     PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
