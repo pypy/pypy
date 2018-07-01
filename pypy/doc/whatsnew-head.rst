@@ -7,9 +7,9 @@ What's new in PyPy2.7 6.0+
 
 .. branch: cppyy-packaging
 
-Upgrade to backend 0.6.0, support exception handling from wrapped functions,
-update enum handling, const correctness for data members and associated tests,
-support anonymous enums, support for function pointer arguments
+Upgrade to backend 1.1.0, improved handling of templated methods and
+functions (in particular automatic deduction of types), improved pythonization
+interface, and a range of compatibility fixes for Python3
 
 .. branch: socket_default_timeout_blockingness
 

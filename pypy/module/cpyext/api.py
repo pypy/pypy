@@ -658,7 +658,7 @@ SYMBOLS_C = [
     'PyType_FromSpec',
     'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar',
-    '_PyObject_GC_New', '_PyObject_GC_NewVar',
+    '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar',
     'PyTuple_New', '_Py_Dealloc',
 ]
@@ -788,6 +788,9 @@ def is_PyObject(TYPE):
 
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
+
+# int *
+INTP_real = rffi.CArrayPtr(rffi.INT_real)
 
 def configure_types():
     for config in (CConfig, CConfig2):
