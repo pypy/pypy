@@ -114,7 +114,7 @@ def parsestr(space, encoding, s):
         elif saw_f:
             return W_FString(substr, rawmode)
         else:
-            v = unicodehelper.decode_utf8(space, substr)
+            v = unicodehelper.str_decode_utf8(substr, 'strict', True, None)
             return space.newtext(v)
 
     v = PyString_DecodeEscape(space, substr, 'strict', encoding)

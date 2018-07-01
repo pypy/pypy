@@ -192,8 +192,6 @@ class W_UnicodeObject(W_Root):
         if w_object is None:
             w_value = W_UnicodeObject.EMPTY
         else:
-            if w_encoding and w_encoding._utf8 == 'unicode_internal':
-                import pdb;pdb.set_trace()
             encoding, errors = _get_encoding_and_errors(space, w_encoding,
                                                         w_errors)
             if encoding is None and errors is None:
