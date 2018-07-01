@@ -587,7 +587,7 @@ class W_UnicodeObject(W_Root):
         return space.newbool(cased)
 
     def descr_isidentifier(self, space):
-        return space.newbool(_isidentifier(self._value))
+        return space.newbool(_isidentifier(self._utf8.decode('utf8')))
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)

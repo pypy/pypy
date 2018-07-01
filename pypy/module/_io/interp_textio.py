@@ -739,7 +739,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def _read(self, space, size):
         remaining = size
-        builder = UnicodeBuilder(size)
+        builder = StringBuilder(size)
 
         # Keep reading chunks until we have n characters to return
         while remaining > 0:
@@ -825,7 +825,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         result = builder.build()
         lgt = get_utf8_length(result)
-        return space.newutf8(result, lgt)
+        return (result, lgt, lgt)
 
     # _____________________________________________________________
     # write methods

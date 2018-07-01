@@ -1715,6 +1715,9 @@ class ObjSpace(object):
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
 
+    def realunicode_w(self, w_obj):
+        return w_obj.utf8_w(self).decode('utf8')
+
     def utf8_0_w(self, w_obj):
         "Like utf8_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
