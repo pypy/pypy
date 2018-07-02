@@ -309,6 +309,17 @@ class AppTestRaise:
                 return object()
         raises(TypeError, "raise MyException")
 
+    def test_with_exit_True(self):
+        class X:
+            def __enter__(self):
+                pass
+            def __exit__(self, *args):
+                return True
+        def g():
+            with X():
+                return 42
+            assert False, "unreachable"
+        assert g() == 42
 
     def test_pop_exception_value(self):
         # assert that this code don't crash
