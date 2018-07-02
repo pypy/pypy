@@ -130,6 +130,27 @@ class AppTestCoroutine:
         assert seen == ['aenter', 'aexit']
         """
 
+    def test_async_with_exit_True(self): """
+        seen = []
+        class X:
+            async def __aenter__(self):
+                seen.append('aenter')
+            async def __aexit__(self, *args):
+                seen.append('aexit')
+                return True
+        async def f(x):
+            async with x:
+                return 42
+        c = f(X())
+        try:
+            c.send(None)
+        except StopIteration as e:
+            assert e.value == 42
+        else:
+            assert False, "should have raised"
+        assert seen == ['aenter', 'aexit']
+        """
+
     def test_await(self): """
         class X:
             def __await__(self):
