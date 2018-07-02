@@ -163,8 +163,8 @@ class W_SRE_Pattern(W_Root):
         string = None
         buf = None
         space = self.space
-        if space.isinstance_w(w_string, space.w_utf8):
-            unicodestr = space.utf8_w(w_string).decode()
+        if space.isinstance_w(w_string, space.w_unicode):
+            unicodestr = space.utf8_w(w_string).decode('utf8')
             length = len(unicodestr)
         elif space.isinstance_w(w_string, space.w_bytes):
             string = space.bytes_w(w_string)
@@ -176,6 +176,7 @@ class W_SRE_Pattern(W_Root):
         return (length, unicodestr, string, buf)
 
     def make_ctx(self, w_string, pos=0, endpos=sys.maxint, flags=0):
+        """Make a StrMatchContext, BufMatchContext or a Utf8MatchContext for
         searching in the given w_string object."""
         space = self.space
         length, unicodestr, string, buf = self.getstring(w_string)
