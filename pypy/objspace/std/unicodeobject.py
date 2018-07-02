@@ -54,6 +54,10 @@ class W_UnicodeObject(W_Root):
         """representation for debugging purposes"""
         return "%s(%r)" % (self.__class__.__name__, self._utf8)
 
+    def unwrap(self, space):
+        # for testing
+        return self.realunicode_w(space)
+
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_UnicodeObject):
             return False
@@ -87,20 +91,8 @@ class W_UnicodeObject(W_Root):
     def utf8_w(self, space):
         return self._utf8
 
-    def text_w(self, space):
-        try:
-            identifier = jit.conditional_call_elidable(
-                                self._utf8, g_encode_utf8, self._length)
-        except SurrogateError as e:
-            raise OperationError(space.w_UnicodeEncodeError,
-                    space.newtuple([space.newtext('utf-8'),
-                                    self,
-                                    space.newint(e.index-1),
-                                    space.newint(e.index),
-                                    space.newtext("surrogates not allowed")]))
-        if not jit.isconstant(self):
-            self._utf8 = identifier
-        return identifier
+    def realunicode_w(self, space):
+        return self._utf8.decode('utf8')
 
     def listview_utf8(self):
         assert self.is_ascii()

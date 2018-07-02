@@ -218,6 +218,7 @@ class FakeObjSpace(ObjSpace):
     def newutf8(self, x, l):
         return w_some_obj()
 
+    @specialize.argtype(1)
     def newtext(self, x):
         return w_some_obj()
     newtext_or_none = newtext

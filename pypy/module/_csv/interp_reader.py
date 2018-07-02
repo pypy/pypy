@@ -73,7 +73,7 @@ class W_Reader(W_Root):
                             break
                 raise
             self.line_num += 1
-            line = space.utf8_w(w_line)
+            line = space.realunicode_w(w_line)
             for c in line:
                 if c == b'\0':
                     raise self.error(u"line contains NULL byte")
