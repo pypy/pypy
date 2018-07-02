@@ -1649,7 +1649,7 @@ class __extend__(pyframe.PyFrame):
         lst = []
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
-            lst.append(space.utf8_w(w_item))
+            lst.append(space.realunicode_w(w_item))
         self.dropvalues(itemcount)
         w_res = space.newtext(u''.join(lst))
         self.pushvalue(w_res)

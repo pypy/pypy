@@ -507,9 +507,9 @@ def get_operrcls2(valuefmt):
                     if fmt == 'd':
                         result = str(value).decode('ascii')
                     elif fmt == 'R':
-                        result = space.utf8_w(space.repr(value))
+                        result = space.realunicode_w(space.repr(value))
                     elif fmt == 'S':
-                        result = space.utf8_w(space.str(value))
+                        result = space.realunicode_w(space.str(value))
                     elif fmt == 'T':
                         result = _decode_utf8(space.type(value).name)
                     elif fmt == 'N':

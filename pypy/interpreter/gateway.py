@@ -327,7 +327,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append("space.text0_w(%s)" % (self.scopenext(),))
 
     def visit_unicode(self, typ):
-        self.run_args.append("space.utf_8(%s)" % (self.scopenext(),))
+        self.run_args.append("space.realunicode_w(%s)" % (self.scopenext(),))
 
     def visit_utf8(self, typ):
         self.run_args.append("space.utf8_w(%s)" % (self.scopenext(),))
@@ -498,7 +498,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space.text_w(%s)" % (self.nextarg(),))
 
     def visit_unicode(self, typ):
-        self.unwrap.append("space.utf_8(%s)" % (self.nextarg(),))
+        self.unwrap.append("space.realunicode_w(%s)" % (self.nextarg(),))
 
     def visit_text0(self, typ):
         self.unwrap.append("space.text0_w(%s)" % (self.nextarg(),))
