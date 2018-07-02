@@ -383,6 +383,7 @@ PyAPI_FUNC(void) PyObject_GC_Del(void *);
 
 PyAPI_FUNC(PyObject *) _PyObject_New(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) _PyObject_GC_Malloc(size_t);
 PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
 

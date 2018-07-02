@@ -9,7 +9,7 @@ from pypy.interpreter.unicodehelper import (
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers_flags, cpython_api,
-    bootstrap_function, CONST_STRING,
+    bootstrap_function, CONST_STRING, INTP_real,
     CONST_WSTRING, slot_function, cts, parse_dir)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
@@ -532,7 +532,7 @@ make_conversion_functions('Latin1', 'latin-1')
 if sys.platform == 'win32':
     make_conversion_functions('MBCS', 'mbcs')
 
-@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, rffi.INTP], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INTP_real], PyObject)
 def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     """Decode length bytes from a UTF-16 encoded buffer string and return the
     corresponding Unicode object.  errors (if non-NULL) defines the error
@@ -579,10 +579,10 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     result, _,  length, byteorder = str_decode_utf_16_helper(
         string, errors, final=True, errorhandler=None, byteorder=byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, byteorder)
     return space.newutf8(result, length)
 
-@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, rffi.INTP], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INTP_real], PyObject)
 def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     """Decode length bytes from a UTF-32 encoded buffer string and
     return the corresponding Unicode object.  errors (if non-NULL)
@@ -631,7 +631,7 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     result, _,  length, byteorder = unicodehelper.str_decode_utf_32_helper(
         string, errors, final=True, errorhandler=None, byteorder=byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, byteorder)
     return space.newutf8(result, length)
 
 @cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, CONST_STRING],

@@ -1,6 +1,6 @@
 import errno
 from pypy.interpreter.error import oefmt
-from pypy.module.cpyext.api import cpython_api, CONST_STRING
+from pypy.module.cpyext.api import cpython_api, CONST_STRING, INTP_real
 from pypy.module.cpyext.pyobject import PyObject
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
@@ -80,7 +80,7 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
         if not user_endptr:
             lltype.free(endptr, flavor='raw')
 
-@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, rffi.INTP], rffi.CCHARP)
+@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, INTP_real], rffi.CCHARP)
 def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     """Convert a double val to a string using supplied
     format_code, precision, and flags.
@@ -114,7 +114,7 @@ def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     buffer, rtype = rfloat.double_to_string(val, format_code,
                                             intmask(precision),
                                             intmask(flags))
-    if ptype != lltype.nullptr(rffi.INTP.TO):
-        ptype[0] = rffi.cast(rffi.INT, DOUBLE_TO_STRING_TYPES_MAP[rtype])
+    if ptype != lltype.nullptr(INTP_real.TO):
+        ptype[0] = rffi.cast(rffi.INT_real, DOUBLE_TO_STRING_TYPES_MAP[rtype])
     bufp = rffi.str2charp(buffer)
     return bufp
