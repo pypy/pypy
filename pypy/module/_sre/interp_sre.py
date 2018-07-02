@@ -47,6 +47,8 @@ def slice_w(space, ctx, start, end, w_default):
             s = ctx._utf8[start:end]
             lgt = rutf8.get_utf8_length(s)
             return space.newutf8(s, lgt)
+        elif isinstance(ctx, rsre_core.UnicodeMatchContext):
+            return space.newtext(ctx._unicodestr[start:end])
         else:
             # unreachable
             raise SystemError
@@ -742,6 +744,8 @@ class W_SRE_Match(W_Root):
         elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
             lgt = rutf8.get_utf8_length(ctx._utf8)
             return space.newutf8(ctx._utf8, lgt)
+        elif isinstance(ctx, rsre_core.UnicodeMatchContext):
+            return space.newtext(ctx._unicodestr)
         else:
             raise SystemError
 
