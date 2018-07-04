@@ -2994,6 +2994,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
                               ('c_ob_refcnt', lltype.Signed),
                               ('c_ob_pypy_link', lltype.Signed))
     PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
+    PYOBJ_GC_HDR = lltype.Struct('PyGC_Head',
+                                 ('c_gc_next', rffi.VOIDP),
+                                 ('c_gc_prev', rffi.VOIDP),
+                                 ('c_gc_refs', lltype.Signed))
+    PYOBJ_GC_HDR_PTR = lltype.Ptr(PYOBJ_GC_HDR)
+
     RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
     VISIT_FUNCTYPE = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR, rffi.VOIDP],
                                                 rffi.INT_real))
@@ -3004,8 +3010,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def _pyobj(self, pyobjaddr):
             return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
+    def _pygchdr(self, pygchdraddr):
+            return llmemory.cast_adr_to_ptr(pygchdraddr, self.PYOBJ_GC_HDR_PTR)
 
-    def rawrefcount_init(self, dealloc_trigger_callback, tp_traverse):
+    def rawrefcount_init(self, dealloc_trigger_callback, tp_traverse,
+                         pyobj_list):
         # see pypy/doc/discussion/rawrefcount.rst
         if not self.rrc_enabled:
             self.rrc_p_list_young = self.AddressStack()
@@ -3021,6 +3030,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_pyobjects_to_scan = self.AddressStack()
             self.rrc_more_pyobjects_to_scan = self.AddressStack()
             self.rrc_pyobjects_to_trace = self.AddressStack()
+            self.rrc_pyobj_list = self._pygchdr(pyobj_list)
             self.rrc_enabled = True
 
     def check_no_more_rawrefcount_state(self):
@@ -3220,6 +3230,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         assert not self.rrc_more_pyobjects_to_scan.non_empty()
         assert not self.rrc_pyobjects_to_trace.non_empty()
 
+        self._rrc_gc_print_list()
+
         # initially, scan all real pyobjects (not proxies) which are linked to objects
         #self.rrc_p_list_old.foreach(self._rrc_major_scan_non_rc_roots, None)
         self.rrc_o_list_old.foreach(self._rrc_major_scan_non_rc_roots, None)
@@ -3335,3 +3347,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                 IncrementalMiniMarkGC._rrc_visit)
         self_ptr = rffi.cast(rffi.VOIDP, cast_nongc_instance_to_adr(self))
         self.rrc_tp_traverse(pyobj, callback_ptr, self_ptr)
+
+    def _rrc_gc_list_init(self, pygclist):
+        pygclist.c_gc_next = rffi.cast(rffi.VOIDP, pygclist)
+        pygclist.c_gc_prev = rffi.cast(rffi.VOIDP, pygclist)
+
+    def _rrc_gc_print_list(self):
+        debug_print("gc_print_list start!")
+        curr = rffi.cast(self.PYOBJ_GC_HDR_PTR, self.rrc_pyobj_list.c_gc_next)
+        while curr != self.rrc_pyobj_list:
+            debug_print("gc_print_list: ", curr)
+            curr = rffi.cast(self.PYOBJ_GC_HDR_PTR, curr.c_gc_next)

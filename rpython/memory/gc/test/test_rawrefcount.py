@@ -5,7 +5,7 @@ from rpython.memory.gc.test.test_direct import BaseDirectGCTest
 from rpython.rlib.rawrefcount import (REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT,
                                       REFCNT_MASK)
 from pypy.module.cpyext.api import (PyObject, PyTypeObject, PyTypeObjectPtr,
-                                    PyObjectFields, cpython_struct)
+                                    PyObjectFields, cpython_struct, PyGC_Head)
 from pypy.module.cpyext.complexobject import PyComplexObject
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.typeobjectdefs import visitproc, traverseproc
@@ -54,8 +54,11 @@ class TestRawRefCount(BaseDirectGCTest):
             rc = REFCNT_FROM_PYPY
         self.trigger = []
         self.trigger2 = []
+        self.pyobj_list = lltype.malloc(PyGC_Head.TO, flavor='raw',
+                                        immortal=True)
         self.gc.rawrefcount_init(lambda: self.trigger.append(1),
-                                 lambda: self.trigger2.append(1))
+                                 lambda: self.trigger2.append(1),
+                                 self.pyobj_list)
         #
         if create_immortal:
             p1 = lltype.malloc(S, immortal=True)

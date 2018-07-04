@@ -2,6 +2,12 @@
 
 #include "Python.h"
 
+/* Get an object's GC head */
+#define AS_GC(o) ((PyGC_Head *)(o)-1)
+
+/* Get the object given the GC head */
+#define FROM_GC(g) ((PyObject *)(((PyGC_Head *)g)+1))
+
 extern void _PyPy_Free(void *ptr);
 extern void *_PyPy_Malloc(Py_ssize_t size);
 
@@ -30,6 +36,17 @@ Py_DecRef(PyObject *o)
  */
 Py_ssize_t _pypy_rawrefcount_w_marker_deallocating = 0xDEADFFF;
 
+static PyGC_Head _internal_pyobj_list;
+PyGC_Head *_pypy_rawrefcount_pyobj_list = &_internal_pyobj_list;
+
+PyGC_Head *
+_PyPy_InitPyObjList()
+{
+    _pypy_rawrefcount_pyobj_list->gc_next = _pypy_rawrefcount_pyobj_list;
+    _pypy_rawrefcount_pyobj_list->gc_prev = _pypy_rawrefcount_pyobj_list;
+    return _pypy_rawrefcount_pyobj_list;
+}
+
 void
 _Py_Dealloc(PyObject *obj)
 {
@@ -57,9 +74,25 @@ PyObject_Free(void *obj)
 }
 
 void
+PyObject_GC_Track(void *obj)
+{
+    _PyObject_GC_TRACK(obj);
+}
+
+void
+PyObject_GC_UnTrack(void *obj)
+{
+    if (_PyGC_IS_TRACKED(obj))
+        _PyObject_GC_UNTRACK(obj);
+}
+
+void
 PyObject_GC_Del(void *obj)
 {
-    _PyPy_Free(obj);
+    PyGC_Head *g = AS_GC(obj);
+    if (_PyGC_IS_TRACKED(obj))
+        _PyObject_GC_UNTRACK(obj);
+    _PyPy_Free(g);
 }
 
 PyObject *
@@ -74,14 +107,51 @@ _PyObject_New(PyTypeObject *type)
     return (PyObject*)_PyObject_NewVar(type, 0);
 }
 
+static PyObject *
+_generic_gc_alloc(PyTypeObject *type, Py_ssize_t nitems)
+{
+    Py_ssize_t size;
+    PyObject *pyobj;
+    PyGC_Head *g;
+    if (type->tp_flags & Py_TPFLAGS_HEAPTYPE)
+        Py_INCREF(type);
+
+    size = sizeof(PyGC_Head) + type->tp_basicsize;
+    if (type->tp_itemsize)
+        size += nitems * type->tp_itemsize;
+
+    g = (PyObject*)_PyPy_Malloc(size);
+    if (g == NULL)
+        return NULL;
+    g->gc_refs = 0;
+    _PyGCHead_SET_REFS(g, _PyGC_REFS_UNTRACKED);
+
+    pyobj = FROM_GC(g);
+    if (type->tp_itemsize)
+        ((PyVarObject*)pyobj)->ob_size = nitems;
+
+    pyobj->ob_refcnt = 1;
+    /* pyobj->ob_pypy_link should get assigned very quickly */
+    pyobj->ob_type = type;
+    return pyobj;
+}
+
+
 PyObject * _PyObject_GC_New(PyTypeObject *type)
 {
-    return _PyObject_New(type);
+    return (PyObject*)_PyObject_GC_NewVar(type, 0);
 }
 
 PyVarObject * _PyObject_GC_NewVar(PyTypeObject *type, Py_ssize_t nitems)
 {
-    return _PyObject_NewVar(type, nitems);
+    PyObject *py_obj = _generic_gc_alloc(type, nitems);
+    if (!py_obj)
+        return (PyVarObject*)PyErr_NoMemory();
+
+    if (type->tp_itemsize == 0)
+        return (PyVarObject*)PyObject_INIT(py_obj, type);
+    else
+        return PyObject_INIT_VAR((PyVarObject*)py_obj, type, nitems);
 }
 
 static PyObject *

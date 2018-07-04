@@ -751,6 +751,8 @@ PyObjectFields = (("ob_refcnt", lltype.Signed),
 PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
 PyVarObjectStruct = cts.gettype('PyVarObject')
 PyVarObject = cts.gettype('PyVarObject *')
+PyGC_Head = cts.gettype('PyGC_Head')
+PyGC_HeadPtr = cts.gettype('PyGC_Head *')
 
 Py_buffer = cts.gettype('Py_buffer')
 Py_bufferP = cts.gettype('Py_buffer *')
@@ -1173,6 +1175,9 @@ def attach_c_functions(space, eci, prefix):
     state.C._PyPy_object_dealloc = rffi.llexternal(
         '_PyPy_object_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
+    state.C._PyPy_InitPyObjList = rffi.llexternal(
+        '_PyPy_InitPyObjList', [], PyGC_HeadPtr,
+        compilation_info=eci, _nowrapper=True)
 
 
 def init_function(func):
@@ -1293,6 +1298,9 @@ def build_bridge(space):
             pypyAPI[structindex[name]] = ctypes.cast(
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
+
+    # initialize the pyobj_list for the gc
+    space.fromcache(State).C._PyPy_InitPyObjList()
 
     # we need to call this *after* the init code above, because it might
     # indirectly call some functions which are attached to pypyAPI (e.g., we
@@ -1821,78 +1829,6 @@ def make_generic_cpy_call(FT, expect_null):
             elif has_new_error:
                 state = space.fromcache(State)
                 state.check_and_raise_exception()
-
-            return ret
-        return result
-
-    return generic_cpy_call
-
-@specialize.memo()
-def make_generic_cpy_call_gc(FT, expect_null):
-    from pypy.module.cpyext.pyobject import is_pyobj, make_ref, decref
-    from pypy.module.cpyext.pyobject import get_w_obj_and_decref
-    from pypy.module.cpyext.pyerrors import PyErr_Occurred
-    unrolling_arg_types = unrolling_iterable(enumerate(FT.ARGS))
-    RESULT_TYPE = FT.RESULT
-
-    # copied and modified from rffi.py
-    # We need tons of care to ensure that no GC operation and no
-    # exception checking occurs in call_external_function.
-    argnames = ', '.join(['a%d' % i for i in range(len(FT.ARGS))])
-    source = py.code.Source("""
-        def cpy_call_external(funcptr, %(argnames)s):
-            # NB. it is essential that no exception checking occurs here!
-            res = funcptr(%(argnames)s)
-            return res
-    """ % locals())
-    miniglobals = {'__name__':    __name__, # for module name propagation
-                   }
-    exec source.compile() in miniglobals
-    call_external_function = specialize.ll()(miniglobals['cpy_call_external'])
-    call_external_function._dont_inline_ = True
-    call_external_function._gctransformer_hint_close_stack_ = True
-    # don't inline, as a hack to guarantee that no GC pointer is alive
-    # anywhere in call_external_function
-
-    @specialize.ll()
-    def generic_cpy_call(func, *args):
-        boxed_args = ()
-        to_decref = ()
-        assert len(args) == len(FT.ARGS)
-        for i, ARG in unrolling_arg_types:
-            arg = args[i]
-            _pyobj = None
-            if is_PyObject(ARG):
-                assert is_pyobj(arg)
-
-            boxed_args += (arg,)
-            to_decref += (_pyobj,)
-
-        # see "Handling of the GIL" above
-        tid = rthread.get_ident()
-        tid_before = cpyext_glob_tid_ptr[0]
-        assert tid_before == 0 or tid_before == tid
-        cpyext_glob_tid_ptr[0] = tid
-
-        try:
-            # Call the function
-            result = call_external_function(func, *boxed_args)
-        finally:
-            assert cpyext_glob_tid_ptr[0] == tid
-            cpyext_glob_tid_ptr[0] = tid_before
-            for i, ARG in unrolling_arg_types:
-                # note that this loop is nicely unrolled statically by RPython
-                _pyobj = to_decref[i]
-                if _pyobj is not None:
-                    pyobj = rffi.cast(PyObject, _pyobj)
-                    rawrefcount.decref(pyobj)
-
-        if is_PyObject(RESULT_TYPE):
-            ret = None
-
-            # Check for exception consistency
-            # XXX best attempt, will miss preexisting error that is
-            # overwritten with a new error of the same type
 
             return ret
         return result

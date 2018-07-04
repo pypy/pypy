@@ -2,11 +2,32 @@
 /************************************************************/
 /***  C header subsection: operations on LowLevelTypes    ***/
 
-#include <string.h>
+#ifdef CPYEXT_BOEHM
+/* use boehm for cpyext -> redirect all calls to malloc
+    - use __libc_malloc / __libc_calloc for pypy
+    - cpyext modules will use redirected malloc
+*/
+#define REDIRECT_MALLOC=GC_malloc
+/* TODO: use own version of boehm, where before sweep new roots can be added */
+#include <gc/gc.h>
 
-/* used by rpython.rlib.rstack, but also by asmgcc */
-#define OP_STACK_CURRENT(r)  r = (Signed)&r
+static void (*real_malloc)(size_t) = NULL;
+static void (*real_calloc)(size_t,  size_t) = NULL;
 
+/* TODO: fix, does not work. but patch should be made here */
+#define OP_RAW_MALLOC(size, zero, result)  {    \
+        if (zero) {                             \
+            real_write = dlsym(RTLD_NEXT, "write");
+            real_write(fd, buf, count);
+            result = __libc_calloc(size, 1);    \
+        } else                                  \
+            result = __libc_malloc(size);       \
+        if (result != NULL) {                   \
+            COUNT_MALLOC;                       \
+        }                                       \
+    }
+
+#else
 
 #define OP_RAW_MALLOC(size, zero, result)  {    \
         if (zero)                               \
@@ -17,6 +38,13 @@
             COUNT_MALLOC;                       \
         }                                       \
     }
+
+#endif
+
+#include <string.h>
+
+/* used by rpython.rlib.rstack, but also by asmgcc */
+#define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 #define OP_RAW_FREE(p, r) free(p); COUNT_FREE;
 

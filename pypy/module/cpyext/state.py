@@ -59,6 +59,7 @@ class State:
     def setup_rawrefcount(self):
         space = self.space
         if not self.space.config.translating:
+            from pypy.module.cpyext.api import PyGC_HeadPtr
             def dealloc_trigger():
                 from pypy.module.cpyext.pyobject import PyObject, decref
                 print 'dealloc_trigger...'
@@ -73,7 +74,9 @@ class State:
             def tp_traverse(obj_addr, callback, args):
                 # TODO: implement
                 pass
-            rawrefcount.init(dealloc_trigger, tp_traverse)
+            pyobj_list = lltype.malloc(PyGC_HeadPtr.TO,
+                                       flavor='raw', immortal=True, zero=True)
+            rawrefcount.init(dealloc_trigger, tp_traverse, pyobj_list)
         else:
             if space.config.translation.gc == "boehm":
                 action = BoehmPyObjDeallocAction(space)
@@ -128,11 +131,13 @@ class State:
             if space.config.translation.gc != "boehm":
                 # This must be called in RPython, the untranslated version
                 # does something different. Sigh.
+                pypyobj_list = self.C._PyPy_InitPyObjList()
                 rawrefcount.init(
                     llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
                     self.dealloc_trigger),
                     llhelper(rawrefcount.RAWREFCOUNT_TRAVERSE,
-                    self.tp_traverse))
+                    self.tp_traverse),
+                    pypyobj_list)
             self.builder.attach_all(space)
 
         setup_new_method_def(space)

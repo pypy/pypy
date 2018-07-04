@@ -279,7 +279,7 @@ manually remove this flag though!
 	  ) & ~(SIZEOF_VOID_P - 1)		\
 	)
 
-        
+
 #define PyObject_INIT(op, typeobj) \
     ( Py_TYPE(op) = (typeobj), ((PyObject *)(op))->ob_refcnt = 1,\
       ((PyObject *)(op))->ob_pypy_link = 0, (op) )
@@ -309,22 +309,65 @@ PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
 
 #define PyObject_GC_NewVar(type, typeobj, n) \
                 ( (type *) _PyObject_GC_NewVar((typeobj), (n)) )
- 
-/* A dummy PyGC_Head, just to please some tests. Don't use it! */
-typedef union _gc_head {
-    char dummy;
-} PyGC_Head;
 
-/* dummy GC macros */
-#define _PyGC_FINALIZED(o) 1
-#define PyType_IS_GC(tp) 1
+extern PyGC_Head *_pypy_rawrefcount_pyobj_list;
 
-/* TODO: implement like in cpython
-   (see https://github.com/python/cpython/blob/517da1e58f4c489d4b31579852cde5f7113da08e/Include/objimpl.h#L295) */
-#define PyObject_GC_Track(o)      do { } while(0)
-#define PyObject_GC_UnTrack(o)    do { } while(0)
-#define _PyObject_GC_TRACK(o)     do { } while(0)
-#define _PyObject_GC_UNTRACK(o)   do { } while(0)
+#define _Py_AS_GC(o) ((PyGC_Head *)(o)-1)
+#define _Py_FROM_GC(g) ((PyObject *)(((PyGC_Head *)g)+1))
+
+/* Bit 0 is set when tp_finalize is called */
+#define _PyGC_REFS_MASK_FINALIZED  (1 << 0)
+/* The (N-1) most significant bits contain the gc state / refcount */
+#define _PyGC_REFS_SHIFT           (1)
+#define _PyGC_REFS_MASK            (((size_t) -1) << _PyGC_REFS_SHIFT)
+
+#define _PyGCHead_REFS(g) ((g)->gc_refs >> _PyGC_REFS_SHIFT)
+#define _PyGCHead_SET_REFS(g, v) do { \
+    (g)->gc_refs = ((g)->gc_refs & ~_PyGC_REFS_MASK) \
+        | (((size_t)(v)) << _PyGC_REFS_SHIFT);             \
+    } while (0)
+#define _PyGCHead_DECREF(g) ((g)->gc_refs -= 1 << _PyGC_REFS_SHIFT)
+
+#define _PyGCHead_FINALIZED(g) (((g)->gc_refs & _PyGC_REFS_MASK_FINALIZED) != 0)
+#define _PyGCHead_SET_FINALIZED(g, v) do {  \
+    (g)->gc_refs = ((g)->gc_refs & ~_PyGC_REFS_MASK_FINALIZED) \
+        | (v != 0); \
+    } while (0)
+
+#define _PyGC_FINALIZED(o) _PyGCHead_FINALIZED(_Py_AS_GC(o))
+#define _PyGC_SET_FINALIZED(o, v) _PyGCHead_SET_FINALIZED(_Py_AS_GC(o), v)
+
+#define _PyGC_REFS(o) _PyGCHead_REFS(_Py_AS_GC(o))
+
+#define _PyGC_REFS_UNTRACKED                    (-2)
+#define _PyGC_REFS_REACHABLE                    (-3)
+#define _PyGC_REFS_TENTATIVELY_UNREACHABLE (-4)
+
+#define _PyGC_IS_TRACKED(o) (_PyGC_REFS(o) != _PyGC_REFS_UNTRACKED)
+
+#define PyType_IS_GC(t) PyType_HasFeature((t), Py_TPFLAGS_HAVE_GC)
+
+PyAPI_FUNC(void) PyObject_GC_Track(void *);
+PyAPI_FUNC(void) PyObject_GC_UnTrack(void *);
+
+#define _PyObject_GC_TRACK(o)     do { \
+    PyGC_Head *g = _Py_AS_GC(o); \
+    if (_PyGCHead_REFS(g) != _PyGC_REFS_UNTRACKED) \
+        Py_FatalError("GC object already tracked"); \
+    _PyGCHead_SET_REFS(g, _PyGC_REFS_REACHABLE); \
+    g->gc_next = _pypy_rawrefcount_pyobj_list; \
+    g->gc_prev = _pypy_rawrefcount_pyobj_list->gc_prev; \
+    ((PyGC_Head *)g->gc_prev)->gc_next = g; \
+    _pypy_rawrefcount_pyobj_list->gc_prev = g; \
+ } while(0)
+#define _PyObject_GC_UNTRACK(o)   do { \
+    PyGC_Head *g = _Py_AS_GC(o); \
+    assert(_PyGCHead_REFS(g) != _PyGC_REFS_UNTRACKED); \
+    _PyGCHead_SET_REFS(g, _PyGC_REFS_UNTRACKED); \
+    ((PyGC_Head *)g->gc_prev)->gc_next = g->gc_next; \
+    ((PyGC_Head *)g->gc_next)->gc_prev = g->gc_prev; \
+    g->gc_next = NULL; \
+ } while(0)
 
 /* Utility macro to help write tp_traverse functions.
  * To use this macro, the tp_traverse function must name its arguments
@@ -405,7 +448,7 @@ PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
 #define _PyObject_GC_Del PyObject_GC_Del
 PyAPI_FUNC(void) _PyPy_subtype_dealloc(PyObject *);
 PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);
-
+PyAPI_FUNC(PyGC_Head *) _PyPy_InitPyObjList();
 
 #ifdef __cplusplus
 }

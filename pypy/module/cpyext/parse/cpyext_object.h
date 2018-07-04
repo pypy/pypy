@@ -321,3 +321,10 @@ typedef struct _heaptypeobject {
     PyBufferProcs as_buffer;
     PyObject *ht_name, *ht_slots;
 } PyHeapTypeObject;
+
+
+typedef struct _gc_head {
+    void *gc_next;
+    void *gc_prev;
+    Py_ssize_t gc_refs;
+} PyGC_Head;

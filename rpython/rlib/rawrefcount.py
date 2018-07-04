@@ -81,12 +81,12 @@ def overflow_get(obj):
 
 
 @not_rpython
-def init(dealloc_trigger_callback=None, tp_traverse=None):
+def init(dealloc_trigger_callback=None, tp_traverse=None, pyobj_list=None):
     """set up rawrefcount with the GC.  This is only used
     for tests; it should not be called at all during translation.
     """
     global _p_list, _o_list, _adr2pypy, _pypy2ob, _pypy2ob_rev
-    global _d_list, _dealloc_trigger_callback, _tp_traverse
+    global _d_list, _dealloc_trigger_callback, _tp_traverse, _pygclist
     _p_list = []
     _o_list = []
     _adr2pypy = [None]
@@ -96,6 +96,7 @@ def init(dealloc_trigger_callback=None, tp_traverse=None):
     _d_marker = None
     _dealloc_trigger_callback = dealloc_trigger_callback
     _tp_traverse = tp_traverse
+    _pygclist = pyobj_list
 
 # def init_traverse(traverse_cpy_call):
 #     global _traverse_cpy_call
@@ -289,15 +290,18 @@ def _spec_ob(hop, v_ob):
 class Entry(ExtRegistryEntry):
     _about_ = init
 
-    def compute_result_annotation(self, s_dealloc_callback, tp_traverse):
+    def compute_result_annotation(self, s_dealloc_callback, tp_traverse,
+                                  pyobj_list):
         from rpython.rtyper.llannotation import SomePtr
         assert isinstance(s_dealloc_callback, SomePtr)   # ll-ptr-to-function
         # add assert?
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        v_dealloc_callback, v_tp_traverse = hop.inputargs(*hop.args_r)
-        hop.genop('gc_rawrefcount_init', [v_dealloc_callback, v_tp_traverse])
+        v_dealloc_callback, v_tp_traverse, v_pyobj_list = \
+            hop.inputargs(*hop.args_r)
+        hop.genop('gc_rawrefcount_init', [v_dealloc_callback, v_tp_traverse,
+                                          v_pyobj_list])
 
 
 class Entry(ExtRegistryEntry):
