@@ -66,6 +66,10 @@ def run_multiline_interactive_console(mainmodule=None, future_flags=0):
 
     while 1:
         try:
+            try:
+                sys.stdout.flush()
+            except:
+                pass
             ps1 = getattr(sys, 'ps1', '>>> ')
             ps2 = getattr(sys, 'ps2', '... ')
             try:
@@ -81,8 +85,3 @@ def run_multiline_interactive_console(mainmodule=None, future_flags=0):
         except MemoryError:
             console.write("\nMemoryError\n")
             console.resetbuffer()
-        finally:
-            try:
-                sys.stdout.flush()
-            except:
-                pass
