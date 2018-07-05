@@ -81,3 +81,8 @@ def run_multiline_interactive_console(mainmodule=None, future_flags=0):
         except MemoryError:
             console.write("\nMemoryError\n")
             console.resetbuffer()
+        finally:
+            try:
+                sys.stdout.flush()
+            except:
+                pass
