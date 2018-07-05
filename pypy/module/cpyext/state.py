@@ -59,28 +59,23 @@ class State:
     def setup_rawrefcount(self):
         space = self.space
         if not self.space.config.translating:
-            from pypy.module.cpyext.api import PyGC_HeadPtr
             def dealloc_trigger():
-                from pypy.module.cpyext.pyobject import PyObject, decref
+                from pypy.module.cpyext.pyobject import PyObject, decref, cts
                 print 'dealloc_trigger...'
                 while True:
                     ob = rawrefcount.next_dead(PyObject)
                     if not ob:
                         break
-                    print 'deallocating PyObject', ob
+                    pto = ob.c_ob_type
+                    name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
+                    print 'deallocating PyObject', ob, 'of type', name
                     decref(space, ob)
                 print 'dealloc_trigger DONE'
                 return "RETRY"
             def tp_traverse(obj_addr, callback, args):
                 # TODO: implement
                 pass
-            # Warning: This list ist different than the list actually used
-            # by the extension modules (see _PyPy_InitPyObjList).
-            pyobj_list = lltype.malloc(PyGC_HeadPtr.TO,
-                                       flavor='raw', immortal=True, zero=True)
-            pyobj_list.c_gc_next = rffi.cast(rffi.VOIDP, pyobj_list);
-            pyobj_list.c_gc_next = rffi.cast(rffi.VOIDP, pyobj_list);
-            rawrefcount.init(dealloc_trigger, tp_traverse, pyobj_list)
+            rawrefcount.init(dealloc_trigger, tp_traverse)
         else:
             if space.config.translation.gc == "boehm":
                 action = BoehmPyObjDeallocAction(space)

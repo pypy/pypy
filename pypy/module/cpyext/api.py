@@ -1300,7 +1300,8 @@ def build_bridge(space):
                 ctypes.c_void_p)
 
     # initialize the pyobj_list for the gc
-    space.fromcache(State).C._PyPy_InitPyObjList()
+    pyobj_list = space.fromcache(State).C._PyPy_InitPyObjList()
+    rawrefcount._init_pyobj_list(pyobj_list)
 
     # we need to call this *after* the init code above, because it might
     # indirectly call some functions which are attached to pypyAPI (e.g., we

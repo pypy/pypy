@@ -19,6 +19,11 @@ PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
                           ('c_ob_refcnt', lltype.Signed),
                           ('c_ob_pypy_link', lltype.Signed))
 PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
+PYOBJ_GC_HDR = lltype.Struct('PyGC_Head',
+                             ('c_gc_next', rffi.VOIDP),
+                             ('c_gc_prev', rffi.VOIDP),
+                             ('c_gc_refs', lltype.Signed))
+PYOBJ_GC_HDR_PTR = lltype.Ptr(PYOBJ_GC_HDR)
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 VISIT_FUNCTYPE = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR, rffi.VOIDP],
                                             rffi.INT_real))
@@ -41,16 +46,22 @@ def init(dealloc_trigger_callback=None, tp_traverse=None, pyobj_list=None):
     """
     global _p_list, _o_list, _adr2pypy, _pypy2ob, _pypy2ob_rev
     global _d_list, _dealloc_trigger_callback, _tp_traverse, _pygclist
+    global _pyobj_list
     _p_list = []
     _o_list = []
     _adr2pypy = [None]
     _pypy2ob = {}
     _pypy2ob_rev = {}
     _d_list = []
-    _d_marker = None
     _dealloc_trigger_callback = dealloc_trigger_callback
     _tp_traverse = tp_traverse
-    _pygclist = pyobj_list
+    if pyobj_list is not None:
+        _init_pyobj_list(pyobj_list)
+
+@not_rpython
+def _init_pyobj_list(pyobj_list):
+    global _pyobj_list
+    _pyobj_list = rffi.cast(PYOBJ_GC_HDR_PTR, pyobj_list)
 
 # def init_traverse(traverse_cpy_call):
 #     global _traverse_cpy_call
@@ -213,6 +224,17 @@ def _dont_free_any_more():
     for ob in _p_list + _o_list:
         _keepalive_forever.add(to_obj(object, ob))
     del _d_list[:]
+
+@not_rpython
+def _print_pyobj_list():
+    "for tests only"
+    # TODO: change to get_pyobj_list, that returns a list of PyObjects
+    global _pyobj_list
+    print "_print_pyobj_list start!"
+    curr = rffi.cast(PYOBJ_GC_HDR_PTR, _pyobj_list.c_gc_next)
+    while curr != _pyobj_list:
+        print "_print_pyobj_list: ", curr
+        curr = rffi.cast(PYOBJ_GC_HDR_PTR, curr.c_gc_next)
 
 # ____________________________________________________________
 
