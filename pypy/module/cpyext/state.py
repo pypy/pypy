@@ -74,8 +74,12 @@ class State:
             def tp_traverse(obj_addr, callback, args):
                 # TODO: implement
                 pass
+            # Warning: This list ist different than the list actually used
+            # by the extension modules (see _PyPy_InitPyObjList).
             pyobj_list = lltype.malloc(PyGC_HeadPtr.TO,
                                        flavor='raw', immortal=True, zero=True)
+            pyobj_list.c_gc_next = rffi.cast(rffi.VOIDP, pyobj_list);
+            pyobj_list.c_gc_next = rffi.cast(rffi.VOIDP, pyobj_list);
             rawrefcount.init(dealloc_trigger, tp_traverse, pyobj_list)
         else:
             if space.config.translation.gc == "boehm":

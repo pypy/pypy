@@ -17,11 +17,8 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
 from rpython.rlib import rawrefcount, jit
-from rpython.rlib.debug import ll_assert, fatalerror, debug_print
-from rpython.rlib.rawrefcount import (REFCNT_MASK, REFCNT_FROM_PYPY,
-                                      REFCNT_OVERFLOW)
-from pypy.module.cpyext.api import slot_function
-from pypy.module.cpyext.typeobjectdefs import visitproc
+from rpython.rlib.debug import ll_assert, fatalerror
+
 
 #________________________________________________________
 # type description
@@ -344,7 +341,7 @@ def get_pyobj_and_incref(space, w_obj, w_userdata=None, immortal=False):
     pyobj = as_pyobj(space, w_obj, w_userdata, immortal=immortal)
     if pyobj:  # != NULL
         assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
-        rawrefcount.incref(pyobj)
+        pyobj.c_ob_refcnt += 1
         keepalive_until_here(w_obj)
     return pyobj
 
@@ -378,7 +375,7 @@ def get_w_obj_and_decref(space, pyobj):
     pyobj = rffi.cast(PyObject, pyobj)
     w_obj = from_ref(space, pyobj)
     if pyobj:
-        rawrefcount.decref(pyobj)
+        pyobj.c_ob_refcnt -= 1
         assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
         keepalive_until_here(w_obj)
     return w_obj
@@ -389,7 +386,7 @@ def incref(space, pyobj):
     assert is_pyobj(pyobj)
     pyobj = rffi.cast(PyObject, pyobj)
     assert pyobj.c_ob_refcnt >= 1
-    rawrefcount.incref(pyobj)
+    pyobj.c_ob_refcnt += 1
 
 @specialize.ll()
 def decref(space, pyobj):
@@ -397,41 +394,17 @@ def decref(space, pyobj):
     assert is_pyobj(pyobj)
     pyobj = rffi.cast(PyObject, pyobj)
     if pyobj:
-        rawrefcount.decref(pyobj)
-        rc = pyobj.c_ob_refcnt
-        if rc & REFCNT_MASK == 0:
+        assert pyobj.c_ob_refcnt > 0
+        assert (pyobj.c_ob_pypy_link == 0 or
+                pyobj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY)
+        pyobj.c_ob_refcnt -= 1
+        if pyobj.c_ob_refcnt == 0:
             state = space.fromcache(State)
             generic_cpy_call(space, state.C._Py_Dealloc, pyobj)
         #else:
         #    w_obj = rawrefcount.to_obj(W_Root, ref)
         #    if w_obj is not None:
         #        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
-
-@cpython_api([PyObject], lltype.Void)
-def Py_IncRef(space, obj):
-    incref(space, obj)
-
-@cpython_api([PyObject], lltype.Void)
-def Py_DecRef(space, obj):
-    decref(space, obj)
-
-@cpython_api([PyObject], lltype.SignedLongLong, error=CANNOT_FAIL)
-def _Py_RefCnt_Overflow(space, obj):
-    return refcnt_overflow(space, obj)
-
-@specialize.ll()
-def refcnt_overflow(space, obj):
-    if is_pyobj(obj):
-        pyobj = rffi.cast(PyObject, obj)
-    else:
-        pyobj = as_pyobj(space, obj, None)
-    if pyobj:
-        if pyobj.c_ob_refcnt & REFCNT_MASK == REFCNT_OVERFLOW:
-            return REFCNT_OVERFLOW
-        else:
-            return (pyobj.c_ob_refcnt & REFCNT_MASK) + \
-                rawrefcount.overflow_get(pyobj)
-    return 0
 
 @init_function
 def write_w_marker_deallocating(space):

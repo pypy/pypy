@@ -4,22 +4,16 @@
 #  This is meant for pypy's cpyext module, but is a generally
 #  useful interface over our GC.  XXX "pypy" should be removed here
 #
-import sys, weakref, py, math
+import sys, weakref, py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib import rgc, objectmodel
+from rpython.rlib import rgc
 
 
-MAX_BIT = int(math.log(sys.maxint, 2))
-
-# Flags
-REFCNT_FROM_PYPY = 1 << MAX_BIT - 2                             # Reference from a pypy object
-REFCNT_FROM_PYPY_LIGHT = (1 << MAX_BIT - 1) + REFCNT_FROM_PYPY  # Light reference from a pypy object
-REFCNT_VISITED = 1 << MAX_BIT - 3                               # Object visited during marking
-REFCNT_OVERFLOW = 1 << MAX_BIT - 4                              # Overflow bit for reference count
-REFCNT_MASK = (REFCNT_OVERFLOW << 1) - 1                        # Mask for reference count (including overflow bit)
+REFCNT_FROM_PYPY       = sys.maxint // 4 + 1
+REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint // 2 + 1)
 
 PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
                           ('c_ob_refcnt', lltype.Signed),
@@ -38,46 +32,6 @@ def _build_pypy_link(p):
     res = len(_adr2pypy)
     _adr2pypy.append(p)
     return res
-
-def incref(pyobj):
-    if pyobj.c_ob_refcnt & REFCNT_OVERFLOW == 0:
-        pyobj.c_ob_refcnt += 1
-    else:
-        if pyobj.c_ob_refcnt & REFCNT_MASK == REFCNT_OVERFLOW:
-            pyobj.c_ob_refcnt += 1
-            overflow_new(pyobj)
-        else:
-            overflow_add(pyobj)
-
-def decref(pyobj):
-    if pyobj.c_ob_refcnt & REFCNT_OVERFLOW == 0:
-        pyobj.c_ob_refcnt -= 1
-    else:
-        if pyobj.c_ob_refcnt & REFCNT_MASK == REFCNT_OVERFLOW:
-            pyobj.c_ob_refcnt -= 1
-        elif overflow_sub(pyobj):
-            pyobj.c_ob_refcnt -= 1
-
-_refcount_overflow = dict()
-
-def overflow_new(obj):
-    _refcount_overflow[objectmodel.current_object_addr_as_int(obj)] = 0
-
-def overflow_add(obj):
-    _refcount_overflow[objectmodel.current_object_addr_as_int(obj)] += 1
-
-def overflow_sub(obj):
-    addr = objectmodel.current_object_addr_as_int(obj)
-    c = _refcount_overflow[addr]
-    if c > 0:
-        _refcount_overflow[addr] = c - 1
-        return False
-    else:
-        _refcount_overflow.pop(addr)
-        return True
-
-def overflow_get(obj):
-    return _refcount_overflow[objectmodel.current_object_addr_as_int(obj)]
 
 
 @not_rpython
@@ -189,8 +143,7 @@ def _collect(track_allocation=True):
     wr_p_list = []
     new_p_list = []
     for ob in reversed(_p_list):
-        if ob.c_ob_refcnt & REFCNT_MASK > 0 \
-           or ob.c_ob_refcnt & REFCNT_FROM_PYPY == 0:
+        if ob.c_ob_refcnt not in (REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT):
             new_p_list.append(ob)
         else:
             p = detach(ob, wr_p_list)
@@ -223,8 +176,7 @@ def _collect(track_allocation=True):
             if ob.c_ob_refcnt >= REFCNT_FROM_PYPY_LIGHT:
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY_LIGHT
                 ob.c_ob_pypy_link = 0
-                if ob.c_ob_refcnt & REFCNT_MASK == 0 \
-                   and ob.c_ob_refcnt < REFCNT_FROM_PYPY:
+                if ob.c_ob_refcnt == 0:
                     lltype.free(ob, flavor='raw',
                                 track_allocation=track_allocation)
             else:
@@ -232,9 +184,8 @@ def _collect(track_allocation=True):
                 assert ob.c_ob_refcnt < int(REFCNT_FROM_PYPY_LIGHT * 0.99)
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY
                 ob.c_ob_pypy_link = 0
-                if ob.c_ob_refcnt & REFCNT_MASK == 0 \
-                   and ob.c_ob_refcnt < REFCNT_FROM_PYPY:
-                    ob.c_ob_refcnt += 1
+                if ob.c_ob_refcnt == 0:
+                    ob.c_ob_refcnt = 1
                     _d_list.append(ob)
             return None
 

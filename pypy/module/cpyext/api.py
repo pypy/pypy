@@ -1787,10 +1787,10 @@ def make_generic_cpy_call(FT, expect_null):
 
         preexist_error = PyErr_Occurred(space)
         try:
-            print "start cpyext_call"
+            #print "start cpyext_call"
             # Call the function
             result = call_external_function(func, *boxed_args)
-            print "end cpyext_call"
+            #print "end cpyext_call"
         finally:
             assert cpyext_glob_tid_ptr[0] == tid
             cpyext_glob_tid_ptr[0] = tid_before

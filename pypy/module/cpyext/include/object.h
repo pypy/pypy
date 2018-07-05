@@ -2,7 +2,6 @@
 #define Py_OBJECT_H
 
 #include <stdio.h>
-#include <math.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,12 +12,7 @@ extern "C" {
 #define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
 #define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 
-#define PY_REFCNT_FROM_PYPY (4L << ((long)(log(PY_SSIZE_T_MAX) / log(2) - 2)))
-#define PY_REFCNT_OVERFLOW (1L << ((long)(log(PY_SSIZE_T_MAX) / log(2) - 4) - 1L))
-#define PY_REFCNT_MASK ((PY_REFCNT_OVERFLOW << 1L) - 1L)
-#define Py_RETURN_NONE return (((((PyObject *)(Py_None))->ob_refcnt & PY_REFCNT_OVERFLOW) == 0) ? \
-                              ((PyObject *)(Py_None))->ob_refcnt++ : Py_IncRef((PyObject *)(Py_None))), Py_None
-
+#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
 
 /*
 CPython has this for backwards compatibility with really old extensions, and now
@@ -40,20 +34,14 @@ we have it for compatibility with CPython.
 #define Py_XDECREF(ob)  (Py_DecRef((PyObject *)(ob)))
 #else
 /* Fast version */
-#define Py_INCREF(ob)   do {                                                             \
-                            if (!(((PyObject *)(ob))->ob_refcnt & PY_REFCNT_OVERFLOW))   \
-                                ((PyObject *)(ob))->ob_refcnt++;                         \
-                            else                                                         \
-                                Py_IncRef((PyObject *)(ob));                            \
-                        } while (0)
-#define Py_DECREF(ob)   do {                                                                 \
-                            if ((((PyObject *)(ob))->ob_refcnt & PY_REFCNT_OVERFLOW))        \
-                                Py_DecRef((PyObject *)(ob));                                 \
-                            else if (--((PyObject *)(ob))->ob_refcnt & PY_REFCNT_MASK)       \
-                                ;                                                            \
-                            else                                                             \
-                                _Py_Dealloc((PyObject *)(ob));                               \
-                        } while (0)
+#define Py_INCREF(ob)   (((PyObject *)(ob))->ob_refcnt++)
+#define Py_DECREF(op)                                   \
+    do {                                                \
+        if (--((PyObject *)(op))->ob_refcnt != 0)       \
+            ;                                           \
+        else                                            \
+            _Py_Dealloc((PyObject *)(op));              \
+    } while (0)
 
 #define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
 #define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
@@ -73,8 +61,7 @@ PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
                 }				\
         } while (0)
 
-#define Py_REFCNT(ob) ((((PyObject *)(ob))->ob_refcnt & PY_REFCNT_OVERFLOW == 0) ?  \
-                      (((PyObject*)(ob))->ob_refcnt & PY_REFCNT_MASK) : _Py_RefCnt_Overflow(ob))
+#define Py_REFCNT(ob)          (((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
 

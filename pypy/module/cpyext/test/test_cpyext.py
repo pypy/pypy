@@ -756,7 +756,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo', init=init, body=body)
 
         # uncaught interplevel exceptions are turned into SystemError
-        expected = "ZeroDivisionError('integer division or modulo by zero',)"
+        expected = "ZeroDivisionError('integer division by zero',)"
         exc = raises(SystemError, module.crash1)
         assert exc.value[0] == expected
 

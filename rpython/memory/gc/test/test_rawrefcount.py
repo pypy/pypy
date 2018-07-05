@@ -2,17 +2,15 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC
 from rpython.memory.gc.test.test_direct import BaseDirectGCTest
-from rpython.rlib.rawrefcount import (REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT,
-                                      REFCNT_MASK)
-from pypy.module.cpyext.api import (PyObject, PyTypeObject, PyTypeObjectPtr,
-                                    PyObjectFields, cpython_struct, PyGC_Head)
-from pypy.module.cpyext.complexobject import PyComplexObject
+from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
 from rpython.rtyper.lltypesystem import rffi
-from pypy.module.cpyext.typeobjectdefs import visitproc, traverseproc
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.tool import rffi_platform
+#from pypy.module.cpyext.api import (PyTypeObject)
+#from pypy.module.cpyext.typeobjectdefs import visitproc, traverseproc
 PYOBJ_HDR = IncrementalMiniMarkGC.PYOBJ_HDR
 PYOBJ_HDR_PTR = IncrementalMiniMarkGC.PYOBJ_HDR_PTR
+PYOBJ_GC_HDR_PTR = IncrementalMiniMarkGC.PYOBJ_GC_HDR_PTR
 
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('S',
@@ -22,14 +20,14 @@ S.become(lltype.GcStruct('S',
 
 T = lltype.Ptr(lltype.ForwardReference())
 T.TO.become(lltype.Struct('test',
-                          ('base', PyObject.TO),
+                          ('base', PYOBJ_HDR_PTR.TO),
                           ('next', T),
                           ('prev', T),
                           ('value', lltype.Signed)))
 
-TRAVERSE_FUNCTYPE = rffi.CCallback([PyObject, visitproc, rffi.VOIDP],
-                                   rffi.INT_real)
-t1 = lltype.malloc(PyTypeObject, flavor='raw', immortal=True)
+#TRAVERSE_FUNCTYPE = rffi.CCallback([PYOBJ_HDR_PTR, visitproc, rffi.VOIDP],
+#                                   rffi.INT_real)
+#t1 = lltype.malloc(PyTypeObject, flavor='raw', immortal=True)
 
 
 class TestRawRefCount(BaseDirectGCTest):
@@ -54,11 +52,13 @@ class TestRawRefCount(BaseDirectGCTest):
             rc = REFCNT_FROM_PYPY
         self.trigger = []
         self.trigger2 = []
-        self.pyobj_list = lltype.malloc(PyGC_Head.TO, flavor='raw',
+        self.pyobj_list = lltype.malloc(PYOBJ_GC_HDR_PTR.TO, flavor='raw',
                                         immortal=True)
+        self.pyobj_list.c_gc_next = rffi.cast(rffi.VOIDP, self.pyobj_list);
+        self.pyobj_list.c_gc_next = rffi.cast(rffi.VOIDP, self.pyobj_list);
         self.gc.rawrefcount_init(lambda: self.trigger.append(1),
                                  lambda: self.trigger2.append(1),
-                                 self.pyobj_list)
+                                 llmemory.cast_ptr_to_adr(self.pyobj_list))
         #
         if create_immortal:
             p1 = lltype.malloc(S, immortal=True)
@@ -78,10 +78,10 @@ class TestRawRefCount(BaseDirectGCTest):
             self._collect(major=False)
             p1 = self.stackroots.pop()
         p1ref = lltype.cast_opaque_ptr(llmemory.GCREF, p1)
-        r1 = lltype.malloc(PyObject.TO, flavor='raw', immortal=create_immortal)
+        r1 = lltype.malloc(PYOBJ_HDR_PTR.TO, flavor='raw', immortal=create_immortal)
         r1.c_ob_refcnt = rc
         r1.c_ob_pypy_link = 0
-        r1.c_ob_type = lltype.nullptr(PyTypeObject)
+        #r1.c_ob_type = lltype.nullptr(PyTypeObject)
         r1addr = llmemory.cast_ptr_to_adr(r1)
         if is_pyobj:
             assert not is_light
@@ -104,40 +104,13 @@ class TestRawRefCount(BaseDirectGCTest):
             return p1
         return p1, p1ref, r1, r1addr, check_alive
 
-    def _rawrefcount_cycle_obj(self):
-
-        def test_tp_traverse(obj, visit, args):
-            test = rffi.cast(T, obj)
-            vret = 0
-            if llmemory.cast_ptr_to_adr(test.next).ptr is not None:
-                next = rffi.cast(PyObject, test.next)
-                vret = visit(next, args)
-                if vret != 0:
-                    return vret
-            if llmemory.cast_ptr_to_adr(test.prev).ptr is not None:
-                next = rffi.cast(PyObject, test.prev)
-                vret = visit(next, args)
-                if vret != 0:
-                    return vret
-            return vret
-
-        func_ptr = llhelper(TRAVERSE_FUNCTYPE, test_tp_traverse)
-        rffi_func_ptr = rffi.cast(traverseproc, func_ptr)
-        t1.c_tp_traverse = rffi_func_ptr
-
-        r1 = lltype.malloc(T.TO, flavor='raw', immortal=True)
-        r1.base.c_ob_pypy_link = 0
-        r1.base.c_ob_type = t1
-        r1.base.c_ob_refcnt = 1
-        return r1
-
     def test_rawrefcount_objects_basic(self, old=False):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_light=True, create_old=old))
         p2 = self.malloc(S)
         p2.x = 84
         p2ref = lltype.cast_opaque_ptr(llmemory.GCREF, p2)
-        r2 = lltype.malloc(PyObject.TO, flavor='raw')
+        r2 = lltype.malloc(PYOBJ_HDR_PTR.TO, flavor='raw')
         r2.c_ob_refcnt = 1
         r2.c_ob_pypy_link = 0
         r2addr = llmemory.cast_ptr_to_adr(r2)
@@ -340,6 +313,33 @@ class TestRawRefCount(BaseDirectGCTest):
         self._collect(major=True)
         check_alive(0)
 
+    # def _rawrefcount_cycle_obj(self):
+    #
+    #     def test_tp_traverse(obj, visit, args):
+    #         test = rffi.cast(T, obj)
+    #         vret = 0
+    #         if llmemory.cast_ptr_to_adr(test.next).ptr is not None:
+    #             next = rffi.cast(PYOBJ_HDR_PTR, test.next)
+    #             vret = visit(next, args)
+    #             if vret != 0:
+    #                 return vret
+    #         if llmemory.cast_ptr_to_adr(test.prev).ptr is not None:
+    #             next = rffi.cast(PYOBJ_HDR_PTR, test.prev)
+    #             vret = visit(next, args)
+    #             if vret != 0:
+    #                 return vret
+    #         return vret
+    #
+    #     func_ptr = llhelper(TRAVERSE_FUNCTYPE, test_tp_traverse)
+    #     rffi_func_ptr = rffi.cast(traverseproc, func_ptr)
+    #     t1.c_tp_traverse = rffi_func_ptr
+    #
+    #     r1 = lltype.malloc(T.TO, flavor='raw', immortal=True)
+    #     r1.base.c_ob_pypy_link = 0
+    #     r1.base.c_ob_type = t1
+    #     r1.base.c_ob_refcnt = 1
+    #     return r1
+    #
     # def test_cycle_self_reference_free(self):
     #     self.gc.rawrefcount_init(lambda: self.trigger.append(1))
     #     r1 = self._rawrefcount_cycle_obj()

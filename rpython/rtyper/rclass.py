@@ -915,6 +915,10 @@ class InstanceRepr(Repr):
                             lst.append(str(g))
                             g = seen.get(g)
                         lst.append('')
+                        # TODO: remove code (see below) to make this check pass
+                        # pypy/module/cpyext/api.py:
+                        #   print "start cpyext_call"
+                        #   print "end cpyext_call"
                         raise TyperError("the RPython-level __del__() method "
                                          "in %r calls:%s" %
                                          (graph, '\n\t'.join(lst[::-1])))

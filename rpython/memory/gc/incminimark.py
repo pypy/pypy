@@ -3107,10 +3107,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                       self.singleaddr)
 
     def _rrc_minor_trace(self, pyobject, singleaddr):
-        from rpython.rlib.rawrefcount import REFCNT_MASK
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
         #
         rc = self._pyobj(pyobject).c_ob_refcnt
-        if rc & REFCNT_MASK == 0:
+        if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT:
             pass     # the corresponding object may die
         else:
             # force the corresponding object to be alive
@@ -3169,12 +3170,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _rrc_free(self, pyobject):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        from rpython.rlib.rawrefcount import REFCNT_MASK
         #
         rc = self._pyobj(pyobject).c_ob_refcnt
         if rc >= REFCNT_FROM_PYPY_LIGHT:
             rc -= REFCNT_FROM_PYPY_LIGHT
-            if rc & REFCNT_MASK == 0:
+            if rc == 0:
                 lltype.free(self._pyobj(pyobject), flavor='raw')
             else:
                 # can only occur if LIGHT is used in create_link_pyobj()
@@ -3186,7 +3186,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                       "refcount underflow from REFCNT_FROM_PYPY_LIGHT?")
             rc -= REFCNT_FROM_PYPY
             self._pyobj(pyobject).c_ob_pypy_link = 0
-            if rc & REFCNT_MASK == 0:
+            if rc == 0:
                 self.rrc_dealloc_pending.append(pyobject)
                 # an object with refcnt == 0 cannot stay around waiting
                 # for its deallocator to be called.  Some code (lxml)
@@ -3212,10 +3212,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_stop("gc-rrc-trace")
 
     def _rrc_major_trace(self, pyobject, ignore):
-        from rpython.rlib.rawrefcount import REFCNT_MASK
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
         #
         rc = self._pyobj(pyobject).c_ob_refcnt
-        if rc & REFCNT_MASK == 0:
+        if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT:
             pass     # the corresponding object may die
         else:
             # force the corresponding object to be alive
@@ -3263,11 +3264,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rrc_more_pyobjects_to_scan = self.AddressStack()
 
     def _rrc_mark_cpyobj(self, pyobj):
-        from rpython.rlib.rawrefcount import REFCNT_VISITED
         # if the pyobj is not marked, remember it and if there is a linked pypy
         # object also remember it
-        if pyobj.c_ob_refcnt & REFCNT_VISITED != REFCNT_VISITED:
-            pyobj.c_ob_refcnt |= REFCNT_VISITED
+        visited = True # TODO: check if visited (via 'cast' to PyGC_Head)
+        if not visited:
+            # TODO: mark visited
             pyobject = llmemory.cast_ptr_to_adr(pyobj)
             self.rrc_more_pyobjects_to_scan.append(pyobject)
             intobj = pyobj.c_ob_pypy_link
@@ -3278,7 +3279,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self.objects_to_trace.append(obj)
 
     def _rrc_major_scan_non_rc_roots(self, pyobject, ignore):
-        from rpython.rlib.rawrefcount import REFCNT_VISITED
         # check in the object header of the linked pypy object, if it is marked
         # or not
         pyobj = self._pyobj(pyobject)
@@ -3286,9 +3286,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = llmemory.cast_int_to_adr(intobj)
         hdr = self.header(obj)
         if hdr.tid & GCFLAG_VISITED:
-            if pyobj.c_ob_refcnt & REFCNT_VISITED != REFCNT_VISITED:
+            visited = True  # TODO: check if visited
+            if not visited:
                 # process the pyobject now
-                pyobj.c_ob_refcnt |= REFCNT_VISITED
+                # TODO: mark visited
                 self.rrc_pyobjects_to_trace.append(pyobject)
         else:
             # save the pyobject for later, in case its linked object becomes
