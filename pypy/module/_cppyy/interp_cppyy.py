@@ -1,6 +1,9 @@
 import pypy.module._cppyy.capi as capi
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.function import Method
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.typedef import interp_attrproperty_w, descr_generic_ne, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.baseobjspace import W_Root
@@ -166,10 +169,12 @@ W_CPPLibrary.typedef.acceptable_as_base_class = True
 #  W_CPPConstructorOverload:      constructors
 #  W_CPPStaticOverload:           free and static functions
 #  W_CPPTemplateOverload:         templated methods
-#  W_CPPTemplateStaticOveload:    templated free and static functions
+#  W_CPPTemplateStaticOverload:   templated free and static functions
 #
 #  CPPMethod:         a single function or method (base class)
 #  CPPSetItem:        specialization for Python's __setitem__
+#
+#  MethodWithProps:   python instancemethod that forwards properties
 #
 # All methods/functions derive from CPPMethod and are collected as overload
 # candidates in user-facing overload classes. Templated methods are a two-step
@@ -187,9 +192,9 @@ class CPPMethod(object):
     _immutable_fields_ = ['scope', 'cppmethod', 'arg_defs', 'args_required',
                'converters', 'executor', '_funcaddr', 'cif_descr']
 
-    def __init__(self, space, declaring_scope, cppmethod, arg_defs, args_required):
+    def __init__(self, space, decl_scope, cppmethod, arg_defs, args_required):
         self.space = space
-        self.scope = declaring_scope
+        self.scope = decl_scope
         self.cppmethod = cppmethod
         self.arg_defs = arg_defs
         self.args_required = args_required
@@ -441,41 +446,81 @@ class CPPSetItem(CPPMethod):
         CPPMethod.call(self, cppthis, args_w, useffi)
 
 
+# CPPOverloads have settable flags that control memory and ffi behavior. These flags
+# need forwarding, which the normal instancemethod does not provide, hence this
+# derived class.
+class MethodWithProps(Method):
+    # allow user to determine ffi use rules per overload
+    def fget_useffi(self, space):
+	f = space.interp_w(W_CPPOverload, self.w_function)
+        return f.fget_useffi(space)
+
+    @unwrap_spec(value=bool)
+    def fset_useffi(self, space, value):
+        f = space.interp_w(W_CPPOverload, self.w_function)
+        f.fset_useffi(space, value)
+
+MethodWithProps.typedef = TypeDef(
+    "cpp_instancemethod",
+    __doc__ = """cpp_instancemethod(function, instance, class)
+
+Create an instance method object.""",
+    __new__ = interp2app(MethodWithProps.descr_method__new__.im_func),
+    __call__ = interp2app(MethodWithProps.descr_method_call),
+    __get__ = interp2app(MethodWithProps.descr_method_get),
+    im_func = interp_attrproperty_w('w_function', cls=MethodWithProps),
+    __func__ = interp_attrproperty_w('w_function', cls=MethodWithProps),
+    im_self = interp_attrproperty_w('w_instance', cls=MethodWithProps),
+    __self__ = interp_attrproperty_w('w_instance', cls=MethodWithProps),
+    im_class = interp_attrproperty_w('w_class', cls=MethodWithProps),
+    __getattribute__ = interp2app(MethodWithProps.descr_method_getattribute),
+    __eq__ = interp2app(MethodWithProps.descr_method_eq),
+    __ne__ = descr_generic_ne,
+    __hash__ = interp2app(MethodWithProps.descr_method_hash),
+    __repr__ = interp2app(MethodWithProps.descr_method_repr),
+    __reduce__ = interp2app(MethodWithProps.descr_method__reduce__),
+    __weakref__ = make_weakref_descr(MethodWithProps),
+    __useffi__ = GetSetProperty(MethodWithProps.fget_useffi, MethodWithProps.fset_useffi),
+    )
+MethodWithProps.typedef.acceptable_as_base_class = False
+
+
 class W_CPPOverload(W_Root):
     """App-level dispatcher: controls a collection of (potentially) overloaded methods
     or functions. Calls these in order and deals with error handling and reporting."""
 
-    _attrs_ = ['space', 'scope', 'functions', 'flags', 'w_this']
+    _attrs_ = ['space', 'scope', 'functions', 'flags']
     _immutable_fields_ = ['scope', 'functions[*]']
 
-    def __init__(self, space, declaring_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
+    def __init__(self, space, decl_scope, funcs, flags = OVERLOAD_FLAGS_USE_FFI):
         self.space  = space
-        self.scope  = declaring_scope
+        self.scope  = decl_scope
         from rpython.rlib import debug
-        self.functions = debug.make_sure_not_resized(functions)
+        self.functions = debug.make_sure_not_resized(funcs)
         self.flags  = flags
-        self.w_this = self.space.w_None
 
-    def descr_get(self, w_cppinstance, w_cls=None):
-        if self.space.is_w(w_cppinstance, self.space.w_None):
-            return self  # unbound, so no new instance needed
-        cppol = W_CPPOverload(self.space, self.scope, self.functions, self.flags)
-        cppol.w_this = w_cppinstance
-        return cppol     # bound
+    def descr_get(self, w_obj, w_cls=None):
+        """functionobject.__get__(obj[, type]) -> method"""
+        # TODO: check validity of w_cls if given
+        space = self.space
+        asking_for_bound = (space.is_none(w_cls) or
+                            not space.is_w(w_obj, space.w_None) or
+                            space.is_w(w_cls, space.type(space.w_None)))
+        if asking_for_bound:
+            return MethodWithProps(space, self, w_obj, w_cls)
+        else:
+            return MethodWithProps(space, self, None, w_cls)
 
     @unwrap_spec(args_w='args_w')
-    def call(self, args_w):
-        if self.space.is_w(self.w_this, self.space.w_None) and len(args_w):
-            w_this = args_w[0]
-            args_w = args_w[1:]
-        else:
-            w_this = self.w_this
+    def call_args(self, args_w):
+        jit.promote(self)
+        w_this = args_w[0]
         cppinstance = self.space.interp_w(W_CPPInstance, w_this)
         cppinstance._nullcheck()
         if not capi.c_is_subtype(self.space, cppinstance.clsdecl, self.scope):
             raise oefmt(self.space.w_TypeError,
                 "cannot pass %T instance as %s", w_this, self.scope.name)
-        return self.call_impl(cppinstance.get_cppthis(self.scope), args_w)
+        return self.call_impl(cppinstance.get_cppthis(self.scope), args_w[1:])
 
     @jit.unroll_safe
     def call_impl(self, cppthis, args_w):
@@ -550,13 +595,17 @@ class W_CPPOverload(W_Root):
     def fget_doc(self, space):
         return self.prototype()
 
+    def getname(self, space): 
+        # for the benefit of Method/instancemethod
+        return capi.c_method_name(space, self.functions[0].cppmethod)
+
     def __repr__(self):
         return "W_CPPOverload(%s)" % [f.prototype() for f in self.functions]
 
 W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
     __get__    = interp2app(W_CPPOverload.descr_get),
-    __call__   = interp2app(W_CPPOverload.call),
+    __call__   = interp2app(W_CPPOverload.call_args),
     __useffi__ = GetSetProperty(W_CPPOverload.fget_useffi, W_CPPOverload.fset_useffi),
     __doc__    = GetSetProperty(W_CPPOverload.fget_doc)
 )
@@ -567,26 +616,24 @@ W_CPPOverload.typedef = TypeDef(
 class W_CPPStaticOverload(W_CPPOverload):
     _attrs_ = []
 
-    def descr_get(self, w_cppinstance, w_cls=None):
-        if isinstance(w_cppinstance, W_CPPInstance):
+    def descr_get(self, w_obj, w_cls=None):
+        if isinstance(w_obj, W_CPPInstance):
             # two possibilities: this is a static function called on an
             # instance and w_this must not be set, or a free function rebound
             # onto a class and w_this should be set
-            cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance)
+            cppinstance = self.space.interp_w(W_CPPInstance, w_obj)
             if cppinstance.clsdecl.handle != self.scope.handle:
-                cppol = W_CPPStaticOverload(self.space, self.scope, self.functions, self.flags)
-                cppol.w_this = w_cppinstance
-                return cppol       # bound
+	        return MethodWithProps(self.space, self, w_obj, w_cls)    # bound
         return self      # unbound
 
     @unwrap_spec(args_w='args_w')
-    def call(self, args_w):
-        if not self.space.is_w(self.w_this, self.space.w_None):
-            # free function used as bound method, put self back into args_w
-            cppinstance = self.space.interp_w(W_CPPInstance, self.w_this)
-            cppinstance._nullcheck()
-            args_w = [self.w_this] + args_w
+    def call_args(self, args_w):
+        jit.promote(self)
+        #if isinstance(args_w[0], W_CPPInstance):
+            # free function used as bound method, leave in place
         return self.call_impl(capi.C_NULL_OBJECT, args_w)
+        # free functions are implemented as methods of 'namespace' classes, remove 'instance'
+        #return self.call_impl(capi.C_NULL_OBJECT, args_w[1:])
 
     def __repr__(self):
         return "W_CPPStaticOverload(%s)" % [f.prototype() for f in self.functions]
@@ -594,7 +641,7 @@ class W_CPPStaticOverload(W_CPPOverload):
 W_CPPStaticOverload.typedef = TypeDef(
     'CPPStaticOverload',
     __get__    = interp2app(W_CPPStaticOverload.descr_get),
-    __call__   = interp2app(W_CPPStaticOverload.call),
+    __call__   = interp2app(W_CPPStaticOverload.call_args),
     __useffi__ = GetSetProperty(W_CPPStaticOverload.fget_useffi, W_CPPStaticOverload.fset_useffi),
     __doc__    = GetSetProperty(W_CPPStaticOverload.fget_doc)
 )
@@ -603,26 +650,16 @@ W_CPPStaticOverload.typedef = TypeDef(
 class W_CPPConstructorOverload(W_CPPOverload):
     _attrs_ = []
 
-    def descr_get(self, w_cppinstance, w_cls=None):
-        if self.space.is_w(w_cppinstance, self.space.w_None):
-            return self  # unbound (TODO: probably useless)
-        cppol = W_CPPConstructorOverload(self.space, self.scope, self.functions, self.flags)
-        cppol.w_this = w_cppinstance
-        return cppol     # bound
-
     @unwrap_spec(args_w='args_w')
-    def call(self, args_w):
+    def call_args(self, args_w):
+        jit.promote(self)
         # TODO: factor out the following:
         if capi.c_is_abstract(self.space, self.scope.handle):
             raise oefmt(self.space.w_TypeError,
                         "cannot instantiate abstract class '%s'",
                         self.scope.name)
-        if self.space.is_w(self.w_this, self.space.w_None) and len(args_w):
-            cppinstance = self.space.interp_w(W_CPPInstance, args_w[0])
-            args_w = args_w[1:]
-        else:
-            cppinstance = self.space.interp_w(W_CPPInstance, self.w_this)
-        w_result = self.call_impl(rffi.cast(capi.C_OBJECT, self.scope.handle), args_w)
+        cppinstance = self.space.interp_w(W_CPPInstance, args_w[0])
+        w_result = self.call_impl(rffi.cast(capi.C_OBJECT, self.scope.handle), args_w[1:])
         newthis = rffi.cast(capi.C_OBJECT, self.space.uint_w(w_result))
         if cppinstance is not None:
             cppinstance._rawobject = newthis
@@ -634,7 +671,7 @@ class W_CPPConstructorOverload(W_CPPOverload):
 W_CPPConstructorOverload.typedef = TypeDef(
     'CPPConstructorOverload',
     __get__    = interp2app(W_CPPConstructorOverload.descr_get),
-    __call__   = interp2app(W_CPPConstructorOverload.call),
+    __call__   = interp2app(W_CPPConstructorOverload.call_args),
     __doc__    = GetSetProperty(W_CPPConstructorOverload.fget_doc)
 )
 
@@ -697,7 +734,9 @@ class TemplateOverloadMixin(object):
         # try to match with run-time instantiations
         for cppol in self.master.overloads.values():
             try:
-                return cppol.descr_get(self.w_this).call(args_w)
+                if not self.space.is_w(self.w_this, self.space.w_None):
+                    return self.space.call_obj_args(cppol, self.w_this, Arguments(self.space, args_w))
+                return self.space.call_args(cppol, Arguments(self.space, args_w))
             except Exception:
                 pass    # completely ignore for now; have to see whether errors become confusing
 
@@ -720,7 +759,9 @@ class TemplateOverloadMixin(object):
             except KeyError:
                 self.master.overloads[fullname] = method
 
-        return method.descr_get(self.w_this).call(args_w)
+        if not self.space.is_w(self.w_this, self.space.w_None):
+	    return self.space.call_obj_args(method, self.w_this, Arguments(self.space, args_w))
+        return self.space.call_args(method, Arguments(self.space, args_w))
 
     def getitem_impl(self, name, args_w):
         space = self.space
@@ -743,24 +784,25 @@ class TemplateOverloadMixin(object):
             if c_fullname != fullname:
                 self.master.overloads[c_fullname] = method
 
-        return method.descr_get(self.w_this)
+        return method.descr_get(self.w_this, None)
 
 
 class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
     """App-level dispatcher to allow both lookup/instantiation of templated methods and
     dispatch among overloads between templated and non-templated method."""
 
-    _attrs_ = ['name', 'overloads', 'master']
+    _attrs_ = ['name', 'overloads', 'master', 'w_this']
     _immutable_fields_ = ['name']
 
-    def __init__(self, space, name, declaring_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
-         W_CPPOverload.__init__(self, space, declaring_scope, functions, flags)
+    def __init__(self, space, name, decl_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
+         W_CPPOverload.__init__(self, space, decl_scope, functions, flags)
          self.name = name
          self.overloads = {}
          self.master = self
+	 self.w_this = space.w_None
 
     def descr_get(self, w_cppinstance, w_cls=None):
-        # like W_CPPOverload, but returns W_CPPTemplateOverload
+	# TODO: don't return copy, but bind in an external object (like W_CPPOverload)
         if self.space.is_w(w_cppinstance, self.space.w_None):
             return self  # unbound, so no new instance needed
         cppol = W_CPPTemplateOverload(self.space, self.name, self.scope, self.functions, self.flags)
@@ -769,13 +811,13 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
         return cppol     # bound
 
     @unwrap_spec(args_w='args_w')
-    def call(self, args_w):
+    def call_args(self, args_w):
         # direct call: either pick non-templated overload or attempt to deduce
         # the template instantiation from the argument types
 
         # try existing overloads or compile-time instantiations
         try:
-            return W_CPPOverload.call(self, args_w)
+            return W_CPPOverload.call_args(self, args_w)
         except Exception:
             pass
 
@@ -785,6 +827,9 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
     def getitem(self, args_w):
         return self.getitem_impl(self.name, args_w)
 
+    def getname(self, space):
+        return self.name
+
     def __repr__(self):
         return "W_CPPTemplateOverload(%s)" % [f.prototype() for f in self.functions]
 
@@ -792,7 +837,7 @@ W_CPPTemplateOverload.typedef = TypeDef(
     'CPPTemplateOverload',
     __get__     = interp2app(W_CPPTemplateOverload.descr_get),
     __getitem__ = interp2app(W_CPPTemplateOverload.getitem),
-    __call__    = interp2app(W_CPPTemplateOverload.call),
+    __call__    = interp2app(W_CPPTemplateOverload.call_args),
     __useffi__  = GetSetProperty(W_CPPTemplateOverload.fget_useffi, W_CPPTemplateOverload.fset_useffi),
     __doc__     = GetSetProperty(W_CPPTemplateOverload.fget_doc)
 )
@@ -801,17 +846,18 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
     """App-level dispatcher to allow both lookup/instantiation of templated methods and
     dispatch among overloads between templated and non-templated method."""
 
-    _attrs_ = ['name', 'overloads', 'master']
+    _attrs_ = ['name', 'overloads', 'master', 'w_this']
     _immutable_fields_ = ['name']
 
-    def __init__(self, space, name, declaring_scope, functions, flags = OVERLOAD_FLAGS_USE_FFI):
-         W_CPPStaticOverload.__init__(self, space, declaring_scope, functions, flags)
+    def __init__(self, space, name, decl_scope, funcs, flags = OVERLOAD_FLAGS_USE_FFI):
+         W_CPPStaticOverload.__init__(self, space, decl_scope, funcs, flags)
          self.name = name
          self.overloads = {}
          self.master = self
+	 self.w_this = space.w_None
 
     def descr_get(self, w_cppinstance, w_cls=None):
-        # like W_CPPStaticOverload, but returns W_CPPTemplateStaticOverload
+	# TODO: don't return copy, but bind in an external object (like W_CPPOverload)
         if isinstance(w_cppinstance, W_CPPInstance):
             cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance)
             if cppinstance.clsdecl.handle != self.scope.handle:
@@ -822,13 +868,13 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
         return self      # unbound
 
     @unwrap_spec(args_w='args_w')
-    def call(self, args_w):
+    def call_args(self, args_w):
         # direct call: either pick non-templated overload or attempt to deduce
         # the template instantiation from the argument types
 
         # try existing overloads or compile-time instantiations
         try:
-            return W_CPPStaticOverload.call(self, args_w)
+            return W_CPPStaticOverload.call_args(self, args_w)
         except Exception:
             pass
 
@@ -839,6 +885,9 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
     def getitem(self, args_w):
         return self.getitem_impl(self.name, args_w)
 
+    def getname(self, space):
+        return self.name
+
     def __repr__(self):
         return "W_CPPTemplateStaticOverload(%s)" % [f.prototype() for f in self.functions]
 
@@ -846,7 +895,7 @@ W_CPPTemplateStaticOverload.typedef = TypeDef(
     'CPPTemplateStaticOverload',
     __get__     = interp2app(W_CPPTemplateStaticOverload.descr_get),
     __getitem__ = interp2app(W_CPPTemplateStaticOverload.getitem),
-    __call__    = interp2app(W_CPPTemplateStaticOverload.call),
+    __call__    = interp2app(W_CPPTemplateStaticOverload.call_args),
     __useffi__  = GetSetProperty(W_CPPTemplateStaticOverload.fget_useffi, W_CPPTemplateStaticOverload.fset_useffi),
     __doc__     = GetSetProperty(W_CPPTemplateStaticOverload.fget_doc)
 )
@@ -868,9 +917,9 @@ class W_CPPDataMember(W_Root):
     _attrs_ = ['space', 'scope', 'converter', 'offset']
     _immutable_fields = ['scope', 'converter', 'offset']
 
-    def __init__(self, space, declaring_scope, type_name, offset):
+    def __init__(self, space, decl_scope, type_name, offset):
         self.space = space
-        self.scope = declaring_scope
+        self.scope = decl_scope
         self.converter = converter.get_converter(self.space, type_name, '')
         self.offset = offset
 
@@ -1387,7 +1436,7 @@ class W_CPPInstance(W_Root):
                     ol = W_CPPStaticOverload(self.space, nss, funcs[:])
                     # TODO: cache this operator (not done yet, as the above does not
                     # select all overloads)
-                    return ol.call([self, w_other])
+                    return ol.call_args([self, w_other])
         except OperationError as e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
