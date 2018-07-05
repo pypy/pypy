@@ -23,4 +23,4 @@ class DummyVMProf(object):
         pass
 
     def stop_sampling(self):
-        pass
+        return -1
