@@ -258,24 +258,27 @@ class CPPMethod(object):
         jit.promote(self)
         cif_descr = self.cif_descr
         # add extra space for const-ref support (see converter.py)
-        buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size+len(args_w)*rffi.sizeof(rffi.DOUBLE), flavor='raw')
+        buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size+len(self.arg_defs)*rffi.sizeof(rffi.DOUBLE), flavor='raw')
+        thisoff = 0
         try:
-            # this pointer
-            data = rffi.ptradd(buffer, cif_descr.exchange_args[0])
-            x = rffi.cast(rffi.LONGP, data)       # LONGP needed for test_zjit.py
-            x[0] = rffi.cast(rffi.LONG, cppthis)
+            if cppthis:
+                # this pointer
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[0])
+                x = rffi.cast(rffi.LONGP, data)       # LONGP needed for test_zjit.py
+                x[0] = rffi.cast(rffi.LONG, cppthis)
+                thisoff = 1
 
-            # other arguments and defaults
-            i = len(self.arg_defs) + 1
+            # actual provided arguments
+            i = -1      # needed if all arguments are defaults
             for i in range(len(args_w)):
                 conv = self.converters[i]
-                w_arg = args_w[i]
-                data = rffi.ptradd(buffer, cif_descr.exchange_args[i+1])
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[i+thisoff])
                 scratch = rffi.ptradd(buffer, cif_descr.exchange_size+i*rffi.sizeof(rffi.DOUBLE))
-                conv.convert_argument_libffi(self.space, w_arg, data, scratch)
+                conv.convert_argument_libffi(self.space, args_w[i], data, scratch)
+            # drop in defaults for the rest
             for j in range(i+1, len(self.arg_defs)):
                 conv = self.converters[j]
-                data = rffi.ptradd(buffer, cif_descr.exchange_args[j+1])
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[j+thisoff])
                 conv.default_argument_libffi(self.space, data)
 
             assert self._funcaddr
@@ -338,13 +341,13 @@ class CPPMethod(object):
         # has been offset to the matching class. Hence, the libffi pointer is
         # uniquely defined and needs to be setup only once.
         funcaddr = capi.c_function_address(self.space, self.cppmethod)
-        if funcaddr and cppthis:      # TODO: methods only for now
+        if funcaddr:
             state = self.space.fromcache(ffitypes.State)
 
-            # argument type specification (incl. cppthis)
+            # argument type specification (incl. cppthis if applicable)
             fargs = []
             try:
-                fargs.append(state.c_voidp)
+                if cppthis: fargs.append(state.c_voidp)
                 for i, conv in enumerate(self.converters):
                     fargs.append(conv.cffi_type(self.space))
                 fresult = self.executor.cffi_type(self.space)
@@ -649,6 +652,10 @@ W_CPPStaticOverload.typedef = TypeDef(
 
 class W_CPPConstructorOverload(W_CPPOverload):
     _attrs_ = []
+
+    def __init__(self, space, decl_scope, funcs, flags = OVERLOAD_FLAGS_USE_FFI):
+        W_CPPOverload.__init__(self, space, decl_scope, funcs, flags)
+        self.flags &= ~OVERLOAD_FLAGS_USE_FFI
 
     @unwrap_spec(args_w='args_w')
     def call_args(self, args_w):
