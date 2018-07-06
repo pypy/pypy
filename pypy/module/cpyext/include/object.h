@@ -326,8 +326,8 @@ extern PyGC_Head *_pypy_rawrefcount_pyobj_list;
 
 #define _PyGC_REFS(o) _PyGCHead_REFS(_Py_AS_GC(o))
 
-#define _PyGC_REFS_UNTRACKED                    (-2)
-#define _PyGC_REFS_REACHABLE                    (-3)
+#define _PyGC_REFS_UNTRACKED               (-2)
+#define _PyGC_REFS_REACHABLE               (-3)
 #define _PyGC_REFS_TENTATIVELY_UNREACHABLE (-4)
 
 #define _PyGC_IS_TRACKED(o) (_PyGC_REFS(o) != _PyGC_REFS_UNTRACKED)
@@ -435,7 +435,9 @@ PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
 #define _PyObject_GC_Del PyObject_GC_Del
 PyAPI_FUNC(void) _PyPy_subtype_dealloc(PyObject *);
 PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);
-PyAPI_FUNC(PyGC_Head *) _PyPy_InitPyObjList();
+PyAPI_FUNC(PyGC_Head *) _PyPy_init_pyobj_list();
+PyAPI_FUNC(GCHdr_PyObject *) _PyPy_gc_as_pyobj(PyGC_Head *);
+PyAPI_FUNC(PyGC_Head *) _PyPy_pyobj_as_gc(GCHdr_PyObject *);
 
 #ifdef __cplusplus
 }

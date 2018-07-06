@@ -2,7 +2,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import executioncontext
-from rpython.rtyper.annlowlevel import llhelper, llhelper_args
+from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount
 import sys
@@ -85,7 +85,7 @@ class State:
                 pyobj_dealloc_action = PyObjDeallocAction(space)
                 self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
 
-                def _rawrefcount_tp_traverse(pyobj_ptr, callback, args):
+                def _tp_traverse(pyobj_ptr, callback, args):
                     from pypy.module.cpyext.api import PyObject
                     from pypy.module.cpyext.typeobjectdefs import visitproc
                     # convert to pointers with correct types (PyObject)
@@ -98,8 +98,8 @@ class State:
                     if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_traverse:
                         pyobj.c_ob_type.c_tp_traverse(pyobj, callback_ptr,
                                                       args)
-                self.tp_traverse = (lambda o, v, a:
-                                    _rawrefcount_tp_traverse(o, v, a))
+
+                self.tp_traverse = (lambda o, v, a:_tp_traverse(o, v, a))
 
     def build_api(self):
         """NOT_RPYTHON
@@ -130,13 +130,14 @@ class State:
             if space.config.translation.gc != "boehm":
                 # This must be called in RPython, the untranslated version
                 # does something different. Sigh.
-                pypyobj_list = self.C._PyPy_InitPyObjList()
+                pypyobj_list = self.C._PyPy_init_pyobj_list()
                 rawrefcount.init(
                     llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
-                    self.dealloc_trigger),
+                             self.dealloc_trigger),
                     llhelper(rawrefcount.RAWREFCOUNT_TRAVERSE,
-                    self.tp_traverse),
-                    pypyobj_list)
+                             self.tp_traverse),
+                    pypyobj_list,
+                    self.C._PyPy_gc_as_pyobj, self.C._PyPy_pyobj_as_gc)
             self.builder.attach_all(space)
 
         setup_new_method_def(space)

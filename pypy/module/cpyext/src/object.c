@@ -38,11 +38,23 @@ static PyGC_Head _internal_pyobj_list;
 PyGC_Head *_pypy_rawrefcount_pyobj_list = &_internal_pyobj_list;
 
 PyGC_Head *
-_PyPy_InitPyObjList()
+_PyPy_init_pyobj_list()
 {
     _pypy_rawrefcount_pyobj_list->gc_next = _pypy_rawrefcount_pyobj_list;
     _pypy_rawrefcount_pyobj_list->gc_prev = _pypy_rawrefcount_pyobj_list;
     return _pypy_rawrefcount_pyobj_list;
+}
+
+GCHdr_PyObject *
+_PyPy_gc_as_pyobj(PyGC_Head *g)
+{
+    return (GCHdr_PyObject *)FROM_GC(g);
+}
+
+PyGC_Head *
+_PyPy_pyobj_as_gc(GCHdr_PyObject *obj)
+{
+    return AS_GC(obj);
 }
 
 void
@@ -118,7 +130,7 @@ _generic_gc_alloc(PyTypeObject *type, Py_ssize_t nitems)
     if (type->tp_itemsize)
         size += nitems * type->tp_itemsize;
 
-    g = (PyObject*)_PyPy_Malloc(size);
+    g = (PyGC_Head*)_PyPy_Malloc(size);
     if (g == NULL)
         return NULL;
     g->gc_refs = 0;

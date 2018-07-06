@@ -2335,7 +2335,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.visit_all_objects()
                 #
                 if self.rrc_enabled:
-                   self.rrc_major_collection_trace()
+                    self.rrc_major_collection_trace()
                 #
                 ll_assert(not (self.probably_young_objects_with_finalizers
                                .non_empty()),
@@ -2994,43 +2994,48 @@ class IncrementalMiniMarkGC(MovingGCBase):
                               ('c_ob_refcnt', lltype.Signed),
                               ('c_ob_pypy_link', lltype.Signed))
     PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
-    PYOBJ_GC_HDR = lltype.Struct('PyGC_Head',
-                                 ('c_gc_next', rffi.VOIDP),
-                                 ('c_gc_prev', rffi.VOIDP),
-                                 ('c_gc_refs', lltype.Signed))
-    PYOBJ_GC_HDR_PTR = lltype.Ptr(PYOBJ_GC_HDR)
-
     RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
-    VISIT_FUNCTYPE = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR, rffi.VOIDP],
-                                                rffi.INT_real))
+    RAWREFCOUNT_VISIT = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR, rffi.VOIDP],
+                                                   rffi.INT_real))
     RAWREFCOUNT_TRAVERSE = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR,
-                                                       VISIT_FUNCTYPE,
+                                                       RAWREFCOUNT_VISIT,
                                                        rffi.VOIDP],
                                                       lltype.Void))
+    PYOBJ_GC_HDR_PTR = lltype.Ptr(lltype.ForwardReference())
+    PYOBJ_GC_HDR = lltype.Struct('PyGC_Head',
+                                 ('c_gc_next', PYOBJ_GC_HDR_PTR),
+                                 ('c_gc_prev', PYOBJ_GC_HDR_PTR),
+                                 ('c_gc_refs', lltype.Signed))
+    PYOBJ_GC_HDR_PTR.TO.become(PYOBJ_GC_HDR)
+    RAWREFCOUNT_GC_AS_PYOBJ = lltype.Ptr(lltype.FuncType([PYOBJ_GC_HDR_PTR],
+                                                         PYOBJ_HDR_PTR))
+    RAWREFCOUNT_PYOBJ_AS_GC = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR],
+                                                         PYOBJ_GC_HDR_PTR))
 
     def _pyobj(self, pyobjaddr):
-            return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
+        return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
     def _pygchdr(self, pygchdraddr):
-            return llmemory.cast_adr_to_ptr(pygchdraddr, self.PYOBJ_GC_HDR_PTR)
+        return llmemory.cast_adr_to_ptr(pygchdraddr, self.PYOBJ_GC_HDR_PTR)
 
     def rawrefcount_init(self, dealloc_trigger_callback, tp_traverse,
-                         pyobj_list):
+                         pyobj_list, gc_as_pyobj, pyobj_as_gc):
         # see pypy/doc/discussion/rawrefcount.rst
         if not self.rrc_enabled:
             self.rrc_p_list_young = self.AddressStack()
             self.rrc_p_list_old   = self.AddressStack()
             self.rrc_o_list_young = self.AddressStack()
             self.rrc_o_list_old   = self.AddressStack()
-            self.rrc_buffered     = self.AddressStack()
             self.rrc_p_dict       = self.AddressDict()  # non-nursery keys only
             self.rrc_p_dict_nurs  = self.AddressDict()  # nursery keys only
             self.rrc_dealloc_trigger_callback = dealloc_trigger_callback
-            self.rrc_tp_traverse = tp_traverse
             self.rrc_dealloc_pending = self.AddressStack()
+            self.rrc_tp_traverse = tp_traverse
             self.rrc_pyobjects_to_scan = self.AddressStack()
             self.rrc_more_pyobjects_to_scan = self.AddressStack()
             self.rrc_pyobjects_to_trace = self.AddressStack()
             self.rrc_pyobj_list = self._pygchdr(pyobj_list)
+            self.rrc_gc_as_pyobj = gc_as_pyobj
+            self.rrc_pyobj_as_gc = pyobj_as_gc
             self.rrc_enabled = True
 
     def check_no_more_rawrefcount_state(self):
@@ -3344,18 +3349,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                                 llhelper)
         #
         pyobj = self._pyobj(pyobject)
-        callback_ptr = llhelper(self.VISIT_FUNCTYPE,
+        callback_ptr = llhelper(self.RAWREFCOUNT_VISIT,
                                 IncrementalMiniMarkGC._rrc_visit)
         self_ptr = rffi.cast(rffi.VOIDP, cast_nongc_instance_to_adr(self))
         self.rrc_tp_traverse(pyobj, callback_ptr, self_ptr)
 
     def _rrc_gc_list_init(self, pygclist):
-        pygclist.c_gc_next = rffi.cast(rffi.VOIDP, pygclist)
-        pygclist.c_gc_prev = rffi.cast(rffi.VOIDP, pygclist)
+        pygclist.c_gc_next = pygclist
+        pygclist.c_gc_prev = pygclist
 
     def _rrc_gc_print_list(self):
         debug_print("gc_print_list start!")
-        curr = rffi.cast(self.PYOBJ_GC_HDR_PTR, self.rrc_pyobj_list.c_gc_next)
+        curr = self.rrc_pyobj_list.c_gc_next
         while curr != self.rrc_pyobj_list:
-            debug_print("gc_print_list: ", curr)
-            curr = rffi.cast(self.PYOBJ_GC_HDR_PTR, curr.c_gc_next)
+            currobj = self.rrc_gc_as_pyobj(curr)
+            curr2 = self.rrc_pyobj_as_gc(currobj)
+            debug_print("gc_print_list: ", curr, ", obj:", currobj, ", curr: ",
+                        curr2)
+            curr = curr.c_gc_next

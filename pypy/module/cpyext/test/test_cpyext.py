@@ -214,6 +214,8 @@ def _unwrap_include_dirs(space, w_include_dirs):
 def debug_collect(space):
     rawrefcount._collect()
 
+def print_pyobj_list(space):
+    rawrefcount._print_pyobj_list()
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
@@ -225,6 +227,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         if not cls.runappdirect:
             cls.sys_info = get_cpyext_info(space)
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
+            cls.w_print_pyobj_list = space.wrap(interp2app(print_pyobj_list))
             cls.preload_builtins(space)
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
@@ -318,7 +321,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN)
             self.record_imported_module(name)
             return w_result
-
 
         @unwrap_spec(mod='text', name='text')
         def load_module(space, mod, name):
@@ -926,3 +928,179 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              '''
              ),
         ])
+
+    def test_gc_pyobj_list(self):
+        """
+        Test if Py_GC_Track and Py_GC_Untrack are adding and removing container
+        objects from the list of all garbage-collected PyObjects.
+        """
+        if self.runappdirect:
+            skip('cannot import module with undefined functions')
+
+        # TODO: remove unnecessary stuff, add tests for gc_untrack, add asserts
+        init = """
+        if (Py_IsInitialized()) {
+            PyObject* m;
+            if (PyType_Ready(&CycleType) < 0)
+                return;
+            m = Py_InitModule("cycle", module_methods);
+            if (m == NULL)
+                return;
+            Py_INCREF(&CycleType);
+            PyModule_AddObject(m, "Cycle", (PyObject *)&CycleType);
+        }
+        """
+        body = """
+        #include <Python.h>
+        #include "structmember.h"
+        typedef struct {
+            PyObject_HEAD
+            PyObject *next;
+            PyObject *val;
+        } Cycle;
+        static PyTypeObject CycleType;
+        static int Cycle_traverse(Cycle *self, visitproc visit, void *arg)
+        {
+            int vret;
+            if (self->next) {
+                vret = visit(self->next, arg);
+                if (vret != 0)
+                    return vret;
+            }
+            if (self->val) {
+                vret = visit(self->val, arg);
+                if (vret != 0)
+                    return vret;
+            }
+            return 0;
+        }
+        static int Cycle_clear(Cycle *self)
+        {
+            PyObject *tmp;
+            tmp = self->next;
+            self->next = NULL;
+            Py_XDECREF(tmp);
+            tmp = self->val;
+            self->val = NULL;
+            Py_XDECREF(tmp);
+            return 0;
+        }
+        static void Cycle_dealloc(Cycle* self)
+        {
+            Cycle_clear(self);
+            Py_TYPE(self)->tp_free((PyObject*)self);
+        }
+        static PyObject* Cycle_new(PyTypeObject *type, PyObject *args,
+                                   PyObject *kwds)
+        {
+            Cycle *self;
+            self = (Cycle *)type->tp_alloc(type, 0);
+            if (self != NULL) {
+                self->next = PyString_FromString("");
+                if (self->next == NULL) {
+                    Py_DECREF(self);
+                    return NULL;
+                }
+            }
+            PyObject_GC_Track(self);
+            return (PyObject *)self;
+        }
+        static int Cycle_init(Cycle *self, PyObject *args, PyObject *kwds)
+        {
+            PyObject *next=NULL, *tmp;
+            static char *kwlist[] = {"next", NULL};
+            if (! PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist,
+                                              &next))
+                return -1;
+            if (next) {
+                tmp = self->next;
+                Py_INCREF(next);
+                self->next = next;
+                Py_XDECREF(tmp);
+            }
+            return 0;
+        }
+        static PyMemberDef Cycle_members[] = {
+            {"next", T_OBJECT_EX, offsetof(Cycle, next), 0, "next"},
+            {"val", T_OBJECT_EX, offsetof(Cycle, val), 0, "val"},
+            {NULL}  /* Sentinel */
+        };
+        static PyMethodDef Cycle_methods[] = {
+            {NULL}  /* Sentinel */
+        };
+        static PyTypeObject CycleType = {
+            PyVarObject_HEAD_INIT(NULL, 0)
+            "Cycle.Cycle",             /* tp_name */
+            sizeof(Cycle),             /* tp_basicsize */
+            0,                         /* tp_itemsize */
+            (destructor)Cycle_dealloc, /* tp_dealloc */
+            0,                         /* tp_print */
+            0,                         /* tp_getattr */
+            0,                         /* tp_setattr */
+            0,                         /* tp_compare */
+            0,                         /* tp_repr */
+            0,                         /* tp_as_number */
+            0,                         /* tp_as_sequence */
+            0,                         /* tp_as_mapping */
+            0,                         /* tp_hash */
+            0,                         /* tp_call */
+            0,                         /* tp_str */
+            0,                         /* tp_getattro */
+            0,                         /* tp_setattro */
+            0,                         /* tp_as_buffer */
+            Py_TPFLAGS_DEFAULT |
+                Py_TPFLAGS_BASETYPE |
+                Py_TPFLAGS_HAVE_GC,    /* tp_flags */
+            "Cycle objects",           /* tp_doc */
+            (traverseproc)Cycle_traverse,   /* tp_traverse */
+            (inquiry)Cycle_clear,           /* tp_clear */
+            0,                         /* tp_richcompare */
+            0,                         /* tp_weaklistoffset */
+            0,                         /* tp_iter */
+            0,                         /* tp_iternext */
+            Cycle_methods,             /* tp_methods */
+            Cycle_members,             /* tp_members */
+            0,                         /* tp_getset */
+            0,                         /* tp_base */
+            0,                         /* tp_dict */
+            0,                         /* tp_descr_get */
+            0,                         /* tp_descr_set */
+            0,                         /* tp_dictoffset */
+            (initproc)Cycle_init,      /* tp_init */
+            0,                         /* tp_alloc */
+            Cycle_new,                 /* tp_new */
+        };
+        
+        extern PyGC_Head *_pypy_rawrefcount_pyobj_list;
+
+         static PyObject * Cycle_Create(Cycle *self, PyObject *val)
+         {
+             Cycle *c = PyObject_GC_New(Cycle, &CycleType);
+             if (c == NULL)
+                 return NULL;
+             c->next = val;
+
+             // TODO: check if _pypy_rawrefcount_pyobj_list contains c
+
+             return (PyObject *)c;
+         }
+         static PyMethodDef module_methods[] = {
+             {"create", (PyCFunction)Cycle_Create, METH_OLDARGS, ""},
+             {NULL}  /* Sentinel */
+         };
+        """
+        module = self.import_module(name='cycle', init=init, body=body)
+
+        class Example(object):
+            def __init__(self, val):
+                self.val = val
+
+        c = module.create(Example(41))
+
+        self.print_pyobj_list()
+        c = module.create(Example(42))
+        self.print_pyobj_list()
+
+        # TODO: fix rawrefcount, so that the Cycle objects are properly added
+        #       to the ALLOCATED list of leakfinder or alternatively not freed
+        #       by collect

@@ -106,11 +106,11 @@ translation_optiondescription = OptionDescription(
                                 ("translation.backend", "c")],
                     }),
     ChoiceOption("cpyextgc", "Garbage Collection Strategy for cpyext",
-                 ["boehm", "ref", "ref_trialdel", "none"],
-                 default="ref",
+                 ["boehm", "trialdeletion", "none"],
+                 default="trialdeletion",
                  requires={
                     "boehm": [("translation.gc", "incminimark")],
-                    "ref_trialdel": [("translation.gc", "incminimark")],
+                    "trialdeletion": [("translation.gc", "incminimark")],
                  },
                  cmdline="--cpyextgc"),
 

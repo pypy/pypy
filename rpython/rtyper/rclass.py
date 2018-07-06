@@ -915,7 +915,7 @@ class InstanceRepr(Repr):
                             lst.append(str(g))
                             g = seen.get(g)
                         lst.append('')
-                        # TODO: remove code (see below) to make this check pass
+                        # TODO: this check fails if this code is uncommented:
                         # pypy/module/cpyext/api.py:
                         #   print "start cpyext_call"
                         #   print "end cpyext_call"

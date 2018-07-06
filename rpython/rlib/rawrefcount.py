@@ -19,11 +19,12 @@ PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
                           ('c_ob_refcnt', lltype.Signed),
                           ('c_ob_pypy_link', lltype.Signed))
 PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
+PYOBJ_GC_HDR_PTR = lltype.Ptr(lltype.ForwardReference())
 PYOBJ_GC_HDR = lltype.Struct('PyGC_Head',
-                             ('c_gc_next', rffi.VOIDP),
-                             ('c_gc_prev', rffi.VOIDP),
+                             ('c_gc_next', PYOBJ_GC_HDR_PTR),
+                             ('c_gc_prev', PYOBJ_GC_HDR_PTR),
                              ('c_gc_refs', lltype.Signed))
-PYOBJ_GC_HDR_PTR = lltype.Ptr(PYOBJ_GC_HDR)
+PYOBJ_GC_HDR_PTR.TO.become(PYOBJ_GC_HDR)
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 VISIT_FUNCTYPE = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR, rffi.VOIDP],
                                             rffi.INT_real))
@@ -31,6 +32,10 @@ RAWREFCOUNT_TRAVERSE = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR,
                                                    VISIT_FUNCTYPE,
                                                    rffi.VOIDP],
                                                   lltype.Void))
+RAWREFCOUNT_GC_AS_PYOBJ = lltype.Ptr(lltype.FuncType([PYOBJ_GC_HDR_PTR],
+                                                     PYOBJ_HDR_PTR))
+RAWREFCOUNT_PYOBJ_AS_GC = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR],
+                                                     PYOBJ_GC_HDR_PTR))
 
 
 def _build_pypy_link(p):
@@ -45,8 +50,7 @@ def init(dealloc_trigger_callback=None, tp_traverse=None, pyobj_list=None):
     for tests; it should not be called at all during translation.
     """
     global _p_list, _o_list, _adr2pypy, _pypy2ob, _pypy2ob_rev
-    global _d_list, _dealloc_trigger_callback, _tp_traverse, _pygclist
-    global _pyobj_list
+    global _d_list, _dealloc_trigger_callback, _tp_traverse
     _p_list = []
     _o_list = []
     _adr2pypy = [None]
@@ -62,15 +66,6 @@ def init(dealloc_trigger_callback=None, tp_traverse=None, pyobj_list=None):
 def _init_pyobj_list(pyobj_list):
     global _pyobj_list
     _pyobj_list = rffi.cast(PYOBJ_GC_HDR_PTR, pyobj_list)
-
-# def init_traverse(traverse_cpy_call):
-#     global _traverse_cpy_call
-#     _traverse_cpy_call = traverse_cpy_call
-#
-# def traverse_cpy_call(pyobj, visitproc_ptr, arg):
-#     global _traverse_cpy_call
-#     _traverse_cpy_call(pyobj.c_ob_type.c_tp_traverse, pyobj,
-#                        visitproc_ptr, arg)
 
 @not_rpython
 def create_link_pypy(p, ob):
@@ -229,12 +224,13 @@ def _dont_free_any_more():
 def _print_pyobj_list():
     "for tests only"
     # TODO: change to get_pyobj_list, that returns a list of PyObjects
+    #       or alternatively checks if a certain object is in the list
     global _pyobj_list
     print "_print_pyobj_list start!"
-    curr = rffi.cast(PYOBJ_GC_HDR_PTR, _pyobj_list.c_gc_next)
+    curr = _pyobj_list.c_gc_next
     while curr != _pyobj_list:
         print "_print_pyobj_list: ", curr
-        curr = rffi.cast(PYOBJ_GC_HDR_PTR, curr.c_gc_next)
+        curr = curr.c_gc_next
 
 # ____________________________________________________________
 
@@ -263,18 +259,20 @@ def _spec_ob(hop, v_ob):
 class Entry(ExtRegistryEntry):
     _about_ = init
 
-    def compute_result_annotation(self, s_dealloc_callback, tp_traverse,
-                                  pyobj_list):
+    def compute_result_annotation(self, s_dealloc_callback, s_tp_traverse,
+                                  s_pyobj_list, s_as_gc, s_as_pyobj):
         from rpython.rtyper.llannotation import SomePtr
         assert isinstance(s_dealloc_callback, SomePtr)   # ll-ptr-to-function
-        # add assert?
+        assert isinstance(s_tp_traverse, SomePtr)
+        assert isinstance(s_as_gc, SomePtr)
+        assert isinstance(s_as_pyobj, SomePtr)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        v_dealloc_callback, v_tp_traverse, v_pyobj_list = \
-            hop.inputargs(*hop.args_r)
+        v_dealloc_callback, v_tp_traverse, v_pyobj_list, v_as_gc, \
+        v_as_pyobj = hop.inputargs(*hop.args_r)
         hop.genop('gc_rawrefcount_init', [v_dealloc_callback, v_tp_traverse,
-                                          v_pyobj_list])
+                                          v_pyobj_list, v_as_gc, v_as_pyobj])
 
 
 class Entry(ExtRegistryEntry):

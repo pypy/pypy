@@ -476,7 +476,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.rawrefcount_init_ptr = getfn(
                 GCClass.rawrefcount_init,
                 [s_gc, SomePtr(GCClass.RAWREFCOUNT_DEALLOC_TRIGGER),
-                 SomePtr(GCClass.RAWREFCOUNT_TRAVERSE), SomeAddress()],
+                 SomePtr(GCClass.RAWREFCOUNT_TRAVERSE), SomeAddress(),
+                 SomePtr(GCClass.RAWREFCOUNT_GC_AS_PYOBJ),
+                 SomePtr(GCClass.RAWREFCOUNT_PYOBJ_AS_GC)],
                 annmodel.s_None)
             self.rawrefcount_create_link_pypy_ptr = getfn(
                 GCClass.rawrefcount_create_link_pypy,
@@ -1311,13 +1313,15 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.pop_roots(hop, livevars)
 
     def gct_gc_rawrefcount_init(self, hop):
-        [v_fnptr, v_fnptr2, v_pyobj_list] = hop.spaceop.args
+        [v_fnptr, v_fnptr2, v_pyobj_list, v_fnptr3, v_fnptr4] = hop.spaceop.args
         assert v_fnptr.concretetype == self.GCClass.RAWREFCOUNT_DEALLOC_TRIGGER
         assert v_fnptr2.concretetype == self.GCClass.RAWREFCOUNT_TRAVERSE
-        # TODO add assert for v_pyobj_list
+        # TODO add assert for v_pyobj_list, improve asserts (types not same but equal)
+        # assert v_fnptr3.concretetype == self.GCClass.RAWREFCOUNT_GC_AS_PYOBJ
+        # assert v_fnptr4.concretetype == self.GCClass.RAWREFCOUNT_PYOBJ_AS_GC
         hop.genop("direct_call",
                   [self.rawrefcount_init_ptr, self.c_const_gc, v_fnptr,
-                   v_fnptr2, v_pyobj_list])
+                   v_fnptr2, v_pyobj_list, v_fnptr3, v_fnptr4])
 
     def gct_gc_rawrefcount_create_link_pypy(self, hop):
         [v_gcobj, v_pyobject] = hop.spaceop.args

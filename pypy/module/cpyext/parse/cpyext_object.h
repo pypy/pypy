@@ -324,7 +324,12 @@ typedef struct _heaptypeobject {
 
 
 typedef struct _gc_head {
-    void *gc_next;
-    void *gc_prev;
+    struct _gc_head *gc_next;
+    struct _gc_head *gc_prev;
     Py_ssize_t gc_refs;
 } PyGC_Head;
+
+typedef struct _gchdr_pyobject {
+    Py_ssize_t ob_refcnt;
+    Py_ssize_t ob_pypy_link;
+} GCHdr_PyObject;

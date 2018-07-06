@@ -43,7 +43,6 @@ from rpython.rlib.debug import fatalerror_notb
 from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.module.cpyext.cparser import CTypeSpace
-from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 
 DEBUG_WRAPPER = True
 
@@ -753,6 +752,7 @@ PyVarObjectStruct = cts.gettype('PyVarObject')
 PyVarObject = cts.gettype('PyVarObject *')
 PyGC_Head = cts.gettype('PyGC_Head')
 PyGC_HeadPtr = cts.gettype('PyGC_Head *')
+GCHdr_PyObject = cts.gettype('GCHdr_PyObject *')
 
 Py_buffer = cts.gettype('Py_buffer')
 Py_bufferP = cts.gettype('Py_buffer *')
@@ -1175,8 +1175,17 @@ def attach_c_functions(space, eci, prefix):
     state.C._PyPy_object_dealloc = rffi.llexternal(
         '_PyPy_object_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
-    state.C._PyPy_InitPyObjList = rffi.llexternal(
-        '_PyPy_InitPyObjList', [], PyGC_HeadPtr,
+    state.C._PyPy_subtype_dealloc = rffi.llexternal(
+        '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+    state.C._PyPy_init_pyobj_list = rffi.llexternal(
+        '_PyPy_init_pyobj_list', [], PyGC_HeadPtr,
+        compilation_info=eci, _nowrapper=True)
+    state.C._PyPy_gc_as_pyobj = rffi.llexternal(
+        '_PyPy_gc_as_pyobj', [PyGC_HeadPtr], GCHdr_PyObject,
+        compilation_info=eci, _nowrapper=True)
+    state.C._PyPy_pyobj_as_gc = rffi.llexternal(
+        '_PyPy_pyobj_as_gc', [GCHdr_PyObject], PyGC_HeadPtr,
         compilation_info=eci, _nowrapper=True)
 
 
@@ -1300,7 +1309,7 @@ def build_bridge(space):
                 ctypes.c_void_p)
 
     # initialize the pyobj_list for the gc
-    pyobj_list = space.fromcache(State).C._PyPy_InitPyObjList()
+    pyobj_list = space.fromcache(State).C._PyPy_init_pyobj_list()
     rawrefcount._init_pyobj_list(pyobj_list)
 
     # we need to call this *after* the init code above, because it might
@@ -1308,9 +1317,6 @@ def build_bridge(space):
     # if do tuple_attach of the prebuilt empty tuple, we need to call
     # _PyPy_Malloc)
     builder.attach_all(space)
-
-    #import rpython.rlib.rawrefcount
-    #rawrefcount.init_traverse(generic_cpy_call_gc)
 
     setup_init_functions(eci, prefix)
     return modulename.new(ext='')
