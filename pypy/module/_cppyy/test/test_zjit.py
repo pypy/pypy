@@ -205,6 +205,9 @@ class FakeSpace(object):
     def exception_match(self, typ, sub):
         return typ is sub
 
+    def is_none(self, w_obj):
+        return w_obj is None
+
     def is_w(self, w_one, w_two):
         return w_one is w_two
 
@@ -268,6 +271,9 @@ class FakeSpace(object):
     def call_function(self, w_func, *args_w):
         return None
 
+    def call_obj_args(self, w_callable, w_obj, args):
+        return w_callable.call_args([w_obj]+args)
+
     def _freeze_(self):
         return True
 
@@ -283,19 +289,19 @@ class TestFastPathJIT(LLJitMixin):
         def f():
             cls  = interp_cppyy.scope_byname(space, "example01")
             inst = interp_cppyy._bind_object(space, FakeInt(0), cls, True)
-            cls.get_overload("__init__").descr_get(inst, []).call([FakeInt(0)])
+            cls.get_overload("__init__").descr_get(inst, []).call_args([FakeInt(0)])
             cppmethod = cls.get_overload(method_name)
             assert isinstance(inst, interp_cppyy.W_CPPInstance)
             i = 10
             while i > 0:
                 drv.jit_merge_point(inst=inst, cppmethod=cppmethod, i=i)
-                cppmethod.descr_get(inst, []).call([FakeInt(i)])
+                cppmethod.descr_get(inst, []).call_args([FakeInt(i)])
                 i -= 1
             return 7
         f()
         space = FakeSpace()
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
-        self.check_jitcell_token_count(0)   # same for fast and slow path??
+        self.check_jitcell_token_count(1)
         # rely on replacement of capi calls to raise exception instead (see FakeSpace.__init__)
 
     @py.test.mark.dont_track_allocations("cppmethod.cif_descr kept 'leaks'")
