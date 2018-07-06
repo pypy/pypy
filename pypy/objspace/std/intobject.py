@@ -233,20 +233,23 @@ def _rshift(space, a, b):
     return wrapint(space, a)
 
 
-@jit.look_inside_iff(lambda space, iv, iw, iz:
-                     jit.isconstant(iw) and jit.isconstant(iz))
 def _pow(space, iv, iw, iz):
     """Helper for pow"""
-    if iw < 0:
-        if iz != 0:
-            raise oefmt(space.w_TypeError,
-                        "pow() 2nd argument cannot be negative when 3rd "
-                        "argument specified")
+    if iz == 0:
+        return _pow_nomod(iv, iw)
+    else:
+        return _pow_mod(space, iv, iw, iz)
+
+@jit.look_inside_iff(lambda iv, iw: jit.isconstant(iw))
+def _pow_nomod(iv, iw):
+    if iw <= 0:
+        if iw == 0:
+            return 1
         # bounce it, since it always returns float
         raise ValueError
     temp = iv
     ix = 1
-    while iw > 0:
+    while True:
         if iw & 1:
             try:
                 ix = ovfcheck(ix * temp)
@@ -259,12 +262,40 @@ def _pow(space, iv, iw, iz):
             temp = ovfcheck(temp * temp) # Square the value of temp
         except OverflowError:
             raise
-        if iz:
-            # If we did a multiplication, perform a modulo
-            ix %= iz
-            temp %= iz
-    if iz:
-        ix %= iz
+    return ix
+
+@jit.look_inside_iff(lambda space, iv, iw, iz:
+                     jit.isconstant(iw) and jit.isconstant(iz))
+def _pow_mod(space, iv, iw, iz):
+    from rpython.rlib.rarithmetic import mulmod
+
+    if iw <= 0:
+        if iw == 0:
+            return 1 % iz   # != 1, for iz == 1 or iz < 0
+        raise oefmt(space.w_TypeError,
+                    "pow() 2nd argument cannot be negative when 3rd "
+                    "argument specified")
+    if iz < 0:
+        try:
+            iz = ovfcheck(-iz)
+        except OverflowError:
+            raise
+        iz_negative = True
+    else:
+        iz_negative = False
+
+    temp = iv
+    ix = 1
+    while True:
+        if iw & 1:
+            ix = mulmod(ix, temp, iz)
+        iw >>= 1   # Shift exponent down by 1 bit
+        if iw == 0:
+            break
+        temp = mulmod(temp, temp, iz)
+
+    if iz_negative and ix > 0:
+        ix -= iz
     return ix
 
 
