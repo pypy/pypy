@@ -76,7 +76,7 @@ class BaseTestCompiler:
         space = self.space
         pyco_expr = PyCode._from_code(space, co_expr)
         w_res = pyco_expr.exec_host_bytecode(w_dict, w_dict)
-        res = space.str_w(space.repr(w_res))
+        res = space.text_w(space.repr(w_res))
         expected_repr = self.get_py3_repr(expected)
         if isinstance(expected, float):
             # Float representation can vary a bit between interpreter
@@ -1425,7 +1425,7 @@ class TestOptimizations:
             ''', d)
             return d['f'](5)
         """)
-        assert 'generator' in space.str_w(space.repr(w_generator))
+        assert 'generator' in space.text_w(space.repr(w_generator))
 
     def test_folding_of_list_constants(self):
         for source in (
