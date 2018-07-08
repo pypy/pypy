@@ -245,6 +245,9 @@ class W_Root(object):
     def bytes_w(self, space):
         self._typed_unwrap_error(space, "bytes")
 
+    def text_w(self, space):
+        self._typed_unwrap_error(space, "unicode")
+
     def utf8_w(self, space):
         self._typed_unwrap_error(space, "unicode")
 
@@ -1615,18 +1618,20 @@ class ObjSpace(object):
             an utf-8 encoded rpython string.
         """
         assert w_obj is not None
-        return w_obj.utf8_w(self)
+        return w_obj.text_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
     def str_w(self, w_obj):
         """
-        if w_obj is unicode, call text_w() (i.e., return the UTF-8-nosg
+        if w_obj is unicode, call utf8_w() (i.e., return the UTF-8-nosg
         encoded string). Else, call bytes_w().
 
         We should kill str_w completely and manually substitute it with
         text_w/bytes_w at all call sites.  It remains for now for tests only.
         """
+        XXX # deprecated, leaving in place for clear errors
         if self.isinstance_w(w_obj, self.w_unicode):
+            # XXX lo text_w, but better to deprecate str_w than to fix this
             return w_obj.text_w(self)
         else:
             return w_obj.bytes_w(self)

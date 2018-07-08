@@ -88,6 +88,9 @@ class W_UnicodeObject(W_Root):
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
         return space.newint(uid)
 
+    def text_w(self, space):
+        return self._utf8
+
     def utf8_w(self, space):
         return self._utf8
 

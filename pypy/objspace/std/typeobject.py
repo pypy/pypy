@@ -1158,9 +1158,10 @@ def slot_w(space, w_name):
     if not space.isinstance_w(w_name, space.w_text):
         raise oefmt(space.w_TypeError,
             "__slots__ items must be strings, not '%T'", w_name)
-    if not _isidentifier(space.utf8_w(w_name)):
+    s = space.utf8_w(w_name)
+    if not _isidentifier(s):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
-    return w_name.text_w(space)
+    return s
 
 def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     from pypy.interpreter.miscutils import string_sort
