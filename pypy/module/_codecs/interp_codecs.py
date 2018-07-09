@@ -639,7 +639,7 @@ def make_encoder_wrapper(name):
         utf8len = w_arg._length
         # XXX deal with func() returning length or not
         result = func(w_arg._utf8.decode('utf8'), errors, state.encode_error_handler)
-        return space.newtuple([space.newbytes(result), space.newint(utf8len)])
+        return space.newtuple([space.newbytes(result.encode('utf8')), space.newint(utf8len)])
     wrap_encoder.__name__ = func.__name__
     globals()[name] = wrap_encoder
 

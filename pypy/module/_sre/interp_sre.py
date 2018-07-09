@@ -41,7 +41,7 @@ def slice_w(space, ctx, start, end, w_default):
         if isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            return space.newunicode(ctx._unicodestr[start:end])
+            return space.newtext(ctx._unicodestr[start:end])
         else:
             # unreachable
             raise SystemError
@@ -128,7 +128,7 @@ class W_SRE_Pattern(W_Root):
         else:
             usep = u', '
             uflags = u'|'.join([item.decode('latin-1') for item in flag_items])
-        return space.newunicode(u're.compile(%s%s%s)' % (u, usep, uflags))
+        return space.newtext(u're.compile(%s%s%s)' % (u, usep, uflags))
 
     def fget_groupindex(self, space):
         w_groupindex = self.w_groupindex
@@ -421,10 +421,10 @@ class W_SRE_Pattern(W_Root):
                 return space.newbytes(strbuilder.build()), n
             else:
                 assert unicodebuilder is not None
-                return space.newunicode(unicodebuilder.build()), n
+                return space.newtext(unicodebuilder.build()), n
         else:
             if space.isinstance_w(w_string, space.w_unicode):
-                w_emptystr = space.newunicode(u'')
+                w_emptystr = space.newtext(u'')
             else:
                 w_emptystr = space.newbytes('')
             w_item = space.call_method(w_emptystr, 'join',
@@ -528,10 +528,10 @@ class W_SRE_Match(W_Root):
         ctx = self.ctx
         start, end = ctx.match_start, ctx.match_end
         w_s = slice_w(space, ctx, start, end, space.w_None)
-        u = space.realuicode_w(space.repr(w_s))
+        u = space.realunicode_w(space.repr(w_s))
         if len(u) > 50:
             u = u[:50]
-        return space.newunicode(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
+        return space.newtext(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 
     def cannot_copy_w(self):
@@ -681,7 +681,7 @@ class W_SRE_Match(W_Root):
         elif isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string)
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            return space.newunicode(ctx._unicodestr)
+            return space.newtext(ctx._unicodestr)
         else:
             raise SystemError
 
