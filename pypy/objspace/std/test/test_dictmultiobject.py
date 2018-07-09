@@ -1247,6 +1247,11 @@ class FakeUnicode(unicode):
         self.hash_count += 1
         return unicode.__hash__(self)
 
+    def is_ascii(self):
+        return True
+
+    def unwrapped(self):
+        return True
 
 # the minimal 'space' needed to use a W_DictMultiObject
 class FakeSpace:
@@ -1285,15 +1290,17 @@ class FakeSpace:
 
     def text_w(self, u):
         assert isinstance(u, unicode)
-        return u.encode('utf-8')
+        return FakeUnicode(u)
 
     def bytes_w(self, string):
         assert isinstance(string, str)
         return string
 
-    def utf8_w(self, b):
+    def utf8_w(self, u):
+        if isinstance(u, unicode):
+            u = u.encode('utf8')
         assert isinstance(u, str)
-        return b
+        return u
 
     def int_w(self, integer, allow_conversion=True):
         assert isinstance(integer, int)
@@ -1301,12 +1308,17 @@ class FakeSpace:
 
     def wrap(self, obj):
         if isinstance(obj, str):
-            return obj.decode('ascii')
+            return FakeUnicode(obj.decode('ascii'))
         return obj
 
     def newtext(self, string):
-        assert isinstance(string, str)
-        return string.decode('utf-8')
+        if isinstance(string, str):
+            return FakeUnicode(string.decode('utf-8'))
+        assert isinstance(string, unicode)
+        return FakeUnicode(string)
+
+    def newutf8(self, obj, lgt):
+        return obj
 
     def newbytes(self, obj):
         return obj

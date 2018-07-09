@@ -327,14 +327,13 @@ class StdObjSpace(ObjSpace):
         return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_text(self, list_t):
-        return self.newlist_unicode([
+        return self.newlist_utf8([
             str_decode_utf8(s, "string", True, None, allow_surrogates=True)[0]
                      for s in list_t])
 
-    def newlist_utf8(self, list_u, is_ascii):
-        if is_ascii:
-            return W_ListObject.newlist_utf8(self, list_u)
-        return ObjSpace.newlist_utf8(self, list_u, False)
+    def newlist_utf8(self, list_u, is_ascii=True):
+        # TODO ignoring is_ascii, is that correct?
+        return W_ListObject.newlist_utf8(self, list_u)
 
     def newlist_int(self, list_i):
         return W_ListObject.newlist_int(self, list_i)
@@ -553,8 +552,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.listview_utf8()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_utf8()
-        if (isinstance(w_obj, W_UnicodeObject) and not self._uses_unicode_iter(w_obj)
-            and w_obj.is_ascii()):
+        if isinstance(w_obj, W_UnicodeObject) and self._uses_unicode_iter(w_obj):
             return w_obj.listview_utf8()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_utf8()

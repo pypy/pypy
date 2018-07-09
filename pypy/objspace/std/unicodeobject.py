@@ -35,6 +35,7 @@ class W_UnicodeObject(W_Root):
     @enforceargs(utf8str=str)
     def __init__(self, utf8str, length):
         assert isinstance(utf8str, bytes)
+        # TODO: how to handle surrogates
         assert length >= 0
         self._utf8 = utf8str
         self._length = length
@@ -125,7 +126,8 @@ class W_UnicodeObject(W_Root):
         if isinstance(w_other, W_UnicodeObject):
             return w_other
         if space.isinstance_w(w_other, space.w_bytes):
-            return unicode_from_bytes(space, w_other)
+            raise oefmt(space.w_TypeError,
+                    "Can't convert '%T' object to str implicitly", w_other)
         if strict:
             raise oefmt(space.w_TypeError,
                 "%s arg must be None, unicode or str", strict)
@@ -141,8 +143,6 @@ class W_UnicodeObject(W_Root):
 
     def _multi_chr(self, unichar):
         return unichar
-
-    _builder = UnicodeBuilder
 
     def _generic_name(self):
         return "str"
@@ -373,14 +373,15 @@ class W_UnicodeObject(W_Root):
         return mod_format(space, w_values, self, fmt_type=FORMAT_UNICODE)
 
     def descr_swapcase(self, space):
-        input = self._utf8
-        builder = rutf8.Utf8StringBuilder(len(input))
-        for ch in rutf8.Utf8StringIterator(input):
+        value = self._utf8
+        builder = rutf8.Utf8StringBuilder(len(value))
+        for ch in rutf8.Utf8StringIterator(value):
             if unicodedb.isupper(ch):
-                ch = unicodedb.tolower(ch)
+                codes = unicodedb.tolower_full(ch)
             elif unicodedb.islower(ch):
-                ch = unicodedb.toupper(ch)
-            builder.append_code(ch)
+                codes = unicodedb.toupper_full(ch)
+            for c in codes:
+                builder.append_code(c)
         return self.from_utf8builder(builder)
 
     def descr_title(self, space):
@@ -393,14 +394,50 @@ class W_UnicodeObject(W_Root):
         input = self._utf8
         builder = rutf8.Utf8StringBuilder(len(input))
         previous_is_cased = False
+        i = 0
         for ch in rutf8.Utf8StringIterator(input):
-            if not previous_is_cased:
-                ch = unicodedb.totitle(ch)
+            if ch == 0x3a3:
+                codes = [self._handle_capital_sigma(input, i),]
+            elif not previous_is_cased:
+                codes = unicodedb.totitle_full(ch)
             else:
-                ch = unicodedb.tolower(ch)
-            builder.append_code(ch)
-            previous_is_cased = unicodedb.iscased(ch)
+                codes = unicodedb.tolower_full(ch)
+            for c in codes:
+                builder.append_code(c)
+            previous_is_cased = unicodedb.iscased(codes[-1])
+            i += 1
         return self.from_utf8builder(builder)
+
+    def _handle_capital_sigma(self, value, i):
+        # U+03A3 is in the Final_Sigma context when, it is found like this:
+        #\p{cased} \p{case-ignorable}* U+03A3 not(\p{case-ignorable}* \p{cased})
+        # where \p{xxx} is a character with property xxx.
+
+        # TODO: find a better way for utf8 -> codepoints
+        value = [ch for ch in rutf8.Utf8StringIterator(value)]
+        j = i - 1
+        final_sigma = False
+        while j >= 0:
+            ch = value[j]
+            if unicodedb.iscaseignorable(ch):
+                j -= 1
+                continue
+            final_sigma = unicodedb.iscased(ch)
+            break
+        if final_sigma:
+            j = i + 1
+            length = len(value)
+            while j < length:
+                ch = value[j]
+                if unicodedb.iscaseignorable(ch):
+                    j += 1
+                    continue
+                final_sigma = not unicodedb.iscased(ch)
+                break
+        if final_sigma:
+            return 0x3C2
+        else:
+            return 0x3C3
 
     def descr_translate(self, space, w_table):
         builder = rutf8.Utf8StringBuilder(len(self._utf8))
@@ -519,23 +556,29 @@ class W_UnicodeObject(W_Root):
         return space.is_w(space.type(w_obj), space.w_unicode)
 
     def descr_casefold(self, space):
-        value = self._val(space)
-        builder = self._builder(len(value))
-        for c in value:
-            c_ord = ord(c)
-            folded = unicodedb.casefold_lookup(c_ord)
+        value = self._utf8
+        builder = rutf8.Utf8StringBuilder(len(value))
+        for ch in rutf8.Utf8StringIterator(value):
+            folded = unicodedb.casefold_lookup(ch)
             if folded is None:
-                builder.append(unichr(unicodedb.tolower(c_ord)))
+                builder.append_code(unicodedb.tolower(ch))
             else:
                 for r in folded:
-                    builder.append(unichr(r))
-        return self._new(builder.build())
+                    builder.append_code(r)
+        return self.from_utf8builder(builder)
 
     def descr_lower(self, space):
-        builder = rutf8.Utf8StringBuilder(len(self._utf8))
-        for ch in rutf8.Utf8StringIterator(self._utf8):
-            lower = unicodedb.tolower(ch)
-            builder.append_code(lower)
+        value = self._utf8
+        builder = rutf8.Utf8StringBuilder(len(value))
+        i = 0
+        for ch in rutf8.Utf8StringIterator(value):
+            if ch == 0x3a3:
+                codes = [self._handle_capital_sigma(value, i),]
+            else:
+                codes = unicodedb.tolower_full(ch)
+            for c in codes:
+                builder.append_code(c)
+            i += 1
         return self.from_utf8builder(builder)
 
     def descr_isdecimal(self, space):
@@ -589,11 +632,18 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         if space.isinstance_w(w_prefix, space.w_tuple):
             return self._startswith_tuple(space, value, w_prefix, start, end)
-        return space.newbool(self._startswith(space, value, w_prefix, start,
+        try:
+            return space.newbool(self._startswith(space, value, w_prefix, start,
                                               end))
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_TypeError, 'startswith first arg must be str '
+                        'or a tuple of str, not %T', w_prefix)
 
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
+        if start > len(value):
+            return False
         if len(prefix) == 0:
             return True
         return startswith(value, prefix, start, end)
@@ -603,11 +653,18 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         if space.isinstance_w(w_suffix, space.w_tuple):
             return self._endswith_tuple(space, value, w_suffix, start, end)
-        return space.newbool(self._endswith(space, value, w_suffix, start,
+        try:
+            return space.newbool(self._endswith(space, value, w_suffix, start,
                                             end))
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_TypeError, 'endswith first arg must be str '
+                        'or a tuple of str, not %T', w_suffix)
 
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
+        if start > len(value):
+            return False
         if len(prefix) == 0:
             return True
         return endswith(value, prefix, start, end)
@@ -684,8 +741,9 @@ class W_UnicodeObject(W_Root):
     def descr_upper(self, space):
         builder = rutf8.Utf8StringBuilder(len(self._utf8))
         for ch in rutf8.Utf8StringIterator(self._utf8):
-            ch = unicodedb.toupper(ch)
-            builder.append_code(ch)
+            codes = unicodedb.toupper_full(ch)
+            for c in codes:
+                builder.append_code(c)
         return self.from_utf8builder(builder)
 
     @unwrap_spec(width=int)
@@ -792,14 +850,16 @@ class W_UnicodeObject(W_Root):
         builder = rutf8.Utf8StringBuilder(len(self._utf8))
         it = rutf8.Utf8StringIterator(self._utf8)
         uchar = it.next()
-        ch = unicodedb.toupper(uchar)
-        builder.append_code(ch)
+        codes = unicodedb.toupper_full(uchar)
+        # can sometimes give more than one, like for omega-with-Ypogegrammeni, 8179
+        for c in codes:
+            builder.append_code(c)
         for ch in it:
             ch = unicodedb.tolower(ch)
             builder.append_code(ch)
         return self.from_utf8builder(builder)
 
-    @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))
     def descr_center(self, space, width, w_fillchar):
         value = self._utf8
         fillchar = self.convert_arg_to_w_unicode(space, w_fillchar)._utf8
@@ -978,14 +1038,14 @@ class W_UnicodeObject(W_Root):
         end_index = len(self._utf8)
         if start > 0:
             if start > self._length:
-                start_index = end_index
+                start_index = end_index + 1
             else:
                 start_index = self._index_to_byte(start)
         if end < self._length:
             end_index = self._index_to_byte(end)
         return (start_index, end_index)
 
-    @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))
     def descr_rjust(self, space, width, w_fillchar):
         value = self._utf8
         lgt = self._len()
@@ -1004,7 +1064,7 @@ class W_UnicodeObject(W_Root):
 
         return W_UnicodeObject(value, lgt)
 
-    @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))
     def descr_ljust(self, space, width, w_fillchar):
         value = self._utf8
         w_fillchar = self.convert_arg_to_w_unicode(space, w_fillchar)
@@ -1080,22 +1140,10 @@ class W_UnicodeObject(W_Root):
 
 
     def descr_isprintable(self, space):
-        for uchar in self._value:
-            if not unicodedb.isprintable(ord(uchar)):
+        for ch in rutf8.Utf8StringIterator(self._utf8):
+            if not unicodedb.isprintable(ch):
                 return space.w_False
         return space.w_True
-
-    def _fix_fillchar(func):
-        # XXX: hack
-        from rpython.tool.sourcetools import func_with_new_name
-        func = func_with_new_name(func, func.__name__)
-        func.unwrap_spec = func.unwrap_spec.copy()
-        func.unwrap_spec['w_fillchar'] = WrappedDefault(u' ')
-        return func
-
-    descr_center = _fix_fillchar(StringMethods.descr_center)
-    descr_ljust = _fix_fillchar(StringMethods.descr_ljust)
-    descr_rjust = _fix_fillchar(StringMethods.descr_rjust)
 
     @staticmethod
     def _iter_getitem_result(self, space, index):
@@ -1172,7 +1220,7 @@ def encode_object(space, w_object, encoding, errors):
 def decode_object(space, w_obj, encoding, errors):
     if encoding is None:
         encoding = getdefaultencoding(space)
-    if errors is None or errors == 'strict':
+    if errors is None or errors == 'strict' or errors == 'surrogateescape':
         if encoding == 'ascii':
             s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)
@@ -1824,7 +1872,7 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    value = _rpy_unicode_to_decimal_w(space, w_unistr.utf8_w(space))
+    value = _rpy_unicode_to_decimal_w(space, w_unistr.utf8_w(space).decode('utf8'))
     return unicodehelper.encode_utf8(space, value,
                                      allow_surrogates=allow_surrogates)
 
