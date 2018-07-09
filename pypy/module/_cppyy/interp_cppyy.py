@@ -510,7 +510,7 @@ class W_CPPOverload(W_Root):
                             not space.is_w(w_obj, space.w_None) or
                             space.is_w(w_cls, space.type(space.w_None)))
         if asking_for_bound:
-            return MethodWithProps(space, self, w_obj)
+            return MethodWithProps(space, self, w_obj, w_cls)
         else:
             return self  # unbound methods don't exist in Python 3, return self
 
@@ -626,7 +626,7 @@ class W_CPPStaticOverload(W_CPPOverload):
             # onto a class and w_this should be set
             cppinstance = self.space.interp_w(W_CPPInstance, w_obj)
             if cppinstance.clsdecl.handle != self.scope.handle:
-                return MethodWithProps(self.space, self, w_obj)    # bound
+                return MethodWithProps(self.space, self, w_obj, w_cls)    # bound
         return self      # unbound
 
     @unwrap_spec(args_w='args_w')

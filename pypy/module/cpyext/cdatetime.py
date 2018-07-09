@@ -135,6 +135,7 @@ def type_attach(space, py_obj, w_obj, w_userdata=None):
     '''Fills a newly allocated py_obj from the w_obj
     If it is a datetime.time or datetime.datetime, it may have tzinfo
     '''
+    assert len(datetimeAPI_global) > 0
     if datetimeAPI_global[0].c_TimeType == py_obj.c_ob_type:
         py_datetime = rffi.cast(PyDateTime_Time, py_obj)
         w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
@@ -158,6 +159,7 @@ def type_attach(space, py_obj, w_obj, w_userdata=None):
 @slot_function([PyObject], lltype.Void)
 def type_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
+    assert len(datetimeAPI_global) > 0
     if datetimeAPI_global[0].c_TimeType == py_obj.c_ob_type:
         py_datetime = rffi.cast(PyDateTime_Time, py_obj)
         if (widen(py_datetime.c_hastzinfo) != 0):
