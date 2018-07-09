@@ -12,7 +12,7 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.unicodehelper import str_decode_utf8
+from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.objspace.std.util import negate
 
 
@@ -1183,9 +1183,12 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
+    def decodekey_str(self, key):
+        return decode_utf8sp(self.space, key)[0]
+
     def setitem_str(self, w_dict, key, w_value):
         assert key is not None
-        self.unerase(w_dict.dstorage)[key] = w_value
+        self.unerase(w_dict.dstorage)[self.decodekey_str(key)] = w_value
 
     def getitem(self, w_dict, w_key):
         space = self.space
@@ -1197,7 +1200,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def getitem_str(self, w_dict, key):
         assert key is not None
-        return self.unerase(w_dict.dstorage).get(key, None)
+        return self.unerase(w_dict.dstorage).get(self.decodekey_str(key), None)
 
     def listview_utf8(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()

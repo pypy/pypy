@@ -255,7 +255,7 @@ class Function(W_Root):
         return self.call_args(__args__)
 
     def descr_function_repr(self):
-        return self.getrepr(self.space, u'function %s' % self.qualname)
+        return self.getrepr(self.space, u'function %s' % self.qualname.decode('utf8'))
 
 
     def _cleanup_(self):

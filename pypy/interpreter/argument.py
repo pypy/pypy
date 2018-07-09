@@ -602,8 +602,8 @@ class ArgErrUnknownKwds(ArgErr):
 
     def getmsg(self):
         if self.num_kwds == 1:
-            msg = "got an unexpected keyword argument '%s'" % (
-                self.kwd_name)
+            msg = u"got an unexpected keyword argument '%s'" % (
+                self.kwd_name.decode('utf8'))
         else:
             msg = "got %d unexpected keyword arguments" % (
                 self.num_kwds)

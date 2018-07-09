@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.interpreter.unicodehelper import str_decode_utf8
+from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.objspace.std import frame, transparent, callmethod
 from pypy.objspace.descroperation import (
     DescrOperation, get_attribute_name, raiseattrerror)
@@ -327,9 +327,7 @@ class StdObjSpace(ObjSpace):
         return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_text(self, list_t):
-        return self.newlist_utf8([
-            str_decode_utf8(s, "string", True, None, allow_surrogates=True)[0]
-                     for s in list_t])
+        return self.newlist_utf8([decode_utf8sp(self, s) for s in list_t])
 
     def newlist_utf8(self, list_u, is_ascii=True):
         # TODO ignoring is_ascii, is that correct?
@@ -386,8 +384,7 @@ class StdObjSpace(ObjSpace):
         if isinstance(s, unicode):
             s, lgt = s.encode('utf8'), len(s)
         elif isinstance(s, str):
-            s, uf8lgt, lgt = str_decode_utf8(s, "string", True, None,
-                                           allow_surrogates=True)
+            s, uf8lgt, lgt = decode_utf8sp(self, s)
         elif isinstance(s, tuple):
             # result of decode_utf8
             s, utf8lgt, lgt = s

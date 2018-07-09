@@ -472,9 +472,12 @@ def decompose_valuefmt(valuefmt):
     assert len(formats) > 0, "unsupported: no % command found"
     return tuple(parts), tuple(formats)
 
+@specialize.arg(1)
 def _decode_utf8(string):
     # when building the error message, don't crash if the byte string
     # provided is not valid UTF-8
+    if isinstance(string, unicode):
+        return string
     assert isinstance(string, str)
     result, consumed = runicode.str_decode_utf_8(
         string, len(string), "replace", final=True)

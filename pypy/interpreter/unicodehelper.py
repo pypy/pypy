@@ -155,6 +155,7 @@ def check_ascii_or_raise(space, string):
     try:
         rutf8.check_ascii(string)
     except rutf8.CheckError as e:
+        print 'check_ascii_or_raise', string
         decode_error_handler(space)('strict', 'ascii',
                                     'ordinal not in range(128)', string,
                                     e.pos, e.pos + 1)
