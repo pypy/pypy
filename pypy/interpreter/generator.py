@@ -312,7 +312,7 @@ return next yielded value or raise StopIteration."""
 
     def descr_set__qualname__(self, space, w_name):
         try:
-            self._qualname = space.utf_8(w_name)
+            self._qualname = space.utf8_w(w_name)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,

@@ -204,7 +204,7 @@ class TestGateway:
         assert space.int_w(space.call_function(w_c, w_a, space.wrap(1))) == 1 + 2
         assert space.int_w(space.call_function(w_c, w_b, space.wrap(-10))) == -10 + 1
 
-        doc = space.str_w(space.getattr(w_c, space.wrap('__doc__')))
+        doc = space.text_w(space.getattr(w_c, space.wrap('__doc__')))
         assert doc == "This is a method"
 
         meth_with_default = gateway.interpindirect2app(
@@ -856,7 +856,7 @@ class TestGateway:
             except SystemError as e:
                 return str(e)
         """)
-        err = space.str_w(w_msg)
+        err = space.text_w(w_msg)
         assert ('unexpected internal exception (please '
                 'report a bug): UnexpectedException') in err
 

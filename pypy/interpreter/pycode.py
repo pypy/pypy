@@ -206,7 +206,7 @@ class PyCode(eval.Code):
         self.co_filename = '<builtin>/%s' % (basename,)
         self.w_filename = self.space.newfilename(self.co_filename)
 
-    co_names = property(lambda self: [self.space.str_w(w_name) for w_name in self.co_names_w]) # for trace
+    co_names = property(lambda self: [self.space.text_w(w_name) for w_name in self.co_names_w]) # for trace
 
     def signature(self):
         return self._signature
@@ -453,7 +453,7 @@ class PyCode(eval.Code):
         space = self.space
         # co_name should be an identifier
         name = self.co_name.decode('utf-8')
-        fn = space.utf_8(self.w_filename)
+        fn = space.utf8_w(self.w_filename)
         return space.newtext(b'<code object %s at 0x%s, file "%s", line %d>' % (
             name, unicode(self.getaddrstring(space)), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))

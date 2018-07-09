@@ -2,7 +2,6 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.unicodehelper import encode_utf8
 from rpython.rlib import rgc, jit, rutf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -639,7 +638,7 @@ getting the advantage of providing document type information to the parser.
         """Parse(data[, isfinal])
 Parse XML data.  `isfinal' should be true at end of input."""
         if space.isinstance_w(w_data, space.w_unicode):
-            data = encode_utf8(space, w_data.utf8_w(space))
+            data = w_data.utf8_w(space)
             # Explicitly set UTF-8 encoding. Return code ignored.
             XML_SetEncoding(self.itself, "utf-8")
         else:

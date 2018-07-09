@@ -130,13 +130,13 @@ class TestObjSpace:
         w_object_doc = self.space.getattr(self.space.w_object, w("__doc__"))
         w_instance = self.space.appexec([], "(): return object()")
         w_doc = self.space.lookup(w_instance, "__doc__")
-        assert self.space.str_w(w_doc) == self.space.str_w(w_object_doc)
+        assert self.space.text_w(w_doc) == self.space.text_w(w_object_doc)
         assert self.space.lookup(w_instance, "gobbledygook") is None
         w_instance = self.space.appexec([], """():
             class Lookup(object):
                 "bla"
             return Lookup()""")
-        assert self.space.str_w(self.space.lookup(w_instance, "__doc__")) == "bla"
+        assert self.space.text_w(self.space.lookup(w_instance, "__doc__")) == "bla"
 
     def test_callable(self):
         def is_callable(w_obj):
@@ -404,9 +404,9 @@ class TestModuleMinimal:
         w_executable = space.wrap('executable')
         assert space.findattr(space.sys, w_executable) is None
         space.setattr(space.sys, w_executable, space.wrap('foobar'))
-        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        assert space.text_w(space.getattr(space.sys, w_executable)) == 'foobar'
         space.startup()
-        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        assert space.text_w(space.getattr(space.sys, w_executable)) == 'foobar'
 
     def test_interned_strings_are_weak(self):
         import weakref, gc, random

@@ -99,6 +99,9 @@ class DummySpace(object):
     def text_w(self, s):
         return self.utf8_w(s)
 
+    def utf8_w(self, s):
+        return s
+
     def len(self, x):
         return len(x)
 
@@ -668,14 +671,14 @@ class TestErrorHandling(object):
         try:
             Arguments(space, [], w_stararg=space.wrap(42))
         except OperationError as e:
-            msg = space.str_w(space.str(e.get_w_value(space)))
+            msg = space.text_w(space.str(e.get_w_value(space)))
             assert msg == "argument after * must be an iterable, not int"
         else:
             assert 0, "did not raise"
         try:
             Arguments(space, [], w_starstararg=space.wrap(42))
         except OperationError as e:
-            msg = space.str_w(space.str(e.get_w_value(space)))
+            msg = space.text_w(space.str(e.get_w_value(space)))
             assert msg == "argument after ** must be a mapping, not int"
         else:
             assert 0, "did not raise"

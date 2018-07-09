@@ -155,7 +155,7 @@ class TestMixedModule:
         w_mymod2 = MyModule(space2, space2.wrap('mymod'))
 
         w_str = space1.getattr(w_mymod1, space1.wrap("hi"))
-        assert space1.str_w(w_str) == "hello"
+        assert space1.text_w(w_str) == "hello"
 
 class TestMixedModuleUnfreeze:
     spaceconfig = dict(usemodules=('_socket',))

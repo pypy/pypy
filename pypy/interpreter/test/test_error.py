@@ -43,7 +43,7 @@ def test_oefmt_noargs(space):
     val = operr.get_w_value(space)
     assert space.isinstance_w(val, space.w_AttributeError)
     w_repr = space.repr(val)
-    assert space.str_w(w_repr) == "AttributeError(\"no attribute 'foo'\",)"
+    assert space.text_w(w_repr) == "AttributeError(\"no attribute 'foo'\",)"
 
 def test_oefmt_T(space):
     operr = oefmt(space.w_AttributeError,
@@ -167,7 +167,7 @@ def test_wrap_oserror():
 def test_new_exception(space):
     w_error = new_exception_class(space, '_socket.error')
     assert w_error.getname(space) == u'error'
-    assert space.str_w(space.repr(w_error)) == "<class '_socket.error'>"
+    assert space.text_w(space.repr(w_error)) == "<class '_socket.error'>"
     operr = OperationError(w_error, space.wrap("message"))
     assert operr.match(space, w_error)
     assert operr.match(space, space.w_Exception)
