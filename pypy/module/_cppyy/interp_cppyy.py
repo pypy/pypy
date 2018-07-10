@@ -258,7 +258,8 @@ class CPPMethod(object):
         jit.promote(self)
         cif_descr = self.cif_descr
         # add extra space for const-ref support (see converter.py)
-        buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size+len(self.arg_defs)*rffi.sizeof(rffi.DOUBLE), flavor='raw')
+        buffer = lltype.malloc(rffi.CCHARP.TO,
+            cif_descr.exchange_size+len(self.arg_defs)*rffi.sizeof(rffi.DOUBLE), flavor='raw')
         thisoff = 0
         try:
             if cppthis:
@@ -632,11 +633,7 @@ class W_CPPStaticOverload(W_CPPOverload):
     @unwrap_spec(args_w='args_w')
     def call_args(self, args_w):
         jit.promote(self)
-        #if isinstance(args_w[0], W_CPPInstance):
-            # free function used as bound method, leave in place
-        return self.call_impl(capi.C_NULL_OBJECT, args_w)
-        # free functions are implemented as methods of 'namespace' classes, remove 'instance'
-        #return self.call_impl(capi.C_NULL_OBJECT, args_w[1:])
+        return self.call_impl(capi.C_NULL_OBJECT, args_w, 0)
 
     def __repr__(self):
         return "W_CPPStaticOverload(%s)" % [f.prototype() for f in self.functions]
@@ -1320,7 +1317,7 @@ class W_CPPComplexClassDecl(W_CPPClassDecl):
     def get_base_offset(self, cppinstance, calling_scope):
         assert self == cppinstance.clsdecl
         offset = capi.c_base_offset(self.space,
-                                    self, calling_scope, cppinstance.get_rawobject(), 1)
+            self, calling_scope, cppinstance.get_rawobject(), 1)
         return offset
 
     def get_cppthis(self, cppinstance, calling_scope):
