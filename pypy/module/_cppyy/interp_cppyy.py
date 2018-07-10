@@ -633,7 +633,7 @@ class W_CPPStaticOverload(W_CPPOverload):
     @unwrap_spec(args_w='args_w')
     def call_args(self, args_w):
         jit.promote(self)
-        return self.call_impl(capi.C_NULL_OBJECT, args_w, 0)
+        return self.call_impl(capi.C_NULL_OBJECT, args_w)
 
     def __repr__(self):
         return "W_CPPStaticOverload(%s)" % [f.prototype() for f in self.functions]
@@ -699,7 +699,7 @@ class TemplateOverloadMixin(object):
                     if args_w:
                         # try to specialize the type match for the given object
                         cppinstance = self.space.interp_w(W_CPPInstance, args_w[i])
-                        if cppinstance.flags & INSTANCE_FLAGS_IS_RVALUE:
+                        if cppinstance.rt_flags & INSTANCE_FLAGS_IS_RVALUE:
                             sugar = "&&"
                         elif cppinstance.flags & INSTANCE_FLAGS_IS_REF:
                             sugar = "*"
@@ -1340,9 +1340,9 @@ W_CPPComplexClassDecl.typedef.acceptable_as_base_class = False
 
 
 class W_CPPInstance(W_Root):
-    _attrs_ = ['space', 'clsdecl', '_rawobject', 'smartdecl', 'deref', 'flags',
+    _attrs_ = ['space', 'clsdecl', '_rawobject', 'smartdecl', 'deref', 'flags', 'rt_flags',
                'finalizer_registered']
-    _immutable_fields_ = ['clsdecl', 'smartdecl', 'deref']
+    _immutable_fields_ = ['clsdecl', 'smartdecl', 'deref', 'flags']
 
     finalizer_registered = False
 
@@ -1357,15 +1357,16 @@ class W_CPPInstance(W_Root):
         self.flags = 0
         if isref or (smartdecl and deref):
             self.flags |= INSTANCE_FLAGS_IS_REF
+        self.rt_flags = 0
         if python_owns:
-            self.flags |= INSTANCE_FLAGS_PYTHON_OWNS
+            self.rt_flags |= INSTANCE_FLAGS_PYTHON_OWNS
             self._opt_register_finalizer()
         self.smartdecl = smartdecl
         self.deref     = deref
 
     def _opt_register_finalizer(self):
         if not self.finalizer_registered and not hasattr(self.space, "fake"):
-            assert self.flags & INSTANCE_FLAGS_PYTHON_OWNS
+            assert self.rt_flags & INSTANCE_FLAGS_PYTHON_OWNS
             self.register_finalizer(self.space)
             self.finalizer_registered = True
 
@@ -1377,15 +1378,15 @@ class W_CPPInstance(W_Root):
 
     # allow user to determine ownership rules on a per object level
     def fget_python_owns(self, space):
-        return space.newbool(bool(self.flags & INSTANCE_FLAGS_PYTHON_OWNS))
+        return space.newbool(bool(self.rt_flags & INSTANCE_FLAGS_PYTHON_OWNS))
 
     @unwrap_spec(value=bool)
     def fset_python_owns(self, space, value):
         if space.is_true(value):
-            self.flags |= INSTANCE_FLAGS_PYTHON_OWNS
+            self.rt_flags |= INSTANCE_FLAGS_PYTHON_OWNS
             self._opt_register_finalizer()
         else:
-            self.flags &= ~INSTANCE_FLAGS_PYTHON_OWNS
+            self.rt_flags &= ~INSTANCE_FLAGS_PYTHON_OWNS
 
     def get_cppthis(self, calling_scope):
         return self.clsdecl.get_cppthis(self, calling_scope)
@@ -1505,7 +1506,7 @@ class W_CPPInstance(W_Root):
             self._rawobject = capi.C_NULL_OBJECT
 
     def _finalize_(self):
-        if self.flags & INSTANCE_FLAGS_PYTHON_OWNS:
+        if self.rt_flags & INSTANCE_FLAGS_PYTHON_OWNS:
             self.destruct()
 
 W_CPPInstance.typedef = TypeDef(
@@ -1649,7 +1650,7 @@ def move(space, w_obj):
     """Casts the given instance into an C++-style rvalue."""
     obj = space.interp_w(W_CPPInstance, w_obj)
     if obj:
-        obj.flags |= INSTANCE_FLAGS_IS_RVALUE
+        obj.rt_flags |= INSTANCE_FLAGS_IS_RVALUE
     return w_obj
 
 

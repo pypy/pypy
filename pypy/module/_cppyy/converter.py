@@ -491,7 +491,7 @@ class InstanceRefConverter(TypeConverter):
         from pypy.module._cppyy.interp_cppyy import W_CPPInstance
         if isinstance(w_obj, W_CPPInstance):
             from pypy.module._cppyy.interp_cppyy import INSTANCE_FLAGS_IS_RVALUE
-            if w_obj.flags & INSTANCE_FLAGS_IS_RVALUE:
+            if w_obj.rt_flags & INSTANCE_FLAGS_IS_RVALUE:
                 # reject moves as all are explicit
                 raise ValueError("lvalue expected")
             if capi.c_is_subtype(space, w_obj.clsdecl, self.clsdecl):
@@ -523,14 +523,14 @@ class InstanceMoveConverter(InstanceRefConverter):
         from pypy.module._cppyy.interp_cppyy import W_CPPInstance, INSTANCE_FLAGS_IS_RVALUE
         obj = space.interp_w(W_CPPInstance, w_obj)
         if obj:
-            if obj.flags & INSTANCE_FLAGS_IS_RVALUE:
-                obj.flags &= ~INSTANCE_FLAGS_IS_RVALUE
+            if obj.rt_flags & INSTANCE_FLAGS_IS_RVALUE:
+                obj.rt_flags &= ~INSTANCE_FLAGS_IS_RVALUE
                 try:
                     return InstanceRefConverter._unwrap_object(self, space, w_obj)
                 except Exception:
                     # TODO: if the method fails on some other converter, then the next
                     # overload can not be an rvalue anymore
-                    obj.flags |= INSTANCE_FLAGS_IS_RVALUE
+                    obj.rt_flags |= INSTANCE_FLAGS_IS_RVALUE
                     raise
         raise oefmt(space.w_ValueError, "object is not an rvalue")
 
