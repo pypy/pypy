@@ -97,7 +97,7 @@ class TestW_BytesObject:
         monkeypatch.setattr(jit, 'isconstant', lambda x: True)
         space = self.space
         w_res = space.call_function(space.w_bytes, space.wrap([42]))
-        assert space.str_w(w_res) == '*'
+        assert space.text_w(w_res) == '*'
 
 
 class AppTestBytesObject:

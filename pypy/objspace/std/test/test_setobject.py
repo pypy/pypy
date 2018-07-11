@@ -49,9 +49,9 @@ class TestW_SetObject:
 
     def test_space_newset(self):
         s = self.space.newset()
-        assert self.space.str_w(self.space.repr(s)) == 'set()'
+        assert self.space.text_w(self.space.repr(s)) == 'set()'
         # check that the second time we don't get 'set(...)'
-        assert self.space.str_w(self.space.repr(s)) == 'set()'
+        assert self.space.text_w(self.space.repr(s)) == 'set()'
 
     def test_intersection_order(self):
         # theses tests make sure that intersection is done in the correct order

@@ -16,9 +16,9 @@ class TestW_StdObjSpace:
         assert self.space.isinstance_w(self.space.newtext("abc"), self.space.w_unicode)
         assert self.space.eq_w(self.space.newtext("üöä"), self.space.newtext(u"üöä"))
 
-    def test_str_w_non_str(self):
-        raises(OperationError,self.space.str_w,self.space.wrap(None))
-        raises(OperationError,self.space.str_w,self.space.wrap(0))
+    def test_text_w_non_str(self):
+        raises(OperationError,self.space.text_w,self.space.wrap(None))
+        raises(OperationError,self.space.text_w,self.space.wrap(0))
 
     def test_int_w_non_int(self):
         raises(OperationError,self.space.int_w,self.space.wrap(None))

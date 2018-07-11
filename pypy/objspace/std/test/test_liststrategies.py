@@ -616,7 +616,7 @@ class TestW_ListStrategies(TestW_ListObject):
         space = self.space
         w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])
         w_l.getitems = None
-        assert space.str_w(space.call_method(space.wrap("c"), "join", w_l)) == "acb"
+        assert space.text_w(space.call_method(space.wrap("c"), "join", w_l)) == "acb"
         #
         # the same for unicode
         w_l = self.space.newlist([self.space.wrap(u'a'), self.space.wrap(u'b')])
