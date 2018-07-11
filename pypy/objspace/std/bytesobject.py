@@ -404,9 +404,9 @@ class W_BytesObject(W_AbstractBytesObject):
     _KIND1 = "byte"
     _KIND2 = "bytes"
 
-    def __init__(self, str):
-        assert str is not None
-        self._value = str
+    def __init__(self, s):
+        assert s is not None
+        self._value = s
 
     def __repr__(self):
         """representation for debugging purposes"""

@@ -84,7 +84,7 @@ class TestW_StdObjSpace:
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
         w_x = self.space.wrap('foo')
         assert isinstance(w_x, W_UnicodeObject)
-        assert w_x._value == u'foo'
+        assert w_x._utf8 == 'foo'
         #
         # calling space.wrap() on a byte string which is not ASCII should
         # never happen. Howeven it might happen while the py3k port is not
@@ -93,4 +93,4 @@ class TestW_StdObjSpace:
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
         w_x = self.space.wrap('foo\xF0')
         assert isinstance(w_x, W_UnicodeObject)
-        assert w_x._value == u'foo\ufffd'
+        assert w_x._utf8 == 'foo\uxF0'

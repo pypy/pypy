@@ -327,7 +327,7 @@ class StdObjSpace(ObjSpace):
         return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_text(self, list_t):
-        return self.newlist_utf8([decode_utf8sp(self, s) for s in list_t])
+        return self.newlist_utf8([decode_utf8sp(self, s)[0] for s in list_t])
 
     def newlist_utf8(self, list_u, is_ascii=True):
         # TODO ignoring is_ascii, is that correct?
@@ -762,7 +762,7 @@ class StdObjSpace(ObjSpace):
                     if not e.match(self, self.w_TypeError):
                         raise
                 else:
-                    classname = b'%s.%s' % (modulename, classname)
+                    classname = u'%s.%s' % (modulename.decode('utf8'), classname)
         else:
             classname = w_type.name.decode('utf-8')
         return classname
