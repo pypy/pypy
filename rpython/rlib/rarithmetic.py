@@ -840,6 +840,31 @@ else:
         return z
 
 
+@specialize.memo()
+def check_support_int128():
+    from rpython.rtyper.lltypesystem import rffi
+    return hasattr(rffi, '__INT128_T')
+
+def mulmod(a, b, c):
+    """Computes (a * b) % c.
+    Assumes c > 0, and returns a nonnegative result.
+    """
+    assert c > 0
+    if LONG_BIT < LONGLONG_BIT:
+        a = r_longlong(a)
+        b = r_longlong(b)
+        return intmask((a * b) % c)
+    elif check_support_int128():
+        a = r_longlonglong(a)
+        b = r_longlonglong(b)
+        return intmask((a * b) % c)
+    else:
+        from rpython.rlib.rbigint import rbigint
+        a = rbigint.fromlong(a)
+        b = rbigint.fromlong(b)
+        return a.mul(b).int_mod(c).toint()
+
+
 # String parsing support
 # ---------------------------
 
