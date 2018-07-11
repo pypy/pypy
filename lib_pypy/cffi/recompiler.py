@@ -893,6 +893,12 @@ class Recompiler:
             else:
                 flags.append("_CFFI_F_CHECK_FIELDS")
             if tp.packed:
+                if tp.packed > 1:
+                    raise NotImplementedError(
+                        "%r is declared with 'pack=%r'; only 0 or 1 are "
+                        "supported in API mode (try to use \"...;\", which "
+                        "does not require a 'pack' declaration)" %
+                        (tp, tp.packed))
                 flags.append("_CFFI_F_PACKED")
         else:
             flags.append("_CFFI_F_EXTERNAL")
