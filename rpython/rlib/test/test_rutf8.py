@@ -152,7 +152,7 @@ def test_repr(u):
 @example([u'\ud800', u'\udc00'])
 def test_surrogate_in_utf8(unichars):
     uni = ''.join([u.encode('utf8') for u in unichars])
-    result = rutf8.surrogate_in_utf8(uni)
+    result = rutf8.surrogate_in_utf8(uni) < 0
     expected = any(uch for uch in unichars if u'\ud800' <= uch <= u'\udfff')
     assert result == expected
 
