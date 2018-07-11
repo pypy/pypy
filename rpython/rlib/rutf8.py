@@ -471,8 +471,8 @@ def surrogate_in_utf8(value):
     """
     for i in range(len(value) - 2):
         if value[i] == '\xed' and value[i + 1] >= '\xa0':
-            return True
-    return False
+            return i
+    return -1
 
 
 UTF8_INDEX_STORAGE = lltype.GcArray(lltype.Struct('utf8_loc_elem',
