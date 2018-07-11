@@ -455,7 +455,7 @@ class CPPSetItem(CPPMethod):
 class MethodWithProps(Method):
     # allow user to determine ffi use rules per overload
     def fget_useffi(self, space):
-	f = space.interp_w(W_CPPOverload, self.w_function)
+        f = space.interp_w(W_CPPOverload, self.w_function)
         return f.fget_useffi(space)
 
     @unwrap_spec(value=bool)
@@ -623,7 +623,7 @@ class W_CPPStaticOverload(W_CPPOverload):
             # onto a class and w_this should be set
             cppinstance = self.space.interp_w(W_CPPInstance, w_obj)
             if cppinstance.clsdecl.handle != self.scope.handle:
-	        return MethodWithProps(self.space, self, w_obj)    # bound
+                return MethodWithProps(self.space, self, w_obj)    # bound
         return self      # unbound
 
     @unwrap_spec(args_w='args_w')
@@ -764,7 +764,7 @@ class TemplateOverloadMixin(object):
                 self.master.overloads[fullname] = method
 
         if not self.space.is_w(self.w_this, self.space.w_None):
-	    return self.space.call_obj_args(method, self.w_this, Arguments(self.space, args_w))
+            return self.space.call_obj_args(method, self.w_this, Arguments(self.space, args_w))
         return self.space.call_args(method, Arguments(self.space, args_w))
 
     def getitem_impl(self, name, args_w):
@@ -803,10 +803,10 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
          self.name = name
          self.overloads = {}
          self.master = self
-	 self.w_this = space.w_None
+         self.w_this = space.w_None
 
     def descr_get(self, w_cppinstance, w_cls=None):
-	# TODO: don't return copy, but bind in an external object (like W_CPPOverload)
+        # TODO: don't return copy, but bind in an external object (like W_CPPOverload)
         if self.space.is_w(w_cppinstance, self.space.w_None):
             return self  # unbound, so no new instance needed
         cppol = W_CPPTemplateOverload(self.space, self.name, self.scope, self.functions, self.flags)
@@ -858,10 +858,10 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
          self.name = name
          self.overloads = {}
          self.master = self
-	 self.w_this = space.w_None
+         self.w_this = space.w_None
 
     def descr_get(self, w_cppinstance, w_cls=None):
-	# TODO: don't return copy, but bind in an external object (like W_CPPOverload)
+        # TODO: don't return copy, but bind in an external object (like W_CPPOverload)
         if isinstance(w_cppinstance, W_CPPInstance):
             cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance)
             if cppinstance.clsdecl.handle != self.scope.handle:

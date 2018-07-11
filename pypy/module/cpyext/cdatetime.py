@@ -120,21 +120,10 @@ def init_datetime(space):
                    dealloc=type_dealloc,
                   )
 
-    # why do we need date_dealloc? Since W_DateTime_Date is the base class for
-    # app level datetime.date. If a c-extension class uses datetime.date for its
-    # base class and defines a tp_dealloc, we will get this:
-    # c_class->tp_dealloc == tp_dealloc_func
-    # c_class->tp_base == datetime.date,
-    #                     datetime.date->tp_dealloc = _PyPy_subtype_dealloc
-    # datetime.date->tp_base = W_DateTime_Date
-    #                    W_DateTime_Date->tp_dealloc = _PyPy_subtype_dealloc
-    # but _PyPy_subtype_dealloc will call tp_dealloc_func, which can call its
-    # base's tp_dealloc and we get recursion. So break the recursion by setting
-    # W_DateTime_Date->tp_dealloc
     make_typedescr(W_DateTime_Date.typedef,
                    basestruct=PyDateTime_DateTime.TO,
                    attach=type_attach,
-                   dealloc=date_dealloc,
+                   dealloc=type_dealloc,
                   )
 
     make_typedescr(W_DateTime_Delta.typedef,
@@ -144,30 +133,41 @@ def init_datetime(space):
 
 def type_attach(space, py_obj, w_obj, w_userdata=None):
     '''Fills a newly allocated py_obj from the w_obj
+    If it is a datetime.time or datetime.datetime, it may have tzinfo
     '''
-    if space.type(w_obj).name == 'date':
-        # No tzinfo
-        return
-    py_datetime = rffi.cast(PyDateTime_Time, py_obj)
-    w_tzinfo = space.getattr(w_obj, space.newtext('_tzinfo'))
-    if space.is_none(w_tzinfo):
-        py_datetime.c_hastzinfo = cts.cast('unsigned char', 0)
-        py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
-    else:
-        py_datetime.c_hastzinfo = cts.cast('unsigned char', 1)
-        py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
+    assert len(datetimeAPI_global) > 0
+    if datetimeAPI_global[0].c_TimeType == py_obj.c_ob_type:
+        py_datetime = rffi.cast(PyDateTime_Time, py_obj)
+        w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
+        if space.is_none(w_tzinfo):
+            py_datetime.c_hastzinfo = cts.cast('unsigned char', 0)
+            py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
+        else:
+            py_datetime.c_hastzinfo = cts.cast('unsigned char', 1)
+            py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
+    elif datetimeAPI_global[0].c_DateTimeType == py_obj.c_ob_type:
+        # For now this is exactly the same structure as PyDateTime_Time
+        py_datetime = rffi.cast(PyDateTime_DateTime, py_obj)
+        w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
+        if space.is_none(w_tzinfo):
+            py_datetime.c_hastzinfo = cts.cast('unsigned char', 0)
+            py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
+        else:
+            py_datetime.c_hastzinfo = cts.cast('unsigned char', 1)
+            py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
 
 @slot_function([PyObject], lltype.Void)
 def type_dealloc(space, py_obj):
-    py_datetime = rffi.cast(PyDateTime_Time, py_obj)
-    if (widen(py_datetime.c_hastzinfo) != 0):
-        decref(space, py_datetime.c_tzinfo)
     from pypy.module.cpyext.object import _dealloc
-    _dealloc(space, py_obj)
-
-@slot_function([PyObject], lltype.Void)
-def date_dealloc(space, py_obj):
-    from pypy.module.cpyext.object import _dealloc
+    assert len(datetimeAPI_global) > 0
+    if datetimeAPI_global[0].c_TimeType == py_obj.c_ob_type:
+        py_datetime = rffi.cast(PyDateTime_Time, py_obj)
+        if (widen(py_datetime.c_hastzinfo) != 0):
+            decref(space, py_datetime.c_tzinfo)
+    elif datetimeAPI_global[0].c_DateTimeType == py_obj.c_ob_type:
+        py_datetime = rffi.cast(PyDateTime_DateTime, py_obj)
+        if (widen(py_datetime.c_hastzinfo) != 0):
+            decref(space, py_datetime.c_tzinfo)
     _dealloc(space, py_obj)
 
 def timedeltatype_attach(space, py_obj, w_obj, w_userdata=None):

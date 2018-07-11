@@ -306,11 +306,25 @@ class Parser(object):
             msg = 'parse error\n%s' % (msg,)
         raise CDefError(msg)
 
-    def parse(self, csource, override=False, packed=False, dllexport=False):
+    def parse(self, csource, override=False, packed=False, pack=None,
+                    dllexport=False):
+        if packed:
+            if packed != True:
+                raise ValueError("'packed' should be False or True; use "
+                                 "'pack' to give another value")
+            if pack:
+                raise ValueError("cannot give both 'pack' and 'packed'")
+            pack = 1
+        elif pack:
+            if pack & (pack - 1):
+                raise ValueError("'pack' must be a power of two, not %r" %
+                    (pack,))
+        else:
+            pack = 0
         prev_options = self._options
         try:
             self._options = {'override': override,
-                             'packed': packed,
+                             'packed': pack,
                              'dllexport': dllexport}
             self._internal_parse(csource)
         finally:
