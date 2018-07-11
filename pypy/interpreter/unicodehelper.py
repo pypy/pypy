@@ -29,11 +29,17 @@ def decode_error_handler(space):
                                              space.newtext(msg)]))
     return raise_unicode_exception_decode
 
+def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
+    ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
+    return ''.join(ux), endingpos
+
 @specialize.memo()
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, utf8,
                                        startingpos, endingpos):
+        if isinstance(utf8, unicode):
+            utf8 = utf8.encode('utf8')
         u_len = rutf8.get_utf8_length(utf8)
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
@@ -993,7 +999,7 @@ def decode_utf8sp(space, string):
     # Surrogate-preserving utf-8 decoding.  Assuming there is no
     # encoding error, it should always be reversible, and the reverse is
     # encode_utf8sp().
-    return str_decode_utf8(string, "string", True, decode_error_handler(space),
+    return str_decode_utf8(string, "string", True, decode_never_raise,
                            allow_surrogates=True)
 
 

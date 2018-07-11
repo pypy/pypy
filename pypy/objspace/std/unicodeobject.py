@@ -1187,22 +1187,26 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
 
 
 def encode_object(space, w_object, encoding, errors):
+    utf8 = space.utf8_w(w_object)
+    idx = rutf8.surrogate_in_utf8(utf8)
+    if idx >= 0:
+        eh = unicodehelper.encode_error_handler(space)
+        eh(None, "utf8", "surrogates not allowed", utf8,
+            idx, idx + 1)
     if errors is None or errors == 'strict':
         if encoding is None or encoding == 'utf-8':
-            utf8 = space.utf8_w(w_object)
-            if rutf8.has_surrogates(utf8):
-                utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
+            #if rutf8.has_surrogates(utf8):
+            #    utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
             return space.newbytes(utf8)
         elif encoding == 'ascii':
-            s = space.utf8_w(w_object)
             try:
-                rutf8.check_ascii(s)
+                rutf8.check_ascii(utf8)
             except rutf8.CheckError as a:
                 eh = unicodehelper.encode_error_handler(space)
-                eh(None, "ascii", "ordinal not in range(128)", s,
+                eh(None, "ascii", "ordinal not in range(128)", utf8,
                     a.pos, a.pos + 1)
                 assert False, "always raises"
-            return space.newbytes(s)
+            return space.newbytes(utf8)
 
     from pypy.module._codecs.interp_codecs import encode_text
     if encoding is None:
