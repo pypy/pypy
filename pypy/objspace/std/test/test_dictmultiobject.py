@@ -1290,7 +1290,7 @@ class FakeSpace:
 
     def text_w(self, u):
         assert isinstance(u, unicode)
-        return FakeUnicode(u)
+        return FakeUnicode(u).encode('utf8')
 
     def bytes_w(self, string):
         assert isinstance(string, str)
