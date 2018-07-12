@@ -384,10 +384,10 @@ class StdObjSpace(ObjSpace):
         if isinstance(s, unicode):
             s, lgt = s.encode('utf8'), len(s)
         elif isinstance(s, str):
-            s, uf8lgt, lgt = decode_utf8sp(self, s)
+            s, lgt = decode_utf8sp(self, s)
         elif isinstance(s, tuple):
             # result of decode_utf8
-            s, utf8lgt, lgt = s
+            s, lgt = s
         else:
             # XXX what is s ?
             lgt = rutf8.check_utf8(s, True)
