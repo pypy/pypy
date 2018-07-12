@@ -687,8 +687,8 @@ class W_CPPAbstractConstructorOverload(W_CPPOverload):
 
 W_CPPAbstractConstructorOverload.typedef = TypeDef(
     'CPPAbstractConstructorOverload',
-    __get__    = interp2app(W_CPPConstructorOverload.descr_get),
-    __call__   = interp2app(W_CPPConstructorOverload.call_args),
+    __get__    = interp2app(W_CPPAbstractConstructorOverload.descr_get),
+    __call__   = interp2app(W_CPPAbstractConstructorOverload.call_args),
 )
 
 
