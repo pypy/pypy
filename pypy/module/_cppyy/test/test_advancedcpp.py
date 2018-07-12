@@ -148,6 +148,8 @@ class AppTestADVANCEDCPP:
         assert gbl.a_ns.d_ns.e_class.f_class.s_f      == 66
         assert gbl.a_ns.d_ns.e_class.f_class().m_f    == -6
 
+        raises(TypeError, gbl.a_ns)
+
     def test03a_namespace_lookup_on_update(self):
         """Test whether namespaces can be shared across dictionaries."""
 

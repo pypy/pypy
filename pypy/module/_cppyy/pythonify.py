@@ -73,7 +73,8 @@ def with_metaclass(meta, *bases):
 
 # C++ namespace base class (the C++ class base class defined in _post_import_startup)
 class CPPNamespace(with_metaclass(CPPNamespaceMeta, object)):
-     pass
+    def __init__(self):
+        raise TypeError("cannot instantiate namespace '%s'", self.__cppname__)
 
 
 # TODO: this can be moved to the interp level (and share template argument
