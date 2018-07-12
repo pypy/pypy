@@ -657,11 +657,6 @@ class W_CPPConstructorOverload(W_CPPOverload):
     @unwrap_spec(args_w='args_w')
     def call_args(self, args_w):
         jit.promote(self)
-        # TODO: factor out the following:
-        if capi.c_is_abstract(self.space, self.scope.handle):
-            raise oefmt(self.space.w_TypeError,
-                        "cannot instantiate abstract class '%s'",
-                        self.scope.name)
         cppinstance = self.space.interp_w(W_CPPInstance, args_w[0])
         w_result = self.call_impl(rffi.cast(capi.C_OBJECT, self.scope.handle), args_w[1:])
         newthis = rffi.cast(capi.C_OBJECT, self.space.uint_w(w_result))
@@ -677,6 +672,23 @@ W_CPPConstructorOverload.typedef = TypeDef(
     __get__    = interp2app(W_CPPConstructorOverload.descr_get),
     __call__   = interp2app(W_CPPConstructorOverload.call_args),
     __doc__    = GetSetProperty(W_CPPConstructorOverload.fget_doc)
+)
+
+class W_CPPAbstractConstructorOverload(W_CPPOverload):
+    _attrs_ = []
+
+    @unwrap_spec(args_w='args_w')
+    def call_args(self, args_w):
+        raise oefmt(self.space.w_TypeError,
+            "cannot instantiate abstract class '%s'", self.scope.name)
+
+    def __repr__(self):
+        return "W_CPPAbstractConstructorOverload"
+
+W_CPPAbstractConstructorOverload.typedef = TypeDef(
+    'CPPAbstractConstructorOverload',
+    __get__    = interp2app(W_CPPConstructorOverload.descr_get),
+    __call__   = interp2app(W_CPPConstructorOverload.call_args),
 )
 
 
@@ -1210,7 +1222,10 @@ class W_CPPClassDecl(W_CPPScopeDecl):
             ftype = ftype_tmp[pyname]
             CPPMethodSort(methods).sort()
             if ftype & FUNCTION_IS_CONSTRUCTOR:
-                overload = W_CPPConstructorOverload(self.space, self, methods[:])
+                if capi.c_is_abstract(self.space, self.handle):
+                    overload = W_CPPAbstractConstructorOverload(self.space, self, methods[:])
+                else:
+                    overload = W_CPPConstructorOverload(self.space, self, methods[:])
             elif ftype & FUNCTION_IS_STATIC:
                 if ftype & FUNCTION_IS_TEMPLATE:
                     cppname = capi.c_method_name(self.space, methods[0].cppmethod)
