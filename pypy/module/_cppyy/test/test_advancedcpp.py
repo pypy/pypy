@@ -489,6 +489,23 @@ class AppTestADVANCEDCPP:
         d2.__destruct__()
         d1.__destruct__()
 
+        RTS = cppyy.gbl.refers_to_self
+
+        r1 = RTS()
+        r2 = RTS()
+        r1.m_other = r2
+
+        r3 = r1.m_other
+        r4 = r1.m_other
+        assert r3 is r4
+
+        assert r3 == r2
+        assert r3 is r2
+
+        r3.extra = 42
+        assert r2.extra == 42
+        assert r4.extra == 42
+
     def test11_multi_methods(self):
         """Test calling of methods from multiple inheritance"""
 

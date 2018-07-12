@@ -566,10 +566,6 @@ class InstancePtrConverter(InstanceRefConverter):
         from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False)
 
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
-        address[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_value))
-
 class InstancePtrPtrConverter(InstancePtrConverter):
     typecode = 'o'
 
@@ -596,6 +592,25 @@ class InstancePtrPtrConverter(InstancePtrConverter):
         from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppinstance(
             space, address, self.clsdecl, do_cast=False, is_ref=True)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        # the actual data member is of object* type, but we receive a pointer to that
+        # data member in order to modify its value, so by convention, the internal type
+        # used is object**
+        address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance
+        cppinstance = space.interp_w(W_CPPInstance, w_value, can_be_None=True)
+        if cppinstance:
+            rawobject = cppinstance.get_rawobject()
+            offset = capi.c_base_offset(space, cppinstance.clsdecl, self.clsdecl, rawobject, 1)
+            obj_address = capi.direct_ptradd(rawobject, offset)
+            address[0] = rffi.cast(rffi.VOIDP, obj_address);
+            # register the value for potential recycling
+            from pypy.module._cppyy.interp_cppyy import memory_regulator
+            memory_regulator.register(cppinstance)
+        else:
+            raise oefmt(space.w_TypeError,
+                "cannot pass %T instance as %s", w_value, self.clsdecl.name)
 
     def finalize_call(self, space, w_obj):
         if self.ref_buffer:

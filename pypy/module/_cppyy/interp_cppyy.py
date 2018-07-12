@@ -167,6 +167,7 @@ W_CPPLibrary.typedef.acceptable_as_base_class = True
 #
 #  W_CPPOverload:                 instance methods (base class)
 #  W_CPPConstructorOverload:      constructors
+#  W_CPPAbstractCtorOverload:     to provent instantiation of abstract classes
 #  W_CPPStaticOverload:           free and static functions
 #  W_CPPTemplateOverload:         templated methods
 #  W_CPPTemplateStaticOverload:   templated free and static functions
@@ -674,7 +675,7 @@ W_CPPConstructorOverload.typedef = TypeDef(
     __doc__    = GetSetProperty(W_CPPConstructorOverload.fget_doc)
 )
 
-class W_CPPAbstractConstructorOverload(W_CPPOverload):
+class W_CPPAbstractCtorOverload(W_CPPOverload):
     _attrs_ = []
 
     @unwrap_spec(args_w='args_w')
@@ -683,12 +684,12 @@ class W_CPPAbstractConstructorOverload(W_CPPOverload):
             "cannot instantiate abstract class '%s'", self.scope.name)
 
     def __repr__(self):
-        return "W_CPPAbstractConstructorOverload"
+        return "W_CPPAbstractCtorOverload"
 
-W_CPPAbstractConstructorOverload.typedef = TypeDef(
-    'CPPAbstractConstructorOverload',
-    __get__    = interp2app(W_CPPAbstractConstructorOverload.descr_get),
-    __call__   = interp2app(W_CPPAbstractConstructorOverload.call_args),
+W_CPPAbstractCtorOverload.typedef = TypeDef(
+    'CPPAbstractCtorOverload',
+    __get__    = interp2app(W_CPPAbstractCtorOverload.descr_get),
+    __call__   = interp2app(W_CPPAbstractCtorOverload.call_args),
 )
 
 
@@ -1086,7 +1087,7 @@ class W_CPPScopeDecl(W_Root):
         sig = '(%s)' % signature
         for f in overload.functions:
             if f.signature(False) == sig:
-                return W_CPPOverload(self.space, self, [f])
+                return type(overload)(self.space, self, [f])
         raise oefmt(self.space.w_LookupError, "no overload matches signature")
 
     def __eq__(self, other):
@@ -1181,8 +1182,12 @@ W_CPPNamespaceDecl.typedef.acceptable_as_base_class = False
 
 
 class W_CPPClassDecl(W_CPPScopeDecl):
-    _attrs_ = ['space', 'handle', 'name', 'overloads', 'datamembers']
+    _attrs_ = ['space', 'handle', 'name', 'overloads', 'datamembers', 'cppobjects']
     _immutable_fields_ = ['handle', 'name', 'overloads[*]', 'datamembers[*]']
+
+    def __init__(self, space, opaque_handle, final_scoped_name):
+        W_CPPScopeDecl.__init__(self, space, opaque_handle, final_scoped_name)
+        self.cppobjects = rweakref.RWeakValueDictionary(int, W_CPPInstance)
 
     def _build_overloads(self):
         assert len(self.overloads) == 0
@@ -1223,7 +1228,7 @@ class W_CPPClassDecl(W_CPPScopeDecl):
             CPPMethodSort(methods).sort()
             if ftype & FUNCTION_IS_CONSTRUCTOR:
                 if capi.c_is_abstract(self.space, self.handle):
-                    overload = W_CPPAbstractConstructorOverload(self.space, self, methods[:])
+                    overload = W_CPPAbstractCtorOverload(self.space, self, methods[:])
                 else:
                     overload = W_CPPConstructorOverload(self.space, self, methods[:])
             elif ftype & FUNCTION_IS_STATIC:
@@ -1543,31 +1548,33 @@ W_CPPInstance.typedef.acceptable_as_base_class = True
 
 
 class MemoryRegulator:
-    # TODO: (?) An object address is not unique if e.g. the class has a
-    # public data member of class type at the start of its definition and
-    # has no virtual functions. A _key class that hashes on address and
-    # type would be better, but my attempt failed in the rtyper, claiming
-    # a call on None ("None()") and needed a default ctor. (??)
-    # Note that for now, the associated test carries an m_padding to make
-    # a difference in the addresses.
-    def __init__(self):
-        self.objects = rweakref.RWeakValueDictionary(int, W_CPPInstance)
+    _immutable_ = True
 
-    def register(self, obj):
+    @staticmethod
+    def register(obj):
         if not obj._rawobject:
             return
-        int_address = int(rffi.cast(rffi.LONG, obj._rawobject))
-        self.objects.set(int_address, obj)
+        addr_as_int = int(rffi.cast(rffi.LONG, obj.get_rawobject()))
+        clsdecl = obj.clsdecl
+        assert isinstance(clsdecl, W_CPPClassDecl)
+        clsdecl.cppobjects.set(addr_as_int, obj)
 
-    def unregister(self, obj):
+    @staticmethod
+    def unregister(obj):
         if not obj._rawobject:
             return
-        int_address = int(rffi.cast(rffi.LONG, obj._rawobject))
-        self.objects.set(int_address, None)
+        addr_as_int = int(rffi.cast(rffi.LONG, obj.get_rawobject()))
+        clsdecl = obj.clsdecl
+        assert isinstance(clsdecl, W_CPPClassDecl)
+        clsdecl.cppobjects.set(addr_as_int, None) # actually deletes (pops)
 
-    def retrieve(self, address):
-        int_address = int(rffi.cast(rffi.LONG, address))
-        return self.objects.get(int_address)
+    @staticmethod
+    def retrieve(clsdecl, address):
+        if not address:
+            return None
+        addr_as_int = int(rffi.cast(rffi.LONG, address))
+        assert isinstance(clsdecl, W_CPPClassDecl)
+        return clsdecl.cppobjects.get(addr_as_int)
 
 memory_regulator = MemoryRegulator()
 
@@ -1613,8 +1620,11 @@ def wrap_cppinstance(space, rawobject, clsdecl,
 
     # try to recycle existing object if this one is not newly created
     if not fresh and rawobject:
-        obj = memory_regulator.retrieve(rawobject)
-        if obj is not None and obj.clsdecl is clsdecl:
+        address = rawobject
+        if is_ref:
+            address = rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, address)[0])
+        obj = memory_regulator.retrieve(clsdecl, address)
+        if obj is not None:
             return obj
 
     # fresh creation
