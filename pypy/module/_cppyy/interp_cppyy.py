@@ -41,6 +41,7 @@ priority = { 'void*'         : 100,
              'void**'        : 100,
              'float'         :  30,
              'double'        :  10,
+             'bool'          :   1,
              'const string&' :   1, } # solves a specific string ctor overload
 
 from rpython.rlib.listsort import make_timsort_class
@@ -414,8 +415,10 @@ class CPPMethod(object):
 
     def priority(self):
         total_arg_priority = 0
-        for p in [priority.get(arg_type, 0) for arg_type, arg_dflt in self.arg_defs]:
-            total_arg_priority += p
+        for arg_type, arg_dflt in self.arg_defs:
+            total_arg_priority += priority.get(arg_type, 0)
+            if '&&' in arg_type:
+                total_arg_priority += 100
         return total_arg_priority
 
     @rgc.must_be_light_finalizer
@@ -435,7 +438,7 @@ class CPPMethod(object):
 
 class CPPSetItem(CPPMethod):
     """Method dispatcher specific to Python's __setitem__ mapped onto C++'s
-    operator[](int). The former function takes an extra argument to assign to
+    operator[](T). The former function takes an extra argument to assign to
     the return type of the latter."""
 
     _attrs_ = []
@@ -586,6 +589,14 @@ class W_CPPOverload(W_Root):
             sig += '\n'+self.functions[i].prototype()
         return self.space.newtext(sig)
 
+    @unwrap_spec(signature='text')
+    def mp_overload(self, signature):
+        sig = '(%s)' % signature
+        for f in self.functions:
+            if f.signature(False) == sig:
+                return type(self)(self.space, self.scope, [f])
+        raise oefmt(self.space.w_LookupError, "signature \"%s\" not found" % signature)
+
     # allow user to determine ffi use rules per overload
     def fget_useffi(self, space):
         return space.newbool(bool(self.flags & OVERLOAD_FLAGS_USE_FFI))
@@ -609,10 +620,11 @@ class W_CPPOverload(W_Root):
 
 W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
-    __get__    = interp2app(W_CPPOverload.descr_get),
-    __call__   = interp2app(W_CPPOverload.call_args),
-    __useffi__ = GetSetProperty(W_CPPOverload.fget_useffi, W_CPPOverload.fset_useffi),
-    __doc__    = GetSetProperty(W_CPPOverload.fget_doc)
+    __get__      = interp2app(W_CPPOverload.descr_get),
+    __call__     = interp2app(W_CPPOverload.call_args),
+    __useffi__   = GetSetProperty(W_CPPOverload.fget_useffi, W_CPPOverload.fset_useffi),
+    __overload__ = interp2app(W_CPPOverload.mp_overload),
+    __doc__      = GetSetProperty(W_CPPOverload.fget_doc)
 )
 
 
@@ -641,10 +653,11 @@ class W_CPPStaticOverload(W_CPPOverload):
 
 W_CPPStaticOverload.typedef = TypeDef(
     'CPPStaticOverload',
-    __get__    = interp2app(W_CPPStaticOverload.descr_get),
-    __call__   = interp2app(W_CPPStaticOverload.call_args),
-    __useffi__ = GetSetProperty(W_CPPStaticOverload.fget_useffi, W_CPPStaticOverload.fset_useffi),
-    __doc__    = GetSetProperty(W_CPPStaticOverload.fget_doc)
+    __get__      = interp2app(W_CPPStaticOverload.descr_get),
+    __call__     = interp2app(W_CPPStaticOverload.call_args),
+    __useffi__   = GetSetProperty(W_CPPStaticOverload.fget_useffi, W_CPPStaticOverload.fset_useffi),
+    __overload__ = interp2app(W_CPPStaticOverload.mp_overload),
+    __doc__      = GetSetProperty(W_CPPStaticOverload.fget_doc)
 )
 
 
@@ -670,9 +683,10 @@ class W_CPPConstructorOverload(W_CPPOverload):
 
 W_CPPConstructorOverload.typedef = TypeDef(
     'CPPConstructorOverload',
-    __get__    = interp2app(W_CPPConstructorOverload.descr_get),
-    __call__   = interp2app(W_CPPConstructorOverload.call_args),
-    __doc__    = GetSetProperty(W_CPPConstructorOverload.fget_doc)
+    __get__      = interp2app(W_CPPConstructorOverload.descr_get),
+    __call__     = interp2app(W_CPPConstructorOverload.call_args),
+    __overload__ = interp2app(W_CPPConstructorOverload.mp_overload),
+    __doc__      = GetSetProperty(W_CPPConstructorOverload.fget_doc)
 )
 
 class W_CPPAbstractCtorOverload(W_CPPOverload):
@@ -852,11 +866,12 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
 
 W_CPPTemplateOverload.typedef = TypeDef(
     'CPPTemplateOverload',
-    __get__     = interp2app(W_CPPTemplateOverload.descr_get),
-    __getitem__ = interp2app(W_CPPTemplateOverload.getitem),
-    __call__    = interp2app(W_CPPTemplateOverload.call_args),
-    __useffi__  = GetSetProperty(W_CPPTemplateOverload.fget_useffi, W_CPPTemplateOverload.fset_useffi),
-    __doc__     = GetSetProperty(W_CPPTemplateOverload.fget_doc)
+    __get__      = interp2app(W_CPPTemplateOverload.descr_get),
+    __getitem__  = interp2app(W_CPPTemplateOverload.getitem),
+    __call__     = interp2app(W_CPPTemplateOverload.call_args),
+    __useffi__   = GetSetProperty(W_CPPTemplateOverload.fget_useffi, W_CPPTemplateOverload.fset_useffi),
+    __overload__ = interp2app(W_CPPTemplateOverload.mp_overload),
+    __doc__      = GetSetProperty(W_CPPTemplateOverload.fget_doc)
 )
 
 class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
@@ -910,11 +925,12 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
 
 W_CPPTemplateStaticOverload.typedef = TypeDef(
     'CPPTemplateStaticOverload',
-    __get__     = interp2app(W_CPPTemplateStaticOverload.descr_get),
-    __getitem__ = interp2app(W_CPPTemplateStaticOverload.getitem),
-    __call__    = interp2app(W_CPPTemplateStaticOverload.call_args),
-    __useffi__  = GetSetProperty(W_CPPTemplateStaticOverload.fget_useffi, W_CPPTemplateStaticOverload.fset_useffi),
-    __doc__     = GetSetProperty(W_CPPTemplateStaticOverload.fget_doc)
+    __get__      = interp2app(W_CPPTemplateStaticOverload.descr_get),
+    __getitem__  = interp2app(W_CPPTemplateStaticOverload.getitem),
+    __call__     = interp2app(W_CPPTemplateStaticOverload.call_args),
+    __useffi__   = GetSetProperty(W_CPPTemplateStaticOverload.fget_useffi, W_CPPTemplateStaticOverload.fset_useffi),
+    __overload__ = interp2app(W_CPPTemplateStaticOverload.mp_overload),
+    __doc__      = GetSetProperty(W_CPPTemplateStaticOverload.fget_doc)
 )
 
 
