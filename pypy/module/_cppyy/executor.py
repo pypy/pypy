@@ -1,14 +1,10 @@
 import sys
 
 from pypy.interpreter.error import oefmt
-
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import jit_libffi
-
 from pypy.module._rawffi.interp_rawffi import letter2tp
-from pypy.module._rawffi.array import W_Array, W_ArrayInstance
-
-from pypy.module._cppyy import helper, capi, ffitypes
+from pypy.module._cppyy import helper, capi, ffitypes, lowlevelviews
 
 # Executor objects are used to dispatch C++ methods. They are defined by their
 # return type only: arguments are converted by Converter objects, and Executors
@@ -60,7 +56,7 @@ class PtrTypeExecutor(Executor):
             from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
         shape = letter2tp(space, self.typecode)
-        return W_ArrayInstance(space, shape, sys.maxint/shape.size, ptrval)
+        return lowlevelviews.W_LowLevelView(space, shape, sys.maxint/shape.size, ptrval)
 
 
 class VoidExecutor(Executor):

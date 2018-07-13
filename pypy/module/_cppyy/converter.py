@@ -1,15 +1,12 @@
 import sys
 
 from pypy.interpreter.error import OperationError, oefmt
-
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib import rfloat, rawrefcount
-
 from pypy.module._rawffi.interp_rawffi import letter2tp
 from pypy.module._rawffi.array import W_ArrayInstance
-
-from pypy.module._cppyy import helper, capi, ffitypes
+from pypy.module._cppyy import helper, capi, ffitypes, lowlevelviews
 
 # Converter objects are used to translate between RPython and C++. They are
 # defined by the type name for which they provide conversion. Uses are for
@@ -149,7 +146,8 @@ class ArrayTypeConverterMixin(object):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONG, address_value)
-        return W_ArrayInstance(space, letter2tp(space, self.typecode), self.size, address)
+        return lowlevelviews.W_LowLevelView(
+            space, letter2tp(space, self.typecode), self.size, address)
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
@@ -190,7 +188,8 @@ class PtrTypeConverterMixin(object):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONGP, address_value)
-        return W_ArrayInstance(space, letter2tp(space, self.typecode), self.size, address[0])
+        return lowlevelviews.W_LowLevelView(
+            space, letter2tp(space, self.typecode), self.size, address[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy only the pointer value
@@ -438,7 +437,7 @@ class VoidPtrConverter(TypeConverter):
             from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
         shape = letter2tp(space, 'P')
-        return W_ArrayInstance(space, shape, sys.maxint/shape.size, ptrval)
+        return lowlevelviews.W_LowLevelView(space, shape, sys.maxint/shape.size, ptrval)
 
     def to_memory(self, space, w_obj, w_value, offset):
         address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
