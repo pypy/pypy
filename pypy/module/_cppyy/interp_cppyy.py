@@ -958,6 +958,7 @@ class W_CPPDataMember(W_Root):
 
     def _get_offset(self, cppinstance):
         if cppinstance:
+            assert isinstance(cppinstance.clsdecl, W_CPPClassDecl)
             assert lltype.typeOf(cppinstance.clsdecl.handle) == lltype.typeOf(self.scope.handle)
             offset = self.offset + cppinstance.clsdecl.get_base_offset(cppinstance, self.scope)
         else:
@@ -1314,10 +1315,12 @@ class W_CPPClassDecl(W_CPPScopeDecl):
         raise self.missing_attribute_error(name)
 
     def get_base_offset(self, cppinstance, calling_scope):
+        assert isinstance(cppinstance.clsdecl, W_CPPClassDecl)
         assert self == cppinstance.clsdecl
         return 0
 
     def get_cppthis(self, cppinstance, calling_scope):
+        assert isinstance(cppinstance.clsdecl, W_CPPClassDecl)
         assert self == cppinstance.clsdecl
         return cppinstance.get_rawobject()
 
@@ -1353,12 +1356,14 @@ W_CPPClassDecl.typedef.acceptable_as_base_class = False
 
 class W_CPPComplexClassDecl(W_CPPClassDecl):
     def get_base_offset(self, cppinstance, calling_scope):
+        assert isinstance(cppinstance.clsdecl, W_CPPComplexClassDecl)
         assert self == cppinstance.clsdecl
         offset = capi.c_base_offset(self.space,
             self, calling_scope, cppinstance.get_rawobject(), 1)
         return offset
 
     def get_cppthis(self, cppinstance, calling_scope):
+        assert isinstance(cppinstance.clsdecl, W_CPPComplexClassDecl)
         assert self == cppinstance.clsdecl
         offset = self.get_base_offset(cppinstance, calling_scope)
         return capi.direct_ptradd(cppinstance.get_rawobject(), offset)
@@ -1388,6 +1393,7 @@ class W_CPPInstance(W_Root):
                  smartdecl=None, deref=rffi.cast(capi.C_METHOD, 0)):
         self.space = space
         self.clsdecl = decl
+        assert isinstance(self.clsdecl, W_CPPClassDecl)
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
         assert not isref or rawobject
         self._rawobject = rawobject
@@ -1427,6 +1433,7 @@ class W_CPPInstance(W_Root):
             self.rt_flags &= ~INSTANCE_FLAGS_PYTHON_OWNS
 
     def get_cppthis(self, calling_scope):
+        assert isinstance(self.clsdecl, W_CPPClassDecl)
         return self.clsdecl.get_cppthis(self, calling_scope)
 
     def get_rawobject(self):
@@ -1533,6 +1540,7 @@ class W_CPPInstance(W_Root):
 
     def destruct(self):
         if self._rawobject:
+            assert isinstance(self.clsdecl, W_CPPClassDecl)
             if self.smartdecl and self.deref:
                 klass = self.smartdecl
             elif not (self.flags & INSTANCE_FLAGS_IS_REF):
