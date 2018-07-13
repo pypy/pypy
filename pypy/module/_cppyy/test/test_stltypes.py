@@ -42,8 +42,8 @@ class AppTestSTLVECTOR:
             assert tv1.iterator is cppyy.gbl.std.vector(p_type).iterator
 
             #----- 
-            v = tv1(); v += range(self.N)    # default args from Reflex are useless :/
-            if p_type == int:                # only type with == and != reflected in .xml
+            v = tv1(); v += range(self.N)
+            if p_type == int:
                 assert v.begin().__eq__(v.begin())
                 assert v.begin() == v.begin()
                 assert v.end() == v.end()
@@ -58,6 +58,7 @@ class AppTestSTLVECTOR:
 
             assert v.size() == self.N
             assert len(v) == self.N
+            assert len(v.data()) == self.N
 
             #-----
             v = tv1()
@@ -502,3 +503,54 @@ class AppTestTEMPLATE_UI:
         assert len(v) == N
         for i in range(N):
             assert v[i] == i
+
+
+class AppTestSTLARRAY:
+    spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
+
+    def setup_class(cls):
+        cls.w_test_dct  = cls.space.newtext(test_dct)
+        cls.w_stlarray = cls.space.appexec([], """():
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
+            return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
+
+    def test01_array_of_basic_types(self):
+        """Usage of std::array of basic types"""
+
+        import _cppyy as cppyy
+        std = cppyy.gbl.std
+
+        a = std.array[int, 4]()
+        assert len(a) == 4
+        for i in range(len(a)):
+            a[i] = i
+            assert a[i] == i
+
+    def test02_array_of_pods(self):
+        """Usage of std::array of PODs"""
+
+        import _cppyy as cppyy
+        gbl, std = cppyy.gbl, cppyy.gbl.std
+
+        a = std.array[gbl.ArrayTest.Point, 4]()
+        assert len(a) == 4
+        for i in range(len(a)):
+            a[i].px = i
+            assert a[i].px == i
+            a[i].py = i**2
+            assert a[i].py == i**2
+
+    def test03_array_of_pointer_to_pods(self):
+        """Usage of std::array of pointer to PODs"""
+
+        import cppyy
+        from cppyy import gbl
+        from cppyy.gbl import std
+
+        ll = [gbl.ArrayTest.Point() for i in range(4)]
+        for i in range(len(ll)):
+            ll[i].px = 13*i
+            ll[i].py = 42*i
+
+        # more tests in cppyy/test/test_stltypes.py, but currently not supported
