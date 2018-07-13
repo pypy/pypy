@@ -1,14 +1,10 @@
 import sys
 
 from pypy.interpreter.error import oefmt
-
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import jit_libffi
-
 from pypy.module._rawffi.interp_rawffi import letter2tp
-from pypy.module._rawffi.array import W_Array, W_ArrayInstance
-
-from pypy.module._cppyy import helper, capi, ffitypes
+from pypy.module._cppyy import helper, capi, ffitypes, lowlevelviews
 
 # Executor objects are used to dispatch C++ methods. They are defined by their
 # return type only: arguments are converted by Converter objects, and Executors
@@ -60,7 +56,7 @@ class PtrTypeExecutor(Executor):
             from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
         shape = letter2tp(space, self.typecode)
-        return W_ArrayInstance(space, shape, sys.maxint/shape.size, ptrval)
+        return lowlevelviews.W_LowLevelView(space, shape, sys.maxint/shape.size, ptrval)
 
 
 class VoidExecutor(Executor):
@@ -98,10 +94,10 @@ class NumericRefExecutorMixin(object):
     def __init__(self, space, extra):
         Executor.__init__(self, space, extra)
         self.do_assign = False
-        self.item = rffi.cast(self.c_type, 0)
+        self.w_item = space.w_None
 
     def set_item(self, space, w_item):
-        self.item = self._unwrap_object(space, w_item)
+        self.w_item = w_item
         self.do_assign = True
 
     #def _wrap_object(self, space, obj):
@@ -109,7 +105,7 @@ class NumericRefExecutorMixin(object):
 
     def _wrap_reference(self, space, rffiptr):
         if self.do_assign:
-            rffiptr[0] = self.item
+            rffiptr[0] = rffi.cast(self.c_type, self._unwrap_object(space, self.w_item))
         self.do_assign = False
         return self._wrap_object(space, rffiptr[0])    # all paths, for rtyper
 
