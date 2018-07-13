@@ -109,7 +109,7 @@ class NumericRefExecutorMixin(object):
 
     def _wrap_reference(self, space, rffiptr):
         if self.do_assign:
-            rffiptr[0] = self._unwrap_object(space, self.w_item)
+            rffiptr[0] = rffi.cast(self.c_type, self._unwrap_object(space, self.w_item))
         self.do_assign = False
         return self._wrap_object(space, rffiptr[0])    # all paths, for rtyper
 

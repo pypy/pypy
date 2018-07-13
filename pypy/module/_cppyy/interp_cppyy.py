@@ -594,8 +594,10 @@ class W_CPPOverload(W_Root):
         sig = '(%s)' % signature
         for f in self.functions:
             if f.signature(False) == sig:
-                return type(self)(self.space, self.scope, [f])
-        raise oefmt(self.space.w_LookupError, "signature \"%s\" not found" % signature)
+                if isinstance(self, W_CPPStaticOverload):
+                    return W_CPPStaticOverload(self.space, self.scope, [f])
+                return W_CPPOverload(self.space, self.scope, [f])
+        raise oefmt(self.space.w_LookupError, "signature '%s' not found", signature)
 
     # allow user to determine ffi use rules per overload
     def fget_useffi(self, space):
@@ -870,7 +872,6 @@ W_CPPTemplateOverload.typedef = TypeDef(
     __getitem__  = interp2app(W_CPPTemplateOverload.getitem),
     __call__     = interp2app(W_CPPTemplateOverload.call_args),
     __useffi__   = GetSetProperty(W_CPPTemplateOverload.fget_useffi, W_CPPTemplateOverload.fset_useffi),
-    __overload__ = interp2app(W_CPPTemplateOverload.mp_overload),
     __doc__      = GetSetProperty(W_CPPTemplateOverload.fget_doc)
 )
 
@@ -929,7 +930,6 @@ W_CPPTemplateStaticOverload.typedef = TypeDef(
     __getitem__  = interp2app(W_CPPTemplateStaticOverload.getitem),
     __call__     = interp2app(W_CPPTemplateStaticOverload.call_args),
     __useffi__   = GetSetProperty(W_CPPTemplateStaticOverload.fget_useffi, W_CPPTemplateStaticOverload.fset_useffi),
-    __overload__ = interp2app(W_CPPTemplateStaticOverload.mp_overload),
     __doc__      = GetSetProperty(W_CPPTemplateStaticOverload.fget_doc)
 )
 
@@ -1103,7 +1103,9 @@ class W_CPPScopeDecl(W_Root):
         sig = '(%s)' % signature
         for f in overload.functions:
             if f.signature(False) == sig:
-                return type(overload)(self.space, self, [f])
+                if isinstance(overload, W_CPPStaticOverload):
+                    return W_CPPStaticOverload(self.space, self, [f])
+                return W_CPPOverload(self.space, self, [f])
         raise oefmt(self.space.w_LookupError, "no overload matches signature")
 
     def __eq__(self, other):
