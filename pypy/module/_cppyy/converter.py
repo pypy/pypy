@@ -622,7 +622,6 @@ class InstancePtrPtrConverter(InstancePtrConverter):
             self.ref_buffer = lltype.nullptr(rffi.VOIDPP.TO)
 
 class StdStringConverter(InstanceConverter):
-
     def __init__(self, space, extra):
         from pypy.module._cppyy import interp_cppyy
         cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
@@ -647,6 +646,34 @@ class StdStringConverter(InstanceConverter):
 
     def free_argument(self, space, arg):
         capi.c_destruct(space, self.clsdecl, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
+
+class StdStringMoveConverter(StdStringConverter):
+    def _unwrap_object(self, space, w_obj):
+        # moving is same as by-ref, but have to check that move is allowed
+        moveit_reason = 3
+        from pypy.module._cppyy.interp_cppyy import W_CPPInstance, INSTANCE_FLAGS_IS_RVALUE
+        try:
+            obj = space.interp_w(W_CPPInstance, w_obj)
+            if obj and obj.rt_flags & INSTANCE_FLAGS_IS_RVALUE:
+                obj.rt_flags &= ~INSTANCE_FLAGS_IS_RVALUE
+                moveit_reason = 1
+            else:
+                moveit_reason = 0
+        except:
+            pass
+
+        if moveit_reason:
+            try:
+                return StdStringConverter._unwrap_object(self, space, w_obj)
+            except Exception:
+                 if moveit_reason == 1:
+                    # TODO: if the method fails on some other converter, then the next
+                    # overload can not be an rvalue anymore
+                    obj = space.interp_w(W_CPPInstance, w_obj)
+                    obj.rt_flags |= INSTANCE_FLAGS_IS_RVALUE
+                    raise
+
+        raise oefmt(space.w_ValueError, "object is not an rvalue")
 
 class StdStringRefConverter(InstancePtrConverter):
     _immutable_fields_ = ['cppclass', 'typecode']
@@ -900,6 +927,7 @@ _converters["void*&"]                   = VoidPtrRefConverter
 _converters["std::basic_string<char>"]           = StdStringConverter
 _converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO: shouldn't copy
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
+_converters["std::basic_string<char>&&"]         = StdStringMoveConverter
 
 _converters["PyObject*"]                         = PyObjectConverter
 
@@ -1017,6 +1045,7 @@ def _add_aliased_converters():
         ("std::basic_string<char>",         "string"),
         ("const std::basic_string<char>&",  "const string&"),
         ("std::basic_string<char>&",        "string&"),
+        ("std::basic_string<char>&&",       "string&&"),
 
         ("PyObject*",                       "_object*"),
     )
