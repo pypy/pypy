@@ -307,18 +307,20 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         from datetime import tzinfo, datetime, timedelta, time
         # copied from datetime documentation
         class GMT1(tzinfo):
-           def utcoffset(self, dt):
-               return timedelta(hours=1) + self.dst(dt)
-           def dst(self, dt):
-               return timedelta(0)
-           def tzname(self,dt):
+            def __del__(self):
+                print 'deleting GMT1'
+            def utcoffset(self, dt):
+                return timedelta(hours=1) + self.dst(dt)
+            def dst(self, dt):
+                return timedelta(0)
+            def tzname(self,dt):
                 return "GMT +1"
         gmt1 = GMT1()
         dt1 = module.time_with_tzinfo(gmt1)
         assert dt1 == time(6, 6, 6, 6, gmt1)
         assert '+01' in str(dt1)
-        assert module.datetime_with_tzinfo(gmt1) == datetime(
-            2000, 6, 6, 6, 6, 6, 6, gmt1)
+        dt_tz = module.datetime_with_tzinfo(gmt1)
+        assert dt_tz == datetime(2000, 6, 6, 6, 6, 6, 6, gmt1)
 
     def test_checks(self):
         module = self.import_extension('foo', [

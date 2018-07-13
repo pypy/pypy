@@ -48,6 +48,7 @@ class IntOpModule(MixedModule):
         'int_lshift':      'interp_intop.int_lshift',
         'int_rshift':      'interp_intop.int_rshift',
         'uint_rshift':     'interp_intop.uint_rshift',
+        'int_mulmod':      'interp_intop.int_mulmod',
     }
 
 
