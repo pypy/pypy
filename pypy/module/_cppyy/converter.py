@@ -400,10 +400,12 @@ class CStringConverterWithSize(CStringConverter):
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = self._get_raw_address(space, w_obj, offset)
         charpptr = rffi.cast(rffi.CCHARP, address)
-        strsize = self.size
-        if charpptr[self.size-1] == '\0':
-            strsize = self.size-1  # rffi will add \0 back
-        return space.newtext(rffi.charpsize2str(charpptr, strsize))
+        if 0 <= self.size and self.size != 2**31-1:   # cling's code for "unknown" (?)
+            strsize = self.size
+            if charpptr[self.size-1] == '\0':
+                strsize = self.size-1  # rffi will add \0 back
+            return space.newtext(rffi.charpsize2str(charpptr, strsize))
+        return space.newtext(rffi.charp2str(charpptr))
 
 
 class VoidPtrConverter(TypeConverter):
