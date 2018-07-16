@@ -29,7 +29,14 @@ class CPPScopeMeta(type):
 
 class CPPNamespaceMeta(CPPScopeMeta):
     def __dir__(self):
-        return self.__cppdecl__.__dir__()
+        # For Py3: can actually call base class __dir__ (lives in type)
+        values = set(self.__dict__.keys())
+        values.update(object.__dict__.keys())
+        values.update(type(self).__dict__.keys())
+
+        # add C++ entities
+        values.update(self.__cppdecl__.__dir__())
+        return list(values)
 
 class CPPClassMeta(CPPScopeMeta):
     pass
