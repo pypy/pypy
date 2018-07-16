@@ -24,6 +24,7 @@ INSTANCE_FLAGS_IS_REF      = 0x0002
 INSTANCE_FLAGS_IS_RVALUE   = 0x0004
 
 OVERLOAD_FLAGS_USE_FFI     = 0x0001
+OVERLOAD_FLAGS_CREATES     = 0x0002
 
 FUNCTION_IS_GLOBAL         = 0x0001
 FUNCTION_IS_STATIC         = 0x0001
@@ -458,6 +459,36 @@ class CPPSetItem(CPPMethod):
 # need forwarding, which the normal instancemethod does not provide, hence this
 # derived class.
 class MethodWithProps(Method):
+    # set life management of result from the call
+    def fget_creates(self, space):
+        f = space.interp_w(W_CPPOverload, self.w_function)
+        return f.fget_creates(space)
+
+    @unwrap_spec(value=bool)
+    def fset_creates(self, space, value):
+        f = space.interp_w(W_CPPOverload, self.w_function)
+        f.fset_creates(space, value)
+
+    # set ownership policy of arguments (not yet implemented)
+    def fget_mempolicy(self, space):
+        f = space.interp_w(W_CPPOverload, self.w_function)
+        return f.fget_mempolicy(space)
+
+    @unwrap_spec(value=int)
+    def fset_mempolicy(self, space, value):
+        f = space.interp_w(W_CPPOverload, self.w_function)
+        f.fset_mempolicy(space, value)
+
+    # set to release the gil during call (not yet implemented)
+    def fget_release_gil(self, space):
+        f = space.interp_w(W_CPPOverload, self.w_function)
+        return f.fget_release_gil(space)
+
+    @unwrap_spec(value=bool)
+    def fset_release_gil(self, space, value):
+        f = space.interp_w(W_CPPOverload, self.w_function)
+        f.fset_release_gil(space, value)
+
     # allow user to determine ffi use rules per overload
     def fget_useffi(self, space):
         f = space.interp_w(W_CPPOverload, self.w_function)
@@ -473,22 +504,25 @@ MethodWithProps.typedef = TypeDef(
     __doc__ = """cpp_instancemethod(function, instance, class)
 
 Create an instance method object.""",
-    __new__ = interp2app(MethodWithProps.descr_method__new__.im_func),
-    __call__ = interp2app(MethodWithProps.descr_method_call),
-    __get__ = interp2app(MethodWithProps.descr_method_get),
-    im_func = interp_attrproperty_w('w_function', cls=MethodWithProps),
-    __func__ = interp_attrproperty_w('w_function', cls=MethodWithProps),
-    im_self = interp_attrproperty_w('w_instance', cls=MethodWithProps),
-    __self__ = interp_attrproperty_w('w_instance', cls=MethodWithProps),
-    im_class = interp_attrproperty_w('w_class', cls=MethodWithProps),
+    __new__          = interp2app(MethodWithProps.descr_method__new__.im_func),
+    __call__         = interp2app(MethodWithProps.descr_method_call),
+    __get__          = interp2app(MethodWithProps.descr_method_get),
+    im_func          = interp_attrproperty_w('w_function', cls=MethodWithProps),
+    __func__         = interp_attrproperty_w('w_function', cls=MethodWithProps),
+    im_self          = interp_attrproperty_w('w_instance', cls=MethodWithProps),
+    __self__         = interp_attrproperty_w('w_instance', cls=MethodWithProps),
+    im_class         = interp_attrproperty_w('w_class', cls=MethodWithProps),
     __getattribute__ = interp2app(MethodWithProps.descr_method_getattribute),
-    __eq__ = interp2app(MethodWithProps.descr_method_eq),
-    __ne__ = descr_generic_ne,
-    __hash__ = interp2app(MethodWithProps.descr_method_hash),
-    __repr__ = interp2app(MethodWithProps.descr_method_repr),
-    __reduce__ = interp2app(MethodWithProps.descr_method__reduce__),
-    __weakref__ = make_weakref_descr(MethodWithProps),
-    __useffi__ = GetSetProperty(MethodWithProps.fget_useffi, MethodWithProps.fset_useffi),
+    __eq__           = interp2app(MethodWithProps.descr_method_eq),
+    __ne__           = descr_generic_ne,
+    __hash__         = interp2app(MethodWithProps.descr_method_hash),
+    __repr__         = interp2app(MethodWithProps.descr_method_repr),
+    __reduce__       = interp2app(MethodWithProps.descr_method__reduce__),
+    __weakref__      = make_weakref_descr(MethodWithProps),
+    __creates__      = GetSetProperty(MethodWithProps.fget_creates,     MethodWithProps.fset_creates),
+    __mempolicy__    = GetSetProperty(MethodWithProps.fget_mempolicy,   MethodWithProps.fset_mempolicy),
+    __release_gil__  = GetSetProperty(MethodWithProps.fget_release_gil, MethodWithProps.fset_release_gil),
+    __useffi__       = GetSetProperty(MethodWithProps.fget_useffi,      MethodWithProps.fset_useffi),
     )
 MethodWithProps.typedef.acceptable_as_base_class = False
 
@@ -551,7 +585,12 @@ class W_CPPOverload(W_Root):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                return cppyyfunc.call(cppthis, args_w, self.flags & OVERLOAD_FLAGS_USE_FFI)
+                w_result = cppyyfunc.call(cppthis, args_w, self.flags & OVERLOAD_FLAGS_USE_FFI)
+                if self.flags & OVERLOAD_FLAGS_CREATES:
+                    if isinstance(w_result, W_CPPInstance):
+                        cppinstance = self.space.interp_w(W_CPPInstance, w_result)
+                        cppinstance.fset_python_owns(self.space, self.space.w_True)
+                return w_result
             except Exception:
                 pass
 
@@ -564,6 +603,7 @@ class W_CPPOverload(W_Root):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
+                # no need to set ownership on the return value, as none of the methods execute
                 return cppyyfunc.call(cppthis, args_w, self.flags & OVERLOAD_FLAGS_USE_FFI)
             except OperationError as e:
                 # special case if there's just one function, to prevent clogging the error message
@@ -602,6 +642,33 @@ class W_CPPOverload(W_Root):
                 return W_CPPOverload(self.space, self.scope, [f])
         raise oefmt(self.space.w_LookupError, "signature '%s' not found", signature)
 
+    # set life management of result from the call
+    def fget_creates(self, space):
+        return space.newbool(bool(self.flags & OVERLOAD_FLAGS_CREATES))
+
+    @unwrap_spec(value=bool)
+    def fset_creates(self, space, value):
+        if space.is_true(value):
+            self.flags |= OVERLOAD_FLAGS_CREATES
+        else:
+            self.flags &= ~OVERLOAD_FLAGS_CREATES
+
+    # set ownership policy of arguments (not yet implemented)
+    def fget_mempolicy(self, space):
+        return space.newint(0)
+
+    @unwrap_spec(value=int)
+    def fset_mempolicy(self, space, value):
+        pass
+
+    # set to release the gil during call (not yet implemented)
+    def fget_release_gil(self, space):
+        return space.newbool(True)
+
+    @unwrap_spec(value=bool)
+    def fset_release_gil(self, space, value):
+        pass
+
     # allow user to determine ffi use rules per overload
     def fget_useffi(self, space):
         return space.newbool(bool(self.flags & OVERLOAD_FLAGS_USE_FFI))
@@ -625,11 +692,14 @@ class W_CPPOverload(W_Root):
 
 W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
-    __get__      = interp2app(W_CPPOverload.descr_get),
-    __call__     = interp2app(W_CPPOverload.call_args),
-    __useffi__   = GetSetProperty(W_CPPOverload.fget_useffi, W_CPPOverload.fset_useffi),
-    __overload__ = interp2app(W_CPPOverload.mp_overload),
-    __doc__      = GetSetProperty(W_CPPOverload.fget_doc)
+    __get__         = interp2app(W_CPPOverload.descr_get),
+    __call__        = interp2app(W_CPPOverload.call_args),
+    __creates__     = GetSetProperty(W_CPPOverload.fget_creates,     W_CPPOverload.fset_creates),
+    __mempolicy__   = GetSetProperty(W_CPPOverload.fget_mempolicy,   W_CPPOverload.fset_mempolicy),
+    __release_gil__ = GetSetProperty(W_CPPOverload.fget_release_gil, W_CPPOverload.fset_release_gil),
+    __useffi__      = GetSetProperty(W_CPPOverload.fget_useffi,      W_CPPOverload.fset_useffi),
+    __overload__    = interp2app(W_CPPOverload.mp_overload),
+    __doc__         = GetSetProperty(W_CPPOverload.fget_doc)
 )
 
 
@@ -658,11 +728,14 @@ class W_CPPStaticOverload(W_CPPOverload):
 
 W_CPPStaticOverload.typedef = TypeDef(
     'CPPStaticOverload',
-    __get__      = interp2app(W_CPPStaticOverload.descr_get),
-    __call__     = interp2app(W_CPPStaticOverload.call_args),
-    __useffi__   = GetSetProperty(W_CPPStaticOverload.fget_useffi, W_CPPStaticOverload.fset_useffi),
-    __overload__ = interp2app(W_CPPStaticOverload.mp_overload),
-    __doc__      = GetSetProperty(W_CPPStaticOverload.fget_doc)
+    __get__         = interp2app(W_CPPStaticOverload.descr_get),
+    __call__        = interp2app(W_CPPStaticOverload.call_args),
+    __creates__     = GetSetProperty(W_CPPStaticOverload.fget_creates,     W_CPPStaticOverload.fset_creates),
+    __mempolicy__   = GetSetProperty(W_CPPStaticOverload.fget_mempolicy,   W_CPPStaticOverload.fset_mempolicy),
+    __release_gil__ = GetSetProperty(W_CPPStaticOverload.fget_release_gil, W_CPPStaticOverload.fset_release_gil),
+    __useffi__      = GetSetProperty(W_CPPStaticOverload.fget_useffi,      W_CPPStaticOverload.fset_useffi),
+    __overload__    = interp2app(W_CPPStaticOverload.mp_overload),
+    __doc__         = GetSetProperty(W_CPPStaticOverload.fget_doc)
 )
 
 
@@ -871,11 +944,14 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
 
 W_CPPTemplateOverload.typedef = TypeDef(
     'CPPTemplateOverload',
-    __get__      = interp2app(W_CPPTemplateOverload.descr_get),
-    __getitem__  = interp2app(W_CPPTemplateOverload.getitem),
-    __call__     = interp2app(W_CPPTemplateOverload.call_args),
-    __useffi__   = GetSetProperty(W_CPPTemplateOverload.fget_useffi, W_CPPTemplateOverload.fset_useffi),
-    __doc__      = GetSetProperty(W_CPPTemplateOverload.fget_doc)
+    __get__         = interp2app(W_CPPTemplateOverload.descr_get),
+    __getitem__     = interp2app(W_CPPTemplateOverload.getitem),
+    __call__        = interp2app(W_CPPTemplateOverload.call_args),
+    __creates__     = GetSetProperty(W_CPPTemplateOverload.fget_creates,     W_CPPTemplateOverload.fset_creates),
+    __mempolicy__   = GetSetProperty(W_CPPTemplateOverload.fget_mempolicy,   W_CPPTemplateOverload.fset_mempolicy),
+    __release_gil__ = GetSetProperty(W_CPPTemplateOverload.fget_release_gil, W_CPPTemplateOverload.fset_release_gil),
+    __useffi__      = GetSetProperty(W_CPPTemplateOverload.fget_useffi,      W_CPPTemplateOverload.fset_useffi),
+    __doc__         = GetSetProperty(W_CPPTemplateOverload.fget_doc)
 )
 
 class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
@@ -929,11 +1005,18 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
 
 W_CPPTemplateStaticOverload.typedef = TypeDef(
     'CPPTemplateStaticOverload',
-    __get__      = interp2app(W_CPPTemplateStaticOverload.descr_get),
-    __getitem__  = interp2app(W_CPPTemplateStaticOverload.getitem),
-    __call__     = interp2app(W_CPPTemplateStaticOverload.call_args),
-    __useffi__   = GetSetProperty(W_CPPTemplateStaticOverload.fget_useffi, W_CPPTemplateStaticOverload.fset_useffi),
-    __doc__      = GetSetProperty(W_CPPTemplateStaticOverload.fget_doc)
+    __get__         = interp2app(W_CPPTemplateStaticOverload.descr_get),
+    __getitem__     = interp2app(W_CPPTemplateStaticOverload.getitem),
+    __call__        = interp2app(W_CPPTemplateStaticOverload.call_args),
+    __creates__     = GetSetProperty(W_CPPTemplateStaticOverload.fget_creates,
+                                     W_CPPTemplateStaticOverload.fset_creates),
+    __mempolicy__   = GetSetProperty(W_CPPTemplateStaticOverload.fget_mempolicy,
+                                     W_CPPTemplateStaticOverload.fset_mempolicy),
+    __release_gil__ = GetSetProperty(W_CPPTemplateStaticOverload.fget_release_gil,
+                                     W_CPPTemplateStaticOverload.fset_release_gil),
+    __useffi__      = GetSetProperty(W_CPPTemplateStaticOverload.fget_useffi,
+                                     W_CPPTemplateStaticOverload.fset_useffi),
+    __doc__         = GetSetProperty(W_CPPTemplateStaticOverload.fget_doc)
 )
 
 
