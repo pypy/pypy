@@ -317,7 +317,7 @@ def get_scoped_pycppitem(scope, name, type_only=False):
     if not cppitem:
         try:
             cppitem = scope.__cppdecl__.get_overload(name)
-            setattr(scope.__class__, name, cppitem)
+            setattr(scope, name, cppitem)
             pycppitem = getattr(scope, name)      # binds function as needed
         except AttributeError:
             pass
