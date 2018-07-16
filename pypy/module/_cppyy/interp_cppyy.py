@@ -1057,7 +1057,7 @@ class W_CPPDataMember(W_Root):
             raise oefmt(self.space.w_AttributeError,
                         "attribute access requires an instance")
         offset = self._get_offset(cppinstance)
-        return self.converter.from_memory(self.space, w_cppinstance, w_pycppclass, offset)
+        return self.converter.from_memory(self.space, w_cppinstance, offset)
 
     def set(self, w_cppinstance, w_value):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
@@ -1094,7 +1094,7 @@ class W_CPPStaticData(W_CPPDataMember):
         return self.offset
 
     def get(self, w_cppinstance, w_pycppclass):
-        return self.converter.from_memory(self.space, self.space.w_None, w_pycppclass, self.offset)
+        return self.converter.from_memory(self.space, self.space.w_None, self.offset)
 
     def set(self, w_cppinstance, w_value):
         self.converter.to_memory(self.space, self.space.w_None, w_value, self.offset)

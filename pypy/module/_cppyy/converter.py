@@ -115,7 +115,7 @@ class TypeConverter(object):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         self._is_abstract(space)
 
     def to_memory(self, space, w_obj, w_value, offset):
@@ -142,7 +142,7 @@ class ArrayTypeConverterMixin(object):
         state = space.fromcache(ffitypes.State)
         return state.c_voidp
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONG, address_value)
@@ -184,7 +184,7 @@ class PtrTypeConverterMixin(object):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'o'
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONGP, address_value)
@@ -214,7 +214,7 @@ class NumericTypeConverterMixin(object):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self.default
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = self._get_raw_address(space, w_obj, offset)
         rffiptr = rffi.cast(self.c_ptrtype, address)
         return self._wrap_object(space, rffiptr[0])
@@ -283,7 +283,7 @@ class BoolConverter(ffitypes.typeid(bool), TypeConverter):
         x = rffi.cast(rffi.LONGP, address)
         x[0] = self._unwrap_object(space, w_obj)
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
         if address[0] == '\x01':
             return space.w_True
@@ -308,7 +308,7 @@ class CharConverter(ffitypes.typeid(rffi.CHAR), TypeConverter):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
         return space.newbytes(address[0])
 
@@ -330,7 +330,7 @@ class FloatConverter(ffitypes.typeid(rffi.FLOAT), FloatTypeConverterMixin, TypeC
             fval = float(0.)
         self.default = r_singlefloat(fval)
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = self._get_raw_address(space, w_obj, offset)
         rffiptr = rffi.cast(self.c_ptrtype, address)
         return self._wrap_object(space, rffiptr[0])
@@ -383,7 +383,7 @@ class CStringConverter(TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'p'
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = self._get_raw_address(space, w_obj, offset)
         charpptr = rffi.cast(rffi.CCHARPP, address)
         return space.newtext(rffi.charp2str(charpptr[0]))
@@ -397,7 +397,7 @@ class CStringConverterWithSize(CStringConverter):
     def __init__(self, space, extra):
         self.size = extra
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = self._get_raw_address(space, w_obj, offset)
         charpptr = rffi.cast(rffi.CCHARP, address)
         if 0 <= self.size and self.size != 2**31-1:   # cling's code for "unknown" (?)
@@ -430,7 +430,7 @@ class VoidPtrConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = self._unwrap_object(space, w_obj)
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         # returned as a long value for the address (INTPTR_T is not proper
         # per se, but rffi does not come with a PTRDIFF_T)
         address = self._get_raw_address(space, w_obj, offset)
@@ -542,7 +542,7 @@ class InstanceConverter(InstanceRefConverter):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible       # TODO: by-value is a jit_libffi special case
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False)
@@ -562,7 +562,7 @@ class InstancePtrConverter(InstanceRefConverter):
                 return capi.C_NULL_OBJECT
             raise e
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False)
@@ -588,7 +588,7 @@ class InstancePtrPtrConverter(InstancePtrConverter):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppinstance(
@@ -792,7 +792,7 @@ class SmartPtrConverter(TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = self.typecode
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
         return interp_cppyy.wrap_cppinstance(space, address,
@@ -801,7 +801,7 @@ class SmartPtrConverter(TypeConverter):
 class SmartPtrPtrConverter(SmartPtrConverter):
     typecode    = 'o'
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         self._is_abstract(space)
 
     def to_memory(self, space, w_obj, w_value, offset):
@@ -813,7 +813,7 @@ class SmartPtrRefConverter(SmartPtrPtrConverter):
 
 
 class MacroConverter(TypeConverter):
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
+    def from_memory(self, space, w_obj, offset):
         # TODO: get the actual type info from somewhere ...
         address = self._get_raw_address(space, w_obj, offset)
         longptr = rffi.cast(rffi.LONGP, address)
