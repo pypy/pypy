@@ -926,7 +926,7 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
 
         # try existing overloads or compile-time instantiations
         try:
-            return W_CPPOverload.call_args(self, args_w)
+            return W_CPPOverload.call_args(self, [self.w_this]+args_w)
         except Exception:
             pass
 
