@@ -3,10 +3,16 @@
 # a few more methods allowing such information to be set. Afterwards, it is
 # simple to pass these views on to e.g. numpy (w/o the need to copy).
 
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
+from pypy.interpreter.baseobjspace import W_Root
+
+from rpython.rtyper.lltypesystem import rffi
+
 from pypy.module._rawffi.array import W_ArrayInstance
+from pypy.module._rawffi.interp_rawffi import segfault_exception
+from pypy.module._cppyy import capi
 
 
 class W_LowLevelView(W_ArrayInstance):
@@ -52,3 +58,33 @@ W_LowLevelView.typedef = TypeDef(
 )
 W_ArrayInstance.typedef.acceptable_as_base_class = False
 
+
+class W_ArrayOfInstances(W_Root):
+    _attrs_ = ['converter', 'baseaddress', 'clssize', 'length']
+    _immutable_fields_ = ['converter', 'baseaddress', 'clssize']
+
+    def __init__(self, space, clsdecl, address, length):
+        from pypy.module._cppyy import converter
+        self.converter   = converter.get_converter(space, clsdecl.name, '')
+        self.baseaddress = address
+        self.clssize     = capi.c_size_of_klass(space, clsdecl)
+        self.length      = length
+
+    @unwrap_spec(idx=int)
+    def getitem(self, space, idx):
+        if not self.baseaddress:
+            raise segfault_exception(space, "accessing elements of freed array")
+        if idx >= self.length or idx < 0:
+            raise OperationError(space.w_IndexError, space.w_None)
+        itemaddress = rffi.cast(rffi.LONG, self.baseaddress+idx*self.clssize)
+        return self.converter.from_memory(space, space.w_None, itemaddress)
+
+    def getlength(self, space):
+        return space.newint(self.length)
+
+W_ArrayOfInstances.typedef = TypeDef(
+    'ArrayOfInstances',
+    __getitem__ = interp2app(W_ArrayOfInstances.getitem),
+    __len__     = interp2app(W_ArrayOfInstances.getlength),
+)
+W_ArrayOfInstances.typedef.acceptable_as_base_class = False

@@ -690,7 +690,6 @@ class AppTestADVANCEDCPP:
         # TODO: currently fails b/c double** not understood as &double*
         #assert cppyy.gbl.my_global_ptr[0] == 1234.
 
-        return
         v = cppyy.gbl.my_global_int_holders
         assert len(v) == 5
         expected_vals = [13, 42, 88, -1, 17]

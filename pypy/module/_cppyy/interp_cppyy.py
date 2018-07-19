@@ -1040,7 +1040,7 @@ class W_CPPDataMember(W_Root):
         self.space = space
         self.scope = decl_scope
         self.converter = converter.get_converter(self.space, type_name, '')
-        self.offset = offset
+        self.offset = rffi.cast(rffi.LONG, offset)
 
     def _get_offset(self, cppinstance):
         if cppinstance:
