@@ -219,6 +219,10 @@ extern "C" {
     const char* cppyy_stdvector_valuetype(const char* clname);
     RPY_EXTERN
     size_t      cppyy_stdvector_valuesize(const char* clname);
+    RPY_EXTERN
+    int         cppyy_vectorbool_getitem(cppyy_object_t ptr, int idx);
+    RPY_EXTERN
+    void        cppyy_vectorbool_setitem(cppyy_object_t ptr, int idx, int value);
 
 #ifdef __cplusplus
 }

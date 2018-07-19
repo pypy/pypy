@@ -197,6 +197,26 @@ class AppTestSTLVECTOR:
         assert v2[-1] == v[-2]
         assert v2[self.N-4] == v[-2]
 
+    def test07_vector_bool(self):
+        """Usability of std::vector<bool> which can be a specialization"""
+
+        import _cppyy as cppyy
+
+        vb = cppyy.gbl.std.vector(bool)(8)
+        assert [x for x in vb] == [False]*8
+
+        vb[0] = True
+        assert vb[0]
+        vb[-1] = True
+        assert vb[7]
+
+        print [x for x in vb]
+
+        assert [x for x in vb] == [True]+[False]*6+[True]
+
+        assert len(vb[4:8]) == 4
+        assert list(vb[4:8]) == [False]*3+[True]
+
 
 class AppTestSTLSTRING:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])

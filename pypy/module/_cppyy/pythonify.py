@@ -431,18 +431,19 @@ def _pythonize(pyclass, name):
     # not on vector, which is pythonized in the capi (interp-level; there is
     # also the fallback on the indexed __getitem__, but that is slower)
 # TODO:    if not (0 <= name.find('vector') <= 5):
-    if ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
-        if _cppyy._scope_byname(name+'::iterator') or \
-                _cppyy._scope_byname(name+'::const_iterator'):
-            def __iter__(self):
-                i = self.begin()
-                while i != self.end():
-                    yield i.__deref__()
-                    i.__preinc__()
-                i.__destruct__()
-                raise StopIteration
-            pyclass.__iter__ = __iter__
-        # else: rely on numbered iteration
+    if not (0 <= name.find('vector<bool') <= 5):
+        if ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
+            if _cppyy._scope_byname(name+'::iterator') or \
+                    _cppyy._scope_byname(name+'::const_iterator'):
+                def __iter__(self):
+                    i = self.begin()
+                    while i != self.end():
+                        yield i.__deref__()
+                        i.__preinc__()
+                    i.__destruct__()
+                    raise StopIteration
+                pyclass.__iter__ = __iter__
+            # else: rely on numbered iteration
 
     # add python collection based initializer
     if 0 <= name.find('vector') <= 5:
