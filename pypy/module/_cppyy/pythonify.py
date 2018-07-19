@@ -459,12 +459,13 @@ def _pythonize(pyclass, name):
         pyclass.__init__ = vector_init
 
         # size-up the return of data()
-        pyclass.__real_data = pyclass.data
-        def data_with_len(self):
-            arr = self.__real_data()
-            arr.reshape((len(self),))
-            return arr
-        pyclass.data = data_with_len
+        if hasattr(pyclass, 'data'):   # not the case for e.g. vector<bool>
+            pyclass.__real_data = pyclass.data
+            def data_with_len(self):
+                arr = self.__real_data()
+                arr.reshape((len(self),))
+                return arr
+            pyclass.data = data_with_len
 
     # combine __getitem__ and __len__ to make a pythonized __getitem__
     if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
