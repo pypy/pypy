@@ -17,7 +17,7 @@ class VMProfPlatformUnsupported(Exception):
 
 # vmprof works only on x86 for now
 IS_SUPPORTED = False
-if sys.platform in ('darwin', 'linux', 'linux2', 'freebsd10', 'freebsd11'):
+if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
     try:
         IS_SUPPORTED = detect_cpu.autodetect().startswith('x86')
     except detect_cpu.ProcessorAutodetectError:
