@@ -37,3 +37,49 @@ public:
    std::string operator[](double) { return "double"; }
    std::string operator[](const std::string&) { return "string"; }
 };      
+
+
+//- instantiations of used STL types
+namespace {
+
+    stl_like_class<int> stlc_1;
+
+} // unnamed namespace
+
+
+// comps for int only to allow testing: normal use of vector is looping over a
+// range-checked version of __getitem__
+#if defined(__clang__) && defined(__APPLE__)
+namespace std {
+#define ns_prefix std::
+#elif defined(__GNUC__) || defined(__GNUG__)
+namespace __gnu_cxx {
+#define ns_prefix
+#endif
+extern template bool ns_prefix operator==(const std::vector<int>::iterator&,
+                         const std::vector<int>::iterator&);
+extern template bool ns_prefix operator!=(const std::vector<int>::iterator&,
+                         const std::vector<int>::iterator&);
+}
+
+
+//- helpers for testing array
+namespace ArrayTest {
+
+struct Point {
+    int px, py;
+};
+
+int get_pp_px(Point** p, int idx);
+int get_pp_py(Point** p, int idx);
+int get_pa_px(Point* p[], int idx);
+int get_pa_py(Point* p[], int idx);
+
+} // namespace ArrayTest
+
+
+// helpers for string testing
+extern std::string str_array_1[3];
+extern std::string str_array_2[];
+extern std::string str_array_3[3][2];
+extern std::string str_array_4[4][2][2];

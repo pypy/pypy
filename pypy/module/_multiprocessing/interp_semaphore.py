@@ -60,7 +60,7 @@ else:
         TIMESPEC = platform.Struct('struct timespec', [('tv_sec', rffi.TIME_T),
                                                        ('tv_nsec', rffi.LONG)])
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
-        SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
+        SEM_VALUE_MAX = platform.DefinedConstantInteger('SEM_VALUE_MAX')
         SEM_TIMED_WAIT = platform.Has('sem_timedwait')
         SEM_T_SIZE = platform.SizeOf('sem_t')
 
@@ -73,6 +73,8 @@ else:
     #                rffi.cast(SEM_T, config['SEM_FAILED'])
     SEM_FAILED     = config['SEM_FAILED']
     SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
+    if SEM_VALUE_MAX is None:      # on Hurd
+        SEM_VALUE_MAX = sys.maxint
     SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
     SEM_T_SIZE = config['SEM_T_SIZE']
     if sys.platform == 'darwin':
