@@ -1,46 +1,37 @@
-===========================
-What's new in PyPy2.7 5.10+
-===========================
+==========================
+What's new in PyPy2.7 6.0+
+==========================
 
-.. this is a revision shortly after release-pypy2.7-v5.10.0
-.. startrev: 6b024edd9d12
+.. this is a revision shortly after release-pypy-6.0.0
+.. startrev: e50e11af23f1
 
-.. branch: cpyext-avoid-roundtrip
+.. branch: cppyy-packaging
 
-Big refactoring of some cpyext code, which avoids a lot of nonsense when
-calling C from Python and vice-versa: the result is a big speedup in
-function/method calls, up to 6 times faster.
+Upgrade to backend 1.2.0, improved handling of templated methods and
+functions (in particular automatic deduction of types), improved pythonization
+interface, range of compatibility fixes for Python3, free functions now take
+fast libffi path when possible, moves for strings (incl. from Python str),
+easier/faster handling of std::vector by numpy, improved and faster object
+identity preservation
 
-.. branch: cpyext-datetime2
+.. branch: socket_default_timeout_blockingness
 
-Support ``tzinfo`` field on C-API datetime objects, fixes latest pandas HEAD
+Make sure 'blocking-ness' of socket is set along with default timeout
 
+.. branch: crypt_h
 
-.. branch: mapdict-size-limit
+Include crypt.h for crypt() on Linux
 
-Fix a corner case of mapdict: When an instance is used like a dict (using
-``setattr`` and ``getattr``, or ``.__dict__``) and a lot of attributes are
-added, then the performance using mapdict is linear in the number of
-attributes. This is now fixed (by switching to a regular dict after 80
-attributes).
+.. branch: gc-more-logging
 
+Log additional gc-minor and gc-collect-step info in the PYPYLOG
 
-.. branch: cpyext-faster-arg-passing
+.. branch: reverse-debugger
 
-When using cpyext, improve the speed of passing certain objects from PyPy to C
-code, most notably None, True, False, types, all instances of C-defined types.
-Before, a dict lookup was needed every time such an object crossed over, now it
-is just a field read.
+The reverse-debugger branch has been merged.  For more information, see
+https://bitbucket.org/pypy/revdb
 
 
-.. branch: 2634_datetime_timedelta_performance
+.. branch: pyparser-improvements-3
 
-Improve datetime + timedelta performance.
-
-.. branch: memory-accounting
-
-Improve way to describe memory
-
-.. branch: msvc14
-
-Allow compilaiton with Visual Studio 2017 compiler suite on windows
+Small refactorings in the Python parser.

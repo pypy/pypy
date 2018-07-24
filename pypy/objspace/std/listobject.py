@@ -15,6 +15,7 @@ from rpython.rlib import debug, jit, rerased
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
     import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
+from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib import longlong2float
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -871,7 +872,12 @@ class ListStrategy(object):
         """Extend w_list from a generic iterable"""
         length_hint = self.space.length_hint(w_iterable, 0)
         if length_hint:
-            w_list._resize_hint(w_list.length() + length_hint)
+            try:
+                newsize_hint = ovfcheck(w_list.length() + length_hint)
+            except OverflowError:
+                pass
+            else:
+                w_list._resize_hint(newsize_hint)
 
         extended = _do_extend_from_iterable(self.space, w_list, w_iterable)
 
@@ -985,6 +991,14 @@ class EmptyListStrategy(ListStrategy):
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         strategy = w_other.strategy
+        if step != 1:
+            len2 = strategy.length(w_other)
+            if len2 == 0:
+                return
+            else:
+                raise oefmt(self.space.w_ValueError,
+                            "attempt to assign sequence of size %d to extended "
+                            "slice of size %d", len2, 0)
         storage = strategy.getstorage_copy(w_other)
         w_list.strategy = strategy
         w_list.lstorage = storage

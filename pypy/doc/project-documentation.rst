@@ -32,10 +32,13 @@ the PyPy universe.
    coding-guide
    sprint-reports
    extradoc
+   eventhistory
    video-index
    index-report
+   discussions
    dev_method
-   glossary
+   embedding
+   objspace-proxies
 
 
 Source Code Documentation

@@ -23,6 +23,7 @@ VMPROF_JITTING_TAG = 4
 VMPROF_GC_TAG = 5
 
 class VMProfError(Exception):
+    msg = ''   # annotation hack
     def __init__(self, msg):
         self.msg = msg
     def __str__(self):

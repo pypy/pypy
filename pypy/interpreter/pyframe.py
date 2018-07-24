@@ -270,8 +270,8 @@ class PyFrame(W_Root):
             #
             try:
                 if operr is not None:
-                    ec = self.space.getexecutioncontext()
-                    next_instr = self.handle_operation_error(ec, operr)
+                    next_instr = self.handle_operation_error(
+                            executioncontext, operr)
                     self.last_instr = intmask(next_instr - 1)
                 else:
                     # Execution starts just after the last_instr.  Initially,
@@ -832,9 +832,11 @@ class PyFrame(W_Root):
     def fget_f_builtins(self, space):
         return self.get_builtin().getdict(space)
 
+    def get_f_back(self):
+        return ExecutionContext.getnextframe_nohidden(self)
+
     def fget_f_back(self, space):
-        f_back = ExecutionContext.getnextframe_nohidden(self)
-        return f_back
+        return self.get_f_back()
 
     def fget_f_lasti(self, space):
         return self.space.newint(self.last_instr)

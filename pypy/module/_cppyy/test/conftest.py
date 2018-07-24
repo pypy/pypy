@@ -10,7 +10,7 @@ def pytest_runtest_setup(item):
             import os
             tst = os.path.basename(item.location[0])
             if not tst in ('test_helper.py', 'test_cppyy.py', 'test_pythonify.py',
-                           'test_datatypes.py'):
+                           'test_datatypes.py', 'test_pythonization.py'):
                 py.test.skip("genreflex is not installed")
             import re
             if tst == 'test_pythonify.py' and \
@@ -18,6 +18,9 @@ def pytest_runtest_setup(item):
                 py.test.skip("genreflex is not installed")
             elif tst == 'test_datatypes.py' and \
                 not re.search("AppTestDATATYPES.test0[1-7]", item.location[2]):
+                py.test.skip("genreflex is not installed")
+            elif tst == 'test_pythonization.py' and \
+                not re.search("AppTestPYTHONIZATION.test0[0]", item.location[2]):
                 py.test.skip("genreflex is not installed")
 
 def pytest_ignore_collect(path, config):
@@ -55,7 +58,7 @@ def pytest_configure(config):
                 separate_module_files=[srcpath.join('dummy_backend.cxx')],
                 include_dirs=[incpath, tstpath, cdir],
                 compile_extra=['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND',
-                               '-fno-strict-aliasing', '-std=c++11'],
+                               '-fno-strict-aliasing', '-std=c++14'],
                 use_cpp_linker=True,
             )
 
@@ -65,7 +68,7 @@ def pytest_configure(config):
                     outputfilename='libcppyy_dummy_backend',
                     standalone=False)
             except CompilationError as e:
-                if '-std=c++11' in str(e):
+                if '-std=c++14' in str(e):
                     global disabled
                     disabled = str(e)
                     return

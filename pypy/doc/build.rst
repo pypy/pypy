@@ -267,14 +267,14 @@ pre-compiling them, normal users will get errors:
 * PyPy 2.5.1 or earlier: normal users would see permission errors.
   Installers need to run ``pypy -c "import gdbm"`` and other similar
   commands at install time; the exact list is in
-  :source:`pypy/tool/release/package.py <package.py>`.  Users
+  :source:`pypy/tool/release/package.py`.  Users
   seeing a broken installation of PyPy can fix it after-the-fact if they
   have sudo rights, by running once e.g. ``sudo pypy -c "import gdbm``.
 
 * PyPy 2.6 and later: anyone would get ``ImportError: no module named
   _gdbm_cffi``.  Installers need to run ``pypy _gdbm_build.py`` in the
   ``lib_pypy`` directory during the installation process (plus others;
-  see the exact list in :source:`pypy/tool/release/package.py <package.py>`).
+  see the exact list in :source:`pypy/tool/release/package.py`).
   Users seeing a broken
   installation of PyPy can fix it after-the-fact, by running ``pypy
   /path/to/lib_pypy/_gdbm_build.py``.  This command produces a file

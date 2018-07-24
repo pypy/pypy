@@ -19,11 +19,17 @@ from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
 # <length>
 # (<box1> <descr> <box2>) length times, if getfield(box1, descr) == box2
 #                         both boxes should be in the liveboxes
+#                         (or constants)
 #
 # <length>
 # (<box1> <index> <descr> <box2>) length times, if getarrayitem_gc(box1, index, descr) == box2
 #                                 both boxes should be in the liveboxes
+#                                 (or constants)
 #
+# ---- call_loopinvariant knowledge
+# <length>
+# (<const> <box2>) length times, if call_loopinvariant(const) == box2
+#                  box2 should be in liveboxes
 # ----
 
 
@@ -57,6 +63,7 @@ def decode_box(resumestorage, tagged, liveboxes, cpu):
     return box
 
 def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_from_env, memo):
+    from rpython.jit.metainterp.history import ConstInt
     available_boxes = {}
     for box in liveboxes:
         if box is not None and box in liveboxes_from_env:
@@ -107,9 +114,21 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         numb_state.append_int(0)
         numb_state.append_int(0)
 
+    if optimizer.optrewrite:
+        tuples_loopinvariant = optimizer.optrewrite.serialize_optrewrite(
+                available_boxes)
+        numb_state.append_int(len(tuples_loopinvariant))
+        for constarg0, box in tuples_loopinvariant:
+            numb_state.append_short(
+                    tag_box(ConstInt(constarg0), liveboxes_from_env, memo))
+            numb_state.append_short(tag_box(box, liveboxes_from_env, memo))
+    else:
+        numb_state.append_int(0)
+
 def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):
     from rpython.rlib.objectmodel import compute_unique_id
     from rpython.rlib.rarithmetic import r_uint
+    from rpython.jit.metainterp.history import ConstInt
 
     debug_start("jit-bridge-deserialize")
 
@@ -144,9 +163,6 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
 
     # heap knowledge
     debug_print("# heap knowledge")
-    if not optimizer.optheap:
-        debug_print("# no optheap!")
-        return
     length = reader.next_item()
     result_struct = []
     for i in range(length):
@@ -177,6 +193,21 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         tagged = reader.next_item()
         box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
         result_array.append((box1, index, descr, box2))
-    optimizer.optheap.deserialize_optheap(result_struct, result_array)
+    if optimizer.optheap:
+        optimizer.optheap.deserialize_optheap(result_struct, result_array)
+
+    # call_loopinvariant knowledge
+    length = reader.next_item()
+    result_loopinvariant = []
+    for i in range(length):
+        tagged1 = reader.next_item()
+        const = decode_box(resumestorage, tagged1, liveboxes, metainterp_sd.cpu)
+        assert isinstance(const, ConstInt)
+        i = const.getint()
+        tagged2 = reader.next_item()
+        box = decode_box(resumestorage, tagged2, liveboxes, metainterp_sd.cpu)
+        result_loopinvariant.append((i, box))
+    if optimizer.optrewrite:
+        optimizer.optrewrite.deserialize_optrewrite(result_loopinvariant)
 
     debug_stop("jit-bridge-deserialize")

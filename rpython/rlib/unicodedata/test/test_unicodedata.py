@@ -148,3 +148,15 @@ class TestUnicodeData800(object):
     def test_changed_in_version_8(self):
         assert unicodedb_6_2_0.toupper_full(0x025C) == [0x025C]
         assert unicodedb_8_0_0.toupper_full(0x025C) == [0xA7AB]
+
+    def test_casefold(self):
+        # returns None when we have no special casefolding rule,
+        # which means that tolower_full() should be used instead
+        assert unicodedb_8_0_0.casefold_lookup(0x1000) == None
+        assert unicodedb_8_0_0.casefold_lookup(0x0061) == None
+        assert unicodedb_8_0_0.casefold_lookup(0x0041) == None
+        # a case where casefold() != lower()
+        assert unicodedb_8_0_0.casefold_lookup(0x00DF) == [ord('s'), ord('s')]
+        # returns the argument itself, and not None, in rare cases
+        # where tolower_full() would return something different
+        assert unicodedb_8_0_0.casefold_lookup(0x13A0) == [0x13A0]

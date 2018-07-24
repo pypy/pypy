@@ -285,6 +285,9 @@ def _ll_0_ll_read_timestamp():
     from rpython.rlib import rtimer
     return rtimer.read_timestamp()
 
+def _ll_0_ll_get_timestamp_unit():
+    from rpython.rlib import rtimer
+    return rtimer.get_timestamp_unit()
 
 # math support
 # ------------

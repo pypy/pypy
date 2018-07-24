@@ -1,10 +1,13 @@
 <lcgdict>
 
-  <namespace name="std" />
-
   <class name="just_a_class" />
-
-  <class name="std::string" />
   <class name="stringy_class" />
+  <class pattern="stl_like_class<*>" />
+
+  <namespace name="ArrayTest" />
+  <class pattern="ArrayTest::*" />
+  <function pattern="ArrayTest::*" />
+
+  <variable pattern="str_array_*" />
 
 </lcgdict>

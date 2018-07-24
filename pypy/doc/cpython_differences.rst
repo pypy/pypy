@@ -10,89 +10,6 @@ Differences that are not listed here should be considered bugs of
 PyPy.
 
 
-.. _extension-modules:
-
-Extension modules
------------------
-
-List of extension modules that we support:
-
-* Supported as built-in modules (in :source:`pypy/module/`):
-
-    __builtin__
-    :doc:`__pypy__ <__pypy__-module>`
-    _ast
-    _codecs
-    _collections
-    :doc:`_continuation <stackless>`
-    :doc:`_ffi <discussion/ctypes-implementation>`
-    _hashlib
-    _io
-    _locale
-    _lsprof
-    _md5
-    :doc:`_minimal_curses <config/objspace.usemodules._minimal_curses>`
-    _multiprocessing
-    _random
-    :doc:`_rawffi <discussion/ctypes-implementation>`
-    _sha
-    _socket
-    _sre
-    _ssl
-    _warnings
-    _weakref
-    _winreg
-    array
-    binascii
-    bz2
-    cStringIO
-    cmath
-    `cpyext`_
-    crypt
-    errno
-    exceptions
-    fcntl
-    gc
-    imp
-    itertools
-    marshal
-    math
-    mmap
-    operator
-    parser
-    posix
-    pyexpat
-    select
-    signal
-    struct
-    symbol
-    sys
-    termios
-    thread
-    time
-    token
-    unicodedata
-    zipimport
-    zlib
-
-  When translated on Windows, a few Unix-only modules are skipped,
-  and the following module is built instead:
-
-    _winreg
-
-* Supported by being rewritten in pure Python (possibly using ``cffi``):
-  see the :source:`lib_pypy/` directory.  Examples of modules that we
-  support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
-  Note that some modules are both in there and in the list above;
-  by default, the built-in module is used (but can be disabled
-  at translation time).
-
-The extension modules (i.e. modules written in C, in the standard CPython)
-that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
-(You may have a chance to use them anyway with `cpyext`_.)
-
-.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
-
 
 Differences related to garbage collection strategies
 ----------------------------------------------------
@@ -554,7 +471,101 @@ Miscellaneous
   versions of PyPy may have to rename the arguments if CPython starts
   accepting them too.
 
+* PyPy3: ``distutils`` has been enhanced to allow finding ``VsDevCmd.bat`` in the
+  directory pointed to by the ``VS%0.f0COMNTOOLS`` (typically ``VS140COMNTOOLS``)
+  environment variable. CPython searches for ``vcvarsall.bat`` somewhere **above**
+  that value.
+
+* SyntaxError_ s try harder to give details about the cause of the failure, so
+  the error messages are not the same as in CPython
+
+
+.. _extension-modules:
+
+Extension modules
+-----------------
+
+List of extension modules that we support:
+
+* Supported as built-in modules (in :source:`pypy/module/`):
+
+    __builtin__
+    :doc:`__pypy__ <__pypy__-module>`
+    _ast
+    _codecs
+    _collections
+    :doc:`_continuation <stackless>`
+    :doc:`_ffi <discussion/ctypes-implementation>`
+    _hashlib
+    _io
+    _locale
+    _lsprof
+    _md5
+    :doc:`_minimal_curses <config/objspace.usemodules._minimal_curses>`
+    _multiprocessing
+    _random
+    :doc:`_rawffi <discussion/ctypes-implementation>`
+    _sha
+    _socket
+    _sre
+    _ssl
+    _warnings
+    _weakref
+    _winreg
+    array
+    binascii
+    bz2
+    cStringIO
+    cmath
+    `cpyext`_
+    crypt
+    errno
+    exceptions
+    fcntl
+    gc
+    imp
+    itertools
+    marshal
+    math
+    mmap
+    operator
+    parser
+    posix
+    pyexpat
+    select
+    signal
+    struct
+    symbol
+    sys
+    termios
+    thread
+    time
+    token
+    unicodedata
+    zipimport
+    zlib
+
+  When translated on Windows, a few Unix-only modules are skipped,
+  and the following module is built instead:
+
+    _winreg
+
+* Supported by being rewritten in pure Python (possibly using ``cffi``):
+  see the :source:`lib_pypy/` directory.  Examples of modules that we
+  support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
+  Note that some modules are both in there and in the list above;
+  by default, the built-in module is used (but can be disabled
+  at translation time).
+
+The extension modules (i.e. modules written in C, in the standard CPython)
+that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
+(You may have a chance to use them anyway with `cpyext`_.)
+
+.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
+
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
 .. _`issue #2653`: https://bitbucket.org/pypy/pypy/issues/2653/
+.. _SyntaxError: https://morepypy.blogspot.co.il/2018/04/improving-syntaxerror-in-pypy.html

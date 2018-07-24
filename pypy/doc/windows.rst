@@ -25,33 +25,32 @@ Installing Visual Compiler v9 (for Python 2.7)
 
 This compiler, while the standard one for Python 2.7, is deprecated. Microsoft has
 made it available as the `Microsoft Visual C++ Compiler for Python 2.7`_ (the link
-was checked in Nov 2016). Note that the compiler suite may be installed in
+was checked in May 2018). Note that the compiler suite may be installed in
 ``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``
 or in
 ``C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python``.
-A current version of ``setuptools`` will be able to find it there. For
-Windows 10, you must right-click the download, and under ``Properties`` ->
-``Compatibility`` mark it as ``Run run this program in comatibility mode for``
-``Previous version...``. Also, you must download and install the ``.Net Framework 3.5``,
+A current version of ``setuptools`` will be able to find it there.
+Also, you must download and install the ``.Net Framework 3.5``,
 otherwise ``mt.exe`` will silently fail. Installation will begin automatically
 by running the mt.exe command by hand from a DOS window (that is how the author
 discovered the problem).
 
-.. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/en-us/download/details.aspx?id=44266
+.. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/EN-US/DOWNLOAD/DETAILS.ASPX?ID=44266
 
-Installing "Build Tools for Visual Studio 2017" (for Python 3)
+Installing "Build Tools for Visual Studio 2015" (for Python 3)
 --------------------------------------------------------------
 
-As documented in the CPython Wiki_, CPython now recommends Visual C++ version
-14.0. A compact version of the compiler suite can be obtained from Microsoft_
-downloads, search the page for "Build Tools for Visual Studio 2017".
+As documented in the CPython Wiki_, CPython recommends Visual C++ version
+14.0 for python version 3.5. A compact version of the compiler suite can be 
+obtained from Microsoft_ downloads, search the page for "Microsoft Build Tools 2015".
 
-You will also need to install the the `Windows SDK`_ in order to use the 
-`mt.exe` mainfest compiler.
+You will need to reboot the computer for the installation to successfully install and
+run the `mt.exe` mainfest compiler. The installation will set the
+`VS140COMNTOOLS` environment variable, this is key to distutils/setuptools
+finding the compiler
 
 .. _Wiki: https://wiki.python.org/moin/WindowsCompilers
-.. _Microsoft: https://www.visualstudio.com/downloads
-.. _`Windows SDK`: https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk
+.. _Microsoft: https://www.visualstudio.com/vs/older-downloads/
 
 Translating PyPy with Visual Studio
 -----------------------------------
@@ -98,6 +97,9 @@ slower translation::
 
 Setting Up Visual Studio 9.0 for building SSL in Python3
 --------------------------------------------------------
+
+**Note: this is old information, left for historical reference. We recommend
+using Visual Studio 2015, which now seems to properly set this all up.**
 
 On Python3, the ``ssl`` module is based on ``cffi``, and requires a build step after
 translation. However ``distutils`` does not support the Micorosft-provided Visual C
@@ -146,14 +148,14 @@ translate with.
 Installing external packages
 ----------------------------
 
-We uses a `repository` parallel to pypy to hold binary compiled versions of the
+We uses a subrepository_ inside pypy to hold binary compiled versions of the
 build dependencies for windows. As part of the `rpython` setup stage, environment
 variables will be set to use these dependencies. The repository has a README
 file on how to replicate, and a branch for each supported platform. You may run
- the `get_externals.py` utility to checkout the proper branch for your platform
+the `get_externals.py` utility to checkout the proper branch for your platform
 and PyPy version.
 
-.. _repository:  https://bitbucket.org/pypy/external
+.. _subrepository:  https://bitbucket.org/pypy/external
 
 Using the mingw compiler
 ------------------------

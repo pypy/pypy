@@ -102,7 +102,7 @@ time <rpython:initialization-time>` in order to let the annotator only see rathe
 program flows with homogeneous name-value assignments on
 function invocations.
 
-.. _how-to guide for descriptors: http://users.rcn.com/python/download/Descriptor.htm
+.. _how-to guide for descriptors: https://docs.python.org/3/howto/descriptor.html
 
 
 Bytecode Interpreter Implementation Classes

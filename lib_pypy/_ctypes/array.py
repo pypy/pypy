@@ -82,8 +82,11 @@ class ArrayMeta(_CDataMeta):
     def _CData_output(self, resarray, base=None, index=-1):
         from _rawffi.alt import types
         # If a char_p or unichar_p is received, skip the string interpretation
-        if base._ffiargtype != types.Pointer(types.char_p) and \
-           base._ffiargtype != types.Pointer(types.unichar_p):
+        try:
+            deref = type(base)._deref_ffiargtype()
+        except AttributeError:
+            deref = None
+        if deref != types.char_p and deref != types.unichar_p:
             # this seems to be a string if we're array of char, surprise!
             from ctypes import c_char, c_wchar
             if self._type_ is c_char:
@@ -119,6 +122,12 @@ class ArrayMeta(_CDataMeta):
                     raise RuntimeError("Invalid length")
                 value = self(*value)
         return _CDataMeta.from_param(self, value)
+
+    def _build_ffiargtype(self):
+        return _ffi.types.Pointer(self._type_.get_ffi_argtype())
+
+    def _deref_ffiargtype(self):
+        return self._type_.get_ffi_argtype()
 
 def array_get_slice_params(self, index):
     if hasattr(self, '_length_'):
@@ -248,6 +257,5 @@ def create_array_type(base, length):
             _type_ = base
         )
         cls = ArrayMeta(name, (Array,), tpdict)
-        cls._ffiargtype = _ffi.types.Pointer(base.get_ffi_argtype())
         ARRAY_CACHE[key] = cls
         return cls

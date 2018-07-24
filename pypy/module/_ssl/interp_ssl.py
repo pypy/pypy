@@ -606,7 +606,7 @@ class _SSLSocket(W_Root):
         This will return the certificate even if it wasn't validated.
         """
         if not self.handshake_done:
-            raise oefmt(space.w_ValueError, "hanshake not done yet")
+            raise oefmt(space.w_ValueError, "handshake not done yet")
         if not self.peer_cert:
             return space.w_None
 

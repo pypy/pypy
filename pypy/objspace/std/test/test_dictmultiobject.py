@@ -227,6 +227,33 @@ class AppTest_DictObject:
         raises(KeyError, d.pop, "abc")
         assert len(d) == 2
 
+    def test_pop_empty_bug(self):
+        d = {}
+        assert d.pop(1, 2) == 2
+        def f(**d): return d
+        d = f()
+        assert d.pop(1, 2) == 2
+
+    def test_pop_kwargs(self):
+        def kw(**d): return d
+        d = kw(o=2, t=4)
+        dd = d.copy()
+        result = dd.pop("o")
+        assert result == 2
+        assert len(dd) == 1
+        dd = d.copy()
+        result = dd.pop("o", 44)
+        assert result == 2
+        assert len(dd) == 1
+        result = dd.pop("o", 44)
+        assert result == 44
+        assert len(dd) == 1
+        raises(KeyError, dd.pop, "33")
+
+        assert d.pop("abc", None) is None
+        raises(KeyError, d.pop, "abc")
+        assert len(d) == 2
+
     def test_has_key(self):
         d = {1: 2, 3: 4}
         assert d.has_key(1)
@@ -262,7 +289,8 @@ class AppTest_DictObject:
 
     def test_reversed_dict(self):
         import __pypy__
-        for d in [{}, {1: 2, 3: 4, 5: 6}, {"a": 5, "b": 2, "c": 6}]:
+        def kw(**d): return d
+        for d in [{}, {1: 2, 3: 4, 5: 6}, {"a": 5, "b": 2, "c": 6}, kw(a=1, b=2)]:
             assert list(__pypy__.reversed_dict(d)) == d.keys()[::-1]
         raises(TypeError, __pypy__.reversed_dict, 42)
 
@@ -1244,6 +1272,9 @@ class FakeSpace:
 
     def fromcache(self, cls):
         return cls(self)
+
+    def _side_effects_ok(self):
+        return True
 
     w_StopIteration = StopIteration
     w_None = None

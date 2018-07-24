@@ -882,6 +882,18 @@ class OptRewrite(Optimization):
     optimize_SAME_AS_R = optimize_SAME_AS_I
     optimize_SAME_AS_F = optimize_SAME_AS_I
 
+    def serialize_optrewrite(self, available_boxes):
+        res = []
+        for i, box in self.loop_invariant_results.iteritems():
+            box = self.get_box_replacement(box)
+            if box in available_boxes:
+                res.append((i, box))
+        return res
+
+    def deserialize_optrewrite(self, tups):
+        for i, box in tups:
+            self.loop_invariant_results[i] = box
+
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
                                       default=OptRewrite.emit)
 optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')
