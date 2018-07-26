@@ -57,4 +57,6 @@ unsigned int pass_mine_rp(Countable);
 unsigned int pass_mine_rp_ref(const Countable&);
 unsigned int pass_mine_rp_ptr(const Countable*);
 
+Countable* gime_naked_countable();
+
 } // namespace pyzables

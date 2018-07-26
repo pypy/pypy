@@ -151,10 +151,14 @@ extern "C" {
     RPY_EXTERN
     char* cppyy_method_signature(cppyy_method_t, int show_formalargs);
     RPY_EXTERN
-    char* cppyy_method_prototype(cppyy_scope_t scope, cppyy_method_t idx, int show_formalargs);
+    char* cppyy_method_prototype(cppyy_scope_t scope, cppyy_method_t, int show_formalargs);
     RPY_EXTERN
     int cppyy_is_const_method(cppyy_method_t);
 
+    RPY_EXTERN
+    int get_num_templated_methods(cppyy_scope_t scope);
+    RPY_EXTERN
+    char* get_templated_method_name(cppyy_scope_t scope, cppyy_index_t imeth);
     RPY_EXTERN
     int cppyy_exists_method_template(cppyy_scope_t scope, const char* name);
     RPY_EXTERN
@@ -219,6 +223,10 @@ extern "C" {
     const char* cppyy_stdvector_valuetype(const char* clname);
     RPY_EXTERN
     size_t      cppyy_stdvector_valuesize(const char* clname);
+    RPY_EXTERN
+    int         cppyy_vectorbool_getitem(cppyy_object_t ptr, int idx);
+    RPY_EXTERN
+    void        cppyy_vectorbool_setitem(cppyy_object_t ptr, int idx, int value);
 
 #ifdef __cplusplus
 }

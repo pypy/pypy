@@ -53,31 +53,52 @@ class AppTestTEMPLATES:
     def test03_templated_function(self):
         """Templated global and static functions lookup and calls"""
 
-        import _cppyy
+        import _cppyy as cppyy
 
         # TODO: the following only works if something else has already
         # loaded the headers associated with this template
-        ggs = _cppyy.gbl.global_get_size
+        ggs = cppyy.gbl.global_get_size
         assert ggs['char']() == 1
 
-        gsf = _cppyy.gbl.global_some_foo
+        gsf = cppyy.gbl.global_some_foo
 
         assert gsf[int](3) == 42
         assert gsf(3)      == 42
         assert gsf(3.)     == 42
 
-        gsb = _cppyy.gbl.global_some_bar
+        gsb = cppyy.gbl.global_some_bar
 
         assert gsb(3)            == 13
         assert gsb['double'](3.) == 13
 
         # TODO: the following only works in a namespace
-        nsgsb = _cppyy.gbl.SomeNS.some_bar
+        nsgsb = cppyy.gbl.SomeNS.some_bar
 
         assert nsgsb[3]
         assert nsgsb[3]() == 3
 
         # TODO: add some static template method
+
+        # test forced creation of subsequent overloads
+        vector = cppyy.gbl.std.vector
+        # float in, float out
+        ggsr = cppyy.gbl.global_get_some_result['std::vector<float>']
+        assert type(ggsr(vector['float']([0.5])).m_retval) == float
+        assert ggsr(vector['float']([0.5])).m_retval == 0.5
+        # int in, float out
+        ggsr = cppyy.gbl.global_get_some_result['std::vector<int>']
+        assert type(ggsr(vector['int']([5])).m_retval) == float
+        assert ggsr(vector['int']([5])).m_retval == 5.
+        # float in, int out
+        # TODO: this now matches the earlier overload
+        #ggsr = cppyy.gbl.global_get_some_result['std::vector<float>, int']
+        #assert type(ggsr(vector['float']([0.3])).m_retval) == int
+        #assert ggsr(vector['float']([0.3])).m_retval == 0
+        # int in, int out
+        # TODO: same as above, matches earlier overload
+        #ggsr = cppyy.gbl.global_get_some_result['std::vector<int>, int']
+        #assert type(ggsr(vector['int']([5])).m_retval) == int
+        #assert ggsr(vector['int']([5])).m_retval == 5
 
     def test04_variadic_function(self):
         """Call a variadic function"""

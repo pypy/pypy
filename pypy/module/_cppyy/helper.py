@@ -117,16 +117,10 @@ def map_operator_name(space, cppname, nargs, result_type):
     # TODO: perhaps absorb or "pythonify" these operators?
     return cppname
 
-if sys.hexversion < 0x3000000:
-    CPPYY__div__  = "__div__"
-    CPPYY__idiv__ = "__idiv__"
-    CPPYY__long__ = "__long__"
-    CPPYY__bool__ = "__nonzero__"
-else:
-    CPPYY__div__  = "__truediv__"
-    CPPYY__idiv__ = "__itruediv__"
-    CPPYY__long__ = "__int__"
-    CPPYY__bool__ = "__bool__"
+CPPYY__div__  = "__div__"
+CPPYY__idiv__ = "__idiv__"
+CPPYY__long__ = "__long__"
+CPPYY__bool__ = "__nonzero__"
 
 # _operator_mappings["[]"]  = "__setitem__"      # depends on return type
 # _operator_mappings["+"]   = "__add__"          # depends on # of args (see __pos__)

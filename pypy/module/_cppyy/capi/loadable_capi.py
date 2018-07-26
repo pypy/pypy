@@ -236,6 +236,8 @@ class State(object):
             'method_prototype'         : ([c_scope, c_method, c_int], c_ccharp),
             'is_const_method'          : ([c_method],                 c_int),
 
+            'get_num_templated_methods': ([c_scope],                  c_int),
+            'get_templated_method_name': ([c_scope, c_index],         c_ccharp),
             'exists_method_template'   : ([c_scope, c_ccharp],        c_int),
             'method_is_template'       : ([c_scope, c_index],         c_int),
             'get_method_template'      : ([c_scope, c_ccharp, c_ccharp],        c_method),
@@ -274,7 +276,8 @@ class State(object):
 
             'stdvector_valuetype'      : ([c_ccharp],                 c_ccharp),
             'stdvector_valuesize'      : ([c_ccharp],                 c_size_t),
-
+            'vectorbool_getitem'       : ([c_object, c_int],          c_int),
+            'vectorbool_setitem'       : ([c_object, c_int, c_int],   c_void),
         }
 
         # size/offset are backend-specific but fixed after load
@@ -561,16 +564,21 @@ def c_method_prototype(space, cppscope, cppmeth, show_formalargs=True):
 def c_is_const_method(space, cppmeth):
     return space.bool_w(call_capi(space, 'is_const_method', [_ArgH(cppmeth)]))
 
+def c_get_num_templated_methods(space, cppscope):
+    return space.int_w(call_capi(space, 'method_is_template', [_ArgH(cppscope.handle)]))
+def c_get_templated_method_name(space, cppscope, index):
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
+    return charp2str_free(space, call_capi(space, 'method_is_template', args))
 def c_exists_method_template(space, cppscope, name):
     args = [_ArgH(cppscope.handle), _ArgS(name)]
     return space.bool_w(call_capi(space, 'exists_method_template', args))
 def c_method_is_template(space, cppscope, index):
     args = [_ArgH(cppscope.handle), _ArgL(index)]
     return space.bool_w(call_capi(space, 'method_is_template', args))
-
 def c_get_method_template(space, cppscope, name, proto):
     args = [_ArgH(cppscope.handle), _ArgS(name), _ArgS(proto)]
     return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method_template', args)))
+
 def c_get_global_operator(space, nss, lc, rc, op):
     if nss is not None:
         args = [_ArgH(nss.handle), _ArgH(lc.handle), _ArgH(rc.handle), _ArgS(op)]
@@ -619,7 +627,7 @@ def c_is_enum_data(space, cppscope, datamember_index):
     return space.bool_w(call_capi(space, 'is_enum_data', args))
 def c_get_dimension_size(space, cppscope, datamember_index, dim_idx):
     args = [_ArgH(cppscope.handle), _ArgL(datamember_index), _ArgL(dim_idx)]
-    return space.bool_w(call_capi(space, 'get_dimension_size', args))
+    return space.int_w(call_capi(space, 'get_dimension_size', args))
 
 # misc helpers ---------------------------------------------------------------
 def c_strtoll(space, svalue):
@@ -657,16 +665,42 @@ def c_stdvector_valuetype(space, pystr):
     return charp2str_free(space, call_capi(space, 'stdvector_valuetype', [_ArgS(pystr)]))
 def c_stdvector_valuesize(space, pystr):
     return _cdata_to_size_t(space, call_capi(space, 'stdvector_valuesize', [_ArgS(pystr)]))
+def c_vectorbool_getitem(space, vbool, idx):
+    return call_capi(space, 'vectorbool_getitem', [_ArgH(vbool), _ArgL(idx)])
+def c_vectorbool_setitem(space, vbool, idx, value):
+    call_capi(space, 'vectorbool_setitem', [_ArgH(vbool), _ArgL(idx), _ArgL(value)])
 
 
 # TODO: factor these out ...
 # pythonizations
 def stdstring_c_str(space, w_self):
     """Return a python string taking into account \0"""
-
     from pypy.module._cppyy import interp_cppyy
     cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
     return space.newtext(c_stdstring2charp(space, cppstr._rawobject))
+
+def vbool_getindex(space, w_vbool, w_idx):
+    idx = space.getindex_w(w_idx, space.w_IndexError, "std::vector<bool> index")
+    sz = space.len_w(w_vbool)
+    if idx < 0: idx += sz
+    if idx < 0 or idx >= sz:
+        raise IndexError
+    return idx
+
+def vectorbool_getitem(space, w_self, w_idx):
+    """Index a std::vector<bool>, return the value"""
+    from pypy.module._cppyy import interp_cppyy
+    vbool = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
+    idx = vbool_getindex(space, w_self, w_idx)
+    item = c_vectorbool_getitem(space, vbool._rawobject, idx)
+    return space.newbool(space.is_true(item))
+
+def vectorbool_setitem(space, w_self, w_idx, w_value):
+    """Index a std::vector<bool>, set the value"""
+    from pypy.module._cppyy import interp_cppyy
+    vbool = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
+    idx = vbool_getindex(space, w_self, w_idx)
+    c_vectorbool_setitem(space, vbool._rawobject, idx, int(space.is_true(w_value)))
 
 # setup pythonizations for later use at run-time
 _pythonizations = {}
@@ -678,6 +712,9 @@ def register_pythonizations(space):
         ### std::string
         stdstring_c_str,
 
+        ### std::vector<bool>
+        vectorbool_getitem,
+        vectorbool_setitem,
     ]
 
     for f in allfuncs:
@@ -692,3 +729,7 @@ def pythonize(space, w_pycppclass, name):
         space.setattr(w_pycppclass, space.newtext("c_str"), _pythonizations["stdstring_c_str"])
         _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "c_str")
         _method_alias(space, w_pycppclass, "__str__",           "c_str")
+
+    if name == "std::vector<bool>":
+        space.setattr(w_pycppclass, space.newtext("__getitem__"), _pythonizations["vectorbool_getitem"])
+        space.setattr(w_pycppclass, space.newtext("__setitem__"), _pythonizations["vectorbool_setitem"])
