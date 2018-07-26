@@ -63,14 +63,6 @@ class AppTestPYTHONIZATION:
 
         assert cppyy.gbl.pyzables.SomeDummy2.test == 2
 
-        def root_pythonizor(klass, name):
-            if name == 'TString':
-                klass.__len__ = klass.Length
-
-        cppyy.py.add_pythonization(root_pythonizor)
-
-        assert len(cppyy.gbl.TString("aap")) == 3
-
     def test01_type_pinning(self):
         """Verify pinnability of returns"""
 
@@ -173,3 +165,16 @@ class AppTestPYTHONIZATION:
         gc.collect()
 
         assert Countable.sInstances == oldcount
+
+    def test06_api_regression_test(self):
+        """Used to fail b/c klass touched in cppyy"""
+
+        import _cppyy as cppyy
+
+        def root_pythonizor(klass, name):
+            if name == 'TString':
+                klass.__len__ = klass.Length
+
+        cppyy.py.add_pythonization(root_pythonizor)
+
+        assert len(cppyy.gbl.TString("aap")) == 3
