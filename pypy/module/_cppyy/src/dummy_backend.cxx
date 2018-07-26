@@ -1048,6 +1048,11 @@ int cppyy_is_enum_data(cppyy_scope_t /* handle */, cppyy_index_t /* idatambr */)
     return 0;
 }
 
+int cppyy_get_dimension_size(
+        cppyy_scope_t /* scope */, cppyy_index_t /* idata */, int /* dimension */) {
+    return -1; // no dimensions
+}
+
 
 /* misc helpers ----------------------------------------------------------- */
 #if defined(_MSC_VER)

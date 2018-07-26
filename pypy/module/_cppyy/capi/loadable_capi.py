@@ -236,6 +236,8 @@ class State(object):
             'method_prototype'         : ([c_scope, c_method, c_int], c_ccharp),
             'is_const_method'          : ([c_method],                 c_int),
 
+            'get_num_templated_methods': ([c_scope],                  c_int),
+            'get_templated_method_name': ([c_scope, c_index],         c_ccharp),
             'exists_method_template'   : ([c_scope, c_ccharp],        c_int),
             'method_is_template'       : ([c_scope, c_index],         c_int),
             'get_method_template'      : ([c_scope, c_ccharp, c_ccharp],        c_method),
@@ -562,16 +564,21 @@ def c_method_prototype(space, cppscope, cppmeth, show_formalargs=True):
 def c_is_const_method(space, cppmeth):
     return space.bool_w(call_capi(space, 'is_const_method', [_ArgH(cppmeth)]))
 
+def c_get_num_templated_methods(space, cppscope):
+    return space.int_w(call_capi(space, 'method_is_template', [_ArgH(cppscope.handle)]))
+def c_get_templated_method_name(space, cppscope, index):
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
+    return charp2str_free(space, call_capi(space, 'method_is_template', args))
 def c_exists_method_template(space, cppscope, name):
     args = [_ArgH(cppscope.handle), _ArgS(name)]
     return space.bool_w(call_capi(space, 'exists_method_template', args))
 def c_method_is_template(space, cppscope, index):
     args = [_ArgH(cppscope.handle), _ArgL(index)]
     return space.bool_w(call_capi(space, 'method_is_template', args))
-
 def c_get_method_template(space, cppscope, name, proto):
     args = [_ArgH(cppscope.handle), _ArgS(name), _ArgS(proto)]
     return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method_template', args)))
+
 def c_get_global_operator(space, nss, lc, rc, op):
     if nss is not None:
         args = [_ArgH(nss.handle), _ArgH(lc.handle), _ArgH(rc.handle), _ArgS(op)]
