@@ -1086,9 +1086,12 @@ def _make_waitmacro(name):
         else:
             return bool(c_func(status))
 
-WAIT_MACROS = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+WAIT_MACROS = ['WCOREDUMP', 'WIFSTOPPED',
                'WIFSIGNALED', 'WIFEXITED',
                'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']
+if not sys.platform.startswith('gnu'):
+    WAIT_MACROS.append('WIFCONTINUED')
+
 for name in WAIT_MACROS:
     _make_waitmacro(name)
 

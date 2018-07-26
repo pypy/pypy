@@ -7,9 +7,12 @@ What's new in PyPy2.7 6.0+
 
 .. branch: cppyy-packaging
 
-Upgrade to backend 1.1.0, improved handling of templated methods and
+Upgrade to backend 1.2.0, improved handling of templated methods and
 functions (in particular automatic deduction of types), improved pythonization
-interface, and a range of compatibility fixes for Python3
+interface, range of compatibility fixes for Python3, free functions now take
+fast libffi path when possible, moves for strings (incl. from Python str),
+easier/faster handling of std::vector by numpy, improved and faster object
+identity preservation
 
 .. branch: socket_default_timeout_blockingness
 

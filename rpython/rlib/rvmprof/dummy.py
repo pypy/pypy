@@ -1,6 +1,7 @@
 from rpython.rlib.objectmodel import specialize
 
 class DummyVMProf(object):
+    is_enabled = False
 
     def __init__(self):
         self._unique_id = 0

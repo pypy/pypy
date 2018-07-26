@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rtyper.lltypesystem.rlist import LIST_OF
 from rpython.rtyper.annlowlevel import llstr
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib import jit
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
                               nonmoving_raw_ptr_for_resizable_list,
@@ -113,6 +113,12 @@ class Buffer(object):
         Write the value of type TP at byte_offset. No bounds checks
         """
         raise CannotWrite
+
+    def get_raw_address(self):
+        msg = "cannot take the raw address of this buffer"
+        if not we_are_translated():
+            msg += " '%s'" % (self,)
+        raise ValueError(msg)
 
 
 class RawBuffer(Buffer):
