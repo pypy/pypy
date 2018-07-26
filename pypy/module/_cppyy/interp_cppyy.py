@@ -841,10 +841,10 @@ class TemplateOverloadMixin(object):
         return cppol
 
     def instantiate_and_call(self, name, args_w):
-        # existing cached instantiations
         method = None
         try:
-            if name[-1] == '>':   # full templated name, so ensure explicit
+            # existing cached instantiations
+            if name[-1] == '>':   # only accept full templated name, to ensure explicit
                 method = self.master.overloads[name]
             else:
             # try to match with run-time instantiations
@@ -994,7 +994,7 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
          self.w_this = space.w_None
 
     def clone(self, tmpl_args):
-        other = W_CPPTemplateOverload(self.space, self.name, tmpl_args, self.scope, self.functions, self.flags)
+        other = W_CPPTemplateStaticOverload(self.space, self.name, tmpl_args, self.scope, self.functions, self.flags)
         other.overloads = self.overloads
         other.master = self.master
         other.w_this = self.w_this
