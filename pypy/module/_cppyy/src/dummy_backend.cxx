@@ -388,6 +388,16 @@ struct Cppyy_InitPseudoReflectionInfo {
         s_scopes[(cppyy_scope_t)s_scope_id] = info;
         } // -- class CppyyTest_data
 
+        //====================================================================
+
+        { // namespace pyzables --
+        s_handles["pyzables"] = (cppyy_scope_t)++s_scope_id;
+        s_scopes[(cppyy_scope_t)s_scope_id] = Cppyy_PseudoClassInfo{};
+        s_handles["pyzables::SomeDummy1"] = (cppyy_scope_t)++s_scope_id;
+        s_scopes[(cppyy_scope_t)s_scope_id] = Cppyy_PseudoClassInfo{};
+        s_handles["pyzables::SomeDummy2"] = (cppyy_scope_t)++s_scope_id;
+        s_scopes[(cppyy_scope_t)s_scope_id] = Cppyy_PseudoClassInfo{};
+        } // -- namespace pyzables
     }
 } _init;
 
@@ -879,7 +889,9 @@ size_t cppyy_function_arg_typeoffset() {
 
 
 /* scope reflection information ------------------------------------------- */
-int cppyy_is_namespace(cppyy_scope_t /* handle */) {
+int cppyy_is_namespace(cppyy_scope_t handle) {
+    if (handle == s_handles["pyzables"])
+        return 1;
     return 0;
 }
 
