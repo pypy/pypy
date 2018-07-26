@@ -625,16 +625,18 @@ class InstancePtrPtrConverter(InstancePtrConverter):
 class InstanceArrayConverter(InstancePtrConverter):
     _immutable_fields_ = ['size']
 
-    def __init__(self, space, clsdecl, array_size):
+    def __init__(self, space, clsdecl, array_size, dimensions):
         InstancePtrConverter.__init__(self, space, clsdecl)
-        if array_size <= 0:
+        if array_size <= 0 or array_size == 2**31-1:   # cling's code for "unknown" (?)
             self.size = sys.maxint
         else:
             self.size = array_size
+        # peel one off as that should be the same as the array size
+        self.dimensions = dimensions[1:]
 
     def from_memory(self, space, w_obj, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-        return lowlevelviews.W_ArrayOfInstances(space, self.clsdecl, address, self.size)
+        return lowlevelviews.W_ArrayOfInstances(space, self.clsdecl, address, self.size, self.dimensions)
 
     def to_memory(self, space, w_obj, w_value, offset):
         self._is_abstract(space)
@@ -872,7 +874,16 @@ def get_converter(space, _name, default):
         pass
 
     # arrays (array_size may be negative, meaning: no size or no size found)
-    array_size = helper.array_size(_name)     # uses original arg
+    array_size = -1
+    if cpd == "[]":
+        array_size = helper.array_size(_name)    # uses original arg
+    elif cpd == '*' and ':' in default:
+        # this happens for multi-dimensional arrays: those are described as pointers
+        cpd = "[]"
+        splitpos = default.find(':')
+        if 0 < splitpos:     # always true, but needed for annotator
+            array_size = int(default[:splitpos])
+
     try:
         # TODO: using clean_name here drops const (e.g. const char[] will
         # never be seen this way)
@@ -908,8 +919,9 @@ def get_converter(space, _name, default):
         elif cpd in ["**", "*[]", "&*"]:
             return InstancePtrPtrConverter(space, clsdecl)
         elif cpd == "[]" and array_size > 0:
-            # TODO: retrieve dimensions
-            return InstanceArrayConverter(space, clsdecl, array_size)
+            # default encodes the dimensions
+            dims = default.split(':')
+            return InstanceArrayConverter(space, clsdecl, array_size, dims)
         elif cpd == "":
             return InstanceConverter(space, clsdecl)
     elif "(anonymous)" in name:
