@@ -620,7 +620,7 @@ def c_is_enum_data(space, cppscope, datamember_index):
     return space.bool_w(call_capi(space, 'is_enum_data', args))
 def c_get_dimension_size(space, cppscope, datamember_index, dim_idx):
     args = [_ArgH(cppscope.handle), _ArgL(datamember_index), _ArgL(dim_idx)]
-    return space.bool_w(call_capi(space, 'get_dimension_size', args))
+    return space.int_w(call_capi(space, 'get_dimension_size', args))
 
 # misc helpers ---------------------------------------------------------------
 def c_strtoll(space, svalue):
