@@ -9,6 +9,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrpropert
 from pypy.interpreter.baseobjspace import W_Root
 
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rarithmetic import intmask
 
 from pypy.module._rawffi.array import W_ArrayInstance
 from pypy.module._rawffi.interp_rawffi import segfault_exception
@@ -63,11 +64,17 @@ class W_ArrayOfInstances(W_Root):
     _attrs_ = ['converter', 'baseaddress', 'clssize', 'length']
     _immutable_fields_ = ['converter', 'baseaddress', 'clssize']
 
-    def __init__(self, space, clsdecl, address, length):
+    def __init__(self, space, clsdecl, address, length, dimensions):
         from pypy.module._cppyy import converter
-        self.converter   = converter.get_converter(space, clsdecl.name, '')
+        name = clsdecl.name
+        self.clssize = int(intmask(capi.c_size_of_klass(space, clsdecl)))
+        if dimensions:
+            name = name + '[' + dimensions[0] + ']'
+            for num in dimensions:
+                self.clssize *= int(num)
+        dimensions = ':'.join(dimensions)
+        self.converter   = converter.get_converter(space, name, dimensions)
         self.baseaddress = address
-        self.clssize     = capi.c_size_of_klass(space, clsdecl)
         self.length      = length
 
     @unwrap_spec(idx=int)
@@ -76,15 +83,19 @@ class W_ArrayOfInstances(W_Root):
             raise segfault_exception(space, "accessing elements of freed array")
         if idx >= self.length or idx < 0:
             raise OperationError(space.w_IndexError, space.w_None)
-        itemaddress = rffi.cast(rffi.LONG, self.baseaddress+idx*self.clssize)
+        itemaddress = rffi.cast(rffi.LONG, self.baseaddress)+idx*self.clssize
         return self.converter.from_memory(space, space.w_None, itemaddress)
 
     def getlength(self, space):
         return space.newint(self.length)
 
+    def setlength(self, space, w_length):
+        self.length = space.int_w(w_length)
+
 W_ArrayOfInstances.typedef = TypeDef(
     'ArrayOfInstances',
     __getitem__ = interp2app(W_ArrayOfInstances.getitem),
     __len__     = interp2app(W_ArrayOfInstances.getlength),
+    size        = GetSetProperty(W_ArrayOfInstances.getlength, W_ArrayOfInstances.setlength),
 )
 W_ArrayOfInstances.typedef.acceptable_as_base_class = False
