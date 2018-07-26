@@ -215,6 +215,26 @@ class AppTestSTLVECTOR:
         assert len(vb[4:8]) == 4
         assert list(vb[4:8]) == [False]*3+[True]
 
+    def test08_vector_enum(self):
+        """Usability of std::vector<> of some enums"""
+
+        import _cppyy as cppyy
+
+        # TODO: would like to use cppyy.gbl.VecTestEnum but that's an int
+        assert cppyy.gbl.VecTestEnum
+        ve = cppyy.gbl.std.vector['VecTestEnum']()
+        ve.push_back(cppyy.gbl.EVal1);
+        assert ve[0] == 1
+        ve[0] = cppyy.gbl.EVal2
+        assert ve[0] == 3
+
+        assert cppyy.gbl.VecTestEnumNS.VecTestEnum
+        ve = cppyy.gbl.std.vector['VecTestEnumNS::VecTestEnum']()
+        ve.push_back(cppyy.gbl.VecTestEnumNS.EVal1);
+        assert ve[0] == 5
+        ve[0] = cppyy.gbl.VecTestEnumNS.EVal2
+        assert ve[0] == 42
+
 
 class AppTestSTLSTRING:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
@@ -594,9 +614,9 @@ class AppTestSTLARRAY:
     def test03_array_of_pointer_to_pods(self):
         """Usage of std::array of pointer to PODs"""
 
-        import cppyy
-        from cppyy import gbl
-        from cppyy.gbl import std
+        import _cppyy as cppyy
+        gbl = cppyy.gbl
+        std = cppyy.gbl.std
 
         ll = [gbl.ArrayTest.Point() for i in range(4)]
         for i in range(len(ll)):

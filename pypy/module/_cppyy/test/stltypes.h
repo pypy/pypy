@@ -10,6 +10,16 @@ public:
     int m_i;
 };
 
+// enum for vector of enums setitem tests
+enum VecTestEnum {
+    EVal1 = 1, EVal2 = 3
+};
+
+namespace VecTestEnumNS {
+    enum VecTestEnum { EVal1 = 5, EVal2 = 42 };
+}
+
+
 //- class with lots of std::string handling
 class stringy_class {
 public:
@@ -38,28 +48,8 @@ public:
    std::string operator[](const std::string&) { return "string"; }
 };      
 
-
-//- instantiations of used STL types
 namespace {
-
     stl_like_class<int> stlc_1;
-
-} // unnamed namespace
-
-
-// comps for int only to allow testing: normal use of vector is looping over a
-// range-checked version of __getitem__
-#if defined(__clang__) && defined(__APPLE__)
-namespace std {
-#define ns_prefix std::
-#elif defined(__GNUC__) || defined(__GNUG__)
-namespace __gnu_cxx {
-#define ns_prefix
-#endif
-extern template bool ns_prefix operator==(const std::vector<int>::iterator&,
-                         const std::vector<int>::iterator&);
-extern template bool ns_prefix operator!=(const std::vector<int>::iterator&,
-                         const std::vector<int>::iterator&);
 }
 
 
