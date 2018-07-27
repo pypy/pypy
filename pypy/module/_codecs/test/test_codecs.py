@@ -107,7 +107,8 @@ class AppTestCodecs:
         import sys
         assert charmap_decode(b'', 'strict', 'blablabla') == ('', 0)
         assert charmap_decode(b'xxx') == ('xxx', 3)
-        assert charmap_decode(b'xxx', 'strict', {ord('x'): 'XX'}) == ('XXXXXX', 3)
+        res = charmap_decode(b'xxx', 'strict', {ord('x'): 'XX'})
+        assert  res == ('XXXXXX', 3)
         map = tuple([chr(i) for i in range(256)])
         assert charmap_decode(b'xxx\xff', 'strict', map) == ('xxx\xff', 4)
 
@@ -123,7 +124,11 @@ class AppTestCodecs:
 
     def test_escape_decode(self):
         from _codecs import unicode_escape_decode as decode
-        assert decode('\\\x80') == (u'\\\x80', 2)
+        import sys
+        if sys.version_info[0] < 3:
+            assert decode('\\\x80') == (u'\\\x80', 2)
+        else:
+            assert decode('\\\x80') == (u'\\\xc2\x80', 3)
 
     def test_escape_decode_errors(self):
         from _codecs import escape_decode as decode
@@ -137,10 +142,15 @@ class AppTestCodecs:
         assert decode(br"[\x0]\x0", "replace") == (b"[?]?", 8)
 
     def test_unicode_escape(self):
+        import sys
         from _codecs import unicode_escape_encode, unicode_escape_decode
         assert unicode_escape_encode('abc') == ('abc'.encode('unicode_escape'), 3)
         assert unicode_escape_decode(b'abc') == (b'abc'.decode('unicode_escape'), 3)
-        assert unicode_escape_decode(b'\\x61\\x62\\x63') == ('abc', 12)
+        if sys.version_info[0] < 3:
+            lgt = 12
+        else:
+            lgt = 3
+        assert unicode_escape_decode(b'\\x61\\x62\\x63') == ('abc', lgt)
 
 
 class AppTestPartialEvaluation:
@@ -338,23 +348,26 @@ class AppTestPartialEvaluation:
 
     def test_unicode_escape_decode_errors(self):
         from _codecs import unicode_escape_decode, raw_unicode_escape_decode
+        import sys
         for decode in [unicode_escape_decode, raw_unicode_escape_decode]:
             for c, d in ('u', 4), ('U', 4):
                 for i in range(d):
                     raises(UnicodeDecodeError, decode, "\\" + c + "0"*i)
                     raises(UnicodeDecodeError, decode, "[\\" + c + "0"*i + "]")
                     data = "[\\" + c + "0"*i + "]\\" + c + "0"*i
-                    assert decode(data, "ignore") == (u"[]", len(data))
-                    assert decode(data, "replace") == (u"[\ufffd]\ufffd", len(data))
+                    lgt = len(data)
+                    assert decode(data, "ignore") == (u"[]", lgt)
+                    assert decode(data, "replace") == (u"[\ufffd]\ufffd", lgt)
             raises(UnicodeDecodeError, decode, r"\U00110000")
-            assert decode(r"\U00110000", "ignore") == (u"", 10)
-            assert decode(r"\U00110000", "replace") == (u"\ufffd", 10)
+            lgt = 10
+            assert decode(r"\U00110000", "ignore") == (u"", lgt)
+            assert decode(r"\U00110000", "replace") == (u"\ufffd", lgt)
         exc = raises(UnicodeDecodeError, unicode_escape_decode, b"\u1z32z3", 'strict')
         assert str(exc.value) == r"'unicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX escape"
         exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, b"\u1z32z3", 'strict')
-        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
+        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX escape"
         exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, b"\U1z32z3", 'strict')
-        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
+        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \UXXXXXXXX escape"
 
     def test_escape_encode(self):
         import _codecs
@@ -920,11 +933,11 @@ class AppTestPartialEvaluation:
         assert _codecs.utf_16_be_decode(b) == (u'', 0)
         assert _codecs.utf_16_decode(b) == (u'', 0)
         assert _codecs.utf_16_le_decode(b) == (u'', 0)
-        assert _codecs.utf_16_ex_decode(b) == (u'', 0, 0)
+        assert _codecs.utf_16_ex_decode(b) == (u'', 0)
         assert _codecs.utf_32_decode(b) == (u'', 0)
         assert _codecs.utf_32_be_decode(b) == (u'', 0)
         assert _codecs.utf_32_le_decode(b) == (u'', 0)
-        assert _codecs.utf_32_ex_decode(b) == (u'', 0, 0)
+        assert _codecs.utf_32_ex_decode(b) == (u'', 0)
         assert _codecs.charmap_decode(b) == (u'', 0)
         assert _codecs.unicode_escape_decode(b) == (u'', 0)
         assert _codecs.raw_unicode_escape_decode(b) == (u'', 0)

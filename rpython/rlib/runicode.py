@@ -1401,7 +1401,7 @@ def hexescape(builder, s, pos, digits,
             endinpos += 1
         res, pos = errorhandler(errors, encoding,
                                 message, s, pos-2, endinpos)
-        builder.append(res)
+        builder.append(res.decode('utf8'))
     else:
         try:
             chr = r_uint(int(s[pos:pos+digits], 16))
@@ -1411,7 +1411,7 @@ def hexescape(builder, s, pos, digits,
                 endinpos += 1
             res, pos = errorhandler(errors, encoding,
                                     message, s, pos-2, endinpos)
-            builder.append(res)
+            builder.append(res.decode('utf8'))
         else:
             # when we get here, chr is a 32-bit unicode character
             if chr <= MAXUNICODE:
@@ -1427,7 +1427,7 @@ def hexescape(builder, s, pos, digits,
                 message = "illegal Unicode character"
                 res, pos = errorhandler(errors, encoding,
                                         message, s, pos-2, pos+digits)
-                builder.append(res)
+                builder.append(res.decode('utf8'))
     return pos
 
 def str_decode_unicode_escape(s, size, errors, final=False,
@@ -1708,8 +1708,12 @@ def str_decode_raw_unicode_escape(s, size, errors, final=False,
             pos += 1
             continue
 
-        digits = 4 if s[pos] == 'u' else 8
-        message = "truncated \\uXXXX"
+        if s[pos] == 'u':
+            digits = 4
+            message = "truncated \\uXXXX escape"
+        else:
+            digits = 8
+            message = "truncated \\UXXXXXXXX escape"
         pos += 1
         pos = hexescape(result, s, pos, digits,
                         "rawunicodeescape", errorhandler, message, errors)

@@ -43,7 +43,7 @@ class W_UnicodeObject(W_Root):
         # XXX checking, remove before any performance measurments
         #     ifdef not_running_in_benchmark
         if not we_are_translated():
-            lgt = rutf8.check_utf8(utf8str, True)
+            lgt = rutf8.codepoints_in_utf8(utf8str)
             assert lgt == length
 
     @staticmethod
@@ -57,7 +57,7 @@ class W_UnicodeObject(W_Root):
 
     def unwrap(self, space):
         # for testing
-        return self.realunicode_w(space)
+        return space.realunicode_w(self)
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_UnicodeObject):
@@ -94,9 +94,6 @@ class W_UnicodeObject(W_Root):
 
     def utf8_w(self, space):
         return self._utf8
-
-    def realunicode_w(self, space):
-        return self._utf8.decode('utf8')
 
     def listview_utf8(self):
         assert self.is_ascii()
@@ -1190,9 +1187,12 @@ def encode_object(space, w_object, encoding, errors):
     utf8 = space.utf8_w(w_object)
     idx = rutf8.surrogate_in_utf8(utf8)
     if idx >= 0:
-        eh = unicodehelper.encode_error_handler(space)
-        eh(None, "utf8", "surrogates not allowed", utf8,
-            idx, idx + 1)
+        print 'surrogate in unicodeobject.encode_object(', w_object, ',', encoding, ',', errors, ')', 'raising'
+        if errors is None:
+            w_err_handler = unicodehelper.encode_error_handler(space)
+        else:
+            w_err_handler = lookup_error(space, errors)
+        w_err_handler(None, "utf8", "surrogates not allowed", utf8, idx, idx + 1)
     if errors is None or errors == 'strict':
         if encoding is None or encoding == 'utf-8':
             #if rutf8.has_surrogates(utf8):
