@@ -333,6 +333,11 @@ def get_scoped_pycppitem(scope, name, type_only=False):
         except AttributeError:
             pass
 
+    # enum type
+    if not cppitem:
+        if scope.__cppdecl__.has_enum(name):
+            pycppitem = int
+
     if pycppitem is not None:      # pycppitem could be a bound C++ NULL, so check explicitly for Py_None
         return pycppitem
 

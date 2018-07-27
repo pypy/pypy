@@ -32,6 +32,8 @@ namespace EnumSpace {
         enum    {E1 = -1};
         enum EE {E2 = -1};
     };
+
+    typedef enum { AA = 1, BB, CC, DD } letter_code;
 }
 
 

@@ -499,6 +499,11 @@ class AppTestDATATYPES:
         assert gbl.EnumSpace.EnumClass.E1 == -1   # anonymous
         assert gbl.EnumSpace.EnumClass.E2 == -1   # named type
 
+        # typedef enum
+        assert gbl.EnumSpace.letter_code
+        assert gbl.EnumSpace.AA == 1
+        assert gbl.EnumSpace.BB == 2
+
     def test11_string_passing(self):
         """Test passing/returning of a const char*"""
 

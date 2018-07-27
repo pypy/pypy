@@ -1221,6 +1221,12 @@ class W_CPPScopeDecl(W_Root):
         self.datamembers[name] = new_dm
         return new_dm
 
+    @unwrap_spec(name='text')
+    def has_enum(self, name):
+        if capi.c_is_enum(self.space, self.name+'::'+name):
+            return self.space.w_True
+        return self.space.w_False
+
     def _encode_dm_dimensions(self, idata):
         # encode dimensions (TODO: this is ugly, but here's where the info is)
         dims = []
@@ -1269,6 +1275,8 @@ class W_CPPNamespaceDecl(W_CPPScopeDecl):
 
     def _make_datamember(self, dm_name, dm_idx):
         type_name = capi.c_datamember_type(self.space, self, dm_idx)
+        if capi.c_is_enum_data(self.space, self, dm_idx):
+            type_name = capi.c_resolve_enum(self.space, type_name)
         offset = capi.c_datamember_offset(self.space, self, dm_idx)
         if offset == -1:
             raise self.missing_attribute_error(dm_name)
@@ -1326,6 +1334,7 @@ W_CPPNamespaceDecl.typedef = TypeDef(
     get_datamember_names = interp2app(W_CPPNamespaceDecl.get_datamember_names),
     get_datamember = interp2app(W_CPPNamespaceDecl.get_datamember),
     is_namespace = interp2app(W_CPPNamespaceDecl.is_namespace),
+    has_enum = interp2app(W_CPPNamespaceDecl.has_enum),
     __cppname__ = interp_attrproperty('name', W_CPPNamespaceDecl, wrapfn="newtext"),
     __dispatch__ = interp2app(W_CPPNamespaceDecl.scope__dispatch__),
     __dir__ = interp2app(W_CPPNamespaceDecl.ns__dir__),
@@ -1482,6 +1491,7 @@ W_CPPClassDecl.typedef = TypeDef(
     get_datamember_names = interp2app(W_CPPClassDecl.get_datamember_names),
     get_datamember = interp2app(W_CPPClassDecl.get_datamember),
     is_namespace = interp2app(W_CPPClassDecl.is_namespace),
+    has_enum = interp2app(W_CPPClassDecl.has_enum),
     __cppname__ = interp_attrproperty('name', W_CPPClassDecl, wrapfn="newtext"),
     __dispatch__ = interp2app(W_CPPClassDecl.scope__dispatch__)
 )
