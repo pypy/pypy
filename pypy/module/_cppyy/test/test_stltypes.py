@@ -504,10 +504,11 @@ class AppTestSTLMAP:
         stl_like_class = cppyy.gbl.stl_like_class
 
         a = stl_like_class(int)()
-        for i in a:
-            pass
+        assert len(a) == 4
+        for i, j in enumerate(a):
+            assert i == j
 
-        assert i == 3
+        assert i == len(a)-1
 
 
 class AppTestSTLITERATOR:

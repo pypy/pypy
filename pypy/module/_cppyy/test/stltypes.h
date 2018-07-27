@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 
+
 //- basic example class
 class just_a_class {
 public:
@@ -41,7 +42,7 @@ template<class T>
 class stl_like_class {
 public: 
    no_dict_available* begin() { return 0; }
-   no_dict_available* end() { return 0; }
+   no_dict_available* end() { return (no_dict_available*)1; }
    int size() { return 4; }
    int operator[](int i) { return i; }
    std::string operator[](double) { return "double"; }
@@ -57,6 +58,8 @@ namespace {
 namespace ArrayTest {
 
 struct Point {
+    Point() : px(0), py(0) {}
+    Point(int x, int y) : px(x), py(y) {}
     int px, py;
 };
 
