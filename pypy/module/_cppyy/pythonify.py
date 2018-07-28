@@ -435,9 +435,8 @@ def _pythonize(pyclass, name):
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
     # not on vector, which is pythonized in the capi (interp-level; there is
     # also the fallback on the indexed __getitem__, but that is slower)
-# TODO:    if not (0 <= name.find('vector') <= 5):
     add_checked_item = False
-    if not (0 <= name.find('vector<bool') <= 5):
+    if name.find('std::vector', 0, 11) != 0:
         if ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
             if _cppyy._scope_byname(name+'::iterator') or \
                     _cppyy._scope_byname(name+'::const_iterator'):
@@ -454,7 +453,7 @@ def _pythonize(pyclass, name):
                 add_checked_item = True
 
     # add python collection based initializer
-    if 0 <= name.find('vector') <= 5:
+    if name.find('std::vector', 0, 11) == 0:
         pyclass.__real_init__ = pyclass.__init__
         def vector_init(self, *args):
             if len(args) == 1 and isinstance(args[0], (tuple, list)):
@@ -478,8 +477,8 @@ def _pythonize(pyclass, name):
 
     # TODO: must be a simpler way to check (or at least hook these to a namespace
     # std specific pythonizor)
-    if add_checked_item or 0 <= name.find('vector') <= 5 or \
-            0 <= name.find('array') <= 5 or 0 <= name.find('deque') <= 5:
+    if add_checked_item or name.find('std::vector', 0, 11) == 0 or \
+            name.find('std::array', 0, 11) == 0 or name.find('std::deque', 0, 10) == 0:
         # combine __getitem__ and __len__ to make a pythonized __getitem__
         if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
             pyclass._getitem__unchecked = pyclass.__getitem__
