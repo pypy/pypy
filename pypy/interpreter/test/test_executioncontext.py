@@ -149,7 +149,7 @@ class TestExecutionContext:
         pass
         """)
         space.getexecutioncontext().setllprofile(None, None)
-        assert l == ['call', 'return', 'call', 'return']
+        assert l[-4:] == ['call', 'return', 'call', 'return']
 
     def test_llprofile_c_call(self):
         from pypy.interpreter.function import Function, Method
@@ -173,15 +173,15 @@ class TestExecutionContext:
             return
             """ % snippet)
             space.getexecutioncontext().setllprofile(None, None)
-            assert l == ['call', 'return', 'call', 'c_call', 'c_return', 'return']
-            if isinstance(seen[0], Method):
-                w_class = space.type(seen[0].w_instance)
+            assert l[-6:] == ['call', 'return', 'call', 'c_call', 'c_return', 'return']
+            if isinstance(seen[-1], Method):
+                w_class = space.type(seen[-1].w_instance)
                 found = 'method %s of %s' % (
-                    seen[0].w_function.name,
+                    seen[-1].w_function.name,
                     w_class.getname(space).encode('utf-8'))
             else:
-                assert isinstance(seen[0], Function)
-                found = 'builtin %s' % seen[0].name
+                assert isinstance(seen[-1], Function)
+                found = 'builtin %s' % seen[-1].name
             assert found == expected_c_call
 
         check_snippet('l = []; l.append(42)', 'method append of list')
@@ -210,7 +210,7 @@ class TestExecutionContext:
             return
             """ % snippet)
             space.getexecutioncontext().setllprofile(None, None)
-            assert l == ['call', 'return', 'call', 'c_call', 'c_exception', 'return']
+            assert l[-6:] == ['call', 'return', 'call', 'c_call', 'c_exception', 'return']
 
         check_snippet('d = {}; d.__getitem__(42)')
 
