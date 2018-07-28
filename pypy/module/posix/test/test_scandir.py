@@ -224,7 +224,7 @@ class AppTestScandir(object):
 
     def test_lstat(self):
         posix = self.posix
-        d = next(posix.scandir())
+        d = next(posix.scandir(self.dir1))
         with open(d) as fp:
             length = len(fp.read())
         assert posix.lstat(d).st_size == length
