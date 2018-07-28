@@ -72,10 +72,9 @@ class BaseTestCompiler:
     def check(self, w_dict, evalexpr, expected):
         # for now, we compile evalexpr with CPython's compiler but run
         # it with our own interpreter to extract the data from w_dict
-        co_expr = compile(evalexpr, '<evalexpr>', 'eval')
         space = self.space
-        pyco_expr = PyCode._from_code(space, co_expr)
-        w_res = pyco_expr.exec_host_bytecode(w_dict, w_dict)
+        pyco_expr = space.createcompiler().compile(evalexpr, '<evalexpr>', 'eval', 0)
+        w_res = space.exec_(pyco_expr, w_dict, w_dict)
         res = space.str_w(space.repr(w_res))
         expected_repr = self.get_py3_repr(expected)
         if isinstance(expected, float):
@@ -1011,6 +1010,7 @@ class TestCompiler(BaseTestCompiler):
         ("C4.__doc__", 'docstring'),
         ("C4.__doc__", 'docstring'),
         ("__doc__", None),])
+
     def test_remove_docstring(self, expr, result):
         source = '"module_docstring"\n' + """if 1:
         def f1():
@@ -1210,12 +1210,12 @@ class TestCompiler(BaseTestCompiler):
         yield self.st, """z=f'{f"{0}"*3}'""", 'z', '000'
 
     def test_fstring_error(self):
-        raises(SyntaxError, self.run, "f'{}'")
-        raises(SyntaxError, self.run, "f'{   \t   }'")
-        raises(SyntaxError, self.run, "f'{5#}'")
-        raises(SyntaxError, self.run, "f'{5)#}'")
-        raises(SyntaxError, self.run, "f'''{5)\n#}'''")
-        raises(SyntaxError, self.run, "f'\\x'")
+        py.test.raises(SyntaxError, self.run, "f'{}'")
+        py.test.raises(SyntaxError, self.run, "f'{   \t   }'")
+        py.test.raises(SyntaxError, self.run, "f'{5#}'")
+        py.test.raises(SyntaxError, self.run, "f'{5)#}'")
+        py.test.raises(SyntaxError, self.run, "f'''{5)\n#}'''")
+        py.test.raises(SyntaxError, self.run, "f'\\x'")
 
     def test_fstring_encoding(self):
         src = """# -*- coding: latin-1 -*-\nz=ord(f'{"\xd8"}')\n"""
@@ -1512,3 +1512,18 @@ class TestOptimizations:
             del []
         """
         generate_function_code(source, self.space)
+
+    def test_make_constant_map(self):
+        source = """def f():
+            return {"A": 1, "b": 2}
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_MAP not in counts
+        source = """def f():
+            return {"a": 1, "b": {}, 1: {"a": x}}
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_MAP] == 1 # the empty dict
+        assert counts[ops.BUILD_CONST_KEY_MAP] == 2
+
+

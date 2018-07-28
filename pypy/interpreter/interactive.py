@@ -213,7 +213,7 @@ class PyPyConsole(code.InteractiveConsole):
             ec.bytecode_only_trace = self._orig_bytecode_only_trace
 
     def _do_bytecode_only_trace(self, frame):
-        from pypy.tool.pydis import Bytecode, HAVE_ARGUMENT
+        from pypy.tool import opcode3, dis3
 
         if frame.hide():
             return
@@ -221,18 +221,12 @@ class PyPyConsole(code.InteractiveConsole):
         self.unsettrace()
         next_instr = frame.last_instr
         opcode = ord(frame.pycode.co_code[next_instr])
+        oparg = ord(frame.pycode.co_code[next_instr+1])
 
-        oparg = 0
-        if opcode >= HAVE_ARGUMENT:
-            lo = ord(frame.pycode.co_code[next_instr+1])
-            hi = ord(frame.pycode.co_code[next_instr+2])
-            oparg = (hi * 256) | lo
-
-        class fake:
-            code = frame.pycode
-        bytecode = Bytecode(fake, next_instr, oparg, 0)
+        argrepr = reprargstring(self.space, frame.pycode, opcode, oparg)
+        oprepr = opcode3.opname[opcode] + argrepr.ljust(5)
         print '\t%-19s %s' % (str(frame.pycode.co_name) + ':',
-                              bytecode.repr_with_space(self.space))
+                              oprepr)
         self.settrace()
 
     def checktrace(self):
@@ -255,3 +249,26 @@ class PyPyConsole(code.InteractiveConsole):
 
 class IncompleteInput(Exception):
     pass
+
+
+def reprargstring(space, pycode, opcode, oparg):
+    """ return a string representation of any arguments. (empty for no args)"""
+    from pypy.tool import opcode3
+    if oparg is None:
+        return ''
+    s = repr(oparg).rjust(5) + " "
+    if opcode in opcode3.hasconst:
+        r = space.text_w(space.repr(pycode.co_consts_w[oparg]))
+        s += '(' + r + ')'
+    elif opcode in opcode3.hasname:
+        s +=  '(' + pycode.co_names[oparg] + ')'
+    elif opcode in opcode3.hasjrel:
+        s +=  '(to ' + repr(self.index + oparg) + ')'
+    elif opcode in opcode3.haslocal:
+        s +=  '(' + pycode.co_varnames[oparg] + ')'
+    elif opcode in opcode3.hascompare:
+        s +=  '(' + opcode3.cmp_op[oparg] + ')'
+    elif opcode in opcode3.hasfree:
+        free = pycode.co_cellvars + pycode.co_freevars
+        s +=  '(' + free[oparg] + ')'
+    return s

@@ -62,6 +62,7 @@ class __extend__(pyframe.PyFrame):
         co_code = pycode.co_code
         try:
             while True:
+                assert next_instr & 1 == 0
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
             return self.popvalue()
@@ -152,22 +153,17 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
         while True:
+            assert next_instr & 1 == 0
             self.last_instr = intmask(next_instr)
             if jit.we_are_jitted():
                 ec.bytecode_only_trace(self)
             else:
                 ec.bytecode_trace(self)
             next_instr = r_uint(self.last_instr)
+            assert next_instr & 1 == 0
             opcode = ord(co_code[next_instr])
-            next_instr += 1
-
-            if opcode >= HAVE_ARGUMENT:
-                lo = ord(co_code[next_instr])
-                hi = ord(co_code[next_instr+1])
-                next_instr += 2
-                oparg = (hi * 256) | lo
-            else:
-                oparg = 0
+            oparg = ord(co_code[next_instr + 1])
+            next_instr += 2
 
             # note: the structure of the code here is such that it makes
             # (after translation) a big "if/elif" chain, which is then
@@ -175,12 +171,11 @@ class __extend__(pyframe.PyFrame):
 
             while opcode == opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
+                arg = ord(co_code[next_instr + 1])
                 if opcode < HAVE_ARGUMENT:
                     raise BytecodeCorruption
-                lo = ord(co_code[next_instr+1])
-                hi = ord(co_code[next_instr+2])
-                next_instr += 3
-                oparg = (oparg * 65536) | (hi * 256) | lo
+                next_instr += 2
+                oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
                 w_returnvalue = self.popvalue()
@@ -252,6 +247,8 @@ class __extend__(pyframe.PyFrame):
                 self.BINARY_TRUE_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_XOR.index:
                 self.BINARY_XOR(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_CONST_KEY_MAP.index:
+                self.BUILD_CONST_KEY_MAP(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_LIST.index:
                 self.BUILD_LIST(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_LIST_FROM_ARG.index:
@@ -362,8 +359,6 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_NAME(oparg, next_instr)
             elif opcode == opcodedesc.LOOKUP_METHOD.index:
                 self.LOOKUP_METHOD(oparg, next_instr)
-            elif opcode == opcodedesc.MAKE_CLOSURE.index:
-                self.MAKE_CLOSURE(oparg, next_instr)
             elif opcode == opcodedesc.MAKE_FUNCTION.index:
                 self.MAKE_FUNCTION(oparg, next_instr)
             elif opcode == opcodedesc.MAP_ADD.index:
@@ -1357,46 +1352,41 @@ class __extend__(pyframe.PyFrame):
         self.call_function(oparg, w_varkw, has_vararg=True)
 
     @jit.unroll_safe
-    def _make_function(self, oparg, freevars=None):
+    def MAKE_FUNCTION(self, oparg, next_instr):
         space = self.space
         w_qualname = self.popvalue()
         qualname = self.space.unicode_w(w_qualname)
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(PyCode, w_codeobj)
-        if freevars is not None:
-            # Pop freevars
-            self.popvalue()
-        posdefaults = oparg & 0xFF
-        kwdefaults = (oparg >> 8) & 0xFF
-        num_annotations = (oparg >> 16) & 0xFF
-        w_ann = None
-        if num_annotations:
-            names_w = space.fixedview(self.popvalue())
-            w_ann = space.newdict(strdict=True)
-            for i in range(len(names_w) - 1, -1, -1):
-                space.setitem(w_ann, names_w[i], self.popvalue())
-        kw_defs_w = None
-        if kwdefaults:
-            kw_defs_w = []
-            for i in range(kwdefaults):
-                w_defvalue = self.popvalue()
-                w_defname = self.popvalue()
-                kw_defs_w.append((w_defname, w_defvalue))
-        defaultarguments = self.popvalues(posdefaults)
+        assert 0 <= oparg <= 0x0F
+        if oparg & 0x08:
+            w_freevarstuple = self.popvalue()
+            # XXX this list copy is expensive, it's purely for the annotator
+            freevars = [self.space.interp_w(Cell, cell)
+                        for cell in self.space.fixedview(w_freevarstuple)]
+        else:
+            freevars = None
+        if oparg & 0x04:
+            w_ann = self.popvalue()
+        else:
+            w_ann = None
+        if oparg & 0x02:
+            w_kw_defs = self.popvalue()
+            # XXX
+            kw_defs_w = [space.unpackiterable(w_tup)
+                            for w_tup in space.fixedview(
+                                space.call_method(w_kw_defs, 'items'))]
+        else:
+            kw_defs_w = None
+        if oparg & 0x01:
+            defaultarguments = space.fixedview(self.popvalue())
+        else:
+            defaultarguments = []
+
         fn = function.Function(space, codeobj, self.get_w_globals(),
                                defaultarguments,
                                kw_defs_w, freevars, w_ann, qualname=qualname)
         self.pushvalue(fn)
-
-    def MAKE_FUNCTION(self, oparg, next_instr):
-        return self._make_function(oparg)
-
-    @jit.unroll_safe
-    def MAKE_CLOSURE(self, oparg, next_instr):
-        w_freevarstuple = self.peekvalue(2)
-        freevars = [self.space.interp_w(Cell, cell)
-                    for cell in self.space.fixedview(w_freevarstuple)]
-        self._make_function(oparg, freevars)
 
     def BUILD_SLICE(self, numargs, next_instr):
         if numargs == 3:
@@ -1447,7 +1437,18 @@ class __extend__(pyframe.PyFrame):
             w_value = self.peekvalue(2 * i)
             w_key = self.peekvalue(2 * i + 1)
             self.space.setitem(w_dict, w_key, w_value)
-        self.popvalues(2 * itemcount)
+        self.dropvalues(2 * itemcount)
+        self.pushvalue(w_dict)
+
+    @jit.unroll_safe
+    def BUILD_CONST_KEY_MAP(self, itemcount, next_instr):
+        keys_w = self.space.fixedview(self.popvalue())
+        w_dict = self.space.newdict()
+        for i in range(itemcount):
+            w_value = self.peekvalue(itemcount - 1 - i)
+            w_key = keys_w[i]
+            self.space.setitem(w_dict, w_key, w_value)
+        self.dropvalues(itemcount)
         self.pushvalue(w_dict)
 
     @jit.unroll_safe
@@ -1456,7 +1457,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
             self.space.call_method(w_set, 'add', w_item)
-        self.popvalues(itemcount)
+        self.dropvalues(itemcount)
         self.pushvalue(w_set)
 
     @jit.unroll_safe

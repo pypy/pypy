@@ -35,3 +35,7 @@ https://bitbucket.org/pypy/revdb
 .. branch: pyparser-improvements-3
 
 Small refactorings in the Python parser.
+
+.. branch: py3.6-wordcode
+
+implement new wordcode instruction encoding on the 3.6 branch

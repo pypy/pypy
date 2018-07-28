@@ -2,9 +2,7 @@
 """
 opcode module - potentially shared between dis and other modules which
 operate on bytecodes (e.g. peephole optimizers).
-"Backported" from Python 3 to Python 2 land - an excact copy of lib-python/3/opcode.py
 """
-
 
 __all__ = ["cmp_op", "hasconst", "hasname", "hasjrel", "hasjabs",
            "haslocal", "hascompare", "hasfree", "opname", "opmap",
@@ -33,10 +31,12 @@ hasjabs = []
 haslocal = []
 hascompare = []
 hasfree = []
-hasnargs = [] # unused
+hasnargs = []
 
 opmap = {}
-opname = ['<%r>' % (op,) for op in range(256)]
+opname = [''] * 256
+for op in range(256): opname[op] = '<%r>' % (op,)
+del op
 
 def def_op(name, op):
     opname[op] = name
@@ -174,9 +174,11 @@ haslocal.append(126)
 name_op('STORE_ANNOTATION', 127) # Index in name list
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
-def_op('CALL_FUNCTION', 131)    # #args
-def_op('MAKE_FUNCTION', 132)    # Flags
+def_op('CALL_FUNCTION', 131)    # #args + (#kwargs << 8)
+hasnargs.append(131)
+def_op('MAKE_FUNCTION', 132)    # Number of args with default values
 def_op('BUILD_SLICE', 133)      # Number of items
+def_op('MAKE_CLOSURE', 134)
 def_op('LOAD_CLOSURE', 135)
 hasfree.append(135)
 def_op('LOAD_DEREF', 136)
@@ -186,8 +188,12 @@ hasfree.append(137)
 def_op('DELETE_DEREF', 138)
 hasfree.append(138)
 
-def_op('CALL_FUNCTION_KW', 141)  # #args + #kwargs
-def_op('CALL_FUNCTION_EX', 142)  # Flags
+def_op('CALL_FUNCTION_VAR', 140)     # #args + (#kwargs << 8)
+hasnargs.append(140)
+def_op('CALL_FUNCTION_KW', 141)      # #args + (#kwargs << 8)
+hasnargs.append(141)
+def_op('CALL_FUNCTION_VAR_KW', 142)  # #args + (#kwargs << 8)
+hasnargs.append(142)
 
 jrel_op('SETUP_WITH', 143)
 
@@ -198,6 +204,8 @@ def_op('MAP_ADD', 147)
 def_op('LOAD_CLASSDEREF', 148)
 hasfree.append(148)
 
+jrel_op('SETUP_ASYNC_WITH', 154)
+
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
 
@@ -207,12 +215,9 @@ def_op('BUILD_MAP_UNPACK_WITH_CALL', 151)
 def_op('BUILD_TUPLE_UNPACK', 152)
 def_op('BUILD_SET_UNPACK', 153)
 
-jrel_op('SETUP_ASYNC_WITH', 154)
-
-def_op('FORMAT_VALUE', 155)
-def_op('BUILD_CONST_KEY_MAP', 156)
-def_op('BUILD_STRING', 157)
-def_op('BUILD_TUPLE_UNPACK_WITH_CALL', 158)
+def_op('FORMAT_VALUE', 155)   # in CPython 3.6, but available in PyPy from 3.5
+def_op("BUILD_CONST_KEY_MAP", 156)
+def_op('BUILD_STRING', 157)   # in CPython 3.6, but available in PyPy from 3.5
 
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list

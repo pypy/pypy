@@ -39,7 +39,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 128 # bump it by 16
+pypy_incremental_magic = 160 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -216,6 +216,7 @@ class PyCode(eval.Code):
         """
         Hack to initialize the code object from a real (CPython) one.
         """
+        raise TypeError("assert reinterpretation for applevel tests is broken on PyPy3!")
         assert isinstance(code, types.CodeType)
         newconsts_w = [None] * len(code.co_consts)
         num = 0
@@ -301,11 +302,7 @@ class PyCode(eval.Code):
                 w_co.remove_docstrings(space)
 
     def exec_host_bytecode(self, w_globals, w_locals):
-        if sys.version_info < (2, 7):
-            raise Exception("PyPy no longer supports Python 2.6 or lower")
-        frame = self.space.FrameClass(self.space, self, w_globals, None)
-        frame.setdictscope(w_locals)
-        return frame.run()
+        raise Exception("no longer supported after the switch to wordcode!")
 
     def dump(self):
         """NOT_RPYTHON: A dis.dis() dump of the code object."""
