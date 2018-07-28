@@ -542,7 +542,7 @@ class Fraction(numbers.Rational):
         else:
             return Fraction(round(self / shift) * shift)
 
-    def __hash__(self):
+    def __hash__(self, CACHE=[-1] * 1001):
         """hash(self)"""
 
         # XXX since this method is expensive, consider caching the result
@@ -556,12 +556,23 @@ class Fraction(numbers.Rational):
         # dinv is the inverse of self._denominator modulo the prime
         # _PyHASH_MODULUS, or 0 if self._denominator is divisible by
         # _PyHASH_MODULUS.
-        dinv = pow(self._denominator, _PyHASH_MODULUS - 2, _PyHASH_MODULUS)
+
+        # PyPy3: added caching of pow() results for denominators up to 1000
+        denom = self._denominator
+        assert denom >= 0
+        if denom < len(CACHE):
+            dinv = CACHE[denom]
+            if dinv == -1:
+                dinv = pow(denom, _PyHASH_MODULUS - 2, _PyHASH_MODULUS)
+                CACHE[denom] = dinv
+        else:
+            dinv = pow(denom, _PyHASH_MODULUS - 2, _PyHASH_MODULUS)
+
         if not dinv:
             hash_ = _PyHASH_INF
         else:
             hash_ = abs(self._numerator) * dinv % _PyHASH_MODULUS
-        result = hash_ if self >= 0 else -hash_
+        result = hash_ if self._numerator >= 0 else -hash_
         return -2 if result == -1 else result
 
     def __eq__(a, b):

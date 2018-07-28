@@ -48,9 +48,6 @@ class BytesIOBuffer(Buffer):
         finally:
             w_bytesio.seek(tell)
 
-    def get_raw_address(self):
-        raise ValueError("BytesIOBuffer does not have a raw address")
-
 
 class W_BytesIO(W_BufferedIOBase):
     import_from_mixin(RStringIO)

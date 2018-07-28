@@ -2,7 +2,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rlib.rarithmetic import int_c_div, int_c_mod
+from rpython.rlib.rarithmetic import int_c_div, int_c_mod, mulmod
 from rpython.rlib import jit
 
 
@@ -39,3 +39,7 @@ def uint_rshift(space, n, m):
     n = r_uint(n)
     x = llop.uint_rshift(lltype.Unsigned, n, m)
     return space.newint(intmask(x))
+
+@unwrap_spec(a=int, b=int, c=int)
+def int_mulmod(space, a, b, c):
+    return space.newint(mulmod(a, b, c))

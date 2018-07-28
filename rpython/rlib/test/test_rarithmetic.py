@@ -1,5 +1,6 @@
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
+from rpython.rlib import rarithmetic
 from rpython.rlib.rarithmetic import *
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
 from hypothesis import given, strategies, assume
@@ -731,3 +732,17 @@ def test_ovfcheck_int32():
     py.test.raises(OverflowError, ovfcheck_int32_sub, 2**30, -2**30)
     assert ovfcheck_int32_mul(-2**16, 2**15) == -2**31
     py.test.raises(OverflowError, ovfcheck_int32_mul, -2**16, -2**15)
+
+@given(strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+       strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+       strategies.integers(min_value=1, max_value=sys.maxint))
+def test_mulmod(a, b, c):
+    assert mulmod(a, b, c) == (a * b) % c
+    #
+    import rpython.rlib.rbigint  # import before patching check_support_int128
+    prev = rarithmetic.check_support_int128
+    try:
+        rarithmetic.check_support_int128 = lambda: False
+        assert mulmod(a, b, c) == (a * b) % c
+    finally:
+        rarithmetic.check_support_int128 = prev
