@@ -583,7 +583,7 @@ def make_formatting_class(for_unicode):
 
         def _unknown_presentation(self, w_val):
             raise oefmt(self.space.w_ValueError,
-                        "unknown format code %s for object of type '%T'", self._type, w_val)
+                        "Unknown format code %s for object of type '%T'", self._type, w_val)
 
         def format_string(self, w_string):
             space = self.space
