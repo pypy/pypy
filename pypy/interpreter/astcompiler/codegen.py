@@ -307,7 +307,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # if the scope contained an annotated variable assignemt,
         # this will emit the requisite SETUP_ANNOTATIONS
         if self.scope.contains_annotated and not isinstance(self, AbstractFunctionCodeGenerator):
-            self.emit_op(ops.SETUP_ANNOTATIONS)
+            return self.emit_op(ops.SETUP_ANNOTATIONS)
 
     def visit_Module(self, mod):
         if not self._handle_body(mod.body):
@@ -321,10 +321,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.add_none_to_final_return = False
         mod.body.walkabout(self)
 
-    def _make_function(self, code, num_defaults=0, qualname=None):
+    def _make_function(self, code, oparg=0, qualname=None):
         """Emit the opcodes to turn a code object into a function."""
         w_qualname = self.space.newtext(qualname or code.co_name)
         if code.co_freevars:
+            oparg = oparg | 0x08
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
                 free_scope = self.scope.lookup(free)
@@ -335,24 +336,25 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     index = self.free_vars[free]
                 self.emit_op_arg(ops.LOAD_CLOSURE, index)
             self.emit_op_arg(ops.BUILD_TUPLE, len(code.co_freevars))
-            self.load_const(code)
-            self.load_const(w_qualname)
-            self.emit_op_arg(ops.MAKE_CLOSURE, num_defaults)
-        else:
-            self.load_const(code)
-            self.load_const(w_qualname)
-            self.emit_op_arg(ops.MAKE_FUNCTION, num_defaults)
+        self.load_const(code)
+        self.load_const(w_qualname)
+        self.emit_op_arg(ops.MAKE_FUNCTION, oparg)
 
     def _visit_kwonlydefaults(self, args):
         defaults = 0
+        keys_w = []
         for i, default in enumerate(args.kw_defaults):
             if default:
                 kwonly = args.kwonlyargs[i]
                 assert isinstance(kwonly, ast.arg)
                 mangled = self.scope.mangle(kwonly.arg)
-                self.load_const(self.space.newtext(mangled))
+                keys_w.append(self.space.newtext(mangled))
                 default.walkabout(self)
                 defaults += 1
+        if keys_w:
+            w_tup = self.space.newtuple(keys_w)
+            self.load_const(w_tup)
+            self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, len(keys_w))
         return defaults
 
     def _visit_arg_annotation(self, name, ann, names):
@@ -387,7 +389,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.error("too many annotations", func)
             w_tup = space.newtuple([space.newtext(name) for name in names])
             self.load_const(w_tup)
-            l += 1
+            self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, l)
         return l
 
     @specialize.arg(2)
@@ -396,16 +398,25 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # Load decorators first, but apply them after the function is created.
         self.visit_sequence(func.decorator_list)
         args = func.args
+
         assert isinstance(args, ast.arguments)
+
+        oparg = 0
         self.visit_sequence(args.defaults)
-        kw_default_count = 0
+
+        if args.defaults is not None and len(args.defaults):
+            oparg = oparg | 0x01
+            self.emit_op_arg(ops.BUILD_TUPLE, len(args.defaults))
+
         if args.kwonlyargs:
             kw_default_count = self._visit_kwonlydefaults(args)
+            if kw_default_count:
+                oparg = oparg | 0x02
+
         num_annotations = self._visit_annotations(func, args, func.returns)
-        num_defaults = len(args.defaults) if args.defaults is not None else 0
-        oparg = num_defaults
-        oparg |= kw_default_count << 8
-        oparg |= num_annotations << 16
+        if num_annotations:
+            oparg = oparg | 0x04
+
         code, qualname = self.sub_scope(function_code_generator, func.name,
                                         func, func.lineno)
         self._make_function(code, oparg, qualname=qualname)
@@ -425,15 +436,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(lam.lineno)
         args = lam.args
         assert isinstance(args, ast.arguments)
+
         self.visit_sequence(args.defaults)
-        kw_default_count = 0
+
+        oparg = 0
+        if args.defaults is not None and len(args.defaults):
+            oparg = oparg | 0x01
+            self.emit_op_arg(ops.BUILD_TUPLE, len(args.defaults))
+
         if args.kwonlyargs:
             kw_default_count = self._visit_kwonlydefaults(args)
-        default_count = len(args.defaults) if args.defaults is not None else 0
+            if kw_default_count:
+                oparg = oparg | 0x02
         code, qualname = self.sub_scope(
             LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
-        oparg = default_count
-        oparg |= kw_default_count << 8
         self._make_function(code, oparg, qualname=qualname)
 
     def visit_ClassDef(self, cls):
@@ -1281,28 +1297,46 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         containers = 0
         elements = 0
         is_unpacking = False
+        all_constant_keys_w = None
         if d.values:
+            if len(d.keys) < 0xffff:
+                all_constant_keys_w = []
+                for key in d.keys:
+                    if key is None or key.as_constant() is None:
+                        all_constant_keys_w = None
+                        break
+                    else:
+                        all_constant_keys_w.append(key.as_constant())
             for i in range(len(d.values)):
                 key = d.keys[i]
                 is_unpacking = key is None
                 if elements == 0xFFFF or (elements and is_unpacking):
+                    assert all_constant_keys_w is None
                     self.emit_op_arg(ops.BUILD_MAP, elements)
                     containers += 1
                     elements = 0
                 if is_unpacking:
+                    assert all_constant_keys_w is None
                     d.values[i].walkabout(self)
                     containers += 1
                 else:
-                    key.walkabout(self)
+                    if not all_constant_keys_w:
+                        key.walkabout(self)
                     d.values[i].walkabout(self)
                     elements += 1
         if elements or containers == 0:
-            self.emit_op_arg(ops.BUILD_MAP, elements)
-            containers += 1
+            if all_constant_keys_w:
+                w_tup = self.space.newtuple(all_constant_keys_w)
+                self.load_const(w_tup)
+                self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, elements)
+            else:
+                self.emit_op_arg(ops.BUILD_MAP, elements)
+                containers += 1
         # If there is more than one dict, they need to be merged into
         # a new dict. If there is one dict and it's an unpacking, then
         #it needs to be copied into a new dict.
         while containers > 1 or is_unpacking:
+            assert all_constant_keys_w is None
             oparg = min(containers, 255)
             self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
             containers -= (oparg - 1)
@@ -1699,6 +1733,12 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
                                      symbols, compile_info, qualname=None)
 
     def _compile(self, tree):
+        if isinstance(tree, ast.Module):
+            if tree.body:
+                self.first_lineno = tree.body[0].lineno
+            else:
+                self.first_lineno = self.lineno = 1
+
         self._maybe_setup_annotations()
         tree.walkabout(self)
 

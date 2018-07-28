@@ -939,7 +939,7 @@ class TestAstBuilder:
 
     def test_flufl(self):
         source = "x <> y"
-        raises(SyntaxError, self.get_ast, source)
+        py.test.raises(SyntaxError, self.get_ast, source)
         comp = self.get_first_expr(source,
                                    flags=consts.CO_FUTURE_BARRY_AS_BDFL)
         assert isinstance(comp, ast.Compare)
@@ -1167,7 +1167,7 @@ class TestAstBuilder:
         s = self.get_first_expr("b'hi' b' implicitly' b' extra'")
         assert isinstance(s, ast.Bytes)
         assert space.eq_w(s.s, space.newbytes("hi implicitly extra"))
-        raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
+        py.test.raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
         sentence = u"Die Männer ärgern sich!"
         source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
         info = pyparse.CompileInfo("<test>", "exec")
@@ -1362,8 +1362,8 @@ class TestAstBuilder:
         assert isinstance(if2, ast.Name)
 
     def test_cpython_issue12983(self):
-        raises(SyntaxError, self.get_ast, r"""b'\x'""")
-        raises(SyntaxError, self.get_ast, r"""b'\x0'""")
+        py.test.raises(SyntaxError, self.get_ast, r"""b'\x'""")
+        py.test.raises(SyntaxError, self.get_ast, r"""b'\x0'""")
 
     def test_matmul(self):
         mod = self.get_ast("a @ b")

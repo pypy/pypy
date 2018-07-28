@@ -132,3 +132,11 @@ class AppTestAnnotations:
             ''')
         """)
 
+    def test_lineno(self):
+        s = """
+
+a: int
+        """
+        c = compile(s, "f", "exec")
+        assert c.co_firstlineno == 3
+

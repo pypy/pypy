@@ -691,6 +691,7 @@ class PyFrame(W_Root):
         endblock = [-1]     # current finally/except block stack
         addr = 0
         while addr < len(code):
+            assert addr & 1 == 0
             op = ord(code[addr])
             if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
                       SETUP_ASYNC_WITH):
@@ -713,10 +714,7 @@ class PyFrame(W_Root):
             if addr == self.last_instr:
                 f_lasti_handler_addr = endblock[-1]
 
-            if op >= HAVE_ARGUMENT:
-                addr += 3
-            else:
-                addr += 1
+            addr += 2
 
         if len(blockstack) != 0 or len(endblock) != 1:
             raise oefmt(space.w_SystemError,
@@ -774,6 +772,7 @@ class PyFrame(W_Root):
             block.cleanupstack(self)
 
         self.getorcreatedebug().f_lineno = new_lineno
+        assert new_lasti & 1 == 0
         self.last_instr = new_lasti
 
     def get_last_lineno(self):
