@@ -486,4 +486,5 @@ class AppTestInternalMethods:
             pass
 
         excinfo = raises(ValueError, "{:j}".format, x(1))
-        assert str(excinfo.value) == "unknown format code j for object of type 'x'"
+        print(excinfo.value)
+        assert str(excinfo.value) == "Unknown format code j for object of type 'x'"
