@@ -671,3 +671,20 @@ class AppTestCoroutine:
 
         assert self.run_async(run()) == ([], (1,))
         """
+
+    def test_asyncgen_yield_stopiteration(self):
+        """
+        async def foo():
+            yield 1
+            yield StopIteration(2)
+
+        async def run():
+            it = foo().__aiter__()
+            val1 = await it.__anext__()
+            assert val1 == 1
+            val2 = await it.__anext__()
+            assert isinstance(val2, StopIteration)
+            assert val2.value == 2
+
+        self.run_async(run())
+        """
