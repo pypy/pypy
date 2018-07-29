@@ -689,6 +689,16 @@ class AppTestFunctionAnnotations:
                                     "bye" : 5, "kw" : 6, "return" : 42}
         """
 
+    def test_bug_annotations_lambda(self):
+        """
+        # those used to crash
+        def broken(*a: lambda x: None):
+            pass
+
+        def broken(**a: lambda x: None):
+            pass
+        """
+
 class AppTestSyntaxError:
 
     def test_tokenizer_error_location(self):

@@ -640,6 +640,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         assert isinstance(args, ast.arguments)
         if args.args:
             self._visit_arg_annotations(args.args)
+        if args.vararg:
+            self._visit_arg_annotation(args.vararg)
+        if args.kwarg:
+            self._visit_arg_annotation(args.kwarg)
         if args.kwonlyargs:
             self._visit_arg_annotations(args.kwonlyargs)
         if func.returns:
@@ -648,8 +652,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def _visit_arg_annotations(self, args):
         for arg in args:
             assert isinstance(arg, ast.arg)
-            if arg.annotation:
-                arg.annotation.walkabout(self)
+            self._visit_arg_annotation(arg)
+
+    def _visit_arg_annotation(self, arg):
+        if arg.annotation:
+            arg.annotation.walkabout(self)
 
     def visit_Name(self, name):
         if name.ctx == ast.Load:
