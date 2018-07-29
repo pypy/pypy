@@ -63,6 +63,8 @@ extern "C" {
     double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     RPY_EXTERN
     long double cppyy_call_ld(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    RPY_EXTERN
+    double cppyy_call_nld(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
     RPY_EXTERN
     void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
@@ -218,6 +220,11 @@ extern "C" {
     const char* cppyy_stdstring2charp(cppyy_object_t ptr, size_t* lsz);
     RPY_EXTERN
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
+
+    RPY_EXTERN
+    double cppyy_longdouble2double(void*);
+    RPY_EXTERN
+    void   cppyy_double2longdouble(double, void*);
 
     RPY_EXTERN
     int         cppyy_vectorbool_getitem(cppyy_object_t ptr, int idx);

@@ -28,10 +28,11 @@ std_string_name = 'std::basic_string<char>'
 
 class _Arg:         # poor man's union
     _immutable_ = True
-    def __init__(self, tc, h = 0, l = -1, s = '', p = rffi.cast(rffi.VOIDP, 0)):
+    def __init__(self, tc, h = 0, l = -1, d = -1., s = '', p = rffi.cast(rffi.VOIDP, 0)):
         self.tc      = tc
         self._handle = h
         self._long   = l
+        self._double = d
         self._string = s
         self._voidp  = p
 
@@ -44,6 +45,11 @@ class _ArgL(_Arg):
     _immutable_ = True
     def __init__(self, val):
         _Arg.__init__(self, 'l', l = val)
+
+class _ArgD(_Arg):
+    _immutable_ = True
+    def __init__(self, val):
+        _Arg.__init__(self, 'd', d = val)
 
 class _ArgS(_Arg):
     _immutable_ = True
@@ -94,6 +100,9 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
                     assert obj._voidp != rffi.cast(rffi.VOIDP, 0)
                     data = rffi.cast(rffi.VOIDPP, data)
                     data[0] = obj._voidp
+                elif obj.tc == 'd':
+                    assert isinstance(argtype, ctypeprim.W_CTypePrimitiveFloat)
+                    misc.write_raw_float_data(data, rffi.cast(rffi.DOUBLE, obj._double), argtype.size)
                 else:    # only other use is string
                     assert obj.tc == 's'
                     n = len(obj._string)
@@ -187,6 +196,7 @@ class State(object):
             'call_f'       : ([c_method, c_object, c_int, c_voidp],   c_float),
             'call_d'       : ([c_method, c_object, c_int, c_voidp],   c_double),
             'call_ld'      : ([c_method, c_object, c_int, c_voidp],   c_ldouble),
+            'call_nld'     : ([c_method, c_object, c_int, c_voidp],   c_double),
 
             'call_r'       : ([c_method, c_object, c_int, c_voidp],   c_voidp),
             # call_s actually takes an size_t* as last parameter, but this will do
@@ -410,7 +420,9 @@ def c_call_d(space, cppmethod, cppobject, nargs, cargs):
     return rffi.cast(rffi.DOUBLE, space.float_w(call_capi(space, 'call_d', args)))
 def c_call_ld(space, cppmethod, cppobject, nargs, cargs):
     args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
-    return rffi.cast(rffi.LONGDOUBLE, space.float_w(call_capi(space, 'call_ld', args)))
+    #return rffi.cast(rffi.LONGDOUBLE, space.float_w(call_capi(space, 'call_ld', args)))
+    # call_nld narrows long double to double
+    return rffi.cast(rffi.DOUBLE, space.float_w(call_capi(space, 'call_nld', args)))
 
 def c_call_r(space, cppmethod, cppobject, nargs, cargs):
     args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
@@ -663,6 +675,11 @@ def c_stdstring2charp(space, cppstr):
     return rffi.charpsize2str(_cdata_to_ccharp(space, w_cstr), cstr_len)
 def c_stdstring2stdstring(space, cppobject):
     return _cdata_to_cobject(space, call_capi(space, 'stdstring2stdstring', [_ArgH(cppobject)]))
+
+def c_longdouble2double(space, addr):
+    return space.float_w(call_capi(space, 'longdouble2double', [_ArgP(addr)]))
+def c_double2longdouble(space, dval, addr):
+    call_capi(space, 'double2longdouble', [_ArgD(dval), _ArgP(addr)])
 
 def c_vectorbool_getitem(space, vbool, idx):
     return call_capi(space, 'vectorbool_getitem', [_ArgH(vbool), _ArgL(idx)])

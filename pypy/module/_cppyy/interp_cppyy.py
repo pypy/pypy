@@ -230,8 +230,10 @@ class CPPMethod(object):
         if self.converters is None:
             try:
                 self._setup(cppthis)
-            except Exception:
-                pass
+            except Exception as e:
+                if self.converters is None:
+                    raise oefmt(self.space.w_SystemError,
+                        "unable to initialize converters (%s)", str(e))
 
         # attempt to call directly through ffi chain
         if useffi and self._funcaddr:

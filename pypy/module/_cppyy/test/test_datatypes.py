@@ -56,10 +56,11 @@ class AppTestDATATYPES:
         assert round(c.m_double         + 77., 11) == 0
         assert round(c.get_double_cr()  + 77., 11) == 0
         assert round(c.get_double_r()   + 77., 11) == 0
-        #assert round(c.m_ldouble        + 88., 24) == 0
-        #assert round(c.get_ldouble_cr() + 88., 24) == 0
-        #assert round(c.get_ldouble_r()  + 88., 24) == 0
-        assert round(c.m_double + 77., 8) == 0
+        assert round(c.m_ldouble        + 88., 24) == 0
+        assert round(c.get_ldouble_cr() + 88., 24) == 0
+        assert round(c.get_ldouble_r()  + 88., 24) == 0
+        assert round(c.get_ldouble_def()  -1., 24) == 0
+        assert round(c.get_ldouble_def(2) -2., 24) == 0
 
         """# complex<double> type
         assert type(c.get_complex()) == complex
@@ -187,16 +188,20 @@ class AppTestDATATYPES:
             assert eval('c.m_%s' % names[i]) == 3*i
 
         # float types through functions
-        c.set_float( 0.123 );  assert round(c.get_float()  - 0.123, 5) == 0
-        c.set_double( 0.456 ); assert round(c.get_double() - 0.456, 8) == 0
+        c.set_float(0.123);   assert round(c.get_float()   - 0.123, 5) == 0
+        c.set_double(0.456);  assert round(c.get_double()  - 0.456, 8) == 0
+        c.set_ldouble(0.789); assert round(c.get_ldouble() - 0.789, 8) == 0
 
         # float types through data members
-        c.m_float = 0.123;      assert round(c.get_float()  - 0.123, 5) == 0
-        c.set_float(0.234);     assert round(c.m_float      - 0.234, 5) == 0
-        c.set_float_cr(0.456);  assert round(c.m_float      - 0.456, 5) == 0
-        c.m_double = 0.678;     assert round(c.get_double() - 0.678, 8) == 0
-        c.set_double(0.890);    assert round(c.m_double     - 0.890, 8) == 0
-        c.set_double_cr(0.012); assert round(c.m_double     - 0.012, 8) == 0
+        c.m_float = 0.123;       assert round(c.get_float()   - 0.123, 5) == 0
+        c.set_float(0.234);      assert round(c.m_float       - 0.234, 5) == 0
+        c.set_float_cr(0.456);   assert round(c.m_float       - 0.456, 5) == 0
+        c.m_double = 0.678;      assert round(c.get_double()  - 0.678, 8) == 0
+        c.set_double(0.890);     assert round(c.m_double      - 0.890, 8) == 0
+        c.set_double_cr(0.012);  assert round(c.m_double      - 0.012, 8) == 0
+        c.m_ldouble = 0.876;     assert round(c.get_ldouble() - 0.876, 8) == 0
+        c.set_ldouble(0.098);    assert round(c.m_ldouble     - 0.098, 8) == 0
+        c.set_ldouble_cr(0.210); assert round(c.m_ldouble     - 0.210, 8) == 0
 
         # arrays; there will be pointer copies, so destroy the current ones
         c.destroy_arrays()
@@ -295,10 +300,12 @@ class AppTestDATATYPES:
         assert CppyyTestData.s_ullong   ==  404
 
         # floating point types
-        assert round(CppyyTestData.s_float  + 606., 5) == 0
-        assert round(c.s_float              + 606., 5) == 0
-        assert round(CppyyTestData.s_double + 707., 8) == 0
-        assert round(c.s_double             + 707., 8) == 0
+        assert round(CppyyTestData.s_float   + 606., 5) == 0
+        assert round(c.s_float               + 606., 5) == 0
+        assert round(CppyyTestData.s_double  + 707., 8) == 0
+        assert round(c.s_double              + 707., 8) == 0
+        assert round(CppyyTestData.s_ldouble + 808., 8) == 0
+        assert round(c.s_ldouble             + 808., 8) == 0
 
         c.__destruct__()
 
@@ -363,6 +370,10 @@ class AppTestDATATYPES:
         assert CppyyTestData.s_double             == -math.pi
         CppyyTestData.s_double                     =  math.pi
         assert c.s_double                         ==  math.pi
+        c.s_ldouble                                = -math.pi
+        assert CppyyTestData.s_ldouble            == -math.pi
+        CppyyTestData.s_ldouble                    =  math.pi
+        assert c.s_ldouble                        ==  math.pi
 
         c.__destruct__()
 

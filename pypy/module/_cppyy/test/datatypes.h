@@ -96,6 +96,8 @@ public:
     float                get_float();
     double               get_double();
     long double          get_ldouble();
+    typedef long double aap_t;
+    long double          get_ldouble_def(long double ld = aap_t(1));
     EWhat                get_enum();
     void*                get_voidp();
 
