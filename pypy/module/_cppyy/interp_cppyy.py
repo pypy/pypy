@@ -848,7 +848,7 @@ class TemplateOverloadMixin(object):
                 method = self.master.overloads[name]
             else:
             # try to match with run-time instantiations
-                # TODO: logically, this could be used, but in practice, it's proving to
+                # TODO: logically, this could be used, but in practice, it's proving too
                 #  greedy ... maybe as a last resort?
                 #for cppol in self.master.overloads.values():
                 #    try:
