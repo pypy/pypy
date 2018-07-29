@@ -39,18 +39,14 @@ working_modules.update([
     "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
-    "_csv", "_pypyjson", "_posixsubprocess", # "_cppyy", "micronumpy"
+    "_csv", "_pypyjson", "_posixsubprocess", "_cppyy", # "micronumpy",
     "_jitlog",
 ])
 
-from rpython.jit.backend import detect_cpu
-try:
-    if detect_cpu.autodetect().startswith('x86'):
-        if not sys.platform.startswith('openbsd'):
-            working_modules.add('_vmprof')
-            working_modules.add('faulthandler')
-except detect_cpu.ProcessorAutodetectError:
-    pass
+import rpython.rlib.rvmprof.cintf
+if rpython.rlib.rvmprof.cintf.IS_SUPPORTED:
+    working_modules.add('_vmprof')
+    working_modules.add('faulthandler')
 
 translation_modules = default_modules.copy()
 translation_modules.update([
@@ -60,6 +56,11 @@ translation_modules.update([
     # interactive prompt/pdb)
     "termios", "_minimal_curses",
 ])
+
+reverse_debugger_disable_modules = set([
+    "_continuation", "_vmprof", "_multiprocessing",
+    "micronumpy",
+    ])
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
@@ -301,6 +302,9 @@ def enable_allworkingmodules(config):
     modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
+    if config.translation.reverse_debugger:
+        for mod in reverse_debugger_disable_modules:
+            setattr(config.objspace.usemodules, mod, False)
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
@@ -319,3 +323,4 @@ if __name__ == '__main__':
     parser = to_optparse(config) #, useoptions=["translation.*"])
     option, args = parser.parse_args()
     print config
+    print working_modules

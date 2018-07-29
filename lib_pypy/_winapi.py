@@ -98,9 +98,11 @@ class Overlapped(object):
     def GetOverlappedResult(self, wait):
         transferred = _ffi.new('DWORD[1]', [0])
         res = _kernel32.GetOverlappedResult(self.handle, self.overlapped, transferred, wait != 0)
-        if not res:
-            res = GetLastError()
-        if res in (ERROR_SUCCESS, ERROR_MORE_DATA, ERROR_OPERATION_ABORTED):
+        if res:
+            err = ERROR_SUCCESS
+        else:
+            err = GetLastError()
+        if err in (ERROR_SUCCESS, ERROR_MORE_DATA, ERROR_OPERATION_ABORTED):
             self.completed = 1
             self.pending = 0
         elif res == ERROR_IO_INCOMPLETE:
@@ -133,7 +135,7 @@ def ConnectNamedPipe(handle, overlapped=False):
         assert success == 0
         err = _kernel32.GetLastError()
         if err == ERROR_IO_PENDING:
-            overlapped[0].pending = 1
+            ov.pending = 1
         elif err == ERROR_PIPE_CONNECTED:
             _kernel32.SetEvent(ov.overlapped[0].hEvent)
         else:

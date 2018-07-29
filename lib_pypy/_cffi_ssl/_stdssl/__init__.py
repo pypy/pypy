@@ -24,6 +24,7 @@ from select import select
 from enum import IntEnum as _IntEnum
 
 if sys.platform == 'win32':
+    from _cffi_ssl._stdssl.win32_extra import enum_certificates, enum_crls
     HAVE_POLL = False
 else:
     from select import poll, POLLIN, POLLOUT
@@ -219,7 +220,6 @@ class _SSLSocket(object):
         if server_hostname:
             self.server_hostname = server_hostname.decode('idna', 'strict')
 
-        lib.ERR_get_state()
         lib.ERR_clear_error()
         self.ssl = ssl = ffi.gc(lib.SSL_new(ctx), lib.SSL_free)
 

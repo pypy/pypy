@@ -375,7 +375,7 @@ class TestInteraction:
         child.expect('>>>')
 
     def test_atexit(self):
-        skip("Python3 atexit is a builtin module")
+        py.test.skip("Python3 atexit is a builtin module")
         child = self.spawn([])
         child.expect('>>> ')
         child.sendline('def f(): print("foobye")')
@@ -470,7 +470,7 @@ class TestInteraction:
 
     def test_cmd_co_name(self):
         child = self.spawn(['-c',
-                    'import sys; print sys._getframe(0).f_code.co_name'])
+                    'import sys; print(sys._getframe(0).f_code.co_name)'])
         child.expect('<module>')
 
     def test_ignore_python_inspect(self):
@@ -525,9 +525,9 @@ class TestInteraction:
 
     def test_options_i_m(self, monkeypatch):
         if sys.platform == "win32":
-            skip("close_fds is not supported on Windows platforms")
+            py.test.skip("close_fds is not supported on Windows platforms")
         if not hasattr(runpy, '_run_module_as_main'):
-            skip("requires CPython >= 2.6")
+            py.test.skip("requires CPython >= 2.6")
         p = os.path.join(os.path.realpath(os.path.dirname(__file__)), 'mymodule.py')
         p = os.path.abspath(p)
         monkeypatch.chdir(os.path.dirname(app_main))
@@ -557,7 +557,7 @@ class TestInteraction:
 
     def test_options_u_i(self):
         if sys.platform == "win32":
-            skip("close_fds is not supported on Windows platforms")
+            py.test.skip("close_fds is not supported on Windows platforms")
         import subprocess, select, os
         pipe = subprocess.Popen([get_python3(), app_main, "-u", "-i"],
                                 stdout=subprocess.PIPE,
@@ -614,7 +614,7 @@ class TestInteraction:
             del os.environ['PYTHONINSPECT_']
 
     def test_stdout_flushes_before_stdin_blocks(self):
-        skip("Python3 does not implement this behavior")
+        py.test.skip("Python3 does not implement this behavior")
         # This doesn't really test app_main.py, but a behavior that
         # can only be checked on top of py.py with pexpect.
         path = getscript("""
@@ -632,7 +632,7 @@ class TestInteraction:
 
     def test_no_space_before_argument(self, monkeypatch):
         if not hasattr(runpy, '_run_module_as_main'):
-            skip("requires CPython >= 2.6")
+            py.test.skip("requires CPython >= 2.6")
         child = self.spawn(['-cprint("hel" + "lo")'])
         child.expect('hello')
 
@@ -753,7 +753,7 @@ class TestNonInteractive:
 
     def test_option_m(self, monkeypatch):
         if not hasattr(runpy, '_run_module_as_main'):
-            skip("requires CPython >= 2.6")
+            py.test.skip("requires CPython >= 2.6")
         p = os.path.join(os.path.realpath(os.path.dirname(__file__)), 'mymodule.py')
         p = os.path.abspath(p)
         monkeypatch.chdir(os.path.dirname(app_main))
@@ -767,7 +767,7 @@ class TestNonInteractive:
 
     def test_option_m_package(self, monkeypatch):
         if not hasattr(runpy, '_run_module_as_main'):
-            skip("requires CPython >= 2.6")
+            py.test.skip("requires CPython >= 2.6")
         p = os.path.join(os.path.realpath(os.path.dirname(__file__)),
                          'mypackage', '__main__.py')
         p = os.path.abspath(p)

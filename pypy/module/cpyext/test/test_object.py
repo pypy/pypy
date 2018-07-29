@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 from pypy.module.cpyext.api import (
-    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT)
+    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT, INTP_real)
 from pypy.module.cpyext.object import (
     PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
     PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
@@ -410,6 +410,47 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert self.cur_memory_pressure() == 65536 + 80000
         module.foo(35000)
         assert self.cur_memory_pressure() == 65536 + 80000 + 70000
+
+    def test_repr_enter_leave(self):
+        module = self.import_extension('foo', [
+            ("enter", "METH_O",
+            """
+                return PyInt_FromLong(Py_ReprEnter(args));
+            """),
+            ("leave", "METH_O",
+            """
+                Py_ReprLeave(args);
+                Py_INCREF(Py_None);
+                return Py_None;
+            """)])
+        obj1 = [42]
+        obj2 = [42]   # another list
+
+        n = module.enter(obj1)
+        assert n == 0
+        module.leave(obj1)
+
+        n = module.enter(obj1)
+        assert n == 0
+        n = module.enter(obj1)
+        assert n == 1
+        n = module.enter(obj1)
+        assert n == 1
+        module.leave(obj1)
+
+        n = module.enter(obj1)
+        assert n == 0
+        n = module.enter(obj2)
+        assert n == 0
+        n = module.enter(obj1)
+        assert n == 1
+        n = module.enter(obj2)
+        assert n == 1
+        module.leave(obj1)
+        n = module.enter(obj2)
+        assert n == 1
+        module.leave(obj2)
+
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """

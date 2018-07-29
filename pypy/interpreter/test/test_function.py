@@ -170,6 +170,7 @@ class AppTestFunctionIntrospection:
         h = get_h()
         raises(ValueError, "f.__code__ = h.__code__")
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
@@ -339,7 +340,6 @@ class AppTestFunction:
         assert meth() == obj
 
     def test_none_get_interaction(self):
-        skip("XXX issue #2083")
         assert type(None).__repr__(None) == 'None'
 
     def test_none_get_interaction_2(self):
@@ -544,7 +544,9 @@ class AppTestMethod:
             pass
         r = repr(ClsB().f)
         assert "ClsA.f of <" in r
-        assert "ClsB object at " in r
+        assert repr(type(ClsA.f)) == "<class 'function'>"
+        assert repr(type(ClsA().f)) == "<class 'method'>"
+
 
     def test_method_call(self):
         class C(object):

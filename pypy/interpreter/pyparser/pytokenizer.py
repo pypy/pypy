@@ -1,4 +1,5 @@
 from pypy.interpreter.pyparser import automata
+from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
 from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError
@@ -144,7 +145,7 @@ def generate_tokens(lines, flags):
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
-                tok = (tokens.STRING, contstr + line[:end], strstart[0],
+                tok = Token(tokens.STRING, contstr + line[:end], strstart[0],
                        strstart[1], line)
                 token_list.append(tok)
                 last_comment = ''
@@ -152,7 +153,7 @@ def generate_tokens(lines, flags):
                 contline = None
             elif (needcont and not line.endswith('\\\n') and
                                not line.endswith('\\\r\n')):
-                tok = (tokens.ERRORTOKEN, contstr + line, strstart[0],
+                tok = Token(tokens.ERRORTOKEN, contstr + line, strstart[0],
                        strstart[1], line)
                 token_list.append(tok)
                 last_comment = ''
@@ -200,13 +201,13 @@ def generate_tokens(lines, flags):
                     raise TabError(lnum, pos, line)
                 indents.append(column)
                 altindents.append(altcolumn)
-                token_list.append((tokens.INDENT, line[:pos], lnum, 0, line))
+                token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line))
                 last_comment = ''
             else:
                 while column < indents[-1]:
                     indents.pop()
                     altindents.pop()
-                    token_list.append((tokens.DEDENT, '', lnum, pos, line))
+                    token_list.append(Token(tokens.DEDENT, '', lnum, pos, line))
                     last_comment = ''
                 if column != indents[-1]:
                     err = "unindent does not match any outer indentation level"
@@ -246,13 +247,13 @@ def generate_tokens(lines, flags):
                 if (initial in numchars or \
                    (initial == '.' and token != '.' and token != '...')):
                     # ordinary number
-                    token_list.append((tokens.NUMBER, token, lnum, start, line))
+                    token_list.append(Token(tokens.NUMBER, token, lnum, start, line))
                     last_comment = ''
                 elif initial in '\r\n':
                     if not parenstack:
                         if async_def:
                             async_def_nl = True
-                        tok = (tokens.NEWLINE, last_comment, lnum, start, line)
+                        tok = Token(tokens.NEWLINE, last_comment, lnum, start, line)
                         token_list.append(tok)
                     last_comment = ''
                 elif initial == '#':
@@ -267,7 +268,7 @@ def generate_tokens(lines, flags):
                     if endmatch >= 0:                     # all on one line
                         pos = endmatch
                         token = line[start:pos]
-                        tok = (tokens.STRING, token, lnum, start, line)
+                        tok = Token(tokens.STRING, token, lnum, start, line)
                         token_list.append(tok)
                         last_comment = ''
                     else:
@@ -286,7 +287,7 @@ def generate_tokens(lines, flags):
                         contline = line
                         break
                     else:                                  # ordinary string
-                        tok = (tokens.STRING, token, lnum, start, line)
+                        tok = Token(tokens.STRING, token, lnum, start, line)
                         token_list.append(tok)
                         last_comment = ''
                 elif (initial in namechars or              # ordinary name
@@ -303,11 +304,11 @@ def generate_tokens(lines, flags):
 
                     if async_def:                          # inside 'async def' function
                         if token == 'async':
-                            token_list.append((tokens.ASYNC, token, lnum, start, line))
+                            token_list.append(Token(tokens.ASYNC, token, lnum, start, line))
                         elif token == 'await':
-                            token_list.append((tokens.AWAIT, token, lnum, start, line))
+                            token_list.append(Token(tokens.AWAIT, token, lnum, start, line))
                         else:
-                            token_list.append((tokens.NAME, token, lnum, start, line))
+                            token_list.append(Token(tokens.NAME, token, lnum, start, line))
                     elif token == 'async':                 # async token, look ahead
                         #ahead token
                         if pos < max:
@@ -319,16 +320,20 @@ def generate_tokens(lines, flags):
                             if ahead_token == 'def':
                                 async_def = True
                                 async_def_indent = indents[-1]
-                                token_list.append((tokens.ASYNC, token, lnum, start, line))
+                                token_list.append(Token(tokens.ASYNC, token, lnum, start, line))
                             else:
-                                token_list.append((tokens.NAME, token, lnum, start, line))
+                                token_list.append(Token(tokens.NAME, token, lnum, start, line))
                         else:
-                            token_list.append((tokens.NAME, token, lnum, start, line))
+                            token_list.append(Token(tokens.NAME, token, lnum, start, line))
                     else:
-                        token_list.append((tokens.NAME, token, lnum, start, line))
+                        token_list.append(Token(tokens.NAME, token, lnum, start, line))
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
                     continued = 1
+                elif initial == '$':
+                    token_list.append(Token(tokens.REVDBMETAVAR, token,
+                                       lnum, start, line))
+                    last_comment = ''
                 else:
                     if initial in '([{':
                         parenstack.append((initial, lnum, start, line))
@@ -351,7 +356,7 @@ def generate_tokens(lines, flags):
                         punct = python_opmap[token]
                     else:
                         punct = tokens.OP
-                    token_list.append((punct, token, lnum, start, line))
+                    token_list.append(Token(punct, token, lnum, start, line))
                     last_comment = ''
             else:
                 start = whiteSpaceDFA.recognize(line, pos)
@@ -360,22 +365,22 @@ def generate_tokens(lines, flags):
                 if start<max and line[start] in single_quoted:
                     raise TokenError("end of line (EOL) while scanning string literal",
                              line, lnum, start+1, token_list)
-                tok = (tokens.ERRORTOKEN, line[pos], lnum, pos, line)
+                tok = Token(tokens.ERRORTOKEN, line[pos], lnum, pos, line)
                 token_list.append(tok)
                 last_comment = ''
                 pos = pos + 1
 
     lnum -= 1
     if not (flags & consts.PyCF_DONT_IMPLY_DEDENT):
-        if token_list and token_list[-1][0] != tokens.NEWLINE:
-            tok = (tokens.NEWLINE, '', lnum, 0, '\n')
+        if token_list and token_list[-1].token_type != tokens.NEWLINE:
+            tok = Token(tokens.NEWLINE, '', lnum, 0, '\n')
             token_list.append(tok)
         for indent in indents[1:]:                # pop remaining indent levels
-            token_list.append((tokens.DEDENT, '', lnum, pos, line))
-    tok = (tokens.NEWLINE, '', lnum, 0, '\n')
+            token_list.append(Token(tokens.DEDENT, '', lnum, pos, line))
+    tok = Token(tokens.NEWLINE, '', lnum, 0, '\n')
     token_list.append(tok)
 
-    token_list.append((tokens.ENDMARKER, '', lnum, pos, line))
+    token_list.append(Token(tokens.ENDMARKER, '', lnum, pos, line))
     return token_list
 
 

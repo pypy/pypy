@@ -134,9 +134,14 @@ try:
     __get_hash = __get_openssl_constructor
     algorithms_available = algorithms_available.union(
             _hashlib.openssl_md_meth_names)
-except ImportError:
+except ImportError as e:
     new = __py_new
     __get_hash = __get_builtin_constructor
+    # added by PyPy
+    import warnings
+    warnings.warn("The _hashlib module is not available, falling back "
+                  "to a much slower implementation (%s)" % str(e),
+                  RuntimeWarning)
 
 try:
     # OpenSSL's PKCS5_PBKDF2_HMAC requires OpenSSL 1.0+ with HMAC and SHA

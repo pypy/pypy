@@ -132,11 +132,12 @@ def str_format(x):
     return format_float(x, 'g', DTSF_STR_PRECISION)
 
 
-def unpackcomplex(space, w_complex):
+def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
     """
-    Convert w_complex into a complex and return the unwrapped (real, imag)
-    tuple. Also, typecheck the value returned by __complex__ to actually be a
-    complex (and not e.g. a float).
+    convert w_complex into a complex and return the unwrapped (real, imag)
+    tuple. If strict_typing==True, we also typecheck the value returned by
+    __complex__ to actually be a complex (and not e.g. a float).
+    See test___complex___returning_non_complex.
     """
     if type(w_complex) is W_ComplexObject:
         return (w_complex.realval, w_complex.imagval)
@@ -169,7 +170,20 @@ def unpackcomplex(space, w_complex):
         raise oefmt(space.w_TypeError,
                     "complex number expected, got '%T'", w_complex)
     #
-    return (space.float_w(space.float(w_complex)), 0.0)
+    try:
+        return (space.float_w(space.float(w_complex)), 0.0)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        if firstarg:
+            raise oefmt(space.w_TypeError,
+                        "complex() first argument must be a string or a number, not '%T'",
+                         w_complex)
+        else:
+            raise oefmt(space.w_TypeError,
+                        "complex() second argument must be a number, not '%T'",
+                         w_complex)
+
 
 
 class W_ComplexObject(W_Root):
@@ -303,7 +317,8 @@ class W_ComplexObject(W_Root):
             # now take w_imag into account
             if not noarg2:
                 # complex(x, y) == x+y*j, even if 'y' is already a complex.
-                realval2, imagval2 = unpackcomplex(space, w_imag)
+                realval2, imagval2 = unpackcomplex(space, w_imag,
+                                                   firstarg=False)
 
                 # try to preserve the signs of zeroes of realval and realval2
                 if imagval2 != 0.0:
@@ -445,7 +460,7 @@ class W_ComplexObject(W_Root):
         try:
             return self.div(w_rhs)
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_rtruediv(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -454,7 +469,7 @@ class W_ComplexObject(W_Root):
         try:
             return w_lhs.div(self)
         except ZeroDivisionError as e:
-            raise OperationError(space.w_ZeroDivisionError, space.newtext(str(e)))
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_floordiv(self, space, w_rhs):
         raise oefmt(space.w_TypeError, "can't take floor of complex number.")

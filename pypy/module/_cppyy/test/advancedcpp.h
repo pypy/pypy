@@ -4,24 +4,27 @@
 
 
 //===========================================================================
-#define DECLARE_DEFAULTER_CLASS(type, tname)                                \
+#define DECLARE_DEFAULTERS(type, tname)                                     \
 class tname##_defaulter {                                                   \
 public:                                                                     \
     tname##_defaulter(type a = 11, type b = 22, type c = 33);               \
                                                                             \
 public:                                                                     \
     type m_a, m_b, m_c;                                                     \
-};
-DECLARE_DEFAULTER_CLASS(short, short)   // for testing of default arguments
-DECLARE_DEFAULTER_CLASS(unsigned short, ushort)
-DECLARE_DEFAULTER_CLASS(int, int)
-DECLARE_DEFAULTER_CLASS(unsigned, uint)
-DECLARE_DEFAULTER_CLASS(long, long)
-DECLARE_DEFAULTER_CLASS(unsigned long, ulong)
-DECLARE_DEFAULTER_CLASS(long long, llong)
-DECLARE_DEFAULTER_CLASS(unsigned long long, ullong)
-DECLARE_DEFAULTER_CLASS(float, float)
-DECLARE_DEFAULTER_CLASS(double, double)
+};                                                                          \
+type tname##_defaulter_func(int idx = 0, type a = 11, type b = 22, type c = 33);
+DECLARE_DEFAULTERS(short, short)   // for testing of default arguments
+DECLARE_DEFAULTERS(unsigned short, ushort)
+DECLARE_DEFAULTERS(int, int)
+DECLARE_DEFAULTERS(unsigned, uint)
+DECLARE_DEFAULTERS(long, long)
+DECLARE_DEFAULTERS(unsigned long, ulong)
+DECLARE_DEFAULTERS(long long, llong)
+DECLARE_DEFAULTERS(unsigned long long, ullong)
+DECLARE_DEFAULTERS(float, float)
+DECLARE_DEFAULTERS(double, double)
+
+std::string string_defaulter_func(int idx, const std::string& name1 = "aap", std::string name2 = "noot");
 
 
 //===========================================================================
@@ -59,7 +62,7 @@ public:
 class a_class {                    // for esoteric inheritance testing
 public:
     a_class() { m_a = 1; m_da = 1.1; }
-    ~a_class() {}
+    virtual ~a_class() {}
     virtual int get_value() = 0;
 
 public:
@@ -221,6 +224,7 @@ double pass_double_through_const_ref(const double& d);
 //===========================================================================
 class some_abstract_class {        // to test abstract class handling
 public:
+    virtual ~some_abstract_class() {}
     virtual void a_virtual_method() = 0;
 };
 
@@ -265,15 +269,27 @@ public:
 class some_comparable {
 };
 
-bool operator==(const some_comparable& c1, const some_comparable& c2 );
-bool operator!=( const some_comparable& c1, const some_comparable& c2 );
+bool operator==(const some_comparable& c1, const some_comparable& c2);
+bool operator!=(const some_comparable& c1, const some_comparable& c2);
 
 
 //===========================================================================
 extern double my_global_double;    // a couple of globals for access testing
 extern double my_global_array[500];
 extern double* my_global_ptr;
-static const char my_global_string[] = "aap " " noot " " mies";
+static const char my_global_string1[] = "aap " " noot " " mies";
+extern const char my_global_string2[];
+
+class some_int_holder {
+public:
+    some_int_holder(int val) : m_val(val) {}
+
+public:
+    int m_val;
+    char gap[7];
+};
+extern some_int_holder my_global_int_holders[5];
+
 
 //===========================================================================
 class some_class_with_data {       // for life-line and identity testing
@@ -297,6 +313,11 @@ public:
 
     int m_padding;
     some_data m_data;
+};
+
+class refers_to_self {             // for data member reuse testing
+public:
+    refers_to_self* m_other = nullptr;
 };
 
 
@@ -398,4 +419,43 @@ class overload_the_other_way {
 public:
    std::string gime();
    int gime() const;
+};
+
+
+//===========================================================================
+class Thrower {                    // exception handling testing
+public:
+    void throw_anything();
+    void throw_exception();
+};
+
+
+//===========================================================================
+class UsingBase {                  // using declaration testing
+public:
+    UsingBase(int n = 13) : m_int(n) {} 
+    virtual char vcheck() { return 'A'; }
+    int m_int;
+};
+
+class UsingDerived : public UsingBase {
+public:
+    using UsingBase::UsingBase;
+    virtual char vcheck() { return 'B'; }
+    int m_int2 = 42;
+};
+
+
+//===========================================================================
+class TypedefToPrivateClass {      // typedef resolution testing
+private:
+    class PC {
+    public:
+        PC(int i) : m_val(i) {}
+        int m_val;
+    };
+
+public:
+    typedef PC PP;
+    PP f() { return PC(42); }
 };

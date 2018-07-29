@@ -556,7 +556,7 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     to the default encoding. errors may be given to set a different error
     handling scheme. Default is 'strict' meaning that encoding errors raise
     a ValueError. Other possible values are 'ignore' and 'replace'
-    as well as any other name registerd with codecs.register_error that is
+    as well as any other name registered with codecs.register_error that is
     able to handle ValueErrors.
     """
     if w_encoding is None:
@@ -621,8 +621,6 @@ def _find_implementation(impl_name):
     try:
         func = getattr(unicodehelper, impl_name)
     except AttributeError:
-        if hasattr(runicode, 'py3k_' + impl_name):
-            impl_name = 'py3k_' + impl_name
         func = getattr(runicode, impl_name)
     return func
 

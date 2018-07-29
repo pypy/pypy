@@ -427,6 +427,6 @@ class AppTestTypeDef:
     def test_builtin_readonly_property(self):
         import sys
         x = lambda: 5
-        e = raises(AttributeError, 'x.func_globals = {}')
+        e = raises(AttributeError, 'x.__globals__ = {}')
         if '__pypy__' in sys.builtin_module_names:
-            assert str(e.value) == "readonly attribute 'func_globals'"
+            assert str(e.value) == "readonly attribute '__globals__'"

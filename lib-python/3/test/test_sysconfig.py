@@ -4,6 +4,7 @@ import os
 import subprocess
 import shutil
 from copy import copy
+from distutils.spawn import find_executable
 
 from test.support import (run_unittest, TESTFN, unlink, check_warnings,
                           captured_stdout, impl_detail, import_module,
@@ -296,6 +297,30 @@ class TestSysConfig(unittest.TestCase):
         ldshared = sysconfig.get_config_var('LDSHARED')
 
         self.assertIn(ldflags, ldshared)
+
+    @unittest.skipIf(sys.platform == "win32", "Does not apply to Windows")
+    def test_cc_values(self):
+        """ CC and CXX should be set for pypy """
+        for var in ["CC", "CXX"]:
+            assert sysconfig.get_config_var(var) is not None
+
+    @unittest.skipIf(not find_executable("gcc"),
+        "Does not apply to machines without gcc installed"
+    )
+    def test_gcc_values(self):
+        """ if gcc is installed on the box, gcc values should be set. """
+        assert "gcc" in sysconfig.get_config_var("CC")
+        assert sysconfig.get_config_var("GNULD") == "yes"
+        assert "gcc" in sysconfig.get_config_var("LDSHARED")
+
+
+    @unittest.skipIf(not find_executable("g++"),
+        "Does not apply to machines without g++ installed"
+    )
+    def test_gplusplus_values(self):
+        """ if g++ is installed on the box, g++ values should be set. """
+        assert "g++" in sysconfig.get_config_var("CXX")
+
 
     @unittest.skipUnless(sys.platform == "darwin", "test only relevant on MacOSX")
     def test_platform_in_subprocess(self):

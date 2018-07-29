@@ -272,3 +272,18 @@ class TestPointers(BaseCTypesTestChecker):
         base = cast(d, c_void_p).value
         for i in [0, 1, 4, 1444, -10293]:
             assert cast(byref(c, i), c_void_p).value == base + i
+
+    def test_issue2813_fix(self):
+        class C(Structure):
+            pass
+        POINTER(C)
+        C._fields_ = [('x', c_int)]
+        ffitype = C.get_ffi_argtype()
+        assert C.get_ffi_argtype() is ffitype
+        assert ffitype.sizeof() == sizeof(c_int)
+
+    def test_issue2813_cant_change_fields_after_get_ffi_argtype(self):
+        class C(Structure):
+            pass
+        ffitype = C.get_ffi_argtype()
+        raises(NotImplementedError, "C._fields_ = [('x', c_int)]")

@@ -1,25 +1,101 @@
-Getting Started Developing With PyPy
-====================================
+Contributing Guidelines
+===========================
 
 .. contents::
 
+PyPy is a very large project that has a reputation of being hard to dive into.
+Some of this fame is warranted, some of it is purely accidental. There are three
+important lessons that everyone willing to contribute should learn:
 
-Using Mercurial
----------------
+* PyPy has layers. There are many pieces of architecture that are very well
+  separated from each other. More about this below, but often the manifestation
+  of this is that things are at a different layer than you would expect them
+  to be. For example if you are looking for the JIT implementation, you will
+  not find it in the implementation of the Python programming language.
 
-PyPy development is based on Mercurial (hg).  If you are not used to
-version control, the cycle for a new PyPy contributor goes typically
-like this:
+* Because of the above, we are very serious about Test Driven Development.
+  It's not only what we believe in, but also that PyPy's architecture is
+  working very well with TDD in mind and not so well without it. Often
+  development means progressing in an unrelated corner, one unittest
+  at a time; and then flipping a giant switch, bringing it all together.
+  (It generally works out of the box.  If it doesn't, then we didn't
+  write enough unit tests.)  It's worth repeating - PyPy's
+  approach is great if you do TDD, and not so great otherwise.
+
+* PyPy uses an entirely different set of tools - most of them included
+  in the PyPy repository. There is no Makefile, nor autoconf. More below.
+
+The first thing to remember is that PyPy project is very different than most
+projects out there. It's also different from a classic compiler project,
+so academic courses about compilers often don't apply or lead in the wrong
+direction. However, if you want to understand how designing & building a runtime
+works in the real world then this is a great project!
+
+Getting involved
+^^^^^^^^^^^^^^^^
+
+PyPy employs a relatively standard open-source development process. You are
+encouraged as a first step to join our `pypy-dev mailing list`_ and IRC channel,
+details of which can be found in our :ref:`contact <contact>` section. The folks
+there are very friendly, and can point you in the right direction.
+
+We give out commit rights usually fairly liberally, so if you want to do something
+with PyPy, you can become a committer. We also run frequent coding sprints which
+are separately announced and often happen around Python conferences such as
+EuroPython or PyCon. Upcoming events are usually announced on `the blog`_.
+
+Further Reading: :ref:`Contact <contact>`
+
+.. _the blog: http://morepypy.blogspot.com
+.. _pypy-dev mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
+
+
+Your first contribution
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The first and most important rule how **not** to contribute to PyPy is
+"just hacking a feature". This won't work, and you'll find your PR will typically
+require a lot of re-work. There are a few reasons why not:
+
+* build times are large
+* PyPy has very thick layer separation
+* context of the cPython runtime is often required
+
+Instead, reach out on the dev mailing list or the IRC channel, and we're more
+than happy to help! :)
+
+Some ideas for first contributions are:
+
+* Documentation - this will give you an understanding of the pypy architecture
+* Test failures - find a failing test in the `nightly builds`_, and fix it
+* Missing language features - these are listed in our `issue tracker`_
+
+.. _nightly builds: http://buildbot.pypy.org/nightly/
+.. _issue tracker: https://bitbucket.org/pypy/pypy/issues
+
+Source Control
+--------------
+
+PyPy development is based a typical fork/pull request based workflow, centered
+around Mercurial (hg), hosted on Bitbucket. If you have not used this workflow
+before, a good introduction can be found here:
+
+    https://www.atlassian.com/git/tutorials/comparing-workflows/forking-workflow
+
+The cycle for a new PyPy contributor goes typically like this:
+
+Fork & Clone
+------------
 
 * Make an account on bitbucket_.
 
 * Go to https://bitbucket.org/pypy/pypy/ and click "fork" (left
   icons).  You get a fork of the repository, e.g. in
-  https://bitbucket.org/yourname/pypy/.
+  `https://bitbucket.org/yourname/pypy/`.
 
-* Clone this new repo (i.e. the fork) to your local machine with the command 
+* Clone your new repo (i.e. the fork) to your local machine with the command
   ``hg clone ssh://hg@bitbucket.org/yourname/pypy``.  It is a very slow
-  operation but only ever needs to be done once.  See also 
+  operation but only ever needs to be done once.  See also
   http://pypy.org/download.html#building-from-source .
   If you already cloned
   ``https://bitbucket.org/pypy/pypy`` before, even if some time ago,
@@ -32,6 +108,9 @@ like this:
 
 * Now you have a complete copy of the PyPy repo.  Make a branch
   with a command like ``hg branch name_of_your_branch``.
+
+Edit
+----
 
 * Edit things.  Use ``hg diff`` to see what you changed.  Use ``hg add``
   to make Mercurial aware of new files you added, e.g. new test files.
@@ -68,6 +147,9 @@ like this:
   accept it as is for PyPy, asking you instead to improve some things,
   but we are not going to judge you.
 
+Pull Request
+------------
+
 * The final step is to open a pull request, so that we know that you'd
   like to merge that branch back to the original ``pypy/pypy`` repo.
   This can also be done several times if you have interesting
@@ -93,6 +175,102 @@ like this:
 .. _bitbucket: https://bitbucket.org/
 
 
+Architecture
+^^^^^^^^^^^^
+
+PyPy has layers. Just like ogres or onions. Those layers help us keep the
+respective parts separated enough to be worked on independently and make the
+complexity manageable. This is, again, just a sanity requirement for such
+a complex project. For example writing a new optimization for the JIT usually
+does **not** involve touching a Python interpreter at all or the JIT assembler
+backend or the garbage collector. Instead it requires writing small tests in
+``rpython/jit/metainterp/optimizeopt/test/test_*`` and fixing files there.
+After that, you can just compile PyPy and things should just work.
+
+Further Reading: :doc:`architecture <architecture>`
+
+Where to start?
+---------------
+
+PyPy is made from parts that are relatively independent of each other.
+You should start looking at the part that attracts you most (all paths are
+relative to the PyPy top level directory).  You may look at our
+:doc:`directory reference <dir-reference>` or start off at one of the following
+points:
+
+*  :source:`pypy/interpreter` contains the bytecode interpreter: bytecode dispatcher
+   in :source:`pypy/interpreter/pyopcode.py`, frame and code objects in
+   :source:`pypy/interpreter/eval.py` and :source:`pypy/interpreter/pyframe.py`,
+   function objects and argument passing in :source:`pypy/interpreter/function.py`
+   and :source:`pypy/interpreter/argument.py`, the object space interface
+   definition in :source:`pypy/interpreter/baseobjspace.py`, modules in
+   :source:`pypy/interpreter/module.py` and :source:`pypy/interpreter/mixedmodule.py`.
+   Core types supporting the bytecode interpreter are defined in
+   :source:`pypy/interpreter/typedef.py`.
+
+*  :source:`pypy/interpreter/pyparser` contains a recursive descent parser,
+   and grammar files that allow it to parse the syntax of various Python
+   versions. Once the grammar has been processed, the parser can be
+   translated by the above machinery into efficient code.
+
+*  :source:`pypy/interpreter/astcompiler` contains the compiler.  This
+   contains a modified version of the compiler package from CPython
+   that fixes some bugs and is translatable.
+
+*  :source:`pypy/objspace/std` contains the
+   :ref:`Standard object space <standard-object-space>`.  The main file
+   is :source:`pypy/objspace/std/objspace.py`.  For each type, the file
+   ``xxxobject.py`` contains the implementation for objects of type ``xxx``,
+   as a first approximation.  (Some types have multiple implementations.)
+
+Building
+^^^^^^^^
+
+For building PyPy, we recommend installing a pre-built PyPy first (see
+:doc:`install`). It is possible to build PyPy with CPython, but it will take a
+lot longer to run -- depending on your architecture, between two and three
+times as long.
+
+Further Reading: :doc:`Build <build>`
+
+Coding Guide
+------------
+
+As well as the usual pep8 and formatting standards, there are a number of
+naming conventions and coding styles that are important to understand before
+browsing the source.
+
+Further Reading: :doc:`Coding Guide <coding-guide>`
+
+Testing
+^^^^^^^
+
+Test driven development
+-----------------------
+
+Instead, we practice a lot of test driven development. This is partly because
+of very high quality requirements for compilers and partly because there is
+simply no other way to get around such complex project, that will keep you sane.
+There are probably people out there who are smart enough not to need it, we're
+not one of those. You may consider familiarizing yourself with `pytest`_,
+since this is a tool we use for tests.
+This leads to the next issue:
+
+.. _pytest: http://pytest.org/
+
+py.test and the py lib
+----------------------
+
+The `py.test testing tool`_ drives all our testing needs.
+
+We use the `py library`_ for filesystem path manipulations, terminal
+writing, logging and some other support  functionality.
+
+You don't necessarily need to install these two libraries because
+we also ship them inlined in the PyPy source tree.
+
+.. _py library: http://pylib.readthedocs.org/
+
 Running PyPy's unit tests
 -------------------------
 
@@ -115,7 +293,8 @@ you can find out with the ``--version`` switch.
 
 You will need the `build requirements`_ to run tests successfully, since many of
 them compile little pieces of PyPy and then run the tests inside that minimal
-interpreter
+interpreter. The `cpyext` tests also require `pycparser`, and many tests build
+cases with `hypothesis`.
 
 Now on to running some tests.  PyPy has many different test directories
 and you can use shell completion to point at directories or files::
@@ -147,8 +326,26 @@ interpreter.
 .. _py.test usage and invocations: http://pytest.org/latest/usage.html#usage
 .. _`build requirements`: build.html#install-build-time-dependencies
 
-Special Introspection Features of the Untranslated Python Interpreter
----------------------------------------------------------------------
+Testing After Translation
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+While the usual invocation of `pytest` translates a piece of RPython code and
+runs it, we have a test extension to run tests without translation, directly
+on the host python. This is very convenient for modules such as `cpyext`, to
+compare and contrast test results between CPython and PyPy. Untranslated tests
+are invoked by using the `-A` or `--runappdirect` option to `pytest`::
+
+    python2 pytest.py -A pypy/module/cpyext/test
+
+where `python2` can be either `python2` or `pypy2`. On the `py3` branch, the
+collection phase must be run with `python2` so untranslated tests are run
+with::
+
+    cpython2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
+
+
+Tooling & Utilities
+^^^^^^^^^^^^^^^^^^^
 
 If you are interested in the inner workings of the PyPy Python interpreter,
 there are some features of the untranslated Python interpreter that allow you
@@ -156,7 +353,7 @@ to introspect its internals.
 
 
 Interpreter-level console
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 
 To start interpreting Python with PyPy, install a C compiler that is
 supported by distutils and use Python 2.7 or greater to run PyPy::
@@ -202,7 +399,7 @@ You may be interested in reading more about the distinction between
 :ref:`interpreter-level and app-level <interpreter-level>`.
 
 pyinteractive.py options
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 To list the PyPy interpreter command line options, type::
 
@@ -232,7 +429,7 @@ options do.
 .. _trace example:
 
 Tracing bytecode and operations on objects
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------
 
 You can use a simple tracing mode to monitor the interpretation of
 bytecodes.  To enable it, set ``__pytrace__ = 1`` on the interactive
@@ -244,18 +441,18 @@ PyPy console::
             <module>:           LOAD_CONST    0 (5)
             <module>:           STORE_NAME    0 (x)
             <module>:           LOAD_CONST    1 (None)
-            <module>:           RETURN_VALUE    0 
+            <module>:           RETURN_VALUE    0
     >>>> x
             <module>:           LOAD_NAME    0 (x)
-            <module>:           PRINT_EXPR    0 
+            <module>:           PRINT_EXPR    0
     5
             <module>:           LOAD_CONST    0 (None)
-            <module>:           RETURN_VALUE    0 
+            <module>:           RETURN_VALUE    0
     >>>>
 
 
 Demos
------
+^^^^^
 
 The `example-interpreter`_ repository contains an example interpreter
 written using the RPython translation toolchain.
@@ -263,83 +460,13 @@ written using the RPython translation toolchain.
 .. _example-interpreter: https://bitbucket.org/pypy/example-interpreter
 
 
-Additional Tools for running (and hacking) PyPy
------------------------------------------------
-
-We use some optional tools for developing PyPy. They are not required to run
-the basic tests or to get an interactive PyPy prompt but they help to
-understand  and debug PyPy especially for the translation process.
-
-
 graphviz & pygame for flow graph viewing (highly recommended)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-graphviz and pygame are both necessary if you
-want to look at generated flow graphs:
+graphviz and pygame are both necessary if you want to look at generated flow
+graphs:
 
-	graphviz: http://www.graphviz.org/Download.php
+    graphviz: http://www.graphviz.org/Download.php
 
-	pygame: http://www.pygame.org/download.shtml
+    pygame: http://www.pygame.org/download.shtml
 
-
-py.test and the py lib
-~~~~~~~~~~~~~~~~~~~~~~
-
-The `py.test testing tool`_ drives all our testing needs.
-
-We use the `py library`_ for filesystem path manipulations, terminal
-writing, logging and some other support  functionality.
-
-You don't necessarily need to install these two libraries because
-we also ship them inlined in the PyPy source tree.
-
-.. _py library: http://pylib.readthedocs.org/
-
-
-Getting involved
-----------------
-
-PyPy employs an open development process.  You are invited to join our
-`pypy-dev mailing list`_ or look at the other :ref:`contact
-possibilities <contact>`.  Usually we give out commit rights fairly liberally, so if you
-want to do something with PyPy, you can become a committer. We also run frequent
-coding sprints which are separately announced and often happen around Python
-conferences such as EuroPython or PyCon. Upcoming events are usually announced
-on `the blog`_.
-
-.. _the blog: http://morepypy.blogspot.com
-.. _pypy-dev mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
-
-
-.. _start-reading-sources:
-
-Where to start reading the sources
-----------------------------------
-
-PyPy is made from parts that are relatively independent of each other.
-You should start looking at the part that attracts you most (all paths are
-relative to the PyPy top level directory).  You may look at our :doc:`directory reference <dir-reference>`
-or start off at one of the following points:
-
-*  :source:`pypy/interpreter` contains the bytecode interpreter: bytecode dispatcher
-   in :source:`pypy/interpreter/pyopcode.py`, frame and code objects in
-   :source:`pypy/interpreter/eval.py` and :source:`pypy/interpreter/pyframe.py`,
-   function objects and argument passing in :source:`pypy/interpreter/function.py`
-   and :source:`pypy/interpreter/argument.py`, the object space interface
-   definition in :source:`pypy/interpreter/baseobjspace.py`, modules in
-   :source:`pypy/interpreter/module.py` and :source:`pypy/interpreter/mixedmodule.py`.
-   Core types supporting the bytecode interpreter are defined in :source:`pypy/interpreter/typedef.py`.
-
-*  :source:`pypy/interpreter/pyparser` contains a recursive descent parser,
-   and grammar files that allow it to parse the syntax of various Python
-   versions. Once the grammar has been processed, the parser can be
-   translated by the above machinery into efficient code.
-
-*  :source:`pypy/interpreter/astcompiler` contains the compiler.  This
-   contains a modified version of the compiler package from CPython
-   that fixes some bugs and is translatable.
-
-*  :source:`pypy/objspace/std` contains the :ref:`Standard object space <standard-object-space>`.  The main file
-   is :source:`pypy/objspace/std/objspace.py`.  For each type, the file
-   ``xxxobject.py`` contains the implementation for objects of type ``xxx``,
-   as a first approximation.  (Some types have multiple implementations.)

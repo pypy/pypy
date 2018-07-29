@@ -113,3 +113,20 @@ which led to cases where instance attributes were lost. Fixes issue #2793
 
 Improve line offsets that are reported by SyntaxError. Improve error messages
 for a few situations, including mismatched parenthesis.
+
+.. branch: issue2752
+
+Fix a rare GC bug that was introduced more than one year ago, but was
+not diagnosed before issue #2752.
+
+.. branch: gc-hooks
+
+Introduce GC hooks, as documented in doc/gc_info.rst
+
+.. branch: gc-hook-better-timestamp
+
+Improve GC hooks
+
+.. branch: cppyy-packaging
+
+Update backend to 0.6.0 and support exceptions through wrappers

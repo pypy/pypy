@@ -74,20 +74,54 @@ class CharTypeMixin(object):
         # allow int to pass to char and make sure that str is of length 1
         if space.isinstance_w(w_value, space.w_int):
             ival = space.c_int_w(w_value)
+            if ival < -128 or 127 < ival:
+                raise oefmt(space.w_ValueError, "char arg not in range(-128,128)")
+
+            value = rffi.cast(rffi.CHAR, space.c_int_w(w_value))
+        else:
+            if space.isinstance_w(w_value, space.w_text):
+                value = space.text_w(w_value)
+            else:
+                value = space.bytes_w(w_value)
+            if len(value) != 1:
+                raise oefmt(space.w_ValueError,
+                            "char expected, got string of size %d", len(value))
+
+        value = rffi.cast(rffi.CHAR, value[0])
+        return value     # turn it into a "char" to the annotator
+
+    def cffi_type(self, space):
+        state = space.fromcache(State)
+        return state.c_char
+
+class UCharTypeMixin(object):
+    _mixin_     = True
+    _immutable_fields_ = ['c_type', 'c_ptrtype']
+
+    c_type      = rffi.UCHAR
+    c_ptrtype   = rffi.CCHARP           # there's no such thing as rffi.UCHARP
+
+    def _wrap_object(self, space, obj):
+        return space.newbytes(obj)
+
+    def _unwrap_object(self, space, w_value):
+        # allow int to pass to char and make sure that str is of length 1
+        if space.isinstance_w(w_value, space.w_int):
+            ival = space.c_int_w(w_value)
             if ival < 0 or 256 <= ival:
                 raise oefmt(space.w_ValueError, "char arg not in range(256)")
 
             value = rffi.cast(rffi.CHAR, space.c_int_w(w_value))
-        elif space.isinstance_w(w_value, space.w_text):
-            value = space.text_w(w_value)
         else:
-            value = space.bytes_w(w_value)
+            if space.isinstance_w(w_value, space.w_text):
+                value = space.text_w(w_value)
+            else:
+                value = space.bytes_w(w_value)
+            if len(value) != 1:
+                raise oefmt(space.w_ValueError,
+                            "unsigned char expected, got string of size %d", len(value))
 
-        if len(value) != 1:  
-            raise oefmt(space.w_ValueError,
-                        "char expected, got string of size %d", len(value))
-            value = rffi.cast(rffi.CHAR, value[0])
-
+        value = rffi.cast(rffi.CHAR, value[0])
         return value     # turn it into a "char" to the annotator
 
     def cffi_type(self, space):
@@ -280,6 +314,7 @@ def typeid(c_type):
     "NOT_RPYTHON"
     if c_type == bool:            return BoolTypeMixin
     if c_type == rffi.CHAR:       return CharTypeMixin
+    if c_type == rffi.UCHAR:      return UCharTypeMixin
     if c_type == rffi.SHORT:      return ShortTypeMixin
     if c_type == rffi.USHORT:     return UShortTypeMixin
     if c_type == rffi.INT:        return IntTypeMixin

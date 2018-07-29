@@ -1,6 +1,7 @@
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from rpython.rlib.rarithmetic import most_neg_value_of_same_type
+from rpython.rlib.rarithmetic import check_support_int128
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
 from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
@@ -10,7 +11,7 @@ from rpython.rtyper import extregistry
 
 import math, sys
 
-SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
+SUPPORT_INT128 = check_support_int128()
 BYTEORDER = sys.byteorder
 
 # note about digit sizes:

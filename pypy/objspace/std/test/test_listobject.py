@@ -120,8 +120,8 @@ class TestW_ListObject(object):
         assert self.space.eq_w(self.space.next(w_iter), w(5))
         assert self.space.eq_w(self.space.next(w_iter), w(3))
         assert self.space.eq_w(self.space.next(w_iter), w(99))
-        raises(OperationError, self.space.next, w_iter)
-        raises(OperationError, self.space.next, w_iter)
+        py.test.raises(OperationError, self.space.next, w_iter)
+        py.test.raises(OperationError, self.space.next, w_iter)
 
     def test_contains(self):
         w = self.space.wrap
@@ -1077,6 +1077,15 @@ class AppTestListObject(object):
         l = [0.0, 1.1, 2.2, 3.3, 4.4, 5.5]
         l[::3] = ('a', 'b')
         assert l == ['a', 1.1, 2.2, 'b', 4.4, 5.5]
+
+        l_int = [5]; l_int.pop()   # IntListStrategy
+        l_empty = []               # EmptyListStrategy
+        raises(ValueError, "l_int[::-1] = [42]")
+        raises(ValueError, "l_int[::7] = [42]")
+        raises(ValueError, "l_empty[::-1] = [42]")
+        raises(ValueError, "l_empty[::7] = [42]")
+        l_int[::1] = [42]; assert l_int == [42]
+        l_empty[::1] = [42]; assert l_empty == [42]
 
     def test_setslice_with_self(self):
         l = [1,2,3,4]

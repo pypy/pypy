@@ -525,19 +525,19 @@ class TestGateway:
         w_app_g3_i = space.wrap(app_g3_i)
         assert space.eq_w(space.call_function(w_app_g3_i,w(1)),w(1))
         assert space.eq_w(space.call_function(w_app_g3_i,w(1L)),w(1))
-        raises(gateway.OperationError,space.call_function,w_app_g3_i,w(sys.maxint*2))
-        raises(gateway.OperationError,space.call_function,w_app_g3_i,w(None))
-        raises(gateway.OperationError,space.call_function,w_app_g3_i,w("foo"))
-        raises(gateway.OperationError,space.call_function,w_app_g3_i,w(1.0))
+        space.raises_w(space.w_OverflowError, space.call_function,w_app_g3_i,w(sys.maxint*2))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_i,w(None))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_i,w("foo"))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_i,w(1.0))
 
         app_g3_s = gateway.interp2app_temp(g3_id,
                                          unwrap_spec=[gateway.ObjSpace,
                                                       'text'])
         w_app_g3_s = space.wrap(app_g3_s)
         assert space.eq_w(space.call_function(w_app_g3_s,w("foo")),w("foo"))
-        raises(gateway.OperationError,space.call_function,w_app_g3_s,w(None))
-        raises(gateway.OperationError,space.call_function,w_app_g3_s,w(1))
-        raises(gateway.OperationError,space.call_function,w_app_g3_s,w(1.0))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_s,w(None))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_s,w(1))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_s,w(1.0))
 
         app_g3_f = gateway.interp2app_temp(g3_id,
                                          unwrap_spec=[gateway.ObjSpace,
@@ -546,14 +546,14 @@ class TestGateway:
         assert space.eq_w(space.call_function(w_app_g3_f,w(1.0)),w(1.0))
         assert space.eq_w(space.call_function(w_app_g3_f,w(1)),w(1.0))
         assert space.eq_w(space.call_function(w_app_g3_f,w(1L)),w(1.0))
-        raises(gateway.OperationError,space.call_function,w_app_g3_f,w(None))
-        raises(gateway.OperationError,space.call_function,w_app_g3_f,w("foo"))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_f,w(None))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_f,w("foo"))
 
         app_g3_r = gateway.interp2app_temp(g3_id,
                                            unwrap_spec=[gateway.ObjSpace,
                                                         r_longlong])
         w_app_g3_r = space.wrap(app_g3_r)
-        raises(gateway.OperationError,space.call_function,w_app_g3_r,w(1.0))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_r,w(1.0))
 
     def test_interp2app_unwrap_spec_unicode(self):
         space = self.space
@@ -570,9 +570,9 @@ class TestGateway:
         assert self.space.eq_w(
             space.call_function(w_app_g3_u, w("baz")),
             w(3))
-        raises(gateway.OperationError, space.call_function, w_app_g3_u,
+        space.raises_w(space.w_TypeError, space.call_function, w_app_g3_u,
                w(None))
-        raises(gateway.OperationError, space.call_function, w_app_g3_u,
+        space.raises_w(space.w_TypeError, space.call_function, w_app_g3_u,
                w(42))
 
     def test_interp2app_unwrap_spec_unwrapper(self):
@@ -589,7 +589,7 @@ class TestGateway:
                                                       Unwrapper])
         assert self.space.eq_w(
             space.call_function(w(app_g3_u), w(42)), w(43))
-        raises(gateway.OperationError, space.call_function,
+        space.raises_w(space.w_TypeError, space.call_function,
                w(app_g3_u), w(None))
 
     def test_interp2app_classmethod(self):

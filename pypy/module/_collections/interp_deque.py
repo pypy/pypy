@@ -1,5 +1,6 @@
 import sys
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import ovfcheck
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -192,9 +193,13 @@ class W_Deque(W_Root):
 
     def mul(self, w_int):
         space = self.space
+        num = space.int_w(w_int)
+        try:
+            ovfcheck(self.len * num)
+        except OverflowError:
+            raise MemoryError
         copied = W_Deque(space)
         copied.maxlen = self.maxlen
-        num = space.int_w(w_int)
 
         for _ in range(num):
             copied.extend(self)
@@ -212,6 +217,10 @@ class W_Deque(W_Root):
         if num <= 0:
             self.clear()
             return self
+        try:
+            ovfcheck(self.len * num)
+        except OverflowError:
+            raise MemoryError
         # use a copy to extend self
         copy = W_Deque(space)
         copy.maxlen = self.maxlen
