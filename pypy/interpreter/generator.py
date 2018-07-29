@@ -199,7 +199,6 @@ return next yielded value or raise StopIteration."""
         except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
-            e.normalize_exception(space)
             frame._report_stopiteration_sometimes(w_yf, e)
             try:
                 w_stop_value = space.getattr(e.get_w_value(space),
@@ -679,11 +678,8 @@ class AsyncGenABase(W_Root):
 
     def unwrap_value(self, w_value):
         if isinstance(w_value, AsyncGenValueWrapper):
-            w_value = w_value.w_value
-            if self.space.isinstance_w(w_value, self.space.w_tuple):
-                # Construct the exception manually, to avoid tuple unpacking.
-                w_value = self.space.call_function(self.space.w_StopIteration,
-                                                   w_value)
+            w_value = self.space.call_function(self.space.w_StopIteration,
+                                               w_value.w_value)
             raise OperationError(self.space.w_StopIteration, w_value)
         else:
             return w_value
