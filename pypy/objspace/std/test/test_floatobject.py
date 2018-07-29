@@ -299,6 +299,21 @@ class AppTestAppFloatTest:
                 return 42.
         assert float(X()) == 42.
 
+    def test_float_conversion_deprecated_warning(self):
+        import warnings
+
+        class X(float):
+            def __float__(self):
+                return self
+        x = X(42)
+
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            converted_x = float(x)
+
+        assert converted_x == 42.  # sanity check
+        assert len(log) == 1
+
     def test_round(self):
         import math
         assert 1.0 == round(1.0)

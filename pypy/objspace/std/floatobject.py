@@ -220,6 +220,15 @@ class W_FloatObject(W_Root):
         if space.lookup(w_value, "__float__") is not None:
             w_obj = space.float(w_value)
             if space.is_w(w_floattype, space.w_float):
+                w_obj_type = space.type(w_obj)
+                if not space.is_w(w_obj_type, space.w_float):
+                    space.warn(space.newtext(
+                        "%s.__float__ returned non-float (type %s).  "
+                        "The ability to return an instance of a strict subclass "
+                        "of float is deprecated, and may be removed "
+                        "in a future version of Python." %
+                            (space.type(w_value).name, w_obj_type.name)),
+                        space.w_DeprecationWarning)
                 return w_obj
             value = space.float_w(w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
