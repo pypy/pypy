@@ -50,7 +50,7 @@ class CodecState(object):
             else:
                 w_cls = space.w_UnicodeEncodeError
                 length = rutf8.codepoints_in_utf8(input)
-                w_input = space.newtext((input, length))
+                w_input = space.newtext((input, length, length))
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -266,7 +266,6 @@ def xmlcharrefreplace_errors(space, w_exc):
 
 def backslashreplace_errors(space, w_exc):
 
-    import pdb;pdb.set_trace()
     check_exception(space, w_exc)
     if (space.isinstance_w(w_exc, space.w_UnicodeEncodeError) or
         space.isinstance_w(w_exc, space.w_UnicodeTranslateError)):
@@ -650,8 +649,9 @@ def make_decoder_wrapper(name):
             errors = 'strict'
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
-        result, length = func(string, errors, final, state.decode_error_handler)
-        return space.newtuple([space.newutf8(result, length), space.newint(length)])
+        result, length, pos = func(string, errors, final, state.decode_error_handler)
+        # must return bytes, len_of_original_string
+        return space.newtuple([space.newutf8(result, length), space.newint(pos)])
     wrap_decoder.__name__ = func.__name__
     globals()[name] = wrap_decoder
 
@@ -705,11 +705,11 @@ if hasattr(runicode, 'str_decode_mbcs'):
             errors = 'strict'
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
-        result, length = runicode.str_decode_mbcs(
+        result, length, pos = runicode.str_decode_mbcs(
             string, len(string), errors,
             final, state.decode_error_handler,
             force_ignore=False)
-        return space.newtuple([space.newtext(result, length), space.newint(length)])
+        return space.newtuple([space.newtext(result, length), space.newint(pos)])
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"
@@ -739,7 +739,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
     try:
         lgt = rutf8.check_utf8(string, allow_surrogates=True)
     except rutf8.CheckError:
-        res, lgt = unicodehelper.str_decode_utf8(string,
+        res, lgt, pos = unicodehelper.str_decode_utf8(string,
             errors, final, state.decode_error_handler)
         return space.newtuple([space.newutf8(res, lgt),
                                space.newint(lgt)])
@@ -762,7 +762,7 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
         byteorder = 'little'
     else:
         byteorder = 'big'
-    res, lgt = str_decode_utf_16_helper(
+    res, lgt, pos = str_decode_utf_16_helper(
         data, errors, final,
         state.decode_error_handler, byteorder)
     return space.newtuple([space.newutf8(res, lgt),
@@ -781,7 +781,7 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
         byteorder = 'little'
     else:
         byteorder = 'big'
-    res, lgt = str_decode_utf_32_helper(
+    res, lgt, pos = str_decode_utf_32_helper(
         data, errors, final,
         state.decode_error_handler, byteorder)
     return space.newtuple([space.newutf8(res, lgt),
@@ -882,7 +882,7 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
 
     final = True
     state = space.fromcache(CodecState)
-    result, lgt = unicodehelper.str_decode_charmap(
+    result, lgt, pos = unicodehelper.str_decode_charmap(
         string, errors, final, state.decode_error_handler, mapping)
     return space.newtuple([space.newutf8(result, lgt),
                            space.newint(len(string))])

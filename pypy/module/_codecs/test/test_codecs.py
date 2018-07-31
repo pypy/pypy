@@ -142,14 +142,10 @@ class AppTestCodecs:
         assert decode(br"[\x0]\x0", "replace") == (b"[?]?", 8)
 
     def test_unicode_escape(self):
-        import sys
         from _codecs import unicode_escape_encode, unicode_escape_decode
         assert unicode_escape_encode('abc') == ('abc'.encode('unicode_escape'), 3)
         assert unicode_escape_decode(b'abc') == (b'abc'.decode('unicode_escape'), 3)
-        if sys.version_info[0] < 3:
-            lgt = 12
-        else:
-            lgt = 3
+        lgt = 12
         assert unicode_escape_decode(b'\\x61\\x62\\x63') == ('abc', lgt)
 
 

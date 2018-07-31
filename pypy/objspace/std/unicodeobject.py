@@ -1185,14 +1185,6 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
 
 def encode_object(space, w_object, encoding, errors):
     utf8 = space.utf8_w(w_object)
-    idx = rutf8.surrogate_in_utf8(utf8)
-    if idx >= 0:
-        print 'surrogate in unicodeobject.encode_object(', w_object, ',', encoding, ',', errors, ')', 'raising'
-        if errors is None:
-            w_err_handler = unicodehelper.encode_error_handler(space)
-        else:
-            w_err_handler = lookup_error(space, errors)
-        w_err_handler(None, "utf8", "surrogates not allowed", utf8, idx, idx + 1)
     if errors is None or errors == 'strict':
         if encoding is None or encoding == 'utf-8':
             #if rutf8.has_surrogates(utf8):
