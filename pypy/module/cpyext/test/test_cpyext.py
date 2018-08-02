@@ -1069,6 +1069,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             (initproc)Cycle_init,      /* tp_init */
             0,                         /* tp_alloc */
             Cycle_new,                 /* tp_new */
+            PyObject_GC_Del,           /* tp_free */
         };
         
         extern PyGC_Head *_pypy_rawrefcount_pyobj_list;
@@ -1078,6 +1079,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              Cycle *c = PyObject_GC_New(Cycle, &CycleType);
              if (c == NULL)
                  return NULL;
+                 
+             Py_INCREF(val);
              c->next = val;
 
              // TODO: check if _pypy_rawrefcount_pyobj_list contains c
@@ -1100,7 +1103,3 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         self.print_pyobj_list()
         c = module.create(Example(42))
         self.print_pyobj_list()
-
-        # TODO: fix rawrefcount, so that the Cycle objects are properly added
-        #       to the ALLOCATED list of leakfinder or alternatively not freed
-        #       by collect
