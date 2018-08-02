@@ -937,7 +937,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         if self.runappdirect:
             skip('cannot import module with undefined functions')
 
-        # TODO: remove unnecessary stuff, add tests for gc_untrack, add asserts
+        # TODO: remove unnecessary stuff, add gc_(un)track asserts
         init = """
         if (Py_IsInitialized()) {
             PyObject* m;
@@ -994,7 +994,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
                                    PyObject *kwds)
         {
             Cycle *self;
-            self = (Cycle *)type->tp_alloc(type, 0);
+            self = PyObject_GC_New(Cycle, type);
             if (self != NULL) {
                 self->next = PyString_FromString("");
                 if (self->next == NULL) {
@@ -1074,23 +1074,23 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         
         extern PyGC_Head *_pypy_rawrefcount_pyobj_list;
 
-         static PyObject * Cycle_Create(Cycle *self, PyObject *val)
-         {
-             Cycle *c = PyObject_GC_New(Cycle, &CycleType);
-             if (c == NULL)
-                 return NULL;
-                 
-             Py_INCREF(val);
-             c->next = val;
+        static PyObject * Cycle_Create(Cycle *self, PyObject *val)
+        {
+            Cycle *c = (Cycle *)Cycle_new(&CycleType, NULL, NULL);
+            if (c == NULL)
+               return NULL;
+                
+            Py_INCREF(val);
+            c->next = val;
 
-             // TODO: check if _pypy_rawrefcount_pyobj_list contains c
+            // TODO: check if _pypy_rawrefcount_pyobj_list contains c
 
-             return (PyObject *)c;
-         }
-         static PyMethodDef module_methods[] = {
-             {"create", (PyCFunction)Cycle_Create, METH_OLDARGS, ""},
-             {NULL}  /* Sentinel */
-         };
+            return (PyObject *)c;
+        }
+        static PyMethodDef module_methods[] = {
+            {"create", (PyCFunction)Cycle_Create, METH_OLDARGS, ""},
+            {NULL}  /* Sentinel */
+        };
         """
         module = self.import_module(name='cycle', init=init, body=body)
 
