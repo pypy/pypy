@@ -334,146 +334,66 @@ class TestRawRefCount(BaseDirectGCTest):
         self._collect(major=True)
         check_alive(0)
 
-    def test_cycle_self_reference_free(self):
+    def test_linked_cycle_self_reference_dies_without_external_reference(self):
         p1, p1ref, r1, r1addr, check_alive = (
-            self._rawrefcount_pair(42, create_immortal=True))
+            self._rawrefcount_pair(42))
+        r1.c_ob_refcnt += 1
         p1.next = p1
-        check_alive(0)
-        self._collect(major=True)
-        py.test.raises(RuntimeError, "r1.c_ob_refcnt")  # dead
+        check_alive(+1)
+        self._collect(major=True, expected_trigger=1)
         py.test.raises(RuntimeError, "p1.x")  # dead
+        assert r1.c_ob_refcnt == 1  # in the pending list
+        assert r1.c_ob_pypy_link == 0
+        assert self.gc.rawrefcount_next_dead() == r1addr
+        assert self.gc.rawrefcount_next_dead() == llmemory.NULL
+        assert self.gc.rawrefcount_next_dead() == llmemory.NULL
+        self.gc.check_no_more_rawrefcount_state()
+        lltype.free(r1, flavor='raw')
 
-    def test_cycle_self_reference_not_free(self):
+    def test_linked_cycle_self_reference_survives_with_pyobj_reference(self):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, create_immortal=True))
-        r1.c_ob_refcnt += 1  # the pyobject is kept alive
+        r1.c_ob_refcnt += 2  # the pyobject is kept alive
         p1.next = p1
+        check_alive(+2)
+        self._collect(major=True)
+        check_alive(+2)
+        r1.c_ob_refcnt -= 1 # the external reference from pyobj is removed
+        check_alive(+1)
+        self._collect(major=True, expected_trigger=1)
+        py.test.raises(RuntimeError, "p1.x")  # dead
+        assert r1.c_ob_refcnt == 1  # in the pending list
+        assert r1.c_ob_pypy_link == 0
+        assert self.gc.rawrefcount_next_dead() == r1addr
+        assert self.gc.rawrefcount_next_dead() == llmemory.NULL
+        assert self.gc.rawrefcount_next_dead() == llmemory.NULL
+        self.gc.check_no_more_rawrefcount_state()
+        lltype.free(r1, flavor='raw')
+
+    def test_linked_cycle_self_reference_survives_with_pypy_reference(self):
+        p1, p1ref, r1, r1addr, check_alive = (
+            self._rawrefcount_pair(42, create_immortal=True))
+        r1.c_ob_refcnt += 1
+        p1.next = p1
+        self.stackroots.append(p1)
         check_alive(+1)
         self._collect(major=True)
+        assert p1.x == 42
+        assert self.trigger == []
         check_alive(+1)
+        p1 = self.stackroots.pop()
+        check_alive(+1)
+        self._collect(major=True, expected_trigger=1)
+        py.test.raises(RuntimeError, "p1.x")  # dead
+        assert r1.c_ob_refcnt == 1
+        assert r1.c_ob_pypy_link == 0
+        assert self.gc.rawrefcount_next_dead() == r1addr
+        self.gc.check_no_more_rawrefcount_state()
+        lltype.free(r1, flavor='raw')
 
-    # def test_simple_cycle_free(self):
-    #     self.gc.rawrefcount_init(lambda: self.trigger.append(1))
-    #     r1 = self._rawrefcount_cycle_obj()
-    #     r2 = self._rawrefcount_cycle_obj()
-    #     r1.next = r2
-    #     r2.next = r1
-    #     self._rawrefcount_buffer_obj(r1)
-    #     self.gc.rrc_collect_cycles()
-    #     assert r1.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r2.base.c_ob_refcnt & REFCNT_MASK == 0
-    #
-    # def test_simple_cycle_not_free(self):
-    #     self.gc.rawrefcount_init(lambda: self.trigger.append(1))
-    #     r1 = self._rawrefcount_cycle_obj()
-    #     r2 = self._rawrefcount_cycle_obj()
-    #     r1.next = r2
-    #     r2.next = r1
-    #     r2.base.c_ob_refcnt += 1
-    #     self._rawrefcount_buffer_obj(r1)
-    #     self.gc.rrc_collect_cycles()
-    #     assert r1.base.c_ob_refcnt & REFCNT_MASK == 1
-    #     assert r2.base.c_ob_refcnt & REFCNT_MASK == 2
-    #
-    # def test_complex_cycle_free(self):
-    #     self.gc.rawrefcount_init(lambda: self.trigger.append(1))
-    #     r1 = self._rawrefcount_cycle_obj()
-    #     r2 = self._rawrefcount_cycle_obj()
-    #     r3 = self._rawrefcount_cycle_obj()
-    #     r1.next = r2
-    #     r1.prev = r2
-    #     r2.base.c_ob_refcnt += 1
-    #     r2.next = r3
-    #     r3.prev = r1
-    #     self._rawrefcount_buffer_obj(r1)
-    #     self.gc.rrc_collect_cycles()
-    #     assert r1.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r2.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r3.base.c_ob_refcnt & REFCNT_MASK == 0
-    #
-    # def test_complex_cycle_not_free(self):
-    #     self.gc.rawrefcount_init(lambda: self.trigger.append(1))
-    #     r1 = self._rawrefcount_cycle_obj()
-    #     r2 = self._rawrefcount_cycle_obj()
-    #     r3 = self._rawrefcount_cycle_obj()
-    #     r1.next = r2
-    #     r1.prev = r2
-    #     r2.base.c_ob_refcnt += 1
-    #     r2.next = r3
-    #     r3.prev = r1
-    #     r3.base.c_ob_refcnt += 1
-    #     self._rawrefcount_buffer_obj(r1)
-    #     self.gc.rrc_collect_cycles()
-    #     assert r1.base.c_ob_refcnt & REFCNT_MASK == 1
-    #     assert r2.base.c_ob_refcnt & REFCNT_MASK == 2
-    #     assert r3.base.c_ob_refcnt & REFCNT_MASK == 2
-    #
-    # def test_cycle_2_buffered_free(self):
-    #     self.gc.rawrefcount_init(lambda: self.trigger.append(1))
-    #     r1 = self._rawrefcount_cycle_obj()
-    #     r2 = self._rawrefcount_cycle_obj()
-    #     r1.next = r2
-    #     r2.prev = r1
-    #     self._rawrefcount_buffer_obj(r1)
-    #     self._rawrefcount_buffer_obj(r2)
-    #     self.gc.rrc_collect_cycles()
-    #     assert r1.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r2.base.c_ob_refcnt & REFCNT_MASK == 0
-    #
-    # def test_cycle_2_buffered_not_free(self):
-    #     self.gc.rawrefcount_init(lambda: self.trigger.append(1))
-    #     r1 = self._rawrefcount_cycle_obj()
-    #     r2 = self._rawrefcount_cycle_obj()
-    #     r1.next = r2
-    #     r2.prev = r1
-    #     r1.base.c_ob_refcnt += 1
-    #     self._rawrefcount_buffer_obj(r1)
-    #     self._rawrefcount_buffer_obj(r2)
-    #     self.gc.rrc_collect_cycles()
-    #     assert r1.base.c_ob_refcnt & REFCNT_MASK == 2
-    #     assert r2.base.c_ob_refcnt & REFCNT_MASK == 1
-    #
-    # def test_multiple_cycles_partial_free(self):
-    #     self.gc.rawrefcount_init(lambda: self.trigger.append(1))
-    #     r1 = self._rawrefcount_cycle_obj()
-    #     r2 = self._rawrefcount_cycle_obj()
-    #     r3 = self._rawrefcount_cycle_obj()
-    #     r4 = self._rawrefcount_cycle_obj()
-    #     r5 = self._rawrefcount_cycle_obj()
-    #     r1.next = r2
-    #     r2.next = r3
-    #     r3.next = r1
-    #     r2.prev = r5
-    #     r5.next = r4
-    #     r4.next = r5
-    #     r5.base.c_ob_refcnt += 1
-    #     r4.base.c_ob_refcnt += 1
-    #     self._rawrefcount_buffer_obj(r1)
-    #     self.gc.rrc_collect_cycles()
-    #     assert r1.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r2.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r3.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r4.base.c_ob_refcnt & REFCNT_MASK == 2
-    #     assert r5.base.c_ob_refcnt & REFCNT_MASK == 1
-    #
-    # def test_multiple_cycles_all_free(self):
-    #     self.gc.rawrefcount_init(lambda: self.trigger.append(1))
-    #     r1 = self._rawrefcount_cycle_obj()
-    #     r2 = self._rawrefcount_cycle_obj()
-    #     r3 = self._rawrefcount_cycle_obj()
-    #     r4 = self._rawrefcount_cycle_obj()
-    #     r5 = self._rawrefcount_cycle_obj()
-    #     r1.next = r2
-    #     r2.next = r3
-    #     r3.next = r1
-    #     r2.prev = r5
-    #     r5.next = r4
-    #     r4.next = r5
-    #     r5.base.c_ob_refcnt += 1
-    #     self._rawrefcount_buffer_obj(r1)
-    #     self.gc.rrc_collect_cycles()
-    #     assert r1.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r2.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r3.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r4.base.c_ob_refcnt & REFCNT_MASK == 0
-    #     assert r5.base.c_ob_refcnt & REFCNT_MASK == 0
+# TODO: pyobj_cycle_self_reference (without linked pypy object)
+# TODO: linked_cycle_simple
+# TODO: pyobj_cycle_simple
+# TODO: linked_cycle_complex
+# TODO: pyobj_cycle_complex
+# TODO: pyobj_cycle_dies_including_linked_pypy
