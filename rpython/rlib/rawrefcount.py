@@ -221,16 +221,17 @@ def _dont_free_any_more():
     del _d_list[:]
 
 @not_rpython
-def _print_pyobj_list():
-    "for tests only"
-    # TODO: change to get_pyobj_list, that returns a list of PyObjects
-    #       or alternatively checks if a certain object is in the list
+def _in_pygclist(int_addr):
+    """For tests only. Checks if the address is in the gc list of pyobjects."""
     global _pyobj_list
-    print "_print_pyobj_list start!"
     curr = _pyobj_list.c_gc_next
     while curr != _pyobj_list:
-        print "_print_pyobj_list: ", curr
+        curr_addr = llmemory.cast_ptr_to_adr(curr)
+        curr_int_addr = llmemory.cast_adr_to_int(curr_addr)
+        if int_addr == curr_int_addr:
+            return True
         curr = curr.c_gc_next
+    return False
 
 # ____________________________________________________________
 
