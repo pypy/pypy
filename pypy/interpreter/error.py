@@ -517,10 +517,10 @@ def get_operrcls2(valuefmt):
                     elif fmt == 'N':
                         result = value.getname(space)
                     elif fmt == '8':
-                        try:
-                            result = value.decode('utf8')
-                        except UnicodeDecodeError:
-                            result = value.decode('unicode-escape')
+                        if isinstance(value, unicode):
+                            result = value.encode('utf8')
+                        else:
+                            result = value
                     else:
                         if isinstance(value, unicode):
                             result = value
