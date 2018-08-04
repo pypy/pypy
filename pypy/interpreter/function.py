@@ -45,7 +45,8 @@ class Function(W_Root):
                  closure=None, w_ann=None, forcename=None, qualname=None):
         self.space = space
         self.name = forcename or code.co_name
-        self.qualname = qualname or self.name.decode('utf-8')
+        self.qualname = qualname or self.name
+        assert isinstance(self.qualname, str)
         self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
@@ -434,7 +435,7 @@ class Function(W_Root):
 
     def fset_func_qualname(self, space, w_name):
         try:
-            self.qualname = space.utf8_w(w_name)
+            self.qualname = space.realutf8_w(w_name)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,

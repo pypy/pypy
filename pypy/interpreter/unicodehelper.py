@@ -30,6 +30,7 @@ def decode_error_handler(space):
     return raise_unicode_exception_decode
 
 def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
+    assert startingpos >= 0
     ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
     return ''.join(ux), endingpos, endingpos
 
@@ -116,7 +117,7 @@ def fsencode(space, w_uni):
         # instead
         from pypy.module._codecs.locale import (
             unicode_encode_locale_surrogateescape)
-        uni = space.realunicode_w(w_uni)
+        uni = space.realunicode_w(w_uni).decode('utf8')
         if u'\x00' in uni:
             raise oefmt(space.w_ValueError, "embedded null character")
         bytes = unicode_encode_locale_surrogateescape(

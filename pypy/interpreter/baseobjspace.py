@@ -1721,9 +1721,9 @@ class ObjSpace(object):
         return w_obj.convert_to_w_unicode(self)
 
     def realunicode_w(self, w_obj):
-        from rpython.rlib.runicode import str_decode_utf_8
+        from pypy.interpreter.unicodehelper import decode_utf8sp
         utf8 = self.utf8_w(w_obj)
-        return str_decode_utf_8(utf8, len(utf8), 'strict', True)[0]
+        return decode_utf8sp(self, utf8)[0]
 
     def utf8_0_w(self, w_obj):
         "Like utf8_w, but rejects strings with NUL bytes."
@@ -1763,7 +1763,8 @@ class ObjSpace(object):
     def realutf8_w(self, w_obj):
         # Like utf8_w(), but only works if w_obj is really of type
         # 'unicode'.  On Python 3 this is the same as utf8_w().
-        if not self.isinstance_w(w_obj, self.w_unicode):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        if not isinstance(w_obj, W_UnicodeObject):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
         return self.utf8_w(w_obj)
 
@@ -1784,7 +1785,7 @@ class ObjSpace(object):
     def fsdecode_w(self, w_obj):
         if self.isinstance_w(w_obj, self.w_bytes):
             w_obj = self.fsdecode(w_obj)
-        return self.unicode0_w(w_obj)
+        return self.utf8_w(w_obj)
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.

@@ -10,7 +10,6 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import dont_inline, not_rpython
 from rpython.rlib import rstack, rstackovf
 from rpython.rlib import rwin32
-from rpython.rlib import runicode
 
 from pypy.interpreter import debug
 
@@ -518,7 +517,10 @@ def get_operrcls2(valuefmt):
                     elif fmt == 'N':
                         result = value.getname(space)
                     elif fmt == '8':
-                        result = _decode_utf8(value)
+                        try:
+                            result = value.decode('utf8')
+                        except UnicodeDecodeError:
+                            result = value.decode('unicode-escape')
                     else:
                         if isinstance(value, unicode):
                             result = value
