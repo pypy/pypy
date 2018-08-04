@@ -1,5 +1,6 @@
 from __future__ import division
 import py, sys
+from pytest import raises
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions

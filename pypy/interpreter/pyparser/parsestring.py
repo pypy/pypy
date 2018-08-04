@@ -95,7 +95,7 @@ def parsestr(space, encoding, s):
             unicodehelper.check_utf8_or_raise(space, s, ps, q)
             substr = decode_unicode_utf8(space, s, ps, q)
         r = unicodehelper.decode_unicode_escape(space, substr)
-        v, length = r
+        v, length, pos = r
         return space.newutf8(v, length)
 
     assert 0 <= ps <= q
