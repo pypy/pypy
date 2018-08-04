@@ -602,11 +602,11 @@ class ArgErrUnknownKwds(ArgErr):
 
     def getmsg(self):
         if self.num_kwds == 1:
-            if isinstance(self.kwd_name, str):
-                uname = self.kwd_name.decode('utf8')
+            if isinstance(self.kwd_name, unicode):
+                uname = self.kwd_name.encode('utf8')
             else:
                 uname = self.kwd_name
-            msg = u"got an unexpected keyword argument '%s'" % uname
+            msg = "got an unexpected keyword argument '%s'" % uname
         else:
             msg = "got %d unexpected keyword arguments" % (
                 self.num_kwds)

@@ -520,7 +520,7 @@ def get_operrcls2(valuefmt):
                         if isinstance(value, unicode):
                             result = value.encode('utf8')
                         else:
-                            result = value
+                            result = value.decode('utf8', errors='replace')
                     else:
                         if isinstance(value, unicode):
                             result = value
