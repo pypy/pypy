@@ -333,6 +333,11 @@ def get_scoped_pycppitem(scope, name, type_only=False):
         except AttributeError:
             pass
 
+    # enum type
+    if not cppitem:
+        if scope.__cppdecl__.has_enum(name):
+            pycppitem = int
+
     if pycppitem is not None:      # pycppitem could be a bound C++ NULL, so check explicitly for Py_None
         return pycppitem
 
@@ -361,18 +366,19 @@ def extract_namespace(name):
     return '', name
 
 # pythonization by decoration (move to their own file?)
-def python_style_getitem(self, idx):
+def python_style_getitem(self, _idx):
     # python-style indexing: check for size and allow indexing from the back
-    try:
-        sz = len(self)
+    sz = len(self)
+    idx = _idx
+    if isinstance(idx, int):
         if idx < 0: idx = sz + idx
-        if idx < sz:
+        if 0 <= idx < sz:
             return self._getitem__unchecked(idx)
-        raise IndexError(
-            'index out of range: %d requested for %s of size %d' % (idx, str(self), sz))
-    except TypeError:
-        pass
-    return self._getitem__unchecked(idx)
+        else:
+            raise IndexError(
+                'index out of range: %s requested for %s of size %d' % (str(idx), str(self), sz))
+    # may fail for the same reasons as above, but will now give proper error message
+    return self._getitem__unchecked(_idx)
 
 def python_style_sliceable_getitem(self, slice_or_idx):
     if type(slice_or_idx) == slice:
@@ -380,8 +386,7 @@ def python_style_sliceable_getitem(self, slice_or_idx):
         nseq += [python_style_getitem(self, i) \
                     for i in range(*slice_or_idx.indices(len(self)))]
         return nseq
-    else:
-        return python_style_getitem(self, slice_or_idx)
+    return python_style_getitem(self, slice_or_idx)
 
 def _pythonize(pyclass, name):
     # general note: use 'in pyclass.__dict__' rather than 'hasattr' to prevent
@@ -430,8 +435,8 @@ def _pythonize(pyclass, name):
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
     # not on vector, which is pythonized in the capi (interp-level; there is
     # also the fallback on the indexed __getitem__, but that is slower)
-# TODO:    if not (0 <= name.find('vector') <= 5):
-    if not (0 <= name.find('vector<bool') <= 5):
+    add_checked_item = False
+    if name.find('std::vector', 0, 11) != 0:
         if ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
             if _cppyy._scope_byname(name+'::iterator') or \
                     _cppyy._scope_byname(name+'::const_iterator'):
@@ -443,10 +448,12 @@ def _pythonize(pyclass, name):
                     i.__destruct__()
                     raise StopIteration
                 pyclass.__iter__ = __iter__
-            # else: rely on numbered iteration
+            else:
+                # rely on numbered iteration
+                add_checked_item = True
 
     # add python collection based initializer
-    if 0 <= name.find('vector') <= 5:
+    if name.find('std::vector', 0, 11) == 0:
         pyclass.__real_init__ = pyclass.__init__
         def vector_init(self, *args):
             if len(args) == 1 and isinstance(args[0], (tuple, list)):
@@ -468,13 +475,17 @@ def _pythonize(pyclass, name):
                 return arr
             pyclass.data = data_with_len
 
-    # combine __getitem__ and __len__ to make a pythonized __getitem__
-    if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
-        pyclass._getitem__unchecked = pyclass.__getitem__
-        if '__setitem__' in pyclass.__dict__ and '__iadd__' in pyclass.__dict__:
-            pyclass.__getitem__ = python_style_sliceable_getitem
-        else:
-            pyclass.__getitem__ = python_style_getitem
+    # TODO: must be a simpler way to check (or at least hook these to a namespace
+    # std specific pythonizor)
+    if add_checked_item or name.find('std::vector', 0, 11) == 0 or \
+            name.find('std::array', 0, 11) == 0 or name.find('std::deque', 0, 10) == 0:
+        # combine __getitem__ and __len__ to make a pythonized __getitem__
+        if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
+            pyclass._getitem__unchecked = pyclass.__getitem__
+            if '__setitem__' in pyclass.__dict__ and '__iadd__' in pyclass.__dict__:
+                pyclass.__getitem__ = python_style_sliceable_getitem
+            else:
+                pyclass.__getitem__ = python_style_getitem
 
     # string comparisons
     if name == _cppyy._std_string_name():

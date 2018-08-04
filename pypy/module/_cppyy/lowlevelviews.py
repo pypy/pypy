@@ -57,7 +57,7 @@ W_LowLevelView.typedef = TypeDef(
     itemaddress = interp2app(W_LowLevelView.descr_itemaddress),
     reshape     = interp2app(W_LowLevelView.reshape),
 )
-W_ArrayInstance.typedef.acceptable_as_base_class = False
+W_LowLevelView.typedef.acceptable_as_base_class = False
 
 
 class W_ArrayOfInstances(W_Root):

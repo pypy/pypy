@@ -211,6 +211,9 @@ class NumericTypeConverterMixin(object):
         x[0] = self._unwrap_object(space, w_obj)
 
     def default_argument_libffi(self, space, address):
+        if not self.valid_default:
+            from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
+            raise FastCallNotPossible
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self.default
 
@@ -224,7 +227,7 @@ class NumericTypeConverterMixin(object):
         rffiptr = rffi.cast(self.c_ptrtype, address)
         rffiptr[0] = self._unwrap_object(space, w_value)
 
-class ConstRefNumericTypeConverterMixin(NumericTypeConverterMixin):
+class ConstRefNumericTypeConverterMixin(object):
     _mixin_ = True
 
     def cffi_type(self, space):
@@ -321,58 +324,91 @@ class UCharConverter(ffitypes.typeid(rffi.UCHAR), CharConverter):
     pass
 
 class FloatConverter(ffitypes.typeid(rffi.FLOAT), FloatTypeConverterMixin, TypeConverter):
-    _immutable_fields_ = ['default']
+    _immutable_fields_ = ['default', 'valid_default']
 
     def __init__(self, space, default):
-        if default:
+        self.valid_default = False
+        try:
             fval = float(rfloat.rstring_to_float(default))
-        else:
+            self.valid_default = True
+        except Exception:
             fval = float(0.)
-        self.default = r_singlefloat(fval)
+        self.default = rffi.cast(rffi.FLOAT, r_singlefloat(fval))
 
     def from_memory(self, space, w_obj, offset):
         address = self._get_raw_address(space, w_obj, offset)
         rffiptr = rffi.cast(self.c_ptrtype, address)
         return self._wrap_object(space, rffiptr[0])
 
-class ConstFloatRefConverter(FloatConverter):
+class ConstFloatRefConverter(ConstRefNumericTypeConverterMixin, FloatConverter):
     _immutable_fields_ = ['typecode']
     typecode = 'f'
 
-    def cffi_type(self, space):
-        state = space.fromcache(ffitypes.State)
-        return state.c_voidp
-
-    def convert_argument_libffi(self, space, w_obj, address, scratch):
-        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
-        raise FastCallNotPossible
-
 class DoubleConverter(ffitypes.typeid(rffi.DOUBLE), FloatTypeConverterMixin, TypeConverter):
-    _immutable_fields_ = ['default']
+    _immutable_fields_ = ['default', 'valid_default']
 
     def __init__(self, space, default):
-        if default:
+        self.valid_default = False
+        try:
             self.default = rffi.cast(self.c_type, rfloat.rstring_to_float(default))
-        else:
+            self.valid_default = True
+        except Exception:
             self.default = rffi.cast(self.c_type, 0.)
 
 class ConstDoubleRefConverter(ConstRefNumericTypeConverterMixin, DoubleConverter):
     _immutable_fields_ = ['typecode']
     typecode = 'd'
 
-class LongDoubleConverter(ffitypes.typeid(rffi.LONGDOUBLE), FloatTypeConverterMixin, TypeConverter):
-    _immutable_fields_ = ['default']
+class LongDoubleConverter(TypeConverter):
+    _immutable_fields_ = ['default', 'valid_default']
+    typecode = 'g'
 
     def __init__(self, space, default):
-        if default:
-            fval = float(rfloat.rstring_to_float(default))
-        else:
-            fval = float(0.)
-        self.default = r_longfloat(fval)
+        self.valid_default = False
+        try:
+            # use float() instead of cast with r_longfloat
+            fval = rffi.cast(rffi.DOUBLE, rfloat.rstring_to_float(default))
+            self.valid_default = True
+        except Exception:
+            fval = rffi.cast(rffi.DOUBLE, 0.)
+        #self.default = r_longfloat(fval)
+        self.default = fval
+
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.VOIDP, address)
+        capi.c_double2longdouble(space, space.float_w(w_obj), x)
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset(space)] = self.typecode
+
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
+        x = rffi.cast(rffi.VOIDP, address)
+        capi.c_double2longdouble(space, space.float_w(w_obj), x)
+
+    def default_argument_libffi(self, space, address):
+        if not self.valid_default:
+            from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
+            raise FastCallNotPossible
+        x = rffi.cast(rffi.VOIDP, address)
+        capi.c_double2longdouble(space, self.default, x)
+
+    def from_memory(self, space, w_obj, offset):
+        address = self._get_raw_address(space, w_obj, offset)
+        rffiptr = rffi.cast(rffi.VOIDP, address)
+        return space.newfloat(capi.c_longdouble2double(space, rffiptr))
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        address = self._get_raw_address(space, w_obj, offset)
+        rffiptr = rffi.cast(rffi.VOIDP, address)
+        capi.c_double2longdouble(space, space.float_w(w_value), rffiptr)
 
 class ConstLongDoubleRefConverter(ConstRefNumericTypeConverterMixin, LongDoubleConverter):
     _immutable_fields_ = ['typecode']
     typecode = 'g'
+
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
+        capi.c_double2longdouble(space, space.float_w(w_obj), rffi.cast(rffi.VOIDP, scratch))
+        x = rffi.cast(rffi.VOIDPP, address)
+        x[0] = scratch
 
 
 class CStringConverter(TypeConverter):
@@ -949,8 +985,8 @@ _converters["float"]                    = FloatConverter
 _converters["const float&"]             = ConstFloatRefConverter
 _converters["double"]                   = DoubleConverter
 _converters["const double&"]            = ConstDoubleRefConverter
-#_converters["long double"]              = LongDoubleConverter
-#_converters["const long double&"]       = ConstLongDoubleRefConverter
+_converters["long double"]              = LongDoubleConverter
+_converters["const long double&"]       = ConstLongDoubleRefConverter
 _converters["const char*"]              = CStringConverter
 _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
@@ -984,7 +1020,12 @@ def _build_basic_converters():
             _immutable_ = True
             typecode = c_tc
             def __init__(self, space, default):
-                self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
+                self.valid_default = False
+                try:
+                    self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
+                    self.valid_default = True
+                except Exception:
+                    self.default = rffi.cast(self.c_type, 0)
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
             _immutable_ = True
         for name in names:
@@ -1001,7 +1042,12 @@ def _build_basic_converters():
             _immutable_ = True
             typecode = c_tc
             def __init__(self, space, default):
-                self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
+                self.valid_default = False
+                try:
+                    self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
+                    self.valid_default = True
+                except Exception:
+                    self.default = rffi.cast(self.c_type, 0)
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
             _immutable_ = True
         for name in names:
@@ -1021,7 +1067,12 @@ def _build_basic_converters():
             _immutable_ = True
             typecode = c_tc
             def __init__(self, space, default):
-                self.default = rffi.cast(self.c_type, capi.c_strtoull(space, default))
+                self.valid_default = False
+                try:
+                    self.default = rffi.cast(self.c_type, capi.c_strtoull(space, default))
+                    self.valid_default = True
+                except Exception:
+                    self.default = rffi.cast(self.c_type, 0)
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
             _immutable_ = True
         for name in names:
