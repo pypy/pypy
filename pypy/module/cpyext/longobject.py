@@ -200,6 +200,8 @@ def PyLong_FromUnicode(space, u, length, base):
     string, length gives the number of characters, and base is the radix
     for the conversion.  The radix must be in the range [2, 36]; if it is
     out of range, ValueError will be raised."""
+    if length < 0:
+        length = 0
     w_value = space.newutf8(wcharpsize2utf8(space, u, length), length)
     return PyLong_FromUnicodeObject(space, w_value, base)
 

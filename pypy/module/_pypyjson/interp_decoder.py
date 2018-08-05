@@ -307,6 +307,7 @@ class JSONDecoder(object):
             # ascii only, fast path (ascii is a strict subset of
             # latin1, and we already checked that all the chars are <
             # 128)
+            assert end >= start
             return self.space.newutf8(self.getslice(start, end),
                                       end - start)
 

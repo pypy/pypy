@@ -28,7 +28,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 # we need a way to accept both r_uint and int(nonneg=True)
-@signature(types.int_nonneg(), types.bool(), returns=types.str())
+#@signature(types.int_nonneg(), types.bool(), returns=types.str())
 def unichr_as_utf8(code, allow_surrogates=False):
     """Encode code (numeric value) as utf8 encoded string
     """

@@ -472,6 +472,8 @@ def PyUnicode_FromUnicode(space, wchar_p, length):
     object. If the buffer is not NULL, the return value might be a shared object.
     Therefore, modification of the resulting Unicode object is only allowed when u
     is NULL."""
+    if length < 0:
+        length = 0
     if wchar_p:
         s = wcharpsize2utf8(space, wchar_p, length)
         return make_ref(space, space.newutf8(s, length))
@@ -755,6 +757,8 @@ def make_conversion_functions(suffix, encoding, only_for_asstring=False):
         """Encode the Py_UNICODE buffer of the given size and return a
         Python string object.  Return NULL if an exception was raised
         by the codec."""
+        if size < 0:
+            size = 0
         u = wcharpsize2utf8(space, s, size)
         w_u = space.newutf8(u, size)
         if errors:

@@ -13,7 +13,8 @@ from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
 from rpython.rlib.objectmodel import import_from_mixin, we_are_translated
 from rpython.rlib.objectmodel import not_rpython
-from rpython.rlib import jit, rutf8
+from rpython.rlib import jit, rutf8, types
+from rpython.rlib.signature import signature, finishsigs
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
@@ -36,7 +37,7 @@ from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 from pypy.objspace.std.typeobject import W_TypeObject, TypeCache
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
-
+@finishsigs
 class StdObjSpace(ObjSpace):
     """The standard object space, implementing a general-purpose object
     library in Restricted Python."""
@@ -381,10 +382,9 @@ class StdObjSpace(ObjSpace):
 
     @specialize.argtype(1)
     def newtext(self, s):
-        assert not isinstance(s, unicode)
-        #if isinstance(s, unicode):
-            #s, lgt = s.encode('utf8'), len(s)
-        if isinstance(s, str):
+        if isinstance(s, unicode):
+            s, lgt = s.encode('utf8'), len(s)
+        elif isinstance(s, str):
             s, lgt, codepoints = decode_utf8sp(self, s)
         elif isinstance(s, tuple):
             # result of decode_utf8
@@ -400,8 +400,9 @@ class StdObjSpace(ObjSpace):
             return self.w_None
         return self.newtext(s)
 
+    # XXX find where length is annotated as negative int
+    @signature(types.any(), types.str(), types.int_nonneg(), returns=types.any())
     def newutf8(self, utf8s, length):
-        assert length >= 0
         assert isinstance(utf8s, str)
         return W_UnicodeObject(utf8s, length)
 
