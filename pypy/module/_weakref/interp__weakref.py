@@ -182,10 +182,10 @@ class W_WeakrefBase(W_Root):
         else:
             typename = space.type(w_obj).getname(space)
             objname = w_obj.getname(space)
-            if objname and objname != u'?':
-                state = u"; to '%s' (%s)" % (typename, objname)
+            if objname and objname != '?':
+                state = "; to '%s' (%s)" % (typename, objname)
             else:
-                state = u"; to '%s'" % (typename,)
+                state = "; to '%s'" % (typename,)
         return self.getrepr(space, unicode(self.typedef.name), state)
 
 

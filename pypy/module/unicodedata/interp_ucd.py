@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rlib.unicodedata import unicodedb_8_0_0, unicodedb_3_2_0
 from rpython.rlib.rutf8 import Utf8StringBuilder, unichr_as_utf8
 
@@ -82,7 +82,7 @@ class UCD(W_Root):
         sequence = self._lookup_named_sequence(code)
         if sequence is not None:
             # named sequences only contain UCS2 codes, no surrogates &co.
-            return space.newutf8(unichr_as_utf8(code), 1)
+            return space.newutf8(unichr_as_utf8(r_uint(code)), 1)
 
 
 

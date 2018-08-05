@@ -39,8 +39,7 @@ def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, utf8,
                                        startingpos, endingpos):
-        if isinstance(utf8, unicode):
-            utf8 = utf8.encode('utf8')
+        assert not isinstance(utf8, unicode)
         u_len = rutf8.get_utf8_length(utf8)
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
@@ -362,7 +361,7 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                 if not final:
                     pos -= 1
                     break
-                r, pos = errorhandler(errors, "utf8", "unexpected end of data",
+                r, pos, lgt = errorhandler(errors, "utf8", "unexpected end of data",
                     s, pos - 1, pos + 1)
                 res.append(r)
                 continue
