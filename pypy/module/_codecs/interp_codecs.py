@@ -3,7 +3,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib import runicode
-from rpython.rlib.runicode import ( raw_unicode_escape_helper_unicode)
+from rpython.rlib.runicode import raw_unicode_escape_helper_unicode
 from rpython.rlib import rutf8
 
 from pypy.interpreter.error import OperationError, oefmt

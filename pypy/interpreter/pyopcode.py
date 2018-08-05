@@ -1628,7 +1628,7 @@ class __extend__(pyframe.PyFrame):
         if (oparg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
             w_spec = self.popvalue()
         else:
-            w_spec = space.newtext(u'')
+            w_spec = space.newtext('')
         w_value = self.popvalue()
         #
         conversion = oparg & consts.FVC_MASK
@@ -1649,9 +1649,9 @@ class __extend__(pyframe.PyFrame):
         lst = []
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
-            lst.append(space.realunicode_w(w_item))
+            lst.append(space.utf8_w(w_item))
         self.dropvalues(itemcount)
-        w_res = space.newtext(u''.join(lst))
+        w_res = space.newtext(''.join(lst))
         self.pushvalue(w_res)
 
     def _revdb_load_var(self, oparg):

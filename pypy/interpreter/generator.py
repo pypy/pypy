@@ -42,10 +42,8 @@ class GeneratorOrCoroutine(W_Root):
 
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)
-        return space.newtext(u"<%s object %s at 0x%s>" %
-                          (unicode(self.KIND),
-                           self.get_qualname(),
-                           unicode(addrstring)))
+        return space.newtext("<%s object %s at 0x%s>" %
+                          (self.KIND, self.get_qualname(), addrstring))
 
     def descr_send(self, w_arg):
         """send(arg) -> send 'arg' into generator/coroutine,

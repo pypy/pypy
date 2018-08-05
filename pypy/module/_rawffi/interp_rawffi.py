@@ -451,7 +451,7 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                 return space.newbytes(func(add_arg, argdesc, ll_type))
             elif c == 'u':
                 return space.newutf8(rutf8.unichr_as_utf8(
-                    ord(func(add_arg, argdesc, ll_type))), 1)
+                    r_uint(ord(func(add_arg, argdesc, ll_type)))), 1)
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.newfloat(float(func(add_arg, argdesc, ll_type)))
             else:
@@ -615,6 +615,8 @@ def charp2rawstring(space, address, maxlength=-1):
 def wcharp2rawunicode(space, address, maxlength=-1):
     if maxlength == -1:
         return wcharp2unicode(space, address)
+    elif maxlength < 0:
+        maxlength = 0
     s = rffi.wcharpsize2utf8(rffi.cast(rffi.CWCHARP, address), maxlength)
     return space.newutf8(s, maxlength)
 

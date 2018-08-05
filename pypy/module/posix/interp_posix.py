@@ -935,7 +935,7 @@ On some platforms, path may also be specified as an open file descriptor;
   the file descriptor must refer to a directory.
   If this functionality is unavailable, using it raises NotImplementedError."""
     if space.is_none(w_path):
-        w_path = space.newtext(u".")
+        w_path = space.newtext(".")
     if space.isinstance_w(w_path, space.w_bytes):
         # XXX CPython doesn't follow this path either if w_path is,
         # for example, a memoryview or another buffer type

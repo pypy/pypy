@@ -219,11 +219,13 @@ class W_StringIO(W_TextIOBase):
                 self.w_decoder, "decode", w_obj, space.w_True)
         else:
             w_decoded = w_obj
-        if self.writenl:
+        writenl = self.writenl
+        if writenl is not None:
             w_decoded = space.call_method(
                 w_decoded, "replace",
-                space.newtext("\n"), space.newutf8(self.writenl,
-                    get_utf8_length(self.writenl)))
+                space.newtext("\n"),
+                space.newutf8(writenl, get_utf8_length(writenl)),
+            )
         string = space.utf8_w(w_decoded)
         if string:
             self.buf.write(string)

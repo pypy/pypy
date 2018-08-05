@@ -74,8 +74,8 @@ def fsdecode(space, w_string):
                               force_ignore=False)[0]
     elif _MACOSX:
         bytes = space.bytes_w(w_string)
-        uni = runicode.str_decode_utf_8_impl(
-            bytes, len(bytes), 'surrogateescape', final=True,
+        uni = str_decode_utf8(
+            bytes, 'surrogateescape', final=True,
             errorhandler=state.decode_error_handler,
             allow_surrogates=False)[0]
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
@@ -296,15 +296,13 @@ def utf8_encode_ascii(s, errors, errorhandler):
 
 if sys.platform == 'win32':
     def utf8_encode_mbcs(s, slen, errors, errorhandler):
-        from rpython.rlib import runicode
         s = s.decode('utf-8')
-        res = runicode.unicode_encode_mbcs(s, slen, errors, errorhandler)
+        res = unicode_encode_mbcs(s, slen, errors, errorhandler)
         return res
         
     def str_decode_mbcs(s, errors, final, errorhandler):
-        from rpython.rlib import runicode
         slen = len(s)
-        res, size = runicode.str_decode_mbcs(s, slen, final=final, errors=errors,
+        res, size = str_decode_mbcs(s, slen, final=final, errors=errors,
                                            errorhandler=errorhandler)
         return res.encode('utf8'), len(res)
 

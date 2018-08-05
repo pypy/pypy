@@ -14,7 +14,7 @@ from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
     if space.is_none(w_path):
-        w_path = space.newtext(u".")
+        w_path = space.newtext(".")
 
     if not _WIN32:
         if space.isinstance_w(w_path, space.w_bytes):

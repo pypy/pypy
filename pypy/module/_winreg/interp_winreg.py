@@ -33,7 +33,7 @@ class W_HKEY(W_Root):
         return space.newint(self.as_int())
 
     def descr_repr(self, space):
-        return space.newtext(u"<PyHKEY:0x%x>" % (self.as_int(),))
+        return space.newtext("<PyHKEY:0x%x>" % (self.as_int(),))
 
     def descr_int(self, space):
         return space.newint(self.as_int())

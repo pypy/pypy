@@ -123,12 +123,12 @@ class W_SRE_Pattern(W_Root):
         if flags != 0:
             flag_items.append('0x%x' % flags)
         if len(flag_items) == 0:
-            usep = u''
-            uflags = u''
+            usep = ''
+            uflags = ''
         else:
-            usep = u', '
-            uflags = u'|'.join([item.decode('latin-1') for item in flag_items])
-        return space.newtext(u're.compile(%s%s%s)' % (u, usep, uflags))
+            usep = ', '
+            uflags = '|'.join(flag_items)
+        return space.newtext('re.compile(%s%s%s)' % (u, usep, uflags))
 
     def fget_groupindex(self, space):
         w_groupindex = self.w_groupindex
@@ -424,7 +424,7 @@ class W_SRE_Pattern(W_Root):
                 return space.newtext(unicodebuilder.build()), n
         else:
             if space.isinstance_w(w_string, space.w_unicode):
-                w_emptystr = space.newtext(u'')
+                w_emptystr = space.newtext('')
             else:
                 w_emptystr = space.newbytes('')
             w_item = space.call_method(w_emptystr, 'join',
@@ -528,10 +528,10 @@ class W_SRE_Match(W_Root):
         ctx = self.ctx
         start, end = ctx.match_start, ctx.match_end
         w_s = slice_w(space, ctx, start, end, space.w_None)
-        u = space.realunicode_w(space.repr(w_s))
+        u = space.utf8_w(space.repr(w_s))
         if len(u) > 50:
             u = u[:50]
-        return space.newtext(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
+        return space.newtext('<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 
     def cannot_copy_w(self):
