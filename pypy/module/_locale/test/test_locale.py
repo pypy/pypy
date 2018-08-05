@@ -25,21 +25,21 @@ class AppTestLocaleTrivia:
                 # some systems are only UTF-8 oriented
                 try:
                     _locale.setlocale(_locale.LC_ALL,
-                                      cls.space.str_w(cls.w_language_en))
+                                      cls.space.utf8_w(cls.w_language_en))
                 except _locale.Error:
                     _locale.setlocale(_locale.LC_ALL,
-                                      cls.space.str_w(cls.w_language_utf8))
+                                      cls.space.utf8_w(cls.w_language_utf8))
                     cls.w_language_en = cls.w_language_utf8
 
                 _locale.setlocale(_locale.LC_ALL,
-                                  cls.space.str_w(cls.w_language_pl))
+                                  cls.space.utf8_w(cls.w_language_pl))
             except _locale.Error:
                 py.test.skip("necessary locales not installed")
 
             # Windows forbids the UTF-8 character set since Windows XP.
             try:
                 _locale.setlocale(_locale.LC_ALL,
-                                  cls.space.str_w(cls.w_language_utf8))
+                                  cls.space.utf8_w(cls.w_language_utf8))
             except _locale.Error:
                 del cls.w_language_utf8
         finally:
