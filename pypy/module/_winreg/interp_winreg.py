@@ -222,7 +222,7 @@ KEY_SET_VALUE access."""
     if typ != rwinreg.REG_SZ:
         raise oefmt(space.w_ValueError, "Type must be winreg.REG_SZ")
     hkey = hkey_w(w_hkey, space)
-    with rffi.scoped_unicode2wcharp(space.utf8_w(w_subkey).decode()) as subkey:
+    with rffi.scoped_unicode2wcharp(space.utf8_w(w_subkey).decode('utf8')) as subkey:
         c_subkey = rffi.cast(rffi.CCHARP, subkey)
         with rffi.scoped_unicode2wcharp(value) as dataptr:
             c_dataptr = rffi.cast(rffi.CCHARP, dataptr)
@@ -246,7 +246,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
     if space.is_w(w_subkey, space.w_None):
         subkey = None
     else:
-        subkey = space.utf8_w(w_subkey).decode()
+        subkey = space.utf8_w(w_subkey).decode('utf8')
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
@@ -296,7 +296,7 @@ def convert_to_regdata(space, w_value, typ):
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
             buf[0] = '\0'
         else:
-            buf = rffi.unicode2wcharp(space.utf8_w(w_value).decode())
+            buf = rffi.unicode2wcharp(space.utf8_w(w_value).decode('utf8'))
             buf = rffi.cast(rffi.CCHARP, buf)
             buflen = (space.len_w(w_value) * 2) + 1
 
@@ -314,7 +314,7 @@ def convert_to_regdata(space, w_value, typ):
             while True:
                 try:
                     w_item = space.next(w_iter)
-                    item = space.utf8_w(w_item).decode()
+                    item = space.utf8_w(w_item).decode('utf8')
                     strings.append(item)
                     buflen += 2 * (len(item) + 1)
                 except OperationError as e:
@@ -455,7 +455,7 @@ value_name is a string indicating the value to query"""
     if space.is_w(w_subkey, space.w_None):
         subkey = None
     else:
-        subkey = space.utf8_w(w_subkey).decode()
+        subkey = space.utf8_w(w_subkey).decode('utf8')
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)

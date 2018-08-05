@@ -1716,7 +1716,7 @@ def create_extension_module(space, w_spec):
     raise_import_error(space, space.newtext(msg), w_name, w_path)
 
 def get_init_name(space, w_name):
-    name_u = space.utf8_w(w_name).decode()
+    name_u = space.utf8_w(w_name).decode('utf8')
     basename_u = name_u.split(u'.')[-1]
     try:
         basename = basename_u.encode('ascii')
