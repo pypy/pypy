@@ -624,7 +624,7 @@ class W_UnicodeObject(W_Root):
         return space.newbool(cased)
 
     def descr_isidentifier(self, space):
-        return space.newbool(_isidentifier(self._utf8.decode('utf8')))
+        return space.newbool(_isidentifier(self._utf8))
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)
@@ -1162,11 +1162,13 @@ def _isidentifier(u):
     # to check just for these, except that _ must be allowed as starting
     # an identifier.
     first = u[0]
-    if not (unicodedb.isxidstart(ord(first)) or first == u'_'):
+    it = rutf8.Utf8StringIterator(u)
+    code = it.next()
+    if not (unicodedb.isxidstart(code) or first == u'_'):
         return False
 
-    for i in range(1, len(u)):
-        if not unicodedb.isxidcontinue(ord(u[i])):
+    for ch in it:
+        if not unicodedb.isxidcontinue(ch):
             return False
     return True
 
