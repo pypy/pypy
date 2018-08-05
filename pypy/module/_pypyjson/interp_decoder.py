@@ -74,6 +74,10 @@ class JSONDecoder(object):
                 break
         return i
 
+    @specialize.arg(1)
+    def _raise(self, msg, *args):
+        raise oefmt(self.space.w_ValueError, msg, *args)
+
     def decode_any(self, i):
         i = self.skip_whitespace(i)
         ch = self.ll_chars[i]

@@ -83,7 +83,7 @@ def create_entry_point(space, w_dict):
             ##    con.interact()
             except OperationError as e:
                 debug("OperationError:")
-                debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
+                debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         finally:
@@ -91,7 +91,7 @@ def create_entry_point(space, w_dict):
                 space.finish()
             except OperationError as e:
                 debug("OperationError:")
-                debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
+                debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         return exitcode

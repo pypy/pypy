@@ -515,7 +515,7 @@ def get_operrcls2(valuefmt):
                     elif fmt == 'T':
                         result = _decode_utf8(space.type(value).name)
                     elif fmt == 'N':
-                        result = value.getname(space)
+                        result = _decode_utf8(value.getname(space))
                     elif fmt == '8':
                         if isinstance(value, unicode):
                             result = value.encode('utf8')

@@ -38,7 +38,7 @@ class InstanceMethod(W_Root):
 
     def descr_repr(self, space):
         return self.getrepr(space, u'<instancemethod %s>' %
-                            (self.w_function.getname(space),))
+                            (self.w_function.getname(space).decode('utf8'),))
 
 InstanceMethod.typedef = TypeDef("instancemethod",
     __new__ = interp2app(InstanceMethod.descr_new),

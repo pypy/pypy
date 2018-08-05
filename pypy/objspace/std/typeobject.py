@@ -579,7 +579,7 @@ class W_TypeObject(W_Root):
                 result = self.name[dot+1:]
             else:
                 result = self.name
-        return result.decode('utf-8')
+        return result
 
     def getqualname(self, space):
         return self.qualname
@@ -792,7 +792,6 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
         w_typetype = w_winner
 
     name = space.text_w(w_name) # NB. CPython forbids surrogates here
-    assert isinstance(name, str)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
     dict_w = {}

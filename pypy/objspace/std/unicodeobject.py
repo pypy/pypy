@@ -377,6 +377,8 @@ class W_UnicodeObject(W_Root):
                 codes = unicodedb.tolower_full(ch)
             elif unicodedb.islower(ch):
                 codes = unicodedb.toupper_full(ch)
+            else:
+                codes = [ch,]
             for c in codes:
                 builder.append_code(c)
         return self.from_utf8builder(builder)
