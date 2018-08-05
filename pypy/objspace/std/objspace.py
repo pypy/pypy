@@ -384,7 +384,7 @@ class StdObjSpace(ObjSpace):
         assert not isinstance(s, unicode)
         #if isinstance(s, unicode):
             #s, lgt = s.encode('utf8'), len(s)
-        elif isinstance(s, str):
+        if isinstance(s, str):
             s, lgt, codepoints = decode_utf8sp(self, s)
         elif isinstance(s, tuple):
             # result of decode_utf8
