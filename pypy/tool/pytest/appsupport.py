@@ -97,7 +97,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
     def __init__(self, space, operr):
         self.space = space
         self.operr = operr
-        self.typename = operr.w_type.getname(space).encode('utf-8')
+        self.typename = operr.w_type.getname(space)
         self.traceback = AppTraceback(space, self.operr.get_traceback())
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:

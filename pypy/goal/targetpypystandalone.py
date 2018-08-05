@@ -148,7 +148,7 @@ def get_additional_entrypoints(space, w_initstdio):
         except OperationError as e:
             if verbose:
                 debug("OperationError:")
-                debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
+                debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return rffi.cast(rffi.INT, -1)
         finally:
@@ -202,7 +202,7 @@ def get_additional_entrypoints(space, w_initstdio):
             """)
         except OperationError as e:
             debug("OperationError:")
-            debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
+            debug(" operror-type: " + e.w_type.getname(space))
             debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return -1
         return 0

@@ -762,7 +762,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
 
 def _get_printable_location(w_type):
     return ('bytearray_from_byte_sequence [w_type=%s]' %
-            w_type.getname(w_type.space).encode('utf-8'))
+            w_type.getname(w_type.space))
 
 _byteseq_jitdriver = jit.JitDriver(
     name='bytearray_from_byte_sequence',

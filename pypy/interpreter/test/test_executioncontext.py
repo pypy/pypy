@@ -178,7 +178,7 @@ class TestExecutionContext:
                 w_class = space.type(seen[0].w_instance)
                 found = 'method %s of %s' % (
                     seen[0].w_function.name,
-                    w_class.getname(space).encode('utf-8'))
+                    w_class.getname(space))
             else:
                 assert isinstance(seen[0], Function)
                 found = 'builtin %s' % seen[0].name
