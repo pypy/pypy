@@ -397,7 +397,7 @@ class Coroutine(GeneratorOrCoroutine):
            self.frame is not None and \
            self.frame.last_instr == -1:
             space = self.space
-            msg = u"coroutine '%s' was never awaited" % self.get_qualname()
+            msg = "coroutine '%s' was never awaited" % self.get_qualname()
             space.warn(space.newtext(msg), space.w_RuntimeWarning)
         GeneratorOrCoroutine._finalize_(self)
 

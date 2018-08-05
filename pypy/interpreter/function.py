@@ -554,7 +554,7 @@ class Method(W_Root):
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                name = u'?'
+                name = '?'
         objrepr = space.utf8_w(space.repr(self.w_instance))
         s = b'<bound method %s of %s>' % (name, objrepr)
         return space.newtext(s)
