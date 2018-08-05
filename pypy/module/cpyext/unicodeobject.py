@@ -271,7 +271,7 @@ def _PyUnicode_Ready(space, w_obj):
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     py_obj = as_pyobj(space, w_obj)
     assert get_kind(py_obj) == WCHAR_KIND
-    return _readify(space, py_obj, space.utf8_w(w_obj))
+    return _readify(space, py_obj, space.utf8_w(w_obj).decode('utf8'))
 
 def _readify(space, py_obj, value):
     maxchar = 0
