@@ -381,8 +381,9 @@ class StdObjSpace(ObjSpace):
 
     @specialize.argtype(1)
     def newtext(self, s):
-        if isinstance(s, unicode):
-            s, lgt = s.encode('utf8'), len(s)
+        assert not isinstance(s, unicode)
+        #if isinstance(s, unicode):
+            #s, lgt = s.encode('utf8'), len(s)
         elif isinstance(s, str):
             s, lgt, codepoints = decode_utf8sp(self, s)
         elif isinstance(s, tuple):
@@ -391,6 +392,7 @@ class StdObjSpace(ObjSpace):
         else:
             # XXX what is s ?
             lgt = rutf8.check_utf8(s, True)
+        assert isinstance(s, str)
         return W_UnicodeObject(s, lgt)
 
     def newtext_or_none(self, s):
@@ -399,6 +401,7 @@ class StdObjSpace(ObjSpace):
         return self.newtext(s)
 
     def newutf8(self, utf8s, length):
+        assert length >= 0
         assert isinstance(utf8s, str)
         return W_UnicodeObject(utf8s, length)
 

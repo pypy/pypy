@@ -83,7 +83,7 @@ class W_Root(object):
             return space.utf8_w(space.getattr(self, space.newtext('__name__')))
         except OperationError as e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
-                return u'?'
+                return '?'
             raise
 
     def getaddrstring(self, space):

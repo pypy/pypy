@@ -85,7 +85,7 @@ def unicode_realize(space, py_obj):
     s = rffi.wcharpsize2unicode(get_wbuffer(py_obj), get_wsize(py_obj))
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
-    w_obj.__init__(s)
+    w_obj.__init__(s, len(s))
     track_reference(space, py_obj, w_obj)
     return w_obj
 

@@ -1587,7 +1587,7 @@ def str_decode_charmap(s, errors, final=False,
                                   errorhandler=errorhandler)
     size = len(s)
     if size == 0:
-        return '', 0
+        return '', 0, 0
 
     pos = 0
     result = StringBuilder(size)

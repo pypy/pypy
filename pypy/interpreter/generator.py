@@ -215,7 +215,7 @@ return next yielded value or raise StopIteration."""
             e2.record_context(space, space.getexecutioncontext())
             raise e2
         else:
-            space.warn(space.newtext(u"generator '%s' raised StopIteration"
+            space.warn(space.newtext("generator '%s' raised StopIteration"
                                         % self.get_qualname()),
                        space.w_PendingDeprecationWarning)
 
