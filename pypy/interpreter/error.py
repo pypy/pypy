@@ -517,10 +517,14 @@ def get_operrcls2(valuefmt):
                     elif fmt == 'N':
                         result = _decode_utf8(value.getname(space))
                     elif fmt == '8':
+                        # u'str\uxxxx' -> 'str\xXX\xXX' -> u"'str\xXX\xXX'"
                         if isinstance(value, unicode):
                             result = value.encode('utf8')
                         else:
-                            result = value.decode('utf8', 'replace')
+                            from pypy.interpreter import unicodehelper
+                            result = _decode_utf8(unicodehelper.str_decode_utf8(
+                                value, 'replace', True,
+                                unicodehelper.decode_never_raise, True)[0])
                     else:
                         if isinstance(value, unicode):
                             result = value
