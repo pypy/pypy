@@ -38,7 +38,7 @@ class GeneratorOrCoroutine(W_Root):
         # 'qualname' is a unicode string
         if self._qualname is not None:
             return self._qualname
-        return self.get_name().decode('utf-8')
+        return self.get_name()
 
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)

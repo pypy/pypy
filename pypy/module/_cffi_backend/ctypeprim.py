@@ -222,6 +222,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
                 raise oefmt(self.space.w_ValueError,
                             "%s out of range for conversion to unicode: %s",
                             self.name, hex(e.ordinal))
+        assert lgt >= 0
         return self.space.newutf8(utf8, lgt)
 
 

@@ -78,6 +78,7 @@ def wrap_unicodedecodeerror(space, e, input, name):
             space.newtext(e.reason)]))
 
 def wrap_unicodeencodeerror(space, e, input, inputlen, name):
+    assert inputlen >= 0
     raise OperationError(
         space.w_UnicodeEncodeError,
         space.newtuple([

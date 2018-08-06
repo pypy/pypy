@@ -452,8 +452,8 @@ class PyCode(eval.Code):
     def repr(self, space):
         space = self.space
         # co_name should be an identifier
-        name = self.co_name.decode('utf-8')
+        name = self.co_name
         fn = space.utf8_w(self.w_filename)
         return space.newtext(b'<code object %s at 0x%s, file "%s", line %d>' % (
-            name, unicode(self.getaddrstring(space)), fn,
+            name, self.getaddrstring(space), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))

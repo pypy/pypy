@@ -79,7 +79,7 @@ def verify_identifier(token):
     except UnicodeDecodeError:
         return -1
     from pypy.objspace.std.unicodeobject import _isidentifier
-    return _isidentifier(u)
+    return _isidentifier(token)
 
 
 DUMMY_DFA = automata.DFA([], [])

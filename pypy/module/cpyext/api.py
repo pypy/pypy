@@ -1711,7 +1711,7 @@ def create_extension_module(space, w_spec):
             look_for = also_look_for
     assert look_for is not None
     msg = b"function %s not found in library %s" % (
-        look_for.decode('utf-8'), space.utf8_w(space.newfilename(path)))
+        look_for, space.utf8_w(space.newfilename(path)))
     w_path = space.newfilename(path)
     raise_import_error(space, space.newtext(msg), w_name, w_path)
 
