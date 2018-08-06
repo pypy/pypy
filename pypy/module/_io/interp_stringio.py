@@ -156,10 +156,11 @@ class W_StringIO(W_TextIOBase):
     def descr_getstate(self, space):
         w_initialval = self.getvalue_w(space)
         w_dict = space.call_method(self.w_dict, "copy")
-        if self.readnl is None:
+        readnl = self.readnl
+        if readnl is None:
             w_readnl = space.w_None
         else:
-            w_readnl = space.str(space.newutf8(self.readnl, get_utf8_length(self.readnl)))  # YYY
+            w_readnl = space.str(space.newutf8(readnl, get_utf8_length(readnl)))  # YYY
         return space.newtuple([
             w_initialval, w_readnl, space.newint(self.buf.pos), w_dict
         ])

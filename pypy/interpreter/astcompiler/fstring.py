@@ -264,9 +264,8 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
         space = astbuilder.space
         literal = parsestring.decode_unicode_utf8(space, literal, 0,
                                                   len(literal))
-        return unicodehelper.decode_unicode_escape(space, literal)
-    else:
-        return literal.decode('utf-8')
+        literal, lgt, _ = unicodehelper.decode_unicode_escape(space, literal)
+    return literal.decode('utf-8')
 
 
 def fstring_find_literal_and_expr(astbuilder, fstr, atom_node, rec):

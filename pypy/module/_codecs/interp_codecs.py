@@ -223,6 +223,8 @@ def replace_errors(space, w_exc):
     w_start = space.getattr(w_exc, space.newtext('start'))
     w_end = space.getattr(w_exc, space.newtext('end'))
     size = space.int_w(w_end) - space.int_w(w_start)
+    if size < 0:
+        size = 0
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         text = '?' * size
         return space.newtuple([space.newutf8(text, size), w_end])
@@ -315,7 +317,7 @@ def namereplace_errors(space, w_exc):
             try:
                 name = unicodedb.name(oc)
             except KeyError:
-                raw_unicode_escape_helper_unicode(builder, oc)
+                unicodehelper.raw_unicode_escape_helper(builder, oc)
             else:
                 builder.append('\\N{')
                 builder.append(name)
