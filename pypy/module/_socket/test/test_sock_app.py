@@ -402,6 +402,12 @@ class AppTestSocket:
         e = raises(OSError, s.close)
         assert e.value.errno in (errno.EBADF, errno.ENOTSOCK)
 
+    def test_setblocking_invalidfd(self):
+        import errno, _socket
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        _socket.socket(fileno=s.fileno()).close()
+        raises(OSError, s.setblocking, False)
+
     def test_socket_connect(self):
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)

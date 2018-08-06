@@ -608,14 +608,17 @@ class W_Socket(W_Root):
         return space.newint(count)
 
     @unwrap_spec(flag=int)
-    def setblocking_w(self, flag):
+    def setblocking_w(self, space, flag):
         """setblocking(flag)
 
         Set the socket to blocking (flag is true) or non-blocking (false).
         setblocking(True) is equivalent to settimeout(None);
         setblocking(False) is equivalent to settimeout(0.0).
         """
-        self.sock.setblocking(bool(flag))
+        try:
+            self.sock.setblocking(bool(flag))
+        except SocketError as e:
+            raise converted_error(space, e)
 
     @unwrap_spec(level=int, optname=int)
     def setsockopt_w(self, space, level, optname, w_optval):
@@ -654,7 +657,10 @@ class W_Socket(W_Root):
             timeout = space.float_w(w_timeout)
             if timeout < 0.0:
                 raise oefmt(space.w_ValueError, "Timeout value out of range")
-        self.sock.settimeout(timeout)
+        try:
+            self.sock.settimeout(timeout)
+        except SocketError as e:
+            raise converted_error(space, e)
 
     @unwrap_spec(nbytes=int, flags=int)
     def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):
