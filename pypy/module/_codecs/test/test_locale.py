@@ -41,7 +41,7 @@ class TestLocaleCodec(object):
         utf8_encoder = self.getencoder('utf-8')
         for val in u'foo', u' 日本', u'\U0001320C':
             assert (locale_encoder(val).encode('utf8') ==
-                    utf8_encoder(val, 'strict', True, None))
+                    utf8_encoder(val, 'strict', None))
 
     def test_encode_locale_errorhandler(self):
         self.setlocale("en_US.UTF-8")

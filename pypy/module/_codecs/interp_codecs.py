@@ -946,13 +946,12 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
-    result, lgt = unicodehelper.str_decode_unicode_escape(
+    result, lgt, u_len = unicodehelper.str_decode_unicode_escape(
         string, errors,
         final, state.decode_error_handler,
         unicode_name_handler)
 
-    s_len = len(string)
-    return space.newtuple([space.newutf8(result, lgt), space.newint(s_len)])
+    return space.newtuple([space.newutf8(result, lgt), space.newint(u_len)])
 
 # ____________________________________________________________
 # Raw Unicode escape (accepts bytes or str)
@@ -964,9 +963,8 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
         errors = 'strict'
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
-    result, lgt = runicode.str_decode_raw_unicode_escape(
-        string, len(string), errors,
-        final, state.decode_error_handler)
+    result, lgt, u_len = unicodehelper.str_decode_raw_unicode_escape(
+        string, errors, final, state.decode_error_handler)
     return space.newtuple([space.newtext(result), space.newint(lgt)])
 
 # ____________________________________________________________

@@ -30,7 +30,7 @@ __all__ = ['W_UnicodeObject', 'encode_object', 'decode_object',
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
-    _immutable_fields_ = ['_utf8']
+    _immutable_fields_ = ['_utf8', '_length']
 
     @enforceargs(utf8str=str)
     def __init__(self, utf8str, length):

@@ -32,7 +32,7 @@ def decode_error_handler(space):
 def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
     assert startingpos >= 0
     ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
-    return ''.join(ux), endingpos, endingpos
+    return ''.join(ux), endingpos
 
 @specialize.memo()
 def encode_error_handler(space):
@@ -224,6 +224,10 @@ def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
     # cannot be ASCII, cannot have surrogates, I believe
     return res.build(), len(s), len(s)
 
+def utf8_encode_utf_8(s, errors, errorhandler):
+    # needed by tests
+    return s
+
 def utf8_encode_latin_1(s, errors, errorhandler):
     try:
         rutf8.check_ascii(s)
@@ -295,7 +299,7 @@ def utf8_encode_ascii(s, errors, errorhandler):
     return result.build()
 
 if sys.platform == 'win32':
-    def utf8_encode_mbcs(s, slen, errors, errorhandler):
+    def utf8_encode_mbcs(s, errors, errorhandler):
         s = s.decode('utf-8')
         res = unicode_encode_mbcs(s, slen, errors, errorhandler)
         return res
@@ -606,7 +610,7 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
                                   errorhandler=None):
     size = len(s)
     if size == 0:
-        return '', 0
+        return '', 0, 0
 
     builder = rutf8.Utf8StringBuilder(size)
     pos = 0
