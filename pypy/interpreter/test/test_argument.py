@@ -134,7 +134,7 @@ class DummySpace(object):
     def type(self, obj):
         class Type:
             def getname(self, space):
-                return unicode(type(obj).__name__)
+                return type(obj).__name__
         return Type()
 
 

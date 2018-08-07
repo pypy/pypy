@@ -401,7 +401,7 @@ class StdObjSpace(ObjSpace):
         return self.newtext(s)
 
     # XXX find where length is annotated as negative int
-    @signature(types.any(), types.str(), types.int_nonneg(), returns=types.any())
+    #@signature(types.any(), types.str(), types.int_nonneg(), returns=types.any())
     def newutf8(self, utf8s, length):
         assert isinstance(utf8s, str)
         return W_UnicodeObject(utf8s, length)

@@ -105,7 +105,7 @@ class W_SRE_Pattern(W_Root):
 
     def repr_w(self):
         space = self.space
-        u = space.realunicode_w(space.repr(self.w_pattern))
+        u = space.utf8_w(space.repr(self.w_pattern))
         if len(u) > 200:
             u = u[:200]
         flag_items = []

@@ -271,11 +271,11 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     if not line:
         return
 
-    message = u"\n"
+    message = "\n"
     for i in range(len(line)):
         c = line[i]
-        if c not in u' \t\014':
-            message = u"  %s\n" % (line[i:],)
+        if c not in ' \t\014':
+            message = "  %s\n" % (line[i:],)
             break
     space.call_method(w_stderr, "write", space.newtext(message))
 
