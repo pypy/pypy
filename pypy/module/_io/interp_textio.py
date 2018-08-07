@@ -856,7 +856,7 @@ class W_TextIOWrapper(W_TextIOBase):
         text_needflush = False
         if self.write_through:
             text_needflush = True
-        if self.line_buffering and (haslf or text.find(u'\r') >= 0):
+        if self.line_buffering and (haslf or text.find('\r') >= 0):
             needflush = True
 
         # XXX What if we were just reading?
