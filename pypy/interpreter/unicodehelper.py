@@ -225,8 +225,13 @@ def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
     # cannot be ASCII, cannot have surrogates, I believe
     return res.build(), len(s), len(s)
 
-def utf8_encode_utf_8(s, errors, errorhandler):
-    # needed by tests
+def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
+    # XXX completly implement this
+    try:
+        lgt = rutf8.check_utf8(s, allow_surrogates=allow_surrogates)
+    except rutf8.CheckError as e:
+        s, lgt = errorhandler(errors, 'encoding',
+                    'surrogates not allowed', s, e.pos, e.pos + 1)
     return s
 
 def utf8_encode_latin_1(s, errors, errorhandler):
