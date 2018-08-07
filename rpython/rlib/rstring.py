@@ -429,6 +429,7 @@ class ParseStringOverflowError(Exception):
 
 # iterator-like class
 class NumberStringParser:
+    oldstyle_initial_zero = False
 
     def error(self):
         raise ParseStringError("invalid literal for %s() with base %d" %
@@ -445,7 +446,6 @@ class NumberStringParser:
         self.sign = sign
         self.original_base = base
         self.allow_underscores = allow_underscores
-        self.last_is_underscore = False
 
         if base == 0:
             if s.startswith('0x') or s.startswith('0X'):
@@ -453,6 +453,8 @@ class NumberStringParser:
             elif s.startswith('0b') or s.startswith('0B'):
                 base = 2
             elif s.startswith('0'): # also covers the '0o' case
+                if not (s.startswith('0o') or s.startswith('0O')):
+                    self.oldstyle_initial_zero = True
                 base = 8
             else:
                 base = 10
@@ -478,6 +480,11 @@ class NumberStringParser:
     def next_digit(self): # -1 => exhausted
         if self.i < self.n:
             c = self.s[self.i]
+            if self.allow_underscores and c == '_':
+                self.i += 1
+                if self.i >= self.n:
+                    self.error()
+                c = self.s[self.i]
             digit = ord(c)
             if '0' <= c <= '9':
                 digit -= ord('0')
@@ -485,22 +492,13 @@ class NumberStringParser:
                 digit = (digit - ord('A')) + 10
             elif 'a' <= c <= 'z':
                 digit = (digit - ord('a')) + 10
-            elif c == '_' and self.allow_underscores:
-                if self.last_is_underscore:
-                    self.error()
-                self.last_is_underscore = True
-                self.i += 1
-                return self.next_digit()
             else:
                 self.error()
             if digit >= self.base:
                 self.error()
             self.i += 1
-            self.last_is_underscore = False
             return digit
         else:
-            if self.last_is_underscore:
-                self.error()
             return -1
 
     def prev_digit(self):

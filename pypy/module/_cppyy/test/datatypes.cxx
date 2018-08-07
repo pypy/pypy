@@ -113,6 +113,7 @@ ULong64_t            CppyyTestData::get_ulong64() { return m_ulong64; }
 float                CppyyTestData::get_float()   { return m_float; }
 double               CppyyTestData::get_double()  { return m_double; }
 long double          CppyyTestData::get_ldouble() { return m_ldouble; }
+long double          CppyyTestData::get_ldouble_def(long double ld) { return ld; }
 CppyyTestData::EWhat CppyyTestData::get_enum()    { return m_enum; }
 void*                CppyyTestData::get_voidp()   { return m_voidp; }
 

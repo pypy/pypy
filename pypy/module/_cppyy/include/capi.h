@@ -63,6 +63,8 @@ extern "C" {
     double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     RPY_EXTERN
     long double cppyy_call_ld(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    RPY_EXTERN
+    double cppyy_call_nld(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
     RPY_EXTERN
     void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
@@ -151,10 +153,14 @@ extern "C" {
     RPY_EXTERN
     char* cppyy_method_signature(cppyy_method_t, int show_formalargs);
     RPY_EXTERN
-    char* cppyy_method_prototype(cppyy_scope_t scope, cppyy_method_t idx, int show_formalargs);
+    char* cppyy_method_prototype(cppyy_scope_t scope, cppyy_method_t, int show_formalargs);
     RPY_EXTERN
     int cppyy_is_const_method(cppyy_method_t);
 
+    RPY_EXTERN
+    int get_num_templated_methods(cppyy_scope_t scope);
+    RPY_EXTERN
+    char* get_templated_method_name(cppyy_scope_t scope, cppyy_index_t imeth);
     RPY_EXTERN
     int cppyy_exists_method_template(cppyy_scope_t scope, const char* name);
     RPY_EXTERN
@@ -216,9 +222,14 @@ extern "C" {
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
 
     RPY_EXTERN
-    const char* cppyy_stdvector_valuetype(const char* clname);
+    double cppyy_longdouble2double(void*);
     RPY_EXTERN
-    size_t      cppyy_stdvector_valuesize(const char* clname);
+    void   cppyy_double2longdouble(double, void*);
+
+    RPY_EXTERN
+    int         cppyy_vectorbool_getitem(cppyy_object_t ptr, int idx);
+    RPY_EXTERN
+    void        cppyy_vectorbool_setitem(cppyy_object_t ptr, int idx, int value);
 
 #ifdef __cplusplus
 }

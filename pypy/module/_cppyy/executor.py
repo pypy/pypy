@@ -76,9 +76,6 @@ class VoidExecutor(Executor):
 class NumericExecutorMixin(object):
     _mixin_ = True
 
-    #def _wrap_object(self, space, obj):
-    #    return getattr(space, self.wrapper)(obj)
-
     def execute(self, space, cppmethod, cppthis, num_args, args):
         result = self.c_stubcall(space, cppmethod, cppthis, num_args, args)
         return self._wrap_object(space, rffi.cast(self.c_type, result))
@@ -100,13 +97,10 @@ class NumericRefExecutorMixin(object):
         self.w_item = w_item
         self.do_assign = True
 
-    #def _wrap_object(self, space, obj):
-    #    return getattr(space, self.wrapper)(rffi.cast(self.c_type, obj))
-
     def _wrap_reference(self, space, rffiptr):
         if self.do_assign:
             rffiptr[0] = rffi.cast(self.c_type, self._unwrap_object(space, self.w_item))
-        self.do_assign = False
+            self.do_assign = False
         return self._wrap_object(space, rffiptr[0])    # all paths, for rtyper
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
@@ -118,6 +112,48 @@ class NumericRefExecutorMixin(object):
         result = rffi.ptradd(buffer, cif_descr.exchange_result)
         return self._wrap_reference(space,
             rffi.cast(self.c_ptrtype, rffi.cast(rffi.VOIDPP, result)[0]))
+
+class LongDoubleExecutorMixin(object):
+    # Note: not really supported, but returns normal double
+    _mixin_ = True
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        result = self.c_stubcall(space, cppmethod, cppthis, num_args, args)
+        return space.newfloat(result)
+
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
+        from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
+        raise FastCallNotPossible
+
+class LongDoubleExecutor(ffitypes.typeid(rffi.LONGDOUBLE), LongDoubleExecutorMixin, Executor):
+    _immutable_ = True
+    c_stubcall  = staticmethod(capi.c_call_ld)
+
+class LongDoubleRefExecutorMixin(NumericRefExecutorMixin):
+    # Note: not really supported, but returns normal double
+    _mixin_ = True
+
+    def _wrap_reference(self, space, rffiptr):
+        if self.do_assign:
+            capi.c_double2longdouble(space, space.float_w(self.w_item), rffiptr)
+            self.do_assign = False
+            return self.w_item
+        return space.newfloat(capi.c_longdouble2double(space, rffiptr))
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        result = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
+        return self._wrap_reference(space, rffi.cast(self.c_ptrtype, result))
+
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
+        jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
+        result = rffi.ptradd(buffer, cif_descr.exchange_result)
+        return self._wrap_reference(space,
+            rffi.cast(self.c_ptrtype, rffi.cast(rffi.VOIDPP, result)[0]))
+
+class LongDoubleRefExecutor(ffitypes.typeid(rffi.LONGDOUBLE), LongDoubleRefExecutorMixin, Executor):
+    def cffi_type(self, space):
+        state = space.fromcache(ffitypes.State)
+        return state.c_voidp
 
 
 class CStringExecutor(Executor):
@@ -344,6 +380,10 @@ def get_executor(space, name):
 _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
 _executors["const char*"]         = CStringExecutor
+
+# long double not really supported: narrows to double
+_executors["long double"]          = LongDoubleExecutor
+_executors["long double&"]         = LongDoubleRefExecutor
 
 # special cases (note: 'string' aliases added below)
 _executors["constructor"]         = ConstructorExecutor

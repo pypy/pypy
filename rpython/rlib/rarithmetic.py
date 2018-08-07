@@ -868,7 +868,7 @@ def mulmod(a, b, c):
 # String parsing support
 # ---------------------------
 
-def string_to_int(s, base=10, allow_underscores=False):
+def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
@@ -884,6 +884,9 @@ def string_to_int(s, base=10, allow_underscores=False):
     while True:
         digit = p.next_digit()
         if digit == -1:
+            if no_implicit_octal:
+                if p.oldstyle_initial_zero and result != 0:
+                    p.error()
             return result
 
         if p.sign == -1:
