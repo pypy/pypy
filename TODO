@@ -4,3 +4,4 @@
 * improve performance of splitlines
 * fix _pypyjson to not use a wrapped dict when decoding an object
 * make sure we review all the places that call ord(unichr) to check for ValueErrors
+* rewrite unicodeobject.unicode_to_decimal_w to only use utf8 encoded bytes
