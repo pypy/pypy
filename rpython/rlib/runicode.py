@@ -383,12 +383,9 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                     # will never be called.  This causes RPython
                     # problems.  Avoid it with the nonconst hack.
                     if not allow_surrogates or nonconst.NonConstant(False):
-                        utf8 = s
-                        if isinstance(s, unicode):
-                            utf8 = s.encode('utf8')
                         ru, rs, pos = errorhandler(errors, 'utf8',
                                                    'surrogates not allowed',
-                                                   utf8, pos-1, pos)
+                                                   s, pos-1, pos)
                         if rs is not None:
                             # py3k only
                             result.append(rs)
@@ -399,7 +396,7 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                             else:
                                 errorhandler('strict', 'utf8',
                                              'surrogates not allowed',
-                                             utf8, pos-1, pos)
+                                             s, pos-1, pos)
                         continue
                     # else: Fall through and handles isolated high surrogates
                 result.append((chr((0xe0 | (ch >> 12)))))
