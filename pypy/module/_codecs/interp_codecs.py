@@ -45,12 +45,14 @@ class CodecState(object):
             w_errorhandler = lookup_error(space, errors)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
+                assert isinstance(input, str)
                 w_input = space.newbytes(input)
                 length = len(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                length = rutf8.codepoints_in_utf8(input)
-                w_input = space.newtext((input, length, length))
+                length = len(input)
+                assert isinstance(input, unicode)
+                w_input = space.newtext((input.encode('utf8'), length, length))
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -721,12 +723,11 @@ def utf_8_encode(space, w_obj, errors="strict"):
     if errors is None:
         errors = 'strict'
     state = space.fromcache(CodecState)
-    # NB. can't call unicode_encode_utf_8() directly because that's
-    # an @elidable function nowadays.  Instead, we need the _impl().
-    # (The problem is the errorhandler, which calls arbitrary Python.)
-    result = runicode.unicode_encode_utf_8_impl(
-        utf8, lgt, errors, state.encode_error_handler,
-        allow_surrogates=False)
+    #result = runicode.unicode_encode_utf_8_impl(
+    #    utf8, lgt, errors, state.encode_error_handler,
+    #    allow_surrogates=False)
+    result = unicodehelper.utf8_encode_utf_8(utf8, errors,
+                     state.encode_error_handler, allow_surrogates=False)
     return space.newtuple([space.newbytes(result), space.newint(lgt)])
 
 @unwrap_spec(string='bufferstr', errors='text_or_none',
