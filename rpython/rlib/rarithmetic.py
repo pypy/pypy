@@ -878,15 +878,13 @@ def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
         NumberStringParser, ParseStringOverflowError, strip_spaces)
     s = literal = strip_spaces(s)
     p = NumberStringParser(s, literal, base, 'int',
-                           allow_underscores=allow_underscores)
+                           allow_underscores=allow_underscores,
+                           no_implicit_octal=no_implicit_octal)
     base = p.base
     result = 0
     while True:
         digit = p.next_digit()
         if digit == -1:
-            if no_implicit_octal:
-                if p.oldstyle_initial_zero and result != 0:
-                    p.error()
             return result
 
         if p.sign == -1:
