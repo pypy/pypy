@@ -27,6 +27,8 @@ def decode_error_handler(space):
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
+        # make annotator happy
+        return '', 0
     return raise_unicode_exception_decode
 
 def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
@@ -86,8 +88,7 @@ def fsdecode(space, w_string):
         from pypy.module._codecs.locale import (
             str_decode_locale_surrogateescape)
         bytes = space.bytes_w(w_string)
-        uni = str_decode_locale_surrogateescape(
-            bytes, errorhandler=decode_error_handler(space))
+        uni = str_decode_locale_surrogateescape(bytes)
     else:
         from pypy.module.sys.interp_encoding import getfilesystemencoding
         return space.call_method(w_string, 'decode',
@@ -301,11 +302,15 @@ def utf8_encode_ascii(s, errors, errorhandler):
 if sys.platform == 'win32':
     def utf8_encode_mbcs(s, errors, errorhandler):
         s = s.decode('utf-8')
+        if errorhandler is None:
+            errorhandler = encode_error_handler(space)
         res = unicode_encode_mbcs(s, slen, errors, errorhandler)
         return res
         
     def str_decode_mbcs(s, errors, final, errorhandler):
         slen = len(s)
+        if errorhandler is None:
+            errorhandler = decode_error_handler(space) 
         res, size = str_decode_mbcs(s, slen, final=final, errors=errors,
                                            errorhandler=errorhandler)
         return res.encode('utf8'), len(res)

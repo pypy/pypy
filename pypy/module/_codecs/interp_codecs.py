@@ -3,7 +3,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib import runicode
-from rpython.rlib.runicode import raw_unicode_escape_helper_unicode
+from rpython.rlib.runicode import raw_unicode_escape_helper
 from rpython.rlib import rutf8
 
 from pypy.interpreter.error import OperationError, oefmt
@@ -39,8 +39,8 @@ class CodecState(object):
             the unicode characters, not into the position of utf8 bytes,
             so it needs to be converted by the codec
 
-            Returns (unicode_or_none, str_or_none, newpos) as error
-            handlers may return unicode or on Python 3, bytes.
+            Returns (str_or_none, newpos) as error
+            handlers used outside runicode return utf8
             """
             w_errorhandler = lookup_error(space, errors)
             if decode:
@@ -275,11 +275,11 @@ def backslashreplace_errors(space, w_exc):
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
-        builder = UnicodeBuilder()
+        builder = StringBuilder()
         pos = start
         while pos < end:
             oc = ord(obj[pos])
-            raw_unicode_escape_helper_unicode(builder, oc)
+            raw_unicode_escape_helper(builder, oc)
             pos += 1
         return space.newtuple([space.newtext(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
@@ -287,11 +287,11 @@ def backslashreplace_errors(space, w_exc):
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
-        builder = UnicodeBuilder()
+        builder = StringBuilder()
         pos = start
         while pos < end:
             oc = ord(obj[pos])
-            raw_unicode_escape_helper_unicode(builder, oc)
+            raw_unicode_escape_helper(builder, oc)
             pos += 1
         return space.newtuple([space.newtext(builder.build()), w_end])
     else:

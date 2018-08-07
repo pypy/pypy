@@ -35,13 +35,17 @@ class SyntaxError(Exception):
             # XXX do the right thing about continuation lines, which
             # XXX are their own fun, sometimes giving offset >
             # XXX len(self.text) for example (right now, avoid crashing)
+            def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
+                # must return unicode
+                return u'\ufffd', endpos
             if offset > len(self.text):
                 offset = len(self.text)
-            text, _ = str_decode_utf_8(self.text, offset, 'replace')
+            text, _ = str_decode_utf_8(self.text, offset,
+                             'replace', errorhandler=replace_error_handler)
             offset = len(text)
             if len(self.text) != offset:
                 text, _ = str_decode_utf_8(self.text, len(self.text),
-                                           'replace')
+                             'replace', errorhandler=replace_error_handler)
             w_text = space.newtext(text)
         return space.newtuple([
             space.newtext(self.msg),
