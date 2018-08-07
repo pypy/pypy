@@ -153,6 +153,8 @@ class AppTestPyFrame:
         r"""
         seen = []
         def tracer(f, event, *args):
+            if f.f_code.co_name == "decode":
+                return tracer
             seen.append((event, f.f_lineno))
             if len(seen) == 5:
                 f.f_lineno = 1       # bug shown only when setting lineno to 1
@@ -297,7 +299,8 @@ class AppTestPyFrame:
 
         l = []
         def trace(a,b,c):
-            l.append((a,b,c))
+            if a.f_code.co_name != "decode":
+                l.append((a,b,c))
 
         def f():
             h = _testing.Hidden()
