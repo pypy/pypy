@@ -49,6 +49,7 @@ def encode_error_handler(space):
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
+        return u'', None, 0
     return raise_unicode_exception_encode
 
 def default_error_encode(
@@ -106,8 +107,8 @@ def fsencode(space, w_uni):
                                     force_replace=False)
     elif _MACOSX:
         uni = space.utf8_w(w_uni)
-        bytes = runicode.unicode_encode_utf_8_impl(
-            uni, len(uni), 'surrogateescape',
+        bytes = unicodehelper.utf8_encode_utf_8(
+            uni, 'surrogateescape',
             errorhandler=state.encode_error_handler,
             allow_surrogates=False)
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
@@ -120,8 +121,7 @@ def fsencode(space, w_uni):
         uni = space.realunicode_w(w_uni)
         if u'\x00' in uni:
             raise oefmt(space.w_ValueError, "embedded null character")
-        bytes = unicode_encode_locale_surrogateescape(
-            uni, errorhandler=encode_error_handler(space))
+        bytes = unicode_encode_locale_surrogateescape(uni)
     else:
         from pypy.module.sys.interp_encoding import getfilesystemencoding
         return space.call_method(w_uni, 'encode',
