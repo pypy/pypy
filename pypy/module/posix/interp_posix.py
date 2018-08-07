@@ -141,7 +141,7 @@ def _unwrap_path(space, w_value, allow_fd=True):
             "can't specify None for path argument")
     if _WIN32:
         try:
-            path_u = space.unicode0_w(w_value)
+            path_u = space.utf8_0_w(w_value)
             return Path(-1, None, path_u, w_value)
         except OperationError:
             pass

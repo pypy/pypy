@@ -595,7 +595,7 @@ def PyUnicode_FSDecoder(space, w_obj, result):
         w_output = space.fsdecode(w_obj)
         if not space.isinstance_w(w_output, space.w_unicode):
             raise oefmt(space.w_TypeError, "decoder failed to return unicode")
-    data = space.unicode0_w(w_output)  # Check for NUL bytes
+    data = space.utf8_0_w(w_output)  # Check for NUL bytes
     result[0] = make_ref(space, w_output)
     return Py_CLEANUP_SUPPORTED
 
