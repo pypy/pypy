@@ -429,13 +429,13 @@ class ParseStringOverflowError(Exception):
 
 # iterator-like class
 class NumberStringParser:
-    oldstyle_initial_zero = False
 
     def error(self):
         raise ParseStringError("invalid literal for %s() with base %d" %
                                (self.fname, self.original_base))
 
-    def __init__(self, s, literal, base, fname, allow_underscores=False):
+    def __init__(self, s, literal, base, fname, allow_underscores=False,
+                 no_implicit_octal=False):
         self.fname = fname
         sign = 1
         if s.startswith('-'):
@@ -453,9 +453,11 @@ class NumberStringParser:
             elif s.startswith('0b') or s.startswith('0B'):
                 base = 2
             elif s.startswith('0'): # also covers the '0o' case
-                if not (s.startswith('0o') or s.startswith('0O')):
-                    self.oldstyle_initial_zero = True
-                base = 8
+                if no_implicit_octal and not (s.startswith('0o') or
+                                              s.startswith('0O')):
+                    base = 1    # this makes only the digit '0' valid...
+                else:
+                    base = 8
             else:
                 base = 10
         elif base < 2 or base > 36:
