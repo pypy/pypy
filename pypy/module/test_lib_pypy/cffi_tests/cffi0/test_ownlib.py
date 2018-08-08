@@ -103,6 +103,11 @@ EXPORT unsigned int foo_4bytes(unsigned int a)
 {
     return (unsigned int)(a + 42);
 }
+
+EXPORT void modify_struct_value(RECT r)
+{
+    r.left = r.right = r.top = r.bottom = 500;
+}
 """
 
 class TestOwnLib(object):
@@ -331,3 +336,25 @@ class TestOwnLib(object):
         assert lib.foo_2bytes(u+'\u1234') == u+'\u125e'
         assert lib.foo_4bytes(u+'\u1234') == u+'\u125e'
         assert lib.foo_4bytes(u+'\U00012345') == u+'\U0001236f'
+
+    def test_modify_struct_value(self):
+        if self.module is None:
+            py.test.skip("fix the auto-generation of the tiny test lib")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            typedef struct {
+                long left;
+                long top;
+                long right;
+                long bottom;
+            } RECT;
+
+            void modify_struct_value(RECT r);
+        """)
+        lib = ffi.dlopen(self.module)
+        s = ffi.new("RECT *", [11, 22, 33, 44])
+        lib.modify_struct_value(s[0])
+        assert s.left == 11
+        assert s.top == 22
+        assert s.right == 33
+        assert s.bottom == 44
