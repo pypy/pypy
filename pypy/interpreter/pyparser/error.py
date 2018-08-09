@@ -46,7 +46,7 @@ class SyntaxError(Exception):
             if len(self.text) != offset:
                 text, _ = str_decode_utf_8_impl(self.text, len(self.text),
                              'replace', False, replace_error_handler, True)
-            w_text = space.newtext(text)
+            w_text = space.newtext(text.encode('utf8'), len(text))
         return space.newtuple([
             space.newtext(self.msg),
             space.newtuple([

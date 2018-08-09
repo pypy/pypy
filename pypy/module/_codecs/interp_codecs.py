@@ -50,9 +50,9 @@ class CodecState(object):
                 length = len(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                length = len(input)
-                assert isinstance(input, unicode)
-                w_input = space.newtext((input.encode('utf8'), length, length))
+                assert isinstance(input, str)
+                length = rutf8.codepoints_in_utf8(input)
+                w_input = space.newtext(input, length)
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -441,7 +441,7 @@ def surrogatepass_errors(space, w_exc):
             ch = 0
         if ch == 0:
             raise OperationError(space.type(w_exc), w_exc)
-        return space.newtuple([space.newtext(unichr(ch)),
+        return space.newtuple([space.newtext(unichr(ch).encode('utf8'), 1),
                                space.newint(start + bytelength)])
     else:
         raise oefmt(space.w_TypeError,
@@ -480,7 +480,7 @@ def surrogateescape_errors(space, w_exc):
         if not consumed:
             # codec complained about ASCII byte.
             raise OperationError(space.type(w_exc), w_exc)
-        return space.newtuple([space.newtext(replace),
+        return space.newtuple([space.newtext(replace.encode('utf8'), len(replace)),
                                space.newint(start + consumed)])
     else:
         raise oefmt(space.w_TypeError,
@@ -723,9 +723,6 @@ def utf_8_encode(space, w_obj, errors="strict"):
     if errors is None:
         errors = 'strict'
     state = space.fromcache(CodecState)
-    #result = runicode.unicode_encode_utf_8_impl(
-    #    utf8, lgt, errors, state.encode_error_handler,
-    #    allow_surrogates=False)
     result = unicodehelper.utf8_encode_utf_8(utf8, errors,
                      state.encode_error_handler, allow_surrogates=False)
     return space.newtuple([space.newbytes(result), space.newint(lgt)])

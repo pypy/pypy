@@ -92,7 +92,7 @@ class DummySpace(object):
     def getitem(self, obj, key):
         return obj[key]
 
-    def wrap(self, obj):
+    def wrap(self, obj, lgt=-1):
         return obj
     newtext = wrap
 

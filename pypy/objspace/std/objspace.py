@@ -381,27 +381,22 @@ class StdObjSpace(ObjSpace):
         return W_BytearrayObject(l)
 
     @specialize.argtype(1)
-    def newtext(self, s):
+    def newtext(self, s, lgt=-1):
         if isinstance(s, unicode):
             s, lgt = s.encode('utf8'), len(s)
-        elif isinstance(s, str):
-            s, lgt, codepoints = decode_utf8sp(self, s)
+        elif isinstance(s, str) and lgt < 0:
+            lgt = rutf8.codepoints_in_utf8(s)
         elif isinstance(s, tuple):
             # result of decode_utf8
             s, lgt, codepoints = s
-        else:
-            # XXX what is s ?
-            lgt = rutf8.check_utf8(s, True)
         assert isinstance(s, str)
         return W_UnicodeObject(s, lgt)
 
-    def newtext_or_none(self, s):
+    def newtext_or_none(self, s, lgt=-1):
         if s is None:
             return self.w_None
-        return self.newtext(s)
+        return self.newtext(s, lgt)
 
-    # XXX find where length is annotated as negative int
-    #@signature(types.any(), types.str(), types.int_nonneg(), returns=types.any())
     def newutf8(self, utf8s, length):
         assert isinstance(utf8s, str)
         return W_UnicodeObject(utf8s, length)

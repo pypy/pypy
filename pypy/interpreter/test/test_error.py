@@ -133,7 +133,7 @@ def test_wrap_oserror():
         w_OSError = [OSError]
         w_EnvironmentError = [EnvironmentError]
         w_None = None
-        def wrap(self, obj):
+        def wrap(self, obj, lgt=-1):
             return [obj]
         newint = newtext = newfilename = wrap
         def call_function(self, exc, w_errno, w_msg, w_filename=None, *args):

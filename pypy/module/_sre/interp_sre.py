@@ -41,7 +41,8 @@ def slice_w(space, ctx, start, end, w_default):
         if isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            return space.newtext(ctx._unicodestr[start:end])
+            uni = ctx._unicodestr[start:end]
+            return space.newtext(uni.encode('utf8'), len(uni))
         else:
             # unreachable
             raise SystemError

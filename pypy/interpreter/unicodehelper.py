@@ -95,7 +95,8 @@ def fsdecode(space, w_string):
         return space.call_method(w_string, 'decode',
                                  getfilesystemencoding(space),
                                  space.newtext('surrogateescape'))
-    return space.newtext(uni)
+    return space.newtext(runicode.unicode_encode_utf_8(uni,
+                                 len(uni), 'strict', allow_surrogates=True), len(uni))
 
 def fsencode(space, w_uni):
     from pypy.module._codecs import interp_codecs
@@ -373,7 +374,7 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                 if not final:
                     pos -= 1
                     break
-                r, pos, lgt = errorhandler(errors, "utf8", "unexpected end of data",
+                r, pos = errorhandler(errors, "utf8", "unexpected end of data",
                     s, pos - 1, pos + 1)
                 res.append(r)
                 continue

@@ -1122,7 +1122,7 @@ class interp2app(W_Root):
             kw_defs_w = []
             for name, w_def in sorted(alldefs_w.items()):
                 assert name in sig.kwonlyargnames
-                w_name = space.newtext(name.decode('utf-8'))
+                w_name = space.newtext(name)
                 kw_defs_w.append((w_name, w_def))
 
         return defs_w, kw_defs_w

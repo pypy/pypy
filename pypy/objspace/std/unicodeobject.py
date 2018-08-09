@@ -271,13 +271,13 @@ class W_UnicodeObject(W_Root):
         return w_new
 
     def descr_repr(self, space):
-        return space.newtext(_repr_function(self._utf8))
+        return space.newtext(_repr_function(self._utf8)) # quotes=True
 
     def descr_str(self, space):
         if space.is_w(space.type(self), space.w_unicode):
             return self
         # Subtype -- return genuine unicode string with the same value.
-        return space.newtext(space.utf8_w(self))
+        return space.newtext(space.utf8_w(self), space.len_w(self))
 
     def descr_hash(self, space):
         x = compute_hash(self._utf8)
@@ -343,7 +343,7 @@ class W_UnicodeObject(W_Root):
     def _parse_format_arg(self, space, w_kwds, __args__):
         for i in range(len(__args__.keywords)):
             try:     # pff
-                arg = __args__.keywords[i].decode('utf-8')
+                arg = __args__.keywords[i]
             except UnicodeDecodeError:
                 continue   # uh, just skip that
             space.setitem(w_kwds, space.newtext(arg),
