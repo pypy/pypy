@@ -49,7 +49,7 @@ class TestLocaleCodec(object):
         utf8_encoder = self.getencoder('utf-8')
         encode_error_handler = self.getstate().encode_error_handler
         for val in u'foo\udc80bar', u'\udcff\U0001320C':
-            expected = utf8_encoder(val, 'surrogateescape',
+            expected = utf8_encoder(val.encode('utf8'), 'surrogateescape',
                                     encode_error_handler)
             assert locale_encoder(val).encode('utf8') == expected
 
