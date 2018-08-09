@@ -1946,3 +1946,30 @@ class BackendTests:
         # only works with the Python FFI instances
         ffi = FFI(backend=self.Backend())
         assert ffi.sizeof("struct{int a;}") == ffi.sizeof("int")
+
+    def test_callback_large_struct(self):
+        ffi = FFI(backend=self.Backend())
+        # more than 8 bytes
+        ffi.cdef("struct foo_s { unsigned long a, b, c; };")
+        #
+        @ffi.callback("void(struct foo_s)")
+        def cb(s):
+            seen.append(ffi.typeof(s))
+            s.a += 1
+            s.b += 2
+            s.c += 3
+            seen.append(s.a)
+            seen.append(s.b)
+            seen.append(s.c)
+        #
+        s1 = ffi.new("struct foo_s *", {'a': 100, 'b': 200, 'c': 300})
+        seen = []
+        cb(s1[0])
+        assert len(seen) == 4
+        assert s1.a == 100     # unmodified
+        assert s1.b == 200
+        assert s1.c == 300
+        assert seen[0] == ffi.typeof("struct foo_s")
+        assert seen[1] == 101
+        assert seen[2] == 202
+        assert seen[3] == 303
