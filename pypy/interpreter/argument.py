@@ -6,9 +6,9 @@ from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.runicode import unicode_encode_utf_8
 
 from pypy.interpreter.error import OperationError, oefmt
-
 
 class Arguments(object):
     """
@@ -603,7 +603,8 @@ class ArgErrUnknownKwds(ArgErr):
     def getmsg(self):
         if self.num_kwds == 1:
             if isinstance(self.kwd_name, unicode):
-                uname = self.kwd_name.encode('utf8')
+                uname = unicode_encode_utf_8(self.kwd_name, len(self.kwd_name),
+                        'strict', allow_surroagates=False)
             else:
                 uname = self.kwd_name
             msg = "got an unexpected keyword argument '%s'" % uname
