@@ -3,6 +3,7 @@ from pypy.interpreter.pyparser import parsestring
 from pypy.interpreter import error
 from pypy.interpreter import unicodehelper
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rutf8 import codepoints_in_utf8
 
 
 def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
@@ -21,10 +22,8 @@ def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
     joined_pieces.append(node(w_string, atom_node.get_lineno(),
                                         atom_node.get_column()))
 
-def f_constant_string(astbuilder, joined_pieces, u, atom_node):
-    space = astbuilder.space
-    add_constant_string(astbuilder, joined_pieces, space.newtext(u),
-                        atom_node)
+def f_constant_string(astbuilder, joined_pieces, w_u, atom_node):
+    add_constant_string(astbuilder, joined_pieces, w_u, atom_node)
 
 def f_string_compile(astbuilder, source, atom_node):
     # Note: a f-string is kept as a single literal up to here.
@@ -259,19 +258,20 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
         i += 1
 
     fstr.current_index = i
+    space = astbuilder.space
     literal = builder.build()
+    lgt = codepoints_in_utf8(literal)
     if not fstr.raw_mode and '\\' in literal:
-        space = astbuilder.space
         literal = parsestring.decode_unicode_utf8(space, literal, 0,
                                                   len(literal))
-        literal, lgt, _ = unicodehelper.decode_unicode_escape(space, literal)
-    return literal.decode('utf-8')
+        literal, pos, lgt = unicodehelper.decode_unicode_escape(space, literal)
+    return space.newtext(literal, lgt)
 
 
 def fstring_find_literal_and_expr(astbuilder, fstr, atom_node, rec):
-    # Return a tuple with the next literal part, and optionally the
+    # Return a tuple with the next literal part as a W_Unicode, and optionally the
     # following expression node.  Updates the current index inside 'fstr'.
-    literal = fstring_find_literal(astbuilder, fstr, atom_node, rec)
+    w_u = fstring_find_literal(astbuilder, fstr, atom_node, rec)
 
     s = fstr.unparsed
     i = fstr.current_index
@@ -283,7 +283,7 @@ def fstring_find_literal_and_expr(astbuilder, fstr, atom_node, rec):
         # We must now be the start of an expression, on a '{'.
         assert s[i] == '{'
         expr = fstring_find_expr(astbuilder, fstr, atom_node, rec)
-    return literal, expr
+    return w_u, expr
 
 
 def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
@@ -302,11 +302,11 @@ def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
             "really the case", atom_node)
 
     while True:
-        literal, expr = fstring_find_literal_and_expr(astbuilder, fstr,
+        w_u, expr = fstring_find_literal_and_expr(astbuilder, fstr,
                                                       atom_node, rec)
 
         # add the literal part
-        f_constant_string(astbuilder, joined_pieces, literal, atom_node)
+        f_constant_string(astbuilder, joined_pieces, w_u, atom_node)
 
         if expr is None:
             break         # We're done with this f-string.
