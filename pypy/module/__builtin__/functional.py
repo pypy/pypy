@@ -209,8 +209,12 @@ min_max_normal = make_min_max(False)
 
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
-    if not jit.we_are_jitted() or len(args.arguments_w) != 1 and \
-            jit.loop_unrolling_heuristic(args.arguments_w, len(args.arguments_w)):
+    # the 'normal' version includes a JIT merge point, which will make a
+    # new loop (from the interpreter or from another JIT loop).  If we
+    # give exactly two arguments to the call to max(), or a JIT virtual
+    # list of arguments, then we pick the 'unroll' version with no JIT
+    # merge point.
+    if jit.isvirtual(args.arguments_w) or len(args.arguments_w) == 2:
         return min_max_unroll(space, args, implementation_of)
     else:
         return min_max_normal(space, args, implementation_of)
