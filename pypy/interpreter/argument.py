@@ -604,7 +604,7 @@ class ArgErrUnknownKwds(ArgErr):
         if self.num_kwds == 1:
             if isinstance(self.kwd_name, unicode):
                 uname = unicode_encode_utf_8(self.kwd_name, len(self.kwd_name),
-                        'strict', allow_surroagates=False)
+                        'strict', allow_surrogates=False)
             else:
                 uname = self.kwd_name
             msg = "got an unexpected keyword argument '%s'" % uname

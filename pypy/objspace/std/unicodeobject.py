@@ -1226,14 +1226,20 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
     return w_retval
 
 
-def decode_object(space, w_obj, encoding, errors):
+def decode_object(space, w_obj, encoding, errors='strict'):
+    assert errors is not None
     if encoding is None:
         encoding = getdefaultencoding(space)
-    if errors is None or errors == 'strict' or errors == 'surrogateescape':
+    if errors == 'surrogateescape':
+        s = space.charbuf_w(w_obj)
+        s, lgt, pos = unicodehelper.str_decode_utf8(s, errors, True,
+                    unicodehelper.decode_surrogateescape, True)
+        return space.newutf8(s, pos)
+    elif errors == 'strict':
         if encoding == 'ascii':
             s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)
-            return space.newutf8(s, len(s))
+            return space.newtext(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
             s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)

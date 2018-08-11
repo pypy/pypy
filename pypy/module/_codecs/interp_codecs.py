@@ -503,14 +503,21 @@ def _wrap_codec_error(space, operr, action, encoding):
     message = "%s with '%s' codec failed" % (action, encoding)
     return operr.try_set_from_cause(space, message)
 
-def _call_codec(space, w_decoder, w_obj, action, encoding, errors):
+def _call_codec(space, w_coder, w_obj, action, encoding, errors):
     try:
-        w_res = space.call_function(w_decoder, w_obj, space.newtext(errors))
+        w_res = space.call_function(w_coder, w_obj, space.newtext(errors))
     except OperationError as operr:
         raise _wrap_codec_error(space, operr, action, encoding)
     if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
-        raise oefmt(space.w_TypeError,
+        if action[:2] == 'en':
+            raise oefmt(space.w_TypeError,
                     "encoder must return a tuple (object, integer)")
+        elif action[:2] == 'de':
+            raise oefmt(space.w_TypeError,
+                    "decoder must return a tuple (object, integer)")
+        else:
+            raise oefmt(space.w_TypeError,
+                    "%s must return a tuple (object, integer)", action)
     return space.getitem(w_res, space.newint(0))
 
 @unwrap_spec(errors='text')
