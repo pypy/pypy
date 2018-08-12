@@ -422,6 +422,9 @@ class W_BytesObject(W_AbstractBytesObject):
         raise oefmt(space.w_TypeError,
                     "unicode object expected, received bytes instead")
 
+    def text_w(self, space):
+        return self._value
+
     def utf8_w(self, space):
         return self._value
 

@@ -1618,6 +1618,8 @@ class ObjSpace(object):
             an utf-8 encoded rpython string.
         """
         assert w_obj is not None
+        if not self.isinstance_w(w_obj, self.w_unicode):
+            w_obj._typed_unwrap_error(self, "unicode")
         return w_obj.text_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w

@@ -670,7 +670,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_add(self, space, w_other):
         try:
-            w_other = self.convert_arg_to_w_unicode(space, w_other, strict=True)
+            w_other = self.convert_arg_to_w_unicode(space, w_other, strict='__add__')
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -1285,7 +1285,7 @@ def ascii_from_object(space, w_obj):
     # repr is guaranteed to be unicode
     w_repr = space.repr(w_obj)
     w_encoded = encode_object(space, w_repr, 'ascii', 'backslashreplace')
-    return decode_object(space, w_encoded, 'ascii', None)
+    return decode_object(space, w_encoded, 'ascii', 'strict')
 
 def unicode_from_string(space, w_bytes):
     # this is a performance and bootstrapping hack

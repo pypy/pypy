@@ -195,6 +195,8 @@ class StringMethods(object):
                                                     w_errors)
         if errors is None:
             errors = 'strict'
+        if encoding is None:
+            encoding = 'utf8'
         return decode_object(space, self, encoding, errors)
 
     @unwrap_spec(tabsize=int)
