@@ -263,13 +263,8 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
             msg = "ordinal not in range(256)"
             res_8, newindex = errorhandler(
                 errors, 'latin1', msg, s, startindex, index)
-            for cp in rutf8.Utf8StringIterator(res_8):
-                if cp > 0xFF:
-                    errorhandler("strict", 'latin1', msg, s, startindex, index)
-                result.append(chr(cp))
-            if index != newindex:  # Should be uncommon
-                index = newindex
-                pos = rutf8._pos_at_index(s, newindex)
+            result.append(res_8)
+            pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
 def utf8_encode_ascii(s, errors, errorhandler):
@@ -296,13 +291,8 @@ def utf8_encode_ascii(s, errors, errorhandler):
             msg = "ordinal not in range(128)"
             res_8, newindex = errorhandler(
                 errors, 'ascii', msg, s, startindex, index)
-            for cp in rutf8.Utf8StringIterator(res_8):
-                if cp > 0x7F:
-                    errorhandler("strict", 'ascii', msg, s, startindex, index)
-                result.append(chr(cp))
-            if index != newindex:  # Should be uncommon
-                index = newindex
-                pos = rutf8._pos_at_index(s, newindex)
+            result.append(res_8)
+            pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
 if sys.platform == 'win32':
