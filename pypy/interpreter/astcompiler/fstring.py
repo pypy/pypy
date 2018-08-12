@@ -264,7 +264,7 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
     if not fstr.raw_mode and '\\' in literal:
         literal = parsestring.decode_unicode_utf8(space, literal, 0,
                                                   len(literal))
-        literal, pos, lgt = unicodehelper.decode_unicode_escape(space, literal)
+        literal, lgt, pos = unicodehelper.decode_unicode_escape(space, literal)
     return space.newtext(literal, lgt)
 
 
