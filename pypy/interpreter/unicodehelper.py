@@ -36,6 +36,26 @@ def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
     ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
     return ''.join(ux), endingpos
 
+def decode_surrogateescape(errors, encoding, msg, obj, start, end):
+    consumed = 0
+    replace = u''
+    while consumed < 4 and consumed < end - start:
+        c = ord(obj[start+consumed])
+        if c < 128:
+            # Refuse to escape ASCII bytes.
+            break
+        replace += unichr(0xdc00 + c)
+        consumed += 1
+    if not consumed:
+        # codec complained about ASCII byte.
+        raise OperationError(space.w_UnicodeDecodeError,
+                         space.newtuple([space.newtext(encoding),
+                                         space.newbytes(obj),
+                                         space.newint(start),
+                                         space.newint(end),
+                                         space.newtext(msg)]))
+    return replace.encode('utf8'), start + consumed
+
 @specialize.memo()
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
@@ -227,12 +247,16 @@ def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
     return res.build(), len(s), len(s)
 
 def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
-    # XXX completly implement this
     try:
         lgt = rutf8.check_utf8(s, allow_surrogates=allow_surrogates)
     except rutf8.CheckError as e:
-        s, lgt = errorhandler(errors, 'encoding',
+        # XXX change this to non-recursive
+        start = s[:e.pos]
+        ru, lgt = errorhandler(errors, 'utf8',
                     'surrogates not allowed', s, e.pos, e.pos + 1)
+        end = utf8_encode_utf_8(s[e.pos+3:], errors, errorhandler,
+                                allow_surrogates=allow_surrogates)
+        s = start + ru + end
     return s
 
 def utf8_encode_latin_1(s, errors, errorhandler):
