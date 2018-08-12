@@ -229,10 +229,12 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
         lgt = rutf8.check_utf8(s, allow_surrogates=allow_surrogates)
     except rutf8.CheckError as e:
         # XXX change this to non-recursive
-        start = s[:e.pos]
+        pos = e.pos
+        assert pos >= 0
+        start = s[:pos]
         ru, lgt = errorhandler(errors, 'utf8',
-                    'surrogates not allowed', s, e.pos, e.pos + 1)
-        end = utf8_encode_utf_8(s[e.pos+3:], errors, errorhandler,
+                    'surrogates not allowed', s, pos, pos + 1)
+        end = utf8_encode_utf_8(s[pos+3:], errors, errorhandler,
                                 allow_surrogates=allow_surrogates)
         s = start + ru + end
     return s
