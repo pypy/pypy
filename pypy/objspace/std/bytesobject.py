@@ -423,9 +423,7 @@ class W_BytesObject(W_AbstractBytesObject):
                     "unicode object expected, received bytes instead")
 
     def utf8_w(self, space):
-        # Use the default encoding.                                             
-        encoding = getdefaultencoding(space)
-        return space.utf8_w(decode_object(space, self, encoding, None))
+        return self._value
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
