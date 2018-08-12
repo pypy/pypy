@@ -193,6 +193,8 @@ class StringMethods(object):
             _get_encoding_and_errors, decode_object)
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
                                                     w_errors)
+        if errors is None:
+            errors = 'strict'
         return decode_object(space, self, encoding, errors)
 
     @unwrap_spec(tabsize=int)

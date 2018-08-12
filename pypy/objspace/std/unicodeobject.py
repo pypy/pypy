@@ -515,7 +515,7 @@ class W_UnicodeObject(W_Root):
     def descr_encode(self, space, w_encoding=None, w_errors=None):
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
                                                     w_errors)
-        return encode_object(space, self, encoding, errors, allow_surrogates=True)
+        return encode_object(space, self, encoding, errors, allow_surrogates=False)
 
     @unwrap_spec(tabsize=int)
     def descr_expandtabs(self, space, tabsize=8):
@@ -670,7 +670,7 @@ class W_UnicodeObject(W_Root):
 
     def descr_add(self, space, w_other):
         try:
-            w_other = self.convert_arg_to_w_unicode(space, w_other)
+            w_other = self.convert_arg_to_w_unicode(space, w_other, strict=True)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -1191,13 +1191,19 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
     utf8 = space.utf8_w(w_object)
     # TODO: refactor unnatrual use of error hanlders here,
     # we should make a single pass over the utf8 str
+    from pypy.module._codecs.interp_codecs import encode_text, CodecState
     if not allow_surrogates:
+        if errors is None:
+            errors = 'strict'
         pos = rutf8.surrogate_in_utf8(utf8)
         if pos >= 0:
-            eh = unicodehelper.encode_error_handler(space)
-            eh(None, "utf8", "surrogates not allowed", utf8,
+            state = space.fromcache(CodecState)
+            eh = state.encode_error_handler
+            start = utf8[:pos]
+            ru, pos = eh(errors, "utf8", "surrogates not allowed", utf8,
                 pos, pos + 1)
-            assert False, "always raises"
+            end = utf8[pos+1:]
+            utf8 = start + ru + end
     if errors is None or errors == 'strict':
         if encoding is None or encoding == 'utf-8':
             #if rutf8.has_surrogates(utf8):
@@ -1213,7 +1219,6 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
                 assert False, "always raises"
             return space.newbytes(utf8)
 
-    from pypy.module._codecs.interp_codecs import encode_text
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_retval = encode_text(space, w_object, encoding, errors)
@@ -1228,8 +1233,7 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
 
 def decode_object(space, w_obj, encoding, errors='strict'):
     assert errors is not None
-    if encoding is None:
-        encoding = getdefaultencoding(space)
+    assert encoding is not None
     if errors == 'surrogateescape':
         s = space.charbuf_w(w_obj)
         s, lgt, pos = unicodehelper.str_decode_utf8(s, errors, True,
@@ -1256,6 +1260,10 @@ def decode_object(space, w_obj, encoding, errors='strict'):
 
 
 def unicode_from_encoded_object(space, w_obj, encoding, errors):
+    if errors is None:
+        errors = 'strict'
+    if encoding is None:
+        encoding = getdefaultencoding(space)
     w_retval = decode_object(space, w_obj, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_unicode):
         raise oefmt(space.w_TypeError,
