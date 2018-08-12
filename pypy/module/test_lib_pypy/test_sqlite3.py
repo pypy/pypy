@@ -274,14 +274,14 @@ class BaseTestSQLite:
     def test_null_character(self, con):
         if not hasattr(_sqlite3, '_ffi') and sys.version_info < (2, 7, 9):
             pytest.skip("_sqlite3 too old")
-        exc = raises(ValueError, con, "\0select 1")
+        exc = pytest.raises(ValueError, con, "\0select 1")
         assert str(exc.value) == "the query contains a null character"
-        exc = raises(ValueError, con, "select 1\0")
+        exc = pytest.raises(ValueError, con, "select 1\0")
         assert str(exc.value) == "the query contains a null character"
         cur = con.cursor()
-        exc = raises(ValueError, cur.execute, "\0select 2")
+        exc = pytest.raises(ValueError, cur.execute, "\0select 2")
         assert str(exc.value) == "the query contains a null character"
-        exc = raises(ValueError, cur.execute, "select 2\0")
+        exc = pytest.raises(ValueError, cur.execute, "select 2\0")
         assert str(exc.value) == "the query contains a null character"
 
     def test_close_in_del_ordering(self):
