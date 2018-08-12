@@ -1234,12 +1234,7 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
 def decode_object(space, w_obj, encoding, errors='strict'):
     assert errors is not None
     assert encoding is not None
-    if errors == 'surrogateescape':
-        s = space.charbuf_w(w_obj)
-        s, lgt, pos = unicodehelper.str_decode_utf8(s, errors, True,
-                    unicodehelper.decode_surrogateescape, True)
-        return space.newutf8(s, pos)
-    elif errors == 'strict':
+    if errors == 'strict':
         if encoding == 'ascii':
             s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)

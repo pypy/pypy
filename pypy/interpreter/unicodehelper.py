@@ -27,34 +27,12 @@ def decode_error_handler(space):
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
-        # make annotator happy
-        return '', 0
     return raise_unicode_exception_decode
 
 def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
     assert startingpos >= 0
     ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
     return ''.join(ux), endingpos
-
-def decode_surrogateescape(errors, encoding, msg, obj, start, end):
-    consumed = 0
-    replace = u''
-    while consumed < 4 and consumed < end - start:
-        c = ord(obj[start+consumed])
-        if c < 128:
-            # Refuse to escape ASCII bytes.
-            break
-        replace += unichr(0xdc00 + c)
-        consumed += 1
-    if not consumed:
-        # codec complained about ASCII byte.
-        raise OperationError(space.w_UnicodeDecodeError,
-                         space.newtuple([space.newtext(encoding),
-                                         space.newbytes(obj),
-                                         space.newint(start),
-                                         space.newint(end),
-                                         space.newtext(msg)]))
-    return replace.encode('utf8'), start + consumed
 
 @specialize.memo()
 def encode_error_handler(space):
