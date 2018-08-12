@@ -970,7 +970,7 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
         errors = 'strict'
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
-    result, lgt, u_len = unicodehelper.str_decode_raw_unicode_escape(
+    result, u_len, lgt = unicodehelper.str_decode_raw_unicode_escape(
         string, errors, final, state.decode_error_handler)
     return space.newtuple([space.newtext(result), space.newint(lgt)])
 
