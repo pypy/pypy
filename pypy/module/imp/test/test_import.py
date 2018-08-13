@@ -101,8 +101,8 @@ def setup_directory_structure(cls):
              foobar    = "found = 123",
              barbaz    = "other = 543")
     setuppkg("pkg.withoutall",
-             __init__  = "",
-             foobar    = "found = 123")
+             __init__  = "globals()[''] = 456",
+             foobar    = "found = 123\n")
     setuppkg("pkg.bogusall",
              __init__  = "__all__ = 42")
     setuppkg("pkg_r", inpkg = "import x.y")
@@ -702,6 +702,13 @@ class AppTestImport(BaseFSEncodeTest):
             d = {}
             exec("from pkg.withoutall import *", d)
             assert d["foobar"].found == 123
+
+    def test_import_star_empty_string(self):
+        for case in ["not-imported-yet", "already-imported"]:
+            d = {}
+            exec("from pkg.withoutall import *", d)
+            assert "" in d
+
 
     def test_import_star_with_bogus___all__(self):
         for case in ["not-imported-yet", "already-imported"]:

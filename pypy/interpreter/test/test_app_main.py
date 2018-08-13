@@ -470,7 +470,7 @@ class TestInteraction:
 
     def test_cmd_co_name(self):
         child = self.spawn(['-c',
-                    'import sys; print sys._getframe(0).f_code.co_name'])
+                    'import sys; print(sys._getframe(0).f_code.co_name)'])
         child.expect('<module>')
 
     def test_ignore_python_inspect(self):

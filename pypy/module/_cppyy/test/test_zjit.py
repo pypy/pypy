@@ -139,6 +139,9 @@ class FakeSpace(object):
         self.w_TypeError           = FakeException(self, "TypeError")
         self.w_ValueError          = FakeException(self, "ValueError")
 
+        self.w_True                = FakeBool(True)
+        self.w_False               = FakeBool(False)
+
     def issequence_w(self, w_obj):
         return True
 

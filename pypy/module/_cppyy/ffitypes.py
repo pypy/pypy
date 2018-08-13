@@ -296,7 +296,8 @@ class LongDoubleTypeMixin(object):
     _immutable_fields_ = ['c_type', 'c_ptrtype', 'typecode']
 
     c_type      = rffi.LONGDOUBLE
-    c_ptrtype   = rffi.LONGDOUBLEP
+    # c_ptrtype   = rffi.LONGDOUBLEP   # useless type at this point
+    c_ptrtype   = rffi.VOIDP
     typecode    = 'g'
 
     # long double is not really supported ...
@@ -304,7 +305,7 @@ class LongDoubleTypeMixin(object):
         return r_longfloat(space.float_w(w_obj))
 
     def _wrap_object(self, space, obj):
-        return space.wrap(obj)
+        return space.newfloat(obj)
 
     def cffi_type(self, space):
         state = space.fromcache(State)

@@ -367,8 +367,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                                        names)
         self._visit_arg_annotations(args.kwonlyargs, names)
         kwarg = args.kwarg
-        if args.kwarg:
-            self._visit_arg_annotation(args.kwarg.arg, args.kwarg.annotation,
+        if kwarg:
+            self._visit_arg_annotation(kwarg.arg, kwarg.annotation,
                                        names)
         self._visit_arg_annotation("return", returns, names)
         l = len(names)
