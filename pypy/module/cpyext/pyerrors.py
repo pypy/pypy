@@ -211,16 +211,16 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = rffi.cast(lltype.Signed, rposix._get_errno())
-    msg = _strerror(errno)
+    msg, lgt = _strerror(errno)
     if w_value:
         w_error = space.call_function(w_type,
                                       space.newint(errno),
-                                      space.newtext(msg),
+                                      space.newtext(msg, lgt),
                                       w_value)
     else:
         w_error = space.call_function(w_type,
                                       space.newint(errno),
-                                      space.newtext(msg))
+                                      space.newtext(msg, lgt))
     raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)

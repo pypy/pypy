@@ -20,7 +20,8 @@ RECORD_INTERPLEVEL_TRACEBACK = True
 def strerror(errno):
     """Translate an error code to a unicode message string."""
     from pypy.module._codecs.locale import str_decode_locale_surrogateescape
-    return str_decode_locale_surrogateescape(os.strerror(errno))
+    uni = str_decode_locale_surrogateescape(os.strerror(errno))
+    return uni.encode('utf8'), len(uni)
 
 class OperationError(Exception):
     """Interpreter-level exception that signals an exception that should be
@@ -655,12 +656,13 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
                 return None
 
         try:
-            msg = strerror(errno)
+            msg, lgt = strerror(errno)
         except ValueError:
-            msg = u'error %d' % errno
+            msg = 'error %d' % errno
+            lgt = len(msg)
         w_errno = space.newint(errno)
         w_winerror = space.w_None
-        w_msg = space.newtext(msg.encode('utf8'), len(msg))
+        w_msg = space.newtext(msg, lgt)
 
     if w_filename is None:
         w_filename = space.w_None
@@ -690,9 +692,9 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
                          eintr_retry=eintr_retry)
 
 def exception_from_errno(space, w_type, errno):
-    msg = strerror(errno)
+    msg, lgt = strerror(errno)
     w_error = space.call_function(w_type, space.newint(errno),
-                                  space.newtext(msg))
+                                  space.newtext(msg, lgt))
     return OperationError(w_type, w_error)
 
 def exception_from_saved_errno(space, w_type):
