@@ -21,7 +21,7 @@ class TestAppLevelObject(BaseApiTest):
         assert py_datetype.c_tp_as_number.c_nb_add
         w_obj = generic_cpy_call(space, py_datetype.c_tp_as_number.c_nb_add,
                                  py_date, py_date)
-        assert space.str_w(w_obj) == 'sum!'
+        assert space.text_w(w_obj) == 'sum!'
 
     def test_tp_new_from_python(self, space, api):
         w_date = space.appexec([], """():

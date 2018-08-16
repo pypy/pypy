@@ -534,7 +534,7 @@ class TestUnicode(BaseApiTest):
             w_s = PyUnicode_EncodeFSDefault(space, w_u)
         except OperationError:
             py.test.skip("Requires a unicode-aware fsencoding")
-        with rffi.scoped_str2charp(space.str_w(w_s)) as encoded:
+        with rffi.scoped_str2charp(space.text_w(w_s)) as encoded:
             w_decoded = PyUnicode_DecodeFSDefaultAndSize(space, encoded, space.len_w(w_s))
             assert space.eq_w(w_decoded, w_u)
             w_decoded = PyUnicode_DecodeFSDefault(space, encoded)
@@ -681,7 +681,7 @@ class TestUnicode(BaseApiTest):
     def test_decode_null_encoding(self, space):
         null_charp = lltype.nullptr(rffi.CCHARP.TO)
         u_text = u'abcdefg'
-        s_text = space.str_w(PyUnicode_AsEncodedString(space, space.wrap(u_text), null_charp, null_charp))
+        s_text = space.text_w(PyUnicode_AsEncodedString(space, space.wrap(u_text), null_charp, null_charp))
         b_text = rffi.str2charp(s_text)
         assert (space.utf8_w(PyUnicode_Decode(
             space, b_text, len(s_text), null_charp, null_charp)) ==
@@ -701,7 +701,7 @@ class TestUnicode(BaseApiTest):
         w_bytes = PyUnicode_EncodeMBCS(space, wbuf, 4, None)
         rffi.free_wcharp(wbuf)
         assert space.type(w_bytes) is space.w_bytes
-        assert space.str_w(w_bytes) == "abc?"
+        assert space.text_w(w_bytes) == "abc?"
 
     def test_escape(self, space):
         def test(ustr):
