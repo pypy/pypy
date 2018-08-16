@@ -415,7 +415,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("enter", "METH_O",
             """
-                return PyInt_FromLong(Py_ReprEnter(args));
+                return PyLong_FromLong(Py_ReprEnter(args));
             """),
             ("leave", "METH_O",
             """
