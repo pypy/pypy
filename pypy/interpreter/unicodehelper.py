@@ -221,7 +221,6 @@ def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
                 end += 1
             res.append_slice(s, start, end)
             i = end
-    # cannot be ASCII, cannot have surrogates, I believe
     return res.build(), len(s), len(s)
 
 def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
@@ -267,8 +266,13 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
             msg = "ordinal not in range(256)"
             res_8, newindex = errorhandler(
                 errors, 'latin1', msg, s, startindex, index)
-            result.append(res_8)
-            pos = rutf8._pos_at_index(s, newindex)
+            for cp in rutf8.Utf8StringIterator(res_8):
+                if cp > 0xFF:
+                    errorhandler("strict", 'latin1', msg, s, startindex, index)
+                result.append(chr(cp))
+            if index != newindex:  # Should be uncommon
+                index = newindex
+                pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
 def utf8_encode_ascii(s, errors, errorhandler):
@@ -649,8 +653,12 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
             pos += 1
             continue
 
-        digits = 4 if s[pos] == 'u' else 8
-        message = "truncated \\uXXXX escape"
+        if s[pos] == 'u':
+            digits = 4
+            message = "truncated \\uXXXX escape"
+        else:
+            digits = 8
+            message = "truncated \\UXXXXXXXX escape"
         pos += 1
         pos = hexescape(builder, s, pos, digits,
                            "rawunicodeescape", errorhandler, message, errors)
