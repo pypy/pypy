@@ -818,10 +818,10 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     if llerrors:
         errors = rffi.charp2str(llerrors)
     else:
-        errors = None
+        errors = 'strict'
 
     result, length, pos = str_decode_utf_16_helper(
-        string, errors, final=True, errorhandler=None, byteorder=byteorder)
+        string, errors, True, None, byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT_real, pos > 0)
     return space.newutf8(result, length)
@@ -870,10 +870,10 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     if llerrors:
         errors = rffi.charp2str(llerrors)
     else:
-        errors = None
+        errors = 'strict'
 
     result, length, pos = unicodehelper.str_decode_utf_32_helper(
-        string, errors, final=True, errorhandler='strict', byteorder=byteorder)
+        string, errors, True, None, byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT_real, pos>0)
     return space.newutf8(result, length)
