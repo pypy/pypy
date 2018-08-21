@@ -86,13 +86,11 @@ def test_decode_hz_error():
 def test_decode_hz_ignore():
     c = getcodec("hz")
     u = decode(c, 'def~{}abc', 'ignore')
-    assert u == u'def\u5f95'
     assert u == u'def\u5fcf'.encode('utf8')
 
 def test_decode_hz_replace():
     c = getcodec("hz")
     u = decode(c, 'def~{}abc', 'replace')
-    assert u == u'def\ufffd\u5f95\ufffd'
     assert u == u'def\ufffd\u5fcf'.encode('utf8')
 
 def test_encode_hz():
