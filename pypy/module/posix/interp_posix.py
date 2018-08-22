@@ -2408,7 +2408,7 @@ for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
 if _WIN32:
     have_functions.append("HAVE_MS_WINDOWS")
 
-def get_terminal_size(space, w_fd=None):
+def _get_terminal_size(space, w_fd=None):
     if w_fd is None:
         fd = rfile.RFile(rfile.c_stdout(), close2=(None, None)).fileno()
     else:
@@ -2448,7 +2448,13 @@ def get_terminal_size(space, w_fd=None):
 
             w_columns = space.newint(r_uint(winsize.c_ws_col))
             w_lines = space.newint(r_uint(winsize.c_ws_row))
+    return w_columns, w_lines
 
+def get_terminal_size(space, w_fd=None):
+    try:
+        w_columns, w_lines = _get_terminal_size(space, w_fd)
+    except OSError as e:
+        raise wrap_oserror(space, e, eintr_retry=False)
     w_tuple = space.newtuple([w_columns, w_lines])
     w_terminal_size = space.getattr(space.getbuiltinmodule(os.name),
                                     space.newtext('terminal_size'))

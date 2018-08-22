@@ -369,6 +369,9 @@ class FakeObjSpace(ObjSpace):
     def warn(self, w_msg, w_warningcls, stacklevel=2):
         pass
 
+    def _try_buffer_w(self, w_obj, flags):
+        return w_obj.buffer_w(self, flags)
+
     # ----------
 
     def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):

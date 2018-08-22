@@ -156,7 +156,7 @@ def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
     return MiniBuffer(LLBuffer(ptr, size), w_cdata)
 
 MiniBuffer.typedef = TypeDef(
-    "_cffi_backend.buffer",
+    "_cffi_backend.buffer", None, None, "read-write",
     __new__ = interp2app(MiniBuffer___new__),
     __len__ = interp2app(MiniBuffer.descr_len),
     __getitem__ = interp2app(MiniBuffer.descr_getitem),

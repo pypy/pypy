@@ -379,7 +379,7 @@ class W_StructureInstance(W_DataInstance):
 
 
 W_StructureInstance.typedef = TypeDef(
-    'StructureInstance',
+    'StructureInstance', None, None, "read-write",
     __repr__    = interp2app(W_StructureInstance.descr_repr),
     __getattr__ = interp2app(W_StructureInstance.getattr),
     __setattr__ = interp2app(W_StructureInstance.setattr),
@@ -401,7 +401,7 @@ class W_StructureInstanceAutoFree(W_StructureInstance):
             self._free()
 
 W_StructureInstanceAutoFree.typedef = TypeDef(
-    'StructureInstanceAutoFree',
+    'StructureInstanceAutoFree', None, None, "read-write",
     __repr__    = interp2app(W_StructureInstance.descr_repr),
     __getattr__ = interp2app(W_StructureInstance.getattr),
     __setattr__ = interp2app(W_StructureInstance.setattr),
