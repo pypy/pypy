@@ -1510,10 +1510,19 @@ class ObjSpace(object):
         if readonly and flags & self.BUF_WRITABLE == self.BUF_WRITABLE:
             raise oefmt(self.w_BufferError, "Object is not writable.")
 
+    def _try_buffer_w(self, w_obj, flags):
+        if not we_are_translated():
+            if w_obj.buffer_w.im_func != W_Root.buffer_w.im_func:
+                # when 'buffer_w()' is overridden in the subclass of
+                # W_Root, we need to specify __buffer="read" or
+                # __buffer="read-write" in the TypeDef.
+                assert type(w_obj).typedef.buffer is not None
+        return w_obj.buffer_w(self, flags)
+
     def buffer_w(self, w_obj, flags):
         # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
         try:
-            return w_obj.buffer_w(self, flags)
+            return self._try_buffer_w(w_obj, flags)
         except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)
@@ -1521,14 +1530,14 @@ class ObjSpace(object):
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
+            return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_readbuf()
         except BufferInterfaceNotFound:
             self._getarg_error("bytes-like object", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_writebuf()
+            return self._try_buffer_w(w_obj, self.BUF_WRITABLE).as_writebuf()
         except (BufferInterfaceNotFound, OperationError):
             self._getarg_error("read-write bytes-like object", w_obj)
 
@@ -1562,7 +1571,7 @@ class ObjSpace(object):
                 # NB. CPython forbids surrogates here
                 return StringBuffer(w_obj.text_w(self))
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
+                return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_readbuf()
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
@@ -1574,7 +1583,7 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_unicode):  # NB. CPython forbids
                 return w_obj.text_w(self)                 # surrogates here
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_str()
+                return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_str()
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
