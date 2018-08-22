@@ -62,13 +62,7 @@ class CodecState(object):
                 space.newtext(reason))
             w_res = space.call_function(w_errorhandler, w_exc)
             if (not space.isinstance_w(w_res, space.w_tuple)
-                or space.len_w(w_res) != 2
-                or not (space.isinstance_w(
-                            space.getitem(w_res, space.newint(0)),
-                            space.w_unicode) or
-                        (not decode and space.isinstance_w(
-                            space.getitem(w_res, space.newint(0)),
-                            space.w_bytes)))):
+                or space.len_w(w_res) != 2):
                 if decode:
                     msg = ("decoding error handler must return "
                            "(str, int) tuple")
@@ -78,6 +72,15 @@ class CodecState(object):
                 raise OperationError(space.w_TypeError, space.newtext(msg))
 
             w_replace, w_newpos = space.fixedview(w_res, 2)
+            if not (space.isinstance_w(w_replace, space.w_unicode) or
+                (not decode and space.isinstance_w(w_replace, space.w_bytes))):
+                if decode:
+                    msg = ("decoding error handler must return "
+                           "(str, int) tuple")
+                else:
+                    msg = ("encoding error handler must return "
+                           "(str/bytes, int) tuple")
+                raise OperationError(space.w_TypeError, space.newtext(msg))
             try:
                 newpos = space.int_w(w_newpos)
             except OperationError as e:
