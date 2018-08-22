@@ -265,11 +265,8 @@ def multibytecodec_encerror(encodebuf, e, errors,
             replace = "?"
     else:
         assert errorcb
-        rets, end = errorcb(errors, namecb, reason,
+        replace, end = errorcb(errors, namecb, reason,
                             unicodedata, start, end)
-        codec = pypy_cjk_enc_getcodec(encodebuf)
-        lgt = rutf8.get_utf8_length(rets)
-        replace = encode(codec, rets, lgt, "strict", errorcb, namecb)
     with rffi.scoped_nonmovingbuffer(replace) as inbuf:
         r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)
     if r == MBERR_NOMEMORY:
