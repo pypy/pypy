@@ -398,7 +398,7 @@ def main(args):
         config_py_file = os.path.expanduser(config_py_file)
         if py.path.local(config_py_file).check(file=1):
             print >>out, "using config", config_py_file
-            if ('machine' in config_py_file:
+            if 'machine' in config_py_file:
                 with open(config_py_file, 'r') as fid:
                     print >>out, fid.read()
             execfile(config_py_file, run_param.__dict__)
