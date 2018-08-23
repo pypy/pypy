@@ -96,6 +96,7 @@ class OSThreadLocals:
             ec._signals_enabled = 1    # the main thread is enabled
             self._mainthreadident = ident
         if register_in_valuedict:
+            print 'registering thread', ident
             self._valuedict[ident] = ec
         self.raw_thread_local.set(ec)
 
@@ -110,6 +111,7 @@ class OSThreadLocals:
                 self.raw_thread_local.set(None)
                 ident = rthread.get_ident()
                 try:
+                    print 'unregistering thread', ident
                     del self._valuedict[ident]
                 except KeyError:
                     pass
