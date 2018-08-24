@@ -406,6 +406,7 @@ def decref(space, pyobj):
         #    if w_obj is not None:
         #        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
 
+
 @init_function
 def write_w_marker_deallocating(space):
     if we_are_translated():
