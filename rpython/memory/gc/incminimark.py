@@ -3030,9 +3030,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_dealloc_trigger_callback = dealloc_trigger_callback
             self.rrc_dealloc_pending = self.AddressStack()
             self.rrc_tp_traverse = tp_traverse
-            self.rrc_pyobjects_to_scan = self.AddressStack()
-            self.rrc_more_pyobjects_to_scan = self.AddressStack()
-            self.rrc_pyobjects_to_trace = self.AddressStack()
             self.rrc_pyobj_list = self._pygchdr(pyobj_list)
             self.rrc_gc_as_pyobj = gc_as_pyobj
             self.rrc_pyobj_as_gc = pyobj_as_gc
@@ -3205,16 +3202,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._pyobj(pyobject).c_ob_refcnt = rc
     _rrc_free._always_inline_ = True
 
-    NO_CYCLE_DETECTION = False
-
     def rrc_major_collection_trace(self):
-        debug_start("gc-rrc-trace")
-        if self.NO_CYCLE_DETECTION:
-            self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
-        else:
-            self.rrc_major_collection_trace_cycle()
-            self.rrc_p_list_old.foreach(self._rrc_major_trace, None) # for now, remove later
-        debug_stop("gc-rrc-trace")
+        self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
 
     def _rrc_major_trace(self, pyobject, ignore):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
@@ -3229,77 +3218,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             obj = llmemory.cast_int_to_adr(intobj)
             self.objects_to_trace.append(obj)
             self.visit_all_objects()
-
-    def rrc_major_collection_trace_cycle(self):
-        assert not self.objects_to_trace.non_empty()
-        assert not self.rrc_pyobjects_to_scan.non_empty()
-        assert not self.rrc_more_pyobjects_to_scan.non_empty()
-        assert not self.rrc_pyobjects_to_trace.non_empty()
-
-        self._rrc_gc_print_list()
-
-        # initially, scan all real pyobjects (not proxies) which are linked to objects
-        #self.rrc_p_list_old.foreach(self._rrc_major_scan_non_rc_roots, None)
-        self.rrc_o_list_old.foreach(self._rrc_major_scan_non_rc_roots, None)
-
-        # as long as we find new pyobjects which should be marked, recursively
-        # mark them
-        while self.rrc_pyobjects_to_trace.non_empty():
-            while self.rrc_pyobjects_to_trace.non_empty():
-                pyobject = self.rrc_pyobjects_to_trace.pop()
-                self._rrc_traverse(pyobject)
-
-            # see if we found new pypy objects to trace
-            if self.objects_to_trace.non_empty():
-                self.visit_all_objects()
-            self.objects_to_trace.delete()
-            self.objects_to_trace = self.AddressStack()
-
-            # look if there are some pyobjects with linked objects which were
-            # not marked previously, but are marked now
-            swap = self.rrc_pyobjects_to_scan
-            self.rrc_pyobjects_to_scan = self.rrc_more_pyobjects_to_scan
-            self.rrc_more_pyobjects_to_scan = swap
-            self.rrc_pyobjects_to_scan.foreach(
-                self._rrc_major_scan_non_rc_roots, None)
-            self.rrc_pyobjects_to_scan.delete()
-            self.rrc_pyobjects_to_scan = self.AddressStack()
-
-        self.rrc_more_pyobjects_to_scan.delete()
-        self.rrc_more_pyobjects_to_scan = self.AddressStack()
-
-    def _rrc_mark_cpyobj(self, pyobj):
-        # if the pyobj is not marked, remember it and if there is a linked pypy
-        # object also remember it
-        visited = True # TODO: check if visited (via 'cast' to PyGC_Head)
-        if not visited:
-            # TODO: mark visited
-            pyobject = llmemory.cast_ptr_to_adr(pyobj)
-            self.rrc_more_pyobjects_to_scan.append(pyobject)
-            intobj = pyobj.c_ob_pypy_link
-            if intobj != 0:
-                obj = llmemory.cast_int_to_adr(intobj)
-                hdr = self.header(obj)
-                if not (hdr.tid & GCFLAG_VISITED):
-                    self.objects_to_trace.append(obj)
-
-    def _rrc_major_scan_non_rc_roots(self, pyobject, ignore):
-        # check in the object header of the linked pypy object, if it is marked
-        # or not
-        pyobj = self._pyobj(pyobject)
-        intobj = pyobj.c_ob_pypy_link
-        obj = llmemory.cast_int_to_adr(intobj)
-        hdr = self.header(obj)
-        if hdr.tid & GCFLAG_VISITED:
-            visited = True  # TODO: check if visited
-            if not visited:
-                # process the pyobject now
-                # TODO: mark visited
-                self.rrc_pyobjects_to_trace.append(pyobject)
-        else:
-            # save the pyobject for later, in case its linked object becomes
-            # marked
-            self.rrc_more_pyobjects_to_scan.append(pyobject)
 
     def rrc_major_collection_free(self):
         ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 2")
@@ -3335,13 +3253,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             self._rrc_free(pyobject)
 
+    def _rrc_visit_pyobj(self, pyobj):
+        pass
+
     def _rrc_visit(pyobj, self_ptr):
         from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
         #
-        debug_print("visit called!")
         self_adr = rffi.cast(llmemory.Address, self_ptr)
         self = cast_adr_to_nongc_instance(IncrementalMiniMarkGC, self_adr)
-        self._rrc_mark_cpyobj(pyobj)
+        self._rrc_visit_pyobj(pyobj)
         return rffi.cast(rffi.INT_real, 0)
 
     def _rrc_traverse(self, pyobject):
@@ -3357,13 +3277,3 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _rrc_gc_list_init(self, pygclist):
         pygclist.c_gc_next = pygclist
         pygclist.c_gc_prev = pygclist
-
-    def _rrc_gc_print_list(self):
-        debug_print("gc_print_list start!")
-        curr = self.rrc_pyobj_list.c_gc_next
-        while curr != self.rrc_pyobj_list:
-            currobj = self.rrc_gc_as_pyobj(curr)
-            curr2 = self.rrc_pyobj_as_gc(currobj)
-            debug_print("gc_print_list: ", curr, ", obj:", currobj, ", curr: ",
-                        curr2)
-            curr = curr.c_gc_next
