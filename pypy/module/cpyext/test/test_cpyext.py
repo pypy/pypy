@@ -138,7 +138,7 @@ class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
                                    'itertools', 'time', 'binascii', 'mmap',
-                                   '_cffi_backend',
+                                   #'_cffi_backend',
                                    ])
 
     @classmethod
@@ -222,7 +222,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         if not cls.runappdirect:
             cls.sys_info = get_cpyext_info(space)
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
-            cls.preload_builtins(space)
+            #cls.preload_builtins(space)
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
                     include_dirs=None, PY_SSIZE_T_CLEAN=False):
