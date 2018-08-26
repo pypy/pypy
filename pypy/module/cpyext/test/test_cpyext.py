@@ -136,9 +136,9 @@ class CpyextLeak(leakfinder.MallocMismatch):
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
-    spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
-                                   'itertools', 'time', 'binascii', 'mmap',
-                                   '_cffi_backend',
+    spaceconfig = dict(usemodules=['_cffi_backend', 'cpyext', 'thread',
+                                   'struct', 'array', 'itertools', 'time',
+                                   'binascii', 'mmap',
                                    ])
 
     @classmethod
