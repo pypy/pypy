@@ -200,6 +200,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                default=False,
                requires=[("objspace.usemodules.cpyext", False)]),
 
+    BoolOption("disable_entrypoints_in_cffi",
+               "Disable only cffi's embedding mode.",
+               default=False),
+
     BoolOption("fstrings",
                "if you are really convinced that f-strings are a security "
                "issue, you can disable them here",
