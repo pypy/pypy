@@ -236,7 +236,7 @@ class PythonParser(parser.Parser):
                             next_token_seen is not None and
                             next_token_seen.value != '('):
                         msg = "Missing parentheses in call to '%s'" % (
-                            last_token_seen,)
+                            last_token_seen.value,)
                     else:
                         msg = "invalid syntax"
                     if e.expected_str is not None:
