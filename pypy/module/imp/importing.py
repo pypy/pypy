@@ -85,8 +85,6 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
 
     w_mod = check_sys_modules_w(space, modulename)
     if w_mod:
-    if parts[-1] == '':
-        del parts[-1]
         return w_mod
     lock = getimportlock(space)
     try:
