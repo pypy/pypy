@@ -116,18 +116,18 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
         # floating-point conversion issues (and to avoid having to
         # conditionalize on compiler support for long double)
         for const_name, const_strval in [
-                ('Py_MATH_PIl', "3.1415926535897932384626433832795029L"),
-                ('Py_MATH_PI', "3.14159265358979323846"),
-                ('Py_MATH_El', "2.7182818284590452353602874713526625L"),
-                ('Py_MATH_E', "2.7182818284590452354"),
-                ('Py_MATH_TAU', "6.2831853071795864769252867665590057683943L"),
+                ('Py_MATH_PIl', b"3.1415926535897932384626433832795029L"),
+                ('Py_MATH_PI', b"3.14159265358979323846"),
+                ('Py_MATH_El', b"2.7182818284590452353602874713526625L"),
+                ('Py_MATH_E', b"2.7182818284590452354"),
+                ('Py_MATH_TAU', b"6.2831853071795864769252867665590057683943L"),
             ]:
             module = self.import_extension('foo_%s' % const_name, [
                 ("test", "METH_NOARGS",
                  """
                  #define xstr(s) str(s)
                  #define str(s) #s
-                 return PyString_FromString(xstr(%s));""" % const_name)
+                 return PyBytes_FromString(xstr(%s));""" % const_name)
             ])
             assert module.test() == const_strval
 
