@@ -767,16 +767,16 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
     if byteorder == 0:
-        byteorder = 'native'
+        _byteorder = 'native'
     elif byteorder == -1:
-        byteorder = 'little'
+        _byteorder = 'little'
     else:
-        byteorder = 'big'
-    res, lgt, pos = str_decode_utf_16_helper(
+        _byteorder = 'big'
+    res, lgt, pos, bo = str_decode_utf_16_helper(
         data, errors, final,
-        state.decode_error_handler, byteorder)
+        state.decode_error_handler, _byteorder)
     return space.newtuple([space.newutf8(res, lgt),
-                           space.newint(lgt)])
+                           space.newint(lgt), space.newint(bo)])
 
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
@@ -786,16 +786,16 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
     if byteorder == 0:
-        byteorder = 'native'
+        _byteorder = 'native'
     elif byteorder == -1:
-        byteorder = 'little'
+        _byteorder = 'little'
     else:
-        byteorder = 'big'
-    res, lgt, pos = str_decode_utf_32_helper(
+        _byteorder = 'big'
+    res, lgt, pos, bo = str_decode_utf_32_helper(
         data, errors, final,
-        state.decode_error_handler, byteorder)
+        state.decode_error_handler, _byteorder)
     return space.newtuple([space.newutf8(res, lgt),
-                           space.newint(lgt)])
+                           space.newint(lgt), space.newint(bo)])
 
 # ____________________________________________________________
 # Charmap

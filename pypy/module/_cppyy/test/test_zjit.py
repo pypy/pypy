@@ -260,7 +260,7 @@ class FakeSpace(object):
 
     def getattr(self, w_obj, w_name):
         assert isinstance(w_obj, FakeException)
-        assert self.str_w(w_name) == "__name__"
+        assert self.text_w(w_name) == "__name__"
         return FakeString(w_obj.name)
 
     def findattr(self, w_obj, w_name):

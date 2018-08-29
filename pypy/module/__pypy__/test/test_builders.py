@@ -9,11 +9,11 @@ class AppTestBuilders(object):
         b.append("1")
         s = b.build()
         assert s == "abc1231"
-        assert type(s) is unicode
+        assert type(s) is str
         assert b.build() == s
         b.append("123")
         assert b.build() == s + "123"
-        assert type(b.build()) is unicode
+        assert type(b.build()) is str
 
     def test_preallocate(self):
         from __pypy__.builders import StringBuilder
@@ -22,7 +22,7 @@ class AppTestBuilders(object):
         b.append("123")
         s = b.build()
         assert s == "abc123"
-        assert type(s) is unicode
+        assert type(s) is str
 
     def test_append_slice(self):
         from __pypy__.builders import StringBuilder

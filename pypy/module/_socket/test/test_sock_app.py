@@ -221,7 +221,7 @@ def test_unknown_addr_as_object():
     w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), -1, space)
     assert space.isinstance_w(w_obj, space.w_tuple)
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
-    assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
+    assert space.text_w(space.getitem(w_obj, space.wrap(1))) == 'c'
 
 def test_addr_raw_packet():
     from pypy.module._socket.interp_socket import addr_as_object

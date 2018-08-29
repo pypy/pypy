@@ -207,7 +207,7 @@ def _unwrap_include_dirs(space, w_include_dirs):
     if w_include_dirs is None:
         return None
     else:
-        return [space.str_w(s) for s in space.listview(w_include_dirs)]
+        return [space.text_w(s) for s in space.listview(w_include_dirs)]
 
 def debug_collect(space):
     rawrefcount._collect()
