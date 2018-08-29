@@ -1023,15 +1023,15 @@ assert BYTEORDER2 in ('le', 'be')
 
 def str_decode_utf_16(s, errors, final=True,
                       errorhandler=None):
-    return str_decode_utf_16_helper(s, errors, final, errorhandler, "native")
+    return str_decode_utf_16_helper(s, errors, final, errorhandler, "native")[:3]
 
 def str_decode_utf_16_be(s, errors, final=True,
                         errorhandler=None):
-    return str_decode_utf_16_helper(s, errors, final, errorhandler, "big")
+    return str_decode_utf_16_helper(s, errors, final, errorhandler, "big")[:3]
 
 def str_decode_utf_16_le(s, errors, final=True,
                          errorhandler=None):
-    return str_decode_utf_16_helper(s, errors, final, errorhandler, "little")
+    return str_decode_utf_16_helper(s, errors, final, errorhandler, "little")[:3]
 
 def str_decode_utf_16_helper(s, errors, final=True,
                              errorhandler=None,
@@ -1074,7 +1074,7 @@ def str_decode_utf_16_helper(s, errors, final=True,
     else:
         bo = 1
     if size == 0:
-        return '', 0, 0
+        return '', 0, 0, bo
     if bo == -1:
         # force little endian
         ihi = 1
@@ -1134,7 +1134,7 @@ def str_decode_utf_16_helper(s, errors, final=True,
             result.append(r)
     r = result.build()
     lgt = rutf8.check_utf8(r, True)
-    return result.build(), lgt, pos
+    return result.build(), lgt, pos, bo
 
 def _STORECHAR(result, CH, byteorder):
     hi = chr(((CH) >> 8) & 0xff)
@@ -1244,19 +1244,19 @@ def str_decode_utf_32(s, errors, final=True,
                       errorhandler=None):
     return str_decode_utf_32_helper(
         s, errors, final, errorhandler, "native", 'utf-32-' + BYTEORDER2,
-        allow_surrogates=False)
+        allow_surrogates=False)[:3]
 
 def str_decode_utf_32_be(s, errors, final=True,
                          errorhandler=None):
     return str_decode_utf_32_helper(
         s, errors, final, errorhandler, "big", 'utf-32-be',
-        allow_surrogates=False)
+        allow_surrogates=False)[:3]
 
 def str_decode_utf_32_le(s, errors, final=True,
                          errorhandler=None):
     return str_decode_utf_32_helper(
         s, errors, final, errorhandler, "little", 'utf-32-le',
-        allow_surrogates=False)
+        allow_surrogates=False)[:3]
 
 BOM32_DIRECT  = intmask(0x0000FEFF)
 BOM32_REVERSE = intmask(0xFFFE0000)
@@ -1304,7 +1304,7 @@ def str_decode_utf_32_helper(s, errors, final,
     else:
         bo = 1
     if size == 0:
-        return '', 0, 0
+        return '', 0, 0, bo
     if bo == -1:
         # force little endian
         iorder = [0, 1, 2, 3]
@@ -1346,7 +1346,7 @@ def str_decode_utf_32_helper(s, errors, final,
         pos += 4
     r = result.build()
     lgt = rutf8.check_utf8(r, True)
-    return r, lgt, pos
+    return r, lgt, pos, bo
 
 def _STORECHAR32(result, CH, byteorder):
     c0 = chr(((CH) >> 24) & 0xff)

@@ -20,7 +20,6 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import (
     CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
-from pypy.interpreter import unicodehelper
 from pypy.objspace.std import unicodeobject
 import sys
 
@@ -820,10 +819,12 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     else:
         errors = 'strict'
 
-    result, length, pos = str_decode_utf_16_helper(
-        string, errors, True, None, byteorder=byteorder)
+    state = space.fromcache(CodecState)
+    result, length, pos, bo = str_decode_utf_16_helper(
+        string, errors, True, state.decode_error_handler,
+        byteorder=byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT_real, pos > 0)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, bo)
     return space.newutf8(result, length)
 
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INTP_real], PyObject)
@@ -872,10 +873,12 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     else:
         errors = 'strict'
 
-    result, length, pos = unicodehelper.str_decode_utf_32_helper(
-        string, errors, True, None, byteorder=byteorder)
+    state = space.fromcache(CodecState)
+    result, length, pos, bo = str_decode_utf_32_helper(
+        string, errors, True, state.decode_error_handler,
+        byteorder=byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT_real, pos>0)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, bo)
     return space.newutf8(result, length)
 
 @cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, CONST_STRING],
