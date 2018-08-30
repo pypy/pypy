@@ -105,6 +105,11 @@ class W_CType(W_Root):
                 # ctype 'A' must be a pointer to same type, not cdata
                 # 'B'", but with A=B, then give instead a different error
                 # message to try to clear up the confusion
+                if self is w_got.ctype:
+                    raise oefmt(space.w_SystemError,
+                         "initializer for ctype '%s' is correct, but we get "
+                         "an internal mismatch--please report a bug",
+                         self.name)
                 return oefmt(space.w_TypeError,
                              "initializer for ctype '%s' appears indeed to "
                              "be '%s', but the types are different (check "

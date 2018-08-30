@@ -75,7 +75,8 @@ class W_CTypePtrOrArray(W_CType):
                 self._convert_array_from_listview(cdata, space.listview(w_ob))
         elif self.accept_str:
             if not space.isinstance_w(w_ob, space.w_bytes):
-                raise self._convert_error("str or list or tuple", w_ob)
+                return self._convert_array_from_cdataobj(cdata, w_ob,
+                        "str or list or tuple")
             s = space.bytes_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
@@ -90,7 +91,8 @@ class W_CTypePtrOrArray(W_CType):
         elif isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar):
             from pypy.module._cffi_backend import wchar_helper
             if not space.isinstance_w(w_ob, space.w_unicode):
-                raise self._convert_error("unicode or list or tuple", w_ob)
+                return self._convert_array_from_cdataobj(cdata, w_ob,
+                        "unicode or list or tuple")
             s = space.unicode_w(w_ob)
             if self.ctitem.size == 2:
                 n = wchar_helper.unicode_size_as_char16(s)
@@ -111,7 +113,19 @@ class W_CTypePtrOrArray(W_CType):
             else:
                 wchar_helper.unicode_to_char32(s, cdata, n, add_final_zero)
         else:
-            raise self._convert_error("list or tuple", w_ob)
+            return self._convert_array_from_cdataobj(cdata, w_ob,
+                    "list or tuple")
+
+    def _convert_array_from_cdataobj(self, cdata, w_ob, errmsg):
+        if isinstance(w_ob, cdataobj.W_CData) and w_ob.ctype is self:
+            length = w_ob.get_array_length()
+            with w_ob as source:
+                source = rffi.cast(rffi.VOIDP, source)
+                target = rffi.cast(rffi.VOIDP, cdata)
+                size = rffi.cast(rffi.SIZE_T, self.ctitem.size * length)
+                rffi.c_memcpy(target, source, size)
+        else:
+            raise self._convert_error(errmsg, w_ob)
 
     def _must_be_string_of_zero_or_one(self, s):
         for c in s:
