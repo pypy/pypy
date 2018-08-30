@@ -51,8 +51,11 @@ class W_CType(W_Root):
     def unpack_list_of_float_items(self, ptr, length):
         return None
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         return False
+
+    def _within_bounds(self, actual_length, expected_length):
+        return expected_length < 0 or actual_length <= expected_length
 
     def newp(self, w_init, allocator):
         space = self.space
