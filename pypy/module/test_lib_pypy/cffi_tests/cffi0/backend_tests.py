@@ -1973,3 +1973,18 @@ class BackendTests:
         assert seen[1] == 101
         assert seen[2] == 202
         assert seen[3] == 303
+
+    def test_ffi_array_as_init(self):
+        ffi = FFI(backend=self.Backend())
+        p = ffi.new("int[4]", [10, 20, 30, 400])
+        q = ffi.new("int[4]", p)
+        assert list(q) == [10, 20, 30, 400]
+        py.test.raises(TypeError, ffi.new, "int[3]", p)
+        py.test.raises(TypeError, ffi.new, "int[5]", p)
+        py.test.raises(TypeError, ffi.new, "int16_t[4]", p)
+        s = ffi.new("struct {int i[4];}*", {'i': p})
+        assert list(s.i) == [10, 20, 30, 400]
+
+    def test_too_many_initializers(self):
+        ffi = FFI(backend=self.Backend())
+        py.test.raises(IndexError, ffi.new, "int[4]", [10, 20, 30, 40, 50])
