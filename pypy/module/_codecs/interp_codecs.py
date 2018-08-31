@@ -832,7 +832,7 @@ class Charmap_Decode:
             # Charmap may return a number
             x = space.int_w(w_ch)
             if not 0 <= x <= 0x10FFFF:
-                raise oefmt(space.w_ValueError,
+                raise oefmt(space.w_TypeError,
                     "character mapping must be in range(0x110000)")
             return rutf8.unichr_as_utf8(x)
         elif space.is_w(w_ch, space.w_None):

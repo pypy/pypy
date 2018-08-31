@@ -289,6 +289,9 @@ class UCD(W_Root):
     def build(self, space, r, stop):
         builder = Utf8StringBuilder(stop * 3)
         for i in range(stop):
+            code = r_uint(r[i])
+            if code > r_uint(0x10FFFF):
+                raise oefmt(space.w_ValueError, "code > 0x10FFFF")
             builder.append_code(r[i])
         return space.newutf8(builder.build(), stop)
 
