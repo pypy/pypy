@@ -42,7 +42,8 @@ def slice_w(space, ctx, start, end, w_default):
             return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
             uni = ctx._unicodestr[start:end]
-            return space.newtext(uni.encode('utf8'), len(uni))
+            uni_utf8 = runicode.unicode_encode_utf_8(uni, len(uni), 'strict')
+            return space.newtext(uni_utf8, len(uni))
         else:
             # unreachable
             raise SystemError

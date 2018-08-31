@@ -21,7 +21,7 @@ def strerror(errno):
     """Translate an error code to a unicode message string."""
     from pypy.module._codecs.locale import str_decode_locale_surrogateescape
     uni = str_decode_locale_surrogateescape(os.strerror(errno))
-    return uni.encode('utf8'), len(uni)
+    return runicode.unicode_encode_utf_8(uni, len(uni), 'strict')
 
 class OperationError(Exception):
     """Interpreter-level exception that signals an exception that should be
@@ -647,7 +647,8 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
             msg = u'Windows Error %d' % winerror
         w_errno = space.w_None
         w_winerror = space.newint(winerror)
-        w_msg = space.newtext(msg.encode('utf8'), len(msg))
+        msg_utf8 = runicode.unicode_encode_utf_8(msg, len(msg), 'strict')
+        w_msg = space.newtext(msg_utf8, len(msg))
     else:
         errno = e.errno
         if errno == EINTR:

@@ -444,7 +444,9 @@ def surrogatepass_errors(space, w_exc):
             ch = 0
         if ch == 0:
             raise OperationError(space.type(w_exc), w_exc)
-        return space.newtuple([space.newtext(unichr(ch).encode('utf8'), 1),
+        ch_utf8 = runicode.unicode_encode_utf_8(unichr(ch), 1, 'strict',
+                                                allow_surrogates=True)
+        return space.newtuple([space.newtext(ch_utf8, 1),
                                space.newint(start + bytelength)])
     else:
         raise oefmt(space.w_TypeError,
@@ -483,7 +485,9 @@ def surrogateescape_errors(space, w_exc):
         if not consumed:
             # codec complained about ASCII byte.
             raise OperationError(space.type(w_exc), w_exc)
-        return space.newtuple([space.newtext(replace.encode('utf8'), len(replace)),
+        replace_utf8 = runicode.unicode_encode_utf_8(replace, len(replace),
+                                         'strict', allow_surrogates=True)
+        return space.newtuple([space.newtext(replace_utf8, len(replace)),
                                space.newint(start + consumed)])
     else:
         raise oefmt(space.w_TypeError,

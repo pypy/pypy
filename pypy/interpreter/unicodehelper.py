@@ -317,7 +317,8 @@ if sys.platform == 'win32':
             errorhandler = decode_error_handler(space) 
         res, size = str_decode_mbcs(s, slen, final=final, errors=errors,
                                            errorhandler=errorhandler)
-        return res.encode('utf8'), len(res)
+        res_utf8 = runicode.unicode_encode_utf_8(res, len(res), 'strict')
+        return res_utf8, len(res)
 
 def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
     """ Same as checking for the valid utf8, but we know the utf8 is not
