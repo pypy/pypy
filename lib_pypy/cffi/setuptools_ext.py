@@ -81,13 +81,8 @@ def _set_py_limited_api(Extension, kwds):
     it doesn't so far, creating troubles.  That's why we check
     for "not hasattr(sys, 'gettotalrefcount')" (the 2.7 compatible equivalent
     of 'd' not in sys.abiflags). (http://bugs.python.org/issue28401)
-
-    On Windows, it's better not to use py_limited_api until issue #355
-    can be resolved (by having virtualenv copy PYTHON3.DLL).  See also
-    the start of _cffi_include.h.
     """
-    if ('py_limited_api' not in kwds and not hasattr(sys, 'gettotalrefcount')
-            and sys.platform != 'win32'):
+    if 'py_limited_api' not in kwds and not hasattr(sys, 'gettotalrefcount'):
         import setuptools
         try:
             setuptools_major_version = int(setuptools.__version__.partition('.')[0])

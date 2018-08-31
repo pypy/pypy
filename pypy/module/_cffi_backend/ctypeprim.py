@@ -288,9 +288,10 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             return res
         return None
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         int_list = self.space.listview_int(w_ob)
-        if int_list is not None:
+        if (int_list is not None and
+                self._within_bounds(len(int_list), expected_length)):
             if self.size == rffi.sizeof(rffi.LONG): # fastest path
                 from rpython.rlib.rrawarray import copy_list_to_raw_array
                 cdata = rffi.cast(rffi.LONGP, cdata)
@@ -301,7 +302,8 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
                 if overflowed != 0:
                     self._overflow(self.space.newint(overflowed))
             return True
-        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob,
+                                                   expected_length)
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
@@ -371,15 +373,17 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
             return res
         return None
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         int_list = self.space.listview_int(w_ob)
-        if int_list is not None:
+        if (int_list is not None and
+                self._within_bounds(len(int_list), expected_length)):
             overflowed = misc.pack_list_to_raw_array_bounds_unsigned(
                 int_list, cdata, self.size, self.vrangemax)
             if overflowed != 0:
                 self._overflow(self.space.newint(overflowed))
             return True
-        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob,
+                                                   expected_length)
 
 
 class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
@@ -467,9 +471,10 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             return res
         return None
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         float_list = self.space.listview_float(w_ob)
-        if float_list is not None:
+        if (float_list is not None and
+                self._within_bounds(len(float_list), expected_length)):
             if self.size == rffi.sizeof(rffi.DOUBLE):   # fastest path
                 from rpython.rlib.rrawarray import copy_list_to_raw_array
                 cdata = rffi.cast(rffi.DOUBLEP, cdata)
@@ -479,7 +484,8 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
                 misc.pack_float_list_to_raw_array(float_list, cdata,
                                                   rffi.FLOAT, rffi.FLOATP)
                 return True
-        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob,
+                                                   expected_length)
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
         result = self.unpack_list_of_float_items(ptr, length)
@@ -549,13 +555,15 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     # 'list(array-of-longdouble)' returns a list of cdata objects,
     # not a list of floats.
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         float_list = self.space.listview_float(w_ob)
-        if float_list is not None:
+        if (float_list is not None and
+                self._within_bounds(len(float_list), expected_length)):
             misc.pack_float_list_to_raw_array(float_list, cdata,
                                              rffi.LONGDOUBLE, rffi.LONGDOUBLEP)
             return True
-        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob,
+                                                   expected_length)
 
     @jit.dont_look_inside
     def nonzero(self, cdata):

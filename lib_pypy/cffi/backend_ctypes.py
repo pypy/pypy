@@ -636,6 +636,10 @@ class CTypesBackend(object):
                 if isinstance(init, bytes):
                     init = [init[i:i+1] for i in range(len(init))]
                 else:
+                    if isinstance(init, CTypesGenericArray):
+                        if (len(init) != len(blob) or
+                            not isinstance(init, CTypesArray)):
+                            raise TypeError("length/type mismatch: %s" % (init,))
                     init = tuple(init)
                 if len(init) > len(blob):
                     raise IndexError("too many initializers")
