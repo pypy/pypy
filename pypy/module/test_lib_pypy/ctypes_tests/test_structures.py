@@ -503,6 +503,22 @@ class TestStructure(BaseCTypesTestChecker):
                 assert dostruct(Native) == dostruct(Big)
                 assert dostruct(Native) != dostruct(Little)
 
+    def test_from_buffer_copy(self):
+        from array import array
+
+        class S(Structure):
+            _fields_ = [('i', c_int)]
+            def __init__(self, some, unused, arguments):
+                pass
+        a = array('i', [1234567])
+        s1 = S.from_buffer(a)
+        s2 = S.from_buffer_copy(a)
+        assert s1.i == 1234567
+        assert s2.i == 1234567
+        a[0] = -7654321
+        assert s1.i == -7654321
+        assert s2.i == 1234567
+
 
 class TestPointerMember(BaseCTypesTestChecker):
     def test_1(self):

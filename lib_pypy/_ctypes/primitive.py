@@ -390,6 +390,7 @@ class _SimpleCData(_CData):
             self._buffer = self._ffiarray(1, autofree=True)
         if value is not DEFAULT_VALUE:
             self.value = value
+    _init_no_arg_ = __init__
 
     def _ensure_objects(self):
         if self._type_ not in 'zZP':
