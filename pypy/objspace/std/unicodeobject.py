@@ -184,13 +184,13 @@ class W_UnicodeObject(W_Root):
         if w_object is None:
             w_value = W_UnicodeObject.EMPTY
         else:
-            encoding, errors = _get_encoding_and_errors(space, w_encoding,
-                                                        w_errors)
+            encoding, errors, allow_surrogates = _get_encoding_and_errors(space,
+                                                           w_encoding, w_errors)
             if encoding is None and errors is None:
                 w_value = unicode_from_object(space, w_object)
             else:
-                w_value = unicode_from_encoded_object(space, w_object,
-                                                      encoding, errors)
+                w_value = unicode_from_encoded_object(space, w_object, encoding,
+                                                      errors)
         if space.is_w(w_unicodetype, space.w_unicode):
             return w_value
 
@@ -513,9 +513,10 @@ class W_UnicodeObject(W_Root):
         return space.w_True
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
-        encoding, errors = _get_encoding_and_errors(space, w_encoding,
-                                                    w_errors)
-        return encode_object(space, self, encoding, errors, allow_surrogates=False)
+        encoding, errors, allow_surrogates = _get_encoding_and_errors(space,
+                                                    w_encoding, w_errors)
+        return encode_object(space, self, encoding, errors,
+                             allow_surrogates=allow_surrogates)
 
     @unwrap_spec(tabsize=int)
     def descr_expandtabs(self, space, tabsize=8):
@@ -1184,7 +1185,10 @@ def getdefaultencoding(space):
 def _get_encoding_and_errors(space, w_encoding, w_errors):
     encoding = None if w_encoding is None else space.text_w(w_encoding)
     errors = None if w_errors is None else space.text_w(w_errors)
-    return encoding, errors
+    allow_surrogates = False
+    if encoding and 'escape' in encoding:
+        allow_surrogates = True
+    return encoding, errors, allow_surrogates
 
 
 def encode_object(space, w_object, encoding, errors, allow_surrogates=False):

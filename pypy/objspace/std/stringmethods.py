@@ -191,8 +191,8 @@ class StringMethods(object):
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
             _get_encoding_and_errors, decode_object)
-        encoding, errors = _get_encoding_and_errors(space, w_encoding,
-                                                    w_errors)
+        encoding, errors, allow_surrogates = _get_encoding_and_errors(space,
+                                                        w_encoding, w_errors)
         if errors is None:
             errors = 'strict'
         if encoding is None:
