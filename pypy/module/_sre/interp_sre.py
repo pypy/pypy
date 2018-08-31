@@ -8,6 +8,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
+from rpython.rlib.runicode import unicode_encode_utf_8
 
 # ____________________________________________________________
 #
@@ -42,7 +43,7 @@ def slice_w(space, ctx, start, end, w_default):
             return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
             uni = ctx._unicodestr[start:end]
-            uni_utf8 = runicode.unicode_encode_utf_8(uni, len(uni), 'strict')
+            uni_utf8 = unicode_encode_utf_8(uni, len(uni), 'strict')
             return space.newtext(uni_utf8, len(uni))
         else:
             # unreachable

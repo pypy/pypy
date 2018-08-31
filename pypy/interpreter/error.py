@@ -21,7 +21,7 @@ def strerror(errno):
     """Translate an error code to a unicode message string."""
     from pypy.module._codecs.locale import str_decode_locale_surrogateescape
     uni = str_decode_locale_surrogateescape(os.strerror(errno))
-    return runicode.unicode_encode_utf_8(uni, len(uni), 'strict')
+    return runicode.unicode_encode_utf_8(uni, len(uni), 'strict'), len(uni)
 
 class OperationError(Exception):
     """Interpreter-level exception that signals an exception that should be
