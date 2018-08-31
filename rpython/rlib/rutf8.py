@@ -50,6 +50,7 @@ def unichr_as_utf8(code, allow_surrogates=False):
                 chr((0x80 | ((code >> 12) & 0x3f))) +
                 chr((0x80 | ((code >> 6) & 0x3f))) +
                 chr((0x80 | (code & 0x3f))))
+    return '?'
     raise ValueError
 
 @try_inline
