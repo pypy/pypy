@@ -62,6 +62,7 @@ struct Cppyy_PseudoMethodInfo {
         m_name(name), m_argtypes(argtypes), m_returntype(returntype), m_type(mtype) {}
     std::string m_name;
     std::vector<std::string> m_argtypes;
+    std::vector<std::string> m_argdefaults;
     std::string m_returntype;
     EMethodType m_type;
 };
@@ -376,6 +377,13 @@ struct Cppyy_InitPseudoReflectionInfo {
         PUBLIC_CPPYY_STATIC_DATA(enum,    CppyyTestData::EWhat);
         PUBLIC_CPPYY_STATIC_DATA(voidp,   void*);
 
+      // default tester for long double
+        argtypes.clear();
+        argtypes.push_back("long double");
+        methods.push_back(new Cppyy_PseudoMethodInfo("get_ldouble_def", argtypes, "long double"));
+        methods.back()->m_argdefaults.push_back("aap_t(1)");
+        s_methods["CppyyTestData::get_ldouble_def"] = methods.back();
+
       // pretend enum values
         data.push_back(Cppyy_PseudoDatambrInfo(
             "kNothing", "CppyyTestData::EWhat", (ptrdiff_t)&Pseudo_kNothing, true));
@@ -388,6 +396,16 @@ struct Cppyy_InitPseudoReflectionInfo {
         s_scopes[(cppyy_scope_t)s_scope_id] = info;
         } // -- class CppyyTest_data
 
+        //====================================================================
+
+        { // namespace pyzables --
+        s_handles["pyzables"] = (cppyy_scope_t)++s_scope_id;
+        s_scopes[(cppyy_scope_t)s_scope_id] = Cppyy_PseudoClassInfo{};
+        s_handles["pyzables::SomeDummy1"] = (cppyy_scope_t)++s_scope_id;
+        s_scopes[(cppyy_scope_t)s_scope_id] = Cppyy_PseudoClassInfo{};
+        s_handles["pyzables::SomeDummy2"] = (cppyy_scope_t)++s_scope_id;
+        s_scopes[(cppyy_scope_t)s_scope_id] = Cppyy_PseudoClassInfo{};
+        } // -- namespace pyzables
     }
 } _init;
 
@@ -406,6 +424,8 @@ static inline char* cppstring_to_cstring(const std::string& name) {
 char* cppyy_resolve_name(const char* cppitem_name) {
     if (cppyy_is_enum(cppitem_name))
         return cppstring_to_cstring("internal_enum_type_t");
+    else if (strcmp(cppitem_name, "aap_t") == 0)
+        return cppstring_to_cstring("long double");
     return cppstring_to_cstring(cppitem_name);
 }
 
@@ -510,6 +530,12 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     } else if (idx == s_methods["CppyyTestData::set_double_cr"]) {
         assert(self && nargs == 1);
         ((dummy::CppyyTestData*)self)->set_double_cr(*(double*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_ldouble"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_ldouble(((CPPYY_G__value*)args)[0].obj.ld);
+    } else if (idx == s_methods["CppyyTestData::set_ldouble_cr"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_ldouble_cr(*(long double*)&((CPPYY_G__value*)args)[0]);
     } else {
         assert(!"method unknown in cppyy_call_v");
     }
@@ -784,6 +810,26 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
     return result;
 }
 
+double cppyy_call_nld(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    double result = 0.;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
+    if (idx == s_methods["CppyyTestData::get_ldouble_def"]) {
+        if (nargs == 1)
+            result = (double)((dummy::CppyyTestData*)self)->get_ldouble_def(
+                ((CPPYY_G__value*)args)[0].obj.ld);
+        else {
+            assert(self && nargs == 0);
+            result = (double)((dummy::CppyyTestData*)self)->get_ldouble_def();
+        }
+    } else if (idx == s_methods["CppyyTestData::get_ldouble"]) {
+        assert(self && nargs == 0);
+        result = (double)((dummy::CppyyTestData*)self)->get_ldouble();
+    } else {
+        assert(!"method unknown in cppyy_call_nld");
+    }
+    return result;
+}
+
 #define DISPATCH_CALL_R_GET(tpname)                                           \
     else if (idx == s_methods["CppyyTestData::get_"#tpname"_r"]) {            \
         assert(self && nargs == 0);                                           \
@@ -879,7 +925,9 @@ size_t cppyy_function_arg_typeoffset() {
 
 
 /* scope reflection information ------------------------------------------- */
-int cppyy_is_namespace(cppyy_scope_t /* handle */) {
+int cppyy_is_namespace(cppyy_scope_t handle) {
+    if (handle == s_handles["pyzables"])
+        return 1;
     return 0;
 }
 
@@ -954,14 +1002,16 @@ int cppyy_method_num_args(cppyy_method_t method) {
 }
 
 int cppyy_method_req_args(cppyy_method_t method) {
-    return cppyy_method_num_args(method);
+    return cppyy_method_num_args(method)-((Cppyy_PseudoMethodInfo*)method)->m_argdefaults.size();
 }
 
 char* cppyy_method_arg_type(cppyy_method_t method, int idx) {
     return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_argtypes[idx]);
 }
 
-char* cppyy_method_arg_default(cppyy_method_t, int /* arg_index */) {
+char* cppyy_method_arg_default(cppyy_method_t method, int idx) {
+    if (idx < (int)((Cppyy_PseudoMethodInfo*)method)->m_argdefaults.size())
+        return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_argdefaults[idx]);
     return cppstring_to_cstring("");
 }
 
@@ -1048,6 +1098,11 @@ int cppyy_is_enum_data(cppyy_scope_t /* handle */, cppyy_index_t /* idatambr */)
     return 0;
 }
 
+int cppyy_get_dimension_size(
+        cppyy_scope_t /* scope */, cppyy_index_t /* idata */, int /* dimension */) {
+    return -1; // no dimensions
+}
+
 
 /* misc helpers ----------------------------------------------------------- */
 #if defined(_MSC_VER)
@@ -1077,13 +1132,30 @@ void cppyy_free(void* ptr) {
 }
 
 cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz) {
-    void* arena = new char[sz];
-    new (arena) std::string(str, sz);
-    return (cppyy_object_t)arena;
+    return (cppyy_object_t)new std::string(str, sz);
+}
+
+const char* cppyy_stdstring2charp(cppyy_object_t ptr, size_t* lsz) {
+    *lsz = ((std::string*)ptr)->size();
+    return ((std::string*)ptr)->data();
 }
 
 cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
-    void* arena = new char[sizeof(std::string)];
-    new (arena) std::string(*(std::string*)ptr);
-    return (cppyy_object_t)arena;
+    return (cppyy_object_t)new std::string(*(std::string*)ptr);
+}
+
+double cppyy_longdouble2double(void* p) {
+    return (double)*(long double*)p;
+}
+
+void cppyy_double2longdouble(double d, void* p) {
+    *(long double*)p = d;
+}
+
+int cppyy_vectorbool_getitem(cppyy_object_t ptr, int idx) {
+    return (int)(*(std::vector<bool>*)ptr)[idx];
+}
+
+void cppyy_vectorbool_setitem(cppyy_object_t ptr, int idx, int value) {
+    (*(std::vector<bool>*)ptr)[idx] = (bool)value;
 }

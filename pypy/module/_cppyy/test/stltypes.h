@@ -4,11 +4,22 @@
 #include <utility>
 #include <vector>
 
+
 //- basic example class
 class just_a_class {
 public:
     int m_i;
 };
+
+// enum for vector of enums setitem tests
+enum VecTestEnum {
+    EVal1 = 1, EVal2 = 3
+};
+
+namespace VecTestEnumNS {
+    enum VecTestEnum { EVal1 = 5, EVal2 = 42 };
+}
+
 
 //- class with lots of std::string handling
 class stringy_class {
@@ -31,35 +42,15 @@ template<class T>
 class stl_like_class {
 public: 
    no_dict_available* begin() { return 0; }
-   no_dict_available* end() { return 0; }
+   no_dict_available* end() { return (no_dict_available*)1; }
    int size() { return 4; }
    int operator[](int i) { return i; }
    std::string operator[](double) { return "double"; }
    std::string operator[](const std::string&) { return "string"; }
 };      
 
-
-//- instantiations of used STL types
 namespace {
-
     stl_like_class<int> stlc_1;
-
-} // unnamed namespace
-
-
-// comps for int only to allow testing: normal use of vector is looping over a
-// range-checked version of __getitem__
-#if defined(__clang__) && defined(__APPLE__)
-namespace std {
-#define ns_prefix std::
-#elif defined(__GNUC__) || defined(__GNUG__)
-namespace __gnu_cxx {
-#define ns_prefix
-#endif
-extern template bool ns_prefix operator==(const std::vector<int>::iterator&,
-                         const std::vector<int>::iterator&);
-extern template bool ns_prefix operator!=(const std::vector<int>::iterator&,
-                         const std::vector<int>::iterator&);
 }
 
 
@@ -67,6 +58,8 @@ extern template bool ns_prefix operator!=(const std::vector<int>::iterator&,
 namespace ArrayTest {
 
 struct Point {
+    Point() : px(0), py(0) {}
+    Point(int x, int y) : px(x), py(y) {}
     int px, py;
 };
 

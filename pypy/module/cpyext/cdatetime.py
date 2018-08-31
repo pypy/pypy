@@ -137,8 +137,9 @@ def type_attach(space, py_obj, w_obj, w_userdata=None):
     If it is a datetime.time or datetime.datetime, it may have tzinfo
     '''
     state = space.fromcache(State)
-    # cannot raise here, so just crash
-    assert len(state.datetimeAPI) > 0
+    if len(state.datetimeAPI) ==0:
+        # can happen in subclassing
+        _PyDateTime_Import(space)
     if state.datetimeAPI[0].c_TimeType == py_obj.c_ob_type:
         py_datetime = rffi.cast(PyDateTime_Time, py_obj)
         w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))

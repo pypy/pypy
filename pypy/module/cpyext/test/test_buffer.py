@@ -9,13 +9,21 @@ class AppTestBuffer(AppTestCpythonExtensionBase):
              void* buf;
              Py_ssize_t buf_len;
              if (PyObject_AsWriteBuffer(args, &buf, &buf_len) < 0) {
-                PyErr_SetString(PyExc_ValueError, "bad value");
+                //PyErr_SetString(PyExc_ValueError, "bad value");
                 return NULL;
              }
              return PyLong_FromLong(buf_len);
              """)])
         assert module.write_buffer_len(bytearray(b'123')) == 3
         assert module.write_buffer_len(array.array('i', [1, 2, 3])) == 12
+        #
+        import _cffi_backend
+        BChar = _cffi_backend.new_primitive_type("char")
+        BCharPtr = _cffi_backend.new_pointer_type(BChar)
+        BCharArray = _cffi_backend.new_array_type(BCharPtr, None)
+        p = _cffi_backend.newp(BCharArray, b"abcde")
+        bb = _cffi_backend.buffer(p)
+        assert module.write_buffer_len(bb) == 6
 
 
 class AppTestMmap(AppTestCpythonExtensionBase):

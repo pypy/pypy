@@ -591,12 +591,35 @@ class TestStringToInt:
         ]
         for x in VALID_UNDERSCORE_LITERALS:
             print x
-            y = string_to_int(x, base=0, allow_underscores=True)
+            y = string_to_int(x, base=0, allow_underscores=True,
+                              no_implicit_octal=True)
             assert y == int(x.replace('_', ''), base=0)
         for x in INVALID_UNDERSCORE_LITERALS:
             print x
             py.test.raises(ParseStringError, string_to_int, x, base=0,
                            allow_underscores=True)
+
+    def test_no_implicit_octal(self):
+        TESTS = ['00', '000', '00_00', '02', '0377', '02_34']
+        for x in TESTS:
+            for valid_underscore in [False, True]:
+                for no_implicit_octal in [False, True]:
+                    print x, valid_underscore, no_implicit_octal
+                    expected_ok = True
+                    if no_implicit_octal and any('1' <= c <= '7' for c in x):
+                        expected_ok = False
+                    if not valid_underscore and '_' in x:
+                        expected_ok = False
+                    if expected_ok:
+                        y = string_to_int(x, base=0,
+                                          allow_underscores=valid_underscore,
+                                          no_implicit_octal=no_implicit_octal)
+                        assert y == int(x.replace('_', ''), base=8)
+                    else:
+                        py.test.raises(ParseStringError, string_to_int, x,
+                                       base=0,
+                                       allow_underscores=valid_underscore,
+                                       no_implicit_octal=no_implicit_octal)
 
 
 class TestExplicitIntsizes:

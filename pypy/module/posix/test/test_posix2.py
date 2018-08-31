@@ -1519,6 +1519,16 @@ class AppTestPosix:
             raises(OSError, os.getxattr, self.path, 'user.test')
             assert os.listxattr(self.path, follow_symlinks=False) == init_names
 
+    def test_get_terminal_size(self):
+        os = self.posix
+        for args in [(), (1,), (0,), (42421,)]:
+            try:
+                w, h = os.get_terminal_size(*args)
+            except (ValueError, OSError):
+                continue
+            assert isinstance(w, int)
+            assert isinstance(h, int)
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):

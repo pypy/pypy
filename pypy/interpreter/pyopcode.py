@@ -2107,7 +2107,7 @@ app = gateway.applevel(r'''
         else:
             skip_leading_underscores = False
         for name in all:
-            if skip_leading_underscores and name[0]=='_':
+            if skip_leading_underscores and name and name[0] == '_':
                 continue
             into_locals[name] = getattr(module, name)
 ''', filename=__file__)

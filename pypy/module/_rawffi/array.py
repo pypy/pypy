@@ -191,7 +191,7 @@ class W_ArrayInstance(W_DataInstance):
 
 
 W_ArrayInstance.typedef = TypeDef(
-    'ArrayInstance',
+    'ArrayInstance', None, None, "read-write",
     __repr__    = interp2app(W_ArrayInstance.descr_repr),
     __setitem__ = interp2app(W_ArrayInstance.descr_setitem),
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
@@ -215,7 +215,7 @@ class W_ArrayInstanceAutoFree(W_ArrayInstance):
             self._free()
 
 W_ArrayInstanceAutoFree.typedef = TypeDef(
-    'ArrayInstanceAutoFree',
+    'ArrayInstanceAutoFree', None, None, "read-write",
     __repr__    = interp2app(W_ArrayInstance.descr_repr),
     __setitem__ = interp2app(W_ArrayInstance.descr_setitem),
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),

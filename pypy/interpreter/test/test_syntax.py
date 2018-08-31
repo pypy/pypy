@@ -699,6 +699,15 @@ class AppTestFunctionAnnotations:
             pass
         """
 
+    def test_bug_annotation_inside_nested_function(self):
+        """
+        # this used to crash
+        def f1():
+            def f2(*args: int):
+                pass
+        f1()
+        """
+
 class AppTestSyntaxError:
 
     def test_tokenizer_error_location(self):

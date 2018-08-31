@@ -28,6 +28,9 @@ class TypeDef(object):
         self.bases = bases
         # Used in cpyext to fill tp_as_buffer slots
         assert __buffer in {None, 'read-write', 'read'}, "Unknown value for __buffer"
+        for base in bases:
+            if __buffer is None:
+                __buffer = base.buffer
         self.buffer = __buffer
         self.heaptype = False
         self.hasdict = '__dict__' in rawdict

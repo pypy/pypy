@@ -308,7 +308,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         # copied from datetime documentation
         class GMT1(tzinfo):
             def __del__(self):
-                print 'deleting GMT1'
+                print('deleting GMT1')
             def utcoffset(self, dt):
                 return timedelta(hours=1) + self.dst(dt)
             def dst(self, dt):

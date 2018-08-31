@@ -479,6 +479,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             ])
         raises(SystemError, module.oops)
 
+    @pytest.mark.skipif("not config.option.runappdirect", reason='-A only')
     def test_error_thread_race(self):
         # Check race condition: thread 0 returns from cpyext with error set,
         # after thread 1 has set an error but before it returns.
