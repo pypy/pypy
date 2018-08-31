@@ -302,13 +302,6 @@ class AppTestImport(BaseFSEncodeTest):
         assert ambig == sys.modules.get('ambig')
         assert hasattr(ambig,'imapackage')
 
-    def test_trailing_dot(self):
-        # bug-for-bug compatibility with CPython
-        import sys
-        __import__('pkg.pkg1.')
-        assert 'pkg.pkg1' in sys.modules
-        assert 'pkg.pkg1.' not in sys.modules
-
     def test_from_a(self):
         import sys
         from a import imamodule
