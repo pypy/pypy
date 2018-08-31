@@ -1774,7 +1774,8 @@ class ObjSpace(object):
     def convert_arg_to_w_unicode(self, w_obj, strict=None):
         # XXX why convert_to_w_unicode does something slightly different?
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        assert not hasattr(self, 'is_fake_objspace')
+        # for z_translation tests
+        if hasattr(self, 'is_fake_objspace'): return self.newtext("foobar")
         return W_UnicodeObject.convert_arg_to_w_unicode(self, w_obj, strict)
 
     def utf8_len_w(self, w_obj):
@@ -1785,6 +1786,8 @@ class ObjSpace(object):
         # Like utf8_w(), but only works if w_obj is really of type
         # 'unicode'.  On Python 3 this is the same as utf8_w().
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        # for z_translation tests
+        if hasattr(self, 'is_fake_objspace'): return self.newtext("foobar")
         if not isinstance(w_obj, W_UnicodeObject):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
         return self.utf8_w(w_obj)

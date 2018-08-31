@@ -60,9 +60,6 @@ def default_error_encode(
         return '', endingpos
     raise ValueError
 
-def convert_arg_to_w_unicode(space, w_arg, strict=None):
-    return space.convert_arg_to_w_unicode(w_arg)
-
 # ____________________________________________________________
 
 def fsdecode(space, w_string):

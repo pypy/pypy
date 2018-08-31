@@ -68,6 +68,15 @@ class W_MyListObj(W_MyObject):
     def append(self, w_other):
         pass
 
+class W_UnicodeOjbect(W_MyObject):
+    _length = 21
+    _utf8 = 'foobar'
+    def _index_to_byte(self, at):
+        return NonConstant(42)
+    def _len(self):
+        return self._length
+    
+
 class W_MyType(W_MyObject):
     name = "foobar"
     flag_map_or_seq = '?'
@@ -220,7 +229,7 @@ class FakeObjSpace(ObjSpace):
 
     @specialize.argtype(1)
     def newtext(self, x, lgt=-1):
-        return w_some_obj()
+        return W_UnicodeOjbect()
     newtext_or_none = newtext
     newfilename = newtext
 

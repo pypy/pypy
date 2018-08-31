@@ -249,7 +249,7 @@ def xmlcharrefreplace_errors(space, w_exc):
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
         space.realutf8_w(w_obj) # weeoes
-        w_obj = unicodehelper.convert_arg_to_w_unicode(space, w_obj)
+        w_obj = space.convert_arg_to_w_unicode(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
@@ -308,7 +308,7 @@ def namereplace_errors(space, w_exc):
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
         space.realutf8_w(w_obj) # for errors
-        w_obj = unicodehelper.convert_arg_to_w_unicode(space, w_obj)
+        w_obj = space.convert_arg_to_w_unicode(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
@@ -646,7 +646,7 @@ def make_encoder_wrapper(name):
     @unwrap_spec(errors='text_or_none')
     def wrap_encoder(space, w_arg, errors="strict"):
         # w_arg is a W_Unicode or W_Bytes?
-        w_arg = unicodehelper.convert_arg_to_w_unicode(space, w_arg, rname)
+        w_arg = space.convert_arg_to_w_unicode(w_arg, errors)
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
@@ -912,7 +912,7 @@ def charmap_encode(space, w_unicode, errors="strict", w_mapping=None):
         mapping = Charmap_Encode(space, w_mapping)
 
     state = space.fromcache(CodecState)
-    w_uni = unicodehelper.convert_arg_to_w_unicode(space, w_unicode)
+    w_uni = space.convert_arg_to_w_unicode(w_unicode)
     result = unicodehelper.utf8_encode_charmap(
         space.utf8_w(w_uni), errors, state.encode_error_handler, mapping)
     return space.newtuple([space.newbytes(result), space.newint(w_uni._len())])
