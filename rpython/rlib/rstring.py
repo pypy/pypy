@@ -529,6 +529,10 @@ class NumberStringParser:
             raise InvalidBaseError("%s() base must be >= 2 and <= 36" % fname)
         self.base = base
 
+        # Leading underscores are not allowed
+        if s.startswith('_'):
+            self.error()
+
         if base == 16 and (s.startswith('0x') or s.startswith('0X')):
             s = s[2:]
         if base == 8 and (s.startswith('0o') or s.startswith('0O')):
