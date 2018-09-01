@@ -1026,3 +1026,9 @@ class AppTestBytesObject:
             pass
         assert type(Sub1(X())) is Sub1
         assert Sub1(X()) == b'foo'
+
+    def test_id(self):
+        a = b'abcabc'
+        id_b = id(str(a, 'latin1'))
+        id_a = id(a)
+        assert id_a != id_b
