@@ -110,8 +110,8 @@ class TestUnicodeObject:
         space = self.space
         w_uni = space.wrap(u'abcd')
         assert space.text_w(w_uni) == 'abcd'
-        # TODO : how to handle this?
         w_uni = space.wrap(unichr(0xd921) + unichr(0xdddd))
+        # XXXX Test is from py3.5, should this still fail?
         space.raises_w(space.w_UnicodeEncodeError, space.text_w, w_uni)
 
 

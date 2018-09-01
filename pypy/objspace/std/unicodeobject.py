@@ -463,7 +463,7 @@ class W_UnicodeObject(W_Root):
             try:
                 builder.append_code(codepoint)
             except ValueError:
-                raise oefmt(space.w_TypeError,
+                raise oefmt(space.w_ValueError,
                             "character mapping must be in range(0x110000)")
         return self.from_utf8builder(builder)
 

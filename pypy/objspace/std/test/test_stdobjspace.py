@@ -93,4 +93,4 @@ class TestW_StdObjSpace:
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
         w_x = self.space.wrap('foo\xF0')
         assert isinstance(w_x, W_UnicodeObject)
-        assert w_x._utf8 == 'foo\uxF0'
+        assert w_x._utf8 == 'foo\xF0'
