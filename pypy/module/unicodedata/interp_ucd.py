@@ -82,9 +82,9 @@ class UCD(W_Root):
         sequence = self._lookup_named_sequence(code)
         if sequence is not None:
             # named sequences only contain UCS2 codes, no surrogates &co.
-            return space.newutf8(unichr_as_utf8(r_uint(code)), 1)
+            return space.newutf8(sequence.encode('utf-8'), len(sequence))
 
-
+        return space.newutf8(unichr_as_utf8(r_uint(code)), 1)
 
     def name(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
