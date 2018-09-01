@@ -378,11 +378,14 @@ class _SimpleCData(_CData, metaclass=SimpleType):
             self._buffer = self._ffiarray(1, autofree=True)
         if value is not DEFAULT_VALUE:
             self.value = value
+    _init_no_arg_ = __init__
 
     def _ensure_objects(self):
-        if self._type_ not in 'zZP':
-            assert self._objects is None
-        return self._objects
+        # No '_objects' is the common case for primitives.  Examples
+        # where there is an _objects is if _type in 'zZP', or if
+        # self comes from 'from_buffer(buf)'.  See module/test_lib_pypy/
+        # ctypes_test/test_buffers.py: test_from_buffer_keepalive.
+        return getattr(self, '_objects', None)
 
     def _getvalue(self):
         return self._buffer[0]
