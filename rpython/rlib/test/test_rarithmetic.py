@@ -554,50 +554,52 @@ class TestStringToInt:
             py.test.raises(ParseStringError, string_to_int, '+'+s, base)
             py.test.raises(ParseStringError, string_to_int, '-'+s, base)
 
-    def test_number_underscores(self):
-        VALID_UNDERSCORE_LITERALS = [
-            '0_0_0',
-            '4_2',
-            '1_0000_0000',
-            '0b1001_0100',
-            '0xfff_ffff',
-            '0o5_7_7',
-            '0b_0',
-            '0x_f',
-            '0o_5',
-        ]
-        INVALID_UNDERSCORE_LITERALS = [
-            # Trailing underscores:
-            '0_',
-            '42_',
-            '1.4j_',
-            '0x_',
-            '0b1_',
-            '0xf_',
-            '0o5_',
-            # Underscores in the base selector:
-            '0_b0',
-            '0_xf',
-            '0_o5',
-            # Old-style octal, still disallowed:
-            '09_99',
-            # Multiple consecutive underscores:
-            '4_______2',
-            '0b1001__0100',
-            '0xfff__ffff',
-            '0x___',
-            '0o5__77',
-            '1e1__0',
-        ]
-        for x in VALID_UNDERSCORE_LITERALS:
-            print x
-            y = string_to_int(x, base=0, allow_underscores=True,
-                              no_implicit_octal=True)
-            assert y == int(x.replace('_', ''), base=0)
-        for x in INVALID_UNDERSCORE_LITERALS:
-            print x
-            py.test.raises(ParseStringError, string_to_int, x, base=0,
-                           allow_underscores=True)
+    @py.test.mark.parametrize('s', [
+        '0_0_0',
+        '4_2',
+        '1_0000_0000',
+        '0b1001_0100',
+        '0xfff_ffff',
+        '0o5_7_7',
+        '0b_0',
+        '0x_f',
+        '0o_5',
+    ])
+    def test_valid_underscores(self, s):
+        result = string_to_int(
+            s, base=0, allow_underscores=True, no_implicit_octal=True)
+        assert result == int(s.replace('_', ''), base=0)
+
+    @py.test.mark.parametrize('s', [
+        # Leading underscores
+        '_100',
+        '_',
+        '_0b1001_0100',
+        # Trailing underscores:
+        '0_',
+        '42_',
+        '1.4j_',
+        '0x_',
+        '0b1_',
+        '0xf_',
+        '0o5_',
+        # Underscores in the base selector:
+        '0_b0',
+        '0_xf',
+        '0_o5',
+        # Old-style octal, still disallowed:
+        '09_99',
+        # Multiple consecutive underscores:
+        '4_______2',
+        '0b1001__0100',
+        '0xfff__ffff',
+        '0x___',
+        '0o5__77',
+        '1e1__0',
+    ])
+    def test_invalid_underscores(self, s):
+        with py.test.raises(ParseStringError):
+            string_to_int(s, base=0, allow_underscores=True)
 
     def test_no_implicit_octal(self):
         TESTS = ['00', '000', '00_00', '02', '0377', '02_34']

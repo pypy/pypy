@@ -189,6 +189,7 @@ class Array(_CData, metaclass=ArrayMeta):
             self._buffer = self._ffiarray(self._length_, autofree=True)
         for i, arg in enumerate(args):
             self[i] = arg
+    _init_no_arg_ = __init__
 
     def _fix_index(self, index):
         if index < 0:
