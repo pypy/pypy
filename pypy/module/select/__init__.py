@@ -3,6 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 import sys
 import os
+from select import PIPE_BUF
 
 
 class Module(MixedModule):
@@ -11,7 +12,8 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'select': 'interp_select.select',
-        'error' : 'space.fromcache(interp_select.Cache).w_error'
+        'error' : 'space.fromcache(interp_select.Cache).w_error',
+        'PIPE_BUF' : 'space.wrap(%r)' % PIPE_BUF,
     }
 
     if os.name =='posix':

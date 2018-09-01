@@ -245,6 +245,10 @@ class _AppTestSelect:
         raises(OverflowError, pollster.modify, 1, -1)
         raises(OverflowError, pollster.modify, 1, 1 << 64)
 
+    def test_PIPE_BUF(self):
+        import select
+        assert isinstance(select.PIPE_BUF, int)
+
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
