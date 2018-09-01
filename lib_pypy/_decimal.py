@@ -234,6 +234,7 @@ class Decimal(object):
 
     @classmethod
     def _from_str(cls, value, context, exact=True, strip=True):
+        value = value.replace("_", "")
         s = str.encode(value, 'ascii', '_decimal_encode')
         if b'\0' in s:
             s = b''  # empty string triggers ConversionSyntax.
