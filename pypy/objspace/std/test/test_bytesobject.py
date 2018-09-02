@@ -1031,4 +1031,5 @@ class AppTestBytesObject:
         a = b'abcabc'
         id_b = id(str(a, 'latin1'))
         id_a = id(a)
+        assert a is not str(a, 'latin1')
         assert id_a != id_b
