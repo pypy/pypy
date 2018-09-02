@@ -74,10 +74,6 @@ class JSONDecoder(object):
                 break
         return i
 
-    @specialize.arg(1)
-    def _raise(self, msg, *args):
-        raise oefmt(self.space.w_ValueError, msg, *args)
-
     def decode_any(self, i):
         i = self.skip_whitespace(i)
         ch = self.ll_chars[i]
@@ -330,10 +326,10 @@ class JSONDecoder(object):
                 i = self.decode_escape_sequence(i, builder)
             elif ch < '\x20':
                 if ch == '\0':
-                    self._raise("Unterminated string starting at char %d",
+                    raise DecoderError("Unterminated string starting at",
                                 start - 1)
                 else:
-                    self._raise("Invalid control character at char %d", i-1)
+                    raise DecoderError("Invalid control character at", i-1)
             else:
                 builder.append(ch)
 
@@ -368,7 +364,7 @@ class JSONDecoder(object):
                     val = self.decode_surrogate_pair(i, val)
                     i += 6
         except ValueError:
-            self._raise("Invalid \uXXXX escape (char %d)", i-1)
+            raise DecoderError("Invalid \uXXXX escape (char %d)", i-1)
             return # help the annotator to know that we'll never go beyond
                    # this point
         #

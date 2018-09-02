@@ -429,7 +429,7 @@ class W_ArrayBase(W_Root):
         if len(s) % self.itemsize != 0:
             raise oefmt(space.w_ValueError,
                         "bytes length not a multiple of item size")
-        self.check_valid_unicode(space, s) # empty for non-u arrays
+        #self.check_valid_unicode(space, s) # empty for non-u arrays
         oldlen = self.len
         new = len(s) / self.itemsize
         if not new:
@@ -757,7 +757,7 @@ class W_ArrayBase(W_Root):
             return space.newtext("array('%s')" % self.typecode)
         elif self.typecode == "u":
             r = space.repr(self.descr_tounicode(space))
-            s = b"array('b', %s)" % space.utf8_w(r)
+            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
             return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))

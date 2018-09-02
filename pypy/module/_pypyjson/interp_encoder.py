@@ -1,4 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rutf8 import Utf8StringIterator
 
 HEX = '0123456789abcdef'
 
@@ -25,8 +26,7 @@ def raw_encode_basestring_ascii(space, w_unicode):
 
     sb = StringBuilder(len(u) + 20)
 
-    for i in range(len(u)):
-        c = ord(u[i])
+    for c in Utf8StringIterator(u):
         if c <= ord('~'):
             if c == ord('"') or c == ord('\\'):
                 sb.append('\\')
