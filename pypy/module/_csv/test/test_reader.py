@@ -33,7 +33,7 @@ class AppTestReader(object):
     def test_cannot_read_bytes(self):
         import _csv
         reader = _csv.reader([b'foo'])
-        raises((TypeError, _csv.Error), next, reader)
+        raises(_csv.Error, next, reader)
 
     def test_read_oddinputs(self):
         self._read_test([], [])
