@@ -1898,12 +1898,8 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
     value = _rpy_unicode_to_decimal_w(space, w_unistr.utf8_w(space).decode('utf8'))
     # XXX this is the only place in the code that this funcion is called.
-    # It does not translate, since it uses a pypy-level error handler
-    # to throw the UnicodeEncodeError not the rpython default handler
-    #return unicodehelper.encode_utf8(space, value,
-    #                                 allow_surrogates=allow_surrogates)
-    assert isinstance(value, unicode)
-    return value.encode('utf8')
+    return unicodehelper.encode_utf8(space, value,
+                                     allow_surrogates=allow_surrogates)
 
 def _rpy_unicode_to_decimal_w(space, unistr):
     # XXX rewrite this to accept a utf8 string and use a StringBuilder

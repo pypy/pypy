@@ -50,6 +50,23 @@ def encode_error_handler(space):
         return u'', None, 0
     return raise_unicode_exception_encode
 
+@specialize.memo()
+def encode_unicode_error_handler(space):
+    # Fast version of the "strict" errors handler.
+    def raise_unicode_exception_encode(errors, encoding, msg, uni,
+                                       startingpos, endingpos):
+        assert isinstance(uni, unicode)
+        u_len = len(uni)
+        utf8 = runicode.unicode_encode_utf8sp(uni, u_len)
+        raise OperationError(space.w_UnicodeEncodeError,
+                             space.newtuple([space.newtext(encoding),
+                                             space.newtext(utf8, u_len),
+                                             space.newint(startingpos),
+                                             space.newint(endingpos),
+                                             space.newtext(msg)]))
+        return u'', None, 0
+    return raise_unicode_exception_encode
+
 def default_error_encode(
         errors, encoding, msg, u, startingpos, endingpos):
     """A default handler, for tests"""
@@ -322,7 +339,6 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
     valid so we're trying to either raise or pack stuff with error handler.
     The key difference is that this is call_may_force
     """
-    # XXX need to handle allow_surrogates
     slen = len(s)
     res = StringBuilder(slen)
     pos = 0
@@ -377,7 +393,7 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
 
-            if rutf8._invalid_byte_2_of_3(ordch1, ordch2, True):
+            if rutf8._invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
                 r, pos = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos)
                 res.append(r)
@@ -994,7 +1010,7 @@ def encode_utf8(space, uni, allow_surrogates=False):
     assert isinstance(uni, unicode)
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
-        errorhandler=encode_error_handler(space),
+        errorhandler=encode_unicode_error_handler(space),
         allow_surrogates=allow_surrogates)
 
 def encode_utf8sp(space, uni):

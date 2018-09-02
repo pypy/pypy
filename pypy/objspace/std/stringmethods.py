@@ -7,6 +7,7 @@ from rpython.rlib.rstring import (
     find, rfind, count, endswith, replace, rsplit, split, startswith)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
+from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 
 
@@ -197,6 +198,12 @@ class StringMethods(object):
             errors = 'strict'
         if encoding is None:
             encoding = 'utf8'
+        if encoding == 'utf8' or encoding == 'utf-8':
+            from pypy.module._codecs.interp_codecs import CodecState
+            state = space.fromcache(CodecState)
+            eh = state.decode_error_handler
+            s = space.charbuf_w(self)
+            ret, lgt, pos = str_decode_utf8(s, errors, True, eh)
         return decode_object(space, self, encoding, errors)
 
     @unwrap_spec(tabsize=int)
