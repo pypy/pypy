@@ -22,7 +22,7 @@ from pypy.objspace.std.formatting import mod_format, FORMAT_UNICODE
 from pypy.objspace.std.sliceobject import (W_SliceObject,
     unwrap_start_stop, normalize_simple_slice)
 from pypy.objspace.std.stringmethods import StringMethods
-from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
+from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT, IDTAG_ALT_UID
 
 __all__ = ['W_UnicodeObject', 'encode_object', 'decode_object',
            'unicode_from_object', 'unicode_to_decimal_w']
@@ -68,7 +68,7 @@ class W_UnicodeObject(W_Root):
             return False
         s1 = space.utf8_w(self)
         s2 = space.utf8_w(w_other)
-        if len(s2) > 2:
+        if self._len() > 1:
             return s1 is s2
         else:            # strings of len <= 1 are unique-ified
             return s1 == s2
@@ -76,14 +76,16 @@ class W_UnicodeObject(W_Root):
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        s = space.utf8_w(self)
-        if len(s) > 2:
-            uid = compute_unique_id(s)
-        else:            # strings of len <= 1 are unique-ified
-            if len(s) == 1:
-                base = ~ord(s[0])      # negative base values
-            elif len(s) == 2:
-                base = ~((ord(s[1]) << 8) | ord(s[0]))
+        l = self._len()
+        if l > 1:
+            # return the uid plus 2, to make sure we don't get
+            # conflicts with W_BytesObject, whose id() might be
+            # identical
+            uid = compute_unique_id(self._utf8) + IDTAG_ALT_UID
+        else:   # strings of len <= 1 are unique-ified
+            if l == 1:
+                base = rutf8.codepoint_at_pos(self._utf8, 0)
+                base = ~base     # negative base values
             else:
                 base = 257       # empty unicode string: base value 257
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
