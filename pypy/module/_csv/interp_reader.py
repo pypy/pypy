@@ -1,4 +1,5 @@
 from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.rutf8 import Utf8StringIterator
 from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
@@ -76,9 +77,11 @@ class W_Reader(W_Root):
             if space.isinstance_w(w_line, space.w_bytes):
                 raise self.error(u"iterator should return strings, not bytes "
                                  u"(did you open the file in text mode?")
-            line = space.realunicode_w(w_line)
-            for c in line:
-                if c == b'\0':
+            line = space.utf8_w(w_line)
+            for c in Utf8StringIterator(line):
+                # XXX rewrite this to use c (as int) not unichr(c)
+                c = unichr(c)
+                if c == '\0':
                     raise self.error(u"line contains NULL byte")
 
                 if state == START_RECORD:
