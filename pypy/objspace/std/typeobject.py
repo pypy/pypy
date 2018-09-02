@@ -14,6 +14,7 @@ from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rutf8 import CheckError, check_utf8
 
 class MutableCell(W_Root):
     def unwrap_cell(self, space):
@@ -177,6 +178,15 @@ class W_TypeObject(W_Root):
                  overridetypedef=None, force_new_layout=False,
                  is_heaptype=True):
         self.space = space
+        try:
+            check_utf8(name, False)
+        except CheckError as e:
+            raise OperationError(space.w_UnicodeEncodeError,
+                 space.newtuple([space.newtext('utf8'),
+                                 space.newtext(name),
+                                 space.newint(e.pos),
+                                 space.newint(e.pos + 1),
+                                 space.newtext('surrogates not allowed')]))
         self.name = name
         self.qualname = None
         self.bases_w = bases_w
