@@ -659,9 +659,9 @@ class TestUnicode(BaseApiTest):
         b_text = rffi.str2charp('caf\x82xx')
         b_encoding = rffi.str2charp('cp437')
         b_errors = rffi.str2charp('strict')
-        assert space.utf8_w(PyUnicode_Decode(
-            space, b_text, 4, b_encoding, b_errors)).decode() == u'caf\xe9'
-        assert (space.utf8_w(
+        assert space.text_w(PyUnicode_Decode(
+            space, b_text, 4, b_encoding, b_errors)).decode('utf8') == u'caf\xe9'
+        assert (space.text_w(
             PyUnicode_Decode(space, b_text, 4, b_encoding, None)) ==
             u'caf\xe9'.encode("utf-8"))
 
@@ -681,7 +681,7 @@ class TestUnicode(BaseApiTest):
     def test_decode_null_encoding(self, space):
         null_charp = lltype.nullptr(rffi.CCHARP.TO)
         u_text = u'abcdefg'
-        s_text = space.text_w(PyUnicode_AsEncodedString(space, space.wrap(u_text), null_charp, null_charp))
+        s_text = space.bytes_w(PyUnicode_AsEncodedString(space, space.wrap(u_text), null_charp, null_charp))
         b_text = rffi.str2charp(s_text)
         assert (space.utf8_w(PyUnicode_Decode(
             space, b_text, len(s_text), null_charp, null_charp)) ==

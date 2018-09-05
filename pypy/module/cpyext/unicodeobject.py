@@ -1,13 +1,13 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.runicode import unicode_encode_latin_1, unicode_encode_utf_16_helper
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib import rstring, runicode
+from rpython.rlib import rstring, runicode, rutf8
 from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import (
     wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper,
-    unicode_encode_decimal)
+    unicode_encode_decimal, utf8_encode_utf_16_helper, BYTEORDER,
+    utf8_encode_utf_32_helper)
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
@@ -71,7 +71,7 @@ def new_empty_unicode(space, length):
 
 def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
-    value = space.utf8_w(w_obj).decode('utf8')
+    value = space.utf8_w(w_obj)
     set_wsize(py_obj, len(value))
     set_wbuffer(py_obj, lltype.nullptr(rffi.CWCHARP.TO))
     _readify(space, py_obj, value)
@@ -271,20 +271,19 @@ def _PyUnicode_Ready(space, w_obj):
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     py_obj = as_pyobj(space, w_obj)
     assert get_kind(py_obj) == WCHAR_KIND
-    return _readify(space, py_obj, space.utf8_w(w_obj).decode('utf8'))
+    return _readify(space, py_obj, space.utf8_w(w_obj))
 
 def _readify(space, py_obj, value):
     maxchar = 0
-    for c in value:
-        if ord(c) > maxchar:
-            maxchar = ord(c)
+    for c in rutf8.Utf8StringIterator(value):
+        if c > maxchar:
+            maxchar = c
             if maxchar > MAX_UNICODE:
                 raise oefmt(space.w_ValueError,
                     "Character U+%d is not in range [U+0000; U+10ffff]",
                     maxchar)
     if maxchar < 256:
-        ucs1_data = rffi.str2charp(unicode_encode_latin_1(
-            value, len(value), errors='strict'))
+        ucs1_data = rffi.str2charp(value)
         set_data(py_obj, cts.cast('void*', ucs1_data))
         set_kind(py_obj, _1BYTE_KIND)
         set_len(py_obj, get_wsize(py_obj))
@@ -298,9 +297,9 @@ def _readify(space, py_obj, value):
             set_utf8_len(py_obj, 0)
     elif maxchar < 65536:
         # XXX: assumes that sizeof(wchar_t) == 4
-        ucs2_str = unicode_encode_utf_16_helper(
-            value, len(value), errors='strict',
-            byteorder=runicode.BYTEORDER)
+        ucs2_str = utf8_encode_utf_16_helper(
+            value, 'strict',
+            byteorder=BYTEORDER)
         ucs2_data = cts.cast('Py_UCS2 *', rffi.str2charp(ucs2_str))
         set_data(py_obj, cts.cast('void*', ucs2_data))
         set_len(py_obj, get_wsize(py_obj))
@@ -309,10 +308,14 @@ def _readify(space, py_obj, value):
         set_utf8_len(py_obj, 0)
     else:
         # XXX: assumes that sizeof(wchar_t) == 4
+        ucs4_str = utf8_encode_utf_32_helper(
+            value, 'strict',
+            byteorder=BYTEORDER)
         if not get_wbuffer(py_obj):
             # Copy unicode buffer
-            set_wbuffer(py_obj, rffi.unicode2wcharp(value))
-            set_wsize(py_obj, len(value))
+            wchar = cts.cast('wchar_t*', rffi.str2charp(ucs4_str))
+            set_wbuffer(py_obj, wchar)
+            set_wsize(py_obj, len(ucs4_str) // 4)
         ucs4_data = get_wbuffer(py_obj)
         set_data(py_obj, cts.cast('void*', ucs4_data))
         set_len(py_obj, get_wsize(py_obj))
@@ -493,9 +496,10 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     the codec."""
     if not encoding:
         # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
-        encoding = PyUnicode_GetDefaultEncoding(space)
+        w_encoding = space.newtext('utf-8')
+    else:
+        w_encoding = space.newtext(rffi.charp2str(encoding))
     w_str = space.newbytes(rffi.charpsize2str(s, size))
-    w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
         w_errors = space.newtext(rffi.charp2str(errors))
     else:
