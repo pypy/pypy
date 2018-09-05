@@ -3,7 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 import sys
 import os
-import select
+from rpython.rlib import _rsocket_rffi as _c
 
 
 class Module(MixedModule):
@@ -14,9 +14,6 @@ class Module(MixedModule):
         'select': 'interp_select.select',
         'error' : 'space.fromcache(interp_select.Cache).w_error',
     }
-
-    if hasattr(select, 'PIPE_BUF'):
-        interpleveldefs['PIPE_BUF'] = 'space.wrap(%r)' % select.PIPE_BUF
 
     if os.name =='posix':
         interpleveldefs['poll'] = 'interp_select.poll'
@@ -34,6 +31,10 @@ class Module(MixedModule):
         from pypy.module.select.interp_kqueue import symbol_map
         for symbol in symbol_map:
             interpleveldefs[symbol] = "space.wrap(interp_kqueue.%s)" % symbol
+
+    if _c.PIPE_BUF is not None:
+        interpleveldefs['PIPE_BUF'] = 'space.wrap(%r)' % _c.PIPE_BUF
+
 
     def buildloaders(cls):
         from rpython.rlib import rpoll

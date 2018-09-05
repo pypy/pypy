@@ -33,6 +33,7 @@ if _POSIX:
                 'arpa/inet.h',
                 'stdint.h',
                 'errno.h',
+                'limits.h',
                 )
     if _HAS_AF_PACKET:
         includes += ('netpacket/packet.h',
@@ -113,6 +114,7 @@ class CConfig:
     F_GETFL = platform.DefinedConstantInteger('F_GETFL')
     F_SETFL = platform.DefinedConstantInteger('F_SETFL')
     FIONBIO = platform.DefinedConstantInteger('FIONBIO')
+    PIPE_BUF = platform.DefinedConstantInteger('PIPE_BUF')
 
     INVALID_SOCKET = platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = platform.DefinedConstantInteger('INET_ADDRSTRLEN')
@@ -1081,6 +1083,7 @@ EINPROGRESS = cConfig.EINPROGRESS or cConfig.WSAEINPROGRESS
 EWOULDBLOCK = cConfig.EWOULDBLOCK or cConfig.WSAEWOULDBLOCK
 EAFNOSUPPORT = cConfig.EAFNOSUPPORT or cConfig.WSAEAFNOSUPPORT
 EISCONN = cConfig.EISCONN or cConfig.WSAEISCONN
+PIPE_BUF = cConfig.PIPE_BUF    # may be None
 
 linux = cConfig.linux
 WIN32 = cConfig.WIN32
