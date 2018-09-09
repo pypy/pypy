@@ -10,11 +10,6 @@ from pypy.module.unicodedata import unicodedb
 
 _WIN32 = sys.platform == 'win32'
 _MACOSX = sys.platform == 'darwin'
-if _WIN32:
-    from rpython.rlib.runicode import str_decode_mbcs, unicode_encode_mbcs
-else:
-    # Workaround translator's confusion
-    str_decode_mbcs = unicode_encode_mbcs = lambda *args, **kwargs: None
 
 @specialize.memo()
 def decode_error_handler(space):
@@ -317,7 +312,7 @@ def utf8_encode_ascii(s, errors, errorhandler):
             pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
-if sys.platform == 'win32':
+if _WIN32:
     def utf8_encode_mbcs(s, errors, errorhandler):
         s = s.decode('utf-8')
         if errorhandler is None:
@@ -325,12 +320,12 @@ if sys.platform == 'win32':
         res = unicode_encode_mbcs(s, slen, errors, errorhandler)
         return res
         
-    def str_decode_mbcs(s, errors, final, errorhandler):
+    def str_decode_mbcs(s, errors, final, errorhandler, force_ignore=True):
         slen = len(s)
         if errorhandler is None:
             errorhandler = decode_error_handler(space) 
-        res, size = str_decode_mbcs(s, slen, final=final, errors=errors,
-                                           errorhandler=errorhandler)
+        res, size = runicode.str_decode_mbcs(s, slen, final=final, errors=errors,
+                           errorhandler=errorhandler, force_ignore=force_ignore)
         res_utf8 = runicode.unicode_encode_utf_8(res, len(res), 'strict')
         return res_utf8, len(res)
 

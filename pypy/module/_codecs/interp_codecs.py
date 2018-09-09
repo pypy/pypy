@@ -703,31 +703,9 @@ for decoder in [
          ]:
     make_decoder_wrapper(decoder)
 
-if hasattr(runicode, 'str_decode_mbcs'):
-    # mbcs functions are not regular, because we have to pass
-    # "force_ignore/replace=False"
-    @unwrap_spec(uni=unicode, errors='text_or_none')
-    def mbcs_encode(space, uni, errors="strict"):
-        if errors is None:
-            errors = 'strict'
-        state = space.fromcache(CodecState)
-        result = runicode.unicode_encode_mbcs(
-            uni, len(uni), errors, state.encode_error_handler,
-            force_replace=False)
-        return space.newtuple([space.newbytes(result), space.newint(len(uni))])
-
-    @unwrap_spec(string='bufferstr', errors='text_or_none',
-                 w_final=WrappedDefault(False))
-    def mbcs_decode(space, string, errors="strict", w_final=None):
-        if errors is None:
-            errors = 'strict'
-        final = space.is_true(w_final)
-        state = space.fromcache(CodecState)
-        result, length, pos = runicode.str_decode_mbcs(
-            string, len(string), errors,
-            final, state.decode_error_handler,
-            force_ignore=False)
-        return space.newtuple([space.newtext(result, length), space.newint(pos)])
+if hasattr(unicodehelper, 'str_decode_mbcs'):
+    make_encoder_wrapper('mbcs_encode')
+    make_decoder_wrapper('mbcs_decode')
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"
