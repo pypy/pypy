@@ -79,7 +79,7 @@ def fsdecode(space, w_string):
     state = space.fromcache(interp_codecs.CodecState)
     if _WIN32:
         bytes = space.bytes_w(w_string)
-        uni = str_decode_mbcs(bytes, len(bytes), 'strict',
+        uni = str_decode_mbcs(bytes, 'strict',
                               errorhandler=decode_error_handler(space),
                               force_ignore=False)[0]
     elif _MACOSX:
@@ -324,7 +324,7 @@ if _WIN32:
         slen = len(s)
         if errorhandler is None:
             errorhandler = decode_error_handler(space) 
-        res, size = runicode.str_decode_mbcs(s, slen, final=final, errors=errors,
+        res, size = runicode.str_decode_mbcs(s, slen, errors, final=final,
                            errorhandler=errorhandler, force_ignore=force_ignore)
         res_utf8 = runicode.unicode_encode_utf_8(res, len(res), 'strict')
         return res_utf8, len(res)
