@@ -1526,4 +1526,8 @@ class TestOptimizations:
         assert counts[ops.BUILD_MAP] == 1 # the empty dict
         assert counts[ops.BUILD_CONST_KEY_MAP] == 2
 
-
+    def test_annotation_issue2884(self):
+        source = """def f():
+            a: list = [j for j in range(10)]
+        """
+        generate_function_code(source, self.space)
