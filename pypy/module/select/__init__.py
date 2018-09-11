@@ -3,6 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 import sys
 import os
+from rpython.rlib import _rsocket_rffi as _c
 
 
 class Module(MixedModule):
@@ -30,6 +31,10 @@ class Module(MixedModule):
         from pypy.module.select.interp_kqueue import symbol_map
         for symbol in symbol_map:
             interpleveldefs[symbol] = "space.wrap(interp_kqueue.%s)" % symbol
+
+    if _c.PIPE_BUF is not None:
+        interpleveldefs['PIPE_BUF'] = 'space.wrap(%r)' % _c.PIPE_BUF
+
 
     def buildloaders(cls):
         from rpython.rlib import rpoll
