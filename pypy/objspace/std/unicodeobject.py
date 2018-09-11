@@ -1222,7 +1222,7 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
             try:
                 rutf8.check_ascii(utf8)
             except rutf8.CheckError as a:
-            eh = unicodehelper.encode_error_handler(space)
+                eh = unicodehelper.encode_error_handler(space)
                 eh(None, "ascii", "ordinal not in range(128)", utf8,
                     a.pos, a.pos + 1)
                 assert False, "always raises"
@@ -1259,7 +1259,6 @@ def decode_object(space, w_obj, encoding, errors='strict'):
                     "'%s' decoder returned '%T' instead of 'str'; "
                     "use codecs.decode() to decode to arbitrary types",
                     encoding,
-                    w_retval)
                     w_retval)
     return w_retval
 
