@@ -1,13 +1,18 @@
 import os
+
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit, jit_libffi, libffi, rdynload, objectmodel
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.tool import leakfinder
 
-from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.gateway import interp2app, interpindirect2app
+from pypy.interpreter.typedef import TypeDef
+from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
 
+from pypy.module._rawffi.array import W_ArrayInstance
 from pypy.module._cffi_backend import ctypefunc, ctypeprim, cdataobj, misc
 from pypy.module._cffi_backend import newtype
 from pypy.module._cppyy import ffitypes
@@ -23,10 +28,11 @@ std_string_name = 'std::basic_string<char>'
 
 class _Arg:         # poor man's union
     _immutable_ = True
-    def __init__(self, tc, h = 0, l = -1, s = '', p = rffi.cast(rffi.VOIDP, 0)):
+    def __init__(self, tc, h = 0, l = -1, d = -1., s = '', p = rffi.cast(rffi.VOIDP, 0)):
         self.tc      = tc
         self._handle = h
         self._long   = l
+        self._double = d
         self._string = s
         self._voidp  = p
 
@@ -39,6 +45,11 @@ class _ArgL(_Arg):
     _immutable_ = True
     def __init__(self, val):
         _Arg.__init__(self, 'l', l = val)
+
+class _ArgD(_Arg):
+    _immutable_ = True
+    def __init__(self, val):
+        _Arg.__init__(self, 'd', d = val)
 
 class _ArgS(_Arg):
     _immutable_ = True
@@ -89,6 +100,9 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
                     assert obj._voidp != rffi.cast(rffi.VOIDP, 0)
                     data = rffi.cast(rffi.VOIDPP, data)
                     data[0] = obj._voidp
+                elif obj.tc == 'd':
+                    assert isinstance(argtype, ctypeprim.W_CTypePrimitiveFloat)
+                    misc.write_raw_float_data(data, rffi.cast(rffi.DOUBLE, obj._double), argtype.size)
                 else:    # only other use is string
                     assert obj.tc == 's'
                     n = len(obj._string)
@@ -182,6 +196,7 @@ class State(object):
             'call_f'       : ([c_method, c_object, c_int, c_voidp],   c_float),
             'call_d'       : ([c_method, c_object, c_int, c_voidp],   c_double),
             'call_ld'      : ([c_method, c_object, c_int, c_voidp],   c_ldouble),
+            'call_nld'     : ([c_method, c_object, c_int, c_voidp],   c_double),
 
             'call_r'       : ([c_method, c_object, c_int, c_voidp],   c_voidp),
             # call_s actually takes an size_t* as last parameter, but this will do
@@ -236,6 +251,8 @@ class State(object):
             'method_prototype'         : ([c_scope, c_method, c_int], c_ccharp),
             'is_const_method'          : ([c_method],                 c_int),
 
+            'get_num_templated_methods': ([c_scope],                  c_int),
+            'get_templated_method_name': ([c_scope, c_index],         c_ccharp),
             'exists_method_template'   : ([c_scope, c_ccharp],        c_int),
             'method_is_template'       : ([c_scope, c_index],         c_int),
             'get_method_template'      : ([c_scope, c_ccharp, c_ccharp],        c_method),
@@ -272,9 +289,11 @@ class State(object):
             'stdstring2charp'          : ([c_object, c_voidp],        c_ccharp),
             'stdstring2stdstring'      : ([c_object],                 c_object),
 
-            'stdvector_valuetype'      : ([c_ccharp],                 c_ccharp),
-            'stdvector_valuesize'      : ([c_ccharp],                 c_size_t),
+            'longdouble2double'        : ([c_voidp],                  c_double),
+            'double2longdouble'        : ([c_double, c_voidp],        c_void),
 
+            'vectorbool_getitem'       : ([c_object, c_int],          c_int),
+            'vectorbool_setitem'       : ([c_object, c_int, c_int],   c_void),
         }
 
         # size/offset are backend-specific but fixed after load
@@ -401,7 +420,9 @@ def c_call_d(space, cppmethod, cppobject, nargs, cargs):
     return rffi.cast(rffi.DOUBLE, space.float_w(call_capi(space, 'call_d', args)))
 def c_call_ld(space, cppmethod, cppobject, nargs, cargs):
     args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
-    return rffi.cast(rffi.LONGDOUBLE, space.float_w(call_capi(space, 'call_ld', args)))
+    #return rffi.cast(rffi.LONGDOUBLE, space.float_w(call_capi(space, 'call_ld', args)))
+    # call_nld narrows long double to double
+    return rffi.cast(rffi.DOUBLE, space.float_w(call_capi(space, 'call_nld', args)))
 
 def c_call_r(space, cppmethod, cppobject, nargs, cargs):
     args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
@@ -561,16 +582,21 @@ def c_method_prototype(space, cppscope, cppmeth, show_formalargs=True):
 def c_is_const_method(space, cppmeth):
     return space.bool_w(call_capi(space, 'is_const_method', [_ArgH(cppmeth)]))
 
+def c_get_num_templated_methods(space, cppscope):
+    return space.int_w(call_capi(space, 'method_is_template', [_ArgH(cppscope.handle)]))
+def c_get_templated_method_name(space, cppscope, index):
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
+    return charp2str_free(space, call_capi(space, 'method_is_template', args))
 def c_exists_method_template(space, cppscope, name):
     args = [_ArgH(cppscope.handle), _ArgS(name)]
     return space.bool_w(call_capi(space, 'exists_method_template', args))
 def c_method_is_template(space, cppscope, index):
     args = [_ArgH(cppscope.handle), _ArgL(index)]
     return space.bool_w(call_capi(space, 'method_is_template', args))
-
 def c_get_method_template(space, cppscope, name, proto):
     args = [_ArgH(cppscope.handle), _ArgS(name), _ArgS(proto)]
     return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method_template', args)))
+
 def c_get_global_operator(space, nss, lc, rc, op):
     if nss is not None:
         args = [_ArgH(nss.handle), _ArgH(lc.handle), _ArgH(rc.handle), _ArgS(op)]
@@ -619,7 +645,7 @@ def c_is_enum_data(space, cppscope, datamember_index):
     return space.bool_w(call_capi(space, 'is_enum_data', args))
 def c_get_dimension_size(space, cppscope, datamember_index, dim_idx):
     args = [_ArgH(cppscope.handle), _ArgL(datamember_index), _ArgL(dim_idx)]
-    return space.bool_w(call_capi(space, 'get_dimension_size', args))
+    return space.int_w(call_capi(space, 'get_dimension_size', args))
 
 # misc helpers ---------------------------------------------------------------
 def c_strtoll(space, svalue):
@@ -650,23 +676,93 @@ def c_stdstring2charp(space, cppstr):
 def c_stdstring2stdstring(space, cppobject):
     return _cdata_to_cobject(space, call_capi(space, 'stdstring2stdstring', [_ArgH(cppobject)]))
 
-def c_stdvector_valuetype(space, pystr):
-    return charp2str_free(space, call_capi(space, 'stdvector_valuetype', [_ArgS(pystr)]))
+def c_longdouble2double(space, addr):
+    return space.float_w(call_capi(space, 'longdouble2double', [_ArgP(addr)]))
+def c_double2longdouble(space, dval, addr):
+    call_capi(space, 'double2longdouble', [_ArgD(dval), _ArgP(addr)])
 
-def c_stdvector_valuetype(space, pystr):
-    return charp2str_free(space, call_capi(space, 'stdvector_valuetype', [_ArgS(pystr)]))
-def c_stdvector_valuesize(space, pystr):
-    return _cdata_to_size_t(space, call_capi(space, 'stdvector_valuesize', [_ArgS(pystr)]))
+def c_vectorbool_getitem(space, vbool, idx):
+    return call_capi(space, 'vectorbool_getitem', [_ArgH(vbool), _ArgL(idx)])
+def c_vectorbool_setitem(space, vbool, idx, value):
+    call_capi(space, 'vectorbool_setitem', [_ArgH(vbool), _ArgL(idx), _ArgL(value)])
 
 
 # TODO: factor these out ...
 # pythonizations
 def stdstring_c_str(space, w_self):
     """Return a python string taking into account \0"""
-
     from pypy.module._cppyy import interp_cppyy
     cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
     return space.newtext(c_stdstring2charp(space, cppstr._rawobject))
+
+def vbool_getindex(space, w_vbool, w_idx):
+    idx = space.getindex_w(w_idx, space.w_IndexError, "std::vector<bool> index")
+    sz = space.len_w(w_vbool)
+    if idx < 0: idx += sz
+    if idx < 0 or idx >= sz:
+        raise IndexError
+    return idx
+
+def vectorbool_getitem(space, w_self, w_idx):
+    """Index a std::vector<bool>, return the value"""
+    from pypy.module._cppyy import interp_cppyy
+    vbool = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
+    idx = vbool_getindex(space, w_self, w_idx)
+    item = c_vectorbool_getitem(space, vbool._rawobject, idx)
+    return space.newbool(space.is_true(item))
+
+def vectorbool_setitem(space, w_self, w_idx, w_value):
+    """Index a std::vector<bool>, set the value"""
+    from pypy.module._cppyy import interp_cppyy
+    vbool = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
+    idx = vbool_getindex(space, w_self, w_idx)
+    c_vectorbool_setitem(space, vbool._rawobject, idx, int(space.is_true(w_value)))
+
+class W_STLVectorIter(W_AbstractSeqIterObject):
+    # w_seq and index are in base class
+    _immutable_fields_ = ['converter', 'data', 'len', 'stride']
+
+    def __init__(self, space, w_vector):
+        W_AbstractSeqIterObject.__init__(self, w_vector)
+        # TODO: this should live in rpythonize.py or something so that the
+        # imports can move to the top w/o getting circles
+        from pypy.module._cppyy import interp_cppyy
+        assert isinstance(w_vector, interp_cppyy.W_CPPInstance)
+        vector = space.interp_w(interp_cppyy.W_CPPInstance, w_vector)
+
+        v_type = c_resolve_name(space, vector.clsdecl.name+'::value_type')
+        v_size = c_size_of_type(space, v_type)
+
+        if not v_type or not v_size:
+            raise NotImplementedError   # fallback on getitem
+
+        from pypy.module._cppyy import converter
+        self.converter = converter.get_converter(space, v_type, '')
+
+        # this 'data' is from the decl, so not the pythonized data from pythonify.py
+        w_arr = space.call_obj_args(vector.clsdecl.get_overload('data'), w_vector, Arguments(space, []))
+        arr = space.interp_w(W_ArrayInstance, w_arr, can_be_None=True)
+        if not arr:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+        self.data    = rffi.cast(rffi.CCHARP, space.uint_w(arr.getbuffer(space)))
+        self.len     = space.uint_w(space.call_obj_args(vector.clsdecl.get_overload('size'), w_vector, Arguments(space, [])))
+        self.stride  = v_size
+
+    def descr_next(self, space):
+        if self.w_seq is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        if self.len <= self.index:
+            self.w_seq = None
+            raise OperationError(space.w_StopIteration, space.w_None)
+        offset = lltype.direct_ptradd(self.data, rffi.cast(rffi.SIZE_T, self.index*self.stride))
+        w_item = self.converter.from_memory(space, space.w_None, rffi.cast(rffi.LONG, offset))
+        self.index += 1
+        return w_item
+
+def stdvector_iter(space, w_self):
+    return W_STLVectorIter(space, w_self)
+
 
 # setup pythonizations for later use at run-time
 _pythonizations = {}
@@ -678,6 +774,12 @@ def register_pythonizations(space):
         ### std::string
         stdstring_c_str,
 
+        ### std::vector
+        stdvector_iter,
+
+        ### std::vector<bool>
+        vectorbool_getitem,
+        vectorbool_setitem,
     ]
 
     for f in allfuncs:
@@ -692,3 +794,10 @@ def pythonize(space, w_pycppclass, name):
         space.setattr(w_pycppclass, space.newtext("c_str"), _pythonizations["stdstring_c_str"])
         _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "c_str")
         _method_alias(space, w_pycppclass, "__str__",           "c_str")
+
+    if  name.find("std::vector<bool", 0, 16) == 0:
+        space.setattr(w_pycppclass, space.newtext("__getitem__"), _pythonizations["vectorbool_getitem"])
+        space.setattr(w_pycppclass, space.newtext("__setitem__"), _pythonizations["vectorbool_setitem"])
+
+    elif name.find("std::vector", 0, 11) == 0:
+        space.setattr(w_pycppclass, space.newtext("__iter__"), _pythonizations["stdvector_iter"])

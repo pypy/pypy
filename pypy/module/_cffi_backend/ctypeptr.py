@@ -56,7 +56,7 @@ class W_CTypePtrOrArray(W_CType):
 
     def _convert_array_from_listview(self, cdata, lst_w):
         space = self.space
-        if self.length >= 0 and len(lst_w) > self.length:
+        if not self._within_bounds(len(lst_w), self.length):
             raise oefmt(space.w_IndexError,
                         "too many initializers for '%s' (got %d)",
                         self.name, len(lst_w))
@@ -69,8 +69,8 @@ class W_CTypePtrOrArray(W_CType):
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            if self.ctitem.pack_list_of_items(cdata, w_ob):   # fast path
-                pass
+            if self.ctitem.pack_list_of_items(cdata, w_ob, self.length):
+                pass    # fast path
             else:
                 self._convert_array_from_listview(cdata, space.listview(w_ob))
         elif self.accept_str:

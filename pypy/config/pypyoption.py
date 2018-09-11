@@ -39,14 +39,10 @@ working_modules.update([
     "_csv", "_cppyy", "_pypyjson", "_jitlog"
 ])
 
-from rpython.jit.backend import detect_cpu
-try:
-    if detect_cpu.autodetect().startswith('x86'):
-        if not sys.platform.startswith('openbsd'):
-            working_modules.add('_vmprof')
-            working_modules.add('faulthandler')
-except detect_cpu.ProcessorAutodetectError:
-    pass
+import rpython.rlib.rvmprof.cintf
+if rpython.rlib.rvmprof.cintf.IS_SUPPORTED:
+    working_modules.add('_vmprof')
+    working_modules.add('faulthandler')
 
 translation_modules = default_modules.copy()
 translation_modules.update([
@@ -318,3 +314,4 @@ if __name__ == '__main__':
     parser = to_optparse(config) #, useoptions=["translation.*"])
     option, args = parser.parse_args()
     print config
+    print working_modules

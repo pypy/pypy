@@ -42,6 +42,8 @@ class State:
         # A mapping {filename: copy-of-the-w_dict}, similar to CPython's
         # variable 'extensions' in Python/import.c.
         self.extensions = {}
+        # XXX will leak if _PyDateTime_Import already called
+        self.datetimeAPI = []
 
     def set_exception(self, operror):
         self.clear_exception()

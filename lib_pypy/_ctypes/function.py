@@ -268,6 +268,7 @@ class CFuncPtr(_CData):
             return
 
         raise TypeError("Unknown constructor %s" % (args,))
+    _init_no_arg_ = __init__
 
     def _wrap_callable(self, to_call, argtypes):
         def f(*args):
@@ -557,7 +558,7 @@ class CFuncPtr(_CData):
                         keepalive, newarg, newargtype = self._conv_param(argtype, defval)
                     else:
                         import ctypes
-                        val = argtype._type_()
+                        val = argtype._type_._newowninstance_()
                         keepalive = None
                         newarg = ctypes.byref(val)
                         newargtype = type(newarg)

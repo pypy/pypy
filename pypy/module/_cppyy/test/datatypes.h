@@ -32,6 +32,8 @@ namespace EnumSpace {
         enum    {E1 = -1};
         enum EE {E2 = -1};
     };
+
+    typedef enum { AA = 1, BB, CC, DD } letter_code;
 }
 
 
@@ -94,6 +96,8 @@ public:
     float                get_float();
     double               get_double();
     long double          get_ldouble();
+    typedef long double aap_t;
+    long double          get_ldouble_def(long double ld = aap_t(1));
     EWhat                get_enum();
     void*                get_voidp();
 

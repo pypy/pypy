@@ -1862,7 +1862,7 @@ def test_more_overflow_errors():
 
 def test_newp_copying():
     """Test that we can do newp(<type>, <cdata of the given type>) for most
-    types, with the exception of arrays, like in C.
+    types, including same-type arrays.
     """
     BInt = new_primitive_type("int")
     p = newp(new_pointer_type(BInt), cast(BInt, 42))
@@ -1891,8 +1891,9 @@ def test_newp_copying():
     a1 = newp(BArray, [1, 2, 3, 4])
     py.test.raises(TypeError, newp, BArray, a1)
     BArray6 = new_array_type(new_pointer_type(BInt), 6)
-    a1 = newp(BArray6, None)
-    py.test.raises(TypeError, newp, BArray6, a1)
+    a1 = newp(BArray6, [10, 20, 30])
+    a2 = newp(BArray6, a1)
+    assert list(a2) == [10, 20, 30, 0, 0, 0]
     #
     s1 = newp(BStructPtr, [42])
     s2 = newp(BStructPtr, s1[0])
@@ -3935,8 +3936,8 @@ def test_cdata_dir():
 
 def test_char_pointer_conversion():
     import warnings
-    assert __version__.startswith(("1.8", "1.9", "1.10", "1.11", "1.12")), (
-        "consider turning the warning into an error")
+    assert __version__.startswith("1."), (
+        "the warning will be an error if we ever release cffi 2.x")
     BCharP = new_pointer_type(new_primitive_type("char"))
     BIntP = new_pointer_type(new_primitive_type("int"))
     BVoidP = new_pointer_type(new_void_type())

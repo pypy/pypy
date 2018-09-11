@@ -2748,7 +2748,7 @@ def digits_max_for_base(base):
     dec_per_digit -= 1
     return base ** dec_per_digit
 
-BASE_MAX = [0, 0] + [digits_max_for_base(_base) for _base in range(2, 37)]
+BASE_MAX = [0, 1] + [digits_max_for_base(_base) for _base in range(2, 37)]
 DEC_MAX = digits_max_for_base(10)
 assert DEC_MAX == BASE_MAX[10]
 
@@ -2783,7 +2783,7 @@ def _decimalstr_to_bigint(s):
 def parse_digit_string(parser):
     # helper for fromstr
     base = parser.base
-    if (base & (base - 1)) == 0:
+    if (base & (base - 1)) == 0 and base >= 2:
         return parse_string_from_binary_base(parser)
     a = rbigint()
     digitmax = BASE_MAX[base]

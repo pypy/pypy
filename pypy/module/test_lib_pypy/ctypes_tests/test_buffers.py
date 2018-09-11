@@ -39,6 +39,15 @@ class TestStringBuffer(BaseCTypesTestChecker):
         assert b.value in (1684234849,   # little endian
                            1633837924)   # big endian
 
+    def test_from_buffer_keepalive(self):
+        # Issue #2878
+        b1 = bytearray("ab")
+        array = (c_uint16 * 32)()
+        array[6] = c_uint16.from_buffer(b1)
+        # this is also what we get on CPython.  I don't think it makes
+        # sense because the array contains just a copy of the number.
+        assert array._objects == {'6': b1}
+
     try:
         c_wchar
     except NameError:

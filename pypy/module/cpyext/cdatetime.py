@@ -12,18 +12,19 @@ from pypy.interpreter.error import OperationError
 from pypy.module.__pypy__.interp_pypydatetime import (W_DateTime_Date,
     W_DateTime_Time, W_DateTime_Delta)
 from rpython.tool.sourcetools import func_renamer
+from pypy.module.cpyext.state import State
 
 cts.parse_header(parse_dir / 'cpyext_datetime.h')
 
 
 PyDateTime_CAPI = cts.gettype('PyDateTime_CAPI')
 
-datetimeAPI_global = []
 
 @cpython_api([], lltype.Ptr(PyDateTime_CAPI))
 def _PyDateTime_Import(space):
-    if len(datetimeAPI_global) >0:
-        return datetimeAPI_global[0]
+    state = space.fromcache(State)
+    if len(state.datetimeAPI) > 0:
+        return state.datetimeAPI[0]
     datetimeAPI = lltype.malloc(PyDateTime_CAPI, flavor='raw',
                                 track_allocation=False)
 
@@ -66,8 +67,8 @@ def _PyDateTime_Import(space):
         _PyDelta_FromDelta.api_func.functype,
         _PyDelta_FromDelta.api_func.get_wrapper(space))
 
-    datetimeAPI_global.append(datetimeAPI)
-    return datetimeAPI
+    state.datetimeAPI.append(datetimeAPI)
+    return state.datetimeAPI[0]
 
 PyDateTime_Time = cts.gettype('PyDateTime_Time*')
 PyDateTime_DateTime = cts.gettype('PyDateTime_DateTime*')
@@ -135,8 +136,11 @@ def type_attach(space, py_obj, w_obj, w_userdata=None):
     '''Fills a newly allocated py_obj from the w_obj
     If it is a datetime.time or datetime.datetime, it may have tzinfo
     '''
-    assert len(datetimeAPI_global) > 0
-    if datetimeAPI_global[0].c_TimeType == py_obj.c_ob_type:
+    state = space.fromcache(State)
+    if len(state.datetimeAPI) ==0:
+        # can happen in subclassing
+        _PyDateTime_Import(space)
+    if state.datetimeAPI[0].c_TimeType == py_obj.c_ob_type:
         py_datetime = rffi.cast(PyDateTime_Time, py_obj)
         w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
         if space.is_none(w_tzinfo):
@@ -145,7 +149,7 @@ def type_attach(space, py_obj, w_obj, w_userdata=None):
         else:
             py_datetime.c_hastzinfo = cts.cast('unsigned char', 1)
             py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
-    elif datetimeAPI_global[0].c_DateTimeType == py_obj.c_ob_type:
+    elif state.datetimeAPI[0].c_DateTimeType == py_obj.c_ob_type:
         # For now this is exactly the same structure as PyDateTime_Time
         py_datetime = rffi.cast(PyDateTime_DateTime, py_obj)
         w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
@@ -159,12 +163,14 @@ def type_attach(space, py_obj, w_obj, w_userdata=None):
 @slot_function([PyObject], lltype.Void)
 def type_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
-    assert len(datetimeAPI_global) > 0
-    if datetimeAPI_global[0].c_TimeType == py_obj.c_ob_type:
+    state = space.fromcache(State)
+    # cannot raise here, so just crash
+    assert len(state.datetimeAPI) > 0
+    if state.datetimeAPI[0].c_TimeType == py_obj.c_ob_type:
         py_datetime = rffi.cast(PyDateTime_Time, py_obj)
         if (widen(py_datetime.c_hastzinfo) != 0):
             decref(space, py_datetime.c_tzinfo)
-    elif datetimeAPI_global[0].c_DateTimeType == py_obj.c_ob_type:
+    elif state.datetimeAPI[0].c_DateTimeType == py_obj.c_ob_type:
         py_datetime = rffi.cast(PyDateTime_DateTime, py_obj)
         if (widen(py_datetime.c_hastzinfo) != 0):
             decref(space, py_datetime.c_tzinfo)
