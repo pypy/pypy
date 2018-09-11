@@ -1250,7 +1250,6 @@ class TestCompilerRevDB(BaseTestCompiler):
 
     def test_revdb_metavar(self):
         from pypy.interpreter.reverse_debugging import dbstate, setup_revdb
-        self.space.config.translation.reverse_debugger = True
         self.space.reverse_debugging = True
         try:
             setup_revdb(self.space)

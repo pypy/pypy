@@ -319,6 +319,11 @@ class AppTestSelectWithPipes(_AppTestSelect):
         # ^^^ CPython gives 100, PyPy gives 1.  I think both are OK as
         # long as there is no crash.
 
+    def test_PIPE_BUF(self):
+        # no PIPE_BUF on Windows; this test class is skipped on Windows.
+        import select
+        assert isinstance(select.PIPE_BUF, int)
+
 
 class AppTestSelectWithSockets(_AppTestSelect):
     """Same tests with connected sockets.
