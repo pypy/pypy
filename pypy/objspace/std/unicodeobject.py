@@ -146,6 +146,9 @@ class W_UnicodeObject(W_Root):
     def _generic_name(self):
         return "str"
 
+    def _generic_name(self):
+        return "str"
+
     def _isupper(self, ch):
         return unicodedb.isupper(ch)
 
@@ -1219,7 +1222,7 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
             try:
                 rutf8.check_ascii(utf8)
             except rutf8.CheckError as a:
-                eh = unicodehelper.encode_error_handler(space)
+            eh = unicodehelper.encode_error_handler(space)
                 eh(None, "ascii", "ordinal not in range(128)", utf8,
                     a.pos, a.pos + 1)
                 assert False, "always raises"
@@ -1257,6 +1260,7 @@ def decode_object(space, w_obj, encoding, errors='strict'):
                     "use codecs.decode() to decode to arbitrary types",
                     encoding,
                     w_retval)
+                    w_retval)
     return w_retval
 
 
@@ -1280,7 +1284,6 @@ def unicode_from_object(space, w_obj):
     if space.lookup(w_obj, "__str__") is not None:
         return space.str(w_obj)
     return space.repr(w_obj)
-
 def ascii_from_object(space, w_obj):
     """Implements builtins.ascii()"""
     # repr is guaranteed to be unicode

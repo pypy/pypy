@@ -1164,31 +1164,53 @@ class AppTestUnicodeString:
         assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
         assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '
 
+    def test_encode_wrong_errors(self):
+        assert ''.encode(errors='some_wrong_name') == b''
+
+    def test_casefold(self):
+        assert u'hello'.casefold() == u'hello'
+        assert u'hELlo'.casefold() == u'hello'
+        assert u'ß'.casefold() == u'ss'
+        assert u'ﬁ'.casefold() == u'fi'
+        assert u'\u03a3'.casefold() == u'\u03c3'
+        assert u'A\u0345\u03a3'.casefold() == u'a\u03b9\u03c3'
+        assert u'\u00b5'.casefold() == u'\u03bc'
+
+    def test_lower_3a3(self):
+        # Special case for GREEK CAPITAL LETTER SIGMA U+03A3
+        assert u'\u03a3'.lower() == u'\u03c3'
+        assert u'\u0345\u03a3'.lower() == u'\u0345\u03c3'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u0345\u03a3a'.lower() == u'a\u0345\u03c3a'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
+        assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '
+
     def test_unicode_constructor_misc(self):
         x = u'foo'
         x += u'bar'
-        assert unicode(x) is x
+        assert str(x) is x
         #
-        class U(unicode):
-            def __unicode__(self):
+        class U(str):
+            def __str__(self):
                 return u'BOK'
         u = U(x)
-        assert unicode(u) == u'BOK'
+        assert str(u) == u'BOK'
         #
-        class U2(unicode):
+        class U2(str):
             pass
         z = U2(u'foobaz')
-        assert type(unicode(z)) is unicode
-        assert unicode(z) == u'foobaz'
+        assert type(str(z)) is str
+        assert str(z) == u'foobaz'
         #
         # two completely corner cases where we differ from CPython:
         #assert unicode(encoding='supposedly_the_encoding') == u''
         #assert unicode(errors='supposedly_the_error') == u''
-        e = raises(TypeError, unicode, u'', 'supposedly_the_encoding')
-        assert str(e.value) == 'decoding Unicode is not supported'
-        e = raises(TypeError, unicode, u'', errors='supposedly_the_error')
-        assert str(e.value) == 'decoding Unicode is not supported'
-        e = raises(TypeError, unicode, u, 'supposedly_the_encoding')
-        assert str(e.value) == 'decoding Unicode is not supported'
-        e = raises(TypeError, unicode, z, 'supposedly_the_encoding')
-        assert str(e.value) == 'decoding Unicode is not supported'
+        e = raises(TypeError, str, u'', 'supposedly_the_encoding')
+        assert str(e.value) == 'decoding str is not supported'
+        e = raises(TypeError, str, u'', errors='supposedly_the_error')
+        assert str(e.value) == 'decoding str is not supported'
+        e = raises(TypeError, str, u, 'supposedly_the_encoding')
+        assert str(e.value) == 'decoding str is not supported'
+        e = raises(TypeError, str, z, 'supposedly_the_encoding')
+        assert str(e.value) == 'decoding str is not supported'
