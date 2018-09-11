@@ -136,14 +136,14 @@ class W_UnicodeObject(W_Root):
 
     @staticmethod
     def convert_arg_to_w_unicode(space, w_other, strict=None):
-        if isinstance(w_other, W_UnicodeObject):
+        if space.is_w(space.type(w_other), space.w_unicode):
             return w_other
         if space.isinstance_w(w_other, space.w_bytes):
             return unicode_from_string(space, w_other)
         if strict:
             raise oefmt(space.w_TypeError,
                 "%s arg must be None, unicode or str", strict)
-        return unicode_from_encoded_object(space, w_other, None, "strict")
+        return unicode_from_encoded_object(space, w_other, 'utf8', "strict")
 
     def convert_to_w_unicode(self, space):
         return self
@@ -226,7 +226,7 @@ class W_UnicodeObject(W_Root):
         return space.newtext(_repr_function(self._utf8))
 
     def descr_str(self, space):
-        return encode_object(space, self, None, None)
+        return encode_object(space, self, 'utf8', 'strict')
 
     def descr_hash(self, space):
         x = compute_hash(self._utf8)
