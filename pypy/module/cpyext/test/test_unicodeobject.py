@@ -399,7 +399,7 @@ class TestUnicode(BaseApiTest):
         assert space.eq_w(encoded, encoded_obj)
         with raises_w(space, TypeError):
             PyUnicode_AsEncodedString(
-               space, space.newtuple([1, 2, 3]), None, None)
+                space, space.newtuple([1, 2, 3]), None, None)
         with raises_w(space, TypeError):
             PyUnicode_AsEncodedString(space, space.newbytes(''), None, None)
         ascii = rffi.str2charp('ascii')
