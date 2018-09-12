@@ -596,7 +596,7 @@ class TestBytes(BaseApiTest):
         encoding = rffi.str2charp("latin-1")
         w_res = PyString_AsDecodedObject(space, w_str, encoding, None)
         rffi.free_charp(encoding)
-        assert space.unwrap(w_res) == u"caf\xe9"
+        assert space.utf8_w(w_res) == u"caf\xe9".encode('utf8')
 
     def test_eq(self, space):
         assert 1 == _PyString_Eq(
