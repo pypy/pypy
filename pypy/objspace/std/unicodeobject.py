@@ -138,6 +138,8 @@ class W_UnicodeObject(W_Root):
     @staticmethod
     def convert_arg_to_w_unicode(space, w_other, strict=None):
         if space.is_w(space.type(w_other), space.w_unicode):
+            # XXX why do we need this for translation???
+            assert isinstance(w_other, W_UnicodeObject)
             return w_other
         if space.isinstance_w(w_other, space.w_bytes):
             return unicode_from_string(space, w_other)
