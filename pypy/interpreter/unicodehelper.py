@@ -1226,21 +1226,21 @@ def utf8_encode_utf_16_helper(s, errors,
 
 def utf8_encode_utf_16(s, errors,
                           errorhandler=None,
-                          allow_surrogates=True):
+                          allow_surrogates=False):
     return utf8_encode_utf_16_helper(s, errors, errorhandler,
                                         allow_surrogates, "native",
                                         'utf-16-' + BYTEORDER2)
 
 def utf8_encode_utf_16_be(s, errors,
                              errorhandler=None,
-                             allow_surrogates=True):
+                             allow_surrogates=False):
     return utf8_encode_utf_16_helper(s, errors, errorhandler,
                                         allow_surrogates, "big",
                                         'utf-16-be')
 
 def utf8_encode_utf_16_le(s, errors,
                              errorhandler=None,
-                             allow_surrogates=True):
+                             allow_surrogates=False):
     return utf8_encode_utf_16_helper(s, errors, errorhandler,
                                         allow_surrogates, "little",
                                         'utf-16-le')
