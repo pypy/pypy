@@ -628,8 +628,10 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
+    state = space.fromcache(CodecState)
     result, _,  length, byteorder = unicodehelper.str_decode_utf_32_helper(
-        string, errors, final=True, errorhandler=None, byteorder=byteorder)
+        string, errors, final=True, errorhandler=state.decode_error_handler,
+        byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT_real, byteorder)
     return space.newutf8(result, length)
