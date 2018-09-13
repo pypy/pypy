@@ -3,7 +3,7 @@ from __future__ import with_statement
 from pypy.interpreter.error import OperationError, oefmt
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -128,7 +128,7 @@ def as_long_long(space, w_ob):
     # (possibly) convert and cast a Python object to a long long.
     # This version accepts a Python int too, and does convertions from
     # other types of objects.  It refuses floats.
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    if space.isinstance_w(w_ob, space.w_int):  # shortcut
         return space.int_w(w_ob)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
@@ -145,7 +145,7 @@ def as_long_long(space, w_ob):
 
 def as_long(space, w_ob):
     # Same as as_long_long(), but returning an int instead.
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    if space.isinstance_w(w_ob, space.w_int):  # shortcut
         return space.int_w(w_ob)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
@@ -165,7 +165,7 @@ def as_unsigned_long_long(space, w_ob, strict):
     # This accepts a Python int too, and does convertions from other types of
     # objects.  If 'strict', complains with OverflowError; if 'not strict',
     # mask the result and round floats.
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    if space.isinstance_w(w_ob, space.w_int):  # shortcut
         value = space.int_w(w_ob)
         if strict and value < 0:
             raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
@@ -190,8 +190,10 @@ def as_unsigned_long_long(space, w_ob, strict):
 
 def as_unsigned_long(space, w_ob, strict):
     # same as as_unsigned_long_long(), but returning just an Unsigned
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    if space.isinstance_w(w_ob, space.w_int):  # shortcut
         value = space.int_w(w_ob)
+        if not we_are_translated():
+            value = getattr(value, 'constant', value)   # for NonConstant
         if strict and value < 0:
             raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
         return r_uint(value)
