@@ -6,18 +6,6 @@ extern "C" {
 
 #include "cpyext_datetime.h"
 
-/* # of bytes for year, month, and day. */
-#define _PyDateTime_DATE_DATASIZE 4
-
-/* # of bytes for hour, minute, second, and usecond. */
-#define _PyDateTime_TIME_DATASIZE 6
-
-/* # of bytes for year, month, day, hour, minute, second, and usecond. */
-#define _PyDateTime_DATETIME_DATASIZE 10
-
-/* "magic" constant used to partially protect against developer mistakes. */
-#define DATETIME_API_MAGIC 0x414548d5
-
 PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 
 #define PyDateTime_IMPORT (PyDateTimeAPI = _PyDateTime_Import())
