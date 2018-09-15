@@ -4,7 +4,7 @@ PyPy: Python in Python Implementation
 
 Welcome to PyPy!
 
-PyPy is an interperter that implements the Python programming language, based
+PyPy is an interpreter that implements the Python programming language, based
 on the RPython compiler framework for dynamic language implementations.
 
 The home page for the interpreter is:
