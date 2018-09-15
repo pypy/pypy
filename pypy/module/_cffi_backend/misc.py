@@ -153,18 +153,9 @@ def as_long(space, w_ob):
     # Same as as_long_long(), but returning an int instead.
     if space.isinstance_w(w_ob, space.w_int):  # shortcut
         return space.int_w(w_ob)
-    try:
-        bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError as e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        if _is_a_float(space, w_ob):
-            raise
-        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
-    try:
-        return bigint.toint()
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.newtext(ovf_msg))
+    if _is_a_float(space, w_ob):
+        space.bigint_w(w_ob, allow_conversion=False)   # raise the right error
+    return space.int_w(space.int(w_ob))
 
 def as_unsigned_long_long(space, w_ob, strict):
     # (possibly) convert and cast a Python object to an unsigned long long.
