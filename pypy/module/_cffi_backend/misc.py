@@ -3,7 +3,7 @@ from __future__ import with_statement
 from pypy.interpreter.error import OperationError, oefmt
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -102,6 +102,12 @@ def write_raw_float_data(target, source, size):
 def write_raw_longdouble_data(target, source):
     rffi.cast(rffi.LONGDOUBLEP, target)[0] = source
 
+@jit.dont_look_inside    # lets get_nonmovingbuffer_final_null be inlined
+def write_string_as_charp(target, string):
+    buf, buf_flag = rffi.get_nonmovingbuffer_final_null(string)
+    rffi.cast(rffi.CCHARPP, target)[0] = buf
+    return ord(buf_flag)    # 4, 5 or 6
+
 # ____________________________________________________________
 
 sprintf_longdouble = rffi.llexternal(
@@ -151,7 +157,7 @@ def as_long_long(space, w_ob):
 
 def as_long(space, w_ob):
     # Same as as_long_long(), but returning an int instead.
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    if space.isinstance_w(w_ob, space.w_int):  # shortcut
         return space.int_w(w_ob)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
