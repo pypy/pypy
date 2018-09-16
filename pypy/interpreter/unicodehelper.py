@@ -284,7 +284,7 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
                 pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
-def utf8_encode_ascii(s, errors, errorhandler):
+def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
     """ Don't be confused - this is a slowpath for errors e.g. "ignore"
     or an obscure errorhandler
     """

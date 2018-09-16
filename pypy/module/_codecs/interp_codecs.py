@@ -649,9 +649,13 @@ def make_encoder_wrapper(name):
         w_arg = space.convert_arg_to_w_unicode(w_arg, errors)
         if errors is None:
             errors = 'strict'
+        allow_surrogates = False
+        if errors in ('surrogatepass',):
+            allow_surrogates = True
         state = space.fromcache(CodecState)
         ulen = w_arg._length
-        result = func(w_arg._utf8, errors, state.encode_error_handler)
+        result = func(w_arg._utf8, errors, state.encode_error_handler,
+                      allow_surrogates=allow_surrogates)
         return space.newtuple([space.newbytes(result), space.newint(ulen)])
     wrap_encoder.__name__ = func.__name__
     globals()[name] = wrap_encoder
