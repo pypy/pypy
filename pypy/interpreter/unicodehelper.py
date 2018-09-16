@@ -1206,14 +1206,15 @@ def utf8_encode_utf_16_helper(s, errors,
         else:
             res_8, newindex = errorhandler(
                 errors, public_encoding_name, 'surrogates not allowed',
-                s, pos - 1, pos)
-            for cp in rutf8.Utf8StringIterator(res_8):
-                if cp < 0xD800:
+                s, pos, pos+1)
+            #for cp in rutf8.Utf8StringIterator(res_8):
+            for cp in res_8:
+                if cp < 0xD800 or allow_surrogates:
                     _STORECHAR(result, cp, byteorder)
                 else:
                     errorhandler('strict', public_encoding_name,
                                  'surrogates not allowed',
-                                 s, pos-1, pos)
+                                 s, pos, pos+1)
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
