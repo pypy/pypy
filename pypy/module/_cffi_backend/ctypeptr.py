@@ -311,9 +311,7 @@ class W_CTypePointer(W_CTypePtrBase):
             if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
                 self._must_be_string_of_zero_or_one(value)
             keepalives[i] = value
-            buf, buf_flag = rffi.get_nonmovingbuffer_final_null(value)
-            rffi.cast(rffi.CCHARPP, cdata)[0] = buf
-            return ord(buf_flag)    # 4, 5 or 6
+            return misc.write_string_as_charp(cdata, value)
         #
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
