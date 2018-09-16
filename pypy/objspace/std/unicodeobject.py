@@ -87,8 +87,7 @@ class W_UnicodeObject(W_Root):
         return space.newint(uid)
 
     def str_w(self, space):
-        # Returns ascii-encoded str
-        return space.text_w(encode_object(space, self, 'ascii', 'strict'))
+        return space.text_w(encode_object(space, self, 'utf8', 'strict'))
 
     def utf8_w(self, space):
         return self._utf8
@@ -110,7 +109,9 @@ class W_UnicodeObject(W_Root):
         raise oefmt(space.w_TypeError,
                     "cannot use unicode as modifiable buffer")
 
-    charbuf_w = str_w
+    def charbuf_w(self, space):
+        # Returns ascii-encoded str
+        return space.text_w(encode_object(space, self, 'ascii', 'strict'))
 
     def listview_utf8(self):
         assert self.is_ascii()
@@ -1106,11 +1107,11 @@ def decode_object(space, w_obj, encoding, errors):
         encoding = getdefaultencoding(space)
     if errors is None or errors == 'strict':
         if encoding == 'ascii':
-            s = space.utf8_w(w_obj)
+            s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)
             return space.newutf8(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
-            s = space.utf8_w(w_obj)
+            s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
     w_codecs = space.getbuiltinmodule("_codecs")
