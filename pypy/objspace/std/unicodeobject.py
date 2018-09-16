@@ -1170,7 +1170,7 @@ def _isidentifier(u):
     first = u[0]
     it = rutf8.Utf8StringIterator(u)
     code = it.next()
-    if not (unicodedb.isxidstart(code) or first == u'_'):
+    if not (unicodedb.isxidstart(code) or first == '_'):
         return False
 
     for ch in it:
