@@ -122,7 +122,7 @@ class W_UnicodeObject(W_Root):
 
     @staticmethod
     def convert_arg_to_w_unicode(space, w_other, strict=None):
-        if space.is_w(space.type(w_other), space.w_unicode):
+        if isinstance(w_other, W_UnicodeObject):
             return w_other
         if space.isinstance_w(w_other, space.w_bytes):
             raise oefmt(space.w_TypeError,
@@ -187,15 +187,20 @@ class W_UnicodeObject(W_Root):
     def descr_new(space, w_unicodetype, w_object=None, w_encoding=None,
                   w_errors=None):
         if w_object is None:
-            w_value = W_UnicodeObject.EMPTY
+            w_object = W_UnicodeObject.EMPTY
+        w_obj = w_object
+
+        encoding, errors, allow_surrogates = _get_encoding_and_errors(space, w_encoding,
+                                                                      w_errors)
+        if encoding is None and errors is None:
+            # this is very quick if w_obj is already a w_unicode
+            w_value = unicode_from_object(space, w_obj)
         else:
-            encoding, errors, allow_surrogates = _get_encoding_and_errors(space,
-                                                           w_encoding, w_errors)
-            if encoding is None and errors is None:
-                w_value = unicode_from_object(space, w_object)
-            else:
-                w_value = unicode_from_encoded_object(space, w_object, encoding,
-                                                      errors)
+            if space.isinstance_w(w_obj, space.w_unicode):
+                raise oefmt(space.w_TypeError,
+                            "decoding str is not supported")
+            w_value = unicode_from_encoded_object(space, w_obj,
+                                                  encoding, errors)
         if space.is_w(w_unicodetype, space.w_unicode):
             return w_value
 
@@ -1254,7 +1259,7 @@ def decode_object(space, w_obj, encoding, errors='strict'):
             return space.newutf8(s, lgt)
     from pypy.module._codecs.interp_codecs import decode_text
     w_retval = decode_text(space, w_obj, encoding, errors)
-    if not space.isinstance_w(w_retval, space.w_unicode):
+    if not isinstance(w_retval, W_UnicodeObject):
         raise oefmt(space.w_TypeError,
                     "'%s' decoder returned '%T' instead of 'str'; "
                     "use codecs.decode() to decode to arbitrary types",
@@ -1269,11 +1274,10 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
     if encoding is None:
         encoding = getdefaultencoding(space)
     w_retval = decode_object(space, w_obj, encoding, errors)
-    if not space.isinstance_w(w_retval, space.w_unicode):
+    if not isinstance(w_retval, W_UnicodeObject):
         raise oefmt(space.w_TypeError,
                     "decoder did not return a str object (type '%T')",
                     w_retval)
-    assert isinstance(w_retval, W_UnicodeObject)
     return w_retval
 
 
