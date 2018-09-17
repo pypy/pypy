@@ -245,7 +245,7 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
         s = start + ru + end
     return s
 
-def utf8_encode_latin_1(s, errors, errorhandler):
+def utf8_encode_latin_1(s, errors, errorhandler, allow_surrogates=False):
     try:
         rutf8.check_ascii(s)
         return s
@@ -311,7 +311,7 @@ def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
     return result.build()
 
 if _WIN32:
-    def utf8_encode_mbcs(s, errors, errorhandler):
+    def utf8_encode_mbcs(s, errors, errorhandler, allow_surrogates=False):
         res = rutf8.utf8_encode_mbcs(s, errors, errorhandler,
                                      force_replace=False)
         return res
@@ -321,7 +321,7 @@ if _WIN32:
         res, size = runicode.str_decode_mbcs(s, slen, errors, final=final,
                            errorhandler=errorhandler, force_ignore=force_ignore)
         res_utf8 = runicode.unicode_encode_utf_8(res, len(res), 'strict')
-        return res_utf8, len(res)
+        return res_utf8, len(res), len(res)
 
 def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
     """ Same as checking for the valid utf8, but we know the utf8 is not
@@ -686,7 +686,7 @@ def raw_unicode_escape_helper(result, char):
     for i in range(zeros-1, -1, -1):
         result.append(TABLE[(char >> (4 * i)) & 0x0f])
 
-def utf8_encode_raw_unicode_escape(s, errors, errorhandler):
+def utf8_encode_raw_unicode_escape(s, errors, errorhandler, allow_surrogates=False):
     # errorhandler is not used: this function cannot cause Unicode errors
     size = len(s)
     if size == 0:
@@ -705,7 +705,7 @@ def utf8_encode_raw_unicode_escape(s, errors, errorhandler):
     return result.build()
 
 
-def utf8_encode_unicode_escape(s, errors, errorhandler):
+def utf8_encode_unicode_escape(s, errors, errorhandler, allow_surrogates=False):
     return _utf8_encode_unicode_escape(s)
 
 # ____________________________________________________________
@@ -938,7 +938,7 @@ def str_decode_utf_7(s, errors, final=False,
     assert final_length >= 0
     return result.build()[:final_length], outsize, size
 
-def utf8_encode_utf_7(s, errors, errorhandler):
+def utf8_encode_utf_7(s, errors, errorhandler, allow_surrogates=False):
     size = len(s)
     if size == 0:
         return ''
@@ -1002,7 +1002,7 @@ def encode_utf8(space, uni, allow_surrogates=False):
         errorhandler=encode_unicode_error_handler(space),
         allow_surrogates=allow_surrogates)
 
-def encode_utf8sp(space, uni):
+def encode_utf8sp(space, uni, allow_surrogates=True):
     # Surrogate-preserving utf-8 encoding.  Any surrogate character
     # turns into its 3-bytes encoding, whether it is paired or not.
     # This should always be reversible, and the reverse is
@@ -1202,7 +1202,8 @@ def utf8_encode_utf_16_helper(s, errors,
                 errors, public_encoding_name, 'surrogates not allowed',
                 s, pos, pos+1)
             #for cp in rutf8.Utf8StringIterator(res_8):
-            for cp in res_8:
+            for ch in res_8:
+                cp = ord(ch)
                 if cp < 0xD800 or allow_surrogates:
                     _STORECHAR(result, cp, byteorder)
                 else:
@@ -1566,7 +1567,7 @@ def str_decode_unicode_internal(s, errors, final=False,
     lgt = rutf8.check_utf8(r, True)
     return r, lgt
 
-def utf8_encode_unicode_internal(s, errors, errorhandler):
+def utf8_encode_unicode_internal(s, errors, errorhandler, allow_surrogates=False):
     size = len(s)
     if size == 0:
         return ''
@@ -1625,7 +1626,7 @@ def str_decode_charmap(s, errors, final=False,
     lgt = rutf8.codepoints_in_utf8(r)
     return r, lgt, pos
 
-def utf8_encode_charmap(s, errors, errorhandler=None, mapping=None):
+def utf8_encode_charmap(s, errors, errorhandler=None, mapping=None, allow_surrogates=False):
     if mapping is None:
         return utf8_encode_latin_1(s, errors, errorhandler=errorhandler)
     size = len(s)
@@ -1667,7 +1668,7 @@ def utf8_encode_charmap(s, errors, errorhandler=None, mapping=None):
 
 # ____________________________________________________________
 # Decimal Encoder
-def unicode_encode_decimal(s, errors, errorhandler=None):
+def unicode_encode_decimal(s, errors, errorhandler=None, allow_surrogates=False):
     """Converts whitespace to ' ', decimal characters to their
     corresponding ASCII digit and all other Latin-1 characters except
     \0 as-is. Characters outside this range (Unicode ordinals 1-256)
