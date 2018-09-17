@@ -56,7 +56,7 @@ class FileEncoder(object):
         return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
-        return self.space.unicode0_w(self.w_obj)
+        return self.space.utf8_w(self.w_obj).decode('utf8')
 
 class FileDecoder(object):
     is_unicode = False

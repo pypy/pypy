@@ -77,16 +77,15 @@ def default_error_encode(
 def fsdecode(space, w_string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
+    errorhandler=state.decode_error_handler,
     if _WIN32:
         bytes = space.bytes_w(w_string)
-        uni = str_decode_mbcs(bytes, 'strict',
-                              errorhandler=decode_error_handler(space),
+        uni = str_decode_mbcs(bytes, 'strict', True, errorhandler,
                               force_ignore=False)[0]
     elif _MACOSX:
         bytes = space.bytes_w(w_string)
         uni = str_decode_utf8(
             bytes, 'surrogateescape', final=True,
-            errorhandler=state.decode_error_handler,
             allow_surrogates=False)[0]
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
@@ -109,15 +108,14 @@ def fsencode(space, w_uni):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     if _WIN32:
-        uni = space.utf8_w(w_uni)
-        bytes = unicode_encode_mbcs(uni, len(uni), 'strict',
-                                    errorhandler=encode_error_handler(space),
-                                    force_replace=False)
+        errorhandler=state.encode_error_handler,
+        utf8 = space.utf8_w(w_uni)
+        bytes = utf8_encode_mbcs(utf8, 'strict', errorhandler)
     elif _MACOSX:
-        uni = space.utf8_w(w_uni)
+        utf8 = space.utf8_w(w_uni)
+        errorhandler=state.encode_error_handler,
         bytes = unicodehelper.utf8_encode_utf_8(
-            uni, 'surrogateescape',
-            errorhandler=state.encode_error_handler,
+            utf8, 'surrogateescape',
             allow_surrogates=False)
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
@@ -314,16 +312,12 @@ def utf8_encode_ascii(s, errors, errorhandler):
 
 if _WIN32:
     def utf8_encode_mbcs(s, errors, errorhandler):
-        s = s.decode('utf-8')
-        if errorhandler is None:
-            errorhandler = encode_error_handler(space)
-        res = unicode_encode_mbcs(s, slen, errors, errorhandler)
+        res = rutf8.utf8_encode_mbcs(s, errors, errorhandler,
+                                     force_replace=False)
         return res
         
     def str_decode_mbcs(s, errors, final, errorhandler, force_ignore=True):
         slen = len(s)
-        if errorhandler is None:
-            errorhandler = decode_error_handler(space) 
         res, size = runicode.str_decode_mbcs(s, slen, errors, final=final,
                            errorhandler=errorhandler, force_ignore=force_ignore)
         res_utf8 = runicode.unicode_encode_utf_8(res, len(res), 'strict')

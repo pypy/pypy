@@ -6,3 +6,7 @@
 * make sure we review all the places that call ord(unichr) to check for ValueErrors
 * rewrite unicodeobject.unicode_to_decimal_w to only use utf8 encoded bytes
 * revisit why runicode import str_decode_utf_8_impl needed instead of runicode import str_decode_utf_8
+* revisit all places where we do utf8.decode('utf-8'), they should work directly with utf8
+  - rutf8.utf8_encode_mbcs
+  - unicodehelper.fsencode
+  - interp_posix.FileEncoder.as_unicode (used in win32)
