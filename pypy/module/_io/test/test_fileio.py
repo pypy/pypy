@@ -279,31 +279,34 @@ class AppTestFileIO:
         raises(FileExistsError, _io.FileIO, filename, 'x')
 
     def test_non_inheritable(self):
-        import _io, posix
+        import _io
+        os = self.posix
         f = _io.FileIO(self.tmpfile, 'r')
-        assert posix.get_inheritable(f.fileno()) == False
+        assert os.get_inheritable(f.fileno()) == False
         f.close()
 
     def test_FileIO_fd_does_not_change_inheritable(self):
-        import _io, posix
-        fd1, fd2 = posix.pipe()
-        posix.set_inheritable(fd1, True)
-        posix.set_inheritable(fd2, False)
+        import _io
+        os = self.posix
+        fd1, fd2 = os.pipe()
+        os.set_inheritable(fd1, True)
+        os.set_inheritable(fd2, False)
         f1 = _io.FileIO(fd1, 'r')
         f2 = _io.FileIO(fd2, 'w')
-        assert posix.get_inheritable(fd1) == True
-        assert posix.get_inheritable(fd2) == False
+        assert os.get_inheritable(fd1) == True
+        assert os.get_inheritable(fd2) == False
         f1.close()
         f2.close()
 
     def test_close_upon_reinit(self):
-        import _io, posix
+        import _io
+        os = self.posix
         f = _io.FileIO(self.tmpfile, 'r')
         fd1 = f.fileno()
         f.__init__(self.tmpfile, 'w')
         fd2 = f.fileno()
         if fd1 != fd2:
-            raises(OSError, posix.close, fd1)
+            raises(OSError, os.close, fd1)
 
     def test_opener_negative(self):
         import _io
