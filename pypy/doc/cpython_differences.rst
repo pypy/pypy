@@ -330,7 +330,8 @@ Miscellaneous
 -------------
 
 * Hash randomization (``-R``) `is ignored in PyPy`_.  In CPython
-  before 3.4 it has `little point`_.
+  before 3.4 it has `little point`_.  Both CPython >= 3.4 and PyPy3
+  implement the randomized SipHash algorithm and ignore ``-R``.
 
 * You can't store non-string keys in type objects.  For example::
 

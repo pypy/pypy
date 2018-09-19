@@ -73,6 +73,9 @@ class W_Reader(W_Root):
                             break
                 raise
             self.line_num += 1
+            if space.isinstance_w(w_line, space.w_bytes):
+                raise self.error(u"iterator should return strings, not bytes "
+                                 u"(did you open the file in text mode?")
             line = space.unicode_w(w_line)
             for c in line:
                 if c == u'\0':
