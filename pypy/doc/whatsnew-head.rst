@@ -36,3 +36,6 @@ https://bitbucket.org/pypy/revdb
 .. branch: pyparser-improvements-3
 
 Small refactorings in the Python parser.
+
+.. branch: fix-readme-typo
+
