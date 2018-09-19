@@ -136,7 +136,7 @@ min_jitdriver = jit.JitDriver(name='min',
 max_jitdriver = jit.JitDriver(name='max',
         greens=['has_key', 'has_item', 'w_type'], reds='auto')
 
-@specialize.arg(2)
+@specialize.arg(3)
 def min_max_sequence(space, w_sequence, w_key, implementation_of):
     if implementation_of == "max":
         compare = space.gt
@@ -172,7 +172,7 @@ def min_max_sequence(space, w_sequence, w_key, implementation_of):
         raise oefmt(space.w_ValueError, "arg is an empty sequence")
     return w_max_item
 
-@specialize.arg(2)
+@specialize.arg(3)
 @jit.look_inside_iff(lambda space, args_w, w_key, implementation_of:
         jit.loop_unrolling_heuristic(args_w, len(args_w), 3))
 def min_max_multiple_args(space, args_w, w_key, implementation_of):
