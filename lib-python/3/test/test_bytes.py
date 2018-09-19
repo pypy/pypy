@@ -17,7 +17,7 @@ import unittest
 import test.support
 import test.string_tests
 import test.list_tests
-from test.support import bigaddrspacetest, MAX_Py_ssize_t
+from test.support import bigaddrspacetest, MAX_Py_ssize_t, cpython_only
 
 
 if sys.flags.bytes_warning:
@@ -780,6 +780,7 @@ class BytesTest(BaseBytesTest, unittest.TestCase):
         self.assertIs(type(BytesSubclass(A())), BytesSubclass)
 
     # Test PyBytes_FromFormat()
+    @cpython_only
     def test_from_format(self):
         ctypes = test.support.import_module('ctypes')
         _testcapi = test.support.import_module('_testcapi')
