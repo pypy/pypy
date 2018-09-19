@@ -848,10 +848,15 @@ class PyWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
 
         with open(support.TESTFN, 'w') as fp:
             fp.write(textwrap.dedent("""
+                import gc
+                
                 def func():
                     f = open(__file__)
+                    # Fully initialise GC for clearer error
+                    gc.collect()
                     # Emit ResourceWarning
                     f = None
+                    gc.collect()
 
                 func()
             """))
@@ -863,12 +868,12 @@ class PyWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
         stderr = '\n'.join(stderr.splitlines())
         stderr = re.sub('<.*>', '<...>', stderr)
         expected = textwrap.dedent('''
-            {fname}:5: ResourceWarning: unclosed file <...>
+            {fname}:9: ResourceWarning: unclosed file <...>
               f = None
             Object allocated at (most recent call first):
-              File "{fname}", lineno 3
+              File "{fname}", lineno 5
                 f = open(__file__)
-              File "{fname}", lineno 7
+              File "{fname}", lineno 12
                 func()
         ''')
         expected = expected.format(fname=support.TESTFN).strip()
