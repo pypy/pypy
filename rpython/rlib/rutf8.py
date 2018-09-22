@@ -759,6 +759,8 @@ class Utf8StringIterator(object):
         if ordch1 <= 0x7F:
             self._pos = pos + 1
             return ordch1
+        if pos + 1 >= len(code):
+            return ordch1
 
         ordch2 = ord(code[pos+1])
         if ordch1 <= 0xDF:
