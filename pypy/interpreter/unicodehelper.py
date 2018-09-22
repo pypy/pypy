@@ -1401,7 +1401,7 @@ def utf8_encode_utf_32_helper(s, errors,
             if errorhandler:
                 res_8, newindex = errorhandler(
                     errors, public_encoding_name, 'malformed unicode',
-                    s, pos - 1, pos)
+                    s, index, index+1)
                 if res_8:
                     for cp in rutf8.Utf8StringIterator(res_8):
                         if cp < 0xD800:
@@ -1409,7 +1409,7 @@ def utf8_encode_utf_32_helper(s, errors,
                         else:
                             errorhandler('strict', public_encoding_name,
                                      'malformed unicode',
-                                 s, pos-1, pos)
+                                 s, index, index+1)
                 else:
                     _STORECHAR32(result, ch, byteorder)
             else:
@@ -1419,14 +1419,14 @@ def utf8_encode_utf_32_helper(s, errors,
         if not allow_surrogates and 0xD800 <= ch < 0xE000:
             res_8, newindex = errorhandler(
                 errors, public_encoding_name, 'surrogates not allowed',
-                s, pos - 1, pos)
+                s, index, index+1)
             for ch in rutf8.Utf8StringIterator(res_8):
                 if ch < 0xD800:
                     _STORECHAR32(result, ch, byteorder)
                 else:
                     errorhandler(
                         'strict', public_encoding_name, 'surrogates not allowed',
-                        s, pos - 1, pos)
+                        s, index, index+1)
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
