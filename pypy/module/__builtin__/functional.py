@@ -108,101 +108,99 @@ min_jitdriver = jit.JitDriver(name='min',
 max_jitdriver = jit.JitDriver(name='max',
         greens=['has_key', 'has_item', 'w_type'], reds='auto')
 
-def make_min_max(unroll):
-    @specialize.arg(2)
-    def min_max_impl(space, args, implementation_of):
-        if implementation_of == "max":
-            compare = space.gt
-            jitdriver = max_jitdriver
+@specialize.arg(4)
+def min_max_sequence(space, w_sequence, w_key, w_default, implementation_of):
+    if implementation_of == "max":
+        compare = space.gt
+        jitdriver = max_jitdriver
+    else:
+        compare = space.lt
+        jitdriver = min_jitdriver
+    w_iter = space.iter(w_sequence)
+    w_type = space.type(w_iter)
+    has_key = w_key is not None
+    has_item = False
+    w_max_item = w_default
+    w_max_val = None
+    while True:
+        jitdriver.jit_merge_point(has_key=has_key, has_item=has_item,
+                                  w_type=w_type)
+        try:
+            w_item = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        if has_key:
+            w_compare_with = space.call_function(w_key, w_item)
         else:
-            compare = space.lt
-            jitdriver = min_jitdriver
-        any_kwds = bool(args.keywords)
-        args_w = args.arguments_w
-        if len(args_w) > 1:
-            if unroll and len(args_w) == 2 and not any_kwds:
-                # a fast path for the common case, useful for interpreted
-                # mode and to reduce the length of the jit trace
-                w0, w1 = args_w
-                if space.is_true(compare(w1, w0)):
-                    return w1
-                else:
-                    return w0
-            w_sequence = space.newtuple(args_w)
-        elif len(args_w):
-            w_sequence = args_w[0]
+            w_compare_with = w_item
+        if (not has_item or
+                space.is_true(compare(w_compare_with, w_max_val))):
+            has_item = True
+            w_max_item = w_item
+            w_max_val = w_compare_with
+    if w_max_item is None:
+        raise oefmt(space.w_ValueError, "arg is an empty sequence")
+    return w_max_item
+
+@specialize.arg(3)
+@jit.look_inside_iff(lambda space, args_w, w_key, implementation_of:
+        jit.loop_unrolling_heuristic(args_w, len(args_w), 3))
+def min_max_multiple_args(space, args_w, w_key, implementation_of):
+    # case of multiple arguments (at least two).  We unroll it if there
+    # are 2 or 3 arguments.
+    if implementation_of == "max":
+        compare = space.gt
+    else:
+        compare = space.lt
+    w_max_item = args_w[0]
+    if w_key is not None:
+        w_max_val = space.call_function(w_key, w_max_item)
+    else:
+        w_max_val = w_max_item
+    for i in range(1, len(args_w)):
+        w_item = args_w[i]
+        if w_key is not None:
+            w_compare_with = space.call_function(w_key, w_item)
         else:
-            raise oefmt(space.w_TypeError,
-                        "%s() expects at least one argument",
-                        implementation_of)
-        w_key = None
-        w_default = None
-        if any_kwds:
-            kwds = args.keywords
-            for n in range(len(kwds)):
-                if kwds[n] == "key":
-                    w_key = args.keywords_w[n]
-                elif kwds[n] == "default":
-                    w_default = args.keywords_w[n]
-                else:
-                    raise oefmt(space.w_TypeError,
-                                "%s() got unexpected keyword argument",
-                                implementation_of)
+            w_compare_with = w_item
+        if space.is_true(compare(w_compare_with, w_max_val)):
+            w_max_item = w_item
+            w_max_val = w_compare_with
+    return w_max_item
 
-        if w_default is not None and len(args_w) > 1:
-            raise oefmt(space.w_TypeError,
-                "Cannot specify a default for %s() with multiple positional arguments",
-                implementation_of)
-
-        w_iter = space.iter(w_sequence)
-        w_type = space.type(w_iter)
-        has_key = w_key is not None
-        has_item = False
-        w_max_item = None
-        w_max_val = None
-        while True:
-            if not unroll:
-                jitdriver.jit_merge_point(has_key=has_key, has_item=has_item, w_type=w_type)
-            try:
-                w_item = space.next(w_iter)
-            except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break
-            if has_key:
-                w_compare_with = space.call_function(w_key, w_item)
-            else:
-                w_compare_with = w_item
-            if not has_item or \
-                    space.is_true(compare(w_compare_with, w_max_val)):
-                has_item = True
-                w_max_item = w_item
-                w_max_val = w_compare_with
-        if w_max_item is None:
-            if w_default is not None:
-                w_max_item = w_default
-            else:
-                raise oefmt(space.w_ValueError, "arg is an empty sequence")
-        return w_max_item
-    if unroll:
-        min_max_impl = jit.unroll_safe(min_max_impl)
-    return min_max_impl
-
-min_max_unroll = make_min_max(True)
-min_max_normal = make_min_max(False)
-
+@jit.unroll_safe     # the loop over kwds
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
-    # the 'normal' version includes a JIT merge point, which will make a
-    # new loop (from the interpreter or from another JIT loop).  If we
-    # give exactly two arguments to the call to max(), or a JIT virtual
-    # list of arguments, then we pick the 'unroll' version with no JIT
-    # merge point.
-    if jit.isvirtual(args.arguments_w) or len(args.arguments_w) == 2:
-        return min_max_unroll(space, args, implementation_of)
+    w_key = None
+    w_default = None
+    if bool(args.keywords):
+        kwds = args.keywords
+        for n in range(len(kwds)):
+            if kwds[n] == "key":
+                w_key = args.keywords_w[n]
+            elif kwds[n] == "default":
+                w_default = args.keywords_w[n]
+            else:
+                raise oefmt(space.w_TypeError,
+                            "%s() got unexpected keyword argument",
+                            implementation_of)
+    #
+    args_w = args.arguments_w
+    if len(args_w) > 1:
+        if w_default is not None:
+            raise oefmt(space.w_TypeError,
+                "Cannot specify a default for %s() with multiple "
+                "positional arguments", implementation_of)
+        return min_max_multiple_args(space, args_w, w_key, implementation_of)
+    elif len(args_w):
+        return min_max_sequence(space, args_w[0], w_key, w_default,
+                                implementation_of)
     else:
-        return min_max_normal(space, args, implementation_of)
-min_max._always_inline = True
+        raise oefmt(space.w_TypeError,
+                    "%s() expects at least one argument",
+                    implementation_of)
 
 def max(space, __args__):
     """max(iterable[, key=func]) -> value

@@ -36,7 +36,10 @@ https://bitbucket.org/pypy/revdb
 
 Small refactorings in the Python parser.
 
+.. branch: fix-readme-typo
+
 .. branch: unicode-utf8-re
+
 .. branch: utf8-io
 
 Utf8 handling for unicode
