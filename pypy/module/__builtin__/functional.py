@@ -170,6 +170,7 @@ def min_max_multiple_args(space, args_w, w_key, implementation_of):
             w_max_val = w_compare_with
     return w_max_item
 
+@jit.unroll_safe     # the loop over kwds
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
     w_key = None
