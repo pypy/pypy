@@ -160,15 +160,17 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
 
         proto = CFUNCTYPE(c_int, RECT)
         def callback(point):
+            point.left *= -1
             return point.left+point.top+point.right+point.bottom
 
         cbp = proto(callback)
 
-        rect = RECT(1000,100,10,1)
+        rect = RECT(-1000,100,10,1)
 
         res = cbp(rect)
 
         assert res == 1111
+        assert rect.left == -1000   # must not have been changed!
 
     def test_callback_from_c_with_struct_argument(self):
         import conftest

@@ -1387,6 +1387,7 @@ class BackendTests:
         ffi = FFI(backend=self.Backend())
         ffi.cdef("enum foo;")
         with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always")
             n = ffi.cast("enum foo", -1)
             assert int(n) == 0xffffffff
         assert str(log[0].message) == (
