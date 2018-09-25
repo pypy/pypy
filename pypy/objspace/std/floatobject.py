@@ -228,13 +228,7 @@ class W_FloatObject(W_Root):
                     "in a future version of Python." %
                     (space.type(w_value).name, w_obj_type.name)),
                     space.w_DeprecationWarning)
-            if space.is_w(w_floattype, space.w_float):
-                if not space.is_w(w_obj_type, space.w_float):
-                    if isinstance(w_obj, W_FloatObject):
-                        # Convert to a non-subclass float
-                        value = w_obj.floatval
-                        w_obj = space.allocate_instance(W_FloatObject, w_floattype)
-                        W_FloatObject.__init__(w_obj, value)
+            elif space.is_w(w_floattype, space.w_float):
                 return w_obj
             value = space.float_w(w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
