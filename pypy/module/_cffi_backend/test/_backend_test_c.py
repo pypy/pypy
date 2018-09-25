@@ -334,8 +334,18 @@ def test_newp_integer_types():
         max = (1 << (8*size-1)) - 1
         assert newp(pp, min)[0] == min
         assert newp(pp, max)[0] == max
+        py.test.raises(OverflowError, newp, pp, min - 2 ** 32)
+        py.test.raises(OverflowError, newp, pp, min - 2 ** 64)
+        py.test.raises(OverflowError, newp, pp, max + 2 ** 32)
+        py.test.raises(OverflowError, newp, pp, max + 2 ** 64)
         py.test.raises(OverflowError, newp, pp, min - 1)
         py.test.raises(OverflowError, newp, pp, max + 1)
+        py.test.raises(OverflowError, newp, pp, min - 1 - 2 ** 32)
+        py.test.raises(OverflowError, newp, pp, min - 1 - 2 ** 64)
+        py.test.raises(OverflowError, newp, pp, max + 1)
+        py.test.raises(OverflowError, newp, pp, max + 1 + 2 ** 32)
+        py.test.raises(OverflowError, newp, pp, max + 1 + 2 ** 64)
+        py.test.raises(TypeError, newp, pp, 1.0)
     for name in ['char', 'short', 'int', 'long', 'long long']:
         p = new_primitive_type('unsigned ' + name)
         pp = new_pointer_type(p)
@@ -3947,6 +3957,7 @@ def test_char_pointer_conversion():
     z3 = cast(BVoidP, 0)
     z4 = cast(BUCharP, 0)
     with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
         newp(new_pointer_type(BIntP), z1)    # warn
         assert len(w) == 1
         newp(new_pointer_type(BVoidP), z1)   # fine

@@ -654,6 +654,10 @@ class AppTestMinMax:
         raises(TypeError, max, 1, default=0)
         raises(TypeError, max, default=1)
 
+    def test_max_list_and_key(self):
+        assert max(["100", "50", "30", "-200"], key=int) == "100"
+        assert max("100", "50", "30", "-200", key=int) == "100"
+
 
 try:
     from hypothesis import given, strategies, example

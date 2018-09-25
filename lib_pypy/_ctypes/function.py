@@ -486,6 +486,8 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
         return cobj, cobj._to_ffi_param(), type(cobj)
 
     def _convert_args_for_callback(self, argtypes, args):
+        from _ctypes.structure import StructOrUnion
+        #
         assert len(argtypes) == len(args)
         newargs = []
         for argtype, arg in zip(argtypes, args):
@@ -495,6 +497,10 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                 param = param._get_buffer_value()
             elif self._is_primitive(argtype):
                 param = param.value
+            elif isinstance(param, StructOrUnion):   # not a *pointer* to struct
+                newparam = StructOrUnion.__new__(type(param))
+                param._copy_to(newparam._buffer.buffer)
+                param = newparam
             newargs.append(param)
         return newargs
 

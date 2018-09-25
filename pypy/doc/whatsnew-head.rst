@@ -37,6 +37,8 @@ https://bitbucket.org/pypy/revdb
 
 Small refactorings in the Python parser.
 
+.. branch: fix-readme-typo
+
 .. branch: py3.6-wordcode
 
 implement new wordcode instruction encoding on the 3.6 branch
