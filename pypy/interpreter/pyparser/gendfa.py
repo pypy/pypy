@@ -113,7 +113,7 @@ def makePyPseudoDFA ():
                            chain(states,
                                  makeDigitsChain(),
                                  newArcPair(states, "."),
-                                 any(states, makeDigits())),
+                                 any(states, makeDigitsChain())),
                            chain(states,
                                  newArcPair(states, "."),
                                  makeDigitsChain()))

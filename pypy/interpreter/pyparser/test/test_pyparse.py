@@ -252,6 +252,13 @@ if 1:
             '.1_4j',
             '(1_2.5+3_3j)',
             '(.5_6j)',
+            '.2_3',
+            '.2_3e4',
+            '1.2_3',
+            '1.2_3_4',
+            '12.000_400',
+            '1_2.3_4',
+            '1_2.3_4e5_6',
         ]
         INVALID_UNDERSCORE_LITERALS = [
             # Trailing underscores:
@@ -305,6 +312,13 @@ if 1:
             # Complex cases with parens:
             '(1+1.5_j_)',
             '(1+1.5_j)',
+            # Extra underscores around decimal part
+            '._3',
+            '._3e4',
+            '1.2_',
+            '1._3_4',
+            '12._',
+            '1_2._3',
         ]
         for x in VALID_UNDERSCORE_LITERALS:
             tree = self.parse(x)
