@@ -613,10 +613,6 @@ SYMBOLS_C = [
     'PyObject_GetBuffer', 'PyBuffer_Release',
     '_Py_setfilesystemdefaultencoding',
 
-    'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
-    'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
-    'PyCObject_Type', '_Py_get_cobject_type',
-
     'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
@@ -1121,9 +1117,6 @@ def setup_init_functions(eci, prefix):
     # of the cpyext module.  The C functions are called with no wrapper,
     # but must not do anything like calling back PyType_Ready().  We
     # use them just to get a pointer to the PyTypeObjects defined in C.
-    get_cobject_type = rffi.llexternal('_%s_get_cobject_type' % prefix,
-                                       [], PyTypeObjectPtr,
-                                       compilation_info=eci, _nowrapper=True)
     get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
                                        [], PyTypeObjectPtr,
                                        compilation_info=eci, _nowrapper=True)
@@ -1134,7 +1127,6 @@ def setup_init_functions(eci, prefix):
     def init_types(space):
         from pypy.module.cpyext.typeobject import py_type_ready
         from pypy.module.sys.interp_encoding import getfilesystemencoding
-        py_type_ready(space, get_cobject_type())
         py_type_ready(space, get_capsule_type())
         s = space.text_w(getfilesystemencoding(space))
         setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
@@ -1495,7 +1487,6 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythonrun.c",
                          source_dir / "sysmodule.c",
                          source_dir / "complexobject.c",
-                         source_dir / "cobject.c",
                          source_dir / "structseq.c",
                          source_dir / "capsule.c",
                          source_dir / "pysignals.c",
