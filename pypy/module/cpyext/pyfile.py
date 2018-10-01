@@ -41,19 +41,6 @@ def PyFile_FromString(space, filename, mode):
     w_mode = space.newtext(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'open', w_filename, w_mode)
 
-@cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
-def PyFile_FromFile(space, fp, name, mode, close):
-    """Create a new PyFileObject from the already-open standard C file
-    pointer, fp.  The function close will be called when the file should be
-    closed.  Return NULL on failure."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], lltype.Void)
-def PyFile_SetBufSize(space, w_file, n):
-    """Available on systems with setvbuf() only.  This should only be called
-    immediately after file object creation."""
-    raise NotImplementedError
-
 @cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyFile_WriteString(space, s, w_p):
     """Write string s to file object p.  Return 0 on success or -1 on
@@ -75,9 +62,3 @@ def PyFile_WriteObject(space, w_obj, w_p, flags):
         w_str = space.repr(w_obj)
     space.call_method(w_p, "write", w_str)
     return 0
-
-@cpython_api([PyObject], PyObject)
-def PyFile_Name(space, w_p):
-    """Return the name of the file specified by p as a string object."""
-    w_name = space.getattr(w_p, space.newtext("name"))
-    return w_name     # borrowed ref, should be a W_StringObject from the file
