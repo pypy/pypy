@@ -668,7 +668,7 @@ register_global('_Py_NoneStruct',
     'PyObject*', 'space.w_None', header=pypy_decl)
 register_global('_Py_TrueStruct',
     'PyObject*', 'space.w_True', header=pypy_decl)
-register_global('_Py_ZeroStruct',
+register_global('_Py_FalseStruct',
     'PyObject*', 'space.w_False', header=pypy_decl)
 register_global('_Py_NotImplementedStruct',
     'PyObject*', 'space.w_NotImplemented', header=pypy_decl)
