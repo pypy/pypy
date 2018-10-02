@@ -79,13 +79,6 @@ class W_CData(W_Root):
             w_result = self.ctype.cast_to_int(ptr)
         return w_result
 
-    def long(self, space):
-        w_result = self.int(space)
-        space = self.space
-        if space.is_w(space.type(w_result), space.w_int):
-            w_result = space.newlong(space.int_w(w_result))
-        return w_result
-
     def float(self):
         with self as ptr:
             w_result = self.ctype.float(ptr)
@@ -664,7 +657,6 @@ W_CData.typedef = TypeDef(
     __repr__ = interp2app(W_CData.repr),
     __bool__ = interp2app(W_CData.bool),
     __int__ = interp2app(W_CData.int),
-    __long__ = interp2app(W_CData.long),
     __float__ = interp2app(W_CData.float),
     __complex__ = interp2app(W_CData.complex),
     __len__ = interp2app(W_CData.len),
