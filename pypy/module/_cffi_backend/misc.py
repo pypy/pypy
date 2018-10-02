@@ -6,6 +6,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -202,6 +203,9 @@ def as_unsigned_long(space, w_ob, strict):
     else:
         if strict and value < 0:
             raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
+        if not we_are_translated():
+            if isinstance(value, NonConstant):   # hack for test_ztranslation
+                return r_uint(0)
         return r_uint(value)
     # note that if not 'strict', then space.int() will round down floats
     bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
