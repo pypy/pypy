@@ -1233,18 +1233,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
-def PyMapping_DelItemString(space, o, key):
-    """Remove the mapping for object key from the object o. Return -1 on
-    failure.  This is equivalent to the Python statement del o[key]."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyMapping_DelItem(space, o, key):
-    """Remove the mapping for object key from the object o. Return -1 on
-    failure.  This is equivalent to the Python statement del o[key]."""
-    raise NotImplementedError
-
 @cpython_api([lltype.Signed, FILE, rffi.INT_real], lltype.Void)
 def PyMarshal_WriteLongToFile(space, value, file, version):
     """Marshal a long integer, value, to file.  This will only write

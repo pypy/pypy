@@ -603,10 +603,11 @@ SYMBOLS_C = [
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
-    'PyObject_GetBuffer', 'PyBuffer_Release',
-    'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
-    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
-    '_Py_setfilesystemdefaultencoding',
+    'PyObject_DelItemString', 'PyObject_GetBuffer', 'PyBuffer_Release',
+
+    'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory',
+    'PyBuffer_FromObject', 'PyBuffer_FromReadWriteObject', 'PyBuffer_New',
+    'PyBuffer_Type', '_Py_get_buffer_type', '_Py_setfilesystemdefaultencoding',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
@@ -1299,7 +1300,7 @@ def build_bridge(space):
     # if do tuple_attach of the prebuilt empty tuple, we need to call
     # _PyPy_Malloc)
     builder.attach_all(space)
-    
+
     setup_init_functions(eci, prefix)
     return modulename.new(ext='')
 
