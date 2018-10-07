@@ -1,4 +1,5 @@
 import py
+import shutil
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app
 from pypy.module._cffi_backend.newtype import _clean_cache
@@ -40,6 +41,9 @@ class AppTestRecompilerPython:
                             'globalconst42', 'globalconsthello'])
         outputfilename = ffiplatform.compile(str(tmpdir), ext)
         cls.w_extmod = space.wrap(outputfilename)
+        outputfileUname = unicode(udir.join(u'load\u03betest.dll'))
+        shutil.copyfile(outputfilename, outputfileUname)
+        cls.w_extmodU = space.wrap(outputfileUname)
         #mod.tmpdir = tmpdir
         #
         ffi = FFI()
@@ -107,6 +111,13 @@ class AppTestRecompilerPython:
         lib = ffi.dlopen(self.extmod)
         assert lib.add42(-10) == 32
         assert type(lib.add42) is _cffi_backend.FFI.CData
+
+    def test_dlopen_unicode(self):
+        import _cffi_backend
+        self.fix_path()
+        from re_python_pysrc import ffi
+        lib = ffi.dlopen(self.extmodU)
+        assert lib.add42(-10) == 32
 
     def test_dlclose(self):
         import _cffi_backend
