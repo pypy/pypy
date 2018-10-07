@@ -92,8 +92,11 @@ assert CONST_WSTRING == rffi.CWCHARP
 
 if sys.platform == 'win32':
     dash = '_'
+    WIN32 = True
 else:
     dash = ''
+    WIN32 = False
+
 
 def fclose(fp):
     try:
@@ -1656,7 +1659,11 @@ def load_extension_module(space, path, name):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
+            if WIN32:
+                # Allow other DLLs in the same directory with "path"
+                dll = rdynload.dlopenex(ll_libname)
+            else:
+                dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
