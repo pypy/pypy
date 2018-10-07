@@ -23,23 +23,26 @@ class W_DlOpenLibObject(W_LibObject):
 
     def __init__(self, ffi, w_filename, flags):
         space = ffi.space
-        _scoped = rffi.scoped_str2charp
-        _dlopen = dlopen
         if WIN32 and space.isinstance_w(w_filename, space.w_unicode):
-            _scoped = rffi.scoped_unicode2wcharp
-            _dlopen = dlopenU
             fname = space.unicode_w(w_filename)
-        elif space.is_none(w_filename):
-            fname = None
+            with rffi.scoped_unicode2wcharp(fname) as ll_libname:
+                fname = fname.encode('utf-8')
+                try:
+                    handle = dlopenU(ll_libname, flags)
+                except DLOpenError as e:
+                    raise wrap_dlopenerror(space, e, fname)
         else:
-            fname = space.text_w(w_filename)
-        with _scoped(fname) as ll_libname:
-            if fname is None:
-                fname = "<None>"
-            try:
-                handle = _dlopen(ll_libname, flags)
-            except DLOpenError as e:
-                raise wrap_dlopenerror(space, e, fname)
+            if space.is_none(w_filename):
+                fname = None
+            else:
+                fname = space.text_w(w_filename)
+            with rffi.scoped_str2charp(fname) as ll_libname:
+                if fname is None:
+                    fname = "<None>"
+                try:
+                    handle = dlopen(ll_libname, flags)
+                except DLOpenError as e:
+                    raise wrap_dlopenerror(space, e, fname)
         W_LibObject.__init__(self, ffi, fname)
         self.libhandle = handle
         self.register_finalizer(space)
