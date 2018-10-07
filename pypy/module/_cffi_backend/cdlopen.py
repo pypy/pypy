@@ -1,3 +1,4 @@
+import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
@@ -12,20 +13,36 @@ from pypy.module._cffi_backend.realize_c_type import getop
 from pypy.module._cffi_backend.lib_obj import W_LibObject
 from pypy.module._cffi_backend import cffi_opcode, cffi1_module
 
+if sys.platform == 'win32':
+    from rpython.rlib.rdynload import dlopenU
+    WIN32 = True
+else:
+    WIN32 = False
 
 class W_DlOpenLibObject(W_LibObject):
 
-    def __init__(self, ffi, filename, flags):
-        with rffi.scoped_str2charp(filename) as ll_libname:
-            if filename is None:
-                filename = "<None>"
+    def __init__(self, ffi, w_filename, flags):
+        space = ffi.space
+        _scoped = rffi.scoped_str2charp
+        _dlopen = dlopen
+        if WIN32 and space.isinstance_w(w_filename, space.w_unicode):
+            _scoped = rffi.scoped_unicode2wcharp
+            _dlopen = dlopenU
+            fname = space.unicode_w(w_filename)
+        elif space.is_none(w_filename):
+            fname = None
+        else:
+            fname = space.text_w(w_filename)
+        with _scoped(fname) as ll_libname:
+            if fname is None:
+                fname = "<None>"
             try:
-                handle = dlopen(ll_libname, flags)
+                handle = _dlopen(ll_libname, flags)
             except DLOpenError as e:
-                raise wrap_dlopenerror(ffi.space, e, filename)
-        W_LibObject.__init__(self, ffi, filename)
+                raise wrap_dlopenerror(space, e, fname)
+        W_LibObject.__init__(self, ffi, fname)
         self.libhandle = handle
-        self.register_finalizer(ffi.space)
+        self.register_finalizer(space)
 
     def _finalize_(self):
         h = self.libhandle
