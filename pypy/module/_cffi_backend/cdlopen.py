@@ -34,6 +34,8 @@ class W_DlOpenLibObject(W_LibObject):
         else:
             if space.is_none(w_filename):
                 fname = None
+            elif space.isinstance_w(w_filename, space.w_unicode):
+                fname = space.unicode_w(w_filename).encode('utf-8')
             else:
                 fname = space.text_w(w_filename)
             with rffi.scoped_str2charp(fname) as ll_libname:
