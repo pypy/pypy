@@ -730,16 +730,21 @@ def getfullpathname(path):
     length = rwin32.MAX_PATH + 1
     traits = _preferred_traits(path)
     win32traits = make_win32_traits(traits)
-    with traits.scoped_alloc_buffer(length) as buf:
-        res = win32traits.GetFullPathName(
-            traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
-            buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
-        if res == 0:
-            raise rwin32.lastSavedWindowsError("_getfullpathname failed")
-        result = buf.str(intmask(res))
-        assert result is not None
-        result = rstring.assert_str0(result)
-        return result
+    while True:      # should run the loop body maximum twice
+        with traits.scoped_alloc_buffer(length) as buf:
+            res = win32traits.GetFullPathName(
+                traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
+                buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
+            res = intmask(res)
+            if res == 0:
+                raise rwin32.lastSavedWindowsError("_getfullpathname failed")
+            if res >= length:
+                length = res + 1
+                continue
+            result = buf.str(res)
+            assert result is not None
+            result = rstring.assert_str0(result)
+            return result
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,

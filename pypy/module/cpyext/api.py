@@ -93,8 +93,11 @@ assert CONST_WSTRING == rffi.CWCHARP
 
 if sys.platform == 'win32':
     dash = '_'
+    WIN32 = True
 else:
     dash = ''
+    WIN32 = False
+
 
 def fclose(fp):
     try:
@@ -610,7 +613,7 @@ SYMBOLS_C = [
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
-    'PyObject_GetBuffer', 'PyBuffer_Release',
+    'PyObject_DelItemString', 'PyObject_GetBuffer', 'PyBuffer_Release',
     '_Py_setfilesystemdefaultencoding',
 
     'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
@@ -1664,7 +1667,11 @@ def create_extension_module(space, w_spec):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
+            if WIN32:
+                # Allow other DLLs in the same directory with "path"
+                dll = rdynload.dlopenex(ll_libname)
+            else:
+                dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:

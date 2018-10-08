@@ -113,6 +113,7 @@ class CConfig:
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
                        WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
                        STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
+                       LOAD_WITH_ALTERED_SEARCH_PATH
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -195,6 +196,22 @@ if WIN32:
     GetModuleHandle = winexternal('GetModuleHandleA', [rffi.CCHARP], HMODULE)
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE,
                               save_err=rffi.RFFI_SAVE_LASTERROR)
+    def wrap_loadlibraryex(func):
+        def loadlibrary(name, handle=None, flags=LOAD_WITH_ALTERED_SEARCH_PATH):
+            # Requires a full path name with '/' -> '\\'
+            return func(name, handle, flags)
+        return loadlibrary
+
+    _LoadLibraryExA = winexternal('LoadLibraryExA',
+                                [rffi.CCHARP, HANDLE, DWORD], HMODULE,
+                                save_err=rffi.RFFI_SAVE_LASTERROR)
+    LoadLibraryExA = wrap_loadlibraryex(_LoadLibraryExA)
+    LoadLibraryW = winexternal('LoadLibraryW', [rffi.CWCHARP], HMODULE,
+                              save_err=rffi.RFFI_SAVE_LASTERROR)
+    _LoadLibraryExW = winexternal('LoadLibraryExW',
+                                [rffi.CWCHARP, HANDLE, DWORD], HMODULE,
+                                save_err=rffi.RFFI_SAVE_LASTERROR)
+    LoadLibraryExW = wrap_loadlibraryex(_LoadLibraryExW)
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)

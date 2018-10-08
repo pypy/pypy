@@ -1775,8 +1775,6 @@ def str_decode_unicode_internal(s, size, errors, final=False,
                                     "truncated input",
                                     s, pos, size)
             result.append(res)
-            if pos > size - unicode_bytes:
-                break
             continue
         t = r_uint(0)
         h = 0

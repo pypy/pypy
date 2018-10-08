@@ -23,6 +23,23 @@ null_error(void)
 /* Operations on any object */
 
 int
+PyObject_DelItemString(PyObject *o, char *key)
+{
+    PyObject *okey;
+    int ret;
+
+    if (o == NULL || key == NULL) {
+        null_error();
+        return -1;
+    }
+    okey = PyUnicode_FromString(key);
+    if (okey == NULL)
+        return -1;
+    ret = PyObject_DelItem(o, okey);
+    Py_DECREF(okey);
+    return ret;
+}
+int
 PyObject_CheckReadBuffer(PyObject *obj)
 {
     PyBufferProcs *pb = obj->ob_type->tp_as_buffer;
@@ -96,6 +113,20 @@ int PyObject_AsWriteBuffer(PyObject *obj,
     return 0;
 }
 
+/* Buffer C-API for Python 3.0 */
+
+int
+PyObject_GetBuffer(PyObject *obj, Py_buffer *view, int flags)
+{
+    if (!PyObject_CheckBuffer(obj)) {
+        PyErr_Format(PyExc_TypeError,
+                     "'%100s' does not have the buffer interface",
+                     Py_TYPE(obj)->tp_name);
+        return -1;
+    }
+    return (*(obj->ob_type->tp_as_buffer->bf_getbuffer))(obj, view, flags);
+}
+
 void*
 PyBuffer_GetPointer(Py_buffer *view, Py_ssize_t *indices)
 {
@@ -110,6 +141,7 @@ PyBuffer_GetPointer(Py_buffer *view, Py_ssize_t *indices)
     }
     return (void*)pointer;
 }
+
 
 void
 _Py_add_one_to_index_F(int nd, Py_ssize_t *index, const Py_ssize_t *shape)
@@ -253,19 +285,6 @@ PyBuffer_FromContiguous(Py_buffer *view, void *buf, Py_ssize_t len, char fort)
 
 
 
-/* Buffer C-API for Python 3.0 */
-
-int
-PyObject_GetBuffer(PyObject *obj, Py_buffer *view, int flags)
-{
-    if (!PyObject_CheckBuffer(obj)) {
-        PyErr_Format(PyExc_TypeError,
-                     "'%100s' does not have the buffer interface",
-                     Py_TYPE(obj)->tp_name);
-        return -1;
-    }
-    return (*(obj->ob_type->tp_as_buffer->bf_getbuffer))(obj, view, flags);
-}
 
 void
 PyBuffer_Release(Py_buffer *view)
@@ -426,6 +445,7 @@ _PyObject_CallMethod_SizeT(PyObject *o, const char *name, const char *format, ..
 
     return retval;
 }
+
 
 static PyObject *
 objargs_mktuple(va_list va)
