@@ -6,12 +6,6 @@
 #from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
 #from rpython.rtyper.lltypesystem import rffi, lltype
 
-wrapperbase = rffi.VOIDP
-FILE = rffi.VOIDP
-PyFileObject = rffi.VOIDP
-_inittab = rffi.VOIDP
-_node = rffi.VOIDP
-Py_tracefunc = rffi.VOIDP
 
 @cpython_api([rffi.CCHARP], Py_ssize_t, error=CANNOT_FAIL)
 def PyBuffer_SizeFromFormat(space, format):
