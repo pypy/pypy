@@ -119,7 +119,7 @@ class AppTestRecompilerPython:
         assert type(lib.add42) is _cffi_backend.FFI.CData
 
     def test_dlopen_unicode(self):
-        if getattr(self, extmodU, None):
+        if getattr(self, 'extmodU', None):
             import _cffi_backend
             self.fix_path()
             from re_python_pysrc import ffi
