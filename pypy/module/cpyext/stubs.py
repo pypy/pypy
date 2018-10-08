@@ -1263,13 +1263,6 @@ def PyObject_Bytes(space, o):
     for PyObject_Str()."""
     raise NotImplementedError
 
-@cpython_api([], PyFrameObject)
-def PyEval_GetFrame(space):
-    """Return the current thread state's frame, which is NULL if no frame is
-    currently executing."""
-    borrow_from()
-    raise NotImplementedError
-
 @cpython_api([PyFrameObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrame_GetLineNumber(space, frame):
     """Return the line number that frame is currently executing."""
