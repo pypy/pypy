@@ -1,4 +1,5 @@
 from __future__ import with_statement
+import sys
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
@@ -12,20 +13,42 @@ from rpython.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypeobj import W_CType
 
+if sys.platform == 'win32':
+    from rpython.rlib.rdynload import dlopenU
+    WIN32 = True
+else:
+    WIN32 = False
+
 
 class W_Library(W_Root):
     _immutable_ = True
 
-    def __init__(self, space, filename, flags):
+    def __init__(self, space, w_filename, flags):
         self.space = space
-        with rffi.scoped_str2charp(filename) as ll_libname:
-            if filename is None:
-                filename = "<None>"
-            try:
-                self.handle = dlopen(ll_libname, flags)
-            except DLOpenError as e:
-                raise wrap_dlopenerror(space, e, filename)
-        self.name = filename
+        if WIN32 and space.isinstance_w(w_filename, space.w_unicode):
+            fname = space.unicode_w(w_filename)
+            with rffi.scoped_unicode2wcharp(fname) as ll_libname:
+                fname = fname.encode('utf-8')
+                try:
+                    handle = dlopenU(ll_libname, flags)
+                except DLOpenError as e:
+                    raise wrap_dlopenerror(space, e, fname)
+        else:
+            if space.is_none(w_filename):
+                fname = None
+            elif space.isinstance_w(w_filename, space.w_unicode):
+                fname = space.unicode_w(w_filename).encode('utf-8')
+            else:
+                fname = space.text_w(w_filename)
+            with rffi.scoped_str2charp(fname) as ll_libname:
+                if fname is None:
+                    fname = "<None>"
+                try:
+                    handle = dlopen(ll_libname, flags)
+                except DLOpenError as e:
+                    raise wrap_dlopenerror(space, e, fname)
+        self.handle = handle
+        self.name = fname
         self.register_finalizer(space)
 
     def _finalize_(self):
@@ -104,7 +127,7 @@ W_Library.typedef = TypeDef(
 W_Library.typedef.acceptable_as_base_class = False
 
 
-@unwrap_spec(filename="fsencode_or_none", flags=int)
-def load_library(space, filename, flags=0):
-    lib = W_Library(space, filename, flags)
+@unwrap_spec(flags=int)
+def load_library(space, w_filename, flags=0):
+    lib = W_Library(space, w_filename, flags)
     return lib
