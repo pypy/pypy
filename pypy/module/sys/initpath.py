@@ -183,7 +183,9 @@ def pypy_find_stdlib(space, executable):
 if os.name == 'nt':
 
     _source_code = r"""
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
+#endif
 #include <windows.h>
 #include <stdio.h>
 

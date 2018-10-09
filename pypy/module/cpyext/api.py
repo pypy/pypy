@@ -1554,6 +1554,9 @@ def build_eci(code, use_micronumpy=False, translating=False):
         }
         '''
         separate_module_sources.append(get_pythonapi_source)
+        kwds['post_include_bits'] = [
+                            'RPY_EXTERN HANDLE pypy_get_pythonapi_handle();',
+                                    ]
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
