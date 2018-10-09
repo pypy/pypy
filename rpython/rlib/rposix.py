@@ -137,7 +137,10 @@ if os.name == 'nt':
         RPY_EXTERN void exit_suppress_iph(void* handle) {};
         #endif
     ''',]
-    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);']
+    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);',
+                       'RPY_EXTERN void* enter_suppress_iph();',
+                       'RPY_EXTERN void exit_suppress_iph(void* handle);',
+                      ]
 else:
     separate_module_sources = []
     post_include_bits = []
@@ -235,7 +238,8 @@ def _errno_after(save_err):
             rthread.tlfield_rpy_errno.setraw(_get_errno())
             # ^^^ keep fork() up-to-date too, below
 if _WIN32:
-    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h']
+    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h',
+                'direct.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
