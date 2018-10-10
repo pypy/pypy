@@ -6,6 +6,7 @@
   <enum name="EFruit" />
   <enum name="EnumSpace::E" />
   <class name="EnumSpace::EnumClass" />
+  <enum name="EnumSpace::letter_code" />
 
   <function pattern="get_*" />
   <function pattern="set_*" />

@@ -1,6 +1,7 @@
 <lcgdict>
 
   <class pattern="*_defaulter" />
+  <function pattern="*_defaulter_func" />
 
   <class name="base_class" />
   <class name="derived_class" />
@@ -32,6 +33,7 @@
   <class name="some_convertible" />
   <class name="some_class_with_data" />
   <class name="some_class_with_data::some_data" />
+  <class name="refers_to_self" />
 
   <class name="some_comparable" />
   <function name="operator==" />
@@ -40,6 +42,7 @@
   <variable name="my_global_double" />
   <variable name="my_global_array" />
   <variable name="my_global_ptr" />
+  <variable name="my_global_int_holders" />
 
   <class name="ref_tester" />
   <class name="std::vector<ref_tester>" />
@@ -58,5 +61,7 @@
   <class name="overload_the_other_way" />
 
   <class name="Thrower" />
+  <class pattern="Using*" />
+  <class name="TypedefToPrivateClass" />
 
 </lcgdict>

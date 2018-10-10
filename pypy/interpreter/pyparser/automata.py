@@ -23,6 +23,10 @@ DEFAULT = object()
 
 ERROR_STATE = chr(255)
 
+# NB: all non-ascii bytes (>= 128) will be turned into 128
+NON_ASCII = chr(128)
+
+
 class DFA:
     # ____________________________________________________________
     def __init__(self, states, accepts, start = 0):
@@ -36,7 +40,10 @@ class DFA:
             for key in state:
                 if key == DEFAULT:
                     continue
-                maximum = max(ord(key), maximum)
+                ordkey = ord(key)
+                if ordkey > 128:
+                    raise ValueError("DFA does not support matching of specific non-ASCII character %r. Use NON_ASCII instead" % key)
+                maximum = max(ordkey, maximum)
         self.max_char = maximum + 1
 
         defaults = []
@@ -72,6 +79,8 @@ class DFA:
         i = pos
         for i in range(pos, len(inVec)):
             item = inVec[i]
+            if ord(item) > 0x80:
+                item = NON_ASCII
             accept = self.accepts[crntState]
             crntState = self._next_state(item, crntState)
             if crntState != ERROR_STATE:
@@ -103,6 +112,8 @@ class NonGreedyDFA (DFA):
         i = pos
         for i in range(pos, len(inVec)):
             item = inVec[i]
+            if ord(item) > 0x80:
+                item = NON_ASCII
             accept = self.accepts[crntState]
             if accept:
                 return i

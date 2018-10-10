@@ -281,6 +281,7 @@ class StructOrUnion(_CData):
             self.__setattr__(name, arg)
         for name, arg in kwds.items():
             self.__setattr__(name, arg)
+    _init_no_arg_ = __init__
 
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as

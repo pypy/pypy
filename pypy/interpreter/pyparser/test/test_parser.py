@@ -20,7 +20,7 @@ class SimpleParser(parser.Parser):
         rl = StringIO.StringIO(input + "\n").readline
         gen = tokenize.generate_tokens(rl)
         for tp, value, begin, end, line in gen:
-            if self.add_token(tp, value, begin[0], begin[1], line):
+            if self.add_token(parser.Token(tp, value, begin[0], begin[1], line)):
                 py.test.raises(StopIteration, gen.next)
         return self.root
 

@@ -48,6 +48,7 @@ class IntOpModule(MixedModule):
         'int_lshift':      'interp_intop.int_lshift',
         'int_rshift':      'interp_intop.int_rshift',
         'uint_rshift':     'interp_intop.uint_rshift',
+        'int_mulmod':      'interp_intop.int_mulmod',
     }
 
 
@@ -106,6 +107,7 @@ class Module(MixedModule):
                           'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
         '_promote'                   : 'interp_magic._promote',
+        'side_effects_ok'           : 'interp_magic.side_effects_ok',
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
     }
     if sys.platform == 'win32':
@@ -145,3 +147,7 @@ class Module(MixedModule):
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',
                                     'space.wrap(%r)' % features)
+        if self.space.config.translation.reverse_debugger:
+            self.extra_interpdef('revdb_stop', 'interp_magic.revdb_stop')
+        else:
+            self.extra_interpdef('revdb_stop', 'space.w_None')

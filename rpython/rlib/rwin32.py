@@ -20,7 +20,7 @@ WIN32 = os.name == "nt"
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'stdio.h', 'stdlib.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h'],
         libraries = ['kernel32'],
         )
 else:
@@ -113,6 +113,7 @@ class CConfig:
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
                        WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
                        STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
+                       LOAD_WITH_ALTERED_SEARCH_PATH
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -195,12 +196,28 @@ if WIN32:
     GetModuleHandle = winexternal('GetModuleHandleA', [rffi.CCHARP], HMODULE)
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE,
                               save_err=rffi.RFFI_SAVE_LASTERROR)
+    def wrap_loadlibraryex(func):
+        def loadlibrary(name, flags=LOAD_WITH_ALTERED_SEARCH_PATH):
+            # Requires a full path name with '/' -> '\\'
+            return func(name, NULL_HANDLE, flags)
+        return loadlibrary
+
+    _LoadLibraryExA = winexternal('LoadLibraryExA',
+                                [rffi.CCHARP, HANDLE, DWORD], HMODULE,
+                                save_err=rffi.RFFI_SAVE_LASTERROR)
+    LoadLibraryExA = wrap_loadlibraryex(_LoadLibraryExA)
+    LoadLibraryW = winexternal('LoadLibraryW', [rffi.CWCHARP], HMODULE,
+                              save_err=rffi.RFFI_SAVE_LASTERROR)
+    _LoadLibraryExW = winexternal('LoadLibraryExW',
+                                [rffi.CWCHARP, HANDLE, DWORD], HMODULE,
+                                save_err=rffi.RFFI_SAVE_LASTERROR)
+    LoadLibraryExW = wrap_loadlibraryex(_LoadLibraryExW)
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)
     FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL, releasegil=False)
 
-    LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
+    LocalFree = winexternal('LocalFree', [HLOCAL], HLOCAL)
     CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, releasegil=False,
                               save_err=rffi.RFFI_SAVE_LASTERROR)
     CloseHandle_no_err = winexternal('CloseHandle', [HANDLE], BOOL,
@@ -215,12 +232,12 @@ if WIN32:
         [DWORD, rffi.VOIDP, DWORD, DWORD, rffi.CWCHARP, DWORD, rffi.VOIDP],
         DWORD)
 
-    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
+    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.INTP)
 
     def get_osfhandle(fd):
         from rpython.rlib.rposix import FdValidator
         with FdValidator(fd):
-            handle = _get_osfhandle(fd)
+            handle = rffi.cast(HANDLE, _get_osfhandle(fd))
         if handle == INVALID_HANDLE_VALUE:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle

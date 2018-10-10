@@ -1,6 +1,7 @@
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from rpython.rlib.rarithmetic import most_neg_value_of_same_type
+from rpython.rlib.rarithmetic import check_support_int128
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
 from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
@@ -10,7 +11,7 @@ from rpython.rtyper import extregistry
 
 import math, sys
 
-SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
+SUPPORT_INT128 = check_support_int128()
 BYTEORDER = sys.byteorder
 
 # note about digit sizes:
@@ -2747,7 +2748,7 @@ def digits_max_for_base(base):
     dec_per_digit -= 1
     return base ** dec_per_digit
 
-BASE_MAX = [0, 0] + [digits_max_for_base(_base) for _base in range(2, 37)]
+BASE_MAX = [0, 1] + [digits_max_for_base(_base) for _base in range(2, 37)]
 DEC_MAX = digits_max_for_base(10)
 assert DEC_MAX == BASE_MAX[10]
 
@@ -2782,7 +2783,7 @@ def _decimalstr_to_bigint(s):
 def parse_digit_string(parser):
     # helper for fromstr
     base = parser.base
-    if (base & (base - 1)) == 0:
+    if (base & (base - 1)) == 0 and base >= 2:
         return parse_string_from_binary_base(parser)
     a = rbigint()
     digitmax = BASE_MAX[base]

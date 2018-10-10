@@ -32,6 +32,8 @@ namespace EnumSpace {
         enum    {E1 = -1};
         enum EE {E2 = -1};
     };
+
+    typedef enum { AA = 1, BB, CC, DD } letter_code;
 }
 
 
@@ -44,16 +46,16 @@ public:
         m_cc_called(true), m_x(s.m_x), m_y(s.m_y), m_z(s.m_z), m_t(s.m_t) {}
 
     double operator[](int i) {
-       if (i == 0) return m_x;
-       if (i == 1) return m_y;
-       if (i == 2) return m_z;
-       if (i == 3) return m_t;
-       return -1;
+        if (i == 0) return m_x;
+        if (i == 1) return m_y;
+        if (i == 2) return m_z;
+        if (i == 3) return m_t;
+        return -1;
     }
 
     bool operator==(const FourVector& o) {
-       return (m_x == o.m_x && m_y == o.m_y &&
-               m_z == o.m_z && m_t == o.m_t);
+        return (m_x == o.m_x && m_y == o.m_y &&
+                m_z == o.m_z && m_t == o.m_t);
     }
 
 public:
@@ -94,11 +96,15 @@ public:
     float                get_float();
     double               get_double();
     long double          get_ldouble();
+    typedef long double aap_t;
+    long double          get_ldouble_def(long double ld = aap_t(1));
     EWhat                get_enum();
     void*                get_voidp();
 
     bool*           get_bool_array();
     bool*           get_bool_array2();
+    unsigned char*  get_uchar_array();
+    unsigned char*  get_uchar_array2();
     short*          get_short_array();
     short*          get_short_array2();
     unsigned short* get_ushort_array();
@@ -217,6 +223,7 @@ public:
     void set_enum_cr(const EWhat&);
 
 // passers
+    unsigned char*  pass_array(unsigned char*);
     short*          pass_array(short*);
     unsigned short* pass_array(unsigned short*);
     int*            pass_array(int*);
@@ -226,6 +233,7 @@ public:
     float*          pass_array(float*);
     double*         pass_array(double*);
 
+    unsigned char*  pass_void_array_B(void* a) { return pass_array((unsigned char*)a); }
     short*          pass_void_array_h(void* a) { return pass_array((short*)a); }
     unsigned short* pass_void_array_H(void* a) { return pass_array((unsigned short*)a); }
     int*            pass_void_array_i(void* a) { return pass_array((int*)a); }
@@ -265,6 +273,8 @@ public:
 // array types
     bool            m_bool_array[N];
     bool*           m_bool_array2;
+    unsigned char   m_uchar_array[N];
+    unsigned char*  m_uchar_array2;
     short           m_short_array[N];
     short*          m_short_array2;
     unsigned short  m_ushort_array[N];

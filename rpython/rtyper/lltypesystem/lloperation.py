@@ -8,7 +8,8 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(),
-                 canmallocgc=False, canrun=False, tryfold=False):
+                 canmallocgc=False, canrun=False, tryfold=False,
+                 revdb_protect=False):
         # self.opname = ... (set afterwards)
 
         if canfold:
@@ -40,6 +41,9 @@ class LLOp(object):
 
         # The operation can be run directly with __call__
         self.canrun = canrun or canfold
+
+        # RevDB: the operation must always be protected with RPY_REVDB_EMIT()
+        self.revdb_protect = revdb_protect
 
     # __________ make the LLOp instances callable from LL helpers __________
 
@@ -386,17 +390,19 @@ LL_OPERATIONS = {
     'boehm_malloc_atomic':  LLOp(),
     'boehm_register_finalizer': LLOp(),
     'boehm_disappearing_link': LLOp(),
-    'raw_malloc':           LLOp(),
+    'raw_malloc':           LLOp(revdb_protect=True),
     'raw_malloc_usage':     LLOp(sideeffects=False),
-    'raw_free':             LLOp(),
-    'raw_memclear':         LLOp(),
-    'raw_memset':           LLOp(),
-    'raw_memcopy':          LLOp(),
-    'raw_memmove':          LLOp(),
-    'raw_load':             LLOp(sideeffects=False, canrun=True),
-    'raw_store':            LLOp(canrun=True),
-    'bare_raw_store':       LLOp(),
+    'raw_free':             LLOp(revdb_protect=True),
+    'raw_memclear':         LLOp(revdb_protect=True),
+    'raw_memset':           LLOp(revdb_protect=True),
+    'raw_memcopy':          LLOp(revdb_protect=True),
+    'raw_memmove':          LLOp(revdb_protect=True),
+    'raw_load':             LLOp(revdb_protect=True, sideeffects=False,
+                                                     canrun=True),
+    'raw_store':            LLOp(revdb_protect=True, canrun=True),
+    'bare_raw_store':       LLOp(revdb_protect=True),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
+    'gc_store':             LLOp(canrun=True),   # only used by the boehm gc
     'gc_store_indexed':     LLOp(canrun=True),
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
@@ -444,8 +450,8 @@ LL_OPERATIONS = {
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
-    'll_read_timestamp': LLOp(canrun=True),
-    'll_get_timestamp_unit': LLOp(canrun=True),
+    'll_read_timestamp': LLOp(revdb_protect=True, canrun=True),
+    'll_get_timestamp_unit': LLOp(revdb_protect=True, canrun=True),
 
     # __________ GC operations __________
 
@@ -463,8 +469,8 @@ LL_OPERATIONS = {
     # see rlib/objectmodel for gc_identityhash and gc_id
     'gc_identityhash':      LLOp(sideeffects=False, canmallocgc=True),
     'gc_id':                LLOp(sideeffects=False, canmallocgc=True),
-    'gc_obtain_free_space': LLOp(),
-    'gc_set_max_heap_size': LLOp(),
+    'gc_obtain_free_space': LLOp(revdb_protect=True),
+    'gc_set_max_heap_size': LLOp(revdb_protect=True),
     'gc_can_move'         : LLOp(sideeffects=False),
     'gc_thread_run'       : LLOp(),
     'gc_thread_start'     : LLOp(),
@@ -544,7 +550,7 @@ LL_OPERATIONS = {
 
     # __________ misc operations __________
 
-    'stack_current':        LLOp(sideeffects=False),
+    'stack_current':        LLOp(revdb_protect=True, sideeffects=False),
     'keepalive':            LLOp(),
     'same_as':              LLOp(canfold=True),
     'hint':                 LLOp(),
@@ -557,6 +563,8 @@ LL_OPERATIONS = {
 
     'threadlocalref_addr':  LLOp(),                   # get (or make) addr of tl
     'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
+    'threadlocalref_load':  LLOp(sideeffects=False),  # read field (with check)
+    'threadlocalref_store': LLOp(),                   # write field (with check)
     'threadlocalref_acquire':  LLOp(),                # lock for enum
     'threadlocalref_release':  LLOp(),                # lock for enum
     'threadlocalref_enum':  LLOp(sideeffects=False),  # enum all threadlocalrefs
@@ -586,6 +594,23 @@ LL_OPERATIONS = {
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
+
+    'revdb_stop_point':     LLOp(),
+    'revdb_send_answer':    LLOp(),
+    'revdb_breakpoint':     LLOp(),
+    'revdb_get_value':      LLOp(sideeffects=False),
+    'revdb_get_unique_id':  LLOp(sideeffects=False),
+    'revdb_watch_save_state':    LLOp(),
+    'revdb_watch_restore_state': LLOp(),
+    'revdb_weakref_create': LLOp(),
+    'revdb_weakref_deref':  LLOp(),
+    'revdb_call_destructor': LLOp(),
+    'revdb_set_thread_breakpoint': LLOp(),
+    'revdb_strtod':         LLOp(sideeffects=False),
+    'revdb_dtoa':           LLOp(sideeffects=False),
+    'revdb_modf':           LLOp(sideeffects=False),
+    'revdb_frexp':          LLOp(sideeffects=False),
+    'revdb_do_next_call':   LLOp(canrun=True),
 }
 # ***** Run test_lloperation after changes. *****
 

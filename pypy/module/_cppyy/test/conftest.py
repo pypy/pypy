@@ -8,17 +8,25 @@ def pytest_runtest_setup(item):
             # run only tests that are covered by the dummy backend and tests
             # that do not rely on reflex
             import os
+            infomsg = 'backend is not installed'
             tst = os.path.basename(item.location[0])
             if not tst in ('test_helper.py', 'test_cppyy.py', 'test_pythonify.py',
-                           'test_datatypes.py'):
-                py.test.skip("genreflex is not installed")
+                           'test_cpp11features.py', 'test_datatypes.py',
+                           'test_pythonization.py'):
+                py.test.skip(infomsg)
             import re
             if tst == 'test_pythonify.py' and \
                 not re.search("AppTestPYTHONIFY.test0[1-5]", item.location[2]):
-                py.test.skip("genreflex is not installed")
+                py.test.skip(infomsg)
+            elif tst == 'test_cpp11features.py' and \
+                not re.search("AppTestCPP11FEATURES.test02", item.location[2]):
+                py.test.skip(infomsg)
             elif tst == 'test_datatypes.py' and \
                 not re.search("AppTestDATATYPES.test0[1-7]", item.location[2]):
-                py.test.skip("genreflex is not installed")
+                py.test.skip(infomsg)
+            elif tst == 'test_pythonization.py' and \
+                not re.search("AppTestPYTHONIZATION.test0[0]", item.location[2]):
+                py.test.skip(infomsg)
 
 def pytest_ignore_collect(path, config):
     if py.path.local.sysfind('genreflex') is None and config.option.runappdirect:

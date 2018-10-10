@@ -2243,6 +2243,12 @@ def test_call_with_packed_struct():
         "'API mode' and non-variadic (i.e. declared inside ffibuilder.cdef()"
         "+ffibuilder.set_source() and not taking a final '...' argument)")
 
+def test_pack_not_supported():
+    ffi = FFI()
+    ffi.cdef("""struct foo { char y; int x; };""", pack=2)
+    py.test.raises(NotImplementedError, verify,
+                   ffi, "test_pack_not_supported", "")
+
 def test_gcc_visibility_hidden():
     if sys.platform == 'win32':
         py.test.skip("test for gcc/clang")
