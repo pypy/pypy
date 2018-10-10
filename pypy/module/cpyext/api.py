@@ -1540,7 +1540,6 @@ def build_eci(code, use_micronumpy=False, translating=False):
 
     if sys.platform == 'win32':
         get_pythonapi_source = '''
-        #include <windows.h>
         RPY_EXTERN
         HANDLE pypy_get_pythonapi_handle() {
             MEMORY_BASIC_INFORMATION  mi;
@@ -1554,7 +1553,7 @@ def build_eci(code, use_micronumpy=False, translating=False):
         }
         '''
         separate_module_sources.append(get_pythonapi_source)
-        kwds['post_include_bits'] = [
+        kwds['post_include_bits'] = ['#include <windows.h>',
                             'RPY_EXTERN HANDLE pypy_get_pythonapi_handle();',
                                     ]
 
