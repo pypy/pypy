@@ -186,7 +186,7 @@ def _ssl_select(sock, writing, timeout):
     # Prefer poll, if available, since you can poll() any fd
     # which can't be done with select().
     if HAVE_POLL:
-        p.register(sock.fileno(), POLLOUT | POLLIN)
+        p.register(sock.fileno(), POLLOUT if writing else POLLIN)
 
         rc = len(p.poll(timeout * 1000.0))
     else:

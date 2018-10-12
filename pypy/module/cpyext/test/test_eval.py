@@ -510,3 +510,15 @@ class AppTestCall(AppTestCpythonExtensionBase):
             assert run_async(list1()) == ([], [0, 1, 2])
             assert run_async(list2()) == ([], [0, 1, 2])
             """
+
+    def test_getframe(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("getframe1", "METH_NOARGS",
+             """
+                PyFrameObject *x = PyEval_GetFrame();
+                Py_INCREF(x);
+                return (PyObject *)x;
+             """),], prologue="#include <frameobject.h>\n")
+        res = module.getframe1()
+        assert res is sys._getframe(0)
