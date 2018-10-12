@@ -217,6 +217,9 @@ def argument_unavailable(space, funcname, arg):
 
 _open_inhcache = rposix.SetNonInheritableCache()
 
+def u2utf8(space, u_str):
+    return space.newutf8(u_str.encode('utf-8'), len(u_str))
+
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
 def open(space, w_path, flags, mode=0777,
          __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
