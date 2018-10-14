@@ -1,50 +1,21 @@
-import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
+from rpython.rlib.rdynload import DLLHANDLE, dlsym, dlclose
 
 from pypy.interpreter.error import oefmt
-from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from pypy.module._cffi_backend.parse_c_type import (
     _CFFI_OPCODE_T, GLOBAL_S, CDL_INTCONST_S, STRUCT_UNION_S, FIELD_S,
     ENUM_S, TYPENAME_S, ll_set_cdl_realize_global_int)
 from pypy.module._cffi_backend.realize_c_type import getop
 from pypy.module._cffi_backend.lib_obj import W_LibObject
-from pypy.module._cffi_backend import cffi_opcode, cffi1_module
-
-if sys.platform == 'win32':
-    from rpython.rlib.rdynload import dlopenU
-    WIN32 = True
-else:
-    WIN32 = False
+from pypy.module._cffi_backend import cffi_opcode, cffi1_module, misc
 
 class W_DlOpenLibObject(W_LibObject):
 
     def __init__(self, ffi, w_filename, flags):
         space = ffi.space
-        if WIN32 and space.isinstance_w(w_filename, space.w_unicode):
-            fname = space.unicode_w(w_filename)
-            with rffi.scoped_unicode2wcharp(fname) as ll_libname:
-                try:
-                    handle = dlopenU(ll_libname, flags)
-                except DLOpenError as e:
-                    w_repr = space.repr(w_filename)
-                    raise wrap_dlopenerror(space, e, space.text_w(w_repr))
-        else:
-            if space.is_none(w_filename):
-                fname = None
-            elif space.isinstance_w(w_filename, space.w_unicode):
-                fname = space.fsencode_w(w_filename)
-            else:
-                fname = space.text_w(w_filename)
-            with rffi.scoped_str2charp(fname) as ll_libname:
-                if fname is None:
-                    fname = "<None>"
-                try:
-                    handle = dlopen(ll_libname, flags)
-                except DLOpenError as e:
-                    raise wrap_dlopenerror(space, e, fname)
+        fname, handle = misc.dlopen_w(space, w_filename, flags)
         W_LibObject.__init__(self, ffi, fname)
         self.libhandle = handle
         self.register_finalizer(space)

@@ -52,7 +52,7 @@ class AppTestRecompilerPython:
             try:
                 unicode_name.encode(sys.getfilesystemencoding())
             except UnicodeEncodeError:
-                unicode_name = None      # skip the test
+                unicode_name = None    # skip test_dlopen_unicode
         if unicode_name is not None:
             outputfileUname = os.path.join(unicode(udir), unicode_name)
             shutil.copyfile(outputfilename, outputfileUname)

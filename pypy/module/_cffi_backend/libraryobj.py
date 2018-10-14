@@ -1,23 +1,16 @@
 from __future__ import with_statement
-import sys
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from rpython.rtyper.lltypesystem import rffi
-from rpython.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
+from rpython.rlib.rdynload import DLLHANDLE, dlsym, dlclose
 
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypeobj import W_CType
-
-if sys.platform == 'win32':
-    from rpython.rlib.rdynload import dlopenU
-    WIN32 = True
-else:
-    WIN32 = False
+from pypy.module._cffi_backend import misc
 
 
 class W_Library(W_Root):
@@ -25,30 +18,7 @@ class W_Library(W_Root):
 
     def __init__(self, space, w_filename, flags):
         self.space = space
-        if WIN32 and space.isinstance_w(w_filename, space.w_unicode):
-            fname = space.unicode_w(w_filename)
-            with rffi.scoped_unicode2wcharp(fname) as ll_libname:
-                try:
-                    handle = dlopenU(ll_libname, flags)
-                except DLOpenError as e:
-                    w_repr = space.repr(w_filename)
-                    raise wrap_dlopenerror(space, e, space.text_w(w_repr))
-        else:
-            if space.is_none(w_filename):
-                fname = None
-            elif space.isinstance_w(w_filename, space.w_unicode):
-                fname = space.fsencode_w(w_filename)
-            else:
-                fname = space.text_w(w_filename)
-            with rffi.scoped_str2charp(fname) as ll_libname:
-                if fname is None:
-                    fname = "<None>"
-                try:
-                    handle = dlopen(ll_libname, flags)
-                except DLOpenError as e:
-                    raise wrap_dlopenerror(space, e, fname)
-        self.handle = handle
-        self.name = fname
+        self.name, self.handle = misc.dlopen_w(space, w_filename, flags)
         self.register_finalizer(space)
 
     def _finalize_(self):
