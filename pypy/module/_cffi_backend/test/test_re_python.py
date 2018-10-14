@@ -1,5 +1,5 @@
 import py
-import sys, shutil
+import sys, shutil, os
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app
 from pypy.module._cffi_backend.newtype import _clean_cache
@@ -46,8 +46,15 @@ class AppTestRecompilerPython:
         outputfilename = ffiplatform.compile(str(tmpdir), ext)
         cls.w_extmod = space.wrap(outputfilename)
         if WIN32:
-            # non-windows need utf8 locales to deal with unicode filenames
-            outputfileUname = unicode(udir.join(u'load\u03betest.dll'))
+            unicode_name = u'load\u03betest.dll'
+        else:
+            unicode_name = u'load_caf\xe9' + os.path.splitext(outputfilename)[1]
+            try:
+                unicode_name.encode(sys.getfilesystemencoding())
+            except UnicodeEncodeError:
+                unicode_name = None      # skip the test
+        if unicode_name is not None:
+            outputfileUname = os.path.join(unicode(udir), unicode_name)
             shutil.copyfile(outputfilename, outputfileUname)
             cls.w_extmodU = space.wrap(outputfileUname)
         #mod.tmpdir = tmpdir
@@ -119,12 +126,13 @@ class AppTestRecompilerPython:
         assert type(lib.add42) is _cffi_backend.FFI.CData
 
     def test_dlopen_unicode(self):
-        if getattr(self, 'extmodU', None):
-            import _cffi_backend
-            self.fix_path()
-            from re_python_pysrc import ffi
-            lib = ffi.dlopen(self.extmodU)
-            assert lib.add42(-10) == 32
+        if not getattr(self, 'extmodU', None):
+            skip("no unicode file name")
+        import _cffi_backend
+        self.fix_path()
+        from re_python_pysrc import ffi
+        lib = ffi.dlopen(self.extmodU)
+        assert lib.add42(-10) == 32
 
     def test_dlclose(self):
         import _cffi_backend

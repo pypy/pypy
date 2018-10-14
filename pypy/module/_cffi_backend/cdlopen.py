@@ -26,16 +26,16 @@ class W_DlOpenLibObject(W_LibObject):
         if WIN32 and space.isinstance_w(w_filename, space.w_unicode):
             fname = space.unicode_w(w_filename)
             with rffi.scoped_unicode2wcharp(fname) as ll_libname:
-                fname = fname.encode('utf-8')
                 try:
                     handle = dlopenU(ll_libname, flags)
                 except DLOpenError as e:
-                    raise wrap_dlopenerror(space, e, fname)
+                    w_repr = space.repr(w_filename)
+                    raise wrap_dlopenerror(space, e, space.text_w(w_repr))
         else:
             if space.is_none(w_filename):
                 fname = None
             elif space.isinstance_w(w_filename, space.w_unicode):
-                fname = space.unicode_w(w_filename).encode('utf-8')
+                fname = space.fsencode_w(w_filename)
             else:
                 fname = space.text_w(w_filename)
             with rffi.scoped_str2charp(fname) as ll_libname:
