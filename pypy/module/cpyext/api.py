@@ -92,8 +92,11 @@ assert CONST_WSTRING == rffi.CWCHARP
 
 if sys.platform == 'win32':
     dash = '_'
+    WIN32 = True
 else:
     dash = ''
+    WIN32 = False
+
 
 def fclose(fp):
     try:
@@ -1537,7 +1540,6 @@ def build_eci(code, use_micronumpy=False, translating=False):
 
     if sys.platform == 'win32':
         get_pythonapi_source = '''
-        #include <windows.h>
         RPY_EXTERN
         HANDLE pypy_get_pythonapi_handle() {
             MEMORY_BASIC_INFORMATION  mi;
@@ -1551,6 +1553,9 @@ def build_eci(code, use_micronumpy=False, translating=False):
         }
         '''
         separate_module_sources.append(get_pythonapi_source)
+        kwds['post_include_bits'] = ['#include <windows.h>',
+                            'RPY_EXTERN HANDLE pypy_get_pythonapi_handle();',
+                                    ]
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
@@ -1656,7 +1661,11 @@ def load_extension_module(space, path, name):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
+            if WIN32:
+                # Allow other DLLs in the same directory with "path"
+                dll = rdynload.dlopenex(ll_libname)
+            else:
+                dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
