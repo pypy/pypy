@@ -276,6 +276,7 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
             for cp in rutf8.Utf8StringIterator(res_8):
                 if cp > 0xFF:
                     errorhandler("strict", 'latin1', msg, s, startindex, index)
+                    raise RuntimeError('error handler should not have returned')
                 result.append(chr(cp))
             if index != newindex:  # Should be uncommon
                 index = newindex
