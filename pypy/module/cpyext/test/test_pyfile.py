@@ -48,13 +48,6 @@ class TestFile(BaseApiTest):
 
         space.call_method(w_file, "close")
 
-    def test_file_name(self, space, api):
-        name = str(udir / "_test_file")
-        with rffi.scoped_str2charp(name) as filename:
-            with rffi.scoped_str2charp("wb") as mode:
-                w_file = api.PyFile_FromString(filename, mode)
-        assert space.text_w(api.PyFile_Name(w_file)) == name
-
     @pytest.mark.xfail
     def test_file_setbufsize(self, space, api):
         api.PyFile_SetBufSize()
