@@ -40,8 +40,7 @@ class TestLocaleCodec(object):
         locale_encoder = unicode_encode_locale_surrogateescape
         utf8_encoder = self.getencoder('utf-8')
         for val in u'foo', u' 日本', u'\U0001320C':
-            assert (locale_encoder(val).encode('utf8') ==
-                    utf8_encoder(val, 'strict', None))
+            assert locale_encoder(val).decode('utf8') == val
 
     def test_encode_locale_errorhandler(self):
         self.setlocale("en_US.UTF-8")
@@ -51,7 +50,7 @@ class TestLocaleCodec(object):
         for val in u'foo\udc80bar', u'\udcff\U0001320C':
             expected = utf8_encoder(val.encode('utf8'), 'surrogateescape',
                                     encode_error_handler)
-            assert locale_encoder(val).encode('utf8') == expected
+            assert locale_encoder(val) == expected
 
     def test_decode_locale(self):
         self.setlocale("en_US.UTF-8")
