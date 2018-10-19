@@ -69,6 +69,14 @@ def test_collect_step():
     res = interpret(f, [])
     assert res
 
+def test__encode_states():
+    val = rgc._encode_states(42, 43)
+    assert rgc.old_state(val) == 42
+    assert rgc.new_state(val) == 43
+    assert not rgc.is_done(val)
+    #
+    val = rgc.collect_step()
+    assert rgc.is_done(val)
 
 def test_can_move():
     T0 = lltype.GcStruct('T')

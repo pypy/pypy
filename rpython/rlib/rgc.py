@@ -19,12 +19,34 @@ isenabled = gc.isenabled
 
 def collect_step():
     """
-    If the GC is incremental, run a single gc-collect-step. Return True when
-    the major collection is completed.
-    If the GC is not incremental, do a full collection and return True.
+    If the GC is incremental, run a single gc-collect-step.
+
+    Return an integer which encodes the starting and ending GC state. Use
+    rgc.{old_state,new_state,is_done} to decode it.
+
+    If the GC is not incremental, do a full collection and return a value on
+    which rgc.is_done() return True.
     """
     gc.collect()
-    return True
+    return _encode_states(1, 0)
+
+def _encode_states(oldstate, newstate):
+    return oldstate << 16 | newstate
+
+def old_state(val):
+    return (val & 0xFFFF0000) >> 16
+
+def new_state(val):
+    return val & 0xFFFF
+
+def is_done(val):
+    # a collection is considered done when it ends up in the starting state
+    # (which is usually represented as 0). This logic works for incminimark,
+    # which is currently the only gc actually used and for which collect_step
+    # is implemented. In case we add more GC in the future, we might want to
+    # delegate this logic to the GC itself, but for now it is MUCH simpler to
+    # just write it in plain RPython.
+    return old_state(val) != 0 and new_state(val) == 0
 
 def set_max_heap_size(nbytes):
     """Limit the heap size to n bytes.
@@ -174,7 +196,7 @@ class CollectStepEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self):
         from rpython.annotator import model as annmodel
-        return annmodel.s_Bool
+        return annmodel.SomeInteger()
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
