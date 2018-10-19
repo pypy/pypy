@@ -823,14 +823,24 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         py.test.raises(RuntimeError, 's.x')
 
     def test_collect_step(self, debuglog):
+        from rpython.rlib import rgc
         n = 0
+        states = []
         while True:
             debuglog.reset()
-            done = self.gc.collect_step()
+            val = self.gc.collect_step()
+            states.append((rgc.old_state(val), rgc.new_state(val)))
             summary = debuglog.summary()
             assert summary == {'gc-minor': 1, 'gc-collect-step': 1}
-            if done:
+            if rgc.is_done(val):
                 break
             n += 1
             if n == 100:
                 assert False, 'this looks like an endless loop'
+        #
+        assert states == [
+            (incminimark.STATE_SCANNING, incminimark.STATE_MARKING),
+            (incminimark.STATE_MARKING, incminimark.STATE_SWEEPING),
+            (incminimark.STATE_SWEEPING, incminimark.STATE_FINALIZING),
+            (incminimark.STATE_FINALIZING, incminimark.STATE_SCANNING)
+            ]

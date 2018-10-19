@@ -778,14 +778,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         This is meant to be used together with gc.disable(), to have a
         fine-grained control on when the GC runs.
         """
-        in_progress = self.gc_state != STATE_SCANNING
+        old_state = self.gc_state
         self._minor_collection()
         self.major_collection_step()
         self.rrc_invoke_callback()
-        # if we were in the middle of a collection and we are back to
-        # STATE_SCANNING, it means we have just finished one
-        done = in_progress and self.gc_state == STATE_SCANNING
-        return done
+        return rgc._encode_states(old_state, self.gc_state)
 
     def minor_collection_with_major_progress(self, extrasize=0,
                                              force_enabled=False):

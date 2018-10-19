@@ -1866,9 +1866,12 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             #
             gc.disable()
             n = 0
+            states = []
             while True:
                 n += 1
-                if rgc.collect_step():
+                val = rgc.collect_step()
+                states.append((rgc.old_state(val), rgc.new_state(val)))
+                if rgc.is_done(val):
                     break
                 if n == 100:
                     print 'Endless loop!'
@@ -1877,6 +1880,17 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             if n < 4: # we expect at least 4 steps
                 print 'Too few steps! n =', n
                 assert False
+
+            # check that the state transitions are reasonable
+            first_state, _ = states[0]
+            for i, (old_state, new_state) in enumerate(states):
+                is_last = (i == len(states) - 1)
+                is_valid = False
+                if is_last:
+                    assert old_state != new_state == first_state
+                else:
+                    assert new_state == old_state or new_state == old_state+1
+
             return counter.val
         return f
 

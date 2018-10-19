@@ -310,7 +310,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.collect_step_ptr = getfn(GCClass.collect_step.im_func, [s_gc],
-                                      annmodel.s_Bool)
+                                      annmodel.SomeInteger())
         self.enable_ptr = getfn(GCClass.enable.im_func, [s_gc], annmodel.s_None)
         self.disable_ptr = getfn(GCClass.disable.im_func, [s_gc], annmodel.s_None)
         self.isenabled_ptr = getfn(GCClass.isenabled.im_func, [s_gc],
