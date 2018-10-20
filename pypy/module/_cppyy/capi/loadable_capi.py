@@ -308,10 +308,10 @@ def load_backend(space):
         dldflags = rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY
         if os.environ.get('CPPYY_BACKEND_LIBRARY'):
             libname = os.environ['CPPYY_BACKEND_LIBRARY']
-            state.backend = W_Library(space, libname, dldflags)
+            state.backend = W_Library(space, space.newtext(libname), dldflags)
         else:
             # try usual lookups
-            state.backend = W_Library(space, backend_library, dldflags)
+            state.backend = W_Library(space, space.newtext(backend_library), dldflags)
 
         if state.backend:
             # fix constants
