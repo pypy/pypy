@@ -1,13 +1,22 @@
 from __future__ import with_statement
+import sys
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rdynload import dlopen, DLOpenError
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+if sys.platform == 'win32':
+    from rpython.rlib.rdynload import dlopenU
+    WIN32 = True
+else:
+    WIN32 = False
 
 
 # ____________________________________________________________
@@ -383,3 +392,30 @@ def unpack_cfloat_list_from_raw_array(float_list, source):
     ptr = rffi.cast(rffi.FLOATP, source)
     for i in range(len(float_list)):
         float_list[i] = rffi.cast(lltype.Float, ptr[i])
+
+# ____________________________________________________________
+
+def dlopen_w(space, w_filename, flags):
+    if WIN32 and space.isinstance_w(w_filename, space.w_unicode):
+        fname = space.text_w(space.repr(w_filename))
+        unicode_name = space.unicode_w(w_filename)
+        with rffi.scoped_unicode2wcharp(unicode_name) as ll_libname:
+            try:
+                handle = dlopenU(ll_libname, flags)
+            except DLOpenError as e:
+                raise wrap_dlopenerror(space, e, fname)
+    else:
+        if space.is_none(w_filename):
+            fname = None
+        elif space.isinstance_w(w_filename, space.w_unicode):
+            fname = space.fsencode_w(w_filename)
+        else:
+            fname = space.text_w(w_filename)
+        with rffi.scoped_str2charp(fname) as ll_libname:
+            if fname is None:
+                fname = "<None>"
+            try:
+                handle = dlopen(ll_libname, flags)
+            except DLOpenError as e:
+                raise wrap_dlopenerror(space, e, fname)
+    return fname, handle
