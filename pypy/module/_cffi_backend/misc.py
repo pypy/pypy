@@ -407,10 +407,8 @@ def dlopen_w(space, w_filename, flags):
     else:
         if space.is_none(w_filename):
             fname = None
-        elif space.isinstance_w(w_filename, space.w_unicode):
-            fname = space.fsencode_w(w_filename)
         else:
-            fname = space.text_w(w_filename)
+            fname = space.fsencode_w(w_filename)
         with rffi.scoped_str2charp(fname) as ll_libname:
             if fname is None:
                 fname = "<None>"
