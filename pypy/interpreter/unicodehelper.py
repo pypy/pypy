@@ -108,7 +108,7 @@ def fsencode(space, w_uni):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     if _WIN32:
-        errorhandler=state.encode_error_handler,
+        errorhandler=state.encode_error_handler
         utf8 = space.utf8_w(w_uni)
         bytes = utf8_encode_mbcs(utf8, 'strict', errorhandler)
     elif _MACOSX:
