@@ -8,11 +8,9 @@ get_config_vars().keys().  Additional convenience functions are also
 available.
 """
 
-__revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
-
 import sys
 import os
-import imp
+import imp, _imp
 
 from distutils.errors import DistutilsPlatformError
 
@@ -71,9 +69,17 @@ def _init_posix():
 def _init_nt():
     """Initialize the module as appropriate for NT"""
     g = {}
+    # set basic install directories
+    g['LIBDEST'] = get_python_lib(plat_specific=0, standard_lib=1)
+    g['BINLIBDEST'] = get_python_lib(plat_specific=1, standard_lib=1)
+
+    # XXX hmmm.. a normal install puts include files here
+    g['INCLUDEPY'] = get_python_inc(plat_specific=0)
+
+    g['EXT_SUFFIX'] = _imp.extension_suffixes()[0]
     g['EXE'] = ".exe"
-    g['SO'] = ".pyd"
-    g['SOABI'] = g['SO'].rsplit('.')[0]   # xxx?
+    g['VERSION'] = get_python_version().replace(".", "")
+    g['BINDIR'] = os.path.dirname(os.path.abspath(sys.executable))
 
     global _config_vars
     _config_vars = g
