@@ -1204,23 +1204,27 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
     # TODO: refactor unnatrual use of error hanlders here,
     # we should make a single pass over the utf8 str
     from pypy.module._codecs.interp_codecs import encode_text, CodecState
+    utf8 = space.utf8_w(w_object)
     if not allow_surrogates:
         utf8 = space.utf8_w(w_object)
         if errors is None:
             errors = 'strict'
         pos = rutf8.surrogate_in_utf8(utf8)
-        if pos >= 0:
-            state = space.fromcache(CodecState)
-            eh = state.encode_error_handler
+        state = space.fromcache(CodecState)
+        eh = state.encode_error_handler
+        while pos >= 0:
             start = utf8[:pos]
-            ru, pos = eh(errors, "utf8", "surrogates not allowed", utf8,
+            ru, _pos = eh(errors, "utf8", "surrogates not allowed", utf8,
                 pos, pos + 1)
-            upos = rutf8.next_codepoint_pos(utf8,pos)
+            upos = rutf8.next_codepoint_pos(utf8, _pos)
             end = utf8[upos:]
             utf8 = start + ru + end
-            w_object = space.newtext(utf8)
+            _pos = rutf8.surrogate_in_utf8(utf8)
+            if _pos <= pos:
+                # surrogatepass?
+                break 
+            pos = _pos
     if errors is None or errors == 'strict':
-        utf8 = space.utf8_w(w_object)
         if encoding is None or encoding == 'utf-8':
             #if rutf8.has_surrogates(utf8):
             #    utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
