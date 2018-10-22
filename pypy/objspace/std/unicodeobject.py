@@ -1216,7 +1216,7 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
             ru, pos = eh(errors, "utf8", "surrogates not allowed", utf8,
                 pos, pos + 1)
             upos = rutf8.next_codepoint_pos(utf8,pos)
-            end = utf8[upos+1:]
+            end = utf8[upos:]
             utf8 = start + ru + end
             w_object = space.newtext(utf8)
     if errors is None or errors == 'strict':
