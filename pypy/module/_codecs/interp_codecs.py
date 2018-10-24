@@ -248,7 +248,7 @@ def xmlcharrefreplace_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
-        space.realutf8_w(w_obj) # weeoes
+        space.realutf8_w(w_obj) # for errors
         w_obj = space.convert_arg_to_w_unicode(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
@@ -275,17 +275,22 @@ def backslashreplace_errors(space, w_exc):
 
     check_exception(space, w_exc)
     if (space.isinstance_w(w_exc, space.w_UnicodeEncodeError) or
-        space.isinstance_w(w_exc, space.w_UnicodeTranslateError)):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+            space.isinstance_w(w_exc, space.w_UnicodeTranslateError)):
+        w_obj = space.getattr(w_exc, space.newtext('object'))
+        space.realutf8_w(w_obj) # for errors
+        w_obj = space.convert_arg_to_w_unicode(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
+        start = w_obj._index_to_byte(start)
+        end = w_obj._index_to_byte(end)
         builder = StringBuilder()
         pos = start
+        obj = w_obj._utf8
         while pos < end:
-            oc = ord(obj[pos])
-            raw_unicode_escape_helper(builder, oc)
-            pos += 1
+            code = rutf8.codepoint_at_pos(obj, pos)
+            raw_unicode_escape_helper(builder, code)
+            pos = rutf8.next_codepoint_pos(obj, pos)
         return space.newtuple([space.newtext(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         obj = space.bytes_w(space.getattr(w_exc, space.newtext('object')))

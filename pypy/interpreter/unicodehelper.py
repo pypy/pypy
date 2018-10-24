@@ -1530,7 +1530,10 @@ def str_decode_unicode_internal(s, errors, final=False,
     if size == 0:
         return '', 0
 
-    unicode_bytes = 4
+    if runicode.MAXUNICODE < 65536:
+        unicode_bytes = 2
+    else:
+        unicode_bytes = 4
     if BYTEORDER == "little":
         start = 0
         stop = unicode_bytes
@@ -1554,7 +1557,7 @@ def str_decode_unicode_internal(s, errors, final=False,
         for j in range(start, stop, step):
             t += r_uint(ord(s[pos + j])) << (h*8)
             h += 1
-        if t > 0x10ffff:
+        if t > runicode.MAXUNICODE:
             res, pos = errorhandler(errors, "unicode_internal",
                                     "unichr(%d) not in range" % (t,),
                                     s, pos, pos + unicode_bytes)
@@ -1571,18 +1574,24 @@ def utf8_encode_unicode_internal(s, errors, errorhandler, allow_surrogates=False
     if size == 0:
         return ''
 
-    result = StringBuilder(size * 4)
+    if runicode.MAXUNICODE < 65536:
+        unicode_bytes = 2
+    else:
+        unicode_bytes = 4
+    result = StringBuilder(size * unicode_bytes)
     pos = 0
     while pos < size:
         oc = rutf8.codepoint_at_pos(s, pos)
         if BYTEORDER == "little":
             result.append(chr(oc       & 0xFF))
             result.append(chr(oc >>  8 & 0xFF))
-            result.append(chr(oc >> 16 & 0xFF))
-            result.append(chr(oc >> 24 & 0xFF))
+            if unicode_bytes > 2:
+                result.append(chr(oc >> 16 & 0xFF))
+                result.append(chr(oc >> 24 & 0xFF))
         else:
-            result.append(chr(oc >> 24 & 0xFF))
-            result.append(chr(oc >> 16 & 0xFF))
+            if unicode_bytes > 2:
+                result.append(chr(oc >> 24 & 0xFF))
+                result.append(chr(oc >> 16 & 0xFF))
             result.append(chr(oc >>  8 & 0xFF))
             result.append(chr(oc       & 0xFF))
         pos = rutf8.next_codepoint_pos(s, pos)
