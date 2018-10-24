@@ -1,9 +1,13 @@
 from pypy.module.test_lib_pypy.support import import_lib_pypy
-
+import sys
 
 class AppTestGrp:
-    spaceconfig = dict(usemodules=('_rawffi', 'binascii', 'fcntl', 'itertools',
+    spaceconfig = dict(usemodules=('_rawffi', 'binascii', 'itertools',
                                    'select', 'signal'))
+    if sys.platform == 'win32':
+        pass
+    else:
+        spaceconfig['usemodules'].append('fcntl')
 
     def setup_class(cls):
         cls.w_grp = import_lib_pypy(cls.space, 'grp',
