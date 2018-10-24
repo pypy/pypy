@@ -69,26 +69,29 @@ class AppTestGcHooks(object):
 
     def test_on_gc_collect_step(self):
         import gc
+        SCANNING = 0
+        MARKING = 1
+        SWEEPING = 2
+        FINALIZING = 3
         lst = []
         def on_gc_collect_step(stats):
             lst.append((stats.count,
                         stats.duration,
                         stats.oldstate,
-                        stats.newstate))
+                        stats.newstate,
+                        stats.major_is_done))
         gc.hooks.on_gc_collect_step = on_gc_collect_step
-        self.fire_gc_collect_step(10, 20, 30)
-        self.fire_gc_collect_step(40, 50, 60)
+        self.fire_gc_collect_step(10, SCANNING, MARKING)
+        self.fire_gc_collect_step(40, FINALIZING, SCANNING)
         assert lst == [
-            (1, 10, 20, 30),
-            (1, 40, 50, 60),
+            (1, 10, SCANNING, MARKING, False),
+            (1, 40, FINALIZING, SCANNING, True),
             ]
         #
         gc.hooks.on_gc_collect_step = None
-        self.fire_gc_collect_step(70, 80, 90)  # won't fire
-        assert lst == [
-            (1, 10, 20, 30),
-            (1, 40, 50, 60),
-            ]
+        oldlst = lst[:]
+        self.fire_gc_collect_step(70, SCANNING, MARKING)  # won't fire
+        assert lst == oldlst
 
     def test_on_gc_collect(self):
         import gc
@@ -123,7 +126,8 @@ class AppTestGcHooks(object):
         assert S.STATE_MARKING == 1
         assert S.STATE_SWEEPING == 2
         assert S.STATE_FINALIZING == 3
-        assert S.GC_STATES == ('SCANNING', 'MARKING', 'SWEEPING', 'FINALIZING')
+        assert S.GC_STATES == ('SCANNING', 'MARKING', 'SWEEPING',
+                               'FINALIZING', 'USERDEL')
 
     def test_cumulative(self):
         import gc

@@ -1,6 +1,7 @@
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt
 from rpython.rlib import rgc
+from pypy.module.gc.hook import W_GcCollectStepStats
 
 
 @unwrap_spec(generation=int)
@@ -96,12 +97,27 @@ class StepCollector(object):
         if self.finalizing:
             self._run_finalizers()
             self.finalizing = False
-            return True # everything done
+            oldstate = W_GcCollectStepStats.STATE_USERDEL
+            newstate = W_GcCollectStepStats.STATE_SCANNING
+            major_is_done = True # now we are finally done
         else:
-            done = self._collect_step()
-            if done:
+            states = self._collect_step()
+            oldstate = rgc.old_state(states)
+            newstate = rgc.new_state(states)
+            major_is_done = False  # USERDEL still to do
+            if rgc.is_done(states):
+                newstate = W_GcCollectStepStats.STATE_USERDEL
                 self.finalizing = True
-            return False # still something to do
+        #
+        duration = -1
+        return W_GcCollectStepStats(
+            count = 1,
+            duration = duration,
+            duration_min = duration,
+            duration_max = duration,
+            oldstate = oldstate,
+            newstate = newstate,
+            major_is_done = major_is_done)
 
     def _collect_step(self):
         return rgc.collect_step()
@@ -116,7 +132,8 @@ def collect_step(space):
     If the GC is not incremental, do a full collection and return True.
     """
     sc = space.fromcache(StepCollector)
-    return space.newbool(sc.do())
+    w_stats = sc.do()
+    return w_stats
 
 # ____________________________________________________________
 

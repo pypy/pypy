@@ -33,20 +33,30 @@ def collect_step():
 def _encode_states(oldstate, newstate):
     return oldstate << 16 | newstate
 
-def old_state(val):
-    return (val & 0xFFFF0000) >> 16
+def old_state(states):
+    return (states & 0xFFFF0000) >> 16
 
-def new_state(val):
-    return val & 0xFFFF
+def new_state(states):
+    return states & 0xFFFF
 
-def is_done(val):
+def is_done(states):
+    """
+    Return True if the return value of collect_step signals the end of a major
+    collection
+    """
+    old = old_state(states)
+    new = new_state(states)
+    return is_done__states(old, new)
+
+def is_done__states(oldstate, newstate):
+    "Like is_done, but takes oldstate and newstate explicitly"
     # a collection is considered done when it ends up in the starting state
     # (which is usually represented as 0). This logic works for incminimark,
     # which is currently the only gc actually used and for which collect_step
     # is implemented. In case we add more GC in the future, we might want to
     # delegate this logic to the GC itself, but for now it is MUCH simpler to
     # just write it in plain RPython.
-    return old_state(val) != 0 and new_state(val) == 0
+    return oldstate != 0 and newstate == 0
 
 def set_max_heap_size(nbytes):
     """Limit the heap size to n bytes.

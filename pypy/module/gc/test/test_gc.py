@@ -3,7 +3,7 @@ import pytest
 from rpython.rlib import rgc
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.module.gc.interp_gc import StepCollector
+from pypy.module.gc.interp_gc import StepCollector, W_GcCollectStepStats
 
 class AppTestGC(object):
 
@@ -113,7 +113,7 @@ class AppTestGC(object):
         n = 0
         while True:
             n += 1
-            if gc.collect_step():
+            if gc.collect_step().major_is_done:
                 break
 
         assert n >= 2 # at least one step + 1 finalizing
@@ -194,33 +194,52 @@ class AppTestGcMethodCache(object):
 
 
 def test_StepCollector():
+    W = W_GcCollectStepStats
+    SCANNING = W.STATE_SCANNING
+    MARKING = W.STATE_MARKING
+    SWEEPING = W.STATE_SWEEPING
+    FINALIZING = W.STATE_FINALIZING
+    USERDEL = W.STATE_USERDEL
+
     class MyStepCollector(StepCollector):
         my_steps = 0
         my_done = False
         my_finalized = 0
 
+        def __init__(self):
+            StepCollector.__init__(self, space=None)
+            self._state_transitions = iter([
+                (SCANNING, MARKING),
+                (MARKING, SWEEPING),
+                (SWEEPING, FINALIZING),
+                (FINALIZING, SCANNING)])
+
         def _collect_step(self):
             self.my_steps += 1
-            return self.my_done
+            try:
+                oldstate, newstate = next(self._state_transitions)
+            except StopIteration:
+                assert False, 'should not happen, did you call _collect_step too much?'
+            return rgc._encode_states(oldstate, newstate)
 
         def _run_finalizers(self):
             self.my_finalized += 1
 
-    sc = MyStepCollector(space=None)
-    assert not sc.do()
-    assert sc.my_steps == 1
-    assert not sc.do()
-    assert sc.my_steps == 2
-    sc.my_done = True
-    assert not sc.do()
-    assert sc.my_steps == 3
-    assert sc.my_finalized == 0
-    assert sc.finalizing
-    assert sc.do()
-    assert sc.my_steps == 3
-    assert sc.my_finalized == 1
-    assert not sc.finalizing
-    assert not sc.do()
-    assert sc.my_steps == 4
-    assert sc.my_finalized == 1
+    sc = MyStepCollector()
+    transitions = []
+    while True:
+        result = sc.do()
+        transitions.append((result.oldstate, result.newstate, sc.my_finalized))
+        if result.major_is_done:
+            break
 
+    assert transitions == [
+        (SCANNING, MARKING, False),
+        (MARKING, SWEEPING, False),
+        (SWEEPING, FINALIZING, False),
+        (FINALIZING, USERDEL, False),
+        (USERDEL, SCANNING, True)
+    ]
+    # there is one more transition than actual step, because
+    # FINALIZING->USERDEL is "virtual"
+    assert sc.my_steps == len(transitions) - 1

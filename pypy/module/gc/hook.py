@@ -1,5 +1,6 @@
 from rpython.memory.gc.hook import GcHooks
-from rpython.memory.gc import incminimark 
+from rpython.memory.gc import incminimark
+from rpython.rlib import rgc
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_longlong, longlongmax
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -190,7 +191,8 @@ class GcCollectStepHookAction(AsyncAction):
             self.duration_min,
             self.duration_max,
             self.oldstate,
-            self.newstate)
+            self.newstate,
+            rgc.is_done__states(self.oldstate, self.newstate))
         self.reset()
         self.space.call_function(self.w_callable, w_stats)
 
@@ -250,15 +252,32 @@ class W_GcMinorStats(W_Root):
 
 
 class W_GcCollectStepStats(W_Root):
+    # NOTE: this is specific to incminimark: if we want to integrate the
+    # applevel gc module with another gc, we probably need a more general
+    # approach to this.
+    #
+    # incminimark has 4 GC states: scanning, marking, sweeping and
+    # finalizing. However, from the user point of view, we have an additional
+    # "virtual" state: USERDEL, which represent when we run applevel
+    # finalizers after having completed a GC major collection. This state is
+    # never explicitly visible when using hooks, but it is used for the return
+    # value of gc.collect_step (see interp_gc.py)
+    STATE_SCANNING = incminimark.STATE_SCANNING
+    STATE_MARKING = incminimark.STATE_MARKING
+    STATE_SWEEPING = incminimark.STATE_SWEEPING
+    STATE_FINALIZING = incminimark.STATE_FINALIZING
+    STATE_USERDEL = incminimark.STATE_FINALIZING + 1 # used by StepCollector
+    GC_STATES = tuple(incminimark.GC_STATES + ['USERDEL'])
 
     def __init__(self, count, duration, duration_min, duration_max,
-                 oldstate, newstate):
+                 oldstate, newstate, major_is_done):
         self.count = count
         self.duration = duration
         self.duration_min = duration_min
         self.duration_max = duration_max
         self.oldstate = oldstate
         self.newstate = newstate
+        self.major_is_done = major_is_done
 
 
 class W_GcCollectStats(W_Root):
@@ -314,11 +333,16 @@ W_GcMinorStats.typedef = TypeDef(
 
 W_GcCollectStepStats.typedef = TypeDef(
     "GcCollectStepStats",
-    STATE_SCANNING = incminimark.STATE_SCANNING,
-    STATE_MARKING = incminimark.STATE_MARKING,
-    STATE_SWEEPING = incminimark.STATE_SWEEPING,
-    STATE_FINALIZING = incminimark.STATE_FINALIZING,
-    GC_STATES = tuple(incminimark.GC_STATES),
+    STATE_SCANNING = W_GcCollectStepStats.STATE_SCANNING,
+    STATE_MARKING = W_GcCollectStepStats.STATE_MARKING,
+    STATE_SWEEPING = W_GcCollectStepStats.STATE_SWEEPING,
+    STATE_FINALIZING = W_GcCollectStepStats.STATE_FINALIZING,
+    STATE_USERDEL = W_GcCollectStepStats.STATE_USERDEL,
+    GC_STATES = tuple(W_GcCollectStepStats.GC_STATES),
+    major_is_done = interp_attrproperty(
+        "major_is_done",
+        cls=W_GcCollectStepStats,
+        wrapfn="newbool"),
     **wrap_many_ints(W_GcCollectStepStats, (
         "count",
         "duration",
