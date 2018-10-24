@@ -2,11 +2,11 @@
 import sys
 
 class AppTestReadline:
-    spaceconfig = dict(usemodules={
+    spaceconfig = dict(usemodules=[
         'unicodedata', 'select', 'signal', 
         '_minimal_curses', 'faulthandler', '_socket', 'binascii',
         '_posixsubprocess',
-    })
+    ])
     if sys.platform == 'win32':
         pass
     else:

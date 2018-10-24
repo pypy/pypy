@@ -2,8 +2,8 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 import sys
 
 class AppTestGrp:
-    spaceconfig = dict(usemodules=('_rawffi', 'binascii', 'itertools',
-                                   'select', 'signal'))
+    spaceconfig = dict(usemodules=['_rawffi', 'binascii', 'itertools',
+                                   'select', 'signal'])
     if sys.platform == 'win32':
         pass
     else:
