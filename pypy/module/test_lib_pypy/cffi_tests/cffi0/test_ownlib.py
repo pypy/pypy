@@ -103,6 +103,11 @@ EXPORT unsigned int foo_4bytes(unsigned int a)
 {
     return (unsigned int)(a + 42);
 }
+
+EXPORT void modify_struct_value(RECT r)
+{
+    r.left = r.right = r.top = r.bottom = 500;
+}
 """
 
 class TestOwnLib(object):
@@ -115,8 +120,12 @@ class TestOwnLib(object):
         if sys.platform == 'win32':
             import os
             # did we already build it?
-            if os.path.exists(str(udir.join('testownlib.dll'))):
-                cls.module = str(udir.join('testownlib.dll'))
+            if cls.Backend is CTypesBackend:
+                dll_path = str(udir) + '\\testownlib1.dll'   # only ascii for the ctypes backend
+            else:
+                dll_path = str(udir) + '\\' + (u+'testownlib\u03be.dll')   # non-ascii char
+            if os.path.exists(dll_path):
+                cls.module = dll_path
                 return
             # try (not too hard) to find the version used to compile this python
             # no mingw
@@ -136,8 +145,9 @@ class TestOwnLib(object):
             if os.path.isfile(vcvarsall):
                 cmd = '"%s" %s' % (vcvarsall, arch) + ' & cl.exe testownlib.c ' \
                         ' /LD /Fetestownlib.dll'
-                subprocess.check_call(cmd, cwd = str(udir), shell=True)    
-                cls.module = str(udir.join('testownlib.dll'))
+                subprocess.check_call(cmd, cwd = str(udir), shell=True)
+                os.rename(str(udir) + '\\testownlib.dll', dll_path)
+                cls.module = dll_path
         else:
             subprocess.check_call(
                 'cc testownlib.c -shared -fPIC -o testownlib.so',
@@ -326,3 +336,25 @@ class TestOwnLib(object):
         assert lib.foo_2bytes(u+'\u1234') == u+'\u125e'
         assert lib.foo_4bytes(u+'\u1234') == u+'\u125e'
         assert lib.foo_4bytes(u+'\U00012345') == u+'\U0001236f'
+
+    def test_modify_struct_value(self):
+        if self.module is None:
+            py.test.skip("fix the auto-generation of the tiny test lib")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            typedef struct {
+                long left;
+                long top;
+                long right;
+                long bottom;
+            } RECT;
+
+            void modify_struct_value(RECT r);
+        """)
+        lib = ffi.dlopen(self.module)
+        s = ffi.new("RECT *", [11, 22, 33, 44])
+        lib.modify_struct_value(s[0])
+        assert s.left == 11
+        assert s.top == 22
+        assert s.right == 33
+        assert s.bottom == 44

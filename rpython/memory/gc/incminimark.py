@@ -72,6 +72,8 @@ from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import rgc
+from rpython.rlib.rtimer import read_timestamp
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -371,6 +373,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_rawmalloced_objects = self.AddressStack()
         self.raw_malloc_might_sweep = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
+        self.rawmalloced_peak_size = r_uint(0)
 
         self.gc_state = STATE_SCANNING
         #
@@ -729,14 +732,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def move_out_of_nursery(self, obj):
         # called twice, it should return the same shadow object,
-        # and not creating another shadow object
-        if self.header(obj).tid & GCFLAG_HAS_SHADOW:
-            shadow = self.nursery_objects_shadows.get(obj)
-            ll_assert(shadow != llmemory.NULL,
-                      "GCFLAG_HAS_SHADOW but no shadow found")
-            return shadow
-
-        return self._allocate_shadow(obj, copy=True)
+        # and not creating another shadow object.  As a safety feature,
+        # when called on a non-nursery object, do nothing.
+        if not self.is_in_nursery(obj):
+            return obj
+        shadow = self._find_shadow(obj)
+        if (self.header(obj).tid & GCFLAG_SHADOW_INITIALIZED) == 0:
+            self.header(obj).tid |= GCFLAG_SHADOW_INITIALIZED
+            totalsize = self.get_size(obj)
+            llmemory.raw_memcopy(obj, shadow, totalsize)
+        return shadow
 
     def collect(self, gen=2):
         """Do a minor (gen=0), start a major (gen=1), or do a full
@@ -996,6 +1001,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Record the newly allocated object and its full malloced size.
             # The object is young or old depending on the argument.
             self.rawmalloced_total_size += r_uint(allocsize)
+            self.rawmalloced_peak_size = max(self.rawmalloced_total_size,
+                                             self.rawmalloced_peak_size)
             if alloc_young:
                 if not self.young_rawmalloced_objects:
                     self.young_rawmalloced_objects = self.AddressDict()
@@ -1023,7 +1030,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if self.max_heap_size < self.next_major_collection_threshold:
                 self.next_major_collection_threshold = self.max_heap_size
 
-    def raw_malloc_memory_pressure(self, sizehint):
+    def raw_malloc_memory_pressure(self, sizehint, adr):
         # Decrement by 'sizehint' plus a very little bit extra.  This
         # is needed e.g. for _rawffi, which may allocate a lot of tiny
         # arrays.
@@ -1182,6 +1189,24 @@ class IncrementalMiniMarkGC(MovingGCBase):
         nursery: only objects in the ArenaCollection or raw-malloced.
         """
         return self.ac.total_memory_used + self.rawmalloced_total_size
+
+    def get_total_memory_alloced(self):
+        """ Return the total memory allocated
+        """
+        return self.ac.total_memory_alloced + self.rawmalloced_total_size
+
+    def get_peak_memory_alloced(self):
+        """ Return the peak memory ever allocated. The peaks
+        can be at different times, but we just don't worry for now
+        """
+        return self.ac.peak_memory_alloced + self.rawmalloced_peak_size
+
+    def get_peak_memory_used(self):
+        """ Return the peak memory GC felt ever responsible for
+        """
+        mem_allocated = max(self.ac.peak_memory_used,
+                            self.ac.total_memory_used)
+        return mem_allocated + self.rawmalloced_peak_size
 
     def threshold_reached(self, extra=0):
         return (self.next_major_collection_threshold -
@@ -1619,6 +1644,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """Perform a minor collection: find the objects from the nursery
         that remain alive and move them out."""
         #
+        start = read_timestamp()
         debug_start("gc-minor")
         #
         # All nursery barriers are invalid from this point on.  They
@@ -1806,16 +1832,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # from the nursery that we just moved out.
         self.size_objects_made_old += r_uint(self.nursery_surviving_size)
         #
-        debug_print("minor collect, total memory used:",
-                    self.get_total_memory_used())
+        total_memory_used = self.get_total_memory_used()
+        debug_print("minor collect, total memory used:", total_memory_used)
         debug_print("number of pinned objects:",
                     self.pinned_objects_in_nursery)
+        debug_print("total size of surviving objects:", self.nursery_surviving_size)
         if self.DEBUG >= 2:
             self.debug_check_consistency()     # expensive!
         #
         self.root_walker.finished_minor_collection()
         #
         debug_stop("gc-minor")
+        duration = read_timestamp() - start
+        self.hooks.fire_gc_minor(
+            duration=duration,
+            total_memory_used=total_memory_used,
+            pinned_objects=self.pinned_objects_in_nursery)
 
     def _reset_flag_old_objects_pointing_to_pinned(self, obj, ignore):
         ll_assert(self.header(obj).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN != 0,
@@ -2052,13 +2084,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(newobj != llmemory.NULL, "GCFLAG_HAS_SHADOW but no shadow found")
             newhdr = newobj - size_gc_header
             #
-            # Remove the flag GCFLAG_HAS_SHADOW, so that it doesn't get
-            # copied to the shadow itself.
-            self.header(obj).tid &= ~GCFLAG_HAS_SHADOW
+            # The flags GCFLAG_HAS_SHADOW and GCFLAG_SHADOW_INITIALIZED
+            # have no meaning in non-nursery objects.  We don't need to
+            # remove them explicitly here before doing the copy.
             tid = self.header(obj).tid
             if (tid & GCFLAG_SHADOW_INITIALIZED) != 0:
                 copy = False
-                self.header(obj).tid &= ~GCFLAG_SHADOW_INITIALIZED
             #
             totalsize = size_gc_header + self.get_size(obj)
             self.nursery_surviving_size += raw_malloc_usage(totalsize)
@@ -2155,6 +2186,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
         self.rawmalloced_total_size += r_uint(raw_malloc_usage(totalsize))
+        self.rawmalloced_peak_size = max(self.rawmalloced_total_size,
+                                         self.rawmalloced_peak_size)
         self.old_rawmalloced_objects.append(arena + size_gc_header)
         return arena
 
@@ -2216,7 +2249,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # Note - minor collections seem fast enough so that one
     # is done before every major collection step
     def major_collection_step(self, reserving_size=0):
+        start = read_timestamp()
         debug_start("gc-collect-step")
+        oldstate = self.gc_state
         debug_print("starting gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
         if self.pinned_objects_in_nursery == 0:
@@ -2367,7 +2402,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # a total object size of at least '3 * nursery_size' bytes
                 # is processed.
                 limit = 3 * self.nursery_size // self.small_request_threshold
-                self.free_unvisited_rawmalloc_objects_step(limit)
+                nobjects = self.free_unvisited_rawmalloc_objects_step(limit)
+                debug_print("freeing raw objects:", limit-nobjects,
+                            "freed, limit was", limit)
                 done = False    # the 2nd half below must still be done
             else:
                 # Ask the ArenaCollection to visit a fraction of the objects.
@@ -2377,6 +2414,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 limit = 3 * self.nursery_size // self.ac.page_size
                 done = self.ac.mass_free_incremental(self._free_if_unvisited,
                                                      limit)
+                status = done and "No more pages left." or "More to do."
+                debug_print("freeing GC objects, up to", limit, "pages.", status)
             # XXX tweak the limits above
             #
             if done:
@@ -2396,6 +2435,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             self.stat_rawmalloced_total_size, " => ",
                             self.rawmalloced_total_size)
                 debug_stop("gc-collect-done")
+                self.hooks.fire_gc_collect(
+                    num_major_collects=self.num_major_collects,
+                    arenas_count_before=self.stat_ac_arenas_count,
+                    arenas_count_after=self.ac.arenas_count,
+                    arenas_bytes=self.ac.total_memory_used,
+                    rawmalloc_bytes_before=self.stat_rawmalloced_total_size,
+                    rawmalloc_bytes_after=self.rawmalloced_total_size)
                 #
                 # Set the threshold for the next major collection to be when we
                 # have allocated 'major_collection_threshold' times more than
@@ -2447,6 +2493,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
         debug_stop("gc-collect-step")
+        duration = read_timestamp() - start
+        self.hooks.fire_gc_collect_step(
+            duration=duration,
+            oldstate=oldstate,
+            newstate=self.gc_state)
 
     def _sweep_old_objects_pointing_to_pinned(self, obj, new_list):
         if self.header(obj).tid & GCFLAG_VISITED:
@@ -2620,8 +2671,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
-    @specialize.arg(2)
-    def _allocate_shadow(self, obj, copy=False):
+    def _allocate_shadow(self, obj):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         size = self.get_size(obj)
         shadowhdr = self._malloc_out_of_nursery(size_gc_header +
@@ -2643,12 +2693,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         self.header(obj).tid |= GCFLAG_HAS_SHADOW
         self.nursery_objects_shadows.setitem(obj, shadow)
-
-        if copy:
-            self.header(obj).tid |= GCFLAG_SHADOW_INITIALIZED
-            totalsize = size_gc_header + self.get_size(obj)
-            llmemory.raw_memcopy(obj - size_gc_header, shadow, totalsize)
-
         return shadow
 
     def _find_shadow(self, obj):
@@ -2931,6 +2975,32 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 (obj + offset).address[0] = llmemory.NULL
         self.old_objects_with_weakrefs.delete()
         self.old_objects_with_weakrefs = new_with_weakref
+
+    def get_stats(self, stats_no):
+        from rpython.memory.gc import inspector
+
+        if stats_no == rgc.TOTAL_MEMORY:
+            return intmask(self.get_total_memory_used() + self.nursery_size)
+        elif stats_no == rgc.PEAK_MEMORY:
+            return intmask(self.get_peak_memory_used() + self.nursery_size)
+        elif stats_no == rgc.PEAK_ALLOCATED_MEMORY:
+            return intmask(self.get_peak_memory_alloced() + self.nursery_size)
+        elif stats_no == rgc.TOTAL_ALLOCATED_MEMORY:
+            return intmask(self.get_total_memory_alloced() + self.nursery_size)
+        elif stats_no == rgc.TOTAL_MEMORY_PRESSURE:
+            return inspector.count_memory_pressure(self)
+        elif stats_no == rgc.TOTAL_ARENA_MEMORY:
+            return intmask(self.ac.total_memory_used)
+        elif stats_no == rgc.TOTAL_RAWMALLOCED_MEMORY:
+            return intmask(self.rawmalloced_total_size)
+        elif stats_no == rgc.PEAK_RAWMALLOCED_MEMORY:
+            return intmask(self.rawmalloced_peak_size)
+        elif stats_no == rgc.PEAK_ARENA_MEMORY:
+            return intmask(max(self.ac.peak_memory_used,
+                               self.ac.total_memory_used))
+        elif stats_no == rgc.NURSERY_SIZE:
+            return intmask(self.nursery_size)
+        return 0
 
 
     # ----------

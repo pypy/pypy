@@ -57,6 +57,7 @@ def detect_model_from_host_platform():
             'i486': MODEL_X86,
             'i586': MODEL_X86,
             'i686': MODEL_X86,
+            'i686-AT386': MODEL_X86,  # Hurd
             'i86pc': MODEL_X86,    # Solaris/Intel
             'x86': MODEL_X86,      # Apple
             'Power Macintosh': MODEL_PPC_64,

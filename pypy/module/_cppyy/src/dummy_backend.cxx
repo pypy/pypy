@@ -60,9 +60,9 @@ struct Cppyy_PseudoMethodInfo {
                            const std::string& returntype,
                            EMethodType mtype = kNormal) :
         m_name(name), m_argtypes(argtypes), m_returntype(returntype), m_type(mtype) {}
-
     std::string m_name;
     std::vector<std::string> m_argtypes;
+    std::vector<std::string> m_argdefaults;
     std::string m_returntype;
     EMethodType m_type;
 };
@@ -72,7 +72,6 @@ struct Cppyy_PseudoDatambrInfo {
                             const std::string& type,
                             ptrdiff_t offset, bool isstatic) :
         m_name(name), m_type(type), m_offset(offset), m_isstatic(isstatic) {}
-
     std::string m_name;
     std::string m_type;
     ptrdiff_t m_offset;
@@ -81,20 +80,20 @@ struct Cppyy_PseudoDatambrInfo {
 
 struct Cppyy_PseudoClassInfo {
     Cppyy_PseudoClassInfo() {}
-    Cppyy_PseudoClassInfo(const std::vector<Cppyy_PseudoMethodInfo>& methods,
-                          long method_offset,
+    Cppyy_PseudoClassInfo(const std::vector<Cppyy_PseudoMethodInfo*>& methods,
                           const std::vector<Cppyy_PseudoDatambrInfo>& data) :
-        m_methods(methods), m_method_offset(method_offset), m_datambrs(data) {}
-
-    std::vector<Cppyy_PseudoMethodInfo> m_methods;
-    long m_method_offset;
+        m_methods(methods), m_datambrs(data) {}
+    std::vector<Cppyy_PseudoMethodInfo*> m_methods;
     std::vector<Cppyy_PseudoDatambrInfo> m_datambrs;
 };
 
 typedef std::map<cppyy_scope_t, Cppyy_PseudoClassInfo> Scopes_t;
 static Scopes_t s_scopes;
 
-static std::map<std::string, long> s_methods;
+static std::map<std::string, Cppyy_PseudoMethodInfo*> s_methods;
+struct CleanPseudoMethods {
+    ~CleanPseudoMethods() { for (auto& x : s_methods) delete x.second; }
+} _clean;
 
 int Pseudo_kNothing   = 6;
 int Pseudo_kSomething = 111;
@@ -105,28 +104,28 @@ int Pseudo_kLots      = 42;
         offsetof(dummy::CppyyTestData, m_##dmname), false));                  \
     /* <type> get_<type>() */                                                 \
     argtypes.clear();                                                         \
-    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+    methods.push_back(new Cppyy_PseudoMethodInfo(                             \
                          "get_"#dmname, argtypes, #dmtype));                  \
-    s_methods["CppyyTestData::get_"#dmname] = s_method_id++;                  \
+    s_methods["CppyyTestData::get_"#dmname] = methods.back();                 \
     /* <type>& get_<type>_r() */                                              \
-    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+    methods.push_back(new Cppyy_PseudoMethodInfo(                             \
                          "get_"#dmname"_r", argtypes, #dmtype"&"));           \
-    s_methods["CppyyTestData::get_"#dmname"_r"] = s_method_id++;              \
+    s_methods["CppyyTestData::get_"#dmname"_r"] = methods.back();             \
     /* const <type>& get_<type>_cr() */                                       \
-    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+    methods.push_back(new Cppyy_PseudoMethodInfo(                             \
                          "get_"#dmname"_cr", argtypes, "const "#dmtype"&"));  \
-    s_methods["CppyyTestData::get_"#dmname"_cr"] = s_method_id++;             \
+    s_methods["CppyyTestData::get_"#dmname"_cr"] = methods.back();            \
     /* void set_<type>(<type>) */                                             \
     argtypes.push_back(#dmtype);                                              \
-    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+    methods.push_back(new Cppyy_PseudoMethodInfo(                             \
                          "set_"#dmname, argtypes, "void"));                   \
-    s_methods["CppyyTestData::set_"#dmname] = s_method_id++;                  \
+    s_methods["CppyyTestData::set_"#dmname] = methods.back();                 \
     argtypes.clear();                                                         \
     /* void set_<type>(const <type>&) */                                      \
     argtypes.push_back("const "#dmtype"&");                                   \
-    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+    methods.push_back(new Cppyy_PseudoMethodInfo(                             \
                          "set_"#dmname"_cr", argtypes, "void"));              \
-    s_methods["CppyyTestData::set_"#dmname"_cr"] = s_method_id++
+    s_methods["CppyyTestData::set_"#dmname"_cr"] = methods.back()
 
 #define PUBLIC_CPPYY_DATA2(dmname, dmtype)                                    \
     PUBLIC_CPPYY_DATA(dmname, dmtype);                                        \
@@ -135,23 +134,23 @@ int Pseudo_kLots      = 42;
     data.push_back(Cppyy_PseudoDatambrInfo("m_"#dmname"_array2", #dmtype"*",  \
         offsetof(dummy::CppyyTestData, m_##dmname##_array2), false));         \
     argtypes.clear();                                                         \
-    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+    methods.push_back(new Cppyy_PseudoMethodInfo(                             \
                          "get_"#dmname"_array", argtypes, #dmtype"*"));       \
-    s_methods["CppyyTestData::get_"#dmname"_array"] = s_method_id++;          \
-    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+    s_methods["CppyyTestData::get_"#dmname"_array"] = methods.back();         \
+    methods.push_back(new Cppyy_PseudoMethodInfo(                             \
                          "get_"#dmname"_array2", argtypes, #dmtype"*"));      \
-    s_methods["CppyyTestData::get_"#dmname"_array2"] = s_method_id++
+    s_methods["CppyyTestData::get_"#dmname"_array2"] = methods.back()
 
 #define PUBLIC_CPPYY_DATA3(dmname, dmtype, key)                               \
     PUBLIC_CPPYY_DATA2(dmname, dmtype);                                       \
     argtypes.push_back(#dmtype"*");                                           \
-    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+    methods.push_back(new Cppyy_PseudoMethodInfo(                             \
                          "pass_array", argtypes, #dmtype"*"));                \
-    s_methods["CppyyTestData::pass_array_"#dmname] = s_method_id++;           \
+    s_methods["CppyyTestData::pass_array_"#dmname] = methods.back();          \
     argtypes.clear(); argtypes.push_back("void*");                            \
-    methods.push_back(Cppyy_PseudoMethodInfo(                                 \
+    methods.push_back(new Cppyy_PseudoMethodInfo(                             \
                          "pass_void_array_"#key, argtypes, #dmtype"*"));      \
-    s_methods["CppyyTestData::pass_void_array_"#key] = s_method_id++
+    s_methods["CppyyTestData::pass_void_array_"#key] = methods.back()
 
 #define PUBLIC_CPPYY_STATIC_DATA(dmname, dmtype)                              \
     data.push_back(Cppyy_PseudoDatambrInfo("s_"#dmname, #dmtype,              \
@@ -162,7 +161,6 @@ struct Cppyy_InitPseudoReflectionInfo {
     Cppyy_InitPseudoReflectionInfo() {
         // class example01 --
         static long s_scope_id  = 0;
-        static long s_method_id = 0;
 
         { // namespace ''
         s_handles[""] = (cppyy_scope_t)++s_scope_id;
@@ -175,33 +173,33 @@ struct Cppyy_InitPseudoReflectionInfo {
         { // class example01 --
         s_handles["example01"] = (cppyy_scope_t)++s_scope_id;
 
-        std::vector<Cppyy_PseudoMethodInfo> methods;
+        std::vector<Cppyy_PseudoMethodInfo*> methods;
 
         // static double staticAddToDouble(double a)
         std::vector<std::string> argtypes;
         argtypes.push_back("double");
-        methods.push_back(Cppyy_PseudoMethodInfo("staticAddToDouble", argtypes, "double", kStatic));
-        s_methods["static_example01::staticAddToDouble_double"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("staticAddToDouble", argtypes, "double", kStatic));
+        s_methods["static_example01::staticAddToDouble_double"] = methods.back();
 
         // static int staticAddOneToInt(int a)
         // static int staticAddOneToInt(int a, int b)
         argtypes.clear();
         argtypes.push_back("int");
-        methods.push_back(Cppyy_PseudoMethodInfo("staticAddOneToInt", argtypes, "int", kStatic));
-        s_methods["static_example01::staticAddOneToInt_int"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("staticAddOneToInt", argtypes, "int", kStatic));
+        s_methods["static_example01::staticAddOneToInt_int"] = methods.back();
         argtypes.push_back("int");
-        methods.push_back(Cppyy_PseudoMethodInfo("staticAddOneToInt", argtypes, "int", kStatic));
-        s_methods["static_example01::staticAddOneToInt_int_int"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("staticAddOneToInt", argtypes, "int", kStatic));
+        s_methods["static_example01::staticAddOneToInt_int_int"] = methods.back();
 
         // static int staticAtoi(const char* str)
         argtypes.clear();
         argtypes.push_back("const char*");
-        methods.push_back(Cppyy_PseudoMethodInfo("staticAtoi", argtypes, "int", kStatic));
-        s_methods["static_example01::staticAtoi_cchar*"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("staticAtoi", argtypes, "int", kStatic));
+        s_methods["static_example01::staticAtoi_cchar*"] = methods.back();
 
         // static char* staticStrcpy(const char* strin)
-        methods.push_back(Cppyy_PseudoMethodInfo("staticStrcpy", argtypes, "char*", kStatic));
-        s_methods["static_example01::staticStrcpy_cchar*"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("staticStrcpy", argtypes, "char*", kStatic));
+        s_methods["static_example01::staticStrcpy_cchar*"] = methods.back();
 
         // static void staticSetPayload(payload* p, double d)
         // static payload* staticCyclePayload(payload* p, double d)
@@ -209,90 +207,89 @@ struct Cppyy_InitPseudoReflectionInfo {
         argtypes.clear();
         argtypes.push_back("payload*");
         argtypes.push_back("double");
-        methods.push_back(Cppyy_PseudoMethodInfo("staticSetPayload", argtypes, "void", kStatic));
-        s_methods["static_example01::staticSetPayload_payload*_double"] = s_method_id++;
-        methods.push_back(Cppyy_PseudoMethodInfo("staticCyclePayload", argtypes, "payload*", kStatic));
-        s_methods["static_example01::staticCyclePayload_payload*_double"] = s_method_id++;
-        methods.push_back(Cppyy_PseudoMethodInfo("staticCopyCyclePayload", argtypes, "payload", kStatic));
-        s_methods["static_example01::staticCopyCyclePayload_payload*_double"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("staticSetPayload", argtypes, "void", kStatic));
+        s_methods["static_example01::staticSetPayload_payload*_double"] = methods.back();
+        methods.push_back(new Cppyy_PseudoMethodInfo("staticCyclePayload", argtypes, "payload*", kStatic));
+        s_methods["static_example01::staticCyclePayload_payload*_double"] = methods.back();
+        methods.push_back(new Cppyy_PseudoMethodInfo("staticCopyCyclePayload", argtypes, "payload", kStatic));
+        s_methods["static_example01::staticCopyCyclePayload_payload*_double"] = methods.back();
 
         // static int getCount()
         // static void setCount(int)
         argtypes.clear();
-        methods.push_back(Cppyy_PseudoMethodInfo("getCount", argtypes, "int", kStatic));
-        s_methods["static_example01::getCount"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("getCount", argtypes, "int", kStatic));
+        s_methods["static_example01::getCount"] = methods.back();
         argtypes.push_back("int");
-        methods.push_back(Cppyy_PseudoMethodInfo("setCount", argtypes, "void", kStatic));
-        s_methods["static_example01::setCount_int"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("setCount", argtypes, "void", kStatic));
+        s_methods["static_example01::setCount_int"] = methods.back();
 
         // example01()
         // example01(int a)
         argtypes.clear();
-        methods.push_back(Cppyy_PseudoMethodInfo("example01", argtypes, "constructor", kConstructor));
-        s_methods["example01::example01"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("example01", argtypes, "constructor", kConstructor));
+        s_methods["example01::example01"] = methods.back();
         argtypes.push_back("int");
-        methods.push_back(Cppyy_PseudoMethodInfo("example01", argtypes, "constructor", kConstructor));
-        s_methods["example01::example01_int"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("example01", argtypes, "constructor", kConstructor));
+        s_methods["example01::example01_int"] = methods.back();
 
         // int addDataToInt(int a)
         argtypes.clear();
         argtypes.push_back("int");
-        methods.push_back(Cppyy_PseudoMethodInfo("addDataToInt", argtypes, "int"));
-        s_methods["example01::addDataToInt_int"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("addDataToInt", argtypes, "int"));
+        s_methods["example01::addDataToInt_int"] = methods.back();
 
         // int addDataToIntConstRef(const int& a)
         argtypes.clear();
         argtypes.push_back("const int&");
-        methods.push_back(Cppyy_PseudoMethodInfo("addDataToIntConstRef", argtypes, "int"));
-        s_methods["example01::addDataToIntConstRef_cint&"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("addDataToIntConstRef", argtypes, "int"));
+        s_methods["example01::addDataToIntConstRef_cint&"] = methods.back();
 
         // int overloadedAddDataToInt(int a, int b)
         argtypes.clear();
         argtypes.push_back("int");
         argtypes.push_back("int");
-        methods.push_back(Cppyy_PseudoMethodInfo("overloadedAddDataToInt", argtypes, "int"));
-        s_methods["example01::overloadedAddDataToInt_int_int"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("overloadedAddDataToInt", argtypes, "int"));
+        s_methods["example01::overloadedAddDataToInt_int_int"] = methods.back();
 
         // int overloadedAddDataToInt(int a)
         // int overloadedAddDataToInt(int a, int b, int c)
         argtypes.clear();
         argtypes.push_back("int");
-        methods.push_back(Cppyy_PseudoMethodInfo("overloadedAddDataToInt", argtypes, "int"));
-        s_methods["example01::overloadedAddDataToInt_int"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("overloadedAddDataToInt", argtypes, "int"));
+        s_methods["example01::overloadedAddDataToInt_int"] = methods.back();
         argtypes.push_back("int");
         argtypes.push_back("int");
-        methods.push_back(Cppyy_PseudoMethodInfo("overloadedAddDataToInt", argtypes, "int"));
-        s_methods["example01::overloadedAddDataToInt_int_int_int"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("overloadedAddDataToInt", argtypes, "int"));
+        s_methods["example01::overloadedAddDataToInt_int_int_int"] = methods.back();
 
         // double addDataToDouble(double a)
         argtypes.clear();
         argtypes.push_back("double");
-        methods.push_back(Cppyy_PseudoMethodInfo("addDataToDouble", argtypes, "double"));
-        s_methods["example01::addDataToDouble_double"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("addDataToDouble", argtypes, "double"));
+        s_methods["example01::addDataToDouble_double"] = methods.back();
 
         // int addDataToAtoi(const char* str)
         // char* addToStringValue(const char* str)
         argtypes.clear();
         argtypes.push_back("const char*");
-        methods.push_back(Cppyy_PseudoMethodInfo("addDataToAtoi", argtypes, "int"));
-        s_methods["example01::addDataToAtoi_cchar*"] = s_method_id++;
-        methods.push_back(Cppyy_PseudoMethodInfo("addToStringValue", argtypes, "char*"));
-        s_methods["example01::addToStringValue_cchar*"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("addDataToAtoi", argtypes, "int"));
+        s_methods["example01::addDataToAtoi_cchar*"] = methods.back();
+        methods.push_back(new Cppyy_PseudoMethodInfo("addToStringValue", argtypes, "char*"));
+        s_methods["example01::addToStringValue_cchar*"] = methods.back();
 
         // void setPayload(payload* p)
         // payload* cyclePayload(payload* p)
         // payload copyCyclePayload(payload* p)
         argtypes.clear();
         argtypes.push_back("payload*");
-        methods.push_back(Cppyy_PseudoMethodInfo("setPayload", argtypes, "void"));
-        s_methods["example01::setPayload_payload*"] = s_method_id++;
-        methods.push_back(Cppyy_PseudoMethodInfo("cyclePayload", argtypes, "payload*"));
-        s_methods["example01::cyclePayload_payload*"] = s_method_id++;
-        methods.push_back(Cppyy_PseudoMethodInfo("copyCyclePayload", argtypes, "payload"));
-        s_methods["example01::copyCyclePayload_payload*"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("setPayload", argtypes, "void"));
+        s_methods["example01::setPayload_payload*"] = methods.back();
+        methods.push_back(new Cppyy_PseudoMethodInfo("cyclePayload", argtypes, "payload*"));
+        s_methods["example01::cyclePayload_payload*"] = methods.back();
+        methods.push_back(new Cppyy_PseudoMethodInfo("copyCyclePayload", argtypes, "payload"));
+        s_methods["example01::copyCyclePayload_payload*"] = methods.back();
 
-        Cppyy_PseudoClassInfo info(
-            methods, s_method_id - methods.size(), std::vector<Cppyy_PseudoDatambrInfo>());
+        Cppyy_PseudoClassInfo info(methods, std::vector<Cppyy_PseudoDatambrInfo>());
         s_scopes[(cppyy_scope_t)s_scope_id] = info;
         } // -- class example01
 
@@ -301,27 +298,26 @@ struct Cppyy_InitPseudoReflectionInfo {
         { // class payload --
         s_handles["payload"] = (cppyy_scope_t)++s_scope_id;
 
-        std::vector<Cppyy_PseudoMethodInfo> methods;
+        std::vector<Cppyy_PseudoMethodInfo*> methods;
 
         // payload(double d = 0.)
         std::vector<std::string> argtypes;
         argtypes.push_back("double");
-        methods.push_back(Cppyy_PseudoMethodInfo("payload", argtypes, "constructor", kConstructor));
-        s_methods["payload::payload_double"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("payload", argtypes, "constructor", kConstructor));
+        s_methods["payload::payload_double"] = methods.back();
 
         // double getData()
         argtypes.clear();
-        methods.push_back(Cppyy_PseudoMethodInfo("getData", argtypes, "double"));
-        s_methods["payload::getData"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("getData", argtypes, "double"));
+        s_methods["payload::getData"] = methods.back();
 
         // void setData(double d)
         argtypes.clear();
         argtypes.push_back("double");
-        methods.push_back(Cppyy_PseudoMethodInfo("setData", argtypes, "void"));
-        s_methods["payload::setData_double"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("setData", argtypes, "void"));
+        s_methods["payload::setData_double"] = methods.back();
 
-        Cppyy_PseudoClassInfo info(
-            methods, s_method_id - methods.size(), std::vector<Cppyy_PseudoDatambrInfo>());
+        Cppyy_PseudoClassInfo info(methods, std::vector<Cppyy_PseudoDatambrInfo>());
         s_scopes[(cppyy_scope_t)s_scope_id] = info;
         } // -- class payload
 
@@ -330,24 +326,25 @@ struct Cppyy_InitPseudoReflectionInfo {
         { // class CppyyTestData --
         s_handles["CppyyTestData"] = (cppyy_scope_t)++s_scope_id;
 
-        std::vector<Cppyy_PseudoMethodInfo> methods;
+        std::vector<Cppyy_PseudoMethodInfo*> methods;
 
         // CppyyTestData()
         std::vector<std::string> argtypes;
-        methods.push_back(Cppyy_PseudoMethodInfo("CppyyTestData", argtypes, "constructor", kConstructor));
-        s_methods["CppyyTestData::CppyyTestData"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("CppyyTestData", argtypes, "constructor", kConstructor));
+        s_methods["CppyyTestData::CppyyTestData"] = methods.back();
 
-        methods.push_back(Cppyy_PseudoMethodInfo("destroy_arrays", argtypes, "void"));
-        s_methods["CppyyTestData::destroy_arrays"] = s_method_id++;
+        methods.push_back(new Cppyy_PseudoMethodInfo("destroy_arrays", argtypes, "void"));
+        s_methods["CppyyTestData::destroy_arrays"] = methods.back();
 
         std::vector<Cppyy_PseudoDatambrInfo> data;
         PUBLIC_CPPYY_DATA2(bool,    bool);
         PUBLIC_CPPYY_DATA (char,    char);
         PUBLIC_CPPYY_DATA (schar,   signed char);
-        PUBLIC_CPPYY_DATA (uchar,   unsigned char);
+        PUBLIC_CPPYY_DATA2(uchar,   unsigned char);
         PUBLIC_CPPYY_DATA3(short,   short,              h);
         PUBLIC_CPPYY_DATA3(ushort,  unsigned short,     H);
         PUBLIC_CPPYY_DATA3(int,     int,                i);
+        PUBLIC_CPPYY_DATA (const_int, const int);
         PUBLIC_CPPYY_DATA3(uint,    unsigned int,       I);
         PUBLIC_CPPYY_DATA3(long,    long,               l);
         PUBLIC_CPPYY_DATA3(ulong,   unsigned long,      L);
@@ -380,6 +377,13 @@ struct Cppyy_InitPseudoReflectionInfo {
         PUBLIC_CPPYY_STATIC_DATA(enum,    CppyyTestData::EWhat);
         PUBLIC_CPPYY_STATIC_DATA(voidp,   void*);
 
+      // default tester for long double
+        argtypes.clear();
+        argtypes.push_back("long double");
+        methods.push_back(new Cppyy_PseudoMethodInfo("get_ldouble_def", argtypes, "long double"));
+        methods.back()->m_argdefaults.push_back("aap_t(1)");
+        s_methods["CppyyTestData::get_ldouble_def"] = methods.back();
+
       // pretend enum values
         data.push_back(Cppyy_PseudoDatambrInfo(
             "kNothing", "CppyyTestData::EWhat", (ptrdiff_t)&Pseudo_kNothing, true));
@@ -388,10 +392,20 @@ struct Cppyy_InitPseudoReflectionInfo {
         data.push_back(Cppyy_PseudoDatambrInfo(
             "kLots", "CppyyTestData::EWhat", (ptrdiff_t)&Pseudo_kLots, true));
 
-        Cppyy_PseudoClassInfo info(methods, s_method_id - methods.size(), data);
+        Cppyy_PseudoClassInfo info(methods, data);
         s_scopes[(cppyy_scope_t)s_scope_id] = info;
         } // -- class CppyyTest_data
 
+        //====================================================================
+
+        { // namespace pyzables --
+        s_handles["pyzables"] = (cppyy_scope_t)++s_scope_id;
+        s_scopes[(cppyy_scope_t)s_scope_id] = Cppyy_PseudoClassInfo{};
+        s_handles["pyzables::SomeDummy1"] = (cppyy_scope_t)++s_scope_id;
+        s_scopes[(cppyy_scope_t)s_scope_id] = Cppyy_PseudoClassInfo{};
+        s_handles["pyzables::SomeDummy2"] = (cppyy_scope_t)++s_scope_id;
+        s_scopes[(cppyy_scope_t)s_scope_id] = Cppyy_PseudoClassInfo{};
+        } // -- namespace pyzables
     }
 } _init;
 
@@ -407,11 +421,11 @@ static inline char* cppstring_to_cstring(const std::string& name) {
 
 
 /* name to opaque C++ scope representation -------------------------------- */
-int cppyy_num_scopes(cppyy_scope_t handle) {
-    return 0;
-}
-
 char* cppyy_resolve_name(const char* cppitem_name) {
+    if (cppyy_is_enum(cppitem_name))
+        return cppstring_to_cstring("internal_enum_type_t");
+    else if (strcmp(cppitem_name, "aap_t") == 0)
+        return cppstring_to_cstring("long double");
     return cppstring_to_cstring(cppitem_name);
 }
 
@@ -433,7 +447,7 @@ void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
 
 /* method/function dispatching -------------------------------------------- */
 void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
-    long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["static_example01::staticSetPayload_payload*_double"]) {
         assert(!self && nargs == 2);
         dummy::example01::staticSetPayload((dummy::payload*)(*(long*)&((CPPYY_G__value*)args)[0]),
@@ -516,6 +530,12 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     } else if (idx == s_methods["CppyyTestData::set_double_cr"]) {
         assert(self && nargs == 1);
         ((dummy::CppyyTestData*)self)->set_double_cr(*(double*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_ldouble"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_ldouble(((CPPYY_G__value*)args)[0].obj.ld);
+    } else if (idx == s_methods["CppyyTestData::set_ldouble_cr"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_ldouble_cr(*(long double*)&((CPPYY_G__value*)args)[0]);
     } else {
         assert(!"method unknown in cppyy_call_v");
     }
@@ -523,7 +543,7 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
 
 unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     unsigned char result = 0;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["CppyyTestData::get_bool"]) {
         assert(self && nargs == 0);
         result = (unsigned char)((dummy::CppyyTestData*)self)->get_bool();
@@ -535,7 +555,7 @@ unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs
 
 char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     char result = 0;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["CppyyTestData::get_char"]) {
         assert(self && nargs == 0);
         result = ((dummy::CppyyTestData*)self)->get_char();
@@ -550,7 +570,7 @@ char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
 
 short cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     short result = 0;
-    const long idx = (long)method; 
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["CppyyTestData::get_short"]) {
         assert(self && nargs == 0);
         result = ((dummy::CppyyTestData*)self)->get_short();
@@ -565,7 +585,7 @@ short cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 
 int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     int result = 0;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["static_example01::staticAddOneToInt_int"]) {
         assert(!self && nargs == 1);
         result = dummy::example01::staticAddOneToInt(((CPPYY_G__value*)args)[0].obj.in);
@@ -597,7 +617,7 @@ int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* ar
 
 long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     long result = 0;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["static_example01::staticStrcpy_cchar*"]) {
         assert(!self && nargs == 1);
         result = (long)dummy::example01::staticStrcpy(
@@ -630,6 +650,12 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     } else if (idx == s_methods["CppyyTestData::get_bool_array2"]) {
         assert(self && nargs == 0);
         result = (long)((dummy::CppyyTestData*)self)->get_bool_array2();
+    } else if (idx == s_methods["CppyyTestData::get_uchar_array"]) {
+        assert(self && nargs == 0);
+        result = (long)((dummy::CppyyTestData*)self)->get_uchar_array();
+    } else if (idx == s_methods["CppyyTestData::get_uchar_array2"]) {
+        assert(self && nargs == 0);
+        result = (long)((dummy::CppyyTestData*)self)->get_uchar_array2();
     } else if (idx == s_methods["CppyyTestData::get_short_array"]) {
         assert(self && nargs == 0);
         result = (long)((dummy::CppyyTestData*)self)->get_short_array();
@@ -738,7 +764,7 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
 
 long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     long long result = 0;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["CppyyTestData::get_llong"]) {
         assert(self && nargs == 0);
         result = ((dummy::CppyyTestData*)self)->get_llong();
@@ -753,7 +779,7 @@ long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, v
 
 float cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     float result = 0;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["CppyyTestData::get_float"]) {
         assert(self && nargs == 0);
         result = ((dummy::CppyyTestData*)self)->get_float();
@@ -765,7 +791,7 @@ float cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 
 double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     double result = 0.;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["static_example01::staticAddToDouble_double"]) {
         assert(!self && nargs == 1);
         result = dummy::example01::staticAddToDouble(((CPPYY_G__value*)args)[0].obj.d);
@@ -784,6 +810,26 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
     return result;
 }
 
+double cppyy_call_nld(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    double result = 0.;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
+    if (idx == s_methods["CppyyTestData::get_ldouble_def"]) {
+        if (nargs == 1)
+            result = (double)((dummy::CppyyTestData*)self)->get_ldouble_def(
+                ((CPPYY_G__value*)args)[0].obj.ld);
+        else {
+            assert(self && nargs == 0);
+            result = (double)((dummy::CppyyTestData*)self)->get_ldouble_def();
+        }
+    } else if (idx == s_methods["CppyyTestData::get_ldouble"]) {
+        assert(self && nargs == 0);
+        result = (double)((dummy::CppyyTestData*)self)->get_ldouble();
+    } else {
+        assert(!"method unknown in cppyy_call_nld");
+    }
+    return result;
+}
+
 #define DISPATCH_CALL_R_GET(tpname)                                           \
     else if (idx == s_methods["CppyyTestData::get_"#tpname"_r"]) {            \
         assert(self && nargs == 0);                                           \
@@ -795,7 +841,7 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
 
 void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     void* result = nullptr;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (0) {}
     DISPATCH_CALL_R_GET(bool)
     DISPATCH_CALL_R_GET(short)
@@ -819,7 +865,7 @@ void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 
 char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, size_t* /* length */) {
     char* result = 0;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["static_example01::staticStrcpy_cchar*"]) {
         assert(!self && nargs == 1);
         result = dummy::example01::staticStrcpy((const char*)(*(long*)&((CPPYY_G__value*)args)[0]));
@@ -831,7 +877,7 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 
 cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int nargs, void* args) {
     void* result = 0;
-    const long idx = (long)method;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["example01::example01"]) {
         assert(nargs == 0);
         result = new dummy::example01;
@@ -851,10 +897,9 @@ cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int
     return (cppyy_object_t)result;
 }
 
-cppyy_funcaddr_t cppyy_get_function_address(cppyy_scope_t /* scope */, cppyy_index_t /* idx */) {
+cppyy_funcaddr_t cppyy_function_address(cppyy_method_t /* method */) {
     return (cppyy_funcaddr_t)0;
 }
-
 
 /* handling of function argument buffer ----------------------------------- */
 void* cppyy_allocate_function_args(int nargs) {
@@ -880,7 +925,9 @@ size_t cppyy_function_arg_typeoffset() {
 
 
 /* scope reflection information ------------------------------------------- */
-int cppyy_is_namespace(cppyy_scope_t /* handle */) {
+int cppyy_is_namespace(cppyy_scope_t handle) {
+    if (handle == s_handles["pyzables"])
+        return 1;
     return 0;
 }
 
@@ -920,76 +967,95 @@ int cppyy_num_bases(cppyy_type_t /*handle*/) {
    return 0;
 }
 
+int cppyy_smartptr_info(const char* name, cppyy_type_t* raw, cppyy_method_t* deref) {
+   return 0;
+}
+
 
 /* method/function reflection information --------------------------------- */
+cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t idx) {
+    if (s_scopes.find(handle) != s_scopes.end()) {
+        return (cppyy_method_t)s_scopes[handle].m_methods[idx];
+    }
+    assert(!"unknown class in cppyy_get_method");
+    return (cppyy_method_t)0;
+}
+
 int cppyy_num_methods(cppyy_scope_t handle) {
     return s_scopes[handle].m_methods.size();
 }
 
-cppyy_index_t cppyy_method_index_at(cppyy_scope_t /* scope */, int imeth) {
-    return (cppyy_index_t)imeth;
+char* cppyy_method_name(cppyy_method_t method) {
+    return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_name);
 }
 
-char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t method_index) {
-    return cppstring_to_cstring(s_scopes[handle].m_methods[(int)method_index].m_name);
+char* cppyy_method_full_name(cppyy_method_t method) {
+    return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_name);
 }
 
-char* cppyy_method_result_type(cppyy_scope_t handle, cppyy_index_t method_index) {
-    return cppstring_to_cstring(s_scopes[handle].m_methods[method_index].m_returntype);
+char* cppyy_method_result_type(cppyy_method_t method) {
+    return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_returntype);
 }
     
-int cppyy_method_num_args(cppyy_scope_t handle, cppyy_index_t method_index) {
-    return s_scopes[handle].m_methods[method_index].m_argtypes.size();
+int cppyy_method_num_args(cppyy_method_t method) {
+    return ((Cppyy_PseudoMethodInfo*)method)->m_argtypes.size();
 }
 
-int cppyy_method_req_args(cppyy_scope_t handle, cppyy_index_t method_index) {
-    return cppyy_method_num_args(handle, method_index);
+int cppyy_method_req_args(cppyy_method_t method) {
+    return cppyy_method_num_args(method)-((Cppyy_PseudoMethodInfo*)method)->m_argdefaults.size();
 }
 
-char* cppyy_method_arg_type(cppyy_scope_t handle, cppyy_index_t method_index, int arg_index) {
-    return cppstring_to_cstring(s_scopes[handle].m_methods[method_index].m_argtypes[arg_index]);
+char* cppyy_method_arg_type(cppyy_method_t method, int idx) {
+    return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_argtypes[idx]);
 }
 
-char* cppyy_method_arg_default(
-        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* arg_index */) {
+char* cppyy_method_arg_default(cppyy_method_t method, int idx) {
+    if (idx < (int)((Cppyy_PseudoMethodInfo*)method)->m_argdefaults.size())
+        return cppstring_to_cstring(((Cppyy_PseudoMethodInfo*)method)->m_argdefaults[idx]);
     return cppstring_to_cstring("");
 }
 
-char* cppyy_method_signature(
-        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* show_formalargs */) {
+char* cppyy_method_signature(cppyy_method_t, int /* show_formalargs */) {
     return cppstring_to_cstring("");
 }
 
-char* cppyy_method_prototype(
-        cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* show_formalargs */) {
+char* cppyy_method_prototype(cppyy_scope_t, cppyy_method_t, int /* show_formalargs */) {
     return cppstring_to_cstring("");
+}
+
+int cppyy_exists_method_template(cppyy_scope_t scope, const char* name) {
+    return 0;
 }
 
 int cppyy_method_is_template(cppyy_scope_t /* handle */, cppyy_index_t /* method_index */) {
     return 0;
 }
     
-cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index) {
-    if (s_scopes.find(handle) != s_scopes.end()) {
-        long id = s_scopes[handle].m_method_offset + (long)method_index;
-        return (cppyy_method_t)id;
-    }
-    assert(!"unknown class in cppyy_get_method");
-    return (cppyy_method_t)0;
+cppyy_index_t cppyy_get_global_operator(cppyy_scope_t /* scope */,
+        cppyy_scope_t /* lc */, cppyy_scope_t /* rc */, const char* /* op */) {
+    return (cppyy_index_t)-1;
 }
 
 
 /* method properties -----------------------------------------------------  */
-int cppyy_is_constructor(cppyy_type_t handle, cppyy_index_t method_index) {
-    if (s_scopes.find(handle) != s_scopes.end())
-        return s_scopes[handle].m_methods[method_index].m_type == kConstructor;
+int cppyy_is_publicmethod(cppyy_method_t) {
+    return 1;
+}
+
+int cppyy_is_constructor(cppyy_method_t method) {
+    if (method)
+        return ((Cppyy_PseudoMethodInfo*)method)->m_type == kConstructor;
     assert(!"unknown class in cppyy_is_constructor");
     return 0;
 }
 
-int cppyy_is_staticmethod(cppyy_type_t handle, cppyy_index_t method_index) {
-    if (s_scopes.find(handle) != s_scopes.end())
-        return s_scopes[handle].m_methods[method_index].m_type == kStatic;
+int cppyy_is_destructor(cppyy_method_t) {
+    return 0;
+}
+
+int cppyy_is_staticmethod(cppyy_method_t method) {
+    if (method)
+        return ((Cppyy_PseudoMethodInfo*)method)->m_type == kStatic;
     assert(!"unknown class in cppyy_is_staticmethod");
     return 0;
 }
@@ -1014,12 +1080,27 @@ ptrdiff_t cppyy_datamember_offset(cppyy_scope_t handle, int idatambr) {
 
 
 /* data member properties ------------------------------------------------  */
-int cppyy_is_publicdata(cppyy_scope_t handle, int idatambr) {
+int cppyy_is_publicdata(cppyy_scope_t /* handle */, cppyy_index_t /* idatambr */) {
     return 1;
 }
 
-int cppyy_is_staticdata(cppyy_scope_t handle, int idatambr) {
+int cppyy_is_staticdata(cppyy_scope_t handle, cppyy_index_t idatambr) {
     return s_scopes[handle].m_datambrs[idatambr].m_isstatic;
+}
+
+int cppyy_is_const_data(cppyy_scope_t handle, cppyy_index_t idatambr) {
+    if (s_scopes[handle].m_datambrs[idatambr].m_name == "m_const_int")
+        return 1;
+    return 0;
+}
+
+int cppyy_is_enum_data(cppyy_scope_t /* handle */, cppyy_index_t /* idatambr */) {
+    return 0;
+}
+
+int cppyy_get_dimension_size(
+        cppyy_scope_t /* scope */, cppyy_index_t /* idata */, int /* dimension */) {
+    return -1; // no dimensions
 }
 
 
@@ -1051,13 +1132,30 @@ void cppyy_free(void* ptr) {
 }
 
 cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz) {
-    void* arena = new char[sz];
-    new (arena) std::string(str, sz);
-    return (cppyy_object_t)arena;
+    return (cppyy_object_t)new std::string(str, sz);
+}
+
+const char* cppyy_stdstring2charp(cppyy_object_t ptr, size_t* lsz) {
+    *lsz = ((std::string*)ptr)->size();
+    return ((std::string*)ptr)->data();
 }
 
 cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
-    void* arena = new char[sizeof(std::string)];
-    new (arena) std::string(*(std::string*)ptr);
-    return (cppyy_object_t)arena;
+    return (cppyy_object_t)new std::string(*(std::string*)ptr);
+}
+
+double cppyy_longdouble2double(void* p) {
+    return (double)*(long double*)p;
+}
+
+void cppyy_double2longdouble(double d, void* p) {
+    *(long double*)p = d;
+}
+
+int cppyy_vectorbool_getitem(cppyy_object_t ptr, int idx) {
+    return (int)(*(std::vector<bool>*)ptr)[idx];
+}
+
+void cppyy_vectorbool_setitem(cppyy_object_t ptr, int idx, int value) {
+    (*(std::vector<bool>*)ptr)[idx] = (bool)value;
 }

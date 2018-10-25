@@ -404,7 +404,6 @@ class JitCellToken(AbstractDescr):
     target_tokens = None
     failed_states = None
     retraced_count = 0
-    terminating = False # see TerminatingLoopToken in compile.py
     invalidated = False
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled
@@ -702,6 +701,9 @@ class History(object):
     def length(self):
         return self.trace._count - len(self.trace.inputargs)
 
+    def trace_tag_overflow(self):
+        return self.trace.tag_overflow
+
     def get_trace_position(self):
         return self.trace.cut_point()
 
@@ -935,7 +937,7 @@ class Stats(object):
         return insns
 
     def check_simple_loop(self, expected=None, **check):
-        """ Usefull in the simplest case when we have only one trace ending with
+        """ Useful in the simplest case when we have only one trace ending with
         a jump back to itself and possibly a few bridges.
         Only the operations within the loop formed by that single jump will
         be counted.

@@ -96,18 +96,21 @@ class FFI(object):
             self.CData, self.CType = backend._get_types()
         self.buffer = backend.buffer
 
-    def cdef(self, csource, override=False, packed=False):
+    def cdef(self, csource, override=False, packed=False, pack=None):
         """Parse the given C source.  This registers all declared functions,
         types, and global variables.  The functions and global variables can
         then be accessed via either 'ffi.dlopen()' or 'ffi.verify()'.
         The types can be used in 'ffi.new()' and other functions.
         If 'packed' is specified as True, all structs declared inside this
         cdef are packed, i.e. laid out without any field alignment at all.
+        Alternatively, 'pack' can be a small integer, and requests for
+        alignment greater than that are ignored (pack=1 is equivalent to
+        packed=True).
         """
-        self._cdef(csource, override=override, packed=packed)
+        self._cdef(csource, override=override, packed=packed, pack=pack)
 
-    def embedding_api(self, csource, packed=False):
-        self._cdef(csource, packed=packed, dllexport=True)
+    def embedding_api(self, csource, packed=False, pack=None):
+        self._cdef(csource, packed=packed, pack=pack, dllexport=True)
         if self._embedding is None:
             self._embedding = ''
 
@@ -142,6 +145,13 @@ class FFI(object):
             self._function_caches.append(function_cache)
             self._libraries.append(lib)
         return lib
+
+    def dlclose(self, lib):
+        """Close a library obtained with ffi.dlopen().  After this call,
+        access to functions or variables from the library will fail
+        (possibly with a segmentation fault).
+        """
+        type(lib).__cffi_close__(lib)
 
     def _typeof_locked(self, cdecl):
         # call me with the lock!
@@ -898,6 +908,9 @@ def _make_ffi_library(ffi, libname, flags):
                 return addressof_var(name)
             raise AttributeError("cffi library has no function or "
                                  "global variable named '%s'" % (name,))
+        def __cffi_close__(self):
+            backendlib.close_lib()
+            self.__dict__.clear()
     #
     if libname is not None:
         try:

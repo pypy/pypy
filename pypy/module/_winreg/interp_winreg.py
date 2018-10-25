@@ -169,7 +169,7 @@ in fileName is relative to the remote computer.
 
 The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree"""
     hkey = hkey_w(w_hkey, space)
-    ret = rwinreg.RegLoadKey(hkey, subkey, filename)
+    ret = rwinreg.RegLoadKeyA(hkey, subkey, filename)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegLoadKey')
 
@@ -188,7 +188,7 @@ file_name is relative to the remote computer.
 The caller of this method must possess the SeBackupPrivilege security privilege.
 This function passes NULL for security_attributes to the API."""
     hkey = hkey_w(w_hkey, space)
-    ret = rwinreg.RegSaveKey(hkey, filename, None)
+    ret = rwinreg.RegSaveKeyA(hkey, filename, None)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSaveKey')
 
@@ -219,7 +219,7 @@ KEY_SET_VALUE access."""
     else:
         subkey = space.text_w(w_subkey)
     with rffi.scoped_str2charp(value) as dataptr:
-        ret = rwinreg.RegSetValue(hkey, subkey, rwinreg.REG_SZ, dataptr, len(value))
+        ret = rwinreg.RegSetValueA(hkey, subkey, rwinreg.REG_SZ, dataptr, len(value))
         if ret != 0:
             raiseWindowsError(space, ret, 'RegSetValue')
 
@@ -240,7 +240,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
     else:
         subkey = space.text_w(w_subkey)
     with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
-        ret = rwinreg.RegQueryValue(hkey, subkey, None, bufsize_p)
+        ret = rwinreg.RegQueryValueA(hkey, subkey, None, bufsize_p)
         bufSize = intmask(bufsize_p[0])
         if ret == rwinreg.ERROR_MORE_DATA:
             bufSize = 256
@@ -249,7 +249,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
 
         while True:
             with lltype.scoped_alloc(rffi.CCHARP.TO, bufSize) as buf:
-                ret = rwinreg.RegQueryValue(hkey, subkey, buf, bufsize_p)
+                ret = rwinreg.RegQueryValueA(hkey, subkey, buf, bufsize_p)
                 if ret == rwinreg.ERROR_MORE_DATA:
                     # Resize and retry
                     bufSize *= 2
@@ -423,7 +423,7 @@ the configuration registry.  This helps the registry perform efficiently."""
     hkey = hkey_w(w_hkey, space)
     buf, buflen = convert_to_regdata(space, w_value, typ)
     try:
-        ret = rwinreg.RegSetValueEx(hkey, value_name, 0, typ, buf, buflen)
+        ret = rwinreg.RegSetValueExA(hkey, value_name, 0, typ, buf, buflen)
     finally:
         lltype.free(buf, flavor='raw')
     if ret != 0:
@@ -441,7 +441,7 @@ value_name is a string indicating the value to query"""
         subkey = space.text_w(w_subkey)
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retDataSize:
-        ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword, null_dword,
+        ret = rwinreg.RegQueryValueExA(hkey, subkey, null_dword, null_dword,
                                       None, retDataSize)
         bufSize = intmask(retDataSize[0])
         if ret == rwinreg.ERROR_MORE_DATA:
@@ -453,7 +453,7 @@ value_name is a string indicating the value to query"""
             with lltype.scoped_alloc(rffi.CCHARP.TO, bufSize) as databuf:
                 with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
 
-                    ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword,
+                    ret = rwinreg.RegQueryValueExA(hkey, subkey, null_dword,
                                                   retType, databuf, retDataSize)
                     if ret == rwinreg.ERROR_MORE_DATA:
                         # Resize and retry
@@ -484,7 +484,7 @@ The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
     hkey = hkey_w(w_hkey, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegCreateKey(hkey, subkey, rethkey)
+        ret = rwinreg.RegCreateKeyA(hkey, subkey, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKey')
         return W_HKEY(space, rethkey[0])
@@ -504,7 +504,7 @@ The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
     hkey = hkey_w(w_hkey, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegCreateKeyEx(hkey, subkey, res, None, 0,
+        ret = rwinreg.RegCreateKeyExA(hkey, subkey, res, None, 0,
                                      sam, None, rethkey,
                                      lltype.nullptr(rwin32.LPDWORD.TO))
         if ret != 0:
@@ -524,7 +524,7 @@ This method can not delete keys with subkeys.
 If the method succeeds, the entire key, including all of its values,
 is removed.  If the method fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_hkey, space)
-    ret = rwinreg.RegDeleteKey(hkey, subkey)
+    ret = rwinreg.RegDeleteKeyA(hkey, subkey)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteKey')
 
@@ -535,7 +535,7 @@ def DeleteValue(space, w_hkey, subkey):
 key is an already open key, or any one of the predefined HKEY_* constants.
 value is a string that identifies the value to remove."""
     hkey = hkey_w(w_hkey, space)
-    ret = rwinreg.RegDeleteValue(hkey, subkey)
+    ret = rwinreg.RegDeleteValueA(hkey, subkey)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteValue')
 
@@ -553,7 +553,7 @@ The result is a new handle to the specified key
 If the function fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_hkey, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegOpenKeyEx(hkey, subkey, res, sam, rethkey)
+        ret = rwinreg.RegOpenKeyExA(hkey, subkey, res, sam, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegOpenKeyEx')
         return W_HKEY(space, rethkey[0])
@@ -578,7 +578,7 @@ data_type is an integer that identifies the type of the value data."""
 
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retDataSize:
-            ret = rwinreg.RegQueryInfoKey(
+            ret = rwinreg.RegQueryInfoKeyA(
                 hkey, None, null_dword, null_dword,
                 null_dword, null_dword, null_dword,
                 null_dword, retValueSize, retDataSize,
@@ -598,7 +598,7 @@ data_type is an integer that identifies the type of the value data."""
                                              bufDataSize) as databuf:
                         with lltype.scoped_alloc(rwin32.LPDWORD.TO,
                                                  1) as retType:
-                            ret = rwinreg.RegEnumValue(
+                            ret = rwinreg.RegEnumValueA(
                                 hkey, index, valuebuf, retValueSize,
                                 null_dword, retType, databuf, retDataSize)
                             if ret == rwinreg.ERROR_MORE_DATA:
@@ -643,7 +643,7 @@ raised, indicating no more values are available."""
     with lltype.scoped_alloc(rffi.CCHARP.TO, 257) as buf:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
             retValueSize[0] = r_uint(257) # includes NULL terminator
-            ret = rwinreg.RegEnumKeyEx(hkey, index, buf, retValueSize,
+            ret = rwinreg.RegEnumKeyExA(hkey, index, buf, retValueSize,
                                        null_dword, None, null_dword,
                                        lltype.nullptr(rwin32.PFILETIME.TO))
             if ret != 0:
@@ -665,7 +665,7 @@ A long integer that identifies when the key was last modified (if available)
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as nValues:
             with lltype.scoped_alloc(rwin32.PFILETIME.TO, 1) as ft:
                 null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
-                ret = rwinreg.RegQueryInfoKey(
+                ret = rwinreg.RegQueryInfoKeyA(
                     hkey, None, null_dword, null_dword,
                     nSubKeys, null_dword, null_dword,
                     nValues, null_dword, null_dword,
@@ -692,7 +692,7 @@ If the function fails, an EnvironmentError exception is raised."""
     machine = space.text_or_none_w(w_machine)
     hkey = hkey_w(w_hkey, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegConnectRegistry(machine, hkey, rethkey)
+        ret = rwinreg.RegConnectRegistryA(machine, hkey, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegConnectRegistry')
         return W_HKEY(space, rethkey[0])

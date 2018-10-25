@@ -5,6 +5,7 @@ from rpython.memory.gcheader import GCHeaderBuilder
 from rpython.memory.support import DEFAULT_CHUNK_SIZE
 from rpython.memory.support import get_address_stack, get_address_deque
 from rpython.memory.support import AddressDict, null_address_dict
+from rpython.memory.gc.hook import GcHooks
 from rpython.rtyper.lltypesystem.llmemory import NULL, raw_malloc_usage
 from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
 
@@ -25,7 +26,7 @@ class GCBase(object):
     _totalroots_rpy = 0   # for inspector.py
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
-                 translated_to_c=True):
+                 translated_to_c=True, hooks=None):
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         self.AddressStack = get_address_stack(chunk_size)
         self.AddressDeque = get_address_deque(chunk_size)
@@ -34,6 +35,9 @@ class GCBase(object):
         self.config = config
         assert isinstance(translated_to_c, bool)
         self.translated_to_c = translated_to_c
+        if hooks is None:
+            hooks = GcHooks() # the default hooks are empty
+        self.hooks = hooks
 
     def setup(self):
         # all runtime mutable values' setup should happen here
@@ -83,7 +87,9 @@ class GCBase(object):
                             has_custom_trace,
                             fast_path_tracing,
                             has_gcptr,
-                            cannot_pin):
+                            cannot_pin,
+                            has_memory_pressure,
+                            get_memory_pressure_ofs):
         self.finalizer_handlers = finalizer_handlers
         self.destructor_or_custom_trace = destructor_or_custom_trace
         self.is_old_style_finalizer = is_old_style_finalizer
@@ -103,6 +109,8 @@ class GCBase(object):
         self.fast_path_tracing = fast_path_tracing
         self.has_gcptr = has_gcptr
         self.cannot_pin = cannot_pin
+        self.has_memory_pressure = has_memory_pressure
+        self.get_memory_pressure_ofs = get_memory_pressure_ofs
 
     def get_member_index(self, type_id):
         return self.member_index(type_id)

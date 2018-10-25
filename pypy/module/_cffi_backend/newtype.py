@@ -258,6 +258,11 @@ SF_GCC_LITTLE_ENDIAN  = 0x40
 SF_PACKED             = 0x08
 SF_STD_FIELD_POS      = 0x80
 
+if sys.platform == 'win32':
+    SF_DEFAULT_PACKING = 8
+else:
+    SF_DEFAULT_PACKING = 0x40000000    # a huge power of two
+
 
 if sys.platform == 'win32':
     DEFAULT_SFLAGS_PLATFORM = SF_MSVC_BITFIELDS
@@ -309,10 +314,18 @@ def detect_custom_layout(w_ctype, sflags, cdef_value, compiler_value,
         w_ctype._custom_field_pos = True
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int,
-             sflags=int)
+             sflags=int, pack=int)
 def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
-                             totalsize=-1, totalalignment=-1, sflags=0):
+                             totalsize=-1, totalalignment=-1, sflags=0,
+                             pack=0):
     sflags = complete_sflags(sflags)
+    if sflags & SF_PACKED:
+        pack = 1
+    elif pack <= 0:
+        pack = SF_DEFAULT_PACKING
+    else:
+        sflags |= SF_PACKED
+
     if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion)
             or w_ctype.size >= 0):
         raise oefmt(space.w_TypeError,
@@ -362,7 +375,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         # update the total alignment requirement, but skip it if the
         # field is an anonymous bitfield or if SF_PACKED
         falignorg = ftype.alignof()
-        falign = 1 if sflags & SF_PACKED else falignorg
+        falign = min(pack, falignorg)
         do_align = True
         if (sflags & SF_GCC_ARM_BITFIELDS) == 0 and fbitsize >= 0:
             if (sflags & SF_MSVC_BITFIELDS) == 0:

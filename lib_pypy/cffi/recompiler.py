@@ -836,6 +836,10 @@ class Recompiler:
 
     def _struct_collecttype(self, tp):
         self._do_collect_type(tp)
+        if self.target_is_python:
+            # also requires nested anon struct/unions in ABI mode, recursively
+            for fldtype in tp.anonymous_struct_fields():
+                self._struct_collecttype(fldtype)
 
     def _struct_decl(self, tp, cname, approxname):
         if tp.fldtypes is None:
@@ -884,11 +888,17 @@ class Recompiler:
                  named_ptr not in self.ffi._parser._included_declarations)):
             if tp.fldtypes is None:
                 pass    # opaque
-            elif tp.partial or tp.has_anonymous_struct_fields():
+            elif tp.partial or any(tp.anonymous_struct_fields()):
                 pass    # field layout obtained silently from the C compiler
             else:
                 flags.append("_CFFI_F_CHECK_FIELDS")
             if tp.packed:
+                if tp.packed > 1:
+                    raise NotImplementedError(
+                        "%r is declared with 'pack=%r'; only 0 or 1 are "
+                        "supported in API mode (try to use \"...;\", which "
+                        "does not require a 'pack' declaration)" %
+                        (tp, tp.packed))
                 flags.append("_CFFI_F_PACKED")
         else:
             flags.append("_CFFI_F_EXTERNAL")
@@ -896,7 +906,8 @@ class Recompiler:
         flags = '|'.join(flags) or '0'
         c_fields = []
         if reason_for_not_expanding is None:
-            enumfields = list(tp.enumfields())
+            expand_anonymous_struct_union = not self.target_is_python
+            enumfields = list(tp.enumfields(expand_anonymous_struct_union))
             for fldname, fldtype, fbitsize, fqual in enumfields:
                 fldtype = self._field_type(tp, fldname, fldtype)
                 self._check_not_opaque(fldtype,

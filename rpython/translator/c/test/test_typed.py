@@ -976,3 +976,12 @@ class TestTypedTestCase(object):
         f = self.getcompiled(func, [int])
         res = f(2)
         assert res == 1     # and not 2
+
+    def test_mulmod(self):
+        from rpython.rlib.rarithmetic import mulmod
+
+        def func(a, b, c):
+            return mulmod(a, b, c)
+        f = self.getcompiled(func, [int, int, int])
+        res = f(1192871273, 1837632879, 2001286281)
+        assert res == 1573897320

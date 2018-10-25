@@ -351,6 +351,21 @@ class _Condition(_Verbose):
                         # forward-compatibility reasons we do the same.
                         waiter.acquire()
                         gotit = True
+                    except AttributeError:
+                        # someone patched the 'waiter' class, probably.
+                        # Fall back to the standard CPython logic.
+                        # See the CPython lib for the comments about it...
+                        endtime = _time() + timeout
+                        delay = 0.0005 # 500 us -> initial delay of 1 ms
+                        while True:
+                            gotit = waiter.acquire(0)
+                            if gotit:
+                                break
+                            remaining = endtime - _time()
+                            if remaining <= 0:
+                                break
+                            delay = min(delay * 2, remaining, .05)
+                            _sleep(delay)
                 else:
                     gotit = waiter.acquire(False)
                 if not gotit:

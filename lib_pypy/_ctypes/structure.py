@@ -160,6 +160,10 @@ def struct_setattr(self, name, value):
             raise AttributeError("_fields_ is final")
         if self in [f[1] for f in value]:
             raise AttributeError("Structure or union cannot contain itself")
+        if self._ffiargtype is not None:
+            raise NotImplementedError("Too late to set _fields_: we already "
+                        "said to libffi that the structure type %s is opaque"
+                        % (self,))
         names_and_fields(
             self,
             value, self.__bases__[0],
@@ -277,6 +281,7 @@ class StructOrUnion(_CData):
             self.__setattr__(name, arg)
         for name, arg in kwds.items():
             self.__setattr__(name, arg)
+    _init_no_arg_ = __init__
 
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as

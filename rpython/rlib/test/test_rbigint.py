@@ -324,6 +324,17 @@ class Test_rbigint(object):
         parser = NumberStringParser("1231231241", "1231231241", 10, "long")
         assert rbigint._from_numberstring_parser(parser).tolong() == 1231231241
 
+    def test_from_numberstring_parser_no_implicit_octal(self):
+        from rpython.rlib.rstring import NumberStringParser, ParseStringError
+        s = "077777777777777777777777777777"
+        parser = NumberStringParser(s, s, 0, "long",
+                                    no_implicit_octal=True)
+        py.test.raises(ParseStringError, rbigint._from_numberstring_parser,
+                       parser)
+        parser = NumberStringParser("000", "000", 0, "long",
+                                    no_implicit_octal=True)
+        assert rbigint._from_numberstring_parser(parser).tolong() == 0
+
     def test_add(self):
         for x in gen_signs(long_vals):
             f1 = rbigint.fromlong(x)

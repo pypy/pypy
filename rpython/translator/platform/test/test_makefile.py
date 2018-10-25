@@ -82,7 +82,7 @@ class TestMakefile(object):
         eci.separate_module_files = [main_c]
         ncfiles = 10
         nprecompiled_headers = 20
-        txt = ''
+        txt = '#include <stdio.h>\n'
         for i in range(ncfiles):
             txt += "int func%03d();\n" % i
         txt += "\nint main(int argc, char * argv[])\n"

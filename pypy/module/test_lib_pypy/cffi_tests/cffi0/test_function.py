@@ -46,14 +46,14 @@ class TestFunction(object):
         assert x != math.sin(1.23)    # rounding effects
         assert abs(x - math.sin(1.23)) < 1E-6
 
-    def test_sin_no_return_value(self):
+    def test_lround_no_return_value(self):
         # check that 'void'-returning functions work too
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
-            void sin(double x);
+            void lround(double x);
         """)
         m = ffi.dlopen(lib_m)
-        x = m.sin(1.23)
+        x = m.lround(1.23)
         assert x is None
 
     def test_dlopen_filename(self):
@@ -500,3 +500,21 @@ class TestFunction(object):
         """)
         m = ffi.dlopen(lib_m)
         assert dir(m) == ['MYE1', 'MYE2', 'MYFOO', 'myconst', 'myfunc', 'myvar']
+
+    def test_dlclose(self):
+        if self.Backend is CTypesBackend:
+            py.test.skip("not with the ctypes backend")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("int foobar(void); int foobaz;")
+        lib = ffi.dlopen(lib_m)
+        ffi.dlclose(lib)
+        e = py.test.raises(ValueError, getattr, lib, 'foobar')
+        assert str(e.value).startswith("library '")
+        assert str(e.value).endswith("' has already been closed")
+        e = py.test.raises(ValueError, getattr, lib, 'foobaz')
+        assert str(e.value).startswith("library '")
+        assert str(e.value).endswith("' has already been closed")
+        e = py.test.raises(ValueError, setattr, lib, 'foobaz', 42)
+        assert str(e.value).startswith("library '")
+        assert str(e.value).endswith("' has already been closed")
+        ffi.dlclose(lib)    # does not raise

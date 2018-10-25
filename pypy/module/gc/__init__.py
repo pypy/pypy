@@ -19,6 +19,7 @@ class Module(MixedModule):
                 space.config.translation.gctransformer == "framework"):
             self.appleveldefs.update({
                 'dump_rpy_heap': 'app_referents.dump_rpy_heap',
+                'get_stats': 'app_referents.get_stats',
                 })
             self.interpleveldefs.update({
                 'get_rpy_roots': 'referents.get_rpy_roots',
@@ -28,9 +29,12 @@ class Module(MixedModule):
                 'get_objects': 'referents.get_objects',
                 'get_referents': 'referents.get_referents',
                 'get_referrers': 'referents.get_referrers',
+                '_get_stats': 'referents.get_stats',
                 '_dump_rpy_heap': 'referents._dump_rpy_heap',
                 'get_typeids_z': 'referents.get_typeids_z',
                 'get_typeids_list': 'referents.get_typeids_list',
                 'GcRef': 'referents.W_GcRef',
+                'hooks': 'space.fromcache(hook.W_AppLevelHooks)',
+                'GcCollectStepStats': 'hook.W_GcCollectStepStats',
                 })
         MixedModule.__init__(self, space, w_name)

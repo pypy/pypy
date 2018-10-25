@@ -1146,3 +1146,31 @@ class AppTestUnicodeString:
         raises(TypeError, "unicode('', encoding=None)")
         raises(TypeError, 'u"".encode("utf-8", None)')
 
+    def test_unicode_constructor_misc(self):
+        x = u'foo'
+        x += u'bar'
+        assert unicode(x) is x
+        #
+        class U(unicode):
+            def __unicode__(self):
+                return u'BOK'
+        u = U(x)
+        assert unicode(u) == u'BOK'
+        #
+        class U2(unicode):
+            pass
+        z = U2(u'foobaz')
+        assert type(unicode(z)) is unicode
+        assert unicode(z) == u'foobaz'
+        #
+        # two completely corner cases where we differ from CPython:
+        #assert unicode(encoding='supposedly_the_encoding') == u''
+        #assert unicode(errors='supposedly_the_error') == u''
+        e = raises(TypeError, unicode, u'', 'supposedly_the_encoding')
+        assert str(e.value) == 'decoding Unicode is not supported'
+        e = raises(TypeError, unicode, u'', errors='supposedly_the_error')
+        assert str(e.value) == 'decoding Unicode is not supported'
+        e = raises(TypeError, unicode, u, 'supposedly_the_encoding')
+        assert str(e.value) == 'decoding Unicode is not supported'
+        e = raises(TypeError, unicode, z, 'supposedly_the_encoding')
+        assert str(e.value) == 'decoding Unicode is not supported'

@@ -1387,6 +1387,7 @@ class BackendTests:
         ffi = FFI(backend=self.Backend())
         ffi.cdef("enum foo;")
         with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always")
             n = ffi.cast("enum foo", -1)
             assert int(n) == 0xffffffff
         assert str(log[0].message) == (
@@ -1824,19 +1825,39 @@ class BackendTests:
         ffi = FFI(backend=self.Backend())
         ffi.cdef("struct nonpacked { char a; int b; };")
         ffi.cdef("struct is_packed { char a; int b; };", packed=True)
+        ffi.cdef("struct is_packed1 { char a; int b; };", pack=1)
+        ffi.cdef("struct is_packed2 { char a; int b; };", pack=2)
+        ffi.cdef("struct is_packed4 { char a; int b; };", pack=4)
+        ffi.cdef("struct is_packed8 { char a; int b; };", pack=8)
         assert ffi.sizeof("struct nonpacked") == 8
         assert ffi.sizeof("struct is_packed") == 5
+        assert ffi.sizeof("struct is_packed1") == 5
+        assert ffi.sizeof("struct is_packed2") == 6
+        assert ffi.sizeof("struct is_packed4") == 8
+        assert ffi.sizeof("struct is_packed8") == 8
         assert ffi.alignof("struct nonpacked") == 4
         assert ffi.alignof("struct is_packed") == 1
-        s = ffi.new("struct is_packed[2]")
-        s[0].b = 42623381
-        s[0].a = b'X'
-        s[1].b = -4892220
-        s[1].a = b'Y'
-        assert s[0].b == 42623381
-        assert s[0].a == b'X'
-        assert s[1].b == -4892220
-        assert s[1].a == b'Y'
+        assert ffi.alignof("struct is_packed1") == 1
+        assert ffi.alignof("struct is_packed2") == 2
+        assert ffi.alignof("struct is_packed4") == 4
+        assert ffi.alignof("struct is_packed8") == 4
+        for name in ['is_packed', 'is_packed1', 'is_packed2',
+                     'is_packed4', 'is_packed8']:
+            s = ffi.new("struct %s[2]" % name)
+            s[0].b = 42623381
+            s[0].a = b'X'
+            s[1].b = -4892220
+            s[1].a = b'Y'
+            assert s[0].b == 42623381
+            assert s[0].a == b'X'
+            assert s[1].b == -4892220
+            assert s[1].a == b'Y'
+
+    def test_pack_valueerror(self):
+        ffi = FFI(backend=self.Backend())
+        py.test.raises(ValueError, ffi.cdef, "", pack=3)
+        py.test.raises(ValueError, ffi.cdef, "", packed=2)
+        py.test.raises(ValueError, ffi.cdef, "", packed=True, pack=1)
 
     def test_define_integer_constant(self):
         ffi = FFI(backend=self.Backend())
@@ -1926,3 +1947,45 @@ class BackendTests:
         # only works with the Python FFI instances
         ffi = FFI(backend=self.Backend())
         assert ffi.sizeof("struct{int a;}") == ffi.sizeof("int")
+
+    def test_callback_large_struct(self):
+        ffi = FFI(backend=self.Backend())
+        # more than 8 bytes
+        ffi.cdef("struct foo_s { unsigned long a, b, c; };")
+        #
+        @ffi.callback("void(struct foo_s)")
+        def cb(s):
+            seen.append(ffi.typeof(s))
+            s.a += 1
+            s.b += 2
+            s.c += 3
+            seen.append(s.a)
+            seen.append(s.b)
+            seen.append(s.c)
+        #
+        s1 = ffi.new("struct foo_s *", {'a': 100, 'b': 200, 'c': 300})
+        seen = []
+        cb(s1[0])
+        assert len(seen) == 4
+        assert s1.a == 100     # unmodified
+        assert s1.b == 200
+        assert s1.c == 300
+        assert seen[0] == ffi.typeof("struct foo_s")
+        assert seen[1] == 101
+        assert seen[2] == 202
+        assert seen[3] == 303
+
+    def test_ffi_array_as_init(self):
+        ffi = FFI(backend=self.Backend())
+        p = ffi.new("int[4]", [10, 20, 30, 400])
+        q = ffi.new("int[4]", p)
+        assert list(q) == [10, 20, 30, 400]
+        py.test.raises(TypeError, ffi.new, "int[3]", p)
+        py.test.raises(TypeError, ffi.new, "int[5]", p)
+        py.test.raises(TypeError, ffi.new, "int16_t[4]", p)
+        s = ffi.new("struct {int i[4];}*", {'i': p})
+        assert list(s.i) == [10, 20, 30, 400]
+
+    def test_too_many_initializers(self):
+        ffi = FFI(backend=self.Backend())
+        py.test.raises(IndexError, ffi.new, "int[4]", [10, 20, 30, 40, 50])

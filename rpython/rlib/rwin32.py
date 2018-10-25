@@ -20,7 +20,7 @@ WIN32 = os.name == "nt"
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'stdio.h', 'stdlib.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h'],
         libraries = ['kernel32'],
         )
 else:
@@ -113,11 +113,12 @@ class CConfig:
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
                        WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
                        STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
+                       LOAD_WITH_ALTERED_SEARCH_PATH
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
         if static_platform.name == 'msvc':
-            defines += ' PROCESS_QUERY_LIMITED_INFORMATION' 
+            defines += ' PROCESS_QUERY_LIMITED_INFORMATION'
         for name in defines.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
@@ -171,7 +172,7 @@ if WIN32:
         function, if that C function was declared with the flag
         llexternal(..., save_err=RFFI_SAVE_LASTERROR | RFFI_ALT_ERRNO).
         Functions without that flag don't change the saved LastError.
-        Alternatively, if the function was declared 
+        Alternatively, if the function was declared
         RFFI_SAVE_WSALASTERROR | RFFI_ALT_ERRNO,
         then the value of the C-level WSAGetLastError() is saved instead
         (into the same "saved alt LastError" variable).
@@ -195,12 +196,28 @@ if WIN32:
     GetModuleHandle = winexternal('GetModuleHandleA', [rffi.CCHARP], HMODULE)
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE,
                               save_err=rffi.RFFI_SAVE_LASTERROR)
+    def wrap_loadlibraryex(func):
+        def loadlibrary(name, flags=LOAD_WITH_ALTERED_SEARCH_PATH):
+            # Requires a full path name with '/' -> '\\'
+            return func(name, NULL_HANDLE, flags)
+        return loadlibrary
+
+    _LoadLibraryExA = winexternal('LoadLibraryExA',
+                                [rffi.CCHARP, HANDLE, DWORD], HMODULE,
+                                save_err=rffi.RFFI_SAVE_LASTERROR)
+    LoadLibraryExA = wrap_loadlibraryex(_LoadLibraryExA)
+    LoadLibraryW = winexternal('LoadLibraryW', [rffi.CWCHARP], HMODULE,
+                              save_err=rffi.RFFI_SAVE_LASTERROR)
+    _LoadLibraryExW = winexternal('LoadLibraryExW',
+                                [rffi.CWCHARP, HANDLE, DWORD], HMODULE,
+                                save_err=rffi.RFFI_SAVE_LASTERROR)
+    LoadLibraryExW = wrap_loadlibraryex(_LoadLibraryExW)
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)
     FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL, releasegil=False)
 
-    LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
+    LocalFree = winexternal('LocalFree', [HLOCAL], HLOCAL)
     CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, releasegil=False,
                               save_err=rffi.RFFI_SAVE_LASTERROR)
     CloseHandle_no_err = winexternal('CloseHandle', [HANDLE], BOOL,
@@ -215,12 +232,12 @@ if WIN32:
         [DWORD, rffi.VOIDP, DWORD, DWORD, rffi.CWCHARP, DWORD, rffi.VOIDP],
         DWORD)
 
-    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
+    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.INTP)
 
     def get_osfhandle(fd):
-        from rpython.rlib.rposix import validate_fd
-        validate_fd(fd)
-        handle = _get_osfhandle(fd)
+        from rpython.rlib.rposix import FdValidator
+        with FdValidator(fd):
+            handle = rffi.cast(HANDLE, _get_osfhandle(fd))
         if handle == INVALID_HANDLE_VALUE:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle
@@ -231,45 +248,10 @@ if WIN32:
         in the dict."""
         # Prior to Visual Studio 8, the MSVCRT dll doesn't export the
         # _dosmaperr() function, which is available only when compiled
-        # against the static CRT library.
-        from rpython.translator.platform import host_factory
-        static_platform = host_factory()
-        if static_platform.name == 'msvc':
-            static_platform.cflags = ['/MT']  # static CRT
-            static_platform.version = 0       # no manifest
-        cfile = udir.join('dosmaperr.c')
-        cfile.write(r'''
-                #include <errno.h>
-                #include <WinError.h>
-                #include <stdio.h>
-                #ifdef __GNUC__
-                #define _dosmaperr mingw_dosmaperr
-                #endif
-                int main()
-                {
-                    int i;
-                    for(i=1; i < 65000; i++) {
-                        _dosmaperr(i);
-                        if (errno == EINVAL) {
-                            /* CPython issue #12802 */
-                            if (i == ERROR_DIRECTORY)
-                                errno = ENOTDIR;
-                            else
-                                continue;
-                        }
-                        printf("%d\t%d\n", i, errno);
-                    }
-                    return 0;
-                }''')
-        try:
-            exename = static_platform.compile(
-                [cfile], ExternalCompilationInfo(),
-                outputfilename = "dosmaperr",
-                standalone=True)
-        except (CompilationError, WindowsError):
-            # Fallback for the mingw32 compiler
-            assert static_platform.name == 'mingw32'
-            errors = {
+        # against the static CRT library. After Visual Studio 9, this
+        # private function seems to be gone, so use a static map, from
+        # CPython PC/errmap.h
+        errors = {
                 2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7,
                 11: 8, 15: 2, 16: 13, 17: 18, 18: 2, 19: 13, 20: 13, 21: 13,
                 22: 13, 23: 13, 24: 13, 25: 13, 26: 13, 27: 13, 28: 13,
@@ -279,12 +261,8 @@ if WIN32:
                 132: 13, 145: 41, 158: 13, 161: 2, 164: 11, 167: 13, 183: 17,
                 188: 8, 189: 8, 190: 8, 191: 8, 192: 8, 193: 8, 194: 8,
                 195: 8, 196: 8, 197: 8, 198: 8, 199: 8, 200: 8, 201: 8,
-                202: 8, 206: 2, 215: 11, 267: 20, 1816: 12,
+                202: 8, 206: 2, 215: 11, 232: 32, 267: 20, 1816: 12,
                 }
-        else:
-            output = os.popen(str(exename))
-            errors = dict(map(int, line.split())
-                          for line in output)
         return errors, errno.EINVAL
 
     # A bit like strerror...
@@ -299,7 +277,7 @@ if WIN32:
         buf[0] = lltype.nullptr(rffi.CCHARP.TO)
         try:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                                   FORMAT_MESSAGE_FROM_SYSTEM | 
+                                   FORMAT_MESSAGE_FROM_SYSTEM |
                                    FORMAT_MESSAGE_IGNORE_INSERTS,
                                    None,
                                    rffi.cast(DWORD, code),
@@ -330,7 +308,7 @@ if WIN32:
         buf[0] = lltype.nullptr(rffi.CWCHARP.TO)
         try:
             msglen = FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                                    FORMAT_MESSAGE_FROM_SYSTEM | 
+                                    FORMAT_MESSAGE_FROM_SYSTEM |
                                     FORMAT_MESSAGE_IGNORE_INSERTS,
                                     None,
                                     rffi.cast(DWORD, code),

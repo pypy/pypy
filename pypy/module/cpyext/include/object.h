@@ -49,7 +49,7 @@ we have it for compatibility with CPython.
 
 PyAPI_FUNC(void) Py_IncRef(PyObject *);
 PyAPI_FUNC(void) Py_DecRef(PyObject *);
-extern Py_ssize_t _pypy_rawrefcount_w_marker_deallocating;
+extern void *_pypy_rawrefcount_w_marker_deallocating;
 PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
 
 #define Py_CLEAR(op)                        \
@@ -228,6 +228,11 @@ manually remove this flag though!
 #define Py_TPFLAGS_BASE_EXC_SUBCLASS	(1L<<30)
 #define Py_TPFLAGS_TYPE_SUBCLASS	(1L<<31)
 
+/* These are conceptually the same as the flags above, but they are
+   PyPy-specific and are stored inside tp_pypy_flags */
+#define Py_TPPYPYFLAGS_FLOAT_SUBCLASS (1L<<0)
+
+    
 #define Py_TPFLAGS_DEFAULT_EXTERNAL ( \
                              Py_TPFLAGS_HAVE_GETCHARBUFFER | \
                              Py_TPFLAGS_HAVE_SEQUENCE_IN | \
@@ -247,6 +252,8 @@ manually remove this flag though!
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
 #define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
 
+#define _PyPy_Type_FastSubclass(t,f) (((t)->tp_pypy_flags & (f)) != 0)
+    
 #define PyType_Check(op) \
     PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
 #define PyType_CheckExact(op) (Py_TYPE(op) == &PyType_Type)
@@ -326,7 +333,7 @@ typedef union _gc_head {
         } while (0)
 
 #define PyObject_TypeCheck(ob, tp) \
-    ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
+    (Py_TYPE(ob) == (tp) || PyType_IsSubtype(Py_TYPE(ob), (tp)))
 
 #define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
 #define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
@@ -376,6 +383,7 @@ PyAPI_FUNC(void) PyObject_GC_Del(void *);
 
 PyAPI_FUNC(PyObject *) _PyObject_New(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) _PyObject_GC_Malloc(size_t);
 PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
 
