@@ -825,6 +825,7 @@ class rbigint(object):
                 return ONENEGATIVERBIGINT
             div = div.int_add(1)
         div.sign = self.sign * (-1 if b < 0 else 1)
+        div._normalize()
         return div
 
     def int_div(self, other):
