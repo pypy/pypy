@@ -26,6 +26,12 @@ from pyrepl import curses
 from pyrepl.fancy_termios import tcgetattr, tcsetattr
 from pyrepl.console import Console, Event
 from pyrepl import unix_eventqueue
+try:
+    from __pypy__ import pyos_inputhook
+except ImportError:
+    def pyos_inputhook():
+        pass
+
 
 class InvalidTerminal(RuntimeError):
     pass
@@ -416,6 +422,7 @@ class UnixConsole(Console):
     def get_event(self, block=1):
         while self.event_queue.empty():
             while 1: # All hail Unix!
+                pyos_inputhook()
                 try:
                     self.push_char(os.read(self.input_fd, 1))
                 except (IOError, OSError), err:
