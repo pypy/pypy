@@ -1224,6 +1224,7 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
                 # surrogatepass?
                 break 
             pos = _pos
+        w_object = space.newtext(utf8)
     if errors is None or errors == 'strict':
         if encoding is None or encoding == 'utf-8':
             #if rutf8.has_surrogates(utf8):
