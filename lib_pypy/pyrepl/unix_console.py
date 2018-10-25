@@ -70,8 +70,8 @@ except AttributeError:
             pass
         def register(self, fd, flag):
             self.fd = fd
-        def poll(self, timeout=None):
-            r,w,e = select.select([self.fd],[],[],timeout)
+        def poll(self):   # note: a 'timeout' argument would be *milliseconds*
+            r,w,e = select.select([self.fd],[],[])
             return r
 
 POLLIN = getattr(select, "POLLIN", None)
