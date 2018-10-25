@@ -647,6 +647,7 @@ SYMBOLS_C = [
     'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
+    'PyOS_InputHook',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
     'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
@@ -1182,6 +1183,10 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
         '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
+    state.C.get_pyos_inputhook = rffi.llexternal(
+        '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
 
 
@@ -1788,6 +1793,12 @@ def exec_extension_module(space, w_mod):
             # already initialised
             return
         return exec_def(space, w_mod, mod_as_pyobj)
+
+def invoke_pyos_inputhook(space):
+    state = space.fromcache(State)
+    c_inputhook = state.C.get_pyos_inputhook()
+    if c_inputhook:
+        generic_cpy_call(space, c_inputhook)
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
