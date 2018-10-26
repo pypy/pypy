@@ -16,7 +16,7 @@ class AppTestMisc(AppTestCpythonExtensionBase):
                 '''),
             ], prologue='''
             static long my_flag = 0;
-            static int my_callback(void) { my_flag++; }
+            static int my_callback(void) { return ++my_flag; }
             ''')
 
         try:
