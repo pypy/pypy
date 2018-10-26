@@ -18,6 +18,7 @@ class Module(MixedModule):
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.Lock',
+        'RLock':                  'os_lock.W_RLock',   # pypy only, issue #2905
         '_local':                 'os_local.Local',
         'error':                  'space.fromcache(error.Cache).w_error',
     }
