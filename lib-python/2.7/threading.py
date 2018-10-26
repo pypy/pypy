@@ -37,7 +37,7 @@ _allocate_lock = thread.allocate_lock
 _get_ident = thread.get_ident
 ThreadError = thread.error
 try:
-    _CRLock = _thread.RLock
+    _CRLock = thread.RLock
 except AttributeError:
     _CRLock = None
 del thread
