@@ -36,6 +36,10 @@ _start_new_thread = thread.start_new_thread
 _allocate_lock = thread.allocate_lock
 _get_ident = thread.get_ident
 ThreadError = thread.error
+try:
+    _CRLock = _thread.RLock
+except AttributeError:
+    _CRLock = None
 del thread
 
 
@@ -120,7 +124,9 @@ def RLock(*args, **kwargs):
     acquired it.
 
     """
-    return _RLock(*args, **kwargs)
+    if _CRLock is None or args or kwargs:
+        return _PyRLock(*args, **kwargs)
+    return _CRLock(_active)
 
 class _RLock(_Verbose):
     """A reentrant lock must be released by the thread that acquired it. Once a
@@ -237,6 +243,8 @@ class _RLock(_Verbose):
 
     def _is_owned(self):
         return self.__owner == _get_ident()
+
+_PyRLock = _RLock
 
 
 def Condition(*args, **kwargs):
