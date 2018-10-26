@@ -248,7 +248,7 @@ class W_RLock(W_Root):
                         "cannot release un-acquired lock")
         self.rlock_count -= 1
         if self.rlock_count == 0:
-            self.rlock_owner == 0
+            self.rlock_owner = 0
             self.lock.release()
 
     def is_owned_w(self, space):
