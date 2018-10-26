@@ -616,12 +616,35 @@ class rbigint(object):
         return not other.lt(self)
 
     def int_le(self, other):
-        # Alternative that might be faster, reimplant this. as a check with other + 1. But we got to check for overflow
-        # or reduce valid range.
+        """ le where other is an int """
 
-        if self.int_eq(other):
+        if not int_in_valid_range(other):
+            # Fallback to Long.
+            return self.lt(rbigint.fromint(other))
+
+        osign = 1
+        if other == 0:
+            osign = 0
+        elif other < 0:
+            osign = -1
+
+        if self.sign > osign:
+            return False
+        elif self.sign < osign:
             return True
-        return self.int_lt(other)
+
+        digits = self.numdigits()
+
+        if digits > 1:
+            if osign == 1:
+                return False
+            else:
+                return True
+
+        d1 = self.sign * self.digit(0)
+        if d1 <= other:
+            return True
+        return False
 
     def gt(self, other):
         return other.lt(self)
