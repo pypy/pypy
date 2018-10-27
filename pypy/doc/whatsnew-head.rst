@@ -39,3 +39,15 @@ Small refactorings in the Python parser.
 
 .. branch: fix-readme-typo
 
+.. branch: avoid_shell_injection_in_shutil
+
+Backport CPython fix for possible shell injection issue in `distutils.spawn`,
+https://bugs.python.org/issue34540
+
+.. branch: cffi_dlopen_unicode
+
+Enable use of unicode file names in `dlopen`
+
+.. branch: rlock-in-rpython
+
+Backport CPython fix for `thread.RLock` 
