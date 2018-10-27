@@ -195,7 +195,7 @@ class W_RLock(W_Root):
                     w_owner = space.getitem(self.w_active,
                                                 space.newint(self.rlock_owner))
                     w_name = space.getattr(w_owner, space.newtext('name'))
-                    owner = space.str_w(space.repr(w_name))
+                    owner = space.text_w(space.repr(w_name))
                 except OperationError as e:
                     if e.async(space):
                         raise
