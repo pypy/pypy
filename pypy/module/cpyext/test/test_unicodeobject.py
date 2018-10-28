@@ -9,6 +9,7 @@ from pypy.module.cpyext.pyobject import decref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 from pypy.module.cpyext.unicodeobject import *
+from pypy.module.cpyext.state import State
 
 class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_unicodeobject(self):
@@ -116,16 +117,23 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              """
                 PyObject* o = PyUnicode_FromString("");
                 PyUnicodeObject* u = (PyUnicodeObject*)o;
+                Py_ssize_t n;
+                wchar_t * c;
 
-                PyUnicode_GET_SIZE(u);
-                PyUnicode_GET_SIZE(o);
+                n = PyUnicode_GET_SIZE(u);
+                n += PyUnicode_GET_SIZE(o);
 
-                PyUnicode_GET_DATA_SIZE(u);
-                PyUnicode_GET_DATA_SIZE(o);
+                n += PyUnicode_GET_DATA_SIZE(u);
+                n += PyUnicode_GET_DATA_SIZE(o);
 
-                PyUnicode_AS_UNICODE(o);
-                PyUnicode_AS_UNICODE(u);
-                return o;
+                c = PyUnicode_AS_UNICODE(o);
+                c = PyUnicode_AS_UNICODE(u);
+                if (c == NULL) {
+                    return o;
+                }
+                else {
+                    return o;
+                }
              """)])
         assert module.test_macro_invocations() == u''
 
@@ -159,11 +167,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
-        assert PyUnicode_GET_SIZE(space, space.wrap(u'sp�m')) == 4
-        assert PyUnicode_GetSize(space, space.wrap(u'sp�m')) == 4
-        unichar = rffi.sizeof(Py_UNICODE)
-        assert PyUnicode_GET_DATA_SIZE(space, space.wrap(u'sp�m')) == 4 * unichar
-
         encoding = rffi.charp2str(PyUnicode_GetDefaultEncoding(space, ))
         w_default_encoding = space.call_function(
             space.sys.get('getdefaultencoding')
@@ -183,46 +186,6 @@ class TestUnicode(BaseApiTest):
         rffi.free_charp(invalid)
         rffi.free_charp(utf_8)
         rffi.free_charp(prev_encoding)
-
-    def test_AS(self, space):
-        word = space.wrap(u'spam')
-        array = rffi.cast(rffi.CWCHARP, PyUnicode_AS_DATA(space, word))
-        array2 = PyUnicode_AS_UNICODE(space, word)
-        array3 = PyUnicode_AsUnicode(space, word)
-        for (i, char) in enumerate(space.unicode_w(word)):
-            assert array[i] == char
-            assert array2[i] == char
-            assert array3[i] == char
-        with raises_w(space, TypeError):
-            PyUnicode_AsUnicode(space, space.wrap('spam'))
-
-        utf_8 = rffi.str2charp('utf-8')
-        encoded = PyUnicode_AsEncodedString(space, space.wrap(u'sp�m'),
-                                                utf_8, None)
-        assert space.unwrap(encoded) == 'sp\xef\xbf\xbdm'
-        encoded_obj = PyUnicode_AsEncodedObject(space, space.wrap(u'sp�m'),
-                                                utf_8, None)
-        assert space.eq_w(encoded, encoded_obj)
-        with raises_w(space, TypeError):
-            PyUnicode_AsEncodedString(
-                space, space.newtuple([1, 2, 3]), None, None)
-        with raises_w(space, TypeError):
-            PyUnicode_AsEncodedString(space, space.wrap(''), None, None)
-        ascii = rffi.str2charp('ascii')
-        replace = rffi.str2charp('replace')
-        encoded = PyUnicode_AsEncodedString(space, space.wrap(u'sp�m'),
-                                                ascii, replace)
-        assert space.unwrap(encoded) == 'sp?m'
-        rffi.free_charp(utf_8)
-        rffi.free_charp(replace)
-        rffi.free_charp(ascii)
-
-        buf = rffi.unicode2wcharp(u"12345")
-        PyUnicode_AsWideChar(space, space.wrap(u'longword'), buf, 5)
-        assert rffi.wcharp2unicode(buf) == 'longw'
-        PyUnicode_AsWideChar(space, space.wrap(u'a'), buf, 5)
-        assert rffi.wcharp2unicode(buf) == 'a'
-        rffi.free_wcharp(buf)
 
     def test_fromstring(self, space):
         s = rffi.str2charp(u'sp\x09m'.encode("utf-8"))
@@ -535,25 +498,6 @@ class TestUnicode(BaseApiTest):
     def test_concat(self, space):
         w_res = PyUnicode_Concat(space, space.wrap(u'a'), space.wrap(u'b'))
         assert space.unicode_w(w_res) == u'ab'
-
-    def test_copy(self, space):
-        w_x = space.wrap(u"abcd\u0660")
-        count1 = space.int_w(space.len(w_x))
-        target_chunk = lltype.malloc(rffi.CWCHARP.TO, count1, flavor='raw')
-
-        x_chunk = PyUnicode_AS_UNICODE(space, w_x)
-        Py_UNICODE_COPY(space, target_chunk, x_chunk, 4)
-        w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, 4))
-
-        assert space.eq_w(w_y, space.wrap(u"abcd"))
-
-        size = PyUnicode_GET_SIZE(space, w_x)
-        Py_UNICODE_COPY(space, target_chunk, x_chunk, size)
-        w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, size))
-
-        assert space.eq_w(w_y, w_x)
-
-        lltype.free(target_chunk, flavor='raw')
 
     def test_ascii_codec(self, space):
         s = 'abcdefg'

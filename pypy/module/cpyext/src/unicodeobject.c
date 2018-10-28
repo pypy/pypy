@@ -420,4 +420,154 @@ PyUnicode_FromFormat(const char *format, ...)
     return ret;
 }
 
+/* The empty Unicode object is shared to improve performance. */
+static PyUnicodeObject *unicode_empty = NULL;
+
+#define _Py_RETURN_UNICODE_EMPTY()                      \
+    do {                                                \
+        if (unicode_empty != NULL)                      \
+            Py_INCREF(unicode_empty);                   \
+        else {                                          \
+            unicode_empty = _PyUnicode_New(0);          \
+            if (unicode_empty != NULL)                  \
+                Py_INCREF(unicode_empty);               \
+        }                                               \
+        return (PyObject *)unicode_empty;               \
+    } while (0)
+
+/* We allocate one more byte to make sure the string is
+   Ux0000 terminated; some code relies on that.
+*/
+
+static
+PyUnicodeObject *_PyUnicode_New(Py_ssize_t length)
+{
+    register PyUnicodeObject *unicode;
+    size_t new_size;
+
+    /* Optimization for empty strings */
+    if (length == 0 && unicode_empty != NULL) {
+        Py_INCREF(unicode_empty);
+        return unicode_empty;
+    }
+
+    /* Ensure we won't overflow the size. */
+    if (length > ((PY_SSIZE_T_MAX / sizeof(Py_UNICODE)) - 1)) {
+        return (PyUnicodeObject *)PyErr_NoMemory();
+    }
+
+    unicode = PyObject_New(PyUnicodeObject, &PyUnicode_Type);
+    if (unicode == NULL)
+        return NULL;
+    new_size = sizeof(Py_UNICODE) * ((size_t)length + 1);
+    unicode->str = (Py_UNICODE*) PyObject_MALLOC(new_size);
+
+    if (!unicode->str) {
+        PyErr_NoMemory();
+        goto onError;
+    }
+    /* Initialize the first element to guard against cases where
+     * the caller fails before initializing str -- unicode_resize()
+     * reads str[0], and the Keep-Alive optimization can keep memory
+     * allocated for str alive across a call to unicode_dealloc(unicode).
+     * We don't want unicode_resize to read uninitialized memory in
+     * that case.
+     */
+    unicode->str[0] = 0;
+    unicode->str[length] = 0;
+    unicode->length = length;
+    unicode->hash = -1;
+    unicode->defenc = NULL;
+    return unicode;
+
+  onError:
+    /* XXX UNREF/NEWREF interface should be more symmetrical */
+    PyObject_Del(unicode);
+    return NULL;
+}
+
+
+PyObject*
+PyUnicode_FromUnicode(const wchar_t *u, Py_ssize_t size)
+{
+    /* Create a Unicode Object from the Py_UNICODE buffer u of the given size. u
+     * may be NULL which causes the contents to be undefined. It is the user's
+     * responsibility to fill in the needed data.  The buffer is copied into the new
+     * object. If the buffer is not NULL, the return value might be a shared object.
+     * Therefore, modification of the resulting Unicode object is only allowed when u
+     * is NULL. 
+     */
+    PyUnicodeObject *unicode;
+
+    /* Optimization for empty strings */
+    if (size == 0)
+        _Py_RETURN_UNICODE_EMPTY();
+
+
+    unicode = _PyUnicode_New(size);
+    if (!unicode)
+        return NULL;
+
+    /* Copy the Unicode data into the new object */
+    if (u != NULL)
+        Py_UNICODE_COPY(unicode->str, (wchar_t*)u, size);
+
+    return (PyObject *)unicode;
+}
+
+PyObject*
+PyUnicode_FromWideChar(const wchar_t *char_p, Py_ssize_t length)
+{
+    /* 
+     * Create a Unicode object from the wchar_t buffer w of the given size.
+     * Return NULL on failure.
+     * PyPy supposes Py_UNICODE == wchar_t
+     */
+    return PyUnicode_FromUnicode(char_p, length);
+}
+
+wchar_t *PyUnicode_AsUnicode(PyObject *unicode)
+{
+    if (!PyUnicode_Check(unicode)) {
+        PyErr_BadArgument();
+        goto onError;
+    }
+    return PyUnicode_AS_UNICODE(unicode);
+
+  onError:
+    return NULL;
+}
+
+Py_ssize_t PyUnicode_GetSize(PyObject *unicode)
+{
+    if (!PyUnicode_Check(unicode)) {
+        PyErr_BadArgument();
+        goto onError;
+    }
+    return PyUnicode_GET_SIZE(unicode);
+
+  onError:
+    return -1;
+}
+
+Py_ssize_t PyUnicode_AsWideChar(PyUnicodeObject *unicode,
+                                wchar_t *w,
+                                Py_ssize_t size)
+{
+    if (unicode == NULL) {
+        PyErr_BadInternalCall();
+        return -1;
+    }
+
+    /* If possible, try to copy the 0-termination as well */
+    if (size > PyUnicode_GET_SIZE(unicode))
+        size = PyUnicode_GET_SIZE(unicode) + 1;
+
+    memcpy(w, unicode->str, size * sizeof(wchar_t));
+    if (size > PyUnicode_GET_SIZE(unicode))
+        return PyUnicode_GET_SIZE(unicode);
+    else
+        return size;
+}
+
 

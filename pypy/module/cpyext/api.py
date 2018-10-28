@@ -590,8 +590,10 @@ SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
     'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
-    'PyString_FromFormat', 'PyString_FromFormatV',
-    'PyUnicode_FromFormat', 'PyUnicode_FromFormatV',
+    'PyString_FromFormat', 'PyString_FromFormatV', 
+    'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_FromUnicode',
+    'PyUnicode_FromWideChar', 'PyUnicode_AsUnicode', 'PyUnicode_GetSize',
+    'PyUnicode_AsWideChar',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
     '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
@@ -1185,7 +1187,7 @@ def attach_c_functions(space, eci, prefix):
     state.C.get_pyos_inputhook = rffi.llexternal(
         '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
-
+        
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
