@@ -49,7 +49,8 @@ def acquire_timed(space, lock, microseconds):
             # Run signal handlers if we were interrupted
             space.getexecutioncontext().checksignals()
             if microseconds >= 0:
-                microseconds = r_longlong(endtime - (time.time() * 1e6))
+                microseconds = r_longlong((endtime - (time.time() * 1e6))
+                                          + 0.999)
                 # Check for negative values, since those mean block
                 # forever
                 if microseconds <= 0:
@@ -247,7 +248,7 @@ class W_RLock(W_Root):
                         "cannot release un-acquired lock")
         self.rlock_count -= 1
         if self.rlock_count == 0:
-            self.rlock_owner == 0
+            self.rlock_owner = 0
             self.lock.release()
 
     def is_owned_w(self, space):

@@ -41,6 +41,11 @@ typedef struct {
 
 #define Py_CompileString(str, filename, start) Py_CompileStringFlags(str, filename, start, NULL)
 
+/* Stuff with no proper home (yet) */
+PyAPI_DATA(int) (*PyOS_InputHook)(void);
+typedef int (*_pypy_pyos_inputhook)(void);
+PyAPI_FUNC(_pypy_pyos_inputhook) _PyPy_get_PyOS_InputHook(void);
+
 #ifdef __cplusplus
 }
 #endif
