@@ -766,8 +766,9 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     res, lgt, pos, bo = str_decode_utf_16_helper(
         data, errors, final,
         state.decode_error_handler, _byteorder)
+    # return result, consumed, byteorder for buffered incremental encoders
     return space.newtuple([space.newutf8(res, lgt),
-                           space.newint(lgt), space.newint(bo)])
+                           space.newint(pos), space.newint(bo)])
 
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
@@ -785,8 +786,9 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     res, lgt, pos, bo = str_decode_utf_32_helper(
         data, errors, final,
         state.decode_error_handler, _byteorder)
+    # return result, consumed, byteorder for buffered incremental encoders
     return space.newtuple([space.newutf8(res, lgt),
-                           space.newint(lgt), space.newint(bo)])
+                           space.newint(pos), space.newint(bo)])
 
 # ____________________________________________________________
 # Charmap
