@@ -77,7 +77,7 @@ def default_error_encode(
 def fsdecode(space, w_string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
-    errorhandler=state.decode_error_handler,
+    errorhandler=state.decode_error_handler
     if _WIN32:
         bytes = space.bytes_w(w_string)
         uni = str_decode_mbcs(bytes, 'strict', True, errorhandler,
