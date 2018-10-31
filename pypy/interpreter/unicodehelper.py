@@ -80,13 +80,15 @@ def fsdecode(space, w_string):
     errorhandler=state.decode_error_handler
     if _WIN32:
         bytes = space.bytes_w(w_string)
-        uni = str_decode_mbcs(bytes, 'strict', True, errorhandler,
-                              force_ignore=False)[0]
+        slen = len(bytes)
+        uni, size = runicode.str_decode_mbcs(bytes, slen, 'strict', final=True,
+                           errorhandler=errorhandler, force_ignore=False)
     elif _MACOSX:
         bytes = space.bytes_w(w_string)
-        uni = str_decode_utf8(
+        utf8 = str_decode_utf8(
             bytes, 'surrogateescape', final=True,
             allow_surrogates=False)[0]
+        uni = space.realunicode_w(utf8)
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
         # or the filesystem codec is implemented in Python we cannot
@@ -101,6 +103,7 @@ def fsdecode(space, w_string):
         return space.call_method(w_string, 'decode',
                                  getfilesystemencoding(space),
                                  space.newtext('surrogateescape'))
+    assert isinstance(uni, unicode)
     return space.newtext(runicode.unicode_encode_utf_8(uni,
                                  len(uni), 'strict', allow_surrogates=True), len(uni))
 

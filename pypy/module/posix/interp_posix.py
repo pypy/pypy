@@ -56,7 +56,10 @@ class FileEncoder(object):
         return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
-        return self.space.utf8_w(self.w_obj).decode('utf8')
+        ret = self.space.realunicode_w(self.w_obj)
+        if u'\x00' in ret:
+            raise oefmt(self.space.w_ValueError, "embedded null character")
+        return ret
 
 class FileDecoder(object):
     is_unicode = False
@@ -69,7 +72,10 @@ class FileDecoder(object):
         return self.space.bytesbuf0_w(self.w_obj)
 
     def as_unicode(self):
-        return self.space.fsdecode_w(self.w_obj)
+        ret = self.space.fsdecode_w(self.w_obj)
+        if u'\x00' in ret:
+            raise oefmt(self.space.w_ValueError, "embedded null character")
+        return ret
 
 @specialize.memo()
 def make_dispatch_function(func, tag, allow_fd_fn=None):
@@ -889,7 +895,7 @@ if _WIN32:
         # started through main() instead of wmain()
         rwin32._wgetenv(u"")
         for key, value in rwin32._wenviron_items():
-            space.setitem(w_env, space.newtext(key), space.newunicode(value))
+            space.setitem(w_env, space.newtext(key), space.newtext(value))
 
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
