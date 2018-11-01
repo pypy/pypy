@@ -27,7 +27,7 @@ def scandir(space, w_path=None):
         if space.isinstance_w(w_path, space.w_bytes):
             raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
                                            " on Windows, use Unicode instead")
-        path = space.utf8_w(w_path)
+        path = space.realunicode_w(w_path)
         result_is_bytes = False
 
     # 'path' is always bytes on posix and always unicode on windows
