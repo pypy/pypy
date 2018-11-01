@@ -155,18 +155,19 @@ def prev_codepoint_pos(code, pos):
 def codepoint_at_pos(code, pos):
     """ Give a codepoint in code at pos - assumes valid utf8, no checking!
     """
+    lgt = len(code)
     ordch1 = ord(code[pos])
-    if ordch1 <= 0x7F:
+    if ordch1 <= 0x7F or pos +1 >= lgt:
         return ordch1
 
     ordch2 = ord(code[pos+1])
-    if ordch1 <= 0xDF:
+    if ordch1 <= 0xDF or pos +2 >= lgt:
         # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
         return (ordch1 << 6) + ordch2 - (
                (0xC0   << 6) + 0x80     )
 
     ordch3 = ord(code[pos+2])
-    if ordch1 <= 0xEF:
+    if ordch1 <= 0xEF or pos + 3 >= lgt:
         # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
         return (ordch1 << 12) + (ordch2 << 6) + ordch3 - (
                (0xE0   << 12) + (0x80   << 6) + 0x80     )
