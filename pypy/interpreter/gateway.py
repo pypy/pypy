@@ -576,8 +576,10 @@ def int_unwrapping_space_method(typ):
     assert typ in (int, str, float, unicode, r_longlong, r_uint, r_ulonglong, bool)
     if typ is r_int is r_longlong:
         return 'gateway_r_longlong_w'
-    elif typ in (str, unicode):
-        return typ.__name__ + '_w'
+    elif typ is str:
+        return 'utf8_w'
+    elif typ is unicode:
+        return 'realunicode_w'
     elif typ is bool:
         # For argument clinic's "bool" specifier: accept any object, and
         # convert it to a boolean value.  If you don't want this
