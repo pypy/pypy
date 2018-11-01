@@ -9,5 +9,6 @@
 * revisit all places where we do utf8.decode('utf-8'), they should work directly with utf8
   - rutf8.utf8_encode_mbcs
   - unicodehelper.fsencode
+* remove asserts from _WIN32 paths in rlib.rposix.re{name,place}
 * convert all realunicode_w to unicode_w after we flush out all old uses of unicode_w
 * benchmark
