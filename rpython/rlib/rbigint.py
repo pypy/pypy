@@ -588,29 +588,7 @@ class rbigint(object):
             # Fallback to Long.
             return self.lt(rbigint.fromint(other))
 
-        osign = 1
-        if other == 0:
-            osign = 0
-        elif other < 0:
-            osign = -1
-
-        if self.sign > osign:
-            return False
-        elif self.sign < osign:
-            return True
-
-        digits = self.numdigits()
-
-        if digits > 1:
-            if osign == 1:
-                return False
-            else:
-                return True
-
-        d1 = self.sign * self.digit(0)
-        if d1 < other:
-            return True
-        return False
+        return _x_int_lt(self, other, False)
 
     def le(self, other):
         return not other.lt(self)
@@ -622,29 +600,7 @@ class rbigint(object):
             # Fallback to Long.
             return self.lt(rbigint.fromint(other))
 
-        osign = 1
-        if other == 0:
-            osign = 0
-        elif other < 0:
-            osign = -1
-
-        if self.sign > osign:
-            return False
-        elif self.sign < osign:
-            return True
-
-        digits = self.numdigits()
-
-        if digits > 1:
-            if osign == 1:
-                return False
-            else:
-                return True
-
-        d1 = self.sign * self.digit(0)
-        if d1 <= other:
-            return True
-        return False
+        return _x_int_lt(self, other, True)
 
     def gt(self, other):
         return other.lt(self)
@@ -2186,6 +2142,36 @@ def _divrem(a, b):
         rem.sign = - rem.sign
     return z, rem
 
+def _x_int_lt(a, b, eq=False):
+    """ Compare bigint a with int b for less than or less than or equal """
+    osign = 1
+    if b == 0:
+        osign = 0
+    elif b < 0:
+        osign = -1
+
+    if a.sign > osign:
+        return False
+    elif a.sign < osign:
+        return True
+
+    digits = a.numdigits()
+
+    if digits > 1:
+        if osign == 1:
+            return False
+        else:
+            return True
+
+    d1 = a.sign * a.digit(0)
+    if eq:
+        if d1 <= b:
+            return True
+    else:
+        if d1 < b:
+            return True
+    return False
+        
 # ______________ conversions to double _______________
 
 def _AsScaledDouble(v):
