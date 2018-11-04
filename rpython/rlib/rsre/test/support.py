@@ -111,9 +111,9 @@ def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
     start, end = _adjust(start, end, len(string))
     start = Position(start)
     end = Position(end)
-    ctx = MatchContextForTests(pattern, string, start, end, flags)
+    ctx = MatchContextForTests(string, start, end, flags)
     ctx.fullmatch_only = fullmatch
-    if match_context(ctx):
+    if match_context(ctx, pattern):
         return ctx
     else:
         return None
@@ -125,8 +125,8 @@ def search(pattern, string, start=0, end=sys.maxint, flags=0):
     start, end = _adjust(start, end, len(string))
     start = Position(start)
     end = Position(end)
-    ctx = MatchContextForTests(pattern, string, start, end, flags)
-    if search_context(ctx):
+    ctx = MatchContextForTests(string, start, end, flags)
+    if search_context(ctx, pattern):
         return ctx
     else:
         return None
