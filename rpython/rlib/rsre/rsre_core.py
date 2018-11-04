@@ -460,7 +460,7 @@ class MinRepeatOneMatchResult(MatchResult):
         ptr = self.start_ptr
         if not self.next_char_ok(ctx, pattern, ptr, self.ppos3):
             return
-        self.start_ptr = ptr + 1
+        self.start_ptr = ctx.next(ptr)
         return self.find_first_result(ctx, pattern)
 
     def next_char_ok(self, ctx, pattern, ptr, ppos):
@@ -736,9 +736,9 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             startptr, length_bytes = get_group_ref(ctx, marks, pattern.pat(ppos))
             if length_bytes < 0:
                 return     # group was not previously defined
-            if not match_repeated_ignore(ctx, ptr, startptr, length_bytes):
+            ptr = match_repeated_ignore(ctx, ptr, startptr, length_bytes)
+            if ptr < ctx.ZERO:
                 return     # no match
-            ptr = ctx.go_forward_by_bytes(ptr, length_bytes)
             ppos += 1
 
         elif op == OPCODE_GROUPREF_EXISTS:
