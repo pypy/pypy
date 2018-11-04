@@ -1247,7 +1247,7 @@ def conditional_call_elidable(value, function, *args):
                 value = function(*args)
                 assert isinstance(value, int)
         else:
-            if not value:
+            if not isinstance(value, list) and not value:
                 value = function(*args)
                 assert not isinstance(value, int)
         return value

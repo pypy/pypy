@@ -786,6 +786,26 @@ class AppTestPartialEvaluation:
             return (u"\x01", 4)   # 4 < len(input), so will try and fail again
         codecs.register_error("test.inf", handler_unicodeinternal)
         try:
+            "\x00\x00\x00\x00\x00".decode("unicode-internal", "test.inf")
+        except MyException:
+            pass
+        else:
+            raise AssertionError("should have gone into infinite loop")
+
+    def test_unicode_internal_error_handler_infinite_loop(self):
+        import codecs
+        class MyException(Exception):
+            pass
+        seen = [0]
+        def handler_unicodeinternal(exc):
+            if not isinstance(exc, UnicodeDecodeError):
+                raise TypeError("don't know how to handle %r" % exc)
+            seen[0] += 1
+            if seen[0] == 20:   # stop the 20th time this is called
+                raise MyException
+            return (u"\x01", 4)   # 4 < len(input), so will try and fail again
+        codecs.register_error("test.inf", handler_unicodeinternal)
+        try:
             b"\x00\x00\x00\x00\x00".decode("unicode-internal", "test.inf")
         except MyException:
             pass
