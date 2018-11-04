@@ -151,7 +151,7 @@ def unroll_safe(func):
     if getattr(func, '_elidable_function_', False):
         raise TypeError("it does not make sense for %s to be both elidable and unroll_safe" % func)
     if not getattr(func, '_jit_look_inside_', True):
-        raise TypeError("it does not make sense for %s to be both elidable and dont_look_inside" % func)
+        raise TypeError("it does not make sense for %s to be both unroll_safe and dont_look_inside" % func)
     func._jit_unroll_safe_ = True
     return func
 

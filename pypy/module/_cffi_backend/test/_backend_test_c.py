@@ -3957,6 +3957,7 @@ def test_char_pointer_conversion():
     z3 = cast(BVoidP, 0)
     z4 = cast(BUCharP, 0)
     with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
         newp(new_pointer_type(BIntP), z1)    # warn
         assert len(w) == 1
         newp(new_pointer_type(BVoidP), z1)   # fine
