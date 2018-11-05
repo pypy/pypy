@@ -85,6 +85,9 @@ def _get_msvc_env(vsver, x64flag):
             stdout, stderr = popen.communicate()
             if popen.wait() != 0:
                 return None
+            if stdout[:5].lower() == 'error':
+                log.msg('Running "%s" errored: %s' %(vcvars, stdout.split()[0]))
+                return None
         except:
             return None
 
