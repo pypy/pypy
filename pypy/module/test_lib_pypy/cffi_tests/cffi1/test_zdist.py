@@ -3,6 +3,8 @@ import sys, os, py
 import subprocess
 import cffi
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+from shutil import rmtree
+from tempfile import mkdtemp
 
 
 def chdir_to_tmp(f):
@@ -34,13 +36,20 @@ class TestDist(object):
         env = os.environ.copy()
         # a horrible hack to prevent distutils from finding ~/.pydistutils.cfg
         # (there is the --no-user-cfg option, but not in Python 2.6...)
-        env['HOME'] = '/this/path/does/not/exist'
+        # NOTE: pointing $HOME to a nonexistent directory can break certain things
+        # that look there for configuration (like ccache).
+        tmp_home = mkdtemp()
+        assert tmp_home != None, "cannot create temporary homedir"
+        env['HOME'] = tmp_home
         if cwd is None:
             newpath = self.rootdir
             if 'PYTHONPATH' in env:
                 newpath += os.pathsep + env['PYTHONPATH']
             env['PYTHONPATH'] = newpath
-        subprocess.check_call([self.executable] + args, cwd=cwd, env=env)
+        try:
+            subprocess.check_call([self.executable] + args, cwd=cwd, env=env)
+        finally:
+            rmtree(tmp_home)
 
     def _prepare_setuptools(self):
         if hasattr(TestDist, '_setuptools_ready'):

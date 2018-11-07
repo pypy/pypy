@@ -840,10 +840,35 @@ else:
         return z
 
 
+@specialize.memo()
+def check_support_int128():
+    from rpython.rtyper.lltypesystem import rffi
+    return hasattr(rffi, '__INT128_T')
+
+def mulmod(a, b, c):
+    """Computes (a * b) % c.
+    Assumes c > 0, and returns a nonnegative result.
+    """
+    assert c > 0
+    if LONG_BIT < LONGLONG_BIT:
+        a = r_longlong(a)
+        b = r_longlong(b)
+        return intmask((a * b) % c)
+    elif check_support_int128():
+        a = r_longlonglong(a)
+        b = r_longlonglong(b)
+        return intmask((a * b) % c)
+    else:
+        from rpython.rlib.rbigint import rbigint
+        a = rbigint.fromlong(a)
+        b = rbigint.fromlong(b)
+        return a.mul(b).int_mod(c).toint()
+
+
 # String parsing support
 # ---------------------------
 
-def string_to_int(s, base=10, allow_underscores=False):
+def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
@@ -853,7 +878,8 @@ def string_to_int(s, base=10, allow_underscores=False):
         NumberStringParser, ParseStringOverflowError, strip_spaces)
     s = literal = strip_spaces(s)
     p = NumberStringParser(s, literal, base, 'int',
-                           allow_underscores=allow_underscores)
+                           allow_underscores=allow_underscores,
+                           no_implicit_octal=no_implicit_octal)
     base = p.base
     result = 0
     while True:

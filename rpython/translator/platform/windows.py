@@ -177,7 +177,7 @@ class MsvcPlatform(Platform):
             self.cc = cc
 
         # detect version of current compiler
-        returncode, stdout, stderr = _run_subprocess(self.cc, '',
+        returncode, stdout, stderr = _run_subprocess(self.cc, [],
                                                      env=self.c_environ)
         r = re.search(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
         if r is not None:
@@ -187,7 +187,7 @@ class MsvcPlatform(Platform):
             self.version = 0
 
         # Try to find a masm assembler
-        returncode, stdout, stderr = _run_subprocess('ml.exe', '',
+        returncode, stdout, stderr = _run_subprocess('ml.exe', [],
                                                      env=self.c_environ)
         r = re.search('Macro Assembler', stderr)
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):

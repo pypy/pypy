@@ -409,7 +409,7 @@ def write_w_marker_deallocating(space):
     if we_are_translated():
         llptr = cast_instance_to_base_ptr(w_marker_deallocating)
         state = space.fromcache(State)
-        state.C.set_marker(rffi.cast(Py_ssize_t, llptr))
+        state.C.set_marker(llptr)
 
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):

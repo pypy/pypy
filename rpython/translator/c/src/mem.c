@@ -80,6 +80,9 @@ struct boehm_fq_s {
 RPY_EXTERN void (*boehm_fq_trigger[])(void);
 
 int boehm_gc_finalizer_lock = 0;
+void boehm_gc_finalizer_notifier(void);
+
+#ifndef RPY_REVERSE_DEBUGGER
 void boehm_gc_finalizer_notifier(void)
 {
     int i;
@@ -101,6 +104,11 @@ void boehm_gc_finalizer_notifier(void)
 
     boehm_gc_finalizer_lock--;
 }
+#else
+/* see revdb.c */
+RPY_EXTERN void *rpy_reverse_db_next_dead(void *);
+RPY_EXTERN int rpy_reverse_db_fq_register(void *);
+#endif
 
 static void mem_boehm_ignore(char *msg, GC_word arg)
 {
@@ -114,7 +122,7 @@ void boehm_gc_startup_code(void)
     GC_set_warn_proc(mem_boehm_ignore);
 }
 
-void boehm_fq_callback(void *obj, void *rawfqueue)
+static void boehm_fq_callback(void *obj, void *rawfqueue)
 {
     struct boehm_fq_s **fqueue = rawfqueue;
     struct boehm_fq_s *node = GC_malloc(sizeof(void *) * 2);
@@ -125,15 +133,30 @@ void boehm_fq_callback(void *obj, void *rawfqueue)
     *fqueue = node;
 }
 
+void boehm_fq_register(struct boehm_fq_s **fqueue, void *obj)
+{
+#ifdef RPY_REVERSE_DEBUGGER
+    /* this function returns 0 when recording, or 1 when replaying */
+    if (rpy_reverse_db_fq_register(obj))
+        return;
+#endif
+    GC_REGISTER_FINALIZER(obj, boehm_fq_callback, fqueue, NULL, NULL);
+}
+
 void *boehm_fq_next_dead(struct boehm_fq_s **fqueue)
 {
     struct boehm_fq_s *node = *fqueue;
+    void *result;
     if (node != NULL) {
         *fqueue = node->next;
-        return node->obj;
+        result = node->obj;
     }
     else
-        return NULL;
+        result = NULL;
+#ifdef RPY_REVERSE_DEBUGGER
+    result = rpy_reverse_db_next_dead(result);
+#endif
+    return result;
 }
 #endif /* BOEHM GC */
 

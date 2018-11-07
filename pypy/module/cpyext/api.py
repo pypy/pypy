@@ -60,7 +60,7 @@ include_dirs = [
 
 configure_eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
-        includes=['Python.h', 'stdarg.h', 'structmember.h'],
+        includes=['Python.h', 'stdarg.h', 'structmember.h', 'marshal.h'],
         compile_extra=['-DPy_BUILD_CORE'])
 
 class CConfig:
@@ -92,8 +92,11 @@ assert CONST_WSTRING == rffi.CWCHARP
 
 if sys.platform == 'win32':
     dash = '_'
+    WIN32 = True
 else:
     dash = ''
+    WIN32 = False
+
 
 def fclose(fp):
     try:
@@ -118,6 +121,7 @@ def feof(fp):
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
 udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_marshal_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 
 constant_names = """
@@ -602,10 +606,11 @@ SYMBOLS_C = [
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
-    'PyObject_GetBuffer', 'PyBuffer_Release',
-    'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
-    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
-    '_Py_setfilesystemdefaultencoding',
+    'PyObject_DelItemString', 'PyObject_GetBuffer', 'PyBuffer_Release',
+
+    'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory',
+    'PyBuffer_FromObject', 'PyBuffer_FromReadWriteObject', 'PyBuffer_New',
+    'PyBuffer_Type', '_Py_get_buffer_type', '_Py_setfilesystemdefaultencoding',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
@@ -639,12 +644,13 @@ SYMBOLS_C = [
     'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
+    'PyOS_InputHook',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
     'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar',
-    '_PyObject_GC_New', '_PyObject_GC_NewVar',
+    '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar', 'PyInt_FromLong',
-    'PyTuple_New',
+    'PyTuple_New', '_Py_Dealloc',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -770,6 +776,9 @@ def is_PyObject(TYPE):
 
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
+
+# int *
+INTP_real = rffi.CArrayPtr(rffi.INT_real)
 
 def configure_types():
     for config in (CConfig, CConfig2):
@@ -1132,10 +1141,11 @@ def setup_init_functions(eci, prefix):
 
 def attach_c_functions(space, eci, prefix):
     state = space.fromcache(State)
-    state.C._Py_Dealloc = rffi.llexternal('_Py_Dealloc',
-                                         [PyObject], lltype.Void,
-                                         compilation_info=eci,
-                                         _nowrapper=True)
+    state.C._Py_Dealloc = rffi.llexternal(
+        mangle_name(prefix, '_Py_Dealloc'),
+        [PyObject], lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True)
     state.C.PyObject_Free = rffi.llexternal(
         mangle_name(prefix, 'PyObject_Free'),
         [rffi.VOIDP], lltype.Void,
@@ -1163,13 +1173,17 @@ def attach_c_functions(space, eci, prefix):
         '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
-                   Py_ssize_t, '_pypy_rawrefcount_w_marker_deallocating',
-                   eci, _nowrapper=True, c_type='Py_ssize_t')
+                   rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
+                   eci, _nowrapper=True, c_type='void *')
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
         '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
         '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
+    state.C.get_pyos_inputhook = rffi.llexternal(
+        '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
 
 
@@ -1221,14 +1235,11 @@ def build_bridge(space):
         global_objects.append('PyTypeObject _PyExc_%s;' % name)
     global_code = '\n'.join(global_objects)
 
-    prologue = ("#include <Python.h>\n"
-                "#include <structmember.h>\n"
+    prologue = ("#include <Python.h>\n" +
+                "#include <structmember.h>\n" +
+                "#include <marshal.h>\n" +
+                ("#include <pypy_numpy.h>\n" if use_micronumpy else "") +
                 "#include <src/thread.c>\n")
-    if use_micronumpy:
-        prologue = ("#include <Python.h>\n"
-                    "#include <structmember.h>\n"
-                    "#include <pypy_numpy.h>\n"
-                    "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
@@ -1297,7 +1308,7 @@ def build_bridge(space):
     # if do tuple_attach of the prebuilt empty tuple, we need to call
     # _PyPy_Malloc)
     builder.attach_all(space)
-    
+
     setup_init_functions(eci, prefix)
     return modulename.new(ext='')
 
@@ -1534,7 +1545,6 @@ def build_eci(code, use_micronumpy=False, translating=False):
 
     if sys.platform == 'win32':
         get_pythonapi_source = '''
-        #include <windows.h>
         RPY_EXTERN
         HANDLE pypy_get_pythonapi_handle() {
             MEMORY_BASIC_INFORMATION  mi;
@@ -1548,6 +1558,9 @@ def build_eci(code, use_micronumpy=False, translating=False):
         }
         '''
         separate_module_sources.append(get_pythonapi_source)
+        kwds['post_include_bits'] = ['#include <windows.h>',
+                            'RPY_EXTERN HANDLE pypy_get_pythonapi_handle();',
+                                    ]
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
@@ -1653,7 +1666,11 @@ def load_extension_module(space, path, name):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
+            if WIN32:
+                # Allow other DLLs in the same directory with "path"
+                dll = rdynload.dlopenex(ll_libname)
+            else:
+                dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
@@ -1713,6 +1730,12 @@ def load_cpyext_module(space, name, path, dll, initptr):
         state.package_context = old_context
     w_mod = state.fixup_extension(name, path)
     return w_mod
+
+def invoke_pyos_inputhook(space):
+    state = space.fromcache(State)
+    c_inputhook = state.C.get_pyos_inputhook()
+    if c_inputhook:
+        generic_cpy_call(space, c_inputhook)
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):

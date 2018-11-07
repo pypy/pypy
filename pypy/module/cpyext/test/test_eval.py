@@ -420,3 +420,15 @@ class AppTestCall(AppTestCpythonExtensionBase):
             except StopIteration:
                 pass
             assert out == [0, 1, 2, 3, 4]
+
+    def test_getframe(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("getframe1", "METH_NOARGS",
+             """
+                PyFrameObject *x = PyEval_GetFrame();
+                Py_INCREF(x);
+                return (PyObject *)x;
+             """),], prologue="#include <frameobject.h>\n")
+        res = module.getframe1()
+        assert res is sys._getframe(0)

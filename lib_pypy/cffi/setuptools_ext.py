@@ -81,13 +81,8 @@ def _set_py_limited_api(Extension, kwds):
     it doesn't so far, creating troubles.  That's why we check
     for "not hasattr(sys, 'gettotalrefcount')" (the 2.7 compatible equivalent
     of 'd' not in sys.abiflags). (http://bugs.python.org/issue28401)
-
-    On Windows, it's better not to use py_limited_api until issue #355
-    can be resolved (by having virtualenv copy PYTHON3.DLL).  See also
-    the start of _cffi_include.h.
     """
-    if ('py_limited_api' not in kwds and not hasattr(sys, 'gettotalrefcount')
-            and sys.platform != 'win32'):
+    if 'py_limited_api' not in kwds and not hasattr(sys, 'gettotalrefcount'):
         import setuptools
         try:
             setuptools_major_version = int(setuptools.__version__.partition('.')[0])
@@ -167,6 +162,17 @@ def _add_py_module(dist, ffi, module_name):
             module_path = module_name.split('.')
             module_path[-1] += '.py'
             generate_mod(os.path.join(self.build_lib, *module_path))
+        def get_source_files(self):
+            # This is called from 'setup.py sdist' only.  Exclude
+            # the generate .py module in this case.
+            saved_py_modules = self.py_modules
+            try:
+                if saved_py_modules:
+                    self.py_modules = [m for m in saved_py_modules
+                                         if m != module_name]
+                return base_class.get_source_files(self)
+            finally:
+                self.py_modules = saved_py_modules
     dist.cmdclass['build_py'] = build_py_make_mod
 
     # distutils and setuptools have no notion I could find of a
@@ -176,6 +182,7 @@ def _add_py_module(dist, ffi, module_name):
     # the module.  So we add it here, which gives a few apparently
     # harmless warnings about not finding the file outside the
     # build directory.
+    # Then we need to hack more in get_source_files(); see above.
     if dist.py_modules is None:
         dist.py_modules = []
     dist.py_modules.append(module_name)

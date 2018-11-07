@@ -563,3 +563,13 @@ class AppTestFFIObj:
         assert len(z) == 2
         assert ffi.cast("int *", z)[0] == 0x12345
         assert list(z) == [u'\U00012345', u'\x00']   # maybe a 2-unichars str
+
+    def test_ffi_array_as_init(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("int[4]", [10, 20, 30, 400])
+        q = ffi.new("int[4]", p)
+        assert list(q) == [10, 20, 30, 400]
+        raises(TypeError, ffi.new, "int[3]", p)
+        raises(TypeError, ffi.new, "int[5]", p)
+        raises(TypeError, ffi.new, "int16_t[4]", p)

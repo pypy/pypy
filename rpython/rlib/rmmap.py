@@ -835,7 +835,7 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = rwin32.get_osfhandle(fileno)
+            fh = rffi.cast(HANDLE, rwin32.get_osfhandle(fileno))
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
