@@ -71,7 +71,8 @@ class Module(MixedModule):
     def __init__(self, space, *args):
         MixedModule.__init__(self, space, *args)
         #
-        if not space.config.objspace.disable_entrypoints:
+        if (not space.config.objspace.disable_entrypoints and
+            not space.config.objspace.disable_entrypoints_in_cffi):
             # import 'embedding', which has the side-effect of registering
             # the 'pypy_init_embedded_cffi_module' entry point
             from pypy.module._cffi_backend import embedding

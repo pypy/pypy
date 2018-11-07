@@ -1387,6 +1387,7 @@ class BackendTests:
         ffi = FFI(backend=self.Backend())
         ffi.cdef("enum foo;")
         with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always")
             n = ffi.cast("enum foo", -1)
             assert int(n) == 0xffffffff
         assert str(log[0].message) == (
@@ -1946,3 +1947,45 @@ class BackendTests:
         # only works with the Python FFI instances
         ffi = FFI(backend=self.Backend())
         assert ffi.sizeof("struct{int a;}") == ffi.sizeof("int")
+
+    def test_callback_large_struct(self):
+        ffi = FFI(backend=self.Backend())
+        # more than 8 bytes
+        ffi.cdef("struct foo_s { unsigned long a, b, c; };")
+        #
+        @ffi.callback("void(struct foo_s)")
+        def cb(s):
+            seen.append(ffi.typeof(s))
+            s.a += 1
+            s.b += 2
+            s.c += 3
+            seen.append(s.a)
+            seen.append(s.b)
+            seen.append(s.c)
+        #
+        s1 = ffi.new("struct foo_s *", {'a': 100, 'b': 200, 'c': 300})
+        seen = []
+        cb(s1[0])
+        assert len(seen) == 4
+        assert s1.a == 100     # unmodified
+        assert s1.b == 200
+        assert s1.c == 300
+        assert seen[0] == ffi.typeof("struct foo_s")
+        assert seen[1] == 101
+        assert seen[2] == 202
+        assert seen[3] == 303
+
+    def test_ffi_array_as_init(self):
+        ffi = FFI(backend=self.Backend())
+        p = ffi.new("int[4]", [10, 20, 30, 400])
+        q = ffi.new("int[4]", p)
+        assert list(q) == [10, 20, 30, 400]
+        py.test.raises(TypeError, ffi.new, "int[3]", p)
+        py.test.raises(TypeError, ffi.new, "int[5]", p)
+        py.test.raises(TypeError, ffi.new, "int16_t[4]", p)
+        s = ffi.new("struct {int i[4];}*", {'i': p})
+        assert list(s.i) == [10, 20, 30, 400]
+
+    def test_too_many_initializers(self):
+        ffi = FFI(backend=self.Backend())
+        py.test.raises(IndexError, ffi.new, "int[4]", [10, 20, 30, 40, 50])

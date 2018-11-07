@@ -1,29 +1,10 @@
-from pypy.module.cpyext.api import (
-    cpython_api, PyObject, PyObjectP, CANNOT_FAIL
-    )
-from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
-from rpython.rtyper.lltypesystem import rffi, lltype
+#----this file is not imported, only here for reference----
 
-CWCHARPP = lltype.Ptr(lltype.Array(rffi.CWCHARP, hints={'nolength': True}))
-
-# we don't really care
-PyTypeObjectPtr = rffi.VOIDP
-Py_ssize_t = rffi.SSIZE_T
-PyModuleDef = rffi.VOIDP
-PyMethodDef = rffi.VOIDP
-PyGetSetDef = rffi.VOIDP
-PyMemberDef = rffi.VOIDP
-va_list = rffi.VOIDP
-wrapperbase = rffi.VOIDP
-FILE = rffi.VOIDP
-PyFrameObject = rffi.VOIDP
-_inittab = rffi.VOIDP
-PyThreadState = rffi.VOIDP
-PyInterpreterState = rffi.VOIDP
-Py_UNICODE = lltype.UniChar
-PyCompilerFlags = rffi.VOIDP
-struct_node = rffi.VOIDP
-Py_tracefunc = rffi.VOIDP
+#from pypy.module.cpyext.api import (
+#    cpython_api, PyObject, PyObjectP, CANNOT_FAIL
+#    )
+#from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
+#from rpython.rtyper.lltypesystem import rffi, lltype
 
 
 @cpython_api([rffi.CCHARP], Py_ssize_t, error=-1)
@@ -228,39 +209,6 @@ def _Py_c_pow(space, num, exp):
     this method returns zero and sets errno to EDOM."""
     raise NotImplementedError
 
-@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, rffi.INTP], rffi.CCHARP)
-def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
-    """Convert a double val to a string using supplied
-    format_code, precision, and flags.
-
-    format_code must be one of 'e', 'E', 'f', 'F',
-    'g', 'G' or 'r'.  For 'r', the supplied precision
-    must be 0 and is ignored.  The 'r' format code specifies the
-    standard repr() format.
-
-    flags can be zero or more of the values Py_DTSF_SIGN,
-    Py_DTSF_ADD_DOT_0, or Py_DTSF_ALT, or-ed together:
-
-    Py_DTSF_SIGN means to always precede the returned string with a sign
-    character, even if val is non-negative.
-
-    Py_DTSF_ADD_DOT_0 means to ensure that the returned string will not look
-    like an integer.
-
-    Py_DTSF_ALT means to apply "alternate" formatting rules.  See the
-    documentation for the PyOS_snprintf() '#' specifier for
-    details.
-
-    If ptype is non-NULL, then the value it points to will be set to one of
-    Py_DTST_FINITE, Py_DTST_INFINITE, or Py_DTST_NAN, signifying that
-    val is a finite number, an infinite number, or not a number, respectively.
-
-    The return value is a pointer to buffer with the converted string or
-    NULL if the conversion failed. The caller is responsible for freeing the
-    returned string by calling PyMem_Free().
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 def PyOS_stricmp(space, s1, s2):
     """Case insensitive comparison of strings. The function works almost
@@ -273,24 +221,6 @@ def PyOS_strnicmp(space, s1, s2, size):
     """Case insensitive comparison of strings. The function works almost
     identically to strncmp() except that it ignores the case.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyTZInfo_Check(space, ob):
-    """Return true if ob is of type PyDateTime_TZInfoType or a subtype of
-    PyDateTime_TZInfoType.  ob must not be NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyTZInfo_CheckExact(space, ob):
-    """Return true if ob is of type PyDateTime_TZInfoType. ob must not be
-    NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyTypeObjectPtr, PyGetSetDef], PyObject)
-def PyDescr_NewGetSet(space, type, getset):
     raise NotImplementedError
 
 @cpython_api([PyTypeObjectPtr, PyMemberDef], PyObject)
@@ -481,31 +411,6 @@ def PyUnicodeDecodeError_GetReason(space, exc):
 def PyUnicodeDecodeError_SetReason(space, exc, reason):
     """Set the reason attribute of the given exception object to reason.  Return
     0 on success, -1 on failure."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=-1)
-def Py_ReprEnter(space, object):
-    """Called at the beginning of the tp_repr implementation to
-    detect cycles.
-
-    If the object has already been processed, the function returns a
-    positive integer.  In that case the tp_repr implementation
-    should return a string object indicating a cycle.  As examples,
-    dict objects return {...} and list objects
-    return [...].
-
-    The function will return a negative integer if the recursion limit
-    is reached.  In that case the tp_repr implementation should
-    typically return NULL.
-
-    Otherwise, the function returns zero and the tp_repr
-    implementation can continue normally."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], lltype.Void)
-def Py_ReprLeave(space, object):
-    """Ends a Py_ReprEnter().  Must be called once for each
-    invocation of Py_ReprEnter() that returns zero."""
     raise NotImplementedError
 
 @cpython_api([rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
@@ -1295,39 +1200,6 @@ def PyModule_GetFilenameObject(space, module):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.VOIDP)
-def PyModule_GetState(space, module):
-    """Return the "state" of the module, that is, a pointer to the block of memory
-    allocated at module creation time, or NULL.  See
-    PyModuleDef.m_size."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyModuleDef)
-def PyModule_GetDef(space, module):
-    """Return a pointer to the PyModuleDef struct from which the module was
-    created, or NULL if the module wasn't created with
-    PyModule_Create()."""
-    raise NotImplementedError
-
-
-@cpython_api([PyModuleDef], PyObject)
-def PyModule_Create(space, module):
-    """Create a new module object, given the definition in module.  This behaves
-    like PyModule_Create2() with module_api_version set to
-    PYTHON_API_VERSION."""
-    raise NotImplementedError
-
-
-@cpython_api([PyModuleDef, rffi.INT_real], PyObject)
-def PyModule_Create2(space, module, module_api_version):
-    """Create a new module object, given the definition in module, assuming the
-    API version module_api_version.  If that version does not match the version
-    of the running interpreter, a RuntimeWarning is emitted.
-
-    Most uses of this function should be using PyModule_Create()
-    instead; only use this if you are sure you need it."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.INT_real], PyObject)
 def PyNumber_ToBase(space, n, base):
     """Returns the integer n converted to base base as a string.  The base
@@ -1336,23 +1208,6 @@ def PyNumber_ToBase(space, n, base):
     '0x', respectively.  If n is not a Python int, it is converted with
     PyNumber_Index() first."""
     raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyObject_Bytes(space, o):
-    """
-    Compute a bytes representation of object o.  NULL is returned on
-    failure and a bytes object on success.  This is equivalent to the Python
-    expression bytes(o), when o is not an integer.  Unlike bytes(o),
-    a TypeError is raised when o is an integer instead of a zero-initialized
-    bytes object."""
-    raise NotImplementedError
-
-@cpython_api([], PyFrameObject)
-def PyEval_GetFrame(space):
-    """Return the current thread state's frame, which is NULL if no frame is
-    currently executing."""
-    raise NotImplementedError
-    borrow_from()
 
 @cpython_api([PyFrameObject], rffi.INT_real, error=-1)
 def PyFrame_GetLineNumber(space, frame):

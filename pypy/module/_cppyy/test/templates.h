@@ -1,5 +1,6 @@
 #include <string>
 #include <sstream>
+#include <vector>
 
 
 //===========================================================================
@@ -54,6 +55,18 @@ int global_some_foo(T) {
 template <typename T>
 int global_some_bar(T) {
     return 13;
+}
+
+template <typename F>
+struct SomeResult {
+    F m_retval;
+};
+
+template <class I, typename O = float>
+SomeResult<O> global_get_some_result(const std::vector<I>& carrier) {
+    SomeResult<O> r{};
+    r.m_retval = O(carrier[0]);
+    return r;
 }
 
 

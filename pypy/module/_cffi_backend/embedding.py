@@ -95,7 +95,9 @@ def pypy_init_embedded_cffi_module(version, init_struct):
 if os.name == 'nt':
 
     do_includes = r"""
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
+#endif
 #include <windows.h>
 
 static void _cffi_init(void);

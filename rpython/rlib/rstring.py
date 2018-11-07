@@ -434,7 +434,8 @@ class NumberStringParser:
         raise ParseStringError("invalid literal for %s() with base %d" %
                                (self.fname, self.original_base))
 
-    def __init__(self, s, literal, base, fname, allow_underscores=False):
+    def __init__(self, s, literal, base, fname, allow_underscores=False,
+                 no_implicit_octal=False):
         self.fname = fname
         sign = 1
         if s.startswith('-'):
@@ -445,7 +446,6 @@ class NumberStringParser:
         self.sign = sign
         self.original_base = base
         self.allow_underscores = allow_underscores
-        self.last_is_underscore = False
 
         if base == 0:
             if s.startswith('0x') or s.startswith('0X'):
@@ -453,12 +453,20 @@ class NumberStringParser:
             elif s.startswith('0b') or s.startswith('0B'):
                 base = 2
             elif s.startswith('0'): # also covers the '0o' case
-                base = 8
+                if no_implicit_octal and not (s.startswith('0o') or
+                                              s.startswith('0O')):
+                    base = 1    # this makes only the digit '0' valid...
+                else:
+                    base = 8
             else:
                 base = 10
         elif base < 2 or base > 36:
             raise InvalidBaseError("%s() base must be >= 2 and <= 36" % fname)
         self.base = base
+
+        # Leading underscores are not allowed
+        if s.startswith('_'):
+            self.error()
 
         if base == 16 and (s.startswith('0x') or s.startswith('0X')):
             s = s[2:]
@@ -478,6 +486,11 @@ class NumberStringParser:
     def next_digit(self): # -1 => exhausted
         if self.i < self.n:
             c = self.s[self.i]
+            if self.allow_underscores and c == '_':
+                self.i += 1
+                if self.i >= self.n:
+                    self.error()
+                c = self.s[self.i]
             digit = ord(c)
             if '0' <= c <= '9':
                 digit -= ord('0')
@@ -485,22 +498,13 @@ class NumberStringParser:
                 digit = (digit - ord('A')) + 10
             elif 'a' <= c <= 'z':
                 digit = (digit - ord('a')) + 10
-            elif c == '_' and self.allow_underscores:
-                if self.last_is_underscore:
-                    self.error()
-                self.last_is_underscore = True
-                self.i += 1
-                return self.next_digit()
             else:
                 self.error()
             if digit >= self.base:
                 self.error()
             self.i += 1
-            self.last_is_underscore = False
             return digit
         else:
-            if self.last_is_underscore:
-                self.error()
             return -1
 
     def prev_digit(self):

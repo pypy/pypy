@@ -334,8 +334,18 @@ def test_newp_integer_types():
         max = (1 << (8*size-1)) - 1
         assert newp(pp, min)[0] == min
         assert newp(pp, max)[0] == max
+        py.test.raises(OverflowError, newp, pp, min - 2 ** 32)
+        py.test.raises(OverflowError, newp, pp, min - 2 ** 64)
+        py.test.raises(OverflowError, newp, pp, max + 2 ** 32)
+        py.test.raises(OverflowError, newp, pp, max + 2 ** 64)
         py.test.raises(OverflowError, newp, pp, min - 1)
         py.test.raises(OverflowError, newp, pp, max + 1)
+        py.test.raises(OverflowError, newp, pp, min - 1 - 2 ** 32)
+        py.test.raises(OverflowError, newp, pp, min - 1 - 2 ** 64)
+        py.test.raises(OverflowError, newp, pp, max + 1)
+        py.test.raises(OverflowError, newp, pp, max + 1 + 2 ** 32)
+        py.test.raises(OverflowError, newp, pp, max + 1 + 2 ** 64)
+        py.test.raises(TypeError, newp, pp, 1.0)
     for name in ['char', 'short', 'int', 'long', 'long long']:
         p = new_primitive_type('unsigned ' + name)
         pp = new_pointer_type(p)
@@ -1862,7 +1872,7 @@ def test_more_overflow_errors():
 
 def test_newp_copying():
     """Test that we can do newp(<type>, <cdata of the given type>) for most
-    types, with the exception of arrays, like in C.
+    types, including same-type arrays.
     """
     BInt = new_primitive_type("int")
     p = newp(new_pointer_type(BInt), cast(BInt, 42))
@@ -1891,8 +1901,9 @@ def test_newp_copying():
     a1 = newp(BArray, [1, 2, 3, 4])
     py.test.raises(TypeError, newp, BArray, a1)
     BArray6 = new_array_type(new_pointer_type(BInt), 6)
-    a1 = newp(BArray6, None)
-    py.test.raises(TypeError, newp, BArray6, a1)
+    a1 = newp(BArray6, [10, 20, 30])
+    a2 = newp(BArray6, a1)
+    assert list(a2) == [10, 20, 30, 0, 0, 0]
     #
     s1 = newp(BStructPtr, [42])
     s2 = newp(BStructPtr, s1[0])
@@ -3946,6 +3957,7 @@ def test_char_pointer_conversion():
     z3 = cast(BVoidP, 0)
     z4 = cast(BUCharP, 0)
     with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
         newp(new_pointer_type(BIntP), z1)    # warn
         assert len(w) == 1
         newp(new_pointer_type(BVoidP), z1)   # fine

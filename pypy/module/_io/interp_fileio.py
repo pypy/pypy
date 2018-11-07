@@ -196,12 +196,11 @@ class W_FileIO(W_RawIOBase):
                             wrap_oserror2(space, e, w_name,
                                           exception_name='w_IOError',
                                           eintr_retry=True)
-                    if not rposix._WIN32:
-                        try:
-                            _open_inhcache.set_non_inheritable(self.fd)
-                        except OSError as e:
-                            raise wrap_oserror2(space, e, w_name,
-                                                eintr_retry=False)
+                    try:
+                         _open_inhcache.set_non_inheritable(self.fd)
+                    except OSError as e:
+                        raise wrap_oserror2(space, e, w_name,
+                                            eintr_retry=False)
                 else:
                     w_fd = space.call_function(w_opener, w_name,
                                                space.newint(flags))
@@ -224,6 +223,7 @@ class W_FileIO(W_RawIOBase):
                         except OSError as e:
                             raise wrap_oserror2(space, e, w_name,
                                                 eintr_retry=False)
+
 
             try:
                 st = os.fstat(self.fd)

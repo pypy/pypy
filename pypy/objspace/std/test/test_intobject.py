@@ -720,6 +720,16 @@ class AppTestInt(object):
         assert x == expected
         assert called == [0, expected]
 
+    def test_leading_zero_literal(self):
+        assert eval("00") == 0
+        raises(SyntaxError, eval, '07')
+        assert int("00", 0) == 0
+        raises(ValueError, int, '07', 0)
+        assert int("07", 10) == 7
+        raises(ValueError, int, '07777777777777777777777777777777777777', 0)
+        raises(ValueError, int, '00000000000000000000000000000000000007', 0)
+        raises(ValueError, int, '00000000000000000077777777777777777777', 0)
+
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}

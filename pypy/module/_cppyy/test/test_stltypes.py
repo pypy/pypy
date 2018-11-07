@@ -197,6 +197,44 @@ class AppTestSTLVECTOR:
         assert v2[-1] == v[-2]
         assert v2[self.N-4] == v[-2]
 
+    def test07_vector_bool(self):
+        """Usability of std::vector<bool> which can be a specialization"""
+
+        import _cppyy as cppyy
+
+        vb = cppyy.gbl.std.vector(bool)(8)
+        assert [x for x in vb] == [False]*8
+
+        vb[0] = True
+        assert vb[0]
+        vb[-1] = True
+        assert vb[7]
+
+        assert [x for x in vb] == [True]+[False]*6+[True]
+
+        assert len(vb[4:8]) == 4
+        assert list(vb[4:8]) == [False]*3+[True]
+
+    def test08_vector_enum(self):
+        """Usability of std::vector<> of some enums"""
+
+        import _cppyy as cppyy
+
+        # TODO: would like to use cppyy.gbl.VecTestEnum but that's an int
+        assert cppyy.gbl.VecTestEnum
+        ve = cppyy.gbl.std.vector['VecTestEnum']()
+        ve.push_back(cppyy.gbl.EVal1);
+        assert ve[0] == 1
+        ve[0] = cppyy.gbl.EVal2
+        assert ve[0] == 3
+
+        assert cppyy.gbl.VecTestEnumNS.VecTestEnum
+        ve = cppyy.gbl.std.vector['VecTestEnumNS::VecTestEnum']()
+        ve.push_back(cppyy.gbl.VecTestEnumNS.EVal1);
+        assert ve[0] == 5
+        ve[0] = cppyy.gbl.VecTestEnumNS.EVal2
+        assert ve[0] == 42
+
 
 class AppTestSTLSTRING:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
@@ -204,7 +242,8 @@ class AppTestSTLSTRING:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_string_argument_passing(self):
@@ -275,6 +314,33 @@ class AppTestSTLSTRING:
         assert t0 == c.get_string1()
         assert s == c.get_string1()
 
+    def test04_array_of_strings(self):
+        """Access to global arrays of strings"""
+
+        import _cppyy as cppyy
+
+        assert tuple(cppyy.gbl.str_array_1) == ('a', 'b', 'c')
+        str_array_2 = cppyy.gbl.str_array_2
+        # fix up the size
+        str_array_2.size = 4
+        assert tuple(str_array_2) == ('d', 'e', 'f', 'g')
+        assert tuple(str_array_2) == ('d', 'e', 'f', 'g')
+
+        # multi-dimensional
+        vals = ['a', 'b', 'c', 'd', 'e', 'f']
+        str_array_3 = cppyy.gbl.str_array_3
+        for i in range(3):
+            for j in range(2):
+                assert str_array_3[i][j] == vals[i*2+j]
+
+        vals = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+                'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p']
+        str_array_4 = cppyy.gbl.str_array_4
+        for i in range(4):
+            for j in range(2):
+                for k in range(2):
+                    assert str_array_4[i][j][k] == vals[i*4+j*2+k]
+
 
 class AppTestSTLLIST:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
@@ -283,7 +349,8 @@ class AppTestSTLLIST:
         cls.w_N = cls.space.newint(13)
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_builtin_list_type(self):
@@ -339,7 +406,8 @@ class AppTestSTLMAP:
         cls.w_N = cls.space.newint(13)
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_builtin_map_type(self):
@@ -436,10 +504,11 @@ class AppTestSTLMAP:
         stl_like_class = cppyy.gbl.stl_like_class
 
         a = stl_like_class(int)()
-        for i in a:
-            pass
+        assert len(a) == 4
+        for i, j in enumerate(a):
+            assert i == j
 
-        assert i == 3
+        assert i == len(a)-1
 
 
 class AppTestSTLITERATOR:
@@ -448,7 +517,8 @@ class AppTestSTLITERATOR:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_builtin_vector_iterators(self):
@@ -485,7 +555,8 @@ class AppTestTEMPLATE_UI:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_explicit_templates(self):
@@ -544,9 +615,9 @@ class AppTestSTLARRAY:
     def test03_array_of_pointer_to_pods(self):
         """Usage of std::array of pointer to PODs"""
 
-        import cppyy
-        from cppyy import gbl
-        from cppyy.gbl import std
+        import _cppyy as cppyy
+        gbl = cppyy.gbl
+        std = cppyy.gbl.std
 
         ll = [gbl.ArrayTest.Point() for i in range(4)]
         for i in range(len(ll)):

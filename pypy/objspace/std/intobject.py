@@ -841,7 +841,7 @@ def _recover_with_smalllong(space):
 
 def _string_to_int_or_long(space, w_inttype, w_source, string, base=10):
     try:
-        value = string_to_int(string, base)
+        value = string_to_int(string, base, no_implicit_octal=True)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
     except ParseStringOverflowError as e:

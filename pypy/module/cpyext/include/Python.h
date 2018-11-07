@@ -123,7 +123,6 @@
 #include "memoryobject.h"
 #include "eval.h"
 #include "pymem.h"
-#include "pycobject.h"
 #include "pycapsule.h"
 #include "bytesobject.h"
 #include "sliceobject.h"

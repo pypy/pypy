@@ -20,21 +20,23 @@ class AppTestImpModule:
         cls.w_udir = cls.space.wrap(str(udir))
 
     def w__py_file(self):
-        f = open('@TEST.py', 'w')
+        fname = self.udir + '/@TEST.py'
+        f = open(fname, 'w')
         f.write('MARKER = 42\n')
         f.close()
-        return '@TEST.py'
+        return fname
 
     def w__pyc_file(self):
         import marshal, imp
         co = compile("marker=42", "x.py", "exec")
-        f = open('@TEST.pyc', 'wb')
+        fname = self.udir + '/@TEST.pyc'
+        f = open(fname, 'wb')
         f.write(imp.get_magic())
         f.write(b'\x00\x00\x00\x00')
         f.write(b'\x00\x00\x00\x00')
         marshal.dump(co, f)
         f.close()
-        return '@TEST.pyc'
+        return fname
 
     def test_find_module(self):
         import os, imp

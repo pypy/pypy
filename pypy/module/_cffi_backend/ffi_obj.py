@@ -573,8 +573,8 @@ It can also be used on 'cdata' instance to get its C type."""
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 
 
-    @unwrap_spec(filename="fsencode_or_none", flags=int)
-    def descr_dlopen(self, filename, flags=0):
+    @unwrap_spec(flags=int)
+    def descr_dlopen(self, w_filename, flags=0):
         """\
 Load and return a dynamic library identified by 'name'.  The standard
 C library can be loaded by passing None.
@@ -585,7 +585,7 @@ we only look for the actual (untyped) symbols at the time of their
 first access."""
         #
         from pypy.module._cffi_backend import cdlopen
-        return cdlopen.W_DlOpenLibObject(self, filename, flags)
+        return cdlopen.W_DlOpenLibObject(self, w_filename, flags)
 
 
     def descr_dlclose(self, w_lib):

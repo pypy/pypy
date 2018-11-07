@@ -135,7 +135,7 @@ def descr_new_callbackptr(space, w_type, w_callable, w_args, w_result,
     return W_CallbackPtr(space, w_callable, w_args, w_result, flags)
 
 W_CallbackPtr.typedef = TypeDef(
-    'CallbackPtr',
+    'CallbackPtr', None, None, "read",
     __new__ = interp2app(descr_new_callbackptr),
     byptr   = interp2app(W_CallbackPtr.byptr),
     buffer  = GetSetProperty(W_CallbackPtr.getbuffer),

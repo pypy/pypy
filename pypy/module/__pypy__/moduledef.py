@@ -110,6 +110,7 @@ class Module(MixedModule):
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
         'fsencode'                  : 'interp_magic.fsencode',
         'fsdecode'                  : 'interp_magic.fsdecode',
+        'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
     }
 
     submodules = {

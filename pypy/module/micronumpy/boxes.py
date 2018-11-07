@@ -654,7 +654,7 @@ class W_ObjectBox(W_GenericBox):
     def descr__getattr__(self, space, w_key):
         return space.getattr(self.w_obj, w_key)
 
-W_GenericBox.typedef = TypeDef("numpy.generic",
+W_GenericBox.typedef = TypeDef("numpy.generic", None, None, "read-write",
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
 
     __getitem__ = interp2app(W_GenericBox.descr_getitem),

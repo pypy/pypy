@@ -5,8 +5,8 @@
 import os
 from _pwdgrp_cffi import ffi, lib
 import _structseq
-import thread
-_lock = thread.allocate_lock()
+import _thread
+_lock = _thread.allocate_lock()
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f

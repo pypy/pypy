@@ -306,6 +306,9 @@ class AppTestLockSignals(GenericTestThread):
         finally:
             signal.signal(signal.SIGALRM, oldalrm)
 
+
+class AppTestLockRepr(GenericTestThread):
+
     def test_lock_repr(self):
         import _thread
         lock = _thread.allocate_lock()

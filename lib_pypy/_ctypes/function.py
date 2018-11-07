@@ -267,6 +267,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
             return
 
         raise TypeError("Unknown constructor %s" % (args,))
+    _init_no_arg_ = __init__
 
     def _wrap_callable(self, to_call, argtypes):
         def f(*args):
@@ -485,6 +486,8 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
         return cobj, cobj._to_ffi_param(), type(cobj)
 
     def _convert_args_for_callback(self, argtypes, args):
+        from _ctypes.structure import StructOrUnion
+        #
         assert len(argtypes) == len(args)
         newargs = []
         for argtype, arg in zip(argtypes, args):
@@ -494,6 +497,10 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                 param = param._get_buffer_value()
             elif self._is_primitive(argtype):
                 param = param.value
+            elif isinstance(param, StructOrUnion):   # not a *pointer* to struct
+                newparam = StructOrUnion.__new__(type(param))
+                param._copy_to(newparam._buffer.buffer)
+                param = newparam
             newargs.append(param)
         return newargs
 
@@ -557,7 +564,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                         keepalive, newarg, newargtype = self._conv_param(argtype, defval)
                     else:
                         import ctypes
-                        val = argtype._type_()
+                        val = argtype._type_._newowninstance_()
                         keepalive = None
                         newarg = ctypes.byref(val)
                         newargtype = type(newarg)
