@@ -3,7 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload, clibffi
 from rpython.rtyper.lltypesystem import rffi
 
-VERSION = "1.12.0"
+from . import VERSION
 
 FFI_DEFAULT_ABI = clibffi.FFI_DEFAULT_ABI
 try:
@@ -11,6 +11,7 @@ try:
     has_stdcall = True
 except AttributeError:
     has_stdcall = False
+    FFI_STDCALL = None
 
 
 class Module(MixedModule):

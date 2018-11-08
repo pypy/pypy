@@ -21,7 +21,7 @@ if sys.version_info < (2, 6):
 
 from rpython.tool.udir import udir
 from pypy.interpreter import gateway
-from pypy.module._cffi_backend import Module
+from pypy.module._cffi_backend.moduledef import Module
 from pypy.module._cffi_backend.newtype import _clean_cache, UniqueCache
 from rpython.translator import cdir
 from rpython.translator.platform import host

@@ -5,7 +5,8 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.module import _cffi_backend
+from pypy.module._cffi_backend.moduledef import (
+    FFI_DEFAULT_ABI, has_stdcall, FFI_STDCALL)
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cffi_opcode, newtype, ctypestruct
 from pypy.module._cffi_backend import ctypeprim
@@ -182,12 +183,12 @@ class W_RawFuncType(W_Root):
         ellipsis = (getarg(opcodes[base_index + num_args]) & 0x01) != 0
         abi      = (getarg(opcodes[base_index + num_args]) & 0xFE)
         if abi == 0:
-            abi = _cffi_backend.FFI_DEFAULT_ABI
+            abi = FFI_DEFAULT_ABI
         elif abi == 2:
-            if _cffi_backend.has_stdcall:
-                abi = _cffi_backend.FFI_STDCALL
+            if has_stdcall:
+                abi = FFI_STDCALL
             else:
-                abi = _cffi_backend.FFI_DEFAULT_ABI
+                abi = FFI_DEFAULT_ABI
         else:
             raise oefmt(ffi.w_FFIError, "abi number %d not supported", abi)
         #
