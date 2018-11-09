@@ -1,4 +1,5 @@
 from pypy.interpreter.function import Function
+import pypy.module.cpyext.moduledef  # XXX: avoids a weird import cycle issue
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.classobject import (
