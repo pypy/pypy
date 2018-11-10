@@ -8,9 +8,9 @@ class Module(MixedModule):
     appleveldefs = {}
     interpleveldefs = {
         "NT_OFFSET" : "space.newint(256)",
-        "ISTERMINAL" : "__init__.isterminal",
-        "ISNONTERMINAL" : "__init__.isnonterminal",
-        "ISEOF" : "__init__.iseof"
+        "ISTERMINAL" : "moduledef.isterminal",
+        "ISNONTERMINAL" : "moduledef.isnonterminal",
+        "ISEOF" : "moduledef.iseof"
         }
 
 
