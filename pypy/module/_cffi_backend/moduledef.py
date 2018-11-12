@@ -2,7 +2,8 @@ import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload, clibffi
 from rpython.rtyper.lltypesystem import rffi
-from pypy.module._cffi_backend import VERSION
+
+from . import VERSION
 
 FFI_DEFAULT_ABI = clibffi.FFI_DEFAULT_ABI
 try:

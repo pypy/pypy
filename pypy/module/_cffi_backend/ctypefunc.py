@@ -31,7 +31,8 @@ class W_CTypeFunc(W_CTypePtrBase):
 
     cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
-    def __init__(self, space, fargs, fresult, ellipsis, abi=FFI_DEFAULT_ABI):
+    def __init__(self, space, fargs, fresult, ellipsis,
+                 abi=FFI_DEFAULT_ABI):
         assert isinstance(ellipsis, bool)
         extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
@@ -98,7 +99,6 @@ class W_CTypeFunc(W_CTypePtrBase):
             lltype.free(self.cif_descr, flavor='raw')
 
     def _compute_extra_text(self, fargs, fresult, ellipsis, abi):
-        from pypy.module._cffi_backend import newtype
         argnames = ['(*)(']
         xpos = 2
         if has_stdcall and abi == FFI_STDCALL:
