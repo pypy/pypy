@@ -684,8 +684,6 @@ class TestUnicode(BaseApiTest):
         with raises_w(space, TypeError):
             PyUnicode_FromEncodedObject(
                 space, space.wrap(u_text), null_charp, None)
-        assert space.unicode_w(PyUnicode_FromEncodedObject(
-            space, space.wrap(s_text), null_charp, None)) == u_text
         rffi.free_charp(b_text)
 
     def test_mbcs(self, space):
