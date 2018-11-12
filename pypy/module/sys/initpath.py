@@ -236,8 +236,8 @@ if os.name == 'nt':
 #endif
 #include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-RPY_EXPORTED
 char *_pypy_init_home(void)
 {
     HMODULE hModule = 0;
@@ -273,7 +273,6 @@ else:
 #include <stdio.h>
 #include <stdlib.h>
 
-RPY_EXPORTED
 char *_pypy_init_home(void)
 {
     Dl_info info;
@@ -291,11 +290,27 @@ char *_pypy_init_home(void)
 }
 """
 
+_source_code += """
+inline
+void _pypy_init_free(char *p)
+{
+    free(p);
+}
+"""
+
+if we_are_translated():
+   post_include_bits = []
+else:
+    # for tests 
+    post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);',
+                       'RPY_EXPORTED void _pypy_init_free(char*);',
+                      ]
+
 _eci = ExternalCompilationInfo(separate_module_sources=[_source_code],
-    post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);'])
+                               post_include_bits=post_include_bits)
 _eci = _eci.merge(rdynload.eci)
 
 pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CCHARP,
                                  _nowrapper=True, compilation_info=_eci)
-pypy_init_free = rffi.llexternal("free", [rffi.CCHARP], lltype.Void,
+pypy_init_free = rffi.llexternal("_pypy_init_free", [rffi.CCHARP], lltype.Void,
                                  _nowrapper=True, compilation_info=_eci)

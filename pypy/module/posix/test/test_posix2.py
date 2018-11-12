@@ -227,9 +227,9 @@ class AppTestPosix:
     def test_pickle(self):
         import pickle, os
         st = self.posix.stat(os.curdir)
-        print(type(st).__module__)
+        # print(type(st).__module__)
         s = pickle.dumps(st)
-        print(repr(s))
+        # print(repr(s))
         new = pickle.loads(s)
         assert new == st
         assert type(new) is type(st)
@@ -572,6 +572,12 @@ class AppTestPosix:
         with stream as fp:
             res = fp.read()
             assert res == '1\n'
+
+    if sys.platform == "win32":
+        # using startfile in app_startfile creates global state
+        test_popen.dont_track_allocations = True
+        test_popen_with.dont_track_allocations = True
+        test_popen_child_fds.dont_track_allocations = True
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
