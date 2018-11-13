@@ -460,14 +460,14 @@ def surrogatepass_errors(space, w_exc):
 def surrogateescape_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        obj = space.realunicode_w(space.getattr(w_exc, space.newtext('object')))
+        utf8 = space.utf8_w(space.getattr(w_exc, space.newtext('object')))
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
         res = ''
         pos = start
         while pos < end:
-            ch = ord(obj[pos])
+            ch = rutf8.codepoint_at_pos(utf8, pos)
             pos += 1
             if ch < 0xdc80 or ch > 0xdcff:
                 # Not a UTF-8b surrogate, fail with original exception
