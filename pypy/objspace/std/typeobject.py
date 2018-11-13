@@ -885,6 +885,10 @@ def descr_set__qualname__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__qualname__", w_type)
+    if not space.isinstance_w(w_value, space.w_text):
+        raise oefmt(space.w_TypeError,
+                    "can only assign string to %N.__name__, not '%T'",
+                    w_type, w_value)
     w_type.qualname = space.utf8_w(w_value)
 
 def descr_get__mro__(space, w_type):

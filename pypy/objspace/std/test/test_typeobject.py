@@ -971,6 +971,14 @@ class AppTestTypeObject:
         e = raises(TypeError, type, 'D', (), {'__qualname__': 42})
         assert str(e.value) == "type __qualname__ must be a str, not int"
 
+        for v in (42, b'abc'):
+            try:
+                C.__qualname__ = v
+            except TypeError as e:
+                assert 'can only assign string' in str(e)
+            else:
+                assert False
+
     def test_compare(self):
         class A(object):
             pass
