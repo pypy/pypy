@@ -1206,10 +1206,13 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
     from pypy.module._codecs.interp_codecs import encode_text, CodecState
     utf8 = space.utf8_w(w_object)
     if not allow_surrogates:
-        utf8 = space.utf8_w(w_object)
         if errors is None:
             errors = 'strict'
         pos = rutf8.surrogate_in_utf8(utf8)
+        if pos >= 0:
+            handled_error = True
+        else:
+            handled_error = False
         state = space.fromcache(CodecState)
         eh = state.encode_error_handler
         while pos >= 0:
@@ -1224,7 +1227,7 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
                 # surrogatepass?
                 break 
             pos = _pos
-        if errors == 'surrogateescape':
+        if errors == 'surrogateescape' and handled_error:
             #escape
             return space.newbytes(utf8)
         w_object = space.newtext(utf8)
