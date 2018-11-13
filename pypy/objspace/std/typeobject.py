@@ -804,7 +804,8 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     name = space.text_w(w_name) 
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
-    if surrogate_in_utf8(name) >= 0:
+    pos = surrogate_in_utf8(name)
+    if pos >= 0:
         raise oefmt(space.w_ValueError, "can't encode character %c in position "
                     "%i, surrogates not allowed", name[pos], pos)
     dict_w = {}
