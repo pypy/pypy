@@ -942,12 +942,15 @@ class AppTestTypeObject:
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
         raises(TypeError, "Abc.__name__ = b'A'")
-        try:
-            Abc.__name__ = 'G\x00hi'
-        except ValueError as e:
-            assert str(e) == "type name must not contain null characters"
-        else:
-            assert False
+        for v, err in [('G\x00hi', "type name must not contain null characters"),
+                       ('A\udcdcB', "surrogates not allowed")]:
+            try:
+                Abc.__name__ = v
+            except ValueError as e:
+                assert err in str(e)
+            else:
+                assert False
+            assert Abc.__name__ == 'Def'
 
     def test_qualname(self):
         A = type('A', (), {'__qualname__': 'B.C'})

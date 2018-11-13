@@ -14,7 +14,7 @@ from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib.rutf8 import CheckError, check_utf8
+from rpython.rlib.rutf8 import CheckError, check_utf8, surrogate_in_utf8
 
 class MutableCell(W_Root):
     def unwrap_cell(self, space):
@@ -801,9 +801,12 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
             return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
         w_typetype = w_winner
 
-    name = space.text_w(w_name) # NB. CPython forbids surrogates here
+    name = space.text_w(w_name) 
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
+    if surrogate_in_utf8(name) >= 0:
+        raise oefmt(space.w_ValueError, "can't encode character %c in position "
+                    "%i, surrogates not allowed", name[pos], pos)
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
@@ -868,6 +871,10 @@ def descr_set__name__(space, w_type, w_value):
     name = space.text_w(w_value)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
+    pos = surrogate_in_utf8(name)
+    if pos >= 0:
+        raise oefmt(space.w_ValueError, "can't encode character %s in position "
+                    "%d, surrogates not allowed", name[pos], pos)
     w_type.name = name
 
 def descr_get__qualname__(space, w_type):
