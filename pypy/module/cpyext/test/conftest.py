@@ -16,10 +16,9 @@ def pytest_configure(config):
     space = gettestobjspace(usemodules=['time'])
     space.getbuiltinmodule("time")
 
-def pytest_ignore_collect(path, config):
     # ensure additional functions are registered
     import pypy.module.cpyext.test.test_cpyext
-    return False
+
 
 def pytest_funcarg__api(request):
     return request.cls.api
