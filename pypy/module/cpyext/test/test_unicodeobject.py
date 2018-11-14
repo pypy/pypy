@@ -677,7 +677,7 @@ class TestUnicode(BaseApiTest):
     def test_decode_null_encoding(self, space):
         null_charp = lltype.nullptr(rffi.CCHARP.TO)
         u_text = u'abcdefg'
-        s_text = space.str_w(PyUnicode_AsEncodedString(space, space.wrap(u_text), null_charp, null_charp))
+        s_text = space.bytes_w(PyUnicode_AsEncodedString(space, space.wrap(u_text), null_charp, null_charp))
         b_text = rffi.str2charp(s_text)
         assert space.unicode_w(PyUnicode_Decode(
             space, b_text, len(s_text), null_charp, null_charp)) == u_text
@@ -685,7 +685,7 @@ class TestUnicode(BaseApiTest):
             PyUnicode_FromEncodedObject(
                 space, space.wrap(u_text), null_charp, None)
         assert space.unicode_w(PyUnicode_FromEncodedObject(
-            space, space.wrap(s_text), null_charp, None)) == u_text
+            space, space.newbytes(s_text), null_charp, None)) == u_text
         rffi.free_charp(b_text)
 
     def test_mbcs(self, space):

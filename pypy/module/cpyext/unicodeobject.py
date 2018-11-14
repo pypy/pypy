@@ -490,11 +490,12 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
                              encoding, errors)
 
 def _pyunicode_decode(space, s, encoding, errors):
-    if not encoding:
-        # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
-        encoding = PyUnicode_GetDefaultEncoding(space)
+    if encoding:
+        w_encoding = space.newtext(rffi.charp2str(encoding))
+    else:
+        # python 3.4 changed to this from defaultencoding
+        w_encoding = space.newtext('utf-8')
     w_str = space.newbytes(s)
-    w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
         w_errors = space.newtext(rffi.charp2str(errors))
     else:
@@ -530,10 +531,10 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
     if space.isinstance_w(w_obj, space.w_unicode):
-        raise oefmt(space.w_TypeError, "decoding Unicode is not supported")
+        raise oefmt(space.w_TypeError, "decoding str is not supported")
     if space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
         raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
-    s = space.bufferstr_w(w_obj)
+    s = space.charbuf_w(w_obj)
     return _pyunicode_decode(space, s, encoding, errors)
 
 
