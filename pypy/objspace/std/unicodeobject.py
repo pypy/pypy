@@ -1209,28 +1209,26 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
         if errors is None:
             errors = 'strict'
         pos = rutf8.surrogate_in_utf8(utf8)
-        if pos >= 0:
-            handled_error = True
-        else:
-            handled_error = False
         state = space.fromcache(CodecState)
         eh = state.encode_error_handler
-        while pos >= 0:
-            start = utf8[:pos]
-            ru, _pos = eh(errors, "utf8", "surrogates not allowed", utf8,
-                pos, pos + 1)
-            upos = rutf8.next_codepoint_pos(utf8, _pos)
-            end = utf8[upos:]
-            utf8 = start + ru + end
-            _pos = rutf8.surrogate_in_utf8(utf8)
-            if _pos <= pos:
-                # surrogatepass?
-                break 
-            pos = _pos
-        if errors == 'surrogateescape' and handled_error:
-            #escape
-            return space.newbytes(utf8)
-        w_object = space.newtext(utf8)
+        if pos >= 0:
+            while pos >= 0:
+                start = utf8[:pos]
+                upos = rutf8.codepoints_in_utf8(utf8, end=pos)
+                ru, _pos = eh(errors, "utf8", "surrogates not allowed", utf8,
+                    upos, upos + 1)
+                upos = rutf8.next_codepoint_pos(utf8, _pos)
+                end = utf8[upos:]
+                utf8 = start + ru + end
+                _pos = rutf8.surrogate_in_utf8(utf8)
+                if _pos <= pos:
+                    # surrogatepass?
+                    break 
+                pos = _pos
+            if errors == 'surrogateescape':
+                #escape
+                return space.newbytes(utf8)
+            w_object = space.newtext(utf8)
     if errors is None or errors == 'strict':
         if encoding is None or encoding == 'utf-8':
             #if rutf8.has_surrogates(utf8):

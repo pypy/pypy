@@ -241,8 +241,9 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
         pos = e.pos
         assert pos >= 0
         start = s[:pos]
+        upos = rutf8.codepoints_in_utf8(s, end=pos)
         ru, lgt = errorhandler(errors, 'utf8',
-                    'surrogates not allowed', s, pos, pos + 1)
+                    'surrogates not allowed', s, upos, upos + 1)
         end = utf8_encode_utf_8(s[pos+3:], errors, errorhandler,
                                 allow_surrogates=allow_surrogates)
         s = start + ru + end
