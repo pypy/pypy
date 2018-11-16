@@ -9,7 +9,7 @@ if sys.version_info < (3,):
             return eval('u'+repr(other).replace(r'\\u', r'\u')
                                        .replace(r'\\U', r'\U'))
     u = U()
-    long = long     # for further "from pypy.module.test_lib_pypy.cffi_tests.support import long"
+    long = long     # for further "from extra_tests.cffi_tests.support import long"
     assert u+'a\x00b' == eval(r"u'a\x00b'")
     assert u+'a\u1234b' == eval(r"u'a\u1234b'")
     assert u+'a\U00012345b' == eval(r"u'a\U00012345b'")

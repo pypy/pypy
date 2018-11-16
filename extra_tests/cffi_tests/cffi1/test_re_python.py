@@ -3,8 +3,8 @@ import sys, os
 import py
 from cffi import FFI
 from cffi import recompiler, ffiplatform, VerificationMissing
-from pypy.module.test_lib_pypy.cffi_tests.udir import udir
-from pypy.module.test_lib_pypy.cffi_tests.support import u
+from extra_tests.cffi_tests.udir import udir
+from extra_tests.cffi_tests.support import u
 
 
 def setup_module(mod):
@@ -37,13 +37,22 @@ def setup_module(mod):
                         'globalconst42', 'globalconsthello']
     )
     outputfilename = ffiplatform.compile(str(tmpdir), ext)
+
+    # test with a non-ascii char
+    ofn, oext = os.path.splitext(outputfilename)
     if sys.platform == "win32":
-        # test with a non-ascii char
-        outputfn1 = outputfilename
-        ofn, oext = os.path.splitext(outputfn1)
-        outputfilename = ofn + (u+'\u03be') + oext
-        #print(repr(outputfn1) + ' ==> ' + repr(outputfilename))
-        os.rename(outputfn1, outputfilename)
+        unicode_name = ofn + (u+'\u03be') + oext
+    else:
+        unicode_name = ofn + (u+'\xe9') + oext
+        try:
+            unicode_name.encode(sys.getfilesystemencoding())
+        except UnicodeEncodeError:
+            unicode_name = None
+    if unicode_name is not None:
+        print(repr(outputfilename) + ' ==> ' + repr(unicode_name))
+        os.rename(outputfilename, unicode_name)
+        outputfilename = unicode_name
+
     mod.extmod = outputfilename
     mod.tmpdir = tmpdir
     #

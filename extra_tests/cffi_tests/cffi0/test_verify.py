@@ -2,7 +2,7 @@
 import py, re
 import sys, os, math, weakref
 from cffi import FFI, VerificationError, VerificationMissing, model, FFIError
-from pypy.module.test_lib_pypy.cffi_tests.support import *
+from extra_tests.cffi_tests.support import *
 
 
 lib_m = ['m']
@@ -1408,7 +1408,7 @@ def test_ffi_struct_packed():
 
 def test_tmpdir():
     import tempfile, os
-    from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+    from extra_tests.cffi_tests.udir import udir
     tmpdir = tempfile.mkdtemp(dir=str(udir))
     ffi = FFI()
     ffi.cdef("int foo(int);")
@@ -1418,7 +1418,7 @@ def test_tmpdir():
 
 def test_relative_to():
     import tempfile, os
-    from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+    from extra_tests.cffi_tests.udir import udir
     tmpdir = tempfile.mkdtemp(dir=str(udir))
     ffi = FFI()
     ffi.cdef("int foo(int);")
