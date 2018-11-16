@@ -625,6 +625,8 @@ class AppTestPartialEvaluation:
         assert '[\uDC80]'.encode('utf-8', 'namereplace') == b'[\\udc80]'
 
     def test_surrogateescape(self):
+        assert "\udce4\udceb\udcef\udcf6\udcfc".encode("latin-1",
+                             "surrogateescape") == b"\xe4\xeb\xef\xf6\xfc"
         assert b'a\x80b'.decode('utf-8', 'surrogateescape') == 'a\udc80b'
         assert 'a\udc80b'.encode('utf-8', 'surrogateescape') == b'a\x80b'
         for enc in ('utf-8', 'ascii', 'latin-1', 'charmap'):

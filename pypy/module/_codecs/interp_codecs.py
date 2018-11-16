@@ -379,25 +379,23 @@ def get_standard_encoding(encoding):
 def surrogatepass_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        utf8 = space.utf8_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         encoding = space.text_w(space.getattr(w_exc, space.newtext('encoding')))
-        msg = space.text_w(space.getattr(w_exc, space.newtext('reason')))
         bytelength, code = get_standard_encoding(encoding)
         if code == ENC_UNKNOWN:
             # Not supported, fail with original exception
             raise OperationError(space.type(w_exc), w_exc)
         end = space.int_w(w_end)
         builder = StringBuilder()
+        start = w_obj._index_to_byte(start)
+        end = w_obj._index_to_byte(end)
+        obj = w_obj._utf8
         pos = start
-        # start, end are in codepoint indices
-        itr = rutf8.Utf8StringIterator(utf8)
-        for i in range(pos):
-            itr.next()
         while pos < end:
-            ch = itr.next()
-            pos += 1
+            ch = rutf8.codepoint_at_pos(obj, pos)
+            pos = rutf8.next_codepoint_pos(obj, pos)
             if ch < 0xd800 or ch > 0xdfff:
                 # Not a surrogate, fail with original exception
                 raise OperationError(space.type(w_exc), w_exc)
@@ -465,22 +463,22 @@ def surrogatepass_errors(space, w_exc):
 def surrogateescape_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        utf8 = space.utf8_w(space.getattr(w_exc, space.newtext('object')))
+        w_obj = space.getattr(w_exc, space.newtext('object'))
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
         res = ''
+        start = w_obj._index_to_byte(start)
+        end = w_obj._index_to_byte(end)
+        obj = w_obj._utf8
         pos = start
-        itr = rutf8.Utf8StringIterator(utf8)
-        for i in range(pos):
-            itr.next()
         while pos < end:
-            ch = itr.next()
-            pos += 1
-            if ch < 0xdc80 or ch > 0xdcff:
+            code = rutf8.codepoint_at_pos(obj, pos)
+            if code < 0xdc80 or code > 0xdcff:
                 # Not a UTF-8b surrogate, fail with original exception
                 raise OperationError(space.type(w_exc), w_exc)
-            res += chr(ch - 0xdc00)
+            res += chr(code - 0xdc00)
+            pos = rutf8.next_codepoint_pos(obj, pos)
         return space.newtuple([space.newbytes(res), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         consumed = 0
