@@ -2,7 +2,7 @@
 import sys, os, py
 import subprocess
 import cffi
-from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+from extra_tests.cffi_tests.udir import udir
 from shutil import rmtree
 from tempfile import mkdtemp
 
