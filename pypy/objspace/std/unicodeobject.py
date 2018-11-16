@@ -1201,8 +1201,6 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
 
 
 def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
-    # TODO: refactor unnatrual use of error hanlders here,
-    # we should make a single pass over the utf8 str
     from pypy.module._codecs.interp_codecs import encode_text, CodecState
     utf8 = space.utf8_w(w_object)
     if not allow_surrogates:
@@ -1212,23 +1210,22 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
         state = space.fromcache(CodecState)
         eh = state.encode_error_handler
         if pos >= 0:
+            # remove surrogates in pieces, eh needs codepoint positions
+            res = []
             while pos >= 0:
-                start = utf8[:pos]
                 upos = rutf8.codepoints_in_utf8(utf8, end=pos)
-                ru, _pos = eh(errors, "utf8", "surrogates not allowed", utf8,
+                ru, _pos = eh(errors, encoding, "surrogates not allowed", utf8,
                     upos, upos + 1)
-                upos = rutf8.next_codepoint_pos(utf8, _pos)
-                end = utf8[upos:]
-                utf8 = start + ru + end
-                _pos = rutf8.surrogate_in_utf8(utf8)
-                if _pos <= pos:
-                    # surrogatepass?
-                    break 
-                pos = _pos
-            if errors == 'surrogateescape':
-                #escape
-                return space.newbytes(utf8)
+                res.append(utf8[:pos])
+                res.append(ru)
+                utf8_pos = rutf8.next_codepoint_pos(utf8, _pos)
+                utf8 = utf8[utf8_pos:]
+                pos = rutf8.surrogate_in_utf8(utf8)
+            res.append(utf8)
+            utf8 = ''.join(res)
             w_object = space.newtext(utf8)
+            # change the errors to only do the encoding now
+            errors = 'strict'
     if errors is None or errors == 'strict':
         if encoding is None or encoding == 'utf-8':
             #if rutf8.has_surrogates(utf8):
@@ -1243,7 +1240,6 @@ def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
                     a.pos, a.pos + 1)
                 assert False, "always raises"
             return space.newbytes(utf8)
-
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_retval = encode_text(space, w_object, encoding, errors)
