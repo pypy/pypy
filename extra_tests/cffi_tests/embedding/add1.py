@@ -12,7 +12,7 @@ ffi.embedding_init_code(r"""
     sys.stdout.write("preparing")
     for i in range(3):
         sys.stdout.flush()
-        time.sleep(0.02)
+        time.sleep(0.2)
         sys.stdout.write(".")
     sys.stdout.write("\n")
 

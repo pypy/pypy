@@ -4,8 +4,8 @@ from cffi import FFI, CDefError
 import math, os, sys
 import ctypes.util
 from cffi.backend_ctypes import CTypesBackend
-from pypy.module.test_lib_pypy.cffi_tests.udir import udir
-from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture
+from extra_tests.cffi_tests.udir import udir
+from extra_tests.cffi_tests.support import FdWriteCapture
 from .backend_tests import needs_dlopen_none
 
 try:

@@ -68,18 +68,22 @@ class AppTestWarnings:
         except ImportError:
             skip('no test, -A on cpython?')
         # With showarning() missing, make sure that output is okay.
-        del warnings.showwarning
-
-        stderr = sys.stderr
+        saved = warnings.showwarning
         try:
-            sys.stderr = io.StringIO()
-            inner('test message')
-            result = sys.stderr.getvalue()
-        finally:
-            sys.stderr = stderr
+            del warnings.showwarning
 
-        assert result.count('\n') == 2
-        assert '  warnings.warn(message, ' in result
+            stderr = sys.stderr
+            try:
+                sys.stderr = io.StringIO()
+                inner('test message')
+                result = sys.stderr.getvalue()
+            finally:
+                sys.stderr = stderr
+
+            assert result.count('\n') == 2
+            assert '  warnings.warn(message, ' in result
+        finally:
+            warnings.showwarning = saved
 
     def test_filename_none(self):
         import _warnings

@@ -1073,6 +1073,7 @@ class TestAppMain:
                                 "    foo = True\n")
 
 
+@py.test.mark.skipif('config.getoption("runappdirect")')
 class AppTestAppMain:
     def setup_class(self):
         # ----------------------------------------
