@@ -533,7 +533,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     if space.isinstance_w(w_obj, space.w_bytes):
         s = space.bytes_w(w_obj)
         if not s:
-            return space.newtext('', 0)
+            return space.newtext('')
     elif space.isinstance_w(w_obj, space.w_unicode):
         raise oefmt(space.w_TypeError, "decoding str is not supported")
     elif space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
