@@ -189,7 +189,7 @@ class W_UnicodeObject(W_Root):
         if w_object is None:
             w_value = W_UnicodeObject.EMPTY
         else:
-            encoding, errors, allow_surrogates = _get_encoding_and_errors(space,
+            encoding, errors = get_encoding_and_errors(space,
                                                           w_encoding, w_errors)
             if encoding is None and errors is None:
                 # this is very quick if w_object is already a w_unicode
@@ -522,10 +522,8 @@ class W_UnicodeObject(W_Root):
         return space.w_True
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
-        encoding, errors, allow_surrogates = _get_encoding_and_errors(space,
-                                                    w_encoding, w_errors)
-        return encode_object(space, self, encoding, errors,
-                             allow_surrogates=allow_surrogates)
+        encoding, errors = get_encoding_and_errors(space, w_encoding, w_errors)
+        return encode_object(space, self, encoding, errors)
 
     @unwrap_spec(tabsize=int)
     def descr_expandtabs(self, space, tabsize=8):
@@ -1191,42 +1189,16 @@ def getdefaultencoding(space):
     return space.sys.defaultencoding
 
 
-def _get_encoding_and_errors(space, w_encoding, w_errors):
+def get_encoding_and_errors(space, w_encoding, w_errors):
     encoding = None if w_encoding is None else space.text_w(w_encoding)
     errors = None if w_errors is None else space.text_w(w_errors)
-    allow_surrogates = False
-    if encoding and 'escape' in encoding:
-        allow_surrogates = True
-    return encoding, errors, allow_surrogates
+    return encoding, errors
 
 
-def encode_object(space, w_object, encoding, errors, allow_surrogates=False):
+def encode_object(space, w_object, encoding, errors):
     from pypy.module._codecs.interp_codecs import encode_text, CodecState
-    utf8 = space.utf8_w(w_object)
-    if not allow_surrogates:
-        if errors is None:
-            errors = 'strict'
-        pos = rutf8.surrogate_in_utf8(utf8)
-        state = space.fromcache(CodecState)
-        eh = state.encode_error_handler
-        if pos >= 0:
-            # remove surrogates in pieces, eh needs codepoint positions
-            res = []
-            while pos >= 0:
-                upos = rutf8.codepoints_in_utf8(utf8, end=pos)
-                ru, _pos = eh(errors, encoding, "surrogates not allowed", utf8,
-                    upos, upos + 1)
-                res.append(utf8[:pos])
-                res.append(ru)
-                utf8_pos = rutf8.next_codepoint_pos(utf8, _pos)
-                utf8 = utf8[utf8_pos:]
-                pos = rutf8.surrogate_in_utf8(utf8)
-            res.append(utf8)
-            utf8 = ''.join(res)
-            w_object = space.newtext(utf8)
-            # change the errors to only do the encoding now
-            errors = 'strict'
     if errors is None or errors == 'strict':
+        utf8 = space.utf8_w(w_object)
         if encoding is None or encoding == 'utf-8':
             #if rutf8.has_surrogates(utf8):
             #    utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
