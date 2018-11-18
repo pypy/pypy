@@ -606,7 +606,7 @@ SYMBOLS_C = [
     '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
-    'PyErr_WarnFormat',
+    'PyErr_WarnFormat', '_PyErr_FormatFromCause',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
