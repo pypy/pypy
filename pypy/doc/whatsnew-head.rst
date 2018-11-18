@@ -42,3 +42,16 @@ Small refactorings in the Python parser.
 .. branch: py3.6-wordcode
 
 implement new wordcode instruction encoding on the 3.6 branch
+
+.. branch: socket_default_timeout_blockingness
+
+Backport CPython fix for possible shell injection issue in `distutils.spawn`,
+https://bugs.python.org/issue34540
+
+.. branch: cffi_dlopen_unicode
+
+Enable use of unicode file names in `dlopen`
+
+.. branch: rlock-in-rpython
+
+Backport CPython fix for `thread.RLock` 

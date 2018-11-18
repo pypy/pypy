@@ -93,8 +93,11 @@ assert CONST_WSTRING == rffi.CWCHARP
 
 if sys.platform == 'win32':
     dash = '_'
+    WIN32 = True
 else:
     dash = ''
+    WIN32 = False
+
 
 def fclose(fp):
     try:
@@ -610,12 +613,8 @@ SYMBOLS_C = [
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
-    'PyObject_GetBuffer', 'PyBuffer_Release',
+    'PyObject_DelItemString', 'PyObject_GetBuffer', 'PyBuffer_Release',
     '_Py_setfilesystemdefaultencoding',
-
-    'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
-    'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
-    'PyCObject_Type', '_Py_get_cobject_type',
 
     'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
@@ -648,6 +647,7 @@ SYMBOLS_C = [
     'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
+    'PyOS_InputHook',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
     'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
@@ -672,7 +672,7 @@ register_global('_Py_NoneStruct',
     'PyObject*', 'space.w_None', header=pypy_decl)
 register_global('_Py_TrueStruct',
     'PyObject*', 'space.w_True', header=pypy_decl)
-register_global('_Py_ZeroStruct',
+register_global('_Py_FalseStruct',
     'PyObject*', 'space.w_False', header=pypy_decl)
 register_global('_Py_NotImplementedStruct',
     'PyObject*', 'space.w_NotImplemented', header=pypy_decl)
@@ -716,8 +716,8 @@ def build_exported_objects():
         "PyByteArray_Type": "space.w_bytearray",
         "PyMemoryView_Type": "space.w_memoryview",
         "PyBaseObject_Type": "space.w_object",
-        'PyNone_Type': 'space.type(space.w_None)',
-        'PyNotImplemented_Type': 'space.type(space.w_NotImplemented)',
+        '_PyNone_Type': 'space.type(space.w_None)',
+        '_PyNotImplemented_Type': 'space.type(space.w_NotImplemented)',
         'PyCell_Type': 'space.gettypeobject(Cell.typedef)',
         'PyModule_Type': 'space.gettypeobject(Module.typedef)',
         'PyProperty_Type': 'space.gettypeobject(W_Property.typedef)',
@@ -1121,9 +1121,6 @@ def setup_init_functions(eci, prefix):
     # of the cpyext module.  The C functions are called with no wrapper,
     # but must not do anything like calling back PyType_Ready().  We
     # use them just to get a pointer to the PyTypeObjects defined in C.
-    get_cobject_type = rffi.llexternal('_%s_get_cobject_type' % prefix,
-                                       [], PyTypeObjectPtr,
-                                       compilation_info=eci, _nowrapper=True)
     get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
                                        [], PyTypeObjectPtr,
                                        compilation_info=eci, _nowrapper=True)
@@ -1134,7 +1131,6 @@ def setup_init_functions(eci, prefix):
     def init_types(space):
         from pypy.module.cpyext.typeobject import py_type_ready
         from pypy.module.sys.interp_encoding import getfilesystemencoding
-        py_type_ready(space, get_cobject_type())
         py_type_ready(space, get_capsule_type())
         s = space.text_w(getfilesystemencoding(space))
         setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
@@ -1187,6 +1183,10 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
         '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
+    state.C.get_pyos_inputhook = rffi.llexternal(
+        '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
 
 
@@ -1495,7 +1495,6 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythonrun.c",
                          source_dir / "sysmodule.c",
                          source_dir / "complexobject.c",
-                         source_dir / "cobject.c",
                          source_dir / "structseq.c",
                          source_dir / "capsule.c",
                          source_dir / "pysignals.c",
@@ -1549,7 +1548,6 @@ def build_eci(code, use_micronumpy=False, translating=False):
 
     if sys.platform == 'win32':
         get_pythonapi_source = '''
-        #include <windows.h>
         RPY_EXTERN
         HANDLE pypy_get_pythonapi_handle() {
             MEMORY_BASIC_INFORMATION  mi;
@@ -1563,6 +1561,9 @@ def build_eci(code, use_micronumpy=False, translating=False):
         }
         '''
         separate_module_sources.append(get_pythonapi_source)
+        kwds['post_include_bits'] = ['#include <windows.h>',
+                            'RPY_EXTERN HANDLE pypy_get_pythonapi_handle();',
+                                    ]
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
@@ -1673,7 +1674,11 @@ def create_extension_module(space, w_spec):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
+            if WIN32:
+                # Allow other DLLs in the same directory with "path"
+                dll = rdynload.dlopenex(ll_libname)
+            else:
+                dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
@@ -1788,6 +1793,12 @@ def exec_extension_module(space, w_mod):
             # already initialised
             return
         return exec_def(space, w_mod, mod_as_pyobj)
+
+def invoke_pyos_inputhook(space):
+    state = space.fromcache(State)
+    c_inputhook = state.C.get_pyos_inputhook()
+    if c_inputhook:
+        generic_cpy_call(space, c_inputhook)
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
