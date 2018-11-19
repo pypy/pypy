@@ -383,6 +383,7 @@ def surrogatepass_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
+        w_obj = space.convert_arg_to_w_unicode(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         encoding = space.text_w(space.getattr(w_exc, space.newtext('encoding')))
@@ -467,6 +468,7 @@ def surrogateescape_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
+        w_obj = space.convert_arg_to_w_unicode(w_obj)
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
