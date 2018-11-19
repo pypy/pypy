@@ -826,11 +826,14 @@ class AppTestPartialEvaluation:
         repl = "\u00E9"
         s = "\u5678".encode("latin-1", "test.bad_handler")
         assert s == b'\xe9'
+        raises(UnicodeEncodeError, "\u5678".encode, "ascii",
+               "test.bad_handler")
 
     def test_lone_surrogates(self):
         encodings = ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
             'utf-32', 'utf-32-le', 'utf-32-be')
         for encoding in encodings:
+            print('encoding', encoding)
             raises(UnicodeEncodeError, u'\ud800'.encode, encoding)
             assert (u'[\udc80]'.encode(encoding, "backslashreplace") ==
                 '[\\udc80]'.encode(encoding))

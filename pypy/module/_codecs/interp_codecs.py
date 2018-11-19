@@ -72,8 +72,11 @@ class CodecState(object):
                 raise OperationError(space.w_TypeError, space.newtext(msg))
 
             w_replace, w_newpos = space.fixedview(w_res, 2)
-            if not (space.isinstance_w(w_replace, space.w_unicode) or
-                (not decode and space.isinstance_w(w_replace, space.w_bytes))):
+            if space.isinstance_w(w_replace, space.w_unicode):
+                rettype = 'u'
+            elif encode and space.isinstance_w(w_replace, space.w_bytes):
+                rettype = 'b'
+            else:
                 if decode:
                     msg = ("decoding error handler must return "
                            "(str, int) tuple")
@@ -94,7 +97,7 @@ class CodecState(object):
                 raise oefmt(space.w_IndexError,
                             "position %d from error handler out of bounds",
                             newpos)
-            return space.utf8_w(w_replace), newpos
+            return space.utf8_w(w_replace), newpos, rettype
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):

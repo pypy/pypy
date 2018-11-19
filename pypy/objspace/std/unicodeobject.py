@@ -1200,14 +1200,16 @@ def encode_object(space, w_object, encoding, errors):
     if errors is None or errors == 'strict':
         utf8 = space.utf8_w(w_object)
         if encoding is None or encoding == 'utf-8':
-            #if rutf8.has_surrogates(utf8):
-            #    utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
+            if rutf8.has_surrogates(utf8):
+                # slow path
+                return encode_text(space, w_object, encoding, errors)
             return space.newbytes(utf8)
         elif encoding == 'ascii':
             try:
                 rutf8.check_ascii(utf8)
             except rutf8.CheckError as a:
-                eh = unicodehelper.encode_error_handler(space)
+                state = space.fromcache(CodecState)
+                eh = state.encode_error_handler
                 eh(None, "ascii", "ordinal not in range(128)", utf8,
                     a.pos, a.pos + 1)
                 assert False, "always raises"
