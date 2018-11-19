@@ -539,11 +539,16 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
-    if space.isinstance_w(w_obj, space.w_unicode):
+    if space.isinstance_w(w_obj, space.w_bytes):
+        s = space.bytes_w(w_obj)
+        if not s:
+            return space.newtext('')
+    elif space.isinstance_w(w_obj, space.w_unicode):
         raise oefmt(space.w_TypeError, "decoding str is not supported")
-    if space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
+    elif space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
         raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
-    s = space.charbuf_w(w_obj)
+    else:
+        s = space.buffer_w(w_obj, 0)
     return _pyunicode_decode(space, s, encoding, errors)
 
 
