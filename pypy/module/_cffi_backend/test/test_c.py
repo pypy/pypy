@@ -25,6 +25,8 @@ from rpython.translator import cdir
 from rpython.translator.platform import host
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
+from .. import VERSION as TEST_VERSION
+
 
 class AppTestC(object):
     """Populated below, hack hack hack."""
@@ -32,6 +34,15 @@ class AppTestC(object):
     spaceconfig = dict(usemodules=('_cffi_backend', '_io', 'array'))
 
     def setup_class(cls):
+        if cls.runappdirect:
+            _cffi_backend = py.test.importorskip('_cffi_backend')
+            if _cffi_backend.__version__ != TEST_VERSION:
+                py.test.skip(
+                    "These tests are for cffi version %s, this Python "
+                    "has version %s installed" %
+                    (TEST_VERSION, _cffi_backend.__version__))
+
+
         testfuncs_w = []
         keepalive_funcs = []
         UniqueCache.for_testing = True

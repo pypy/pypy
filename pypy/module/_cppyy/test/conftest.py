@@ -41,6 +41,8 @@ def pytest_ignore_collect(path, config):
 disabled = None
 
 def pytest_configure(config):
+    if config.getoption('runappdirect'):
+        return
     if py.path.local.sysfind('genreflex') is None:
         import pypy.module._cppyy.capi.loadable_capi as lcapi
         try:
