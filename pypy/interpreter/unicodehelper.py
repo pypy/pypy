@@ -326,9 +326,9 @@ def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
                     result.append(chr(cp))
             else:
                 for ch in res:
-                    if ord(ch) > 0x80:
-                        errorhandler("strict", 'ascii', msg, s, startindex, index)
-                        raise RuntimeError('error handler should not have returned')
+                    #if ord(ch) > 0x80:
+                    #    errorhandler("strict", 'ascii', msg, s, startindex, index)
+                    #    raise RuntimeError('error handler should not have returned')
                     result.append(ch)
             pos = rutf8._pos_at_index(s, newindex)
     return result.build()
