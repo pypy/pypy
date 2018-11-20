@@ -74,7 +74,7 @@ class CodecState(object):
             w_replace, w_newpos = space.fixedview(w_res, 2)
             if space.isinstance_w(w_replace, space.w_unicode):
                 rettype = 'u'
-            elif encode and space.isinstance_w(w_replace, space.w_bytes):
+            elif not decode and space.isinstance_w(w_replace, space.w_bytes):
                 rettype = 'b'
             else:
                 if decode:

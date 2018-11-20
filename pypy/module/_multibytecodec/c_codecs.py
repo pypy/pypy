@@ -154,9 +154,9 @@ def multibytecodec_decerror(decodebuf, e, errors,
         replace = UNICODE_REPLACEMENT_CHARACTER
     else:
         assert errorcb
-        replace, end = errorcb(errors, namecb, reason,
+        replace, end, rettype = errorcb(errors, namecb, reason,
                                stringdata, start, end)
-        # 'replace' is RPython unicode here
+        # 'replace' is UTF8 encoded unicode, rettype is 'u'
     lgt = rutf8.get_utf8_length(replace)
     inbuf = rffi.utf82wcharp(replace, lgt)
     try:
@@ -265,9 +265,13 @@ def multibytecodec_encerror(encodebuf, e, errors,
             replace = "?"
     else:
         assert errorcb
-        replace, end = errorcb(errors, namecb, reason,
+        replace, end, rettype = errorcb(errors, namecb, reason,
                             unicodedata, start, end)
+        if rettype == 'u':
+            codec = pypy_cjk_enc_getcodec(encodebuf)
+            replace = encode(codec, replace, end - start)
+    lgt = len(replace)
     with rffi.scoped_nonmovingbuffer(replace) as inbuf:
-        r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)
+        r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, lgt, end)
     if r == MBERR_NOMEMORY:
         raise MemoryError
