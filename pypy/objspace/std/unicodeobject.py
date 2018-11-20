@@ -1195,7 +1195,6 @@ def encode_object(space, w_object, encoding, errors):
     if errors is None or errors == 'strict':
         utf8 = space.utf8_w(w_object)
         if encoding is None or encoding == 'utf-8':
-            print 'encode_object', utf8 == '\xed\xb0\x80', encoding, errors
             try:
                 rutf8.check_utf8(utf8, False)
             except rutf8.CheckError as a:
@@ -1203,7 +1202,6 @@ def encode_object(space, w_object, encoding, errors):
                 eh(None, "utf-8", "surrogates not allowed", utf8,
                     a.pos, a.pos + 1)
                 assert False, "always raises"
-            print 'no surrogate'
             return space.newbytes(utf8)
         elif encoding == 'ascii':
             try:
