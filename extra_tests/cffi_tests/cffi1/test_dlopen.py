@@ -2,7 +2,7 @@
 import py
 from cffi import FFI, VerificationError, CDefError
 from cffi.recompiler import make_py_source
-from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+from extra_tests.cffi_tests.udir import udir
 
 
 def test_simple():

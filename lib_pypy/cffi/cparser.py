@@ -137,6 +137,14 @@ def _preprocess_extern_python(csource):
     parts.append(csource)
     return ''.join(parts)
 
+def _warn_for_string_literal(csource):
+    if '"' in csource:
+        import warnings
+        warnings.warn("String literal found in cdef() or type source. "
+                      "String literals are ignored here, but you should "
+                      "remove them anyway because some character sequences "
+                      "confuse pre-parsing.")
+
 def _preprocess(csource):
     # Remove comments.  NOTE: this only work because the cdef() section
     # should not contain any string literal!
@@ -148,6 +156,7 @@ def _preprocess(csource):
         macrovalue = macrovalue.replace('\\\n', '').strip()
         macros[macroname] = macrovalue
     csource = _r_define.sub('', csource)
+    _warn_for_string_literal(csource)
     #
     if pycparser.__version__ < '2.14':
         csource = _workaround_for_old_pycparser(csource)

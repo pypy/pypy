@@ -1,4 +1,7 @@
 import py, sys
+from os.path import abspath, commonprefix, dirname
+
+THIS_DIR = dirname(__file__)
 
 @py.test.mark.tryfirst
 def pytest_runtest_setup(item):
@@ -29,10 +32,11 @@ def pytest_runtest_setup(item):
                 py.test.skip(infomsg)
 
 def pytest_ignore_collect(path, config):
+    path = str(path)
     if py.path.local.sysfind('genreflex') is None and config.option.runappdirect:
-        return True          # "can't run dummy tests in -A"
+        return commonprefix([path, THIS_DIR]) == THIS_DIR
     if disabled:
-        return True
+        return commonprefix([path, THIS_DIR]) == THIS_DIR
 
 disabled = None
 
