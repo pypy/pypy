@@ -111,12 +111,12 @@ class AppTestBytesIO:
             #
             exc = raises(TypeError, readinto, u"hello")
             msg = str(exc.value)
-            print(msg)
+            # print(msg)
             assert " read-write b" in msg and msg.endswith(", not str")
             #
             exc = raises(TypeError, readinto, memoryview(b"hello"))
             msg = str(exc.value)
-            print(msg)
+            # print(msg)
             assert " read-write b" in msg and msg.endswith(", not memoryview")
             #
             b.close()
