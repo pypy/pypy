@@ -989,11 +989,6 @@ class W_UnicodeObject(W_Root):
     def is_ascii(self):
         return self._length == len(self._utf8)
 
-    def _has_surrogates(self):
-        if self.is_ascii():
-            return False
-        return rutf8.has_surrogates(self._utf8)
-
     def _index_to_byte(self, index):
         if self.is_ascii():
             assert index >= 0
@@ -1200,16 +1195,21 @@ def encode_object(space, w_object, encoding, errors):
     if errors is None or errors == 'strict':
         utf8 = space.utf8_w(w_object)
         if encoding is None or encoding == 'utf-8':
-            if rutf8.has_surrogates(utf8):
-                # slow path
-                return encode_text(space, w_object, encoding, errors)
+            print 'encode_object', utf8 == '\xed\xb0\x80', encoding, errors
+            try:
+                rutf8.check_utf8(utf8, False)
+            except rutf8.CheckError as a:
+                eh = unicodehelper.encode_error_handler(space)
+                eh(None, "utf-8", "surrogates not allowed", utf8,
+                    a.pos, a.pos + 1)
+                assert False, "always raises"
+            print 'no surrogate'
             return space.newbytes(utf8)
         elif encoding == 'ascii':
             try:
                 rutf8.check_ascii(utf8)
             except rutf8.CheckError as a:
-                state = space.fromcache(CodecState)
-                eh = state.encode_error_handler
+                eh = unicodehelper.encode_error_handler(space)
                 eh(None, "ascii", "ordinal not in range(128)", utf8,
                     a.pos, a.pos + 1)
                 assert False, "always raises"

@@ -285,9 +285,6 @@ def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
                     result.append(chr(cp))
             else:
                 for ch in res:
-                    if ord(ch) > 0xFF:
-                        errorhandler("strict", 'latin1', msg, s, startindex, index)
-                        raise RuntimeError('error handler should not have returned')
                     result.append(ch)
             if index != newindex:  # Should be uncommon
                 index = newindex
@@ -326,9 +323,6 @@ def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
                     result.append(chr(cp))
             else:
                 for ch in res:
-                    #if ord(ch) > 0x80:
-                    #    errorhandler("strict", 'ascii', msg, s, startindex, index)
-                    #    raise RuntimeError('error handler should not have returned')
                     result.append(ch)
             pos = rutf8._pos_at_index(s, newindex)
     return result.build()
