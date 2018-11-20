@@ -791,7 +791,7 @@ class ASTBuilder(object):
             annotation = self.handle_expr(second.get_child(1))
             value_expr = None
             if second.num_children() == 4:
-                value_expr = self.handle_testlist(second.get_child(-1))
+                value_expr = self.handle_expr(second.get_child(-1))
             return ast.AnnAssign(target_expr, annotation, value_expr, simple, stmt.get_lineno(), stmt.get_column())
         else:
             # Normal assignment.

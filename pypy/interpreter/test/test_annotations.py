@@ -99,6 +99,14 @@ class AppTestAnnotations:
         assert False
         '''
 
+    def test_ternary_expression_bug(self):
+        """
+        class C:
+            var: bool = True if False else False
+            assert var is False
+        assert C.__annotations__ == {"var": bool}
+        """
+
     def test_reassigned___annotations__(self):
         '''
         class C:
