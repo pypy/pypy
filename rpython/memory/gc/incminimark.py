@@ -62,6 +62,7 @@ Environment variables can be used to fine-tune the following parameters:
 # XXX old_objects_pointing_to_young (IRC 2014-10-22, fijal and gregor_w)
 import sys
 import os
+import time
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
@@ -191,6 +192,17 @@ FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
 NURSARRAY = lltype.Array(llmemory.Address)
 
 # ____________________________________________________________
+
+def count_gc_time(meth):
+    def timing_meth(self, *args):
+        t1 = time.time()
+        res = meth(self, *args)
+        t2 = time.time()
+        self.total_gc_time += t2 - t1
+        return res
+    timing_meth.func_name = meth.func_name + "_timing"
+    return timing_meth
+
 
 class IncrementalMiniMarkGC(MovingGCBase):
     _alloc_flavor_ = "raw"
@@ -374,6 +386,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.raw_malloc_might_sweep = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
         self.rawmalloced_peak_size = r_uint(0)
+        self.total_gc_time = 0.0
 
         self.gc_state = STATE_SCANNING
         #
@@ -1640,6 +1653,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # Nursery collection
 
+    @count_gc_time
     def _minor_collection(self):
         """Perform a minor collection: find the objects from the nursery
         that remain alive and move them out."""
@@ -2248,6 +2262,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     # Note - minor collections seem fast enough so that one
     # is done before every major collection step
+    @count_gc_time
     def major_collection_step(self, reserving_size=0):
         start = read_timestamp()
         debug_start("gc-collect-step")
@@ -3000,6 +3015,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                self.ac.total_memory_used))
         elif stats_no == rgc.NURSERY_SIZE:
             return intmask(self.nursery_size)
+        elif stats_no == rgc.TOTAL_GC_TIME:
+            return int(self.total_gc_time * 1000)
         return 0
 
 
@@ -3093,6 +3110,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.NULL
 
 
+    @count_gc_time
     def rrc_invoke_callback(self):
         if self.rrc_enabled and self.rrc_dealloc_pending.non_empty():
             self.rrc_dealloc_trigger_callback()
