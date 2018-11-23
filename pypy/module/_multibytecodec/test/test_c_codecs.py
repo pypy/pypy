@@ -21,10 +21,10 @@ def test_decode_gbk():
 def test_decode_hz():
     # stateful
     c = getcodec("hz")
-    u = decode(c, "~{abc}")
-    assert u == u'\u5f95\u6cef'.encode('utf8')
+    utf8 = decode(c, "~{abc}")
+    assert utf8.decode('utf8') == u'\u5f95\u6cef'
     u = decode(c, "~{")
-    assert u == ''
+    assert u == u''
 
 def test_decodeex_hz():
     c = getcodec("hz")
@@ -85,13 +85,13 @@ def test_decode_hz_error():
 
 def test_decode_hz_ignore():
     c = getcodec("hz")
-    u = decode(c, 'def~{}abc', 'ignore')
-    assert u == u'def\u5fcf'.encode('utf8')
+    utf8 = decode(c, 'def~{}abc', 'ignore')
+    assert utf8.decode('utf8') == u'def\u5f95'
 
 def test_decode_hz_replace():
     c = getcodec("hz")
-    u = decode(c, 'def~{}abc', 'replace')
-    assert u == u'def\ufffd\u5fcf'.encode('utf8')
+    utf8 = decode(c, 'def~{}abc', 'replace')
+    assert utf8.decode('utf8') == u'def\ufffd\u5f95\ufffd'
 
 def test_encode_hz():
     c = getcodec("hz")
@@ -130,3 +130,4 @@ def test_encode_custom_error_handler_bytes():
         return u'\xc3'.encode('utf8'), endingpos
     s = encode(c, u'abc\u1234def'.encode('utf8'), 7, 'foo', errorhandler)
     assert '\xc3' in s
+
