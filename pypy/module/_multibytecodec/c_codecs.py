@@ -269,7 +269,8 @@ def multibytecodec_encerror(encodebuf, e, errors,
                             unicodedata, start, end)
         if rettype == 'u':
             codec = pypy_cjk_enc_getcodec(encodebuf)
-            replace = encode(codec, replace, end - start)
+            lgt = rutf8.check_utf8(replace, False)
+            replace = encode(codec, replace, lgt)
     lgt = len(replace)
     with rffi.scoped_nonmovingbuffer(replace) as inbuf:
         r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, lgt, end)
