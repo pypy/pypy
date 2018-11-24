@@ -754,7 +754,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
         res, lgt, pos = unicodehelper.str_decode_utf8(string,
             errors, final, state.decode_error_handler)
         return space.newtuple([space.newutf8(res, lgt),
-                               space.newint(lgt)])
+                               space.newint(pos)])
     else:
         return space.newtuple([space.newutf8(string, lgt),
                                space.newint(len(string))])
