@@ -98,7 +98,6 @@ class W_UnicodeObject(W_Root):
         return self._utf8
 
     def listview_utf8(self):
-        assert self.is_ascii()
         return _create_list_from_unicode(self._utf8)
 
     def ord(self, space):
