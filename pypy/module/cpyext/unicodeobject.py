@@ -83,9 +83,10 @@ def unicode_realize(space, py_obj):
     be modified after this call.
     """
     s = rffi.wcharpsize2unicode(get_wbuffer(py_obj), get_wsize(py_obj))
+    s_utf8 = runicode.unicode_encode_utf_8(s, len(s), 'strict',
+                                           allow_surrogates=True)
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
-    s_utf8 = runicode.unicode_encode_utf_8(s, len(s), 'strict')
     w_obj.__init__(s_utf8, len(s))
     track_reference(space, py_obj, w_obj)
     return w_obj
