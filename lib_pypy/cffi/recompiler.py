@@ -1542,7 +1542,7 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
 
 def _verify(ffi, module_name, preamble, *args, **kwds):
     # FOR TESTS ONLY
-    from testing.udir import udir
+    from .testing.udir import udir
     import imp
     assert module_name not in sys.modules, "module name conflict: %r" % (
         module_name,)
