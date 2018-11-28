@@ -3,7 +3,7 @@
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
     enforceargs, newlist_hint, specialize, we_are_translated)
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, r_uint
 from rpython.rlib.rstring import (
     StringBuilder, split, rsplit, UnicodeBuilder, replace_count, startswith,
     endswith)
@@ -1861,7 +1861,7 @@ W_UnicodeObject.typedef.flag_sequence_bug_compat = True
 def _create_list_from_unicode(value):
     # need this helper function to allow the jit to look inside and inline
     # listview_unicode
-    return [s for s in value]
+    return [rutf8.unichr_as_utf8(r_uint(s), True) for s in rutf8.Utf8StringIterator(value)]
 
 
 W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
