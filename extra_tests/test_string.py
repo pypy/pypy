@@ -1,8 +1,10 @@
+
 """
 Test module for functions in string.py
 """
+import pytest
 
-def app_test_maketrans():
+def test_maketrans():
     import string
     assert string.maketrans('', '') == (
         '\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12'
@@ -40,4 +42,5 @@ def app_test_maketrans():
         '\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2'
         '\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3'
         '\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff')
-    raises(ValueError, string.maketrans, 'aa', '')
+    with pytest.raises(ValueError):
+        string.maketrans('aa', '')
