@@ -43,7 +43,8 @@ def slice_w(space, ctx, start, end, w_default):
             return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
             uni = ctx._unicodestr[start:end]
-            uni_utf8 = unicode_encode_utf_8(uni, len(uni), 'strict')
+            uni_utf8 = unicode_encode_utf_8(uni, len(uni), 'strict',
+                                            allow_surrogates=True)
             return space.newtext(uni_utf8, len(uni))
         else:
             # unreachable

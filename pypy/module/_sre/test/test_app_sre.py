@@ -116,6 +116,8 @@ class AppTestSrePattern:
         assert ['', 'a', 'l', 'a', 'lla'] == re.split("b(a)", "balballa")
         assert ['', 'a', None, 'l', 'u', None, 'lla'] == (
             re.split("b([ua]|(s))", "balbulla"))
+        assert ['Hello \udce2\udc9c\udc93', ''] == re.split(r'\r\n|\r|\n',
+                    'Hello \udce2\udc9c\udc93\n')
 
     def test_weakref(self):
         import re, _weakref
