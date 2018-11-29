@@ -51,7 +51,7 @@ def test_connection_check_init():
     con = Connection(":memory:")
     with pytest.raises(_sqlite3.ProgrammingError) as excinfo:
         con.cursor()
-    assert '__init__' in excinfo.value.message
+    assert '__init__' in str(excinfo.value)
 
 
 def test_cursor_check_init(con):
@@ -62,7 +62,8 @@ def test_cursor_check_init(con):
     cur = Cursor(con)
     with pytest.raises(_sqlite3.ProgrammingError) as excinfo:
         cur.execute('select 1')
-    assert '__init__' in excinfo.value.message
+    assert '__init__' in str(excinfo.value)
+
 
 def test_connection_after_close(con):
     with pytest.raises(TypeError):
@@ -169,16 +170,16 @@ def test_on_conflict_rollback_executemany(con):
 def test_statement_arg_checking(con):
     with pytest.raises(_sqlite3.Warning) as e:
         con(123)
-    assert str(e.value) == 'SQL is of wrong type. Must be string or unicode.'
+    assert str(e.value).startswith('SQL is of wrong type. Must be string')
     with pytest.raises(ValueError) as e:
         con.execute(123)
-    assert str(e.value) == 'operation parameter must be str or unicode'
+    assert str(e.value).startswith('operation parameter must be str')
     with pytest.raises(ValueError) as e:
         con.executemany(123, 123)
-    assert str(e.value) == 'operation parameter must be str or unicode'
+    assert str(e.value).startswith('operation parameter must be str')
     with pytest.raises(ValueError) as e:
         con.executescript(123)
-    assert str(e.value) == 'script argument must be unicode or string.'
+    assert str(e.value).startswith('script argument must be unicode')
 
 def test_statement_param_checking(con):
     con.execute('create table foo(x)')
