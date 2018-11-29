@@ -654,6 +654,8 @@ class AppTestPartialEvaluation:
                 b'\x00\x00\xd8\xae')
         assert (u'\x80\ud800'.encode('utf8', 'surrogatepass') ==
                 b'\xc2\x80\xed\xa0\x80')
+        assert b'\xd8\x03\xdf\xff\xdc\x80\x00A'.decode('utf_16_be',
+                 'surrogatepass') == u'\U00010fff\udc80A'
 
     def test_badandgoodsurrogatepassexceptions(self):
         import codecs

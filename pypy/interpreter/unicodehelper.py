@@ -1042,15 +1042,18 @@ assert BYTEORDER2 in ('le', 'be')
 
 def str_decode_utf_16(s, errors, final=True,
                       errorhandler=None):
-    return str_decode_utf_16_helper(s, errors, final, errorhandler, "native")[:3]
+    return str_decode_utf_16_helper(s, errors, final, errorhandler,
+                                    "native")[:3]
 
 def str_decode_utf_16_be(s, errors, final=True,
                         errorhandler=None):
-    return str_decode_utf_16_helper(s, errors, final, errorhandler, "big")[:3]
+    return str_decode_utf_16_helper(s, errors, final, errorhandler, "big",
+                                   'utf16-be')[:3]
 
 def str_decode_utf_16_le(s, errors, final=True,
                          errorhandler=None):
-    return str_decode_utf_16_helper(s, errors, final, errorhandler, "little")[:3]
+    return str_decode_utf_16_helper(s, errors, final, errorhandler, "little",
+                                    'utf16-le')[:3]
 
 def str_decode_utf_16_helper(s, errors, final=True,
                              errorhandler=None,
