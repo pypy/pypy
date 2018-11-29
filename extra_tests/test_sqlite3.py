@@ -286,17 +286,17 @@ def test_adapter_exception(con):
 def test_null_character(con):
     if not hasattr(_sqlite3, '_ffi') and sys.version_info < (2, 7, 9):
         pytest.skip("_sqlite3 too old")
-    with raises(ValueError) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         con("\0select 1")
     assert str(excinfo.value) == "the query contains a null character"
-    with raises(ValueError) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         con("select 1\0")
     assert str(excinfo.value) == "the query contains a null character"
     cur = con.cursor()
-    with raises(ValueError) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         cur.execute("\0select 2")
     assert str(excinfo.value) == "the query contains a null character"
-    with raises(ValueError) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         cur.execute("select 2\0")
     assert str(excinfo.value) == "the query contains a null character"
 
