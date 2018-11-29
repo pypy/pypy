@@ -19,9 +19,11 @@ class FakeSpace:
             raise Hit
         raise AttributeError(name)
 
+def fake_eh(errors, encoding, msg, u, startingpos, endingpos):
+    raise Hit()
 
 def decode_utf8(u):
-    return str_decode_utf8(u, "strict", True, None)
+    return str_decode_utf8(u, "strict", True, fake_eh)
 
 def test_encode_utf8():
     space = FakeSpace()
@@ -52,22 +54,22 @@ def test_encode_utf8sp():
 
 def test_decode_utf8():
     assert decode_utf8("abc") == ("abc", 3, 3)
-    assert decode_utf8("\xe1\x88\xb4") == ("\xe1\x88\xb4", 3, 1)
-    assert decode_utf8("\xed\xa0\x80") == ("\xed\xa0\x80", 3, 1)
+    assert decode_utf8("\xe1\x88\xb4") == ("\xe1\x88\xb4", 1, 3)
     py.test.raises(Hit, decode_utf8, "\xed\xa0\x80")
     py.test.raises(Hit, decode_utf8, "\xed\xb0\x80")
     py.test.raises(Hit, decode_utf8, "\xed\xa0\x80\xed\xb0\x80")
     got = decode_utf8("\xf0\x90\x80\x80")
     if sys.maxunicode > 65535:
-        assert map(ord, got) == [0x10000]
+        assert got == ("\xf0\x90\x80\x80", 1, 4)
     else:
+        # never reached
         assert map(ord, got) == [55296, 56320]
 
 def test_utf8_encode_ascii():
     assert utf8_encode_ascii("abc", "??", "??") == "abc"
     def eh(errors, encoding, reason, p, start, end):
         lst.append((errors, encoding, p, start, end))
-        return "<FOO>", end
+        return "<FOO>", end, 'b'
     lst = []
     input = u"\u1234".encode("utf8")
     assert utf8_encode_ascii(input, "??", eh) == "<FOO>"
@@ -78,7 +80,7 @@ def test_utf8_encode_ascii():
     assert lst == [("??", "ascii", input, 0, 2),
                    ("??", "ascii", input, 5, 7)]
 
-@pytest.skip("rework this test for utf8")
+@pytest.mark.skip("rework this test for utf8")
 def test_decode_utf8_allow_surrogates():
     sp = FakeSpace()
     assert decode_utf8(sp, "\xed\xa0\x80", allow_surrogates=True) == u"\ud800"
@@ -88,7 +90,7 @@ def test_decode_utf8_allow_surrogates():
     got = decode_utf8(sp, "\xf0\x90\x80\x80", allow_surrogates=True)
     assert map(ord, got) == [0x10000]
 
-@pytest.skip("rework this test for utf8")
+@pytest.mark.skip("rework this test for utf8")
 def test_decode_utf8sp():
     space = FakeSpace()
     assert decode_utf8sp(space, "\xed\xa0\x80") == u"\ud800"
@@ -98,7 +100,7 @@ def test_decode_utf8sp():
     got = decode_utf8sp(space, "\xf0\x90\x80\x80")
     assert map(ord, got) == [0x10000]
 
-@pytest.skip("test has non-valid errorhandler")
+@pytest.mark.skip("test has non-valid errorhandler")
 @pytest.mark.parametrize('unich', [u"\ud800", u"\udc80"])
 def test_utf32_surrogates(unich):
     assert (utf8_encode_utf_32_be(unich.encode('utf-8'), None) ==
@@ -132,23 +134,23 @@ def test_utf32_surrogates(unich):
 @given(strategies.text())
 def test_utf8_encode_ascii_2(u):
     def eh(errors, encoding, reason, p, start, end):
-        return "?" * (end - start), end
+        return "?" * (end - start), end, 'b'
     assert utf8_encode_ascii(u.encode("utf8"), "replace", eh) == u.encode("ascii", "replace")
 
 def test_str_decode_ascii():
     assert str_decode_ascii("abc", "??", True, "??") == ("abc", 3, 3)
     def eh(errors, encoding, reason, p, start, end):
         lst.append((errors, encoding, p, start, end))
-        return u"\u1234\u5678".encode("utf8"), end
+        return u"\u1234\u5678".encode("utf8"), end, 'u'
     lst = []
     input = "\xe8"
     exp = u"\u1234\u5678".encode("utf8")
-    assert str_decode_ascii(input, "??", True, eh) == (exp, 1, 2)
+    assert str_decode_ascii(input, "??", True, eh) == (exp, 2, 2)
     assert lst == [("??", "ascii", input, 0, 1)]
     lst = []
     input = "\xe8\xe9abc\xea\xeb"
     assert str_decode_ascii(input, "??", True, eh) == (
-        exp + exp + "abc" + exp + exp, 7, 11)
+        exp + exp + "abc" + exp + exp, 11, 11)
     assert lst == [("??", "ascii", input, 0, 1),
                    ("??", "ascii", input, 1, 2),
                    ("??", "ascii", input, 5, 6),
