@@ -116,7 +116,6 @@ def test_cursor_after_close(con):
     with pytest.raises(_sqlite3.ProgrammingError):
         cur.executemany(1,2,3,4,5)
 
-@pypy_only
 def test_connection_del(tmpdir):
     """For issue1325."""
     import os
@@ -146,7 +145,6 @@ def test_connection_del(tmpdir):
 
         with pytest.raises(_sqlite3.OperationalError):
             open_many(False)
-        sys.exc_clear()
         gc.collect(); gc.collect()
         open_many(True)
     finally:
