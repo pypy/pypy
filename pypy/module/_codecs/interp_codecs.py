@@ -749,7 +749,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
     state = space.fromcache(CodecState)
     # call the fast version for checking
     try:
-        lgt = rutf8.check_utf8(string, allow_surrogates=True)
+        lgt = rutf8.check_utf8(string, allow_surrogates=False)
     except rutf8.CheckError:
         res, lgt, pos = unicodehelper.str_decode_utf8(string,
             errors, final, state.decode_error_handler)

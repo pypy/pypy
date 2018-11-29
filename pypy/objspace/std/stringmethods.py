@@ -198,11 +198,13 @@ class StringMethods(object):
         if encoding is None:
             encoding = 'utf8'
         if encoding == 'utf8' or encoding == 'utf-8':
+            # fast path - do not call into app-level codecs.py
             from pypy.module._codecs.interp_codecs import CodecState
             state = space.fromcache(CodecState)
             eh = state.decode_error_handler
             s = space.charbuf_w(self)
             ret, lgt, pos = str_decode_utf8(s, errors, True, eh)
+            return space.newtext(ret, lgt)
         return decode_object(space, self, encoding, errors)
 
     @unwrap_spec(tabsize=int)
