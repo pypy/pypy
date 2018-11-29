@@ -4702,3 +4702,38 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res = self.meta_interp(f, [10])
         assert res == f(10)
 
+    def test_issue2904(self):
+        driver = JitDriver(greens=['codepos'],
+                           reds=['iterations', 'total', 'c', 'height', 'h'])
+
+        class IntVal:
+            _immutable_fields_ = ['intval']
+            def __init__(self, value):
+                self.intval = value
+
+        def f(height, iterations):
+            height = IntVal(height)
+            c = IntVal(0)
+            h = IntVal(0)
+            total = IntVal(0)
+            codepos = 1
+
+            while True:
+                driver.jit_merge_point(codepos=codepos, iterations=iterations,
+                        total=total, c=c, height=height, h=h)
+                if codepos == 1:
+                    if c.intval >= iterations:
+                        return total.intval
+                    else:
+                        h = height
+                        codepos = 2
+                else:
+                    if h.intval > 0:
+                        h = IntVal(h.intval - 1)
+                        total = IntVal(total.intval + 1)
+                    else:
+                        c = IntVal(c.intval + 1)
+                        codepos = 1
+
+        res = self.meta_interp(f, [2, 200])
+        assert res == f(2, 200)
