@@ -1052,3 +1052,11 @@ class AppTestPartialEvaluation:
         errors = []
         assert sin.encode("iso-8859-15", "test.record") == b"\xac\xa4"
         assert errors == [u'\u1234\u1234', u'\u8000']
+
+    def test_unmapped(self):
+        # from stdlib tests, bad byte: \xa5 is unmapped in iso-8859-3
+        assert (b"foo\xa5bar".decode("iso-8859-3", "surrogateescape") ==
+                     "foo\udca5bar")
+        assert ("foo\udca5bar".encode("iso-8859-3", "surrogateescape") == 
+                         b"foo\xa5bar")
+    
