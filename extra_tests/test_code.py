@@ -1,4 +1,3 @@
-import py
 import sys
 import cStringIO
 import code
@@ -14,6 +13,7 @@ def test_flush_stdout_on_error():
     finally:
         sys.stdout = old_stdout
 
-    if '__pypy__' not in sys.builtin_module_names:
-        py.test.skip('pypy only test')
-    assert mystdout.getvalue() == "5\n"
+    if '__pypy__' in sys.builtin_module_names:
+        assert mystdout.getvalue() == "5\n"
+    else:
+        assert mystdout.getvalue() == "5"
