@@ -380,16 +380,16 @@ class StdObjSpace(ObjSpace):
     def newbytearray(self, l):
         return W_BytearrayObject(l)
 
+    # XXX TODO - remove this and force all users to call with utf8
     @specialize.argtype(1)
-    def newtext(self, s, lgt=-1):
+    def newtext(self, s, lgt=-1, unused=-1):
+        # the unused argument can be from something like
+        # newtext(*decode_utf8sp(space, code))
         if isinstance(s, unicode):
             s, lgt = s.encode('utf8'), len(s)
-        elif isinstance(s, str) and lgt < 0:
-            lgt = rutf8.codepoints_in_utf8(s)
-        elif isinstance(s, tuple):
-            # result of decode_utf8
-            s, lgt, codepoints = s
         assert isinstance(s, str)
+        if lgt < 0:
+            lgt = rutf8.codepoints_in_utf8(s)
         return W_UnicodeObject(s, lgt)
 
     def newtext_or_none(self, s, lgt=-1):

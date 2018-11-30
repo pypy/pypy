@@ -1154,7 +1154,7 @@ def make_array(mytype):
                     raise oefmt(space.w_ValueError,
                                 "array contains a unicode character out of "
                                 "range(0x110000)")
-                return space.newtext(item)
+                return space.newtext(rutf8.unichr_as_utf8(ord(item)), 1)
             assert 0, "unreachable"
 
         # interface

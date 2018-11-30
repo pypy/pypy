@@ -771,7 +771,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_closed(space)
         self._writeflush(space)
         limit = convert_size(space, w_limit)
-        return space.newtext(self._readline(space, limit))
+        return space.newtext(*self._readline(space, limit))
 
     def _readline(self, space, limit):
         # This is a separate function so that readline_w() can be jitted.
