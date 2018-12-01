@@ -22,7 +22,7 @@ class UnrollableOptimizer(Optimizer):
             if self.optunroll.short_preamble_producer is None:
                 assert False # unreachable code
             op = preamble_op.op
-            self.optimizer.inparg_dict[op] = None # XXX ARGH
+            #----self.optimizer.inparg_dict[op] = None # XXX ARGH
             # special hack for int_add(x, accumulator-const) optimization
             self.optunroll.short_preamble_producer.use_box(op,
                                                 preamble_op.preamble_op, self)

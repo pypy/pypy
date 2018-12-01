@@ -293,9 +293,10 @@ class Optimizer(Optimization):
         self.setup()
 
     def init_inparg_dict_from(self, lst):
-        self.inparg_dict = {}
-        for box in lst:
-            self.inparg_dict[box] = None
+        pass
+        #self.inparg_dict = {}
+        #for box in lst:
+        #    self.inparg_dict[box] = None
 
     def set_optimizations(self, optimizations):
         if optimizations:
@@ -386,7 +387,7 @@ class Optimizer(Optimization):
 
     def is_inputarg(self, op):
         return True
-        return op in self.inparg_dict
+        #return op in self.inparg_dict
 
     def get_constant_box(self, box):
         box = self.get_box_replacement(box)
