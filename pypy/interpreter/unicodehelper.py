@@ -1732,13 +1732,17 @@ def utf8_encode_charmap(s, errors, errorhandler=None, mapping=None, allow_surrog
             r, newindex, rettype = errorhandler(errors, "charmap",
                                    "character maps to <undefined>",
                                    s, startindex, index)
-            for cp2 in rutf8.Utf8StringIterator(r):
-                ch2 = mapping.get(cp2, '')
-                if not ch2:
-                    errorhandler(
-                        "strict", "charmap", "character maps to <undefined>",
-                        s,  startindex, index)
-                result.append(ch2)
+            if rettype == 'u':
+                for cp2 in rutf8.Utf8StringIterator(r):
+                    ch2 = mapping.get(cp2, '')
+                    if not ch2:
+                        errorhandler(
+                            "strict", "charmap", "character maps to <undefined>",
+                            s,  startindex, index)
+                    result.append(ch2)
+            else:
+                for ch in r:
+                    result.append(ch)
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
