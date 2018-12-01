@@ -74,7 +74,7 @@ class BaseTestWithUnroll(BaseTest):
         print "Loop:"
         print '\n'.join([str(o) for o in loop.operations])
         print
-        if expected_short:
+        if expected_short or getattr(info, 'short_preamble', None):
             print "Short Preamble:"
             short = info.short_preamble
             print '\n'.join([str(o) for o in short])
@@ -9502,113 +9502,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_issue2904(self):
         py.test.skip("XXX issue 2904")
         ops = """
-        [p0, p1, p2, p3, p4, i5, p6, i7, p8, p9, p10, p11, p12, p13]
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #36 LOAD_FAST')
-        guard_value(i5, 4) []
-        guard_isnull(p3) []
-        guard_nonnull(p11) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #39 LOAD_CONST')
-        guard_value(p2, ConstPtr(myptr)) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #42 COMPARE_OP')
-        guard_class(p11, ConstClass(intobj_immut_vtable)) []
+        [p8, p10, p11]
         i17 = getfield_gc_i(p11, descr=immut_intval)
         i19 = int_gt(i17, 0)
         guard_false(i19) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #45 POP_JUMP_IF_FALSE')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #71 POP_BLOCK')
-        p20 = getfield_gc_r(p4, descr=nextdescr3)
-        i21 = getfield_gc_i(p4, descr=valuedescr3)
-        guard_value(i21, 4) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #72 LOAD_FAST')
-        guard_nonnull(p10) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #75 LOAD_CONST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #78 INPLACE_ADD')
-        guard_class(p10, ConstClass(intobj_immut_vtable)) []
         i24 = getfield_gc_i(p10, descr=immut_intval)
-        i26 = int_add_ovf(i24, 1)
-        guard_no_overflow() []
+        i26 = int_add(i24, 1)
         p27 = new_with_vtable(descr=immut_descr)
         setfield_gc(p27, i26, descr=immut_intval)
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #79 STORE_FAST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #82 JUMP_ABSOLUTE')
-        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
-        guard_not_invalidated() []
-        i30 = getfield_raw_i(140031323711392, descr=adescr)
-        i32 = int_lt(i30, 0)
-        guard_false(i32) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #15 LOAD_FAST')
-        p34 = same_as_r(ConstPtr(tupleaddr))
-        p36 = same_as_r(ConstPtr(nullptr))
-        i38 = same_as_i(4)
-        i40 = same_as_i(15)
-        p42 = same_as_r(ConstPtr(nullptr))
-        p44 = same_as_r(ConstPtr(nullptr))
-        guard_future_condition() []
-        guard_value(i38, 4) []
-        guard_isnull(p36) []
-        guard_nonnull(p27) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #18 LOAD_CONST')
-        guard_value(p34, ConstPtr(tupleaddr)) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #21 COMPARE_OP')
-        guard_class(p27, ConstClass(intobj_immut_vtable)) []
-        i48 = getfield_gc_i(p27, descr=immut_intval)
-        i50 = int_lt(i48, 60000)
-        guard_true(i50) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #24 POP_JUMP_IF_FALSE')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #27 LOAD_FAST')
-        guard_nonnull(p8) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #30 STORE_FAST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #33 SETUP_LOOP')
-        p51 = new_with_vtable(descr=nodesize)
-        setfield_gc(p51, 72, descr=valuedescr3)
-        setfield_gc(p51, 4, descr=immut_intval)
-        setfield_gc(p51, p20, descr=nextdescr3)
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #36 LOAD_FAST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #39 LOAD_CONST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #42 COMPARE_OP')
-        guard_class(p8, ConstClass(intobj_immut_vtable)) []
+        i50 = int_ge(i26, 60000)
+        guard_false(i50) []
         i55 = getfield_gc_i(p8, descr=immut_intval)
         i57 = int_gt(i55, 0)
         guard_true(i57) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #45 POP_JUMP_IF_FALSE')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #48 LOAD_FAST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #51 LOAD_CONST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #54 INPLACE_SUBTRACT')
-        i59 = int_sub_ovf(i55, 1)
-        guard_no_overflow() []
+        i59 = int_sub(i55, 1)
         p60 = new_with_vtable(descr=immut_descr)
         setfield_gc(p60, i59, descr=immut_intval)
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #55 STORE_FAST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #58 LOAD_FAST')
-        guard_nonnull(p9) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #61 LOAD_CONST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #64 INPLACE_ADD')
-        guard_class(p9, ConstClass(intobj_immut_vtable)) []
-        i62 = getfield_gc_i(p9, descr=immut_intval)
-        i64 = int_add_ovf(i62, 1)
-        guard_no_overflow() []
-        p65 = new_with_vtable(descr=immut_descr)
-        setfield_gc(p65, i64, descr=immut_intval)
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #65 STORE_FAST')
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #68 JUMP_ABSOLUTE')
-        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
-        guard_not_invalidated() []
-        i68 = getfield_raw_i(140031323711392, descr=adescr)
-        i70 = int_lt(i68, 0)
-        guard_false(i70) []
-        debug_merge_point(0, 0, '<code object f. file 'z.py'. line 4> #36 LOAD_FAST')
-        p72 = same_as_r(ConstPtr(myptr))
-        p74 = same_as_r(ConstPtr(nullptr))
-        i76 = same_as_i(4)
-        i78 = same_as_i(36)
-        p80 = same_as_r(ConstPtr(nullptr))
-        p82 = same_as_r(ConstPtr(nullptr))
-        guard_future_condition() []
-        jump(p0, p1, p72, p74, p51, i76, p6, i78, p8, p65, p27, p60, p80, p82, descr=<Loop-1>)
+        jump(p8, p27, p60, descr=<Loop-1>)
         """
         # expected = a loop that does NOT end up passing the constant 0 in the final jump()
         self.optimize_loop(ops, ops,
-                           jump_values=[None] * 14)
+                           jump_values=[None] * 3)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
