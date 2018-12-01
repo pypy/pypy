@@ -4737,15 +4737,9 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         driver = JitDriver(greens = [],
                            reds=['iterations', 'total', 'c', 'height', 'h'])
 
-        class IntVal:
-            _immutable_fields_ = ['intval']
-            def __init__(self, value):
-                self.intval = value
-
         def f(height, iterations):
             set_param(driver, 'threshold', 4)
             set_param(driver, 'trace_eagerness', 1)
-            height = IntVal(height)
             c = 0
             h = height
             total = 0
@@ -4753,14 +4747,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             while True:
                 driver.jit_merge_point(iterations=iterations,
                         total=total, c=c, height=height, h=h)
-                if h.intval != 0:
-                    h = IntVal(h.intval - 1)
+                if h != 0:
+                    h = h - 1
                     total = total + 1
                 else:
                     c = c + 1
                     if c >= iterations:
                         return total
-                    h = IntVal(height.intval - 1)
+                    h = height - 1
 
         res = self.meta_interp(f, [2, 200])
         assert res == f(2, 200)
