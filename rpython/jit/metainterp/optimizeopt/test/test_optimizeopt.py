@@ -9500,29 +9500,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_issue2904(self):
-        py.test.skip("XXX issue 2904")
+        # we don't store advanced virtualstate information like "i1 = i2 + 1",
+        # which means that the following loop, when unrolled, cannot be
+        # optimized based on the knowledge that "i1 = i2 + 1" from the
+        # preamble---we can't use that knowledge.
         ops = """
-        [p8, p10, p11]
-        i17 = getfield_gc_i(p11, descr=immut_intval)
-        i19 = int_gt(i17, 0)
-        guard_false(i19) []
-        i24 = getfield_gc_i(p10, descr=immut_intval)
-        i26 = int_add(i24, 1)
-        p27 = new_with_vtable(descr=immut_descr)
-        setfield_gc(p27, i26, descr=immut_intval)
-        i50 = int_ge(i26, 60000)
-        guard_false(i50) []
-        i55 = getfield_gc_i(p8, descr=immut_intval)
-        i57 = int_gt(i55, 0)
-        guard_true(i57) []
-        i59 = int_sub(i55, 1)
-        p60 = new_with_vtable(descr=immut_descr)
-        setfield_gc(p60, i59, descr=immut_intval)
-        jump(p8, p27, p60, descr=<Loop-1>)
+        [i1, i2]
+        guard_value(i1, 10) []
+        i3 = int_add(i2, 1)
+        jump(i3, i2)
         """
-        # expected = a loop that does NOT end up passing the constant 0 in the final jump()
-        self.optimize_loop(ops, ops,
-                           jump_values=[None] * 3)
+        self.optimize_loop(ops, ops)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
