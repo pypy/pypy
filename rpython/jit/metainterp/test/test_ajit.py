@@ -4753,14 +4753,13 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             while True:
                 driver.jit_merge_point(iterations=iterations,
                         total=total, c=c, height=height, h=h)
-                if h.intval > 0:
+                if h.intval != 0:
                     h = IntVal(h.intval - 1)
                     total = total + 1
                 else:
                     c = c + 1
                     if c >= iterations:
                         return total
-                    assert height.intval > 0
                     h = IntVal(height.intval - 1)
 
         res = self.meta_interp(f, [2, 200])
