@@ -849,8 +849,7 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject(self._utf8[byte_start:byte_stop], stop - start)
 
     def descr_capitalize(self, space):
-        value = self._utf8
-        if len(value) == 0:
+        if self._len() == 0:
             return self._empty()
 
         builder = rutf8.Utf8StringBuilder(len(self._utf8))
