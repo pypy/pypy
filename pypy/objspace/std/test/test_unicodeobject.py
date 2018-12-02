@@ -1002,7 +1002,8 @@ class AppTestUnicodeString:
     def test_formatting_uchr(self):
         assert '%c' % '\U00021483' == '\U00021483'
 
-    def test_formatting_unicode__str__(self):
+    def test_formatting_unicode__str__0(self):
+        assert '%.2s' % "a\xe9\u20ac" == 'a\xe9'
         class A:
             def __init__(self, num):
                 self.num = num
