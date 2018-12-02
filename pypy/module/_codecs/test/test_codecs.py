@@ -148,6 +148,40 @@ class AppTestCodecs:
         lgt = 12
         assert unicode_escape_decode(b'\\x61\\x62\\x63') == ('abc', lgt)
 
+    def test_unexpected_end_of_data(self):
+        """
+        Test that an 'unexpected end of data' error is raised when the string
+        ends after a start byte of a 2-, 3-, or 4-bytes sequence without having
+        enough continuation bytes.  The incomplete sequence is replaced with a
+        single U+FFFD when errors='replace'.
+        E.g. in the sequence <F3 80 80>, F3 is the start byte of a 4-bytes
+        sequence, but it's followed by only 2 valid continuation bytes and the
+        last continuation bytes is missing.
+        Note: the continuation bytes must be all valid, if one of them is
+        invalid another error will be raised.
+        """
+        sequences = [
+            'C2', 'DF',
+            'E0 A0', 'E0 BF', 'E1 80', 'E1 BF', 'EC 80', 'EC BF',
+            'ED 80', 'ED 9F', 'EE 80', 'EE BF', 'EF 80', 'EF BF',
+            'F0 90', 'F0 BF', 'F0 90 80', 'F0 90 BF', 'F0 BF 80', 'F0 BF BF',
+            'F1 80', 'F1 BF', 'F1 80 80', 'F1 80 BF', 'F1 BF 80', 'F1 BF BF',
+            'F3 80', 'F3 BF', 'F3 80 80', 'F3 80 BF', 'F3 BF 80', 'F3 BF BF',
+            'F4 80', 'F4 8F', 'F4 80 80', 'F4 80 BF', 'F4 8F 80', 'F4 8F BF'
+        ]
+        FFFD = '\ufffd'
+        for seq in sequences:
+            print(seq)
+            bseq = bytes(int(c, 16) for c in seq.split())
+            exc = raises(UnicodeDecodeError, bseq.decode, 'utf-8')
+            assert 'unexpected end of data' in str(exc.value)
+            assert bseq.decode('utf-8', 'replace') == u'\ufffd'
+            assert ((b'aaaa' + bseq + b'bbbb').decode('utf-8', 'replace') == 
+                    u'aaaa\ufffdbbbb')
+            assert bseq.decode('utf-8', 'ignore') == ''
+            assert ((b'aaaa' + bseq + b'bbbb').decode('utf-8', 'ignore') == 
+                    u'aaaabbbb')
+            
 
 class AppTestPartialEvaluation:
     spaceconfig = dict(usemodules=['array',])
