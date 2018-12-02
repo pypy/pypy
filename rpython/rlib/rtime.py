@@ -136,6 +136,8 @@ def time():
     void = lltype.nullptr(rffi.VOIDP.TO)
     result = -1.0
     if HAVE_GETTIMEOFDAY:
+        # NB: can't use lltype.scoped_malloc, because that will allocate the
+        # with handler in the GC, but we want to use time.time from gc.collect!
         t = lltype.malloc(TIMEVAL, flavor='raw')
         try:
             errcode = -1
