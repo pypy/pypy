@@ -259,12 +259,12 @@ class W_UnicodeObject(W_Root):
                 w_key, w_value = space.unpackiterable(w_item, 2)
                 if space.isinstance_w(w_key, space.w_unicode):
                     # convert string keys to integer keys
-                    key = space.utf8_w(w_key)
-                    if len(key) != 1:
+                    if space.len_w(w_key) != 1:
                         raise oefmt(space.w_ValueError,
                                     "string keys in translate table must be "
                                     "of length 1")
-                    w_key = space.newint(ord(key[0]))
+                    val = space.utf8_w(w_key)
+                    w_key = space.newint(rutf8.codepoint_at_pos(val, 0))
                 else:
                     # just keep integer keys
                     try:

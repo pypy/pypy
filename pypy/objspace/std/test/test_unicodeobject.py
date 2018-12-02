@@ -636,6 +636,8 @@ class AppTestUnicodeString:
         assert '<i><i><i>c' == 'abababc'.translate(tbl)
         tbl = str.maketrans('abc', 'xyz', 'd')
         assert 'xyzzy' == 'abdcdcbdddd'.translate(tbl)
+        tbl = str.maketrans({'\xe9': 'a'})
+        assert "[\xe9]".translate(tbl) == "[a]"
 
         raises(TypeError, str.maketrans)
         raises(ValueError, str.maketrans, 'abc', 'defg')
