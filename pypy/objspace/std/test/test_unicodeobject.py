@@ -262,6 +262,7 @@ class AppTestUnicodeString:
         assert u'abc'.center(5, u'*') == u'*abc*'    # Python 2.4
         assert u'abc'.center(5, '*') == u'*abc*'     # Python 2.4
         raises(TypeError, u'abc'.center, 4, u'cba')
+        assert 'x'.center(2, u'\U0010FFFF') == u'x\U0010FFFF'
 
     def test_title(self):
         assert "brown fox".title() == "Brown Fox"

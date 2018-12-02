@@ -868,15 +868,14 @@ class W_UnicodeObject(W_Root):
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))
     def descr_center(self, space, width, w_fillchar):
         value = self._utf8
-        fillchar = self.convert_arg_to_w_unicode(space, w_fillchar)._utf8
-        if len(fillchar) != 1:
+        fillchar = space.utf8_w(w_fillchar)
+        if space.len_w(w_fillchar) != 1:
             raise oefmt(space.w_TypeError,
                         "center() argument 2 must be a single character")
 
         d = width - self._len()
         if d > 0:
             offset = d//2 + (d & width & 1)
-            fillchar = fillchar[0]
             centered = offset * fillchar + value + (d - offset) * fillchar
         else:
             centered = value
