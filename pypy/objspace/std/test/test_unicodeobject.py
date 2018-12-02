@@ -997,6 +997,9 @@ class AppTestUnicodeString:
         assert type(s) is str
         assert s == '\u1234'
 
+    def test_formatting_uchr(self):
+        assert '%c' % '\U00021483' == '\U00021483'
+
     def test_formatting_unicode__str__(self):
         class A:
             def __init__(self, num):

@@ -499,7 +499,7 @@ def make_formatter_subclass(do_unicode):
             else:
                 if space.isinstance_w(w_value, space.w_unicode):
                     ustr = space.utf8_w(w_value)
-                    if len(ustr) == 1:
+                    if space.len_w(w_value) == 1:
                         self.std_wp(ustr)
                         return
                 raise oefmt(space.w_TypeError, "%c requires int or char")
