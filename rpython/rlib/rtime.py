@@ -136,7 +136,8 @@ def time():
     void = lltype.nullptr(rffi.VOIDP.TO)
     result = -1.0
     if HAVE_GETTIMEOFDAY:
-        with lltype.scoped_alloc(TIMEVAL) as t:
+        t = lltype.malloc(TIMEVAL, flavor='raw')
+        try:
             errcode = -1
             if GETTIMEOFDAY_NO_TZ:
                 errcode = c_gettimeofday(t)
@@ -145,13 +146,18 @@ def time():
 
             if rffi.cast(rffi.LONG, errcode) == 0:
                 result = decode_timeval(t)
+        finally:
+            lltype.free(t, flavor='raw')
         if result != -1:
             return result
     else: # assume using ftime(3)
-        with lltype.scoped_alloc(TIMEB) as t:
+        t = lltype.malloc(TIMEB, flavor='raw')
+        try:
             c_ftime(t)
             result = (float(intmask(t.c_time)) +
                       float(intmask(t.c_millitm)) * 0.001)
+        finally:
+            lltype.free(t, flavor='raw')
         return result
     return float(c_time(void))
 
