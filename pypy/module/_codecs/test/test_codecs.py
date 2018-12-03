@@ -148,6 +148,98 @@ class AppTestCodecs:
         lgt = 12
         assert unicode_escape_decode(b'\\x61\\x62\\x63') == ('abc', lgt)
 
+    def test_unicode_replace(self):
+        # CPython #8271: during the decoding of an invalid UTF-8 byte sequence,
+        # only the start byte and the continuation byte(s) are now considered
+        # invalid, instead of the number of bytes specified by the start byte.
+        # See http://www.unicode.org/versions/Unicode5.2.0/ch03.pdf (page 42,
+        # table 3-8, Row 2) for more information about the algorithm used.
+        FFFD = '\ufffd'
+        sequences = [
+            # invalid start bytes
+            (b'\x80', FFFD), # continuation byte
+            (b'\x80\x80', FFFD*2), # 2 continuation bytes
+            (b'\xc0', FFFD),
+            (b'\xc0\xc0', FFFD*2),
+            (b'\xc1', FFFD),
+            (b'\xc1\xc0', FFFD*2),
+            (b'\xc0\xc1', FFFD*2),
+            # with start byte of a 2-byte sequence
+            (b'\xc2', FFFD), # only the start byte
+            (b'\xc2\xc2', FFFD*2), # 2 start bytes
+            (b'\xc2\xc2\xc2', FFFD*3), # 3 start bytes
+            (b'\xc2\x41', FFFD+'A'), # invalid continuation byte
+            # with start byte of a 3-byte sequence
+            (b'\xe1', FFFD), # only the start byte
+            (b'\xe1\xe1', FFFD*2), # 2 start bytes
+            (b'\xe1\xe1\xe1', FFFD*3), # 3 start bytes
+            (b'\xe1\xe1\xe1\xe1', FFFD*4), # 4 start bytes
+            (b'\xe1\x80', FFFD), # only 1 continuation byte
+            (b'\xe1\x41', FFFD+'A'), # invalid continuation byte
+            (b'\xe1\x41\x80', FFFD+'A'+FFFD), # invalid cb followed by valid cb
+            (b'\xe1\x41\x41', FFFD+'AA'), # 2 invalid continuation bytes
+            (b'\xe1\x80\x41', FFFD+'A'), # only 1 valid continuation byte
+            (b'\xe1\x80\xe1\x41', FFFD*2+'A'), # 1 valid and the other invalid
+            (b'\xe1\x41\xe1\x80', FFFD+'A'+FFFD), # 1 invalid and the other valid
+            # with start byte of a 4-byte sequence
+            (b'\xf1', FFFD), # only the start byte
+            (b'\xf1\xf1', FFFD*2), # 2 start bytes
+            (b'\xf1\xf1\xf1', FFFD*3), # 3 start bytes
+            (b'\xf1\xf1\xf1\xf1', FFFD*4), # 4 start bytes
+            (b'\xf1\xf1\xf1\xf1\xf1', FFFD*5), # 5 start bytes
+            (b'\xf1\x80', FFFD), # only 1 continuation bytes
+            (b'\xf1\x80\x80', FFFD), # only 2 continuation bytes
+            (b'\xf1\x80\x41', FFFD+'A'), # 1 valid cb and 1 invalid
+            (b'\xf1\x80\x41\x41', FFFD+'AA'), # 1 valid cb and 1 invalid
+            (b'\xf1\x80\x80\x41', FFFD+'A'), # 2 valid cb and 1 invalid
+            (b'\xf1\x41\x80', FFFD+'A'+FFFD), # 1 invalid cv and 1 valid
+            (b'\xf1\x41\x80\x80', FFFD+'A'+FFFD*2), # 1 invalid cb and 2 invalid
+            (b'\xf1\x41\x80\x41', FFFD+'A'+FFFD+'A'), # 2 invalid cb and 1 invalid
+            (b'\xf1\x41\x41\x80', FFFD+'AA'+FFFD), # 1 valid cb and 1 invalid
+            (b'\xf1\x41\xf1\x80', FFFD+'A'+FFFD),
+            (b'\xf1\x41\x80\xf1', FFFD+'A'+FFFD*2),
+            (b'\xf1\xf1\x80\x41', FFFD*2+'A'),
+            (b'\xf1\x41\xf1\xf1', FFFD+'A'+FFFD*2),
+            # with invalid start byte of a 4-byte sequence (rfc2279)
+            (b'\xf5', FFFD), # only the start byte
+            (b'\xf5\xf5', FFFD*2), # 2 start bytes
+            (b'\xf5\x80', FFFD*2), # only 1 continuation byte
+            (b'\xf5\x80\x80', FFFD*3), # only 2 continuation byte
+            (b'\xf5\x80\x80\x80', FFFD*4), # 3 continuation bytes
+            (b'\xf5\x80\x41', FFFD*2+'A'), #  1 valid cb and 1 invalid
+            (b'\xf5\x80\x41\xf5', FFFD*2+'A'+FFFD),
+            (b'\xf5\x41\x80\x80\x41', FFFD+'A'+FFFD*2+'A'),
+            # with invalid start byte of a 5-byte sequence (rfc2279)
+            (b'\xf8', FFFD), # only the start byte
+            (b'\xf8\xf8', FFFD*2), # 2 start bytes
+            (b'\xf8\x80', FFFD*2), # only one continuation byte
+            (b'\xf8\x80\x41', FFFD*2 + 'A'), # 1 valid cb and 1 invalid
+            (b'\xf8\x80\x80\x80\x80', FFFD*5), # invalid 5 bytes seq with 5 bytes
+            # with invalid start byte of a 6-byte sequence (rfc2279)
+            (b'\xfc', FFFD), # only the start byte
+            (b'\xfc\xfc', FFFD*2), # 2 start bytes
+            (b'\xfc\x80\x80', FFFD*3), # only 2 continuation bytes
+            (b'\xfc\x80\x80\x80\x80\x80', FFFD*6), # 6 continuation bytes
+            # invalid start byte
+            (b'\xfe', FFFD),
+            (b'\xfe\x80\x80', FFFD*3),
+            # other sequences
+            (b'\xf1\x80\x41\x42\x43', '\ufffd\x41\x42\x43'),
+            (b'\xf1\x80\xff\x42\x43', '\ufffd\ufffd\x42\x43'),
+            (b'\xf1\x80\xc2\x81\x43', '\ufffd\x81\x43'),
+            (b'\x61\xF1\x80\x80\xE1\x80\xC2\x62\x80\x63\x80\xBF\x64',
+             '\x61\uFFFD\uFFFD\uFFFD\x62\uFFFD\x63\uFFFD\uFFFD\x64'),
+        ]
+        for n, (seq, res) in enumerate(sequences):
+            print([hex(x) for x in seq], [hex(ord(x)) for x in res])
+            raises(UnicodeDecodeError, seq.decode, 'utf-8', 'strict')
+            uni = seq.decode('utf-8', 'replace')
+            assert uni == res
+            uni = (seq+b'b').decode('utf-8', 'replace')
+            assert uni == res+'b'
+            uni = seq.decode('utf-8', 'ignore')
+            assert uni == res.replace('\uFFFD', '')
+
     def test_unexpected_end_of_data(self):
         """
         Test that an 'unexpected end of data' error is raised when the string
@@ -171,7 +263,6 @@ class AppTestCodecs:
         ]
         FFFD = '\ufffd'
         for seq in sequences:
-            print(seq)
             bseq = bytes(int(c, 16) for c in seq.split())
             exc = raises(UnicodeDecodeError, bseq.decode, 'utf-8')
             assert 'unexpected end of data' in str(exc.value)
@@ -413,7 +504,6 @@ class AppTestPartialEvaluation:
         def search_function(encoding):
             def f(input, errors="strict"):
                 return 42
-            print(encoding)
             if encoding == 'test.mytestenc':
                 return (f, f, None, None)
             return None
@@ -871,7 +961,6 @@ class AppTestPartialEvaluation:
         encodings = ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
             'utf-32', 'utf-32-le', 'utf-32-be')
         for encoding in encodings:
-            print('encoding', encoding)
             raises(UnicodeEncodeError, u'\ud800'.encode, encoding)
             assert (u'[\udc80]'.encode(encoding, "backslashreplace") ==
                 '[\\udc80]'.encode(encoding))
@@ -884,7 +973,6 @@ class AppTestPartialEvaluation:
                                         ('utf-16-be', b'\xdc\x80'),
                                         ('utf-32-le', b'\x80\xdc\x00\x00'),
                                         ('utf-32-be', b'\x00\x00\xdc\x80')]:
-            print(encoding)
             before, after = "[", "]"
             before_sequence = before.encode(encoding)
             after_sequence = after.encode(encoding)
@@ -1053,7 +1141,6 @@ class AppTestPartialEvaluation:
             assert w[0].category == DeprecationWarning
 
         with warnings.catch_warnings(record=True) as w:
-            print(type(encoded_abc))
             decoder(encoded_abc)
             assert len(w) == 1
             assert str(w[0].message) == warning_msg
