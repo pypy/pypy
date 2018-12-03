@@ -349,18 +349,21 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
     res = StringBuilder(slen)
     pos = 0
     end = len(s)
+    suppressing = False # we are in a chain of "bad" unicode, only emit one fix
     while pos < end:
         ordch1 = ord(s[pos])
         # fast path for ASCII
         if ordch1 <= 0x7F:
             pos += 1
             res.append(chr(ordch1))
+            suppressing = False
             continue
 
         if ordch1 <= 0xC1:
             r, pos, rettype = errorhandler(errors, "utf8", "invalid start byte",
                     s, pos, pos + 1)
-            res.append(r)
+            if not suppressing:
+                res.append(r)
             continue
 
         pos += 1
@@ -372,14 +375,16 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                     break
                 r, pos, rettype = errorhandler(errors, "utf8", "unexpected end of data",
                     s, pos - 1, pos)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             ordch2 = ord(s[pos])
 
             if rutf8._invalid_byte_2_of_2(ordch2):
                 r, pos, rettype = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
             pos += 1
@@ -393,8 +398,9 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                     pos -= 1
                     break
                 r, pos, rettype = errorhandler(errors, "utf8", "unexpected end of data",
-                    s, pos - 1, pos + 1)
+                    s, pos - 1, pos)
                 res.append(r)
+                suppressing = True
                 continue
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
@@ -402,12 +408,14 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
             if rutf8._invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
                 r, pos, rettype = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             elif rutf8._invalid_byte_3_of_3(ordch3):
                 r, pos, rettype = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos + 1)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             pos += 2
 
@@ -415,6 +423,7 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
             res.append(chr(ordch1))
             res.append(chr(ordch2))
             res.append(chr(ordch3))
+            suppressing = False
             continue
 
         if ordch1 <= 0xF4:
@@ -424,6 +433,8 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                     break
                 r, pos, rettype = errorhandler(errors, "utf8", "unexpected end of data",
                     s, pos - 1, pos)
+                res.append(r)
+                suppressing = True
                 continue
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
@@ -432,7 +443,8 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
             if rutf8._invalid_byte_2_of_4(ordch1, ordch2):
                 r, pos, rettype = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             elif rutf8._invalid_byte_3_of_4(ordch3):
                 r, pos, rettype = errorhandler(errors, "utf8", "invalid continuation byte",
@@ -442,7 +454,8 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
             elif rutf8._invalid_byte_4_of_4(ordch4):
                 r, pos, rettype = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos + 2)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
 
             pos += 3
@@ -451,11 +464,13 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
             res.append(chr(ordch2))
             res.append(chr(ordch3))
             res.append(chr(ordch4))
+            suppressing = False
             continue
 
         r, pos, rettype = errorhandler(errors, "utf8", "invalid start byte",
                 s, pos - 1, pos)
-        res.append(r)
+        if not suppressing:
+            res.append(r)
 
     r = res.build()
     return r, rutf8.check_utf8(r, True), pos

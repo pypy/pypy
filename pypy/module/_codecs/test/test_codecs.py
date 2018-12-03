@@ -261,12 +261,12 @@ class AppTestCodecs:
             'F3 80', 'F3 BF', 'F3 80 80', 'F3 80 BF', 'F3 BF 80', 'F3 BF BF',
             'F4 80', 'F4 8F', 'F4 80 80', 'F4 80 BF', 'F4 8F 80', 'F4 8F BF'
         ]
-        FFFD = '\ufffd'
         for seq in sequences:
             bseq = bytes(int(c, 16) for c in seq.split())
             exc = raises(UnicodeDecodeError, bseq.decode, 'utf-8')
             assert 'unexpected end of data' in str(exc.value)
-            assert bseq.decode('utf-8', 'replace') == u'\ufffd'
+            useq = bseq.decode('utf-8', 'replace')
+            assert  useq == u'\ufffd', (bseq, useq)
             assert ((b'aaaa' + bseq + b'bbbb').decode('utf-8', 'replace') == 
                     u'aaaa\ufffdbbbb')
             assert bseq.decode('utf-8', 'ignore') == ''
