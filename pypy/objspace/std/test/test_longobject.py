@@ -378,6 +378,7 @@ class AppTestLong:
         assert (-8388608).to_bytes(3, 'little', signed=True) == b'\x00\x00\x80'
         raises(OverflowError, (-5).to_bytes, 1, 'big')
         raises(ValueError, (-5).to_bytes, 1, 'foo')
+        assert 65535 .to_bytes(length=2, byteorder='big') == b'\xff\xff'
 
     def test_negative_zero(self):
         x = eval("-self._long(0)")
