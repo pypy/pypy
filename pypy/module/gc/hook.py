@@ -116,12 +116,24 @@ class W_AppLevelHooks(W_Root):
         self.descr_set_on_gc_collect(space, space.w_None)
 
 
-class GcMinorHookAction(AsyncAction):
+class NoRecursiveAction(AsyncAction):
+    depth = 0
+
+    def perform(self, ec, frame):
+        if self.depth == 0:
+            try:
+                self.depth += 1
+                return self._do_perform(ec, frame)
+            finally:
+                self.depth -= 1
+
+
+class GcMinorHookAction(NoRecursiveAction):
     total_memory_used = 0
     pinned_objects = 0
 
     def __init__(self, space):
-        AsyncAction.__init__(self, space)
+        NoRecursiveAction.__init__(self, space)
         self.w_callable = space.w_None
         self.reset()
 
@@ -144,7 +156,7 @@ class GcMinorHookAction(AsyncAction):
             self.pinned_objects = NonConstant(-42)
             self.fire()
 
-    def perform(self, ec, frame):
+    def _do_perform(self, ec, frame):
         w_stats = W_GcMinorStats(
             self.count,
             self.duration,
@@ -156,12 +168,12 @@ class GcMinorHookAction(AsyncAction):
         self.space.call_function(self.w_callable, w_stats)
 
 
-class GcCollectStepHookAction(AsyncAction):
+class GcCollectStepHookAction(NoRecursiveAction):
     oldstate = 0
     newstate = 0
 
     def __init__(self, space):
-        AsyncAction.__init__(self, space)
+        NoRecursiveAction.__init__(self, space)
         self.w_callable = space.w_None
         self.reset()
 
@@ -184,7 +196,7 @@ class GcCollectStepHookAction(AsyncAction):
             self.newstate = NonConstant(-42)
             self.fire()
 
-    def perform(self, ec, frame):
+    def _do_perform(self, ec, frame):
         w_stats = W_GcCollectStepStats(
             self.count,
             self.duration,
@@ -197,7 +209,7 @@ class GcCollectStepHookAction(AsyncAction):
         self.space.call_function(self.w_callable, w_stats)
 
 
-class GcCollectHookAction(AsyncAction):
+class GcCollectHookAction(NoRecursiveAction):
     num_major_collects = 0
     arenas_count_before = 0
     arenas_count_after = 0
@@ -206,7 +218,7 @@ class GcCollectHookAction(AsyncAction):
     rawmalloc_bytes_after = 0
 
     def __init__(self, space):
-        AsyncAction.__init__(self, space)
+        NoRecursiveAction.__init__(self, space)
         self.w_callable = space.w_None
         self.reset()
 
@@ -227,7 +239,7 @@ class GcCollectHookAction(AsyncAction):
             self.rawmalloc_bytes_after = NonConstant(r_uint(42))
             self.fire()
 
-    def perform(self, ec, frame):
+    def _do_perform(self, ec, frame):
         w_stats = W_GcCollectStats(self.count,
                                    self.num_major_collects,
                                    self.arenas_count_before,

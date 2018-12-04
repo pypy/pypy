@@ -180,3 +180,22 @@ class AppTestGcHooks(object):
         assert gc.hooks.on_gc_minor is None
         assert gc.hooks.on_gc_collect_step is None
         assert gc.hooks.on_gc_collect is None
+
+    def test_no_recursive(self):
+        import gc
+        lst = []
+        def on_gc_minor(stats):
+            lst.append((stats.count,
+                        stats.duration,
+                        stats.total_memory_used,
+                        stats.pinned_objects))
+            self.fire_gc_minor(1, 2, 3)  # won't fire NOW
+        gc.hooks.on_gc_minor = on_gc_minor
+        self.fire_gc_minor(10, 20, 30)
+        self.fire_gc_minor(40, 50, 60)
+        # the duration for the 2nd call is 41, because it also counts the 1
+        # which was fired recursively
+        assert lst == [
+            (1, 10, 20, 30),
+            (2, 41, 50, 60),
+            ]
