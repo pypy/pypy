@@ -1,6 +1,6 @@
 import pytest
 
-from lib_pypy import _functools
+import _functools
 
 
 def test_partial_reduce():
