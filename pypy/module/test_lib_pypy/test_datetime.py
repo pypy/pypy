@@ -1,50 +1,50 @@
 """Additional tests for datetime."""
+import pytest
+
 import datetime
 
 
-def test_repr():
-    checks = (
-        (datetime.date(2015, 6, 8), "datetime.date(2015, 6, 8)"),
-        (datetime.datetime(2015, 6, 8, 12, 34, 56), "datetime.datetime(2015, 6, 8, 12, 34, 56)"),
-        (datetime.time(12, 34, 56), "datetime.time(12, 34, 56)"),
-        (datetime.timedelta(1), "datetime.timedelta(1)"),
-        (datetime.timedelta(1, 2), "datetime.timedelta(1, 2)"),
-        (datetime.timedelta(1, 2, 3), "datetime.timedelta(1, 2, 3)"),
-    )
-    for obj, expected in checks:
-        assert repr(obj) == expected
+class date_safe(datetime.date):
+    pass
 
-def test_repr_overridden():
-    class date_safe(datetime.date):
-        pass
+class datetime_safe(datetime.datetime):
+    pass
 
-    class datetime_safe(datetime.datetime):
-        pass
+class time_safe(datetime.time):
+    pass
 
-    class time_safe(datetime.time):
-        pass
+class timedelta_safe(datetime.timedelta):
+    pass
 
-    class timedelta_safe(datetime.timedelta):
-        pass
+@pytest.mark.parametrize("obj, expected", [
+    (datetime.date(2015, 6, 8), "datetime.date(2015, 6, 8)"),
+    (datetime.datetime(2015, 6, 8, 12, 34, 56),
+        "datetime.datetime(2015, 6, 8, 12, 34, 56)"),
+    (datetime.time(12, 34, 56), "datetime.time(12, 34, 56)"),
+    (datetime.timedelta(1), "datetime.timedelta(1)"),
+    (datetime.timedelta(1, 2), "datetime.timedelta(1, 2)"),
+    (datetime.timedelta(1, 2, 3), "datetime.timedelta(1, 2, 3)"),
+    (date_safe(2015, 6, 8), "date_safe(2015, 6, 8)"),
+    (datetime_safe(2015, 6, 8, 12, 34, 56),
+        "datetime_safe(2015, 6, 8, 12, 34, 56)"),
+    (time_safe(12, 34, 56), "time_safe(12, 34, 56)"),
+    (timedelta_safe(1), "timedelta_safe(1)"),
+    (timedelta_safe(1, 2), "timedelta_safe(1, 2)"),
+    (timedelta_safe(1, 2, 3), "timedelta_safe(1, 2, 3)"),
+])
+def test_repr(obj, expected):
+    assert repr(obj) == expected
 
-    checks = (
-        (date_safe(2015, 6, 8), "date_safe(2015, 6, 8)"),
-        (datetime_safe(2015, 6, 8, 12, 34, 56), "datetime_safe(2015, 6, 8, 12, 34, 56)"),
-        (time_safe(12, 34, 56), "time_safe(12, 34, 56)"),
-        (timedelta_safe(1), "timedelta_safe(1)"),
-        (timedelta_safe(1, 2), "timedelta_safe(1, 2)"),
-        (timedelta_safe(1, 2, 3), "timedelta_safe(1, 2, 3)"),
-    )
-    for obj, expected in checks:
-        assert repr(obj) == expected
-
-def test_attributes():
-    for x in [datetime.date.today(),
-                datetime.time(),
-                datetime.datetime.utcnow(),
-                datetime.timedelta(),
-                datetime.tzinfo()]:
-        raises(AttributeError, 'x.abc = 1')
+@pytest.mark.parametrize("obj", [
+    datetime.date.today(),
+    datetime.time(),
+    datetime.datetime.utcnow(),
+    datetime.timedelta(),
+    datetime.tzinfo(),
+])
+def test_attributes(obj):
+    with pytest.raises(AttributeError):
+        obj.abc = 1
 
 def test_timedelta_init_long():
     td = datetime.timedelta(microseconds=20000000000000000000)
@@ -55,19 +55,24 @@ def test_timedelta_init_long():
     assert td.seconds == 41600
 
 def test_unpickle():
-    e = raises(TypeError, datetime.date, '123')
+    with pytest.raises(TypeError) as e:
+        datetime.date('123')
     assert e.value.args[0] == 'an integer is required'
-    e = raises(TypeError, datetime.time, '123')
+    with pytest.raises(TypeError) as e:
+        datetime.time('123')
     assert e.value.args[0] == 'an integer is required'
-    e = raises(TypeError, datetime.datetime, '123')
+    with pytest.raises(TypeError) as e:
+        datetime.datetime('123')
     assert e.value.args[0] == 'an integer is required'
 
     datetime.time('\x01' * 6, None)
-    exc = raises(TypeError, datetime.time, '\x01' * 6, 123)
+    with pytest.raises(TypeError) as exc:
+        datetime.time('\x01' * 6, 123)
     assert str(exc.value) == "bad tzinfo state arg"
 
     datetime.datetime('\x01' * 10, None)
-    exc = raises(TypeError, datetime.datetime, '\x01' * 10, 123)
+    with pytest.raises(TypeError) as exc:
+        datetime.datetime('\x01' * 10, 123)
     assert str(exc.value) == "bad tzinfo state arg"
 
 def test_strptime():
@@ -145,9 +150,12 @@ def test_utcfromtimestamp_microsecond():
     assert isinstance(dt.microsecond, int)
 
 def test_default_args():
-    raises(TypeError, datetime.datetime)
-    raises(TypeError, datetime.datetime, 10)
-    raises(TypeError, datetime.datetime, 10, 10)
+    with pytest.raises(TypeError):
+        datetime.datetime()
+    with pytest.raises(TypeError):
+        datetime.datetime(10)
+    with pytest.raises(TypeError):
+        datetime.datetime(10, 10)
     datetime.datetime(10, 10, 10)
 
 def test_check_arg_types():
@@ -175,26 +183,36 @@ def test_check_arg_types():
         assert type(dtxx.month) is int
         assert type(dtxx.second) is int
 
-    exc = raises(TypeError, datetime.datetime,10, 10, '10')
+    with pytest.raises(TypeError) as exc:
+        datetime.datetime(0, 10, '10')
     assert str(exc.value) == 'an integer is required'
 
     f10 = Number(10.9)
-    exc = raises(TypeError, datetime.datetime, 10, 10, f10)
+    with pytest.raises(TypeError) as exc:
+        datetime.datetime(10, 10, f10)
     assert str(exc.value) == '__int__ method should return an integer'
 
     class Float(float):
         pass
     s10 = Float(10.9)
-    exc = raises(TypeError, datetime.datetime, 10, 10, s10)
+    with pytest.raises(TypeError) as exc:
+        datetime.datetime(10, 10, s10)
     assert str(exc.value) == 'integer argument expected, got float'
 
-    raises(TypeError, datetime.datetime, 10., 10, 10)
-    raises(TypeError, datetime.datetime, 10, 10., 10)
-    raises(TypeError, datetime.datetime, 10, 10, 10.)
-    raises(TypeError, datetime.datetime, 10, 10, 10, 10.)
-    raises(TypeError, datetime.datetime, 10, 10, 10, 10, 10.)
-    raises(TypeError, datetime.datetime, 10, 10, 10, 10, 10, 10.)
-    raises(TypeError, datetime.datetime, 10, 10, 10, 10, 10, 10, 10.)
+    with pytest.raises(TypeError):
+        datetime.datetime(10., 10, 10)
+    with pytest.raises(TypeError):
+        datetime.datetime(10, 10., 10)
+    with pytest.raises(TypeError):
+        datetime.datetime(10, 10, 10.)
+    with pytest.raises(TypeError):
+        datetime.datetime(10, 10, 10, 10.)
+    with pytest.raises(TypeError):
+        datetime.datetime(10, 10, 10, 10, 10.)
+    with pytest.raises(TypeError):
+        datetime.datetime(10, 10, 10, 10, 10, 10.)
+    with pytest.raises(TypeError):
+        datetime.datetime(10, 10, 10, 10, 10, 10, 10.)
 
 def test_utcnow_microsecond():
     import copy
@@ -216,13 +234,17 @@ def test_raises_if_passed_naive_datetime_and_start_or_end_time_defined():
             return datetime.timedelta(0.1)
     naive = datetime.datetime(2014, 9, 22)
     aware = datetime.datetime(2014, 9, 22, tzinfo=Foo())
-    exc = raises(TypeError, naive.__eq__, aware)
+    with pytest.raises(TypeError) as exc:
+        naive.__eq__(aware)
     assert str(exc.value) == "can't compare offset-naive and offset-aware datetimes"
-    exc = raises(TypeError, naive.__sub__, aware)
+    with pytest.raises(TypeError) as exc:
+        naive.__sub__(aware)
     assert str(exc.value) == "can't subtract offset-naive and offset-aware datetimes"
+
     naive = datetime.time(7, 32, 12)
     aware = datetime.time(7, 32, 12, tzinfo=Foo())
-    exc = raises(TypeError, naive.__eq__, aware)
+    with pytest.raises(TypeError) as exc:
+        naive.__eq__(aware)
     assert str(exc.value) == "can't compare offset-naive and offset-aware times"
 
 def test_future_types_newint():
