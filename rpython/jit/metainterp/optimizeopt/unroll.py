@@ -21,7 +21,6 @@ class UnrollableOptimizer(Optimizer):
             if self.optunroll.short_preamble_producer is None:
                 assert False # unreachable code
             op = preamble_op.op
-            #----self.optimizer.inparg_dict[op] = None # XXX ARGH
             # special hack for int_add(x, accumulator-const) optimization
             self.optunroll.short_preamble_producer.use_box(op,
                                                 preamble_op.preamble_op, self)
@@ -143,7 +142,6 @@ class UnrollOptimizer(Optimization):
         except VirtualStatesCantMatch:
             raise InvalidLoop("Cannot import state, virtual states don't match")
         self.potential_extra_ops = {}
-        self.optimizer.add_to_inparg_dict_from(label_args)
         try:
             info, _ = self.optimizer.propagate_all_forward(
                 trace, call_pure_results, flush=False)

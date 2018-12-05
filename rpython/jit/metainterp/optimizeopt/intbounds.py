@@ -128,7 +128,7 @@ class OptIntBounds(Optimization):
         # if both are constant, the pure optimization will deal with it
         if v2.is_constant() and not v1.is_constant():
             arg1 = self.optimizer.as_operation(arg1)
-            if arg1 is not None   and 0:   # XXX check and re-enable this
+            if arg1 is not None:
                 if arg1.getopnum() == rop.INT_ADD:
                     prod_arg1 = arg1.getarg(0)
                     prod_arg2 = arg1.getarg(1)
