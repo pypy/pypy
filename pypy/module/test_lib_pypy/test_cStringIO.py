@@ -1,25 +1,23 @@
 """
 Tests for the PyPy cStringIO implementation.
 """
+from cStringIO import StringIO
 
-class AppTestcStringIO:
-    def setup_class(cls):
-        cls.w_io = cls.space.appexec([], "(): import cStringIO; return cStringIO")
-        cls.w_bytes = cls.space.wrap('some bytes')
+data = b"some bytes"
 
-    def test_reset(self):
-        """
-        Test that the reset method of cStringIO objects sets the position
-        marker to the beginning of the stream.
-        """
-        io = self.io.StringIO()
-        io.write(self.bytes)
-        assert io.read() == ''
-        io.reset()
-        assert io.read() == self.bytes
+def test_reset():
+    """
+    Test that the reset method of cStringIO objects sets the position
+    marker to the beginning of the stream.
+    """
+    stream = StringIO()
+    stream.write(data)
+    assert stream.read() == ''
+    stream.reset()
+    assert stream.read() == data
 
-        io = self.io.StringIO(self.bytes)
-        assert io.read() == self.bytes
-        assert io.read() == ''
-        io.reset()
-        assert io.read() == self.bytes
+    stream = StringIO(data)
+    assert stream.read() == data
+    assert stream.read() == ''
+    stream.reset()
+    assert stream.read() == data
