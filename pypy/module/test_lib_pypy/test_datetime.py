@@ -1,13 +1,9 @@
 """Additional tests for datetime."""
-
-from __future__ import absolute_import
-import py
-from pypy.module.test_lib_pypy.support import import_lib_pypy
+import datetime
 
 
-class BaseTestDatetime:
+class TestDatetime:
     def test_repr(self):
-        import datetime
         checks = (
             (datetime.date(2015, 6, 8), "datetime.date(2015, 6, 8)"),
             (datetime.datetime(2015, 6, 8, 12, 34, 56), "datetime.datetime(2015, 6, 8, 12, 34, 56)"),
@@ -20,7 +16,6 @@ class BaseTestDatetime:
             assert repr(obj) == expected
 
     def test_repr_overridden(self):
-        import datetime
         class date_safe(datetime.date):
             pass
 
@@ -45,7 +40,6 @@ class BaseTestDatetime:
             assert repr(obj) == expected
 
     def test_attributes(self):
-        import datetime
         for x in [datetime.date.today(),
                   datetime.time(),
                   datetime.datetime.utcnow(),
@@ -54,7 +48,6 @@ class BaseTestDatetime:
             raises(AttributeError, 'x.abc = 1')
 
     def test_timedelta_init_long(self):
-        import datetime
         td = datetime.timedelta(microseconds=20000000000000000000)
         assert td.days == 231481481
         assert td.seconds == 41600
@@ -63,7 +56,6 @@ class BaseTestDatetime:
         assert td.seconds == 41600
 
     def test_unpickle(self):
-        import datetime
         e = raises(TypeError, datetime.date, '123')
         assert e.value.args[0] == 'an integer is required'
         e = raises(TypeError, datetime.time, '123')
@@ -81,10 +73,6 @@ class BaseTestDatetime:
 
     def test_strptime(self):
         import time, sys
-        import datetime
-        if sys.version_info < (2, 6):
-            py.test.skip("needs the _strptime module")
-
         string = '2004-12-01 13:02:47'
         format = '%Y-%m-%d %H:%M:%S'
         expected = datetime.datetime(*(time.strptime(string, format)[0:6]))
@@ -92,7 +80,6 @@ class BaseTestDatetime:
         assert expected == got
 
     def test_datetime_rounding(self):
-        import datetime
         b = 0.0000001
         a = 0.9999994
 
@@ -106,9 +93,6 @@ class BaseTestDatetime:
         assert datetime.datetime.utcfromtimestamp(a).second == 1
 
     def test_more_datetime_rounding(self):
-        import datetime
-        # this test verified on top of CPython 2.7 (using a plain
-        # "import datetime" above)
         expected_results = {
             -1000.0: 'datetime.datetime(1969, 12, 31, 23, 43, 20)',
             -999.9999996: 'datetime.datetime(1969, 12, 31, 23, 43, 20)',
@@ -133,7 +117,6 @@ class BaseTestDatetime:
             assert repr(dt) == expected_results[t]
 
     def test_utcfromtimestamp(self):
-        import datetime
         """Confirm that utcfromtimestamp and fromtimestamp give consistent results.
 
         Based on danchr's test script in https://bugs.pypy.org/issue986
@@ -159,19 +142,16 @@ class BaseTestDatetime:
             time.tzset()
 
     def test_utcfromtimestamp_microsecond(self):
-        import datetime
         dt = datetime.datetime.utcfromtimestamp(0)
         assert isinstance(dt.microsecond, int)
 
     def test_default_args(self):
-        import datetime
         raises(TypeError, datetime.datetime)
         raises(TypeError, datetime.datetime, 10)
         raises(TypeError, datetime.datetime, 10, 10)
         datetime.datetime(10, 10, 10)
 
     def test_check_arg_types(self):
-        import datetime
         import decimal
         class Number:
             def __init__(self, value):
@@ -218,7 +198,6 @@ class BaseTestDatetime:
         raises(TypeError, datetime.datetime, 10, 10, 10, 10, 10, 10, 10.)
 
     def test_utcnow_microsecond(self):
-        import datetime
         import copy
 
         dt = datetime.datetime.utcnow()
@@ -227,14 +206,12 @@ class BaseTestDatetime:
         copy.copy(dt)
 
     def test_radd(self):
-        import datetime
         class X(object):
             def __radd__(self, other):
                 return "radd"
         assert datetime.date(10, 10, 10) + X() == "radd"
 
     def test_raises_if_passed_naive_datetime_and_start_or_end_time_defined(self):
-        import datetime
         class Foo(datetime.tzinfo):
             def utcoffset(self, dt):
                 return datetime.timedelta(0.1)
@@ -250,7 +227,6 @@ class BaseTestDatetime:
         assert str(exc.value) == "can't compare offset-naive and offset-aware times"
 
     def test_future_types_newint(self):
-        import datetime
         try:
             from future.types.newint import newint
         except ImportError:
@@ -309,14 +285,12 @@ class BaseTestDatetime:
         assert td_div_newint_int == td_div_newint_newint
 
     def test_return_types(self):
-        import datetime
         td = datetime.timedelta(5)
         assert type(td.total_seconds()) is float
         class sub(datetime.timedelta): pass
         assert type(+sub()) is datetime.timedelta
 
     def test_subclass_date(self):
-        import datetime
         # replace() should return a subclass but not call __new__ or __init__.
         class MyDate(datetime.date):
             forbidden = False
@@ -332,7 +306,6 @@ class BaseTestDatetime:
         assert d2 == datetime.date(2016, 2, 5)
 
     def test_subclass_time(self):
-        import datetime
         # replace() should return a subclass but not call __new__ or __init__.
         class MyTime(datetime.time):
             forbidden = False
@@ -348,7 +321,6 @@ class BaseTestDatetime:
         assert d2 == datetime.time(5, 2, 3)
 
     def test_subclass_datetime(self):
-        import datetime
         # replace() should return a subclass but not call __new__ or __init__.
         class MyDatetime(datetime.datetime):
             forbidden = False
@@ -362,15 +334,3 @@ class BaseTestDatetime:
         d2 = d.replace(hour=7)
         assert type(d2) is MyDatetime
         assert d2 == datetime.datetime(2016, 4, 5, 7, 2, 3)
-
-
-class TestDatetimeHost(BaseTestDatetime):
-    pass
-
-
-class AppTestDatetimePyPy(BaseTestDatetime):
-    spaceconfig = dict(usemodules=['__pypy__', 'struct'])
-    def setup_class(cls):
-        space = cls.space
-        #cls.w___pypy__ = import_lib_pypy(space, '__pypy__')
-        cls.w_datetime = import_lib_pypy(space, 'datetime')
