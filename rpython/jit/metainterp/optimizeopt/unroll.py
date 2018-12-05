@@ -10,8 +10,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
-from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp,\
-     AbstractResOp
+from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
 from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print, debug_start, debug_stop,\
      have_debug_prints
@@ -144,7 +143,7 @@ class UnrollOptimizer(Optimization):
         except VirtualStatesCantMatch:
             raise InvalidLoop("Cannot import state, virtual states don't match")
         self.potential_extra_ops = {}
-        self.optimizer.init_inparg_dict_from(label_args)
+        self.optimizer.add_to_inparg_dict_from(label_args)
         try:
             info, _ = self.optimizer.propagate_all_forward(
                 trace, call_pure_results, flush=False)
@@ -431,8 +430,9 @@ class UnrollOptimizer(Optimization):
                 for box in self._map_args(mapping, short_jump_args)]
 
     def _expand_info(self, arg, infos):
-        if isinstance(arg, AbstractResOp) and rop.is_same_as(arg.opnum):
-            info = self.optimizer.getinfo(arg.getarg(0))
+        arg1 = self.optimizer.as_operation(arg)
+        if arg1 is not None and rop.is_same_as(arg1.opnum):
+            info = self.optimizer.getinfo(arg1.getarg(0))
         else:
             info = self.optimizer.getinfo(arg)
         if arg in infos:

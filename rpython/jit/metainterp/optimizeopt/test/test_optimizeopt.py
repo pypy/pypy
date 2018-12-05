@@ -9503,14 +9503,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # we don't store advanced virtualstate information like "i1 = i2 + 1",
         # which means that the following loop, when unrolled, cannot be
         # optimized based on the knowledge that "i1 = i2 + 1" from the
-        # preamble---we can't use that knowledge.
+        # preamble---we can't use that knowledge.  After the fix, we get
+        # the value "i2 + 1" passed as a third argument, possibly different
+        # from "i1".
         ops = """
         [i1, i2]
         guard_value(i1, 10) []
         i3 = int_add(i2, 1)
         jump(i3, i2)
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [i1, i2, i3]
+        guard_value(i1, 10) []
+        jump(i3, i2, i3)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

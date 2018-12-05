@@ -288,15 +288,14 @@ class Optimizer(Optimization):
         self._really_emitted_operation = None
 
         self._last_guard_op = None
+        self._inparg_dict = {}
 
         self.set_optimizations(optimizations)
         self.setup()
 
-    def init_inparg_dict_from(self, lst):
-        pass
-        #self.inparg_dict = {}
-        #for box in lst:
-        #    self.inparg_dict[box] = None
+    def add_to_inparg_dict_from(self, lst):
+        for box in lst:
+            self._inparg_dict[box] = None
 
     def set_optimizations(self, optimizations):
         if optimizations:
@@ -385,9 +384,12 @@ class Optimizer(Optimization):
             return info.force_box(op, optforce)
         return op
 
-    def is_inputarg(self, op):
-        return True
-        #return op in self.inparg_dict
+    def as_operation(self, op):
+        # You should never check "isinstance(op, AbstractResOp" directly.
+        # Instead, use this helper.
+        if isinstance(op, AbstractResOp) and op not in self._inparg_dict:
+            return op
+        return None
 
     def get_constant_box(self, box):
         box = self.get_box_replacement(box)
