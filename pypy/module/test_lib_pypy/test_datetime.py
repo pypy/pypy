@@ -248,10 +248,10 @@ def test_raises_if_passed_naive_datetime_and_start_or_end_time_defined():
     assert str(exc.value) == "can't compare offset-naive and offset-aware times"
 
 def test_future_types_newint():
-    try:
-        from future.types.newint import newint
-    except ImportError:
-        skip('requires future')
+    # Issue 2193
+    class newint(long):
+        def __int__(self):
+            return self
 
     dt_from_ints = datetime.datetime(2015, 12, 31, 12, 34, 56)
     dt_from_newints = datetime.datetime(newint(2015), newint(12), newint(31), newint(12), newint(34), newint(56))
