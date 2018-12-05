@@ -1,14 +1,14 @@
-from __future__ import absolute_import
-import py
-
-from lib_pypy import cPickle
+import pytest
+import cPickle
 
 def test_stack_underflow():
-    py.test.raises(cPickle.UnpicklingError, cPickle.loads, "a string")
+    with pytest.raises(cPickle.UnpicklingError):
+        cPickle.loads("a string")
 
 def test_bad_key():
-    e = py.test.raises(cPickle.UnpicklingError, cPickle.loads, "v")
-    assert str(e.value) == "invalid load key, 'v'."
+    with pytest.raises(cPickle.UnpicklingError) as excinfo:
+        cPickle.loads("v")
+    assert str(excinfo.value) == "invalid load key, 'v'."
 
 def test_find_global():
     import time, cStringIO
@@ -23,7 +23,8 @@ def test_find_global():
     f = cStringIO.StringIO(f.getvalue())
     up = cPickle.Unpickler(f)
     up.find_global = None
-    e = py.test.raises(cPickle.UnpicklingError, up.load)
+    with pytest.raises(cPickle.UnpicklingError) as e:
+        up.load()
     assert str(e.value) == "Global and instance pickles are not supported."
 
     f = cStringIO.StringIO(f.getvalue())
