@@ -1300,7 +1300,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=valuedescr)
         setfield_gc(p3, p30, descr=nextdescr)
@@ -1310,7 +1310,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=valuedescr)
         setfield_gc(p3, p30, descr=nextdescr)
@@ -6392,7 +6392,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         strsetitem(p3, i2, i0)
         i5 = int_add(i2, 1)
         strsetitem(p3, i5, i1)
-        i6 = int_add(i5, 1)      # will be killed by the backend
         jump(i1, i0, p3)
         """
         self.optimize_strunicode_loop(ops, expected, expected)
