@@ -231,7 +231,6 @@ class AppTestCodecs:
              '\x61\uFFFD\uFFFD\uFFFD\x62\uFFFD\x63\uFFFD\uFFFD\x64'),
         ]
         for n, (seq, res) in enumerate(sequences):
-            print([hex(x) for x in seq], [hex(ord(x)) for x in res])
             raises(UnicodeDecodeError, seq.decode, 'utf-8', 'strict')
             uni = seq.decode('utf-8', 'replace')
             assert uni == res
@@ -272,7 +271,7 @@ class AppTestCodecs:
             assert bseq.decode('utf-8', 'ignore') == ''
             assert ((b'aaaa' + bseq + b'bbbb').decode('utf-8', 'ignore') == 
                     u'aaaabbbb')
-            
+
 
 class AppTestPartialEvaluation:
     spaceconfig = dict(usemodules=['array',])
