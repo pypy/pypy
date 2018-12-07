@@ -4758,3 +4758,56 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         res = self.meta_interp(f, [2, 200])
         assert res == f(2, 200)
+
+    def test_issue2926(self):
+        driver = JitDriver(greens = [], reds=['i', 'total', 'p'])
+
+        class Base(object):
+            def do_stuff(self):
+                return 1000
+        class Int(Base):
+            def __init__(self, intval):
+                self.intval = intval
+            def do_stuff(self):
+                return self.intval
+        class SubInt(Int):
+            pass
+        class Float(Base):
+            def __init__(self, floatval):
+                self.floatval = floatval
+            def do_stuff(self):
+                return int(self.floatval)
+
+        prebuilt = [Int(i) for i in range(10)]
+
+        @dont_look_inside
+        def forget_intbounds(i):
+            return i
+
+        @dont_look_inside
+        def escape(p):
+            pass
+
+        def f(i):
+            total = 0
+            p = Base()
+            while True:
+                driver.jit_merge_point(i=i, total=total, p=p)
+                #print '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>', i
+                if i == 13:
+                    break
+                total += p.do_stuff()
+                j = forget_intbounds(i)
+                if j < 10:        # initial loop
+                    p = prebuilt[i]
+                    p.intval = j
+                elif j < 12:
+                    p = Int(i)
+                else:
+                    p = Float(3.14)
+                    escape(p)
+                i += 1
+            return total
+
+        res = self.meta_interp(f, [0])
+        assert res == f(0)
