@@ -124,33 +124,6 @@ else:
 
 ################################################################
 
-class TestSampleCallbacks(BaseCTypesTestChecker):
-
-    def test_integrate(self):
-        # Derived from some then non-working code, posted by David Foster
-        import conftest
-        _ctypes_test = str(conftest.sofile)
-        dll = CDLL(_ctypes_test)
-
-        # The function prototype called by 'integrate': double func(double);
-        CALLBACK = CFUNCTYPE(c_double, c_double)
-
-        # The integrate function itself, exposed from the _ctypes_test dll
-        integrate = dll.integrate
-        integrate.argtypes = (c_double, c_double, CALLBACK, c_long)
-        integrate.restype = c_double
-
-        def func(x):
-            print 'calculating x**2 of',x
-            return x**2
-
-        result = integrate(0.0, 1.0, CALLBACK(func), 10)
-        diff = abs(result - 1./3.)
-
-        assert diff < 0.01, "%s not less than 0.01" % diff
-
-################################################################
-
 class TestMoreCallbacks(BaseCTypesTestChecker):
 
     def test_callback_with_struct_argument(self):
