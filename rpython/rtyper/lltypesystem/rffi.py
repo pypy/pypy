@@ -538,9 +538,8 @@ def populate_inttypes():
         if name.startswith('unsigned'):
             name = 'u' + name[9:]
             signed = False
-        elif name.startswith('__u'):
-            signed = False
-        elif name == 'size_t' or name.startswith('uint'):
+        elif (name == 'size_t' or name.startswith('uint')
+                               or name.startswith('__uint')):
             signed = False
         else:
             signed = True

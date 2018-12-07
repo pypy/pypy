@@ -188,7 +188,7 @@ signedlonglong_repr = getintegerrepr(SignedLongLong, 'llong_')
 signedlonglonglong_repr = getintegerrepr(SignedLongLongLong, 'lllong_')
 unsigned_repr = getintegerrepr(Unsigned, 'uint_')
 unsignedlonglong_repr = getintegerrepr(UnsignedLongLong, 'ullong_')
-signedlonglonglong_repr = getintegerrepr(UnsignedLongLongLong, 'ulllong_')
+unsignedlonglonglong_repr = getintegerrepr(UnsignedLongLongLong, 'ulllong_')
 
 class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
@@ -565,7 +565,7 @@ def ll_lllong_py_mod_zer(x, y):
     
 @jit.dont_look_inside
 def ll_ulllong_py_mod(x, y):
-    return llop.ullong_mod(UnsignedLongLongLong, x, y)
+    return llop.ulllong_mod(UnsignedLongLongLong, x, y)
 
 def ll_ulllong_py_mod_zer(x, y):
     if y == 0:

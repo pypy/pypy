@@ -325,8 +325,6 @@ LL_OPERATIONS = {
     'lllong_xor':            LLOp(canfold=True),
 
     'ulllong_is_true':        LLOp(canfold=True),
-    'ulllong_neg':            LLOp(canfold=True),
-    'ulllong_abs':            LLOp(canfold=True),
     'ulllong_invert':         LLOp(canfold=True),
 
     'ulllong_add':            LLOp(canfold=True),
