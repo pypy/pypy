@@ -1,12 +1,7 @@
-import py
+import pytest
 
 import ctypes
-from _ctypes import function
-
-try:
-    import _rawffi
-except ImportError:
-    py.test.skip("app-level test only for PyPy")
+_rawffi = pytest.importorskip('_rawffi')  # PyPy-only
 
 class TestErrno:
 
@@ -15,7 +10,7 @@ class TestErrno:
             assert _rawffi.get_errno() == 42
             assert ctypes.get_errno() == old
         check.free_temp_buffers = lambda *args: None
-        f = function.CFuncPtr()
+        f = ctypes._CFuncPtr()
         old = _rawffi.get_errno()
         f._flags_ = _rawffi.FUNCFLAG_USE_ERRNO
         ctypes.set_errno(42)

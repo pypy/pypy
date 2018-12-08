@@ -96,8 +96,11 @@ def compile_so_file():
 
     return c_compile([cfile], str(udir / '_ctypes_test'), libraries=libraries)
 
-# we need to run after the "tmpdir" plugin which installs pytest.ensuretemp
-@pytest.mark.trylast
-def pytest_configure(config):
-    global sofile
-    sofile = compile_so_file()
+@pytest.fixture(scope='session')
+def sofile():
+    return str(compile_so_file())
+
+@pytest.fixture
+def dll(sofile):
+    from ctypes import CDLL
+    return CDLL(str(sofile))

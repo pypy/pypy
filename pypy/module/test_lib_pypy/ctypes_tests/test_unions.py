@@ -28,4 +28,3 @@ class TestUnion(BaseCTypesTestChecker):
         u = UnionofStuff()
         u.one.x = 3
         assert u.two.x == 3
-

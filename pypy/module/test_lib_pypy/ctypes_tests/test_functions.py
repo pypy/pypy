@@ -1,32 +1,22 @@
 from ctypes import *
 import sys
 import pytest
-from .support import BaseCTypesTestChecker
 
-try:
-    WINFUNCTYPE
-except NameError:
-    # fake to enable this test on Linux
-    WINFUNCTYPE = CFUNCTYPE
+@pytest.fixture
+def dll(sofile):
+    return CDLL(str(sofile), use_errno=True)
 
 
-def setup_module(mod):
-    import conftest
-    _ctypes_test = str(conftest.sofile)
-    mod.dll = CDLL(_ctypes_test, use_errno=True)
-    if sys.platform == "win32":
-        mod.windll = WinDLL(_ctypes_test)
+class TestFunctions(object):
 
-class TestFunctions(BaseCTypesTestChecker):
-
-    def test_char_result(self):
+    def test_char_result(self, dll):
         f = dll._testfunc_i_bhilfd
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
         f.restype = c_char
         result = f(0, 0, 0, 0, 0, 0)
         assert result == '\x00'
 
-    def test_boolresult(self):
+    def test_boolresult(self, dll):
         f = dll._testfunc_i_bhilfd
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
         f.restype = c_bool
@@ -35,14 +25,14 @@ class TestFunctions(BaseCTypesTestChecker):
         true_result = f(1, 0, 0, 0, 0, 0)
         assert true_result is True
 
-    def test_unicode_function_name(self):
+    def test_unicode_function_name(self, dll):
         f = dll[u'_testfunc_i_bhilfd']
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
         f.restype = c_int
         result = f(1, 2, 3, 4, 5.0, 6.0)
         assert result == 21
 
-    def test_truncate_python_longs(self):
+    def test_truncate_python_longs(self, dll):
         f = dll._testfunc_i_bhilfd
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
         f.restype = c_int
@@ -50,8 +40,7 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(x, x, x, x, 0, 0)
         assert result == -8
 
-
-    def test_convert_pointers(self):
+    def test_convert_pointers(self, dll):
         f = dll.deref_LP_c_char_p
         f.restype = c_char
         f.argtypes = [POINTER(c_char_p)]
@@ -63,15 +52,14 @@ class TestFunctions(BaseCTypesTestChecker):
 
     ################################################################
 
-
-    def test_call_some_args(self):
+    def test_call_some_args(self, dll):
         f = dll.my_strchr
         f.argtypes = [c_char_p]
         f.restype = c_char_p
         result = f("abcd", ord("b"))
         assert result == "bcd"
 
-    def test_keepalive_buffers(self, monkeypatch):
+    def test_keepalive_buffers(self, monkeypatch, dll):
         import gc
         f = dll.my_strchr
         f.argtypes = [c_char_p]
@@ -88,7 +76,7 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f("abcd", ord("b"))
         assert result == "bcd"
 
-    def test_caching_bug_1(self):
+    def test_caching_bug_1(self, dll):
         # the same test as test_call_some_args, with two extra lines
         # in the middle that trigger caching in f._ptr, which then
         # makes the last two lines fail
@@ -100,7 +88,7 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f("abcd", ord("b"), 42)
         assert result == "bcd"
 
-    def test_argument_conversion_and_checks(self):
+    def test_argument_conversion_and_checks(self, dll):
         #This test is designed to check for segfaults if the wrong type of argument is passed as parameter
         strlen = dll.my_strchr
         strlen.argtypes = [c_char_p, c_int]
@@ -113,7 +101,7 @@ class TestFunctions(BaseCTypesTestChecker):
         with pytest.raises(ArgumentError):
             strlen(False, 0)
 
-    def test_union_as_passed_value(self):
+    def test_union_as_passed_value(self, dll):
         class UN(Union):
             _fields_ = [("x", c_short),
                         ("y", c_long)]
@@ -123,9 +111,9 @@ class TestFunctions(BaseCTypesTestChecker):
         a = A()
         a[1].x = 33
         u = dll.ret_un_func(a[1])
-        assert u.y == 33*10000
+        assert u.y == 33 * 10000
 
-    def test_cache_funcptr(self):
+    def test_cache_funcptr(self, dll):
         tf_b = dll.tf_b
         tf_b.restype = c_byte
         tf_b.argtypes = (c_byte,)
@@ -135,7 +123,7 @@ class TestFunctions(BaseCTypesTestChecker):
         assert tf_b(-126) == -42
         assert tf_b._ptr is ptr
 
-    def test_custom_from_param(self):
+    def test_custom_from_param(self, dll):
         class A(c_byte):
             @classmethod
             def from_param(cls, obj):
@@ -150,7 +138,7 @@ class TestFunctions(BaseCTypesTestChecker):
         assert seen == ["yadda"]
 
     @pytest.mark.xfail(reason="warnings are disabled")
-    def test_warnings(self):
+    def test_warnings(self, dll):
         import warnings
         warnings.simplefilter("always")
         with warnings.catch_warnings(record=True) as w:
@@ -160,7 +148,8 @@ class TestFunctions(BaseCTypesTestChecker):
             assert "C function without declared arguments called" in str(w[0].message)
 
     @pytest.mark.xfail
-    def test_errcheck(self):
+    def test_errcheck(self, dll):
+        import warnings
         def errcheck(result, func, args):
             assert result == -42
             assert type(result) is int
@@ -189,8 +178,7 @@ class TestFunctions(BaseCTypesTestChecker):
 
         warnings.resetwarnings()
 
-
-    def test_errno(self):
+    def test_errno(self, dll):
         test_errno = dll.test_errno
         test_errno.restype = c_int
         set_errno(42)
@@ -200,7 +188,7 @@ class TestFunctions(BaseCTypesTestChecker):
         set_errno(0)
         assert get_errno() == 0
 
-    def test_issue1655(self):
+    def test_issue1655(self, dll):
         def ret_list_p(icount):
             def sz_array_p(obj, func, args):
                 assert ('.LP_c_int object' in repr(obj) or
@@ -208,7 +196,7 @@ class TestFunctions(BaseCTypesTestChecker):
                 assert repr(args) in ("('testing!', c_int(4))",
                                       "('testing!', c_long(4))")
                 assert args[icount].value == 4
-                return [ obj[i] for i in range(args[icount].value) ]
+                return [obj[i] for i in range(args[icount].value)]
             return sz_array_p
 
         get_data_prototype = CFUNCTYPE(POINTER(c_int),
@@ -216,7 +204,7 @@ class TestFunctions(BaseCTypesTestChecker):
         get_data_paramflag = ((1,), (2,))
         get_data_signature = ('test_issue1655', dll)
 
-        get_data = get_data_prototype( get_data_signature, get_data_paramflag )
+        get_data = get_data_prototype(get_data_signature, get_data_paramflag)
         assert get_data('testing!') == 4
 
         get_data.errcheck = ret_list_p(1)

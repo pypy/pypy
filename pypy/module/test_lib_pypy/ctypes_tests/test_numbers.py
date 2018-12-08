@@ -1,26 +1,6 @@
 import pytest
 from ctypes import *
 from .support import BaseCTypesTestChecker
-import sys, struct
-
-def valid_ranges(*types):
-    # given a sequence of numeric types, collect their _type_
-    # attribute, which is a single format character compatible with
-    # the struct module, use the struct module to calculate the
-    # minimum and maximum value allowed for this format.
-    # Returns a list of (min, max) values.
-    result = []
-    for t in types:
-        fmt = t._type_
-        size = struct.calcsize(fmt)
-        a = struct.unpack(fmt, ("\x00"*32)[:size])[0]
-        b = struct.unpack(fmt, ("\xFF"*32)[:size])[0]
-        c = struct.unpack(fmt, ("\x7F"+"\x00"*32)[:size])[0]
-        d = struct.unpack(fmt, ("\x80"+"\xFF"*32)[:size])[0]
-        result.append((min(a, b, c, d), max(a, b, c, d)))
-    return result
-
-ArgType = type(byref(c_int(0)))
 
 unsigned_types = [c_ubyte, c_ushort, c_uint, c_ulong]
 signed_types = [c_byte, c_short, c_int, c_long, c_longlong]
@@ -35,9 +15,6 @@ except NameError:
 else:
     unsigned_types.append(c_ulonglong)
     signed_types.append(c_longlong)
-
-unsigned_ranges = valid_ranges(*unsigned_types)
-signed_ranges = valid_ranges(*signed_types)
 
 ################################################################
 

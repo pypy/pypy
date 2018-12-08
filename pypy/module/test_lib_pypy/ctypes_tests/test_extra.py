@@ -188,10 +188,7 @@ class TestExtra(BaseCTypesTestChecker):
         x = (c_int * 42)()
         assert sizeof(x) == 42 * sizeof(c_int)
 
-    def test_convert_pointers(self):
-        import conftest
-        _ctypes_test = str(conftest.sofile)
-        dll = CDLL(_ctypes_test)
+    def test_convert_pointers(self, dll):
         func = dll._testfunc_p_p
         func.restype = c_char_p
 

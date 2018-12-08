@@ -2,20 +2,15 @@ import pytest
 from ctypes import *
 from .support import BaseCTypesTestChecker
 
-def setup_module(mod):
-    import conftest
-    _ctypes_test = str(conftest.sofile)
-    mod.testdll = CDLL(_ctypes_test)
-
 class TestFuncPrototypes(BaseCTypesTestChecker):
 
-    def test_restype_setattr(self):
-        func = testdll._testfunc_p_p
+    def test_restype_setattr(self, dll):
+        func = dll._testfunc_p_p
         with pytest.raises(TypeError):
             setattr(func, 'restype', 20)
 
-    def test_argtypes_setattr(self):
-        func = testdll._testfunc_p_p
+    def test_argtypes_setattr(self, dll):
+        func = dll._testfunc_p_p
         with pytest.raises(TypeError):
             setattr(func, 'argtypes', 20)
         with pytest.raises(TypeError):
@@ -34,10 +29,10 @@ class TestFuncPrototypes(BaseCTypesTestChecker):
             setattr(func, 'paramflags', ((1,), ('a',)))
         func.paramflags = (1,), (1|4,)
 
-    def test_kwargs(self):
+    def test_kwargs(self, dll):
         proto = CFUNCTYPE(c_char_p, c_char_p, c_int)
         paramflags = (1, 'text', "tavino"), (1, 'letter', ord('v'))
-        func = proto(('my_strchr', testdll), paramflags)
+        func = proto(('my_strchr', dll), paramflags)
         assert func.argtypes == (c_char_p, c_int)
         assert func.restype == c_char_p
 
@@ -63,9 +58,9 @@ class TestFuncPrototypes(BaseCTypesTestChecker):
         assert result == "possible"
 
 class TestArray(BaseCTypesTestChecker):
-    def test_array_to_ptr_wrongtype(self):
+    def test_array_to_ptr_wrongtype(self, dll):
         ARRAY = c_byte * 8
-        func = testdll._testfunc_ai8
+        func = dll._testfunc_ai8
         func.restype = POINTER(c_int)
         func.argtypes = [c_int * 8]
         array = ARRAY(1, 2, 3, 4, 5, 6, 7, 8)

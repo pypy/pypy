@@ -7,10 +7,6 @@ ctype_types = [c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint,
 python_types = [int, int, int, int, int, long,
                 int, long, long, long, float, float]
 
-def setup_module(mod):
-    import conftest
-    mod._ctypes_test = str(conftest.sofile)
-
 class TestPointers(BaseCTypesTestChecker):
 
     def test_get_ffi_argtype(self):
@@ -36,8 +32,7 @@ class TestPointers(BaseCTypesTestChecker):
         assert p2.contents.contents.value == 42
         assert p1.contents.value == 42
 
-    def test_c_char_p_byref(self):
-        dll = CDLL(_ctypes_test)
+    def test_c_char_p_byref(self, dll):
         TwoOutArgs = dll.TwoOutArgs
         TwoOutArgs.restype = None
         TwoOutArgs.argtypes = [c_int, c_void_p, c_int, c_void_p]

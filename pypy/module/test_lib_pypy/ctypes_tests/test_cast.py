@@ -2,15 +2,11 @@ from ctypes import *
 import sys, py
 from .support import BaseCTypesTestChecker
 
-def setup_module(mod):
-    import conftest
-    mod.lib = CDLL(str(conftest.sofile))
-
 class TestCast(BaseCTypesTestChecker):
 
-    def test_cast_functype(self):
+    def test_cast_functype(self, dll):
         # make sure we can cast function type
-        my_sqrt = lib.my_sqrt
+        my_sqrt = dll.my_sqrt
         saved_objects = my_sqrt._objects.copy()
         sqrt = cast(cast(my_sqrt, c_void_p), CFUNCTYPE(c_double, c_double))
         assert sqrt(4.0) == 2.0

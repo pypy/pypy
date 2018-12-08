@@ -145,11 +145,7 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         assert res == 1111
         assert rect.left == -1000   # must not have been changed!
 
-    def test_callback_from_c_with_struct_argument(self):
-        import conftest
-        _ctypes_test = str(conftest.sofile)
-        dll = CDLL(_ctypes_test)
-
+    def test_callback_from_c_with_struct_argument(self, dll):
         class RECT(Structure):
             _fields_ = [("left", c_long), ("top", c_long),
                         ("right", c_long), ("bottom", c_long)]
@@ -177,11 +173,7 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
             proto(lambda r: 0)
 
 
-    def test_qsort(self):
-        import conftest
-        _ctypes_test = str(conftest.sofile)
-        dll = CDLL(_ctypes_test)
-
+    def test_qsort(self, dll):
         PI = POINTER(c_int)
         A = c_int*5
         a = A()
@@ -205,11 +197,7 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
 
         assert res == [1,2,3,4,5]
 
-    def test_pyobject_as_opaque(self):
-        import conftest
-        _ctypes_test = str(conftest.sofile)
-        dll = CDLL(_ctypes_test)
-
+    def test_pyobject_as_opaque(self, dll):
         def callback(arg):
             return arg()
 
@@ -220,11 +208,7 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         res = cfunc(CTP(callback), lambda : 3)
         assert res == 3
 
-    def test_callback_void(self, capsys):
-        import conftest
-        _ctypes_test = str(conftest.sofile)
-        dll = CDLL(_ctypes_test)
-
+    def test_callback_void(self, capsys, dll):
         def callback():
             pass
 
