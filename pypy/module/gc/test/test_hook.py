@@ -26,11 +26,11 @@ class AppTestGcHooks(object):
 
         @unwrap_spec(ObjSpace)
         def fire_many(space):
-            gchooks.fire_gc_minor(5, 0, 0)
-            gchooks.fire_gc_minor(7, 0, 0)
-            gchooks.fire_gc_collect_step(5, 0, 0)
-            gchooks.fire_gc_collect_step(15, 0, 0)
-            gchooks.fire_gc_collect_step(22, 0, 0)
+            gchooks.fire_gc_minor(5.0, 0, 0)
+            gchooks.fire_gc_minor(7.0, 0, 0)
+            gchooks.fire_gc_collect_step(5.0, 0, 0)
+            gchooks.fire_gc_collect_step(15.0, 0, 0)
+            gchooks.fire_gc_collect_step(22.0, 0, 0)
             gchooks.fire_gc_collect(1, 2, 3, 4, 5, 6)
 
         cls.w_fire_gc_minor = space.wrap(interp2app(fire_gc_minor))
