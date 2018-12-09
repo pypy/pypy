@@ -97,8 +97,8 @@ class W_AbstractIntObject(W_Root):
             w_obj = space.call_function(w_inttype, w_obj)
         return w_obj
 
-    @unwrap_spec(nbytes=int, byteorder='text', signed=bool)
-    def descr_to_bytes(self, space, nbytes, byteorder, signed=False):
+    @unwrap_spec(length=int, byteorder='text', signed=bool)
+    def descr_to_bytes(self, space, length, byteorder, signed=False):
         """to_bytes(...)
         int.to_bytes(length, byteorder, *, signed=False) -> bytes
 
@@ -121,7 +121,7 @@ class W_AbstractIntObject(W_Root):
         """
         bigint = space.bigint_w(self)
         try:
-            byte_string = bigint.tobytes(nbytes, byteorder=byteorder,
+            byte_string = bigint.tobytes(length, byteorder=byteorder,
                                          signed=signed)
         except InvalidEndiannessError:
             raise oefmt(space.w_ValueError,

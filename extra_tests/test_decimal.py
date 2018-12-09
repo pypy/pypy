@@ -4,7 +4,7 @@ from hypothesis import example, settings, given, strategies as st
 import pickle
 import sys
 
-from support import import_fresh_module
+from .support import import_fresh_module
 
 C = import_fresh_module('decimal', fresh=['_decimal'])
 P = import_fresh_module('decimal', blocked=['_decimal'])

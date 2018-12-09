@@ -1,6 +1,5 @@
-from pypy.module._rawffi.alt.test.test_funcptr import BaseAppTestFFI
-
-class AppTestFFIType(BaseAppTestFFI):
+class AppTestFFIType(object):
+    spaceconfig = dict(usemodules=('_rawffi',))
 
     def test_simple_types(self):
         from _rawffi.alt import types
@@ -8,7 +7,7 @@ class AppTestFFIType(BaseAppTestFFI):
         assert str(types.uint) == "<ffi type uint>"
         assert types.sint.name == 'sint'
         assert types.uint.name == 'uint'
-        
+
     def test_sizeof(self):
         from _rawffi.alt import types
         assert types.sbyte.sizeof() == 1
@@ -36,4 +35,3 @@ class AppTestFFIType(BaseAppTestFFI):
         assert x is types.char_p
         x = types.Pointer(types.unichar)
         assert x is types.unichar_p
-

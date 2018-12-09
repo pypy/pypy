@@ -279,6 +279,7 @@ class Optimizer(Optimization):
         self.quasi_immutable_deps = None
         self.replaces_guard = {}
         self._newoperations = []
+        self._emittedoperations = {}
         self.optimizer = self
         self.optpure = None
         self.optheap = None
@@ -291,11 +292,6 @@ class Optimizer(Optimization):
 
         self.set_optimizations(optimizations)
         self.setup()
-
-    def init_inparg_dict_from(self, lst):
-        self.inparg_dict = {}
-        for box in lst:
-            self.inparg_dict[box] = None
 
     def set_optimizations(self, optimizations):
         if optimizations:
@@ -384,9 +380,12 @@ class Optimizer(Optimization):
             return info.force_box(op, optforce)
         return op
 
-    def is_inputarg(self, op):
-        return True
-        return op in self.inparg_dict
+    def as_operation(self, op):
+        # You should never check "isinstance(op, AbstractResOp" directly.
+        # Instead, use this helper.
+        if isinstance(op, AbstractResOp) and op in self._emittedoperations:
+            return op
+        return None
 
     def get_constant_box(self, box):
         box = self.get_box_replacement(box)
@@ -404,6 +403,7 @@ class Optimizer(Optimization):
 
     def clear_newoperations(self):
         self._newoperations = []
+        self._emittedoperations = {}
 
     def make_equal_to(self, op, newop):
         op = self.get_box_replacement(op)
@@ -631,6 +631,7 @@ class Optimizer(Optimization):
             self._last_guard_op = None
         self._really_emitted_operation = op
         self._newoperations.append(op)
+        self._emittedoperations[op] = None
 
     def emit_guard_operation(self, op, pendingfields):
         guard_op = op # self.replace_op_with(op, op.getopnum())
@@ -675,6 +676,7 @@ class Optimizer(Optimization):
             return
         newop = self.replace_op_with_no_ovf(op)
         self._newoperations[-1] = newop
+        self._emittedoperations[newop] = None
 
     def replace_op_with_no_ovf(self, op):
         if op.getopnum() == rop.INT_MUL_OVF:
@@ -719,6 +721,7 @@ class Optimizer(Optimization):
         new_descr = new_op.getdescr()
         new_descr.copy_all_attributes_from(old_descr)
         self._newoperations[old_op_pos] = new_op
+        self._emittedoperations[new_op] = None
 
     def store_final_boxes_in_guard(self, op, pendingfields):
         assert pendingfields is not None
