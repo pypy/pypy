@@ -521,11 +521,9 @@ class TestStandalone(StandaloneTests):
         assert path.check(file=0)
 
     def test_debug_start_stop_timestamp(self):
-        import sys
-        import time
         from rpython.rlib.rtimer import read_timestamp
         def entry_point(argv):
-            timestamp = int(argv[1])
+            timestamp = bool(int(argv[1]))
             ts1 = debug_start("foo", timestamp=timestamp)
             ts2 = read_timestamp()
             ts3 = debug_stop("foo", timestamp=timestamp)

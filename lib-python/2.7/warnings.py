@@ -182,6 +182,8 @@ def _getcategory(category):
         module = category[:i]
         klass = category[i+1:]
         try:
+            if not module:
+                raise ImportError   # instead of the ValueError we'd get
             m = __import__(module, None, None, [klass])
         except ImportError:
             raise _OptionError("invalid module name: %r" % (module,))

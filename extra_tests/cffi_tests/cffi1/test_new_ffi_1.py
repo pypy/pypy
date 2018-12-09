@@ -3,8 +3,8 @@ import py
 import platform, imp
 import sys, os, ctypes
 import cffi
-from pypy.module.test_lib_pypy.cffi_tests.udir import udir
-from pypy.module.test_lib_pypy.cffi_tests.support import *
+from extra_tests.cffi_tests.udir import udir
+from extra_tests.cffi_tests.support import *
 from cffi.recompiler import recompile
 from cffi.cffi_opcode import PRIMITIVE_TO_INDEX
 

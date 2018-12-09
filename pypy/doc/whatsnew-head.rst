@@ -55,3 +55,8 @@ Enable use of unicode file names in `dlopen`
 .. branch: rlock-in-rpython
 
 Backport CPython fix for `thread.RLock` 
+
+
+.. branch: expose-gc-time
+
+Make GC hooks measure time in seconds (as opposed to an opaque unit).

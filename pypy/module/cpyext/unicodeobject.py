@@ -371,10 +371,14 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     in the unicode() built-in function.  The codec to be used is looked up
     using the Python codec registry.  Return NULL if an exception was raised by
     the codec."""
+    return _pyunicode_decode(space, rffi.charpsize2str(s, size),
+                             encoding, errors)
+
+def _pyunicode_decode(space, s, encoding, errors):
     if not encoding:
         # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
         encoding = PyUnicode_GetDefaultEncoding(space)
-    w_str = space.newbytes(rffi.charpsize2str(s, size))
+    w_str = space.newbytes(s)
     w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
         w_errors = space.newbytes(rffi.charp2str(errors))
@@ -403,28 +407,12 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
-    if not encoding:
-        raise oefmt(space.w_TypeError, "decoding Unicode is not supported")
-    w_encoding = space.newtext(rffi.charp2str(encoding))
-    if errors:
-        w_errors = space.newtext(rffi.charp2str(errors))
-    else:
-        w_errors = None
-
-    # - unicode is disallowed
-    # - raise TypeError for non-string types
     if space.isinstance_w(w_obj, space.w_unicode):
-        w_meth = None
-    else:
-        try:
-            w_meth = space.getattr(w_obj, space.newtext('decode'))
-        except OperationError as e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            w_meth = None
-    if w_meth is None:
         raise oefmt(space.w_TypeError, "decoding Unicode is not supported")
-    return space.call_function(w_meth, w_encoding, w_errors)
+    if space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
+        raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
+    s = space.bufferstr_w(w_obj)
+    return _pyunicode_decode(space, s, encoding, errors)
 
 @cpython_api([CONST_STRING], PyObject)
 def PyUnicode_FromString(space, s):
