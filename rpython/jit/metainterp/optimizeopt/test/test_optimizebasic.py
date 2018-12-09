@@ -4017,7 +4017,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p3, i2, i0)
         i5 = int_add(i2, 1)
         strsetitem(p3, i5, i1)
-        ifoo = int_add(i5, 1)
         jump(i1, i0, p3)
         """
         self.optimize_strunicode_loop(ops, expected)
