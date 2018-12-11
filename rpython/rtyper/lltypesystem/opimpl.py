@@ -376,7 +376,7 @@ def op_ulllong_rshift(x, y):
     assert isinstance(x, r_ulonglonglong)
     assert is_valid_int(y)
     return r_ulonglonglong(x >> y)
-    
+
 def op_same_as(x):
     return x
 

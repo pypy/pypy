@@ -234,7 +234,7 @@ class AppTestLong:
         q, r = divmod(100L, 11)
         assert q == 9L
         assert r == 1L
-        
+
     def test_format(self):
         assert repr(12345678901234567890) == '12345678901234567890L'
         assert str(12345678901234567890) == '12345678901234567890'

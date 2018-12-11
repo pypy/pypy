@@ -482,7 +482,7 @@ def ll_ulllong_py_div_zer(x, y):
     if y == 0:
         raise ZeroDivisionError("unsigned longlonglong division")
     return ll_ulllong_py_div(x, y)
-    
+
 # ---------- mod ----------
 
 @jit.oopspec("int.py_mod(x, y)")
@@ -562,7 +562,7 @@ def ll_lllong_py_mod_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
     return ll_lllong_py_mod(x, y)
-    
+
 @jit.dont_look_inside
 def ll_ulllong_py_mod(x, y):
     return llop.ulllong_mod(UnsignedLongLongLong, x, y)

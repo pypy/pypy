@@ -647,24 +647,22 @@ class Test_rbigint(object):
                 num = (x << y) + x
                 f1 = rbigint.fromlong(num)
                 nf1 = rbigint.fromlong(-num)
-                
+
                 for z in range(1, 31):
-                    res1 = f1.lqshift(z).tolong() 
-                    res2 = f1.rqshift(z).tolong() 
-                    res3 = nf1.lqshift(z).tolong() 
-                     
-                    
+                    res1 = f1.lqshift(z).tolong()
+                    res2 = f1.rqshift(z).tolong()
+                    res3 = nf1.lqshift(z).tolong()
+
                     assert res1 == num << z
                     assert res2 == num >> z
                     assert res3 == -num << z
-                    
-                    
+
         # Large digit
         for x in range((1 << SHIFT) - 10, (1 << SHIFT) + 10):
             f1 = rbigint.fromlong(x)
-            assert f1.rqshift(SHIFT).tolong() == x >> SHIFT 
+            assert f1.rqshift(SHIFT).tolong() == x >> SHIFT
             assert f1.rqshift(SHIFT+1).tolong() == x >> (SHIFT+1)
-                    
+
     def test_from_list_n_bits(self):
         for x in ([3L ** 30L, 5L ** 20L, 7 ** 300] +
                   [1L << i for i in range(130)] +

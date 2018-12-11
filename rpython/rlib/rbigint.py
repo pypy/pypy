@@ -598,7 +598,7 @@ class rbigint(object):
 
         if not int_in_valid_range(other):
             # Fallback to Long.
-            return self.lt(rbigint.fromint(other))
+            return self.le(rbigint.fromint(other))
 
         return _x_int_lt(self, other, True)
 
@@ -1199,7 +1199,7 @@ class rbigint(object):
 
         z._normalize()
         return z
-    lshift._always_inline_ = True # It's so fast that it's always benefitial.
+    lshift._always_inline_ = True # It's so fast that it's always beneficial.
 
     @jit.elidable
     def lqshift(self, int_other):
@@ -1219,7 +1219,7 @@ class rbigint(object):
         z.setdigit(oldsize, accum)
         z._normalize()
         return z
-    lqshift._always_inline_ = True # It's so fast that it's always benefitial.
+    lqshift._always_inline_ = True # It's so fast that it's always beneficial.
 
     @jit.elidable
     def rshift(self, int_other, dont_invert=False):
@@ -1262,7 +1262,7 @@ class rbigint(object):
             z.setdigit(0, z.digit(0)+1)
         z._normalize()
         return z
-    rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
+    rshift._always_inline_ = 'try' # It's so fast that it's always beneficial.
 
     @jit.elidable
     def rqshift(self, int_other):
@@ -1287,7 +1287,7 @@ class rbigint(object):
             wordshift += 1
         z._normalize()
         return z
-    rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
+    rshift._always_inline_ = 'try' # It's so fast that it's always beneficial.
 
     @jit.elidable
     def abs_rshift_and_mask(self, bigshiftcount, mask):

@@ -343,7 +343,7 @@ LL_OPERATIONS = {
     'ulllong_lshift':         LLOp(canfold=True),  # args (r_ulonglonglong, int)
     'ulllong_rshift':         LLOp(canfold=True),  # args (r_ulonglonglong, int)
     'ulllong_xor':            LLOp(canfold=True),
-    
+
     'cast_primitive':       LLOp(canfold=True),
     'cast_bool_to_int':     LLOp(canfold=True),
     'cast_bool_to_uint':    LLOp(canfold=True),

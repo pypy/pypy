@@ -442,6 +442,8 @@ class W_LongObject(W_AbstractLongObject):
         return descr_binop, descr_rbinop
 
     descr_add, descr_radd = _make_generic_descr_binop('add')
+
+    # XXX should support fast int version of rsub
     descr_sub, descr_rsub = _make_generic_descr_binop_noncommutative('sub')
     descr_mul, descr_rmul = _make_generic_descr_binop('mul')
     descr_and, descr_rand = _make_generic_descr_binop('and')
@@ -481,10 +483,10 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_OverflowError, "shift count too large")
         return W_LongObject(self.num.lshift(shift))
 
-    def _int_lshift(self, space, w_other):
-        if w_other < 0:
+    def _int_lshift(self, space, other):
+        if other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
-        return W_LongObject(self.num.lshift(w_other))
+        return W_LongObject(self.num.lshift(other))
 
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift, _int_lshift)
 
@@ -497,11 +499,11 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_OverflowError, "shift count too large")
         return newlong(space, self.num.rshift(shift))
 
-    def _int_rshift(self, space, w_other):
-        if w_other < 0:
+    def _int_rshift(self, space, other):
+        if other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
 
-        return newlong(space, self.num.rshift(w_other))
+        return newlong(space, self.num.rshift(other))
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, _int_rshift)
 
     def _floordiv(self, space, w_other):
@@ -512,9 +514,9 @@ class W_LongObject(W_AbstractLongObject):
                         "long division or modulo by zero")
         return newlong(space, z)
 
-    def _int_floordiv(self, space, w_other):
+    def _int_floordiv(self, space, other):
         try:
-            z = self.num.int_floordiv(w_other)
+            z = self.num.int_floordiv(other)
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
@@ -533,9 +535,9 @@ class W_LongObject(W_AbstractLongObject):
                         "long division or modulo by zero")
         return newlong(space, z)
 
-    def _int_mod(self, space, w_other):
+    def _int_mod(self, space, other):
         try:
-            z = self.num.int_mod(w_other)
+            z = self.num.int_mod(other)
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
@@ -549,15 +551,15 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
         return space.newtuple([newlong(space, div), newlong(space, mod)])
-        
-    def _int_divmod(self, space, w_other):
+
+    def _int_divmod(self, space, other):
         try:
-            div, mod = self.num.int_divmod(w_other)
+            div, mod = self.num.int_divmod(other)
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
         return space.newtuple([newlong(space, div), newlong(space, mod)])
-        
+
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod, _int_divmod)
 
 
