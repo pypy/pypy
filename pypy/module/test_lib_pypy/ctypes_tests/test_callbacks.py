@@ -5,10 +5,6 @@ from .support import BaseCTypesTestChecker
 class TestCallbacks(BaseCTypesTestChecker):
     functype = CFUNCTYPE
 
-##    def tearDown(self):
-##        import gc
-##        gc.collect()
-
     def callback(self, *args):
         self.got_args = args
         return args[-1]
