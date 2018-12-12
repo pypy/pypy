@@ -391,26 +391,17 @@ class W_LongObject(W_AbstractLongObject):
     descr_gt = _make_descr_cmp('gt')
     descr_ge = _make_descr_cmp('ge')
 
-    def _make_generic_descr_binop_noncommutative(opname):
-        methname = opname + '_' if opname in ('and', 'or') else opname
-        descr_rname = 'descr_r' + opname
-        op = getattr(rbigint, methname)
-        intop = getattr(rbigint, 'int_' + methname)
+    def descr_sub(self, space, w_other):
+        if isinstance(w_other, W_AbstractIntObject):
+            return W_LongObject(self.num.int_sub(w_other.int_w(space)))
+        elif not isinstance(w_other, W_AbstractLongObject):
+            return space.w_NotImplemented
+        return W_LongObject(self.num.sub(w_other.asbigint()))
 
-        @func_renamer('descr_' + opname)
-        def descr_binop(self, space, w_other):
-            if isinstance(w_other, W_AbstractIntObject):
-                return W_LongObject(intop(self.num, w_other.int_w(space)))
-            elif not isinstance(w_other, W_AbstractLongObject):
-                return space.w_NotImplemented
-            return W_LongObject(op(self.num, w_other.asbigint()))
-
-        @func_renamer(descr_rname)
-        @delegate_other
-        def descr_rbinop(self, space, w_other):
-            return W_LongObject(op(w_other.asbigint(), self.num))
-
-        return descr_binop, descr_rbinop
+    @delegate_other
+    def descr_rsub(self, space, w_other):
+        # XXX should support fast int?
+        return W_LongObject(w_other.asbigint().sub(self.num))
 
     def _make_generic_descr_binop(opname):
         if opname not in COMMUTATIVE_OPS:
@@ -443,8 +434,6 @@ class W_LongObject(W_AbstractLongObject):
 
     descr_add, descr_radd = _make_generic_descr_binop('add')
 
-    # XXX should support fast int version of rsub
-    descr_sub, descr_rsub = _make_generic_descr_binop_noncommutative('sub')
     descr_mul, descr_rmul = _make_generic_descr_binop('mul')
     descr_and, descr_rand = _make_generic_descr_binop('and')
     descr_or, descr_ror = _make_generic_descr_binop('or')
