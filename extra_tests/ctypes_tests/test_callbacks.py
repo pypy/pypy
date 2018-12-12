@@ -44,8 +44,8 @@ unwrapped_types = {
     (c_float, -math.e),
     (c_double, 3.14),
     (c_double, -3.14),
-    (c_char, "x"),
-    (c_char, "a"),
+    (c_char, b"x"),
+    (c_char, b"a"),
 ])
 @pytest.mark.parametrize('functype', functypes)
 def test_types(typ, arg, functype):

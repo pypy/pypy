@@ -22,8 +22,8 @@ def test_fields_is_a_tuple():
                     ("age", c_int))
 
     # short enough
-    p = Person("123456", 6)
-    assert p.name == "123456"
+    p = Person(b"123456", 6)
+    assert p.name == b"123456"
     assert p.age == 6
 
 def test___init__():
@@ -32,11 +32,11 @@ def test___init__():
                     ("age", c_int))
 
         def __init__(self, name, surname, age):
-            self.name = name + ' ' + surname
+            self.name = name + b' ' + surname
             self.age = age
 
-    p = Person("John", "Doe", 25)
-    assert p.name == "John Doe"
+    p = Person(b"John", b"Doe", 25)
+    assert p.name == b"John Doe"
     assert p.age == 25
 
 def test_setattr():

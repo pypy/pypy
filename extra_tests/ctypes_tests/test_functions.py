@@ -12,7 +12,7 @@ def test_char_result(dll):
     f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
     f.restype = c_char
     result = f(0, 0, 0, 0, 0, 0)
-    assert result == '\x00'
+    assert result == b'\x00'
 
 def test_boolresult(dll):
     f = dll._testfunc_i_bhilfd
@@ -43,10 +43,10 @@ def test_convert_pointers(dll):
     f.restype = c_char
     f.argtypes = [POINTER(c_char_p)]
     #
-    s = c_char_p('hello world')
+    s = c_char_p(b'hello world')
     ps = pointer(s)
-    assert f(ps) == 'h'
-    assert f(s) == 'h'  # automatic conversion from char** to char*
+    assert f(ps) == b'h'
+    assert f(s) == b'h'  # automatic conversion from char** to char*
 
 ################################################################
 
@@ -54,8 +54,8 @@ def test_call_some_args(dll):
     f = dll.my_strchr
     f.argtypes = [c_char_p]
     f.restype = c_char_p
-    result = f("abcd", ord("b"))
-    assert result == "bcd"
+    result = f(b"abcd", ord("b"))
+    assert result == b"bcd"
 
 @pytest.mark.pypy_only
 def test_keepalive_buffers(monkeypatch, dll):
@@ -72,8 +72,8 @@ def test_keepalive_buffers(monkeypatch, dll):
         return orig__call_funcptr(funcptr, *newargs)
     monkeypatch.setattr(f, '_call_funcptr', _call_funcptr)
     #
-    result = f("abcd", ord("b"))
-    assert result == "bcd"
+    result = f(b"abcd", ord("b"))
+    assert result == b"bcd"
 
 def test_caching_bug_1(dll):
     # the same test as test_call_some_args, with two extra lines
@@ -82,17 +82,17 @@ def test_caching_bug_1(dll):
     f = dll.my_strchr
     f.argtypes = [c_char_p, c_int]
     f.restype = c_char_p
-    result = f("abcd", ord("b"))
-    assert result == "bcd"
-    result = f("abcd", ord("b"), 42)
-    assert result == "bcd"
+    result = f(b"abcd", ord("b"))
+    assert result == b"bcd"
+    result = f(b"abcd", ord("b"), 42)
+    assert result == b"bcd"
 
 def test_argument_conversion_and_checks(dll):
     #This test is designed to check for segfaults if the wrong type of argument is passed as parameter
     strlen = dll.my_strchr
     strlen.argtypes = [c_char_p, c_int]
     strlen.restype = c_char_p
-    assert strlen("eggs", ord("g")) == "ggs"
+    assert strlen(b"eggs", ord("g")) == b"ggs"
 
     # Should raise ArgumentError, not segfault
     with pytest.raises(ArgumentError):
@@ -205,10 +205,10 @@ def test_issue1655(dll):
     get_data_signature = ('test_issue1655', dll)
 
     get_data = get_data_prototype(get_data_signature, get_data_paramflag)
-    assert get_data('testing!') == 4
+    assert get_data(b'testing!') == 4
 
     get_data.errcheck = ret_list_p(1)
-    assert get_data('testing!') == [-1, -2, -3, -4]
+    assert get_data(b'testing!') == [-1, -2, -3, -4]
 
 def test_issue2533(tmpdir):
     import cffi

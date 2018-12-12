@@ -101,12 +101,12 @@ def test_pointer_setitem():
     p = pointer(x)
     assert p._objects == {'1':x}
     p[0] = y
-    assert p._objects.keys() == ['1']
+    assert list(p._objects.keys()) == ['1']
     assert p._objects['1'].value == 3
 
 @pytest.mark.pypy_only
 def test_primitive():
-    assert c_char_p("abc")._objects._buffer[0] == "a"
+    assert c_char_p(b"abc")._objects._buffer[0] == b"a"
     assert c_int(3)._objects is None
 
 def test_pointer_to_pointer():
@@ -222,13 +222,12 @@ def test_union_within_union():
 
 def test_c_char_p():
     n = 2
-    xs = "hello" * n
+    xs = b"hello" * n
     x = c_char_p(xs)
     del xs
     import gc; gc.collect()
-    print 'x =', repr(x)
-    assert x.value == 'hellohello'
-    assert x._objects == 'hellohello'
+    assert x.value == b'hellohello'
+    assert x._objects == b'hellohello'
     #
     class datum(Structure):
         _fields_ = [
@@ -242,7 +241,7 @@ def test_c_char_p():
         ]
     for wrap in [False, True]:
         n = 2
-        xs = "hello" * n
+        xs = b"hello" * n
         if wrap:
             xs = c_char_p(xs)
         dat = datum()
@@ -250,19 +249,15 @@ def test_c_char_p():
         dat.dsize = 15
         del xs
         import gc; gc.collect()
-        print 'dat.dptr =', repr(dat.dptr)
-        print 'dat._objects =', repr(dat._objects)
-        assert dat.dptr == "hellohello"
-        assert dat._objects.keys() == ['0']
+        assert dat.dptr == b"hellohello"
+        assert list(dat._objects.keys()) == ['0']
 
-        xs = "hello" * n
+        xs = b"hello" * n
         if wrap:
             xs = c_char_p(xs)
         dat = union()
         dat.dptr = xs
         del xs
         import gc; gc.collect()
-        print 'dat.dptr =', repr(dat.dptr)
-        print 'dat._objects =', repr(dat._objects)
-        assert dat.dptr == "hellohello"
-        assert dat._objects.keys() == ['0']
+        assert dat.dptr == b"hellohello"
+        assert list(dat._objects.keys()) == ['0']

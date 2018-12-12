@@ -54,20 +54,20 @@ def test_primitive_pointer():
 
 
 def test_char_p():
-    x = c_char_p("hello\x00world")
-    assert x.value == "hello"
-    x.value = "world"
-    assert x.value == "world"
+    x = c_char_p(b"hello\x00world")
+    assert x.value == b"hello"
+    x.value = b"world"
+    assert x.value == b"world"
 
     p = pointer(x)
-    assert p[0] == x.value == "world"
-    p[0] = "other"
-    assert x.value == p.contents.value == p[0] == "other"
+    assert p[0] == x.value == b"world"
+    p[0] = b"other"
+    assert x.value == p.contents.value == p[0] == b"other"
 
     myarray = (c_char_p * 10)()
-    myarray[7] = "hello"
+    myarray[7] = b"hello"
     assert isinstance(myarray[7], str)
-    assert myarray[7] == "hello"
+    assert myarray[7] == b"hello"
 
 def test_struct():
     class tagpoint(Structure):
@@ -113,33 +113,33 @@ def test_void_p():
 
 def test_char_array():
     a = (c_char * 3)()
-    a[0] = 'x'
-    a[1] = 'y'
-    assert a.value == 'xy'
-    a[2] = 'z'
-    assert a.value == 'xyz'
+    a[0] = b'x'
+    a[1] = b'y'
+    assert a.value == b'xy'
+    a[2] = b'z'
+    assert a.value == b'xyz'
 
     b = create_string_buffer(3)
     assert type(b) is type(a)
     assert len(b) == 3
 
-    b.value = "nxw"
-    assert b[0] == 'n'
-    assert b[1] == 'x'
-    assert b[2] == 'w'
+    b.value = b"nxw"
+    assert b[0] == b'n'
+    assert b[1] == b'x'
+    assert b[2] == b'w'
 
-    b.value = "?"
-    assert b[0] == '?'
-    assert b[1] == '\x00'
-    assert b[2] == 'w'
+    b.value = b"?"
+    assert b[0] == b'?'
+    assert b[1] == b'\x00'
+    assert b[2] == b'w'
 
     class S(Structure):
         _fields_ = [('p', POINTER(c_char))]
 
     s = S()
     s.p = b
-    s.p.contents.value = '!'
-    assert b.value == '!'
+    s.p.contents.value = b'!'
+    assert b.value == b'!'
 
     assert len(create_string_buffer(0)) == 0
 
@@ -168,7 +168,7 @@ def test_truth_value():
     assert not c_int(0)    # a bit strange, if you ask me
     assert c_int(-1)
     assert not c_byte(0)
-    assert not c_char('\x00')   # hum
+    assert not c_char(b'\x00')   # hum
     assert not c_float(0.0)
     assert not c_double(0.0)
     assert not c_ulonglong(0)
@@ -192,18 +192,18 @@ def test_convert_pointers(dll):
 
     # automatic conversions to c_char_p
     func.argtypes = [c_char_p]
-    assert func("hello") == "hello"
-    assert func(c_char_p("hello")) == "hello"
-    assert func((c_char * 6)(*"hello")) == "hello"
-    assert func(create_string_buffer("hello")) == "hello"
+    assert func(b"hello") == b"hello"
+    assert func(c_char_p(b"hello")) == b"hello"
+    assert func((c_char * 6)(*b"hello")) == b"hello"
+    assert func(create_string_buffer(b"hello")) == b"hello"
 
     # automatic conversions to c_void_p
     func.argtypes = [c_void_p]
-    assert func("hello") == "hello"
-    assert func(c_char_p("hello")) == "hello"
-    assert func((c_char * 6)(*"hello")) == "hello"
-    assert func((c_byte * 6)(104,101,108,108,111)) =="hello"
-    assert func(create_string_buffer("hello")) == "hello"
+    assert func(b"hello") == b"hello"
+    assert func(c_char_p(b"hello")) == b"hello"
+    assert func((c_char * 6)(*b"hello")) == b"hello"
+    assert func((c_byte * 6)(104,101,108,108,111)) ==b"hello"
+    assert func(create_string_buffer(b"hello")) == b"hello"
 
 def test_varsize_cast():
     import struct

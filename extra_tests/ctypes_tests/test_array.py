@@ -2,7 +2,7 @@ import pytest
 from ctypes import *
 
 def test_slice():
-    values = range(5)
+    values = list(range(5))
     numarray = c_int * 5
 
     na = numarray(*(c_int(x) for x in values))
@@ -14,7 +14,7 @@ def test_slice():
 def test_init_again():
     sz = (c_char * 3)()
     addr1 = addressof(sz)
-    sz.__init__(*"foo")
+    sz.__init__(*b"foo")
     addr2 = addressof(sz)
     assert addr1 == addr2
 
@@ -33,18 +33,18 @@ def test_output_simple():
     A = c_char * 10
     TP = POINTER(A)
     x = TP(A())
-    assert x[0] != ''
+    assert x[0] != b''
 
     A = c_wchar * 10
     TP = POINTER(A)
     x = TP(A())
-    assert x[0] != ''
+    assert x[0] != b''
 
 def test_output_simple_array():
     A = c_char * 10
     AA = A * 10
     aa = AA()
-    assert aa[0] != ''
+    assert aa[0] != b''
 
 def test_output_complex_test():
     class Car(Structure):
@@ -52,13 +52,13 @@ def test_output_complex_test():
                     ("speed", c_float),
                     ("owner", c_char * 10)]
 
-    assert isinstance(Car("abcdefghi", 42.0, "12345").brand, bytes)
-    assert Car("abcdefghi", 42.0, "12345").brand == "abcdefghi"
-    assert Car("abcdefghio", 42.0, "12345").brand == "abcdefghio"
+    assert isinstance(Car(b"abcdefghi", 42.0, b"12345").brand, bytes)
+    assert Car(b"abcdefghi", 42.0, b"12345").brand == b"abcdefghi"
+    assert Car(b"abcdefghio", 42.0, b"12345").brand == b"abcdefghio"
     with pytest.raises(ValueError):
-        Car("abcdefghiop", 42.0, "12345")
+        Car(b"abcdefghiop", 42.0, b"12345")
 
     A = Car._fields_[2][1]
     TP = POINTER(A)
     x = TP(A())
-    assert x[0] != ''
+    assert x[0] != b''

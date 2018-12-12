@@ -29,31 +29,31 @@ def test_paramflags_setattr():
 
 def test_kwargs(dll):
     proto = CFUNCTYPE(c_char_p, c_char_p, c_int)
-    paramflags = (1, 'text', "tavino"), (1, 'letter', ord('v'))
+    paramflags = (1, 'text', b"tavino"), (1, 'letter', ord('v'))
     func = proto(('my_strchr', dll), paramflags)
     assert func.argtypes == (c_char_p, c_int)
     assert func.restype == c_char_p
 
-    result = func("abcd", ord('b'))
-    assert result == "bcd"
+    result = func(b"abcd", ord('b'))
+    assert result == b"bcd"
 
     result = func()
-    assert result == "vino"
+    assert result == b"vino"
 
-    result = func("grapevine")
-    assert result == "vine"
+    result = func(b"grapevine")
+    assert result == b"vine"
 
-    result = func(text="grapevine")
-    assert result == "vine"
+    result = func(text=b"grapevine")
+    assert result == b"vine"
 
     result = func(letter=ord('i'))
-    assert result == "ino"
+    assert result == b"ino"
 
-    result = func(letter=ord('p'), text="impossible")
-    assert result == "possible"
+    result = func(letter=ord('p'), text=b"impossible")
+    assert result == b"possible"
 
-    result = func(text="impossible", letter=ord('p'))
-    assert result == "possible"
+    result = func(text=b"impossible", letter=ord('p'))
+    assert result == b"possible"
 
 def test_array_to_ptr_wrongtype(dll):
     ARRAY = c_byte * 8

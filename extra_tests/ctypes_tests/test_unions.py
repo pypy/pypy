@@ -8,9 +8,9 @@ def test_getattr():
     stuff = Stuff()
     stuff.y = ord('x') | (ord('z') << 24)
     if sys.byteorder == 'little':
-        assert stuff.x == 'x'
+        assert stuff.x == b'x'
     else:
-        assert stuff.x == 'z'
+        assert stuff.x == b'z'
 
 def test_union_of_structures():
     class Stuff(Structure):
