@@ -189,36 +189,43 @@ class TestRLong(object):
 
     def test_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
+            rl_op1 = rbigint.fromlong(op1)
             for op2 in [0, 1, 2, 8, 9, 10, 11]:
-                rl_op1 = rbigint.fromlong(op1)
                 rl_op2 = rbigint.fromint(op2)
                 r1 = rl_op1.pow(rl_op2)
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
 
-                r3 = rl_op1.int_pow(op2, rbigint.fromint(1000))
-                r4 = pow(op1, op2, 1000)
-                print op1, op2
-                assert r3.tolong() == r4
+                for op3 in gen_signs([1, 2, 5, 1000, 12312312312312235659969696l]):
+                    if not op3:
+                        continue
+                    print op1, op2, op3
+                    r3 = rl_op1.pow(rl_op2, rbigint.fromlong(op3))
+                    r4 = pow(op1, op2, op3)
+                    assert r3.tolong() == r4
 
     def test_int_pow(self):
-        for op1 in gen_signs(long_vals_not_too_big[:-2]):
-            for op2 in [0, 1, 2, 8, 9, 10, 11]:
-                rl_op1 = rbigint.fromlong(op1)
+        for op1 in gen_signs(long_vals_not_too_big):
+            rl_op1 = rbigint.fromlong(op1)
+            for op2 in [0, 1, 2, 8, 9, 10, 11, 127, 128, 129]:
                 r1 = rl_op1.int_pow(op2)
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
 
-                r3 = rl_op1.int_pow(op2, rbigint.fromint(1000))
-                r4 = pow(op1, op2, 1000)
-                print op1, op2
-                assert r3.tolong() == r4
+                for op3 in gen_signs(long_vals_not_too_big):
+                    if not op3:
+                        continue
+                    r3 = rl_op1.int_pow(op2, rbigint.fromlong(op3))
+                    r4 = pow(op1, op2, op3)
+                    print op1, op2, op3
+                    assert r3.tolong() == r4
 
     def test_pow_raises(self):
         r1 = rbigint.fromint(2)
         r0 = rbigint.fromint(0)
         py.test.raises(ValueError, r1.int_pow, 2, r0)
         py.test.raises(ValueError, r1.pow, r1, r0)
+
     def test_touint(self):
         result = r_uint(sys.maxint + 42)
         rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))
@@ -865,7 +872,7 @@ class TestInternalFunctions(object):
             y += randint(1, 1 << 60)
             if y > x:
                 x <<= 100
-                
+
             f1 = rbigint.fromlong(x)
             f2 = rbigint.fromlong(y)
             div, rem = lobj._x_divrem(f1, f2)
