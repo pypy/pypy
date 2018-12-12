@@ -841,6 +841,7 @@ class TestInternalFunctions(object):
             f1 = rbigint.fromlong(x)
             f2 = y
             remainder = lobj._inplace_divrem1(f1, f1, f2)
+            f1._normalize()
             assert (f1.tolong(), remainder) == divmod(x, y)
         out = bigint([99, 99], 1)
         remainder = lobj._inplace_divrem1(out, out, 100)
@@ -924,8 +925,11 @@ class TestInternalFunctions(object):
                         continue
                     f1 = rbigint.fromlong(sx)
                     div, rem = f1.int_divmod(sy)
+                    div1, rem1 = f1.divmod(rbigint.fromlong(sy))
                     _div, _rem = divmod(sx, sy)
                     print sx, sy, " | ", div.tolong(), rem.tolong()
+                    assert div1.tolong() == _div
+                    assert rem1.tolong() == _rem
                     assert div.tolong() == _div
                     assert rem.tolong() == _rem
 

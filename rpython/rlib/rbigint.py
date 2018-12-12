@@ -156,7 +156,7 @@ class rbigint(object):
 
         self.sign = sign
 
-    # __eq__ and __ne__ method exist for testingl only, they are not RPython!
+    # __eq__ and __ne__ method exist for testing only, they are not RPython!
     @not_rpython
     def __eq__(self, other):
         if not isinstance(other, rbigint):
@@ -912,7 +912,11 @@ class rbigint(object):
         assert digit > 0
 
         div, mod = _divrem1(v, digit)
-        div.sign = v.sign * wsign
+        # _divrem1 doesn't fix the sign
+        if div.size == 1 and div._digits[0] == NULLDIGIT:
+            div.sign = 0
+        else:
+            div.sign = v.sign * wsign
         if v.sign < 0:
             mod = -mod
         if mod and v.sign * wsign == -1:
@@ -1394,7 +1398,10 @@ class rbigint(object):
         for d in digits:
             l = l << SHIFT
             l += intmask(d)
-        return l * self.sign
+        result = l * self.sign
+        if result == 0:
+            assert self.sign == 0
+        return result
 
     def _normalize(self):
         i = self.numdigits()

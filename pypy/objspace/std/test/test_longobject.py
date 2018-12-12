@@ -51,8 +51,9 @@ class AppTestLong:
         assert x + 2 + 3L + True == -14L
 
     def test_sub(self):
-        x = 58543L
-        assert int(x - 12332L) == 58543 - 12332
+        assert int(58543L - 12332L) == 58543 - 12332
+        assert int(58543L - 12332) == 58543 - 12332
+        assert int(58543 - 12332L) == 58543 - 12332
         x = 237123838281233L
         assert x * 12 == x * 12L
 
@@ -231,8 +232,8 @@ class AppTestLong:
             q, r = divmod(x, y)
             pab, pba = x*y, y*x
             assert pab == pba
-            assert q == x//y
-            assert r == x%y
+            assert q == x // y
+            assert r == x % y
             assert x == q*y + r
             if y > 0:
                 assert 0 <= r < y
@@ -242,6 +243,8 @@ class AppTestLong:
             for y in [-105566530L, -1L, 1L, 1034522340L]:
                 print "checking division for %s, %s" % (x, y)
                 check_division(x, y)
+                check_division(x, int(y))
+                check_division(int(x), y)
         # special case from python tests:
         s1 = 33
         s2 = 2
