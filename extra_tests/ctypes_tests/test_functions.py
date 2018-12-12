@@ -57,6 +57,7 @@ def test_call_some_args(dll):
     result = f("abcd", ord("b"))
     assert result == "bcd"
 
+@pytest.mark.pypy_only
 def test_keepalive_buffers(monkeypatch, dll):
     import gc
     f = dll.my_strchr
@@ -111,6 +112,7 @@ def test_union_as_passed_value(dll):
     u = dll.ret_un_func(a[1])
     assert u.y == 33 * 10000
 
+@pytest.mark.pypy_only
 def test_cache_funcptr(dll):
     tf_b = dll.tf_b
     tf_b.restype = c_byte

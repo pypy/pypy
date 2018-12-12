@@ -1,6 +1,7 @@
 import pytest
 from ctypes import *
 
+@pytest.mark.pypy_only
 def test_nested():
     class ANON_S(Structure):
         _fields_ = [("a", c_int)]

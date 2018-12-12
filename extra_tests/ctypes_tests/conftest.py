@@ -3,10 +3,6 @@ import pytest
 import sys
 import os
 
-def pytest_ignore_collect(path):
-    if '__pypy__' not in sys.builtin_module_names:
-        return True
-
 # XXX: copied from pypy/tool/cpyext/extbuild.py
 if os.name != 'nt':
     so_ext = 'so'

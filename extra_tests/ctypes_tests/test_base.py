@@ -1,6 +1,7 @@
+import pytest
 from ctypes import *
 
-# WhiteBoxTests
+pytestmark = pytest.mark.pypy_only
 
 def test_pointer():
     p = pointer(pointer(c_int(2)))

@@ -104,7 +104,7 @@ def test_pointer_setitem():
     assert p._objects.keys() == ['1']
     assert p._objects['1'].value == 3
 
-@pytest.mark.skipif("'__pypy__' not in sys.builtin_module_names")
+@pytest.mark.pypy_only
 def test_primitive():
     assert c_char_p("abc")._objects._buffer[0] == "a"
     assert c_int(3)._objects is None

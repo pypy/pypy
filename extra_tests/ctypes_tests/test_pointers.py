@@ -1,6 +1,7 @@
 import pytest
 from ctypes import *
 
+@pytest.mark.pypy_only
 def test_get_ffi_argtype():
     P = POINTER(c_int)
     ffitype = P.get_ffi_argtype()
@@ -61,6 +62,7 @@ def test_byref_with_offset():
     for i in [0, 1, 4, 1444, -10293]:
         assert cast(byref(c, i), c_void_p).value == base + i
 
+@pytest.mark.pypy_only
 def test_issue2813_fix():
     class C(Structure):
         pass
@@ -70,6 +72,7 @@ def test_issue2813_fix():
     assert C.get_ffi_argtype() is ffitype
     assert ffitype.sizeof() == sizeof(c_int)
 
+@pytest.mark.pypy_only
 def test_issue2813_cant_change_fields_after_get_ffi_argtype():
     class C(Structure):
         pass
