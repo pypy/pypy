@@ -6,6 +6,7 @@ import math
 from random import random, randint, sample, seed
 
 import py
+import pytest
 
 from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
@@ -16,6 +17,10 @@ from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
 
 from hypothesis import given, strategies
+
+longs = strategies.builds(
+    long, strategies.integers())
+ints = strategies.integers(-sys.maxint-1, sys.maxint)
 
 def gen_signs(l):
     for s in l:
@@ -95,7 +100,7 @@ class TestRLong(object):
                 r2 = op1 // op2
                 assert r1.tolong() == r2
 
-        assert py.test.raises(ZeroDivisionError, r.int_floordiv, 0)
+        assert pytest.raises(ZeroDivisionError, r.int_floordiv, 0)
 
         # Error pointed out by Armin Rigo
         n = sys.maxint+1
@@ -566,20 +571,6 @@ class Test_rbigint(object):
         f1, f2, f3 = [rbigint.fromlong(i)
                       for i in (10L, 5L, 0L)]
         py.test.raises(ValueError, f1.pow, f2, f3)
-        #
-        MAX = 1E20
-        x = long(random() * MAX) + 1
-        y = long(random() * MAX) + 1
-        z = long(random() * MAX) + 1
-        f1 = rbigint.fromlong(x)
-        f2 = rbigint.fromlong(y)
-        f3 = rbigint.fromlong(z)
-        print f1
-        print f2
-        print f3
-        v = f1.pow(f2, f3)
-        print '--->', v
-        assert v.tolong() == pow(x, y, z)
 
     def test_pow_lll_bug(self):
         two = rbigint.fromint(2)
@@ -759,19 +750,12 @@ class Test_rbigint(object):
     def test_hash(self):
         for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
                   sys.maxint-3, sys.maxint-2, sys.maxint-1, sys.maxint,
-                  ] + [randint(0, sys.maxint) for _ in range(100)]:
+                  ]:
             # hash of machine-sized integers
             assert rbigint.fromint(i).hash() == i
             # hash of negative machine-sized integers
             assert rbigint.fromint(-i-1).hash() == -i-1
         #
-        for i in range(200):
-            # hash of large integers: should be equal to the hash of the
-            # integer reduced modulo 2**64-1, to make decimal.py happy
-            x = randint(0, sys.maxint**5)
-            y = x % (2**64-1)
-            assert rbigint.fromlong(x).hash() == rbigint.fromlong(y).hash()
-            assert rbigint.fromlong(-x).hash() == rbigint.fromlong(-y).hash()
 
     def test_log(self):
         from rpython.rlib.rfloat import ulps_check
@@ -1124,3 +1108,52 @@ class TestTranslated(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert data == '[%d]\n[0, 1]\n' % sys.maxint
+
+
+class TestHypothesis(object):
+    @given(longs, longs, longs)
+    def test_pow(self, x, y, z):
+        f1 = rbigint.fromlong(x)
+        f2 = rbigint.fromlong(y)
+        f3 = rbigint.fromlong(z)
+        try:
+            res = pow(x, y, z)
+        except Exception as e:
+            pytest.raises(type(e), f1.pow, f2, f3)
+        else:
+            v = f1.pow(f2, f3)
+            assert v.tolong() == res
+
+    @given(longs, longs, longs)
+    def test_divmod(self, x, y, z):
+        f1 = rbigint.fromlong(x)
+        f2 = rbigint.fromlong(y)
+        f3 = rbigint.fromlong(z)
+        try:
+            res = divmod(x, y, z)
+        except Exception as e:
+            pytest.raises(type(e), f1.divmod, f2, f3)
+            if isinstance(int(y), int):
+                pytest.raises(type(e), f1.int_divmod, f2, f3)
+        else:
+            a, b = f1.divmod(f2, f3)
+            assert a.tolong(), b.tolong() == res
+            if isinstance(int(y), int):
+                a, b = f1.int_divmod(f2, f3)
+                assert a.tolong(), b.tolong() == res
+
+    @given(longs)
+    def test_hash(self, x):
+        # hash of large integers: should be equal to the hash of the
+        # integer reduced modulo 2**64-1, to make decimal.py happy
+        x = randint(0, sys.maxint**5)
+        y = x % (2**64-1)
+        assert rbigint.fromlong(x).hash() == rbigint.fromlong(y).hash()
+        assert rbigint.fromlong(-x).hash() == rbigint.fromlong(-y).hash()
+
+    @given(ints)
+    def test_hash_int(self, x):
+        # hash of machine-sized integers
+        assert rbigint.fromint(x).hash() == x
+        # hash of negative machine-sized integers
+        assert rbigint.fromint(-x-1).hash() == -x-1
