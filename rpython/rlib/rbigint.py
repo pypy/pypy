@@ -530,22 +530,22 @@ class rbigint(object):
         return True
 
     @jit.elidable
-    def int_eq(self, other):
+    def int_eq(self, iother):
         """ eq with int """
-        if not int_in_valid_range(other):
+        if not int_in_valid_range(iother):
             # Fallback to Long.
-            return self.eq(rbigint.fromint(other))
+            return self.eq(rbigint.fromint(iother))
 
         if self.numdigits() > 1:
             return False
 
-        return (self.sign * self.digit(0)) == other
+        return (self.sign * self.digit(0)) == iother
 
     def ne(self, other):
         return not self.eq(other)
 
-    def int_ne(self, other):
-        return not self.int_eq(other)
+    def int_ne(self, iother):
+        return not self.int_eq(iother)
 
     @jit.elidable
     def lt(self, other):
@@ -583,38 +583,38 @@ class rbigint(object):
         return False
 
     @jit.elidable
-    def int_lt(self, other):
+    def int_lt(self, iother):
         """ lt where other is an int """
 
-        if not int_in_valid_range(other):
+        if not int_in_valid_range(iother):
             # Fallback to Long.
-            return self.lt(rbigint.fromint(other))
+            return self.lt(rbigint.fromint(iother))
 
-        return _x_int_lt(self, other, False)
+        return _x_int_lt(self, iother, False)
 
     def le(self, other):
         return not other.lt(self)
 
-    def int_le(self, other):
-        """ le where other is an int """
+    def int_le(self, iother):
+        """ le where iother is an int """
 
-        if not int_in_valid_range(other):
+        if not int_in_valid_range(iother):
             # Fallback to Long.
-            return self.le(rbigint.fromint(other))
+            return self.le(rbigint.fromint(iother))
 
-        return _x_int_lt(self, other, True)
+        return _x_int_lt(self, iother, True)
 
     def gt(self, other):
         return other.lt(self)
 
-    def int_gt(self, other):
-        return not self.int_le(other)
+    def int_gt(self, iother):
+        return not self.int_le(iother)
 
     def ge(self, other):
         return not self.lt(other)
 
-    def int_ge(self, other):
-        return not self.int_lt(other)
+    def int_ge(self, iother):
+        return not self.int_lt(iother)
 
     @jit.elidable
     def hash(self):
@@ -634,20 +634,20 @@ class rbigint(object):
         return result
 
     @jit.elidable
-    def int_add(self, other):
-        if not int_in_valid_range(other):
+    def int_add(self, iother):
+        if not int_in_valid_range(iother):
             # Fallback to long.
-            return self.add(rbigint.fromint(other))
+            return self.add(rbigint.fromint(iother))
         elif self.sign == 0:
-            return rbigint.fromint(other)
-        elif other == 0:
+            return rbigint.fromint(iother)
+        elif iother == 0:
             return self
 
-        sign = intsign(other)
+        sign = intsign(iother)
         if self.sign == sign:
-            result = _x_int_add(self, other)
+            result = _x_int_add(self, iother)
         else:
-            result = _x_int_sub(self, other)
+            result = _x_int_sub(self, iother)
             result.sign *= -1
         result.sign *= sign
         return result
@@ -666,96 +666,94 @@ class rbigint(object):
         return result
 
     @jit.elidable
-    def int_sub(self, other):
-        if not int_in_valid_range(other):
+    def int_sub(self, iother):
+        if not int_in_valid_range(iother):
             # Fallback to long.
-            return self.sub(rbigint.fromint(other))
-        elif other == 0:
+            return self.sub(rbigint.fromint(iother))
+        elif iother == 0:
             return self
         elif self.sign == 0:
-            return rbigint.fromint(-other)
-        elif self.sign == intsign(other):
-            result = _x_int_sub(self, other)
+            return rbigint.fromint(-iother)
+        elif self.sign == intsign(iother):
+            result = _x_int_sub(self, iother)
         else:
-            result = _x_int_add(self, other)
+            result = _x_int_add(self, iother)
         result.sign *= self.sign
         return result
 
     @jit.elidable
-    def mul(self, b):
-        asize = self.numdigits()
-        bsize = b.numdigits()
+    def mul(self, other):
+        selfsize = self.numdigits()
+        othersize = other.numdigits()
 
-        a = self
+        if selfsize > othersize:
+            self, other, selfsize, othersize = other, self, othersize, selfsize
 
-        if asize > bsize:
-            a, b, asize, bsize = b, a, bsize, asize
-
-        if a.sign == 0 or b.sign == 0:
+        if self.sign == 0 or other.sign == 0:
             return NULLRBIGINT
 
-        if asize == 1:
-            if a._digits[0] == ONEDIGIT:
-                return rbigint(b._digits[:bsize], a.sign * b.sign, bsize)
-            elif bsize == 1:
-                res = b.uwidedigit(0) * a.udigit(0)
+        if selfsize == 1:
+            if self._digits[0] == ONEDIGIT:
+                return rbigint(other._digits[:othersize], self.sign * other.sign, othersize)
+            elif othersize == 1:
+                res = other.uwidedigit(0) * self.udigit(0)
                 carry = res >> SHIFT
                 if carry:
-                    return rbigint([_store_digit(res & MASK), _store_digit(carry)], a.sign * b.sign, 2)
+                    return rbigint([_store_digit(res & MASK), _store_digit(carry)], self.sign * other.sign, 2)
                 else:
-                    return rbigint([_store_digit(res & MASK)], a.sign * b.sign, 1)
+                    return rbigint([_store_digit(res & MASK)], self.sign * other.sign, 1)
 
-            result = _x_mul(a, b, a.digit(0))
+            result = _x_mul(self, other, self.digit(0))
         elif USE_KARATSUBA:
-            if a is b:
+            if self is other:
                 i = KARATSUBA_SQUARE_CUTOFF
             else:
                 i = KARATSUBA_CUTOFF
 
-            if asize <= i:
-                result = _x_mul(a, b)
-                """elif 2 * asize <= bsize:
-                    result = _k_lopsided_mul(a, b)"""
+            if selfsize <= i:
+                result = _x_mul(self, other)
+                """elif 2 * selfsize <= othersize:
+                    result = _k_lopsided_mul(self, other)"""
             else:
-                result = _k_mul(a, b)
+                result = _k_mul(self, other)
         else:
-            result = _x_mul(a, b)
+            result = _x_mul(self, other)
 
-        result.sign = a.sign * b.sign
+        result.sign = self.sign * other.sign
         return result
 
     @jit.elidable
-    def int_mul(self, b):
-        if not int_in_valid_range(b):
+    def int_mul(self, iother):
+        if not int_in_valid_range(iother):
             # Fallback to long.
-            return self.mul(rbigint.fromint(b))
+            return self.mul(rbigint.fromint(iother))
 
-        if self.sign == 0 or b == 0:
+        if self.sign == 0 or iother == 0:
             return NULLRBIGINT
 
         asize = self.numdigits()
-        digit = abs(b)
+        digit = abs(iother)
 
-        bsign = intsign(b)
+        othersign = intsign(iother)
 
         if digit == 1:
-            if bsign == 1:
+            if othersign == 1:
                 return self
-            return rbigint(self._digits[:asize], self.sign * bsign, asize)
+            return rbigint(self._digits[:asize], self.sign * othersign, asize)
         elif asize == 1:
             udigit = r_uint(digit)
             res = self.uwidedigit(0) * udigit
             carry = res >> SHIFT
             if carry:
-                return rbigint([_store_digit(res & MASK), _store_digit(carry)], self.sign * bsign, 2)
+                return rbigint([_store_digit(res & MASK), _store_digit(carry)], self.sign * othersign, 2)
             else:
-                return rbigint([_store_digit(res & MASK)], self.sign * bsign, 1)
+                return rbigint([_store_digit(res & MASK)], self.sign * othersign, 1)
         elif digit & (digit - 1) == 0:
             result = self.lqshift(ptwotable[digit])
         else:
             result = _muladd1(self, digit)
 
-        result.sign = self.sign * bsign
+        result.sign = self.sign * othersign
         return result
 
     @jit.elidable
@@ -782,18 +780,18 @@ class rbigint(object):
         return self.floordiv(other)
 
     @jit.elidable
-    def int_floordiv(self, b):
-        if not int_in_valid_range(b):
+    def int_floordiv(self, iother):
+        if not int_in_valid_range(iother):
             # Fallback to long.
-            return self.floordiv(rbigint.fromint(b))
+            return self.floordiv(rbigint.fromint(iother))
 
-        if b == 0:
+        if iother == 0:
             raise ZeroDivisionError("long division by zero")
 
-        digit = abs(b)
+        digit = abs(iother)
         assert digit > 0
 
-        if self.sign == 1 and b > 0:
+        if self.sign == 1 and iother > 0:
             if digit == 1:
                 return self
             elif digit & (digit - 1) == 0:
@@ -801,16 +799,16 @@ class rbigint(object):
 
         div, mod = _divrem1(self, digit)
 
-        if mod != 0 and self.sign * intsign(b) == -1:
+        if mod != 0 and self.sign * intsign(iother) == -1:
             if div.sign == 0:
                 return ONENEGATIVERBIGINT
             div = div.int_add(1)
-        div.sign = self.sign * intsign(b)
+        div.sign = self.sign * intsign(iother)
         div._normalize()
         return div
 
-    def int_div(self, other):
-        return self.int_floordiv(other)
+    def int_div(self, iother):
+        return self.int_floordiv(iother)
 
     @jit.elidable
     def mod(self, other):
@@ -830,24 +828,24 @@ class rbigint(object):
         return mod
 
     @jit.elidable
-    def int_mod(self, other):
-        if other == 0:
+    def int_mod(self, iother):
+        if iother == 0:
             raise ZeroDivisionError("long division or modulo by zero")
         if self.sign == 0:
             return NULLRBIGINT
 
-        elif not int_in_valid_range(other):
+        elif not int_in_valid_range(iother):
             # Fallback to long.
-            return self.mod(rbigint.fromint(other))
+            return self.mod(rbigint.fromint(iother))
 
         if 1: # preserve indentation to preserve history
-            digit = abs(other)
+            digit = abs(iother)
             if digit == 1:
                 return NULLRBIGINT
             elif digit == 2:
                 modm = self.digit(0) & 1
                 if modm:
-                    return ONENEGATIVERBIGINT if other < 0 else ONERBIGINT
+                    return ONENEGATIVERBIGINT if iother < 0 else ONERBIGINT
                 return NULLRBIGINT
             elif digit & (digit - 1) == 0:
                 mod = self.int_and_(digit - 1)
@@ -868,12 +866,12 @@ class rbigint(object):
                     return NULLRBIGINT
                 mod = rbigint([rem], -1 if self.sign < 0 else 1, 1)
 
-        if mod.sign * intsign(other) == -1:
-            mod = mod.int_add(other)
+        if mod.sign * intsign(iother) == -1:
+            mod = mod.int_add(iother)
         return mod
 
     @jit.elidable
-    def divmod(v, w):
+    def divmod(self, other):
         """
         The / and % operators are now defined in terms of divmod().
         The expression a mod b has the value a - b*floor(a/b).
@@ -890,39 +888,39 @@ class rbigint(object):
         have different signs.  We then subtract one from the 'div'
         part of the outcome to keep the invariant intact.
         """
-        div, mod = _divrem(v, w)
-        if mod.sign * w.sign == -1:
-            mod = mod.add(w)
+        div, mod = _divrem(self, other)
+        if mod.sign * other.sign == -1:
+            mod = mod.add(other)
             if div.sign == 0:
                 return ONENEGATIVERBIGINT, mod
             div = div.int_sub(1)
         return div, mod
 
     @jit.elidable
-    def int_divmod(v, w):
+    def int_divmod(self, iother):
         """ Divmod with int """
 
-        if w == 0:
+        if iother == 0:
             raise ZeroDivisionError("long division or modulo by zero")
 
-        wsign = intsign(w)
-        if not int_in_valid_range(w) or (wsign == -1 and v.sign != wsign):
+        wsign = intsign(iother)
+        if not int_in_valid_range(iother) or (wsign == -1 and self.sign != wsign):
             # Just fallback.
-            return v.divmod(rbigint.fromint(w))
+            return self.divmod(rbigint.fromint(iother))
 
-        digit = abs(w)
+        digit = abs(iother)
         assert digit > 0
 
-        div, mod = _divrem1(v, digit)
+        div, mod = _divrem1(self, digit)
         # _divrem1 doesn't fix the sign
         if div.size == 1 and div._digits[0] == NULLDIGIT:
             div.sign = 0
         else:
-            div.sign = v.sign * wsign
-        if v.sign < 0:
+            div.sign = self.sign * wsign
+        if self.sign < 0:
             mod = -mod
-        if mod and v.sign * wsign == -1:
-            mod += w
+        if mod and self.sign * wsign == -1:
+            mod += iother
             if div.sign == 0:
                 div = ONENEGATIVERBIGINT
             else:
@@ -931,37 +929,37 @@ class rbigint(object):
         return div, mod
 
     @jit.elidable
-    def pow(a, b, c=None):
+    def pow(self, other, modulus=None):
         negativeOutput = False  # if x<0 return negative output
 
         # 5-ary values.  If the exponent is large enough, table is
-        # precomputed so that table[i] == a**i % c for i in range(32).
+        # precomputed so that table[i] == self**i % modulus for i in range(32).
         # python translation: the table is computed when needed.
 
-        if b.sign < 0:  # if exponent is negative
-            if c is not None:
+        if other.sign < 0:  # if exponent is negative
+            if modulus is not None:
                 raise TypeError(
                     "pow() 2nd argument "
                     "cannot be negative when 3rd argument specified")
             # XXX failed to implement
             raise ValueError("bigint pow() too negative")
 
-        size_b = UDIGIT_TYPE(b.numdigits())
+        size_b = UDIGIT_TYPE(other.numdigits())
 
-        if c is not None:
-            if c.sign == 0:
+        if modulus is not None:
+            if modulus.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
             # if modulus < 0:
             #     negativeOutput = True
             #     modulus = -modulus
-            if c.sign < 0:
+            if modulus.sign < 0:
                 negativeOutput = True
-                c = c.neg()
+                modulus = modulus.neg()
 
             # if modulus == 1:
             #     return 0
-            if c.numdigits() == 1 and c._digits[0] == ONEDIGIT:
+            if modulus.numdigits() == 1 and modulus._digits[0] == ONEDIGIT:
                 return NULLRBIGINT
 
             # Reduce base by modulus in some cases:
@@ -973,30 +971,30 @@ class rbigint(object):
             #    base % modulus instead.
             # We could _always_ do this reduction, but mod() isn't cheap,
             # so we only do it when it buys something.
-            if a.sign < 0 or a.numdigits() > c.numdigits():
-                a = a.mod(c)
-        elif b.sign == 0:
+            if self.sign < 0 or self.numdigits() > modulus.numdigits():
+                self = self.mod(modulus)
+        elif other.sign == 0:
             return ONERBIGINT
-        elif a.sign == 0:
+        elif self.sign == 0:
             return NULLRBIGINT
         elif size_b == 1:
-            if b._digits[0] == ONEDIGIT:
-                return a
-            elif a.numdigits() == 1 and c is None:
-                adigit = a.digit(0)
-                digit = b.digit(0)
+            if other._digits[0] == ONEDIGIT:
+                return self
+            elif self.numdigits() == 1 and modulus is None:
+                adigit = self.digit(0)
+                digit = other.digit(0)
                 if adigit == 1:
-                    if a.sign == -1 and digit % 2:
+                    if self.sign == -1 and digit % 2:
                         return ONENEGATIVERBIGINT
                     return ONERBIGINT
                 elif adigit & (adigit - 1) == 0:
-                    ret = a.lshift(((digit-1)*(ptwotable[adigit]-1)) + digit-1)
-                    if a.sign == -1 and not digit % 2:
+                    ret = self.lshift(((digit-1)*(ptwotable[adigit]-1)) + digit-1)
+                    if self.sign == -1 and not digit % 2:
                         ret.sign = 1
                     return ret
 
-        # At this point a, b, and c are guaranteed non-negative UNLESS
-        # c is NULL, in which case a may be negative. */
+        # At this point self, other, and modulus are guaranteed non-negative UNLESS
+        # modulus is NULL, in which case self may be negative. */
 
         z = ONERBIGINT
 
@@ -1008,26 +1006,26 @@ class rbigint(object):
 
             while size_b > 0:
                 size_b -= 1
-                bi = b.digit(size_b)
+                bi = other.digit(size_b)
                 j = 1 << (SHIFT-1)
                 while j != 0:
-                    z = _help_mult(z, z, c)
+                    z = _help_mult(z, z, modulus)
                     if bi & j:
-                        z = _help_mult(z, a, c)
+                        z = _help_mult(z, self, modulus)
                     j >>= 1
 
 
         else:
             # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
-            # This is only useful in the case where c != None.
+            # This is only useful in the case where modulus != None.
             # z still holds 1L
             table = [z] * 32
             table[0] = z
             for i in range(1, 32):
-                table[i] = _help_mult(table[i-1], a, c)
+                table[i] = _help_mult(table[i-1], self, modulus)
 
             # Note that here SHIFT is not a multiple of 5.  The difficulty
-            # is to extract 5 bits at a time from 'b', starting from the
+            # is to extract 5 bits at a time from 'other', starting from the
             # most significant digits, so that at the end of the algorithm
             # it falls exactly to zero.
             # m  = max number of bits = i * SHIFT
@@ -1046,59 +1044,59 @@ class rbigint(object):
                     index = (accum >> j) & 0x1f
                 else:
                     # 'accum' does not have enough digit.
-                    # must get the next digit from 'b' in order to complete
+                    # must get the next digit from 'other' in order to complete
                     if size_b == 0:
                         break # Done
 
                     size_b -= 1
                     assert size_b >= 0
-                    bi = b.udigit(size_b)
+                    bi = other.udigit(size_b)
                     index = ((accum << (-j)) | (bi >> (j+SHIFT))) & 0x1f
                     accum = bi
                     j += SHIFT
                 #
                 for k in range(5):
-                    z = _help_mult(z, z, c)
+                    z = _help_mult(z, z, modulus)
                 if index:
-                    z = _help_mult(z, table[index], c)
+                    z = _help_mult(z, table[index], modulus)
             #
             assert j == -5
 
         if negativeOutput and z.sign != 0:
-            z = z.sub(c)
+            z = z.sub(modulus)
         return z
 
     @jit.elidable
-    def int_pow(a, b, c=None):
+    def int_pow(self, iother, modulus=None):
         negativeOutput = False  # if x<0 return negative output
 
         # 5-ary values.  If the exponent is large enough, table is
-        # precomputed so that table[i] == a**i % c for i in range(32).
+        # precomputed so that table[i] == self**i % modulus for i in range(32).
         # python translation: the table is computed when needed.
 
-        if b < 0:  # if exponent is negative
-            if c is not None:
+        if iother < 0:  # if exponent is negative
+            if modulus is not None:
                 raise TypeError(
                     "pow() 2nd argument "
                     "cannot be negative when 3rd argument specified")
             # XXX failed to implement
             raise ValueError("bigint pow() too negative")
 
-        assert b >= 0
-        if c is not None:
-            if c.sign == 0:
+        assert iother >= 0
+        if modulus is not None:
+            if modulus.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
             # if modulus < 0:
             #     negativeOutput = True
             #     modulus = -modulus
-            if c.sign < 0:
+            if modulus.sign < 0:
                 negativeOutput = True
-                c = c.neg()
+                modulus = modulus.neg()
 
             # if modulus == 1:
             #     return 0
-            if c.numdigits() == 1 and c._digits[0] == ONEDIGIT:
+            if modulus.numdigits() == 1 and modulus._digits[0] == ONEDIGIT:
                 return NULLRBIGINT
 
             # Reduce base by modulus in some cases:
@@ -1110,45 +1108,45 @@ class rbigint(object):
             #    base % modulus instead.
             # We could _always_ do this reduction, but mod() isn't cheap,
             # so we only do it when it buys something.
-            if a.sign < 0 or a.numdigits() > c.numdigits():
-                a = a.mod(c)
-        elif b == 0:
+            if self.sign < 0 or self.numdigits() > modulus.numdigits():
+                self = self.mod(modulus)
+        elif iother == 0:
             return ONERBIGINT
-        elif a.sign == 0:
+        elif self.sign == 0:
             return NULLRBIGINT
-        elif b == 1:
-            return a
-        elif a.numdigits() == 1:
-            adigit = a.digit(0)
+        elif iother == 1:
+            return self
+        elif self.numdigits() == 1:
+            adigit = self.digit(0)
             if adigit == 1:
-                if a.sign == -1 and b % 2:
+                if self.sign == -1 and iother % 2:
                     return ONENEGATIVERBIGINT
                 return ONERBIGINT
             elif adigit & (adigit - 1) == 0:
-                ret = a.lshift(((b-1)*(ptwotable[adigit]-1)) + b-1)
-                if a.sign == -1 and not b % 2:
+                ret = self.lshift(((iother-1)*(ptwotable[adigit]-1)) + iother-1)
+                if self.sign == -1 and not iother % 2:
                     ret.sign = 1
                 return ret
 
-        # At this point a, b, and c are guaranteed non-negative UNLESS
-        # c is NULL, in which case a may be negative. */
+        # At this point self, iother, and modulus are guaranteed non-negative UNLESS
+        # modulus is NULL, in which case self may be negative. */
 
         z = ONERBIGINT
 
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
-        # into helper function result = _help_mult(x, y, c)
+        # into helper function result = _help_mult(x, y, modulus)
         # Left-to-right binary exponentiation (HAC Algorithm 14.79)
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
         j = 1 << (SHIFT-1)
 
         while j != 0:
-            z = _help_mult(z, z, c)
-            if b & j:
-                z = _help_mult(z, a, c)
+            z = _help_mult(z, z, modulus)
+            if iother & j:
+                z = _help_mult(z, self, modulus)
             j >>= 1
 
         if negativeOutput and z.sign != 0:
-            z = z.sub(c)
+            z = z.sub(modulus)
         return z
 
     @jit.elidable
@@ -1349,24 +1347,24 @@ class rbigint(object):
         return _bitwise(self, '&', other)
 
     @jit.elidable
-    def int_and_(self, other):
-        return _int_bitwise(self, '&', other)
+    def int_and_(self, iother):
+        return _int_bitwise(self, '&', iother)
 
     @jit.elidable
     def xor(self, other):
         return _bitwise(self, '^', other)
 
     @jit.elidable
-    def int_xor(self, other):
-        return _int_bitwise(self, '^', other)
+    def int_xor(self, iother):
+        return _int_bitwise(self, '^', iother)
 
     @jit.elidable
     def or_(self, other):
         return _bitwise(self, '|', other)
 
     @jit.elidable
-    def int_or_(self, other):
-        return _int_bitwise(self, '|', other)
+    def int_or_(self, iother):
+        return _int_bitwise(self, '|', iother)
 
     @jit.elidable
     def oct(self):
@@ -2886,7 +2884,7 @@ def _decimalstr_to_bigint(s):
     elif s[p] == '+':
         p += 1
 
-    a = rbigint()
+    a = NULLRBIGINT
     tens = 1
     dig = 0
     ord0 = ord('0')
@@ -2907,7 +2905,7 @@ def parse_digit_string(parser):
     base = parser.base
     if (base & (base - 1)) == 0 and base >= 2:
         return parse_string_from_binary_base(parser)
-    a = rbigint()
+    a = NULLRBIGINT
     digitmax = BASE_MAX[base]
     tens, dig = 1, 0
     while True:
