@@ -85,8 +85,7 @@ def c_compile(cfilenames, outputfilename,
     return outputfilename
 # end copy
 
-def compile_so_file():
-    udir = pytest.ensuretemp('_ctypes_test')
+def compile_so_file(udir):
     cfile = py.path.local(__file__).dirpath().join("_ctypes_test.c")
 
     if sys.platform == 'win32':
@@ -97,8 +96,9 @@ def compile_so_file():
     return c_compile([cfile], str(udir / '_ctypes_test'), libraries=libraries)
 
 @pytest.fixture(scope='session')
-def sofile():
-    return str(compile_so_file())
+def sofile(tmpdir_factory):
+    udir = tmpdir_factory.mktemp('_ctypes_test')
+    return str(compile_so_file(udir))
 
 @pytest.fixture
 def dll(sofile):
