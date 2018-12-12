@@ -139,6 +139,8 @@ class Entry(extregistry.ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
 
+def intsign(i):
+    return -1 if i < 0 else 1
 
 class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
@@ -641,7 +643,7 @@ class rbigint(object):
         elif other == 0:
             return self
 
-        sign = -1 if other < 0 else 1
+        sign = intsign(other)
         if self.sign == sign:
             result = _x_int_add(self, other)
         else:
@@ -672,7 +674,7 @@ class rbigint(object):
             return self
         elif self.sign == 0:
             return rbigint.fromint(-other)
-        elif self.sign == (-1 if other < 0 else 1):
+        elif self.sign == intsign(other):
             result = _x_int_sub(self, other)
         else:
             result = _x_int_add(self, other)
@@ -734,7 +736,7 @@ class rbigint(object):
         asize = self.numdigits()
         digit = abs(b)
 
-        bsign = -1 if b < 0 else 1
+        bsign = intsign(b)
 
         if digit == 1:
             if bsign == 1:
@@ -799,11 +801,11 @@ class rbigint(object):
 
         div, mod = _divrem1(self, digit)
 
-        if mod != 0 and self.sign * (-1 if b < 0 else 1) == -1:
+        if mod != 0 and self.sign * intsign(b) == -1:
             if div.sign == 0:
                 return ONENEGATIVERBIGINT
             div = div.int_add(1)
-        div.sign = self.sign * (-1 if b < 0 else 1)
+        div.sign = self.sign * intsign(b)
         div._normalize()
         return div
 
@@ -866,7 +868,7 @@ class rbigint(object):
                     return NULLRBIGINT
                 mod = rbigint([rem], -1 if self.sign < 0 else 1, 1)
 
-        if mod.sign * (-1 if other < 0 else 1) == -1:
+        if mod.sign * intsign(other) == -1:
             mod = mod.int_add(other)
         return mod
 
@@ -903,7 +905,7 @@ class rbigint(object):
         if w == 0:
             raise ZeroDivisionError("long division or modulo by zero")
 
-        wsign = (-1 if w < 0 else 1)
+        wsign = intsign(w)
         if not int_in_valid_range(w) or (wsign == -1 and v.sign != wsign):
             # Just fallback.
             return v.divmod(rbigint.fromint(w))
