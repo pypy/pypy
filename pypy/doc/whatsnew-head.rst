@@ -39,3 +39,8 @@ Small refactorings in the Python parser.
 
 .. branch: fix-readme-typo
 
+
+.. math-improvements
+
+Improve performance of long operations where one of the operands fits into
+an int.
