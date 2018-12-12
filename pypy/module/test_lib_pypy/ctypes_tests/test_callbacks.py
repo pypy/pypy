@@ -1,124 +1,84 @@
-from ctypes import *
 import pytest
+
+import math
+from ctypes import *
 from .support import BaseCTypesTestChecker
 
-class TestCallbacks(BaseCTypesTestChecker):
-    functype = CFUNCTYPE
-
-    def callback(self, *args):
-        self.got_args = args
-        return args[-1]
-
-    def check_type(self, typ, arg):
-        unwrapped_types = {
-            c_float: (float,),
-            c_double: (float,),
-            c_char: (str,),
-            c_char_p: (str,),
-            c_uint: (int, long),
-            c_ulong: (int, long),
-            }
-
-        PROTO = self.functype.im_func(typ, typ)
-        cfunc = PROTO(self.callback)
-        result = cfunc(arg)
-        if typ == c_float:
-            assert abs(result - arg) < 0.000001
-        else:
-            assert self.got_args == (arg,)
-            assert result == arg
-
-        result2 = cfunc(typ(arg))
-        assert type(result2) in unwrapped_types.get(typ, (int, long))
-
-        PROTO = self.functype.im_func(typ, c_byte, typ)
-        result = PROTO(self.callback)(-3, arg)
-        if typ == c_float:
-            assert abs(result - arg) < 0.000001
-        else:
-            assert self.got_args == (-3, arg)
-            assert result == arg
-
-    ################
-
-    def test_byte(self):
-        self.check_type(c_byte, 42)
-        self.check_type(c_byte, -42)
-
-    def test_ubyte(self):
-        self.check_type(c_ubyte, 42)
-
-    def test_short(self):
-        self.check_type(c_short, 42)
-        self.check_type(c_short, -42)
-
-    def test_ushort(self):
-        self.check_type(c_ushort, 42)
-
-    def test_int(self):
-        self.check_type(c_int, 42)
-        self.check_type(c_int, -42)
-
-    def test_uint(self):
-        self.check_type(c_uint, 42)
-
-    def test_long(self):
-        self.check_type(c_long, 42)
-        self.check_type(c_long, -42)
-
-    def test_ulong(self):
-        self.check_type(c_ulong, 42)
-
-    def test_longlong(self):
-        self.check_type(c_longlong, 42)
-        self.check_type(c_longlong, -42)
-
-    def test_ulonglong(self):
-        self.check_type(c_ulonglong, 42)
-
-    def test_float(self):
-        # only almost equal: double -> float -> double
-        import math
-        self.check_type(c_float, math.e)
-        self.check_type(c_float, -math.e)
-
-    def test_double(self):
-        self.check_type(c_double, 3.14)
-        self.check_type(c_double, -3.14)
-
-    def test_char(self):
-        self.check_type(c_char, "x")
-        self.check_type(c_char, "a")
-
-    # disabled: would now (correctly) raise a RuntimeWarning about
-    # a memory leak.  A callback function cannot return a non-integral
-    # C type without causing a memory leak.
-##    def test_char_p(self):
-##        self.check_type(c_char_p, "abc")
-##        self.check_type(c_char_p, "def")
-
-
-    @pytest.mark.xfail(
-        reason="we are less strict about callback return type sanity")
-    def test_unsupported_restype_1(self):
-        # Only "fundamental" result types are supported for callback
-        # functions, the type must have a non-NULL stgdict->setfunc.
-        # POINTER(c_double), for example, is not supported.
-
-        prototype = self.functype.im_func(POINTER(c_double))
-        # The type is checked when the prototype is called
-        with pytest.raises(TypeError):
-            prototype(lambda: None)
-
+functypes = [CFUNCTYPE]
 try:
-    WINFUNCTYPE
+    functypes.append(WINFUNCTYPE)
 except NameError:
     pass
-else:
-    class TestStdcallCallbacks(TestCallbacks):
-        functype = WINFUNCTYPE
 
-################################################################
+
+def callback(*args):
+    callback.got_args = args
+    return args[-1]
+
+unwrapped_types = {
+    c_float: (float,),
+    c_double: (float,),
+    c_char: (str,),
+    c_char_p: (str,),
+    c_uint: (int, long),
+    c_ulong: (int, long),
+    }
+
+@pytest.mark.parametrize("typ, arg", [
+    (c_byte, 42),
+    (c_byte, -42),
+    (c_ubyte, 42),
+    (c_short, 42),
+    (c_short, -42),
+    (c_ushort, 42),
+    (c_int, 42),
+    (c_int, -42),
+    (c_uint, 42),
+    (c_long, 42),
+    (c_long, -42),
+    (c_ulong, 42),
+    (c_longlong, 42),
+    (c_longlong, -42),
+    (c_ulonglong, 42),
+    (c_float, math.e),  # only almost equal: double -> float -> double
+    (c_float, -math.e),
+    (c_double, 3.14),
+    (c_double, -3.14),
+    (c_char, "x"),
+    (c_char, "a"),
+])
+@pytest.mark.parametrize('functype', functypes)
+def test_types(typ, arg, functype):
+    PROTO = functype(typ, typ)
+    cfunc = PROTO(callback)
+    result = cfunc(arg)
+    if typ == c_float:
+        assert abs(result - arg) < 0.000001
+    else:
+        assert callback.got_args == (arg,)
+        assert result == arg
+
+    result2 = cfunc(typ(arg))
+    assert type(result2) in unwrapped_types.get(typ, (int, long))
+
+    PROTO = functype(typ, c_byte, typ)
+    result = PROTO(callback)(-3, arg)
+    if typ == c_float:
+        assert abs(result - arg) < 0.000001
+    else:
+        assert callback.got_args == (-3, arg)
+        assert result == arg
+
+@pytest.mark.parametrize('functype', functypes)
+def test_unsupported_restype_1(functype):
+    # Only "fundamental" result types are supported for callback
+    # functions, the type must have a non-NULL stgdict->setfunc.
+    # POINTER(c_double), for example, is not supported.
+
+    prototype = functype(POINTER(c_double))
+    # The type is checked when the prototype is called
+    with pytest.raises(TypeError):
+        prototype(lambda: None)
 
 
 def test_callback_with_struct_argument():
@@ -127,16 +87,14 @@ def test_callback_with_struct_argument():
                     ("right", c_int), ("bottom", c_int)]
 
     proto = CFUNCTYPE(c_int, RECT)
+
     def callback(point):
         point.left *= -1
-        return point.left+point.top+point.right+point.bottom
+        return point.left + point.top + point.right + point.bottom
 
     cbp = proto(callback)
-
-    rect = RECT(-1000,100,10,1)
-
+    rect = RECT(-1000, 100, 10, 1)
     res = cbp(rect)
-
     assert res == 1111
     assert rect.left == -1000   # must not have been changed!
 
@@ -146,11 +104,12 @@ def test_callback_from_c_with_struct_argument(dll):
                     ("right", c_long), ("bottom", c_long)]
 
     proto = CFUNCTYPE(c_int, RECT)
+
     def callback(point):
-        return point.left+point.top+point.right+point.bottom
+        return point.left + point.top + point.right + point.bottom
 
     cbp = proto(callback)
-    rect = RECT(1000,100,10,1)
+    rect = RECT(1000, 100, 10, 1)
 
     call_callback_with_rect = dll.call_callback_with_rect
     call_callback_with_rect.restype = c_int
