@@ -95,25 +95,27 @@ class AppTestLong:
     def test_compare(self):
         Z = 0
         ZL = 0L
+
+        assert Z == ZL
+        assert not (Z != ZL)
+        assert ZL == Z
+        assert not (ZL != Z)
+        assert Z <= ZL
+        assert not (Z < ZL)
+        assert ZL <= ZL
+        assert not (ZL < ZL)
+
         for BIG in (1L, 1L << 62, 1L << 9999):
-            assert Z == ZL
-            assert not (Z != ZL)
-            assert ZL == Z
-            assert not (ZL != Z)
             assert not (Z == BIG)
             assert Z != BIG
             assert not (BIG == Z)
             assert BIG != Z
             assert not (ZL == BIG)
             assert ZL != BIG
-            assert Z <= ZL
-            assert not (Z < ZL)
             assert Z <= BIG
             assert Z < BIG
             assert not (BIG <= Z)
             assert not (BIG < Z)
-            assert ZL <= ZL
-            assert not (ZL < ZL)
             assert ZL <= BIG
             assert ZL < BIG
             assert not (BIG <= ZL)
@@ -187,10 +189,32 @@ class AppTestLong:
         assert type(-long2(0)) is long
         assert type(long2(5) // 1) is long
 
+    def test_shift(self):
+        assert 65l >> 2l == 16l
+        assert 65l >> 2 == 16l
+        assert 65 >> 2l == 16l
+        assert 65l << 2l == 65l * 4
+        assert 65l << 2 == 65l * 4
+        assert 65 << 2l == 65l * 4
+        raises(ValueError, "1L << -1L")
+        raises(ValueError, "1L << -1")
+        raises(OverflowError, "1L << (2 ** 100)")
+        raises(ValueError, "1L >> -1L")
+        raises(ValueError, "1L >> -1")
+        raises(OverflowError, "1L >> (2 ** 100)")
+
     def test_pow(self):
         x = 0L
         assert pow(x, 0L, 1L) == 0L
         assert pow(-1L, -1L) == -1.0
+        assert pow(2 ** 68, 0.5) == 2.0 ** 34
+        assert pow(2 ** 68, 2) == 2 ** 136
+        raises(TypeError, pow, 2l, -1, 3)
+        raises(ValueError, pow, 2l, 5, 0)
+
+        # some rpow tests
+        assert pow(0, 0L, 1L) == 0L
+        assert pow(-1, -1L) == -1.0
 
     def test_int_pow(self):
         x = 2L
@@ -229,6 +253,11 @@ class AppTestLong:
         y = 0x9800FFC1L
         check_division(x, y)
         raises(ZeroDivisionError, "x // 0L")
+        raises(ZeroDivisionError, "x % 0L")
+        raises(ZeroDivisionError, divmod, x, 0L)
+        raises(ZeroDivisionError, "x // 0")
+        raises(ZeroDivisionError, "x % 0")
+        raises(ZeroDivisionError, divmod, x, 0)
 
     def test_int_divmod(self):
         q, r = divmod(100L, 11)
@@ -347,6 +376,10 @@ class AppTestLong:
             def __long__(self):
                 return 42
         assert long(A('abc')) == 42
+
+    def test_long_errors(self):
+        raises(TypeError, long, 12, 12)
+        raises(ValueError, long, 'xxxxxx?', 12)
 
     def test_conjugate(self):
         assert (7L).conjugate() == 7L

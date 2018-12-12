@@ -450,21 +450,18 @@ class W_LongObject(W_AbstractLongObject):
     descr_or, descr_ror = _make_generic_descr_binop('or')
     descr_xor, descr_rxor = _make_generic_descr_binop('xor')
 
-    def _make_descr_binop(func, int_func=None):
+    def _make_descr_binop(func, int_func):
         opname = func.__name__[1:]
 
-        if int_func:
-            @func_renamer('descr_' + opname)
-            def descr_binop(self, space, w_other):
-                if isinstance(w_other, W_AbstractIntObject):
-                    return int_func(self, space, w_other.int_w(space))
-                elif not isinstance(w_other, W_AbstractLongObject):
-                    return space.w_NotImplemented
-                return func(self, space, w_other)
-        else:
-            @func_renamer('descr_' + opname)
-            def descr_binop(self, space, w_other):
-                return func(self, space, w_other)
+        @func_renamer('descr_' + opname)
+        def descr_binop(self, space, w_other):
+            if isinstance(w_other, W_AbstractIntObject):
+                return int_func(self, space, w_other.int_w(space))
+            elif not isinstance(w_other, W_AbstractLongObject):
+                return space.w_NotImplemented
+            return func(self, space, w_other)
+
+        @delegate_other
         @func_renamer('descr_r' + opname)
         def descr_rbinop(self, space, w_other):
             if not isinstance(w_other, W_LongObject):
