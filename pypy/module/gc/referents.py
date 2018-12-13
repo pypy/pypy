@@ -189,6 +189,7 @@ class W_GcStats(W_Root):
         self.peak_arena_memory = rgc.get_stats(rgc.PEAK_ARENA_MEMORY)
         self.peak_rawmalloced_memory = rgc.get_stats(rgc.PEAK_RAWMALLOCED_MEMORY)
         self.nursery_size = rgc.get_stats(rgc.NURSERY_SIZE)
+        self.total_gc_time = rgc.get_stats(rgc.TOTAL_GC_TIME)
 
 W_GcStats.typedef = TypeDef("GcStats",
     total_memory_pressure=interp_attrproperty("total_memory_pressure",
@@ -214,6 +215,8 @@ W_GcStats.typedef = TypeDef("GcStats",
     peak_rawmalloced_memory=interp_attrproperty("peak_rawmalloced_memory",
         cls=W_GcStats, wrapfn="newint"),
     nursery_size=interp_attrproperty("nursery_size",
+        cls=W_GcStats, wrapfn="newint"),
+    total_gc_time=interp_attrproperty("total_gc_time",
         cls=W_GcStats, wrapfn="newint"),
 )
 

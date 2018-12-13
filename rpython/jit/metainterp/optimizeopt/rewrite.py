@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
 from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
-     OpHelpers, AbstractResOp
+     OpHelpers
 from rpython.rlib.rarithmetic import highest_bit
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper import rclass
@@ -389,6 +389,8 @@ class OptRewrite(Optimization):
     def optimize_GUARD_SUBCLASS(self, op):
         info = self.getptrinfo(op.getarg(0))
         optimizer = self.optimizer
+        # must raise 'InvalidLoop' in all cases where 'info' shows the
+        # class cannot possibly match (see test_issue2926)
         if info and info.is_constant():
             c = self.get_box_replacement(op.getarg(0))
             vtable = optimizer.cpu.ts.cls_of_box(c).getint()
@@ -398,13 +400,29 @@ class OptRewrite(Optimization):
         if info is not None and info.is_about_object():
             known_class = info.get_known_class(optimizer.cpu)
             if known_class:
+                # Class of 'info' is exactly 'known_class'.
+                # We know statically if the 'guard_subclass' will pass or fail.
                 if optimizer._check_subclass(known_class.getint(),
                                              op.getarg(1).getint()):
                     return
+                else:
+                    raise InvalidLoop(
+                        "GUARD_SUBCLASS(known_class) proven to always fail")
             elif info.get_descr() is not None:
-                if optimizer._check_subclass(info.get_descr().get_vtable(),
+                # Class of 'info' is either get_descr() or a subclass of it.
+                # We're keeping the 'guard_subclass' at runtime only in the
+                # case where get_descr() is some strict parent class of
+                # the argument to 'guard_subclass'.
+                info_base_descr = info.get_descr().get_vtable()
+                if optimizer._check_subclass(info_base_descr,
                                              op.getarg(1).getint()):
-                    return
+                    return    # guard_subclass always passing
+                elif optimizer._check_subclass(op.getarg(1).getint(),
+                                               info_base_descr):
+                    pass      # don't know, must keep the 'guard_subclass'
+                else:
+                    raise InvalidLoop(
+                        "GUARD_SUBCLASS(base_class) proven to always fail")
         return self.emit(op)
 
     def optimize_GUARD_NONNULL(self, op):
@@ -490,11 +508,11 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_TRUE(self, op):
         box = self.get_box_replacement(op.getarg(0))
-        if (isinstance(box, AbstractResOp) and
-                box.getopnum() == rop.INT_IS_TRUE):
+        box1 = self.optimizer.as_operation(box)
+        if box1 is not None and box1.getopnum() == rop.INT_IS_TRUE:
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
-            self.pure_from_args(rop.INT_IS_ZERO, [box.getarg(0)], CONST_0)
+            self.pure_from_args(rop.INT_IS_ZERO, [box1.getarg(0)], CONST_0)
         self.make_constant(box, CONST_1)
 
     def optimize_GUARD_FALSE(self, op):
@@ -502,11 +520,11 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_FALSE(self, op):
         box = self.get_box_replacement(op.getarg(0))
-        if (isinstance(box, AbstractResOp) and
-                box.getopnum() == rop.INT_IS_ZERO):
+        box1 = self.optimizer.as_operation(box)
+        if box1 is not None and box1.getopnum() == rop.INT_IS_ZERO:
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
-            self.pure_from_args(rop.INT_IS_TRUE, [box.getarg(0)], CONST_1)
+            self.pure_from_args(rop.INT_IS_TRUE, [box1.getarg(0)], CONST_1)
         self.make_constant(box, CONST_0)
 
     def optimize_ASSERT_NOT_NONE(self, op):
