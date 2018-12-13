@@ -1439,7 +1439,7 @@ class rbigint(object):
     def __repr__(self):
         return "<rbigint digits=%s, sign=%s, size=%d, len=%d, %s>" % (self._digits,
                                             self.sign, self.numdigits(), len(self._digits),
-                                            self.str())
+                                            self.tolong())
 
 ONERBIGINT = rbigint([ONEDIGIT], 1, 1)
 ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
@@ -2178,7 +2178,7 @@ def _x_int_lt(a, b, eq=False):
         if d1 < b:
             return True
     return False
-        
+
 # ______________ conversions to double _______________
 
 def _AsScaledDouble(v):
