@@ -609,8 +609,14 @@ def run_command_line(interactive,
         warnoptions.extend(pythonwarnings.split(','))
     if warnoptions:
         sys.warnoptions[:] = warnoptions
-        from warnings import _processoptions
-        _processoptions(sys.warnoptions)
+        try:
+            if 'warnings' in sys.modules:
+                from warnings import _processoptions
+                _processoptions(sys.warnoptions)
+            else:
+                import warnings
+        except ImportError as e:
+            pass   # CPython just eats any exception here
 
     # set up the Ctrl-C => KeyboardInterrupt signal handler, if the
     # signal module is available

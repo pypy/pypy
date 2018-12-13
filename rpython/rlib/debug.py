@@ -2,6 +2,7 @@ import sys
 import time
 from collections import Counter
 
+from rpython.rlib.objectmodel import enforceargs
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rlib.rarithmetic import is_valid_int, r_longlong
@@ -93,6 +94,7 @@ else:
     _stop_colors = ""
 
 @always_inline
+@enforceargs(str, bool)
 def debug_start(category, timestamp=False):
     """
     Start a PYPYLOG section.
@@ -103,6 +105,7 @@ def debug_start(category, timestamp=False):
     return _debug_start(category, timestamp)
 
 @always_inline
+@enforceargs(str, bool)
 def debug_stop(category, timestamp=False):
     """
     Stop a PYPYLOG section. See debug_start for docs about timestamp

@@ -8,6 +8,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.executioncontext import AsyncAction
 
+inf = float("inf")
+
 class LowLevelGcHooks(GcHooks):
     """
     These are the low-level hooks which are called directly from the GC.
@@ -139,9 +141,9 @@ class GcMinorHookAction(NoRecursiveAction):
 
     def reset(self):
         self.count = 0
-        self.duration = r_longlong(0)
-        self.duration_min = r_longlong(longlongmax)
-        self.duration_max = r_longlong(0)
+        self.duration = 0.0
+        self.duration_min = inf
+        self.duration_max = 0.0
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
@@ -149,9 +151,9 @@ class GcMinorHookAction(NoRecursiveAction):
         # annotated with the correct types
         if NonConstant(False):
             self.count = NonConstant(-42)
-            self.duration = NonConstant(r_longlong(-42))
-            self.duration_min = NonConstant(r_longlong(-42))
-            self.duration_max = NonConstant(r_longlong(-42))
+            self.duration = NonConstant(-53.2)
+            self.duration_min = NonConstant(-53.2)
+            self.duration_max = NonConstant(-53.2)
             self.total_memory_used = NonConstant(r_uint(42))
             self.pinned_objects = NonConstant(-42)
             self.fire()
@@ -179,9 +181,9 @@ class GcCollectStepHookAction(NoRecursiveAction):
 
     def reset(self):
         self.count = 0
-        self.duration = r_longlong(0)
-        self.duration_min = r_longlong(longlongmax)
-        self.duration_max = r_longlong(0)
+        self.duration = 0.0
+        self.duration_min = inf
+        self.duration_max = 0.0
 
     def fix_annotation(self):
         # the annotation of the class and its attributes must be completed
@@ -189,9 +191,9 @@ class GcCollectStepHookAction(NoRecursiveAction):
         # annotated with the correct types
         if NonConstant(False):
             self.count = NonConstant(-42)
-            self.duration = NonConstant(r_longlong(-42))
-            self.duration_min = NonConstant(r_longlong(-42))
-            self.duration_max = NonConstant(r_longlong(-42))
+            self.duration = NonConstant(-53.2)
+            self.duration_min = NonConstant(-53.2)
+            self.duration_max = NonConstant(-53.2)
             self.oldstate = NonConstant(-42)
             self.newstate = NonConstant(-42)
             self.fire()
@@ -307,10 +309,14 @@ class W_GcCollectStats(W_Root):
 
 
 # just a shortcut to make the typedefs shorter
-def wrap_many_ints(cls, names):
+def wrap_many(cls, names):
     d = {}
     for name in names:
-        d[name] = interp_attrproperty(name, cls=cls, wrapfn="newint")
+        if "duration" in name:
+            wrapfn = "newfloat"
+        else:
+            wrapfn = "newint"
+        d[name] = interp_attrproperty(name, cls=cls, wrapfn=wrapfn)
     return d
 
 
@@ -334,7 +340,7 @@ W_AppLevelHooks.typedef = TypeDef(
 
 W_GcMinorStats.typedef = TypeDef(
     "GcMinorStats",
-    **wrap_many_ints(W_GcMinorStats, (
+    **wrap_many(W_GcMinorStats, (
         "count",
         "duration",
         "duration_min",
@@ -355,7 +361,7 @@ W_GcCollectStepStats.typedef = TypeDef(
         "major_is_done",
         cls=W_GcCollectStepStats,
         wrapfn="newbool"),
-    **wrap_many_ints(W_GcCollectStepStats, (
+    **wrap_many(W_GcCollectStepStats, (
         "count",
         "duration",
         "duration_min",
@@ -366,7 +372,7 @@ W_GcCollectStepStats.typedef = TypeDef(
 
 W_GcCollectStats.typedef = TypeDef(
     "GcCollectStats",
-    **wrap_many_ints(W_GcCollectStats, (
+    **wrap_many(W_GcCollectStats, (
         "count",
         "num_major_collects",
         "arenas_count_before",

@@ -3,7 +3,7 @@ import os, sys, math, py
 from cffi import FFI, FFIError, VerificationError, VerificationMissing, model
 from cffi import CDefError
 from cffi import recompiler
-from pypy.module.test_lib_pypy.cffi_tests.support import *
+from extra_tests.cffi_tests.support import *
 import _cffi_backend
 
 lib_m = ['m']
@@ -1377,7 +1377,7 @@ def test_ffi_struct_packed():
 
 def test_tmpdir():
     import tempfile, os
-    from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+    from extra_tests.cffi_tests.udir import udir
     tmpdir = tempfile.mkdtemp(dir=str(udir))
     ffi = FFI()
     ffi.cdef("int foo(int);")
@@ -1388,7 +1388,7 @@ def test_tmpdir():
 def test_relative_to():
     py.test.skip("not available")
     import tempfile, os
-    from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+    from extra_tests.cffi_tests.udir import udir
     tmpdir = tempfile.mkdtemp(dir=str(udir))
     ffi = FFI()
     ffi.cdef("int foo(int);")
@@ -2234,7 +2234,7 @@ def test_unsupported_some_primitive_types():
 def test_windows_dllimport_data():
     if sys.platform != 'win32':
         py.test.skip("Windows only")
-    from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+    from extra_tests.cffi_tests.udir import udir
     tmpfile = udir.join('dllimport_data.c')
     tmpfile.write('int my_value = 42;\n')
     ffi = FFI()

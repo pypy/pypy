@@ -1898,7 +1898,20 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         deleted = self.run("collect_step")
         assert deleted == 1
 
+    def define_total_gc_time(cls):
+        def f():
+            l = []
+            for i in range(1000000):
+                l.append(str(i))
+            l = []
+            for i in range(10):
+                rgc.collect()
+            return rgc.get_stats(rgc.TOTAL_GC_TIME)
+        return f
 
+    def test_total_gc_time(self):
+        res = self.run("total_gc_time")
+        assert res > 0 # should take a few microseconds
 # ____________________________________________________________________
 
 class TaggedPointersTest(object):

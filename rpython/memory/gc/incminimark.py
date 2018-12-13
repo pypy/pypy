@@ -62,6 +62,7 @@ Environment variables can be used to fine-tune the following parameters:
 # XXX old_objects_pointing_to_young (IRC 2014-10-22, fijal and gregor_w)
 import sys
 import os
+import time
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
@@ -73,7 +74,6 @@ from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rgc
-from rpython.rlib.rtimer import read_timestamp
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -191,6 +191,8 @@ FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
 NURSARRAY = lltype.Array(llmemory.Address)
 
 # ____________________________________________________________
+
+
 
 class IncrementalMiniMarkGC(MovingGCBase):
     _alloc_flavor_ = "raw"
@@ -374,6 +376,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.raw_malloc_might_sweep = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
         self.rawmalloced_peak_size = r_uint(0)
+        self.total_gc_time = 0.0
 
         self.gc_state = STATE_SCANNING
 
@@ -1675,7 +1678,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """Perform a minor collection: find the objects from the nursery
         that remain alive and move them out."""
         #
-        start = read_timestamp()
+        start = time.time()
         debug_start("gc-minor")
         #
         # All nursery barriers are invalid from this point on.  They
@@ -1874,7 +1877,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.root_walker.finished_minor_collection()
         #
         debug_stop("gc-minor")
-        duration = read_timestamp() - start
+        duration = time.time() - start
+        self.total_gc_time += duration
         self.hooks.fire_gc_minor(
             duration=duration,
             total_memory_used=total_memory_used,
@@ -2280,7 +2284,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # Note - minor collections seem fast enough so that one
     # is done before every major collection step
     def major_collection_step(self, reserving_size=0):
-        start = read_timestamp()
+        start = time.time()
         debug_start("gc-collect-step")
         oldstate = self.gc_state
         debug_print("starting gc state: ", GC_STATES[self.gc_state])
@@ -2526,7 +2530,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
         debug_stop("gc-collect-step")
-        duration = read_timestamp() - start
+        duration = time.time() - start
+        self.total_gc_time += duration
         self.hooks.fire_gc_collect_step(
             duration=duration,
             oldstate=oldstate,
@@ -3033,6 +3038,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                self.ac.total_memory_used))
         elif stats_no == rgc.NURSERY_SIZE:
             return intmask(self.nursery_size)
+        elif stats_no == rgc.TOTAL_GC_TIME:
+            return int(self.total_gc_time * 1000)
         return 0
 
 

@@ -644,6 +644,7 @@ SYMBOLS_C = [
     'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
     'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
+    'PyOS_InputHook',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
     'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar',
@@ -1179,6 +1180,10 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
         '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
+    state.C.get_pyos_inputhook = rffi.llexternal(
+        '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
 
 
@@ -1725,6 +1730,12 @@ def load_cpyext_module(space, name, path, dll, initptr):
         state.package_context = old_context
     w_mod = state.fixup_extension(name, path)
     return w_mod
+
+def invoke_pyos_inputhook(space):
+    state = space.fromcache(State)
+    c_inputhook = state.C.get_pyos_inputhook()
+    if c_inputhook:
+        generic_cpy_call(space, c_inputhook)
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):

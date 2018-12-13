@@ -3,7 +3,7 @@ import py
 import platform
 import sys, ctypes
 from cffi import FFI, CDefError, FFIError, VerificationMissing
-from pypy.module.test_lib_pypy.cffi_tests.support import *
+from extra_tests.cffi_tests.support import *
 
 SIZE_OF_INT   = ctypes.sizeof(ctypes.c_int)
 SIZE_OF_LONG  = ctypes.sizeof(ctypes.c_long)

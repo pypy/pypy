@@ -3,9 +3,9 @@
 import sys, os, py
 from cffi import FFI, VerificationError, FFIError, CDefError
 from cffi import recompiler
-from pypy.module.test_lib_pypy.cffi_tests.udir import udir
-from pypy.module.test_lib_pypy.cffi_tests.support import u, long
-from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture, StdErrCapture
+from extra_tests.cffi_tests.udir import udir
+from extra_tests.cffi_tests.support import u, long
+from extra_tests.cffi_tests.support import FdWriteCapture, StdErrCapture
 
 try:
     import importlib
