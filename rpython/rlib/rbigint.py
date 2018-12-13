@@ -2073,12 +2073,15 @@ def _x_divrem(v1, w1):
         if j >= size_v:
             vtop = 0
         else:
-            vtop = v.widedigit(j) << SHIFT
-
-        vv = vtop | v.digit(abs(j-1))
+            vtop = v.widedigit(j)
+        assert vtop <= wm1
+        
+        vv = (vtop << SHIFT) | v.widedigit(abs(j-1))
+        
         # Hints to make division just as fast as doing it unsigned. But avoids casting to get correct results.
         assert vv >= 0
         assert wm1 >= 1
+        
         q = vv / wm1
         r = vv % wm1 # This seems to be slightly faster on widen digits than vv - wm1 * q.
         vj2 = v.digit(abs(j-2))
