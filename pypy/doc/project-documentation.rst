@@ -28,7 +28,6 @@ the PyPy universe.
 .. toctree::
    :hidden:
 
-   architecture
    coding-guide
    sprint-reports
    extradoc

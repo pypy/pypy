@@ -2,7 +2,7 @@
 import py
 import sys, os, re
 import shutil, subprocess, time
-from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+from extra_tests.cffi_tests.udir import udir
 import cffi
 
 
