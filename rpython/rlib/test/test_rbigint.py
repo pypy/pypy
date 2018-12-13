@@ -6,6 +6,7 @@ import math
 from random import random, randint, sample, seed
 
 import py
+import pytest
 
 from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
@@ -15,7 +16,21 @@ from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
 
-from hypothesis import given, strategies
+from hypothesis import given, strategies, example
+
+longs = strategies.builds(
+    long, strategies.integers())
+ints = strategies.integers(-sys.maxint-1, sys.maxint)
+
+def makelong(data):
+    numbits = data.draw(strategies.integers(1, 2000))
+    r = data.draw(strategies.integers(0, 1 << numbits))
+    if data.draw(strategies.booleans()):
+        return -r
+    return r
+
+biglongs = strategies.builds(makelong, strategies.data())
+
 
 def gen_signs(l):
     for s in l:
@@ -44,8 +59,8 @@ signed_int_vals = list(gen_signs(int_vals)) + [-sys.maxint-1]
 
 class TestRLong(object):
     def test_simple(self):
-        for op1 in [-2, -1, 0, 1, 2, 50]:
-            for op2 in [-2, -1, 0, 1, 2, 50]:
+        for op1 in [-2, -1, 0, 1, 2, 10, 50]:
+            for op2 in [-2, -1, 0, 1, 2, 10, 50]:
                 rl_op1 = rbigint.fromint(op1)
                 rl_op2 = rbigint.fromint(op2)
                 for op in "add sub mul".split():
@@ -155,13 +170,25 @@ class TestRLong(object):
 
     def test_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
+            rl_op1 = rbigint.fromlong(op1)
             for op2 in [0, 1, 2, 8, 9, 10, 11]:
-                rl_op1 = rbigint.fromlong(op1)
                 rl_op2 = rbigint.fromint(op2)
                 r1 = rl_op1.pow(rl_op2)
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
 
+                for op3 in gen_signs([1, 2, 5, 1000, 12312312312312235659969696l]):
+                    if not op3:
+                        continue
+                    print op1, op2, op3
+                    r3 = rl_op1.pow(rl_op2, rbigint.fromlong(op3))
+                    r4 = pow(op1, op2, op3)
+                    assert r3.tolong() == r4
+
+    def test_pow_raises(self):
+        r1 = rbigint.fromint(2)
+        r0 = rbigint.fromint(0)
+        py.test.raises(ValueError, r1.pow, r1, r0)
 
     def test_touint(self):
         result = r_uint(sys.maxint + 42)
@@ -503,20 +530,6 @@ class Test_rbigint(object):
         f1, f2, f3 = [rbigint.fromlong(i)
                       for i in (10L, 5L, 0L)]
         py.test.raises(ValueError, f1.pow, f2, f3)
-        #
-        MAX = 1E20
-        x = long(random() * MAX) + 1
-        y = long(random() * MAX) + 1
-        z = long(random() * MAX) + 1
-        f1 = rbigint.fromlong(x)
-        f2 = rbigint.fromlong(y)
-        f3 = rbigint.fromlong(z)
-        print f1
-        print f2
-        print f3
-        v = f1.pow(f2, f3)
-        print '--->', v
-        assert v.tolong() == pow(x, y, z)
 
     def test_pow_lll_bug(self):
         two = rbigint.fromint(2)
@@ -584,6 +597,24 @@ class Test_rbigint(object):
                 for mask in masks_list:
                     res3 = f1.abs_rshift_and_mask(r_ulonglong(y), mask)
                     assert res3 == (abs(x) >> y) & mask
+
+        # test special optimization case in rshift:
+        assert rbigint.fromlong(-(1 << 100)).rshift(5).tolong() == -(1 << 100) >> 5
+
+    def test_qshift(self):
+        for x in range(10):
+            for y in range(1, 161, 16):
+                num = (x << y) + x
+                f1 = rbigint.fromlong(num)
+                nf1 = rbigint.fromlong(-num)
+
+                for z in range(1, 31):
+                    res1 = f1.lqshift(z).tolong()
+                    res3 = nf1.lqshift(z).tolong()
+
+                    assert res1 == num << z
+                    assert res3 == -num << z
+
 
     def test_from_list_n_bits(self):
         for x in ([3L ** 30L, 5L ** 20L, 7 ** 300] +
@@ -674,19 +705,12 @@ class Test_rbigint(object):
     def test_hash(self):
         for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
                   sys.maxint-3, sys.maxint-2, sys.maxint-1, sys.maxint,
-                  ] + [randint(0, sys.maxint) for _ in range(100)]:
+                  ]:
             # hash of machine-sized integers
             assert rbigint.fromint(i).hash() == i
             # hash of negative machine-sized integers
             assert rbigint.fromint(-i-1).hash() == -i-1
         #
-        for i in range(200):
-            # hash of large integers: should be equal to the hash of the
-            # integer reduced modulo 2**64-1, to make decimal.py happy
-            x = randint(0, sys.maxint**5)
-            y = x % (2**64-1)
-            assert rbigint.fromlong(x).hash() == rbigint.fromlong(y).hash()
-            assert rbigint.fromlong(-x).hash() == rbigint.fromlong(-y).hash()
 
     def test_log(self):
         from rpython.rlib.rfloat import ulps_check
@@ -756,6 +780,7 @@ class TestInternalFunctions(object):
             f1 = rbigint.fromlong(x)
             f2 = y
             remainder = lobj._inplace_divrem1(f1, f1, f2)
+            f1._normalize()
             assert (f1.tolong(), remainder) == divmod(x, y)
         out = bigint([99, 99], 1)
         remainder = lobj._inplace_divrem1(out, out, 100)
@@ -787,7 +812,7 @@ class TestInternalFunctions(object):
             y += randint(1, 1 << 60)
             if y > x:
                 x <<= 100
-                
+
             f1 = rbigint.fromlong(x)
             f2 = rbigint.fromlong(y)
             div, rem = lobj._x_divrem(f1, f2)
@@ -827,6 +852,18 @@ class TestInternalFunctions(object):
                 assert rem.tolong() == _rem
         py.test.raises(ZeroDivisionError, rbigint.fromlong(x).divmod, rbigint.fromlong(0))
 
+        # an explicit example for a very rare case in _x_divrem:
+        # "add w back if q was too large (this branch taken rarely)"
+        x = 2401064762424988628303678384283622960038813848808995811101817752058392725584695633
+        y = 510439143470502793407446782273075179624699774495710665331026
+        f1 = rbigint.fromlong(x)
+        f2 = rbigint.fromlong(y)
+        div, rem = f1.divmod(f2)
+        _div, _rem = divmod(x, y)
+        assert div.tolong() == _div
+        assert rem.tolong() == _rem
+
+
     # testing Karatsuba stuff
     def test__v_iadd(self):
         f1 = bigint([lobj.MASK] * 10, 1)
@@ -856,14 +893,6 @@ class TestInternalFunctions(object):
         f1 = bigint([lobj.MASK] * digs, 1)
         f2 = lobj._x_add(f1, bigint([1], 1))
         ret = lobj._k_mul(f1, f2)
-        assert ret.tolong() == f1.tolong() * f2.tolong()
-
-    def test__k_lopsided_mul(self):
-        digs_a = KARATSUBA_CUTOFF + 3
-        digs_b = 3 * digs_a
-        f1 = bigint([lobj.MASK] * digs_a, 1)
-        f2 = bigint([lobj.MASK] * digs_b, 1)
-        ret = lobj._k_lopsided_mul(f1, f2)
         assert ret.tolong() == f1.tolong() * f2.tolong()
 
     def test_longlong(self):
@@ -1026,3 +1055,73 @@ class TestTranslated(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert data == '[%d]\n[0, 1]\n' % sys.maxint
+
+class TestHypothesis(object):
+    @given(longs, longs, longs)
+    def test_pow(self, x, y, z):
+        f1 = rbigint.fromlong(x)
+        f2 = rbigint.fromlong(y)
+        f3 = rbigint.fromlong(z)
+        try:
+            res = pow(x, y, z)
+        except Exception as e:
+            pytest.raises(type(e), f1.pow, f2, f3)
+        else:
+            v = f1.pow(f2, f3)
+            assert v.tolong() == res
+
+    @given(biglongs, biglongs)
+    @example(510439143470502793407446782273075179618477362188870662225920,
+             108089693021945158982483698831267549521)
+    def test_divmod(self, x, y):
+        if x < y:
+            x, y = y, x
+
+        f1 = rbigint.fromlong(x)
+        f2 = rbigint.fromlong(y)
+        try:
+            res = divmod(x, y)
+        except Exception as e:
+            pytest.raises(type(e), f1.divmod, f2)
+        else:
+            print x, y
+            a, b = f1.divmod(f2)
+            assert (a.tolong(), b.tolong()) == res
+
+    @given(longs)
+    def test_hash(self, x):
+        # hash of large integers: should be equal to the hash of the
+        # integer reduced modulo 2**64-1, to make decimal.py happy
+        x = randint(0, sys.maxint**5)
+        y = x % (2**64-1)
+        assert rbigint.fromlong(x).hash() == rbigint.fromlong(y).hash()
+        assert rbigint.fromlong(-x).hash() == rbigint.fromlong(-y).hash()
+
+    @given(ints)
+    def test_hash_int(self, x):
+        # hash of machine-sized integers
+        assert rbigint.fromint(x).hash() == x
+        # hash of negative machine-sized integers
+        assert rbigint.fromint(-x-1).hash() == -x-1
+
+    @given(longs)
+    def test_abs(self, x):
+        assert rbigint.fromlong(x).abs().tolong() == abs(x)
+
+    @given(longs, longs)
+    def test_truediv(self, a, b):
+        ra = rbigint.fromlong(a)
+        rb = rbigint.fromlong(b)
+        if not b:
+            pytest.raises(ZeroDivisionError, ra.truediv, rb)
+        else:
+            assert ra.truediv(rb) == a / b
+
+    @given(longs, longs)
+    def test_bitwise(self, x, y):
+        lx = rbigint.fromlong(x)
+        ly = rbigint.fromlong(y)
+        for mod in "xor and_ or_".split():
+            res1 = getattr(lx, mod)(ly).tolong()
+            res2 = getattr(operator, mod)(x, y)
+            assert res1 == res2
