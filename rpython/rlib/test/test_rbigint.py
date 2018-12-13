@@ -16,11 +16,21 @@ from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
 
-from hypothesis import given, strategies
+from hypothesis import given, strategies, example
 
 longs = strategies.builds(
     long, strategies.integers())
 ints = strategies.integers(-sys.maxint-1, sys.maxint)
+
+def makelong(data):
+    numbits = data.draw(strategies.integers(1, 2000))
+    r = data.draw(strategies.integers(0, 1 << numbits))
+    if data.draw(strategies.booleans()):
+        return -r
+    return r
+
+biglongs = strategies.builds(makelong, strategies.data())
+
 
 def gen_signs(l):
     for s in l:
@@ -1125,7 +1135,6 @@ class TestTranslated(StandaloneTests):
         data = cbuilder.cmdexec('hi there')
         assert data == '[%d]\n[0, 1]\n' % sys.maxint
 
-
 class TestHypothesis(object):
     @given(longs, longs, longs)
     def test_pow(self, x, y, z):
@@ -1140,23 +1149,35 @@ class TestHypothesis(object):
             v = f1.pow(f2, f3)
             assert v.tolong() == res
 
-    @given(longs, longs, longs)
-    def test_divmod(self, x, y, z):
+    @given(biglongs, biglongs)
+    @example(510439143470502793407446782273075179618477362188870662225920,
+             108089693021945158982483698831267549521)
+    def test_divmod(self, x, y):
+        if x < y:
+            x, y = y, x
+
         f1 = rbigint.fromlong(x)
         f2 = rbigint.fromlong(y)
-        f3 = rbigint.fromlong(z)
         try:
-            res = divmod(x, y, z)
+            res = divmod(x, y)
         except Exception as e:
-            pytest.raises(type(e), f1.divmod, f2, f3)
-            if isinstance(int(y), int):
-                pytest.raises(type(e), f1.int_divmod, f2, f3)
+            pytest.raises(type(e), f1.divmod, f2)
         else:
-            a, b = f1.divmod(f2, f3)
-            assert a.tolong(), b.tolong() == res
-            if isinstance(int(y), int):
-                a, b = f1.int_divmod(f2, f3)
-                assert a.tolong(), b.tolong() == res
+            print x, y
+            a, b = f1.divmod(f2)
+            assert (a.tolong(), b.tolong()) == res
+
+    @given(biglongs, ints)
+    def test_int_divmod(self, x, iy):
+        f1 = rbigint.fromlong(x)
+        try:
+            res = divmod(x, iy)
+        except Exception as e:
+            pytest.raises(type(e), f1.int_divmod, iy)
+        else:
+            print x, iy
+            a, b = f1.int_divmod(iy)
+            assert (a.tolong(), b.tolong()) == res
 
     @given(longs)
     def test_hash(self, x):
