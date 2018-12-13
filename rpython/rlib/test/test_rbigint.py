@@ -900,6 +900,18 @@ class TestInternalFunctions(object):
                 assert rem.tolong() == _rem
         py.test.raises(ZeroDivisionError, rbigint.fromlong(x).divmod, rbigint.fromlong(0))
 
+        # an explicit example for a very rare case in _x_divrem:
+        # "add w back if q was too large (this branch taken rarely)"
+        x = 2401064762424988628303678384283622960038813848808995811101817752058392725584695633
+        y = 510439143470502793407446782273075179624699774495710665331026
+        f1 = rbigint.fromlong(x)
+        f2 = rbigint.fromlong(y)
+        div, rem = f1.divmod(f2)
+        _div, _rem = divmod(x, y)
+        assert div.tolong() == _div
+        assert rem.tolong() == _rem
+
+
     def test_int_divmod(self):
         for x in long_vals:
             for y in int_vals + [-sys.maxint-1]:
