@@ -639,6 +639,9 @@ class Test_rbigint(object):
                     res3 = f1.abs_rshift_and_mask(r_ulonglong(y), mask)
                     assert res3 == (abs(x) >> y) & mask
 
+        # test special optimization case in rshift:
+        assert rbigint.fromlong(-(1 << 100)).rshift(5).tolong() == -(1 << 100) >> 5
+
     def test_qshift(self):
         for x in range(10):
             for y in range(1, 161, 16):
@@ -916,6 +919,7 @@ class TestInternalFunctions(object):
                     assert rem1.tolong() == _rem
                     assert div.tolong() == _div
                     assert rem.tolong() == _rem
+        py.test.raises(ZeroDivisionError, rbigint.fromlong(x).int_divmod, 0)
 
     # testing Karatsuba stuff
     def test__v_iadd(self):
@@ -1157,3 +1161,34 @@ class TestHypothesis(object):
         assert rbigint.fromint(x).hash() == x
         # hash of negative machine-sized integers
         assert rbigint.fromint(-x-1).hash() == -x-1
+
+    @given(longs)
+    def test_abs(self, x):
+        assert rbigint.fromlong(x).abs().tolong() == abs(x)
+
+    @given(longs, longs)
+    def test_truediv(self, a, b):
+        ra = rbigint.fromlong(a)
+        rb = rbigint.fromlong(b)
+        if not b:
+            pytest.raises(ZeroDivisionError, ra.truediv, rb)
+        else:
+            assert ra.truediv(rb) == a / b
+
+    @given(longs, longs)
+    def test_bitwise(self, x, y):
+        lx = rbigint.fromlong(x)
+        ly = rbigint.fromlong(y)
+        for mod in "xor and_ or_".split():
+            res1 = getattr(lx, mod)(ly).tolong()
+            res2 = getattr(operator, mod)(x, y)
+            assert res1 == res2
+
+    @given(longs, ints)
+    def test_int_bitwise(self, x, y):
+        lx = rbigint.fromlong(x)
+        for mod in "xor and_ or_".split():
+            res1 = getattr(lx, 'int_' + mod)(y).tolong()
+            res2 = getattr(operator, mod)(x, y)
+            assert res1 == res2
+
