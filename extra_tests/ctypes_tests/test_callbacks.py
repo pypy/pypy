@@ -139,7 +139,12 @@ def test_qsort(dll):
     def comp(a, b):
         a = a.contents.value
         b = b.contents.value
-        return cmp(a,b)
+        if a < b:
+            return -1
+        elif a > b:
+            return 1
+        else:
+            return 0
     qs = dll.my_qsort
     qs.restype = None
     CMP = CFUNCTYPE(c_int, PI, PI)

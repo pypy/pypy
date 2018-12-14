@@ -66,7 +66,7 @@ def test_char_p():
 
     myarray = (c_char_p * 10)()
     myarray[7] = b"hello"
-    assert isinstance(myarray[7], str)
+    assert isinstance(myarray[7], bytes)
     assert myarray[7] == b"hello"
 
 def test_struct():
@@ -174,8 +174,8 @@ def test_truth_value():
     assert not c_ulonglong(0)
     assert c_ulonglong(2**42)
 
-    assert c_char_p("hello")
-    assert c_char_p("")
+    assert c_char_p(b"hello")
+    assert c_char_p(b"")
     assert not c_char_p(None)
 
     assert not c_void_p()
@@ -211,7 +211,7 @@ def test_varsize_cast():
     x = c_long()
     p = cast(pointer(x), POINTER(c_ubyte*N))
     for i, c in enumerate(struct.pack("l", 12345678)):
-        p.contents[i] = ord(c)
+        p.contents[i] = c
     assert x.value == 12345678
 
 def test_cfunctype_inspection():

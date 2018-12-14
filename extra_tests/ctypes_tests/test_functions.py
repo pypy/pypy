@@ -34,7 +34,7 @@ def test_truncate_python_longs(dll):
     f = dll._testfunc_i_bhilfd
     f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
     f.restype = c_int
-    x = sys.maxint * 2
+    x = sys.maxsize * 2
     result = f(x, x, x, x, 0, 0)
     assert result == -8
 
@@ -193,8 +193,7 @@ def test_issue1655(dll):
         def sz_array_p(obj, func, args):
             assert ('.LP_c_int object' in repr(obj) or
                     '.LP_c_long object' in repr(obj))
-            assert repr(args) in ("('testing!', c_int(4))",
-                                    "('testing!', c_long(4))")
+            assert repr(args) =="(b'testing!', c_int(4))"
             assert args[icount].value == 4
             return [obj[i] for i in range(args[icount].value)]
         return sz_array_p

@@ -4,7 +4,7 @@ def test_buffer():
     b = create_string_buffer(32)
     assert len(b) == 32
     assert sizeof(b) == 32 * sizeof(c_char)
-    assert type(b[0]) is str
+    assert type(b[0]) is bytes
 
     b = create_string_buffer(b"abc")
     assert len(b) == 4 # trailing nul char
