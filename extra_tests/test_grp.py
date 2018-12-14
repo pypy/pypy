@@ -6,7 +6,7 @@ grp = pytest.importorskip('grp')
 def test_basic():
     with pytest.raises(KeyError) as e:
         grp.getgrnam("dEkLofcG")
-    assert e.value.args[0] == "'getgrnam(): name not found: dEkLofcG'"
+    assert e.value.args[0] == 'getgrnam(): name not found: dEkLofcG'
     for name in ["root", "wheel"]:
         try:
             g = grp.getgrnam(name)
@@ -23,9 +23,9 @@ def test_basic():
         raise
 
 def test_extra():
-    with pytest.raises(TypeError):
+    with pytest.raises(KeyError):
         grp.getgrnam(False)
-    with pytest.raises(TypeError):
+    with pytest.raises(KeyError):
         grp.getgrnam(None)
 
 def test_struct_group():
