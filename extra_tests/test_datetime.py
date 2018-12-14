@@ -57,22 +57,22 @@ def test_timedelta_init_long():
 def test_unpickle():
     with pytest.raises(TypeError) as e:
         datetime.date('123')
-    assert e.value.args[0] == 'an integer is required'
+    assert e.value.args[0].startswith('an integer is required')
     with pytest.raises(TypeError) as e:
         datetime.time('123')
-    assert e.value.args[0] == 'an integer is required'
+    assert e.value.args[0].startswith('an integer is required')
     with pytest.raises(TypeError) as e:
         datetime.datetime('123')
-    assert e.value.args[0] == 'an integer is required'
+    assert e.value.args[0].startswith('an integer is required')
 
-    datetime.time('\x01' * 6, None)
+    datetime.time(b'\x01' * 6, None)
     with pytest.raises(TypeError) as exc:
-        datetime.time('\x01' * 6, 123)
+        datetime.time(b'\x01' * 6, 123)
     assert str(exc.value) == "bad tzinfo state arg"
 
-    datetime.datetime('\x01' * 10, None)
+    datetime.datetime(b'\x01' * 10, None)
     with pytest.raises(TypeError) as exc:
-        datetime.datetime('\x01' * 10, 123)
+        datetime.datetime(b'\x01' * 10, 123)
     assert str(exc.value) == "bad tzinfo state arg"
 
 def test_strptime():
@@ -133,7 +133,7 @@ def test_utcfromtimestamp():
         prev_tz = os.environ.get("TZ")
         os.environ["TZ"] = "GMT"
         time.tzset()
-        for unused in xrange(100):
+        for unused in range(100):
             now = time.time()
             delta = (datetime.datetime.utcfromtimestamp(now) -
                         datetime.datetime.fromtimestamp(now))
@@ -182,12 +182,12 @@ def test_check_arg_types():
 
     with pytest.raises(TypeError) as exc:
         datetime.datetime(0, 10, '10')
-    assert str(exc.value) == 'an integer is required'
+    assert str(exc.value).startswith('an integer is required')
 
     f10 = Number(10.9)
     with pytest.raises(TypeError) as exc:
         datetime.datetime(10, 10, f10)
-    assert str(exc.value) == '__int__ method should return an integer'
+    assert str(exc.value) == '__int__ returned non-int (type float)'
 
     class Float(float):
         pass
@@ -231,22 +231,18 @@ def test_raises_if_passed_naive_datetime_and_start_or_end_time_defined():
             return datetime.timedelta(0.1)
     naive = datetime.datetime(2014, 9, 22)
     aware = datetime.datetime(2014, 9, 22, tzinfo=Foo())
-    with pytest.raises(TypeError) as exc:
-        naive.__eq__(aware)
-    assert str(exc.value) == "can't compare offset-naive and offset-aware datetimes"
+    assert naive != aware
     with pytest.raises(TypeError) as exc:
         naive.__sub__(aware)
     assert str(exc.value) == "can't subtract offset-naive and offset-aware datetimes"
 
     naive = datetime.time(7, 32, 12)
     aware = datetime.time(7, 32, 12, tzinfo=Foo())
-    with pytest.raises(TypeError) as exc:
-        naive.__eq__(aware)
-    assert str(exc.value) == "can't compare offset-naive and offset-aware times"
+    assert naive != aware
 
 def test_future_types_newint():
     # Issue 2193
-    class newint(long):
+    class newint(int):
         def __int__(self):
             return self
 
