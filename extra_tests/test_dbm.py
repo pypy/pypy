@@ -33,7 +33,7 @@ def test_nonstring(tmpdir):
         d[123]
     with pytest.raises(TypeError):
         123 in d
-    with pytest.raises(TypeError):
+    with pytest.raises(AttributeError):
         d.has_key(123)
     with pytest.raises(TypeError):
         d.setdefault(123, 'xyz')
@@ -43,7 +43,7 @@ def test_nonstring(tmpdir):
         d.get(123)
     assert dict(d) == {}
     d.setdefault('xyz', '123')
-    assert dict(d) == {'xyz': '123'}
+    assert dict(d) == {b'xyz': b'123'}
     d.close()
 
 def test_multiple_sets(tmpdir):
@@ -52,15 +52,16 @@ def test_multiple_sets(tmpdir):
     d['xyz'] = '12'
     d['xyz'] = '3'
     d['xyz'] = '546'
-    assert dict(d) == {'xyz': '546'}
-    assert d['xyz'] == '546'
+    assert dict(d) == {b'xyz': b'546'}
+    assert d['xyz'] == b'546'
 
 @pytest.mark.skipif("'__pypy__' not in sys.modules")
 def test_extra():
+    import _dbm
     with pytest.raises(TypeError):
-        dbm.datum(123)
+        _dbm.datum(123)
     with pytest.raises(TypeError):
-        dbm.datum(False)
+        _dbm.datum(False)
 
 def test_null():
     db = dbm.open('test', 'c')
@@ -68,20 +69,19 @@ def test_null():
     db.close()
 
     db = dbm.open('test', 'r')
-    assert db['1'] == 'a\x00b'
+    assert db['1'] == b'a\x00b'
     db.close()
 
 def test_key_with_empty_value(tmpdir):
     # this test fails on CPython too (at least on tannit), and the
     # case shows up when gdbm is not installed and test_anydbm.py
     # falls back dbm.
-    pytest.skip("test may fail on CPython too")
     path = str(tmpdir.join('test_dbm_extra.test_key_with_empty_value'))
     d = dbm.open(path, 'c')
     assert 'key_with_empty_value' not in d
     d['key_with_empty_value'] = ''
     assert 'key_with_empty_value' in d
-    assert d['key_with_empty_value'] == ''
+    assert d['key_with_empty_value'] == b''
     d.close()
 
 def test_unicode_filename(tmpdir):

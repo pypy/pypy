@@ -213,19 +213,10 @@ def test_row_factory_use(con):
 
 def test_returning_blob_must_own_memory(con):
     import gc
-    con.create_function("returnblob", 0, lambda: buffer("blob"))
+    con.create_function("returnblob", 0, lambda: memoryview(b"blob"))
     cur = con.execute("select returnblob()")
     val = cur.fetchone()[0]
-    for i in range(5):
-        gc.collect()
-        got = (val[0], val[1], val[2], val[3])
-        assert got == ('b', 'l', 'o', 'b')
-    # in theory 'val' should be a read-write buffer
-    # but it's not right now
-    if not hasattr(_sqlite3, '_ffi'):
-        val[1] = 'X'
-        got = (val[0], val[1], val[2], val[3])
-        assert got == ('b', 'X', 'o', 'b')
+    assert isinstance(val, bytes)
 
 def test_description_after_fetchall(con):
     cur = con.cursor()
@@ -264,7 +255,7 @@ def test_authorizer_bad_value(con):
 def test_issue1573(con):
     cur = con.cursor()
     cur.execute(u'SELECT 1 as méil')
-    assert cur.description[0][0] == u"méil".encode('utf-8')
+    assert cur.description[0][0] == u"méil"
 
 def test_adapter_exception(con):
     def cast(obj):
