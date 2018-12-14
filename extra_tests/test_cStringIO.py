@@ -1,7 +1,7 @@
 """
 Tests for the PyPy cStringIO implementation.
 """
-from cStringIO import StringIO
+from io import StringIO
 
 data = b"some bytes"
 
