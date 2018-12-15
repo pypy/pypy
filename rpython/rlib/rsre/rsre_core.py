@@ -460,6 +460,7 @@ class MinRepeatOneMatchResult(MatchResult):
         ptr = self.start_ptr
         if not self.next_char_ok(ctx, pattern, ptr, self.ppos3):
             return
+        assert not isinstance(ctx, AbstractMatchContext)
         self.start_ptr = ctx.next(ptr)
         return self.find_first_result(ctx, pattern)
 
