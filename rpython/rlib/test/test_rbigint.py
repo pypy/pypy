@@ -652,6 +652,9 @@ class Test_rbigint(object):
         # test special optimization case in rshift:
         assert rbigint.fromlong(-(1 << 100)).rshift(5).tolong() == -(1 << 100) >> 5
 
+        # Chek value accuracy.
+        assert rbigint.fromlong(18446744073709551615L).rshift(1).tolong() == 18446744073709551615L >> 1
+
     def test_qshift(self):
         for x in range(10):
             for y in range(1, 161, 16):

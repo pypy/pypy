@@ -1231,43 +1231,30 @@ class rbigint(object):
             raise ValueError("negative shift count")
         elif int_other == 0:
             return self
-        invert = False
         if self.sign == -1 and not dont_invert:
-            first = self.digit(0)
-            if first == 0:
-                a = self.invert().rshift(int_other)
-                return a.invert()
-            invert = True
+            a = self.invert().rshift(int_other)
+            return a.invert()
 
         wordshift = int_other / SHIFT
-        loshift = int_other % SHIFT
         newsize = self.numdigits() - wordshift
         if newsize <= 0:
-            if invert:
-                return ONENEGATIVERBIGINT
-            else:
-                return NULLRBIGINT
+            return NULLRBIGINT
 
-
+        loshift = int_other % SHIFT
         hishift = SHIFT - loshift
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
         while i < newsize:
-            digit = self.udigit(wordshift)
-            if i == 0 and invert and wordshift == 0:
-                digit -= 1
-            newdigit = (digit >> loshift)
+            newdigit = (self.digit(wordshift) >> loshift)
             if i+1 < newsize:
-                newdigit |= (self.udigit(wordshift+1) << hishift)
+                newdigit |= (self.digit(wordshift+1) << hishift)
             z.setdigit(i, newdigit)
             i += 1
             wordshift += 1
-        if invert:
-            z.setdigit(0, z.digit(0)+1)
         z._normalize()
         return z
-    rshift._always_inline_ = 'try' # It's so fast that it's always beneficial.
-
+    rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
+    
     @jit.elidable
     def rqshift(self, int_other):
         wordshift = int_other / SHIFT
