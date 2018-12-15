@@ -4,8 +4,10 @@ from _resource_cffi import ffi, lib
 from errno import EINVAL, EPERM
 import _structseq, os
 
-try: from __pypy__ import builtinify
-except ImportError: builtinify = lambda f: f
+try:
+    from __pypy__ import builtinify
+except ImportError:
+    builtinify = lambda f: f
 
 
 class error(Exception):
@@ -35,7 +37,7 @@ or via the attributes ru_utime, ru_stime, ru_maxrss, and so on."""
     ru_oublock = _structseq.structseqfield(10, "block output operations")
     ru_msgsnd = _structseq.structseqfield(11,  "IPC messages sent")
     ru_msgrcv = _structseq.structseqfield(12,  "IPC messages received")
-    ru_nsignals = _structseq.structseqfield(13,"signals received")
+    ru_nsignals = _structseq.structseqfield(13, "signals received")
     ru_nvcsw = _structseq.structseqfield(14,   "voluntary context switches")
     ru_nivcsw = _structseq.structseqfield(15,  "involuntary context switches")
 
@@ -57,7 +59,7 @@ def _make_struct_rusage(ru):
         ru.ru_nsignals,
         ru.ru_nvcsw,
         ru.ru_nivcsw,
-        ))
+    ))
 
 @builtinify
 def getrusage(who):

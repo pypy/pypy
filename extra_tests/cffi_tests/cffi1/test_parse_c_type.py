@@ -4,7 +4,12 @@ import cffi
 from cffi import cffi_opcode
 
 if '__pypy__' in sys.builtin_module_names:
-    py.test.skip("not available on pypy")
+    try:
+        # pytest >= 4.0
+        py.test.skip("not available on pypy", allow_module_level=True)
+    except TypeError:
+        # older pytest
+        py.test.skip("not available on pypy")
 
 cffi_dir = os.path.dirname(cffi_opcode.__file__)
 

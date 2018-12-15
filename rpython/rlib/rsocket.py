@@ -707,7 +707,8 @@ class RSocket(object):
             address.unlock()
             errno = _c.geterrno()
             timeout = self.timeout
-            if timeout > 0.0 and res < 0 and errno == _c.EWOULDBLOCK:
+            if (timeout > 0.0 and res < 0 and
+                    errno in (_c.EWOULDBLOCK, _c.WSAEWOULDBLOCK)):
                 tv = rffi.make(_c.timeval)
                 rffi.setintfield(tv, 'c_tv_sec', int(timeout))
                 rffi.setintfield(tv, 'c_tv_usec',
@@ -733,7 +734,7 @@ class RSocket(object):
                             return (self.getsockopt_int(_c.SOL_SOCKET,
                                                         _c.SO_ERROR), False)
                     elif n == 0:
-                        return (_c.EWOULDBLOCK, True)
+                        return (_c.WSAEWOULDBLOCK, True)
                     else:
                         return (_c.geterrno(), False)
 

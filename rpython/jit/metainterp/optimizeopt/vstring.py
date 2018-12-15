@@ -6,8 +6,7 @@ from rpython.jit.metainterp.optimizeopt import optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
 from rpython.jit.metainterp.optimizeopt.optimizer import llhelper, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, ResOperation,\
-     AbstractResOp
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.unroll import unrolling_iterable

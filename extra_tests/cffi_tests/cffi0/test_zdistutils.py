@@ -4,7 +4,7 @@ import py
 from cffi import FFI, FFIError
 from cffi.verifier import Verifier, _locate_engine_class, _get_so_suffixes
 from cffi.ffiplatform import maybe_relative_path
-from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+from extra_tests.cffi_tests.udir import udir
 
 
 class DistUtilsTest(object):
