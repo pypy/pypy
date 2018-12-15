@@ -3,7 +3,6 @@ import py
 from pypy.objspace.std import longobject as lobj
 from rpython.rlib.rbigint import rbigint
 
-
 class TestW_LongObject:
     def test_bigint_w(self):
         space = self.space
@@ -60,8 +59,9 @@ class AppTestLong:
         assert x + 2 + self._long(3) + True == -self._long(14)
 
     def test_sub(self):
-        x = self._long(58543)
-        assert int(x - self._long(12332)) == 58543 - 12332
+        assert int(self._long(58543) - self._long(12332)) == 58543 - 12332
+        assert int(self._long(58543) - 12332) == 58543 - 12332
+        assert int(58543 - self._long(12332)) == 58543 - 12332
         x = self._long(237123838281233)
         assert x * 12 == x * self._long(12)
 
@@ -78,6 +78,24 @@ class AppTestLong:
         a = x // self._long(10000000)
         assert a == self._long(3)
 
+    def test_int_floordiv(self):
+        import sys
+        long = self._long
+
+        x = long(3000)
+        a = x // 1000
+        assert a == 3
+
+        x = long(3000)
+        a = x // -1000
+        assert a == -3
+
+        x = long(3000)
+        raises(ZeroDivisionError, "x // 0")
+
+        n = sys.maxsize + 1
+        assert n / int(-n) == long(-1)
+
     def test_numerator_denominator(self):
         assert (self._long(1)).numerator == self._long(1)
         assert (self._long(1)).denominator == self._long(1)
@@ -87,25 +105,27 @@ class AppTestLong:
     def test_compare(self):
         Z = 0
         ZL = self._long(0)
+
+        assert Z == ZL
+        assert not (Z != ZL)
+        assert ZL == Z
+        assert not (ZL != Z)
+        assert Z <= ZL
+        assert not (Z < ZL)
+        assert ZL <= ZL
+        assert not (ZL < ZL)
+
         for BIG in (self._long(1), self._long(1) << 62, self._long(1) << 9999):
-            assert Z == ZL
-            assert not (Z != ZL)
-            assert ZL == Z
-            assert not (ZL != Z)
             assert not (Z == BIG)
             assert Z != BIG
             assert not (BIG == Z)
             assert BIG != Z
             assert not (ZL == BIG)
             assert ZL != BIG
-            assert Z <= ZL
-            assert not (Z < ZL)
             assert Z <= BIG
             assert Z < BIG
             assert not (BIG <= Z)
             assert not (BIG < Z)
-            assert ZL <= ZL
-            assert not (ZL < ZL)
             assert ZL <= BIG
             assert ZL < BIG
             assert not (BIG <= ZL)
@@ -179,22 +199,54 @@ class AppTestLong:
         assert type(-long2(0)) is int
         assert type(long2(5) // 1) is int
 
+    def test_shift(self):
+        long = self._long
+        assert long(65) >> long(2) == long(16)
+        assert long(65) >> 2 == long(16)
+        assert 65 >> long(2) == long(16)
+        assert long(65) << long(2) == long(65) * 4
+        assert long(65) << 2 == long(65) * 4
+        assert 65 << long(2) == long(65) * 4
+        raises(ValueError, "long(1) << long(-1)")
+        raises(ValueError, "long(1) << -1")
+        raises(OverflowError, "long(1) << (2 ** 100)")
+        raises(ValueError, "long(1) >> long(-1)")
+        raises(ValueError, "long(1) >> -1")
+        raises(OverflowError, "long(1) >> (2 ** 100)")
+
     def test_pow(self):
+        long = self._long
         x = self._long(0)
         assert pow(x, self._long(0), self._long(1)) == self._long(0)
         assert pow(-self._long(1), -self._long(1)) == -1.0
+        assert pow(2 ** 68, 0.5) == 2.0 ** 34
+        assert pow(2 ** 68, 2) == 2 ** 136
+        raises(ValueError, pow, long(2), -1, 3)
+        raises(ValueError, pow, long(2), 5, 0)
+
+        # some rpow tests
+        assert pow(0, long(0), long(1)) == long(0)
+        assert pow(-1, long(-1)) == -1.0
+
+    def test_int_pow(self):
+        long = self._long
+        x = long(2)
+        assert pow(x, 2) == long(4)
+        assert pow(x, 2, 2) == long(0)
+        assert pow(x, 2, long(3)) == long(1)
 
     def test_getnewargs(self):
         assert  self._long(0) .__getnewargs__() == (self._long(0),)
         assert  (-self._long(1)) .__getnewargs__() == (-self._long(1),)
 
     def test_divmod(self):
+        long = self._long
         def check_division(x, y):
             q, r = divmod(x, y)
             pab, pba = x*y, y*x
             assert pab == pba
-            assert q == x//y
-            assert r == x%y
+            assert q == x // y
+            assert r == x % y
             assert x == q*y + r
             if y > 0:
                 assert 0 <= r < y
@@ -204,6 +256,8 @@ class AppTestLong:
             for y in [-self._long(105566530), -self._long(1), self._long(1), self._long(1034522340)]:
                 print("checking division for %s, %s" % (x, y))
                 check_division(x, y)
+                check_division(x, int(y))
+                check_division(int(x), y)
         # special case from python tests:
         s1 = 33
         s2 = 2
@@ -216,6 +270,17 @@ class AppTestLong:
         check_division(x, y)
         raises(ZeroDivisionError, "x // self._long(0)")
         divmod(3, self._long(4))
+        raises(ZeroDivisionError, "x % long(0)")
+        raises(ZeroDivisionError, divmod, x, long(0))
+        raises(ZeroDivisionError, "x // 0")
+        raises(ZeroDivisionError, "x % 0")
+        raises(ZeroDivisionError, divmod, x, 0)
+
+    def test_int_divmod(self):
+        long = self._long
+        q, r = divmod(long(100), 11)
+        assert q == 9
+        assert r == 1
 
     def test_format(self):
         assert repr(12345678901234567890) == '12345678901234567890'

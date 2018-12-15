@@ -29,6 +29,7 @@ Getting Started
   :maxdepth: 1
 
   introduction
+  architecture
   install
   build
   windows
@@ -59,7 +60,6 @@ Development
   :maxdepth: 2
 
   contributing
-  architecture
   configuration
   project-ideas
   project-documentation

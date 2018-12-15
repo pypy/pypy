@@ -192,10 +192,10 @@ htmlhelp_basename = 'PyPydoc'
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
-latex_documents = [
-  ('temp_index', 'PyPy.tex', u'PyPy Documentation',
-   u'The PyPy Project', 'manual'),
-]
+#latex_documents = [
+#  ('temp_index', 'PyPy.tex', u'PyPy Documentation',
+#   u'The PyPy Project', 'manual'),
+#]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
@@ -212,7 +212,7 @@ latex_documents = [
 #latex_appendices = []
 
 # If false, no module index is generated.
-latex_use_modindex = False
+#latex_use_modindex = False
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
