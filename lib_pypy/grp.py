@@ -54,7 +54,7 @@ def getgrnam(name):
     with _lock:
         res = lib.getgrnam(os.fsencode(name))
         if not res:
-            raise KeyError("'getgrnam(): name not found: %s'" % name)
+            raise KeyError("getgrnam(): name not found: %s" % name)
         return _group_from_gstruct(res)
 
 @builtinify

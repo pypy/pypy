@@ -95,6 +95,8 @@ class AppTestExc(object):
         assert ee.strerror == "x"
         assert ee.filename == "y"
         assert EnvironmentError(3, "x").filename is None
+        e = EnvironmentError(1, "hello", "world")
+        assert str(e) == "[Errno 1] hello: 'world'"
 
     def test_windows_error(self):
         try:
@@ -122,6 +124,7 @@ class AppTestExc(object):
         assert str(SyntaxError("msg", ("file.py", 2, 3, 4))) == "msg (file.py, line 2)"
 
     def test_system_exit(self):
+        assert issubclass(SystemExit, BaseException)
         assert SystemExit().code is None
         assert SystemExit("x").code == "x"
         assert SystemExit(1, 2).code == (1, 2)

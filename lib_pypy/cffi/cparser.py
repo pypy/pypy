@@ -156,7 +156,6 @@ def _preprocess(csource):
         macrovalue = macrovalue.replace('\\\n', '').strip()
         macros[macroname] = macrovalue
     csource = _r_define.sub('', csource)
-    _warn_for_string_literal(csource)
     #
     if pycparser.__version__ < '2.14':
         csource = _workaround_for_old_pycparser(csource)
@@ -172,6 +171,9 @@ def _preprocess(csource):
     #
     # Replace `extern "Python"` with start/end markers
     csource = _preprocess_extern_python(csource)
+    #
+    # Now there should not be any string literal left; warn if we get one
+    _warn_for_string_literal(csource)
     #
     # Replace "[...]" with "[__dotdotdotarray__]"
     csource = _r_partial_array.sub('[__dotdotdotarray__]', csource)
