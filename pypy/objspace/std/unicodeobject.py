@@ -1111,7 +1111,11 @@ def decode_object(space, w_obj, encoding, errors):
             unicodehelper.check_ascii_or_raise(space, s)
             return space.newutf8(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
-            s = space.charbuf_w(w_obj)
+            if (space.isinstance_w(w_obj, space.w_unicode) or 
+                space.isinstance_w(w_obj, space.w_bytes)):
+                s = space.utf8_w(w_obj)
+            else:
+                s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
     w_codecs = space.getbuiltinmodule("_codecs")
