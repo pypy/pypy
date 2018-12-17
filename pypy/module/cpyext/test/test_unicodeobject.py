@@ -116,6 +116,43 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert len(s) == 4
         assert s == u'a\xe9\x00c'
 
+    def test_default_encoded_string(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("test_default_encoded_string", "METH_O",
+             '''
+                PyObject* result = _PyUnicode_AsDefaultEncodedString(args, "replace");
+                Py_INCREF(result);
+                return result;
+             '''
+             ),
+            ])
+        res = module.test_default_encoded_string(u"xyz")
+        assert res == b'xyz'
+        res = module.test_default_encoded_string(u"caf\xe9")
+        assert res == u"caf\xe9".encode(sys.getdefaultencoding(), 'replace')
+
+    def test_unicode_macros(self):
+        """The PyUnicode_* macros cast, and calls expecting that build."""
+        module = self.import_extension('foo', [
+             ("test_macro_invocations", "METH_NOARGS",
+             """
+                PyObject* o = PyUnicode_FromString("");
+                PyUnicodeObject* u = (PyUnicodeObject*)o;
+
+                PyUnicode_GET_SIZE(u);
+                PyUnicode_GET_SIZE(o);
+
+                PyUnicode_GET_DATA_SIZE(u);
+                PyUnicode_GET_DATA_SIZE(o);
+
+                PyUnicode_AS_UNICODE(o);
+                PyUnicode_AS_UNICODE(u);
+                return o;
+             """)])
+        assert module.test_macro_invocations() == u''
+
+
     def test_format_v(self):
         module = self.import_extension('foo', [
             ("test_unicode_format_v", "METH_VARARGS",
@@ -139,7 +176,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.test_unicode_format_v(1, "xyz")
         assert res == "bla 1 ble xyz\n"
 
-    def test_format(self):
+    def test_format1(self):
         module = self.import_extension('foo', [
             ("test_unicode_format", "METH_VARARGS",
              '''
@@ -272,27 +309,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.compare("ab", b"abc") == -1
         assert module.compare("", b"abc") == -1
         assert module.compare("abc", b"") == 1
-
-
-    def test_unicode_macros(self):
-        """The PyUnicode_* macros cast, and calls expecting that build."""
-        module = self.import_extension('foo', [
-             ("test_macro_invocations", "METH_NOARGS",
-             """
-                PyObject* o = PyUnicode_FromString("");
-                PyUnicodeObject* u = (PyUnicodeObject*)o;
-
-                PyUnicode_GET_SIZE(u);
-                PyUnicode_GET_SIZE(o);
-
-                PyUnicode_GET_DATA_SIZE(u);
-                PyUnicode_GET_DATA_SIZE(o);
-
-                PyUnicode_AS_UNICODE(o);
-                PyUnicode_AS_UNICODE(u);
-                return o;
-             """)])
-        assert module.test_macro_invocations() == u''
 
     def test_AsUTF8AndSize(self):
         module = self.import_extension('foo', [
@@ -886,19 +902,19 @@ class TestUnicode(BaseApiTest):
 
     def test_fromordinal(self, space):
         w_char = PyUnicode_FromOrdinal(space, 65)
-        assert space.utf8_w(w_char) == 'A'
+        assert space.utf8_w(w_char) == u'A'
         w_char = PyUnicode_FromOrdinal(space, 0)
-        assert space.utf8_w(w_char) == '\0'
+        assert space.utf8_w(w_char) == u'\0'
         w_char = PyUnicode_FromOrdinal(space, 0xFFFF)
-        assert space.utf8_w(w_char) == u'\uFFFF'.encode("utf-8")
+        assert space.utf8_w(w_char) == u'\uFFFF'.encode('utf-8')
 
     def test_replace(self, space):
         w_str = space.wrap(u"abababab")
         w_substr = space.wrap(u"a")
         w_replstr = space.wrap(u"z")
-        assert "zbzbabab" == space.utf8_w(
+        assert u"zbzbabab" == space.utf8_w(
             PyUnicode_Replace(space, w_str, w_substr, w_replstr, 2))
-        assert "zbzbzbzb" == space.utf8_w(
+        assert u"zbzbzbzb" == space.utf8_w(
             PyUnicode_Replace(space, w_str, w_substr, w_replstr, -1))
 
     def test_tailmatch(self, space):
