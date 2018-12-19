@@ -763,13 +763,27 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def collect(self, gen=2):
         """Do a minor (gen=0), start a major (gen=1), or do a full
         major (gen>=2) collection."""
-        if gen <= 0:
-            self._minor_collection()   # dangerous! no major GC cycle progress
-        elif gen <= 1:
+        if gen < 0:
+            # Dangerous! this makes no progress on the major GC cycle.
+            # If called too often, the memory usage will keep increasing,
+            # because we'll never completely fill the nursery (and so
+            # never run anything about the major collection).
+            self._minor_collection()
+        elif gen == 0:
+            # This runs a minor collection.  This is basically what occurs
+            # when the nursery is full.  If a major collection is in
+            # progress, it also runs one more step of it.  It might also
+            # decide to start a major collection just now, depending on
+            # current memory pressure.
             self.minor_collection_with_major_progress(force_enabled=True)
-            if gen == 1 and self.gc_state == STATE_SCANNING:
+        elif gen == 1:
+            # This is like gen == 0, but if no major collection is running,
+            # then it forces one to start now.
+            self.minor_collection_with_major_progress(force_enabled=True)
+            if self.gc_state == STATE_SCANNING:
                 self.major_collection_step()
         else:
+            # This does a complete minor and major collection.
             self.minor_and_major_collection()
         self.rrc_invoke_callback()
 
