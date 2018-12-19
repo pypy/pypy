@@ -31,13 +31,13 @@ def collect_step():
     return _encode_states(1, 0)
 
 def _encode_states(oldstate, newstate):
-    return oldstate << 16 | newstate
+    return oldstate << 8 | newstate
 
 def old_state(states):
-    return (states & 0xFFFF0000) >> 16
+    return (states & 0xFF00) >> 8
 
 def new_state(states):
-    return states & 0xFFFF
+    return states & 0xFF
 
 def is_done(states):
     """
