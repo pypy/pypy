@@ -56,3 +56,8 @@ Backport CPython fix for `thread.RLock`
 .. branch: expose-gc-time
 
 Make GC hooks measure time in seconds (as opposed to an opaque unit).
+
+.. branch: gc-disable
+
+Make it possible to manually manage the GC by using a combination of
+gc.disable() and gc.collect_step()
