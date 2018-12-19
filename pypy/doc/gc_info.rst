@@ -22,8 +22,44 @@ of objects of the same size, or directly allocated with malloc if they're
 larger.  (A third category, the very large objects, are initially allocated
 outside the nursery and never move.)
 
-Since Incminimark is an incremental GC, the major collection is incremental,
-meaning there should not be any pauses longer than 1ms.
+Since Incminimark is an incremental GC, the major collection is incremental:
+the goal is not to have any pause longer than 1ms, but in practice it depends
+on the size and characteristics of the heap: occasionally, there can be pauses
+between 10-100ms.
+
+
+Semi-manual GC management
+--------------------------
+
+If there are parts of the program where it is important to have a low latency,
+you might want to control precisely when the GC runs, to avoid unexpected
+pauses.  Note that this has effect only on major collections, while minor
+collections continue to work as usual.
+
+As explained above, a full major collection consists of ``N`` steps, where
+``N`` depends on the size of the heap; generally speaking, it is not possible
+to predict how many steps will be needed to complete a collection.
+
+``gc.enable()`` and ``gc.disable()`` control whether the GC runs collection
+steps automatically.  When the GC is disabled the memory usage will grow
+indefinitely, unless you manually call ``gc.collect()`` and
+``gc.collect_step()``.
+
+``gc.collect()`` runs a full major collection.
+
+``gc.collect_step()`` runs a single collection step. It returns an object of
+type GcCollectStepStats_, the same which is passed to the corresponding `GC
+Hooks`_.  The following code is roughly equivalent to a ``gc.collect()``::
+
+    while True:
+        if gc.collect_step().major_is_done:
+            break
+  
+For a real-world example of usage of this API, you can look at the 3rd-party
+module `pypytools.gc.custom`_, which also provides a ``with customgc.nogc()``
+context manager to mark sections where the GC is forbidden.
+
+.. _`pypytools.gc.custom`: https://bitbucket.org/antocuni/pypytools/src/0273afc3e8bedf0eb1ef630c3bc69e8d9dd661fe/pypytools/gc/custom.py?at=default&fileviewer=file-view-default
 
 
 Fragmentation
@@ -184,6 +220,8 @@ The attributes for ``GcMinorStats`` are:
     the number of pinned objects.
 
 
+.. _GcCollectStepStats:
+
 The attributes for ``GcCollectStepStats`` are:
 
 ``count``, ``duration``, ``duration_min``, ``duration_max``
@@ -192,10 +230,14 @@ The attributes for ``GcCollectStepStats`` are:
 ``oldstate``, ``newstate``
     Integers which indicate the state of the GC before and after the step.
 
+``major_is_done``
+    Boolean which indicate whether this was the last step of the major
+    collection
+
 The value of ``oldstate`` and ``newstate`` is one of these constants, defined
 inside ``gc.GcCollectStepStats``: ``STATE_SCANNING``, ``STATE_MARKING``,
-``STATE_SWEEPING``, ``STATE_FINALIZING``.  It is possible to get a string
-representation of it by indexing the ``GC_STATS`` tuple.
+``STATE_SWEEPING``, ``STATE_FINALIZING``, ``STATE_USERDEL``.  It is possible
+to get a string representation of it by indexing the ``GC_STATES`` tuple.
 
 
 The attributes for ``GcCollectStats`` are:
