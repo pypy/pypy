@@ -1,7 +1,17 @@
 import os
 import sys
+import platform
 
 from cffi import FFI
+
+IS_ARM = platform.machine().startswith('arm')
+if IS_ARM:
+    # XXX Choose neon accelaration
+    define_macros = []
+else:
+    define_macros = [('__SSE2__', '1')]
+    
+    
 
 blake_cdef = """
 #define BLAKE_OUTBYTES ...
@@ -72,6 +82,7 @@ blake2b_ffi.set_source(
     sources=[os.path.join(_libdir, 'blake2b.c'),
             ],
     include_dirs=[_libdir],
+    define_macros=define_macros,
 )
 
 def _replace_b2s(src):
@@ -87,6 +98,7 @@ blake2s_ffi.set_source(
     sources=[os.path.join(_libdir, 'blake2s.c'),
             ],
     include_dirs=[_libdir],
+    define_macros=define_macros,
 )
 
 if __name__ == '__main__':
