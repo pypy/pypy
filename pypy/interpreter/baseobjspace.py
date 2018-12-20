@@ -1671,6 +1671,8 @@ class ObjSpace(object):
         # needed because CPython has the same issue.  (Well, it's
         # unclear if there is any use at all for getting the bytes in
         # the unicode buffer.)
+        if self.isinstance_w(w_obj, self.w_unicode):
+            return w_obj.charbuf_w(self)
         try:
             return self.bytes_w(w_obj)
         except OperationError as e:
