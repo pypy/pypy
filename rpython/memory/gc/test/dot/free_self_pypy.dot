@@ -1,0 +1,4 @@
+digraph G {
+    "a" [type=P, alive=n];
+    "a" -> "a";
+}

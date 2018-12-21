@@ -1,4 +1,4 @@
-import py
+import os, py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC
 from rpython.memory.gc.test.test_direct import BaseDirectGCTest
@@ -20,6 +20,35 @@ S.become(lltype.GcStruct('S',
 class TestRawRefCount(BaseDirectGCTest):
     GCClass = IncrementalMiniMarkGC
 
+    def setup_method(self, method):
+        BaseDirectGCTest.setup_method(self, method)
+
+        self.trigger = []
+        self.gcobjs = []
+        self.pyobjs = []
+        self.pyobj_refs = []
+
+        def rawrefcount_tp_traverse(obj, callback, args):
+            refs = self.pyobj_refs[self.pyobjs.index(obj)]
+            for ref in refs:
+                callback(self.gc, ref)
+
+        def rawrefcount_gc_as_pyobj(gc):
+            return self.pyobjs[self.gcobjs.index(gc)]
+
+        def rawrefcount_pyobj_as_gc(pyobj):
+            return self.gcobjs[self.pyobjs.index(pyobj)]
+
+        self.pyobj_list = lltype.malloc(PYOBJ_GC_HDR_PTR.TO, flavor='raw',
+                                        immortal=True)
+        self.pyobj_list.c_gc_next = self.pyobj_list
+        self.pyobj_list.c_gc_prev = self.pyobj_list
+        self.gc.rawrefcount_init(lambda: self.trigger.append(1),
+                                 rawrefcount_tp_traverse,
+                                 llmemory.cast_ptr_to_adr(self.pyobj_list),
+                                 rawrefcount_gc_as_pyobj,
+                                 rawrefcount_pyobj_as_gc)
+
     def _collect(self, major, expected_trigger=0):
         if major:
             self.gc.collect()
@@ -30,6 +59,61 @@ class TestRawRefCount(BaseDirectGCTest):
         count2 = len(self.trigger)
         assert count2 - count1 == expected_trigger
 
+    def _rawrefcount_addref(self, pyobj_from, pyobj_to):
+        refs = self.pyobj_refs[self.pyobjs.index(pyobj_from)]
+        refs.append(pyobj_to)
+        pyobj_to.c_ob_refcnt += 1
+
+    def _rawrefcount_pypyobj(self, intval, create_old=False,
+                             create_immortal=False, force_external=False):
+        if create_immortal:
+            p1 = lltype.malloc(S, immortal=True)
+        else:
+            saved = self.gc.nonlarge_max
+            try:
+                if force_external:
+                    self.gc.nonlarge_max = 1
+                p1 = self.malloc(S)
+            finally:
+                self.gc.nonlarge_max = saved
+        p1.x = intval
+        if create_immortal:
+            self.consider_constant(p1)
+        elif create_old:
+            self.stackroots.append(p1)
+            self._collect(major=False)
+            p1 = self.stackroots.pop()
+        p1ref = lltype.cast_opaque_ptr(llmemory.GCREF, p1)
+
+        def check_alive():
+            p1 = lltype.cast_opaque_ptr(lltype.Ptr(S), p1ref)
+            assert p1.x == intval
+
+        return p1, p1ref, check_alive
+
+    def _rawrefcount_pyobj(self, create_immortal=False):
+        r1 = lltype.malloc(PYOBJ_HDR, flavor='raw',
+                           immortal=create_immortal)
+        r1.c_ob_refcnt = 0
+        r1.c_ob_pypy_link = 0
+        r1addr = llmemory.cast_ptr_to_adr(r1)
+
+        r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
+                             immortal=True)
+        r1gc.c_gc_next = self.pyobj_list
+        r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
+        r1gc.c_gc_prev.c_gc_next = r1gc
+        self.pyobj_list.c_gc_prev = r1gc
+
+        self.gcobjs.append(r1gc)
+        self.pyobjs.append(r1)
+        self.pyobj_refs.append([])
+
+        def check_alive(extra_refcount):
+            assert r1.c_ob_refcnt == extra_refcount
+
+        return r1, r1addr, check_alive
+
     def _rawrefcount_pair(self, intval, is_light=False, is_pyobj=False,
                           create_old=False, create_immortal=False,
                           force_external=False):
@@ -37,39 +121,7 @@ class TestRawRefCount(BaseDirectGCTest):
             rc = REFCNT_FROM_PYPY_LIGHT
         else:
             rc = REFCNT_FROM_PYPY
-        self.trigger = []
-        visit = self.gc._rrc_visit
-        self.pyobj_gc_map = {}
-        self.gc_pyobj_map = {}
 
-        def rawrefcount_tp_traverse(obj, foo, args):
-            print "VISITED!!!!!!!!!!!!!!!!!!!!!1"
-            test = rffi.cast(S, obj)
-            if llmemory.cast_ptr_to_adr(test.next).ptr is not None:
-                next = rffi.cast(PYOBJ_HDR_PTR, test.next)
-                vret = visit(next, args)
-                if vret != 0:
-                    return
-            if llmemory.cast_ptr_to_adr(test.prev).ptr is not None:
-                next = rffi.cast(PYOBJ_HDR_PTR, test.prev)
-                visit(next, args)
-
-        def rawrefcount_gc_as_pyobj(gc):
-            return self.gc_pyobj_map[1] # TODO fix
-
-        def rawrefcount_pyobj_as_gc(pyobj):
-            return self.pyobj_gc_map[1] # TODO fix
-
-        self.pyobj_list = lltype.malloc(PYOBJ_GC_HDR_PTR.TO, flavor='raw',
-                                        immortal=True)
-        self.pyobj_list.c_gc_next = self.pyobj_list
-        self.pyobj_list.c_gc_next = self.pyobj_list
-        self.gc.rawrefcount_init(lambda: self.trigger.append(1),
-                                 rawrefcount_tp_traverse,
-                                 llmemory.cast_ptr_to_adr(self.pyobj_list),
-                                 rawrefcount_gc_as_pyobj,
-                                 rawrefcount_pyobj_as_gc)
-        #
         if create_immortal:
             p1 = lltype.malloc(S, immortal=True)
         else:
@@ -97,12 +149,13 @@ class TestRawRefCount(BaseDirectGCTest):
         r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
                              immortal=True)
         r1gc.c_gc_next = self.pyobj_list
-        r1gc.c_gc_prev = self.pyobj_list
-        self.pyobj_list.c_gc_next = r1gc
+        r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
+        r1gc.c_gc_prev.c_gc_next = r1gc
         self.pyobj_list.c_gc_prev = r1gc
 
-        self.pyobj_gc_map[1] = r1gc
-        self.gc_pyobj_map[1] = r1
+        self.gcobjs.append(r1gc)
+        self.pyobjs.append(r1)
+        self.pyobj_refs.append([])
 
         if is_pyobj:
             assert not is_light
@@ -390,6 +443,112 @@ class TestRawRefCount(BaseDirectGCTest):
         assert self.gc.rawrefcount_next_dead() == r1addr
         self.gc.check_no_more_rawrefcount_state()
         lltype.free(r1, flavor='raw')
+
+    dot_dir = os.path.join(os.path.realpath(os.path.dirname(__file__)), "dot")
+    dot_files = [file for file in os.listdir(dot_dir) if file.endswith(".dot")]
+
+    @py.test.mark.parametrize("file", dot_files)
+    def test_dots(self, file):
+        from rpython.memory.gc.test.dot import pydot
+
+        class Node:
+            def __init__(self, info):
+                self.info = info
+
+        class CPythonNode(Node):
+            def __init__(self, r, raddr, check_alive, info):
+                self.r = r
+                self.raddr = raddr
+                self.check_alive = check_alive
+                self.info = info
+
+        class PyPyNode(Node):
+            def __init__(self, p, pref, check_alive, info):
+                self.p = p
+                self.pref = pref
+                self.check_alive = check_alive
+                self.info = info
+
+        class BorderNode(Node):
+            def __init__(self, p, pref, r, raddr, check_alive, info):
+                self.p = p
+                self.pref = pref
+                self.r = r
+                self.raddr = raddr
+                self.check_alive = check_alive
+                self.info = info
+
+        class NodeInfo:
+            def __init__(self, type, alive, ext_refcnt):
+                self.type = type
+                self.alive = alive
+                self.ext_refcnt = ext_refcnt
+
+        path = os.path.join(self.dot_dir, file)
+        g = pydot.graph_from_dot_file(path)[0]
+        nodes = {}
+
+        for n in g.get_nodes():
+            name = n.get_name()
+            attr = n.obj_dict['attributes']
+            type = attr['type']
+            alive = attr['alive'] == "y"
+            rooted = attr['rooted'] == "y" if 'rooted' in attr else False
+            ext_refcnt = int(attr['ext_refcnt']) if 'ext_refcnt' in attr else 0
+            info = NodeInfo(type, alive, ext_refcnt)
+            if type == "C":
+                r, raddr, check_alive = self._rawrefcount_pyobj()
+                if ext_refcnt > 0:
+                    r.c_ob_refcnt = ext_refcnt
+                nodes[name] = CPythonNode(r, raddr, check_alive, info)
+            elif type == "P":
+                p, pref, check_alive = \
+                    self._rawrefcount_pypyobj(42, create_immortal=rooted)
+                nodes[name] = PyPyNode(p, pref, check_alive, info)
+            elif type == "B":
+                p, pref, r, raddr, check_alive =\
+                    self._rawrefcount_pair(42, create_immortal=rooted)
+                if ext_refcnt > 0:
+                    r.c_ob_refcnt = ext_refcnt
+                nodes[name] = BorderNode(p, pref, r, raddr, check_alive, info)
+                pass
+        for e in g.get_edges():
+            source = nodes[e.get_source()]
+            dest = nodes[e.get_destination()]
+            if source.info.type == "C" or dest.info.type == "C":
+                self._rawrefcount_addref(source.r, dest.r)
+                dest.info.ext_refcnt += 1
+            elif source.info.type == "P" or dest.info.type == "P":
+                if llmemory.cast_ptr_to_adr(source.p.next) == llmemory.NULL:
+                    source.p.next = dest.p
+                elif llmemory.cast_ptr_to_adr(source.p.prev) == llmemory.NULL:
+                    source.p.prev = dest.p
+                else:
+                    assert False  # only 2 refs supported from pypy obj
+
+        self.gc.collect()
+
+        # def foo(self, pyobj):
+        #    print "foo " + str(pyobj)
+        # self.gc._rrc_visit_pyobj = foo
+        # self.gc._rrc_traverse(nodes[u'"a"'].raddr)
+
+        for name in nodes:
+            n = nodes[name]
+
+            if n.info.alive:
+                if n.info.type == "P":
+                    print self.stackroots
+                    n.check_alive()
+                else:
+                    n.check_alive(n.info.ext_refcnt)
+            else:
+                if n.info.type == "C":
+                    assert False
+                elif n.info.type == "P":
+                    py.test.raises(RuntimeError, "n.p.x")  # dead
+                else:
+                    assert False
 
 # TODO: pyobj_cycle_self_reference (without linked pypy object)
 # TODO: linked_cycle_simple

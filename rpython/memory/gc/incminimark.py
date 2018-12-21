@@ -3253,9 +3253,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             self._rrc_free(pyobject)
 
-    def _rrc_visit_pyobj(self, pyobj):
-        pass
-
     def _rrc_visit(pyobj, self_ptr):
         from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
         #
@@ -3265,13 +3262,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return rffi.cast(rffi.INT_real, 0)
 
     def _rrc_traverse(self, pyobject):
+        from rpython.rlib.objectmodel import we_are_translated
         from rpython.rtyper.annlowlevel import (cast_nongc_instance_to_adr,
                                                 llhelper)
         #
         pyobj = self._pyobj(pyobject)
-        callback_ptr = llhelper(self.RAWREFCOUNT_VISIT,
-                                IncrementalMiniMarkGC._rrc_visit)
-        self_ptr = rffi.cast(rffi.VOIDP, cast_nongc_instance_to_adr(self))
+        if we_are_translated():
+            callback_ptr = llhelper(self.RAWREFCOUNT_VISIT,
+                                    IncrementalMiniMarkGC._rrc_visit)
+            self_ptr = rffi.cast(rffi.VOIDP, cast_nongc_instance_to_adr(self))
+        else:
+            callback_ptr = self._rrc_visit_pyobj
+            self_ptr = None
         self.rrc_tp_traverse(pyobj, callback_ptr, self_ptr)
 
     def _rrc_gc_list_init(self, pygclist):
