@@ -1,0 +1,64 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+    <Product Name='PyPy 3.5' Manufacturer='Acme Ltd.'
+        Id='39EBD85F-6BB6-48D9-B70C-B68674D28E25'
+        UpgradeCode='49484557-CF54-4BBA-8308-FB6583C2464D'
+        Language='1033' Codepage='1252' Version='3.5.0'>
+		<Package Id='*' Keywords='Installer' Description="PyPy 3.5 Installer"
+			Manufacturer='PyPy Development Team'
+			InstallerVersion='350' Languages='1033' Compressed='yes' SummaryCodepage='1252' />
+		<Condition Message="You need to be an administrator to install this product.">
+			Privileged
+		</Condition>
+		<Media Id='1' Cabinet='Sample.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1' />
+		<Property Id='DiskPrompt' Value="Acme's Foobar 1.0 Installation [1]" />
+		<Directory Id='TARGETDIR' Name='SourceDir'>
+			<Directory Id='ProgramFilesFolder' Name='PFiles'>
+				<Directory Id='PyPy' Name='PyPy'>
+					<Directory Id='INSTALLDIR' Name='PyPy 3.5'>
+						<Component Id='MainExecutable' Guid='F47EC275-AD54-48E1-8A99-BE3B69A27608'>
+							<File Id='PyPyEXE' Name='pypy3.exe' DiskId='1' Source='pypy3.exe' KeyPath='yes'> 
+								<Shortcut Id="startmenuPyPy35" Directory="ProgramMenuDir" Name="PyPy 3.5"
+								WorkingDirectory='INSTALLDIR' Icon="pypy3.exe" IconIndex="0" Advertise="yes" />
+								<Shortcut Id="desktopPyPy35" Directory="DesktopFolder" Name="PyPy 3.5"
+								WorkingDirectory='INSTALLDIR' Icon="pypy3.exe" IconIndex="0" Advertise="yes" />
+							</File>
+						</Component>
+						<Component Id='PyPyLibrary' Guid='33D07C39-0532-4B9D-A066-ABA63D4528EB'>
+							<File Id='PyPyDLL' Name='libpypy3-c.dll' DiskId='1' Source='libpypy3-c.dll' KeyPath='yes' />
+						</Component>
+						<Component Id='ReadMe' Guid='3CE2EB0E-5EA3-4555-BC22-FD5EC532BE17'>
+							<File Id='ReadMe' Name='README.rst' DiskId='1' Source='README.rst' KeyPath='yes'>
+								<Shortcut Id='startmenuReadMe' Directory='ProgramMenuDir' Name='Instruction ReadMe' Advertise='yes' />
+							</File>
+						</Component>
+					</Directory>
+				</Directory>
+			</Directory>
+			<Directory Id="ProgramMenuFolder" Name="Programs">
+				<Directory Id="ProgramMenuDir" Name="PyPy 3.5">
+					<Component Id="ProgramMenuDir" Guid="292B19C6-8F24-4ED2-8616-71EFF238C5A5">
+						<RemoveFolder Id='ProgramMenuDir' On='uninstall' />
+						<RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]' Type='string' Value='' KeyPath='yes' />
+					</Component>
+				</Directory>
+			</Directory>
+			<Directory Id="DesktopFolder" Name="Desktop" />
+		</Directory>
+		<Feature Id='Complete' Title='PyPy 3.5' Description='The complete package.' Level='1'
+		 Display='expand' ConfigurableDirectory='INSTALLDIR'>
+			<Feature Id='MainInterpreter' Title='Interpreter' Description='The interpreter executable.' Level='1'>
+				<ComponentRef Id='MainExecutable' />
+				<ComponentRef Id='PyPyLibrary' />
+				<ComponentRef Id='ProgramMenuDir' />
+			</Feature>
+			<Feature Id='Documentation' Title='Readme' Description='The readme.' Level='1000'>
+				<ComponentRef Id='ReadMe' />
+			</Feature>
+		</Feature>
+
+		<UIRef Id="WixUI_Mondo" />
+		<UIRef Id="WixUI_ErrorProgressText" />
+		<Icon Id="pypy3.exe" SourceFile="pypy3.exe" />
+    </Product>
+</Wix>
