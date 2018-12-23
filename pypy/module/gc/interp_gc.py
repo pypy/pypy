@@ -1,6 +1,7 @@
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt
 from rpython.rlib import rgc
+from pypy.module.gc.hook import W_GcCollectStepStats
 
 
 @unwrap_spec(generation=int)
@@ -16,7 +17,9 @@ def collect(space, generation=0):
     cache.clear()
 
     rgc.collect()
+    _run_finalizers(space)
 
+def _run_finalizers(space):
     # if we are running in gc.disable() mode but gc.collect() is called,
     # we should still call the finalizers now.  We do this as an attempt
     # to get closer to CPython's behavior: in Py3.5 some tests
@@ -39,18 +42,20 @@ def collect(space, generation=0):
     return space.newint(0)
 
 def enable(space):
-    """Non-recursive version.  Enable finalizers now.
+    """Non-recursive version.  Enable major collections and finalizers.
     If they were already enabled, no-op.
     If they were disabled even several times, enable them anyway.
     """
+    rgc.enable()
     if not space.user_del_action.enabled_at_app_level:
         space.user_del_action.enabled_at_app_level = True
         enable_finalizers(space)
 
 def disable(space):
-    """Non-recursive version.  Disable finalizers now.  Several calls
-    to this function are ignored.
+    """Non-recursive version.  Disable major collections and finalizers.
+    Multiple calls to this function are ignored.
     """
+    rgc.disable()
     if space.user_del_action.enabled_at_app_level:
         space.user_del_action.enabled_at_app_level = False
         disable_finalizers(space)
@@ -76,6 +81,59 @@ def disable_finalizers(space):
     uda.finalizers_lock_count += 1
     if uda.pending_with_disabled_del is None:
         uda.pending_with_disabled_del = []
+
+
+class StepCollector(object):
+    """
+    Invoke rgc.collect_step() until we are done, then run the app-level
+    finalizers as a separate step
+    """
+
+    def __init__(self, space):
+        self.space = space
+        self.finalizing = False
+
+    def do(self):
+        if self.finalizing:
+            self._run_finalizers()
+            self.finalizing = False
+            oldstate = W_GcCollectStepStats.STATE_USERDEL
+            newstate = W_GcCollectStepStats.STATE_SCANNING
+            major_is_done = True # now we are finally done
+        else:
+            states = self._collect_step()
+            oldstate = rgc.old_state(states)
+            newstate = rgc.new_state(states)
+            major_is_done = False  # USERDEL still to do
+            if rgc.is_done(states):
+                newstate = W_GcCollectStepStats.STATE_USERDEL
+                self.finalizing = True
+        #
+        duration = -1
+        return W_GcCollectStepStats(
+            count = 1,
+            duration = duration,
+            duration_min = duration,
+            duration_max = duration,
+            oldstate = oldstate,
+            newstate = newstate,
+            major_is_done = major_is_done)
+
+    def _collect_step(self):
+        return rgc.collect_step()
+
+    def _run_finalizers(self):
+        _run_finalizers(self.space)
+
+def collect_step(space):
+    """
+    If the GC is incremental, run a single gc-collect-step. Return True when
+    the major collection is completed.
+    If the GC is not incremental, do a full collection and return True.
+    """
+    sc = space.fromcache(StepCollector)
+    w_stats = sc.do()
+    return w_stats
 
 # ____________________________________________________________
 

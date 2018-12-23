@@ -401,8 +401,10 @@ Miscellaneous
   
 * some functions and attributes of the ``gc`` module behave in a
   slightly different way: for example, ``gc.enable`` and
-  ``gc.disable`` are supported, but instead of enabling and disabling
-  the GC, they just enable and disable the execution of finalizers.
+  ``gc.disable`` are supported, but "enabling and disabling the GC" has
+  a different meaning in PyPy than in CPython.  These functions
+  actually enable and disable the major collections and the
+  execution of finalizers.
 
 * PyPy prints a random line from past #pypy IRC topics at startup in
   interactive mode. In a released version, this behaviour is suppressed, but
