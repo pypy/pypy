@@ -545,7 +545,10 @@ class ArgErrUnknownKwds(ArgErr):
                         # note: negative-based indexing from the end
                         w_name = keyword_names_w[i - len(keywords)]
                     except IndexError:
-                        name = '?'
+                        if keywords is None:
+                            name = '?'
+                        else:
+                            name = keywords[i]
                     else:
                         w_enc = space.newtext(space.sys.defaultencoding)
                         w_err = space.newtext("replace")
