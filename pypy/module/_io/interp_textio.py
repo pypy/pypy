@@ -332,6 +332,8 @@ class DecodeBuffer(object):
             for  i in range(size):
                 pos = next_codepoint_pos(self.text, pos)
                 self.upos += 1
+            assert start >= 0
+            assert pos >= 0
             chars = self.text[start:pos]
             self.pos = pos
         else:
@@ -351,7 +353,10 @@ class DecodeBuffer(object):
         if self.exhausted():
             raise StopIteration
         newpos = next_codepoint_pos(self.text, self.pos)
-        ch = self.text[self.pos:newpos]
+        pos = self.pos
+        assert pos >= 0
+        assert newpos >= 0
+        ch = self.text[pos:newpos]
         self.pos = newpos
         self.upos += 1
         return ch
@@ -361,7 +366,10 @@ class DecodeBuffer(object):
         if self.exhausted():
             raise StopIteration
         newpos = next_codepoint_pos(self.text, self.pos)
-        return self.text[self.pos:newpos]
+        pos = self.pos
+        assert pos >= 0
+        assert newpos >= 0
+        return self.text[pos:newpos]
 
     def find_newline_universal(self, limit):
         # Universal newline search. Find any of \r, \r\n, \n
