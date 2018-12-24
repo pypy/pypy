@@ -419,6 +419,7 @@ class DecodeBuffer(object):
                 except StopIteration:
                     # This is the tricky case: we found a \r right at the end
                     self.pos -= 1
+                    self.upos -= 1
                     return False
         return False
 
