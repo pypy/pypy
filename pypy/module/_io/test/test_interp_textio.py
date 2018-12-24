@@ -1,6 +1,6 @@
 import pytest
 try:
-    from hypothesis import given, strategies as st, settings
+    from hypothesis import given, strategies as st, settings, example
 except ImportError:
     pytest.skip("hypothesis required")
 import os
@@ -63,6 +63,7 @@ def test_read_buffer(text):
     assert buf.exhausted()
 
 @given(st.text(), st.lists(st.integers(min_value=0)))
+@example(u'\x80', [1])
 def test_readn_buffer(text, sizes):
     buf = DecodeBuffer(text.encode('utf-8'))
     strings = []
@@ -80,5 +81,5 @@ def test_next_char(text):
     buf = DecodeBuffer(text.encode('utf-8'))
     for i in range(len(text)):
         ch = buf.next_char()
-        assert ch == text[i].encode('utf-8')[0]
+        assert ch == text[i].encode('utf-8')
     assert buf.exhausted()

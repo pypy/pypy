@@ -302,35 +302,43 @@ class DecodeBuffer(object):
     def __init__(self, text=None):
         self.text = text
         self.pos = 0
+        self.upos = 0
 
     def set(self, space, w_decoded):
         check_decoded(space, w_decoded)
         self.text = space.utf8_w(w_decoded)
         self.pos = 0
+        self.upos = 0
 
     def reset(self):
         self.text = None
         self.pos = 0
+        self.upos = 0
 
     def get_chars(self, size):
         if self.text is None:
             return ""
 
-        available = len(self.text) - self.pos
+        lgt = codepoints_in_utf8(self.text)
+        available = lgt - self.upos
         if size < 0 or size > available:
             size = available
         assert size >= 0
 
         if self.pos > 0 or size < available:
             start = self.pos
-            end = self.pos + size
-            assert start >= 0
-            assert end >= 0
-            chars = self.text[start:end]
+            ret = []
+            pos = start
+            for  i in range(size):
+                pos = next_codepoint_pos(self.text, pos)
+                self.upos += 1
+            chars = self.text[start:pos]
+            self.pos = pos
         else:
             chars = self.text
+            self.pos = len(self.text)
+            self.upos = lgt
 
-        self.pos += size
         return chars
 
     def has_data(self):
@@ -342,16 +350,18 @@ class DecodeBuffer(object):
     def next_char(self):
         if self.exhausted():
             raise StopIteration
-        ch = self.text[self.pos]
-        self.pos = next_codepoint_pos(self.text, self.pos)
+        newpos = next_codepoint_pos(self.text, self.pos)
+        ch = self.text[self.pos:newpos]
+        self.pos = newpos
+        self.upos += 1
         return ch
 
     def peek_char(self):
         # like next_char, but doesn't advance pos
         if self.exhausted():
             raise StopIteration
-        ch = self.text[self.pos]
-        return ch
+        newpos = next_codepoint_pos(self.text, self.pos)
+        return self.text[self.pos:newpos]
 
     def find_newline_universal(self, limit):
         # Universal newline search. Find any of \r, \r\n, \n
