@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{8B49F535-E206-4149-8D88-752929BCEB87}</ProjectGuid>
+        <SchemaVersion>2.0</SchemaVersion>
+        <OutputName Condition="'$(OutputName)' == ''">lib_pypy</OutputName>
+        <OutputType>Package</OutputType>
+    </PropertyGroup>
+    <Import Project="..\msi.props" />
+    <ItemGroup>
+        <Compile Include="lib_pypy.wxs" />
+    </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Include="*.wxl" />
+    </ItemGroup>
+    <Import Project="..\msi.targets" />
+</Project>
