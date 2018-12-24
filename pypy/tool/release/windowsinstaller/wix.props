@@ -3,11 +3,11 @@
   <Import Project="..\..\..\..\PCbuild\python.props" />
   
   <PropertyGroup>
-    <WixInstallPath Condition="'$(WixInstallPath)' == '' and Exists('$(MSBuildThisFileDirectory)\Wix')">$(MSBuildThisFileDirectory)\Wix\</WixInstallPath>
-	<WixInstallPath Condition="'$(WixInstallPath)' == '' and Exists('$(MSBuildExtensionsPath32)')">$(MSBuildExtensionsPath32)\Microsoft\Wix\v3.x\</WixInstallPath>
+    <WixMSBuildPath Condition="'$(WixMSBuildPath)' == '' and Exists('$(MSBuildThisFileDirectory)\Wix')">$(MSBuildThisFileDirectory)\Wix\</WixMSBuildPath>
+	<WixMSBuildPath Condition="'$(WixMSBuildPath)' == '' and Exists('$(MSBuildExtensionsPath32)')">$(MSBuildExtensionsPath32)\Microsoft\Wix\v3.x\</WixMSBuildPath>
     <WixInstallPath Condition="'$(WixInstallPath)' == '' and Exists('$(ExternalsDir)\windows-installer\wix')">$(ExternalsDir)\windows-installer\wix\</WixInstallPath>
     <WixInstallPath Condition="'$(WixInstallPath)' == ''">$(Registry:HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows Installer XML\3.11@InstallRoot)</WixInstallPath>
     <WixInstallPath Condition="'$(WixInstallPath)' == ''">$(Registry:HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Windows Installer XML\3.11@InstallRoot)</WixInstallPath>
-    <WixTargetsPath>$(WixInstallPath)\Wix.targets</WixTargetsPath>
+    <WixTargetsPath>$(WixMSBuildPath)\Wix.targets</WixTargetsPath>
   </PropertyGroup>
 </Project>
