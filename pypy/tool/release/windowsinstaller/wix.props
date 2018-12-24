@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\..\..\..\PCbuild\python.props" />
+  
+  <PropertyGroup>
+    <WixInstallPath Condition="'$(WixInstallPath)' == '' and Exists('$(MSBuildThisFileDirectory)\Wix')">$(MSBuildThisFileDirectory)\Wix\</WixInstallPath>
+	<WixInstallPath Condition="'$(WixInstallPath)' == '' and Exists('$(MSBuildExtensionsPath32)')">$(MSBuildExtensionsPath32)\Microsoft\Wix\v3.x\</WixInstallPath>
+    <WixInstallPath Condition="'$(WixInstallPath)' == '' and Exists('$(ExternalsDir)\windows-installer\wix')">$(ExternalsDir)\windows-installer\wix\</WixInstallPath>
+    <WixInstallPath Condition="'$(WixInstallPath)' == ''">$(Registry:HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows Installer XML\3.11@InstallRoot)</WixInstallPath>
+    <WixInstallPath Condition="'$(WixInstallPath)' == ''">$(Registry:HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Windows Installer XML\3.11@InstallRoot)</WixInstallPath>
+    <WixTargetsPath>$(WixInstallPath)\Wix.targets</WixTargetsPath>
+  </PropertyGroup>
+</Project>

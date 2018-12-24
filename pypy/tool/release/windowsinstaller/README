@@ -1,0 +1,8 @@
+Prerequisites:
+	Visual Studio 2017
+	Wix 3.11.1
+	Wix VSExtension for VS 2017
+	
+Steps:
+	1. Translate the interpretter from the \pypy\goal folder.
+	2. Run buildrelease.bat from the visual studio command line.
