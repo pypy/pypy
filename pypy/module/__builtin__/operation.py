@@ -36,29 +36,33 @@ def len(space, w_obj):
     return space.len(w_obj)
 
 
-def checkattrname(space, w_name):
+def checkattrname(space, w_name, msg):
     # This is a check to ensure that getattr/setattr/delattr only pass a
-    # string to the rest of the code.  XXX not entirely sure if these three
+    # ascii string to the rest of the code.  XXX not entirely sure if these
     # functions are the only way for non-string objects to reach
     # space.{get,set,del}attr()...
-    # Note that if w_name is already an exact string it must be returned
-    # unmodified (and not e.g. unwrapped-rewrapped).
-    if not space.is_w(space.type(w_name), space.w_text):
-        name = space.text_w(w_name)    # typecheck
-        w_name = space.newtext(name)     # rewrap as a real string
+    # Note that if w_name is already an exact string it must be ascii encoded
+    if not space.isinstance_w(w_name, space.w_text):
+        try:
+            name = space.text_w(w_name)    # typecheck
+        except Exception as e:
+            raise oefmt(space.w_TypeError,
+                 "%s(): attribute name must be string", msg)
+    if space.isinstance_w(w_name, space.w_unicode):
+        w_name = space.call_method(w_name, 'encode', space.newtext('ascii'))
     return w_name
 
 def delattr(space, w_object, w_name):
     """Delete a named attribute on an object.
 delattr(x, 'y') is equivalent to ``del x.y''."""
-    w_name = checkattrname(space, w_name)
+    w_name = checkattrname(space, w_name, 'delattr')
     space.delattr(w_object, w_name)
     return space.w_None
 
 def getattr(space, w_object, w_name, w_defvalue=None):
     """Get a named attribute from an object.
 getattr(x, 'y') is equivalent to ``x.y''."""
-    w_name = checkattrname(space, w_name)
+    w_name = checkattrname(space, w_name, 'getattr')
     try:
         return space.getattr(w_object, w_name)
     except OperationError as e:
@@ -70,7 +74,7 @@ getattr(x, 'y') is equivalent to ``x.y''."""
 def hasattr(space, w_object, w_name):
     """Return whether the object has an attribute with the given name.
     (This is done by calling getattr(object, name) and catching exceptions.)"""
-    w_name = checkattrname(space, w_name)
+    w_name = checkattrname(space, w_name, 'hasattr')
     if space.findattr(w_object, w_name) is not None:
         return space.w_True
     else:
@@ -216,7 +220,7 @@ For simple object types, eval(repr(object)) == object."""
 def setattr(space, w_object, w_name, w_val):
     """Store a named attribute into an object.
 setattr(x, 'y', z) is equivalent to ``x.y = z''."""
-    w_name = checkattrname(space, w_name)
+    w_name = checkattrname(space, w_name, 'setattr')
     space.setattr(w_object, w_name, w_val)
     return space.w_None
 
