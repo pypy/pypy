@@ -379,7 +379,7 @@ def _small2long(space, w_small):
 def _pow(space, iv, iw, iz):
     if iw < 0:
         if iz != 0:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_ValueError,
                         "pow() 2nd argument cannot be negative when 3rd "
                         "argument specified")
         raise ValueError
