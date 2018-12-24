@@ -837,7 +837,6 @@ class AppTestArgument:
 
 
     def test_unicode_keywords(self):
-        """
         def f(**kwargs):
             assert kwargs["美"] == 42
         f(**{"美" : 42})
@@ -845,7 +844,6 @@ class AppTestArgument:
         def f(x): pass
         e = raises(TypeError, "f(**{'ü' : 19})")
         assert e.value.args[0] == "f() got an unexpected keyword argument 'ü'"
-        """
 
     def test_starstarargs_dict_subclass(self):
         def f(**kwargs):
