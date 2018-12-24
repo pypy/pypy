@@ -110,8 +110,8 @@ def _fetch_as_read_buffer(space, w_x):
 def _fetch_as_write_buffer(space, w_x):
     return space.writebuf_w(w_x)
 
-@unwrap_spec(w_ctype=ctypeobj.W_CType)
-def from_buffer(space, w_ctype, w_x):
+@unwrap_spec(w_ctype=ctypeobj.W_CType, require_writable=int)
+def from_buffer(space, w_ctype, w_x, require_writable=0):
     from pypy.module._cffi_backend import ctypearray, ctypeprim
     #
     if (not isinstance(w_ctype, ctypearray.W_CTypeArray) or
@@ -119,13 +119,16 @@ def from_buffer(space, w_ctype, w_x):
         raise oefmt(space.w_TypeError,
                     "needs 'char[]', got '%s'", w_ctype.name)
     #
-    return _from_buffer(space, w_ctype, w_x)
+    return _from_buffer(space, w_ctype, w_x, require_writable)
 
-def _from_buffer(space, w_ctype, w_x):
+def _from_buffer(space, w_ctype, w_x, require_writable):
     if space.isinstance_w(w_x, space.w_unicode):
         raise oefmt(space.w_TypeError,
-                        "from_buffer() cannot return the address a unicode")
-    buf = _fetch_as_read_buffer(space, w_x)
+                "from_buffer() cannot return the address of a unicode object")
+    if require_writable:
+        buf = _fetch_as_write_buffer(space, w_x)
+    else:
+        buf = _fetch_as_read_buffer(space, w_x)
     if space.isinstance_w(w_x, space.w_bytes):
         _cdata = get_raw_address_of_string(space, w_x)
     else:

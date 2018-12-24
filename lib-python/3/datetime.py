@@ -521,7 +521,11 @@ class timedelta(deltainterop):
                          -self._microseconds)
 
     def __pos__(self):
-        return self
+        # for CPython compatibility, we cannot use
+        # our __class__ here, but need a real timedelta
+        return timedelta(self._days,
+                         self._seconds,
+                         self._microseconds)
 
     def __abs__(self):
         if self._days < 0:
@@ -813,8 +817,7 @@ class date(dateinterop):
             month = self._month
         if day is None:
             day = self._day
-        # PyPy fix: returns type(self)() instead of date()
-        return type(self)(year, month, day)
+        return date.__new__(type(self), year, month, day)
 
     # Comparisons of date objects with other.
 
@@ -1289,8 +1292,8 @@ class time(timeinterop):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        # PyPy fix: returns type(self)() instead of time()
-        return type(self)(hour, minute, second, microsecond, tzinfo)
+        return time.__new__(type(self),
+                            hour, minute, second, microsecond, tzinfo)
 
     # Pickle support.
 
@@ -1341,13 +1344,13 @@ class datetime(date):
             hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         self = dateinterop.__new__(cls)
-        self._year = year
-        self._month = month
-        self._day = day
-        self._hour = hour
-        self._minute = minute
-        self._second = second
-        self._microsecond = microsecond
+        self._year = int(year)
+        self._month = int(month)
+        self._day = int(day)
+        self._hour = int(hour)
+        self._minute = int(minute)
+        self._second = int(second)
+        self._microsecond = int(microsecond)
         self._tzinfo = tzinfo
         self._hashcode = -1
         return self
@@ -1503,8 +1506,8 @@ class datetime(date):
         if tzinfo is True:
             tzinfo = self.tzinfo
         # PyPy fix: returns type(self)() instead of datetime()
-        return type(self)(year, month, day, hour, minute, second, microsecond,
-                        tzinfo)
+        return datetime.__new__(type(self), year, month, day, hour, minute,
+                                second, microsecond, tzinfo)
 
     def astimezone(self, tz=None):
         if tz is None:
@@ -1768,7 +1771,10 @@ class datetime(date):
         if myoff == otoff:
             return base
         if myoff is None or otoff is None:
-            raise TypeError("cannot mix naive and timezone-aware time")
+            # The CPython _datetimemodule.c error message and the
+            # datetime.py one are different
+            raise TypeError("can't subtract offset-naive and "
+                                    "offset-aware datetimes")
         return base + otoff - myoff
 
     def __hash__(self):

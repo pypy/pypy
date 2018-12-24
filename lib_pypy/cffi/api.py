@@ -341,7 +341,7 @@ class FFI(object):
    #    """
    #    note that 'buffer' is a type, set on this instance by __init__
 
-    def from_buffer(self, python_buffer):
+    def from_buffer(self, python_buffer, require_writable=False):
         """Return a <cdata 'char[]'> that points to the data of the
         given Python object, which must support the buffer interface.
         Note that this is not meant to be used on the built-in types
@@ -349,7 +349,8 @@ class FFI(object):
         but only on objects containing large quantities of raw data
         in some other format, like 'array.array' or numpy arrays.
         """
-        return self._backend.from_buffer(self.BCharA, python_buffer)
+        return self._backend.from_buffer(self.BCharA, python_buffer,
+                                         require_writable)
 
     def memmove(self, dest, src, n):
         """ffi.memmove(dest, src, n) copies n bytes of memory from src to dest.

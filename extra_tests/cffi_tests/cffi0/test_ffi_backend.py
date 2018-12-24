@@ -327,6 +327,16 @@ class TestBitfield:
         assert ffi.typeof(c) is ffi.typeof("char[]")
         ffi.cast("unsigned short *", c)[1] += 500
         assert list(a) == [10000, 20500, 30000]
+        assert c == ffi.from_buffer(a, True)
+        assert c == ffi.from_buffer(a, require_writable=True)
+        #
+        p = ffi.from_buffer(b"abcd")
+        assert p[2] == b"c"
+        #
+        assert p == ffi.from_buffer(b"abcd", False)
+        py.test.raises((TypeError, BufferError), ffi.from_buffer, b"abcd", True)
+        py.test.raises((TypeError, BufferError), ffi.from_buffer, b"abcd",
+                                                 require_writable=True)
 
     def test_memmove(self):
         ffi = FFI()

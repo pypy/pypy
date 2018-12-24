@@ -327,7 +327,8 @@ casted between integers or pointers of any type."""
         return w_ctype.cast(w_ob)
 
 
-    def descr_from_buffer(self, w_python_buffer):
+    @unwrap_spec(require_writable=int)
+    def descr_from_buffer(self, w_python_buffer, require_writable=0):
         """\
 Return a <cdata 'char[]'> that points to the data of the given Python
 object, which must support the buffer interface.  Note that this is
@@ -337,7 +338,8 @@ containing large quantities of raw data in some other format, like
 'array.array' or numpy arrays."""
         #
         w_ctchara = newtype._new_chara_type(self.space)
-        return func._from_buffer(self.space, w_ctchara, w_python_buffer)
+        return func._from_buffer(self.space, w_ctchara, w_python_buffer,
+                                 require_writable)
 
 
     @unwrap_spec(w_arg=W_CData)
