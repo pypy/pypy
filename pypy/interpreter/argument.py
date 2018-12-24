@@ -535,24 +535,23 @@ class ArgErrUnknownKwds(ArgErr):
         if num_remainingkwds == 1:
             for i in range(len(keywords)):
                 if i not in kwds_mapping:
-                    name = keywords[i]
-                    if name is None:
-                        # We'll assume it's unicode. Encode it.
-                        # Careful, I *think* it should not be possible to
-                        # get an IndexError here but you never know.
-                        try:
-                            if keyword_names_w is None:
-                                raise IndexError
-                            # note: negative-based indexing from the end
-                            w_name = keyword_names_w[i - len(keywords)]
-                        except IndexError:
-                            name = '?'
-                        else:
-                            w_enc = space.newtext(space.sys.defaultencoding)
-                            w_err = space.newtext("replace")
-                            w_name = space.call_method(w_name, "encode", w_enc,
-                                                       w_err)
-                            name = space.text_w(w_name)
+                    name = '?'
+                    # We'll assume it's unicode. Encode it.
+                    # Careful, I *think* it should not be possible to
+                    # get an IndexError here but you never know.
+                    try:
+                        if keyword_names_w is None:
+                            raise IndexError
+                        # note: negative-based indexing from the end
+                        w_name = keyword_names_w[i - len(keywords)]
+                    except IndexError:
+                        name = '?'
+                    else:
+                        w_enc = space.newtext(space.sys.defaultencoding)
+                        w_err = space.newtext("replace")
+                        w_name = space.call_method(w_name, "encode", w_enc,
+                                                   w_err)
+                        name = space.text_w(w_name)
                     break
         self.kwd_name = name
 
