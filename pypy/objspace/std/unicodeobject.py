@@ -230,7 +230,7 @@ class W_UnicodeObject(W_Root):
         return space.newtext(_repr_function(self._utf8))
 
     def descr_str(self, space):
-        return encode_object(space, self, 'utf8', 'strict')
+        return encode_object(space, self, 'ascii', 'strict')
 
     def descr_hash(self, space):
         x = compute_hash(self._utf8)
