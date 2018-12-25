@@ -87,7 +87,7 @@ class W_UnicodeObject(W_Root):
         return space.newint(uid)
 
     def str_w(self, space):
-        return space.text_w(encode_object(space, self, 'utf8', 'strict'))
+        return space.text_w(encode_object(space, self, 'ascii', 'strict'))
 
     def utf8_w(self, space):
         return self._utf8
