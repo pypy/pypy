@@ -434,6 +434,16 @@ def make_formatter_subclass(do_unicode):
             got_unicode = space.isinstance_w(w_value, space.w_unicode)
             if not do_unicode:
                 if got_unicode:
+                    # Make sure the format string is ascii encodable
+                    try:
+                        self.fmt.decode('ascii')
+                    except UnicodeDecodeError as e:
+                        raise OperationError(space.w_UnicodeDecodeError,
+                            space.newtuple([space.newtext('ascii'),
+                                            space.newbytes(self.fmt),
+                                            space.newint(e.start),
+                                            space.newint(e.end),
+                                            space.newtext(e.message)]))
                     raise NeedUnicodeFormattingError
                 s = self.string_formatting(w_value)
             else:
