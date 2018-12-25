@@ -65,6 +65,14 @@ Make GC hooks measure time in seconds (as opposed to an opaque unit).
 
 Update most test_lib_pypy/ tests and move them to extra_tests/.
 
+.. branch: gc-disable
+
+Make it possible to manually manage the GC by using a combination of
+gc.disable() and gc.collect_step(). Make sure to write a proper release
+announcement in which we explain that existing programs could leak memory if
+they run for too much time between a gc.disable()/gc.enable()
+
 .. branch: unicode-utf8
 
 Use utf8 internally to represent unicode
+

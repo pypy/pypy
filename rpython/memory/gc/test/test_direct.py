@@ -13,6 +13,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
 from rpython.rlib.debug import debug_print
+from rpython.rlib.test.test_debug import debuglog
 import pdb
 WORD = LONG_BIT // 8
 
@@ -770,4 +771,76 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
                 assert elem.prev == lltype.nullptr(S)
                 assert elem.next == lltype.nullptr(S)
 
-            
+    def test_collect_0(self, debuglog):
+        self.gc.collect(1) # start a major
+        debuglog.reset()
+        self.gc.collect(0) # do ONLY a minor
+        assert debuglog.summary() == {'gc-minor': 1}
+
+    def test_enable_disable(self, debuglog):
+        def large_malloc():
+            # malloc an object which is large enough to trigger a major collection
+            threshold = self.gc.next_major_collection_threshold
+            self.malloc(VAR, int(threshold/8))
+            summary = debuglog.summary()
+            debuglog.reset()
+            return summary
+        #
+        summary = large_malloc()
+        assert sorted(summary.keys()) == ['gc-collect-step', 'gc-minor']
+        #
+        self.gc.disable()
+        summary = large_malloc()
+        assert sorted(summary.keys()) == ['gc-minor']
+        #
+        self.gc.enable()
+        summary = large_malloc()
+        assert sorted(summary.keys()) == ['gc-collect-step', 'gc-minor']
+
+    def test_call_collect_when_disabled(self, debuglog):
+        # malloc an object and put it the old generation
+        s = self.malloc(S)
+        s.x = 42
+        self.stackroots.append(s)
+        self.gc.collect()
+        s = self.stackroots.pop()
+        #
+        self.gc.disable()
+        self.gc.collect(1) # start a major collect
+        assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
+        assert s.x == 42 # s is not freed yet
+        #
+        debuglog.reset()
+        self.gc.collect(1) # run one more step
+        assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
+        assert s.x == 42 # s is not freed yet
+        #
+        debuglog.reset()
+        self.gc.collect() # finish the major collection
+        summary = debuglog.summary()
+        assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
+        # s is freed
+        py.test.raises(RuntimeError, 's.x')
+
+    def test_collect_step(self, debuglog):
+        from rpython.rlib import rgc
+        n = 0
+        states = []
+        while True:
+            debuglog.reset()
+            val = self.gc.collect_step()
+            states.append((rgc.old_state(val), rgc.new_state(val)))
+            summary = debuglog.summary()
+            assert summary == {'gc-minor': 1, 'gc-collect-step': 1}
+            if rgc.is_done(val):
+                break
+            n += 1
+            if n == 100:
+                assert False, 'this looks like an endless loop'
+        #
+        assert states == [
+            (incminimark.STATE_SCANNING, incminimark.STATE_MARKING),
+            (incminimark.STATE_MARKING, incminimark.STATE_SWEEPING),
+            (incminimark.STATE_SWEEPING, incminimark.STATE_FINALIZING),
+            (incminimark.STATE_FINALIZING, incminimark.STATE_SCANNING)
+            ]

@@ -3730,6 +3730,18 @@ def test_from_buffer_more_cases():
     check(4 | 8,  "CHB", "GTB")
     check(4 | 16, "CHB", "ROB")
 
+def test_from_buffer_require_writable():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    p1 = from_buffer(BCharA, b"foo", False)
+    assert p1 == from_buffer(BCharA, b"foo", False)
+    py.test.raises((TypeError, BufferError), from_buffer, BCharA, b"foo", True)
+    ba = bytearray(b"foo")
+    p1 = from_buffer(BCharA, ba, True)
+    p1[0] = b"g"
+    assert ba == b"goo"
+
 def test_memmove():
     Short = new_primitive_type("short")
     ShortA = new_array_type(new_pointer_type(Short), None)
