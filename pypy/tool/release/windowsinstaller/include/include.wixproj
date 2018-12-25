@@ -3,7 +3,7 @@
     <PropertyGroup>
         <ProjectGuid>{93912B72-A2D0-49C4-84DC-5B5B490B60AC}</ProjectGuid>
         <SchemaVersion>2.0</SchemaVersion>
-        <OutputName Condition="'$(OutputName)' == ''">dev</OutputName>
+        <OutputName Condition="'$(OutputName)' == ''">include</OutputName>
         <OutputType>Package</OutputType>
     </PropertyGroup>
     <Import Project="..\msi.props" />
