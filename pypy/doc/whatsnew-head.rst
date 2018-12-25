@@ -64,3 +64,7 @@ Make GC hooks measure time in seconds (as opposed to an opaque unit).
 .. branch: cleanup-test_lib_pypy
 
 Update most test_lib_pypy/ tests and move them to extra_tests/.
+
+.. branch: unicode-utf8
+
+Use utf8 internally to represent unicode
