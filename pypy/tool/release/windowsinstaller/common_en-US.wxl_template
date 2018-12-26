@@ -2,17 +2,17 @@
 <WixLocalization Culture="en-us" xmlns="http://schemas.microsoft.com/wix/2006/localization">
     <String Id="LCID">1033</String>
     <String Id="Culture">en-us</String>
-    <String Id="ProductName">Python {{ShortVersion}}</String>
-    <String Id="FullProductName">Python {{LongVersion}} ({{Bitness}})</String>
-    <String Id="Title">Python {{LongVersion}} !(loc.Descriptor) ({{Bitness}})</String>
-    <String Id="Description">Python {{LongVersion}} !(loc.Descriptor) ({{Bitness}})</String>
-    <String Id="TitlePdb">Python {{LongVersion}} !(loc.Descriptor) ({{Bitness}} symbols)</String>
-    <String Id="DescriptionPdb">Python {{LongVersion}} !(loc.Descriptor) ({{Bitness}} symbols)</String>
-    <String Id="Title_d">Python {{LongVersion}} !(loc.Descriptor) ({{Bitness}} debug)</String>
-    <String Id="Description_d">Python {{LongVersion}} !(loc.Descriptor) ({{Bitness}} debug)</String>
-    <String Id="Manufacturer">Python Software Foundation</String>
+    <String Id="ProductName">PyPy {{ShortVersion}}</String>
+    <String Id="FullProductName">PyPy {{LongVersion}} ({{Bitness}})</String>
+    <String Id="Title">PyPy {{LongVersion}} !(loc.Descriptor) ({{Bitness}})</String>
+    <String Id="Description">PyPy {{LongVersion}} !(loc.Descriptor) ({{Bitness}})</String>
+    <String Id="TitlePdb">PyPy {{LongVersion}} !(loc.Descriptor) ({{Bitness}} symbols)</String>
+    <String Id="DescriptionPdb">PyPy {{LongVersion}} !(loc.Descriptor) ({{Bitness}} symbols)</String>
+    <String Id="Title_d">PyPy {{LongVersion}} !(loc.Descriptor) ({{Bitness}} debug)</String>
+    <String Id="Description_d">PyPy {{LongVersion}} !(loc.Descriptor) ({{Bitness}} debug)</String>
+    <String Id="Manufacturer">PyPy Development Team</String>
     <String Id="NoDowngrade">A newer version of !(loc.ProductName) is already installed.</String>
     <String Id="IncorrectCore">An incorrect version of a prerequisite package is installed. Please uninstall any other versions of !(loc.ProductName) and try installing this again.</String>
     <String Id="NoTargetDir">The TARGETDIR variable must be provided when invoking this installer.</String>
-    <String Id="ManufacturerSupportUrl">http://www.python.org/</String>
+    <String Id="ManufacturerSupportUrl">http://pypy.org/</String>
 </WixLocalization>
