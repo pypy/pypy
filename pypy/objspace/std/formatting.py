@@ -11,6 +11,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.unicodehelper import check_ascii_or_raise
 
 
 class BaseStringFormatter(object):
@@ -435,15 +436,7 @@ def make_formatter_subclass(do_unicode):
             if not do_unicode:
                 if got_unicode:
                     # Make sure the format string is ascii encodable
-                    try:
-                        self.fmt.decode('ascii')
-                    except UnicodeDecodeError as e:
-                        raise OperationError(space.w_UnicodeDecodeError,
-                            space.newtuple([space.newtext('ascii'),
-                                            space.newbytes(self.fmt),
-                                            space.newint(e.start),
-                                            space.newint(e.end),
-                                            space.newtext(e.message)]))
+                    check_ascii_or_raise(space, self.fmt)
                     raise NeedUnicodeFormattingError
                 s = self.string_formatting(w_value)
             else:
