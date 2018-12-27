@@ -387,66 +387,11 @@ class TestRawRefCount(BaseDirectGCTest):
         self._collect(major=True)
         check_alive(0)
 
-    def test_linked_cycle_self_reference_dies_without_external_reference(self):
-        p1, p1ref, r1, r1addr, check_alive = (
-            self._rawrefcount_pair(42))
-        r1.c_ob_refcnt += 1
-        p1.next = p1
-        check_alive(+1)
-        self._collect(major=True, expected_trigger=1)
-        py.test.raises(RuntimeError, "p1.x")  # dead
-        assert r1.c_ob_refcnt == 1  # in the pending list
-        assert r1.c_ob_pypy_link == 0
-        assert self.gc.rawrefcount_next_dead() == r1addr
-        assert self.gc.rawrefcount_next_dead() == llmemory.NULL
-        assert self.gc.rawrefcount_next_dead() == llmemory.NULL
-        self.gc.check_no_more_rawrefcount_state()
-        lltype.free(r1, flavor='raw')
-
-    def test_linked_cycle_self_reference_survives_with_pyobj_reference(self):
-        p1, p1ref, r1, r1addr, check_alive = (
-            self._rawrefcount_pair(42, create_immortal=True))
-        r1.c_ob_refcnt += 2  # the pyobject is kept alive
-        p1.next = p1
-        check_alive(+2)
-        self._collect(major=True)
-        check_alive(+2)
-        r1.c_ob_refcnt -= 1 # the external reference from pyobj is removed
-        check_alive(+1)
-        self._collect(major=True, expected_trigger=1)
-        py.test.raises(RuntimeError, "p1.x")  # dead
-        assert r1.c_ob_refcnt == 1  # in the pending list
-        assert r1.c_ob_pypy_link == 0
-        assert self.gc.rawrefcount_next_dead() == r1addr
-        assert self.gc.rawrefcount_next_dead() == llmemory.NULL
-        assert self.gc.rawrefcount_next_dead() == llmemory.NULL
-        self.gc.check_no_more_rawrefcount_state()
-        lltype.free(r1, flavor='raw')
-
-    def test_linked_cycle_self_reference_survives_with_pypy_reference(self):
-        p1, p1ref, r1, r1addr, check_alive = (
-            self._rawrefcount_pair(42, create_immortal=True))
-        r1.c_ob_refcnt += 1
-        p1.next = p1
-        self.stackroots.append(p1)
-        check_alive(+1)
-        self._collect(major=True)
-        assert p1.x == 42
-        assert self.trigger == []
-        check_alive(+1)
-        p1 = self.stackroots.pop()
-        check_alive(+1)
-        self._collect(major=True, expected_trigger=1)
-        py.test.raises(RuntimeError, "p1.x")  # dead
-        assert r1.c_ob_refcnt == 1
-        assert r1.c_ob_pypy_link == 0
-        assert self.gc.rawrefcount_next_dead() == r1addr
-        self.gc.check_no_more_rawrefcount_state()
-        lltype.free(r1, flavor='raw')
-
     dot_dir = os.path.join(os.path.realpath(os.path.dirname(__file__)), "dot")
     dot_files = [file for file in os.listdir(dot_dir) if file.endswith(".dot")]
 
+    @py.test.mark.dont_track_allocations('intentionally keep objects alive, '
+                                         'because we do the checks ourselves')
     @py.test.mark.parametrize("file", dot_files)
     def test_dots(self, file):
         from rpython.memory.gc.test.dot import pydot
@@ -488,6 +433,7 @@ class TestRawRefCount(BaseDirectGCTest):
         g = pydot.graph_from_dot_file(path)[0]
         nodes = {}
 
+        # create objects from graph
         for n in g.get_nodes():
             name = n.get_name()
             attr = n.obj_dict['attributes']
@@ -512,6 +458,8 @@ class TestRawRefCount(BaseDirectGCTest):
                     r.c_ob_refcnt = ext_refcnt
                 nodes[name] = BorderNode(p, pref, r, raddr, check_alive, info)
                 pass
+
+        # add references between objects from graph
         for e in g.get_edges():
             source = nodes[e.get_source()]
             dest = nodes[e.get_destination()]
@@ -526,33 +474,36 @@ class TestRawRefCount(BaseDirectGCTest):
                 else:
                     assert False  # only 2 refs supported from pypy obj
 
+        # quick self check, if traverse works properly
+        dests_by_source = {}
+        for e in g.get_edges():
+            source = nodes[e.get_source()]
+            dest = nodes[e.get_destination()]
+            if source.info.type == "C" or dest.info.type == "C":
+                if not dests_by_source.has_key(source):
+                    dests_by_source[source] = []
+                dests_by_source[source].append(dest.r)
+        for source in dests_by_source:
+            dests_target = dests_by_source[source]
+            def append(self, pyobj):
+                dests_target.remove(pyobj)
+            self.gc._rrc_visit_pyobj = append
+            self.gc._rrc_traverse(source.raddr)
+            assert len(dests_target) == 0
+
+        # do collection
         self.gc.collect()
 
-        # def foo(self, pyobj):
-        #    print "foo " + str(pyobj)
-        # self.gc._rrc_visit_pyobj = foo
-        # self.gc._rrc_traverse(nodes[u'"a"'].raddr)
-
+        # check livelihood of objects, according to graph
         for name in nodes:
             n = nodes[name]
-
             if n.info.alive:
                 if n.info.type == "P":
-                    print self.stackroots
                     n.check_alive()
                 else:
                     n.check_alive(n.info.ext_refcnt)
             else:
-                if n.info.type == "C":
-                    assert False
-                elif n.info.type == "P":
+                if n.info.type == "P":
                     py.test.raises(RuntimeError, "n.p.x")  # dead
                 else:
-                    assert False
-
-# TODO: pyobj_cycle_self_reference (without linked pypy object)
-# TODO: linked_cycle_simple
-# TODO: pyobj_cycle_simple
-# TODO: linked_cycle_complex
-# TODO: pyobj_cycle_complex
-# TODO: pyobj_cycle_dies_including_linked_pypy
+                    py.test.raises(RuntimeError, "n.r.c_ob_refcnt")  # dead
