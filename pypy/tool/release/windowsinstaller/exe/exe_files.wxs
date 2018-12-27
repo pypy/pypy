@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <ComponentGroup Id="exe_txt">
+            <Component Id="LICENSE" Directory="InstallDirectory" Guid="*">
+                <File Name="LICENSE" Source="!(bindpath.src)LICENSE" KeyPath="yes" />
+            </Component>
+            <Component Id="README.rst" Directory="InstallDirectory" Guid="*">
+                <File Name="README.rst" Source="!(bindpath.src)README.rst" KeyPath="yes" />
+            </Component>
+        </ComponentGroup>
+    </Fragment>
+
+    <Fragment>
+        <PropertyRef Id="REGISTRYKEY" />
+        <ComponentGroup Id="exe_pypy">
+            <Component Id="exe_pypyc" Directory="InstallDirectory" Guid="$(var.PythonExeComponentGuid)">
+                <File Name="pypy3-c" Source="!(bindpath.goal)pypy3-c.exe" KeyPath="yes" />
+                <RegistryKey Root="HKMU" Key="[REGISTRYKEY]">
+                    <RegistryValue Key="InstallPath" Type="string" Value="[InstallDirectory]" KeyPath="no" />
+                    <RegistryValue Key="InstallPath" Name="ExecutablePath" Type="string" Value="[#pypy3-c.exe]" KeyPath="no" />
+                </RegistryKey>
+            </Component>
+            <Component Id="exe_pypycw" Directory="InstallDirectory" Guid="$(var.PythonwExeComponentGuid)">
+                <File Name="pypy3-cw" Source="!(bindpath.goal)pypy3-cw.exe" KeyPath="yes" />
+                <RegistryKey Root="HKMU" Key="[REGISTRYKEY]">
+                    <RegistryValue Key="InstallPath" Name="WindowedExecutablePath" Type="string" Value="[#pypy3-cw.exe]" KeyPath="no" />
+                </RegistryKey>
+            </Component>
+            <Component Id="libpypy3" Directory="InstallDirectory" Guid="*">
+                <File Name="libpypy3-c.dll" Source="!(bindpath.goal)libpypy3-c.dll" KeyPath="yes" />
+            </Component>
+        </ComponentGroup>
+    </Fragment>
+</Wix>

@@ -13,5 +13,14 @@
     <ItemGroup>
         <EmbeddedResource Include="*.wxl" />
     </ItemGroup>
+	<ItemGroup>
+        <InstallFiles Include="$(PySourcePath)include\**\*">
+            <SourceBase>$(PySourcePath)</SourceBase>
+            <Source>!(bindpath.src)</Source>
+            <TargetBase>$(PySourcePath)</TargetBase>
+            <Target_></Target_>
+            <Group>lib_pypy</Group>
+        </InstallFiles>
+    </ItemGroup>
     <Import Project="..\msi.targets" />
 </Project>

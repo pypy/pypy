@@ -117,6 +117,9 @@
         <LinkerBindInputPaths Include="$(PySourcePath)Doc\build\htmlhelp">
             <BindName></BindName>
         </LinkerBindInputPaths>
+		<LinkerBindInputPaths Include="$(PySourcePath)pypy\goal\">
+            <BindName>goal</BindName>
+        </LinkerBindInputPaths>
         <LinkerBindInputPaths Include="$(PySourcePath)">
             <BindName>src</BindName>
         </LinkerBindInputPaths>

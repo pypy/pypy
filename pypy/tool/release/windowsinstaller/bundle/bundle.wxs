@@ -63,6 +63,7 @@
     <Variable Name="CustomBrowseButtonState" Value="enabled" />
 
     <Variable Name="Include_core" Value="1" />
+	<Variable Name="Include_include" Value="1" />
     <Variable Name="Include_exe" Value="1" bal:Overridable="yes" />
     <Variable Name="Include_dev" Value="1" bal:Overridable="yes" />
     <Variable Name="Include_lib" Value="1" bal:Overridable="yes" />
