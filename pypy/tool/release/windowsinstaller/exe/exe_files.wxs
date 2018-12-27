@@ -15,16 +15,16 @@
         <PropertyRef Id="REGISTRYKEY" />
         <ComponentGroup Id="exe_pypy">
             <Component Id="exe_pypyc" Directory="InstallDirectory" Guid="$(var.PythonExeComponentGuid)">
-                <File Name="pypy3-c" Source="!(bindpath.goal)pypy3-c.exe" KeyPath="yes" />
+                <File Id="pypy3_c" Name="pypy3-c.exe" Source="!(bindpath.goal)pypy3-c.exe" KeyPath="yes" />
                 <RegistryKey Root="HKMU" Key="[REGISTRYKEY]">
                     <RegistryValue Key="InstallPath" Type="string" Value="[InstallDirectory]" KeyPath="no" />
-                    <RegistryValue Key="InstallPath" Name="ExecutablePath" Type="string" Value="[#pypy3-c.exe]" KeyPath="no" />
+                    <RegistryValue Key="InstallPath" Name="ExecutablePath" Type="string" Value="[#pypy3_c]" KeyPath="no" />
                 </RegistryKey>
             </Component>
             <Component Id="exe_pypycw" Directory="InstallDirectory" Guid="$(var.PythonwExeComponentGuid)">
-                <File Name="pypy3-cw" Source="!(bindpath.goal)pypy3-cw.exe" KeyPath="yes" />
+                <File Id="pypy3_cw" Name="pypy3-cw" Source="!(bindpath.goal)pypy3-cw.exe" KeyPath="yes" />
                 <RegistryKey Root="HKMU" Key="[REGISTRYKEY]">
-                    <RegistryValue Key="InstallPath" Name="WindowedExecutablePath" Type="string" Value="[#pypy3-cw.exe]" KeyPath="no" />
+                    <RegistryValue Key="InstallPath" Name="WindowedExecutablePath" Type="string" Value="[#pypy3_cw]" KeyPath="no" />
                 </RegistryKey>
             </Component>
             <Component Id="libpypy3" Directory="InstallDirectory" Guid="*">
