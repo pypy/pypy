@@ -97,6 +97,8 @@
     <Chain ParallelCache="yes">
       <PackageGroupRef Id="include" />
       <PackageGroupRef Id="lib_pypy" />
-    </Chain>
+	  <PackageGroupRef Id="exe" />
+	  <PackageGroupRef Id="lib_python" />
+	</Chain>
   </Bundle>
 </Wix>

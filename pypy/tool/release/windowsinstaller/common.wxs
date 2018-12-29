@@ -80,6 +80,11 @@
             <Directory Id="include" Name="include" />
         </DirectoryRef>
     </Fragment>
+	<Fragment>
+        <DirectoryRef Id="InstallDirectory">
+            <Directory Id="lib_python" Name="lib-python" />
+        </DirectoryRef>
+    </Fragment>
 
     <Fragment>
         <DirectoryRef Id="InstallDirectory">

@@ -64,8 +64,8 @@
         <Package Include="..\include\include*.wixproj" />
         <Package Include="..\lib_pypy\lib_pypy*.wixproj" />
 		<Package Include="..\exe\exe*.wixproj" />
-		<Package Include="..\libs\libs*.wixproj" />
 		<Package Include="..\lib_python\lib_python*.wixproj" />
+	    <Package Include="..\libs\libs*.wixproj" />
 	    <Package Include="..\sitepackages\sitepackages*.wixproj" />
 	    <Package Include="..\tcl\tcl*.wixproj" />
     </ItemGroup>
