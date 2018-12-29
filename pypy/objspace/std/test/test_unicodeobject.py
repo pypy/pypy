@@ -1163,9 +1163,8 @@ class AppTestUnicodeString:
         assert type(unicode(z)) is unicode
         assert unicode(z) == u'foobaz'
         #
-        # two completely corner cases where we differ from CPython:
-        #assert unicode(encoding='supposedly_the_encoding') == u''
-        #assert unicode(errors='supposedly_the_error') == u''
+        assert unicode(encoding='supposedly_the_encoding') == u''
+        assert unicode(errors='supposedly_the_error') == u''
         e = raises(TypeError, unicode, u'', 'supposedly_the_encoding')
         assert str(e.value) == 'decoding Unicode is not supported'
         e = raises(TypeError, unicode, u'', errors='supposedly_the_error')
