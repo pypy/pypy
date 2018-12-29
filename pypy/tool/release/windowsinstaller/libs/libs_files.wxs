@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <ComponentGroup Id="libs">
+            <Component Id="python_lib" Directory="InstallDirectory" Guid="$(var.PythonExeComponentGuid)">
+                <File Id="python_lib" Name="python.lib" Source="!(bindpath.src)libs\python35.lib" KeyPath="yes" />
+            </Component>
+        </ComponentGroup>
+    </Fragment>
+</Wix>

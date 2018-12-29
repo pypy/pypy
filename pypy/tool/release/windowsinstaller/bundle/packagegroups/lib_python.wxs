@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <PackageGroup Id="lib_python">
+            <MsiPackage Id="lib_python_AllUsers"
+                        SourceFile="lib_python.msi"
+                        Compressed="$(var.CompressMSI)"
+                        DownloadUrl="$(var.DownloadUrl)"
+                        ForcePerMachine="yes"
+                        InstallCondition="InstallAllUsers and Include_lib_python and not LauncherOnly">
+                <MsiProperty Name="TARGETDIR" Value="[TargetDir]" />
+                <MsiProperty Name="OPTIONALFEATURESREGISTRYKEY" Value="[OptionalFeaturesRegistryKey]" />
+            </MsiPackage>
+            <MsiPackage Id="lib_python_JustForMe"
+                        SourceFile="lib_python.msi"
+                        Compressed="$(var.CompressMSI)"
+                        DownloadUrl="$(var.DownloadUrl)"
+                        ForcePerMachine="no"
+                        InstallCondition="not InstallAllUsers and Include_lib_python and not LauncherOnly">
+                <MsiProperty Name="TARGETDIR" Value="[TargetDir]" />
+                <MsiProperty Name="OPTIONALFEATURESREGISTRYKEY" Value="[OptionalFeaturesRegistryKey]" />
+            </MsiPackage>
+        </PackageGroup>
+    </Fragment>
+</Wix>
