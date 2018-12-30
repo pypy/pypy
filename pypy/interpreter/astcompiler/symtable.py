@@ -429,8 +429,17 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.scope.contains_annotated = True
         target = assign.target
         if isinstance(target, ast.Name):
-            # XXX Should check (and fail) for previous 'global' annotation.
             name = target.id
+            old_role = self.scope.lookup_role(name)
+            if assign.simple:
+                if old_role & SYM_GLOBAL:
+                    raise SyntaxError(
+                        "annotated name '%s' can't be global" % name,
+                        assign.lineno, assign.col_offset)
+                if old_role & SYM_NONLOCAL:
+                    raise SyntaxError(
+                        "annotated name '%s' can't be nonlocal" % name,
+                        assign.lineno, assign.col_offset)
             scope = SYM_BLANK
             if assign.simple:
                 scope |= SYM_ANNOTATED

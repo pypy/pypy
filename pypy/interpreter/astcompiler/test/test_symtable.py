@@ -494,6 +494,14 @@ def f(x):
         assert exc_global.msg == "annotated name 'x' can't be global"
         assert exc_global.lineno == 3
 
+    def test_annotation_global2(self):
+        src_global = ("def f():\n"
+                      "    global x\n"
+                      "    x: int\n")
+        exc_global = py.test.raises(SyntaxError, self.func_scope, src_global).value
+        assert exc_global.msg == "annotated name 'x' can't be global"
+        assert exc_global.lineno == 3
+
     def test_annotation_nonlocal(self):
         src_nonlocal = ("def f():\n"
                         "    x: int\n"
