@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <ComponentGroup Id="external">
+            <Component Id="sqlite3" Directory="InstallDirectory" Guid="*">
+                <File Name="sqlite3" Source="!(bindpath.src)externals\lib\sqlite3.lib" KeyPath="yes" />
+            </Component>
+		    <Component Id="tcl85" Directory="InstallDirectory" Guid="*">
+                <File Name="tcl85" Source="!(bindpath.src)externals\bin\tcl85.dll" KeyPath="yes" />
+            </Component>
+		    <Component Id="tk85" Directory="InstallDirectory" Guid="*">
+                <File Name="tk85" Source="!(bindpath.src)externals\bin\tk85.dll" KeyPath="yes" />
+            </Component>
+        </ComponentGroup>
+    </Fragment>
+</Wix>

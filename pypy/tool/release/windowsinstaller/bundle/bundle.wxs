@@ -100,6 +100,8 @@
 	  <PackageGroupRef Id="exe" />
 	  <PackageGroupRef Id="lib_python" />
 	  <PackageGroupRef Id="libs" />
-	</Chain>
+	  <PackageGroupRef Id="external" />
+	  <PackageGroupRef Id="site-packages" />
+	 </Chain>
   </Bundle>
 </Wix>
