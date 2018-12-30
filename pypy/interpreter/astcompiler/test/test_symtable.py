@@ -517,6 +517,9 @@ def f(x):
         fscp = self.func_scope("def f(): implicit_global[0]: int")
         assert fscp.lookup("implicit_global") == symtable.SCOPE_GLOBAL_IMPLICIT
 
+        fscp = self.func_scope("def f(): (implicit_global): int")
+        assert fscp.lookup("implicit_global") == symtable.SCOPE_UNKNOWN
+
     def test_issue13343(self):
         scp = self.mod_scope("lambda *, k1=x, k2: None")
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_IMPLICIT

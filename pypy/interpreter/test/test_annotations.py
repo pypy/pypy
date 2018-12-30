@@ -73,6 +73,15 @@ class AppTestAnnotations:
             ...
         '''
 
+    def test_non_simple_func_annotation(self):
+        '''
+        a = 5
+        def f():
+            (a): int
+            return a
+        assert f() == 5
+        '''
+
     def test_repeated_setup(self):
         # each exec will run another SETUP_ANNOTATIONS
         # we want to confirm that this doesn't blow away
@@ -147,4 +156,3 @@ a: int
         """
         c = compile(s, "f", "exec")
         assert c.co_firstlineno == 3
-

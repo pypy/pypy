@@ -429,11 +429,15 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.scope.contains_annotated = True
         target = assign.target
         if isinstance(target, ast.Name):
-            scope = SYM_ANNOTATED
+            # XXX Should check (and fail) for previous 'global' annotation.
             name = target.id
+            scope = SYM_BLANK
+            if assign.simple:
+                scope |= SYM_ANNOTATED
             if assign.value:
                 scope |= SYM_USED
-            self.note_symbol(name, scope)
+            if scope:
+                self.note_symbol(name, scope)
         else:
             target.walkabout(self)
         if assign.value is not None:
