@@ -7,7 +7,7 @@
         <PropertyRef Id="UpgradeTable" />
         
         <Feature Id="DefaultFeature" AllowAdvertise="no" Title="!(loc.Title)" Description="!(loc.Description)">
-            <ComponentGroupRef Id="site-packages" />
+            <ComponentGroupRef Id="site_packages" />
             <ComponentRef Id="OptionalFeature" />
         </Feature>
     </Product>

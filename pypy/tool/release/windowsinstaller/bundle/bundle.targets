@@ -67,7 +67,7 @@
 		<Package Include="..\exe\exe*.wixproj" />
 		<Package Include="..\lib_python\lib_python*.wixproj" />
 	    <Package Include="..\libs\libs*.wixproj" />
-	    <Package Include="..\site-packages\site-packages*.wixproj" />
+	    <Package Include="..\site_packages\site_packages*.wixproj" />
     </ItemGroup>
     
     <PropertyGroup>

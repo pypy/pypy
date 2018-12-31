@@ -1,22 +1,22 @@
 <?xml version="1.0"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
-        <PackageGroup Id="site-packages">
-            <MsiPackage Id="site-packages_AllUsers"
-                        SourceFile="site-packages.msi"
+        <PackageGroup Id="site_packages">
+            <MsiPackage Id="site_packages_AllUsers"
+                        SourceFile="site_packages.msi"
                         Compressed="$(var.CompressMSI)"
                         DownloadUrl="$(var.DownloadUrl)"
                         ForcePerMachine="yes"
-                        InstallCondition="InstallAllUsers and Include_site-packages and not LauncherOnly">
+                        InstallCondition="InstallAllUsers and Include_site_packages and not LauncherOnly">
                 <MsiProperty Name="TARGETDIR" Value="[TargetDir]" />
                 <MsiProperty Name="OPTIONALFEATURESREGISTRYKEY" Value="[OptionalFeaturesRegistryKey]" />
             </MsiPackage>
-            <MsiPackage Id="site-packages_JustForMe"
-                        SourceFile="site-packages.msi"
+            <MsiPackage Id="site_packages_JustForMe"
+                        SourceFile="site_packages.msi"
                         Compressed="$(var.CompressMSI)"
                         DownloadUrl="$(var.DownloadUrl)"
                         ForcePerMachine="no"
-                        InstallCondition="not InstallAllUsers and Include_site-packages and not LauncherOnly">
+                        InstallCondition="not InstallAllUsers and Include_site_packages and not LauncherOnly">
                 <MsiProperty Name="TARGETDIR" Value="[TargetDir]" />
                 <MsiProperty Name="OPTIONALFEATURESREGISTRYKEY" Value="[OptionalFeaturesRegistryKey]" />
             </MsiPackage>
