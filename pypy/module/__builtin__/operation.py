@@ -50,7 +50,7 @@ def checkattrname(space, w_name, msg):
                 raise e
             raise oefmt(space.w_TypeError,
                  "%s(): attribute name must be string", msg)
-        w_name = space.newtext(w_name)
+        w_name = space.newtext(name)
     return w_name
 
 def delattr(space, w_object, w_name):
