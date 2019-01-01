@@ -44,8 +44,12 @@ class W_UnicodeObject(W_Root):
         # XXX checking, remove before any performance measurments
         #     ifdef not_running_in_benchmark
         if not we_are_translated():
-            lgt = rutf8.check_utf8(utf8str, True)
-            assert lgt == length
+            try:
+                lgt = rutf8.check_utf8(utf8str, True)
+                assert lgt == length
+            except:
+                # array.array can return invalid unicode
+                pass
 
     @staticmethod
     def from_utf8builder(builder):

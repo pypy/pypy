@@ -1040,13 +1040,24 @@ def make_array(mytype):
                 return space.newbytes(item)
             elif mytype.typecode == 'u':
                 code = r_uint(ord(item))
-                try:
-                    return space.newutf8(rutf8.unichr_as_utf8(code), 1)
-                except ValueError:
-                    raise oefmt(space.w_ValueError,
-                        "array contains a 32-bit integer that is outside "
-                        "the range [U+0000; U+10ffff] of valid unicode "
-                        "characters")
+                # cpython will allow values > sys.maxunicode
+                # while silently truncating the top bits
+                if code <= r_uint(0x7F):
+                    # Encode ASCII
+                    item = chr(code)
+                elif code <= r_uint(0x07FF):
+                    item = (chr((0xc0 | (code >> 6))) + 
+                            chr((0x80 | (code & 0x3f))))
+                elif code <= r_uint(0xFFFF):
+                    item = (chr((0xe0 | (code >> 12))) +
+                            chr((0x80 | ((code >> 6) & 0x3f))) +
+                            chr((0x80 | (code & 0x3f))))
+                else:
+                    item = (chr((0xf0 | (code >> 18)) & 0xff) +
+                            chr((0x80 | ((code >> 12) & 0x3f))) +
+                            chr((0x80 | ((code >> 6) & 0x3f))) +
+                            chr((0x80 | (code & 0x3f))))
+                return space.newutf8(item, 1)
             assert 0, "unreachable"
 
         # interface
