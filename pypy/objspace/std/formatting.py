@@ -455,6 +455,8 @@ def make_formatter_subclass(do_unicode):
             self.prec = -1     # just because
             space = self.space
             if space.isinstance_w(w_value, space.w_bytes):
+                if do_unicode:
+                    w_value = w_value.descr_decode(space, space.newtext('ascii'))
                 s = space.bytes_w(w_value)
                 if len(s) != 1:
                     raise oefmt(space.w_TypeError, "%c requires int or char")
@@ -463,7 +465,7 @@ def make_formatter_subclass(do_unicode):
                 if not do_unicode:
                     raise NeedUnicodeFormattingError
                 ustr = space.utf8_w(w_value)
-                if len(ustr) != 1:
+                if space.len_w(w_value) != 1:
                     raise oefmt(space.w_TypeError, "%c requires int or unichar")
                 self.std_wp(ustr, False)
             else:
@@ -516,7 +518,7 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
     # this can force strings, not sure if it's a problem or not
-    lgt = rutf8.check_utf8(result, True)
+    lgt = rutf8.codepoints_in_utf8(result)
     return space.newutf8(result, lgt)
 
 def mod_format(space, w_format, w_values, do_unicode=False):

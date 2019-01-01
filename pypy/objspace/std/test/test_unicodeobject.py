@@ -1125,6 +1125,16 @@ class AppTestUnicodeString:
                 return u'\u1234'
         '%s' % X()
 
+    def test_formatting_char(self):
+        for num in range(0x80,0x100):
+            uchar = unichr(num)
+            print num
+            assert uchar == u"%c" % num   # works only with ints
+            assert uchar == u"%c" % uchar # and unicode chars
+            # the implicit decoding should fail for non-ascii chars
+            raises(UnicodeDecodeError, u"%c".__mod__, chr(num))
+            raises(UnicodeDecodeError, u"%s".__mod__, chr(num))
+
     def test_str_subclass(self):
         class Foo9(str):
             def __unicode__(self):
