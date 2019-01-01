@@ -812,6 +812,11 @@ class AppTestBytesObject:
     def test_encode(self):
         assert 'hello'.encode() == 'hello'
         assert type('hello'.encode()) is str
+        s = 'hello \xf8 world'
+        # CPython first decodes the bytes, then encodes
+        exc = raises(UnicodeDecodeError, s.encode, 'ascii')
+        assert str(exc.value) == ("'ascii' codec can't decode byte 0xf8"
+                        " in position 6: ordinal not in range(128)")
 
     def test_hash(self):
         # check that we have the same hash as CPython for at least 31 bits
