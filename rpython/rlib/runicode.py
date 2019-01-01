@@ -8,7 +8,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit, nonconst
 
 
-if rffi.sizeof(lltype.UniChar) == 4:
+# We always use MAXUNICODE = 0x10ffff when unicode objects use utf8
+if 1 or rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
     allow_surrogate_by_default = False
 else:
