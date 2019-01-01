@@ -1,5 +1,9 @@
 import pytest
-from hypothesis import given, strategies
+try:
+    from hypothesis import given, strategies
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
 import struct
 import sys
 
@@ -37,12 +41,14 @@ def test_utf8_encode_ascii():
     assert lst == [("??", "ascii", input, 0, 2),
                    ("??", "ascii", input, 5, 7)]
 
-@given(strategies.text())
-def test_utf8_encode_ascii_2(u):
-    def eh(errors, encoding, reason, p, start, end):
-        return "?" * (end - start), end
+if HAS_HYPOTHESIS:
+    @given(strategies.text())
+    def test_utf8_encode_ascii_2(u):
+        def eh(errors, encoding, reason, p, start, end):
+            return "?" * (end - start), end
 
-    assert utf8_encode_ascii(u.encode("utf8"), "replace", eh) == u.encode("ascii", "replace")
+        assert utf8_encode_ascii(u.encode("utf8"),
+                                "replace", eh) == u.encode("ascii", "replace")
 
 def test_str_decode_ascii():
     assert str_decode_ascii("abc", "??", True, "??") == ("abc", 3, 3)
