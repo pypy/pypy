@@ -8,9 +8,6 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.unicodedata import unicodedb
 
-_WIN32 = sys.platform == 'win32'
-_MACOSX = sys.platform == 'darwin'
-
 @specialize.memo()
 def decode_error_handler(space):
     # Fast version of the "strict" errors handler.
@@ -34,7 +31,6 @@ def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, utf8,
                                        startingpos, endingpos):
-        assert not isinstance(utf8, unicode)
         u_len = rutf8.get_utf8_length(utf8)
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
@@ -42,7 +38,6 @@ def encode_error_handler(space):
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
-        return u'', None, 0
     return raise_unicode_exception_encode
 
 @specialize.memo()
@@ -73,6 +68,8 @@ def default_error_encode(
     raise ValueError
 
 # ____________________________________________________________
+_WIN32 = sys.platform == 'win32'
+_MACOSX = sys.platform == 'darwin'
 
 def fsdecode(space, w_string):
     from pypy.module._codecs import interp_codecs
@@ -178,6 +175,7 @@ def check_utf8_or_raise(space, string, start=0, end=-1):
     # Surrogates are accepted and not treated specially at all.
     # If there happen to be two 3-bytes encoding a pair of surrogates,
     # you still get two surrogate unicode characters in the result.
+    # These are the Python3 rules, Python2 differs
     assert isinstance(string, str)
     try:
         return rutf8.check_utf8(string, True, start, end)
