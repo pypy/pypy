@@ -3,7 +3,7 @@ import sys
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import rutf8
+from rpython.rlib import rutf8, runicode
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.unicodedata import unicodedb
@@ -21,6 +21,11 @@ def decode_error_handler(space):
                                              space.newtext(msg)]))
     return raise_unicode_exception_decode
 
+def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
+    assert startingpos >= 0
+    ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
+    return ''.join(ux), endingpos, 'b'
+
 @specialize.memo()
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
@@ -35,6 +40,23 @@ def encode_error_handler(space):
                                              space.newtext(msg)]))
     return raise_unicode_exception_encode
 
+@specialize.memo()
+def encode_unicode_error_handler(space):
+    # Fast version of the "strict" errors handler.
+    def raise_unicode_exception_encode(errors, encoding, msg, uni,
+                                       startingpos, endingpos):
+        assert isinstance(uni, unicode)
+        u_len = len(uni)
+        utf8 = runicode.unicode_encode_utf8sp(uni, u_len)
+        raise OperationError(space.w_UnicodeEncodeError,
+                             space.newtuple([space.newtext(encoding),
+                                             space.newtext(utf8, u_len),
+                                             space.newint(startingpos),
+                                             space.newint(endingpos),
+                                             space.newtext(msg)]))
+        return u'', None, 0
+    return raise_unicode_exception_encode
+
 def default_error_encode(
         errors, encoding, msg, u, startingpos, endingpos):
     """A default handler, for tests"""
@@ -45,10 +67,10 @@ def default_error_encode(
         return '', endingpos
     raise ValueError
 
-def convert_arg_to_w_unicode(space, w_arg, strict=None):
-    return space.convert_arg_to_w_unicode(w_arg)
-
 # ____________________________________________________________
+_WIN32 = sys.platform == 'win32'
+_MACOSX = sys.platform == 'darwin'
+
 
 def encode(space, w_data, encoding=None, errors='strict'):
     from pypy.objspace.std.unicodeobject import encode_object
@@ -245,18 +267,21 @@ def str_decode_utf8(s, errors, final, errorhandler):
     res = StringBuilder(slen)
     pos = 0
     end = len(s)
+    suppressing = False # we are in a chain of "bad" unicode, only emit one fix
     while pos < end:
         ordch1 = ord(s[pos])
         # fast path for ASCII
         if ordch1 <= 0x7F:
             pos += 1
             res.append(chr(ordch1))
+            suppressing = False
             continue
 
         if ordch1 <= 0xC1:
             r, pos = errorhandler(errors, "utf8", "invalid start byte",
                     s, pos, pos + 1)
-            res.append(r)
+            if not suppressing:
+                res.append(r)
             continue
 
         pos += 1
@@ -268,14 +293,16 @@ def str_decode_utf8(s, errors, final, errorhandler):
                     break
                 r, pos = errorhandler(errors, "utf8", "unexpected end of data",
                     s, pos - 1, pos)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             ordch2 = ord(s[pos])
 
             if rutf8._invalid_byte_2_of_2(ordch2):
                 r, pos = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
             pos += 1
@@ -289,8 +316,9 @@ def str_decode_utf8(s, errors, final, errorhandler):
                     pos -= 1
                     break
                 r, pos = errorhandler(errors, "utf8", "unexpected end of data",
-                    s, pos - 1, pos + 1)
+                    s, pos - 1, pos)
                 res.append(r)
+                suppressing = True
                 continue
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
@@ -298,12 +326,14 @@ def str_decode_utf8(s, errors, final, errorhandler):
             if rutf8._invalid_byte_2_of_3(ordch1, ordch2, True):
                 r, pos = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             elif rutf8._invalid_byte_3_of_3(ordch3):
                 r, pos = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos + 1)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             pos += 2
 
@@ -311,6 +341,7 @@ def str_decode_utf8(s, errors, final, errorhandler):
             res.append(chr(ordch1))
             res.append(chr(ordch2))
             res.append(chr(ordch3))
+            suppressing = False
             continue
 
         if ordch1 <= 0xF4:
@@ -321,6 +352,7 @@ def str_decode_utf8(s, errors, final, errorhandler):
                 r, pos = errorhandler(errors, "utf8", "unexpected end of data",
                     s, pos - 1, pos)
                 res.append(r)
+                suppressing = True
                 continue
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
@@ -329,7 +361,8 @@ def str_decode_utf8(s, errors, final, errorhandler):
             if rutf8._invalid_byte_2_of_4(ordch1, ordch2):
                 r, pos = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
             elif rutf8._invalid_byte_3_of_4(ordch3):
                 r, pos = errorhandler(errors, "utf8", "invalid continuation byte",
@@ -339,7 +372,8 @@ def str_decode_utf8(s, errors, final, errorhandler):
             elif rutf8._invalid_byte_4_of_4(ordch4):
                 r, pos = errorhandler(errors, "utf8", "invalid continuation byte",
                     s, pos - 1, pos + 2)
-                res.append(r)
+                if not suppressing:
+                    res.append(r)
                 continue
 
             pos += 3
@@ -348,11 +382,13 @@ def str_decode_utf8(s, errors, final, errorhandler):
             res.append(chr(ordch2))
             res.append(chr(ordch3))
             res.append(chr(ordch4))
+            suppressing = False
             continue
 
         r, pos = errorhandler(errors, "utf8", "invalid start byte",
                 s, pos - 1, pos)
-        res.append(r)
+        if not suppressing:
+            res.append(r)
 
     r = res.build()
     return r, pos, rutf8.check_utf8(r, True)
@@ -898,6 +934,33 @@ def utf8_encode_utf_7(s, errors, errorhandler):
         result.append('-')
 
     return result.build()
+
+def encode_utf8(space, uni, allow_surrogates=False):
+    # Note that Python3 tends to forbid *all* surrogates in utf-8.
+    # If allow_surrogates=True, then revert to the Python 2 behavior
+    # which never raises UnicodeEncodeError.  Surrogate pairs are then
+    # allowed, either paired or lone.  A paired surrogate is considered
+    # like the non-BMP character it stands for.  See also *_utf8sp().
+    assert isinstance(uni, unicode)
+    return runicode.unicode_encode_utf_8(
+        uni, len(uni), "strict",
+        errorhandler=encode_unicode_error_handler(space),
+        allow_surrogates=allow_surrogates)
+
+def encode_utf8sp(space, uni, allow_surrogates=True):
+    # Surrogate-preserving utf-8 encoding.  Any surrogate character
+    # turns into its 3-bytes encoding, whether it is paired or not.
+    # This should always be reversible, and the reverse is
+    # decode_utf8sp().
+    return runicode.unicode_encode_utf8sp(uni, len(uni))
+
+def decode_utf8sp(space, string):
+    # Surrogate-preserving utf-8 decoding.  Assuming there is no
+    # encoding error, it should always be reversible, and the reverse is
+    # encode_utf8sp().
+    return str_decode_utf8(string, "string", True, decode_never_raise,
+                           allow_surrogates=True)
+
 
 # ____________________________________________________________
 # utf-16

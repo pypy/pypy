@@ -140,6 +140,7 @@ class AppTestCodecs:
         assert unicode_escape_encode(u'abc') == (u'abc'.encode('unicode_escape'), 3)
         assert unicode_escape_decode('abc') == (u'abc'.decode('unicode_escape'), 3)
         assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)
+
     def test_unicode_replace(self):
         # CPython #8271: during the decoding of an invalid UTF-8 byte sequence,
         # only the start byte and the continuation byte(s) are now considered
@@ -216,14 +217,13 @@ class AppTestCodecs:
             (b'\xfe', FFFD),
             (b'\xfe\x80\x80', FFFD*3),
             # other sequences
-            (b'\xf1\x80\x41\x42\x43', '\ufffd\x41\x42\x43'),
-            (b'\xf1\x80\xff\x42\x43', '\ufffd\ufffd\x42\x43'),
-            (b'\xf1\x80\xc2\x81\x43', '\ufffd\x81\x43'),
+            (b'\xf1\x80\x41\x42\x43', u'\ufffd\x41\x42\x43'),
+            (b'\xf1\x80\xff\x42\x43', u'\ufffd\ufffd\x42\x43'),
+            (b'\xf1\x80\xc2\x81\x43', u'\ufffd\x81\x43'),
             (b'\x61\xF1\x80\x80\xE1\x80\xC2\x62\x80\x63\x80\xBF\x64',
-             '\x61\uFFFD\uFFFD\uFFFD\x62\uFFFD\x63\uFFFD\uFFFD\x64'),
+             u'\x61\uFFFD\uFFFD\uFFFD\x62\uFFFD\x63\uFFFD\uFFFD\x64'),
         ]
         for n, (seq, res) in enumerate(sequences):
-            print(seq, res)
             raises(UnicodeDecodeError, seq.decode, 'utf-8', 'strict')
             uni = seq.decode('utf-8', 'replace')
             assert uni == res
@@ -231,7 +231,6 @@ class AppTestCodecs:
             assert uni == res+'b'
             uni = seq.decode('utf-8', 'ignore')
             assert uni == res.replace(u'\uFFFD', '')
-
 
 
 class AppTestPartialEvaluation:

@@ -1155,7 +1155,7 @@ def unicode_from_object(space, w_obj):
         # test_unicode_conversion_with__str__
         if w_unicode_method is None:
             if space.isinstance_w(w_obj, space.w_unicode):
-                return unicodehelper.convert_arg_to_w_unicode(space, w_obj)
+                return space.convert_arg_to_w_unicode(w_obj)
             w_unicode_method = space.lookup(w_obj, "__str__")
         if w_unicode_method is not None:
             w_res = space.get_and_call_function(w_unicode_method, w_obj)
