@@ -45,11 +45,12 @@ def checkattrname(space, w_name, msg):
     if not space.isinstance_w(w_name, space.w_text):
         try:
             name = space.text_w(w_name)    # typecheck
-        except Exception as e:
+        except OperationError as e:
+            if e.match(space, space.w_UnicodeError):
+                raise e
             raise oefmt(space.w_TypeError,
                  "%s(): attribute name must be string", msg)
-    if space.isinstance_w(w_name, space.w_unicode):
-        w_name = space.call_method(w_name, 'encode', space.newtext('ascii'))
+        w_name = space.newtext(w_name)
     return w_name
 
 def delattr(space, w_object, w_name):
