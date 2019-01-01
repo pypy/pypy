@@ -390,6 +390,16 @@ class AppTestPosix:
         if sys.platform != "win32":
             assert posix.access(pdir, posix.X_OK) is False
 
+    def test_unlink(self):
+        os = self.posix
+        path = self.path
+        with open(path, 'wb'):
+            pass
+        class Path:
+            def __fspath__(self):
+                return path
+        os.unlink(Path())
+
     def test_times(self):
         """
         posix.times() should return a posix.times_result object giving

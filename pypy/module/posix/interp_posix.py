@@ -727,8 +727,9 @@ def system(space, command):
     else:
         return space.newint(rc)
 
-@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
-def unlink(space, w_path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(path=path_or_fd(allow_fd=False),
+             dir_fd=DirFD(rposix.HAVE_UNLINKAT))
+def unlink(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """unlink(path, *, dir_fd=None)
 
 Remove a file (same as remove()).
@@ -739,15 +740,16 @@ dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
         if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
-            path = space.fsencode_w(w_path)
-            rposix.unlinkat(path, dir_fd, removedir=False)
+            rposix.unlinkat(space.fsencode_w(path.w_path),
+                            dir_fd, removedir=False)
         else:
-            dispatch_filename(rposix.unlink)(space, w_path)
+            call_rposix(rposix.unlink, path)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
-@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
-def remove(space, w_path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(path=path_or_fd(allow_fd=False),
+             dir_fd=DirFD(rposix.HAVE_UNLINKAT))
+def remove(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """remove(path, *, dir_fd=None)
 
 Remove a file (same as unlink()).
@@ -758,12 +760,12 @@ dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
         if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
-            path = space.fsencode_w(w_path)
-            rposix.unlinkat(path, dir_fd, removedir=False)
+            rposix.unlinkat(space.fsencode_w(path.w_path),
+                            dir_fd, removedir=False)
         else:
-            dispatch_filename(rposix.unlink)(space, w_path)
+            call_rposix(rposix.unlink, path)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
 def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
@@ -1109,9 +1111,9 @@ def fchmod(space, fd, mode):
             wrap_oserror(space, e, eintr_retry=True)
 
 @unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
-        dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
+             dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
 def rename(space, w_src, w_dst, __kwonly__,
-        src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
+           src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
 Rename a file or directory.
