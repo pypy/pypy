@@ -111,7 +111,8 @@ class TestUnicodeObject:
         @given(u=strategies.text(),
                start=strategies.integers(min_value=0, max_value=10),
                len1=strategies.integers(min_value=-1, max_value=10))
-        def test_hypo_index_find(u, start, len1, space):
+        def test_hypo_index_find(self, u, start, len1):
+            space = self.space
             if start + len1 < 0:
                 return   # skip this case
             v = u[start : start + len1]
