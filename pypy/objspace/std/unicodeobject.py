@@ -223,20 +223,18 @@ class W_UnicodeObject(W_Root):
     @staticmethod
     def descr_new(space, w_unicodetype, w_object=None, w_encoding=None,
                   w_errors=None):
-        if w_object is None:
-            w_object = W_UnicodeObject.EMPTY
-        w_obj = w_object
-
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
                                                     w_errors)
-        if encoding is None and errors is None:
-            # this is very quick if w_obj is already a w_unicode
-            w_value = unicode_from_object(space, w_obj)
+        if w_object is None:
+            w_value = W_UnicodeObject.EMPTY
+        elif encoding is None and errors is None:
+            # this is very quick if w_object is already a w_unicode
+            w_value = unicode_from_object(space, w_object)
         else:
-            if space.isinstance_w(w_obj, space.w_unicode):
+            if space.isinstance_w(w_object, space.w_unicode):
                 raise oefmt(space.w_TypeError,
                             "decoding str is not supported")
-            w_value = unicode_from_encoded_object(space, w_obj,
+            w_value = unicode_from_encoded_object(space, w_object,
                                                   encoding, errors)
         if space.is_w(w_unicodetype, space.w_unicode):
             return w_value

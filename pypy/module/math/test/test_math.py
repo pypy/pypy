@@ -18,7 +18,6 @@ class AppTestMath:
             filename = filename[:-1]
         space = cls.space
         cls.w_math_cases = space.wrap(filename)
-        cls.w_consistent_host = space.wrap(test_direct.consistent_host)
 
     @classmethod
     def make_callable_wrapper(cls, func):
@@ -53,8 +52,6 @@ class AppTestMath:
             yield fnname, args, expected
 
     def test_all_cases(self):
-        if not self.consistent_host:
-            skip("please test this on top of PyPy or CPython >= 2.6")
         import math
         for fnname, args, expected in self.cases():
             fn = getattr(math, fnname)

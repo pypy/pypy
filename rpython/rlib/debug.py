@@ -1,5 +1,6 @@
 import sys
 import time
+from collections import Counter
 
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -37,6 +38,23 @@ class DebugLog(list):
                 return
         assert False, ("nesting error: no start corresponding to stop %r" %
                        (category,))
+
+    def reset(self):
+        # only for tests: empty the log
+        self[:] = []
+
+    def summary(self, flatten=False):
+        res = Counter()
+        def visit(lst):
+            for section, sublist in lst:
+                if section == 'debug_print':
+                    continue
+                res[section] += 1
+                if flatten:
+                    visit(sublist)
+        #
+        visit(self)
+        return res
 
     def __repr__(self):
         import pprint
