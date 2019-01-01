@@ -197,23 +197,20 @@ class W_UnicodeObject(W_Root):
         return unicodedb.islinebreak(ch)
 
     @staticmethod
-    @unwrap_spec(w_string=WrappedDefault(""))
-    def descr_new(space, w_unicodetype, w_string, w_encoding=None,
+    def descr_new(space, w_unicodetype, w_string=None, w_encoding=None,
                   w_errors=None):
-        # NB. the default value of w_obj is really a *wrapped* empty string:
-        #     there is gateway magic at work
-        w_obj = w_string
-
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
                                                     w_errors)
-        if encoding is None and errors is None:
-            # this is very quick if w_obj is already a w_unicode
-            w_value = unicode_from_object(space, w_obj)
+        if w_string is None:
+            w_value = W_UnicodeObject.EMPTY
+        elif encoding is None and errors is None:
+            # this is very quick if w_string is already a w_unicode
+            w_value = unicode_from_object(space, w_string)
         else:
-            if space.isinstance_w(w_obj, space.w_unicode):
+            if space.isinstance_w(w_string, space.w_unicode):
                 raise oefmt(space.w_TypeError,
                             "decoding Unicode is not supported")
-            w_value = unicode_from_encoded_object(space, w_obj,
+            w_value = unicode_from_encoded_object(space, w_string,
                                                   encoding, errors)
         if space.is_w(w_unicodetype, space.w_unicode):
             return w_value
