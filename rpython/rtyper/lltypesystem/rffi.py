@@ -1046,7 +1046,7 @@ def wcharp2utf8n(w, maxlen):
 
     s = rutf8.Utf8StringBuilder(maxlen)
     i = 0
-    while i < maxlen and w[i]:
+    while i < maxlen and ord(w[i]):
         s.append_code(ord(w[i]))
         i += 1
     return s.build(), i
