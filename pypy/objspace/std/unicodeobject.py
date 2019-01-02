@@ -921,7 +921,7 @@ class W_UnicodeObject(W_Root):
         # 'end_index' are measured in bytes.
         start, end = unwrap_start_stop(space, self._length, w_start, w_end)
         start_index = 0
-        end_index = len(self._utf8)
+        end_index = len(self._utf8) + 1
         if start > 0:
             if start > self._length:
                 start_index = end_index

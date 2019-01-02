@@ -898,7 +898,9 @@ class AppTestUnicodeString:
         raises(UnicodeDecodeError, '\x80'.rindex, u'')
         assert u"\u1234\u5678".find(u'\u5678') == 1
 
-    def test_count(self):
+    def test_count_unicode(self):
+        assert u'aaa'.count('', 10) == 0
+        assert u'aaa'.count('', 3) == 1
         assert u"".count(u"x") ==0
         assert u"".count(u"") ==1
         assert u"Python".count(u"") ==7
