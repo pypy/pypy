@@ -215,8 +215,6 @@ def replace_errors(space, w_exc):
                     "don't know how to handle %T in error callback", w_exc)
 
 def xmlcharrefreplace_errors(space, w_exc):
-    from pypy.interpreter import unicodehelper
-
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
@@ -244,8 +242,6 @@ def xmlcharrefreplace_errors(space, w_exc):
                     "don't know how to handle %T in error callback", w_exc)
 
 def backslashreplace_errors(space, w_exc):
-    from pypy.interpreter import unicodehelper
-
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
@@ -393,8 +389,6 @@ def make_encoder_wrapper(name):
     func = _find_implementation(rname)
     @unwrap_spec(errors='text_or_none')
     def wrap_encoder(space, w_arg, errors="strict"):
-        from pypy.interpreter import unicodehelper
-
         w_arg = space.convert_arg_to_w_unicode(w_arg)
         if errors is None:
             errors = 'strict'
@@ -412,8 +406,6 @@ def make_decoder_wrapper(name):
     @unwrap_spec(string='bufferstr', errors='text_or_none',
                  w_final=WrappedDefault(False))
     def wrap_decoder(space, string, errors="strict", w_final=None):
-        from pypy.interpreter import unicodehelper
-
         if errors is None:
             errors = 'strict'
         final = space.is_true(w_final)
