@@ -10,8 +10,6 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import formatd
 from rpython.rlib.rarithmetic import r_uint, intmask
 from pypy.interpreter.signature import Signature
-from pypy.interpreter import unicodehelper
-
 
 @specialize.argtype(1)
 @jit.look_inside_iff(lambda space, s, start, end:
