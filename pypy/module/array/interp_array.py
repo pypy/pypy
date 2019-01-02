@@ -390,7 +390,8 @@ class W_ArrayBase(W_Root):
         if len(s) % self.itemsize != 0:
             raise oefmt(self.space.w_ValueError,
                         "string length not a multiple of item size")
-        self.check_valid_unicode(space, s) # empty for non-u arrays
+        # CPython accepts invalid unicode
+        # self.check_valid_unicode(space, s) # empty for non-u arrays
         oldlen = self.len
         new = len(s) / self.itemsize
         if not new:
