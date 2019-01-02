@@ -1,6 +1,10 @@
 import py
 import pytest
-from hypothesis import given, strategies
+try:
+    from hypothesis import given, strategies
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
 import struct
 import sys
 from pypy.interpreter.unicodehelper import (
@@ -130,13 +134,6 @@ def test_utf32_surrogates(unich):
     with pytest.raises(UnicodeDecodeError):
         str_decode_utf_32_be(b"\x00\x00\xdc\x80", 4, None)
 
-
-@given(strategies.text())
-def test_utf8_encode_ascii_2(u):
-    def eh(errors, encoding, reason, p, start, end):
-        return "?" * (end - start), end, 'b'
-    assert utf8_encode_ascii(u.encode("utf8"), "replace", eh) == u.encode("ascii", "replace")
-
 def test_str_decode_ascii():
     assert str_decode_ascii("abc", "??", True, "??") == ("abc", 3, 3)
     def eh(errors, encoding, reason, p, start, end):
@@ -156,16 +153,6 @@ def test_str_decode_ascii():
                    ("??", "ascii", input, 5, 6),
                    ("??", "ascii", input, 6, 7)]
 
-@given(strategies.text())
-def test_unicode_raw_escape(u):
-    r = uh.utf8_encode_raw_unicode_escape(u.encode("utf8"), 'strict', None)
-    assert r == u.encode("raw-unicode-escape")
-
-@given(strategies.text())
-def test_unicode_escape(u):
-    r = uh.utf8_encode_unicode_escape(u.encode("utf8"), "strict", None)
-    assert r == u.encode("unicode-escape")
-
 def test_encode_decimal(space):
     assert uh.unicode_encode_decimal(u' 12, 34 ', None) == ' 12, 34 '
     with pytest.raises(ValueError):
@@ -178,3 +165,21 @@ def test_encode_decimal(space):
     result = uh.unicode_encode_decimal(
         u'12\u1234'.encode('utf8'), 'xmlcharrefreplace', handler)
     assert result == '12&#4660;'
+
+if HAS_HYPOTHESIS:
+    @given(strategies.text())
+    def test_utf8_encode_ascii_2(u):
+        def eh(errors, encoding, reason, p, start, end):
+            return "?" * (end - start), end, 'b'
+        assert utf8_encode_ascii(u.encode("utf8"), "replace", eh) == u.encode("ascii", "replace")
+
+    @given(strategies.text())
+    def test_unicode_raw_escape(u):
+        r = uh.utf8_encode_raw_unicode_escape(u.encode("utf8"), 'strict', None)
+        assert r == u.encode("raw-unicode-escape")
+
+    @given(strategies.text())
+    def test_unicode_escape(u):
+        r = uh.utf8_encode_unicode_escape(u.encode("utf8"), "strict", None)
+        assert r == u.encode("unicode-escape")
+

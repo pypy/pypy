@@ -1291,7 +1291,6 @@ def utf8_encode_utf_16_le(s, errors,
                                         allow_surrogates, "little",
                                         'utf-16-le')
 
-
 # ____________________________________________________________
 # utf-32
 

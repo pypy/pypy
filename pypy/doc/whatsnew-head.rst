@@ -75,3 +75,7 @@ Make it possible to manually manage the GC by using a combination of
 gc.disable() and gc.collect_step(). Make sure to write a proper release
 announcement in which we explain that existing programs could leak memory if
 they run for too much time between a gc.disable()/gc.enable()
+
+.. branch: unicode-utf8
+
+Use utf8 internally to represent unicode

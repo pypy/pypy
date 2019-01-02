@@ -298,8 +298,8 @@ class AppTestPartialEvaluation:
             ]
 
         buffer = b''
-        result = ""
-        for (c, partialresult) in zip("\x00\xff\u07ff\u0800\uffff\U00010000".encode(encoding), check_partial):
+        result = u""
+        for (c, partialresult) in zip(u"\x00\xff\u07ff\u0800\uffff\U00010000".encode(encoding), check_partial):
             buffer += bytes([c])
             res = _codecs.utf_8_decode(buffer,'strict',False)
             if res[1] >0 :
@@ -327,8 +327,8 @@ class AppTestPartialEvaluation:
                     u"\x00\xff\u0100\uffff\U00010000",
                 ]
         buffer = b''
-        result = ""
-        for (c, partialresult) in zip("\x00\xff\u0100\uffff\U00010000".encode(encoding), check_partial):
+        result = u""
+        for (c, partialresult) in zip(u"\x00\xff\u0100\uffff\U00010000".encode(encoding), check_partial):
             buffer += bytes([c])
             res = _codecs.utf_16_decode(buffer,'strict',False)
             if res[1] >0 :
@@ -630,12 +630,12 @@ class AppTestPartialEvaluation:
 
     def test_charmap_decode_1(self):
         import codecs
-        assert codecs.charmap_encode('xxx') == (b'xxx', 3)
-        assert codecs.charmap_encode('xxx', 'strict', {ord('x'): b'XX'}) == (b'XXXXXX', 3)
+        assert codecs.charmap_encode(u'xxx') == (b'xxx', 3)
+        assert codecs.charmap_encode(u'xxx', 'strict', {ord('x'): b'XX'}) == (b'XXXXXX', 3)
 
-        res = codecs.charmap_decode(b"\x00\x01\x02", "replace", "ab")
+        res = codecs.charmap_decode(b"\x00\x01\x02", "replace", u"ab")
         assert res == ("ab\ufffd", 3)
-        res = codecs.charmap_decode(b"\x00\x01\x02", "replace", "ab\ufffe")
+        res = codecs.charmap_decode(b"\x00\x01\x02", "replace", u"ab\ufffe")
         assert res == ('ab\ufffd', 3)
 
     def test_decode_errors(self):
@@ -654,28 +654,28 @@ class AppTestPartialEvaluation:
     def test_errors(self):
         import codecs
         assert codecs.replace_errors(UnicodeEncodeError(
-            "ascii", "\u3042", 0, 1, "ouch")) == ("?", 1)
+            "ascii", u"\u3042", 0, 1, "ouch")) == (u"?", 1)
         assert codecs.replace_errors(UnicodeDecodeError(
-            "ascii", b"\xff", 0, 1, "ouch")) == ("\ufffd", 1)
+            "ascii", b"\xff", 0, 1, "ouch")) == (u"\ufffd", 1)
         assert codecs.replace_errors(UnicodeTranslateError(
             "\u3042", 0, 1, "ouch")) == ("\ufffd", 1)
 
         assert codecs.replace_errors(UnicodeEncodeError(
-            "ascii", "\u3042\u3042", 0, 2, "ouch")) == ("??", 2)
+            "ascii", "\u3042\u3042", 0, 2, "ouch")) == (u"??", 2)
         assert codecs.replace_errors(UnicodeDecodeError(
-            "ascii", b"\xff\xff", 0, 2, "ouch")) == ("\ufffd", 2)
+            "ascii", b"\xff\xff", 0, 2, "ouch")) == (u"\ufffd", 2)
         assert codecs.replace_errors(UnicodeTranslateError(
             "\u3042\u3042", 0, 2, "ouch")) == ("\ufffd\ufffd", 2)
 
         class BadStartUnicodeEncodeError(UnicodeEncodeError):
             def __init__(self):
-                UnicodeEncodeError.__init__(self, "ascii", "", 0, 1, "bad")
+                UnicodeEncodeError.__init__(self, "ascii", u"", 0, 1, "bad")
                 self.start = []
 
         # A UnicodeEncodeError object with a bad object attribute
         class BadObjectUnicodeEncodeError(UnicodeEncodeError):
             def __init__(self):
-                UnicodeEncodeError.__init__(self, "ascii", "", 0, 1, "bad")
+                UnicodeEncodeError.__init__(self, "ascii", u"", 0, 1, "bad")
                 self.object = []
 
         # A UnicodeDecodeError object without an end attribute
@@ -693,19 +693,19 @@ class AppTestPartialEvaluation:
         # A UnicodeTranslateError object without a start attribute
         class NoStartUnicodeTranslateError(UnicodeTranslateError):
             def __init__(self):
-                UnicodeTranslateError.__init__(self, "", 0, 1, "bad")
+                UnicodeTranslateError.__init__(self, u"", 0, 1, "bad")
                 del self.start
 
         # A UnicodeTranslateError object without an end attribute
         class NoEndUnicodeTranslateError(UnicodeTranslateError):
             def __init__(self):
-                UnicodeTranslateError.__init__(self,  "", 0, 1, "bad")
+                UnicodeTranslateError.__init__(self,  u"", 0, 1, "bad")
                 del self.end
 
         # A UnicodeTranslateError object without an object attribute
         class NoObjectUnicodeTranslateError(UnicodeTranslateError):
             def __init__(self):
-                UnicodeTranslateError.__init__(self, "", 0, 1, "bad")
+                UnicodeTranslateError.__init__(self, u"", 0, 1, "bad")
                 del self.object
 
         import codecs
@@ -716,7 +716,7 @@ class AppTestPartialEvaluation:
         raises(TypeError, codecs.replace_errors, BadObjectUnicodeEncodeError())
         raises(TypeError, codecs.replace_errors, BadObjectUnicodeDecodeError()
         )
-        # With the correct exception, "replace" returns an "?" or "\ufffd" replacement
+        # With the correct exception, "replace" returns an "?" or u"\ufffd" replacement
 
     def test_decode_ignore(self):
         assert b'\xff'.decode('utf-7', 'ignore') == ''
@@ -724,7 +724,6 @@ class AppTestPartialEvaluation:
 
     def test_backslashreplace(self):
         import sys
-        import codecs
         sin = u"a\xac\u1234\u20ac\u8000\U0010ffff"
         if sys.maxunicode > 65535:
             expected_ascii = b"a\\xac\\u1234\\u20ac\\u8000\\U0010ffff"
@@ -827,7 +826,7 @@ class AppTestPartialEvaluation:
 
     def test_badhandler(self):
         import codecs
-        results = ( 42, "foo", (1,2,3), ("foo", 1, 3), ("foo", None), ("foo",), ("foo", 1, 3), ("foo", None), ("foo",) )
+        results = ( 42, u"foo", (1,2,3), (u"foo", 1, 3), (u"foo", None), (u"foo",), ("foo", 1, 3), ("foo", None), ("foo",) )
         encs = ("ascii", "latin-1", "iso-8859-1", "iso-8859-15")
 
         for res in results:
@@ -856,7 +855,7 @@ class AppTestPartialEvaluation:
         import codecs
         import sys
         errors = 'test.badhandler_longindex'
-        codecs.register_error(errors, lambda x: ('', sys.maxsize + 1))
+        codecs.register_error(errors, lambda x: (u'', sys.maxsize + 1))
         # CPython raises OverflowError here
         raises((IndexError, OverflowError), b'apple\x92ham\x93spam'.decode, 'utf-8', errors)
 
@@ -872,15 +871,15 @@ class AppTestPartialEvaluation:
 
         res = b"\x00\x00\x00\x00\x00".decode("unicode-internal", "replace")
         if sys.maxunicode > 65535:
-            assert res == "\u0000\ufffd"    # UCS4 build
+            assert res == u"\u0000\ufffd"    # UCS4 build
         else:
-            assert res == "\x00\x00\ufffd"  # UCS2 build
+            assert res == u"\x00\x00\ufffd"  # UCS2 build
 
         res = b"\x00\x00\x00\x00\x00".decode("unicode-internal", "ignore")
         if sys.maxunicode > 65535:
-            assert res == "\u0000"   # UCS4 build
+            assert res == u"\u0000"   # UCS4 build
         else:
-            assert res == "\x00\x00" # UCS2 build
+            assert res == u"\x00\x00" # UCS2 build
 
         def handler_unicodeinternal(exc):
             if not isinstance(exc, UnicodeDecodeError):
@@ -889,9 +888,9 @@ class AppTestPartialEvaluation:
         codecs.register_error("test.hui", handler_unicodeinternal)
         res = b"\x00\x00\x00\x00\x00".decode("unicode-internal", "test.hui")
         if sys.maxunicode > 65535:
-            assert res == "\u0000\u0001\u0000"   # UCS4 build
+            assert res == u"\u0000\u0001"   # UCS4 build
         else:
-            assert res == "\x00\x00\x01\x00\x00" # UCS2 build
+            assert res == u"\x00\x00\x01" # UCS2 build
 
         def handler1(exc):
             if not isinstance(exc, UnicodeEncodeError) \
@@ -946,12 +945,12 @@ class AppTestPartialEvaluation:
     def test_encode_error_bad_handler(self):
         import codecs
         codecs.register_error("test.bad_handler", lambda e: (repl, 1))
-        assert "xyz".encode("latin-1", "test.bad_handler") == b"xyz"
-        repl = "\u1234"
-        raises(UnicodeEncodeError, "\u5678".encode, "latin-1",
+        assert u"xyz".encode("latin-1", "test.bad_handler") == "xyz"
+        repl = u"\u1234"
+        raises(UnicodeEncodeError, u"\u5678".encode, "latin-1",
                "test.bad_handler")
-        repl = "\u00E9"
-        s = "\u5678".encode("latin-1", "test.bad_handler")
+        repl = u"\u00E9"
+        s = u"\u5678".encode("latin-1", "test.bad_handler")
         assert s == b'\xe9'
         raises(UnicodeEncodeError, "\u5678".encode, "ascii",
                "test.bad_handler")
@@ -993,7 +992,7 @@ class AppTestPartialEvaluation:
         charmap = dict([(c, bytes([c, c]).upper()) for c in b"abcdefgh"])
         charmap[ord("?")] = b"XYZ"
         import codecs
-        sin = "abcDEF"
+        sin = u"abcDEF"
         sout = codecs.charmap_encode(sin, "replace", charmap)[0]
         assert sout == b"AABBCCXYZXYZXYZ"
 
@@ -1002,7 +1001,7 @@ class AppTestPartialEvaluation:
 
     def test_charmap_build(self):
         import codecs
-        assert codecs.charmap_build('123456') == {49: 0, 50: 1, 51: 2,
+        assert codecs.charmap_build(u'123456') == {49: 0, 50: 1, 51: 2,
                                                    52: 3, 53: 4, 54: 5}
 
     def test_utf7_start_end_in_exception(self):
@@ -1013,7 +1012,7 @@ class AppTestPartialEvaluation:
             assert exc.end == 3
 
     def test_utf7_surrogate(self):
-        assert b'+3ADYAA-'.decode('utf-7') == '\udc00\ud800'
+        assert b'+3ADYAA-'.decode('utf-7') == u'\udc00\ud800'
 
     def test_utf7_errors(self):
         import codecs
@@ -1044,7 +1043,7 @@ class AppTestPartialEvaluation:
 
     def test_utf_16_encode_decode(self):
         import codecs, sys
-        x = '123abc'
+        x = u'123abc'
         if sys.byteorder == 'big':
             assert codecs.getencoder('utf-16')(x) == (
                     b'\xfe\xff\x001\x002\x003\x00a\x00b\x00c', 6)
@@ -1058,10 +1057,10 @@ class AppTestPartialEvaluation:
 
     def test_unicode_escape(self):
         import _codecs
-        assert '\\'.encode('unicode-escape') == b'\\\\'
-        assert b'\\\\'.decode('unicode-escape') == '\\'
-        assert '\ud801'.encode('unicode-escape') == b'\\ud801'
-        assert '\u0013'.encode('unicode-escape') == b'\\x13'
+        assert u'\\'.encode('unicode-escape') == b'\\\\'
+        assert b'\\\\'.decode('unicode-escape') == u'\\'
+        assert u'\ud801'.encode('unicode-escape') == b'\\ud801'
+        assert u'\u0013'.encode('unicode-escape') == b'\\x13'
         assert _codecs.unicode_escape_decode(r"\u1234") == ("\u1234", 6)
 
     def test_mbcs(self):

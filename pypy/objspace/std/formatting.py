@@ -11,6 +11,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.unicodehelper import check_ascii_or_raise
 
 
 class BaseStringFormatter(object):
@@ -498,7 +499,6 @@ def make_formatter_subclass(do_unicode):
                 else:
                     s = ''
                 if len(s) == 1:
-                    self.std_wp(s)
                     return
                 raise oefmt(space.w_TypeError, "%c requires int or single byte")
             else:
@@ -581,7 +581,7 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
     # this can force strings, not sure if it's a problem or not
-    lgt = rutf8.check_utf8(result, True)
+    lgt = rutf8.codepoints_in_utf8(result)
     return space.newutf8(result, lgt)
 
 def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):

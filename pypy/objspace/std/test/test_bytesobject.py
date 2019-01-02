@@ -1,6 +1,8 @@
 # coding: utf-8
+import pytest
 
 from pypy.interpreter.error import OperationError
+
 
 class TestW_BytesObject:
 
@@ -637,6 +639,7 @@ class AppTestBytesObject:
     def test_unicode_join_str_arg_ascii(self):
         raises(TypeError, ''.join, [b'\xc3\xa1'])
 
+    @pytest.mark.xfail(reason='setdefaultencoding does not work?')
     def test_unicode_join_endcase(self):
         # This class inserts a Unicode object into its argument's natural
         # iteration, in the 3rd position.

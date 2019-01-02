@@ -1,10 +1,9 @@
 import sys
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib import runicode
 from rpython.rlib.runicode import raw_unicode_escape_helper
-from rpython.rlib import rutf8
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -248,6 +247,7 @@ def replace_errors(space, w_exc):
 
 def xmlcharrefreplace_errors(space, w_exc):
 
+
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
@@ -276,6 +276,7 @@ def xmlcharrefreplace_errors(space, w_exc):
 
 def backslashreplace_errors(space, w_exc):
 
+
     check_exception(space, w_exc)
     if (space.isinstance_w(w_exc, space.w_UnicodeEncodeError) or
             space.isinstance_w(w_exc, space.w_UnicodeTranslateError)):
@@ -303,9 +304,9 @@ def backslashreplace_errors(space, w_exc):
         builder = StringBuilder()
         pos = start
         while pos < end:
-            oc = ord(obj[pos])
+            oc = rutf8.codepoint_at_pos(obj, pos)
             raw_unicode_escape_helper(builder, oc)
-            pos += 1
+            pos = rutf8.next_codepoint_pos(obj, pos)
         return space.newtuple([space.newtext(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
@@ -663,6 +664,7 @@ def make_encoder_wrapper(name):
     def wrap_encoder(space, w_arg, errors="strict"):
         # w_arg is a W_Unicode or W_Bytes?
         w_arg = space.convert_arg_to_w_unicode(w_arg, errors)
+        w_arg = space.convert_arg_to_w_unicode(w_arg)
         if errors is None:
             errors = 'strict'
         allow_surrogates = False
@@ -682,6 +684,7 @@ def make_decoder_wrapper(name):
     @unwrap_spec(string='bufferstr', errors='text_or_none',
                  w_final=WrappedDefault(False))
     def wrap_decoder(space, string, errors="strict", w_final=None):
+
 
         if errors is None:
             errors = 'strict'
@@ -742,6 +745,7 @@ def utf_8_encode(space, w_obj, errors="strict"):
 @unwrap_spec(string='bufferstr', errors='text_or_none',
              w_final = WrappedDefault(False))
 def utf_8_decode(space, string, errors="strict", w_final=None):
+
 
     if errors is None:
         errors = 'strict'
@@ -883,6 +887,7 @@ class Charmap_Encode:
 @unwrap_spec(string='bufferstr', errors='text_or_none')
 def charmap_decode(space, string, errors="strict", w_mapping=None):
 
+
     if errors is None:
         errors = 'strict'
     if len(string) == 0:
@@ -953,6 +958,7 @@ class UnicodeData_Handler:
 def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
     string = space.getarg_w('s*', w_string).as_str()
 
+
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -986,6 +992,7 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
 @unwrap_spec(errors='text_or_none')
 def unicode_internal_decode(space, w_string, errors="strict"):
+
 
     if errors is None:
         errors = 'strict'

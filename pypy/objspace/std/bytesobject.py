@@ -431,9 +431,16 @@ class W_BytesObject(W_AbstractBytesObject):
     def utf8_w(self, space):
         return self._value
 
+    def utf8_w(self, space):
+        return self._value
+
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
         return SimpleView(StringBuffer(self._value))
+
+    def descr_encode(self, space, w_encoding=None, w_errors=None):
+        w_uni = self.descr_decode(space, space.newtext('ascii'), space.newtext('strict'))
+        return space.call_method(w_uni, 'encode', w_encoding, w_errors)
 
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
