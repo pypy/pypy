@@ -499,6 +499,7 @@ def make_formatter_subclass(do_unicode):
                 else:
                     s = ''
                 if len(s) == 1:
+                    self.std_wp(s)
                     return
                 raise oefmt(space.w_TypeError, "%c requires int or single byte")
             else:

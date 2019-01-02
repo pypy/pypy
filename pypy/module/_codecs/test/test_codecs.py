@@ -723,7 +723,7 @@ class AppTestPartialEvaluation:
         assert b'\x00'.decode('unicode-internal', 'ignore') == ''
 
     def test_backslashreplace(self):
-        import sys
+        import sys, codecs
         sin = u"a\xac\u1234\u20ac\u8000\U0010ffff"
         if sys.maxunicode > 65535:
             expected_ascii = b"a\\xac\\u1234\\u20ac\\u8000\\U0010ffff"
@@ -888,7 +888,7 @@ class AppTestPartialEvaluation:
         codecs.register_error("test.hui", handler_unicodeinternal)
         res = b"\x00\x00\x00\x00\x00".decode("unicode-internal", "test.hui")
         if sys.maxunicode > 65535:
-            assert res == u"\u0000\u0001"   # UCS4 build
+            assert res == u"\u0000\u0001\u0000"   # UCS4 build
         else:
             assert res == u"\x00\x00\x01" # UCS2 build
 
@@ -945,7 +945,7 @@ class AppTestPartialEvaluation:
     def test_encode_error_bad_handler(self):
         import codecs
         codecs.register_error("test.bad_handler", lambda e: (repl, 1))
-        assert u"xyz".encode("latin-1", "test.bad_handler") == "xyz"
+        assert u"xyz".encode("latin-1", "test.bad_handler") == b"xyz"
         repl = u"\u1234"
         raises(UnicodeEncodeError, u"\u5678".encode, "latin-1",
                "test.bad_handler")

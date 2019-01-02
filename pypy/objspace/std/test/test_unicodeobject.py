@@ -1276,8 +1276,8 @@ class AppTestUnicodeString:
         assert type(str(z)) is str
         assert str(z) == u'foobaz'
         #
-        assert unicode(encoding='supposedly_the_encoding') == u''
-        assert unicode(errors='supposedly_the_error') == u''
+        assert str(encoding='supposedly_the_encoding') == u''
+        assert str(errors='supposedly_the_error') == u''
         e = raises(TypeError, str, u'', 'supposedly_the_encoding')
         assert str(e.value) == 'decoding str is not supported'
         e = raises(TypeError, str, u'', errors='supposedly_the_error')
