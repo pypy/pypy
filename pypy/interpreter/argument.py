@@ -6,9 +6,9 @@ from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.runicode import unicode_encode_utf_8
 
 from pypy.interpreter.error import OperationError, oefmt
+
 
 class Arguments(object):
     """
@@ -583,26 +583,24 @@ class ArgErrUnknownKwds(ArgErr):
         if num_remainingkwds == 1:
             for i in range(len(keywords)):
                 if i not in kwds_mapping:
-                    name = '?'
-                    # We'll assume it's unicode. Encode it.
-                    # Careful, I *think* it should not be possible to
-                    # get an IndexError here but you never know.
-                    try:
-                        if keyword_names_w is None:
-                            raise IndexError
-                        # note: negative-based indexing from the end
-                        w_name = keyword_names_w[i - len(keywords)]
-                    except IndexError:
-                        if keywords is None:
+                    name = keywords[i]
+                    if name is None:
+                        # We'll assume it's unicode. Encode it.
+                        # Careful, I *think* it should not be possible to
+                        # get an IndexError here but you never know.
+                        try:
+                            if keyword_names_w is None:
+                                raise IndexError
+                            # note: negative-based indexing from the end
+                            w_name = keyword_names_w[i - len(keywords)]
+                        except IndexError:
                             name = '?'
                         else:
-                            name = keywords[i]
-                    else:
-                        w_enc = space.newtext(space.sys.defaultencoding)
-                        w_err = space.newtext("replace")
-                        w_name = space.call_method(w_name, "encode", w_enc,
-                                                   w_err)
-                        name = space.text_w(w_name)
+                            w_enc = space.newtext(space.sys.defaultencoding)
+                            w_err = space.newtext("replace")
+                            w_name = space.call_method(w_name, "encode", w_enc,
+                                                       w_err)
+                            name = space.text_w(w_name)
                     break
         self.kwd_name = name
 
