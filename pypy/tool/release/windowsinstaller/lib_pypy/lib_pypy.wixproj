@@ -14,7 +14,7 @@
         <EmbeddedResource Include="*.wxl" />
     </ItemGroup>
 	<ItemGroup>
-        <InstallFiles Include="$(PySourcePath)include\**\*">
+        <InstallFiles Include="$(PySourcePath)lib_pypy\**\*">
             <SourceBase>$(PySourcePath)</SourceBase>
             <Source>!(bindpath.src)</Source>
             <TargetBase>$(PySourcePath)</TargetBase>

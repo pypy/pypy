@@ -85,7 +85,11 @@
             <Directory Id="lib_python" Name="lib-python" />
         </DirectoryRef>
     </Fragment>
-
+	<Fragment>
+        <DirectoryRef Id="InstallDirectory">
+            <Directory Id="site_packages" Name="site-packages" />
+        </DirectoryRef>
+    </Fragment>
     <Fragment>
         <DirectoryRef Id="InstallDirectory">
             <Directory Id="Lib" Name="Lib" />

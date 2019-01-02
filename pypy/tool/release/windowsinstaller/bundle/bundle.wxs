@@ -62,16 +62,13 @@
     <Variable Name="TargetDirState" Value="enabled" />
     <Variable Name="CustomBrowseButtonState" Value="enabled" />
 
-    <Variable Name="Include_core" Value="1" />
 	<Variable Name="Include_include" Value="1" />
     <Variable Name="Include_exe" Value="1" bal:Overridable="yes" />
-    <Variable Name="Include_dev" Value="1" bal:Overridable="yes" />
+    <Variable Name="Include_lib_python" Value="1" bal:Overridable="yes" />
     <Variable Name="Include_libs" Value="1" bal:Overridable="yes" />
-    <Variable Name="Include_test" Value="1" bal:Overridable="yes" />
-    <Variable Name="Include_doc" Value="1" bal:Overridable="yes" />
-    <Variable Name="Include_tools" Value="1" bal:Overridable="yes" />
-    <Variable Name="Include_tcltk" Value="1" bal:Overridable="yes" />
-    <Variable Name="Include_pip" Value="1" bal:Overridable="yes" />
+    <Variable Name="Include_lib_pypy" Value="1" bal:Overridable="yes" />
+    <Variable Name="Include_external" Value="1" bal:Overridable="yes" />
+    <Variable Name="Include_sitepackages" Value="1" bal:Overridable="yes" />
     <?if "$(var.PyTestExt)"="" ?>
     <Variable Name="Include_launcher" Value="1" bal:Overridable="yes" />
     <Variable Name="Include_launcherState" Value="enabled" bal:Overridable="yes" />
@@ -101,7 +98,8 @@
 	  <PackageGroupRef Id="lib_python" />
 	  <PackageGroupRef Id="libs" />
 	  <PackageGroupRef Id="external" />
-	  <PackageGroupRef Id="site-packages" />
+	  <PackageGroupRef Id="site_packages" />
+	  <PackageGroupRef Id="postinstall" />
 	 </Chain>
   </Bundle>
 </Wix>

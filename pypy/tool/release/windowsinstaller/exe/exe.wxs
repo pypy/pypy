@@ -19,7 +19,7 @@
         <Feature Id="Shortcuts" AllowAdvertise="no" Title="!(loc.Title)" Description="!(loc.Description)">
 			<ComponentGroupRef Id="exe_pypy" />
             <Component Id="exe_shortcut" Directory="MenuDir" Guid="*">
-                <Shortcut Id="pypy3_c_shortcut"
+                <Shortcut Id="pypy3_c"
                           Target="[#pypy3_c]"
                           Name="!(loc.ShortcutName)"
                           Description="!(loc.ShortcutDescription)"

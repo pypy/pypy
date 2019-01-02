@@ -3,13 +3,13 @@
     <Fragment>
         <ComponentGroup Id="external">
             <Component Id="sqlite3" Directory="InstallDirectory" Guid="*">
-                <File Name="sqlite3" Source="!(bindpath.src)externals\lib\sqlite3.lib" KeyPath="yes" />
+                <File Name="sqlite3.lib" Source="!(bindpath.src)externals\lib\sqlite3.lib" KeyPath="yes" />
             </Component>
 		    <Component Id="tcl85" Directory="InstallDirectory" Guid="*">
-                <File Name="tcl85" Source="!(bindpath.src)externals\bin\tcl85.dll" KeyPath="yes" />
+                <File Name="tcl85.dll" Source="!(bindpath.src)externals\bin\tcl85.dll" KeyPath="yes" />
             </Component>
 		    <Component Id="tk85" Directory="InstallDirectory" Guid="*">
-                <File Name="tk85" Source="!(bindpath.src)externals\bin\tk85.dll" KeyPath="yes" />
+                <File Name="tk85.dll" Source="!(bindpath.src)externals\bin\tk85.dll" KeyPath="yes" />
             </Component>
         </ComponentGroup>
     </Fragment>

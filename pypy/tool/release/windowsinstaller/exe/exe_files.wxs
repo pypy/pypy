@@ -22,7 +22,7 @@
                 </RegistryKey>
             </Component>
             <Component Id="exe_pypycw" Directory="InstallDirectory" Guid="$(var.PythonwExeComponentGuid)">
-                <File Id="pypy3_cw" Name="pypy3-cw" Source="!(bindpath.goal)pypy3-cw.exe" KeyPath="yes" />
+                <File Id="pypy3_cw" Name="pypy3-cw.exe" Source="!(bindpath.goal)pypy3-cw.exe" KeyPath="yes" />
                 <RegistryKey Root="HKMU" Key="[REGISTRYKEY]">
                     <RegistryValue Key="InstallPath" Name="WindowedExecutablePath" Type="string" Value="[#pypy3_cw]" KeyPath="no" />
                 </RegistryKey>
