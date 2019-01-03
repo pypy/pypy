@@ -459,13 +459,14 @@ def unmarshal_interned(space, u, tc):
     return u.space.new_interned_w_str(w_ret)
 
 def _unmarshal_ascii(u, short_length, interned):
-    from rpython.rlib.runicode import unicode_encode_utf8sp
+    from rpython.rlib import rutf8
     if short_length:
         lng = ord(u.get1())
     else:
         lng = u.get_lng()
     s = u.get(lng)
-    utf8 = unicode_encode_utf8sp(s, len(s))
+    # Treat each chr as a single codepoint
+    utf8 = ''.join([rutf8.unichr_as_utf8(ord(c), True) for c in s])
     w_u = u.space.newtext(utf8)
     if interned:
         w_u = u.space.new_interned_w_str(w_u)
