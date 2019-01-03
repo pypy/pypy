@@ -58,28 +58,34 @@ def test_readline(space, data, mode):
 
 @given(st.text())
 def test_read_buffer(text):
-    buf = DecodeBuffer(text.encode('utf-8'))
-    assert buf.get_chars(-1) == text.encode('utf-8')
+    buf = DecodeBuffer(text)
+    assert buf.get_chars(-1) == text
     assert buf.exhausted()
 
 @given(st.text(), st.lists(st.integers(min_value=0)))
 @example(u'\x80', [1])
 def test_readn_buffer(text, sizes):
-    buf = DecodeBuffer(text.encode('utf-8'))
+    buf = DecodeBuffer(text)
     strings = []
     for n in sizes:
         s = buf.get_chars(n)
         if not buf.exhausted():
-            assert len(s.decode('utf-8')) == n
+            assert len(s) == n
         else:
-            assert len(s.decode('utf-8')) <= n
+            assert len(s) <= n
         strings.append(s)
-    assert ''.join(strings) == text[:sum(sizes)].encode('utf-8')
+    assert ''.join(strings) == text[:sum(sizes)]
 
 @given(st.text())
+@example(u'\x800')
 def test_next_char(text):
-    buf = DecodeBuffer(text.encode('utf-8'))
-    for i in range(len(text)):
-        ch = buf.next_char()
-        assert ch == text[i].encode('utf-8')
+    buf = DecodeBuffer(text)
+    chars = []
+    try:
+        while True:
+            ch = buf.next_char()
+            chars.append(ch)
+    except StopIteration:
+        pass
     assert buf.exhausted()
+    assert u''.join(chars) == text
