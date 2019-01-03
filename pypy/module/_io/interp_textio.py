@@ -316,7 +316,7 @@ class DecodeBuffer(object):
         self.upos = 0
 
     def get_chars(self, size):
-        if self.text is None:
+        if self.text is None or size == 0:
             return ""
 
         lgt = codepoints_in_utf8(self.text)
