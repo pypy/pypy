@@ -264,3 +264,7 @@ def memmove(space, w_dest, w_src, n):
 @unwrap_spec(w_cdata=cdataobj.W_CData, size=int)
 def gcp(space, w_cdata, w_destructor, size=0):
     return w_cdata.with_gc(w_destructor, size)
+
+@unwrap_spec(w_cdata=cdataobj.W_CData)
+def release(space, w_cdata):
+    w_cdata.enter_exit(True)
