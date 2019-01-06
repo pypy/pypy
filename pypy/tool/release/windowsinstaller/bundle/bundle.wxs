@@ -68,7 +68,7 @@
     <Variable Name="Include_libs" Value="1" bal:Overridable="yes" />
     <Variable Name="Include_lib_pypy" Value="1" bal:Overridable="yes" />
     <Variable Name="Include_external" Value="1" bal:Overridable="yes" />
-    <Variable Name="Include_sitepackages" Value="1" bal:Overridable="yes" />
+    <Variable Name="Include_site_packages" Value="1" bal:Overridable="yes" />
     <?if "$(var.PyTestExt)"="" ?>
     <Variable Name="Include_launcher" Value="1" bal:Overridable="yes" />
     <Variable Name="Include_launcherState" Value="enabled" bal:Overridable="yes" />
