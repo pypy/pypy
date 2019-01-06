@@ -338,6 +338,13 @@ class TestBitfield:
         py.test.raises((TypeError, BufferError), ffi.from_buffer, b"abcd",
                                                  require_writable=True)
 
+    def test_release(self):
+        ffi = FFI()
+        p = ffi.new("int[]", 123)
+        ffi.release(p)
+        # here, reading p[0] might give garbage or segfault...
+        ffi.release(p)   # no effect
+
     def test_memmove(self):
         ffi = FFI()
         p = ffi.new("short[]", [-1234, -2345, -3456, -4567, -5678])

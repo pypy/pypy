@@ -48,3 +48,8 @@ class AppTestBuilders(object):
         assert len(b) == 16
         assert s == "abc123you and me"
         assert b.build() == s
+
+    def test_encode(self):
+        from __pypy__.builders import UnicodeBuilder
+        b = UnicodeBuilder()
+        raises(UnicodeDecodeError, b.append, b'\xc0')
