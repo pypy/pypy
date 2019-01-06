@@ -345,13 +345,13 @@ class W_UnicodeObject(W_Root):
         input = self._utf8
         builder = rutf8.Utf8StringBuilder(len(input))
         previous_is_cased = False
-        for ch in rutf8.Utf8StringIterator(input):
+        for ch0 in rutf8.Utf8StringIterator(input):
             if not previous_is_cased:
-                ch = unicodedb.totitle(ch)
+                ch1 = unicodedb.totitle(ch0)
             else:
-                ch = unicodedb.tolower(ch)
-            builder.append_code(ch)
-            previous_is_cased = unicodedb.iscased(ch)
+                ch1 = unicodedb.tolower(ch0)
+            builder.append_code(ch1)
+            previous_is_cased = unicodedb.iscased(ch0)
         return self.from_utf8builder(builder)
 
     def descr_translate(self, space, w_table):
