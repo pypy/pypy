@@ -63,8 +63,9 @@ class W_UnicodeBuilder(W_Root):
     def descr__new__(space, w_subtype, size=-1):
         return W_UnicodeBuilder(space, 3 * size)
 
-    @unwrap_spec(s='utf8')
-    def descr_append(self, space, s):
+    def descr_append(self, space, w_s):
+        w_unicode = W_UnicodeObject.convert_arg_to_w_unicode(space, w_s)
+        s = space.utf8_w(w_unicode)
         self.builder.append(s)
 
     @unwrap_spec(start=int, end=int)

@@ -703,6 +703,16 @@ propagated and nothing is cached."""
                 pass
         return w_res
 
+    @unwrap_spec(w_cdata=W_CData)
+    def descr_release(self, w_cdata):
+        """\
+Release now the resources held by a 'cdata' object from ffi.new(),
+ffi.gc() or ffi.from_buffer().  The cdata object must not be used
+afterwards.
+
+'ffi.release(cdata)' is equivalent to 'cdata.__exit__()'."""
+        w_cdata.enter_exit(True)
+
 
 class W_InitOnceLock(W_Root):
     def __init__(self, space):
@@ -777,6 +787,7 @@ W_FFIObject.typedef = TypeDef(
         new_allocator = interp2app(W_FFIObject.descr_new_allocator),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
         offsetof    = interp2app(W_FFIObject.descr_offsetof),
+        release     = interp2app(W_FFIObject.descr_release),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),
         typeof      = interp2app(W_FFIObject.descr_typeof),

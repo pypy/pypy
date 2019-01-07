@@ -530,6 +530,9 @@ class FFI(object):
     def from_handle(self, x):
         return self._backend.from_handle(x)
 
+    def release(self, x):
+        self._backend.release(x)
+
     def set_unicode(self, enabled_flag):
         """Windows: if 'enabled_flag' is True, enable the UNICODE and
         _UNICODE defines in C, and declare the types like TCHAR and LPTCSTR

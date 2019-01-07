@@ -152,6 +152,22 @@ def test_str_decode_ascii():
                    ("??", "ascii", input, 1, 2),
                    ("??", "ascii", input, 5, 6),
                    ("??", "ascii", input, 6, 7)]
+if HAS_HYPOTHESIS:
+    @given(strategies.text())
+    def test_unicode_raw_escape(u):
+        r = uh.utf8_encode_raw_unicode_escape(u.encode("utf8"), 'strict', None)
+        assert r == u.encode("raw-unicode-escape")
+
+    @given(strategies.text())
+    def test_unicode_escape(u):
+        r = uh.utf8_encode_unicode_escape(u.encode("utf8"), "strict", None)
+        assert r == u.encode("unicode-escape")
+
+    @given(strategies.text())
+    def test_utf8_encode_ascii_2(u):
+        def eh(errors, encoding, reason, p, start, end):
+            return "?" * (end - start), end, 'b'
+        assert utf8_encode_ascii(u.encode("utf8"), "replace", eh) == u.encode("ascii", "replace")
 
 def test_encode_decimal(space):
     assert uh.unicode_encode_decimal(u' 12, 34 ', None) == ' 12, 34 '
@@ -165,21 +181,4 @@ def test_encode_decimal(space):
     result = uh.unicode_encode_decimal(
         u'12\u1234'.encode('utf8'), 'xmlcharrefreplace', handler)
     assert result == '12&#4660;'
-
-if HAS_HYPOTHESIS:
-    @given(strategies.text())
-    def test_utf8_encode_ascii_2(u):
-        def eh(errors, encoding, reason, p, start, end):
-            return "?" * (end - start), end, 'b'
-        assert utf8_encode_ascii(u.encode("utf8"), "replace", eh) == u.encode("ascii", "replace")
-
-    @given(strategies.text())
-    def test_unicode_raw_escape(u):
-        r = uh.utf8_encode_raw_unicode_escape(u.encode("utf8"), 'strict', None)
-        assert r == u.encode("raw-unicode-escape")
-
-    @given(strategies.text())
-    def test_unicode_escape(u):
-        r = uh.utf8_encode_unicode_escape(u.encode("utf8"), "strict", None)
-        assert r == u.encode("unicode-escape")
 

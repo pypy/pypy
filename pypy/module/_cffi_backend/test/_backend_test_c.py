@@ -4074,3 +4074,114 @@ def test_primitive_comparison():
     assert_eq(cast(t5, 7.0), cast(t3, 7))
     assert_lt(cast(t5, 3.1), 3.101)
     assert_gt(cast(t5, 3.1), 3)
+
+def test_explicit_release_new():
+    # release() on a ffi.new() object has no effect on CPython, but
+    # really releases memory on PyPy.  We can't test that effect
+    # though, because a released cdata is not marked.
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    p = newp(BIntP)
+    p[0] = 42
+    py.test.raises(IndexError, "p[1]")
+    release(p)
+    # here, reading p[0] might give garbage or segfault...
+    release(p)   # no effect
+    #
+    BStruct = new_struct_type("struct foo")
+    BStructP = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('p', BIntP, -1)])
+    pstruct = newp(BStructP)
+    assert pstruct.p == cast(BIntP, 0)
+    release(pstruct)
+    # here, reading pstruct.p might give garbage or segfault...
+    release(pstruct)   # no effect
+
+def test_explicit_release_new_contextmgr():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    with newp(BIntP) as p:
+        p[0] = 42
+        assert p[0] == 42
+    # here, reading p[0] might give garbage or segfault...
+    release(p)   # no effect
+
+def test_explicit_release_badtype():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    p = cast(BIntP, 12345)
+    py.test.raises(ValueError, release, p)
+    py.test.raises(ValueError, release, p)
+    BStruct = new_struct_type("struct foo")
+    BStructP = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('p', BIntP, -1)])
+    pstruct = newp(BStructP)
+    py.test.raises(ValueError, release, pstruct[0])
+
+def test_explicit_release_badtype_contextmgr():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    p = cast(BIntP, 12345)
+    py.test.raises(ValueError, "with p: pass")
+    py.test.raises(ValueError, "with p: pass")
+
+def test_explicit_release_gc():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    seen = []
+    intp1 = newp(BIntP, 12345)
+    p1 = cast(BIntP, intp1)
+    p = gcp(p1, seen.append)
+    assert seen == []
+    release(p)
+    assert seen == [p1]
+    assert p1[0] == 12345
+    assert p[0] == 12345  # true so far, but might change to raise RuntimeError
+    release(p)   # no effect
+
+def test_explicit_release_gc_contextmgr():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    seen = []
+    intp1 = newp(BIntP, 12345)
+    p1 = cast(BIntP, intp1)
+    p = gcp(p1, seen.append)
+    with p:
+        assert p[0] == 12345
+        assert seen == []
+    assert seen == [p1]
+    assert p1[0] == 12345
+    assert p[0] == 12345  # true so far, but might change to raise RuntimeError
+    release(p)   # no effect
+
+def test_explicit_release_from_buffer():
+    a = bytearray(b"xyz")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    p = from_buffer(BCharA, a)
+    assert p[2] == b"z"
+    release(p)
+    assert p[2] == b"z"  # true so far, but might change to raise RuntimeError
+    release(p)   # no effect
+
+def test_explicit_release_from_buffer_contextmgr():
+    a = bytearray(b"xyz")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    p = from_buffer(BCharA, a)
+    with p:
+        assert p[2] == b"z"
+    assert p[2] == b"z"  # true so far, but might change to raise RuntimeError
+    release(p)   # no effect
+
+def test_explicit_release_bytearray_on_cpython():
+    if '__pypy__' in sys.builtin_module_names:
+        py.test.skip("pypy's bytearray are never locked")
+    a = bytearray(b"xyz")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    a += b't' * 10
+    p = from_buffer(BCharA, a)
+    py.test.raises(BufferError, "a += b'u' * 100")
+    release(p)
+    a += b'v' * 100
+    release(p)   # no effect
+    a += b'w' * 1000
+    assert a == bytearray(b"xyz" + b't' * 10 + b'v' * 100 + b'w' * 1000)
