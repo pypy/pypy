@@ -8,7 +8,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit, rutf8
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.runicode import unicode_encode_utf_8
 
 # ____________________________________________________________
 #
@@ -49,10 +48,7 @@ def slice_w(space, ctx, start, end, w_default):
             lgt = rutf8.get_utf8_length(s)
             return space.newutf8(s, lgt)
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            uni = ctx._unicodestr[start:end]
-            uni_utf8 = unicode_encode_utf_8(uni, len(uni), 'strict',
-                                            allow_surrogates=True)
-            return space.newtext(uni_utf8, len(uni))
+            return space.newtext(ctx._unicodestr[start:end])
         else:
             # unreachable
             raise SystemError
@@ -356,6 +352,14 @@ class W_SRE_Pattern(W_Root):
         use_builder = '\x00'   # or 'S'tring or 'U'nicode/UTF8
         is_buffer = False
         filter_as_string = None
+        if space.isinstance_w(w_string, space.w_unicode):
+            if not self.is_known_unicode():
+                raise oefmt(space.w_TypeError,
+                    "cannot use a bytes pattern on a string-like object")
+        else:
+            if self.is_known_unicode():
+                raise oefmt(space.w_TypeError,
+                    "cannot use a string pattern on a bytes-like object")
         if space.is_true(space.callable(w_ptemplate)):
             w_filter = w_ptemplate
             filter_is_callable = True
@@ -365,6 +369,11 @@ class W_SRE_Pattern(W_Root):
                 literal = '\\' not in filter_as_string
                 if space.isinstance_w(w_string, space.w_unicode) and literal:
                     use_builder = 'U'
+            elif space.isinstance_w(w_ptemplate, space.w_bytes):
+                filter_as_string = space.bytes_w(w_ptemplate)
+                literal = '\\' not in filter_as_string
+                if space.isinstance_w(w_string, space.w_bytes) and literal:
+                    use_builder = 'S'
             else:
                 if space.isinstance_w(w_ptemplate, space.w_bytes):
                     filter_as_string = space.bytes_w(w_ptemplate)
@@ -468,7 +477,7 @@ class W_SRE_Pattern(W_Root):
                 raise AssertionError(use_builder)
         else:
             if space.isinstance_w(w_string, space.w_unicode):
-                w_emptystr = space.newtext('')
+                w_emptystr = space.newutf8('', 0)
             else:
                 w_emptystr = space.newbytes('')
             w_item = space.call_method(w_emptystr, 'join',
