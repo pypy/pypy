@@ -169,7 +169,7 @@ class W_SRE_Pattern(W_Root):
             assert length >= 0
         return (length, unicodestr, string, buf)
 
-    def make_ctx(self, w_string, pos=0, endpos=sys.maxint, flags=0):
+    def make_ctx(self, w_string, pos=0, endpos=sys.maxint):
         """Make a StrMatchContext, BufMatchContext or a UnicodeMatchContext for
         searching in the given w_string object."""
         space = self.space
@@ -182,7 +182,6 @@ class W_SRE_Pattern(W_Root):
             endpos = pos
         elif endpos > length:
             endpos = length
-        flags = self.flags | flags
         #
         if unicodestr is not None:
             if self.is_known_bytes():
@@ -190,7 +189,7 @@ class W_SRE_Pattern(W_Root):
                             "can't use a bytes pattern on a string-like "
                             "object")
             return rsre_core.UnicodeMatchContext(unicodestr,
-                                                 pos, endpos, flags)
+                                                 pos, endpos, self.flags)
         else:
             if self.is_known_unicode():
                 raise oefmt(space.w_TypeError,
@@ -198,10 +197,10 @@ class W_SRE_Pattern(W_Root):
                             "object")
             if string is not None:
                 return rsre_core.StrMatchContext(string,
-                                                 pos, endpos, flags)
+                                                 pos, endpos, self.flags)
             else:
                 return rsre_core.BufMatchContext(buf,
-                                                 pos, endpos, flags)
+                                                 pos, endpos, self.flags)
 
     def getmatch(self, ctx, found):
         if found:
