@@ -173,11 +173,41 @@ class W_SRE_Pattern(W_Root):
                 raise oefmt(space.w_TypeError,
                             "can't use a bytes pattern on a string-like "
                             "object")
-            unicodestr = space.realunicode_w(w_string)
-            length = len(unicodestr)
+            w_unicode_obj = space.convert_arg_to_w_unicode(w_string)
+            utf8str = w_unicode_obj._utf8
+            length = w_unicode_obj._len()
+            if pos <= 0:
+                bytepos = 0
+            elif pos >= length:
+                bytepos = len(utf8str)
+            else:
+                index_storage = w_unicode_obj._get_index_storage()
+                bytepos = rutf8.codepoint_position_at_index(utf8str,
+                                index_storage, pos)
+            if endpos >= length:
+                endbytepos = len(utf8str)
+            else:
+                index_storage = w_unicode_obj._get_index_storage()
+                endbytepos = rutf8.codepoint_position_at_index(utf8str,
+                                index_storage, endpos)
+            ctx = rsre_utf8.Utf8MatchContext(
+                utf8str, bytepos, endbytepos, self.flags)
+            # xxx we store the w_string on the ctx too, for
+            # W_SRE_Match.bytepos_to_charindex()
+            ctx.w_unicode_obj = w_unicode_obj
+            return ctx
+        elif self.is_known_unicode():
+            raise oefmt(space.w_TypeError,
+                        "can't use a string pattern on a bytes-like "
+                        "object")
         elif space.isinstance_w(w_string, space.w_bytes):
             string = space.bytes_w(w_string)
             length = len(string)
+            if pos > length:
+                pos = length
+            if endpos > length:
+                endpos = length
+            return rsre_core.StrMatchContext(string, pos, endpos, self.flags)
         else:
             buf = space.readbuf_w(w_string)
             size = buf.getlength()
@@ -324,6 +354,7 @@ class W_SRE_Pattern(W_Root):
         # w_string are both string or both unicode objects, and if w_ptemplate
         # is a literal
         use_builder = '\x00'   # or 'S'tring or 'U'nicode/UTF8
+        is_buffer = False
         filter_as_string = None
         if space.is_true(space.callable(w_ptemplate)):
             w_filter = w_ptemplate
