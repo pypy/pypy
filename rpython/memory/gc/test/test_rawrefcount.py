@@ -64,25 +64,16 @@ class TestRawRefCount(BaseDirectGCTest):
         refs.append(pyobj_to)
         pyobj_to.c_ob_refcnt += 1
 
-    def _rawrefcount_pypyobj(self, intval, create_old=False,
-                             create_immortal=False, force_external=False):
-        if create_immortal:
-            p1 = lltype.malloc(S, immortal=True)
-        else:
-            saved = self.gc.nonlarge_max
-            try:
-                if force_external:
-                    self.gc.nonlarge_max = 1
-                p1 = self.malloc(S)
-            finally:
-                self.gc.nonlarge_max = saved
+    def _rawrefcount_pypyobj(self, intval, rooted=False, create_old=True):
+        p1 = self.malloc(S)
         p1.x = intval
-        if create_immortal:
-            self.consider_constant(p1)
-        elif create_old:
+
+        if create_old:
             self.stackroots.append(p1)
             self._collect(major=False)
             p1 = self.stackroots.pop()
+        if rooted:
+            self.stackroots.append(p1)
         p1ref = lltype.cast_opaque_ptr(llmemory.GCREF, p1)
 
         def check_alive():
@@ -116,7 +107,7 @@ class TestRawRefCount(BaseDirectGCTest):
 
     def _rawrefcount_pair(self, intval, is_light=False, is_pyobj=False,
                           create_old=False, create_immortal=False,
-                          force_external=False):
+                          rooted=False, force_external=False):
         if is_light:
             rc = REFCNT_FROM_PYPY_LIGHT
         else:
@@ -139,6 +130,8 @@ class TestRawRefCount(BaseDirectGCTest):
             self.stackroots.append(p1)
             self._collect(major=False)
             p1 = self.stackroots.pop()
+        if rooted:
+            self.stackroots.append(p1)
         p1ref = lltype.cast_opaque_ptr(llmemory.GCREF, p1)
         r1 = lltype.malloc(PYOBJ_HDR, flavor='raw',
                            immortal=create_immortal)
@@ -389,6 +382,7 @@ class TestRawRefCount(BaseDirectGCTest):
 
     dot_dir = os.path.join(os.path.realpath(os.path.dirname(__file__)), "dot")
     dot_files = [file for file in os.listdir(dot_dir) if file.endswith(".dot")]
+    dot_files.sort()
 
     @py.test.mark.dont_track_allocations('intentionally keep objects alive, '
                                          'because we do the checks ourselves')
@@ -433,7 +427,8 @@ class TestRawRefCount(BaseDirectGCTest):
         g = pydot.graph_from_dot_file(path)[0]
         nodes = {}
 
-        # create objects from graph
+        # create objects from graph (always create old to prevent moving)
+        i = 0
         for n in g.get_nodes():
             name = n.get_name()
             attr = n.obj_dict['attributes']
@@ -449,15 +444,18 @@ class TestRawRefCount(BaseDirectGCTest):
                 nodes[name] = CPythonNode(r, raddr, check_alive, info)
             elif type == "P":
                 p, pref, check_alive = \
-                    self._rawrefcount_pypyobj(42, create_immortal=rooted)
+                    self._rawrefcount_pypyobj(42 + i, rooted=rooted,
+                                              create_old=True)
                 nodes[name] = PyPyNode(p, pref, check_alive, info)
+                i += 1
             elif type == "B":
                 p, pref, r, raddr, check_alive =\
-                    self._rawrefcount_pair(42, create_immortal=rooted)
+                    self._rawrefcount_pair(42 + i, rooted=rooted,
+                                           create_old=True)
                 if ext_refcnt > 0:
                     r.c_ob_refcnt = ext_refcnt
                 nodes[name] = BorderNode(p, pref, r, raddr, check_alive, info)
-                pass
+                i += 1
 
         # add references between objects from graph
         for e in g.get_edges():
