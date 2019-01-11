@@ -42,9 +42,10 @@ class W_UnicodeObject(W_Root):
         self._index_storage = rutf8.null_storage()
         # XXX checking, remove before any performance measurments
         #     ifdef not_running_in_benchmark
-        if not we_are_translated():
-            lgt = rutf8.codepoints_in_utf8(utf8str)
-            assert lgt == length
+        # if not we_are_translated():
+        #    print 'UnicodeObject.__init__'
+        #    lgt = rutf8.codepoints_in_utf8(utf8str)
+        #    assert lgt == length
 
     @staticmethod
     def from_utf8builder(builder):
