@@ -1171,6 +1171,8 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.utf8_w(wrapped)
 
     def is_correct_type(self, w_obj):
+        # XXX the ascii restriction needs to be lifted, otherwise the
+        # assumptions about get/setitem_str are just broken
         space = self.space
         return type(w_obj) is space.UnicodeObjectCls and w_obj.is_ascii()
 
@@ -1189,11 +1191,14 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def setitem_str(self, w_dict, key, w_value):
         assert key is not None
+        # XXX this is not valid! UnicodeDictStrategy can right now only store ascii, but
+        # this path can lead to non-ascii utf8 strings ending up as keys
         self.unerase(w_dict.dstorage)[self.decodekey_str(key)] = w_value
 
     def getitem(self, w_dict, w_key):
         space = self.space
         # -- This is called extremely often.  Hack for performance --
+        # XXX this shortcut looks wrong to me
         if type(w_key) is space.StringObjectCls:
              return self.getitem_str(w_dict, w_key.unwrap(space))
         # -- End of performance hack --
@@ -1201,6 +1206,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def getitem_str(self, w_dict, key):
         assert key is not None
+        # XXX why can't we just key here?
         return self.unerase(w_dict.dstorage).get(self.decodekey_str(key), None)
 
     def listview_utf8(self, w_dict):
