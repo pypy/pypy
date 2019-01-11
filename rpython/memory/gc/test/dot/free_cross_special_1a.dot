@@ -1,0 +1,10 @@
+digraph G {
+    "a" [type=B, alive=n];
+    "b" [type=C, alive=n];
+    "c" [type=B, alive=n];
+    "d" [type=C, alive=n];
+    "a" -> "b";
+    "b" -> "c";
+    "c" -> "d";
+    "d" -> "a";
+}
