@@ -41,15 +41,6 @@ class W_UnicodeObject(W_Root):
         self._utf8 = utf8str
         self._length = length
         self._index_storage = rutf8.null_storage()
-        # XXX checking, remove before any performance measurments
-        #     ifdef not_running_in_benchmark
-        if not we_are_translated():
-            try:
-                lgt = rutf8.check_utf8(utf8str, True)
-                assert lgt == length
-            except:
-                # array.array can return invalid unicode
-                pass
 
     @staticmethod
     def from_utf8builder(builder):
