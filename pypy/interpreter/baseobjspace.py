@@ -784,12 +784,12 @@ class ObjSpace(object):
 
     def setitem_str(self, w_obj, key, w_value):
         # key is a "text", i.e. a byte string (in python3 it
-        # represents a utf-8-encoded unicode)
+        # represents a valid utf-8-encoded unicode)
         return self.setitem(w_obj, self.newtext(key), w_value)
 
     def finditem_str(self, w_obj, key):
         # key is a "text", i.e. a byte string (in python3 it
-        # represents a utf-8-encoded unicode)
+        # represents a valid utf-8-encoded unicode)
         return self.finditem(w_obj, self.newtext(key))
 
     def finditem(self, w_obj, w_key):

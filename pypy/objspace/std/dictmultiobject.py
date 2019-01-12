@@ -1164,15 +1164,12 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.newutf8(unwrapped,
-                                  rutf8.codepoints_in_utf8(unwrapped))
+        return self.space.newutf8(unwrapped, len(unwrapped))
 
     def unwrap(self, wrapped):
         return self.space.utf8_w(wrapped)
 
     def is_correct_type(self, w_obj):
-        # XXX the ascii restriction needs to be lifted, otherwise the
-        # assumptions about get/setitem_str are just broken
         space = self.space
         return type(w_obj) is space.UnicodeObjectCls and w_obj.is_ascii()
 
@@ -1186,34 +1183,23 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
-    def decodekey_str(self, key):
-        return decode_utf8sp(self.space, key)[0]
-
     def setitem_str(self, w_dict, key, w_value):
         assert key is not None
-        # XXX this is not valid! UnicodeDictStrategy can right now only store ascii, but
-        # this path can lead to non-ascii utf8 strings ending up as keys
-        self.unerase(w_dict.dstorage)[self.decodekey_str(key)] = w_value
-
-    def getitem(self, w_dict, w_key):
-        space = self.space
-        # -- This is called extremely often.  Hack for performance --
-        # XXX this shortcut looks wrong to me
-        if type(w_key) is space.StringObjectCls:
-             return self.getitem_str(w_dict, w_key.unwrap(space))
-        # -- End of performance hack --
-        return AbstractTypedStrategy.getitem(self, w_dict, w_key)
+        try:
+            rutf8.check_ascii(key)
+        except rutf8.CheckError:
+            self.switch_to_object_strategy(w_dict)
+            w_dict.setitem(self.wrap(key), w_value)
+        else:
+            self.unerase(w_dict.dstorage)[key] = w_value
 
     def getitem_str(self, w_dict, key):
         assert key is not None
-        # XXX why can't we just key here?
-        return self.unerase(w_dict.dstorage).get(self.decodekey_str(key), None)
+        # the shortcut can only be used for valid utf-8 strings
+        return self.unerase(w_dict.dstorage).get(key, None)
 
     def listview_utf8(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
-
-    ## def w_keys(self, w_dict):
-    ##     return self.space.newlist_bytes(self.listview_bytes(w_dict))
 
     def wrapkey(space, key):
         return space.newutf8(key, rutf8.codepoints_in_utf8(key))

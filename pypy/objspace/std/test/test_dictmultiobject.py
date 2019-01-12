@@ -1176,6 +1176,19 @@ class AppTestStrategies(object):
         assert list(d.keys()) == ["a"]
         assert type(list(d.keys())[0]) is str
 
+    def test_setitem_str_nonascii(self):
+        d = {}
+        assert "EmptyDictStrategy" in self.get_strategy(d)
+        d[u"a"] = 1
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+        exec("a = 1", d)
+        assert d["a"] == 1
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+        exec("ä = 2", d)
+        assert "ObjectDictStrategy" in self.get_strategy(d)
+        assert d["a"] == 1
+        assert d["ä"] == 2
+
     def test_empty_to_int(self):
         skip('IntDictStrategy is disabled for now, re-enable it!')
         import sys
@@ -1570,6 +1583,13 @@ class TestUnicodeDictImplementation(BaseTestRDictImplementation):
     def test_view_as_kwargs(self):
         self.fill_impl()
         assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
+
+    def test_setitem_str(self):
+        self.impl.setitem_str(self.fakespace.text_w(self.string), 1000)
+        assert self.impl.length() == 1
+        assert self.impl.getitem(self.string) == 1000
+        assert self.impl.getitem_str(str(self.string)) == 1000
+        self.check_not_devolved()
 
     def test_setitem_str(self):
         self.impl.setitem_str(self.fakespace.text_w(self.string), 1000)
