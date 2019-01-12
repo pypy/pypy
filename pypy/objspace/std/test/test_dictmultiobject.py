@@ -125,6 +125,7 @@ class TestW_DictObject(object):
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
     def test_fromkeys_fastpath(self):
+        py.test.skip("doesn't make sense here")
         space = self.space
         w = space.wrap
 
