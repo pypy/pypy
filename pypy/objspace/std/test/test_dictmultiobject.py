@@ -1190,7 +1190,6 @@ class AppTestStrategies(object):
         assert d["ä"] == 2
 
     def test_empty_to_int(self):
-        skip('IntDictStrategy is disabled for now, re-enable it!')
         import sys
         d = {}
         d[1] = "hi"
