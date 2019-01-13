@@ -122,17 +122,11 @@ class W_DictMultiObject(W_Root):
         if w_fill is None:
             w_fill = space.w_None
         if space.is_w(w_type, space.w_dict):
-            ulist = space.listview_utf8(w_keys)
-            if ulist is not None:
-                strategy = space.fromcache(UnicodeDictStrategy)
-                storage = strategy.get_storage_fromkeys(ulist, w_fill)
-                w_dict = space.allocate_instance(W_DictObject, w_type)
-                W_DictObject.__init__(w_dict, space, strategy, storage)
-            else:
-                w_dict = W_DictMultiObject.allocate_and_init_instance(space,
-                                                                      w_type)
-                for w_key in space.listview(w_keys):
-                    w_dict.setitem(w_key, w_fill)
+            # XXX consider re-enabling a fast-path here
+            w_dict = W_DictMultiObject.allocate_and_init_instance(space,
+                                                                  w_type)
+            for w_key in space.listview(w_keys):
+                w_dict.setitem(w_key, w_fill)
         else:
             w_dict = space.call_function(w_type)
             for w_key in space.listview(w_keys):
@@ -1216,14 +1210,6 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
             values[i] = val
             i += 1
         return keys, values
-
-    def get_storage_fromkeys(self, keys_w, w_fill):
-        """Return an initialized storage with keys and fill values"""
-        storage = {}
-        mark_dict_non_null(storage)
-        for key in keys_w:
-            storage[key] = w_fill
-        return self.erase(storage)
 
 create_iterator_classes(UnicodeDictStrategy)
 

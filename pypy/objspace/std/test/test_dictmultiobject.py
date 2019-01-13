@@ -125,6 +125,7 @@ class TestW_DictObject(object):
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
     def test_fromkeys_fastpath(self):
+        py.test.skip("doesn't make sense here")
         space = self.space
         w = space.wrap
 
@@ -1190,7 +1191,6 @@ class AppTestStrategies(object):
         assert d["ä"] == 2
 
     def test_empty_to_int(self):
-        skip('IntDictStrategy is disabled for now, re-enable it!')
         import sys
         d = {}
         d[1] = "hi"
