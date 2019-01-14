@@ -25,7 +25,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
         assert isinstance(ctptr, W_CTypePointer)
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
                                    ctptr.ctitem)
-        self.length = length
+        self.length = length    # -1 if no length is given, e.g. 'int[]'
         self.ctptr = ctptr
 
     def _alignof(self):
@@ -86,7 +86,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def _check_subscript_index(self, w_cdata, i):
         space = self.space
         if i < 0:
-            raise oefmt(space.w_IndexError, "negative index not supported")
+            raise oefmt(space.w_IndexError, "negative index")
         if i >= w_cdata.get_array_length():
             raise oefmt(space.w_IndexError,
                         "index too large for cdata '%s' (expected %d < %d)",
@@ -96,7 +96,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def _check_slice_index(self, w_cdata, start, stop):
         space = self.space
         if start < 0:
-            raise oefmt(space.w_IndexError, "negative index not supported")
+            raise oefmt(space.w_IndexError, "negative index")
         if stop > w_cdata.get_array_length():
             raise oefmt(space.w_IndexError,
                         "index too large (expected %d <= %d)",
