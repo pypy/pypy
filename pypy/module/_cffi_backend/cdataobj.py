@@ -485,8 +485,9 @@ class W_CData(W_Root):
 
     def enter_exit(self, exit_now):
         raise oefmt(self.space.w_ValueError,
-            "only 'cdata' object from ffi.new(), ffi.gc() or ffi.from_buffer() "
-            "can be used with the 'with' keyword or ffi.release()")
+            "only 'cdata' object from ffi.new(), ffi.gc(), ffi.from_buffer() "
+            "or ffi.new_allocator()() can be used with the 'with' keyword or "
+            "ffi.release()")
 
     def descr_enter(self):
         self.enter_exit(False)
@@ -664,24 +665,28 @@ class W_CDataHandle(W_CData):
 
 class W_CDataFromBuffer(W_CData):
     _attrs_ = ['buf', 'length', 'w_keepalive']
-    _immutable_fields_ = ['buf', 'length', 'w_keepalive']
+    _immutable_fields_ = ['buf', 'length']
 
-    def __init__(self, space, cdata, ctype, buf, w_object):
+    def __init__(self, space, cdata, length, ctype, buf, w_object):
         W_CData.__init__(self, space, cdata, ctype)
         self.buf = buf
-        self.length = buf.getlength()
+        self.length = length
         self.w_keepalive = w_object
 
     def get_array_length(self):
         return self.length
 
     def _repr_extra(self):
-        w_repr = self.space.repr(self.w_keepalive)
-        return "buffer len %d from '%s' object" % (
-            self.length, self.space.type(self.w_keepalive).name)
+        if self.w_keepalive is not None:
+            name = self.space.type(self.w_keepalive).name
+        else:
+            name = "(released)"
+        return "buffer len %d from '%s' object" % (self.length, name)
 
     def enter_exit(self, exit_now):
-        pass   # for now, no effect on PyPy
+        # for now, limited effect on PyPy
+        if exit_now:
+            self.w_keepalive = None
 
 
 class W_CDataGCP(W_CData):
