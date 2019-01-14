@@ -1340,6 +1340,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         #   We cannot fill 'hint_frame_pos' immediately, but we can
         #   wait until the corresponding consider_label() to know where the
         #   we would like the boxes to be after the jump.
+        # YYY can we do coalescing hints in the new register allocation model?
 
     def _compute_hint_locations_from_descr(self, descr):
         arglocs = descr._x86_arglocs

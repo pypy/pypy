@@ -227,7 +227,7 @@ def test_free_until_pos():
     assert fpr1.free_until_pos(20) == 30
     assert fpr1.free_until_pos(30) == 30
 
-    # after the fixed use, we are fined anyway
+    # after the fixed use, we are fine anyway
     assert fpr1.free_until_pos(36) == sys.maxint
     assert fpr1.free_until_pos(50) == sys.maxint
 

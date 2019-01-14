@@ -149,7 +149,7 @@ class TestCheckRegistersExplicitly(BaseTestCheckRegistersExplicitly):
         finish(i9)
         '''
         self.interpret(ops, [5, 6, 8])
-        # coalescing makes sure that i0 (and thus i71) lands in edi
+        # coalescing makes sure that i0 (and thus i8) lands in edi
         assert len(self.filter_log_moves()) == 2
 
     def test_coalescing_sub(self):
