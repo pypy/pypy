@@ -40,6 +40,8 @@ Release Steps
   sure things are ported back to the trunk and to the branch as
   necessary.
 
+* Make sure the RPython builds on the buildbot pass with no failures
+
 * Maybe bump the SOABI number in module/imp/importing. This has many
   implications, so make sure the PyPy community agrees to the change.
 
@@ -62,7 +64,7 @@ Release Steps
   * go to pypy/tool/release and run
     ``force-builds.py <release branch>``
     The following JIT binaries should be built, however, we need more buildbots
-    windows, linux-32, linux-64, osx64, armhf-raring, armhf-raspberrian, armel,
+    windows, linux-32, linux-64, osx64, armhf-raspberrian, armel,
     freebsd64 
 
   * wait for builds to complete, make sure there are no failures

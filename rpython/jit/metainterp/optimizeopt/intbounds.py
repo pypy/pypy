@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0)
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, AbstractResOp
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import vstring
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib.rarithmetic import intmask
@@ -25,19 +25,6 @@ def get_integer_max(is_unsigned, byte_size):
         return (1 << ((byte_size << 3) - 1)) - 1
 
 
-IS_64_BIT = sys.maxint > 2**32
-
-def next_pow2_m1(n):
-    """Calculate next power of 2 greater than n minus one."""
-    n |= n >> 1
-    n |= n >> 2
-    n |= n >> 4
-    n |= n >> 8
-    n |= n >> 16
-    if IS_64_BIT:
-        n |= n >> 32
-    return n
-
 
 class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
@@ -50,15 +37,16 @@ class OptIntBounds(Optimization):
         return dispatch_postprocess(self, op)
 
     def propagate_bounds_backward(self, box):
-        # FIXME: This takes care of the instruction where box is the reuslt
+        # FIXME: This takes care of the instruction where box is the result
         #        but the bounds produced by all instructions where box is
         #        an argument might also be tighten
         b = self.getintbound(box)
         if b.has_lower and b.has_upper and b.lower == b.upper:
             self.make_constant_int(box, b.lower)
 
-        if isinstance(box, AbstractResOp):
-            dispatch_bounds_ops(self, box)
+        box1 = self.optimizer.as_operation(box)
+        if box1 is not None:
+            dispatch_bounds_ops(self, box1)
 
     def _optimize_guard_true_false_value(self, op):
         return self.emit(op)
@@ -91,14 +79,8 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(v1)
         v2 = self.get_box_replacement(op.getarg(1))
         b2 = self.getintbound(v2)
-        if b1.known_ge(IntBound(0, 0)) and \
-           b2.known_ge(IntBound(0, 0)):
-            r = self.getintbound(op)
-            if b1.has_upper and b2.has_upper:
-                mostsignificant = b1.upper | b2.upper
-                r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
-            else:
-                r.make_ge(IntBound(0, 0))
+        b = b1.or_bound(b2)
+        self.getintbound(op).intersect(b)
 
     optimize_INT_OR = optimize_INT_OR_or_XOR
     optimize_INT_XOR = optimize_INT_OR_or_XOR
@@ -112,15 +94,8 @@ class OptIntBounds(Optimization):
     def postprocess_INT_AND(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        r = self.getintbound(op)
-        pos1 = b1.known_ge(IntBound(0, 0))
-        pos2 = b2.known_ge(IntBound(0, 0))
-        if pos1 or pos2:
-            r.make_ge(IntBound(0, 0))
-        if pos1:
-            r.make_le(b1)
-        if pos2:
-            r.make_le(b2)
+        b = b1.and_bound(b2)
+        self.getintbound(op).intersect(b)
 
     def optimize_INT_SUB(self, op):
         return self.emit(op)
@@ -152,10 +127,11 @@ class OptIntBounds(Optimization):
             v1, v2 = v2, v1
         # if both are constant, the pure optimization will deal with it
         if v2.is_constant() and not v1.is_constant():
-            if not self.optimizer.is_inputarg(arg1):
+            arg1 = self.optimizer.as_operation(arg1)
+            if arg1 is not None:
                 if arg1.getopnum() == rop.INT_ADD:
-                    prod_arg1 = arg1.getarg(0)
-                    prod_arg2 = arg1.getarg(1)
+                    prod_arg1 = self.get_box_replacement(arg1.getarg(0))
+                    prod_arg2 = self.get_box_replacement(arg1.getarg(1))
                     prod_v1 = self.getintbound(prod_arg1)
                     prod_v2 = self.getintbound(prod_arg2)
 
@@ -211,16 +187,10 @@ class OptIntBounds(Optimization):
         r.intersect(b1.py_div_bound(b2))
 
     def post_call_INT_PY_MOD(self, op):
+        b1 = self.getintbound(op.getarg(1))
         b2 = self.getintbound(op.getarg(2))
-        if b2.is_constant():
-            val = b2.getint()
-            r = self.getintbound(op)
-            if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
-                r.make_ge(IntBound(0, 0))
-                r.make_lt(IntBound(val, val))
-            else:               # with Python's modulo:  neg < (x % neg) <= 0
-                r.make_gt(IntBound(val, val))
-                r.make_le(IntBound(0, 0))
+        r = self.getintbound(op)
+        r.intersect(b1.mod_bound(b2))
 
     def optimize_INT_LSHIFT(self, op):
         return self.emit(op)
@@ -436,7 +406,7 @@ class OptIntBounds(Optimization):
 
     def optimize_INT_FORCE_GE_ZERO(self, op):
         b = self.getintbound(op.getarg(0))
-        if b.known_ge(IntBound(0, 0)):
+        if b.known_nonnegative():
             self.make_equal_to(op, op.getarg(0))
         else:
             return self.emit(op)
@@ -647,7 +617,7 @@ class OptIntBounds(Optimization):
         if r.is_constant():
             if r.getint() == valnonzero:
                 b1 = self.getintbound(op.getarg(0))
-                if b1.known_ge(IntBound(0, 0)):
+                if b1.known_nonnegative():
                     b1.make_gt(IntBound(0, 0))
                     self.propagate_bounds_backward(op.getarg(0))
             elif r.getint() == valzero:

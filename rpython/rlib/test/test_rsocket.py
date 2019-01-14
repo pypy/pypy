@@ -409,6 +409,7 @@ def test_getaddrinfo_http():
     # catch-all address (i.e. opendns).
     e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
+    assert isinstance(e.value.get_msg_unicode(), unicode)
 
 def getaddrinfo_pydotorg(i, result):
     lst = getaddrinfo('python.org', None)
@@ -462,6 +463,15 @@ def test_connect_with_timeout_succeed():
     s = RSocket()
     s.settimeout(10.0)
     s.connect(INETAddress('python.org', 80))
+    s.close()
+
+def test_connect_with_default_timeout_fail():
+    rsocket.setdefaulttimeout(0.1)
+    s = RSocket()
+    rsocket.setdefaulttimeout(None)
+    assert s.gettimeout() == 0.1
+    with py.test.raises(SocketTimeout):
+        s.connect(INETAddress('172.30.172.30', 12345))
     s.close()
 
 def test_getsetsockopt():

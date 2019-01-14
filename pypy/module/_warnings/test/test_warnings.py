@@ -46,18 +46,22 @@ class AppTestWarnings:
         except ImportError:
             skip('no test, -A on cpython?')
         # With showarning() missing, make sure that output is okay.
-        del warnings.showwarning
-
-        stderr = sys.stderr
+        saved = warnings.showwarning
         try:
-            sys.stderr = StringIO.StringIO()
-            inner('test message')
-            result = sys.stderr.getvalue()
-        finally:
-            sys.stderr = stderr
+            del warnings.showwarning
 
-        assert result.count('\n') == 2
-        assert '  warnings.warn(message, ' in result
+            stderr = sys.stderr
+            try:
+                sys.stderr = StringIO.StringIO()
+                inner('test message')
+                result = sys.stderr.getvalue()
+            finally:
+                sys.stderr = stderr
+
+            assert result.count('\n') == 2
+            assert '  warnings.warn(message, ' in result
+        finally:
+            warnings.showwarning = saved
 
     def test_filename_none(self):
         import _warnings
@@ -65,3 +69,23 @@ class AppTestWarnings:
         _warnings.warn('test', UserWarning)
         globals()['__file__'] = None
         _warnings.warn('test', UserWarning)
+
+    def test_warn_unicode(self):
+        import _warnings, sys
+        old = sys.stderr
+        try:
+            class Grab:
+                def write(self, u):
+                    self.data.append(u)
+            sys.stderr = Grab()
+            sys.stderr.data = data = []
+            _warnings.warn_explicit("9238exbexn8", Warning,
+                                    "<string>", 1421, module_globals=globals())
+            assert isinstance(''.join(data), str)
+            _warnings.warn_explicit(u"\u1234\u5678", UserWarning,
+                                    "<str2>", 831, module_globals=globals())
+            assert isinstance(''.join(data), unicode)
+            assert ''.join(data).endswith(
+                             u'<str2>:831: UserWarning: \u1234\u5678\n')
+        finally:
+            sys.stderr = old

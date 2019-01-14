@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
     CANNOT_FAIL, Py_ssize_t, Py_ssize_tP, PyObjectFields, slot_function)
 from pypy.module.cpyext.pyobject import (
-    Py_DecRef, PyObject, make_ref, make_typedescr)
+    decref, PyObject, make_ref, make_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.sliceobject import W_SliceObject
@@ -41,13 +41,12 @@ def slice_dealloc(space, py_obj):
     """Frees allocated PyBytesObject resources.
     """
     py_slice = rffi.cast(PySliceObject, py_obj)
-    Py_DecRef(space, py_slice.c_start)
-    Py_DecRef(space, py_slice.c_stop)
-    Py_DecRef(space, py_slice.c_step)
+    decref(space, py_slice.c_start)
+    decref(space, py_slice.c_stop)
+    decref(space, py_slice.c_step)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
-PySlice_Check, PySlice_CheckExact = build_type_checkers("Slice")
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PySlice_New(space, w_start, w_stop, w_step):
@@ -75,9 +74,8 @@ def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
     normal slices.
 
     Returns 0 on success and -1 on error with exception set."""
-    if not PySlice_Check(space, w_slice):
+    if not isinstance(w_slice, W_SliceObject):
         PyErr_BadInternalCall(space)
-    assert isinstance(w_slice, W_SliceObject)
     start_p[0], stop_p[0], step_p[0], slicelength_p[0] = \
             w_slice.indices4(space, length)
     return 0
@@ -97,9 +95,8 @@ def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     objects in versions of Python prior to 2.3, you would probably do well to
     incorporate the source of PySlice_GetIndicesEx(), suitably renamed,
     in the source of your extension."""
-    if not PySlice_Check(space, w_slice):
+    if not isinstance(w_slice, W_SliceObject):
         PyErr_BadInternalCall(space)
-    assert isinstance(w_slice, W_SliceObject)
     start_p[0], stop_p[0], step_p[0] = \
             w_slice.indices3(space, length)
     return 0

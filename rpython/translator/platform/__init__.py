@@ -37,7 +37,10 @@ class ExecutionResult(object):
 class Platform(object):
     name = "abstract platform"
     c_environ = None
-
+    # which branch to check out in get_external.py
+    externals_branch='default'
+    # where to put the externals, as an absolute path
+    externals = str(py.path.local(__file__).parts()[-5] / 'externals')
     relevant_environ = ()
     log_errors = True
 
@@ -305,6 +308,13 @@ elif "openbsd" in sys.platform:
         host_factory = OpenBSD
     else:
         host_factory = OpenBSD_64
+elif sys.platform.startswith('gnu'):
+    from rpython.translator.platform.hurd import Hurd
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Hurd
+    else:
+        host_factory = Hurd_64
 elif os.name == 'nt':
     from rpython.translator.platform.windows import Windows, Windows_x64
     import platform
@@ -320,24 +330,16 @@ elif sys.platform == 'cygwin':
     else:
         host_factory = Cygwin64
 else:
-    # pray
-    from rpython.translator.platform.distutils_platform import DistutilsPlatform
-    host_factory = DistutilsPlatform
+    raise ValueError('unknown sys.platform "%s"', sys.platform)
 
 platform = host = host_factory()
 
 def pick_platform(new_platform, cc):
     if new_platform == 'host':
         return host_factory(cc)
-    elif new_platform == 'maemo':
-        from rpython.translator.platform.maemo import Maemo
-        return Maemo(cc)
     elif new_platform == 'arm':
         from rpython.translator.platform.arm import ARM
         return ARM(cc)
-    elif new_platform == 'distutils':
-        from rpython.translator.platform.distutils_platform import DistutilsPlatform
-        return DistutilsPlatform()
     else:
         raise ValueError("platform = %s" % (new_platform,))
 

@@ -1,21 +1,35 @@
 #include "advancedcpp.h"
 
+#include <stdexcept>
+
 
 // for testing of default arguments
-#define IMPLEMENT_DEFAULTER_CLASS(type, tname)                               \
+#define IMPLEMENT_DEFAULTERS(type, tname)                                    \
 tname##_defaulter::tname##_defaulter(type a, type b, type c) {               \
-   m_a = a; m_b = b; m_c = c;                                                \
+    m_a = a; m_b = b; m_c = c;                                               \
+}                                                                            \
+type tname##_defaulter_func(int idx, type a, type b, type c) {               \
+    if (idx == 0) return a;                                                  \
+    if (idx == 1) return b;                                                  \
+    if (idx == 2) return c;                                                  \
+    return (type)idx;                                                        \
 }
-IMPLEMENT_DEFAULTER_CLASS(short, short)
-IMPLEMENT_DEFAULTER_CLASS(unsigned short, ushort)
-IMPLEMENT_DEFAULTER_CLASS(int, int)
-IMPLEMENT_DEFAULTER_CLASS(unsigned, uint)
-IMPLEMENT_DEFAULTER_CLASS(long, long)
-IMPLEMENT_DEFAULTER_CLASS(unsigned long, ulong)
-IMPLEMENT_DEFAULTER_CLASS(long long, llong)
-IMPLEMENT_DEFAULTER_CLASS(unsigned long long, ullong)
-IMPLEMENT_DEFAULTER_CLASS(float, float)
-IMPLEMENT_DEFAULTER_CLASS(double, double)
+IMPLEMENT_DEFAULTERS(short, short)
+IMPLEMENT_DEFAULTERS(unsigned short, ushort)
+IMPLEMENT_DEFAULTERS(int, int)
+IMPLEMENT_DEFAULTERS(unsigned, uint)
+IMPLEMENT_DEFAULTERS(long, long)
+IMPLEMENT_DEFAULTERS(unsigned long, ulong)
+IMPLEMENT_DEFAULTERS(long long, llong)
+IMPLEMENT_DEFAULTERS(unsigned long long, ullong)
+IMPLEMENT_DEFAULTERS(float, float)
+IMPLEMENT_DEFAULTERS(double, double)
+
+std::string string_defaulter_func(int idx, const std::string& name1, std::string name2) {
+    if (idx == 0) return name1;
+    if (idx == 1) return name2;
+    return "mies";
+}
 
 
 // for esoteric inheritance testing
@@ -75,6 +89,10 @@ double my_global_double = 12.;
 double my_global_array[500];
 static double sd = 1234.;
 double* my_global_ptr = &sd;
+const char my_global_string2[] = "zus jet teun";
+some_int_holder my_global_int_holders[5] = {
+    some_int_holder(13), some_int_holder(42), some_int_holder(88),
+    some_int_holder(-1), some_int_holder(17) };
 
 // for life-line and identity testing
 int some_class_with_data::some_data::s_num_data = 0;
@@ -106,20 +124,19 @@ void new_overloader::operator delete(void* p, std::size_t) {
 }
 
 
-// more template testing
-long my_templated_method_class::get_size() { return -1; }
-
-long my_templated_method_class::get_char_size()   { return (long)sizeof(char); }
-long my_templated_method_class::get_int_size()    { return (long)sizeof(int); }
-long my_templated_method_class::get_long_size()   { return (long)sizeof(long); }
-long my_templated_method_class::get_float_size()  { return (long)sizeof(float); }
-long my_templated_method_class::get_double_size() { return (long)sizeof(double); }
-long my_templated_method_class::get_self_size()   { return (long)sizeof(my_templated_method_class); }
-
-
 // overload order testing
 int overload_one_way::gime() const { return 1; }
 std::string overload_one_way::gime() { return "aap"; }
 
 std::string overload_the_other_way::gime() { return "aap"; }
 int overload_the_other_way::gime() const { return 1; }
+
+
+// exception handling testing
+void Thrower::throw_anything() {
+    throw 1;
+}
+
+void Thrower::throw_exception() {
+    throw std::runtime_error("C++ function failed");
+}

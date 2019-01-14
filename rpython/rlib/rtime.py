@@ -136,7 +136,10 @@ def time():
     void = lltype.nullptr(rffi.VOIDP.TO)
     result = -1.0
     if HAVE_GETTIMEOFDAY:
-        with lltype.scoped_alloc(TIMEVAL) as t:
+        # NB: can't use lltype.scoped_malloc, because that will allocate the
+        # with handler in the GC, but we want to use time.time from gc.collect!
+        t = lltype.malloc(TIMEVAL, flavor='raw')
+        try:
             errcode = -1
             if GETTIMEOFDAY_NO_TZ:
                 errcode = c_gettimeofday(t)
@@ -145,13 +148,18 @@ def time():
 
             if rffi.cast(rffi.LONG, errcode) == 0:
                 result = decode_timeval(t)
+        finally:
+            lltype.free(t, flavor='raw')
         if result != -1:
             return result
     else: # assume using ftime(3)
-        with lltype.scoped_alloc(TIMEB) as t:
+        t = lltype.malloc(TIMEB, flavor='raw')
+        try:
             c_ftime(t)
             result = (float(intmask(t.c_time)) +
                       float(intmask(t.c_millitm)) * 0.001)
+        finally:
+            lltype.free(t, flavor='raw')
         return result
     return float(c_time(void))
 
@@ -165,7 +173,7 @@ if _WIN32:
         'QueryPerformanceCounter', [rffi.CArrayPtr(lltype.SignedLongLong)],
          lltype.Void, releasegil=False)
     QueryPerformanceFrequency = external(
-        'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)], 
+        'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)],
         rffi.INT, releasegil=False)
     class State(object):
         divisor = 0.0
@@ -267,9 +275,10 @@ def sleep(secs):
     else:
         void = lltype.nullptr(rffi.VOIDP.TO)
         with lltype.scoped_alloc(TIMEVAL) as t:
-            frac = math.fmod(secs, 1.0)
+            frac = int(math.fmod(secs, 1.0) * 1000000.)
+            assert frac >= 0
             rffi.setintfield(t, 'c_tv_sec', int(secs))
-            rffi.setintfield(t, 'c_tv_usec', int(frac*1000000.0))
+            rffi.setintfield(t, 'c_tv_usec', frac)
 
             if rffi.cast(rffi.LONG, c_select(0, void, void, void, t)) != 0:
                 errno = rposix.get_saved_errno()

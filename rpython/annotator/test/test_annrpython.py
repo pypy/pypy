@@ -688,6 +688,16 @@ class TestAnnotateTestCase:
         assert isinstance(dictvalue(s), annmodel.SomeInteger)
         assert not dictvalue(s).nonneg
 
+    def test_dict_get(self):
+        def f1(i, j):
+            d = {i: ''}
+            return d.get(j)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f1, [int, int])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.can_be_None
+
+
     def test_exception_deduction(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.exception_deduction, [])
@@ -2140,28 +2150,6 @@ class TestAnnotateTestCase:
 
         assert (fdesc.get_s_signatures((2, (), False))
                 == [([someint,someint],someint)])
-
-    def test_emulated_pbc_call_callback(self):
-        def f(a,b):
-            return a + b
-        from rpython.annotator import annrpython
-        a = annrpython.RPythonAnnotator()
-        from rpython.annotator import model as annmodel
-
-        memo = []
-        def callb(ann, graph):
-            memo.append(annmodel.SomeInteger() == ann.binding(graph.getreturnvar()))
-
-        s_f = a.bookkeeper.immutablevalue(f)
-        s = a.bookkeeper.emulate_pbc_call('f', s_f, [annmodel.SomeInteger(), annmodel.SomeInteger()],
-                                          callback=callb)
-        assert s == annmodel.SomeImpossibleValue()
-        a.complete()
-
-        assert a.binding(graphof(a, f).getreturnvar()).knowntype == int
-        assert len(memo) >= 1
-        for t in memo:
-            assert t
 
     def test_iterator_union(self):
         def it(d):

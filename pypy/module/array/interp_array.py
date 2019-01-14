@@ -159,6 +159,10 @@ class W_ArrayBase(W_Root):
             lltype.free(self._buffer, flavor='raw')
 
     def setlen(self, size, zero=False, overallocate=True):
+        if self._buffer:
+            delta_memory_pressure = -self.allocated * self.itemsize
+        else:
+            delta_memory_pressure = 0
         if size > 0:
             if size > self.allocated or size < self.allocated / 2:
                 if overallocate:
@@ -171,14 +175,13 @@ class W_ArrayBase(W_Root):
                     some = 0
                 self.allocated = size + some
                 byte_size = self.allocated * self.itemsize
+                delta_memory_pressure += byte_size
                 if zero:
                     new_buffer = lltype.malloc(
-                        rffi.CCHARP.TO, byte_size, flavor='raw',
-                        add_memory_pressure=True, zero=True)
+                        rffi.CCHARP.TO, byte_size, flavor='raw', zero=True)
                 else:
                     new_buffer = lltype.malloc(
-                        rffi.CCHARP.TO, byte_size, flavor='raw',
-                        add_memory_pressure=True)
+                        rffi.CCHARP.TO, byte_size, flavor='raw')
                     copy_bytes = min(size, self.len) * self.itemsize
                     rffi.c_memcpy(rffi.cast(rffi.VOIDP, new_buffer),
                                   rffi.cast(rffi.VOIDP, self._buffer),
@@ -195,6 +198,11 @@ class W_ArrayBase(W_Root):
             lltype.free(self._buffer, flavor='raw')
         self._buffer = new_buffer
         self.len = size
+        # adds the difference between the old and the new raw-malloced
+        # size.  If setlen() is called a lot on the same array object,
+        # it is important to take into account the fact that we also do
+        # lltype.free() above.
+        rgc.add_memory_pressure(delta_memory_pressure)
 
     def _fromiterable(self, w_seq):
         # used by fromsequence().
@@ -239,8 +247,10 @@ class W_ArrayBase(W_Root):
             return None
         oldbuffer = self._buffer
         self._buffer = lltype.malloc(rffi.CCHARP.TO,
-            (self.len - (j - i)) * self.itemsize, flavor='raw',
-            add_memory_pressure=True)
+            (self.len - (j - i)) * self.itemsize, flavor='raw')
+        # Issue #2913: don't pass add_memory_pressure here, otherwise
+        # memory pressure grows but actual raw memory usage doesn't---we
+        # are freeing the old buffer at the end of this function.
         if i:
             rffi.c_memcpy(
                 rffi.cast(rffi.VOIDP, self._buffer),
@@ -711,7 +721,7 @@ class W_ArrayBase(W_Root):
             return space.newtext(s)
 
 W_ArrayBase.typedef = TypeDef(
-    'array.array',
+    'array.array', None, None, "read-write",
     __new__ = interp2app(w_array),
 
     __len__ = interp2app(W_ArrayBase.descr_len),
@@ -1090,12 +1100,16 @@ def make_array(mytype):
             start, stop, step, size = self.space.decode_index4(w_idx, self.len)
             assert step != 0
             if w_item.len != size or self is w_item:
-                # XXX this is a giant slow hack
-                w_lst = self.descr_tolist(space)
-                w_item = space.call_method(w_item, 'tolist')
-                space.setitem(w_lst, w_idx, w_item)
-                self.setlen(0)
-                self.fromsequence(w_lst)
+                if start == self.len and step > 0:
+                    # we actually want simply extend()
+                    self.extend(w_item)
+                else:
+                    # XXX this is a giant slow hack
+                    w_lst = self.descr_tolist(space)
+                    w_item = space.call_method(w_item, 'tolist')
+                    space.setitem(w_lst, w_idx, w_item)
+                    self.setlen(0)
+                    self.fromsequence(w_lst)
             else:
                 j = 0
                 buf = self.get_buffer()

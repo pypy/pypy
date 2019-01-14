@@ -21,14 +21,13 @@ import py
 import fnmatch
 import subprocess
 import glob
-
-if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
+from pypy.tool.release.smartstrip import smartstrip
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
 STDLIB_VER = "2.7"
 
-from pypy.tool.build_cffi_imports import (create_cffi_import_libraries, 
+from pypy.tool.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):
@@ -148,7 +147,7 @@ def create_package(basedir, options, _fake=False):
             # XXX users will complain that they cannot compile capi (cpyext)
             # modules for windows, also embedding pypy (i.e. in cffi)
             # will fail.
-            # Has the lib moved, was translation not 'shared', or are 
+            # Has the lib moved, was translation not 'shared', or are
             # there no exported functions in the dll so no import
             # library was created?
         if not options.no_tk:
@@ -212,15 +211,9 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        if not options.nostrip:
+        if not _fake:
             for source, target in binaries:
-                if sys.platform == 'win32':
-                    pass
-                elif sys.platform == 'darwin':
-                    # 'strip' fun: see issue #587 for why -x
-                    os.system("strip -x " + str(bindir.join(target)))    # ignore errors
-                else:
-                    os.system("strip " + str(bindir.join(target)))    # ignore errors
+                smartstrip(bindir.join(target), keep_debug=options.keep_debug)
         #
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -281,8 +274,8 @@ def package(*args, **kwds):
                     help='do not build and package the %r cffi module' % (key,))
     parser.add_argument('--without-cffi', dest='no_cffi', action='store_true',
         help='skip building *all* the cffi modules listed above')
-    parser.add_argument('--nostrip', dest='nostrip', action='store_true',
-        help='do not strip the exe, making it ~10MB larger')
+    parser.add_argument('--no-keep-debug', dest='keep_debug',
+                        action='store_false', help='do not keep debug symbols')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
         help='target executable name, defaults to "pypy"')
     parser.add_argument('--archive-name', dest='name', type=str, default='',
@@ -295,8 +288,8 @@ def package(*args, **kwds):
         help='use as pypy exe instead of pypy/goal/pypy-c')
     options = parser.parse_args(args)
 
-    if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
-        options.nostrip = True
+    if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
+        options.keep_debug = False
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
         options.no_tk = True
     if not options.builddir:
@@ -314,7 +307,7 @@ def package(*args, **kwds):
 if __name__ == '__main__':
     import sys
     if sys.platform == 'win32':
-        # Try to avoid opeing a dialog box if one of the 
+        # Try to avoid opeing a dialog box if one of the
         # subprocesses causes a system error
         import ctypes
         winapi = ctypes.windll.kernel32

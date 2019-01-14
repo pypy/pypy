@@ -107,14 +107,6 @@ def strategy(space, w_obj):
         raise oefmt(space.w_TypeError, "expecting dict or list or set object")
     return space.newtext(name)
 
-
-@unwrap_spec(fd='c_int')
-def validate_fd(space, fd):
-    try:
-        rposix.validate_fd(fd)
-    except OSError as e:
-        raise wrap_oserror(space, e)
-
 def get_console_cp(space):
     from rpython.rlib import rwin32    # Windows only
     return space.newtuple([
@@ -142,7 +134,7 @@ def set_debug(space, debug):
                   space.newbool(debug))
 
 @unwrap_spec(estimate=int)
-def add_memory_pressure(estimate):
+def add_memory_pressure(space, estimate):
     """ Add memory pressure of estimate bytes. Useful when calling a C function
     that internally allocates a big chunk of memory. This instructs the GC to
     garbage collect sooner than it would otherwise."""
@@ -199,3 +191,33 @@ def _promote(space, w_obj):
 def stack_almost_full(space):
     """Return True if the stack is more than 15/16th full."""
     return space.newbool(rstack.stack_almost_full())
+
+def side_effects_ok(space):
+    """For use with the reverse-debugger: this function normally returns
+    True, but will return False if we are evaluating a debugging command
+    like a watchpoint.  You are responsible for not doing any side effect
+    at all (including no caching) when evaluating watchpoints.  This
+    function is meant to help a bit---you can write:
+
+        if not __pypy__.side_effects_ok():
+            skip the caching logic
+
+    inside getter methods or properties, to make them usable from
+    watchpoints.  Note that you need to re-run ``REVDB=.. pypy''
+    after changing the Python code.
+    """
+    return space.newbool(space._side_effects_ok())
+
+def revdb_stop(space):
+    from pypy.interpreter.reverse_debugging import stop_point
+    stop_point()
+
+def pyos_inputhook(space):
+    """Call PyOS_InputHook() from the CPython C API."""
+    if not space.config.objspace.usemodules.cpyext:
+        return
+    w_modules = space.sys.get('modules')
+    if space.finditem_str(w_modules, 'cpyext') is None:
+        return      # cpyext not imported yet, ignore
+    from pypy.module.cpyext.api import invoke_pyos_inputhook
+    invoke_pyos_inputhook(space)

@@ -2,7 +2,7 @@ import array
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rtyper.lltypesystem.lloperation import llop
-
+import os, sys
 
 # An "arena" is a large area of memory which can hold a number of
 # objects, not necessarily all of the same type or size.  It's used by
@@ -393,7 +393,6 @@ def arena_protect(arena_addr, size, inaccessible):
 # We can tweak these implementations to be more suited to very large
 # chunks of memory.
 
-import os, sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.tool.rffi_platform import memory_alignment

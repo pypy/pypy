@@ -1,3 +1,4 @@
+import sys
 from rpython.rlib import rstring
 
 
@@ -116,6 +117,11 @@ def map_operator_name(space, cppname, nargs, result_type):
     # TODO: perhaps absorb or "pythonify" these operators?
     return cppname
 
+CPPYY__div__  = "__div__"
+CPPYY__idiv__ = "__idiv__"
+CPPYY__long__ = "__long__"
+CPPYY__bool__ = "__nonzero__"
+
 # _operator_mappings["[]"]  = "__setitem__"      # depends on return type
 # _operator_mappings["+"]   = "__add__"          # depends on # of args (see __pos__)
 # _operator_mappings["-"]   = "__sub__"          # id. (eq. __neg__)
@@ -123,7 +129,7 @@ def map_operator_name(space, cppname, nargs, result_type):
 
 # _operator_mappings["[]"]  = "__getitem__"      # depends on return type
 _operator_mappings["()"]  = "__call__"
-_operator_mappings["/"]   = "__div__"            # __truediv__ in p3
+_operator_mappings["/"]   = CPPYY__div__
 _operator_mappings["%"]   = "__mod__"
 _operator_mappings["**"]  = "__pow__"            # not C++
 _operator_mappings["<<"]  = "__lshift__"
@@ -136,7 +142,7 @@ _operator_mappings["!"]   = "__nonzero__"
 _operator_mappings["+="]  = "__iadd__"
 _operator_mappings["-="]  = "__isub__"
 _operator_mappings["*="]  = "__imul__"
-_operator_mappings["/="]  = "__idiv__"           # __itruediv__ in p3
+_operator_mappings["/="]  = CPPYY__idiv__
 _operator_mappings["%="]  = "__imod__"
 _operator_mappings["**="] = "__ipow__"
 _operator_mappings["<<="] = "__ilshift__"
@@ -154,7 +160,7 @@ _operator_mappings["<="]  = "__le__"
 # the following type mappings are "exact"
 _operator_mappings["const char*"] = "__str__"
 _operator_mappings["int"]         = "__int__"
-_operator_mappings["long"]        = "__long__"   # __int__ in p3
+_operator_mappings["long"]        = CPPYY__long__
 _operator_mappings["double"]      = "__float__"
 
 # the following type mappings are "okay"; the assumption is that they
@@ -163,13 +169,13 @@ _operator_mappings["double"]      = "__float__"
 _operator_mappings["char*"]              = "__str__"
 _operator_mappings["short"]              = "__int__"
 _operator_mappings["unsigned short"]     = "__int__"
-_operator_mappings["unsigned int"]       = "__long__"      # __int__ in p3
-_operator_mappings["unsigned long"]      = "__long__"      # id.
-_operator_mappings["long long"]          = "__long__"      # id.
-_operator_mappings["unsigned long long"] = "__long__"      # id.
+_operator_mappings["unsigned int"]       = CPPYY__long__
+_operator_mappings["unsigned long"]      = CPPYY__long__
+_operator_mappings["long long"]          = CPPYY__long__
+_operator_mappings["unsigned long long"] = CPPYY__long__
 _operator_mappings["float"]              = "__float__"
 
-_operator_mappings["bool"] = "__nonzero__"       # __bool__ in p3
+_operator_mappings["bool"] = CPPYY__bool__
 
 # the following are not python, but useful to expose
 _operator_mappings["->"]  = "__follow__"

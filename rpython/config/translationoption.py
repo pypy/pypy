@@ -39,9 +39,7 @@ MAINDIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
 
 PLATFORMS = [
-    'maemo',
     'host',
-    'distutils',
     'arm',
 ]
 
@@ -290,6 +288,15 @@ translation_optiondescription = OptionDescription(
                  suggests={"arm": [("translation.gcrootfinder", "shadowstack"),
                                    ("translation.jit_backend", "arm")]}),
 
+    BoolOption("split_gc_address_space",
+               "Ensure full separation of GC and non-GC pointers", default=False),
+    BoolOption("reverse_debugger",
+               "Give an executable that writes a log file for reverse debugging",
+               default=False, cmdline='--revdb',
+               requires=[('translation.split_gc_address_space', True),
+                         ('translation.jit', False),
+                         ('translation.gc', 'boehm'),
+                         ('translation.continuation', False)]),
 ])
 
 def get_combined_translation_config(other_optdescr=None,

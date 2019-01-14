@@ -25,6 +25,10 @@ class BaseApiTest(LeakCheckingTest):
         cls.preload_builtins(space)
 
         class CAPI:
+            def __repr__(self):
+                return '<%s.%s instance>' % (self.__class__.__module__,
+                                             self.__class__.__name__)
+
             def __getattr__(self, name):
                 return getattr(cls.space, name)
         cls.api = CAPI()
@@ -35,7 +39,7 @@ class BaseApiTest(LeakCheckingTest):
             raise Exception("%s is not callable" % (f,))
         f(*args)
         state = space.fromcache(State)
-        operror = state.operror
+        operror = state.get_exception()
         if not operror:
             raise Exception("DID NOT RAISE")
         if getattr(space, 'w_' + expected_exc.__name__) is not operror.w_type:

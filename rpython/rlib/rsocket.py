@@ -550,7 +550,7 @@ class RSocket(object):
         self.family = family
         self.type = type
         self.proto = proto
-        self.timeout = defaults.timeout
+        self.settimeout(defaults.timeout)
 
     @staticmethod
     def empty_rsocket():
@@ -707,7 +707,8 @@ class RSocket(object):
             address.unlock()
             errno = _c.geterrno()
             timeout = self.timeout
-            if timeout > 0.0 and res < 0 and errno == _c.EWOULDBLOCK:
+            if (timeout > 0.0 and res < 0 and
+                    errno in (_c.EWOULDBLOCK, _c.WSAEWOULDBLOCK)):
                 tv = rffi.make(_c.timeval)
                 rffi.setintfield(tv, 'c_tv_sec', int(timeout))
                 rffi.setintfield(tv, 'c_tv_usec',
@@ -733,7 +734,7 @@ class RSocket(object):
                             return (self.getsockopt_int(_c.SOL_SOCKET,
                                                         _c.SO_ERROR), False)
                     elif n == 0:
-                        return (_c.EWOULDBLOCK, True)
+                        return (_c.WSAEWOULDBLOCK, True)
                     else:
                         return (_c.geterrno(), False)
 
@@ -1074,7 +1075,7 @@ class RSocket(object):
 
             if address is not None:
                 address.unlock()
-            if _c.geterrno() == _c.EINTR:
+            if (_c.geterrno() == _c.EINTR) or (_c.geterrno() == 11):
                 raise last_error()
             if (reply == -10000):
                 raise RSocketError("Invalid message size")
@@ -1298,6 +1299,8 @@ class SocketError(Exception):
         pass
     def get_msg(self):
         return ''
+    def get_msg_unicode(self):
+        return self.get_msg().decode('latin-1')
     def __str__(self):
         return self.get_msg()
 
@@ -1314,6 +1317,8 @@ class RSocketError(SocketError):
 class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
+    def get_msg_unicode(self):
+        return _c.socket_strerror_unicode(self.errno)
 
 def last_error():
     return CSocketError(_c.geterrno())
@@ -1322,6 +1327,8 @@ class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
     def get_msg(self):
         return _c.gai_strerror_str(self.errno)
+    def get_msg_unicode(self):
+        return _c.gai_strerror_unicode(self.errno)
 
 class HSocketError(SocketError):
     applevelerrcls = 'herror'
@@ -1393,7 +1400,7 @@ if hasattr(_c, 'socketpair'):
         return (make_socket(fd0, family, type, proto, SocketClass),
                 make_socket(fd1, family, type, proto, SocketClass))
 
-if _c._POSIX:
+if _c.HAVE_SENDMSG:
     def CMSG_LEN( demanded_len):
         """
         Socket method to determine the optimal byte size of the ancillary.

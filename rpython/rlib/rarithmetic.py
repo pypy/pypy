@@ -36,7 +36,7 @@ mark where overflow checking is required.
 
 
 """
-import sys, struct
+import sys, struct, math
 from rpython.rtyper import extregistry
 from rpython.rlib import objectmodel
 from rpython.flowspace.model import Constant, const
@@ -191,8 +191,7 @@ def ovfcheck(r):
 # Note the "<= x <" here, as opposed to "< x <" above.
 # This is justified by test_typed in translator/c/test.
 def ovfcheck_float_to_longlong(x):
-    from rpython.rlib.rfloat import isnan
-    if isnan(x):
+    if math.isnan(x):
         raise OverflowError
     if -9223372036854776832.0 <= x < 9223372036854775296.0:
         return r_longlong(x)
@@ -200,8 +199,7 @@ def ovfcheck_float_to_longlong(x):
 
 if sys.maxint == 2147483647:
     def ovfcheck_float_to_int(x):
-        from rpython.rlib.rfloat import isnan
-        if isnan(x):
+        if math.isnan(x):
             raise OverflowError
         if -2147483649.0 < x < 2147483648.0:
             return int(x)
@@ -842,10 +840,35 @@ else:
         return z
 
 
+@specialize.memo()
+def check_support_int128():
+    from rpython.rtyper.lltypesystem import rffi
+    return hasattr(rffi, '__INT128_T')
+
+def mulmod(a, b, c):
+    """Computes (a * b) % c.
+    Assumes c > 0, and returns a nonnegative result.
+    """
+    assert c > 0
+    if LONG_BIT < LONGLONG_BIT:
+        a = r_longlong(a)
+        b = r_longlong(b)
+        return intmask((a * b) % c)
+    elif check_support_int128():
+        a = r_longlonglong(a)
+        b = r_longlonglong(b)
+        return intmask((a * b) % c)
+    else:
+        from rpython.rlib.rbigint import rbigint
+        a = rbigint.fromlong(a)
+        b = rbigint.fromlong(b)
+        return a.mul(b).int_mod(c).toint()
+
+
 # String parsing support
 # ---------------------------
 
-def string_to_int(s, base=10):
+def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
@@ -854,7 +877,9 @@ def string_to_int(s, base=10):
     from rpython.rlib.rstring import (
         NumberStringParser, ParseStringOverflowError, strip_spaces)
     s = literal = strip_spaces(s)
-    p = NumberStringParser(s, literal, base, 'int')
+    p = NumberStringParser(s, literal, base, 'int',
+                           allow_underscores=allow_underscores,
+                           no_implicit_octal=no_implicit_octal)
     base = p.base
     result = 0
     while True:

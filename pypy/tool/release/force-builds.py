@@ -29,9 +29,11 @@ BUILDERS = [
     'pypy-c-jit-macosx-x86-64',
     'pypy-c-jit-win-x86-32',
     'pypy-c-jit-linux-s390x',
-    'build-pypy-c-jit-linux-armhf-raring',
     'build-pypy-c-jit-linux-armhf-raspbian',
     'build-pypy-c-jit-linux-armel',
+    'rpython-linux-x86-32',
+    'rpython-linux-x86-64'
+    'rpython-win-x86-32'
 ]
 
 def get_user():

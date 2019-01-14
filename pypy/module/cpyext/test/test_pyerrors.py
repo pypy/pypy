@@ -52,7 +52,8 @@ class TestExceptions(BaseApiTest):
         api.PyErr_SetObject(space.w_ValueError, space.wrap("a value"))
         assert api.PyErr_Occurred() is space.w_ValueError
         state = space.fromcache(State)
-        assert space.eq_w(state.operror.get_w_value(space),
+        operror = state.get_exception()
+        assert space.eq_w(operror.get_w_value(space),
                           space.wrap("a value"))
 
         api.PyErr_Clear()
@@ -60,12 +61,14 @@ class TestExceptions(BaseApiTest):
     def test_SetNone(self, space, api):
         api.PyErr_SetNone(space.w_KeyError)
         state = space.fromcache(State)
-        assert space.eq_w(state.operror.w_type, space.w_KeyError)
-        assert space.eq_w(state.operror.get_w_value(space), space.w_None)
+        operror = state.get_exception()
+        assert space.eq_w(operror.w_type, space.w_KeyError)
+        assert space.eq_w(operror.get_w_value(space), space.w_None)
         api.PyErr_Clear()
 
         api.PyErr_NoMemory()
-        assert space.eq_w(state.operror.w_type, space.w_MemoryError)
+        operror = state.get_exception()
+        assert space.eq_w(operror.w_type, space.w_MemoryError)
         api.PyErr_Clear()
 
     def test_Warning(self, space, api, capfd):
@@ -425,3 +428,71 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert orig_exc_info == reset_sys_exc_info
             assert new_exc_info == (new_exc.__class__, new_exc, None)
             assert new_exc_info == new_sys_exc_info
+
+    def test_PyErr_BadInternalCall(self):
+        # NB. it only seemed to fail when run with '-s'... but I think
+        # that it always printed stuff to stderr
+        module = self.import_extension('foo', [
+            ("oops", "METH_NOARGS",
+             r'''
+             PyErr_BadInternalCall();
+             return NULL;
+             '''),
+            ])
+        raises(SystemError, module.oops)
+
+    def test_error_thread_race(self):
+        # Check race condition: thread 0 returns from cpyext with error set,
+        # after thread 1 has set an error but before it returns.
+        module = self.import_extension('foo', [
+            ("emit_error", "METH_VARARGS",
+             '''
+             PyThreadState *save = NULL;
+             PyGILState_STATE gilsave;
+
+             /* NB. synchronization due to GIL */
+             static volatile int flag = 0;
+             int id;
+
+             if (!PyArg_ParseTuple(args, "i", &id))
+                 return NULL;
+
+             /* Proceed in thread 1 first */
+             save = PyEval_SaveThread();
+             while (id == 0 && flag == 0);
+             gilsave = PyGILState_Ensure();
+
+             PyErr_Format(PyExc_ValueError, "%d", id);
+
+             /* Proceed in thread 0 first */
+             if (id == 1) flag = 1;
+             PyGILState_Release(gilsave);
+             while (id == 1 && flag == 1);
+             PyEval_RestoreThread(save);
+
+             if (id == 0) flag = 0;
+             return NULL;
+             '''
+             ),
+            ])
+
+        import threading
+
+        failures = []
+
+        def worker(arg):
+            try:
+                module.emit_error(arg)
+                failures.append(True)
+            except Exception as exc:
+                if str(exc) != str(arg):
+                    failures.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(j,))
+                   for j in (0, 1)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not failures

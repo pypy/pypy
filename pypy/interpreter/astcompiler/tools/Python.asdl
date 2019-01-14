@@ -71,6 +71,7 @@ module Python
 	     | Repr(expr value)
 	     | Num(object n) -- a number as a PyObject.
 	     | Str(string s) -- need to specify raw, unicode, etc?
+             | RevDBMetaVar(int metavar)
 	     -- other literals? bools?
 
 	     -- the following expression can appear in assignment context

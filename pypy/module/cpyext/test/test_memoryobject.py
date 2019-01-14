@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
-from pypy.module.cpyext.pyobject import make_ref, from_ref
+from pypy.module.cpyext.pyobject import make_ref, from_ref, decref
 from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
@@ -31,8 +31,8 @@ class TestMemoryViewObject(BaseApiTest):
             w_f = space.wrap(f)
             assert space.eq_w(space.getattr(w_mv, w_f),
                               space.getattr(w_memoryview, w_f))
-        api.Py_DecRef(ref)
-        api.Py_DecRef(w_memoryview)
+        decref(space, ref)
+        decref(space, c_memoryview)
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):

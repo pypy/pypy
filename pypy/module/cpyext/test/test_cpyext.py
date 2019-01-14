@@ -381,6 +381,11 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
     def test_export_function(self):
         import sys
+        if '__pypy__' in sys.modules:
+            from cpyext import is_cpyext_function
+        else:
+            import inspect
+            is_cpyext_function = inspect.isbuiltin
         init = """
         if (Py_IsInitialized())
             Py_InitModule("foo", methods);
@@ -399,6 +404,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert 'return_pi' in dir(module)
         assert module.return_pi is not None
+        assert is_cpyext_function(module.return_pi)
         assert module.return_pi() == 3.14
         assert module.return_pi.__module__ == 'foo'
 
@@ -436,7 +442,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         {
             if (self)
             {
-                Py_INCREF(self);
+                Py_IncRef(self);
                 return self;
             }
             else
@@ -630,7 +636,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_ssize_t refcnt_after;
             Py_INCREF(true_obj);
             Py_INCREF(true_obj);
-            PyBool_Check(true_obj);
+            if (!PyBool_Check(true_obj))
+                Py_RETURN_NONE;
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(true_obj);
             Py_DECREF(true_obj);
@@ -777,14 +784,14 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         # Set an exception and return NULL
         raises(TypeError, module.set, None)
 
-        # clear any exception and return a value 
+        # clear any exception and return a value
         assert module.clear(1) == 1
 
         # Set an exception, but return non-NULL
         expected = 'An exception was set, but function returned a value'
         exc = raises(SystemError, module.set, 1)
         assert exc.value[0] == expected
-        
+
 
         # Clear the exception and return a value, all is OK
         assert module.clear(1) == 1

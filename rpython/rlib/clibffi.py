@@ -4,6 +4,7 @@ from __future__ import with_statement
 
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, is_emulated_long
@@ -296,7 +297,8 @@ elif _MSVC:
     def get_libc_name():
         return rwin32.GetModuleFileName(get_libc_handle())
 
-    assert "msvcr" in get_libc_name().lower(), \
+    libc_name = get_libc_name().lower()
+    assert "msvcr" in libc_name or 'ucrtbase' in libc_name, \
            "Suspect msvcrt library: %s" % (get_libc_name(),)
 elif _MINGW:
     def get_libc_name():
@@ -419,6 +421,7 @@ def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
                   (what the real callback is for example), casted to VOIDP
     """
     userdata = rffi.cast(USERDATA_P, ll_userdata)
+    llop.revdb_do_next_call(lltype.Void)
     userdata.callback(ll_args, ll_res, userdata)
 
 def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):

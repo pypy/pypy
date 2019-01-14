@@ -66,7 +66,7 @@ def ll_call_lookup_function(d, key, hash, flag):
 
 def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
                 ll_fasthash_function=None, ll_hash_function=None,
-                ll_eq_function=None, method_cache={},
+                ll_eq_function=None, method_cache={}, simple_hash_eq=False,
                 dummykeyobj=None, dummyvalueobj=None, rtyper=None):
     # get the actual DICT type. if DICT is None, it's created, otherwise
     # forward reference is becoming DICT
@@ -114,11 +114,14 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
     # * the value
     entryfields.append(("value", DICTVALUE))
 
-    if ll_fasthash_function is None:
+    if simple_hash_eq:
+        assert get_custom_eq_hash is not None
+        entrymeths['entry_hash'] = ll_hash_custom_fast
+    elif ll_fasthash_function is None:
         entryfields.append(("f_hash", lltype.Signed))
-        entrymeths['hash'] = ll_hash_from_cache
+        entrymeths['entry_hash'] = ll_hash_from_cache
     else:
-        entrymeths['hash'] = ll_hash_recomputed
+        entrymeths['entry_hash'] = ll_hash_recomputed
         entrymeths['fasthashfn'] = ll_fasthash_function
 
     # Build the lltype data structures
@@ -140,7 +143,7 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
             'keyeq':          ll_keyeq_custom,
             'r_rdict_eqfn':   r_rdict_eqfn,
             'r_rdict_hashfn': r_rdict_hashfn,
-            'paranoia':       True,
+            'paranoia':       not simple_hash_eq,
             }
     else:
         # figure out which functions must be used to hash and compare
@@ -167,13 +170,14 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
 class OrderedDictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None, force_non_null=False):
+                 custom_eq_hash=None, force_non_null=False, simple_hash_eq=False):
         #assert not force_non_null
         self.rtyper = rtyper
         self.finalized = False
         self.DICT = lltype.GcForwardReference()
         self.lowleveltype = lltype.Ptr(self.DICT)
         self.custom_eq_hash = custom_eq_hash is not None
+        self.simple_hash_eq = simple_hash_eq
         if not isinstance(key_repr, rmodel.Repr):  # not computed yet, done by setup()
             assert callable(key_repr)
             self._key_repr_computer = key_repr
@@ -211,6 +215,7 @@ class OrderedDictRepr(AbstractDictRepr):
                 self.r_rdict_eqfn, self.r_rdict_hashfn = (
                     self._custom_eq_hash_repr())
                 kwd['get_custom_eq_hash'] = self._custom_eq_hash_repr
+                kwd['simple_hash_eq'] = self.simple_hash_eq
             else:
                 kwd['ll_hash_function'] = self.key_repr.get_ll_hash_function()
                 kwd['ll_eq_function'] = self.key_repr.get_ll_eq_function()
@@ -278,8 +283,12 @@ class OrderedDictRepr(AbstractDictRepr):
         return DictIteratorRepr(self, *variant)
 
     def rtype_method_get(self, hop):
-        v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
-                                                 self.value_repr)
+        if hop.nb_args == 3:
+            v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
+                                                     self.value_repr)
+        else:
+            v_dict, v_key = hop.inputargs(self, self.key_repr)
+            v_default = hop.inputconst(self.value_repr, None)
         hop.exception_cannot_occur()
         v_res = hop.gendirectcall(ll_dict_get, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)
@@ -600,14 +609,20 @@ def ll_mark_deleted_in_value(entries, i):
     dummy = ENTRIES.dummy_obj.ll_dummy_value
     entries[i].value = dummy
 
-@signature(types.any(), types.int(), returns=types.any())
-def ll_hash_from_cache(entries, i):
+@signature(types.any(), types.any(), types.int(), returns=types.any())
+def ll_hash_from_cache(entries, d, i):
     return entries[i].f_hash
 
-@signature(types.any(), types.int(), returns=types.any())
-def ll_hash_recomputed(entries, i):
+@signature(types.any(), types.any(), types.int(), returns=types.any())
+def ll_hash_recomputed(entries, d, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
+
+@signature(types.any(), types.any(), types.int(), returns=types.any())
+def ll_hash_custom_fast(entries, d, i):
+    DICT = lltype.typeOf(d).TO
+    key = entries[i].key
+    return objectmodel.hlinvoke(DICT.r_rdict_hashfn, d.fnkeyhash, key)
 
 def ll_keyhash_custom(d, key):
     DICT = lltype.typeOf(d).TO
@@ -962,22 +977,22 @@ def ll_dict_reindex(d, new_size):
     if fun == FUNC_BYTE:
         while i < ibound:
             if entries.valid(i):
-                ll_dict_store_clean(d, entries.hash(i), i, TYPE_BYTE)
+                ll_dict_store_clean(d, entries.entry_hash(d, i), i, TYPE_BYTE)
             i += 1
     elif fun == FUNC_SHORT:
         while i < ibound:
             if entries.valid(i):
-                ll_dict_store_clean(d, entries.hash(i), i, TYPE_SHORT)
+                ll_dict_store_clean(d, entries.entry_hash(d, i), i, TYPE_SHORT)
             i += 1
     elif IS_64BIT and fun == FUNC_INT:
         while i < ibound:
             if entries.valid(i):
-                ll_dict_store_clean(d, entries.hash(i), i, TYPE_INT)
+                ll_dict_store_clean(d, entries.entry_hash(d, i), i, TYPE_INT)
             i += 1
     elif fun == FUNC_LONG:
         while i < ibound:
             if entries.valid(i):
-                ll_dict_store_clean(d, entries.hash(i), i, TYPE_LONG)
+                ll_dict_store_clean(d, entries.entry_hash(d, i), i, TYPE_LONG)
             i += 1
     else:
         assert False
@@ -1015,7 +1030,7 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
         checkingkey = entries[index - VALID_OFFSET].key
         if direct_compare and checkingkey == key:
             return index - VALID_OFFSET   # found the entry
-        if d.keyeq is not None and entries.hash(index - VALID_OFFSET) == hash:
+        if d.keyeq is not None and entries.entry_hash(d, index - VALID_OFFSET) == hash:
             # correct hash, maybe the key is e.g. a different pointer to
             # an equal object
             found = d.keyeq(checkingkey, key)
@@ -1056,7 +1071,7 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
             checkingkey = entries[index - VALID_OFFSET].key
             if direct_compare and checkingkey == key:
                 return index - VALID_OFFSET   # found the entry
-            if d.keyeq is not None and entries.hash(index - VALID_OFFSET) == hash:
+            if d.keyeq is not None and entries.entry_hash(d, index - VALID_OFFSET) == hash:
                 # correct hash, maybe the key is e.g. a different pointer to
                 # an equal object
                 found = d.keyeq(checkingkey, key)
@@ -1305,14 +1320,14 @@ ll_dict_clear.oopspec = 'odict.clear(d)'
 def ll_dict_update(dic1, dic2):
     if dic1 == dic2:
         return
-    ll_ensure_indexes(dic2)    # needed for entries.hash() below
+    ll_ensure_indexes(dic2)    # needed for entries.entry_hash() below
     ll_prepare_dict_update(dic1, dic2.num_live_items)
     i = 0
     while i < dic2.num_ever_used_items:
         entries = dic2.entries
         if entries.valid(i):
             entry = entries[i]
-            hash = entries.hash(i)
+            hash = entries.entry_hash(dic2, i)
             key = entry.key
             value = entry.value
             index = dic1.lookup_function(dic1, key, hash, FLAG_STORE)
@@ -1413,7 +1428,7 @@ def ll_dict_popitem(ELEM, dic):
     r = lltype.malloc(ELEM.TO)
     r.item0 = recast(ELEM.TO.item0, entry.key)
     r.item1 = recast(ELEM.TO.item1, entry.value)
-    _ll_dict_del(dic, dic.entries.hash(i), i)
+    _ll_dict_del(dic, dic.entries.entry_hash(dic, i), i)
     return r
 
 def ll_dict_pop(dic, key):

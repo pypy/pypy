@@ -330,6 +330,13 @@ class TestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 77
 
+    def test_r_dict_fast_functions(self):
+        def fn():
+            d1 = r_dict(strange_key_eq, strange_key_hash, simple_hash_eq=True)
+            return play_with_r_dict(d1)
+        res = self.interpret(fn, [])
+        assert res
+
     def test_prepare_dict_update(self):
         def g(n):
             d = {}
@@ -476,12 +483,6 @@ def test_enforceargs_int_float_promotion():
         return x
     # in RPython there is an implicit int->float promotion
     assert f(42) == 42
-
-def test_enforceargs_None_string():
-    @enforceargs(str, unicode)
-    def f(a, b):
-        return a, b
-    assert f(None, None) == (None, None)
 
 def test_enforceargs_complex_types():
     @enforceargs([int], {str: int})

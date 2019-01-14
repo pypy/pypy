@@ -606,7 +606,7 @@ class _SSLSocket(W_Root):
         This will return the certificate even if it wasn't validated.
         """
         if not self.handshake_done:
-            raise oefmt(space.w_ValueError, "hanshake not done yet")
+            raise oefmt(space.w_ValueError, "handshake not done yet")
         if not self.peer_cert:
             return space.w_None
 
@@ -1316,8 +1316,9 @@ class _SSLContext(W_Root):
         if not ctx:
             raise ssl_error(space, "failed to allocate SSL context")
 
-        rgc.add_memory_pressure(10 * 1024 * 1024)
         self = space.allocate_instance(_SSLContext, w_subtype)
+        assert isinstance(self, _SSLContext)
+        rgc.add_memory_pressure(10 * 1024 * 1024, self)
         self.ctx = ctx
         self.check_hostname = False
         self.register_finalizer(space)

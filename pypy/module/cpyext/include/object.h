@@ -47,7 +47,12 @@ we have it for compatibility with CPython.
 #define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
 #endif
 
-#define Py_CLEAR(op)				\
+PyAPI_FUNC(void) Py_IncRef(PyObject *);
+PyAPI_FUNC(void) Py_DecRef(PyObject *);
+extern void *_pypy_rawrefcount_w_marker_deallocating;
+PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
+
+#define Py_CLEAR(op)                        \
         do {                            	\
                 if (op) {			\
                         PyObject *_py_tmp = (PyObject *)(op);	\
@@ -59,6 +64,10 @@ we have it for compatibility with CPython.
 #define Py_REFCNT(ob)		(((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
+
+#define _Py_NewReference(op)                                        \
+    ( ((PyObject *)(op))->ob_refcnt = 1,                            \
+      ((PyObject *)(op))->ob_pypy_link = 0 )
 
 #define _Py_ForgetReference(ob) /* nothing */
 
@@ -219,6 +228,11 @@ manually remove this flag though!
 #define Py_TPFLAGS_BASE_EXC_SUBCLASS	(1L<<30)
 #define Py_TPFLAGS_TYPE_SUBCLASS	(1L<<31)
 
+/* These are conceptually the same as the flags above, but they are
+   PyPy-specific and are stored inside tp_pypy_flags */
+#define Py_TPPYPYFLAGS_FLOAT_SUBCLASS (1L<<0)
+
+    
 #define Py_TPFLAGS_DEFAULT_EXTERNAL ( \
                              Py_TPFLAGS_HAVE_GETCHARBUFFER | \
                              Py_TPFLAGS_HAVE_SEQUENCE_IN | \
@@ -238,6 +252,8 @@ manually remove this flag though!
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
 #define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
 
+#define _PyPy_Type_FastSubclass(t,f) (((t)->tp_pypy_flags & (f)) != 0)
+    
 #define PyType_Check(op) \
     PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
 #define PyType_CheckExact(op) (Py_TYPE(op) == &PyType_Type)
@@ -257,8 +273,16 @@ manually remove this flag though!
 	  ) & ~(SIZEOF_VOID_P - 1)		\
 	)
 
-#define PyObject_INIT PyObject_Init
-#define PyObject_INIT_VAR PyObject_InitVar
+        
+#define PyObject_INIT(op, typeobj) \
+    ( Py_TYPE(op) = (typeobj), ((PyObject *)(op))->ob_refcnt = 1,\
+      ((PyObject *)(op))->ob_pypy_link = 0, (op) )
+#define PyObject_INIT_VAR(op, typeobj, size) \
+    ( Py_SIZE(op) = (size), PyObject_INIT((op), (typeobj)) )
+
+
+PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
+
 /*
 #define PyObject_NEW(type, typeobj) \
 ( (type *) PyObject_Init( \
@@ -277,6 +301,9 @@ manually remove this flag though!
 #define PyObject_GC_New(type, typeobj) \
                 ( (type *) _PyObject_GC_New(typeobj) )
 
+#define PyObject_GC_NewVar(type, typeobj, n) \
+                ( (type *) _PyObject_GC_NewVar((typeobj), (n)) )
+ 
 /* A dummy PyGC_Head, just to please some tests. Don't use it! */
 typedef union _gc_head {
     char dummy;
@@ -306,7 +333,7 @@ typedef union _gc_head {
         } while (0)
 
 #define PyObject_TypeCheck(ob, tp) \
-    ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
+    (Py_TYPE(ob) == (tp) || PyType_IsSubtype(Py_TYPE(ob), (tp)))
 
 #define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
 #define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
@@ -343,18 +370,34 @@ PyAPI_FUNC(int) PyBuffer_FromContiguous(Py_buffer *view, void *buf,
 */
 
 
+/* on CPython, these are in objimpl.h */
+
+PyAPI_FUNC(void) PyObject_Free(void *);
+PyAPI_FUNC(void) PyObject_GC_Del(void *);
+
 #define PyObject_MALLOC         PyObject_Malloc
 #define PyObject_REALLOC        PyObject_Realloc
 #define PyObject_FREE           PyObject_Free
 #define PyObject_Del            PyObject_Free
 #define PyObject_DEL            PyObject_Free
 
+PyAPI_FUNC(PyObject *) _PyObject_New(PyTypeObject *);
+PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) _PyObject_GC_Malloc(size_t);
+PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
+PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
+
+PyAPI_FUNC(PyObject *) PyObject_Init(PyObject *, PyTypeObject *);
+PyAPI_FUNC(PyVarObject *) PyObject_InitVar(PyVarObject *,
+                                           PyTypeObject *, Py_ssize_t);
 
 
 /* PyPy internal ----------------------------------- */
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
 #define PyObject_Length PyObject_Size
 #define _PyObject_GC_Del PyObject_GC_Del
+PyAPI_FUNC(void) _PyPy_subtype_dealloc(PyObject *);
+PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);
 
 
 #ifdef __cplusplus
