@@ -128,8 +128,6 @@ class TestMisc(BaseTestPyPyC):
             jump(..., descr=...)
             """)
 
-        i83 = int_lt(0, i14)
-        guard_true(i83, descr=...)
     def test_range_iter_simple(self):
         def main(n):
             def g(n):

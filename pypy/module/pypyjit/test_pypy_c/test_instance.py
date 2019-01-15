@@ -195,7 +195,6 @@ class TestInstance(BaseTestPyPyC):
 
         """)
 
-        guard_nonnull_class(p58, ConstClass(W_IntObject), descr=...)
     def test_python_contains(self):
         def main():
             class A(object):
