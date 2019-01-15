@@ -191,8 +191,6 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match(self.RANGE_ITER_STEP_1)
-            i94 = int_lt(0, i9)
-            guard_true(i94, descr=...)
 
     def test_chain_of_guards(self):
         src = """
