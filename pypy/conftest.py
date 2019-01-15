@@ -5,6 +5,14 @@ from inspect import isclass
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
 
+try:
+    from hypothesis import settings
+except ImportError:
+    pass
+else:
+    settings.register_profile('default', deadline=None)
+    settings.load_profile('default')
+
 # PyPy's command line extra options (these are added
 # to py.test's standard options)
 #
