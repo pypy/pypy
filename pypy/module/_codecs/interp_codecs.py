@@ -1009,7 +1009,7 @@ def unicode_internal_decode(space, w_string, errors="strict"):
         string, errors,
         final, state.decode_error_handler)
     return space.newtuple([space.newutf8(result, lgt),
-                           space.newint(lgt)])
+                           space.newint(len(string))])
 
 @unwrap_spec(errors='text_or_none')
 def unicode_internal_encode(space, w_uni, errors="strict"):
