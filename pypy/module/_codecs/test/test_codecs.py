@@ -971,12 +971,27 @@ class AppTestPartialEvaluation:
                                         ('utf-16-be', b'\xdc\x80'),
                                         ('utf-32-le', b'\x80\xdc\x00\x00'),
                                         ('utf-32-be', b'\x00\x00\xdc\x80')]:
-            before, after = "[", "]"
-            before_sequence = before.encode(encoding)
-            after_sequence = after.encode(encoding)
-            test_string = before + "\uDC80" + after
-            test_sequence = before_sequence + ill_surrogate + after_sequence
-            raises(UnicodeDecodeError, test_sequence.decode, encoding)
+            ill_formed_sequence_replace = "\ufffd"
+            if encoding == 'utf-8':
+                ill_formed_sequence_replace *= 3
+            bom = "".encode(encoding)
+            for before, after in [("\U00010fff", "A"), ("[", "]"),
+                              ("A", "\U00010fff")]:
+                before_sequence = before.encode(encoding)[len(bom):]
+                after_sequence = after.encode(encoding)[len(bom):]
+                test_string = before + "\uDC80" + after
+                test_sequence = (bom + before_sequence + ill_surrogate + after_sequence)
+                raises(UnicodeDecodeError, test_sequence.decode, encoding)
+                assert test_string.encode(encoding, 'surrogatepass') == test_sequence
+                assert test_sequence.decode(encoding, 'surrogatepass') == test_string
+                assert test_sequence.decode(encoding, 'ignore') == before + after
+                assert test_sequence.decode(encoding, 'replace') == (before + 
+                                                ill_formed_sequence_replace + after), str(
+                (encoding, test_sequence, before + ill_formed_sequence_replace + after))
+                backslashreplace = ''.join('\\x%02x' % b for b in ill_surrogate)
+                assert test_sequence.decode(encoding, "backslashreplace") == (before +
+                                                             backslashreplace + after)
+                
 
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == b'xxx'

@@ -302,9 +302,9 @@ def backslashreplace_errors(space, w_exc):
         builder = StringBuilder()
         pos = start
         while pos < end:
-            oc = rutf8.codepoint_at_pos(obj, pos)
+            oc = ord(obj[pos])
             raw_unicode_escape_helper(builder, oc)
-            pos = rutf8.next_codepoint_pos(obj, pos)
+            pos += 1 
         return space.newtuple([space.newtext(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
