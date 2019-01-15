@@ -407,6 +407,7 @@ class Test__ffi(BaseTestPyPyC):
         i138 = call_i(ConstClass(_ll_1_raw_malloc_varsize_zero__Signed), 6, descr=...)
         check_memory_error(i138)
         setfield_gc(p132, i138, descr=...)
+        setfield_gc(p132, 0, descr=...)
         setfield_gc(p132, ConstPtr(ptr139), descr=...)
         setfield_gc(p132, -1, descr=...)
         setfield_gc(p0, p133, descr=...)

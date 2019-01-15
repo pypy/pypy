@@ -3742,6 +3742,64 @@ def test_from_buffer_require_writable():
     p1[0] = b"g"
     assert ba == b"goo"
 
+def test_from_buffer_types():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BIntA = new_array_type(BIntP, None)
+    lst = [-12345678, 87654321, 489148]
+    bytestring = buffer(newp(BIntA, lst))[:] + b'XYZ'
+    #
+    p1 = from_buffer(BIntA, bytestring)      # int[]
+    assert typeof(p1) is BIntA
+    assert len(p1) == 3
+    assert p1[0] == lst[0]
+    assert p1[1] == lst[1]
+    assert p1[2] == lst[2]
+    py.test.raises(IndexError, "p1[3]")
+    py.test.raises(IndexError, "p1[-1]")
+    #
+    py.test.raises(TypeError, from_buffer, BInt, bytestring)
+    py.test.raises(TypeError, from_buffer, BIntP, bytestring)
+    #
+    BIntA2 = new_array_type(BIntP, 2)
+    p2 = from_buffer(BIntA2, bytestring)     # int[2]
+    assert typeof(p2) is BIntA2
+    assert len(p2) == 2
+    assert p2[0] == lst[0]
+    assert p2[1] == lst[1]
+    py.test.raises(IndexError, "p2[2]")
+    py.test.raises(IndexError, "p2[-1]")
+    assert p2 == p1
+    #
+    BIntA4 = new_array_type(BIntP, 4)        # int[4]: too big
+    py.test.raises(ValueError, from_buffer, BIntA4, bytestring)
+    #
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('a1', BInt, -1),
+                                       ('a2', BInt, -1)])
+    BStructP = new_pointer_type(BStruct)
+    BStructA = new_array_type(BStructP, None)
+    p1 = from_buffer(BStructA, bytestring)   # struct[]
+    assert len(p1) == 1
+    assert typeof(p1) is BStructA
+    assert p1[0].a1 == lst[0]
+    assert p1[0].a2 == lst[1]
+    py.test.raises(IndexError, "p1[1]")
+    #
+    BEmptyStruct = new_struct_type("empty")
+    complete_struct_or_union(BEmptyStruct, [], Ellipsis, 0)
+    assert sizeof(BEmptyStruct) == 0
+    BEmptyStructP = new_pointer_type(BEmptyStruct)
+    BEmptyStructA = new_array_type(BEmptyStructP, None)
+    py.test.raises(ZeroDivisionError, from_buffer,      # empty[]
+                                      BEmptyStructA, bytestring)
+    #
+    BEmptyStructA5 = new_array_type(BEmptyStructP, 5)
+    p1 = from_buffer(BEmptyStructA5, bytestring)   # struct empty[5]
+    assert typeof(p1) is BEmptyStructA5
+    assert len(p1) == 5
+    assert cast(BIntP, p1) == from_buffer(BIntA, bytestring)
+
 def test_memmove():
     Short = new_primitive_type("short")
     ShortA = new_array_type(new_pointer_type(Short), None)

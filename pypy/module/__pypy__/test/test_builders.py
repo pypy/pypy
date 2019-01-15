@@ -13,7 +13,6 @@ class AppTestBuilders(object):
         assert b.build() == s
         b.append("123")
         assert b.build() == s + "123"
-        assert type(b.build()) is str
 
     def test_preallocate(self):
         from __pypy__.builders import StringBuilder
@@ -22,7 +21,6 @@ class AppTestBuilders(object):
         b.append("123")
         s = b.build()
         assert s == "abc123"
-        assert type(s) is str
 
     def test_append_slice(self):
         from __pypy__.builders import StringBuilder
@@ -45,8 +43,3 @@ class AppTestBuilders(object):
         assert len(b) == 16
         assert s == b"abc123you and me"
         assert b.build() == s
-
-    def test_encode(self):
-        from __pypy__.builders import UnicodeBuilder
-        b = UnicodeBuilder()
-        raises(UnicodeDecodeError, b.append, b'\xc0')
