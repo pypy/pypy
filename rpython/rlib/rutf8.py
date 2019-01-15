@@ -721,6 +721,11 @@ class Utf8StringBuilder(object):
         self._lgt += length
 
     @always_inline
+    def append_multiple_char(self, utf8, times):
+        self._s.append(utf8 * times)
+        self._lgt += times
+
+    @always_inline
     def build(self):
         return self._s.build()
 

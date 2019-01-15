@@ -706,7 +706,7 @@ class SomeStringBuilder(SomeObject):
         return s_None
 
     def method_append_multiple_char(self, s_char, s_times):
-        assert isinstance(s_char, SomeChar)
+        assert isinstance(s_char, (SomeString, SomeChar))
         assert isinstance(s_times, SomeInteger)
         return s_None
 

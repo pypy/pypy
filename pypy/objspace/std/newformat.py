@@ -455,11 +455,16 @@ def make_formatting_class(for_unicode):
             i = 0
             got_align = True
             got_fill_char = False
-            if length - i >= 2 and self._is_alignment(spec[i + 1]):
-                self._align = spec[i + 1]
-                self._fill_char = spec[i]
+            # The single character could be utf8-encoded unicode
+            if self.is_unicode:
+                after_i = rutf8.next_codepoint_pos(spec, i)
+            else:
+                after_i = i + 1
+            if length - i >= 2 and self._is_alignment(spec[after_i]):
+                self._align = spec[after_i]
+                self._fill_char = spec[i:after_i]
                 got_fill_char = True
-                i += 2
+                i = after_i + 1
             elif length - i >= 1 and self._is_alignment(spec[i]):
                 self._align = spec[i]
                 i += 1
@@ -552,7 +557,10 @@ def make_formatting_class(for_unicode):
             return builder.build()
 
         def _builder(self):
-            return rstring.StringBuilder()
+            if self.is_unicode:
+                return rutf8.Utf8StringBuilder()
+            else:
+                return rstring.StringBuilder()
 
         def _unknown_presentation(self, tp):
             raise oefmt(self.space.w_ValueError,

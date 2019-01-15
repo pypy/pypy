@@ -1130,6 +1130,10 @@ class AppTestUnicodeString:
                 return u'\u1234'
         '%s' % X()
 
+    def test_format_repeat(self):
+        assert format(u"abc", u"z<5") == u"abczz"
+        assert format(u"abc", u"\u2007<5") == u"abc\u2007\u2007"
+
     def test_formatting_char(self):
         for num in range(0x80,0x100):
             uchar = unichr(num)
