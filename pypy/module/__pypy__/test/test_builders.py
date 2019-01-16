@@ -4,33 +4,32 @@ class AppTestBuilders(object):
     def test_simple(self):
         from __pypy__.builders import StringBuilder
         b = StringBuilder()
-        b.append("abc")
-        b.append("123")
-        b.append("1")
+        b.append(u"abc")
+        b.append(u"123")
+        b.append(u"1")
         s = b.build()
-        assert s == "abc1231"
-        assert type(s) is str
+        assert s == u"abc1231"
         assert b.build() == s
-        b.append("123")
-        assert b.build() == s + "123"
+        b.append(u"123")
+        assert b.build() == s + u"123"
 
     def test_preallocate(self):
         from __pypy__.builders import StringBuilder
         b = StringBuilder(10)
-        b.append("abc")
-        b.append("123")
+        b.append(u"abc")
+        b.append(u"123")
         s = b.build()
-        assert s == "abc123"
+        assert s == u"abc123"
 
     def test_append_slice(self):
         from __pypy__.builders import StringBuilder
         b = StringBuilder()
-        b.append_slice("abcdefgh", 2, 5)
-        raises(ValueError, b.append_slice, "1", 2, 1)
+        b.append_slice(u"abcdefgh", 2, 5)
+        raises(ValueError, b.append_slice, u"1", 2, 1)
         s = b.build()
-        assert s == "cde"
-        b.append_slice("abc", 1, 2)
-        assert b.build() == "cdeb"
+        assert s == u"cde"
+        b.append_slice(u"abc", 1, 2)
+        assert b.build() == u"cdeb"
 
     def test_stringbuilder(self):
         from __pypy__.builders import BytesBuilder
