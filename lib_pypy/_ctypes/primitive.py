@@ -410,6 +410,6 @@ class _SimpleCData(_CData, metaclass=SimpleType):
                                             id(self))
 
     def __bool__(self):
-        return self._buffer[0] not in (0, '\x00')
+        return self._buffer[0] not in (0, b'\x00')
 
 from _ctypes.function import CFuncPtr
