@@ -1,4 +1,4 @@
-from rpython.rlib.rutf8 import get_utf8_length
+from rpython.rlib.rutf8 import get_utf8_length, next_codepoint_pos
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
@@ -11,8 +11,16 @@ from pypy.module._io.interp_iobase import convert_size
 class UnicodeIO(object):
     def __init__(self, data=None, pos=0):
         if data is None:
-            data = []
-        self.data = data
+            data = ''
+        self.data = []
+        self.pos = 0
+        # break the data into unicode codepoints
+        _pos = 0
+        while _pos < pos:
+            _pos = next_codepoint_pos(data, _pos)
+            if _pos >= len(data):
+                break
+        self.write(data[_pos:])
         self.pos = pos
 
     def resize(self, newlength):
@@ -85,12 +93,14 @@ class UnicodeIO(object):
         return result
 
     def write(self, string):
-        length = len(string)
+        length = get_utf8_length(string)
         if self.pos + length > len(self.data):
             self.resize(self.pos + length)
-
+        pos = 0
         for i in range(length):
-            self.data[self.pos + i] = string[i]
+            nextpos = next_codepoint_pos(string, pos)
+            self.data[self.pos + i] = string[pos:nextpos]
+            pos = nextpos
         self.pos += length
 
     def seek(self, pos):
@@ -186,7 +196,7 @@ class W_StringIO(W_TextIOBase):
         if pos < 0:
             raise oefmt(space.w_ValueError,
                         "position value cannot be negative")
-        self.buf = UnicodeIO(list(initval), pos)
+        self.buf = UnicodeIO(initval, pos)
         if not space.is_w(w_dict, space.w_None):
             if not space.isinstance_w(w_dict, space.w_dict):
                 raise oefmt(

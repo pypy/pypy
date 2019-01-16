@@ -42,6 +42,17 @@ class AppTestStringIO:
         assert buf[5:] == sio.read(900)
         assert u"" == sio.read()
 
+    def test_read_binary(self):
+        # data is from a test_imghdr test for a GIF file
+        import io
+        buf_in = (u'\x47\x49\x46\x38\x39\x61\x10\x00\x10\x00\xf6\x64\x00\xeb'
+                  u'\xbb\x18\xeb\xbe\x21\xf3\xc1\x1a\xfa\xc7\x19\xfd\xcb\x1b'
+                  u'\xff\xcc\x1c\xeb')
+        assert len(buf_in) == 32
+        sio = io.StringIO(buf_in)
+        buf_out = sio.read(32)
+        assert buf_in == buf_out
+
     def test_readline(self):
         import io
         sio = io.StringIO(u'123\n456')
