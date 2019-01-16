@@ -97,7 +97,6 @@ def _get_msvc_env(vsver, x64flag):
             return None
 
         stdout = stdout.replace("\r\n", "\n")
-        log.msg('stdout\n%s' %(stdout))
         vcdict = {}
         for line in stdout.split("\n"):
             if '=' not in line:
@@ -108,6 +107,8 @@ def _get_msvc_env(vsver, x64flag):
     for key, value in vcdict.items():
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
             env[key.upper()] = value
+    if 'PATH' not in env:
+        log.msg('Did not find "PATH" in stdout\n%s' %(stdout))
     log.msg("Updated environment with vsver %d, using x64 %s" % (vsver, x64flag,))
     return env
 
