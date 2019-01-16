@@ -74,12 +74,11 @@ class gdbm(object):
             self.__check_closed()
             key = _checkstr(key)
             return lib.pygdbm_exists(self.__ll_dbm, key, len(key))
-    has_key = __contains__
 
     def get(self, key, default=None):
         with _lock:
             self.__check_closed()
-            key = _checkstr(key)        
+            key = _checkstr(key)
             drec = lib.pygdbm_fetch(self.__ll_dbm, key, len(key))
             if not drec.dptr:
                 return default
