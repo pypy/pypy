@@ -949,11 +949,11 @@ def str_decode_utf_7(s, errors, final=False,
     # end of string
     final_length = result.getlength()
     if inShift and final: # in shift sequence, no more to follow
-        # if we're in an inconsistent state, that's an error
         inShift = 0
         if (surrogate or
             base64bits >= 6 or
             (base64bits > 0 and base64buffer != 0)):
+            # if we're in an inconsistent state, that's an error
             msg = "unterminated shift sequence"
             r, pos, rettype = errorhandler(errors, 'utf7', msg, s, shiftOutStartPos, pos)
             reslen = rutf8.check_utf8(r, True)
@@ -961,7 +961,7 @@ def str_decode_utf_7(s, errors, final=False,
             result.append(r)
             final_length = result.getlength()
     elif inShift:
-        pos = startinpos
+        size = startinpos
         final_length = shiftOutStartPos # back off output
 
     assert final_length >= 0

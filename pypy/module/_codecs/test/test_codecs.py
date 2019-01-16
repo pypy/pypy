@@ -1029,6 +1029,11 @@ class AppTestPartialEvaluation:
     def test_utf7_surrogate(self):
         assert b'+3ADYAA-'.decode('utf-7') == u'\udc00\ud800'
 
+    def test_utf_7_decode(self):
+        from _codecs import utf_7_decode
+        res = utf_7_decode(b'+')
+        assert res == (u'', 0)
+
     def test_utf7_errors(self):
         import codecs
         tests = [

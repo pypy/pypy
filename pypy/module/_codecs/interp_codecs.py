@@ -686,7 +686,7 @@ def make_decoder_wrapper(name):
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
         result, length, pos = func(string, errors, final, state.decode_error_handler)
-        # must return bytes, len_of_original_string
+        # must return bytes, pos
         return space.newtuple([space.newutf8(result, length), space.newint(pos)])
     wrap_decoder.__name__ = func.__name__
     globals()[name] = wrap_decoder
