@@ -83,12 +83,14 @@ def _get_msvc_env(vsver, x64flag):
                                  stderr=subprocess.PIPE)
 
             stdout, stderr = popen.communicate()
-            if popen.wait() != 0:
+            if popen.wait() != 0 or stdout[:5].lower() == 'error':
+                log.msg('Running "%s" errored: \n\nstdout:\n%s\n\nstderr:\n%s' % (
+                    vcvars, stdout.split()[0], stderr))
                 return None
-            if stdout[:5].lower() == 'error':
-                log.msg('Running "%s" errored: %s' %(vcvars, stdout.split()[0]))
-                return None
-        except:
+            else:
+                log.msg('Running "%s" succeeded' %(vcvars,))
+        except Exception as e:
+            log.msg('Running "%s" failed: "%s"', (vcvars, str(e)))
             return None
 
         stdout = stdout.replace("\r\n", "\n")
@@ -189,8 +191,13 @@ class MsvcPlatform(Platform):
             self.cc = cc
 
         # detect version of current compiler
-        returncode, stdout, stderr = _run_subprocess(self.cc, [],
+        try:
+            returncode, stdout, stderr = _run_subprocess(self.cc, [],
                                                      env=self.c_environ)
+        except EnvironmentError:
+            log.msg('Could not run %s using PATH=\n%s' %(self.cc,
+                '\n'.join(self.c_environ['PATH'].split(';'))))
+            raise
         r = re.search(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
         if r is not None:
             self.version = int(''.join(r.groups())) / 10 - 60
