@@ -3031,6 +3031,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_dealloc_pending = self.AddressStack()
             self.rrc_tp_traverse = tp_traverse
             self.rrc_pyobj_list = self._pygchdr(pyobj_list)
+            self.rrc_pyobj_old_list = lltype.malloc(
+                self.PYOBJ_GC_HDR, flavor='raw', immortal=True)
             self.rrc_gc_as_pyobj = gc_as_pyobj
             self.rrc_pyobj_as_gc = pyobj_as_gc
             self.rrc_enabled = True
@@ -3203,14 +3205,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
     _rrc_free._always_inline_ = True
 
     def rrc_major_collection_trace(self):
+        self._rrc_collect_rawrefcount_roots()
+        self._rrc_mark_rawrefcount()
         self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
 
     def _rrc_major_trace(self, pyobject, ignore):
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        #
-        rc = self._pyobj(pyobject).c_ob_refcnt
-        if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT:
+        rc = self.rrc_pyobj_as_gc(self._pyobj(pyobject)).c_gc_refs
+        if rc == 0:
             pass     # the corresponding object may die
         else:
             # force the corresponding object to be alive
@@ -3220,6 +3221,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.visit_all_objects()
 
     def rrc_major_collection_free(self):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        #
         ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 2")
         length_estimate = self.rrc_p_dict.length()
         self.rrc_p_dict.delete()
@@ -3238,6 +3242,20 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                                             no_o_dict)
         self.rrc_o_list_old.delete()
         self.rrc_o_list_old = new_o_list
+        # free all dead refcounted objects, in unreachable cycles
+        pygchdr = self.rrc_pyobj_old_list.c_gc_next
+        while pygchdr <> self.rrc_pyobj_old_list:
+            assert pygchdr.c_gc_refs == 0
+            pyobj = self.rrc_gc_as_pyobj(pygchdr)
+            if pyobj.c_ob_refcnt >= REFCNT_FROM_PYPY_LIGHT:
+                lltype.free(pyobj, flavor='raw')
+            elif pyobj.c_ob_refcnt >= REFCNT_FROM_PYPY:
+                pyobject = llmemory.cast_ptr_to_adr(pyobj)
+                pyobj.c_ob_refcnt = 1
+                self.rrc_dealloc_pending.append(pyobject)
+            else:
+                lltype.free(pyobj, flavor='raw')
+            pygchdr = pygchdr.c_gc_next
 
     def _rrc_major_free(self, pyobject, surviving_list, surviving_dict):
         # The pyobject survives if the corresponding obj survives.
@@ -3251,7 +3269,110 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if surviving_dict:
                 surviving_dict.insertclean(obj, pyobject)
         else:
-            self._rrc_free(pyobject)
+            # The pyobject is freed later, if it is in old list, so
+            # just unlink here.
+            self._pyobj(pyobject).c_ob_pypy_link = 0
+
+    def _rrc_collect_rawrefcount_roots(self):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        #
+        # Initialize the cyclic refcount with the real refcount.
+        pygchdr = self.rrc_pyobj_list.c_gc_next
+        while pygchdr <> self.rrc_pyobj_list:
+            pygchdr.c_gc_refs = self.rrc_gc_as_pyobj(pygchdr).c_ob_refcnt
+            if pygchdr.c_gc_refs >= REFCNT_FROM_PYPY_LIGHT:
+                pygchdr.c_gc_refs -= REFCNT_FROM_PYPY_LIGHT
+            elif pygchdr.c_gc_refs >= REFCNT_FROM_PYPY:
+                pygchdr.c_gc_refs -= REFCNT_FROM_PYPY
+            pygchdr = pygchdr.c_gc_next
+
+        # For every object in this set, if it is marked, add 1 as a real
+        # refcount
+        self.rrc_p_list_old.foreach(self._rrc_obj_fix_refcnt, None)
+
+        # Subtract all internal refcounts from the cyclic refcount
+        # of rawrefcounted objects
+        pygchdr = self.rrc_pyobj_list.c_gc_next
+        while pygchdr <> self.rrc_pyobj_list:
+            pyobj = self.rrc_gc_as_pyobj(pygchdr)
+            self._rrc_visit_pyobj = self._rrc_subtract_internal_refcnt
+            self._rrc_traverse(pyobj)
+            pygchdr = pygchdr.c_gc_next
+
+        # now all rawrefcounted roots or live border objects have a
+        # refcount > 0
+
+    def _rrc_subtract_internal_refcnt(self, pyobj):
+        pygchdr = self.rrc_pyobj_as_gc(pyobj)
+        pygchdr.c_gc_refs -= 1
+
+    def _rrc_obj_fix_refcnt(self, pyobject, ignore):
+        intobj = self._pyobj(pyobject).c_ob_pypy_link
+        obj = llmemory.cast_int_to_adr(intobj)
+        gchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
+        if self.header(obj).tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
+            gchdr.c_gc_refs += 1
+
+    def _rrc_mark_rawrefcount(self):
+        if self.rrc_pyobj_list.c_gc_next == self.rrc_pyobj_list:
+            self.rrc_pyobj_old_list.c_gc_next = self.rrc_pyobj_old_list
+            self.rrc_pyobj_old_list.c_gc_prev = self.rrc_pyobj_old_list
+            return
+        # as long as new objects with cyclic a refcount > 0 or alive border
+        # objects are found, increment the refcount of all referenced objects
+        # of those newly found objects
+        self.rrc_pyobj_old_list.c_gc_next = self.rrc_pyobj_list.c_gc_next
+        self.rrc_pyobj_old_list.c_gc_prev = self.rrc_pyobj_list.c_gc_prev
+        self.rrc_pyobj_old_list.c_gc_next.c_gc_prev = self.rrc_pyobj_old_list
+        self.rrc_pyobj_old_list.c_gc_prev.c_gc_next = self.rrc_pyobj_old_list
+        self.rrc_pyobj_list.c_gc_next = self.rrc_pyobj_list
+        self.rrc_pyobj_list.c_gc_prev = self.rrc_pyobj_list
+        found_alive = True
+        #
+        while found_alive:
+            found_alive = False
+            gchdr = self.rrc_pyobj_old_list.c_gc_next
+            while gchdr <> self.rrc_pyobj_old_list:
+                next_old = gchdr.c_gc_next
+                alive = gchdr.c_gc_refs > 0
+                pyobj = self.rrc_gc_as_pyobj(gchdr)
+                obj = None
+                if pyobj.c_ob_pypy_link <> 0:
+                    intobj = pyobj.c_ob_pypy_link
+                    obj = llmemory.cast_int_to_adr(intobj)
+                    if not alive and self.header(obj).tid & (
+                            GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
+                        # add fake refcount, to mark it as live
+                        gchdr.c_gc_refs += 1
+                        alive = True
+                if alive:
+                    # remove from old list
+                    next = gchdr.c_gc_next
+                    next.c_gc_prev = gchdr.c_gc_prev
+                    gchdr.c_gc_prev.c_gc_next = next
+                    # add to new list
+                    next = self.rrc_pyobj_list.c_gc_next
+                    self.rrc_pyobj_list.c_gc_next = gchdr
+                    gchdr.c_gc_prev = self.rrc_pyobj_list
+                    gchdr.c_gc_next = next
+                    next.c_gc_prev = gchdr
+                    # increment refcounts
+                    self._rrc_visit_pyobj = self._rrc_increment_refcnt
+                    self._rrc_traverse(pyobj)
+                    # mark recursively, if it is a pypyobj
+                    if not obj is None:
+                        self.objects_to_trace.append(obj)
+                        self.visit_all_objects()
+                    found_alive = True
+                gchdr = next_old
+        #
+        # now all rawrefcounted objects, which are alive, have a cyclic
+        # refcount > 0 or are marked
+
+    def _rrc_increment_refcnt(self, pyobj):
+        pygchdr = self.rrc_pyobj_as_gc(pyobj)
+        pygchdr.c_gc_refs += 1
 
     def _rrc_visit(pyobj, self_ptr):
         from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
@@ -3261,12 +3382,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self._rrc_visit_pyobj(pyobj)
         return rffi.cast(rffi.INT_real, 0)
 
-    def _rrc_traverse(self, pyobject):
+    def _rrc_traverse(self, pyobj):
         from rpython.rlib.objectmodel import we_are_translated
         from rpython.rtyper.annlowlevel import (cast_nongc_instance_to_adr,
                                                 llhelper)
         #
-        pyobj = self._pyobj(pyobject)
         if we_are_translated():
             callback_ptr = llhelper(self.RAWREFCOUNT_VISIT,
                                     IncrementalMiniMarkGC._rrc_visit)

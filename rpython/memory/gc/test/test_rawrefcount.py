@@ -31,7 +31,7 @@ class TestRawRefCount(BaseDirectGCTest):
         def rawrefcount_tp_traverse(obj, callback, args):
             refs = self.pyobj_refs[self.pyobjs.index(obj)]
             for ref in refs:
-                callback(self.gc, ref)
+                callback(ref)
 
         def rawrefcount_gc_as_pyobj(gc):
             return self.pyobjs[self.gcobjs.index(gc)]
@@ -439,8 +439,7 @@ class TestRawRefCount(BaseDirectGCTest):
             info = NodeInfo(type, alive, ext_refcnt)
             if type == "C":
                 r, raddr, check_alive = self._rawrefcount_pyobj()
-                if ext_refcnt > 0:
-                    r.c_ob_refcnt = ext_refcnt
+                r.c_ob_refcnt += ext_refcnt
                 nodes[name] = CPythonNode(r, raddr, check_alive, info)
             elif type == "P":
                 p, pref, check_alive = \
@@ -452,8 +451,7 @@ class TestRawRefCount(BaseDirectGCTest):
                 p, pref, r, raddr, check_alive =\
                     self._rawrefcount_pair(42 + i, rooted=rooted,
                                            create_old=True)
-                if ext_refcnt > 0:
-                    r.c_ob_refcnt = ext_refcnt
+                r.c_ob_refcnt += ext_refcnt
                 nodes[name] = BorderNode(p, pref, r, raddr, check_alive, info)
                 i += 1
 
@@ -483,14 +481,22 @@ class TestRawRefCount(BaseDirectGCTest):
                 dests_by_source[source].append(dest.r)
         for source in dests_by_source:
             dests_target = dests_by_source[source]
-            def append(self, pyobj):
+            def append(pyobj):
                 dests_target.remove(pyobj)
             self.gc._rrc_visit_pyobj = append
-            self.gc._rrc_traverse(source.raddr)
+            self.gc._rrc_traverse(source.r)
             assert len(dests_target) == 0
 
         # do collection
         self.gc.collect()
+
+        # simply free all pending deallocations, we don't care about the
+        # side effects
+        next_dead = self.gc.rawrefcount_next_dead()
+        while next_dead <>  llmemory.NULL:
+            pyobj = llmemory.cast_adr_to_ptr(next_dead, self.gc.PYOBJ_HDR_PTR)
+            lltype.free(pyobj, flavor='raw')
+            next_dead = self.gc.rawrefcount_next_dead()
 
         # check livelihood of objects, according to graph
         for name in nodes:
