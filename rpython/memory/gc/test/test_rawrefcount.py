@@ -31,7 +31,7 @@ class TestRawRefCount(BaseDirectGCTest):
         def rawrefcount_tp_traverse(obj, callback, args):
             refs = self.pyobj_refs[self.pyobjs.index(obj)]
             for ref in refs:
-                callback(ref)
+                callback(ref, args)
 
         def rawrefcount_gc_as_pyobj(gc):
             return self.pyobjs[self.gcobjs.index(gc)]
@@ -481,10 +481,9 @@ class TestRawRefCount(BaseDirectGCTest):
                 dests_by_source[source].append(dest.r)
         for source in dests_by_source:
             dests_target = dests_by_source[source]
-            def append(pyobj):
+            def append(pyobj, ignore):
                 dests_target.remove(pyobj)
-            self.gc._rrc_visit_pyobj = append
-            self.gc._rrc_traverse(source.r)
+            self.gc.rrc_tp_traverse(source.r, append, None)
             assert len(dests_target) == 0
 
         # do collection

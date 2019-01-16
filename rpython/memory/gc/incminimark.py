@@ -3296,16 +3296,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         pygchdr = self.rrc_pyobj_list.c_gc_next
         while pygchdr <> self.rrc_pyobj_list:
             pyobj = self.rrc_gc_as_pyobj(pygchdr)
-            self._rrc_visit_pyobj = self._rrc_subtract_internal_refcnt
-            self._rrc_traverse(pyobj)
+            self._rrc_traverse(pyobj, -1)
             pygchdr = pygchdr.c_gc_next
 
         # now all rawrefcounted roots or live border objects have a
         # refcount > 0
-
-    def _rrc_subtract_internal_refcnt(self, pyobj):
-        pygchdr = self.rrc_pyobj_as_gc(pyobj)
-        pygchdr.c_gc_refs -= 1
 
     def _rrc_obj_fix_refcnt(self, pyobject, ignore):
         intobj = self._pyobj(pyobject).c_ob_pypy_link
@@ -3358,10 +3353,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     gchdr.c_gc_next = next
                     next.c_gc_prev = gchdr
                     # increment refcounts
-                    self._rrc_visit_pyobj = self._rrc_increment_refcnt
-                    self._rrc_traverse(pyobj)
+                    self._rrc_traverse(pyobj, 1)
                     # mark recursively, if it is a pypyobj
-                    if not obj is None:
+                    if pyobj.c_ob_pypy_link <> 0:
+                        intobj = pyobj.c_ob_pypy_link
+                        obj = llmemory.cast_int_to_adr(intobj)
                         self.objects_to_trace.append(obj)
                         self.visit_all_objects()
                     found_alive = True
@@ -3370,31 +3366,31 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # now all rawrefcounted objects, which are alive, have a cyclic
         # refcount > 0 or are marked
 
-    def _rrc_increment_refcnt(self, pyobj):
-        pygchdr = self.rrc_pyobj_as_gc(pyobj)
-        pygchdr.c_gc_refs += 1
-
     def _rrc_visit(pyobj, self_ptr):
         from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
         #
         self_adr = rffi.cast(llmemory.Address, self_ptr)
         self = cast_adr_to_nongc_instance(IncrementalMiniMarkGC, self_adr)
-        self._rrc_visit_pyobj(pyobj)
+        self._rrc_visit_action(pyobj, None)
         return rffi.cast(rffi.INT_real, 0)
 
-    def _rrc_traverse(self, pyobj):
+    def _rrc_visit_action(self, pyobj, ignore):
+        pygchdr = self.rrc_pyobj_as_gc(pyobj)
+        pygchdr.c_gc_refs += self.rrc_refcnt_add
+
+    def _rrc_traverse(self, pyobj, refcnt_add):
         from rpython.rlib.objectmodel import we_are_translated
         from rpython.rtyper.annlowlevel import (cast_nongc_instance_to_adr,
                                                 llhelper)
         #
+        self.rrc_refcnt_add = refcnt_add
         if we_are_translated():
             callback_ptr = llhelper(self.RAWREFCOUNT_VISIT,
                                     IncrementalMiniMarkGC._rrc_visit)
             self_ptr = rffi.cast(rffi.VOIDP, cast_nongc_instance_to_adr(self))
+            self.rrc_tp_traverse(pyobj, callback_ptr, self_ptr)
         else:
-            callback_ptr = self._rrc_visit_pyobj
-            self_ptr = None
-        self.rrc_tp_traverse(pyobj, callback_ptr, self_ptr)
+            self.rrc_tp_traverse(pyobj, self._rrc_visit_action, None)
 
     def _rrc_gc_list_init(self, pygclist):
         pygclist.c_gc_next = pygclist
