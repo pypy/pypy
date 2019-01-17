@@ -490,7 +490,7 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gc.collect()
 
         # simply free all pending deallocations, we don't care about the
-        # side effects
+        # side effects for now...
         next_dead = self.gc.rawrefcount_next_dead()
         while next_dead <>  llmemory.NULL:
             pyobj = llmemory.cast_adr_to_ptr(next_dead, self.gc.PYOBJ_HDR_PTR)

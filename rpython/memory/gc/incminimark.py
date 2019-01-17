@@ -3031,8 +3031,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_dealloc_pending = self.AddressStack()
             self.rrc_tp_traverse = tp_traverse
             self.rrc_pyobj_list = self._pygchdr(pyobj_list)
-            self.rrc_pyobj_old_list = lltype.malloc(
-                self.PYOBJ_GC_HDR, flavor='raw', immortal=True)
             self.rrc_gc_as_pyobj = gc_as_pyobj
             self.rrc_pyobj_as_gc = pyobj_as_gc
             self.rrc_enabled = True
@@ -3171,7 +3169,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             self._rrc_free(pyobject)
 
-    def _rrc_free(self, pyobject):
+    def _rrc_free(self, pyobject, major=False):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
         #
@@ -3179,6 +3177,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if rc >= REFCNT_FROM_PYPY_LIGHT:
             rc -= REFCNT_FROM_PYPY_LIGHT
             if rc == 0:
+                if major: # remove from old list
+                    pygchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
+                    next = pygchdr.c_gc_next
+                    next.c_gc_prev = pygchdr.c_gc_prev
+                    pygchdr.c_gc_prev.c_gc_next = next
                 lltype.free(self._pyobj(pyobject), flavor='raw')
             else:
                 # can only occur if LIGHT is used in create_link_pyobj()
@@ -3191,16 +3194,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
             rc -= REFCNT_FROM_PYPY
             self._pyobj(pyobject).c_ob_pypy_link = 0
             if rc == 0:
-                self.rrc_dealloc_pending.append(pyobject)
-                # an object with refcnt == 0 cannot stay around waiting
-                # for its deallocator to be called.  Some code (lxml)
-                # expects that tp_dealloc is called immediately when
-                # the refcnt drops to 0.  If it isn't, we get some
-                # uncleared raw pointer that can still be used to access
-                # the object; but (PyObject *)raw_pointer is then bogus
-                # because after a Py_INCREF()/Py_DECREF() on it, its
-                # tp_dealloc is also called!
-                rc = 1
+                if not major: # we do it later in major collections
+                    self.rrc_dealloc_pending.append(pyobject)
+                    # an object with refcnt == 0 cannot stay around waiting
+                    # for its deallocator to be called.  Some code (lxml)
+                    # expects that tp_dealloc is called immediately when
+                    # the refcnt drops to 0.  If it isn't, we get some
+                    # uncleared raw pointer that can still be used to access
+                    # the object; but (PyObject *)raw_pointer is then bogus
+                    # because after a Py_INCREF()/Py_DECREF() on it, its
+                    # tp_dealloc is also called!
+                    rc = 1
+                else:
+                    rc = REFCNT_FROM_PYPY
             self._pyobj(pyobject).c_ob_refcnt = rc
     _rrc_free._always_inline_ = True
 
@@ -3208,6 +3214,28 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self._rrc_collect_rawrefcount_roots()
         self._rrc_mark_rawrefcount()
         self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
+
+        # TODO: for all unreachable objects, which are marked potentially
+        # TODO: uncollectable, move them to the set of uncollectable objs
+
+        # TODO: for all unreachable objects with tp_del (legacy finalizer),
+        # TODO: except for border objects with a refcount of
+        # TODO: REFCNT_FROM_PYPY (equals zero at this point):
+        # TODO:  * mark reachable pypy objects
+        # TODO:  * move reachable cpython objects back to pyobj_list
+        # TODO:  * mark all reachable objects as potentially uncollectable
+
+        # TODO: handle weakrefs for unreachable objects
+
+        # TODO: call tp_finalize for unreachable objects
+        # TODO: (could resurrect objects, so we have to do it now)
+        # TODO: (set finalizer flag before calling and check if
+        # TODO: finalizer was not called before)
+
+        # TODO: for all objects in unreachable, check if they
+        # TODO: are still unreachable. if not, abort and move all
+        # TODO: unreachable back to pyobj_list and mark all reachable
+        # TODO: pypy objects
 
     def _rrc_major_trace(self, pyobject, ignore):
         rc = self.rrc_pyobj_as_gc(self._pyobj(pyobject)).c_gc_refs
@@ -3222,7 +3250,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def rrc_major_collection_free(self):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
         #
         ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 2")
         length_estimate = self.rrc_p_dict.length()
@@ -3242,20 +3269,27 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                                             no_o_dict)
         self.rrc_o_list_old.delete()
         self.rrc_o_list_old = new_o_list
-        # free all dead refcounted objects, in unreachable cycles
+
+        # TODO: === DO THIS LATER OUTSIDE OF GC ===
+        # TODO: (like dealloc_pending.append, but only pass reference to
+        # TODO:  unreachable object list, not for each object. free
+        # TODO:  this list afterwards)
+        # TODO: call tp_clear (wrapped between inc- and decref) instead of
+        # TODO: free, to break cycles for unreachable objects
+
+        # TODO: === REMOVE THE CODE BELOW ===
+        # TODO: this exists only to please the current tests, but fails
+        # TODO: if the pending deallocations are executed properly
         pygchdr = self.rrc_pyobj_old_list.c_gc_next
         while pygchdr <> self.rrc_pyobj_old_list:
             assert pygchdr.c_gc_refs == 0
             pyobj = self.rrc_gc_as_pyobj(pygchdr)
-            if pyobj.c_ob_refcnt >= REFCNT_FROM_PYPY_LIGHT:
-                lltype.free(pyobj, flavor='raw')
-            elif pyobj.c_ob_refcnt >= REFCNT_FROM_PYPY:
-                pyobject = llmemory.cast_ptr_to_adr(pyobj)
-                pyobj.c_ob_refcnt = 1
-                self.rrc_dealloc_pending.append(pyobject)
-            else:
-                lltype.free(pyobj, flavor='raw')
+            if pyobj.c_ob_refcnt == REFCNT_FROM_PYPY:
+                pyobj.c_ob_refcnt = 0
+            pyobj.c_ob_refcnt += 1
+            self.rrc_dealloc_pending.append(llmemory.cast_ptr_to_adr(pyobj))
             pygchdr = pygchdr.c_gc_next
+        lltype.free(self.rrc_pyobj_old_list, flavor='raw')
 
     def _rrc_major_free(self, pyobject, surviving_list, surviving_dict):
         # The pyobject survives if the corresponding obj survives.
@@ -3269,9 +3303,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if surviving_dict:
                 surviving_dict.insertclean(obj, pyobject)
         else:
-            # The pyobject is freed later, if it is in old list, so
-            # just unlink here.
-            self._pyobj(pyobject).c_ob_pypy_link = 0
+            self._rrc_free(pyobject, True)
 
     def _rrc_collect_rawrefcount_roots(self):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
@@ -3305,11 +3337,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _rrc_obj_fix_refcnt(self, pyobject, ignore):
         intobj = self._pyobj(pyobject).c_ob_pypy_link
         obj = llmemory.cast_int_to_adr(intobj)
+        # TODO: only if Py_TPFLAGS_HAVE_GC is set
         gchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
         if self.header(obj).tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
             gchdr.c_gc_refs += 1
 
     def _rrc_mark_rawrefcount(self):
+        self.rrc_pyobj_old_list = lltype.malloc(self.PYOBJ_GC_HDR, flavor='raw')
         if self.rrc_pyobj_list.c_gc_next == self.rrc_pyobj_list:
             self.rrc_pyobj_old_list.c_gc_next = self.rrc_pyobj_old_list
             self.rrc_pyobj_old_list.c_gc_prev = self.rrc_pyobj_old_list
@@ -3332,7 +3366,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 next_old = gchdr.c_gc_next
                 alive = gchdr.c_gc_refs > 0
                 pyobj = self.rrc_gc_as_pyobj(gchdr)
-                obj = None
                 if pyobj.c_ob_pypy_link <> 0:
                     intobj = pyobj.c_ob_pypy_link
                     obj = llmemory.cast_int_to_adr(intobj)
@@ -3375,6 +3408,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return rffi.cast(rffi.INT_real, 0)
 
     def _rrc_visit_action(self, pyobj, ignore):
+        # TODO: only if Py_TPFLAGS_HAVE_GC is set
         pygchdr = self.rrc_pyobj_as_gc(pyobj)
         pygchdr.c_gc_refs += self.rrc_refcnt_add
 
