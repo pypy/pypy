@@ -169,6 +169,7 @@ class Entry(ExtRegistryEntry):
 # This list corresponds to the operations implemented by the LLInterpreter.
 # ***** Run test_lloperation after changes. *****
 
+# ***** Run test_lloperation after changes. *****
 LL_OPERATIONS = {
 
     'direct_call':          LLOp(canraise=(Exception,)),
@@ -490,13 +491,15 @@ LL_OPERATIONS = {
     'gc_fq_register'      : LLOp(),
     'gc_ignore_finalizer' : LLOp(canrun=True),
 
-    'gc_rawrefcount_init':              LLOp(),
-    'gc_rawrefcount_create_link_pypy':  LLOp(),
-    'gc_rawrefcount_create_link_pyobj': LLOp(),
-    'gc_rawrefcount_mark_deallocating': LLOp(),
-    'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
-    'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
-    'gc_rawrefcount_next_dead':         LLOp(),
+    'gc_rawrefcount_init':                  LLOp(),
+    'gc_rawrefcount_create_link_pypy':      LLOp(),
+    'gc_rawrefcount_create_link_pyobj':     LLOp(),
+    'gc_rawrefcount_mark_deallocating':     LLOp(),
+    'gc_rawrefcount_from_obj':              LLOp(sideeffects=False),
+    'gc_rawrefcount_to_obj':                LLOp(sideeffects=False),
+    'gc_rawrefcount_next_dead':             LLOp(),
+    'gc_rawrefcount_cyclic_garbage_head':   LLOp(sideeffects=False),
+    'gc_rawrefcount_cyclic_garbage_remove': LLOp(),
 
     'gc_move_out_of_nursery':           LLOp(),
 
@@ -582,7 +585,6 @@ LL_OPERATIONS = {
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
 }
-# ***** Run test_lloperation after changes. *****
 
 # ____________________________________________________________
 # Post-processing

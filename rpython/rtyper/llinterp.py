@@ -972,6 +972,11 @@ class LLFrame(object):
     def op_gc_rawrefcount_next_dead(self, *args):
         raise NotImplementedError("gc_rawrefcount_next_dead")
 
+    def op_gc_rawrefcount_cyclic_garbage_head(self, *args):
+        raise NotImplementedError("gc_rawrefcount_cyclic_garbage_head")
+    def op_gc_rawrefcount_cyclic_garbage_remove(self, *args):
+        raise NotImplementedError("gc_rawrefcount_cyclic_garbage_remove")
+
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):

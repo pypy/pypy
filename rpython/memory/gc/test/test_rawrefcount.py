@@ -461,7 +461,8 @@ class TestRawRefCount(BaseDirectGCTest):
             dest = nodes[e.get_destination()]
             if source.info.type == "C" or dest.info.type == "C":
                 self._rawrefcount_addref(source.r, dest.r)
-                dest.info.ext_refcnt += 1
+                if source.info.alive:
+                    dest.info.ext_refcnt += 1
             elif source.info.type == "P" or dest.info.type == "P":
                 if llmemory.cast_ptr_to_adr(source.p.next) == llmemory.NULL:
                     source.p.next = dest.p
@@ -489,13 +490,46 @@ class TestRawRefCount(BaseDirectGCTest):
         # do collection
         self.gc.collect()
 
-        # simply free all pending deallocations, we don't care about the
-        # side effects for now...
+        def decref_children(pyobj):
+            self.gc.rrc_tp_traverse(pyobj, decref, None)
+        def decref(pyobj, ignore):
+            pyobj.c_ob_refcnt -= 1
+            if pyobj.c_ob_refcnt == 0:
+                gchdr = self.gc.rrc_pyobj_as_gc(pyobj)
+                next = gchdr.c_gc_next
+                next.c_gc_prev = gchdr.c_gc_prev
+                gchdr.c_gc_prev.c_gc_next = next
+                decref_children(pyobj)
+                self.pyobjs[self.pyobjs.index(pyobj)] = \
+                    lltype.nullptr(PYOBJ_HDR_PTR.TO)
+                lltype.free(pyobj, flavor='raw')
+
         next_dead = self.gc.rawrefcount_next_dead()
-        while next_dead <>  llmemory.NULL:
+        while next_dead <> llmemory.NULL:
             pyobj = llmemory.cast_adr_to_ptr(next_dead, self.gc.PYOBJ_HDR_PTR)
-            lltype.free(pyobj, flavor='raw')
+            decref(pyobj, None)
             next_dead = self.gc.rawrefcount_next_dead()
+
+        # free cyclic structures
+        next_dead = self.gc.rawrefcount_cyclic_garbage_head()
+        while next_dead <> llmemory.NULL:
+            pyobj = llmemory.cast_adr_to_ptr(next_dead, self.gc.PYOBJ_HDR_PTR)
+            pyobj.c_ob_refcnt += 1
+
+            def free(pyobj_to, pyobj_from):
+                refs = self.pyobj_refs[self.pyobjs.index(pyobj_from)]
+                refs.remove(pyobj_to)
+                decref(pyobj_to, None)
+            self.gc.rrc_tp_traverse(pyobj, free, pyobj)
+
+            decref(pyobj, None)
+
+            curr = llmemory.cast_adr_to_int(next_dead)
+            next_dead = self.gc.rawrefcount_cyclic_garbage_head()
+
+            if llmemory.cast_adr_to_int(next_dead) == curr:
+                self.gc.rawrefcount_cyclic_garbage_remove()
+                next_dead = self.gc.rawrefcount_cyclic_garbage_head()
 
         # check livelihood of objects, according to graph
         for name in nodes:

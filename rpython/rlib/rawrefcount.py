@@ -131,6 +131,16 @@ def next_dead(OB_PTR_TYPE):
     return ob
 
 @not_rpython
+def cyclic_garbage_head(OB_PTR_TYPE):
+    # TODO
+    return lltype.nullptr(OB_PTR_TYPE.TO)
+
+@not_rpython
+def cyclic_garbage_remove():
+    # TODO
+    pass
+
+@not_rpython
 def _collect(track_allocation=True):
     """for tests only.  Emulates a GC collection.
     Will invoke dealloc_trigger_callback() once if there are objects
@@ -335,19 +345,31 @@ class Entry(ExtRegistryEntry):
         return _spec_p(hop, v_p)
 
 class Entry(ExtRegistryEntry):
-    _about_ = next_dead
+    _about_ = (next_dead, cyclic_garbage_head)
 
     def compute_result_annotation(self, s_OB_PTR_TYPE):
-        from rpython.annotator import model as annmodel
         from rpython.rtyper.llannotation import lltype_to_annotation
         assert s_OB_PTR_TYPE.is_constant()
         return lltype_to_annotation(s_OB_PTR_TYPE.const)
 
     def specialize_call(self, hop):
+        if self.instance is next_dead:
+            name = 'gc_rawrefcount_next_dead'
+        elif self.instance is cyclic_garbage_head:
+            name = 'gc_rawrefcount_cyclic_garbage_head'
         hop.exception_cannot_occur()
-        v_ob = hop.genop('gc_rawrefcount_next_dead', [],
-                         resulttype = llmemory.Address)
+        v_ob = hop.genop(name, [], resulttype = llmemory.Address)
         return _spec_ob(hop, v_ob)
+
+class Entry(ExtRegistryEntry):
+    _about_ = cyclic_garbage_remove
+
+    def compute_result_annotation(self):
+        pass
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        hop.genop('gc_rawrefcount_cyclic_garbage_remove', [])
 
 src_dir = py.path.local(__file__).dirpath() / 'src'
 boehm_eci = ExternalCompilationInfo(

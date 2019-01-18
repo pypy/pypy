@@ -214,12 +214,26 @@ class CNamespace:
 
 
 def _rawrefcount_perform(space):
-    from pypy.module.cpyext.pyobject import PyObject, decref
+    from pypy.module.cpyext.pyobject import PyObject, incref, decref
     while True:
         py_obj = rawrefcount.next_dead(PyObject)
         if not py_obj:
             break
         decref(space, py_obj)
+
+    while True:
+        py_obj = rawrefcount.cyclic_garbage_head(PyObject)
+        if not py_obj:
+            break
+
+        pyobj = rffi.cast(PyObject, py_obj)
+        if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_clear:
+            incref(space, py_obj)
+            pyobj.c_ob_type.c_tp_clear(pyobj)
+            decref(space, py_obj)
+
+        if py_obj == rawrefcount.cyclic_garbage_head(PyObject):
+            rawrefcount.cyclic_garbage_remove()
 
 class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.
