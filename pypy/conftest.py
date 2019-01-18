@@ -15,11 +15,15 @@ rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
 
 try:
-    from hypothesis import settings
+    from hypothesis import settings, __version__
 except ImportError:
     pass
 else:
-    settings.register_profile('default', deadline=None)
+    if __version__[:2] < '3.6':
+        s = settings(deadline=None)
+        settings.register_profile('default', s)
+    else:
+        settings.register_profile('default', deadline=None)
     settings.load_profile('default')
 
 # PyPy's command line extra options (these are added

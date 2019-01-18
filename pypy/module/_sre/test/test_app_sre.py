@@ -123,6 +123,11 @@ class AppTestSrePattern:
         import re, _weakref
         _weakref.ref(re.compile(r""))
 
+    def test_match_compat(self):
+        import re
+        res = re.match(r'(a)|(b)', 'b').start(1)
+        assert res == -1
+
     def test_pattern_check(self):
         import _sre
         raises(TypeError, _sre.compile, {}, 0, [])

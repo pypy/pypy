@@ -572,6 +572,8 @@ def codepoint_index_at_byte_position(utf8, storage, bytepos):
     logarithmic in the length of the string, plus some constant that
     is not tiny either.
     """
+    if bytepos < 0:
+        return bytepos
     index_min = 0
     index_max = len(storage) - 1
     while index_min < index_max:
