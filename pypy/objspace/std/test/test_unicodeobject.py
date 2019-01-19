@@ -1130,6 +1130,8 @@ class AppTestUnicodeString:
     def test_format_repeat(self):
         assert format(u"abc", u"z<5") == u"abczz"
         assert format(u"abc", u"\u2007<5") == u"abc\u2007\u2007"
+        #CPython2 raises UnicodeEncodeError
+        assert format(123, u"\u2007<5") == u"123\u2007\u2007"
 
     def test_formatting_unicode__repr__(self):
         # Printable character
