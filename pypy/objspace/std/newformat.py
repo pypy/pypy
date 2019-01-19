@@ -740,7 +740,7 @@ def make_formatting_class(for_unicode):
                          to_remainder, upper, grouped_digits=None):
             out = self._builder()
             if spec.n_lpadding:
-                out.append_multiple_char(fill_char[0], spec.n_lpadding)
+                out.append_multiple_char(fill_char, spec.n_lpadding)
             if spec.n_sign:
                 sign = self._lit(spec.sign)
                 out.append(sign)
@@ -750,7 +750,7 @@ def make_formatting_class(for_unicode):
                     pref = self._upcase_string(pref)
                 out.append(pref)
             if spec.n_spadding:
-                out.append_multiple_char(fill_char[0], spec.n_spadding)
+                out.append_multiple_char(fill_char, spec.n_spadding)
             if spec.n_digits != 0:
                 if self._loc_thousands:
                     if grouped_digits is not None:
@@ -770,7 +770,7 @@ def make_formatting_class(for_unicode):
             if spec.n_remainder:
                 out.append(num[to_remainder:])
             if spec.n_rpadding:
-                out.append_multiple_char(fill_char[0], spec.n_rpadding)
+                out.append_multiple_char(fill_char, spec.n_rpadding)
             #if complex, need to call twice - just retun the buffer
             return out.build()
 
