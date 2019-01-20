@@ -855,8 +855,9 @@ class W_UnicodeObject(W_Root):
         for c in codes:
             builder.append_code(c)
         for ch in it:
-            ch = unicodedb.tolower(ch)
-            builder.append_code(ch)
+            ch = unicodedb.tolower_full(ch)
+            for ch1 in ch:
+                builder.append_code(ch1)
         return self.from_utf8builder(builder)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))
