@@ -544,6 +544,10 @@ class AppTestPartialEvaluation:
         assert codecs.decode(b'abc') == 'abc'
         exc = raises(UnicodeDecodeError, codecs.decode, b'\xff', 'ascii')
 
+        exc = raises(UnicodeDecodeError, codecs.decode, b'\xe0\x00', 'utf-8')
+        print(dir(exc.value))
+        assert 'invalid continuation byte' in exc.value.reason
+
     def test_bad_errorhandler_return(self):
         import codecs
         def baddecodereturn1(exc):

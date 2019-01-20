@@ -395,8 +395,12 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                 if not final:
                     pos -= 1
                     break
-                r, pos, rettype = errorhandler(errors, "utf8", "unexpected end of data",
-                    s, pos - 1, pos)
+                if (pos) < end and  rutf8._invalid_byte_2_of_3(ordch1,
+                                                ord(s[pos]), allow_surrogates):
+                    msg = "invalid continuation byte"
+                else:
+                    msg = "unexpected end of data"
+                r, pos, rettype = errorhandler(errors, "utf8", msg, s, pos - 1, pos)
                 res.append(r)
                 suppressing = True
                 continue
@@ -429,8 +433,13 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                 if not final:
                     pos -= 1
                     break
-                r, pos, rettype = errorhandler(errors, "utf8", "unexpected end of data",
-                    s, pos - 1, pos)
+                if pos < end and rutf8._invalid_byte_2_of_4(ordch1, s[pos]):
+                    msg = "invalid continuation byte"
+                elif pos + 1 < end and rutf8._invalid_byte_3_of_4(ord(s[pos + 1])):
+                    msg = "invalid continuation byte"
+                else:
+                    msg = "unexpected end of data"
+                r, pos, rettype = errorhandler(errors, "utf8", msg, s, pos - 1, pos)
                 res.append(r)
                 suppressing = True
                 continue
