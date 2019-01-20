@@ -86,7 +86,7 @@ def _get_msvc_env(vsver, x64flag):
             else:
                 log.msg('Running "%s" succeeded' %(vcvars,))
         except Exception as e:
-            log.msg('Running "%s" failed: "%s"', (vcvars, str(e)))
+            log.msg('Running "%s" failed: "%s"' % (vcvars, str(e)))
             return None
 
         stdout = stdout.replace("\r\n", "\n")
