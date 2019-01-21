@@ -114,9 +114,8 @@ def fsencode(space, w_uni):
     elif _MACOSX:
         utf8 = space.utf8_w(w_uni)
         errorhandler=state.encode_error_handler,
-        bytes = unicodehelper.utf8_encode_utf_8(
-            utf8, 'surrogateescape',
-            allow_surrogates=False)
+        bytes = utf8_encode_utf_8(utf8, 'surrogateescape', errorhandler,
+                                  allow_surrogates=False)
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
         # or the filesystem codec is implemented in Python we cannot
