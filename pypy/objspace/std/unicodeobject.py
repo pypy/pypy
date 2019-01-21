@@ -87,7 +87,8 @@ class W_UnicodeObject(W_Root):
         return space.newint(uid)
 
     def text_w(self, space):
-        return self._utf8
+        eh = unicodehelper.decode_error_handler(space)
+        return unicodehelper.utf8_encode_utf_8(self._utf8, 'utf-8', eh)
 
     def utf8_w(self, space):
         return self._utf8
