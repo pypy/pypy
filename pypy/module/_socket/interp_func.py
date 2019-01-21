@@ -311,7 +311,7 @@ def getaddrinfo(space, w_host, w_port,
     elif space.isinstance_w(w_port, space.w_bytes):
         port = space.bytes_w(w_port)
     elif space.isinstance_w(w_port, space.w_unicode):
-        port = space.text_w(w_port)
+        port = space.bytes_w(space.encode_unicode_object(w_port, 'utf-8', 'strict'))
     else:
         raise oefmt(space.w_TypeError,
                     "getaddrinfo() argument 2 must be integer or string")

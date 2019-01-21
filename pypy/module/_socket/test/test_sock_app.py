@@ -209,6 +209,17 @@ def test_getaddrinfo():
     w_l = space.appexec([w_socket, space.newbytes(host), space.wrap('smtp')],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == socket.getaddrinfo(host, 'smtp')
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap(u'\uD800')], '''
+
+       (_socket, host, port):
+            try:
+                info = _socket.getaddrinfo(host, port)
+            except Exception as e:
+                return e.reason == 'surrogates not allowed'
+            return -1
+        ''')
+    assert space.unwrap(w_l) == True
+
 
 def test_unknown_addr_as_object():
     from pypy.module._socket.interp_socket import addr_as_object
@@ -729,7 +740,7 @@ class AppTestNetlink:
     def setup_class(cls):
         if not hasattr(os, 'getpid'):
             pytest.skip("AF_NETLINK needs os.getpid()")
-        
+
         if cls.runappdirect:
             import _socket
             w_ok = hasattr(_socket, 'AF_NETLINK')
