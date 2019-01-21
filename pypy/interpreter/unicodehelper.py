@@ -433,7 +433,7 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                 if not final:
                     pos -= 1
                     break
-                if pos < end and rutf8._invalid_byte_2_of_4(ordch1, s[pos]):
+                if pos < end and rutf8._invalid_byte_2_of_4(ordch1, ord(s[pos])):
                     msg = "invalid continuation byte"
                 elif pos + 1 < end and rutf8._invalid_byte_3_of_4(ord(s[pos + 1])):
                     msg = "invalid continuation byte"
