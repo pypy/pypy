@@ -81,13 +81,6 @@ class VectorizeTests(object):
         if not self.supports_vector_ext():
             py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
-    def meta_interp(self, f, args, policy=None, vec=True, vec_all=False):
-        return ll_meta_interp(f, args, enable_opts=self.enable_opts,
-                              policy=policy,
-                              CPUClass=self.CPUClass,
-                              type_system=self.type_system,
-                              vec=vec, vec_all=vec_all)
-
     # FLOAT UNARY
 
     @pytest.mark.parametrize('func',
