@@ -856,8 +856,12 @@ class W_UnicodeObject(W_Root):
             builder.append_code(c)
         for ch in it:
             ch = unicodedb.tolower_full(ch)
-            for ch1 in ch:
-                builder.append_code(ch1)
+            if it.done():
+                # Special case lower-sigma
+                if ch[-1] == 0x03c3:
+                    ch[-1] = 0x03c2 
+            for c in ch:
+                builder.append_code(c)
         return self.from_utf8builder(builder)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))

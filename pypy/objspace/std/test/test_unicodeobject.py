@@ -387,6 +387,7 @@ class AppTestUnicodeString:
         assert u'\ud800'.upper() == u'\ud800'
 
     def test_capitalize(self):
+        assert u'A\u0345\u03a3'.capitalize() == u'A\u0345\u03c2'
         assert u"brown fox".capitalize() == u"Brown fox"
         assert u' hello '.capitalize() == u' hello '
         assert u'Hello '.capitalize() == u'Hello '
