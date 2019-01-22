@@ -80,11 +80,11 @@ def fsdecode(space, w_string):
         slen = len(bytes)
         uni, size = runicode.str_decode_mbcs(bytes, slen, 'strict', final=True,
                            errorhandler=errorhandler, force_ignore=False)
-    elif _MACOSX:
+    elif 0 and  _MACOSX:
         bytes = space.bytes_w(w_string)
         utf8 = str_decode_utf8(bytes, 'surrogateescape', True, errorhandler,
                                allow_surrogates=False)[0]
-        uni = space.realunicode_w(utf8)
+        uni = utf8.decode('utf-8')
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
         # or the filesystem codec is implemented in Python we cannot
@@ -110,7 +110,7 @@ def fsencode(space, w_uni):
         errorhandler=state.encode_error_handler
         utf8 = space.utf8_w(w_uni)
         bytes = utf8_encode_mbcs(utf8, 'strict', errorhandler)
-    elif _MACOSX:
+    elif 0 and _MACOSX:
         utf8 = space.utf8_w(w_uni)
         errorhandler=state.encode_error_handler,
         bytes = utf8_encode_utf_8(utf8, 'surrogateescape', errorhandler,
