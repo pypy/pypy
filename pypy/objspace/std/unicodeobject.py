@@ -375,15 +375,20 @@ class W_UnicodeObject(W_Root):
     def descr_swapcase(self, space):
         value = self._utf8
         builder = rutf8.Utf8StringBuilder(len(value))
+        i = 0
         for ch in rutf8.Utf8StringIterator(value):
             if unicodedb.isupper(ch):
-                codes = unicodedb.tolower_full(ch)
+                if ch == 0x3a3:
+                    codes = [self._handle_capital_sigma(value, i),]
+                else: 
+                    codes = unicodedb.tolower_full(ch)
             elif unicodedb.islower(ch):
                 codes = unicodedb.toupper_full(ch)
             else:
                 codes = [ch,]
             for c in codes:
                 builder.append_code(c)
+            i += 1
         return self.from_utf8builder(builder)
 
     def descr_title(self, space):
@@ -847,21 +852,23 @@ class W_UnicodeObject(W_Root):
         if self._len() == 0:
             return self._empty()
 
-        builder = rutf8.Utf8StringBuilder(len(self._utf8))
-        it = rutf8.Utf8StringIterator(self._utf8)
+        value = self._utf8
+        builder = rutf8.Utf8StringBuilder(len(value))
+        it = rutf8.Utf8StringIterator(value)
         uchar = it.next()
         codes = unicodedb.toupper_full(uchar)
         # can sometimes give more than one, like for omega-with-Ypogegrammeni, 8179
         for c in codes:
             builder.append_code(c)
+        i = 1
         for ch in it:
-            ch = unicodedb.tolower_full(ch)
-            if it.done():
-                # Special case lower-sigma
-                if ch[-1] == 0x03c3:
-                    ch[-1] = 0x03c2 
-            for c in ch:
+            if ch == 0x3a3:
+                codes = [self._handle_capital_sigma(value, i),]
+            else: 
+                codes = unicodedb.tolower_full(ch)
+            for c in codes:
                 builder.append_code(c)
+            i += 1
         return self.from_utf8builder(builder)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))

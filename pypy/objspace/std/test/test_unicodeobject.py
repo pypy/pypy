@@ -939,6 +939,9 @@ class AppTestUnicodeString:
 
     def test_swapcase(self):
         assert '\xe4\xc4\xdf'.swapcase() == '\xc4\xe4SS'
+        # sigma-little becomes sigma-little-final
+        assert u'A\u0345\u03a3'.swapcase() == u'a\u0399\u03c2'
+        # but not if the previous codepoint is 0-width
         assert u'\u0345\u03a3'.swapcase() == u'\u0399\u03c3'
 
     def test_call_special_methods(self):
