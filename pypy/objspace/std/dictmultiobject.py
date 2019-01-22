@@ -41,6 +41,16 @@ def w_dict_unrolling_heuristic(w_dct):
                                     w_dct.length() <= UNROLL_CUTOFF)
 
 
+# for json decoder
+def create_empty_unicode_key_dict(space):
+    return r_dict(unicode_eq, unicode_hash,
+                  force_non_null=True)
+
+def from_unicode_key_dict(space, d):
+    strategy = space.fromcache(UnicodeDictStrategy)
+    return W_DictObject(space, strategy, strategy.erase(d))
+
+
 class W_DictMultiObject(W_Root):
     """ Abstract base class that does not store a strategy. """
     __slots__ = ['space', 'dstorage']
@@ -1215,8 +1225,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         return type(w_obj) is space.UnicodeObjectCls
 
     def get_empty_storage(self):
-        res = r_dict(unicode_eq, unicode_hash,
-                     force_non_null=True)
+        res = create_empty_unicode_key_dict(self.space)
         return self.erase(res)
 
     def _never_equal_to(self, w_lookup_type):
