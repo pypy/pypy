@@ -2,6 +2,5 @@
   if one is not already readily available
 * write the correct jit_elidable in _get_index_storage
 * improve performance of splitlines
-* fix _pypyjson to not use a wrapped dict when decoding an object
 * make sure we review all the places that call ord(unichr) to check for ValueErrors
 * Find a more elegant way to define MAXUNICODE in rpython/rlib/runicode.py
