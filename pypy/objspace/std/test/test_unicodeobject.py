@@ -1129,6 +1129,14 @@ class AppTestUnicodeString:
                 return u'\u1234'
         '%s' % X()
 
+    def test_formatting_unicode__str__4(self):
+        # from lib-python/3/test/test_tokenize
+        fmt = "%(token)-13.13r %(start)s"
+        vals = {"token" : u"Örter", "start": "(1, 0)"}
+        expected = u"'Örter'       (1, 0)"
+        s = fmt % vals
+        assert s == expected, "\ns       = '%s'\nexpected= '%s'" %(s, expected)
+
     def test_format_repeat(self):
         assert format(u"abc", u"z<5") == u"abczz"
         assert format(u"abc", u"\u2007<5") == u"abc\u2007\u2007"

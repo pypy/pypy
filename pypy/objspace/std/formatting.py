@@ -348,12 +348,12 @@ def make_formatter_subclass(do_unicode):
                 return
             if prec >= 0 and prec < length:
                 length = prec   # ignore the end of the string if too long
+            padding = self.width - length
             if do_unicode:
                 # XXX could use W_UnicodeObject.descr_getslice, but that would
                 # require a refactor to use the w_val, not r
                 length = rutf8._pos_at_index(r, length)
             result = self.result
-            padding = self.width - length
             if padding < 0:
                 padding = 0
             assert padding >= 0
