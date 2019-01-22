@@ -398,9 +398,9 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                     msg = "invalid continuation byte"
                 else:
                     msg = "unexpected end of data"
+                    suppressing = True
                 r, pos, rettype = errorhandler(errors, "utf8", msg, s, pos - 1, pos)
                 res.append(r)
-                suppressing = True
                 continue
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
@@ -437,9 +437,9 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
                     msg = "invalid continuation byte"
                 else:
                     msg = "unexpected end of data"
+                suppressing = True
                 r, pos, rettype = errorhandler(errors, "utf8", msg, s, pos - 1, pos)
                 res.append(r)
-                suppressing = True
                 continue
             ordch2 = ord(s[pos])
             ordch3 = ord(s[pos + 1])
