@@ -774,7 +774,7 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
     def test_collect_0(self, debuglog):
         self.gc.collect(1) # start a major
         debuglog.reset()
-        self.gc.collect(0) # do ONLY a minor
+        self.gc.collect(-1) # do ONLY a minor
         assert debuglog.summary() == {'gc-minor': 1}
 
     def test_enable_disable(self, debuglog):
