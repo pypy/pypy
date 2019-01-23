@@ -156,7 +156,8 @@ class TestUnicodeObject:
             assert w_res is space.newbool(expected)
 
             expected = u.startswith(v, start, start + len1)
-            if expected and start > len(u):
+            if ((expected and start > len(u)) or 
+                    (start > 0 and start + len1 ==0)): 
                 expected = False # python2 vs. python3
             w_res = space.call_method(w_u, 'startswith', w_v,
                                       space.newint(start),
@@ -171,7 +172,8 @@ class TestUnicodeObject:
             assert w_res is space.newbool(expected)
 
             expected = u.endswith(v, start, start + len1)
-            if expected and start > len(u):
+            if ((expected and start > len(u)) or 
+                    (start > 0 and start + len1 ==0)): 
                 expected = False # python2 vs. python3
             w_res = space.call_method(w_u, 'endswith', w_v,
                                       space.newint(start),
@@ -626,6 +628,8 @@ class AppTestUnicodeString:
         assert ''.endswith('a') is False
         assert 'x'.endswith('xx') is False
         assert 'y'.endswith('xx') is False
+        assert 'x'.endswith('', 1, 0) is False
+
 
     def test_endswith_more(self):
         assert 'abc'.endswith('ab', 0, 2) is True
