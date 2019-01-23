@@ -629,6 +629,7 @@ class AppTestUnicodeString:
         assert 'x'.endswith('xx') is False
         assert 'y'.endswith('xx') is False
         assert 'x'.endswith('', 1, 0) is False
+        assert ''.endswith('', 1, 9223372036854775808) is False
 
 
     def test_endswith_more(self):
