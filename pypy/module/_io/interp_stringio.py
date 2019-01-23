@@ -196,7 +196,8 @@ class W_StringIO(W_TextIOBase):
         if pos < 0:
             raise oefmt(space.w_ValueError,
                         "position value cannot be negative")
-        self.buf = UnicodeIO(initval, pos)
+        self.buf = UnicodeIO(initval)
+        self.buf.seek(pos)
         if not space.is_w(w_dict, space.w_None):
             if not space.isinstance_w(w_dict, space.w_dict):
                 raise oefmt(

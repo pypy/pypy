@@ -307,3 +307,17 @@ class AppTestStringIO:
         raises(TypeError, sio.__setstate__, 0)
         sio.close()
         raises(ValueError, sio.__setstate__, (u"closed", u"", 0, None))
+
+    def test_roundtrip_state(self):
+        import io
+        s = u'12345678'
+        sio1 = io.StringIO(s)
+        sio1.foo = 42
+        sio1.seek(2)
+        assert sio1.getvalue() == s
+        state = sio1.__getstate__()
+        sio2 = io.StringIO()
+        sio2.__setstate__(state)
+        assert sio2.getvalue() == s
+        assert sio2.foo == 42
+        assert sio2.tell() == 2
