@@ -230,7 +230,7 @@ class AppTestCodecs:
             (b'\x61\xF1\x80\x80\xE1\x80\xC2\x62\x80\x63\x80\xBF\x64',
              '\x61\uFFFD\uFFFD\uFFFD\x62\uFFFD\x63\uFFFD\uFFFD\x64'),
         ]
-        for n, (seq, res) in enumerate(sequences):
+        for (seq, res) in sequences:
             raises(UnicodeDecodeError, seq.decode, 'utf-8', 'strict')
             uni = seq.decode('utf-8', 'replace')
             assert uni == res
@@ -329,7 +329,6 @@ class AppTestCodecs:
         err = 'invalid continuation byte'
         for s, res in sequences:
             seq = bytes(int(c, 16) for c in s.split())
-            print(seq, [hex(ord(c)) for c in res])
             exc = raises(UnicodeDecodeError, seq.decode, 'utf-8')
             assert err in str(exc.value)
             assert seq.decode('utf-8', 'replace') == res
@@ -339,6 +338,95 @@ class AppTestCodecs:
             assert seq.decode('utf-8', 'ignore') == res
             assert((b'aaaa' + seq + b'bbbb').decode('utf-8', 'ignore') ==
                           'aaaa' + res + 'bbbb')
+
+    def test_invalid_cb_for_4bytes_seq(self):
+        """
+        Test that an 'invalid continuation byte' error is raised when the
+        continuation byte(s) of a 4-bytes sequence are invalid.  When
+        errors='replace',the start byte and all the following valid
+        continuation bytes are replaced with a single U+FFFD, and all the bytes
+        starting from the first invalid continuation bytes (included) are
+        handled separately.
+        E.g. in the sequence <E1 80 41>, E1 is the start byte of a 3-bytes
+        sequence, 80 is a valid continuation byte, but 41 is not a valid cb
+        because it's the ASCII letter 'A'.
+        Note: when the start byte is E0 or ED, the valid ranges for the first
+        continuation byte are limited to A0..BF and 80..9F respectively.
+        However, when the start byte is ED, Python 2 considers all the bytes
+        in range 80..BF valid.  This is fixed in Python 3.
+        """
+        FFFD = '\ufffd'
+        FFFDx2 = FFFD * 2
+        sequences = [
+            ('F0 00', FFFD+'\x00'), ('F0 7F', FFFD+'\x7f'), ('F0 80', FFFDx2),
+            ('F0 8F', FFFDx2), ('F0 C0', FFFDx2), ('F0 FF', FFFDx2),
+            ('F0 90 00', FFFD+'\x00'), ('F0 90 7F', FFFD+'\x7f'),
+            ('F0 90 C0', FFFDx2), ('F0 90 FF', FFFDx2),
+            ('F0 BF 00', FFFD+'\x00'), ('F0 BF 7F', FFFD+'\x7f'),
+            ('F0 BF C0', FFFDx2), ('F0 BF FF', FFFDx2),
+            ('F0 90 80 00', FFFD+'\x00'), ('F0 90 80 7F', FFFD+'\x7f'),
+            ('F0 90 80 C0', FFFDx2), ('F0 90 80 FF', FFFDx2),
+            ('F0 90 BF 00', FFFD+'\x00'), ('F0 90 BF 7F', FFFD+'\x7f'),
+            ('F0 90 BF C0', FFFDx2), ('F0 90 BF FF', FFFDx2),
+            ('F0 BF 80 00', FFFD+'\x00'), ('F0 BF 80 7F', FFFD+'\x7f'),
+            ('F0 BF 80 C0', FFFDx2), ('F0 BF 80 FF', FFFDx2),
+            ('F0 BF BF 00', FFFD+'\x00'), ('F0 BF BF 7F', FFFD+'\x7f'),
+            ('F0 BF BF C0', FFFDx2), ('F0 BF BF FF', FFFDx2),
+            ('F1 00', FFFD+'\x00'), ('F1 7F', FFFD+'\x7f'), ('F1 C0', FFFDx2),
+            ('F1 FF', FFFDx2), ('F1 80 00', FFFD+'\x00'),
+            ('F1 80 7F', FFFD+'\x7f'), ('F1 80 C0', FFFDx2),
+            ('F1 80 FF', FFFDx2), ('F1 BF 00', FFFD+'\x00'),
+            ('F1 BF 7F', FFFD+'\x7f'), ('F1 BF C0', FFFDx2),
+            ('F1 BF FF', FFFDx2), ('F1 80 80 00', FFFD+'\x00'),
+            ('F1 80 80 7F', FFFD+'\x7f'), ('F1 80 80 C0', FFFDx2),
+            ('F1 80 80 FF', FFFDx2), ('F1 80 BF 00', FFFD+'\x00'),
+            ('F1 80 BF 7F', FFFD+'\x7f'), ('F1 80 BF C0', FFFDx2),
+            ('F1 80 BF FF', FFFDx2), ('F1 BF 80 00', FFFD+'\x00'),
+            ('F1 BF 80 7F', FFFD+'\x7f'), ('F1 BF 80 C0', FFFDx2),
+            ('F1 BF 80 FF', FFFDx2), ('F1 BF BF 00', FFFD+'\x00'),
+            ('F1 BF BF 7F', FFFD+'\x7f'), ('F1 BF BF C0', FFFDx2),
+            ('F1 BF BF FF', FFFDx2), ('F3 00', FFFD+'\x00'),
+            ('F3 7F', FFFD+'\x7f'), ('F3 C0', FFFDx2), ('F3 FF', FFFDx2),
+            ('F3 80 00', FFFD+'\x00'), ('F3 80 7F', FFFD+'\x7f'),
+            ('F3 80 C0', FFFDx2), ('F3 80 FF', FFFDx2),
+            ('F3 BF 00', FFFD+'\x00'), ('F3 BF 7F', FFFD+'\x7f'),
+            ('F3 BF C0', FFFDx2), ('F3 BF FF', FFFDx2),
+            ('F3 80 80 00', FFFD+'\x00'), ('F3 80 80 7F', FFFD+'\x7f'),
+            ('F3 80 80 C0', FFFDx2), ('F3 80 80 FF', FFFDx2),
+            ('F3 80 BF 00', FFFD+'\x00'), ('F3 80 BF 7F', FFFD+'\x7f'),
+            ('F3 80 BF C0', FFFDx2), ('F3 80 BF FF', FFFDx2),
+            ('F3 BF 80 00', FFFD+'\x00'), ('F3 BF 80 7F', FFFD+'\x7f'),
+            ('F3 BF 80 C0', FFFDx2), ('F3 BF 80 FF', FFFDx2),
+            ('F3 BF BF 00', FFFD+'\x00'), ('F3 BF BF 7F', FFFD+'\x7f'),
+            ('F3 BF BF C0', FFFDx2), ('F3 BF BF FF', FFFDx2),
+            ('F4 00', FFFD+'\x00'), ('F4 7F', FFFD+'\x7f'), ('F4 90', FFFDx2),
+            ('F4 BF', FFFDx2), ('F4 C0', FFFDx2), ('F4 FF', FFFDx2),
+            ('F4 80 00', FFFD+'\x00'), ('F4 80 7F', FFFD+'\x7f'),
+            ('F4 80 C0', FFFDx2), ('F4 80 FF', FFFDx2),
+            ('F4 8F 00', FFFD+'\x00'), ('F4 8F 7F', FFFD+'\x7f'),
+            ('F4 8F C0', FFFDx2), ('F4 8F FF', FFFDx2),
+            ('F4 80 80 00', FFFD+'\x00'), ('F4 80 80 7F', FFFD+'\x7f'),
+            ('F4 80 80 C0', FFFDx2), ('F4 80 80 FF', FFFDx2),
+            ('F4 80 BF 00', FFFD+'\x00'), ('F4 80 BF 7F', FFFD+'\x7f'),
+            ('F4 80 BF C0', FFFDx2), ('F4 80 BF FF', FFFDx2),
+            ('F4 8F 80 00', FFFD+'\x00'), ('F4 8F 80 7F', FFFD+'\x7f'),
+            ('F4 8F 80 C0', FFFDx2), ('F4 8F 80 FF', FFFDx2),
+            ('F4 8F BF 00', FFFD+'\x00'), ('F4 8F BF 7F', FFFD+'\x7f'),
+            ('F4 8F BF C0', FFFDx2), ('F4 8F BF FF', FFFDx2)
+        ]
+        err = 'invalid continuation byte'
+        for s, res in sequences:
+            seq = bytes(int(c, 16) for c in s.split())
+            exc = raises(UnicodeDecodeError, seq.decode, 'utf-8')
+            assert err in str(exc.value)
+            assert seq.decode('utf-8', 'replace') == res
+            assert ((b'aaaa' + seq + b'bbbb').decode('utf-8', 'replace') == 
+                         'aaaa' + res + 'bbbb')
+            res = res.replace('\ufffd', '')
+            assert seq.decode('utf-8', 'ignore') == res
+            assert((b'aaaa' + seq + b'bbbb').decode('utf-8', 'ignore') ==
+                          'aaaa' + res + 'bbbb')
+
 
 class AppTestPartialEvaluation:
     spaceconfig = dict(usemodules=['array',])
@@ -612,7 +700,6 @@ class AppTestPartialEvaluation:
         exc = raises(UnicodeDecodeError, codecs.decode, b'\xff', 'ascii')
 
         exc = raises(UnicodeDecodeError, codecs.decode, b'\xe0\x00', 'utf-8')
-        print(dir(exc.value))
         assert 'invalid continuation byte' in exc.value.reason
 
     def test_bad_errorhandler_return(self):
