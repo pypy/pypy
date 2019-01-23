@@ -134,8 +134,11 @@ class W_StringIO(W_TextIOBase):
 
         if space.is_w(w_newline, space.w_None):
             newline = None
-        else:
+        elif space.isinstance_w(w_newline, space.w_unicode):
             newline = space.utf8_w(w_newline)
+        else:
+            raise oefmt(space.w_TypeError,
+                 "newline must be str or None, not %T", w_newline)
 
         if (newline is not None and newline != "" and newline != "\n" and
                 newline != "\r" and newline != "\r\n"):
@@ -202,7 +205,8 @@ class W_StringIO(W_TextIOBase):
         if pos < 0:
             raise oefmt(space.w_ValueError,
                         "position value cannot be negative")
-        self.buf = UnicodeIO(initval, pos)
+        self.buf = UnicodeIO(initval)
+        self.buf.seek(pos)
         if not space.is_w(w_dict, space.w_None):
             if not space.isinstance_w(w_dict, space.w_dict):
                 raise oefmt(
