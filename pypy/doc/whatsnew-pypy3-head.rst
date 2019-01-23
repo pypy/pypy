@@ -8,3 +8,7 @@ What's new in PyPy3 6.0+
 .. branch: unicode-utf8
 
 Use utf-8 internally to represent unicode strings
+
+.. branch: unicode-utf8-py3
+
+Use utf-8 internally to represent unicode strings
