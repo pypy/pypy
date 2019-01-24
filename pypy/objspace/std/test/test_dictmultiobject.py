@@ -1188,7 +1188,7 @@ class AppTestStrategies(object):
         assert d["a"] == 1
         assert "UnicodeDictStrategy" in self.get_strategy(d)
         exec("ä = 2", d)
-        assert "ObjectDictStrategy" in self.get_strategy(d)
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
         assert d["a"] == 1
         assert d["ä"] == 2
 
@@ -1264,6 +1264,12 @@ class FakeUnicode(unicode):
     def __hash__(self):
         self.hash_count += 1
         return unicode.__hash__(self)
+
+    def hash_w(self):
+        return hash(self)
+
+    def eq_w(self, other):
+        return self == other
 
     def is_ascii(self):
         return True

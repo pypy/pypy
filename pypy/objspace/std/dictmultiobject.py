@@ -1191,20 +1191,14 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
-    ## def setitem_str(self, w_dict, key, w_value):
-    ##     assert key is not None
-    ##     try:
-    ##         rutf8.check_ascii(key)
-    ##     except rutf8.CheckError:
-    ##         self.switch_to_object_strategy(w_dict)
-    ##         w_dict.setitem(self.wrap(key), w_value)
-    ##     else:
-    ##         self.unerase(w_dict.dstorage)[key] = w_value
+    def setitem_str(self, w_dict, key, w_value):
+        # XXX think about how to do better again
+        self.setitem(w_dict, self.space.newtext(key), w_value)
 
-    ## def getitem_str(self, w_dict, key):
-    ##     assert key is not None
-    ##     # the shortcut can only be used for valid utf-8 strings
-    ##     return self.unerase(w_dict.dstorage).get(key, None)
+    def getitem_str(self, w_dict, key):
+        # XXX think about how to do better again
+        assert key is not None
+        return self.getitem(w_dict, self.space.newtext(key))
 
     ## def listview_utf8(self, w_dict):
     ##     return self.unerase(w_dict.dstorage).keys()
@@ -1212,18 +1206,18 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     def wrapkey(space, key):
         return key
 
-    ## @jit.look_inside_iff(lambda self, w_dict:
-    ##                      w_dict_unrolling_heuristic(w_dict))
-    ## def view_as_kwargs(self, w_dict):
-    ##     d = self.unerase(w_dict.dstorage)
-    ##     l = len(d)
-    ##     keys, values = [None] * l, [None] * l
-    ##     i = 0
-    ##     for key, val in d.iteritems():
-    ##         keys[i] = key
-    ##         values[i] = val
-    ##         i += 1
-    ##     return keys, values
+    @jit.look_inside_iff(lambda self, w_dict:
+                         w_dict_unrolling_heuristic(w_dict))
+    def view_as_kwargs(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        l = len(d)
+        keys, values = [None] * l, [None] * l
+        i = 0
+        for w_key, val in d.iteritems():
+            keys[i] = self.space.utf8_w(w_key)
+            values[i] = val
+            i += 1
+        return keys, values
 
 create_iterator_classes(UnicodeDictStrategy)
 
