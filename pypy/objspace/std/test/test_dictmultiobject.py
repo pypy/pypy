@@ -341,7 +341,8 @@ class AppTest_DictObject:
             return k
         for last in [False, True]:
             for d, key in [({1: 2, 3: 4, 5: 6}, 3),
-                           ({"a": 5, "b": 2, "c": 6}, "b"),
+                           ({b"a": 5, b"b": 2, b"c": 6}, b"b"),
+                           ({u"a": 5, u"b": 2, u"c": 6}, u"b"),
                            (kwdict(d=7, e=8, f=9), "e")]:
                 other_keys = [k for k in d if k != key]
                 __pypy__.move_to_end(d, key, last=last)
