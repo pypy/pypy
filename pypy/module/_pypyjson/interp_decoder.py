@@ -248,8 +248,7 @@ class JSONDecoder(object):
             self.pos = i+1
             return self.space.newdict()
 
-        # XXX this should be improved to use an unwrapped dict
-        w_dict = self.space.newdict()
+        d = self._create_empty_dict()
         while True:
             # parse a key: value
             w_name = self.decode_key(i)
@@ -261,13 +260,13 @@ class JSONDecoder(object):
             i = self.skip_whitespace(i)
             #
             w_value = self.decode_any(i)
-            self.space.setitem(w_dict, w_name, w_value)
+            d[w_name] = w_value
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             i += 1
             if ch == '}':
                 self.pos = i
-                return w_dict
+                return self._create_dict(d)
             elif ch == ',':
                 pass
             elif ch == '\0':
@@ -306,6 +305,15 @@ class JSONDecoder(object):
             lgt = end - start
             assert lgt >= 0
             return self.space.newutf8(self.getslice(start, end), lgt)
+
+    def _create_dict(self, d):
+        from pypy.objspace.std.dictmultiobject import from_unicode_key_dict
+        return from_unicode_key_dict(self.space, d)
+
+    def _create_empty_dict(self):
+        from pypy.objspace.std.dictmultiobject import create_empty_unicode_key_dict
+        return create_empty_unicode_key_dict(self.space)
+
 
     def decode_string_escaped(self, start):
         i = self.pos

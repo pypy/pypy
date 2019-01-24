@@ -282,10 +282,19 @@ class W_UnicodeObject(W_Root):
         # Subtype -- return genuine unicode string with the same value.
         return space.newtext(space.utf8_w(self), space.len_w(self))
 
-    def descr_hash(self, space):
+    def hash_w(self):
+        # shortcut for UnicodeDictStrategy
         x = compute_hash(self._utf8)
         x -= (x == -1) # convert -1 to -2 without creating a bridge
-        return space.newint(x)
+        return x
+
+    def descr_hash(self, space):
+        return space.newint(self.hash_w())
+
+    def eq_w(self, w_other):
+        # shortcut for UnicodeDictStrategy
+        assert isinstance(w_other, W_UnicodeObject)
+        return self._utf8 == w_other._utf8
 
     def descr_eq(self, space, w_other):
         try:

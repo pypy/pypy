@@ -42,6 +42,16 @@ def w_dict_unrolling_heuristic(w_dct):
                                     w_dct.length() <= UNROLL_CUTOFF)
 
 
+# for json decoder
+def create_empty_unicode_key_dict(space):
+    return r_dict(unicode_eq, unicode_hash,
+                  force_non_null=True)
+
+def from_unicode_key_dict(space, d):
+    strategy = space.fromcache(UnicodeDictStrategy)
+    return W_DictObject(space, strategy, strategy.erase(d))
+
+
 class W_DictMultiObject(W_Root):
     """ Abstract base class that does not store a strategy. """
     __slots__ = ['space', 'dstorage']
@@ -1151,6 +1161,11 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
 
 create_iterator_classes(BytesDictStrategy)
 
+def unicode_eq(w_uni1, w_uni2):
+    return w_uni1.eq_w(w_uni2)
+
+def unicode_hash(w_uni):
+    return w_uni.hash_w()
 
 class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     erase, unerase = rerased.new_erasing_pair("unicode")
@@ -1158,18 +1173,17 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.newutf8(unwrapped, len(unwrapped))
+        return unwrapped
 
     def unwrap(self, wrapped):
-        return self.space.utf8_w(wrapped)
+        return wrapped
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return type(w_obj) is space.UnicodeObjectCls and w_obj.is_ascii()
+        return type(w_obj) is space.UnicodeObjectCls
 
     def get_empty_storage(self):
-        res = {}
-        mark_dict_non_null(res)
+        res = create_empty_unicode_key_dict(self.space)
         return self.erase(res)
 
     def _never_equal_to(self, w_lookup_type):
@@ -1177,39 +1191,39 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
-    def setitem_str(self, w_dict, key, w_value):
-        assert key is not None
-        try:
-            rutf8.check_ascii(key)
-        except rutf8.CheckError:
-            self.switch_to_object_strategy(w_dict)
-            w_dict.setitem(self.wrap(key), w_value)
-        else:
-            self.unerase(w_dict.dstorage)[key] = w_value
+    ## def setitem_str(self, w_dict, key, w_value):
+    ##     assert key is not None
+    ##     try:
+    ##         rutf8.check_ascii(key)
+    ##     except rutf8.CheckError:
+    ##         self.switch_to_object_strategy(w_dict)
+    ##         w_dict.setitem(self.wrap(key), w_value)
+    ##     else:
+    ##         self.unerase(w_dict.dstorage)[key] = w_value
 
-    def getitem_str(self, w_dict, key):
-        assert key is not None
-        # the shortcut can only be used for valid utf-8 strings
-        return self.unerase(w_dict.dstorage).get(key, None)
+    ## def getitem_str(self, w_dict, key):
+    ##     assert key is not None
+    ##     # the shortcut can only be used for valid utf-8 strings
+    ##     return self.unerase(w_dict.dstorage).get(key, None)
 
-    def listview_utf8(self, w_dict):
-        return self.unerase(w_dict.dstorage).keys()
+    ## def listview_utf8(self, w_dict):
+    ##     return self.unerase(w_dict.dstorage).keys()
 
     def wrapkey(space, key):
-        return space.newutf8(key, rutf8.codepoints_in_utf8(key))
+        return key
 
-    @jit.look_inside_iff(lambda self, w_dict:
-                         w_dict_unrolling_heuristic(w_dict))
-    def view_as_kwargs(self, w_dict):
-        d = self.unerase(w_dict.dstorage)
-        l = len(d)
-        keys, values = [None] * l, [None] * l
-        i = 0
-        for key, val in d.iteritems():
-            keys[i] = key
-            values[i] = val
-            i += 1
-        return keys, values
+    ## @jit.look_inside_iff(lambda self, w_dict:
+    ##                      w_dict_unrolling_heuristic(w_dict))
+    ## def view_as_kwargs(self, w_dict):
+    ##     d = self.unerase(w_dict.dstorage)
+    ##     l = len(d)
+    ##     keys, values = [None] * l, [None] * l
+    ##     i = 0
+    ##     for key, val in d.iteritems():
+    ##         keys[i] = key
+    ##         values[i] = val
+    ##         i += 1
+    ##     return keys, values
 
 create_iterator_classes(UnicodeDictStrategy)
 

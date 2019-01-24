@@ -310,7 +310,7 @@ class AppTestStringIO:
 
     def test_roundtrip_state(self):
         import io
-        s = '12345678'
+        s = u'12345678'
         sio1 = io.StringIO(s)
         sio1.foo = 42
         sio1.seek(2)
