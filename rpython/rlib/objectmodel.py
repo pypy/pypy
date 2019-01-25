@@ -991,7 +991,9 @@ def _untranslated_move_to_end(d, key, last):
         items = d.items()
         d.clear()
         d[key] = value
-        d.update(items)
+        # r_dict.update does not support list of tuples, do it manually
+        for key, value in items:
+            d[key] = value
 
 @specialize.call_location()
 def move_to_end(d, key, last=True):
