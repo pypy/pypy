@@ -82,7 +82,7 @@ def test_limit_size_non_ascii():
     for i in range(100):
         assert d.setitem_str("ה%s" % i, 4) is None
     assert d.get_strategy() is not strategy
-    assert "ObjectDictStrategy" == d.get_strategy().__class__.__name__
+    assert "UnicodeDictStrategy" == d.get_strategy().__class__.__name__
 
 def test_keys_doesnt_wrap():
     space = FakeSpace()
