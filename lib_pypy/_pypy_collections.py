@@ -137,14 +137,14 @@ dict_items = type({}.items())
 
 class _OrderedDictKeysView(dict_keys):
     def __reversed__(self):
-        yield from reversed_dict(self._mapping)
+        yield from reversed_dict(self._dict)
 
 class _OrderedDictItemsView(dict_items):
     def __reversed__(self):
-        for key in reversed_dict(self._mapping):
-            yield (key, self._mapping[key])
+        for key in reversed_dict(self._dict):
+            yield (key, self._dict[key])
 
 class _OrderedDictValuesView(dict_values):
     def __reversed__(self):
-        for key in reversed_dict(self._mapping):
-            yield self._mapping[key]
+        for key in reversed_dict(self._dict):
+            yield self._dict[key]

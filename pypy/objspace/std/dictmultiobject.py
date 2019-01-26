@@ -11,7 +11,7 @@ from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from pypy.interpreter.unicodehelper import decode_utf8
 from pypy.objspace.std.util import negate
 
@@ -1610,6 +1610,7 @@ W_DictViewItemsObject.typedef = TypeDef(
     __xor__ = interp2app(W_DictViewItemsObject.descr_xor),
     __rxor__ = interp2app(W_DictViewItemsObject.descr_rxor),
     isdisjoint = interp2app(W_DictViewItemsObject.descr_isdisjoint),
+    _dict = interp_attrproperty_w('w_dict', cls=W_DictViewItemsObject),
     )
 
 W_DictViewKeysObject.typedef = TypeDef(
@@ -1636,6 +1637,7 @@ W_DictViewKeysObject.typedef = TypeDef(
     __xor__ = interp2app(W_DictViewKeysObject.descr_xor),
     __rxor__ = interp2app(W_DictViewKeysObject.descr_rxor),
     isdisjoint = interp2app(W_DictViewKeysObject.descr_isdisjoint),
+    _dict = interp_attrproperty_w('w_dict', cls=W_DictViewKeysObject),
     )
 
 W_DictViewValuesObject.typedef = TypeDef(
@@ -1644,4 +1646,5 @@ W_DictViewValuesObject.typedef = TypeDef(
     __repr__ = interp2app(W_DictViewValuesObject.descr_repr),
     __len__ = interp2app(W_DictViewValuesObject.descr_len),
     __iter__ = interp2app(W_DictViewValuesObject.descr_iter),
+    _dict = interp_attrproperty_w('w_dict', cls=W_DictViewValuesObject),
     )
