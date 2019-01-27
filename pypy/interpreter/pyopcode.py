@@ -1049,8 +1049,6 @@ class __extend__(pyframe.PyFrame):
             w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
-        if not we_are_translated() and modulename == 'io':
-            import pdb; pdb.set_trace()
         w_modulename = space.newtext(modulename)
         w_globals = self.get_w_globals()
         if w_flag is None:
