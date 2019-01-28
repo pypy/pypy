@@ -4,7 +4,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     interpleveldefs = {
         'collect': 'interp_gc.collect',
-        'collect_step': 'interp_gc.collect_step',
         'enable': 'interp_gc.enable',
         'disable': 'interp_gc.disable',
         'isenabled': 'interp_gc.isenabled',
@@ -23,6 +22,7 @@ class Module(MixedModule):
                 'get_stats': 'app_referents.get_stats',
                 })
             self.interpleveldefs.update({
+                'collect_step': 'interp_gc.collect_step',
                 'get_rpy_roots': 'referents.get_rpy_roots',
                 'get_rpy_referents': 'referents.get_rpy_referents',
                 'get_rpy_memory_usage': 'referents.get_rpy_memory_usage',

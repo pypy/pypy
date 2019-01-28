@@ -1457,6 +1457,35 @@ class TestNewFFI1:
         import gc; gc.collect(); gc.collect(); gc.collect()
         assert seen == [3]
 
+    def test_release(self):
+        p = ffi.new("int[]", 123)
+        ffi.release(p)
+        # here, reading p[0] might give garbage or segfault...
+        ffi.release(p)   # no effect
+
+    def test_release_new_allocator(self):
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", b"X" * size)
+        def myfree(raw):
+            seen.append(raw)
+        alloc2 = ffi.new_allocator(alloc=myalloc, free=myfree)
+        p = alloc2("int[]", 15)
+        assert seen == [15 * 4]
+        ffi.release(p)
+        assert seen == [15 * 4, p]
+        ffi.release(p)    # no effect
+        assert seen == [15 * 4, p]
+        #
+        del seen[:]
+        p = alloc2("struct ab *")
+        assert seen == [2 * 4]
+        ffi.release(p)
+        assert seen == [2 * 4, p]
+        ffi.release(p)    # no effect
+        assert seen == [2 * 4, p]
+
     def test_CData_CType(self):
         assert isinstance(ffi.cast("int", 0), ffi.CData)
         assert isinstance(ffi.new("int *"), ffi.CData)
@@ -1646,24 +1675,6 @@ class TestNewFFI1:
         assert q.a[2] == 400
         py.test.raises(TypeError, len, q.a)
         py.test.raises(TypeError, list, q.a)
-
-    def test_from_buffer(self):
-        import array
-        a = array.array('H', [10000, 20000, 30000])
-        c = ffi.from_buffer(a)
-        assert ffi.typeof(c) is ffi.typeof("char[]")
-        ffi.cast("unsigned short *", c)[1] += 500
-        assert list(a) == [10000, 20500, 30000]
-        assert c == ffi.from_buffer(a, True)
-        assert c == ffi.from_buffer(a, require_writable=True)
-        #
-        p = ffi.from_buffer(b"abcd")
-        assert p[2] == b"c"
-        #
-        assert p == ffi.from_buffer(b"abcd", False)
-        py.test.raises((TypeError, BufferError), ffi.from_buffer, b"abcd", True)
-        py.test.raises((TypeError, BufferError), ffi.from_buffer, b"abcd",
-                                                 require_writable=True)
 
     def test_all_primitives(self):
         assert set(PRIMITIVE_TO_INDEX) == set([

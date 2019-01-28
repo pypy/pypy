@@ -11,7 +11,7 @@ from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from pypy.interpreter.unicodehelper import decode_utf8
 from pypy.objspace.std.util import negate
 
@@ -1538,6 +1538,12 @@ class SetLikeDictView(object):
     descr_or, descr_ror = _as_set_op('or', 'update')
     descr_xor, descr_rxor = _as_set_op('xor', 'symmetric_difference_update')
 
+def new_dict_items(space, w_type, w_dict):
+    w_dict = space.interp_w(W_DictMultiObject, w_dict)
+    w_obj = space.allocate_instance(W_DictViewItemsObject, w_type)
+    W_DictViewObject.__init__(w_obj, space, w_dict)
+    return w_obj
+
 class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
@@ -1557,11 +1563,24 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
             return space.w_False
         return space.newbool(space.eq_w(w_value, w_found))
 
+def new_dict_keys(space, w_type, w_dict):
+    w_dict = space.interp_w(W_DictMultiObject, w_dict)
+    w_obj = space.allocate_instance(W_DictViewKeysObject, w_type)
+    W_DictViewObject.__init__(w_obj, space, w_dict)
+    return w_obj
+
 class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
+
     def descr_contains(self, space, w_key):
         return self.w_dict.descr_contains(space, w_key)
+
+def new_dict_values(space, w_type, w_dict):
+    w_dict = space.interp_w(W_DictMultiObject, w_dict)
+    w_obj = space.allocate_instance(W_DictViewValuesObject, w_type)
+    W_DictViewObject.__init__(w_obj, space, w_dict)
+    return w_obj
 
 class W_DictViewValuesObject(W_DictViewObject):
     def descr_iter(self, space):
@@ -1569,6 +1588,7 @@ class W_DictViewValuesObject(W_DictViewObject):
 
 W_DictViewItemsObject.typedef = TypeDef(
     "dict_items",
+    __new__ = interp2app(new_dict_items),
     __repr__ = interp2app(W_DictViewItemsObject.descr_repr),
     __len__ = interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = interp2app(W_DictViewItemsObject.descr_iter),
@@ -1590,10 +1610,12 @@ W_DictViewItemsObject.typedef = TypeDef(
     __xor__ = interp2app(W_DictViewItemsObject.descr_xor),
     __rxor__ = interp2app(W_DictViewItemsObject.descr_rxor),
     isdisjoint = interp2app(W_DictViewItemsObject.descr_isdisjoint),
+    _dict = interp_attrproperty_w('w_dict', cls=W_DictViewItemsObject),
     )
 
 W_DictViewKeysObject.typedef = TypeDef(
     "dict_keys",
+    __new__ = interp2app(new_dict_keys),
     __repr__ = interp2app(W_DictViewKeysObject.descr_repr),
     __len__ = interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = interp2app(W_DictViewKeysObject.descr_iter),
@@ -1615,11 +1637,14 @@ W_DictViewKeysObject.typedef = TypeDef(
     __xor__ = interp2app(W_DictViewKeysObject.descr_xor),
     __rxor__ = interp2app(W_DictViewKeysObject.descr_rxor),
     isdisjoint = interp2app(W_DictViewKeysObject.descr_isdisjoint),
+    _dict = interp_attrproperty_w('w_dict', cls=W_DictViewKeysObject),
     )
 
 W_DictViewValuesObject.typedef = TypeDef(
     "dict_values",
+    __new__ = interp2app(new_dict_values),
     __repr__ = interp2app(W_DictViewValuesObject.descr_repr),
     __len__ = interp2app(W_DictViewValuesObject.descr_len),
     __iter__ = interp2app(W_DictViewValuesObject.descr_iter),
+    _dict = interp_attrproperty_w('w_dict', cls=W_DictViewValuesObject),
     )

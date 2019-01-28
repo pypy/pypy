@@ -33,7 +33,9 @@ class timedelta_safe(datetime.timedelta):
     (timedelta_safe(1, 2, 3), "timedelta_safe(1, 2, 3)"),
 ])
 def test_repr(obj, expected):
-    assert repr(obj) == expected
+    # XXX: there's a discrepancy between datetime.py and CPython's _datetime
+    # for the repr() of Python-defined subclasses of datetime classes.
+    assert repr(obj).endswith(expected)
 
 @pytest.mark.parametrize("obj", [
     datetime.date.today(),

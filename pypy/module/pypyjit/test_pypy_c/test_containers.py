@@ -20,7 +20,7 @@ class TestDicts(BaseTestPyPyC):
         assert log.result % 1000 == 0
         loop, = log.loops_by_filename(self.filepath)
         ops = loop.ops_by_id('look')
-        assert log.opnames(ops) == []
+        assert log.opnames(ops) == ['guard_nonnull_class']
 
     def test_identitydict(self):
         def fn(n):
