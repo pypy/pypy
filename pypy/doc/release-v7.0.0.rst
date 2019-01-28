@@ -1,17 +1,20 @@
-===========================================
-PyPy2.7, PyPy3.5. PyPy3.6alpha v7.0 release
-===========================================
+======================================================
+PyPy v7.0.0: triple release of 2.7, 3.5 and 3.6-alpha
+======================================================
 
-The PyPy team is proud to release PyPy2.7 (supporting Python 2.7 syntax),
-PyPy3.5 (supporting Python 3.5 syntax with f-strings from 3.6), and our first
-alpha release of PyPy3.6 for 64-bit linux only (supporting Python 3.6 syntax).
-The releases are based on much the same codebase.
+The PyPy team is proud to release the version 7.0.0 of PyPy, which includes
+three different interpreters:
 
-This release is a feature release following our previous 6.0 release in April
-2018. Our C-API compatibility layer ``cpyext`` is more mature, as more projects
-use PyPy3.5 in their CI testing. Since these changes affect the included python
-development header files, all c-extension modules must be recompiled for this
-version.
+  - PyPy2.7, which is an interpreter supporting the syntax and the features of
+    Python 2.7
+
+  - PyPy3.5, which supports Python 3.5
+
+  - PyPy3.6-alpha: this is the first official release of PyPy to support 3.6
+    features, although it is still considered alpha quality.
+    
+All the interpreters are based on much the same codebase, thus the triple
+release.
 
 Until we can work with downstream providers to distribute builds with PyPy, we
 have made packages for some common packages `available as wheels`_.
@@ -35,8 +38,7 @@ compatibility and c-extension support.
 
 The utf8 branch that changes internal representation of unicode to utf8 did not
 make it into the release, so there is still more goodness coming.
-
-You can download the v7.0 releases here:
+You can download the v6.0 releases here:
 
     http://pypy.org/download.html
 
@@ -57,12 +59,13 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 .. _`GC blog post`: https://morepypy.blogspot.com/2019/01/pypy-for-low-latency-systems.html
 
+
 What is PyPy?
 =============
 
 PyPy is a very compliant Python interpreter, almost a drop-in replacement for
-CPython 2.7, 3.5 and 3.6. It's fast (`PyPy and CPython 2.7.x`_ performance comparison)
-due to its integrated tracing JIT compiler.
+CPython 2.7, 3.5 and 3.6. It's fast (`PyPy and CPython 2.7.x`_ performance
+comparison) due to its integrated tracing JIT compiler.
 
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
@@ -72,14 +75,16 @@ The PyPy release supports:
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
 
-  * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
-
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux
 
+Unfortunately at the moment of writing our ARM buildbots are out of service,
+so for now we are **not** releasing any binary for the ARM architecture.
+
 .. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
 .. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+
 
 Changelog
 =========
