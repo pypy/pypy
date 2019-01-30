@@ -107,7 +107,10 @@ If not specified, the changes are shared across versions
   ``PyOS_InputHook``, ``PyErr_FormatFromCause`` (Py3.6),
 * Implement new wordcode instruction encoding (Py3.6)
 * Log additional gc-minor and gc-collect-step info in the PYPYLOG
-* Set ``reverse-debugger`` active by default. For more information, see
+* The ``reverse-debugger`` (revdb) branch has been merged to the default
+  branch, so it should always be up-to-date.  You still need a special pypy
+  build, but you can compile it from the same source as the one we distribute
+  for the v7.0.0 release.  For more information, see
   https://bitbucket.org/pypy/revdb
 * Support underscores in numerical literals like ``'4_2'`` (Py3.6)
 * Pre-emptively raise MemoryError if the size of dequeue in ``_collections.deque``
