@@ -341,7 +341,6 @@ Contributors
   Anna Ravencroft
   remarkablerocket
   Petre Vijiac
-  hgattic
   Berker Peksag
   Christian Muirhead
   soareschen
