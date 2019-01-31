@@ -1,6 +1,5 @@
 from __pypy__ import reversed_dict, move_to_end, objects_in_repr
 from _operator import eq as _eq
-import _collections_abc
 
 
 class OrderedDict(dict):
@@ -29,7 +28,33 @@ class OrderedDict(dict):
             raise TypeError('expected at most 1 arguments, got %d' % len(args))
         self.__update(*args, **kwds)
 
-    update = __update = _collections_abc.MutableMapping.update
+    def update(*args, **kwds):
+        ''' D.update([E, ]**F) -> None.  Update D from mapping/iterable E and F.
+            If E present and has a .keys() method, does:     for k in E: D[k] = E[k]
+            If E present and lacks .keys() method, does:     for (k, v) in E: D[k] = v
+            In either case, this is followed by: for k, v in F.items(): D[k] = v
+        '''
+        if not args:
+            raise TypeError("descriptor 'update' of 'OrderedDict' object "
+                            "needs an argument")
+        self, *args = args
+        if len(args) > 1:
+            raise TypeError('update expected at most 1 arguments, got %d' %
+                            len(args))
+        if args:
+            other = args[0]
+            if hasattr(other, 'items'):
+                for key, value in other.items():
+                    self[key] = value
+            elif hasattr(other, "keys"):
+                for key in other.keys():
+                    self[key] = other[key]
+            else:
+                for key, value in other:
+                    self[key] = value
+        for key, value in kwds.items():
+            self[key] = value
+    __update = update
 
     def __reversed__(self):
         return reversed_dict(self)
@@ -106,17 +131,20 @@ class OrderedDict(dict):
         "D.values() -> an object providing a view on D's values"
         return _OrderedDictValuesView(self)
 
+dict_keys = type({}.keys())
+dict_values = type({}.values())
+dict_items = type({}.items())
 
-class _OrderedDictKeysView(_collections_abc.KeysView):
+class _OrderedDictKeysView(dict_keys):
     def __reversed__(self):
-        yield from reversed_dict(self._mapping)
+        yield from reversed_dict(self._dict)
 
-class _OrderedDictItemsView(_collections_abc.ItemsView):
+class _OrderedDictItemsView(dict_items):
     def __reversed__(self):
-        for key in reversed_dict(self._mapping):
-            yield (key, self._mapping[key])
+        for key in reversed_dict(self._dict):
+            yield (key, self._dict[key])
 
-class _OrderedDictValuesView(_collections_abc.ValuesView):
+class _OrderedDictValuesView(dict_values):
     def __reversed__(self):
-        for key in reversed_dict(self._mapping):
-            yield self._mapping[key]
+        for key in reversed_dict(self._dict):
+            yield self._dict[key]

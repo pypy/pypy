@@ -46,14 +46,15 @@ class TestFunction(object):
         assert x != math.sin(1.23)    # rounding effects
         assert abs(x - math.sin(1.23)) < 1E-6
 
-    def test_lround_no_return_value(self):
+    def test_getenv_no_return_value(self):
         # check that 'void'-returning functions work too
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
-            void lround(double x);
+            void getenv(char *);
         """)
-        m = ffi.dlopen(lib_m)
-        x = m.lround(1.23)
+        needs_dlopen_none()
+        m = ffi.dlopen(None)
+        x = m.getenv(b"FOO")
         assert x is None
 
     def test_dlopen_filename(self):

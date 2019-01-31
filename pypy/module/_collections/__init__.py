@@ -8,6 +8,7 @@ class Module(MixedModule):
 
     appleveldefs = {
         'defaultdict': 'app_defaultdict.defaultdict',
+        'OrderedDict': 'app_odict.OrderedDict',
         }
 
     interpleveldefs = {
@@ -25,15 +26,3 @@ class Module(MixedModule):
         space = self.space
         space.getattr(self, space.newtext('defaultdict'))  # force importing
         space.delattr(self, space.newtext('__missing__'))
-
-    def startup(self, space):
-        # OrderedDict is normally present, but in some cases the line
-        # "from __pypy__ import reversed_dict, move_to_end" from
-        # _pypy_collections.py raises
-        space.appexec([self], """(mod):
-            try:
-                from _pypy_collections import OrderedDict
-                mod.OrderedDict = OrderedDict
-            except ImportError:
-                pass
-        """)
