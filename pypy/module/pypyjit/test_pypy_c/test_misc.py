@@ -113,6 +113,7 @@ class TestMisc(BaseTestPyPyC):
             i12 = int_is_true(i4)
             guard_true(i12, descr=...)
             guard_not_invalidated(descr=...)
+            guard_nonnull_class(p10, ConstClass(W_IntObject), descr=...)
             i10p = getfield_gc_i(p10, descr=...)
             i10 = int_mul_ovf(2, i10p)
             guard_no_overflow(descr=...)
@@ -146,12 +147,16 @@ class TestMisc(BaseTestPyPyC):
     RANGE_ITER_STEP_1 = """
             guard_not_invalidated?
             # W_IntRangeStepOneIterator.next()
+            i80 = int_lt(i11, 0)
+            guard_false(i80, descr=...)
             i16 = int_lt(i11, i12)
             guard_true(i16, descr=...)
             i20 = int_add(i11, 1)
             setfield_gc(p4, i20, descr=<.* .*W_IntRangeIterator.inst_current .*>)
             guard_not_invalidated?
             i21 = force_token()
+            i89 = int_lt(0, i9)
+            guard_true(i89, descr=...)
             i88 = int_sub(i9, 1)
 
             # Compared with pypy2, we get these two operations extra.

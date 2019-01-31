@@ -16,6 +16,13 @@ try:
 except ImportError:
     lock = None
 
+def _workaround_for_static_import_finders():
+    # Issue #392: packaging tools like cx_Freeze can not find these
+    # because pycparser uses exec dynamic import.  This is an obscure
+    # workaround.  This function is never called.
+    import pycparser.yacctab
+    import pycparser.lextab
+
 CDEF_SOURCE_STRING = "<cdef source string>"
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
@@ -156,7 +163,6 @@ def _preprocess(csource):
         macrovalue = macrovalue.replace('\\\n', '').strip()
         macros[macroname] = macrovalue
     csource = _r_define.sub('', csource)
-    _warn_for_string_literal(csource)
     #
     if pycparser.__version__ < '2.14':
         csource = _workaround_for_old_pycparser(csource)
@@ -172,6 +178,9 @@ def _preprocess(csource):
     #
     # Replace `extern "Python"` with start/end markers
     csource = _preprocess_extern_python(csource)
+    #
+    # Now there should not be any string literal left; warn if we get one
+    _warn_for_string_literal(csource)
     #
     # Replace "[...]" with "[__dotdotdotarray__]"
     csource = _r_partial_array.sub('[__dotdotdotarray__]', csource)

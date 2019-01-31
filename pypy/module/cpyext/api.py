@@ -511,6 +511,7 @@ def c_only(argtypes, restype):
         header = DEFAULT_HEADER
         if func.__name__ in FUNCTIONS_BY_HEADER[header]:
             raise ValueError("%s already registered" % func.__name__)
+        func._revdb_c_only_ = True   # hack for revdb
         api_function = COnlyApiFunction(argtypes, restype, func)
         FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
         return api_function

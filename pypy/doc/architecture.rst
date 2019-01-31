@@ -4,7 +4,7 @@ Goals and Architecture Overview
 .. contents::
 
 This document gives an overview of the goals and architecture of PyPy. If you're
-interested in :ref:`using PyPy <using-pypy>` or :ref:`hacking on it <developing-pypy>`,
+interested in :ref:`using PyPy <using-pypy>` or hacking on it,
 have a look at our :ref:`getting started <getting-started-index>` section.
 
 

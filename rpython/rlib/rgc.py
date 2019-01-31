@@ -13,6 +13,50 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 # General GC features
 
 collect = gc.collect
+enable = gc.enable
+disable = gc.disable
+isenabled = gc.isenabled
+
+def collect_step():
+    """
+    If the GC is incremental, run a single gc-collect-step.
+
+    Return an integer which encodes the starting and ending GC state. Use
+    rgc.{old_state,new_state,is_done} to decode it.
+
+    If the GC is not incremental, do a full collection and return a value on
+    which rgc.is_done() return True.
+    """
+    gc.collect()
+    return _encode_states(1, 0)
+
+def _encode_states(oldstate, newstate):
+    return oldstate << 8 | newstate
+
+def old_state(states):
+    return (states & 0xFF00) >> 8
+
+def new_state(states):
+    return states & 0xFF
+
+def is_done(states):
+    """
+    Return True if the return value of collect_step signals the end of a major
+    collection
+    """
+    old = old_state(states)
+    new = new_state(states)
+    return is_done__states(old, new)
+
+def is_done__states(oldstate, newstate):
+    "Like is_done, but takes oldstate and newstate explicitly"
+    # a collection is considered done when it ends up in the starting state
+    # (which is usually represented as 0). This logic works for incminimark,
+    # which is currently the only gc actually used and for which collect_step
+    # is implemented. In case we add more GC in the future, we might want to
+    # delegate this logic to the GC itself, but for now it is MUCH simpler to
+    # just write it in plain RPython.
+    return oldstate != 0 and newstate == 0
 
 def set_max_heap_size(nbytes):
     """Limit the heap size to n bytes.
@@ -23,7 +67,7 @@ def must_split_gc_address_space():
     """Returns True if we have a "split GC address space", i.e. if
     we are translating with an option that doesn't support taking raw
     addresses inside GC objects and "hacking" at them.  This is
-    notably the case with --reversedb."""
+    notably the case with --revdb."""
     return False
 
 # for test purposes we allow objects to be pinned and use
@@ -130,6 +174,44 @@ class CollectEntry(ExtRegistryEntry):
         if len(hop.args_s) == 1:
             args_v = hop.inputargs(lltype.Signed)
         return hop.genop('gc__collect', args_v, resulttype=hop.r_result)
+
+
+class EnableDisableEntry(ExtRegistryEntry):
+    _about_ = (gc.enable, gc.disable)
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        opname = self.instance.__name__
+        return hop.genop('gc__%s' % opname, hop.args_v, resulttype=hop.r_result)
+
+
+class IsEnabledEntry(ExtRegistryEntry):
+    _about_ = gc.isenabled
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.s_Bool
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc__isenabled', hop.args_v, resulttype=hop.r_result)
+
+
+class CollectStepEntry(ExtRegistryEntry):
+    _about_ = collect_step
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc__collect_step', hop.args_v, resulttype=hop.r_result)
+
 
 class SetMaxHeapSizeEntry(ExtRegistryEntry):
     _about_ = set_max_heap_size
@@ -704,7 +786,7 @@ def cast_gcref_to_int(gcref):
 (TOTAL_MEMORY, TOTAL_ALLOCATED_MEMORY, TOTAL_MEMORY_PRESSURE,
  PEAK_MEMORY, PEAK_ALLOCATED_MEMORY, TOTAL_ARENA_MEMORY,
  TOTAL_RAWMALLOCED_MEMORY, PEAK_ARENA_MEMORY, PEAK_RAWMALLOCED_MEMORY,
- NURSERY_SIZE) = range(10)
+ NURSERY_SIZE, TOTAL_GC_TIME) = range(11)
 
 @not_rpython
 def get_stats(stat_no):

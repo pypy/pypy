@@ -386,7 +386,7 @@ class PyPyTarget(object):
     def get_gchooks(self):
         from pypy.module.gc.hook import LowLevelGcHooks
         if self.space is None:
-            raise Exception("get_gchooks must be called afeter get_entry_point")
+            raise Exception("get_gchooks must be called after get_entry_point")
         return self.space.fromcache(LowLevelGcHooks)
 
     def get_entry_point(self, config):

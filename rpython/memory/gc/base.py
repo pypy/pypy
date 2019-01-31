@@ -149,6 +149,20 @@ class GCBase(object):
     def get_size_incl_hash(self, obj):
         return self.get_size(obj)
 
+    # these can be overriden by subclasses, called by the GCTransformer
+    def enable(self):
+        pass
+
+    def disable(self):
+        pass
+
+    def isenabled(self):
+        return True
+
+    def collect_step(self):
+        self.collect()
+        return True
+
     def malloc(self, typeid, length=0, zero=False):
         """NOT_RPYTHON
         For testing.  The interface used by the gctransformer is
