@@ -156,7 +156,7 @@ of source code and don't contain execution state or references to the execution
 environment found in `Frames`.  Frames and Functions have references
 to a code object. Here is a list of Code attributes:
 
-* ``co_flags`` flags if this code object has nested scopes/generators
+* ``co_flags`` flags if this code object has nested scopes/generators/etc.
 * ``co_stacksize`` the maximum depth the stack can reach while executing the code
 * ``co_code`` the actual bytecode string
 
