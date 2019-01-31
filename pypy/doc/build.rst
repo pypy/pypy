@@ -223,7 +223,7 @@ Making a debug build of PyPy
 Rerun the ``Makefile`` with the ``make lldebug`` or ``make lldebug0`` target,
 which will build in a way that running under a debugger makes sense.
 Appropriate compilation flags are added to add debug info, and for ``lldebug0``
-compiler optimizations are set to ``-O0``. If you stop in a debugger, you will
+compiler optimizations are fully disabled. If you stop in a debugger, you will
 see the very wordy machine-generated C code from the rpython translation step,
 which takes a little bit of reading to relate back to the rpython code.
 
