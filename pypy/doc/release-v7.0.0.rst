@@ -129,7 +129,8 @@ If not specified, the changes are shared across versions
 * Speed up ``max(list-of-int)`` from non-jitted code
 * Fix Windows ``os.listdir()`` for some cases (see CPython #32539)
 * Add ``select.PIPE_BUF``
-* Use ``subprocess`` to avoid shell injection in ``shutil`` module
+* Use ``subprocess`` to avoid shell injection in ``shutil`` module - backport
+  of https://bugs.python.org/issue34540
 * Rename ``_Py_ZeroStruct`` to ``_Py_FalseStruct`` (Py3.5, Py3.6)
 * Remove some cpyext names for Py3.5, Py3.6
 * Enable use of unicode file names in ``dlopen``
