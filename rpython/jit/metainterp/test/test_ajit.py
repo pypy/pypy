@@ -4702,3 +4702,112 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res = self.meta_interp(f, [10])
         assert res == f(10)
 
+    def test_cached_info_missing(self):
+        py.test.skip("XXX hitting a non-translated assert in optimizeopt/heap.py, but seems not to hurt the rest")
+        driver = JitDriver(greens = [],
+                           reds=['iterations', 'total', 'c', 'height', 'h'])
+
+        class IntVal:
+            _immutable_fields_ = ['intval']
+            def __init__(self, value):
+                self.intval = value
+
+        def f(height, iterations):
+            height = IntVal(height)
+            c = IntVal(0)
+            h = height
+            total = IntVal(0)
+
+            while True:
+                driver.jit_merge_point(iterations=iterations,
+                        total=total, c=c, height=height, h=h)
+                if h.intval > 0:
+                    h = IntVal(h.intval - 1)
+                    total = IntVal(total.intval + 1)
+                else:
+                    c = IntVal(c.intval + 1)
+                    if c.intval >= iterations:
+                        return total.intval
+                    h = height
+
+        res = self.meta_interp(f, [2, 200])
+        assert res == f(2, 200)
+
+    def test_issue2904(self):
+        driver = JitDriver(greens = [],
+                           reds=['iterations', 'total', 'c', 'height', 'h'])
+
+        def f(height, iterations):
+            set_param(driver, 'threshold', 4)
+            set_param(driver, 'trace_eagerness', 1)
+            c = 0
+            h = height
+            total = 0
+
+            while True:
+                driver.jit_merge_point(iterations=iterations,
+                        total=total, c=c, height=height, h=h)
+                if h != 0:
+                    h = h - 1
+                    total = total + 1
+                else:
+                    c = c + 1
+                    if c >= iterations:
+                        return total
+                    h = height - 1
+
+        res = self.meta_interp(f, [2, 200])
+        assert res == f(2, 200)
+
+    def test_issue2926(self):
+        driver = JitDriver(greens = [], reds=['i', 'total', 'p'])
+
+        class Base(object):
+            def do_stuff(self):
+                return 1000
+        class Int(Base):
+            def __init__(self, intval):
+                self.intval = intval
+            def do_stuff(self):
+                return self.intval
+        class SubInt(Int):
+            pass
+        class Float(Base):
+            def __init__(self, floatval):
+                self.floatval = floatval
+            def do_stuff(self):
+                return int(self.floatval)
+
+        prebuilt = [Int(i) for i in range(10)]
+
+        @dont_look_inside
+        def forget_intbounds(i):
+            return i
+
+        @dont_look_inside
+        def escape(p):
+            pass
+
+        def f(i):
+            total = 0
+            p = Base()
+            while True:
+                driver.jit_merge_point(i=i, total=total, p=p)
+                #print '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>', i
+                if i == 13:
+                    break
+                total += p.do_stuff()
+                j = forget_intbounds(i)
+                if j < 10:        # initial loop
+                    p = prebuilt[i]
+                    p.intval = j
+                elif j < 12:
+                    p = Int(i)
+                else:
+                    p = Float(3.14)
+                    escape(p)
+                i += 1
+            return total
+
+        res = self.meta_interp(f, [0])
+        assert res == f(0)

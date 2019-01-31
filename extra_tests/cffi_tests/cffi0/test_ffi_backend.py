@@ -325,8 +325,31 @@ class TestBitfield:
         a = array.array('H', [10000, 20000, 30000])
         c = ffi.from_buffer(a)
         assert ffi.typeof(c) is ffi.typeof("char[]")
+        assert len(c) == 6
         ffi.cast("unsigned short *", c)[1] += 500
         assert list(a) == [10000, 20500, 30000]
+        assert c == ffi.from_buffer("char[]", a, True)
+        assert c == ffi.from_buffer(a, require_writable=True)
+        #
+        c = ffi.from_buffer("unsigned short[]", a)
+        assert len(c) == 3
+        assert c[1] == 20500
+        #
+        p = ffi.from_buffer(b"abcd")
+        assert p[2] == b"c"
+        #
+        assert p == ffi.from_buffer(b"abcd", require_writable=False)
+        py.test.raises((TypeError, BufferError), ffi.from_buffer,
+                                                 "char[]", b"abcd", True)
+        py.test.raises((TypeError, BufferError), ffi.from_buffer, b"abcd",
+                                                 require_writable=True)
+
+    def test_release(self):
+        ffi = FFI()
+        p = ffi.new("int[]", 123)
+        ffi.release(p)
+        # here, reading p[0] might give garbage or segfault...
+        ffi.release(p)   # no effect
 
     def test_memmove(self):
         ffi = FFI()

@@ -254,6 +254,7 @@ class TestInstance(BaseTestPyPyC):
         guard_no_exception(descr=...)
         i29 = int_lt(i26, 0)
         guard_true(i29, descr=...)
+        guard_nonnull_class(p58, ConstClass(W_IntObject), descr=...)
         ''')
         assert loop.match_by_id('loadattr2', "")   # completely folded away
 

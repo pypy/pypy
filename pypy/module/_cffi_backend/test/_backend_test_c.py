@@ -3730,6 +3730,76 @@ def test_from_buffer_more_cases():
     check(4 | 8,  "CHB", "GTB")
     check(4 | 16, "CHB", "ROB")
 
+def test_from_buffer_require_writable():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    p1 = from_buffer(BCharA, b"foo", False)
+    assert p1 == from_buffer(BCharA, b"foo", False)
+    py.test.raises((TypeError, BufferError), from_buffer, BCharA, b"foo", True)
+    ba = bytearray(b"foo")
+    p1 = from_buffer(BCharA, ba, True)
+    p1[0] = b"g"
+    assert ba == b"goo"
+
+def test_from_buffer_types():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BIntA = new_array_type(BIntP, None)
+    lst = [-12345678, 87654321, 489148]
+    bytestring = buffer(newp(BIntA, lst))[:] + b'XYZ'
+    #
+    p1 = from_buffer(BIntA, bytestring)      # int[]
+    assert typeof(p1) is BIntA
+    assert len(p1) == 3
+    assert p1[0] == lst[0]
+    assert p1[1] == lst[1]
+    assert p1[2] == lst[2]
+    py.test.raises(IndexError, "p1[3]")
+    py.test.raises(IndexError, "p1[-1]")
+    #
+    py.test.raises(TypeError, from_buffer, BInt, bytestring)
+    py.test.raises(TypeError, from_buffer, BIntP, bytestring)
+    #
+    BIntA2 = new_array_type(BIntP, 2)
+    p2 = from_buffer(BIntA2, bytestring)     # int[2]
+    assert typeof(p2) is BIntA2
+    assert len(p2) == 2
+    assert p2[0] == lst[0]
+    assert p2[1] == lst[1]
+    py.test.raises(IndexError, "p2[2]")
+    py.test.raises(IndexError, "p2[-1]")
+    assert p2 == p1
+    #
+    BIntA4 = new_array_type(BIntP, 4)        # int[4]: too big
+    py.test.raises(ValueError, from_buffer, BIntA4, bytestring)
+    #
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('a1', BInt, -1),
+                                       ('a2', BInt, -1)])
+    BStructP = new_pointer_type(BStruct)
+    BStructA = new_array_type(BStructP, None)
+    p1 = from_buffer(BStructA, bytestring)   # struct[]
+    assert len(p1) == 1
+    assert typeof(p1) is BStructA
+    assert p1[0].a1 == lst[0]
+    assert p1[0].a2 == lst[1]
+    py.test.raises(IndexError, "p1[1]")
+    #
+    BEmptyStruct = new_struct_type("empty")
+    complete_struct_or_union(BEmptyStruct, [], Ellipsis, 0)
+    assert sizeof(BEmptyStruct) == 0
+    BEmptyStructP = new_pointer_type(BEmptyStruct)
+    BEmptyStructA = new_array_type(BEmptyStructP, None)
+    py.test.raises(ZeroDivisionError, from_buffer,      # empty[]
+                                      BEmptyStructA, bytestring)
+    #
+    BEmptyStructA5 = new_array_type(BEmptyStructP, 5)
+    p1 = from_buffer(BEmptyStructA5, bytestring)   # struct empty[5]
+    assert typeof(p1) is BEmptyStructA5
+    assert len(p1) == 5
+    assert cast(BIntP, p1) == from_buffer(BIntA, bytestring)
+
 def test_memmove():
     Short = new_primitive_type("short")
     ShortA = new_array_type(new_pointer_type(Short), None)
@@ -4062,3 +4132,114 @@ def test_primitive_comparison():
     assert_eq(cast(t5, 7.0), cast(t3, 7))
     assert_lt(cast(t5, 3.1), 3.101)
     assert_gt(cast(t5, 3.1), 3)
+
+def test_explicit_release_new():
+    # release() on a ffi.new() object has no effect on CPython, but
+    # really releases memory on PyPy.  We can't test that effect
+    # though, because a released cdata is not marked.
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    p = newp(BIntP)
+    p[0] = 42
+    py.test.raises(IndexError, "p[1]")
+    release(p)
+    # here, reading p[0] might give garbage or segfault...
+    release(p)   # no effect
+    #
+    BStruct = new_struct_type("struct foo")
+    BStructP = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('p', BIntP, -1)])
+    pstruct = newp(BStructP)
+    assert pstruct.p == cast(BIntP, 0)
+    release(pstruct)
+    # here, reading pstruct.p might give garbage or segfault...
+    release(pstruct)   # no effect
+
+def test_explicit_release_new_contextmgr():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    with newp(BIntP) as p:
+        p[0] = 42
+        assert p[0] == 42
+    # here, reading p[0] might give garbage or segfault...
+    release(p)   # no effect
+
+def test_explicit_release_badtype():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    p = cast(BIntP, 12345)
+    py.test.raises(ValueError, release, p)
+    py.test.raises(ValueError, release, p)
+    BStruct = new_struct_type("struct foo")
+    BStructP = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('p', BIntP, -1)])
+    pstruct = newp(BStructP)
+    py.test.raises(ValueError, release, pstruct[0])
+
+def test_explicit_release_badtype_contextmgr():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    p = cast(BIntP, 12345)
+    py.test.raises(ValueError, "with p: pass")
+    py.test.raises(ValueError, "with p: pass")
+
+def test_explicit_release_gc():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    seen = []
+    intp1 = newp(BIntP, 12345)
+    p1 = cast(BIntP, intp1)
+    p = gcp(p1, seen.append)
+    assert seen == []
+    release(p)
+    assert seen == [p1]
+    assert p1[0] == 12345
+    assert p[0] == 12345  # true so far, but might change to raise RuntimeError
+    release(p)   # no effect
+
+def test_explicit_release_gc_contextmgr():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    seen = []
+    intp1 = newp(BIntP, 12345)
+    p1 = cast(BIntP, intp1)
+    p = gcp(p1, seen.append)
+    with p:
+        assert p[0] == 12345
+        assert seen == []
+    assert seen == [p1]
+    assert p1[0] == 12345
+    assert p[0] == 12345  # true so far, but might change to raise RuntimeError
+    release(p)   # no effect
+
+def test_explicit_release_from_buffer():
+    a = bytearray(b"xyz")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    p = from_buffer(BCharA, a)
+    assert p[2] == b"z"
+    release(p)
+    assert p[2] == b"z"  # true so far, but might change to raise RuntimeError
+    release(p)   # no effect
+
+def test_explicit_release_from_buffer_contextmgr():
+    a = bytearray(b"xyz")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    p = from_buffer(BCharA, a)
+    with p:
+        assert p[2] == b"z"
+    assert p[2] == b"z"  # true so far, but might change to raise RuntimeError
+    release(p)   # no effect
+
+def test_explicit_release_bytearray_on_cpython():
+    if '__pypy__' in sys.builtin_module_names:
+        py.test.skip("pypy's bytearray are never locked")
+    a = bytearray(b"xyz")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    a += b't' * 10
+    p = from_buffer(BCharA, a)
+    py.test.raises(BufferError, "a += b'u' * 100")
+    release(p)
+    a += b'v' * 100
+    release(p)   # no effect
+    a += b'w' * 1000
+    assert a == bytearray(b"xyz" + b't' * 10 + b'v' * 100 + b'w' * 1000)

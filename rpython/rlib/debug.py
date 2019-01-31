@@ -1,6 +1,8 @@
 import sys
 import time
+from collections import Counter
 
+from rpython.rlib.objectmodel import enforceargs
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rlib.rarithmetic import is_valid_int, r_longlong
@@ -36,6 +38,23 @@ class DebugLog(list):
                 return
         assert False, ("nesting error: no start corresponding to stop %r" %
                        (category,))
+
+    def reset(self):
+        # only for tests: empty the log
+        self[:] = []
+
+    def summary(self, flatten=False):
+        res = Counter()
+        def visit(lst):
+            for section, sublist in lst:
+                if section == 'debug_print':
+                    continue
+                res[section] += 1
+                if flatten:
+                    visit(sublist)
+        #
+        visit(self)
+        return res
 
     def __repr__(self):
         import pprint
@@ -75,6 +94,7 @@ else:
     _stop_colors = ""
 
 @always_inline
+@enforceargs(str, bool)
 def debug_start(category, timestamp=False):
     """
     Start a PYPYLOG section.
@@ -85,6 +105,7 @@ def debug_start(category, timestamp=False):
     return _debug_start(category, timestamp)
 
 @always_inline
+@enforceargs(str, bool)
 def debug_stop(category, timestamp=False):
     """
     Stop a PYPYLOG section. See debug_start for docs about timestamp

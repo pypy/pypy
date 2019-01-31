@@ -22,6 +22,7 @@ class Module(MixedModule):
                 'get_stats': 'app_referents.get_stats',
                 })
             self.interpleveldefs.update({
+                'collect_step': 'interp_gc.collect_step',
                 'get_rpy_roots': 'referents.get_rpy_roots',
                 'get_rpy_referents': 'referents.get_rpy_referents',
                 'get_rpy_memory_usage': 'referents.get_rpy_memory_usage',

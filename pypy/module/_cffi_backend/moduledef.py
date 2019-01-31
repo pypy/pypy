@@ -53,6 +53,7 @@ class Module(MixedModule):
         'unpack': 'func.unpack',
         'buffer': 'cbuffer.MiniBuffer',
         'memmove': 'func.memmove',
+        'release': 'func.release',
 
         'get_errno': 'cerrno.get_errno',
         'set_errno': 'cerrno.set_errno',

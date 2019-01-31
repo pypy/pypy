@@ -5,6 +5,18 @@ pytest_plugins = 'rpython.tool.pytest.expecttest'
 
 option = None
 
+try:
+    from hypothesis import settings, __version__
+except ImportError:
+    pass
+else:
+    if __version__[:2] < '3.6':
+        s = settings(deadline=None)
+        settings.register_profile('default', s)
+    else:
+        settings.register_profile('default', deadline=None)
+    settings.load_profile('default')
+
 def braindead_deindent(self):
     """monkeypatch that wont end up doing stupid in the python tokenizer"""
     text = '\n'.join(self.lines)

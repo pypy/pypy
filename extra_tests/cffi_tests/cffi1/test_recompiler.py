@@ -5,7 +5,7 @@ from cffi import FFI, VerificationError, FFIError, CDefError
 from cffi import recompiler
 from extra_tests.cffi_tests.udir import udir
 from extra_tests.cffi_tests.support import u, long
-from extra_tests.cffi_tests.support import FdWriteCapture, StdErrCapture
+from extra_tests.cffi_tests.support import FdWriteCapture, StdErrCapture, _verify
 
 try:
     import importlib
@@ -36,7 +36,7 @@ def verify(ffi, module_name, source, *args, **kwds):
         # add '-Werror' to the existing 'extra_compile_args' flags
         kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
                                       ['-Werror'])
-    return recompiler._verify(ffi, module_name, source, *args, **kwds)
+    return _verify(ffi, module_name, source, *args, **kwds)
 
 def test_set_source_no_slashes():
     ffi = FFI()
@@ -1539,15 +1539,18 @@ def test_win32_calling_convention_3():
     assert (pt.x, pt.y) == (99*500*999, -99*500*999)
 
 def test_extern_python_1():
+    import warnings
     ffi = FFI()
-    ffi.cdef("""
+    with warnings.catch_warnings(record=True) as log:
+        ffi.cdef("""
         extern "Python" {
             int bar(int, int);
             void baz(int, int);
             int bok(void);
             void boz(void);
         }
-    """)
+        """)
+    assert len(log) == 0, "got a warning: %r" % (log,)
     lib = verify(ffi, 'test_extern_python_1', """
         static void baz(int, int);   /* forward */
     """)

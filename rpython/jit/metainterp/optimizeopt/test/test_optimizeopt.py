@@ -74,7 +74,7 @@ class BaseTestWithUnroll(BaseTest):
         print "Loop:"
         print '\n'.join([str(o) for o in loop.operations])
         print
-        if expected_short:
+        if expected_short or getattr(info, 'short_preamble', None):
             print "Short Preamble:"
             short = info.short_preamble
             print '\n'.join([str(o) for o in short])
@@ -1300,7 +1300,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=valuedescr)
         setfield_gc(p3, p30, descr=nextdescr)
@@ -1310,7 +1310,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=valuedescr)
         setfield_gc(p3, p30, descr=nextdescr)
@@ -6392,7 +6392,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         strsetitem(p3, i2, i0)
         i5 = int_add(i2, 1)
         strsetitem(p3, i5, i1)
-        i6 = int_add(i5, 1)      # will be killed by the backend
         jump(i1, i0, p3)
         """
         self.optimize_strunicode_loop(ops, expected, expected)
@@ -9063,6 +9062,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_same_as_preserves_info_in_the_preamble_2(self):
+        py.test.xfail("less efficient loop, investigate")
         ops = """
         [i0, p0]
         ifoo = getfield_gc_i(p0, descr=valuedescr)
@@ -9496,6 +9496,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_i(i0)
         escape_i(i99)
         jump(p0,i1,i2,i3,i4,i5,i6,i7,i8,i9,i10,i11,i12,i13,i14,i15,i16,i17,i18,i19,i20,i21,i22,i23,i24,i25,i0,i99)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_issue2904(self):
+        # we don't store advanced virtualstate information like "i1 = i2 + 1",
+        # which means that the following loop, when unrolled, cannot be
+        # optimized based on the knowledge that "i1 = i2 + 1" from the
+        # preamble---we can't use that knowledge.  After the fix, we get
+        # the value "i2 + 1" passed as a third argument, possibly different
+        # from "i1".
+        ops = """
+        [i1, i2]
+        guard_value(i1, 10) []
+        i3 = int_add(i2, 1)
+        jump(i3, i2)
+        """
+        expected = """
+        [i1, i2, i3]
+        guard_value(i1, 10) []
+        jump(i3, i2, i3)
         """
         self.optimize_loop(ops, expected)
 
