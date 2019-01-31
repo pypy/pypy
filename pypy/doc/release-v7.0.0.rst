@@ -19,9 +19,10 @@ release.
 Until we can work with downstream providers to distribute builds with PyPy, we
 have made packages for some common packages `available as wheels`_.
 
-The GC now has `hooks`_ to gain more insights into its performance, and it is
-now possible to manually manage the GC by using a combination of
-``gc.disable`` and ``gc.collect_step``. See the `GC blog post`_.
+The GC `hooks`_ , which can be used to gain more insights into its
+performance, has been improved and it is now possible to manually manage the
+GC by using a combination of ``gc.disable`` and ``gc.collect_step``. See the
+`GC blog post`_.
 
 
 We updated the `cffi`_ module included in PyPy to version 1.12, and the
