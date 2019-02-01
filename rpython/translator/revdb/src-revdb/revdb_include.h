@@ -16,7 +16,8 @@ typedef struct {
 #endif
     bool_t watch_enabled;
     int lock;
-    char *buf_p, *buf_limit, *buf_readend;
+    char *buf_p;  /* NULL during recording if recording is actually disabled */
+    char *buf_limit, *buf_readend;
     uint64_t stop_point_seen, stop_point_break;
     uint64_t unique_id_seen, unique_id_break;
 } rpy_revdb_t;
@@ -85,9 +86,13 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
         {                                                               \
             decl_e = variable;                                          \
             _RPY_REVDB_PRINT("[ wr ]", _e);                             \
-            memcpy(rpy_revdb.buf_p, &_e, sizeof(_e));                   \
-            if ((rpy_revdb.buf_p += sizeof(_e)) > rpy_revdb.buf_limit)  \
-                rpy_reverse_db_flush();                                 \
+            char *_dst = rpy_revdb.buf_p;                               \
+            if (_dst) {                                                 \
+                memcpy(_dst, &_e, sizeof(_e));                          \
+                if ((rpy_revdb.buf_p = _dst + sizeof(_e))               \
+                        > rpy_revdb.buf_limit)                          \
+                    rpy_reverse_db_flush();                             \
+            }                                                           \
         }
 
 #define _RPY_REVDB_EMIT_REPLAY(decl_e, variable)                        \
@@ -178,6 +183,13 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
         if (_re != 0xFE)                                                \
             rpy_reverse_db_bad_acquire_gil("release");                  \
     }
+
+#define RPY_REVDB_C_ONLY_ENTER                                          \
+    char *saved_bufp = rpy_revdb.buf_p;                                 \
+    rpy_revdb.buf_p = NULL;
+
+#define RPY_REVDB_C_ONLY_LEAVE                                          \
+    rpy_revdb.buf_p = saved_bufp;
 
 #define RPY_REVDB_CALLBACKLOC(locnum)                                   \
     rpy_reverse_db_callback_loc(locnum)
