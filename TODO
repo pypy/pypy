@@ -7,7 +7,7 @@
 * revisit why runicode import str_decode_utf_8_impl needed instead of runicode
   import str_decode_utf_8
 * revisit all places where we do utf8.decode('utf-8'), they should work
-  directly with utf8
+  directly with utf8 (can be converted via runicode.str_decode_utf_8 as well)
   - rutf8.utf8_encode_mbcs
   - unicodehelper.fsencode
   - unicodehelper.unicode_to_decimal_w

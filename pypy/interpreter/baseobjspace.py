@@ -838,7 +838,6 @@ class ObjSpace(object):
         # returns a "text" object (ie str in python2 and unicode in python3)
         if not we_are_translated():
             assert type(s) is str
-        #u = s.decode('utf-8')
         w_s1 = self.interned_strings.get(s)
         if w_s1 is None:
             w_s1 = self.newtext(s)
@@ -882,10 +881,6 @@ class ObjSpace(object):
         # interface for marshal_impl
         if not we_are_translated():
             assert type(s) is str
-        try:
-            u = s.decode('utf-8')
-        except UnicodeDecodeError:
-            return None
         return self.interned_strings.get(s)   # may be None
 
     @specialize.arg(1)
