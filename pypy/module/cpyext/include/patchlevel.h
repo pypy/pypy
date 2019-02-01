@@ -32,9 +32,14 @@
  *     module/sys/version.py
  *     doc/conf.py
  */
+<<<<<<< working copy
 #define PYPY_VERSION "7.0.0"
 #define PYPY_VERSION_NUM  0x07000000
 
+=======
+#define PYPY_VERSION "7.1.0-alpha0"
+#define PYPY_VERSION_NUM  0x07010000
+>>>>>>> merge rev
 /* Defined to mean a PyPy where cpyext holds more regular references
    to PyObjects, e.g. staying alive as long as the internal PyPy object
    stays alive. */

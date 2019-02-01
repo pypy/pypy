@@ -67,7 +67,7 @@ def must_split_gc_address_space():
     """Returns True if we have a "split GC address space", i.e. if
     we are translating with an option that doesn't support taking raw
     addresses inside GC objects and "hacking" at them.  This is
-    notably the case with --reversedb."""
+    notably the case with --revdb."""
     return False
 
 # for test purposes we allow objects to be pinned and use
