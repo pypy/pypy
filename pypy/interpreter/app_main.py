@@ -3,7 +3,6 @@
 # See test/test_app_main.
 
 # Missing vs CPython: -b, -d, -x
-from __future__ import print_function, unicode_literals
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
@@ -334,7 +333,7 @@ def initstdio(encoding=None, unbuffered=False):
             del encerr
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
-    import io
+    import _io
     # stdin is always opened in buffered mode, first because it
     # shouldn't make a difference in common use cases, second because
     # TextIOWrapper depends on the presence of a read1() method which
@@ -342,7 +341,7 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     buffering = 0 if unbuffered and writing else -1
     mode = 'w' if writing else 'r'
     try:
-        buf = io.open(fd, mode + 'b', buffering, closefd=False)
+        buf = _io.open(fd, mode + 'b', buffering, closefd=False)
     except OSError as e:
         if e.errno != errno.EBADF:
             raise
@@ -352,7 +351,7 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     raw.name = name
     # translate \r\n to \n for sys.stdin on Windows
     newline = None if sys.platform == 'win32' and not writing else '\n'
-    stream = io.TextIOWrapper(buf, encoding, errors, newline=newline,
+    stream = _io.TextIOWrapper(buf, encoding, errors, newline=newline,
                               line_buffering=unbuffered or raw.isatty())
     stream.mode = mode
     return stream
@@ -549,12 +548,6 @@ def parse_command_line(argv):
 
     return options
 
-# this indirection is needed to be able to import this module on python2, else
-# we have a SyntaxError: unqualified exec in a nested function
-@hidden_applevel
-def exec_(src, dic):
-    exec(src, dic)
-
 @hidden_applevel
 def run_command_line(interactive,
                      inspect,
@@ -663,7 +656,7 @@ def run_command_line(interactive,
             else:
                 if not isolated:
                     sys.path.insert(0, '')
-                success = run_toplevel(exec_, bytes, mainmodule.__dict__)
+                success = run_toplevel(exec, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
             # '' on sys.path is required also here
@@ -703,7 +696,7 @@ def run_command_line(interactive,
                                                         python_startup,
                                                         'exec',
                                                         PyCF_ACCEPT_NULL_BYTES)
-                            exec_(co_python_startup, mainmodule.__dict__)
+                            exec(co_python_startup, mainmodule.__dict__)
                         mainmodule.__file__ = python_startup
                         mainmodule.__cached__ = None
                         run_toplevel(run_it)
@@ -721,7 +714,7 @@ def run_command_line(interactive,
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
                                        PyCF_ACCEPT_NULL_BYTES)
-                    exec_(co_stdin, mainmodule.__dict__)
+                    exec(co_stdin, mainmodule.__dict__)
                 mainmodule.__file__ = '<stdin>'
                 mainmodule.__cached__ = None
                 success = run_toplevel(run_it)
@@ -763,7 +756,7 @@ def run_command_line(interactive,
                         co = marshal.load(f)
                     if type(co) is not type((lambda:0).__code__):
                         raise RuntimeError("Bad code object in .pyc file")
-                    exec_(co, namespace)
+                    exec(co, namespace)
                 args = (execfile, filename, mainmodule.__dict__)
             else:
                 filename = sys.argv[0]
@@ -791,7 +784,7 @@ def run_command_line(interactive,
                             code = f.read()
                         co = compile(code, filename, 'exec',
                                      PyCF_ACCEPT_NULL_BYTES)
-                        exec_(co, namespace)
+                        exec(co, namespace)
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 

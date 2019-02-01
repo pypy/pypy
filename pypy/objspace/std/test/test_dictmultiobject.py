@@ -790,17 +790,6 @@ class AppTestDictViews:
         assert len(d.items()) == 2
         assert len(d.values()) == 2
 
-    def test_constructors_not_callable(self):
-        kt = type({}.keys())
-        raises(TypeError, kt, {})
-        raises(TypeError, kt)
-        it = type({}.items())
-        raises(TypeError, it, {})
-        raises(TypeError, it)
-        vt = type({}.values())
-        raises(TypeError, vt, {})
-        raises(TypeError, vt)
-
     def test_dict_keys(self):
         d = {1: 10, "a": "ABC"}
         keys = d.keys()
