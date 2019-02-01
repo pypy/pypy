@@ -234,7 +234,7 @@ class windows_version_info(metaclass=structseqtype):
     service_pack_minor = structseqfield(11, "Service Pack minor version number")
     suite_mask = structseqfield(12, "Bit mask identifying available product suites")
     product_type = structseqfield(13, "System product type")
-    _platform_version = structseqfield(14, "Diagnostic version number")
+    platform_version = structseqfield(14, "Diagnostic version number")
 ''')
 
 
