@@ -6,6 +6,7 @@ from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, T
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
     triple_quoted, endDFAs, single_quoted, pseudoDFA
 from pypy.interpreter.astcompiler import consts
+from rpython.rlib import rutf8
 
 NAMECHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_'
 NUMCHARS = '0123456789'
@@ -46,14 +47,9 @@ def match_encoding_declaration(comment):
 
 
 def verify_utf8(token):
-    for c in token:
-        if ord(c) >= 0x80:
-            break
-    else:
-        return True
     try:
-        u = token.decode('utf-8')
-    except UnicodeDecodeError:
+        rutf8.check_utf8(token, False)
+    except ruf8.CheckError:
         return False
     return True
 
