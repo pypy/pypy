@@ -49,7 +49,7 @@ def match_encoding_declaration(comment):
 def verify_utf8(token):
     try:
         rutf8.check_utf8(token, False)
-    except ruf8.CheckError:
+    except rutf8.CheckError:
         return False
     return True
 
