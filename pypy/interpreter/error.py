@@ -526,8 +526,10 @@ def get_operrcls2(valuefmt):
                     else:
                         from rpython.rlib import rutf8
                         result = str(value)
-                        # Assumes valid utf-8
-                        lgt += rutf8.check_utf8(result, True)
+                        try:
+                            lgt += rutf8.check_utf8(result, True)
+                        except rutf8.CheckError as e:
+                            lgt -= e.pos
                     lst[i + i + 1] = result
                 lst[-1] = self.xstrings[-1]
                 lgt += len(self.xstrings[-1])
