@@ -1,5 +1,6 @@
 import py
 import pytest
+from pypy.conftest import option
 try:
     from hypothesis import given, strategies
     HAS_HYPOTHESIS = True
@@ -35,10 +36,12 @@ def test_encode_utf8():
     assert encode_utf8(space, u"\u1234") == "\xe1\x88\xb4"
     py.test.raises(Hit, encode_utf8, space, u"\ud800")
     py.test.raises(Hit, encode_utf8, space, u"\udc00")
-    # for the following test, go to lengths to avoid CPython's optimizer
-    # and .pyc file storage, which collapse the two surrogates into one
-    c = u"\udc00"
-    py.test.raises(Hit, encode_utf8, space, u"\ud800" + c)
+    if option.runappdirect or sys.maxunicode > 0xFFFF:
+        # for the following test, go to lengths to avoid CPython's
+        # optimizer and .pyc file storage, which collapse the two
+        # surrogates into one
+        c = u"\udc00"
+        py.test.raises(Hit, encode_utf8, space, u"\ud800" + c)
 
 def test_encode_utf8_allow_surrogates():
     sp = FakeSpace()
@@ -63,11 +66,7 @@ def test_decode_utf8():
     py.test.raises(Hit, decode_utf8, "\xed\xb0\x80")
     py.test.raises(Hit, decode_utf8, "\xed\xa0\x80\xed\xb0\x80")
     got = decode_utf8("\xf0\x90\x80\x80")
-    if sys.maxunicode > 65535:
-        assert got == ("\xf0\x90\x80\x80", 1, 4)
-    else:
-        # never reached
-        assert map(ord, got) == [55296, 56320]
+    assert got == ("\xf0\x90\x80\x80", 1, 4)
 
 def test_utf8_encode_ascii():
     assert utf8_encode_ascii("abc", "??", "??") == "abc"
