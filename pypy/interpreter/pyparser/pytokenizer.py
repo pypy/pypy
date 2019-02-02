@@ -65,14 +65,9 @@ def bad_utf8(location_msg, line, lnum, pos, token_list, flags):
 
 def verify_identifier(token):
     # 1=ok; 0=not an identifier; -1=bad utf-8
-    for c in token:
-        if ord(c) >= 0x80:
-            break
-    else:
-        return 1
     try:
-        u = token.decode('utf-8')
-    except UnicodeDecodeError:
+        rutf8.check_utf8(token, False)
+    except rutf8.CheckError:
         return -1
     from pypy.objspace.std.unicodeobject import _isidentifier
     return _isidentifier(token)

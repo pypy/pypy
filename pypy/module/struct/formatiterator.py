@@ -164,6 +164,7 @@ class UnpackFormatIterator(FormatIterator):
         elif isinstance(value, str):
             w_value = self.space.newbytes(value)
         elif isinstance(value, unicode):
+            assert not isinstance(value, unicode)
             w_value = self.space.newutf8(value.decode('utf-8'), len(value))
         elif isinstance(value, bool):
             w_value = self.space.newbool(value)

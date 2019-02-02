@@ -358,9 +358,10 @@ def PyUnicode_AsUnicodeAndSize(space, ref, psize):
     if not get_wbuffer(ref):
         # Copy unicode buffer
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
-        u = space.utf8_w(w_unicode).decode('utf8')
-        set_wbuffer(ref, rffi.unicode2wcharp(u))
-        set_wsize(ref, len(u))
+        u = space.utf8_w(w_unicode)
+        lgt = space.len_w(w_unicode)
+        set_wbuffer(ref, rffi.utf82wcharp(u, lgt))
+        set_wsize(ref, lgt)
     if psize:
         psize[0] = get_wsize(ref)
     return get_wbuffer(ref)
@@ -950,19 +951,21 @@ def PyUnicode_CompareWithASCIIString(space, w_uni, string):
     than, equal, and greater than, respectively. It is best to pass only
     ASCII-encoded strings, but the function interprets the input string as
     ISO-8859-1 if it contains non-ASCII characters."""
-    uni = space.utf8_w(w_uni).decode('utf8')
+    utf8 = space.utf8_w(w_uni)
+    lgt = space.len_w(w_uni)
     i = 0
     # Compare Unicode string and source character set string
-    while i < len(uni) and string[i] != '\0':
-        u = ord(uni[i])
+    for ch in rutf8.Utf8StringIterator(utf8):
+        if string[i] == '\0':
+            break
         s = ord(string[i])
-        if u != s:
-            if u < s:
+        if ch != s:
+            if ch < s:
                 return -1
             else:
                 return 1
         i += 1
-    if i < len(uni):
+    if i < lgt:
         return 1  # uni is longer
     if string[i] != '\0':
         return -1  # str is longer
@@ -1061,14 +1064,6 @@ def PyUnicode_Splitlines(space, w_str, keepend):
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PyUnicode_Substring(space, w_str, start, end):
-    usrc = space.utf8_w(w_str).decode('utf8')
-    length = len(usrc)
-    if start < 0 or end < 0:
-        raise oefmt(space.w_IndexError, "string index out of range")
-    if start >= length or end < start:
-        result = u''
-    else:
-        if end > length:
-            end = length
-        result = usrc[start:end]
-    return space.newtext(result)
+    return space.call_method(w_str, '__getitem__',
+                         space.newslice(space.newint(start), space.newint(end),
+                                        space.newint(1)))

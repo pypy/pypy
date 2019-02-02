@@ -14,7 +14,7 @@ from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
         c_fdopen, c_fileno,
         c_fopen)# for tests
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -1722,17 +1722,14 @@ def create_extension_module(space, w_spec):
     raise_import_error(space, space.newtext(msg), w_name, w_path)
 
 def get_init_name(space, w_name):
-    name_u = space.utf8_w(w_name).decode('utf8')
-    basename_u = name_u.split(u'.')[-1]
-    try:
-        basename = basename_u.encode('ascii')
+    name = space.utf8_w(w_name)
+    basename = name.split('.')[-1]
+    if rutf8.first_non_ascii_char(basename) == -1:
         return 'PyInit_%s' % (basename,)
-    except UnicodeEncodeError:
-        basename = space.bytes_w(encode_object(
-            space, space.newtext(basename_u), 'punycode', None))
-        basename = basename.replace('-', '_')
-        return 'PyInitU_%s' % (basename,)
-
+    basename = space.bytes_w(encode_object(
+        space, space.newtext(basename), 'punycode', None))
+    basename = basename.replace('-', '_')
+    return 'PyInitU_%s' % (basename,)
 
 initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
 
