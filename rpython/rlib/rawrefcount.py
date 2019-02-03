@@ -132,13 +132,14 @@ def next_dead(OB_PTR_TYPE):
 
 @not_rpython
 def cyclic_garbage_head(OB_PTR_TYPE):
-    # TODO
-    return lltype.nullptr(OB_PTR_TYPE.TO)
+    if len(old_pyobj_list) > 0:
+        return old_pyobj_list[0]
+    else:
+        return lltype.nullptr(OB_PTR_TYPE.TO)
 
 @not_rpython
 def cyclic_garbage_remove():
-    # TODO
-    pass
+    old_pyobj_list.remove(old_pyobj_list[0])
 
 @not_rpython
 def _collect(track_allocation=True):
@@ -175,6 +176,13 @@ def _collect(track_allocation=True):
         detach(ob, wr_o_list)
     _o_list = Ellipsis
 
+    global _pyobj_list, old_pyobj_list
+    old_pyobj_list = []
+    pyobj_hdr = _pyobj_list.c_gc_next
+    while pyobj_hdr != _pyobj_list:
+        old_pyobj_list.append(pyobj_hdr)
+        pyobj_hdr = pyobj_hdr.c_gc_next
+
     rgc.collect()  # forces the cycles to be resolved and the weakrefs to die
     rgc.collect()
     rgc.collect()
@@ -193,6 +201,7 @@ def _collect(track_allocation=True):
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY_LIGHT
                 ob.c_ob_pypy_link = 0
                 if ob.c_ob_refcnt == 0:
+                    # TODO: remove from list?!
                     lltype.free(ob, flavor='raw',
                                 track_allocation=track_allocation)
             else:
@@ -218,7 +227,13 @@ def _collect(track_allocation=True):
     for ob, wr in wr_o_list:
         attach(ob, wr, _o_list)
 
-    if _d_list:
+    pyobj_hdr = _pyobj_list.c_gc_next
+    while pyobj_hdr != _pyobj_list:
+        if pyobj_hdr in old_pyobj_list:
+            old_pyobj_list.remove(pyobj_hdr)
+        pyobj_hdr = pyobj_hdr.c_gc_next
+
+    if _d_list or len(old_pyobj_list) > 0:
         res = _dealloc_trigger_callback()
         if res == "RETRY":
             _collect(track_allocation=track_allocation)

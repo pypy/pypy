@@ -3033,6 +3033,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_pyobj_list = self._pygchdr(pyobj_list)
             self.rrc_pyobj_old_list = \
                 lltype.malloc(self.PYOBJ_GC_HDR, flavor='raw', immortal=True)
+            self.rrc_pyobj_old_list.c_gc_next = self.rrc_pyobj_old_list
+            self.rrc_pyobj_old_list.c_gc_prev = self.rrc_pyobj_old_list
             self.rrc_pyobj_garbage_list = \
                 lltype.malloc(self.PYOBJ_GC_HDR, flavor='raw', immortal=True)
             self.rrc_pyobj_garbage_list.c_gc_next = self.rrc_pyobj_garbage_list
@@ -3124,7 +3126,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         next.c_gc_prev = gchdr
 
     def rrc_invoke_callback(self):
-        if self.rrc_enabled and self.rrc_dealloc_pending.non_empty():
+        if self.rrc_enabled and (self.rrc_dealloc_pending.non_empty() or
+                                 self.rrc_pyobj_garbage_list.c_gc_next <>
+                                 self.rrc_pyobj_garbage_list):
             self.rrc_dealloc_trigger_callback()
 
     def rrc_minor_collection_trace(self):
@@ -3203,8 +3207,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if rc >= REFCNT_FROM_PYPY_LIGHT:
             rc -= REFCNT_FROM_PYPY_LIGHT
             if rc == 0:
-                if major: # remove from old list
-                    pygchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
+                pygchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
+                if pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
                     next = pygchdr.c_gc_next
                     next.c_gc_prev = pygchdr.c_gc_prev
                     pygchdr.c_gc_prev.c_gc_next = next
@@ -3237,6 +3241,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self._rrc_collect_rawrefcount_roots()
         self._rrc_mark_rawrefcount()
         self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
+        self.rrc_o_list_old.foreach(self._rrc_major_trace, None)
 
         # TODO: for all unreachable objects, which are marked potentially
         # TODO: uncollectable, move them to the set of uncollectable objs
@@ -3263,9 +3268,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # TODO: pypy objects
 
     def _rrc_major_trace(self, pyobject, ignore):
-        rc = self.rrc_pyobj_as_gc(self._pyobj(pyobject)).c_gc_refs
+        pygchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
+        if pygchdr != lltype.nullptr(self.PYOBJ_GC_HDR):
+            rc = pygchdr.c_gc_refs
+        else:
+            rc = self._pyobj(pyobject).c_ob_refcnt
+
         if rc == 0:
-            pass     # the corresponding object may die
+            pass  # the corresponding object may die
         else:
             # force the corresponding object to be alive
             intobj = self._pyobj(pyobject).c_ob_pypy_link
@@ -3336,6 +3346,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # For every object in this set, if it is marked, add 1 as a real
         # refcount
         self.rrc_p_list_old.foreach(self._rrc_obj_fix_refcnt, None)
+        self.rrc_o_list_old.foreach(self._rrc_obj_fix_refcnt, None)
 
         # Subtract all internal refcounts from the cyclic refcount
         # of rawrefcounted objects
@@ -3351,10 +3362,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _rrc_obj_fix_refcnt(self, pyobject, ignore):
         intobj = self._pyobj(pyobject).c_ob_pypy_link
         obj = llmemory.cast_int_to_adr(intobj)
-        # TODO: only if Py_TPFLAGS_HAVE_GC is set
         gchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
-        if self.header(obj).tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
-            gchdr.c_gc_refs += 1
+        if gchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
+            if self.header(obj).tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
+                gchdr.c_gc_refs += 1
 
     def _rrc_mark_rawrefcount(self):
         if self.rrc_pyobj_list.c_gc_next == self.rrc_pyobj_list:
@@ -3421,9 +3432,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return rffi.cast(rffi.INT_real, 0)
 
     def _rrc_visit_action(self, pyobj, ignore):
-        # TODO: only if Py_TPFLAGS_HAVE_GC is set
         pygchdr = self.rrc_pyobj_as_gc(pyobj)
-        pygchdr.c_gc_refs += self.rrc_refcnt_add
+        if pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
+            pygchdr.c_gc_refs += self.rrc_refcnt_add
 
     def _rrc_traverse(self, pyobj, refcnt_add):
         from rpython.rlib.objectmodel import we_are_translated

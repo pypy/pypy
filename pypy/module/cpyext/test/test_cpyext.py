@@ -1040,3 +1040,210 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         module.untrack(f)
         result = self.in_pygclist(pygchead)
         assert not result
+
+    def test_gc_collect_simple(self):
+        """
+        Test if a simple collect is working
+        TODO: make more precise
+        """
+
+        if self.runappdirect:
+            skip('cannot import module with undefined functions')
+
+        init = """
+        if (Py_IsInitialized()) {
+            PyObject* m;
+            if (PyType_Ready(&CycleType) < 0)
+                return;
+            m = Py_InitModule("Cycle", module_methods);
+            if (m == NULL)
+                return;
+            Py_INCREF(&CycleType);
+            PyModule_AddObject(m, "Cycle", (PyObject *)&CycleType);
+        }
+        """
+
+        body = """
+        #include <Python.h>
+        #include "structmember.h"
+        #include <stdio.h>
+        #include <signal.h>
+        typedef struct {
+            PyObject_HEAD
+            PyObject *next;
+            PyObject *val;
+        } Cycle;
+        static PyTypeObject CycleType;
+        static int Cycle_traverse(Cycle *self, visitproc visit, void *arg)
+        {
+            printf("traverse begin!\\n");
+            int vret;
+            if (self->next) {
+                vret = visit(self->next, arg);
+                if (vret != 0)
+                    return vret;
+            }
+            if (self->val) {
+                vret = visit(self->val, arg);
+                if (vret != 0)
+                    return vret;
+            }
+            printf("traverse end!\\n");
+            return 0;
+        }
+        static int Cycle_clear(Cycle *self)
+        {
+            printf("clear!\\n");
+            PyObject *tmp;
+            tmp = self->next;
+            self->next = NULL;
+            Py_XDECREF(tmp);
+            tmp = self->val;
+            self->val = NULL;
+            Py_XDECREF(tmp);
+            return 0;
+        }
+        static void Cycle_dealloc(Cycle* self)
+        {
+            printf("dealloc!\\n");
+            PyObject_GC_UnTrack(self);
+            Py_TYPE(self)->tp_free((PyObject*)self);
+        }
+        static PyObject* Cycle_new(PyTypeObject *type, PyObject *args,
+                                   PyObject *kwds)
+        {
+            printf("\\nCycle begin new\\n");
+            fflush(stdout);
+            Cycle *self;
+            self = PyObject_GC_New(Cycle, type);
+            if (self != NULL) {
+                //self->next = PyString_FromString("");
+                //if (self->next == NULL) {
+                //    Py_DECREF(self);
+                //    return NULL;
+                //}
+               PyObject_GC_Track(self);
+               printf("\\nCycle tracked: %lx\\n", (Py_ssize_t)self);
+               printf("\\nCycle refcnt: %lx\\n", (Py_ssize_t)self->ob_refcnt);
+               printf("\\nCycle pypy_link: %lx\\n", (Py_ssize_t)self->ob_pypy_link);
+               raise(SIGINT);
+            } else {
+               printf("\\nCycle new null\\n");
+            }
+            fflush(stdout);
+            return (PyObject *)self;
+        }
+        static int Cycle_init(Cycle *self, PyObject *args, PyObject *kwds)
+        {
+            PyObject *next=NULL, *tmp;
+            static char *kwlist[] = {"next", NULL};
+            if (! PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist,
+                                              &next))
+                return -1;
+            if (next) {
+                tmp = self->next;
+                Py_INCREF(next);
+                self->next = next;
+                Py_XDECREF(tmp);
+            }
+            return 0;
+        }
+        static PyMemberDef Cycle_members[] = {
+            {"next", T_OBJECT_EX, offsetof(Cycle, next), 0, "next"},
+            {"val", T_OBJECT_EX, offsetof(Cycle, val), 0, "val"},
+            {NULL}  /* Sentinel */
+        };
+        static PyMethodDef Cycle_methods[] = {
+            {NULL}  /* Sentinel */
+        };
+        static PyTypeObject CycleType = {
+            PyVarObject_HEAD_INIT(NULL, 0)
+            "Cycle.Cycle",             /* tp_name */
+            sizeof(Cycle),             /* tp_basicsize */
+            0,                         /* tp_itemsize */
+            (destructor)Cycle_dealloc, /* tp_dealloc */
+            0,                         /* tp_print */
+            0,                         /* tp_getattr */
+            0,                         /* tp_setattr */
+            0,                         /* tp_compare */
+            0,                         /* tp_repr */
+            0,                         /* tp_as_number */
+            0,                         /* tp_as_sequence */
+            0,                         /* tp_as_mapping */
+            0,                         /* tp_hash */
+            0,                         /* tp_call */
+            0,                         /* tp_str */
+            0,                         /* tp_getattro */
+            0,                         /* tp_setattro */
+            0,                         /* tp_as_buffer */
+            Py_TPFLAGS_DEFAULT |
+                Py_TPFLAGS_BASETYPE |
+                Py_TPFLAGS_HAVE_GC,    /* tp_flags */
+            "Cycle objects",           /* tp_doc */
+            (traverseproc)Cycle_traverse,   /* tp_traverse */
+            (inquiry)Cycle_clear,           /* tp_clear */
+            0,                         /* tp_richcompare */
+            0,                         /* tp_weaklistoffset */
+            0,                         /* tp_iter */
+            0,                         /* tp_iternext */
+            Cycle_methods,             /* tp_methods */
+            Cycle_members,             /* tp_members */
+            0,                         /* tp_getset */
+            0,                         /* tp_base */
+            0,                         /* tp_dict */
+            0,                         /* tp_descr_get */
+            0,                         /* tp_descr_set */
+            0,                         /* tp_dictoffset */
+            (initproc)Cycle_init,      /* tp_init */
+            0,                         /* tp_alloc */
+            Cycle_new,                 /* tp_new */
+            PyObject_GC_Del,           /* tp_free */
+        };
+        
+        static Cycle *c;
+        static PyObject * Cycle_cc(Cycle *self, PyObject *val)
+        {
+            c = PyObject_GC_New(Cycle, &CycleType);
+            if (c == NULL)
+                return NULL;
+            PyObject_GC_Track(c);
+            Py_INCREF(val);
+            c->val = val;                // set value
+            Py_INCREF(c);
+            c->next = (PyObject *)c;     // create self reference
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+        static PyObject * Cycle_cd(Cycle *self)
+        {
+            Py_DECREF(c);                // throw cycle away
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+        static PyMethodDef module_methods[] = {
+            {"createCycle", (PyCFunction)Cycle_cc, METH_OLDARGS, ""},
+            {"discardCycle", (PyCFunction)Cycle_cd, METH_NOARGS, ""},
+            {NULL}  /* Sentinel */
+        };
+        """
+
+        module = self.import_module(name='Cycle', init=init, body=body)
+
+        # TODO: The code below will fail as soon as the host GC kicks in the
+        # test uses the rawrefcount module for object <-> pyobject linking,
+        # which currently sets an invalid pointer to the object in the
+        # pyobject's header, which in turn causes the GC to crash (because
+        # it currently assumes any non-null pointer is a valid pointer and
+        # tries to follow it). Even with debug_collect.
+        #
+        #       Solutions - A: set a valid pointer in rawrefcount (best)
+        #                 - B: set a special pointer in rawrefcount,
+        #                      which will be detected as such in the GC and
+        #                        1) ... handled correctly
+        #                        2) ... always be kept -> floating garbage
+        #
+        # Note: As we use the GC of the host, that is running the tests,
+        # running it on CPython or any other version of PyPy might lead to
+        # different results.
+        module.Cycle()
+        self.debug_collect()

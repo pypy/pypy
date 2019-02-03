@@ -54,7 +54,11 @@ _PyPy_gc_as_pyobj(PyGC_Head *g)
 PyGC_Head *
 _PyPy_pyobj_as_gc(GCHdr_PyObject *obj)
 {
-    return AS_GC(obj);
+    if (PyType_IS_GC(((PyObject *)obj)->ob_type)) {
+        return AS_GC(obj);
+    } else {
+        return NULL;
+    }
 }
 
 void

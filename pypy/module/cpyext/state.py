@@ -60,7 +60,8 @@ class State:
         space = self.space
         if not self.space.config.translating:
             def dealloc_trigger():
-                from pypy.module.cpyext.pyobject import PyObject, decref, cts
+                from pypy.module.cpyext.pyobject import PyObject, decref, \
+                    incref, cts
                 print 'dealloc_trigger...'
                 while True:
                     ob = rawrefcount.next_dead(PyObject)
@@ -70,11 +71,47 @@ class State:
                     name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
                     print 'deallocating PyObject', ob, 'of type', name
                     decref(space, ob)
+                while True:
+                    ob = rawrefcount.cyclic_garbage_head(PyObject)
+                    if not ob:
+                        break
+                    pto = ob.c_ob_type
+                    name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
+                    print 'clearing PyObject', ob, 'of type', name
+
+                    pyobj = rffi.cast(PyObject, ob)
+                    adr_int = llmemory.cast_adr_to_int(
+                        llmemory.cast_ptr_to_adr(pyobj))
+                    if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_clear:
+                        incref(space, ob)
+                        pyobj.c_ob_type.c_tp_clear(pyobj)
+                        decref(space, ob)
+
+                    head = rawrefcount.cyclic_garbage_head(PyObject)
+                    if adr_int == llmemory.cast_adr_to_int(
+                            llmemory.cast_ptr_to_adr(head)):
+                        rawrefcount.cyclic_garbage_remove()
                 print 'dealloc_trigger DONE'
                 return "RETRY"
-            def tp_traverse(obj_addr, callback, args):
-                # TODO: implement
-                pass
+            def tp_traverse(pyobj_ptr, callback, args):
+                from pypy.module.cpyext.api import PyObject
+                from pypy.module.cpyext.typeobjectdefs import visitproc
+                from pypy.module.cpyext.pyobject import cts
+                # convert to pointers with correct types (PyObject)
+                callback_addr = llmemory.cast_ptr_to_adr(callback)
+                callback_ptr = llmemory.cast_adr_to_ptr(callback_addr,
+                                                        visitproc)
+                pyobj_addr = llmemory.cast_ptr_to_adr(pyobj_ptr)
+                pyobj = llmemory.cast_adr_to_ptr(pyobj_addr, PyObject)
+
+                pto = pyobj.c_ob_type
+                name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
+                print 'traverse PyObject', pyobj, 'of type', name
+
+                # now call tp_traverse (if possible)
+                if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_traverse:
+                    pyobj.c_ob_type.c_tp_traverse(pyobj, callback_ptr,
+                                                  args)
             rawrefcount.init(dealloc_trigger, tp_traverse)
         else:
             if space.config.translation.gc == "boehm":
@@ -227,12 +264,14 @@ def _rawrefcount_perform(space):
             break
 
         pyobj = rffi.cast(PyObject, py_obj)
-        if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_clear:
+        adr_int = llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(pyobj))
+        if pyobj.c_ob_type.c_tp_clear:
             incref(space, py_obj)
             pyobj.c_ob_type.c_tp_clear(pyobj)
             decref(space, py_obj)
 
-        if py_obj == rawrefcount.cyclic_garbage_head(PyObject):
+        head = rawrefcount.cyclic_garbage_head(PyObject)
+        if adr_int == llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(head)):
             rawrefcount.cyclic_garbage_remove()
 
 class PyObjDeallocAction(executioncontext.AsyncAction):

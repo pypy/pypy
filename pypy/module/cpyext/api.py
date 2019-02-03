@@ -977,7 +977,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
 
-        print "start to pypy"
+        # print "start to pypy"
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
@@ -1091,7 +1091,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
 
         _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
 
-        print "end to pypy"
+        # print "end to pypy"
 
         return retval
 

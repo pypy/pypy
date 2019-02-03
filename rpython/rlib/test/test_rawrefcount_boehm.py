@@ -283,7 +283,7 @@ class TestBoehmTranslated(StandaloneTests):
                 ob = rawrefcount.next_dead(PyObject)
                 if not ob: break
                 if ob.c_ob_refcnt != 1:
-                    print "next_dead().ob_refcnt != 1"
+                    print "next_dead().c_ob_refcnt != 1"
                     return 1
                 deadlist.append(ob)
             if len(deadlist) == 0:
