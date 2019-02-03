@@ -181,3 +181,12 @@ def test_encode_decimal(space):
         u'12\u1234'.encode('utf8'), 'xmlcharrefreplace', handler)
     assert result == '12&#4660;'
 
+@pytest.mark.skipif(sys.platform != 'win32', reason='Windows only test')
+def test_encode_mbcs(space):
+    u = u"abc" + u"-\u5171\u0141\u2661\u0363\uDC80"
+    utf8 = u.encode('utf8')
+    with pytest.raises(UnicodeEncodeError):
+        def eh(errors, enc, msg, b, startingpos, endingpos):
+             u = b.decode('utf-8')
+             raise UnicodeEncodeError(enc, u, startingpos, endingpos, msg)
+        uh.utf8_encode_mbcs(utf8, 'strict', eh)
