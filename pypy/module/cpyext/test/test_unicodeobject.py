@@ -371,6 +371,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
 
     def test_invalid(self):
         m = self.import_module('_widechar')
+        if m.get_sizeof_wchar() != 4:
+            pytest.skip('only for sizeof(wchar)==4')
         raises(ValueError, m.test_widechar)
 
     def test_AsUTFNString(self):
@@ -719,7 +721,7 @@ class TestUnicode(BaseApiTest):
         w_bytes = PyUnicode_EncodeMBCS(space, wbuf, 4, None)
         rffi.free_wcharp(wbuf)
         assert space.type(w_bytes) is space.w_bytes
-        assert space.text_w(w_bytes) == "abc?"
+        assert space.utf8_w(w_bytes) == "abc?"
 
     def test_escape(self, space):
         def test(ustr):
