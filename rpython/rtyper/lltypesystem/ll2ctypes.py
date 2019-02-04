@@ -181,8 +181,8 @@ def _setup_ctypes_cache():
             @property
             def value(self):
                 res = self[0] | (self[1] << 64)
-                return res   
-                
+                return res
+
         _ctypes_cache[rffi.__INT128_T] = c_int128
         _ctypes_cache[rffi.__UINT128_T] = c_uint128
 
