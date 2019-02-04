@@ -1,23 +1,21 @@
 import os
 from rpython.tool.udir import udir
 import tempfile
-from rpython.jit.backend.arm.test.support import AS
 
 class ASMInstruction(object):
 
-    asm_opts = '-mfpu=neon -mcpu=cortex-a8 -march=armv7-a'
+    asm_opts = '-march=armv8-a'
     body = """.section .text
-.arm
 _start: .global _start
         .global main
         b main
 main:
-    .ascii "START"
+    .ascii "START   "
     %s
-    .ascii "END"
+    .ascii "END     "
 """
-    begin_tag = 'START'
-    end_tag = 'END'
+    begin_tag = 'START   '
+    end_tag = 'END     '
     base_name = 'test_%d.asm' 
     index = 0
 
@@ -31,7 +29,7 @@ main:
     def encode(self):
         f = open("%s/a.out" % (udir),'rb')
         data = f.read()
-        #f.close()
+        f.close()
         i = data.find(self.begin_tag)
         assert i>=0
         j = data.find(self.end_tag, i)
@@ -39,12 +37,10 @@ main:
         as_code = data[i+len(self.begin_tag):j]
         return as_code
 
-
-
     def assemble(self, *args):
         res = self.body % (self.instr)
         self.file.write(res)
-        os.system("%s --fatal-warnings %s %s -o %s/a.out" % (AS, self.asm_opts, self.file, udir))
+        os.system("as --fatal-warnings %s %s -o %s/a.out" % (self.asm_opts, self.file, udir))
 
     #def __del__(self):
     #    self.file.close()
