@@ -35,6 +35,7 @@ constantnames = '''
     MAX_WBITS  MAX_MEM_LEVEL
     Z_BEST_SPEED  Z_BEST_COMPRESSION  Z_DEFAULT_COMPRESSION
     Z_FILTERED  Z_HUFFMAN_ONLY  Z_DEFAULT_STRATEGY Z_NEED_DICT
+    Z_NULL
     '''.split()
 
 class SimpleCConfig:
@@ -160,6 +161,7 @@ _inflateInit2_ = zlib_external(
     rffi.INT)
 _inflate = zlib_external('inflate', [z_stream_p, rffi.INT], rffi.INT)
 
+_inflateCopy = zlib_external('inflateCopy', [z_stream_p, z_stream_p], rffi.INT)
 _inflateEnd = zlib_external('inflateEnd', [z_stream_p], rffi.INT,
                             releasegil=False)
 
@@ -328,6 +330,19 @@ def inflateInit(wbits=MAX_WBITS, zdict=None):
                     "while creating decompression object")
         finally:
             lltype.free(stream, flavor='raw')
+
+
+def inflateCopy(source):
+    """
+    Allocate and return an independent copy of the provided stream object.
+    """
+    dest = inflateInit()
+    err = _inflateCopy(dest, source)
+    if err != Z_OK:
+        inflateEnd(dest)
+        raise RZlibError.fromstream(source, err,
+            "while copying decompression object")
+    return dest
 
 
 def inflateEnd(stream):
