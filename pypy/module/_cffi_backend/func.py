@@ -110,22 +110,19 @@ def _fetch_as_read_buffer(space, w_x):
 def _fetch_as_write_buffer(space, w_x):
     return space.writebuf_w(w_x)
 
-@unwrap_spec(w_ctype=ctypeobj.W_CType)
-def from_buffer(space, w_ctype, w_x):
-    from pypy.module._cffi_backend import ctypearray, ctypeprim
-    #
-    if (not isinstance(w_ctype, ctypearray.W_CTypeArray) or
-        not isinstance(w_ctype.ctptr.ctitem, ctypeprim.W_CTypePrimitiveChar)):
-        raise oefmt(space.w_TypeError,
-                    "needs 'char[]', got '%s'", w_ctype.name)
-    #
-    return _from_buffer(space, w_ctype, w_x)
-
-def _from_buffer(space, w_ctype, w_x):
+@unwrap_spec(w_ctype=ctypeobj.W_CType, require_writable=int)
+def from_buffer(space, w_ctype, w_x, require_writable=0):
+    from pypy.module._cffi_backend import ctypearray
+    if not isinstance(w_ctype, ctypearray.W_CTypeArray):
+        raise oefmt(space.w_TypeError, "expected an array ctype, got '%s'",
+                    w_ctype.name)
     if space.isinstance_w(w_x, space.w_unicode):
         raise oefmt(space.w_TypeError,
-                        "from_buffer() cannot return the address a unicode")
-    buf = _fetch_as_read_buffer(space, w_x)
+                "from_buffer() cannot return the address of a unicode object")
+    if require_writable:
+        buf = _fetch_as_write_buffer(space, w_x)
+    else:
+        buf = _fetch_as_read_buffer(space, w_x)
     if space.isinstance_w(w_x, space.w_bytes):
         _cdata = get_raw_address_of_string(space, w_x)
     else:
@@ -137,7 +134,37 @@ def _from_buffer(space, w_ctype, w_x):
                         "buffer interface but cannot be rendered as a plain "
                         "raw address on PyPy", w_x)
     #
-    return cdataobj.W_CDataFromBuffer(space, _cdata, w_ctype, buf, w_x)
+    buffersize = buf.getlength()
+    arraylength = w_ctype.length
+    if arraylength >= 0:
+        # it's an array with a fixed length; make sure that the
+        # buffer contains enough bytes.
+        if buffersize < w_ctype.size:
+            raise oefmt(space.w_ValueError,
+                "buffer is too small (%d bytes) for '%s' (%d bytes)",
+                buffersize, w_ctype.name, w_ctype.size)
+    else:
+        # it's an open 'array[]'
+        itemsize = w_ctype.ctitem.size
+        if itemsize == 1:
+            # fast path, performance only
+            arraylength = buffersize
+        elif itemsize > 0:
+            # give it as many items as fit the buffer.  Ignore a
+            # partial last element.
+            arraylength = buffersize / itemsize
+        else:
+            # it's an array 'empty[]'.  Unsupported obscure case:
+            # the problem is that setting the length of the result
+            # to anything large (like SSIZE_T_MAX) is dangerous,
+            # because if someone tries to loop over it, it will
+            # turn effectively into an infinite loop.
+            raise oefmt(space.w_ZeroDivisionError,
+                "from_buffer('%s', ..): the actual length of the array "
+                "cannot be computed", w_ctype.name)
+    #
+    return cdataobj.W_CDataFromBuffer(space, _cdata, arraylength,
+                                      w_ctype, buf, w_x)
 
 # ____________________________________________________________
 
@@ -261,3 +288,7 @@ def memmove(space, w_dest, w_src, n):
 @unwrap_spec(w_cdata=cdataobj.W_CData, size=int)
 def gcp(space, w_cdata, w_destructor, size=0):
     return w_cdata.with_gc(w_destructor, size)
+
+@unwrap_spec(w_cdata=cdataobj.W_CData)
+def release(space, w_cdata):
+    w_cdata.enter_exit(True)

@@ -708,6 +708,15 @@ def test_rordereddict_move_to_end():
     move_to_end(d, 'key1', last=False)
     assert d.items() == [('key1', 'val1'), ('key2', 'val2'), ('key3', 'val3')]
 
+def test_r_dict_move_to_end():
+    d = r_dict(strange_key_eq, strange_key_hash)
+    d['1key'] = 'val1'
+    d['2key'] = 'val2'
+    d['3key'] = 'val3'
+    # does not crash, we can't check that it actually moves to end on CPython
+    move_to_end(d, '1key')
+    move_to_end(d, '1key', last=False)
+
 def test_import_from_mixin():
     class M:    # old-style
         def f(self):

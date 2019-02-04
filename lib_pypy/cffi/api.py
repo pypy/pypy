@@ -16,6 +16,8 @@ except NameError:
     # Python 3.x
     basestring = str
 
+_unspecified = object()
+
 
 
 class FFI(object):
@@ -341,15 +343,23 @@ class FFI(object):
    #    """
    #    note that 'buffer' is a type, set on this instance by __init__
 
-    def from_buffer(self, python_buffer):
-        """Return a <cdata 'char[]'> that points to the data of the
+    def from_buffer(self, cdecl, python_buffer=_unspecified,
+                    require_writable=False):
+        """Return a cdata of the given type pointing to the data of the
         given Python object, which must support the buffer interface.
         Note that this is not meant to be used on the built-in types
         str or unicode (you can build 'char[]' arrays explicitly)
         but only on objects containing large quantities of raw data
         in some other format, like 'array.array' or numpy arrays.
+
+        The first argument is optional and default to 'char[]'.
         """
-        return self._backend.from_buffer(self.BCharA, python_buffer)
+        if python_buffer is _unspecified:
+            cdecl, python_buffer = self.BCharA, cdecl
+        elif isinstance(cdecl, basestring):
+            cdecl = self._typeof(cdecl)
+        return self._backend.from_buffer(cdecl, python_buffer,
+                                         require_writable)
 
     def memmove(self, dest, src, n):
         """ffi.memmove(dest, src, n) copies n bytes of memory from src to dest.
@@ -529,6 +539,9 @@ class FFI(object):
     def from_handle(self, x):
         return self._backend.from_handle(x)
 
+    def release(self, x):
+        self._backend.release(x)
+
     def set_unicode(self, enabled_flag):
         """Windows: if 'enabled_flag' is True, enable the UNICODE and
         _UNICODE defines in C, and declare the types like TCHAR and LPTCSTR
@@ -579,7 +592,7 @@ class FFI(object):
             if sys.platform == "win32":
                 # we need 'libpypy-c.lib'.  Current distributions of
                 # pypy (>= 4.1) contain it as 'libs/python27.lib'.
-                pythonlib = "python27"
+                pythonlib = "python{0[0]}{0[1]}".format(sys.version_info)
                 if hasattr(sys, 'prefix'):
                     ensure('library_dirs', os.path.join(sys.prefix, 'libs'))
             else:
@@ -629,6 +642,16 @@ class FFI(object):
                              "name to make a 'package.module' location")
         self._assigned_source = (str(module_name), source,
                                  source_extension, kwds)
+
+    def set_source_pkgconfig(self, module_name, pkgconfig_libs, source,
+                             source_extension='.c', **kwds):
+        from . import pkgconfig
+        if not isinstance(pkgconfig_libs, list):
+            raise TypeError("the pkgconfig_libs argument must be a list "
+                            "of package names")
+        kwds2 = pkgconfig.flags_from_pkgconfig(pkgconfig_libs)
+        pkgconfig.merge_flags(kwds, kwds2)
+        self.set_source(module_name, source, source_extension, **kwds)
 
     def distutils_extension(self, tmpdir='build', verbose=True):
         from distutils.dir_util import mkpath
