@@ -129,6 +129,12 @@ class TestRLong(object):
             assert res2.tolong() == -1L
             assert res3.tolong() == -1L
 
+    def test_floordiv2(self):
+        n1 = rbigint.fromlong(sys.maxint + 1)
+        n2 = rbigint.fromlong(-(sys.maxint + 1))
+        assert n1.floordiv(n2).tolong() == -1L
+        assert n2.floordiv(n1).tolong() == -1L
+
     def test_truediv(self):
         for op1 in gen_signs(long_vals_not_too_big):
             rl_op1 = rbigint.fromlong(op1)
@@ -1149,8 +1155,14 @@ class TestHypothesis(object):
         except Exception as e:
             pytest.raises(type(e), f1.pow, f2, f3)
         else:
-            v = f1.pow(f2, f3)
-            assert v.tolong() == res
+            v1 = f1.pow(f2, f3)
+            try:
+                v2 = f1.int_pow(f2.toint(), f3)
+            except OverflowError:
+                pass
+            else:
+                assert v2.tolong() == res
+            assert v1.tolong() == res
 
     @given(biglongs, biglongs)
     @example(510439143470502793407446782273075179618477362188870662225920,
@@ -1212,19 +1224,34 @@ class TestHypothesis(object):
             assert ra.truediv(rb) == a / b
 
     @given(longs, longs)
-    def test_bitwise(self, x, y):
+    def test_bitwise_and_mul(self, x, y):
         lx = rbigint.fromlong(x)
         ly = rbigint.fromlong(y)
-        for mod in "xor and_ or_".split():
-            res1 = getattr(lx, mod)(ly).tolong()
+        for mod in "xor and_ or_ mul".split():
+            res1a = getattr(lx, mod)(ly).tolong()
+            res1b = getattr(ly, mod)(lx).tolong()
             res2 = getattr(operator, mod)(x, y)
-            assert res1 == res2
+            assert res1a == res2
 
     @given(longs, ints)
-    def test_int_bitwise(self, x, y):
+    def test_int_bitwise_and_mul(self, x, y):
         lx = rbigint.fromlong(x)
-        for mod in "xor and_ or_".split():
+        for mod in "xor and_ or_ mul".split():
             res1 = getattr(lx, 'int_' + mod)(y).tolong()
             res2 = getattr(operator, mod)(x, y)
             assert res1 == res2
 
+    @given(longs, ints)
+    def test_int_comparison(self, x, y):
+        lx = rbigint.fromlong(x)
+        assert lx.int_lt(y) == (x < y)
+        assert lx.int_eq(y) == (x == y)
+        assert lx.int_le(y) == (x <= y)
+
+    @given(longs, longs)
+    def test_int_comparison(self, x, y):
+        lx = rbigint.fromlong(x)
+        ly = rbigint.fromlong(y)
+        assert lx.lt(ly) == (x < y)
+        assert lx.eq(ly) == (x == y)
+        assert lx.le(ly) == (x <= y)
