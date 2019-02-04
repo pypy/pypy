@@ -531,7 +531,7 @@ class W_SRE_Match(W_Root):
             assert idx >= 0
             return fmarks[idx], fmarks[idx+1]
         else:
-            raise oefmt(space.w_IndexError, "group index out of range")
+            raise oefmt(space.w_IndexError, "no such group")
 
     def _last_index(self):
         mark = self.ctx.match_marks
