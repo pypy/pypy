@@ -1254,7 +1254,7 @@ class rbigint(object):
         z._normalize()
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
-    
+        
     @jit.elidable
     def rqshift(self, int_other):
         wordshift = int_other / SHIFT
@@ -2062,13 +2062,13 @@ def _x_divrem(v1, w1):
         else:
             vtop = v.widedigit(j)
         assert vtop <= wm1
-        
+
         vv = (vtop << SHIFT) | v.widedigit(abs(j-1))
-        
+
         # Hints to make division just as fast as doing it unsigned. But avoids casting to get correct results.
         assert vv >= 0
         assert wm1 >= 1
-        
+
         q = vv / wm1
         r = vv % wm1 # This seems to be slightly faster on widen digits than vv - wm1 * q.
         vj2 = v.digit(abs(j-2))
