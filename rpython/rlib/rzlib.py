@@ -142,6 +142,7 @@ _deflateInit2_ = zlib_external(
     rffi.INT)
 _deflate = zlib_external('deflate', [z_stream_p, rffi.INT], rffi.INT)
 
+_deflateCopy = zlib_external('deflateCopy', [z_stream_p, z_stream_p], rffi.INT)
 _deflateEnd = zlib_external('deflateEnd', [z_stream_p], rffi.INT,
                             releasegil=False)
 
@@ -290,6 +291,19 @@ def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
                     "while creating compression object")
         finally:
             lltype.free(stream, flavor='raw')
+
+
+def deflateCopy(source):
+    """
+    Allocate and return an independent copy of the provided stream object.
+    """
+    dest = deflateInit()
+    err = _deflateCopy(dest, source)
+    if err != Z_OK:
+        deflateEnd(dest)
+        raise RZlibError.fromstream(source, err,
+            "while copying compression object")
+    return dest
 
 
 def deflateEnd(stream):
