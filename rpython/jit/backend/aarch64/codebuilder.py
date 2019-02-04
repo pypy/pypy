@@ -1,6 +1,8 @@
 
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.aarch64.locations import RegisterLocation
+from rpython.jit.backend.aarch64 import registers as r
+
 
 class AbstractAarch64Builder(object):
     def write32(self, word):
@@ -18,6 +20,27 @@ class AbstractAarch64Builder(object):
         assert offset & 0x7 == 0
         self.write32((base << 22) | ((0x7F & (offset >> 3)) << 15) |
                      (reg2 << 10) | (rn << 5) | reg1)
+
+    def STP_rri(self, reg1, reg2, rn, offset):
+        base = 0b1010100100
+        assert -512 <= offset < 512
+        assert offset & 0x7 == 0
+        self.write32((base << 22) | ((0x7F & (offset >> 3)) << 15) |
+                     (reg2 << 10) | (rn << 5) | reg1)
+
+    def MOV_rr(self, rd, rn):
+        self.ORR_rr(rd, r.xzr.value, rn)
+
+    def ORR_rr(self, rd, rn, rm):
+        base = 0b10101010000
+        self.write32((base << 21) | (rm << 16) |
+                     (rn << 5) | rd)
+
+    def ADD_ri(self, rd, rn, constant):
+        base = 0b1001000100
+        assert 0 <= constant < 4096
+        self.write32((base << 22) | (constant << 10) |
+                     (rn << 5) | rd)
 
 class InstrBuilder(BlockBuilderMixin, AbstractAarch64Builder):
 

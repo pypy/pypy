@@ -143,6 +143,9 @@ class AssemblerARM64(ResOpAssembler):
         pass
 
     def _build_stack_check_slowpath(self):
+        self.stack_check_slowpath = 0  #XXX
+
+    def _check_frame_depth_debug(self, mc):
         pass
 
     def reserve_gcref_table(self, allgcrefs):
@@ -167,25 +170,24 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.BL(self.stack_check_slowpath, c=c.HI)      # call if ip > lr
 
     def _call_header(self):
-        stack_size = WORD #alignment
-        stack_size += len(r.callee_saved_registers) * WORD
+        stack_size = (len(r.callee_saved_registers) + 2) * WORD
+        self.mc.STP_rr_preindex(r.fp.value, r.lr.value, r.sp.value, -stack_size)
+        for i in range(0, len(r.callee_saved_registers), 2):
+            self.mc.STP_rri(r.callee_saved_registers[i].value,
+                            r.callee_saved_registers[i + 1].value,
+                            r.sp.value,
+                            (i + 2) * WORD)
+        
+        #self.saved_threadlocal_addr = 0   # at offset 0 from location 'sp'
+        # ^^^XXX save it from register x1 into some place
         if self.cpu.supports_floats:
-            stack_size += len(r.callee_saved_vfp_registers) * 2 * WORD
-
-        # push all callee saved registers including lr; and push r1 as
-        # well, which contains the threadlocal_addr argument.  Note that
-        # we're pushing a total of 10 words, which keeps the stack aligned.
-        self.mc.PUSH([reg.value for reg in r.callee_saved_registers] +
-                                                        [r.r1.value])
-        self.saved_threadlocal_addr = 0   # at offset 0 from location 'sp'
-        if self.cpu.supports_floats:
+            XXX
             self.mc.VPUSH([reg.value for reg in r.callee_saved_vfp_registers])
             self.saved_threadlocal_addr += (
                 len(r.callee_saved_vfp_registers) * 2 * WORD)
-        assert stack_size % 8 == 0 # ensure we keep alignment
 
-        # set fp to point to the JITFRAME
-        self.mc.MOV_rr(r.fp.value, r.r0.value)
+        # set fp to point to the JITFRAME, passed in argument 'x0'
+        self.mc.MOV_rr(r.fp.value, r.x0.value)
         #
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:

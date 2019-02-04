@@ -4,7 +4,7 @@ from rpython.jit.backend.aarch64.locations import (RegisterLocation,
 
 
 registers = [RegisterLocation(i) for i in range(31)]
-sp = wzr = ZeroRegister()
+sp = xzr = ZeroRegister()
 [x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10,
  x11, x12, x13, x14, x15, x16, x17, x18, x19, x20,
  x21, x22, x23, x24, x25, x26, x27, x28, x29, x30] = registers
@@ -18,8 +18,6 @@ fp = x29
 ip1 = x17
 ip0 = x16
 
-callee_resp = [x19, x20, x21, x22, fp]
+callee_saved_registers = [x19, x20, x21, x22]
 
 argument_regs = caller_resp = [x0, x1, x2, x3, x4, x5, x6, x7]
-
-callee_saved_registers = callee_resp + [lr]

@@ -30,7 +30,18 @@ class TestInstrBuilder(object):
     @given(r1=st.sampled_from(r.registers),
            r2=st.sampled_from(r.registers),
            offset=st.integers(min_value=-64, max_value=63))
-    def test_call_header(self, r1, r2, offset):
+    def test_STP_rr(self, r1, r2, offset):
         cb = CodeBuilder()
         cb.STP_rr_preindex(r1.value, r2.value, r.sp.value, offset * 8)
         assert cb.hexdump() == assemble("STP %r, %r, [sp, %d]!" % (r1, r2, offset * 8))
+        cb = CodeBuilder()
+        cb.STP_rri(r1.value, r2.value, r.sp.value, offset * 8)
+        assert cb.hexdump() == assemble("STP %r, %r, [sp, %d]" % (r1, r2, offset * 8))
+
+    @settings(max_examples=20)
+    @given(r1=st.sampled_from(r.registers),
+           r2=st.sampled_from(r.registers))
+    def test_MOV_rr(self, r1, r2):
+        cb = CodeBuilder()
+        cb.MOV_rr(r1.value, r2.value)
+        assert cb.hexdump() == assemble("MOV %r, %r" % (r1, r2))
