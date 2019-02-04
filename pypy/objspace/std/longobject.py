@@ -311,7 +311,7 @@ class W_LongObject(W_AbstractLongObject):
         exp_int = 0
         exp_bigint = None
         sign = 0
-        
+
         if isinstance(w_exponent, W_AbstractIntObject):
             exp_int = w_exponent.int_w(space)
             if exp_int > 0:
@@ -323,7 +323,7 @@ class W_LongObject(W_AbstractLongObject):
         else:
             exp_bigint = w_exponent.asbigint()
             sign = exp_bigint.sign
-            
+
         if space.is_none(w_modulus):
             if sign < 0:
                 self = self.descr_float(space)
@@ -333,10 +333,10 @@ class W_LongObject(W_AbstractLongObject):
                 return W_LongObject(self.num.int_pow(exp_int))
             else:
                 return W_LongObject(self.num.pow(exp_bigint))
-                
+
         elif isinstance(w_modulus, W_AbstractIntObject):
             w_modulus = w_modulus.descr_long(space)
-            
+
         elif not isinstance(w_modulus, W_AbstractLongObject):
             return space.w_NotImplemented
 
@@ -400,7 +400,6 @@ class W_LongObject(W_AbstractLongObject):
 
     @delegate_other
     def descr_rsub(self, space, w_other):
-        # XXX should support fast int?
         return W_LongObject(w_other.asbigint().sub(self.num))
 
     def _make_generic_descr_binop(opname):
