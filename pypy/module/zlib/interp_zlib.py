@@ -352,8 +352,8 @@ class Decompress(ZLibObject):
         return Decompress(
             space=space,
             stream=copied,
-            # unused_data=self.unused_data,
-            # unconsumed_tail=self.unconsumed_tail,
+            unused_data=self.unused_data,
+            unconsumed_tail=self.unconsumed_tail,
         )
 
     def flush(self, space, w_length=None):

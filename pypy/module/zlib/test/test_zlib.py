@@ -312,6 +312,23 @@ class AppTestZlib(object):
         self.intentionally_break_a_z_stream(zobj=decompressor)
         raises(self.zlib.error, decompressor.copy)
 
+    def test_decompress_copy_carries_along_state(self):
+        """
+        Decompressor.unused_data and unconsumed_tail are carried along when a
+        copy is done.
+        """
+        decompressor = self.zlib.decompressobj()
+        decompressor.decompress(self.compressed, max_length=5)
+        unconsumed_tail = decompressor.unconsumed_tail
+        assert unconsumed_tail
+        assert decompressor.copy().unconsumed_tail == unconsumed_tail
+
+        decompressor.decompress(decompressor.unconsumed_tail)
+        decompressor.decompress("xxx")
+        unused_data = decompressor.unused_data
+        assert unused_data
+        assert decompressor.copy().unused_data == unused_data
+
     def test_compress_copy(self):
         compressor = self.zlib.compressobj()
         d1 = compressor.compress(self.expanded[:10])
