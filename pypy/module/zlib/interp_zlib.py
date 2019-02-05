@@ -65,10 +65,10 @@ def zlib_error(space, msg):
     return OperationError(w_error, space.newtext(msg))
 
 
-@unwrap_spec(string='bufferstr', level=int)
-def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
+@unwrap_spec(data='bufferstr', level=int)
+def compress(space, data, level=rzlib.Z_DEFAULT_COMPRESSION):
     """
-    compress(string[, level]) -- Returned compressed string.
+    compress(data[, level]) -- Returned compressed string.
 
     Optional arg level is the compression level, in 1-9.
     """
@@ -78,7 +78,7 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
         except ValueError:
             raise zlib_error(space, "Bad compression level")
         try:
-            result = rzlib.compress(stream, string, rzlib.Z_FINISH)
+            result = rzlib.compress(stream, data, rzlib.Z_FINISH)
         finally:
             rzlib.deflateEnd(stream)
     except rzlib.RZlibError as e:
