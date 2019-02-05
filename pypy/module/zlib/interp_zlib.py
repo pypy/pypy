@@ -241,7 +241,14 @@ class Decompress(ZLibObject):
     Wrapper around zlib's z_stream structure which provides convenient
     decompression functionality.
     """
-    def __init__(self, space, wbits=rzlib.MAX_WBITS):
+    def __init__(
+        self,
+        space,
+        wbits=rzlib.MAX_WBITS,
+        stream=None,
+        unused_data="",
+        unconsumed_tail="",
+    ):
         """
         Initialize a new decompression object.
 
@@ -251,14 +258,18 @@ class Decompress(ZLibObject):
         inflateInit2.
         """
         ZLibObject.__init__(self, space)
-        self.unused_data = ''
-        self.unconsumed_tail = ''
-        try:
-            self.stream = rzlib.inflateInit(wbits)
-        except rzlib.RZlibError as e:
-            raise zlib_error(space, e.msg)
-        except ValueError:
-            raise oefmt(space.w_ValueError, "Invalid initialization option")
+
+        if stream is None:
+            try:
+                stream = rzlib.inflateInit(wbits)
+            except rzlib.RZlibError as e:
+                raise zlib_error(space, e.msg)
+            except ValueError:
+                raise oefmt(space.w_ValueError, "Invalid initialization option")
+        self.space = space
+        self.stream = stream
+        self.unused_data = unused_data
+        self.unconsumed_tail = unconsumed_tail
         self.register_finalizer(space)
 
     def _finalize_(self):
@@ -305,6 +316,19 @@ class Decompress(ZLibObject):
         self._save_unconsumed_input(data, finished, unused_len)
         return space.newbytes(string)
 
+    def copy(self, space):
+        try:
+            copied = rzlib.inflateCopy(self.stream)
+        except rzlib.RZlibError as e:
+            raise zlib_error(space, e.msg)
+
+        return Decompress(
+            space=self.space,
+            stream=copied,
+            # unused_data=self.unused_data,
+            # unconsumed_tail=self.unconsumed_tail,
+        )
+
     def flush(self, space, w_length=None):
         """
         flush( [length] ) -- This is kept for backward compatibility,
@@ -345,6 +369,7 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS):
 Decompress.typedef = TypeDef(
     'Decompress',
     __new__ = interp2app(Decompress___new__),
+    copy = interp2app(Decompress.copy),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
     unused_data = interp_attrproperty('unused_data', Decompress, wrapfn="newbytes"),

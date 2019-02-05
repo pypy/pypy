@@ -8,8 +8,10 @@ try:
 except ImportError:
     import py; py.test.skip("no zlib module on this host Python")
 
+from pypy.interpreter.gateway import interp2app
 try:
     from pypy.module.zlib import interp_zlib
+    from rpython.rlib import rzlib
 except ImportError:
     import py; py.test.skip("no zlib C library on this machine")
 
@@ -37,6 +39,22 @@ class AppTestZlib(object):
         expanded = 'some bytes which will be compressed'
         cls.w_expanded = cls.space.wrap(expanded)
         cls.w_compressed = cls.space.wrap(zlib.compress(expanded))
+
+        def intentionally_break_a_z_stream(space, w_zobj):
+            """
+            Intentionally break the z_stream associated with a
+            compressobj or decompressobj in a way that causes their copy
+            methods to raise RZlibErrors.
+            """
+            from rpython.rtyper.lltypesystem import rffi, lltype
+            w_zobj.stream.c_zalloc = rffi.cast(
+                lltype.typeOf(w_zobj.stream.c_zalloc),
+                rzlib.Z_NULL,
+            )
+
+        cls.w_intentionally_break_a_z_stream = cls.space.wrap(
+            interp2app(intentionally_break_a_z_stream),
+        )
 
     def test_error(self):
         """
@@ -276,3 +294,20 @@ class AppTestZlib(object):
         assert dco.flush(1) == input1[1:]
         assert dco.unused_data == b''
         assert dco.unconsumed_tail == b''
+
+    def test_decompress_copy(self):
+        decompressor = self.zlib.decompressobj()
+        d1 = decompressor.decompress(self.compressed[:10])
+        assert d1
+
+        copied = decompressor.copy()
+
+        from_copy = copied.decompress(self.compressed[10:])
+        from_decompressor = decompressor.decompress(self.compressed[10:])
+
+        assert (d1 + from_copy) == (d1 + from_decompressor)
+
+    def test_unsuccessful_decompress_copy(self):
+        decompressor = self.zlib.decompressobj()
+        self.intentionally_break_a_z_stream(zobj=decompressor)
+        raises(self.zlib.error, decompressor.copy)
