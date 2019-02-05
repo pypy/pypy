@@ -318,7 +318,14 @@ class Decompress(ZLibObject):
 
     def copy(self, space):
         try:
-            copied = rzlib.inflateCopy(self.stream)
+            self.lock()
+            try:
+                if not self.stream:
+                    raise zlib_error(space,
+                                     "decompressor object already flushed")
+                copied = rzlib.inflateCopy(self.stream)
+            finally:
+                self.unlock()
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
 
