@@ -311,3 +311,20 @@ class AppTestZlib(object):
         decompressor = self.zlib.decompressobj()
         self.intentionally_break_a_z_stream(zobj=decompressor)
         raises(self.zlib.error, decompressor.copy)
+
+    def test_compress_copy(self):
+        compressor = self.zlib.compressobj()
+        d1 = compressor.compress(self.expanded[:10])
+        assert d1
+
+        copied = compressor.copy()
+
+        from_copy = copied.compress(self.expanded[10:])
+        from_compressor = compressor.compress(self.expanded[10:])
+
+        assert (d1 + from_copy) == (d1 + from_compressor)
+
+    def test_unsuccessful_compress_copy(self):
+        compressor = self.zlib.compressobj()
+        self.intentionally_break_a_z_stream(zobj=compressor)
+        raises(self.zlib.error, compressor.copy)
