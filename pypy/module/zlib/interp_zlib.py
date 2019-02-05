@@ -182,6 +182,9 @@ class Compress(ZLibObject):
         return space.newbytes(result)
 
     def copy(self, space):
+        """
+        copy() -- Return a copy of the compression object.
+        """
         try:
             self.lock()
             try:
@@ -331,6 +334,9 @@ class Decompress(ZLibObject):
         return space.newbytes(string)
 
     def copy(self, space):
+        """
+        copy() -- Return a copy of the decompression object.
+        """
         try:
             self.lock()
             try:
