@@ -1,8 +1,15 @@
 Prerequisites:
-	Visual Studio 2017
-	Wix 3.11.1
-	Wix VSExtension for VS 2017
-	
+    Visual Studio 2017 or at least the compilers and desktop cevelopment
+with c++
+        .Net 3.5.1
+    Wix 3.11.1 http://wixtoolset.org/releases/
+    Wix VSExtension for VS 2017
+https://marketplace.visualstudio.com/items?itemName=RobMensching.WixToolsetVisualStudio2017Extension
+    Windows 10 SDK (10.0.17134.0)
+    
 Steps:
-	1. Translate the interpretter from the \pypy\goal folder.
-	2. Run buildrelease.bat from the visual studio command line.
+    1. Translate the interpretter from the \pypy\goal folder.
+    2. Remove all __pycache__ directories (maybe do this in the script?)
+    3. Run buildrelease.bat from the visual studio command line.
+
+Now you should have .\PCbuild\win32\en-us\pypy-3.5.3.6609.exe
