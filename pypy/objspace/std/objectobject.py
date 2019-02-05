@@ -59,13 +59,9 @@ def reduce_2(obj, proto, args, kwargs):
     if not kwargs:
        newobj = copyreg.__newobj__
        args2 = (cls,) + args
-    elif proto >= 4:
+    else:
        newobj = copyreg.__newobj_ex__
        args2 = (cls, args, kwargs)
-    else:
-       raise ValueError("must use protocol 4 or greater to copy this "
-                        "object; since __getnewargs_ex__ returned "
-                        "keyword arguments.")
     state = _getstate(obj)
     listitems = iter(obj) if isinstance(obj, list) else None
     dictitems = iter(obj.items()) if isinstance(obj, dict) else None

@@ -70,10 +70,11 @@ class AppTestObject:
             def __getnewargs_ex__(self):
                 return (self._name,), dict(value=int(self))
         import copyreg
-        assert NamedInt("Name", value=42).__reduce__(4) == (
-            copyreg.__newobj_ex__,
-            (NamedInt, ('Name',), dict(value=42)),
-            dict(_name='Name'), None, None)
+        for protocol in [2, 3, 4]:
+            assert NamedInt("Name", value=42).__reduce__(protocol) == (
+                copyreg.__newobj_ex__,
+                (NamedInt, ('Name',), dict(value=42)),
+                dict(_name='Name'), None, None)
 
     def test_reduce_ex_does_getattr(self):
         seen = []

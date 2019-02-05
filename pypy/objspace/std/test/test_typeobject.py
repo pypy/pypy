@@ -427,6 +427,14 @@ class AppTestTypeObject:
     def test_method_qualname(self):
         assert dict.copy.__qualname__ == 'dict.copy'
 
+    def test_staticmethod_qualname(self):
+        assert dict.__new__.__qualname__ == 'dict.__new__'
+        class A:
+            @staticmethod
+            def stat():
+                pass
+        assert A.stat.__qualname__.endswith('A.stat')
+
     def test_builtin_add(self):
         x = 5
         assert x.__add__(6) == 11

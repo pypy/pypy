@@ -1560,6 +1560,8 @@ class TypeCache(SpaceCache):
                 w_obj = dict_w[name]
                 if isinstance(w_obj, ClassMethod):
                     w_obj = w_obj.w_function
+                if isinstance(w_obj, StaticMethod):
+                    w_obj = w_obj.w_function
                 if isinstance(w_obj, FunctionWithFixedCode):
                     qualname = (w_type.getqualname(space).encode('utf-8')
                                 + '.' + name)
