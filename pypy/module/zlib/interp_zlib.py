@@ -118,15 +118,18 @@ class Compress(ZLibObject):
                  wbits=rzlib.MAX_WBITS,               #  \   undocumented
                  memLevel=rzlib.DEF_MEM_LEVEL,        #  /    parameters
                  strategy=rzlib.Z_DEFAULT_STRATEGY,   # /
-                 zdict=None):
+                 zdict=None,
+                 stream=None):
         ZLibObject.__init__(self, space)
-        try:
-            self.stream = rzlib.deflateInit(level, method, wbits,
-                                            memLevel, strategy, zdict=zdict)
-        except rzlib.RZlibError as e:
-            raise zlib_error(space, e.msg)
-        except ValueError:
-            raise oefmt(space.w_ValueError, "Invalid initialization option")
+        if stream is None:
+            try:
+                stream = rzlib.deflateInit(level, method, wbits,
+                                           memLevel, strategy, zdict=zdict)
+            except rzlib.RZlibError as e:
+                raise zlib_error(space, e.msg)
+            except ValueError:
+                raise oefmt(space.w_ValueError, "Invalid initialization option")
+        self.stream = stream
         self.register_finalizer(space)
 
     def _finalize_(self):
@@ -157,6 +160,20 @@ class Compress(ZLibObject):
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         return space.newbytes(result)
+
+    def copy(self, space):
+        """
+        copy() -- Return a copy of the compression object.
+        """
+        try:
+            self.lock()
+            try:
+                copied = rzlib.deflateCopy(self.stream)
+            finally:
+                self.unlock()
+        except rzlib.RZlibError as e:
+            raise zlib_error(space, e.msg)
+        return Compress(space=space, stream=copied)
 
     @unwrap_spec(mode="c_int")
     def flush(self, space, mode=rzlib.Z_FINISH):
@@ -213,6 +230,7 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
 Compress.typedef = TypeDef(
     'Compress',
     __new__ = interp2app(Compress___new__),
+    copy = interp2app(Compress.copy),
     compress = interp2app(Compress.compress),
     flush = interp2app(Compress.flush),
     __doc__ = """compressobj([level]) -- Return a compressor object.
@@ -226,7 +244,15 @@ class Decompress(ZLibObject):
     Wrapper around zlib's z_stream structure which provides convenient
     decompression functionality.
     """
-    def __init__(self, space, wbits=rzlib.MAX_WBITS, zdict=None):
+    def __init__(
+            self,
+            space,
+            wbits=rzlib.MAX_WBITS,
+            zdict=None,
+            stream=None,
+            unused_data="",
+            unconsumed_tail="",
+    ):
         """
         Initialize a new decompression object.
 
@@ -236,16 +262,18 @@ class Decompress(ZLibObject):
         inflateInit2.
         """
         ZLibObject.__init__(self, space)
-        self.unused_data = ''
-        self.unconsumed_tail = ''
-        self.eof = False
-        try:
-            self.stream = rzlib.inflateInit(wbits, zdict=zdict)
-        except rzlib.RZlibError as e:
-            raise zlib_error(space, e.msg)
-        except ValueError:
-            raise oefmt(space.w_ValueError, "Invalid initialization option")
+        if stream is None:
+            try:
+                stream = rzlib.inflateInit(wbits, zdict=zdict)
+            except rzlib.RZlibError as e:
+                raise zlib_error(space, e.msg)
+            except ValueError:
+                raise oefmt(space.w_ValueError, "Invalid initialization option")
+        self.stream = stream
         self.zdict = zdict
+        self.unused_data = unused_data
+        self.unconsumed_tail = unconsumed_tail
+        self.eof = False
         self.register_finalizer(space)
 
     def _finalize_(self):
@@ -295,6 +323,30 @@ class Decompress(ZLibObject):
         self._save_unconsumed_input(data, finished, unused_len)
         return space.newbytes(string)
 
+    def copy(self, space):
+        """
+        copy() -- Return a copy of the decompression object.
+        """
+        try:
+            self.lock()
+            try:
+                if not self.stream:
+                    raise zlib_error(space,
+                                     "decompressor object already flushed")
+                copied = rzlib.inflateCopy(self.stream)
+            finally:
+                self.unlock()
+        except rzlib.RZlibError as e:
+            raise zlib_error(space, e.msg)
+
+        return Decompress(
+            space=space,
+            stream=copied,
+            unused_data=self.unused_data,
+            unconsumed_tail=self.unconsumed_tail,
+            zdict=self.zdict,
+        )
+
     def flush(self, space, w_length=None):
         """
         flush( [length] ) -- This is kept for backward compatibility,
@@ -342,6 +394,7 @@ def default_buffer_size(space):
 Decompress.typedef = TypeDef(
     'Decompress',
     __new__ = interp2app(Decompress___new__),
+    copy = interp2app(Decompress.copy),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
     unused_data = interp_attrproperty('unused_data', Decompress, wrapfn="newbytes"),
