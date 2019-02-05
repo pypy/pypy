@@ -126,3 +126,9 @@ class AppTestDialect(object):
         _csv.unregister_dialect('neverseen')
         lst = _csv.list_dialects()
         assert 'neverseen' not in lst
+
+    def test_pickle_dialect(self):
+        import _csv
+        import copy
+        _csv.register_dialect('foo')
+        raises(TypeError, copy.copy, _csv.get_dialect('foo'))
