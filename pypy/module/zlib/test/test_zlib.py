@@ -308,6 +308,7 @@ class AppTestZlib(object):
         assert (d1 + from_copy) == (d1 + from_decompressor)
 
     def test_cannot_copy_decompressor_with_stream_in_inconsistent_state(self):
+        if self.runappdirect: skip("can't run with -A")
         decompressor = self.zlib.decompressobj()
         self.intentionally_break_a_z_stream(zobj=decompressor)
         raises(self.zlib.error, decompressor.copy)
@@ -342,6 +343,7 @@ class AppTestZlib(object):
         assert (d1 + from_copy) == (d1 + from_compressor)
 
     def test_cannot_copy_compressor_with_stream_in_inconsistent_state(self):
+        if self.runappdirect: skip("can't run with -A")
         compressor = self.zlib.compressobj()
         self.intentionally_break_a_z_stream(zobj=compressor)
         raises(self.zlib.error, compressor.copy)
