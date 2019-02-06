@@ -35,6 +35,8 @@ class AppTestZlib(object):
         compression and decompression tests have a little real data to assert
         against.
         """
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
         cls.w_zlib = cls.space.getbuiltinmodule('zlib')
         expanded = 'some bytes which will be compressed'
         cls.w_expanded = cls.space.wrap(expanded)
