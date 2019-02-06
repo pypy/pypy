@@ -89,7 +89,7 @@ class Overlapped(object):
                 # The operation is no longer pending, nothing to do
                 pass
             else:
-                raise RuntimeError('deleting an overlapped strucwith a pending operation not supported')
+                raise RuntimeError('deleting an overlapped struct with a pending operation not supported')
 
     @property
     def event(self):
