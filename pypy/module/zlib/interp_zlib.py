@@ -113,22 +113,8 @@ class Compress(ZLibObject):
     Wrapper around zlib's z_stream structure which provides convenient
     compression functionality.
     """
-    def __init__(self, space, level=rzlib.Z_DEFAULT_COMPRESSION,
-                 method=rzlib.Z_DEFLATED,             # \
-                 wbits=rzlib.MAX_WBITS,               #  \   undocumented
-                 memLevel=rzlib.DEF_MEM_LEVEL,        #  /    parameters
-                 strategy=rzlib.Z_DEFAULT_STRATEGY,   # /
-                 zdict=None,
-                 stream=None):
+    def __init__(self, space, stream):
         ZLibObject.__init__(self, space)
-        if stream is None:
-            try:
-                stream = rzlib.deflateInit(level, method, wbits,
-                                           memLevel, strategy, zdict=zdict)
-            except rzlib.RZlibError as e:
-                raise zlib_error(space, e.msg)
-            except ValueError:
-                raise oefmt(space.w_ValueError, "Invalid initialization option")
         self.stream = stream
         self.register_finalizer(space)
 
@@ -220,11 +206,17 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
         zdict = None
     else:
         zdict = space.charbuf_w(w_zdict)
-    stream = space.allocate_instance(Compress, w_subtype)
-    stream = space.interp_w(Compress, stream)
-    Compress.__init__(stream, space, level,
-                      method, wbits, memLevel, strategy, zdict)
-    return stream
+    w_stream = space.allocate_instance(Compress, w_subtype)
+    w_stream = space.interp_w(Compress, w_stream)
+    try:
+        stream = rzlib.deflateInit(level, method, wbits, memLevel, strategy,
+                                   zdict=zdict)
+    except rzlib.RZlibError as e:
+        raise zlib_error(space, e.msg)
+    except ValueError:
+        raise oefmt(space.w_ValueError, "Invalid initialization option")
+    Compress.__init__(w_stream, space, stream)
+    return w_stream
 
 
 Compress.typedef = TypeDef(
@@ -244,15 +236,7 @@ class Decompress(ZLibObject):
     Wrapper around zlib's z_stream structure which provides convenient
     decompression functionality.
     """
-    def __init__(
-            self,
-            space,
-            wbits=rzlib.MAX_WBITS,
-            zdict=None,
-            stream=None,
-            unused_data="",
-            unconsumed_tail="",
-    ):
+    def __init__(self, space, stream, zdict, unused_data, unconsumed_tail):
         """
         Initialize a new decompression object.
 
@@ -262,13 +246,7 @@ class Decompress(ZLibObject):
         inflateInit2.
         """
         ZLibObject.__init__(self, space)
-        if stream is None:
-            try:
-                stream = rzlib.inflateInit(wbits, zdict=zdict)
-            except rzlib.RZlibError as e:
-                raise zlib_error(space, e.msg)
-            except ValueError:
-                raise oefmt(space.w_ValueError, "Invalid initialization option")
+
         self.stream = stream
         self.zdict = zdict
         self.unused_data = unused_data
@@ -383,10 +361,16 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS, w_zdict=None):
         zdict = None
     else:
         zdict = space.charbuf_w(w_zdict)
-    stream = space.allocate_instance(Decompress, w_subtype)
-    stream = space.interp_w(Decompress, stream)
-    Decompress.__init__(stream, space, wbits, zdict)
-    return stream
+    w_stream = space.allocate_instance(Decompress, w_subtype)
+    w_stream = space.interp_w(Decompress, w_stream)
+    try:
+        stream = rzlib.inflateInit(wbits, zdict=zdict)
+    except rzlib.RZlibError as e:
+        raise zlib_error(space, e.msg)
+    except ValueError:
+        raise oefmt(space.w_ValueError, "Invalid initialization option")
+    Decompress.__init__(w_stream, space, stream, zdict, '', '')
+    return w_stream
 
 def default_buffer_size(space):
     return space.newint(rzlib.OUTPUT_BUFFER_SIZE)
