@@ -225,7 +225,7 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
     w_stream = space.allocate_instance(Compress, w_subtype)
     w_stream = space.interp_w(Compress, w_stream)
     try:
-        w_stream = rzlib.deflateInit(level, method, wbits, memLevel, strategy)
+        stream = rzlib.deflateInit(level, method, wbits, memLevel, strategy)
     except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
     except ValueError:
@@ -262,9 +262,9 @@ class Decompress(ZLibObject):
         """
         ZLibObject.__init__(self, space)
 
+        self.stream = stream
         self.unused_data = unused_data
         self.unconsumed_tail = unconsumed_tail
-        self.stream = stream
         self.register_finalizer(space)
 
     def _finalize_(self):
@@ -368,7 +368,7 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS):
     w_stream = space.allocate_instance(Decompress, w_subtype)
     w_stream = space.interp_w(Decompress, w_stream)
     try:
-        w_stream = rzlib.inflateInit(wbits)
+        stream = rzlib.inflateInit(wbits)
     except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
     except ValueError:
