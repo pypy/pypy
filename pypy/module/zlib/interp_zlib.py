@@ -235,11 +235,11 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
     """
     Create a new z_stream and call its initializer.
     """
-    stream = space.allocate_instance(Compress, w_subtype)
-    stream = space.interp_w(Compress, stream)
-    Compress.__init__(stream, space, level,
+    w_stream = space.allocate_instance(Compress, w_subtype)
+    w_stream = space.interp_w(Compress, w_stream)
+    Compress.__init__(w_stream, space, level,
                       method, wbits, memLevel, strategy)
-    return stream
+    return w_stream
 
 
 Compress.typedef = TypeDef(
@@ -387,10 +387,10 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS):
     """
     Create a new Decompress and call its initializer.
     """
-    stream = space.allocate_instance(Decompress, w_subtype)
-    stream = space.interp_w(Decompress, stream)
-    Decompress.__init__(stream, space, wbits)
-    return stream
+    w_stream = space.allocate_instance(Decompress, w_subtype)
+    w_stream = space.interp_w(Decompress, w_stream)
+    Decompress.__init__(w_stream, space, wbits)
+    return w_stream
 
 
 Decompress.typedef = TypeDef(
