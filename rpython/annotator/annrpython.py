@@ -665,7 +665,7 @@ class RPythonAnnotator(object):
         """
         can_only_throw = operation.get_can_only_throw(self)
         if can_only_throw is None:
-            return SomeInstance(self.bookkeeper.getuniqueclassdef(Exception))
+            return SomeInstance(self.bookkeeper.getuniqueclassdef(BaseException))
         else:
             return self.bookkeeper.new_exception(can_only_throw)
 
