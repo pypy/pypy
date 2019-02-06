@@ -91,6 +91,11 @@ typedef struct _OVERLAPPED {
 } OVERLAPPED, *LPOVERLAPPED;
 
 
+typedef struct _PostCallbackData {
+    HANDLE  hCompletionPort;
+    LPOVERLAPPED Overlapped;    
+} PostCallbackData, *LPPostCallbackData;
+
 DWORD WINAPI GetVersion(void);
 BOOL WINAPI CreatePipe(PHANDLE, PHANDLE, void *, DWORD);
 HANDLE WINAPI CreateNamedPipeA(LPCSTR, DWORD, DWORD, DWORD, DWORD, DWORD,

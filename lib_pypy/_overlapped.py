@@ -6,7 +6,7 @@ modules on Windows.
 
 import sys
 if sys.platform != 'win32':
-    raise ImportError("The '_winapi' module is only available on Windows")
+    raise ImportError("The '_overlapped' module is only available on Windows")
 
 # Declare external Win32 functions
 
@@ -15,6 +15,10 @@ _kernel32 = _ffi.dlopen('kernel32')
 
 GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
+
+
+from _winapi import INVALID_HANDLE_VALUE, _MAX_PATH , _Z
+import _winapi
 
 class Overlapped(object):
     def __init__(self, handle):
@@ -49,20 +53,20 @@ class Overlapped(object):
         transferred = _ffi.new('DWORD[1]', [0])
         res = _kernel32.GetOverlappedResult(self.handle, self.overlapped, transferred, wait != 0)
         if res:
-            err = ERROR_SUCCESS
+            err = _winapi.ERROR_SUCCESS
         else:
             err = GetLastError()
-        if err in (ERROR_SUCCESS, ERROR_MORE_DATA, ERROR_OPERATION_ABORTED):
+        if err in (_winapi.ERROR_SUCCESS, _winapi.ERROR_MORE_DATA, _winapi.ERROR_OPERATION_ABORTED):
             self.completed = 1
             self.pending = 0
-        elif res == ERROR_IO_INCOMPLETE:
+        elif res == _winapi.ERROR_IO_INCOMPLETE:
             pass
         else:
             self.pending = 0
-            raise _WinError()
+            raise _winapi._WinError()
         if self.completed and self.read_buffer:
             if transferred != len(self.read_buffer):
-                raise _WinError()
+                raise _winapi._WinError()
         return transferred[0], err
 
     def getbuffer(self):
@@ -73,6 +77,12 @@ class Overlapped(object):
         xxx
         return None
 
+
+def CreateEvent(eventattributes, manualreset, initialstate, name):
+    event = _kernel32.CreateEventW(NULL, manualreset, initialstate, _Z(name))
+    if not event:
+        raise _winapi._WinError()
+    return event
  
 def ConnectNamedPipe(handle, overlapped=False):
     if overlapped:
@@ -84,14 +94,36 @@ def ConnectNamedPipe(handle, overlapped=False):
         # Overlapped ConnectNamedPipe never returns a success code
         assert success == 0
         err = _kernel32.GetLastError()
-        if err == ERROR_IO_PENDING:
+        if err == _winapi.ERROR_IO_PENDING:
             ov.pending = 1
-        elif err == ERROR_PIPE_CONNECTED:
+        elif err == _winapi.ERROR_PIPE_CONNECTED:
             _kernel32.SetEvent(ov.overlapped[0].hEvent)
         else:
             del ov
-            raise _WinError()
+            raise _winapi._WinError()
         return ov
     elif not success:
-        raise _WinError()
+        raise _winapi._WinError()
 
+def CreateIoCompletionPort(handle, existingcompletionport, completionkey, numberofconcurrentthreads):
+    return None
+
+
+def GetQueuedCompletionStatus(handle, milliseconds):
+    return None
+
+
+def post_to_queue_callback(lpparameter, timerorwaitfired)
+    pdata = _ffi.cast("PostCallbackData", lpparameter)
+    _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timeorwaitfired, 0, pdata.Overlapped)
+
+
+def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds)
+    data = _ffi.new('PostCallbackData[1]')
+    newwaitobject = _ffi.new("HANDLE[1]")
+
+    data.hCompletionPort = completionport
+    data.Overlapped = ovaddress
+    success = _kernel32.RegisterWaitForSingleObject(newwaitobject, object, data, _ffi.post_to_queue_callback,
+    
+    return None
