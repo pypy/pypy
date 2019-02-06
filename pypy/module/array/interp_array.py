@@ -1033,11 +1033,6 @@ def make_array(mytype):
                                 "unsigned %d-byte integer out of range",
                                 mytype.bytes)
                 return rffi.cast(mytype.itemtype, item)
-            if mytype.unwrap == 'unicode_w':
-                if len(item) != 1:
-                    raise oefmt(space.w_TypeError, "array item must be char")
-                item = item[0]
-                return rffi.cast(mytype.itemtype, item)
             if mytype.unwrap == 'utf8_len_w':
                 utf8, lgt = item
                 if lgt != 1:
