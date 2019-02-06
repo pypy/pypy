@@ -62,6 +62,23 @@ class TestExceptionTransform:
         f = self.compile(foo, [])
         assert f() == 1
 
+    def test_systemexit(self):
+        # SystemExit inherits from BaseException, but not from Exception
+        def one(x):
+            if x:
+                raise SystemExit
+
+        def foo():
+            try:
+                one(0)
+                one(1)
+                return 1
+            except SystemExit:
+                return 0
+        t, g = self.transform_func(foo, [])
+        f = self.compile(foo, [])
+        assert f() == 0
+
     def test_passthrough(self):
         def one(x):
             if x:
