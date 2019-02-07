@@ -19,6 +19,7 @@ import os
 import platform
 import stat
 
+_DARWIN = platform.system() == 'Darwin'
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
 _64BIT = "64bit" in platform.architecture()[0]
@@ -60,7 +61,7 @@ if _POSIX:
                       'PROT_READ', 'PROT_WRITE',
                       'MS_SYNC']
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
-                          'PROT_EXEC',
+                          'PROT_EXEC', 'MAP_JIT',
                           'MAP_DENYWRITE', 'MAP_EXECUTABLE']
     for name in constant_names:
         setattr(CConfig, name, rffi_platform.ConstantInteger(name))
@@ -711,6 +712,8 @@ if _POSIX:
 
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
+        if _DARWIN:
+            flags |= MAP_JIT
         prot = PROT_EXEC | PROT_READ | PROT_WRITE
         if we_are_translated():
             flags = NonConstant(flags)
