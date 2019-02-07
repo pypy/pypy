@@ -506,8 +506,14 @@ class W_IntObject(W_AbstractIntObject):
 
         try:
             result = _pow(space, x, y, z)
-        except (OverflowError, ValueError):
+        except OverflowError:
             return _pow_ovf2long(space, x, self, y, w_exponent, w_modulus)
+        except ValueError:
+            # float result, so let avoid a roundtrip in rbigint.
+            self = self.descr_float(space)
+            w_exponent = w_exponent.descr_float(space)
+            return space.pow(self, w_exponent, space.w_None)
+            
         return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
