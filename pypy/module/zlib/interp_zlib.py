@@ -359,6 +359,9 @@ class Decompress(ZLibObject):
         else:
             string, finished, unused_len = result
             self._save_unconsumed_input(data, finished, unused_len)
+            if finished:
+                rzlib.inflateEnd(self.stream)
+                self.stream = rzlib.null_stream
         return space.newbytes(string)
 
 
