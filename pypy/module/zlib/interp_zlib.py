@@ -323,12 +323,16 @@ class Decompress(ZLibObject):
         try:
             self.lock()
             try:
+                if not self.stream:
+                    raise oefmt(
+                        space.w_ValueError,
+                        "Decompressor was already flushed",
+                    )
                 copied = rzlib.inflateCopy(self.stream)
             finally:
                 self.unlock()
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
-
         return Decompress(
             space=space,
             stream=copied,
@@ -359,6 +363,9 @@ class Decompress(ZLibObject):
         else:
             string, finished, unused_len = result
             self._save_unconsumed_input(data, finished, unused_len)
+            if finished:
+                rzlib.inflateEnd(self.stream)
+                self.stream = rzlib.null_stream
         return space.newbytes(string)
 
 
