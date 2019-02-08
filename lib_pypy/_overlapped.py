@@ -39,10 +39,15 @@ class Overlapped(object):
     def __init__(self, handle):
         self.overlapped = _ffi.new('OVERLAPPED[1]')
         self.handle = handle
+        ### I can't see these buffers being used.
+        ### it is possible that we could delete them.
         self.readbuffer = None
+        self.writebuffer = None
+
+        self.allocated_buffer = None
+        self.user_buffer = None
         self.pending = 0
         self.completed = 0
-        self.writebuffer = None
         self.type = OverlappedType.TYPE_NONE
         self.overlapped[0].hEvent = \
                 _kernel32.CreateEventW(NULL, True, False, NULL)
@@ -98,6 +103,15 @@ class Overlapped(object):
             ### If we are to support xp we will need to dynamically load the below method
             _kernel32.CancelIoEx(self.handle, self.overlapped)        
         return result
+     
+    def WSARecv(self ,handle, size, flags):
+        if self.type != OverlappedType.TYPE_NONE:
+            raise _winapi._WinError()
+        
+        self.type = OverlappedType.TYPE_READ
+        self.handle = handle
+        self.allocated_buffer = _ffi.buffer(max(1, size))
+        return do_WSARecv(self, handle, self.allocated_buffer[:], size, flags)
 
 
 def _int2intptr(int2cast):
@@ -188,3 +202,6 @@ def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
                                                     _kernel32.WT_EXECUTEINWAITTHREAD | _kernel32.WT_EXECUTEONLYONCE)
     
     return newwaitobject
+
+    
+    
