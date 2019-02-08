@@ -299,7 +299,7 @@ def _pow_mod(space, iv, iw, iz):
     return ix
 
 
-def _pow_ovf2long(space, iv, iw, w_modulus):
+def _pow_ovf2long(space, iv, w_iv, iw, w_iw, w_modulus):
     if space.is_none(w_modulus) and _recover_with_smalllong(space):
         from pypy.objspace.std.smalllongobject import _pow as _pow_small
         try:
@@ -308,9 +308,12 @@ def _pow_ovf2long(space, iv, iw, w_modulus):
             return _pow_small(space, r_longlong(iv), iw, r_longlong(0))
         except (OverflowError, ValueError):
             pass
-    from pypy.objspace.std.longobject import W_LongObject
-    w_iv = W_LongObject.fromint(space, iv)
-    w_iw = W_LongObject.fromint(space, iw)
+    from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
+    if w_iv is None or not isinstance(w_iv, W_AbstractLongObject):
+        w_iv = W_LongObject.fromint(space, iv)
+    if w_iw is None or not isinstance(w_iw, W_AbstractLongObject):
+        w_iw = W_LongObject.fromint(space, iw)
+
     return w_iv.descr_pow(space, w_iw, w_modulus)
 
 
@@ -318,7 +321,7 @@ def _make_ovf2long(opname, ovf2small=None):
     op = getattr(operator, opname, None)
     assert op or ovf2small
 
-    def ovf2long(space, x, y):
+    def ovf2long(space, x, w_x, y, w_y):
         """Handle overflowing to smalllong or long"""
         if _recover_with_smalllong(space):
             if ovf2small:
@@ -330,9 +333,12 @@ def _make_ovf2long(opname, ovf2small=None):
             b = r_longlong(y)
             return W_SmallLongObject(op(a, b))
 
-        from pypy.objspace.std.longobject import W_LongObject
-        w_x = W_LongObject.fromint(space, x)
-        w_y = W_LongObject.fromint(space, y)
+        from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
+        if w_x is None or not isinstance(w_x, W_AbstractLongObject):
+            w_x = W_LongObject.fromint(space, x)
+        if w_y is None or not isinstance(w_y, W_AbstractLongObject):
+            w_y = W_LongObject.fromint(space, y)
+
         return getattr(w_x, 'descr_' + opname)(space, w_y)
 
     return ovf2long
@@ -496,12 +502,18 @@ class W_IntObject(W_AbstractIntObject):
             # can't return NotImplemented (space.pow doesn't do full
             # ternary, i.e. w_modulus.__zpow__(self, w_exponent)), so
             # handle it ourselves
-            return _pow_ovf2long(space, x, y, w_modulus)
+            return _pow_ovf2long(space, x, self, y, w_exponent, w_modulus)
 
         try:
             result = _pow(space, x, y, z)
-        except (OverflowError, ValueError):
-            return _pow_ovf2long(space, x, y, w_modulus)
+        except OverflowError:
+            return _pow_ovf2long(space, x, self, y, w_exponent, w_modulus)
+        except ValueError:
+            # float result, so let avoid a roundtrip in rbigint.
+            self = self.descr_float(space)
+            w_exponent = w_exponent.descr_float(space)
+            return space.pow(self, w_exponent, space.w_None)
+            
         return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
@@ -546,7 +558,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     z = ovfcheck(op(x, y))
                 except OverflowError:
-                    return ovf2long(space, x, y)
+                    return ovf2long(space, x, self, y, w_other)
             else:
                 z = op(x, y)
             return wrapint(space, z)
@@ -568,7 +580,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     z = ovfcheck(op(y, x))
                 except OverflowError:
-                    return ovf2long(space, y, x)
+                    return ovf2long(space, y, w_other, x, self)  # XXX write a test
             else:
                 z = op(y, x)
             return wrapint(space, z)
@@ -599,7 +611,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     return func(space, x, y)
                 except OverflowError:
-                    return ovf2long(space, x, y)
+                    return ovf2long(space, x, self, y, w_other)
             else:
                 return func(space, x, y)
 
@@ -614,7 +626,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     return func(space, y, x)
                 except OverflowError:
-                    return ovf2long(space, y, x)
+                    return ovf2long(space, y, w_other, x, self)
             else:
                 return func(space, y, x)
 

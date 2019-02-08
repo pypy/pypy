@@ -13,3 +13,9 @@ Fix calling copy on already-flushed compressobjs.
 
 The zlib module's compressobj and decompressobj now expose copy methods
 as they do on CPython.
+
+
+.. math-improvements
+
+Improve performance of long operations where one of the operands fits into
+an int.
