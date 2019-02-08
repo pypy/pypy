@@ -20,6 +20,21 @@ NULL = _ffi.NULL
 from _winapi import INVALID_HANDLE_VALUE, _MAX_PATH , _Z
 import _winapi
 
+from enum import Enum
+class OverlappedType(Enum):
+    TYPE_NONE = 0 
+    TYPE_NOT_STARTED = 1
+    TYPE_READ = 2 
+    TYPE_READINTO = 3
+    TYPE_WRITE = 4
+    TYPE_ACCEPT = 5
+    TYPE_CONNECT = 6
+    TYPE_DISCONNECT = 7
+    TYPE_CONNECT_NAMED_PIPE = 8
+    TYPE_WAIT_NAMED_PIPE_AND_CONNECT = 9
+    TYPE_TRANSMIT_FILE = 10
+
+
 class Overlapped(object):
     def __init__(self, handle):
         self.overlapped = _ffi.new('OVERLAPPED[1]')
@@ -28,6 +43,7 @@ class Overlapped(object):
         self.pending = 0
         self.completed = 0
         self.writebuffer = None
+        self.type = OverlappedType.TYPE_NONE
         self.overlapped[0].hEvent = \
                 _kernel32.CreateEventW(NULL, True, False, NULL)
         self.address = _ffi.addressof(self.overlapped)
@@ -48,7 +64,7 @@ class Overlapped(object):
 
     @property
     def event(self):
-        return None
+        return self.overlapped[0].hEvent
 
     def GetOverlappedResult(self, wait):
         transferred = _ffi.new('DWORD[1]', [0])
@@ -75,8 +91,13 @@ class Overlapped(object):
         return None
 
     def cancel(self):
-        xxx
-        return None
+        result = true
+        if self.type == OverlappedType.TYPE_NOT_STARTED or OverlappedType.TYPE_WAIT_NAMED_PIPE_AND_CONNECT:
+            return None
+        if not _kernel32.HasOverlappedIoCompleted(self.overlapped):
+            ### If we are to support xp we will need to dynamically load the below method
+            _kernel32.CancelIoEx(self.handle, self.overlapped)        
+        return result
 
 
 def CreateEvent(eventattributes, manualreset, initialstate, name):
@@ -117,7 +138,7 @@ def GetQueuedCompletionStatus(handle, milliseconds):
 @_ffi.callback("void(void*, bool)")
 def post_to_queue_callback(lpparameter, timerorwaitfired):
     pdata = _ffi.cast("PostCallbackData *", lpparameter)
-    _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timeorwaitfired, 0, pdata.Overlapped)
+    _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timerorwaitfired, 0, pdata.Overlapped)
 
 
 def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
@@ -133,4 +154,4 @@ def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
                                                     miliseconds, 
                                                     _kernel32.WT_EXECUTEINWAITTHREAD | _kernel32.WT_EXECUTEONLYONCE)
     
-    return None
+    return newwaitobject
