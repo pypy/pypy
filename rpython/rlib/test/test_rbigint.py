@@ -95,6 +95,46 @@ class TestRLong(object):
                 r2 = op1 // op2
                 assert r1.tolong() == r2
 
+    def test_int_floordiv(self):
+        x = 1000L
+        r = rbigint.fromlong(x)
+        r2 = r.int_floordiv(10)
+        assert r2.tolong() == 100L
+
+        for op1 in gen_signs(long_vals):
+            for op2 in signed_int_vals:
+                if not op2:
+                    continue
+                rl_op1 = rbigint.fromlong(op1)
+                r1 = rl_op1.int_floordiv(op2)
+                r2 = op1 // op2
+                assert r1.tolong() == r2
+
+        assert pytest.raises(ZeroDivisionError, r.int_floordiv, 0)
+
+        # Error pointed out by Armin Rigo
+        n = sys.maxint+1
+        r = rbigint.fromlong(n)
+        assert r.int_floordiv(int(-n)).tolong() == -1L
+
+        for x in int_vals:
+            if not x:
+                continue
+            r = rbigint.fromlong(x)
+            rn = rbigint.fromlong(-x)
+            res = r.int_floordiv(x)
+            res2 = r.int_floordiv(-x)
+            res3 = rn.int_floordiv(x)
+            assert res.tolong() == 1L
+            assert res2.tolong() == -1L
+            assert res3.tolong() == -1L
+
+    def test_floordiv2(self):
+        n1 = rbigint.fromlong(sys.maxint + 1)
+        n2 = rbigint.fromlong(-(sys.maxint + 1))
+        assert n1.floordiv(n2).tolong() == -1L
+        assert n2.floordiv(n1).tolong() == -1L
+
     def test_truediv(self):
         for op1 in gen_signs(long_vals_not_too_big):
             rl_op1 = rbigint.fromlong(op1)
@@ -185,9 +225,26 @@ class TestRLong(object):
                     r4 = pow(op1, op2, op3)
                     assert r3.tolong() == r4
 
+    def test_int_pow(self):
+        for op1 in gen_signs(long_vals_not_too_big):
+            rl_op1 = rbigint.fromlong(op1)
+            for op2 in [0, 1, 2, 8, 9, 10, 11, 127, 128, 129]:
+                r1 = rl_op1.int_pow(op2)
+                r2 = op1 ** op2
+                assert r1.tolong() == r2
+
+                for op3 in gen_signs(long_vals_not_too_big):
+                    if not op3:
+                        continue
+                    r3 = rl_op1.int_pow(op2, rbigint.fromlong(op3))
+                    r4 = pow(op1, op2, op3)
+                    print op1, op2, op3
+                    assert r3.tolong() == r4
+
     def test_pow_raises(self):
         r1 = rbigint.fromint(2)
         r0 = rbigint.fromint(0)
+        py.test.raises(ValueError, r1.int_pow, 2, r0)
         py.test.raises(ValueError, r1.pow, r1, r0)
 
     def test_touint(self):
@@ -601,6 +658,9 @@ class Test_rbigint(object):
         # test special optimization case in rshift:
         assert rbigint.fromlong(-(1 << 100)).rshift(5).tolong() == -(1 << 100) >> 5
 
+        # Chek value accuracy.
+        assert rbigint.fromlong(18446744073709551615L).rshift(1).tolong() == 18446744073709551615L >> 1
+
     def test_qshift(self):
         for x in range(10):
             for y in range(1, 161, 16):
@@ -610,11 +670,18 @@ class Test_rbigint(object):
 
                 for z in range(1, 31):
                     res1 = f1.lqshift(z).tolong()
+                    res2 = f1.rqshift(z).tolong()
                     res3 = nf1.lqshift(z).tolong()
 
                     assert res1 == num << z
+                    assert res2 == num >> z
                     assert res3 == -num << z
 
+        # Large digit
+        for x in range((1 << SHIFT) - 10, (1 << SHIFT) + 10):
+            f1 = rbigint.fromlong(x)
+            assert f1.rqshift(SHIFT).tolong() == x >> SHIFT
+            assert f1.rqshift(SHIFT+1).tolong() == x >> (SHIFT+1)
 
     def test_from_list_n_bits(self):
         for x in ([3L ** 30L, 5L ** 20L, 7 ** 300] +
@@ -864,6 +931,27 @@ class TestInternalFunctions(object):
         assert rem.tolong() == _rem
 
 
+    def test_int_divmod(self):
+        for x in long_vals:
+            for y in int_vals + [-sys.maxint-1]:
+                if not y:
+                    continue
+                for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
+                    sx *= x
+                    sy *= y
+                    if sy == sys.maxint + 1:
+                        continue
+                    f1 = rbigint.fromlong(sx)
+                    div, rem = f1.int_divmod(sy)
+                    div1, rem1 = f1.divmod(rbigint.fromlong(sy))
+                    _div, _rem = divmod(sx, sy)
+                    print sx, sy, " | ", div.tolong(), rem.tolong()
+                    assert div1.tolong() == _div
+                    assert rem1.tolong() == _rem
+                    assert div.tolong() == _div
+                    assert rem.tolong() == _rem
+        py.test.raises(ZeroDivisionError, rbigint.fromlong(x).int_divmod, 0)
+
     # testing Karatsuba stuff
     def test__v_iadd(self):
         f1 = bigint([lobj.MASK] * 10, 1)
@@ -1067,8 +1155,14 @@ class TestHypothesis(object):
         except Exception as e:
             pytest.raises(type(e), f1.pow, f2, f3)
         else:
-            v = f1.pow(f2, f3)
-            assert v.tolong() == res
+            v1 = f1.pow(f2, f3)
+            try:
+                v2 = f1.int_pow(f2.toint(), f3)
+            except OverflowError:
+                pass
+            else:
+                assert v2.tolong() == res
+            assert v1.tolong() == res
 
     @given(biglongs, biglongs)
     @example(510439143470502793407446782273075179618477362188870662225920,
@@ -1086,6 +1180,18 @@ class TestHypothesis(object):
         else:
             print x, y
             a, b = f1.divmod(f2)
+            assert (a.tolong(), b.tolong()) == res
+
+    @given(biglongs, ints)
+    def test_int_divmod(self, x, iy):
+        f1 = rbigint.fromlong(x)
+        try:
+            res = divmod(x, iy)
+        except Exception as e:
+            pytest.raises(type(e), f1.int_divmod, iy)
+        else:
+            print x, iy
+            a, b = f1.int_divmod(iy)
             assert (a.tolong(), b.tolong()) == res
 
     @given(longs)
@@ -1118,10 +1224,34 @@ class TestHypothesis(object):
             assert ra.truediv(rb) == a / b
 
     @given(longs, longs)
-    def test_bitwise(self, x, y):
+    def test_bitwise_and_mul(self, x, y):
         lx = rbigint.fromlong(x)
         ly = rbigint.fromlong(y)
-        for mod in "xor and_ or_".split():
-            res1 = getattr(lx, mod)(ly).tolong()
+        for mod in "xor and_ or_ mul".split():
+            res1a = getattr(lx, mod)(ly).tolong()
+            res1b = getattr(ly, mod)(lx).tolong()
+            res2 = getattr(operator, mod)(x, y)
+            assert res1a == res2
+
+    @given(longs, ints)
+    def test_int_bitwise_and_mul(self, x, y):
+        lx = rbigint.fromlong(x)
+        for mod in "xor and_ or_ mul".split():
+            res1 = getattr(lx, 'int_' + mod)(y).tolong()
             res2 = getattr(operator, mod)(x, y)
             assert res1 == res2
+
+    @given(longs, ints)
+    def test_int_comparison(self, x, y):
+        lx = rbigint.fromlong(x)
+        assert lx.int_lt(y) == (x < y)
+        assert lx.int_eq(y) == (x == y)
+        assert lx.int_le(y) == (x <= y)
+
+    @given(longs, longs)
+    def test_int_comparison(self, x, y):
+        lx = rbigint.fromlong(x)
+        ly = rbigint.fromlong(y)
+        assert lx.lt(ly) == (x < y)
+        assert lx.eq(ly) == (x == y)
+        assert lx.le(ly) == (x <= y)

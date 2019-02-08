@@ -738,6 +738,11 @@ class AppTestInt(object):
         raises(ValueError, int, '00000000000000000000000000000000000007', 0)
         raises(ValueError, int, '00000000000000000077777777777777777777', 0)
 
+    def test_some_rops(self):
+        b = 2 ** 31
+        x = -b
+        assert x.__rsub__(2) == (2 + b)
+
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
 
