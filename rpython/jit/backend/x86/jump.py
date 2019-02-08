@@ -6,6 +6,7 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     pending_dests = len(dst_locations)
     srccount = {}    # maps dst_locations to how many times the same
                      # location appears in src_locations
+    num_moves = 0
     for dst in dst_locations:
         key = dst._getregkey()
         assert key not in srccount, "duplicate value in dst_locations!"
@@ -39,6 +40,7 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
                     if key in srccount:
                         srccount[key] -= 1
                 _move(assembler, src, dst, tmpreg)
+                num_moves += 1
                 progress = True
         if not progress:
             # we are left with only pure disjoint cycles
@@ -53,6 +55,7 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
                 originalkey = dst._getregkey()
                 if srccount[originalkey] >= 0:
                     assembler.regalloc_push(dst)
+                    num_moves += 1
                     while True:
                         key = dst._getregkey()
                         assert srccount[key] == 1
@@ -63,9 +66,12 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
                         if src._getregkey() == originalkey:
                             break
                         _move(assembler, src, dst, tmpreg)
+                        num_moves += 1
                         dst = src
                     assembler.regalloc_pop(dst)
+                    num_moves += 1
             assert pending_dests == 0
+    return num_moves
 
 def _move(assembler, src, dst, tmpreg):
     if dst.is_memory_reference() and src.is_memory_reference():
@@ -93,6 +99,7 @@ def remap_frame_layout_mixed(assembler,
         dst_keys[loc._getregkey()] = None
     src_locations2red = []
     dst_locations2red = []
+    num_moves = 0
     for i in range(len(src_locations2)):
         loc    = src_locations2[i]
         dstloc = dst_locations2[i]
@@ -100,6 +107,7 @@ def remap_frame_layout_mixed(assembler,
             key = loc._getregkey()
             if (key in dst_keys or (loc.get_width() > WORD and
                                     (key + WORD) in dst_keys)):
+                num_moves += 1
                 assembler.regalloc_push(loc)
                 extrapushes.append(dstloc)
                 continue
@@ -109,12 +117,14 @@ def remap_frame_layout_mixed(assembler,
     dst_locations2 = dst_locations2red
     #
     # remap the integer and pointer registers and stack locations
-    remap_frame_layout(assembler, src_locations1, dst_locations1, tmpreg1)
+    num_moves += remap_frame_layout(assembler, src_locations1, dst_locations1, tmpreg1)
     #
     # remap the xmm registers and stack locations
-    remap_frame_layout(assembler, src_locations2, dst_locations2, tmpreg2)
+    num_moves += remap_frame_layout(assembler, src_locations2, dst_locations2, tmpreg2)
     #
     # finally, pop the extra xmm stack locations
     while len(extrapushes) > 0:
         loc = extrapushes.pop()
         assembler.regalloc_pop(loc)
+        num_moves += 1
+    return num_moves
