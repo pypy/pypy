@@ -131,8 +131,20 @@ def CreateIoCompletionPort(handle, existingcompletionport, completionkey, number
     return None
 
 
-def GetQueuedCompletionStatus(handle, milliseconds):
-    return None
+def GetQueuedCompletionStatus(completionport, milliseconds):
+    numberofbytes = _ffi.new('DWORD[1]', [0])
+    completionkey  = _ffi.new('ULONG *', 0)
+
+    if completionport is None:
+        raise _winapi._WinError()
+    overlapped = _ffi.new('OVERLAPPED*')
+    result = _kernel32.GetQueuedCompletionStatus(_Z(completionport), 
+                                                 numberofbytes,
+                                                 completionkey,
+                                                 overlapped,
+                                                 milliseconds)
+    err = _kernel32.GetLastError()
+    return (err, numberofbytes, completionkey, overlapped)
 
 
 @_ffi.callback("void(void*, bool)")
