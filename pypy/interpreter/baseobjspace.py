@@ -1740,9 +1740,19 @@ class ObjSpace(object):
         from pypy.interpreter.unicodehelper import fsdecode
         return fsdecode(space, w_obj)
 
-    def fsencode_w(self, w_obj):
-        if self.isinstance_w(w_obj, self.w_unicode):
-            w_obj = self.fsencode(w_obj)
+    def fsencode_w(self, w_obj, allowed_types="string, bytes, or os.PathLike"):
+        try:
+            self._try_buffer_w(w_obj, self.BUF_FULL_RO)
+            if not self.isinstance_w(w_obj, self.w_bytes):
+                tp = self.type(w_obj).name
+                self.warn(self.newtext(
+                    "path should be %s, not %s" % (allowed_types, tp,)),
+                    self.w_DeprecationWarning)
+        except BufferInterfaceNotFound:
+            from pypy.module.posix.interp_posix import fspath
+            w_obj = fspath(self, w_obj)
+            if self.isinstance_w(w_obj, self.w_unicode):
+                w_obj = self.fsencode(w_obj)
         return self.bytesbuf0_w(w_obj)
 
     def bytesbuf0_w(self, w_obj):
@@ -1760,7 +1770,12 @@ class ObjSpace(object):
         return rstring.assert_str0(result)
 
     def fsdecode_w(self, w_obj):
-        if self.isinstance_w(w_obj, self.w_bytes):
+        try:
+            self._try_buffer_w(w_obj, self.BUF_FULL_RO)
+        except BufferInterfaceNotFound:
+            from pypy.module.posix.interp_posix import fspath
+            w_obj = fspath(self, w_obj)
+        else:
             w_obj = self.fsdecode(w_obj)
         return self.unicode0_w(w_obj)
 

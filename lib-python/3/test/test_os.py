@@ -3041,8 +3041,11 @@ class PathTConverterTests(unittest.TestCase):
                         if cleanup_fn is not None:
                             cleanup_fn(result)
 
+                # custom PyPy error message: see BPO-35942
                 with self.assertRaisesRegex(
-                        TypeError, 'should be string, bytes'):
+                        TypeError,
+                        r'(should be string, bytes|'
+                        r'__fspath__\(\) to return str or bytes)'):
                     fn(int_fspath, *extra_args)
 
                 if allow_fd:

@@ -212,7 +212,7 @@ class AppTestPosix:
             assert exc.value.filename == "nonexistentdir/nonexistentfile"
 
         excinfo = raises(TypeError, self.posix.stat, None)
-        assert "can't specify None" in str(excinfo.value)
+        assert "should be string, bytes, os.PathLike or integer, not None" in str(excinfo.value)
         excinfo = raises(TypeError, self.posix.stat, 2.)
         assert "should be string, bytes, os.PathLike or integer, not float" in str(excinfo.value)
         raises(ValueError, self.posix.stat, -1)
@@ -1189,15 +1189,19 @@ class AppTestPosix:
                 skip("encoding not good enough")
             dest = bytes_dir + b"/file.txt"
             posix.symlink(bytes_dir + b"/somefile", dest)
-            with open(dest) as f:
-                data = f.read()
-                assert data == "who cares?"
-            #
-            posix.unlink(dest)
+            try:
+                with open(dest) as f:
+                    data = f.read()
+                    assert data == "who cares?"
+            finally:
+                posix.unlink(dest)
             posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
-            with open(dest) as f:
-                data = f.read()
-                assert data == "who cares?"
+            try:
+                with open(dest) as f:
+                    data = f.read()
+                    assert data == "who cares?"
+            finally:
+                posix.unlink(dest)
 
         # XXX skip test if dir_fd is unsupported
         def test_symlink_fd(self):
@@ -1211,6 +1215,25 @@ class AppTestPosix:
             finally:
                 posix.close(f)
                 posix.unlink(bytes_dir + '/somelink'.encode())
+
+        def test_symlink_fspath(self):
+            class Path:
+                def __init__(self, b):
+                    self.path = b
+                def __fspath__(self):
+                    return self.path
+            posix = self.posix
+            bytes_dir = self.bytes_dir
+            if bytes_dir is None:
+                skip("encoding not good enough")
+            dest = Path(bytes_dir + b"/file.txt")
+            posix.symlink(Path(bytes_dir + b"/somefile"), dest)
+            try:
+                with open(dest) as f:
+                    data = f.read()
+                    assert data == "who cares?"
+            finally:
+                posix.unlink(dest)
     else:
         def test_symlink(self):
             posix = self.posix

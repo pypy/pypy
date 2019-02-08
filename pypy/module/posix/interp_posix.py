@@ -56,7 +56,7 @@ class FileEncoder(object):
         return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
-        return self.space.unicode0_w(self.w_obj)
+        return self.space.fsdecode_w(self.w_obj)
 
 class FileDecoder(object):
     is_unicode = False
@@ -66,7 +66,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.bytesbuf0_w(self.w_obj)
+        return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
         return self.space.fsdecode_w(self.w_obj)
@@ -85,7 +85,7 @@ def make_dispatch_function(func, tag, allow_fd_fn=None):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.bytesbuf0_w(w_fname)
+            fname = FileDecoder(space, w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -136,9 +136,11 @@ class Path(object):
 
 @specialize.arg(2)
 def _unwrap_path(space, w_value, allow_fd=True):
-    if space.is_none(w_value):
-        raise oefmt(space.w_TypeError,
-            "can't specify None for path argument")
+    # equivalent of posixmodule.c:path_converter() in CPython
+    if allow_fd:
+        allowed_types = "string, bytes, os.PathLike or integer"
+    else:
+        allowed_types = "string, bytes or os.PathLike"
     if _WIN32:
         try:
             path_u = space.unicode0_w(w_value)
@@ -146,36 +148,20 @@ def _unwrap_path(space, w_value, allow_fd=True):
         except OperationError:
             pass
     try:
-        path_b = space.fsencode_w(w_value)
+        path_b = space.fsencode_w(w_value, allowed_types=allowed_types)
         return Path(-1, path_b, None, w_value)
     except OperationError as e:
-        if not e.match(space, space.w_TypeError):
+        if not allow_fd or not e.match(space, space.w_TypeError):
             raise
-    if allow_fd:
+        # File descriptor case
         try:
             space.index(w_value)
         except OperationError:
-            pass
-        else:
-            fd = unwrap_fd(space, w_value, "string, bytes or integer")
-            return Path(fd, None, None, w_value)
-
-    # Inline fspath() for better error messages.
-    w_fspath_method = space.lookup(w_value, '__fspath__')
-    if w_fspath_method:
-        w_result = space.get_and_call_function(w_fspath_method, w_value)
-        if (space.isinstance_w(w_result, space.w_text) or
-            space.isinstance_w(w_result, space.w_bytes)):
-            return _unwrap_path(space, w_result, allow_fd=False)
-
-    if allow_fd:
-        raise oefmt(space.w_TypeError,
-                    "illegal type for path parameter (should be "
-                    "string, bytes, os.PathLike or integer, not %T)", w_value)
-    else:
-        raise oefmt(space.w_TypeError,
-                    "illegal type for path parameter (should be "
-                    "string, bytes or os.PathLike, not %T)", w_value)
+            raise oefmt(space.w_TypeError,
+                        "illegal type for path parameter (should be "
+                        "%s, not %T)", allowed_types, w_value)
+        fd = unwrap_fd(space, w_value, allowed_types)
+        return Path(fd, None, None, w_value)
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
@@ -211,7 +197,7 @@ def _unwrap_dirfd(space, w_value):
     if space.is_none(w_value):
         return DEFAULT_DIR_FD
     else:
-        return unwrap_fd(space, w_value)
+        return unwrap_fd(space, w_value, allowed_types="integer or None")
 
 class _DirFD(Unwrapper):
     def unwrap(self, space, w_value):
