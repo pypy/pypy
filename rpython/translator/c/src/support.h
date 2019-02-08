@@ -38,6 +38,9 @@ void RPyAssertFailed(const char* filename, long lineno,
 RPY_EXTERN
 void RPyAbort(void);
 
+RPY_EXTERN
+double _PyPy_dg_stdnan(int sign);
+
 #if defined(RPY_LL_ASSERT) || defined(RPY_SANDBOXED)
 /* obscure macros that can be used as expressions and lvalues to refer
  * to a field of a structure or an item in an array in a "safe" way --

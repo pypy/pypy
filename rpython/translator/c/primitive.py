@@ -123,9 +123,9 @@ def name_float(value, db):
             return '(-Py_HUGE_VAL)'
     elif math.isnan(value):
         if is_positive_nan(value):
-            return '(Py_HUGE_VAL/Py_HUGE_VAL)'
+            return '(_PyPy_dg_stdnan(0))'
         else:
-            return '(-(Py_HUGE_VAL/Py_HUGE_VAL))'
+            return '(_PyPy_dg_stdnan(1))'
     else:
         x = repr(value)
         assert not x.startswith('n')
@@ -142,9 +142,9 @@ def name_singlefloat(value, db):
     elif math.isnan(value):
         # XXX are these expressions ok?
         if is_positive_nan(value):
-            return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+            return '((float)(_PyPy_dg_stdnan(0)))'
         else:
-            return '(-(float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+            return '((float)(_PyPy_dg_stdnan(1)))'
     else:
         return repr(value) + 'f'
 
