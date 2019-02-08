@@ -422,7 +422,6 @@ class TestOrderedRDict(BaseTestRDict):
 
 class ODictSpace(MappingSpace):
     MappingRepr = rodct.OrderedDictRepr
-    new_reference = OrderedDict
     moved_around = False
     ll_getitem = staticmethod(rodct.ll_dict_getitem)
     ll_setitem = staticmethod(rodct.ll_dict_setitem)

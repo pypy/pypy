@@ -112,6 +112,8 @@ RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 #define OP_GC__DISABLE_FINALIZERS(r)  boehm_gc_finalizer_lock++
 #define OP_GC__ENABLE_FINALIZERS(r)  (boehm_gc_finalizer_lock--,	\
 				      boehm_gc_finalizer_notifier())
+#define OP_GC__DISABLE(r)             /* nothing */
+#define OP_GC__ENABLE(r)              /* nothing */
 
 #define OP_BOEHM_FQ_REGISTER(tagindex, obj, r)                          \
     boehm_fq_register(boehm_fq_queues + tagindex, obj)
@@ -127,6 +129,8 @@ RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 #define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
 #define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
 #define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
+#define OP_GC__DISABLE(r)             /* nothing */
+#define OP_GC__ENABLE(r)              /* nothing */
 #define GC_REGISTER_FINALIZER(a, b, c, d, e)  /* nothing */
 #define GC_gcollect()  /* nothing */
 #define GC_set_max_heap_size(a)  /* nothing */

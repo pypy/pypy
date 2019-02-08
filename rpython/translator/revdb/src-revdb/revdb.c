@@ -253,7 +253,10 @@ static void setup_record_mode(int argc, char *argv[])
                         "(use REVDB=logfile)\n", (int)getpid());
     }
 
-    rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
+    if (rpy_rev_fileno >= 0)
+        rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
+    else
+        rpy_revdb.buf_p = NULL;
     rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
     rpy_revdb.unique_id_seen = 1;
 
@@ -269,17 +272,23 @@ static void flush_buffer(void)
     ssize_t full_size;
     assert(rpy_revdb.lock);
 
+    if (rpy_revdb.buf_p == NULL)
+        return;
+    assert(rpy_rev_fileno >= 0);
+
     /* write the current buffer content to the OS */
     full_size = rpy_revdb.buf_p - rpy_rev_buffer;
     rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
-    if (rpy_rev_fileno >= 0)
-        write_all(rpy_rev_buffer, full_size);
+    write_all(rpy_rev_buffer, full_size);
 }
 
 static ssize_t current_packet_size(void)
 {
     /* must be called with the lock held */
-    return rpy_revdb.buf_p - (rpy_rev_buffer + sizeof(int16_t));
+    if (rpy_revdb.buf_p != NULL)
+        return rpy_revdb.buf_p - (rpy_rev_buffer + sizeof(int16_t));
+    else
+        return 0;
 }
 
 RPY_EXTERN
@@ -326,6 +335,11 @@ static void emit_async_block(int async_code, uint64_t content)
 
     rpy_reverse_db_flush();
     assert(current_packet_size() == 0);
+
+    if (rpy_rev_fileno < 0)
+        return;
+    /* should not be here from the middle of a @c_only function */
+    assert(rpy_revdb.buf_p != NULL);
 
     *(int16_t *)p = async_code;
     memcpy(rpy_revdb.buf_p, &content, sizeof(uint64_t));
@@ -472,6 +486,9 @@ static uint64_t recording_offset(void)
 
     if (rpy_rev_fileno < 0)
         return 1;
+    /* should not be here from the middle of a @c_only function */
+    assert(rpy_revdb.buf_p != NULL);
+
     base_offset = lseek(rpy_rev_fileno, 0, SEEK_CUR);
     if (base_offset < 0) {
         perror("lseek");
@@ -488,6 +505,9 @@ static void patch_prev_offset(int64_t offset, char old, char new)
 
     if (rpy_rev_fileno < 0)
         return;
+    /* should not be here from the middle of a @c_only function */
+    assert(rpy_revdb.buf_p != NULL);
+
     base_offset = lseek(rpy_rev_fileno, 0, SEEK_CUR);
     if (base_offset < 0) {
         perror("lseek");
@@ -1033,9 +1053,9 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
                 "    echo 0 | sudo tee /proc/sys/kernel/randomize_va_space\n"
                 "\n"
                 "It has been reported that on Linux kernel 4.12.4-1-ARCH,\n"
-                "ASLR cannot be disabled at all for libpypy-c.so.  For now\n"
-                "there is no good solution.  Either you downgrade the\n"
-                "kernel, or you translate with --no-shared (and you loose\n"
+                "ASLR cannot be disabled at all for libpypy-c.so.  It works\n"
+                "again in kernel 4.19 (and maybe sooner).  Either change\n"
+                "kernels, or translate with --no-shared (but then you loose\n"
                 "PyPy's cpyext ability).\n"
                 "\n", argv[0]);
         exit(1);
