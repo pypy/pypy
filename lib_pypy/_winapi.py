@@ -23,6 +23,7 @@ def _WinError():
     raise WindowsError(code, message)
 
 def _int2handle(val):
+
     return _ffi.cast("HANDLE", val)
 
 def _handle2int(handle):

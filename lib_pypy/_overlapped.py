@@ -17,7 +17,7 @@ GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
 
 
-from _winapi import INVALID_HANDLE_VALUE, _MAX_PATH , _Z, _int2handle
+from _winapi import INVALID_HANDLE_VALUE, _MAX_PATH , _Z
 import _winapi
 
 from enum import Enum
@@ -101,10 +101,14 @@ class Overlapped(object):
 
 
 def _int2intptr(int2cast):
-    return _ffi.cast("ULONG *", int2cast) 
+    return _ffi.cast("ULONG_PTR", int2cast)
 
 def _int2dword(int2cast):
-    return _ffi.new("DWORD[1]", [int2cast])
+    return _ffi.cast("DWORD", int2cast)
+
+def _int2handle(val):
+    return _ffi.cast("HANDLE", val)
+
 
 def CreateEvent(eventattributes, manualreset, initialstate, name):
     event = _kernel32.CreateEventW(NULL, manualreset, initialstate, _Z(name))
@@ -134,11 +138,11 @@ def ConnectNamedPipe(handle, overlapped=False):
         raise _winapi._WinError()
 
 def CreateIoCompletionPort(handle, existingcompletionport, completionkey, numberofconcurrentthreads):
-    ##completionkey = _int2intptr(completionkey)
+    completionkey = _int2intptr(completionkey)
     existingcompletionport = _int2handle(existingcompletionport)
-    ##numberofconcurrentthreads = _int2dword(numberofconcurrentthreads)
-
-    #import pdb; pdb.set_trace()
+    numberofconcurrentthreads = _int2dword(numberofconcurrentthreads)
+    handle = _int2handle(handle)
+    
     result = _kernel32.CreateIoCompletionPort(handle,
                                               existingcompletionport,
                                               completionkey, 
@@ -166,7 +170,8 @@ def GetQueuedCompletionStatus(completionport, milliseconds):
 @_ffi.callback("void(void*, bool)")
 def post_to_queue_callback(lpparameter, timerorwaitfired):
     pdata = _ffi.cast("PostCallbackData *", lpparameter)
-    _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timerorwaitfired, 0, pdata.Overlapped)
+
+    _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timerorwaitfired, _ffi.cast("ULONG_PTR",0), pdata.Overlapped)
 
 
 def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
