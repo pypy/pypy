@@ -30,6 +30,7 @@ class Overlapped(object):
         self.writebuffer = None
         self.overlapped[0].hEvent = \
                 _kernel32.CreateEventW(NULL, True, False, NULL)
+        self.address = _ffi.addressof(self.overlapped)
 
     def __del__(self):
         # do this somehow else
@@ -113,17 +114,23 @@ def GetQueuedCompletionStatus(handle, milliseconds):
     return None
 
 
-def post_to_queue_callback(lpparameter, timerorwaitfired)
-    pdata = _ffi.cast("PostCallbackData", lpparameter)
+@_ffi.callback("void(void*, bool)")
+def post_to_queue_callback(lpparameter, timerorwaitfired):
+    pdata = _ffi.cast("PostCallbackData *", lpparameter)
     _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timeorwaitfired, 0, pdata.Overlapped)
 
 
-def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds)
+def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
     data = _ffi.new('PostCallbackData[1]')
     newwaitobject = _ffi.new("HANDLE[1]")
 
-    data.hCompletionPort = completionport
-    data.Overlapped = ovaddress
-    success = _kernel32.RegisterWaitForSingleObject(newwaitobject, object, data, _ffi.post_to_queue_callback,
+    data[0].hCompletionPort = _Z(completionport)
+    data[0].Overlapped = ovaddress[0]
+    success = _kernel32.RegisterWaitForSingleObject(newwaitobject,
+                                                    object,
+                                                    _ffi.cast("WAITORTIMERCALLBACK",post_to_queue_callback),
+                                                    data,
+                                                    miliseconds, 
+                                                    _kernel32.WT_EXECUTEINWAITTHREAD | _kernel32.WT_EXECUTEONLYONCE)
     
     return None

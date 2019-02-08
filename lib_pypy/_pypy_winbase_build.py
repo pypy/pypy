@@ -91,11 +91,6 @@ typedef struct _OVERLAPPED {
 } OVERLAPPED, *LPOVERLAPPED;
 
 
-typedef struct _PostCallbackData {
-    HANDLE  hCompletionPort;
-    LPOVERLAPPED Overlapped;    
-} PostCallbackData, *LPPostCallbackData;
-
 DWORD WINAPI GetVersion(void);
 BOOL WINAPI CreatePipe(PHANDLE, PHANDLE, void *, DWORD);
 HANDLE WINAPI CreateNamedPipeA(LPCSTR, DWORD, DWORD, DWORD, DWORD, DWORD,
@@ -115,7 +110,6 @@ BOOL WINAPI CancelIoEx(HANDLE, LPOVERLAPPED);
 BOOL WINAPI CloseHandle(HANDLE);
 DWORD WINAPI GetLastError(VOID);
 BOOL WINAPI GetOverlappedResult(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
-
 HANDLE WINAPI GetCurrentProcess(void);
 BOOL WINAPI DuplicateHandle(HANDLE, HANDLE, HANDLE, LPHANDLE,
                             DWORD, BOOL, DWORD);
@@ -130,12 +124,25 @@ BOOL WINAPI GetExitCodeProcess(HANDLE, LPDWORD);
 BOOL WINAPI TerminateProcess(HANDLE, UINT);
 HANDLE WINAPI GetStdHandle(DWORD);
 DWORD WINAPI GetModuleFileNameW(HANDLE, wchar_t *, DWORD);
-
 UINT WINAPI SetErrorMode(UINT);
 #define SEM_FAILCRITICALERRORS     0x0001
 #define SEM_NOGPFAULTERRORBOX      0x0002
 #define SEM_NOALIGNMENTFAULTEXCEPT 0x0004
 #define SEM_NOOPENFILEERRORBOX     0x8000
+
+
+typedef struct _PostCallbackData {
+    HANDLE hCompletionPort;
+    LPOVERLAPPED Overlapped;
+} PostCallbackData, *LPPostCallbackData;
+
+
+typedef VOID (WINAPI *WAITORTIMERCALLBACK) ( PVOID, BOOL);  
+BOOL WINAPI RegisterWaitForSingleObject(PHANDLE, HANDLE, WAITORTIMERCALLBACK, PVOID, ULONG, ULONG);
+BOOL WINAPI PostQueuedCompletionStatus(HANDLE,  DWORD, ULONG_PTR, LPOVERLAPPED);
+
+#define WT_EXECUTEINWAITTHREAD 0x00000004
+#define WT_EXECUTEONLYONCE 0x00000008
 """)
 
 # --------------------
