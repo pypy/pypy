@@ -489,8 +489,6 @@ def create_utf8_index_storage(utf8, utf8len):
     """ Create an index storage which stores index of each 4th character
     in utf8 encoded unicode string.
     """
-#    if len(utf8) == utf8len < ASCII_INDEX_STORAGE_BLOCKS * 64:
-#        return ASCII_INDEX_STORAGE
     arraysize = utf8len // 64 + 1
     storage = lltype.malloc(UTF8_INDEX_STORAGE, arraysize)
     baseindex = 0
