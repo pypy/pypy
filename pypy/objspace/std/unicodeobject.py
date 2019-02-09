@@ -1901,26 +1901,29 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    value = _rpy_unicode_to_decimal_w(space, w_unistr.utf8_w(space).decode('utf8'))
-    # XXX this is the only place in the code that this funcion is called.
-    return unicodehelper.encode_utf8(space, value,
-                                     allow_surrogates=allow_surrogates)
-
-def _rpy_unicode_to_decimal_w(space, unistr):
-    # XXX rewrite this to accept a utf8 string and use a StringBuilder
-    result = [u'\0'] * len(unistr)
-    for i in xrange(len(unistr)):
-        uchr = ord(unistr[i])
+    utf8 = space.utf8_w(w_unistr)
+    lgt =  space.len_w(w_unistr) 
+    result = StringBuilder(lgt)
+    itr = rutf8.Utf8StringIterator(utf8)
+    for uchr in itr:
         if uchr > 127:
             if unicodedb.isspace(uchr):
-                result[i] = ' '
+                result.append(' ')
                 continue
             try:
                 uchr = ord(u'0') + unicodedb.decimal(uchr)
             except KeyError:
-                pass
-        result[i] = unichr(uchr)
-    return u''.join(result)
+                w_encoding = space.newtext('decimal')
+                pos = itr.get_pos()
+                w_start = space.newint(pos)
+                w_end = space.newint(pos+1)
+                w_reason = space.newtext('invalid decimal Unicode string')
+                raise OperationError(space.w_UnicodeEncodeError,
+                                     space.newtuple([w_encoding, w_unistr,
+                                                     w_start, w_end,
+                                                     w_reason]))
+        result.append(chr(uchr))
+    return result.build()
 
 @jit.elidable
 def g_encode_utf8(value):
