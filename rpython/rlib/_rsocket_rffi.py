@@ -1191,14 +1191,14 @@ if _POSIX:
 
 inet_ntoa = external('inet_ntoa', [in_addr], rffi.CCHARP)
 
-if _POSIX:
-    inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
-                                       rffi.VOIDP], rffi.INT,
-                         save_err=SAVE_ERR)
 
-    inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
-                                       socklen_t], CCHARP,
-                         save_err=SAVE_ERR)
+inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
+                                   rffi.VOIDP], rffi.INT,
+                     save_err=SAVE_ERR)
+
+inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
+                                   socklen_t], CCHARP,
+                     save_err=SAVE_ERR)
 
 inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
 socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))

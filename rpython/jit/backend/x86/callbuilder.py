@@ -436,9 +436,11 @@ class CallBuilder32(CallBuilderX86):
         self.subtract_esp_aligned(stack_depth - self.stack_max)
         #
         p = 0
+        num_moves = 0
         for i in range(n):
             loc = arglocs[i]
             if isinstance(loc, RegLoc):
+                num_moves += 1
                 if loc.is_xmm:
                     self.mc.MOVSD_sx(p, loc.value)
                 else:
@@ -449,11 +451,14 @@ class CallBuilder32(CallBuilderX86):
             loc = arglocs[i]
             if not isinstance(loc, RegLoc):
                 if loc.get_width() == 8:
+                    num_moves += 2
                     self.mc.MOVSD(xmm0, loc)
                     self.mc.MOVSD_sx(p, xmm0.value)
                 elif isinstance(loc, ImmedLoc):
+                    num_moves += 1
                     self.mc.MOV_si(p, loc.value)
                 else:
+                    num_moves += 2
                     self.mc.MOV(eax, loc)
                     self.mc.MOV_sr(p, eax.value)
             p += loc.get_width()
@@ -461,7 +466,7 @@ class CallBuilder32(CallBuilderX86):
         #
         if not self.fnloc_is_immediate:    # the last "argument" pushed above
             self.fnloc = RawEspLoc(p - WORD, INT)
-
+        self.num_moves = num_moves
 
     def emit_raw_call(self):
         if stdcall_or_cdecl and self.is_call_release_gil:
@@ -632,25 +637,30 @@ class CallBuilder64(CallBuilderX86):
         self.subtract_esp_aligned(on_stack - self.stack_max)
 
         # Handle register arguments: first remap the xmm arguments
-        remap_frame_layout(self.asm, xmm_src_locs, xmm_dst_locs,
-                           X86_64_XMM_SCRATCH_REG)
+        num_moves = remap_frame_layout(self.asm, xmm_src_locs, xmm_dst_locs,
+                                       X86_64_XMM_SCRATCH_REG)
         # Load the singlefloat arguments from main regs or stack to xmm regs
         if singlefloats is not None:
             for src, dst in singlefloats:
                 if isinstance(dst, RawEspLoc):
                     # XXX too much special logic
                     if isinstance(src, RawEbpLoc):
+                        num_moves += 2
                         self.mc.MOV32(X86_64_SCRATCH_REG, src)
                         self.mc.MOV32(dst, X86_64_SCRATCH_REG)
                     else:
+                        num_moves += 1
                         self.mc.MOV32(dst, src)
                     continue
                 if isinstance(src, ImmedLoc):
+                    num_moves += 1
                     self.mc.MOV(X86_64_SCRATCH_REG, src)
                     src = X86_64_SCRATCH_REG
+                num_moves += 1
                 self.mc.MOVD32(dst, src)
         # Finally remap the arguments in the main regs
-        remap_frame_layout(self.asm, src_locs, dst_locs, X86_64_SCRATCH_REG)
+        num_moves += remap_frame_layout(self.asm, src_locs, dst_locs, X86_64_SCRATCH_REG)
+        self.num_moves = num_moves
 
 
     def emit_raw_call(self):

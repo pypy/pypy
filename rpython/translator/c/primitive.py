@@ -123,9 +123,9 @@ def name_float(value, db):
             return '(-Py_HUGE_VAL)'
     elif math.isnan(value):
         if is_positive_nan(value):
-            return '(Py_HUGE_VAL/Py_HUGE_VAL)'
+            return '(_PyPy_dg_stdnan(0))'
         else:
-            return '(-(Py_HUGE_VAL/Py_HUGE_VAL))'
+            return '(_PyPy_dg_stdnan(1))'
     else:
         x = repr(value)
         assert not x.startswith('n')
@@ -142,9 +142,9 @@ def name_singlefloat(value, db):
     elif math.isnan(value):
         # XXX are these expressions ok?
         if is_positive_nan(value):
-            return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+            return '((float)(_PyPy_dg_stdnan(0)))'
         else:
-            return '(-(float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+            return '((float)(_PyPy_dg_stdnan(1)))'
     else:
         return repr(value) + 'f'
 
@@ -247,6 +247,22 @@ def define_c_primitive(ll_type, c_name, suffix=''):
         PrimitiveName[ll_type] = lambda value, db: name_str % value
     PrimitiveType[ll_type] = '%s @' % c_name
 
+def define_shifted_primitive(ll_type, signed):
+    suffix = "LL" if signed else "ULL"
+    c_name = "__int128_t" if signed else "__uint128_t"
+    def convert(value, db):
+        left_part = value >> 64
+        right_part = value - (left_part << 64)
+        if signed:
+            assert -2**63 <= left_part < 2**63
+        else:
+            assert 0 <= left_part < 2**64
+        assert 0 <= right_part < 2**64
+        name_str = '((((%s) %d%s) << 64) | ((%s) %dULL))' % (c_name, left_part, suffix, c_name, right_part)
+        return name_str
+    PrimitiveName[ll_type] = convert
+    PrimitiveType[ll_type] = '%s @' % c_name
+
 define_c_primitive(rffi.SIGNEDCHAR, 'signed char')
 define_c_primitive(rffi.UCHAR, 'unsigned char')
 define_c_primitive(rffi.SHORT, 'short')
@@ -259,4 +275,5 @@ define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
 define_c_primitive(rffi.LONGLONG, 'long long', 'LL')
 define_c_primitive(rffi.ULONGLONG, 'unsigned long long', 'ULL')
 if SUPPORT_INT128:
-    define_c_primitive(rffi.__INT128_T, '__int128_t', 'LL') # Unless it's a 128bit platform, LL is the biggest
+    define_shifted_primitive(rffi.__INT128_T, signed=True)
+    define_shifted_primitive(rffi.__UINT128_T, signed=False)
