@@ -4,9 +4,9 @@ from rpython.jit.backend.aarch64.codebuilder import InstrBuilder
 #from rpython.jit.backend.arm.locations import imm, StackLocation, get_fp_offset
 #from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
-from rpython.jit.backend.aarch64.regalloc import Regalloc
+from rpython.jit.backend.aarch64.regalloc import (Regalloc,
 #    CoreRegisterManager, check_imm_arg, VFPRegisterManager,
-#    operations as regalloc_operations)
+    operations as regalloc_operations)
 #from rpython.jit.backend.arm import callbuilder
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.llsupport import jitframe
@@ -30,6 +30,7 @@ class AssemblerARM64(ResOpAssembler):
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
+        clt._debug_nbargs = len(inputargs)
         looptoken.compiled_loop_token = clt
 
         if not we_are_translated():
@@ -127,6 +128,12 @@ class AssemblerARM64(ResOpAssembler):
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
 
+    def teardown(self):
+        self.current_clt = None
+        self._regalloc = None
+        self.mc = None
+        self.pending_guards = None
+
     def _build_failure_recovery(self, exc, withfloats=False):
         pass # XXX
 
@@ -148,8 +155,37 @@ class AssemblerARM64(ResOpAssembler):
     def _check_frame_depth_debug(self, mc):
         pass
 
+    def update_frame_depth(self, frame_depth):
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
+
+    def write_pending_failure_recoveries(self):
+        pass # XXX
+
     def reserve_gcref_table(self, allgcrefs):
         pass
+
+    def materialize_loop(self, looptoken):
+        self.datablockwrapper.done()      # finish using cpu.asmmemmgr
+        self.datablockwrapper = None
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        size = self.mc.get_relative_pos() 
+        res = self.mc.materialize(self.cpu, allblocks,
+                                   self.cpu.gc_ll_descr.gcrootmap)
+        #self.cpu.codemap.register_codemap(
+        #    self.codemap.get_final_bytecode(res, size))
+        return res
+
+    def patch_gcref_table(self, looptoken, rawstart):
+        pass
+
+    def process_pending_guards(self, rawstart):
+        pass
+
+    def fixup_target_tokens(self, rawstart):
+        for targettoken in self.target_tokens_currently_compiling:
+            targettoken._ll_loop_code += rawstart
+        self.target_tokens_currently_compiling = None
 
     def _call_header_with_stack_check(self):
         self._call_header()
@@ -192,3 +228,160 @@ class AssemblerARM64(ResOpAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self.gen_shadowstack_header(gcrootmap)
+
+    def _assemble(self, regalloc, inputargs, operations):
+        #self.guard_success_cc = c.cond_none
+        regalloc.compute_hint_frame_locations(operations)
+        self._walk_operations(inputargs, operations, regalloc)
+        #assert self.guard_success_cc == c.cond_none
+        frame_depth = regalloc.get_final_frame_depth()
+        jump_target_descr = regalloc.jump_target_descr
+        if jump_target_descr is not None:
+            tgt_depth = jump_target_descr._arm_clt.frame_info.jfi_frame_depth
+            target_frame_depth = tgt_depth - JITFRAME_FIXED_SIZE
+            frame_depth = max(frame_depth, target_frame_depth)
+        return frame_depth
+
+    def _walk_operations(self, inputargs, operations, regalloc):
+        self._regalloc = regalloc
+        regalloc.operations = operations
+        while regalloc.position() < len(operations) - 1:
+            regalloc.next_instruction()
+            i = regalloc.position()
+            op = operations[i]
+            self.mc.mark_op(op)
+            opnum = op.getopnum()
+            if rop.has_no_side_effect(opnum) and op not in regalloc.longevity:
+                regalloc.possibly_free_vars_for_op(op)
+            elif not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
+                regalloc.prepare_force_spill(op)
+            else:
+                arglocs = regalloc_operations[opnum](regalloc, op)
+                if arglocs is not None:
+                    asm_operations[opnum](self, op, arglocs)
+            if rop.is_guard(opnum):
+                regalloc.possibly_free_vars(op.getfailargs())
+            if op.type != 'v':
+                regalloc.possibly_free_var(op)
+            regalloc.possibly_free_vars_for_op(op)
+            regalloc.free_temp_vars()
+            regalloc._check_invariants()
+        if not we_are_translated():
+            self.mc.BRK()
+        self.mc.mark_op(None)  # end of the loop
+        regalloc.operations = None
+
+    # regalloc support
+    def load(self, loc, value):
+        """load an immediate value into a register"""
+        assert (loc.is_core_reg() and value.is_imm()
+                    or loc.is_vfp_reg() and value.is_imm_float())
+        if value.is_imm():
+            self.mc.gen_load_int(loc.value, value.getint())
+        elif value.is_imm_float():
+            self.mc.gen_load_int(r.ip.value, value.getint())
+            self.mc.VLDR(loc.value, r.ip.value)
+
+    def _mov_stack_to_loc(self, prev_loc, loc):
+        offset = prev_loc.value
+        if loc.is_core_reg():
+            assert prev_loc.type != FLOAT, 'trying to load from an \
+                incompatible location into a core register'
+            # unspill a core register
+            assert 0 <= offset <= (1<<15) - 1
+            self.mc.LDR_ri(loc.value, r.fp.value, offset)
+            return
+        xxx
+        # elif loc.is_vfp_reg():
+        #     assert prev_loc.type == FLOAT, 'trying to load from an \
+        #         incompatible location into a float register'
+        #     # load spilled value into vfp reg
+        #     is_imm = check_imm_arg(offset)
+        #     helper, save = self.get_tmp_reg()
+        #     save_helper = not is_imm and save
+        # elif loc.is_raw_sp():
+        #     assert (loc.type == prev_loc.type == FLOAT
+        #             or (loc.type != FLOAT and prev_loc.type != FLOAT))
+        #     tmp = loc
+        #     if loc.is_float():
+        #         loc = r.vfp_ip
+        #     else:
+        #         loc, save_helper = self.get_tmp_reg()
+        #         assert not save_helper
+        #     helper, save_helper = self.get_tmp_reg([loc])
+        #     assert not save_helper
+        # else:
+        #     assert 0, 'unsupported case'
+
+        # if save_helper:
+        #     self.mc.PUSH([helper.value], cond=cond)
+        # self.load_reg(self.mc, loc, r.fp, offset, cond=cond, helper=helper)
+        # if save_helper:
+        #     self.mc.POP([helper.value], cond=cond)
+
+    def regalloc_mov(self, prev_loc, loc):
+        """Moves a value from a previous location to some other location"""
+        if prev_loc.is_imm():
+            return self._mov_imm_to_loc(prev_loc, loc)
+        elif prev_loc.is_core_reg():
+            self._mov_reg_to_loc(prev_loc, loc)
+        elif prev_loc.is_stack():
+            self._mov_stack_to_loc(prev_loc, loc)
+        elif prev_loc.is_imm_float():
+            self._mov_imm_float_to_loc(prev_loc, loc)
+        elif prev_loc.is_vfp_reg():
+            self._mov_vfp_reg_to_loc(prev_loc, loc)
+        elif prev_loc.is_raw_sp():
+            self._mov_raw_sp_to_loc(prev_loc, loc)
+        else:
+            assert 0, 'unsupported case'
+    mov_loc_loc = regalloc_mov
+
+    def gen_func_epilog(self, mc=None):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if mc is None:
+            mc = self.mc
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self.gen_footer_shadowstack(gcrootmap, mc)
+        if self.cpu.supports_floats:
+            XXX
+        #    mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers])
+
+        # pop all callee saved registers
+
+        stack_size = (len(r.callee_saved_registers) + 2) * WORD
+        for i in range(0, len(r.callee_saved_registers), 2):
+            mc.LDP_rri(r.callee_saved_registers[i].value,
+                            r.callee_saved_registers[i + 1].value,
+                            r.sp.value,
+                            (i + 2) * WORD)
+        mc.LDP_rr_postindex(r.fp.value, r.lr.value, r.sp.value, stack_size)
+
+        mc.RET_r(r.lr.value)
+
+
+
+def not_implemented(msg):
+    msg = '[ARM/asm] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
+    raise NotImplementedError(msg)
+
+
+def notimplemented_op(self, op, arglocs, regalloc):
+    print "[ARM/asm] %s not implemented" % op.getopname()
+    raise NotImplementedError(op)
+
+
+asm_operations = [notimplemented_op] * (rop._LAST + 1)
+asm_extra_operations = {}
+
+for name, value in ResOpAssembler.__dict__.iteritems():
+    if name.startswith('emit_opx_'):
+        opname = name[len('emit_opx_'):]
+        num = getattr(EffectInfo, 'OS_' + opname.upper())
+        asm_extra_operations[num] = value
+    elif name.startswith('emit_op_'):
+        opname = name[len('emit_op_'):]
+        num = getattr(rop, opname.upper())
+        asm_operations[num] = value

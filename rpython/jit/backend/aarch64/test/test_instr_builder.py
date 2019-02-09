@@ -45,3 +45,24 @@ class TestInstrBuilder(object):
         cb = CodeBuilder()
         cb.MOV_rr(r1.value, r2.value)
         assert cb.hexdump() == assemble("MOV %r, %r" % (r1, r2))
+
+    @settings(max_examples=20)
+    @given(r1=st.sampled_from(r.registers),
+           immed=st.integers(min_value=0, max_value=(1<<16) - 1))
+    def test_MOVN(self, r1, immed):
+        cb = CodeBuilder()
+        cb.MOVN_r_u16(r1.value, immed)
+        assert cb.hexdump() == assemble("MOV %r, %d" % (r1, ~immed))
+
+    @settings(max_examples=20)
+    @given(r1=st.sampled_from(r.registers),
+           immed=st.integers(min_value=0, max_value=(1<<16) - 1),
+           shift=st.sampled_from([0, 16, 32, 48]))
+    def test_MOV_r_u16(self, r1, immed, shift):
+        cb = CodeBuilder()
+        cb.MOV_r_u16(r1.value, immed, shift)
+        if shift == 0:
+            assert cb.hexdump() == assemble("MOVK %r, %d" % (r1, immed))
+        else:
+            assert cb.hexdump() == assemble("MOVK %r, %d, lsl %d" % (r1, immed, shift))
+

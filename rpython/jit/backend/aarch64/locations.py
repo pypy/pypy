@@ -69,6 +69,21 @@ class VFPRegisterLocation(RegisterLocation):
     def is_float(self):
         return True
 
+class ImmLocation(AssemblerLocation):
+    _immutable_ = True
+
+    def __init__(self, value):
+        self.value = value
+
+    def getint(self):
+        return self.value
+
+    def __repr__(self):
+        return "imm(%d)" % (self.value)
+
+    def is_imm(self):
+        return True
+
 class StackLocation(AssemblerLocation):
     _immutable_ = True
 

@@ -15,6 +15,9 @@ all_regs = registers[:16] + [x19, x20, x21, x22]
 
 lr = x30
 fp = x29
+
+# scratch registers that we use internally, but don't save them
+# nor we use them for regalloc
 ip1 = x17
 ip0 = x16
 
