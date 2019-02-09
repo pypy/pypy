@@ -163,7 +163,31 @@ class AssemblerARM64(ResOpAssembler):
         pass # XXX
 
     def reserve_gcref_table(self, allgcrefs):
-        pass
+        gcref_table_size = len(allgcrefs) * WORD
+	# align to a multiple of 16 and reserve space at the beginning
+	# of the machine code for the gc table.  This lets us write
+	# machine code with relative addressing (LDR literal).
+        gcref_table_size = (gcref_table_size + 15) & ~15
+        mc = self.mc
+        assert mc.get_relative_pos() == 0
+        for i in range(gcref_table_size):
+            mc.writechar('\x00')
+        self.setup_gcrefs_list(allgcrefs)
+
+    def patch_gcref_table(self, looptoken, rawstart):
+	# the gc table is at the start of the machine code
+	self.gc_table_addr = rawstart
+        tracer = self.cpu.gc_ll_descr.make_gcref_tracer(rawstart,
+                                                        self._allgcrefs)
+        gcreftracers = self.get_asmmemmgr_gcreftracers(looptoken)
+        gcreftracers.append(tracer)    # keepalive
+        self.teardown_gcrefs_list()
+
+    def load_from_gc_table(self, regnum, index):
+        address_in_buffer = index * WORD   # at the start of the buffer
+        p_location = self.mc.get_relative_pos(break_basic_block=False)
+        offset = address_in_buffer - p_location
+        self.mc.LDR_r_literal(regnum, offset)
 
     def materialize_loop(self, looptoken):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
@@ -175,9 +199,6 @@ class AssemblerARM64(ResOpAssembler):
         #self.cpu.codemap.register_codemap(
         #    self.codemap.get_final_bytecode(res, size))
         return res
-
-    def patch_gcref_table(self, looptoken, rawstart):
-        pass
 
     def process_pending_guards(self, rawstart):
         pass
@@ -359,6 +380,32 @@ class AssemblerARM64(ResOpAssembler):
 
         mc.RET_r(r.lr.value)
 
+    def store_reg(self, mc, source, base, ofs=0):
+        # uses r.ip1 as a temporary
+        if source.is_vfp_reg():
+            return self._store_vfp_reg(mc, source, base, ofs)
+        else:
+            return self._store_core_reg(mc, source, base, ofs)
+
+    def _store_vfp_reg(self, mc, source, base, ofs):
+        if check_imm_arg(ofs, VMEM_imm_size):
+            mc.VSTR(source.value, base.value, imm=ofs, cond=cond)
+        else:
+            mc.gen_load_int(helper.value, ofs, cond=cond)
+            mc.ADD_rr(helper.value, base.value, helper.value, cond=cond)
+            mc.VSTR(source.value, helper.value, cond=cond)
+
+    def _store_core_reg(self, mc, source, base, ofs):
+        # uses r.ip1 as a temporary
+        # XXX fix:
+        assert ofs & 0x7 == 0
+        assert 0 <= ofs < 32768
+        mc.STR_ri(source.value, base.value, ofs)
+        #if check_imm_arg(ofs):
+        #    mc.STR_ri(source.value, base.value, imm=ofs)
+        #else:
+        #    mc.gen_load_int(r.ip1, ofs)
+        #    mc.STR_rr(source.value, base.value, r.ip1)
 
 
 def not_implemented(msg):

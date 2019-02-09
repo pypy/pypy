@@ -18,6 +18,13 @@ class AbstractAarch64Builder(object):
     def RET_r(self, arg):
         self.write32((0b1101011001011111 << 16) | (arg << 5))
 
+    def STR_ri(self, rt, rn, offset):
+        base = 0b1111100100
+        assert offset & 0x7 == 0
+        assert 0 <= offset < 32768
+        self.write32((base << 22) | ((offset >> 3) << 10) |
+                     (rn << 5) | rt)
+
     def STP_rr_preindex(self, reg1, reg2, rn, offset):
         base = 0b1010100110
         assert -512 <= offset < 512
@@ -32,9 +39,6 @@ class AbstractAarch64Builder(object):
         self.write32((base << 22) | ((0x7F & (offset >> 3)) << 15) |
                      (reg2 << 10) | (rn << 5) | reg1)
 
-    def MOV_r_u16(self, rd, immed, shift):     # u16 is an unsigned 16-bit
-        self.MOVK_r_u16(rd, immed, shift)
-
     def MOV_rr(self, rd, rn):
         self.ORR_rr(rd, r.xzr.value, rn)
 
@@ -45,6 +49,12 @@ class AbstractAarch64Builder(object):
 
     def MOVK_r_u16(self, rd, immed, shift):
         base = 0b111100101
+        assert 0 <= immed < 1 << 16
+        assert shift in (0, 16, 32, 48)
+        self.write32((base << 23) | (shift >> 4 << 21) | (immed << 5) | rd) 
+
+    def MOVZ_r_u16(self, rd, immed, shift):
+        base = 0b110100101
         assert 0 <= immed < 1 << 16
         assert shift in (0, 16, 32, 48)
         self.write32((base << 23) | (shift >> 4 << 21) | (immed << 5) | rd) 
@@ -64,6 +74,7 @@ class AbstractAarch64Builder(object):
         base = 0b1010100101
         assert -512 <= offset < 512
         assert offset & 0x7 == 0
+        assert reg1 != reg2
         self.write32((base << 22) | ((0x7F & (offset >> 3)) << 15) |
                      (reg2 << 10) | (rn << 5) | reg1)
 
@@ -71,6 +82,9 @@ class AbstractAarch64Builder(object):
         base = 0b1010100011
         assert -512 <= offset < 512
         assert offset & 0x7 == 0
+        assert reg1 != reg2
+        assert rn != reg1
+        assert rn != reg2
         self.write32((base << 22) | ((0x7F & (offset >> 3)) << 15) |
                      (reg2 << 10) | (rn << 5) | reg1)
 
@@ -78,8 +92,13 @@ class AbstractAarch64Builder(object):
         base = 0b1111100101
         assert 0 <= immed <= 1<<15
         assert immed & 0x7 == 0
-        immed >>= 3
-        self.write32((base << 22) | (immed << 10) | (rn << 5) | rt)
+        self.write32((base << 22) | (immed >> 3 << 10) | (rn << 5) | rt)
+    
+    def LDR_r_literal(self, rt, offset):
+        base = 0b01011000
+        assert -(1 << 20) <= offset < (1<< 20)
+        assert offset & 0x3 == 0
+        self.write32((base << 24) | ((0x7ffff & (offset >> 2)) << 5) | rt)
 
     def ADD_rr(self, rd, rn, rm):
         base = 0b10001011000
@@ -91,18 +110,11 @@ class AbstractAarch64Builder(object):
     def gen_load_int(self, r, value):
         """r is the register number, value is the value to be loaded to the
         register"""
-        shift = 0
-        if value < 0:
-            value = ~value
-            nxt = intmask(value & 0xFFFF)
-            self.MOVN_r_u16(r, nxt)
-            value >>= 16
-            shift += 16
-        while value:
-            nxt = intmask(value & 0xFFFF)
-            self.MOV_r_u16(r, nxt, shift)
-            value >>= 16
-            shift += 16
+        # XXX optimize!
+        self.MOVZ_r_u16(r, value & 0xFFFF, 0)
+        self.MOVK_r_u16(r, (value >> 16) & 0xFFFF, 16)
+        self.MOVK_r_u16(r, (value >> 32) & 0xFFFF, 32)
+        self.MOVK_r_u16(r, (value >> 48) & 0xFFFF, 48)
 
 
 class InstrBuilder(BlockBuilderMixin, AbstractAarch64Builder):

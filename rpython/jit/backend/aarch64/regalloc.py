@@ -120,7 +120,7 @@ class CoreRegisterManager(ARMRegisterManager):
 
     def convert_to_imm(self, c):
         if isinstance(c, ConstInt):
-            val = rffi.cast(rffi.INT, c.value)
+            val = rffi.cast(lltype.Signed, c.value)
             return locations.ImmLocation(val)
         else:
             assert isinstance(c, ConstPtr)

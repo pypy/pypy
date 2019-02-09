@@ -1,4 +1,5 @@
 
+from rpython.rlib.rarithmetic import r_int32
 from rpython.jit.backend.aarch64.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.metainterp.history import INT, FLOAT
 
@@ -73,6 +74,7 @@ class ImmLocation(AssemblerLocation):
     _immutable_ = True
 
     def __init__(self, value):
+        assert not isinstance(value, r_int32)
         self.value = value
 
     def getint(self):
