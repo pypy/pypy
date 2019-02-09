@@ -26,6 +26,9 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
 
+# We always use MAXUNICODE = 0x10ffff when unicode objects use utf8
+MAXUNICODE = 0x10ffff
+allow_surrogate_by_default = False
 
 # we need a way to accept both r_uint and int(nonneg=True)
 #@signature(types.int_nonneg(), types.bool(), returns=types.str())

@@ -2,7 +2,7 @@ import sys
 from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
-from rpython.rlib import runicode
+from rpython.rlib.rutf8 import MAXUNICODE
 from rpython.rlib.runicode import raw_unicode_escape_helper
 
 from pypy.interpreter.error import OperationError, oefmt
@@ -649,7 +649,6 @@ def decode_text(space, w_obj, encoding, errors):
     return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 # ____________________________________________________________
-# delegation to runicode/unicodehelper
 
 def _find_implementation(impl_name):
     func = getattr(unicodehelper, impl_name)
@@ -721,7 +720,8 @@ for decoder in [
          ]:
     make_decoder_wrapper(decoder)
 
-if hasattr(unicodehelper, 'str_decode_mbcs'):
+from rpython.rlib import runicode
+if hasattr(runicode, 'str_decode_mbcs'):
     make_encoder_wrapper('mbcs_encode')
     make_decoder_wrapper('mbcs_decode')
 

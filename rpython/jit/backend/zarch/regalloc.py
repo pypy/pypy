@@ -1,6 +1,7 @@
 from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                     TempVar, compute_vars_longevity,
-                                                    BaseRegalloc, NoVariableToSpill)
+                                                    BaseRegalloc, NoVariableToSpill,
+                                                    Lifetime)
 from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.zarch.arch import WORD
 from rpython.jit.codewriter import longlong
@@ -255,9 +256,9 @@ class ZARCHRegisterManager(RegisterManager):
         self._check_type(even_var)
         self._check_type(odd_var)
         if isinstance(even_var, TempVar):
-            self.longevity[even_var] = (self.position, self.position)
+            self.longevity[even_var] = Lifetime(self.position, self.position)
         if isinstance(odd_var, TempVar):
-            self.longevity[odd_var] = (self.position, self.position)
+            self.longevity[odd_var] = Lifetime(self.position, self.position)
 
         # this function steps through the following:
         # 1) maybe there is an even/odd pair that is always
@@ -451,10 +452,8 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+        longevity = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
-        self.last_real_usage = last_real_usage
         self.rm = ZARCHRegisterManager(self.longevity,
                                      frame_manager = self.fm,
                                      assembler = self.assembler)
@@ -1306,7 +1305,7 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
         position = self.rm.position
         for arg in inputargs:
             assert not isinstance(arg, Const)
-            if self.last_real_usage.get(arg, -1) <= position:
+            if self.longevity[arg].is_last_real_use_before(position):
                 self.force_spill_var(arg)
         #
         # we need to make sure that no variable is stored in spp (=r31)

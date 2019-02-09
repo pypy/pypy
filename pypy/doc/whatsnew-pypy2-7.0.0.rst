@@ -32,6 +32,7 @@ Log additional gc-minor and gc-collect-step info in the PYPYLOG
 The reverse-debugger branch has been merged.  For more information, see
 https://bitbucket.org/pypy/revdb
 
+
 .. branch: pyparser-improvements-3
 
 Small refactorings in the Python parser.
@@ -39,15 +40,6 @@ Small refactorings in the Python parser.
 .. branch: fix-readme-typo
 
 .. branch: avoid_shell_injection_in_shutil
-
-.. branch: unicode-utf8-re
-
-.. branch: utf8-io
-
-Utf8 handling for unicode
-
-.. branch: pyparser-improvements-3
-Small refactorings in the Python parser.
 
 Backport CPython fix for possible shell injection issue in `distutils.spawn`,
 https://bugs.python.org/issue34540
@@ -75,7 +67,3 @@ Make it possible to manually manage the GC by using a combination of
 gc.disable() and gc.collect_step(). Make sure to write a proper release
 announcement in which we explain that existing programs could leak memory if
 they run for too much time between a gc.disable()/gc.enable()
-
-.. branch: unicode-utf8
-
-Use utf8 internally to represent unicode
