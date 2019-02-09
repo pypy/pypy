@@ -5,7 +5,7 @@ import sys
 import string
 
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib import rstring, runicode, rlocale, rfloat, jit, rutf8
+from rpython.rlib import rstring, rlocale, rfloat, jit, rutf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import formatd
 from rpython.rlib.rarithmetic import r_uint, intmask

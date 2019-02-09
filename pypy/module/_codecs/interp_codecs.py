@@ -1,8 +1,7 @@
 from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
-from rpython.rlib import runicode
-from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
+from rpython.rlib.rutf8 import MAXUNICODE
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -378,7 +377,7 @@ def register_error(space, errors, w_handler):
         raise oefmt(space.w_TypeError, "handler must be callable")
 
 # ____________________________________________________________
-# delegation to runicode/unicodehelper
+# delegation to unicodehelper
 
 def _find_implementation(impl_name):
     func = getattr(unicodehelper, impl_name)
@@ -447,6 +446,7 @@ for decoder in [
          ]:
     make_decoder_wrapper(decoder)
 
+from rpython.rlib import runicode
 if hasattr(runicode, 'str_decode_mbcs'):
     make_encoder_wrapper('mbcs_encode')
     make_decoder_wrapper('mbcs_decode')

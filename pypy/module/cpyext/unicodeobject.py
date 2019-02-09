@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib import rstring, runicode
+from rpython.rlib import rstring
 from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.error import OperationError, oefmt
@@ -192,7 +192,8 @@ def Py_UNICODE_TONUMERIC(space, ch):
 @cpython_api([], Py_UNICODE, error=CANNOT_FAIL)
 def PyUnicode_GetMax(space):
     """Get the maximum ordinal for a Unicode character."""
-    return runicode.UNICHR(runicode.MAXUNICODE)
+    from rpython.rlib import runicode, rutf8
+    return runicode.UNICHR(rutf8.MAXUNICODE)
 
 @cpython_api([rffi.VOIDP], rffi.CCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_DATA(space, ref):
