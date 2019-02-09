@@ -465,10 +465,6 @@ class W_BytesObject(W_AbstractBytesObject):
         raise oefmt(space.w_TypeError,
                     "Cannot use string as modifiable buffer")
 
-    def descr_encode(self, space, w_encoding=None, w_errors=None):
-        w_uni = self.descr_decode(space, space.newtext('ascii'), space.newtext('strict'))
-        return space.call_method(w_uni, 'encode', w_encoding, w_errors)
-
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
         #return W_Buffer(StringBuffer(self._value))
@@ -873,7 +869,7 @@ W_BytesObject.typedef = TypeDef(
     center = interpindirect2app(W_AbstractBytesObject.descr_center),
     count = interpindirect2app(W_AbstractBytesObject.descr_count),
     decode = interpindirect2app(W_AbstractBytesObject.descr_decode),
-    encode = interpindirect2app(W_BytesObject.descr_encode),
+    encode = interpindirect2app(W_AbstractBytesObject.descr_encode),
     expandtabs = interpindirect2app(W_AbstractBytesObject.descr_expandtabs),
     find = interpindirect2app(W_AbstractBytesObject.descr_find),
     rfind = interpindirect2app(W_AbstractBytesObject.descr_rfind),

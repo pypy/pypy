@@ -1075,7 +1075,13 @@ def encode_object(space, w_object, encoding, errors):
             try:
                 rutf8.check_ascii(s)
             except rutf8.CheckError as a:
-                eh = unicodehelper.encode_error_handler(space)
+                if space.isinstance_w(w_object, space.w_unicode):
+                    eh = unicodehelper.encode_error_handler(space)
+                else:
+                    # must be a bytes-like object. In order to encode it,
+                    # first "decode" to unicode. Since we cannot, raise a
+                    # UnicodeDecodeError, not a UnicodeEncodeError
+                    eh = unicodehelper.decode_error_handler(space)
                 eh(None, "ascii", "ordinal not in range(128)", s,
                     a.pos, a.pos + 1)
                 assert False, "always raises"
