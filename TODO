@@ -11,8 +11,9 @@
   - rutf8.utf8_encode_mbcs
   - unicodehelper.fsencode
   - unicodehelper.unicode_to_decimal_w
-  - _winreg.inerp_winreg
+  - _winreg.interp_winreg
 * remove 'assert not isinstance(*, unicode)
+* add a flag that prevents support for unicode in rpython and enable it in PyPy (CF, Armin)
 * remove asserts from _WIN32 paths in rlib.rposix.re{name,place}
 * convert all realunicode_w to unicode_w after we flush out all old uses of
   unicode_w
