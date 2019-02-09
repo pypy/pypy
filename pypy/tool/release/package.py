@@ -121,6 +121,8 @@ def create_package(basedir, options, _fake=False):
     pypydir.ensure('include', dir=True)
 
     if sys.platform == 'win32':
+        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
+                            os.environ.get('PATH', '')
         src,tgt = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():

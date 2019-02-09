@@ -1406,6 +1406,11 @@ def resizable_list_supporting_raw_ptr(lst):
     return _ResizableListSupportingRawPtr(lst)
 
 def nonmoving_raw_ptr_for_resizable_list(lst):
+    if must_split_gc_address_space():
+        raise ValueError
+    return _nonmoving_raw_ptr_for_resizable_list(lst)
+
+def _nonmoving_raw_ptr_for_resizable_list(lst):
     assert isinstance(lst, _ResizableListSupportingRawPtr)
     return lst._nonmoving_raw_ptr_for_resizable_list()
 
@@ -1450,7 +1455,7 @@ class Entry(ExtRegistryEntry):
         return hop.inputarg(hop.args_r[0], 0)
 
 class Entry(ExtRegistryEntry):
-    _about_ = nonmoving_raw_ptr_for_resizable_list
+    _about_ = _nonmoving_raw_ptr_for_resizable_list
 
     def compute_result_annotation(self, s_list):
         from rpython.rtyper.lltypesystem import lltype, rffi

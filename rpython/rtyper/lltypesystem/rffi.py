@@ -506,7 +506,7 @@ TYPES += ['signed char', 'unsigned char',
 # This is a bit of a hack since we can't use rffi_platform here.
 try:
     sizeof_c_type('__int128_t', ignore_errors=True)
-    TYPES += ['__int128_t']
+    TYPES += ['__int128_t', '__uint128_t']
 except CompilationError:
     pass
 
@@ -538,7 +538,8 @@ def populate_inttypes():
         if name.startswith('unsigned'):
             name = 'u' + name[9:]
             signed = False
-        elif name == 'size_t' or name.startswith('uint'):
+        elif (name == 'size_t' or name.startswith('uint')
+                               or name.startswith('__uint')):
             signed = False
         else:
             signed = True
