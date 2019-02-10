@@ -90,7 +90,6 @@ typedef struct _OVERLAPPED {
     HANDLE  hEvent;
 } OVERLAPPED, *LPOVERLAPPED;
 
-
 DWORD WINAPI GetVersion(void);
 BOOL WINAPI CreatePipe(PHANDLE, PHANDLE, void *, DWORD);
 HANDLE WINAPI CreateNamedPipeA(LPCSTR, DWORD, DWORD, DWORD, DWORD, DWORD,
@@ -136,7 +135,7 @@ typedef struct _PostCallbackData {
     LPOVERLAPPED Overlapped;
 } PostCallbackData, *LPPostCallbackData;
 
-typedef VOID (WINAPI *WAITORTIMERCALLBACK) ( PVOID, BOOL);  
+typedef VOID (WINAPI *WAITORTIMERCALLBACK) (PVOID, BOOL);  
 BOOL WINAPI RegisterWaitForSingleObject(PHANDLE, HANDLE, WAITORTIMERCALLBACK, PVOID, ULONG, ULONG);
 BOOL WINAPI PostQueuedCompletionStatus(HANDLE,  DWORD, ULONG_PTR, LPOVERLAPPED);
 
@@ -148,7 +147,23 @@ HANDLE WINAPI CreateIoCompletionPort(HANDLE, HANDLE, ULONG_PTR, DWORD);
 
 """)
 
-# --------------------
+# -------------------- Win Sock 2 ----------------------
+
+ffi.cdef("""
+typedef struct _WSABUF {
+  ULONG len;
+  CHAR  *buf;
+} WSABUF, *LPWSABUF;
+
+typedef HANDLE SOCKET;
+SOCKET __stdcall socket(int, int, int);
+typedef BOOL (__stdcall * LPFN_DISCONNECTEX) (SOCKET, LPOVERLAPPED, DWORD, DWORD);
+typedef VOID (*LPOVERLAPPED_COMPLETION_ROUTINE) (DWORD, DWORD, LPVOID);  
+
+int __stdcall WSARecv(SOCKET, LPWSABUF, DWORD, LPDWORD, LPDWORD, LPOVERLAPPED, LPOVERLAPPED_COMPLETION_ROUTINE);
+
+
+""")
 
 if __name__ == "__main__":
     ffi.compile()

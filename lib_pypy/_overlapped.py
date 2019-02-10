@@ -13,12 +13,24 @@ if sys.platform != 'win32':
 from _pypy_winbase_cffi import ffi as _ffi
 _kernel32 = _ffi.dlopen('kernel32')
 
+_winsock2 = _ffi.dlopen('Ws2_32')
+
 GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
 
-
 from _winapi import INVALID_HANDLE_VALUE, _MAX_PATH , _Z
 import _winapi
+
+DisconnectEx = _ffi.NULL
+
+def _int2intptr(int2cast):
+    return _ffi.cast("ULONG_PTR", int2cast)
+
+def _int2dword(int2cast):
+    return _ffi.cast("DWORD", int2cast)
+
+def _int2handle(val):
+    return _ffi.cast("HANDLE", val)
 
 from enum import Enum
 class OverlappedType(Enum):
@@ -33,7 +45,6 @@ class OverlappedType(Enum):
     TYPE_CONNECT_NAMED_PIPE = 8
     TYPE_WAIT_NAMED_PIPE_AND_CONNECT = 9
     TYPE_TRANSMIT_FILE = 10
-
 
 class Overlapped(object):
     def __init__(self, handle):
@@ -86,8 +97,9 @@ class Overlapped(object):
         else:
             self.pending = 0
             raise _winapi._WinError()
-        if self.completed and self.read_buffer:
-            if transferred != len(self.read_buffer):
+        if self.completed and self.allocated_buffer:
+            import pdb; pdb.set_trace()
+            if transferred[0] != len(self.allocated_buffer[0]):
                 raise _winapi._WinError()
         return transferred[0], err
 
@@ -105,24 +117,44 @@ class Overlapped(object):
         return result
      
     def WSARecv(self ,handle, size, flags):
+        handle = _int2handle(handle)
+        flags = _int2dword(flags)
         if self.type != OverlappedType.TYPE_NONE:
             raise _winapi._WinError()
         
         self.type = OverlappedType.TYPE_READ
         self.handle = handle
-        self.allocated_buffer = _ffi.buffer(max(1, size))
-        return do_WSARecv(self, handle, self.allocated_buffer[:], size, flags)
+        self.allocated_buffer = _ffi.new("BYTE[]", max(1,size))
+        return self.do_WSARecv(handle, self.allocated_buffer, size, flags)
 
+    def do_WSARecv(self, handle, allocatedbuffer, size, flags):
+        nread = _ffi.new("LPDWORD")
+        wsabuff = _ffi.new("WSABUF[1]")
+        buffercount = _ffi.new("DWORD[1]", [1])
+        wsabuff[0].len = size        
+        wsabuff[0].buf = allocatedbuffer
+        result = _winsock2.WSARecv(handle, wsabuff, _int2dword(1), nread, _ffi.cast("LPDWORD",flags), self.overlapped, _ffi.NULL)
+        if result:
+            self.error = _winapi.ERROR_SUCCESS
+        else:
+            self.error = _kernel32.GetLastError()
+        
+        if self.error == _winapi.ERROR_BROKEN_PIPE:
+            mark_as_completed(self.overlapped)
+            return SetFromWindowsErr(err)
+        elif self.error in [_winapi.ERROR_SUCCESS, _winapi.ERROR_MORE_DATA, _winapi.ERROR_IO_PENDING] :
+            return None
+        else:
+            self.type = OverlappedType.TYPE_NOT_STARTED
+            return SetFromWindowsErr(err)
 
-def _int2intptr(int2cast):
-    return _ffi.cast("ULONG_PTR", int2cast)
+    def getresult(self, wait=False):
+        return self.GetOverlappedResult(wait)
 
-def _int2dword(int2cast):
-    return _ffi.cast("DWORD", int2cast)
-
-def _int2handle(val):
-    return _ffi.cast("HANDLE", val)
-
+def mark_as_completed(overlapped):
+    overlapped.overlapped.Internal = _ffi.NULL
+    if overlapped.overlapped.hEvent != _ffi.NULL:
+        SetEvent(overlapped.overlapped.hEvent)
 
 def CreateEvent(eventattributes, manualreset, initialstate, name):
     event = _kernel32.CreateEventW(NULL, manualreset, initialstate, _Z(name))
@@ -203,5 +235,7 @@ def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
     
     return newwaitobject
 
-    
-    
+# In CPython this function converts a windows error into a python object
+# Not sure what we should do here.
+def SetFromWindowsErr(error):
+    return error
