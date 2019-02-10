@@ -56,6 +56,7 @@ _MACOSX = sys.platform == 'darwin'
 
 def fsdecode(space, w_string):
     from pypy.module._codecs import interp_codecs
+    from rpython.rlib import runicode
     state = space.fromcache(interp_codecs.CodecState)
     errorhandler=state.decode_error_handler
     if _WIN32:
@@ -314,6 +315,7 @@ if _WIN32:
 
     def str_decode_mbcs(s, errors, final, errorhandler, force_ignore=True):
         slen = len(s)
+        from rpython.rlib import runicode
         res, size = runicode.str_decode_mbcs(s, slen, errors, final=final,
                            errorhandler=errorhandler, force_ignore=force_ignore)
         res_utf8 = runicode.unicode_encode_utf_8(res, len(res), 'strict')
@@ -1624,7 +1626,7 @@ def str_decode_unicode_internal(s, errors, final=False,
     if size == 0:
         return '', 0
 
-    if runicode.MAXUNICODE < 65536:
+    if rutf8.MAXUNICODE < 65536:
         unicode_bytes = 2
     else:
         unicode_bytes = 4
@@ -1651,7 +1653,7 @@ def str_decode_unicode_internal(s, errors, final=False,
         for j in range(start, stop, step):
             t += r_uint(ord(s[pos + j])) << (h*8)
             h += 1
-        if t > runicode.MAXUNICODE:
+        if t > rutf8.MAXUNICODE:
             r, pos, rettype = errorhandler(errors, "unicode_internal",
                                     "unichr(%d) not in range" % (t,),
                                     s, pos, pos + unicode_bytes)
@@ -1668,7 +1670,7 @@ def utf8_encode_unicode_internal(s, errors, errorhandler, allow_surrogates=False
     if size == 0:
         return ''
 
-    if runicode.MAXUNICODE < 65536:
+    if rutf8.MAXUNICODE < 65536:
         unicode_bytes = 2
     else:
         unicode_bytes = 4
