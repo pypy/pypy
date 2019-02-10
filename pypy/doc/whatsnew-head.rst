@@ -25,6 +25,6 @@ as they do on CPython.
 Improve performance of long operations where one of the operands fits into
 an int.
 
-.. branch: regalloc-playgrounds
+.. branch: regalloc-playground
 
 Improve register allocation in the JIT.
