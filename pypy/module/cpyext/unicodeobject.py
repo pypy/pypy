@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rstring
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib import rstring, runicode, rutf8
+from rpython.rlib import rstring, rutf8
 from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.error import OperationError, oefmt
@@ -83,12 +83,11 @@ def unicode_realize(space, py_obj):
     Creates the unicode in the interpreter. The PyUnicodeObject buffer must not
     be modified after this call.
     """
-    s = rffi.wcharpsize2unicode(get_wbuffer(py_obj), get_wsize(py_obj))
-    s_utf8 = runicode.unicode_encode_utf_8(s, len(s), 'strict',
-                                           allow_surrogates=True)
+    lgt = get_wsize(py_obj)
+    s_utf8 = rffi.wcharpsize2utf8(get_wbuffer(py_obj), lgt)
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
-    w_obj.__init__(s_utf8, len(s))
+    w_obj.__init__(s_utf8, lgt)
     track_reference(space, py_obj, w_obj)
     return w_obj
 

@@ -269,6 +269,9 @@ if WIN32:
     def FormatError(code):
         return llimpl_FormatError(code)
     def FormatErrorW(code):
+        """
+        returns utf8, n_codepoints
+        """
         return llimpl_FormatErrorW(code)
 
     def llimpl_FormatError(code):
@@ -326,7 +329,7 @@ if WIN32:
             if buflen <= 0:
                 result = u'Windows Error %d' % (code,)
             else:
-                result = rffi.wcharpsize2unicode(s_buf, buflen)
+                result = rffi.wcharpsize2utf8(s_buf, buflen), buflen
         finally:
             LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
             lltype.free(buf, flavor='raw')

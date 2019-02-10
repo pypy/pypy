@@ -80,10 +80,10 @@ class Poll(W_Root):
                     if timeout < 0:
                         timeout = 0
                     continue
-                message = e.get_msg_unicode()
+                message, lgt = e.get_msg_utf8()
                 raise OperationError(space.w_OSError,
                                      space.newtuple([space.newint(e.errno),
-                                                     space.newtext(message)]))
+                                                 space.newtext(message, lgt)]))
             finally:
                 self.running = False
             break

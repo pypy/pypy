@@ -9,7 +9,7 @@ except ImportError:
 import struct
 import sys
 from pypy.interpreter.unicodehelper import (
-    encode_utf8, str_decode_utf8, utf8_encode_utf_32_be, str_decode_utf_32_be)
+    str_decode_utf8, utf8_encode_utf_32_be, str_decode_utf_32_be)
 from pypy.interpreter.unicodehelper import encode_utf8sp, decode_utf8sp
 from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
 from pypy.interpreter import unicodehelper as uh
@@ -29,35 +29,6 @@ def fake_eh(errors, encoding, msg, u, startingpos, endingpos):
 
 def decode_utf8(u):
     return str_decode_utf8(u, "strict", True, fake_eh)
-
-def test_encode_utf8():
-    space = FakeSpace()
-    assert encode_utf8(space, u"abc") == "abc"
-    assert encode_utf8(space, u"\u1234") == "\xe1\x88\xb4"
-    py.test.raises(Hit, encode_utf8, space, u"\ud800")
-    py.test.raises(Hit, encode_utf8, space, u"\udc00")
-    if option.runappdirect or sys.maxunicode > 0xFFFF:
-        # for the following test, go to lengths to avoid CPython's
-        # optimizer and .pyc file storage, which collapse the two
-        # surrogates into one
-        c = u"\udc00"
-        py.test.raises(Hit, encode_utf8, space, u"\ud800" + c)
-
-def test_encode_utf8_allow_surrogates():
-    sp = FakeSpace()
-    assert encode_utf8(sp, u"\ud800", allow_surrogates=True) == "\xed\xa0\x80"
-    assert encode_utf8(sp, u"\udc00", allow_surrogates=True) == "\xed\xb0\x80"
-    c = u"\udc00"
-    got = encode_utf8(sp, u"\ud800" + c, allow_surrogates=True)
-    assert got == "\xf0\x90\x80\x80"
-
-def test_encode_utf8sp():
-    sp = FakeSpace()
-    assert encode_utf8sp(sp, u"\ud800") == "\xed\xa0\x80"
-    assert encode_utf8sp(sp, u"\udc00") == "\xed\xb0\x80"
-    c = u"\udc00"
-    got = encode_utf8sp(sp, u"\ud800" + c)
-    assert got == "\xed\xa0\x80\xed\xb0\x80"
 
 def test_decode_utf8():
     assert decode_utf8("abc") == ("abc", 3, 3)

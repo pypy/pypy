@@ -9,7 +9,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import dont_inline, not_rpython
 from rpython.rlib import rstack, rstackovf
-from rpython.rlib import rwin32, runicode
+from rpython.rlib import rwin32, rutf8
 
 from pypy.interpreter import debug
 
@@ -20,8 +20,8 @@ RECORD_INTERPLEVEL_TRACEBACK = True
 def strerror(errno):
     """Translate an error code to a unicode message string."""
     from pypy.module._codecs.locale import str_decode_locale_surrogateescape
-    uni = str_decode_locale_surrogateescape(os.strerror(errno))
-    return runicode.unicode_encode_utf_8(uni, len(uni), 'strict'), len(uni)
+    utf8, lgt = str_decode_locale_surrogateescape(os.strerror(errno))
+    return utf8, lgt
 
 class OperationError(Exception):
     """Interpreter-level exception that signals an exception that should be
@@ -524,7 +524,6 @@ def get_operrcls2(valuefmt):
                         result = str(value.encode('utf-8'))
                         lgt += len(value)
                     else:
-                        from rpython.rlib import rutf8
                         result = str(value)
                         try:
                             lgt += rutf8.check_utf8(result, True)
@@ -632,13 +631,14 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
     if rwin32.WIN32 and isinstance(e, WindowsError):
         winerror = e.winerror
         try:
-            msg = rwin32.FormatErrorW(winerror)
+            msg, lgt = rwin32.FormatErrorW(winerror)
         except ValueError:
-            msg = u'Windows Error %d' % winerror
+            msg = 'Windows Error %d' % winerror
+            lgt = len(msg)
         w_errno = space.w_None
         w_winerror = space.newint(winerror)
-        msg_utf8 = runicode.unicode_encode_utf_8(msg, len(msg), 'strict')
-        w_msg = space.newtext(msg_utf8, len(msg))
+        msg_utf8 = rutf8.str_encode_utf_8(msg, lgt, 'strict')
+        w_msg = space.newtext(msg_utf8, lgt)
     else:
         errno = e.errno
         if errno == EINTR:

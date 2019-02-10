@@ -62,13 +62,18 @@ def fsdecode(space, w_string):
     if _WIN32:
         bytes = space.bytes_w(w_string)
         slen = len(bytes)
-        uni, size = runicode.str_decode_mbcs(bytes, slen, 'strict', final=True,
+        uni, lgt = runicode.str_decode_mbcs(bytes, slen, 'strict', final=True,
                            errorhandler=errorhandler, force_ignore=False)
+        
+        utf8 = uni.encode('utf-8')
+        
+        utf8 = uni.encode('utf-8')
+        
+        utf8 = uni.encode('utf-8')
     elif 0 and  _MACOSX:
         bytes = space.bytes_w(w_string)
-        utf8 = str_decode_utf8(bytes, 'surrogateescape', True, errorhandler,
-                               allow_surrogates=False)[0]
-        uni = utf8.decode('utf-8')
+        utf8, lgt, pos  = str_decode_utf8(bytes, 'surrogateescape', True,
+                                    errorhandler, allow_surrogates=False)
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
         # or the filesystem codec is implemented in Python we cannot
@@ -77,15 +82,13 @@ def fsdecode(space, w_string):
         from pypy.module._codecs.locale import (
             str_decode_locale_surrogateescape)
         bytes = space.bytes_w(w_string)
-        uni = str_decode_locale_surrogateescape(bytes)
+        utf8, lgt = str_decode_locale_surrogateescape(bytes)
     else:
         from pypy.module.sys.interp_encoding import getfilesystemencoding
         return space.call_method(w_string, 'decode',
                                  getfilesystemencoding(space),
                                  space.newtext('surrogateescape'))
-    assert isinstance(uni, unicode)
-    return space.newtext(runicode.unicode_encode_utf_8(uni,
-                                 len(uni), 'strict', allow_surrogates=True), len(uni))
+    return space.newtext(utf8, lgt)
 
 def fsencode(space, w_uni):
     from pypy.module._codecs import interp_codecs
@@ -318,7 +321,7 @@ if _WIN32:
         from rpython.rlib import runicode
         res, size = runicode.str_decode_mbcs(s, slen, errors, final=final,
                            errorhandler=errorhandler, force_ignore=force_ignore)
-        res_utf8 = runicode.unicode_encode_utf_8(res, len(res), 'strict')
+        res_utf8 = unicode_encode_utf_8(res, len(res), 'strict')
         return res_utf8, len(res), len(res)
 
 def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
@@ -1010,6 +1013,7 @@ def utf8_encode_utf_7(s, errors, errorhandler, allow_surrogates=False):
 @specialize.memo()
 def _encode_unicode_error_handler(space):
     # Fast version of the "strict" errors handler.
+    # used only in (unused) encode_utf8
     from rpython.rlib import runicode
     def raise_unicode_exception_encode(errors, encoding, msg, uni,
                                        startingpos, endingpos):
@@ -1032,6 +1036,7 @@ def encode_utf8(space, uni, allow_surrogates=False):
     # which never raises UnicodeEncodeError.  Surrogate pairs are then
     # allowed, either paired or lone.  A paired surrogate is considered
     # like the non-BMP character it stands for.  See also *_utf8sp().
+    xxx
     from rpython.rlib import runicode
     assert isinstance(uni, unicode)
     return runicode.unicode_encode_utf_8(
@@ -1051,7 +1056,7 @@ def encode_utf8sp(space, uni, allow_surrogates=True):
 def decode_utf8sp(space, string):
     # Surrogate-preserving utf-8 decoding.  Assuming there is no
     # encoding error, it should always be reversible, and the reverse is
-    # encode_utf8sp().
+    # unused encode_utf8sp().
     return str_decode_utf8(string, "string", True, decode_never_raise,
                            allow_surrogates=True)
 

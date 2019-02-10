@@ -39,7 +39,7 @@ class CodecState(object):
             so it needs to be converted by the codec
 
             Returns (str_or_none, newpos) as error
-            handlers used outside runicode return utf8
+            handlers return utf8 so we add whether they used unicode or bytes
             """
             w_errorhandler = lookup_error(space, errors)
             if decode:
@@ -455,8 +455,7 @@ def surrogatepass_errors(space, w_exc):
             ch = 0
         if ch == 0:
             raise OperationError(space.type(w_exc), w_exc)
-        ch_utf8 = runicode.unicode_encode_utf_8(unichr(ch), 1, 'strict',
-                                                allow_surrogates=True)
+        ch_utf8 = rutf8.unichr_as_utf8(ch, allow_surrogates=True)
         return space.newtuple([space.newtext(ch_utf8, 1),
                                space.newint(start + bytelength)])
     else:

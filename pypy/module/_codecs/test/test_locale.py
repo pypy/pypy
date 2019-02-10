@@ -57,8 +57,8 @@ class TestLocaleCodec(object):
         locale_decoder = str_decode_locale_surrogateescape
         utf8_decoder = self.getdecoder('utf-8')
         for val in 'foo', ' \xe6\x97\xa5\xe6\x9c\xac', '\xf0\x93\x88\x8c':
-            assert (locale_decoder(val).encode('utf8') ==
-                    utf8_decoder(val, 'strict', True, None)[0])
+            assert (locale_decoder(val) ==
+                    utf8_decoder(val, 'strict', True, None)[:2])
 
     def test_decode_locale_errorhandler(self):
         self.setlocale("en_US.UTF-8")
@@ -67,5 +67,5 @@ class TestLocaleCodec(object):
         decode_error_handler = self.getstate().decode_error_handler
         val = 'foo\xe3bar'
         expected = utf8_decoder(val, 'surrogateescape', True,
-                                decode_error_handler)[0]
-        assert locale_decoder(val).encode('utf8') == expected
+                                decode_error_handler)
+        assert locale_decoder(val) == expected[:2]

@@ -7,8 +7,6 @@ from rpython.rlib.rarithmetic import ovfcheck, r_uint
 from rpython.rlib.rstring import (
     StringBuilder, split, rsplit, UnicodeBuilder, replace_count, startswith,
     endswith)
-from rpython.rlib.runicode import (
-    unicode_encode_utf8_forbid_surrogates, SurrogateError)
 from rpython.rlib import rutf8, jit
 
 from pypy.interpreter import unicodehelper
@@ -1924,8 +1922,9 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
         result.append(chr(uchr))
     return result.build()
 
+from rpython.rlib.runicode import unicode_encode_utf8_forbid_surrogates
 @jit.elidable
-def g_encode_utf8(value):
+def XXX_g_encode_utf8(value):
     """This is a global function because of jit.conditional_call_value"""
     return unicode_encode_utf8_forbid_surrogates(value, len(value))
 
