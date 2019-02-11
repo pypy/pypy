@@ -3,17 +3,18 @@ Tests for the zlib module.
 """
 
 import sys
+import py
 try:
     import zlib
 except ImportError:
-    import py; py.test.skip("no zlib module on this host Python")
+    py.test.skip("no zlib module on this host Python")
 
 from pypy.interpreter.gateway import interp2app
 try:
     from pypy.module.zlib import interp_zlib
     from rpython.rlib import rzlib
 except ImportError:
-    import py; py.test.skip("no zlib C library on this machine")
+    py.test.skip("no zlib C library on this machine")
 
 def test_unsigned_to_signed_32bit():
     assert interp_zlib.unsigned_to_signed_32bit(123) == 123
@@ -344,6 +345,7 @@ class AppTestZlib(object):
 
         assert (d1 + from_copy) == (d1 + from_compressor)
 
+    @py.test.mark.skipif(rzlib.ZLIB_VERSION == '1.2.8', reason='does not error check')
     def test_cannot_copy_compressor_with_stream_in_inconsistent_state(self):
         if self.runappdirect: skip("can't run with -A")
         compressor = self.zlib.compressobj()
