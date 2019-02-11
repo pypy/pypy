@@ -1901,8 +1901,7 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     utf8 = space.utf8_w(w_unistr)
     lgt =  space.len_w(w_unistr) 
     result = StringBuilder(lgt)
-    itr = rutf8.Utf8StringIterator(utf8)
-    for uchr in itr:
+    for uchr in rutf8.Utf8StringIterator(utf8):
         if uchr > 127:
             if unicodedb.isspace(uchr):
                 result.append(' ')
@@ -1910,23 +1909,9 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
             try:
                 uchr = ord(u'0') + unicodedb.decimal(uchr)
             except KeyError:
-                w_encoding = space.newtext('decimal')
-                pos = itr.get_pos()
-                w_start = space.newint(pos)
-                w_end = space.newint(pos+1)
-                w_reason = space.newtext('invalid decimal Unicode string')
-                raise OperationError(space.w_UnicodeEncodeError,
-                                     space.newtuple([w_encoding, w_unistr,
-                                                     w_start, w_end,
-                                                     w_reason]))
-        result.append(chr(uchr))
+                pass
+        result.append(rutf8.unichr_as_utf8(r_uint(uchr), True))
     return result.build()
-
-from rpython.rlib.runicode import unicode_encode_utf8_forbid_surrogates
-@jit.elidable
-def XXX_g_encode_utf8(value):
-    """This is a global function because of jit.conditional_call_value"""
-    return unicode_encode_utf8_forbid_surrogates(value, len(value))
 
 _repr_function = rutf8.make_utf8_escape_function(
     pass_printable=True, quotes=True, prefix='')
