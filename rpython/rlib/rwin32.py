@@ -306,7 +306,7 @@ if WIN32:
         return result
 
     def llimpl_FormatErrorW(code):
-        "Return a unicode message corresponding to the given Windows error code."
+        "Return a utf8-encoded msg and its length"
         buf = lltype.malloc(rffi.CWCHARPP.TO, 1, flavor='raw')
         buf[0] = lltype.nullptr(rffi.CWCHARP.TO)
         try:
@@ -327,7 +327,8 @@ if WIN32:
                 buflen -= 1
 
             if buflen <= 0:
-                result = u'Windows Error %d' % (code,)
+                msg = 'Windows Error %d' % (code,)
+                result = msg, len(msg)
             else:
                 result = rffi.wcharpsize2utf8(s_buf, buflen), buflen
         finally:

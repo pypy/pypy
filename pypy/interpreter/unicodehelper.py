@@ -321,8 +321,8 @@ if _WIN32:
         from rpython.rlib import runicode
         res, size = runicode.str_decode_mbcs(s, slen, errors, final=final,
                            errorhandler=errorhandler, force_ignore=force_ignore)
-        res_utf8 = unicode_encode_utf_8(res, len(res), 'strict')
-        return res_utf8, len(res), len(res)
+        res_utf8 = runicode.unicode_encode_utf_8(res, size, 'strict')
+        return res_utf8, len(res), size
 
 def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
     """ Same as checking for the valid utf8, but we know the utf8 is not
