@@ -1901,16 +1901,30 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     utf8 = space.utf8_w(w_unistr)
     lgt =  space.len_w(w_unistr) 
     result = StringBuilder(lgt)
+    pos = 0
     for uchr in rutf8.Utf8StringIterator(utf8):
         if uchr > 127:
             if unicodedb.isspace(uchr):
                 result.append(' ')
+                pos += 1
                 continue
             try:
                 uchr = ord(u'0') + unicodedb.decimal(uchr)
             except KeyError:
                 pass
-        result.append(rutf8.unichr_as_utf8(r_uint(uchr), True))
+        try:
+            c = rutf8.unichr_as_utf8(r_uint(uchr))
+        except ValueError:
+            w_encoding = space.newtext('utf-8')
+            w_start = space.newint(pos)
+            w_end = space.newint(pos+1)
+            w_reason = space.newtext('surrogates not allowed')
+            raise OperationError(space.w_UnicodeEncodeError,
+                                 space.newtuple([w_encoding, w_unistr,
+                                                 w_start, w_end,
+                                                 w_reason]))            
+        result.append(c)
+        pos += 1
     return result.build()
 
 _repr_function = rutf8.make_utf8_escape_function(
