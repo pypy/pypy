@@ -1,9 +1,10 @@
 from weakref import WeakValueDictionary
 
 from rpython.annotator import model as annmodel
-from rpython.rlib import jit, types, objectmodel, rgc
+from rpython.rlib import jit, types, rgc
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    ll_hash_string, keepalive_until_here, specialize, enforceargs, dont_inline)
+    ll_hash_string, keepalive_until_here, specialize, enforceargs,
+    always_inline, dont_inline)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -61,6 +62,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
 
     @signature(types.any(), types.any(), types.int(), returns=types.any())
     @specialize.arg(0)
+    @always_inline
     def _get_raw_buf(TP, src, ofs):
         """
         WARNING: dragons ahead.
@@ -72,10 +74,10 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         assert typeOf(src).TO == TP
         assert ofs >= 0
         return llmemory.cast_ptr_to_adr(src) + _str_ofs(TP, ofs)
-    _get_raw_buf._always_inline_ = True
 
     @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
     @signature(types.any(), types.any(), types.int(), types.int(), types.int(), returns=types.none())
+    @always_inline
     def copy_string_contents(src, dst, srcstart, dststart, length):
         """Copies 'length' characters from the 'src' string to the 'dst'
         string, starting at position 'srcstart' and 'dststart'."""
@@ -108,11 +110,11 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # end of "no GC" section
         keepalive_until_here(src)
         keepalive_until_here(dst)
-    copy_string_contents._always_inline_ = True
     copy_string_contents = func_with_new_name(copy_string_contents,
                                               'copy_%s_contents' % name)
 
     @jit.oopspec('stroruni.copy_string_to_raw(src, ptrdst, srcstart, length)')
+    @always_inline
     def copy_string_to_raw(src, ptrdst, srcstart, length):
         """
         Copies 'length' characters from the 'src' string to the 'ptrdst'
@@ -138,12 +140,12 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(src)
-    copy_string_to_raw._always_inline_ = True
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
 
     @jit.dont_look_inside
     @signature(types.any(), types.any(), types.int(), types.int(),
                returns=types.none())
+    @always_inline
     def copy_raw_to_string(ptrsrc, dst, dststart, length):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
@@ -165,7 +167,6 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(dst)
-    copy_raw_to_string._always_inline_ = True
     copy_raw_to_string = func_with_new_name(copy_raw_to_string,
                                               'copy_raw_to_%s' % name)
 
@@ -794,10 +795,6 @@ class LLHelpers(AbstractLLHelpers):
     @staticmethod
     @jit.elidable
     def _search_elidable(s1, s2, start, end, mode):
-        return LLHelpers._search_look_inside(s1, s2, start, end, mode)
-
-    @staticmethod
-    def _search_look_inside(s1, s2, start, end, mode):
         if mode != FAST_RFIND:
             skip, mask = LLHelpers._precompute_skip_mask_forward(s2)
             return LLHelpers._str_search_forward(s1, s2, start, end, mode, skip, mask)
@@ -806,7 +803,21 @@ class LLHelpers(AbstractLLHelpers):
             return LLHelpers._str_search_backward(s1, s2, start, end, skip, mask)
 
     @staticmethod
+    def _search_look_inside(s1, s2, start, end, mode):
+        if mode != FAST_RFIND:
+            skip, mask = LLHelpers._precompute_skip_mask_forward_elidable(s2)
+            return LLHelpers._str_search_forward(s1, s2, start, end, mode, skip, mask)
+        else:
+            skip, mask = LLHelpers._precompute_skip_mask_backward_elidable(s2)
+            return LLHelpers._str_search_backward(s1, s2, start, end, skip, mask)
+
+    @staticmethod
     @jit.elidable
+    def _precompute_skip_mask_forward_elidable(s2):
+        return LLHelpers._precompute_skip_mask_forward(s2)
+
+    @staticmethod
+    @always_inline
     def _precompute_skip_mask_forward(s2):
         mlast = len(s2.chars) - 1
         skip = mlast - 1
@@ -821,6 +832,11 @@ class LLHelpers(AbstractLLHelpers):
 
     @staticmethod
     @jit.elidable
+    def _precompute_skip_mask_backward_elidable(s2):
+        return LLHelpers._precompute_skip_mask_backward(s2)
+
+    @staticmethod
+    @always_inline
     def _precompute_skip_mask_backward(s2):
         mlast = len(s2.chars) - 1
         skip = mlast - 1
