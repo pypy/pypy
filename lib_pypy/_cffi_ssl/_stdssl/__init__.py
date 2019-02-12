@@ -443,10 +443,9 @@ class _SSLSocket(object):
         sock = self.get_socket_or_connection_gone()
 
         if buffer_into is None:
-            dest = ffi.new("char[]", length)
+            mem = ffi.new("char[]", length)
             if length == 0:
                 return b""
-            mem = dest
         else:
             mem = ffi.from_buffer(buffer_into)
             if length <= 0 or length > len(buffer_into):
@@ -500,7 +499,7 @@ class _SSLSocket(object):
             raise pyssl_error(self, count)
 
         if not buffer_into:
-            return _bytes_with_len(dest, count)
+            return _bytes_with_len(mem, count)
 
         return count
 
