@@ -28,3 +28,8 @@ an int.
 .. branch: regalloc-playground
 
 Improve register allocation in the JIT.
+
+
+.. branch: promote-unicode
+
+Implement rlib.jit.promote_unicode to complement promote_string
