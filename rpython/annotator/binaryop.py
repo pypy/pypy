@@ -11,13 +11,13 @@ from rpython.annotator.model import (
     SomeBuiltinMethod, SomeIterator, SomePBC, SomeNone, SomeFloat, s_None,
     SomeByteArray, SomeWeakRef, SomeSingleFloat,
     SomeLongFloat, SomeType, SomeTypeOf, SomeConstantType, unionof, UnionError,
-    read_can_only_throw, add_knowntypedata,
+    union, read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
 from rpython.annotator.bookkeeper import immutablevalue, getbookkeeper
 from rpython.flowspace.model import Variable, Constant, const
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
-from rpython.annotator.model import AnnotatorError
+from rpython.annotator.model import AnnotatorError, TLS
 
 BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 2])
@@ -381,15 +381,13 @@ class __extend__(pairtype(SomeChar, SomeChar)):
 class __extend__(pairtype(SomeChar, SomeUnicodeCodePoint),
                  pairtype(SomeUnicodeCodePoint, SomeChar)):
     def union((uchr1, uchr2)):
-        return SomeUnicodeCodePoint()
+        no_nul = uchr1.no_nul and uchr2.no_nul
+        return SomeUnicodeCodePoint(no_nul=no_nul)
 
 class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
     def union((uchr1, uchr2)):
         no_nul = uchr1.no_nul and uchr2.no_nul
         return SomeUnicodeCodePoint(no_nul=no_nul)
-
-    def add((chr1, chr2)):
-        return SomeUnicodeString()
 
 class __extend__(pairtype(SomeString, SomeUnicodeString),
                  pairtype(SomeUnicodeString, SomeString)):
@@ -401,6 +399,9 @@ class __extend__(pairtype(SomeString, SomeUnicodeString),
 class __extend__(pairtype(SomeString, SomeTuple),
                  pairtype(SomeUnicodeString, SomeTuple)):
     def mod((s_string, s_tuple)):
+        if not s_string.is_constant():
+            raise AnnotatorError("string formatting requires a constant "
+                                 "string/unicode on the left of '%'")
         is_string = isinstance(s_string, SomeString)
         is_unicode = isinstance(s_string, SomeUnicodeString)
         assert is_string or is_unicode
@@ -433,6 +434,11 @@ class __extend__(pairtype(SomeString, SomeObject),
 class __extend__(pairtype(SomeFloat, SomeFloat)):
 
     def union((flt1, flt2)):
+        if not TLS.allow_int_to_float:
+            # in this mode, if one of the two is actually the
+            # subclass SomeInteger, complain
+            if isinstance(flt1, SomeInteger) or isinstance(flt2, SomeInteger):
+                raise UnionError(flt1, flt2)
         return SomeFloat()
 
     add = sub = mul = union
@@ -506,13 +512,13 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
     ne = eq
 
     def lt((tup1, tup2)):
-        raise Exception("unsupported: (...) < (...)")
+        raise AnnotatorError("unsupported: (...) < (...)")
     def le((tup1, tup2)):
-        raise Exception("unsupported: (...) <= (...)")
+        raise AnnotatorError("unsupported: (...) <= (...)")
     def gt((tup1, tup2)):
-        raise Exception("unsupported: (...) > (...)")
+        raise AnnotatorError("unsupported: (...) > (...)")
     def ge((tup1, tup2)):
-        raise Exception("unsupported: (...) >= (...)")
+        raise AnnotatorError("unsupported: (...) >= (...)")
 
 
 class __extend__(pairtype(SomeDict, SomeDict)):
@@ -521,6 +527,8 @@ class __extend__(pairtype(SomeDict, SomeDict)):
         assert dic1.__class__ == dic2.__class__
         return dic1.__class__(dic1.dictdef.union(dic2.dictdef))
 
+    def ne((dic1, dic2)):
+        raise AnnotatorError("dict != dict not implemented")
 
 def _dict_can_only_throw_keyerror(s_dct, *ignore):
     if s_dct.dictdef.dictkey.custom_eq_hash:
@@ -695,13 +703,13 @@ class __extend__(
         pairtype(SomeException, SomeInstance),
         pairtype(SomeException, SomeNone)):
     def union((s_exc, s_inst)):
-        return unionof(s_exc.as_SomeInstance(), s_inst)
+        return union(s_exc.as_SomeInstance(), s_inst)
 
 class __extend__(
         pairtype(SomeInstance, SomeException),
         pairtype(SomeNone, SomeException)):
     def union((s_inst, s_exc)):
-        return unionof(s_exc.as_SomeInstance(), s_inst)
+        return union(s_exc.as_SomeInstance(), s_inst)
 
 class __extend__(pairtype(SomeException, SomeException)):
     def union((s_exc1, s_exc2)):
@@ -719,6 +727,10 @@ def setitem_SomeInstance(annotator, v_ins, v_idx, v_value):
     return [get_setitem,
             op.simple_call(get_setitem.result, v_idx, v_value)]
 
+@op.contains.register_transform(SomeInstance)
+def contains_SomeInstance(annotator, v_ins, v_idx):
+    get_contains = op.getattr(v_ins, const('__contains__'))
+    return [get_contains, op.simple_call(get_contains.result, v_idx)]
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 

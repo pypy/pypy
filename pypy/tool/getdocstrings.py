@@ -1,7 +1,7 @@
 import re
 from os import listdir
 from sys import stdin, stdout, stderr
-from pypy.conftest import pypydir
+from pypy import pypydir
 
 where = pypydir + '/objspace/std/'
 quote = '(' + "'" + '|' + '"' + ')'
@@ -29,7 +29,7 @@ def compile_doc():
 
 def compile_typedef(typ):
     return re.compile(r"(?P<whitespace>\s+)"
-                      + r"(?P<typeassign>" + typ 
+                      + r"(?P<typeassign>" + typ
                       + "_typedef = StdTypeDef+\s*\(\s*"
                       + quote + typ +  quote + ",).*"
                       + r"(?P<indent>^\s+)"
@@ -38,7 +38,7 @@ def compile_typedef(typ):
 
 def get_pypydoc(sourcefile):
     doc = compile_doc()
-    
+
     try: # if this works we already have a docstring
         pypydoc = doc.search(sourcefile).group('docstring')
 
@@ -86,14 +86,10 @@ def add_docstring(typ, sourcefile):
 if __name__ == '__main__':
 
     filenames = mk_std_filelist()
-    
+
     for f in filenames:
         inf = file(where + f).read()
         outs = add_docstring(f[:-7], inf)
         if outs is not None:
             outf = file(where + f, 'w')
             outf.write(outs)
-        
-
-                
-            

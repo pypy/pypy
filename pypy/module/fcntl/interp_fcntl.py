@@ -1,6 +1,6 @@
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError, wrap_oserror, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -101,7 +101,7 @@ def fcntl(space, w_fd, op, w_arg):
 
     try:
         arg = space.getarg_w('s#', w_arg)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
@@ -111,7 +111,7 @@ def fcntl(space, w_fd, op, w_arg):
             if rv < 0:
                 raise _get_error(space, "fcntl")
             arg = rffi.charpsize2str(ll_arg, len(arg))
-            return space.wrap(arg)
+            return space.newbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 
@@ -120,7 +120,7 @@ def fcntl(space, w_fd, op, w_arg):
     rv = fcntl_int(fd, op, intarg)
     if rv < 0:
         raise _get_error(space, "fcntl")
-    return space.wrap(rv)
+    return space.newint(rv)
 
 @unwrap_spec(op=int)
 def flock(space, w_fd, op):
@@ -174,8 +174,7 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
     elif op & LOCK_EX:
         l_type = F_WRLCK
     else:
-        raise OperationError(space.w_ValueError,
-            space.wrap("unrecognized lock operation"))
+        raise oefmt(space.w_ValueError, "unrecognized lock operation")
 
     op = [F_SETLKW, F_SETLK][int(bool(op & LOCK_NB))]
     op = rffi.cast(rffi.INT, op)        # C long => C int
@@ -205,48 +204,57 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
 
     # XXX this function's interface is a mess.
     # We try to emulate the behavior of Python >= 2.5 w.r.t. mutate_flag
+    IOCTL_BUFSZ = 1024 # like cpython
 
     fd = space.c_filedescriptor_w(w_fd)
     op = rffi.cast(rffi.INT, op)        # C long => C int
 
     try:
         rwbuffer = space.writebuf_w(w_arg)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
         arg = rwbuffer.as_str()
         ll_arg = rffi.str2charp(arg)
+        to_alloc = max(IOCTL_BUFSZ, len(arg))
         try:
-            rv = ioctl_str(fd, op, ll_arg)
-            if rv < 0:
-                raise _get_error(space, "ioctl")
-            arg = rffi.charpsize2str(ll_arg, len(arg))
-            if mutate_flag != 0:
-                rwbuffer.setslice(0, arg)
-                return space.wrap(rv)
-            return space.wrap(arg)
+            with rffi.scoped_alloc_buffer(to_alloc) as buf:
+                rffi.c_memcpy(rffi.cast(rffi.VOIDP, buf.raw),
+                              rffi.cast(rffi.VOIDP, ll_arg), len(arg))
+                rv = ioctl_str(fd, op, buf.raw)
+                if rv < 0:
+                    raise _get_error(space, "ioctl")
+                arg = rffi.charpsize2str(buf.raw, len(arg))
+                if mutate_flag != 0:
+                    rwbuffer.setslice(0, arg)
+                    return space.newint(rv)
+                return space.newbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 
     if mutate_flag != -1:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "ioctl requires a file or file descriptor, an integer "
-            "and optionally an integer or buffer argument"))
+        raise oefmt(space.w_TypeError,
+                    "ioctl requires a file or file descriptor, an integer and "
+                    "optionally an integer or buffer argument")
 
     try:
         arg = space.getarg_w('s#', w_arg)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
         ll_arg = rffi.str2charp(arg)
+        to_alloc = max(IOCTL_BUFSZ, len(arg))
         try:
-            rv = ioctl_str(fd, op, ll_arg)
-            if rv < 0:
-                raise _get_error(space, "ioctl")
-            arg = rffi.charpsize2str(ll_arg, len(arg))
-            return space.wrap(arg)
+            with rffi.scoped_alloc_buffer(to_alloc) as buf:
+                rffi.c_memcpy(rffi.cast(rffi.VOIDP, buf.raw),
+                              rffi.cast(rffi.VOIDP, ll_arg), len(arg))
+                rv = ioctl_str(fd, op, buf.raw)
+                if rv < 0:
+                    raise _get_error(space, "ioctl")
+                arg = rffi.charpsize2str(buf.raw, len(arg))
+            return space.newbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 
@@ -255,4 +263,4 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     rv = ioctl_int(fd, op, intarg)
     if rv < 0:
         raise _get_error(space, "ioctl")
-    return space.wrap(rv)
+    return space.newint(rv)

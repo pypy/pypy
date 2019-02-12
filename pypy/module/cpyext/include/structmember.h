@@ -19,22 +19,6 @@ extern "C" {
 #define offsetof(type, member) ( (int) & ((type*)0) -> member )
 #endif
 
-/* An array of memberlist structures defines the name, type and offset
-   of selected members of a C structure.  These can be read by
-   PyMember_Get() and set by PyMember_Set() (except if their READONLY flag
-   is set).  The array must be terminated with an entry whose name
-   pointer is NULL. */
-
-
-
-typedef struct PyMemberDef {
-    /* Current version, use this */
-    char *name;
-    int type;
-    Py_ssize_t offset;
-    int flags;
-    char *doc;
-} PyMemberDef;
 
 /* Types */
 #define T_SHORT         0
@@ -78,7 +62,11 @@ typedef struct PyMemberDef {
 
 
 /* API functions. */
+/* Don't include them while building PyPy, RPython also generated signatures
+ * which are similar but not identical. */
+#ifndef PYPY_STANDALONE
 #include "pypy_structmember_decl.h"
+#endif
 
 
 #ifdef __cplusplus

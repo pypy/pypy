@@ -389,6 +389,7 @@ class AppTestAFewExtra:
 
     def test_writelines(self):
         import array
+        import sys
         fn = self.temptestfile
         with file(fn, 'w') as f:
             f.writelines(['abc'])
@@ -406,7 +407,10 @@ class AppTestAFewExtra:
             exc = raises(TypeError, f.writelines, [memoryview('jkl')])
             assert str(exc.value) == "writelines() argument must be a sequence of strings"
         out = open(fn, 'rb').readlines()[0]
-        assert out[0:5] == 'abcd\x00'
+        if sys.byteorder == 'big':
+            assert out[0:7] == 'abc\x00\x00\x00d'
+        else:
+            assert out[0:5] == 'abcd\x00'
         assert out[-3:] == 'ghi'
 
         with file(fn, 'wb') as f:
@@ -663,3 +667,20 @@ class AppTestAFewExtra:
         f2.close()
         s2.close()
         s1.close()
+
+    def test_close_fd_if_dir_check_fails(self):
+        from errno import EMFILE
+        for i in range(1700):
+            try:
+                open('/')
+            except IOError as e:
+                assert e.errno != EMFILE
+            else:
+                assert False
+
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_dont_close_fd_if_dir_check_fails_in_fdopen(self):
+        import posix
+        fd = posix.open('/', posix.O_RDONLY)
+        raises(IOError, posix.fdopen, fd)
+        posix.close(fd)

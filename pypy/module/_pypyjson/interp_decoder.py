@@ -1,9 +1,9 @@
 import sys
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, always_inline, r_dict
 from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter import unicodehelper
 
 OVF_DIGITS = len(str(sys.maxint))
@@ -42,6 +42,22 @@ def strslice2unicode_latin1(s, start, end):
         ll_res.chars[i] = cast_primitive(UniChar, ch)
     return hlunicode(ll_res)
 
+def slice_eq(a, b):
+    (ll_chars1, start1, length1, _) = a
+    (ll_chars2, start2, length2, _) = b
+    if length1 != length2:
+        return False
+    j = start2
+    for i in range(start1, start1 + length1):
+        if ll_chars1[i] != ll_chars2[j]:
+            return False
+        j += 1
+    return True
+
+def slice_hash(a):
+    (ll_chars, start, length, h) = a
+    return h
+
 TYPE_UNKNOWN = 0
 TYPE_STRING = 1
 class JSONDecoder(object):
@@ -55,7 +71,7 @@ class JSONDecoder(object):
         self.ll_chars = rffi.str2charp(s)
         self.end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         self.pos = 0
-        self.last_type = TYPE_UNKNOWN
+        self.cache = r_dict(slice_eq, slice_hash, simple_hash_eq=True)
 
     def close(self):
         rffi.free_charp(self.ll_chars)
@@ -106,7 +122,7 @@ class JSONDecoder(object):
             return self.decode_numeric(i)
         else:
             self._raise("No JSON object could be decoded: unexpected '%s' at char %d",
-                        ch, self.pos)
+                        ch, i)
 
     def decode_null(self, i):
         if (self.ll_chars[i]   == 'u' and
@@ -142,14 +158,14 @@ class JSONDecoder(object):
             self.ll_chars[i+5] == 't' and
             self.ll_chars[i+6] == 'y'):
             self.pos = i+7
-            return self.space.wrap(rfloat.INFINITY * sign)
+            return self.space.newfloat(rfloat.INFINITY * sign)
         self._raise("Error when decoding Infinity at char %d", i)
 
     def decode_nan(self, i):
         if (self.ll_chars[i]   == 'a' and
             self.ll_chars[i+1] == 'N'):
             self.pos = i+2
-            return self.space.wrap(rfloat.NAN)
+            return self.space.newfloat(rfloat.NAN)
         self._raise("Error when decoding NaN at char %d", i)
 
     def decode_numeric(self, i):
@@ -168,7 +184,7 @@ class JSONDecoder(object):
             return self.decode_int_slow(start)
 
         self.pos = i
-        return self.space.wrap(intval)
+        return self.space.newint(intval)
 
     def decode_float(self, i):
         from rpython.rlib import rdtoa
@@ -176,7 +192,7 @@ class JSONDecoder(object):
         floatval = rdtoa.dg_strtod(start, self.end_ptr)
         diff = rffi.cast(rffi.LONG, self.end_ptr[0]) - rffi.cast(rffi.LONG, start)
         self.pos = i + diff
-        return self.space.wrap(floatval)
+        return self.space.newfloat(floatval)
 
     def decode_int_slow(self, i):
         start = i
@@ -186,8 +202,9 @@ class JSONDecoder(object):
             i += 1
         s = self.getslice(start, i)
         self.pos = i
-        return self.space.call_function(self.space.w_int, self.space.wrap(s))
+        return self.space.call_function(self.space.w_int, self.space.newtext(s))
 
+    @always_inline
     def parse_integer(self, i):
         "Parse a decimal number with an optional minus sign"
         sign = 1
@@ -218,7 +235,6 @@ class JSONDecoder(object):
         # overflowed
         ovf_maybe = (count >= OVF_DIGITS)
         return i, ovf_maybe, sign * intval
-    parse_integer._always_inline_ = True
 
     def decode_array(self, i):
         w_list = self.space.newlist([])
@@ -244,23 +260,20 @@ class JSONDecoder(object):
                 self._raise("Unterminated array starting at char %d", start)
             else:
                 self._raise("Unexpected '%s' when decoding array (char %d)",
-                            ch, self.pos)
+                            ch, i-1)
 
     def decode_object(self, i):
         start = i
-        w_dict = self.space.newdict()
-        #
+
         i = self.skip_whitespace(i)
         if self.ll_chars[i] == '}':
             self.pos = i+1
-            return w_dict
-        #
+            return self.space.newdict()
+
+        d = {}
         while True:
             # parse a key: value
-            self.last_type = TYPE_UNKNOWN
-            w_name = self.decode_any(i)
-            if self.last_type != TYPE_STRING:
-                self._raise("Key name must be string for object starting at char %d", start)
+            name = self.decode_key(i)
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':
@@ -269,21 +282,24 @@ class JSONDecoder(object):
             i = self.skip_whitespace(i)
             #
             w_value = self.decode_any(i)
-            self.space.setitem(w_dict, w_name, w_value)
+            d[name] = w_value
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             i += 1
             if ch == '}':
                 self.pos = i
-                return w_dict
+                return self._create_dict(d)
             elif ch == ',':
                 pass
             elif ch == '\0':
                 self._raise("Unterminated object starting at char %d", start)
             else:
                 self._raise("Unexpected '%s' when decoding object (char %d)",
-                            ch, self.pos)
+                            ch, i-1)
 
+    def _create_dict(self, d):
+        from pypy.objspace.std.dictmultiobject import from_unicode_key_dict
+        return from_unicode_key_dict(self.space, d)
 
     def decode_string(self, i):
         start = i
@@ -295,62 +311,65 @@ class JSONDecoder(object):
             i += 1
             bits |= ord(ch)
             if ch == '"':
-                if bits & 0x80:
-                    # the 8th bit is set, it's an utf8 strnig
-                    content_utf8 = self.getslice(start, i-1)
-                    content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
-                else:
-                    # ascii only, fast path (ascii is a strict subset of
-                    # latin1, and we already checked that all the chars are <
-                    # 128)
-                    content_unicode = strslice2unicode_latin1(self.s, start, i-1)
-                self.last_type = TYPE_STRING
                 self.pos = i
-                return self.space.wrap(content_unicode)
-            elif ch == '\\':
-                content_so_far = self.getslice(start, i-1)
+                return self.space.newunicode(
+                        self._create_string(start, i - 1, bits))
+            elif ch == '\\' or ch < '\x20':
                 self.pos = i-1
-                return self.decode_string_escaped(start, content_so_far)
-            elif ch < '\x20':
-                self._raise("Invalid control character at char %d", self.pos-1)
+                return self.decode_string_escaped(start)
 
+    def _create_string(self, start, end, bits):
+        if bits & 0x80:
+            # the 8th bit is set, it's an utf8 string
+            content_utf8 = self.getslice(start, end)
+            return unicodehelper.decode_utf8(self.space, content_utf8)
+        else:
+            # ascii only, fast path (ascii is a strict subset of
+            # latin1, and we already checked that all the chars are <
+            # 128)
+            return strslice2unicode_latin1(self.s, start, end)
 
-    def decode_string_escaped(self, start, content_so_far):
-        builder = StringBuilder(len(content_so_far)*2) # just an estimate
-        builder.append(content_so_far)
+    def decode_string_escaped(self, start):
         i = self.pos
+        builder = StringBuilder((i - start) * 2) # just an estimate
+        assert start >= 0
+        assert i >= 0
+        builder.append_slice(self.s, start, i)
         while True:
             ch = self.ll_chars[i]
             i += 1
             if ch == '"':
                 content_utf8 = builder.build()
                 content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
-                self.last_type = TYPE_STRING
                 self.pos = i
-                return self.space.wrap(content_unicode)
+                return self.space.newunicode(content_unicode)
             elif ch == '\\':
                 i = self.decode_escape_sequence(i, builder)
-            elif ch == '\0':
-                self._raise("Unterminated string starting at char %d", start)
+            elif ch < '\x20':
+                if ch == '\0':
+                    self._raise("Unterminated string starting at char %d",
+                                start - 1)
+                else:
+                    self._raise("Invalid control character at char %d", i-1)
             else:
-                builder.append_multiple_char(ch, 1) # we should implement append_char
+                builder.append(ch)
 
     def decode_escape_sequence(self, i, builder):
         ch = self.ll_chars[i]
         i += 1
-        put = builder.append_multiple_char
-        if ch == '\\':  put('\\', 1)
-        elif ch == '"': put('"' , 1)
-        elif ch == '/': put('/' , 1)
-        elif ch == 'b': put('\b', 1)
-        elif ch == 'f': put('\f', 1)
-        elif ch == 'n': put('\n', 1)
-        elif ch == 'r': put('\r', 1)
-        elif ch == 't': put('\t', 1)
+        put = builder.append
+        if ch == '\\':  put('\\')
+        elif ch == '"': put('"' )
+        elif ch == '/': put('/' )
+        elif ch == 'b': put('\b')
+        elif ch == 'f': put('\f')
+        elif ch == 'n': put('\n')
+        elif ch == 'r': put('\r')
+        elif ch == 't': put('\t')
         elif ch == 'u':
             return self.decode_escape_sequence_unicode(i, builder)
         else:
-            self._raise("Invalid \\escape: %s (char %d)", ch, self.pos-1)
+            self._raise("Invalid \\escape: %s (char %d)", ch, i-1)
         return i
 
     def decode_escape_sequence_unicode(self, i, builder):
@@ -360,10 +379,11 @@ class JSONDecoder(object):
         hexdigits = self.getslice(start, i)
         try:
             val = int(hexdigits, 16)
-            if val & 0xfc00 == 0xd800:
+            if sys.maxunicode > 65535 and 0xd800 <= val <= 0xdfff:
                 # surrogate pair
-                val = self.decode_surrogate_pair(i, val)
-                i += 6
+                if self.ll_chars[i] == '\\' and self.ll_chars[i+1] == 'u':
+                    val = self.decode_surrogate_pair(i, val)
+                    i += 6
         except ValueError:
             self._raise("Invalid \uXXXX escape (char %d)", i-1)
             return # help the annotator to know that we'll never go beyond
@@ -375,18 +395,61 @@ class JSONDecoder(object):
         return i
 
     def decode_surrogate_pair(self, i, highsurr):
-        if self.ll_chars[i] != '\\' or self.ll_chars[i+1] != 'u':
-            self._raise("Unpaired high surrogate at char %d", i)
+        """ uppon enter the following must hold:
+              chars[i] == "\\" and chars[i+1] == "u"
+        """
         i += 2
         hexdigits = self.getslice(i, i+4)
         lowsurr = int(hexdigits, 16) # the possible ValueError is caugth by the caller
         return 0x10000 + (((highsurr - 0xd800) << 10) | (lowsurr - 0xdc00))
 
+    def decode_key(self, i):
+        """ returns an unwrapped unicode """
+        from rpython.rlib.rarithmetic import intmask
+
+        i = self.skip_whitespace(i)
+        ll_chars = self.ll_chars
+        ch = ll_chars[i]
+        if ch != '"':
+            self._raise("Key name must be string at char %d", i)
+        i += 1
+
+        start = i
+        bits = 0
+        strhash = ord(ll_chars[i]) << 7
+        while True:
+            ch = ll_chars[i]
+            i += 1
+            if ch == '"':
+                break
+            elif ch == '\\' or ch < '\x20':
+                self.pos = i-1
+                return self.space.unicode_w(self.decode_string_escaped(start))
+            strhash = intmask((1000003 * strhash) ^ ord(ll_chars[i]))
+            bits |= ord(ch)
+        length = i - start - 1
+        if length == 0:
+            strhash = -1
+        else:
+            strhash ^= length
+            strhash = intmask(strhash)
+        self.pos = i
+        # check cache first:
+        key = (ll_chars, start, length, strhash)
+        try:
+            return self.cache[key]
+        except KeyError:
+            pass
+        res = self._create_string(start, i - 1, bits)
+        self.cache[key] = res
+        return res
+
+
 def loads(space, w_s):
     if space.isinstance_w(w_s, space.w_unicode):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("Expected utf8-encoded str, got unicode"))
-    s = space.str_w(w_s)
+        raise oefmt(space.w_TypeError,
+                    "Expected utf8-encoded str, got unicode")
+    s = space.bytes_w(w_s)
     decoder = JSONDecoder(space, s)
     try:
         w_res = decoder.decode_any(0)

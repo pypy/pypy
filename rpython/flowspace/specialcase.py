@@ -77,6 +77,7 @@ def rpython_print_item(s):
     for c in s:
         buf.append(c)
     buf.append(' ')
+rpython_print_item._annenforceargs_ = (str,)
 
 def rpython_print_newline():
     buf = stdoutbuffer.linebuf

@@ -1,7 +1,7 @@
 from rpython.tool.uid import uid
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.mixedmodule import MixedModule
 
 
@@ -54,7 +54,7 @@ class Cell(W_Root):
                                space.newtuple(tup)])
 
     def descr__setstate__(self, space, w_state):
-        self.w_value = space.getitem(w_state, space.wrap(0))
+        self.w_value = space.getitem(w_state, space.newint(0))
 
     def __repr__(self):
         """ representation for debugging purposes """
@@ -72,10 +72,10 @@ class Cell(W_Root):
             content = "%s object at 0x%s" % (space.type(self.w_value).name,
                                              self.w_value.getaddrstring(space))
         s = "<cell at 0x%s: %s>" % (self.getaddrstring(space), content)
-        return space.wrap(s)
+        return space.newtext(s)
 
     def descr__cell_contents(self, space):
         try:
             return self.get()
         except ValueError:
-            raise OperationError(space.w_ValueError, space.wrap("Cell is empty"))
+            raise oefmt(space.w_ValueError, "Cell is empty")

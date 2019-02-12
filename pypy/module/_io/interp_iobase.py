@@ -23,36 +23,30 @@ def trap_eintr(space, error):
         return False
     try:
         w_value = error.get_w_value(space)
-        w_errno = space.getattr(w_value, space.wrap("errno"))
-        return space.eq_w(w_errno, space.wrap(EINTR))
+        w_errno = space.getattr(w_value, space.newtext("errno"))
+        return space.eq_w(w_errno, space.newint(EINTR))
     except OperationError:
         return False
 
 def unsupported(space, message):
     w_exc = space.getattr(space.getbuiltinmodule('_io'),
-                          space.wrap('UnsupportedOperation'))
-    return OperationError(w_exc, space.wrap(message))
+                          space.newtext('UnsupportedOperation'))
+    return OperationError(w_exc, space.newtext(message))
 
 # May be called with any object
 def check_readable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'readable')):
-        raise OperationError(
-            space.w_IOError,
-            space.wrap("file or stream is not readable"))
+        raise oefmt(space.w_IOError, "file or stream is not readable")
 
 # May be called with any object
 def check_writable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'writable')):
-        raise OperationError(
-            space.w_IOError,
-            space.wrap("file or stream is not writable"))
+        raise oefmt(space.w_IOError, "file or stream is not writable")
 
 # May be called with any object
 def check_seekable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'seekable')):
-        raise OperationError(
-            space.w_IOError,
-            space.wrap("file or stream is not seekable"))
+        raise oefmt(space.w_IOError, "file or stream is not seekable")
 
 
 class W_IOBase(W_Root):
@@ -65,6 +59,8 @@ class W_IOBase(W_Root):
         self.__IOBase_closed = False
         if add_to_autoflusher:
             get_autoflusher(space).add(self)
+        if self.needs_to_finalize:
+            self.register_finalizer(space)
 
     def getdict(self, space):
         return self.w_dict
@@ -72,20 +68,14 @@ class W_IOBase(W_Root):
     def _closed(self, space):
         # This gets the derived attribute, which is *not* __IOBase_closed
         # in most cases!
-        w_closed = space.findattr(self, space.wrap('closed'))
+        w_closed = space.findattr(self, space.newtext('closed'))
         if w_closed is not None and space.is_true(w_closed):
             return True
         return False
 
-    def __del__(self):
-        self.clear_all_weakrefs()
-        self.enqueue_for_destruction(self.space, W_IOBase.destructor,
-                                     'internal __del__ of ')
-
-    def destructor(self):
-        assert isinstance(self, W_IOBase)
+    def _finalize_(self):
         space = self.space
-        w_closed = space.findattr(self, space.wrap('closed'))
+        w_closed = space.findattr(self, space.newtext('closed'))
         try:
             # If `closed` doesn't exist or can't be evaluated as bool, then
             # the object is probably in an unusable state, so ignore.
@@ -96,6 +86,7 @@ class W_IOBase(W_Root):
             # equally as bad, and potentially more frequent (because of
             # shutdown issues).
             pass
+    needs_to_finalize = True
 
     def _CLOSED(self):
         # Use this macro whenever you want to check the internal `closed`
@@ -111,7 +102,7 @@ class W_IOBase(W_Root):
             message = "I/O operation on closed file"
         if self._closed(space):
             raise OperationError(
-                space.w_ValueError, space.wrap(message))
+                space.w_ValueError, space.newtext(message))
 
     def check_closed_w(self, space):
         self._check_closed(space)
@@ -129,15 +120,13 @@ class W_IOBase(W_Root):
 
     def flush_w(self, space):
         if self._CLOSED():
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("I/O operation on closed file"))
+            raise oefmt(space.w_ValueError, "I/O operation on closed file")
 
     def seek_w(self, space, w_offset, w_whence=None):
         self._unsupportedoperation(space, "seek")
 
     def tell_w(self, space):
-        return space.call_method(self, "seek", space.wrap(0), space.wrap(1))
+        return space.call_method(self, "seek", space.newint(0), space.newint(1))
 
     def truncate_w(self, space, w_size=None):
         self._unsupportedoperation(space, "truncate")
@@ -147,14 +136,14 @@ class W_IOBase(W_Root):
 
     def enter_w(self, space):
         self._check_closed(space)
-        return space.wrap(self)
+        return self
 
     def exit_w(self, space, __args__):
         space.call_method(self, "close")
 
     def iter_w(self, space):
         self._check_closed(space)
-        return space.wrap(self)
+        return self
 
     def next_w(self, space):
         w_line = space.call_method(self, "readline")
@@ -181,7 +170,7 @@ class W_IOBase(W_Root):
         # For backwards compatibility, a (slowish) readline().
         limit = convert_size(space, w_limit)
 
-        has_peek = space.findattr(self, space.wrap("peek"))
+        has_peek = space.findattr(self, space.newtext("peek"))
 
         builder = StringBuilder()
         size = 0
@@ -191,19 +180,19 @@ class W_IOBase(W_Root):
 
             if has_peek:
                 try:
-                    w_readahead = space.call_method(self, "peek", space.wrap(1))
-                except OperationError, e:
+                    w_readahead = space.call_method(self, "peek", space.newint(1))
+                except OperationError as e:
                     if trap_eintr(space, e):
                         continue
                     raise
-                if not space.isinstance_w(w_readahead, space.w_str):
+                if not space.isinstance_w(w_readahead, space.w_bytes):
                     raise oefmt(space.w_IOError,
                                 "peek() should have returned a bytes object, "
                                 "not '%T'", w_readahead)
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
-                    buf = space.str_w(w_readahead)
+                    buf = space.bytes_w(w_readahead)
                     if limit >= 0:
                         while True:
                             if n >= length or n >= limit:
@@ -221,16 +210,16 @@ class W_IOBase(W_Root):
                     nreadahead = n
 
             try:
-                w_read = space.call_method(self, "read", space.wrap(nreadahead))
-            except OperationError, e:
+                w_read = space.call_method(self, "read", space.newint(nreadahead))
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue
                 raise
-            if not space.isinstance_w(w_read, space.w_str):
+            if not space.isinstance_w(w_read, space.w_bytes):
                 raise oefmt(space.w_IOError,
                             "peek() should have returned a bytes object, not "
                             "'%T'", w_read)
-            read = space.str_w(w_read)
+            read = space.bytes_w(w_read)
             if not read:
                 break
 
@@ -240,7 +229,7 @@ class W_IOBase(W_Root):
             if read[-1] == '\n':
                 break
 
-        return space.wrap(builder.build())
+        return space.newbytes(builder.build())
 
     def readlines_w(self, space, w_hint=None):
         hint = convert_size(space, w_hint)
@@ -272,14 +261,14 @@ class W_IOBase(W_Root):
         while True:
             try:
                 w_line = space.next(w_iterator)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
             while True:
                 try:
                     space.call_method(self, "write", w_line)
-                except OperationError, e:
+                except OperationError as e:
                     if trap_eintr(space, e):
                         continue
                     raise
@@ -338,8 +327,8 @@ class W_RawIOBase(W_IOBase):
         while True:
             try:
                 w_data = space.call_method(self, "read",
-                                           space.wrap(DEFAULT_BUFFER_SIZE))
-            except OperationError, e:
+                                           space.newint(DEFAULT_BUFFER_SIZE))
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue
                 raise
@@ -348,14 +337,13 @@ class W_RawIOBase(W_IOBase):
                     return w_data
                 break
 
-            if not space.isinstance_w(w_data, space.w_str):
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "read() should return bytes"))
-            data = space.str_w(w_data)
+            if not space.isinstance_w(w_data, space.w_bytes):
+                raise oefmt(space.w_TypeError, "read() should return bytes")
+            data = space.bytes_w(w_data)
             if not data:
                 break
             builder.append(data)
-        return space.wrap(builder.build())
+        return space.newbytes(builder.build())
 
 W_RawIOBase.typedef = TypeDef(
     '_io._RawIOBase', W_IOBase.typedef,

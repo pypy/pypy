@@ -388,6 +388,7 @@ class TestCall(BaseTestPyPyC):
             setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keywords_w .*>)
             setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keywords .*>)
             setfield_gc(p22, 1, descr=<FieldU pypy.interpreter.argument.Arguments.inst__jit_few_keywords .*>)
+            setfield_gc(p22, 0, descr=<FieldU pypy.interpreter.argument.Arguments.inst_methodcall .*>)
             setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keyword_names_w .*>)
             setfield_gc(p26, ConstPtr(ptr22), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
             setfield_gc(p26, ConstPtr(null), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_lstorage .*>)

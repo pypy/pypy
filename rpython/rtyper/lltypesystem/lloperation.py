@@ -8,7 +8,8 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(),
-                 canmallocgc=False, canrun=False, tryfold=False):
+                 canmallocgc=False, canrun=False, tryfold=False,
+                 revdb_protect=False):
         # self.opname = ... (set afterwards)
 
         if canfold:
@@ -40,6 +41,9 @@ class LLOp(object):
 
         # The operation can be run directly with __call__
         self.canrun = canrun or canfold
+
+        # RevDB: the operation must always be protected with RPY_REVDB_EMIT()
+        self.revdb_protect = revdb_protect
 
     # __________ make the LLOp instances callable from LL helpers __________
 
@@ -78,7 +82,8 @@ class LLOp(object):
     def is_pure(self, args_v):
         if self.canfold:                # canfold => pure operation
             return True
-        if self is llop.debug_assert:   # debug_assert is pure enough
+        if (self is llop.debug_assert or     # debug_assert is pure enough
+            self is llop.debug_assert_not_none):
             return True
         # reading from immutable
         if self is llop.getfield or self is llop.getarrayitem:
@@ -166,8 +171,6 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
-# Note that many exception-raising operations can be replaced by calls
-# to helper functions in rpython.rtyper.raisingops.
 # ***** Run test_lloperation after changes. *****
 
 LL_OPERATIONS = {
@@ -191,18 +194,14 @@ LL_OPERATIONS = {
 
     'int_is_true':          LLOp(canfold=True),
     'int_neg':              LLOp(canfold=True),
-    'int_neg_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_abs':              LLOp(canfold=True),
-    'int_abs_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_invert':           LLOp(canfold=True),
 
     'int_add':              LLOp(canfold=True),
     'int_sub':              LLOp(canfold=True),
     'int_mul':              LLOp(canfold=True),
-    'int_floordiv':         LLOp(canfold=True),
-    'int_floordiv_zer':     LLOp(canraise=(ZeroDivisionError,), tryfold=True),
-    'int_mod':              LLOp(canfold=True),
-    'int_mod_zer':          LLOp(canraise=(ZeroDivisionError,), tryfold=True),
+    'int_floordiv':         LLOp(canfold=True),  # C-like behavior for neg num
+    'int_mod':              LLOp(canfold=True),  # C-like behavior for neg num
     'int_lt':               LLOp(canfold=True),
     'int_le':               LLOp(canfold=True),
     'int_eq':               LLOp(canfold=True),
@@ -223,14 +222,6 @@ LL_OPERATIONS = {
               # ^^^ more efficient version when 2nd arg is nonneg
     'int_sub_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_mul_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
-    # the following operations overflow in one case: (-sys.maxint-1) // (-1)
-    'int_floordiv_ovf':     LLOp(canraise=(OverflowError,), tryfold=True),
-    'int_floordiv_ovf_zer': LLOp(canraise=(OverflowError, ZeroDivisionError),
-                                                            tryfold=True),
-    'int_mod_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
-    'int_mod_ovf_zer':      LLOp(canraise=(OverflowError, ZeroDivisionError),
-                                                            tryfold=True),
-    'int_lshift_ovf':       LLOp(canraise=(OverflowError,), tryfold=True),
 
     'uint_is_true':         LLOp(canfold=True),
     'uint_invert':          LLOp(canfold=True),
@@ -239,9 +230,7 @@ LL_OPERATIONS = {
     'uint_sub':             LLOp(canfold=True),
     'uint_mul':             LLOp(canfold=True),
     'uint_floordiv':        LLOp(canfold=True),
-    'uint_floordiv_zer':    LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'uint_mod':             LLOp(canfold=True),
-    'uint_mod_zer':         LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'uint_lt':              LLOp(canfold=True),
     'uint_le':              LLOp(canfold=True),
     'uint_eq':              LLOp(canfold=True),
@@ -280,9 +269,7 @@ LL_OPERATIONS = {
     'llong_sub':            LLOp(canfold=True),
     'llong_mul':            LLOp(canfold=True),
     'llong_floordiv':       LLOp(canfold=True),
-    'llong_floordiv_zer':   LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'llong_mod':            LLOp(canfold=True),
-    'llong_mod_zer':        LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'llong_lt':             LLOp(canfold=True),
     'llong_le':             LLOp(canfold=True),
     'llong_eq':             LLOp(canfold=True),
@@ -302,9 +289,7 @@ LL_OPERATIONS = {
     'ullong_sub':           LLOp(canfold=True),
     'ullong_mul':           LLOp(canfold=True),
     'ullong_floordiv':      LLOp(canfold=True),
-    'ullong_floordiv_zer':  LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'ullong_mod':           LLOp(canfold=True),
-    'ullong_mod_zer':       LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'ullong_lt':            LLOp(canfold=True),
     'ullong_le':            LLOp(canfold=True),
     'ullong_eq':            LLOp(canfold=True),
@@ -326,9 +311,7 @@ LL_OPERATIONS = {
     'lllong_sub':            LLOp(canfold=True),
     'lllong_mul':            LLOp(canfold=True),
     'lllong_floordiv':       LLOp(canfold=True),
-    'lllong_floordiv_zer':   LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'lllong_mod':            LLOp(canfold=True),
-    'lllong_mod_zer':        LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'lllong_lt':             LLOp(canfold=True),
     'lllong_le':             LLOp(canfold=True),
     'lllong_eq':             LLOp(canfold=True),
@@ -340,6 +323,26 @@ LL_OPERATIONS = {
     'lllong_lshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
     'lllong_rshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
     'lllong_xor':            LLOp(canfold=True),
+
+    'ulllong_is_true':        LLOp(canfold=True),
+    'ulllong_invert':         LLOp(canfold=True),
+
+    'ulllong_add':            LLOp(canfold=True),
+    'ulllong_sub':            LLOp(canfold=True),
+    'ulllong_mul':            LLOp(canfold=True),
+    'ulllong_floordiv':       LLOp(canfold=True),
+    'ulllong_mod':            LLOp(canfold=True),
+    'ulllong_lt':             LLOp(canfold=True),
+    'ulllong_le':             LLOp(canfold=True),
+    'ulllong_eq':             LLOp(canfold=True),
+    'ulllong_ne':             LLOp(canfold=True),
+    'ulllong_gt':             LLOp(canfold=True),
+    'ulllong_ge':             LLOp(canfold=True),
+    'ulllong_and':            LLOp(canfold=True),
+    'ulllong_or':             LLOp(canfold=True),
+    'ulllong_lshift':         LLOp(canfold=True),  # args (r_ulonglonglong, int)
+    'ulllong_rshift':         LLOp(canfold=True),  # args (r_ulonglonglong, int)
+    'ulllong_xor':            LLOp(canfold=True),
 
     'cast_primitive':       LLOp(canfold=True),
     'cast_bool_to_int':     LLOp(canfold=True),
@@ -407,18 +410,20 @@ LL_OPERATIONS = {
     'boehm_malloc_atomic':  LLOp(),
     'boehm_register_finalizer': LLOp(),
     'boehm_disappearing_link': LLOp(),
-    'raw_malloc':           LLOp(),
+    'raw_malloc':           LLOp(revdb_protect=True),
     'raw_malloc_usage':     LLOp(sideeffects=False),
-    'raw_free':             LLOp(),
-    'raw_memclear':         LLOp(),
-    'raw_memset':           LLOp(),
-    'raw_memcopy':          LLOp(),
-    'raw_memmove':          LLOp(),
-    'raw_load':             LLOp(sideeffects=False, canrun=True),
-    'raw_store':            LLOp(canrun=True),
-    'bare_raw_store':       LLOp(),
+    'raw_free':             LLOp(revdb_protect=True),
+    'raw_memclear':         LLOp(revdb_protect=True),
+    'raw_memset':           LLOp(revdb_protect=True),
+    'raw_memcopy':          LLOp(revdb_protect=True),
+    'raw_memmove':          LLOp(revdb_protect=True),
+    'raw_load':             LLOp(revdb_protect=True, sideeffects=False,
+                                                     canrun=True),
+    'raw_store':            LLOp(revdb_protect=True, canrun=True),
+    'bare_raw_store':       LLOp(revdb_protect=True),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
-    'stack_malloc':         LLOp(), # mmh
+    'gc_store':             LLOp(canrun=True),   # only used by the boehm gc
+    'gc_store_indexed':     LLOp(canrun=True),
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
     'adr_add':              LLOp(canfold=True),
@@ -453,6 +458,7 @@ LL_OPERATIONS = {
     'jit_record_exact_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
+    'jit_conditional_call_value': LLOp(),
     'jit_enter_portal_frame': LLOp(canrun=True),
     'jit_leave_portal_frame': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
@@ -464,11 +470,16 @@ LL_OPERATIONS = {
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
-    'll_read_timestamp': LLOp(canrun=True),
+    'll_read_timestamp': LLOp(revdb_protect=True, canrun=True),
+    'll_get_timestamp_unit': LLOp(revdb_protect=True, canrun=True),
 
     # __________ GC operations __________
 
     'gc__collect':          LLOp(canmallocgc=True),
+    'gc__collect_step':     LLOp(canmallocgc=True),
+    'gc__enable':           LLOp(),
+    'gc__disable':          LLOp(),
+    'gc__isenabled':        LLOp(),
     'gc_free':              LLOp(),
     'gc_fetch_exception':   LLOp(),
     'gc_restore_exception': LLOp(),
@@ -478,8 +489,8 @@ LL_OPERATIONS = {
     # see rlib/objectmodel for gc_identityhash and gc_id
     'gc_identityhash':      LLOp(sideeffects=False, canmallocgc=True),
     'gc_id':                LLOp(sideeffects=False, canmallocgc=True),
-    'gc_obtain_free_space': LLOp(),
-    'gc_set_max_heap_size': LLOp(),
+    'gc_obtain_free_space': LLOp(revdb_protect=True),
+    'gc_set_max_heap_size': LLOp(revdb_protect=True),
     'gc_can_move'         : LLOp(sideeffects=False),
     'gc_thread_run'       : LLOp(),
     'gc_thread_start'     : LLOp(),
@@ -492,6 +503,7 @@ LL_OPERATIONS = {
     'gc_pin'              : LLOp(canrun=True),
     'gc_unpin'            : LLOp(canrun=True),
     'gc__is_pinned'        : LLOp(canrun=True),
+    'gc_bit'              : LLOp(sideeffects=False, canrun=True),
 
     'gc_get_rpy_roots'    : LLOp(),
     'gc_get_rpy_referents': LLOp(),
@@ -504,12 +516,27 @@ LL_OPERATIONS = {
     'gc_gettypeid'        : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
+    'gc_get_stats'        : LLOp(),
+    'gc_fq_next_dead'     : LLOp(),
+    'gc_fq_register'      : LLOp(),
+    'gc_ignore_finalizer' : LLOp(canrun=True),
 
     'gc_rawrefcount_init':              LLOp(),
     'gc_rawrefcount_create_link_pypy':  LLOp(),
     'gc_rawrefcount_create_link_pyobj': LLOp(),
+    'gc_rawrefcount_mark_deallocating': LLOp(),
     'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
     'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
+    'gc_rawrefcount_next_dead':         LLOp(),
+
+    'gc_move_out_of_nursery':           LLOp(),
+
+    'gc_push_roots'        : LLOp(),  # temporary: list of roots to save
+    'gc_pop_roots'         : LLOp(),  # temporary: list of roots to restore
+    'gc_enter_roots_frame' : LLOp(),  # reserve N entries, save local frame pos
+    'gc_leave_roots_frame' : LLOp(),  # free the shadowstack frame
+    'gc_save_root'         : LLOp(),  # save value Y in shadowstack pos X
+    'gc_restore_root'      : LLOp(),  # restore value Y from shadowstack pos X
 
     # ------- JIT & GC interaction, only for some GCs ----------
 
@@ -520,6 +547,7 @@ LL_OPERATIONS = {
     'gc_adr_of_root_stack_base': LLOp(),
     'gc_adr_of_root_stack_top': LLOp(),
     # returns the address of gcdata.root_stack_base/top (for shadowstack only)
+    'gc_modified_shadowstack': LLOp(),
 
     # for asmgcroot support to get the address of various static structures
     # see translator/c/src/mem.h for the valid indices
@@ -542,7 +570,7 @@ LL_OPERATIONS = {
 
     # __________ misc operations __________
 
-    'stack_current':        LLOp(sideeffects=False),
+    'stack_current':        LLOp(revdb_protect=True, sideeffects=False),
     'keepalive':            LLOp(),
     'same_as':              LLOp(canfold=True),
     'hint':                 LLOp(),
@@ -555,22 +583,25 @@ LL_OPERATIONS = {
 
     'threadlocalref_addr':  LLOp(),                   # get (or make) addr of tl
     'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
+    'threadlocalref_load':  LLOp(sideeffects=False),  # read field (with check)
+    'threadlocalref_store': LLOp(),                   # write field (with check)
     'threadlocalref_acquire':  LLOp(),                # lock for enum
     'threadlocalref_release':  LLOp(),                # lock for enum
     'threadlocalref_enum':  LLOp(sideeffects=False),  # enum all threadlocalrefs
 
     # __________ debugging __________
-    'debug_view':           LLOp(),
-    'debug_print':          LLOp(canrun=True),
-    'debug_start':          LLOp(canrun=True),
-    'debug_stop':           LLOp(canrun=True),
-    'have_debug_prints':    LLOp(canrun=True),
-    'have_debug_prints_for':LLOp(canrun=True),
-    'debug_offset':         LLOp(canrun=True),
-    'debug_flush':          LLOp(canrun=True),
-    'debug_assert':         LLOp(tryfold=True),
-    'debug_fatalerror':     LLOp(canrun=True),
-    'debug_llinterpcall':   LLOp(canraise=(Exception,)),
+    'debug_view':               LLOp(),
+    'debug_print':              LLOp(canrun=True),
+    'debug_start':              LLOp(canrun=True),
+    'debug_stop':               LLOp(canrun=True),
+    'have_debug_prints':        LLOp(canrun=True),
+    'have_debug_prints_for':    LLOp(canrun=True),
+    'debug_offset':             LLOp(canrun=True),
+    'debug_flush':              LLOp(canrun=True),
+    'debug_assert':             LLOp(tryfold=True),
+    'debug_assert_not_none':    LLOp(tryfold=True),
+    'debug_fatalerror':         LLOp(canrun=True),
+    'debug_llinterpcall':       LLOp(canraise=(Exception,)),
                                     # Python func call 'res=arg[0](*arg[1:])'
                                     # in backends, abort() or whatever is fine
     'debug_start_traceback':   LLOp(),
@@ -583,6 +614,23 @@ LL_OPERATIONS = {
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
+
+    'revdb_stop_point':     LLOp(),
+    'revdb_send_answer':    LLOp(),
+    'revdb_breakpoint':     LLOp(),
+    'revdb_get_value':      LLOp(sideeffects=False),
+    'revdb_get_unique_id':  LLOp(sideeffects=False),
+    'revdb_watch_save_state':    LLOp(),
+    'revdb_watch_restore_state': LLOp(),
+    'revdb_weakref_create': LLOp(),
+    'revdb_weakref_deref':  LLOp(),
+    'revdb_call_destructor': LLOp(),
+    'revdb_set_thread_breakpoint': LLOp(),
+    'revdb_strtod':         LLOp(sideeffects=False),
+    'revdb_dtoa':           LLOp(sideeffects=False),
+    'revdb_modf':           LLOp(sideeffects=False),
+    'revdb_frexp':          LLOp(sideeffects=False),
+    'revdb_do_next_call':   LLOp(canrun=True),
 }
 # ***** Run test_lloperation after changes. *****
 

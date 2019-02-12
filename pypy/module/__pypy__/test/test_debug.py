@@ -48,3 +48,26 @@ class AppTestDebug:
         from __pypy__ import debug_flush
         debug_flush()
         # assert did not crash
+
+    def test_debug_read_timestamp(self):
+        from __pypy__ import debug_read_timestamp
+        a = debug_read_timestamp()
+        b = debug_read_timestamp()
+        assert b > a
+
+    def test_debug_get_timestamp_unit(self):
+        from __pypy__ import debug_get_timestamp_unit
+        unit = debug_get_timestamp_unit()
+        assert unit in ('tsc', 'ns', 'QueryPerformanceCounter')
+
+    def test_debug_start_stop_timestamp(self):
+        import time
+        from __pypy__ import debug_start, debug_stop, debug_read_timestamp
+        assert debug_start('foo') is None
+        assert debug_stop('foo') is None
+        ts1 = debug_start('foo', timestamp=True)
+        t = time.time()
+        while time.time() - t < 0.02:
+            pass
+        ts2 = debug_stop('foo', timestamp=True)
+        assert ts2 > ts1

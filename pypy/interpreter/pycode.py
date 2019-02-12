@@ -8,7 +8,7 @@ import dis, imp, struct, types, new, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
@@ -25,8 +25,8 @@ class BytecodeCorruption(Exception):
 
 # helper
 
-def unpack_str_tuple(space,w_str_tuple):
-    return [space.str_w(w_el) for w_el in space.unpackiterable(w_str_tuple)]
+def unpack_text_tuple(space, w_str_tuple):
+    return [space.text_w(w_el) for w_el in space.unpackiterable(w_str_tuple)]
 
 
 # Magic numbers for the bytecode version in code objects.
@@ -37,7 +37,7 @@ default_magic = (0xf303 + 7) | 0x0a0d0000               # this PyPy's magic
 
 # cpython_code_signature helper
 def cpython_code_signature(code):
-    "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
+    """Return a Signature instance."""
     argcount = code.co_argcount
     varnames = code.co_varnames
     assert argcount >= 0     # annotator hint
@@ -110,10 +110,11 @@ class PyCode(eval.Code):
         if code_hook is not None:
             try:
                 self.space.call_function(code_hook, self)
-            except OperationError, e:
+            except OperationError as e:
                 e.write_unraisable(self.space, "new_code_hook()")
 
     def _initialize(self):
+        from pypy.objspace.std.mapdict import init_mapdict_cache
         if self.co_cellvars:
             argcount = self.co_argcount
             assert argcount >= 0     # annotator hint
@@ -149,9 +150,7 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
-        if self.space.config.objspace.std.withmapdict:
-            from pypy.objspace.std.mapdict import init_mapdict_cache
-            init_mapdict_cache(self)
+        init_mapdict_cache(self)
 
     def _init_ready(self):
         "This is a hook for the vmprof module, which overrides this method."
@@ -163,7 +162,10 @@ class PyCode(eval.Code):
         # When translating PyPy, freeze the file name
         #     <builtin>/lastdirname/basename.py
         # instead of freezing the complete translation-time path.
-        filename = self.co_filename.lstrip('<').rstrip('>')
+        filename = self.co_filename
+        if filename.startswith('<builtin>'):
+            return
+        filename = filename.lstrip('<').rstrip('>')
         if filename.lower().endswith('.pyc'):
             filename = filename[:-1]
         basename = os.path.basename(filename)
@@ -307,13 +309,13 @@ class PyCode(eval.Code):
         return space.newtuple(self.co_names_w)
 
     def fget_co_varnames(self, space):
-        return space.newtuple([space.wrap(name) for name in self.co_varnames])
+        return space.newtuple([space.newtext(name) for name in self.co_varnames])
 
     def fget_co_cellvars(self, space):
-        return space.newtuple([space.wrap(name) for name in self.co_cellvars])
+        return space.newtuple([space.newtext(name) for name in self.co_cellvars])
 
     def fget_co_freevars(self, space):
-        return space.newtuple([space.wrap(name) for name in self.co_freevars])
+        return space.newtuple([space.newtext(name) for name in self.co_freevars])
 
     def descr_code__eq__(self, w_other):
         space = self.space
@@ -354,7 +356,7 @@ class PyCode(eval.Code):
         for name in self.co_varnames:  result ^= compute_hash(name)
         for name in self.co_freevars:  result ^= compute_hash(name)
         for name in self.co_cellvars:  result ^= compute_hash(name)
-        w_result = space.wrap(intmask(result))
+        w_result = space.newint(intmask(result))
         for w_name in self.co_names_w:
             w_result = space.xor(w_result, space.hash(w_name))
         for w_const in self.co_consts_w:
@@ -362,9 +364,9 @@ class PyCode(eval.Code):
         return w_result
 
     @unwrap_spec(argcount=int, nlocals=int, stacksize=int, flags=int,
-                 codestring=str,
-                 filename=str, name=str, firstlineno=int,
-                 lnotab=str, magic=int)
+                 codestring='bytes',
+                 filename='text', name='text', firstlineno=int,
+                 lnotab='bytes', magic=int)
     def descr_code__new__(space, w_subtype,
                           argcount, nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
@@ -372,52 +374,50 @@ class PyCode(eval.Code):
                           lnotab, w_freevars=None, w_cellvars=None,
                           magic=default_magic):
         if argcount < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("code: argcount must not be negative"))
+            raise oefmt(space.w_ValueError,
+                        "code: argcount must not be negative")
         if nlocals < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("code: nlocals must not be negative"))
+            raise oefmt(space.w_ValueError,
+                        "code: nlocals must not be negative")
         if not space.isinstance_w(w_constants, space.w_tuple):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("Expected tuple for constants"))
+            raise oefmt(space.w_TypeError, "Expected tuple for constants")
         consts_w = space.fixedview(w_constants)
-        names = unpack_str_tuple(space, w_names)
-        varnames = unpack_str_tuple(space, w_varnames)
+        names = unpack_text_tuple(space, w_names)
+        varnames = unpack_text_tuple(space, w_varnames)
         if w_freevars is not None:
-            freevars = unpack_str_tuple(space, w_freevars)
+            freevars = unpack_text_tuple(space, w_freevars)
         else:
             freevars = []
         if w_cellvars is not None:
-            cellvars = unpack_str_tuple(space, w_cellvars)
+            cellvars = unpack_text_tuple(space, w_cellvars)
         else:
             cellvars = []
         code = space.allocate_instance(PyCode, w_subtype)
         PyCode.__init__(code, space, argcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
                       varnames, filename, name, firstlineno, lnotab, freevars, cellvars, magic=magic)
-        return space.wrap(code)
+        return code
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('code_new')
-        w        = space.wrap
         tup      = [
-            w(self.co_argcount),
-            w(self.co_nlocals),
-            w(self.co_stacksize),
-            w(self.co_flags),
-            w(self.co_code),
+            space.newint(self.co_argcount),
+            space.newint(self.co_nlocals),
+            space.newint(self.co_stacksize),
+            space.newint(self.co_flags),
+            space.newbytes(self.co_code),
             space.newtuple(self.co_consts_w),
             space.newtuple(self.co_names_w),
-            space.newtuple([w(v) for v in self.co_varnames]),
-            w(self.co_filename),
-            w(self.co_name),
-            w(self.co_firstlineno),
-            w(self.co_lnotab),
-            space.newtuple([w(v) for v in self.co_freevars]),
-            space.newtuple([w(v) for v in self.co_cellvars]),
-            w(self.magic),
+            space.newtuple([space.newtext(v) for v in self.co_varnames]),
+            space.newtext(self.co_filename),
+            space.newtext(self.co_name),
+            space.newint(self.co_firstlineno),
+            space.newbytes(self.co_lnotab),
+            space.newtuple([space.newtext(v) for v in self.co_freevars]),
+            space.newtuple([space.newtext(v) for v in self.co_cellvars]),
+            space.newint(self.magic),
         ]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
@@ -429,4 +429,4 @@ class PyCode(eval.Code):
         return self.get_repr()
 
     def repr(self, space):
-        return space.wrap(self.get_repr())
+        return space.newtext(self.get_repr())

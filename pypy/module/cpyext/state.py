@@ -1,12 +1,18 @@
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.executioncontext import AsyncAction
-from rpython.rtyper.lltypesystem import lltype
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter import executioncontext
+from pypy.interpreter.executioncontext import ExecutionContext
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount
 import sys
+
+
+# Keep track of exceptions raised in cpyext for a particular execution
+# context.
+ExecutionContext.cpyext_operror = None
+
 
 class State:
     def __init__(self, space):
@@ -14,12 +20,13 @@ class State:
         self.reset()
         self.programname = lltype.nullptr(rffi.CCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
-        pyobj_dealloc_action = PyObjDeallocAction(space)
-        self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
+        self.builder = None
+        self.C = CNamespace()
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
-        self.operror = None
+        ec = self.space.getexecutioncontext()
+        ec.cpyext_operror = None
         self.new_method_def = lltype.nullptr(PyMethodDef)
 
         # When importing a package, use this to keep track
@@ -35,35 +42,70 @@ class State:
         # A mapping {filename: copy-of-the-w_dict}, similar to CPython's
         # variable 'extensions' in Python/import.c.
         self.extensions = {}
+        # XXX will leak if _PyDateTime_Import already called
+        self.datetimeAPI = []
 
     def set_exception(self, operror):
         self.clear_exception()
-        self.operror = operror
+        ec = self.space.getexecutioncontext()
+        ec.cpyext_operror = operror
 
     def clear_exception(self):
         """Clear the current exception state, and return the operror."""
-        operror = self.operror
-        self.operror = None
+        ec = self.space.getexecutioncontext()
+        operror = ec.cpyext_operror
+        ec.cpyext_operror = None
         return operror
 
+    def get_exception(self):
+        ec = self.space.getexecutioncontext()
+        return ec.cpyext_operror
+
+    @specialize.arg(1)
     def check_and_raise_exception(self, always=False):
-        operror = self.operror
+        ec = self.space.getexecutioncontext()
+        operror = ec.cpyext_operror
         if operror:
             self.clear_exception()
             raise operror
         if always:
-            raise OperationError(self.space.w_SystemError, self.space.wrap(
-                "Function returned an error result without setting an exception"))
+            raise oefmt(self.space.w_SystemError,
+                        "Function returned an error result without setting an "
+                        "exception")
 
-    def build_api(self, space):
+    def setup_rawrefcount(self):
+        space = self.space
+        if not self.space.config.translating:
+            def dealloc_trigger():
+                from pypy.module.cpyext.pyobject import PyObject, decref
+                print 'dealloc_trigger...'
+                while True:
+                    ob = rawrefcount.next_dead(PyObject)
+                    if not ob:
+                        break
+                    print 'deallocating PyObject', ob
+                    decref(space, ob)
+                print 'dealloc_trigger DONE'
+                return "RETRY"
+            rawrefcount.init(dealloc_trigger)
+        else:
+            if space.config.translation.gc == "boehm":
+                action = BoehmPyObjDeallocAction(space)
+                space.actionflag.register_periodic_action(action,
+                    use_bytecode_counter=True)
+            else:
+                pyobj_dealloc_action = PyObjDeallocAction(space)
+                self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
+
+    def build_api(self):
         """NOT_RPYTHON
         This function is called when at object space creation,
         and drives the compilation of the cpyext library
         """
+        self.setup_rawrefcount()
         from pypy.module.cpyext import api
-        state = self.space.fromcache(State)
         if not self.space.config.translating:
-            state.api_lib = str(api.build_bridge(self.space))
+            self.api_lib = str(api.build_bridge(self.space))
         else:
             api.setup_library(self.space)
 
@@ -77,15 +119,17 @@ class State:
 
     def startup(self, space):
         "This function is called when the program really starts"
-
         from pypy.module.cpyext.typeobject import setup_new_method_def
         from pypy.module.cpyext.api import INIT_FUNCTIONS
-        from pypy.module.cpyext.api import init_static_data_translated
 
         if we_are_translated():
-            rawrefcount.init(llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
-                                      self.dealloc_trigger))
-            init_static_data_translated(space)
+            if space.config.translation.gc != "boehm":
+                # This must be called in RPython, the untranslated version
+                # does something different. Sigh.
+                rawrefcount.init(
+                    llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
+                    self.dealloc_trigger))
+            self.builder.attach_all(space)
 
         setup_new_method_def(space)
 
@@ -98,8 +142,8 @@ class State:
             space = self.space
             argv = space.sys.get('argv')
             if space.len_w(argv):
-                argv0 = space.getitem(argv, space.wrap(0))
-                progname = space.str_w(argv0)
+                argv0 = space.getitem(argv, space.newint(0))
+                progname = space.text_w(argv0)
             else:
                 progname = "pypy"
             self.programname = rffi.str2charp(progname)
@@ -110,7 +154,7 @@ class State:
         if not self.version:
             space = self.space
             w_version = space.sys.get('version')
-            version = space.str_w(w_version)
+            version = space.text_w(w_version)
             self.version = rffi.str2charp(version)
             lltype.render_immortal(self.version)
         return self.version
@@ -136,21 +180,47 @@ class State:
         if not isinstance(w_mod, Module):
             msg = "fixup_extension: module '%s' not loaded" % name
             raise OperationError(space.w_SystemError,
-                                 space.wrap(msg))
+                                 space.newtext(msg))
         w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy
+        return w_mod
+
+    @specialize.arg(1)
+    def ccall(self, name, *args):
+        from pypy.module.cpyext.api import cpyext_glob_tid_ptr
+        # This is similar to doing a direct call to state.C.PyXxx(), but
+        # must be used for any function that might potentially call back
+        # RPython code---most of them can, e.g. PyErr_NoMemory().
+        assert cpyext_glob_tid_ptr[0] == 0
+        cpyext_glob_tid_ptr[0] = -1
+        result = getattr(self.C, name)(*args)
+        cpyext_glob_tid_ptr[0] = 0
+        return result
 
 
-class PyObjDeallocAction(AsyncAction):
+class CNamespace:
+    def _freeze_(self):
+        return True
+
+
+def _rawrefcount_perform(space):
+    from pypy.module.cpyext.pyobject import PyObject, decref
+    while True:
+        py_obj = rawrefcount.next_dead(PyObject)
+        if not py_obj:
+            break
+        decref(space, py_obj)
+
+class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.
     """
-
     def perform(self, executioncontext, frame):
-        from pypy.module.cpyext.pyobject import PyObject, _Py_Dealloc
+        _rawrefcount_perform(self.space)
 
-        while True:
-            py_obj = rawrefcount.next_dead(PyObject)
-            if not py_obj:
-                break
-            _Py_Dealloc(self.space, py_obj)
+class BoehmPyObjDeallocAction(executioncontext.PeriodicAsyncAction):
+    # This variant is used with Boehm, which doesn't have the explicit
+    # callback.  Instead we must periodically check ourselves.
+    def perform(self, executioncontext, frame):
+        if we_are_translated():
+            _rawrefcount_perform(self.space)

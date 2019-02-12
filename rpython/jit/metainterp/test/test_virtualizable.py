@@ -665,7 +665,7 @@ class ImplicitVirtualizableTests(object):
                 jitdriver.jit_merge_point(frame=frame)
                 try:
                     g()
-                except FooError, e:
+                except FooError as e:
                     frame.x -= e.value
                 frame.y += 1
             return frame.x
@@ -1381,7 +1381,7 @@ class ImplicitVirtualizableTests(object):
             return result
 
         def indirection(arg):
-            return interp(arg)
+            return interp(arg) + 1
 
         def run_interp(n):
             f = hint(Frame(n), access_directly=True)

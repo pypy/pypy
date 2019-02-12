@@ -60,19 +60,34 @@ class OperationError(Exception):
 
 # ____________________________________________________________
 
-CONST_INT = 1
-POP       = 2
-ADD       = 3
-RETURN    = 4
-JUMP_IF   = 5
-DUP       = 6
-SUB       = 7
-NEWSTR    = 8
+OPNAMES = []
+HASARG = []
+
+def define_op(name, has_arg=False):
+    globals()[name] = len(OPNAMES)
+    OPNAMES.append(name)
+    HASARG.append(has_arg)
+
+define_op("CONST_INT", True)
+define_op("POP")
+define_op("ADD")
+define_op("RETURN")
+define_op("JUMP_IF", True)
+define_op("DUP")
+define_op("SUB")
+define_op("NEWSTR", True)
+
 
 # ____________________________________________________________
 
 def get_printable_location(pc, bytecode):
-    return str(pc)
+    op = ord(bytecode[pc])
+    name = OPNAMES[op]
+    if HASARG[op]:
+        arg = str(ord(bytecode[pc + 1]))
+    else:
+        arg = ''
+    return "%s: %s %s" % (pc, name, arg)
 
 jitdriver = JitDriver(greens=['pc', 'bytecode'],
                       reds=['self'],

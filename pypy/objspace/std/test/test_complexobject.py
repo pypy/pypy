@@ -375,6 +375,21 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(real=float2(17.), imag=float2(23.)), 17+23j)
         raises(TypeError, complex, float2(None))
 
+
+    def test_constructor_bad_error_message(self):
+        err = raises(TypeError, complex, {}).value
+        assert "float" not in str(err)
+        assert str(err) == "complex() first argument must be a string or a number, not 'dict'"
+        err = raises(TypeError, complex, 1, {}).value
+        assert "float" not in str(err)
+        assert str(err) == "complex() second argument must be a number, not 'dict'"
+
+    def test_error_messages(self):
+        err = raises(ZeroDivisionError, "1+1j / 0").value
+        assert str(err) == "complex division by zero"
+        err = raises(ZeroDivisionError, "1+1j // 0").value
+        assert str(err) == "complex division by zero"
+
     def test___complex___returning_non_complex(self):
         import cmath
         class Obj(object):
@@ -611,3 +626,7 @@ class AppTestAppComplexTest:
 
     def test_complex_two_arguments(self):
         raises(TypeError, complex, 5, None)
+
+    def test_hash_minus_one(self):
+        assert hash(-1.0 + 0j) == -2
+        assert (-1.0 + 0j).__hash__() == -2

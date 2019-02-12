@@ -137,6 +137,8 @@ class gdbm(object):
             lib.gdbm_sync(self.__ll_dbm)
 
 def open(filename, flags='r', mode=0666):
+    if isinstance(filename, unicode):
+        filename = filename.encode()
     if flags[0] == 'r':
         iflags = lib.GDBM_READER
     elif flags[0] == 'w':

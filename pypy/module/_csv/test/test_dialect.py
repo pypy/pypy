@@ -65,7 +65,8 @@ class AppTestDialect(object):
             name = attempt[0]
             for value in attempt[1:]:
                 kwargs = {name: value}
-                raises(TypeError, _csv.register_dialect, 'foo1', **kwargs)
+                exc_info = raises(TypeError, _csv.register_dialect, 'foo1', **kwargs)
+                assert name in exc_info.value.args[0]
 
         exc_info = raises(TypeError, _csv.register_dialect, 'foo1', lineterminator=4)
         assert exc_info.value.args[0] == '"lineterminator" must be a string'

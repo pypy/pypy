@@ -107,7 +107,7 @@ PyString_FromFormatV(const char *format, va_list vargs)
     if (!string)
         return NULL;
 
-    s = PyString_AsString(string);
+    s = PyString_AS_STRING(string);
 
     for (f = format; *f; f++) {
         if (*f == '%') {
@@ -164,7 +164,7 @@ PyString_FromFormatV(const char *format, va_list vargs)
                         va_arg(vargs, PY_LONG_LONG));
 #endif
                 else if (size_tflag)
-                    sprintf(s, "%" PY_FORMAT_SIZE_T "d",
+                    sprintf(s, "%ld",
                         va_arg(vargs, Py_ssize_t));
                 else
                     sprintf(s, "%d", va_arg(vargs, int));

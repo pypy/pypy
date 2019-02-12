@@ -17,8 +17,8 @@ ESCAPE_BEFORE_SPACE = [ESCAPE_DICT.get(chr(_i), '\\u%04x' % _i)
 
 
 def raw_encode_basestring_ascii(space, w_string):
-    if space.isinstance_w(w_string, space.w_str):
-        s = space.str_w(w_string)
+    if space.isinstance_w(w_string, space.w_bytes):
+        s = space.bytes_w(w_string)
         for i in range(len(s)):
             c = s[i]
             if c >= ' ' and c <= '~' and c != '"' and c != '\\':
@@ -49,24 +49,24 @@ def raw_encode_basestring_ascii(space, w_string):
         first = 0
 
     for i in range(first, len(u)):
-        c = u[i]
-        if c <= u'~':
-            if c == u'"' or c == u'\\':
+        c = ord(u[i])
+        if c <= ord('~'):
+            if c == ord('"') or c == ord('\\'):
                 sb.append('\\')
-            elif c < u' ':
-                sb.append(ESCAPE_BEFORE_SPACE[ord(c)])
+            elif c < ord(' '):
+                sb.append(ESCAPE_BEFORE_SPACE[c])
                 continue
-            sb.append(chr(ord(c)))
+            sb.append(chr(c))
         else:
-            if c <= u'\uffff':
+            if c <= ord(u'\uffff'):
                 sb.append('\\u')
-                sb.append(HEX[ord(c) >> 12])
-                sb.append(HEX[(ord(c) >> 8) & 0x0f])
-                sb.append(HEX[(ord(c) >> 4) & 0x0f])
-                sb.append(HEX[ord(c) & 0x0f])
+                sb.append(HEX[c >> 12])
+                sb.append(HEX[(c >> 8) & 0x0f])
+                sb.append(HEX[(c >> 4) & 0x0f])
+                sb.append(HEX[c & 0x0f])
             else:
                 # surrogate pair
-                n = ord(c) - 0x10000
+                n = c - 0x10000
                 s1 = 0xd800 | ((n >> 10) & 0x3ff)
                 sb.append('\\ud')
                 sb.append(HEX[(s1 >> 8) & 0x0f])
@@ -79,4 +79,4 @@ def raw_encode_basestring_ascii(space, w_string):
                 sb.append(HEX[s2 & 0x0f])
 
     res = sb.build()
-    return space.wrap(res)
+    return space.newtext(res)

@@ -13,7 +13,7 @@ class AppTestTracker:
             try:
                 import _rawffi
                 _rawffi._num_of_allocated_objects()
-            except (ImportError, RuntimeError), e:
+            except (ImportError, RuntimeError) as e:
                 py.test.skip(str(e))
         #
         Tracker.DO_TRACING = True

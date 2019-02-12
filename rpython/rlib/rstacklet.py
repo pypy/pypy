@@ -3,6 +3,7 @@ from rpython.rlib import _rffi_stacklet as _c
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import fetch_translated_config
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rlib import rvmprof
 
 DEBUG = False
 
@@ -24,7 +25,12 @@ class StackletThread(object):
     def new(self, callback, arg=llmemory.NULL):
         if DEBUG:
             callback = _debug_wrapper(callback)
-        h = self._gcrootfinder.new(self, callback, arg)
+        x = rvmprof.save_stack()
+        try:
+            rvmprof.empty_stack()
+            h = self._gcrootfinder.new(self, callback, arg)
+        finally:
+            rvmprof.restore_stack(x)
         if DEBUG:
             debug.add(h)
         return h
@@ -34,7 +40,11 @@ class StackletThread(object):
     def switch(self, stacklet):
         if DEBUG:
             debug.remove(stacklet)
-        h = self._gcrootfinder.switch(stacklet)
+        x = rvmprof.save_stack()
+        try:
+            h = self._gcrootfinder.switch(stacklet)
+        finally:
+            rvmprof.restore_stack(x)
         if DEBUG:
             debug.add(h)
         return h

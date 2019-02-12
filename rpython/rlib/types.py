@@ -76,8 +76,8 @@ def dict(keytype, valuetype):
     return model.SomeDict(dictdef)
 
 
-def instance(cls):
-    return lambda bookkeeper: model.SomeInstance(bookkeeper.getuniqueclassdef(cls))
+def instance(cls, can_be_None=False):
+    return lambda bookkeeper: model.SomeInstance(bookkeeper.getuniqueclassdef(cls), can_be_None=can_be_None)
 
 
 class SelfTypeMarker(object):

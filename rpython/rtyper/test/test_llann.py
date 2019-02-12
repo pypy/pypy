@@ -462,6 +462,30 @@ def test_llhelper():
     res = interpret(h, [8, 5, 2])
     assert res == 99
 
+def test_llhelper_multiple_functions():
+    S = GcStruct('S', ('x', Signed), ('y', Signed))
+    def f(s):
+        return s.x - s.y
+    def g(s):
+        return s.x + s.y
+
+    F = Ptr(FuncType([Ptr(S)], Signed))
+
+    myfuncs = [f, g]
+
+    def h(x, y, z):
+        s = malloc(S)
+        s.x = x
+        s.y = y
+        fptr = llhelper(F, myfuncs[z])
+        assert typeOf(fptr) == F
+        return fptr(s)
+
+    res = interpret(h, [80, 5, 0])
+    assert res == 75
+    res = interpret(h, [80, 5, 1])
+    assert res == 85
+
 
 def test_cast_instance_to_base_ptr():
     class A:

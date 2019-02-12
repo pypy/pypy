@@ -7,8 +7,8 @@ from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
 from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
-    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN, copysign,
-    float_as_rbigint_ratio, formatd, isfinite, isinf, isnan)
+    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN,
+    float_as_rbigint_ratio, formatd, isfinite)
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
@@ -27,7 +27,7 @@ def float2string(x, code, precision):
     # we special-case explicitly inf and nan here
     if isfinite(x):
         s = formatd(x, code, precision, DTSF_ADD_DOT_0)
-    elif isinf(x):
+    elif math.isinf(x):
         if x > 0.0:
             s = "inf"
         else:
@@ -160,15 +160,11 @@ class W_FloatObject(W_Root):
         return self.floatval
 
     def int(self, space):
+        # this is a speed-up only, for space.int(w_float).
         if (type(self) is not W_FloatObject and
             space.is_overloaded(self, space.w_float, '__int__')):
             return W_Root.int(self, space)
-        try:
-            value = ovfcheck_float_to_int(self.floatval)
-        except OverflowError:
-            return space.long(self)
-        else:
-            return space.newint(value)
+        return self.descr_trunc(space)
 
     def is_w(self, space, w_other):
         from rpython.rlib.longlong2float import float2longlong
@@ -185,9 +181,10 @@ class W_FloatObject(W_Root):
             return None
         from rpython.rlib.longlong2float import float2longlong
         from pypy.objspace.std.util import IDTAG_FLOAT as tag
+        from pypy.objspace.std.util import IDTAG_SHIFT
         val = float2longlong(space.float_w(self))
         b = rbigint.fromrarith_int(val)
-        b = b.lshift(3).int_or_(tag)
+        b = b.lshift(IDTAG_SHIFT).int_or_(tag)
         return space.newlong_from_rbigint(b)
 
     def __repr__(self):
@@ -227,16 +224,16 @@ class W_FloatObject(W_Root):
         return w_obj
 
     @staticmethod
-    @unwrap_spec(kind=str)
+    @unwrap_spec(kind='text')
     def descr___getformat__(space, w_cls, kind):
         if kind == "float":
-            return space.wrap(_float_format)
+            return space.newtext(_float_format)
         elif kind == "double":
-            return space.wrap(_double_format)
+            return space.newtext(_double_format)
         raise oefmt(space.w_ValueError, "only float and double are valid")
 
     @staticmethod
-    @unwrap_spec(s=str)
+    @unwrap_spec(s='text')
     def descr_fromhex(space, w_cls, s):
         length = len(s)
         i = 0
@@ -375,7 +372,7 @@ class W_FloatObject(W_Root):
             i += 1
         if i != length:
             raise oefmt(space.w_ValueError, "invalid hex string")
-        w_float = space.wrap(sign * value)
+        w_float = space.newfloat(sign * value)
         return space.call_function(w_cls, w_float)
 
     def _to_float(self, space, w_obj):
@@ -387,13 +384,14 @@ class W_FloatObject(W_Root):
             return W_FloatObject(space.float_w(w_obj))
 
     def descr_repr(self, space):
-        return space.wrap(float2string(self.floatval, 'r', 0))
+        return space.newtext(float2string(self.floatval, 'r', 0))
 
     def descr_str(self, space):
-        return space.wrap(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
+        return space.newtext(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
 
     def descr_hash(self, space):
-        return space.wrap(_hash_float(space, self.floatval))
+        h = _hash_float(space, self.floatval)
+        return space.newint(h)
 
     def descr_format(self, space, w_spec):
         return newformat.run_formatter(space, w_spec, "format_float", self)
@@ -424,9 +422,8 @@ class W_FloatObject(W_Root):
                         "cannot convert float NaN to integer")
 
     def descr_trunc(self, space):
-        whole = math.modf(self.floatval)[1]
         try:
-            value = ovfcheck_float_to_int(whole)
+            value = ovfcheck_float_to_int(self.floatval)
         except OverflowError:
             return self.descr_long(space)
         else:
@@ -535,7 +532,7 @@ class W_FloatObject(W_Root):
             # fmod returns different results across platforms; ensure
             # it has the same sign as the denominator; we'd like to do
             # "mod = y * 0.0", but that may get optimized away
-            mod = copysign(0.0, y)
+            mod = math.copysign(0.0, y)
 
         return W_FloatObject(mod)
 
@@ -586,7 +583,7 @@ class W_FloatObject(W_Root):
         return space.float(self)
 
     def descr_get_imag(self, space):
-        return space.wrap(0.0)
+        return space.newfloat(0.0)
 
     def descr_conjugate(self, space):
         return space.float(self)
@@ -595,7 +592,7 @@ class W_FloatObject(W_Root):
         v = self.floatval
         if not rfloat.isfinite(v):
             return space.w_False
-        return space.wrap(math.floor(v) == v)
+        return space.newbool(math.floor(v) == v)
 
     def descr_as_integer_ratio(self, space):
         value = self.floatval
@@ -619,10 +616,10 @@ class W_FloatObject(W_Root):
         if not isfinite(value):
             return self.descr_str(space)
         if value == 0.0:
-            if copysign(1., value) == -1.:
-                return space.wrap("-0x0.0p+0")
+            if math.copysign(1., value) == -1.:
+                return space.newtext("-0x0.0p+0")
             else:
-                return space.wrap("0x0.0p+0")
+                return space.newtext("0x0.0p+0")
         mant, exp = math.frexp(value)
         shift = 1 - max(rfloat.DBL_MIN_EXP - exp, 0)
         mant = math.ldexp(mant, shift)
@@ -643,9 +640,9 @@ class W_FloatObject(W_Root):
         exp = abs(exp)
         s = ''.join(result)
         if value < 0.0:
-            return space.wrap("-0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("-0x%sp%s%d" % (s, sign, exp))
         else:
-            return space.wrap("0x%sp%s%d" % (s, sign, exp))
+            return space.newtext("0x%sp%s%d" % (s, sign, exp))
 
 
 W_FloatObject.typedef = TypeDef("float",
@@ -661,7 +658,7 @@ Convert a string or number to a floating point number, if possible.''',
     __format__ = interp2app(W_FloatObject.descr_format),
     __coerce__ = interp2app(W_FloatObject.descr_coerce),
     __nonzero__ = interp2app(W_FloatObject.descr_nonzero),
-    __int__ = interp2app(W_FloatObject.int),
+    __int__ = interp2app(W_FloatObject.descr_trunc),
     __float__ = interp2app(W_FloatObject.descr_float),
     __long__ = interp2app(W_FloatObject.descr_long),
     __trunc__ = interp2app(W_FloatObject.descr_trunc),
@@ -706,7 +703,7 @@ Convert a string or number to a floating point number, if possible.''',
 
 
 def _hash_float(space, v):
-    if isnan(v):
+    if math.isnan(v):
         return 0
 
     # This is designed so that Python numbers of different types
@@ -718,8 +715,6 @@ def _hash_float(space, v):
         # This must return the same hash as an equal int or long.
         try:
             x = ovfcheck_float_to_int(intpart)
-            # Fits in a C long == a Python int, so is its own hash.
-            return x
         except OverflowError:
             # Convert to long and use its hash.
             try:
@@ -731,6 +726,10 @@ def _hash_float(space, v):
                 else:
                     return 314159
             return space.int_w(space.hash(w_lval))
+        else:
+            # Fits in a C long == a Python int.
+            from pypy.objspace.std.intobject import _hash_int
+            return _hash_int(x)
 
     # The fractional part is non-zero, so we don't have to worry about
     # making this match the hash of some other type.
@@ -749,6 +748,7 @@ def _hash_float(space, v):
     hipart = int(v)    # take the top 32 bits
     v = (v - hipart) * 2147483648.0 # get the next 32 bits
     x = intmask(hipart + int(v) + (expo << 15))
+    x -= (x == -1)
     return x
 
 
@@ -800,16 +800,16 @@ def _pow(space, x, y):
     if y == 0.0:
         # x**0 is 1, even 0**0
         return 1.0
-    if isnan(x):
+    if math.isnan(x):
         # nan**y = nan, unless y == 0
         return x
-    if isnan(y):
+    if math.isnan(y):
         # x**nan = nan, unless x == 1; x**nan = x
         if x == 1.0:
             return 1.0
         else:
             return y
-    if isinf(y):
+    if math.isinf(y):
         # x**inf is: 0.0 if abs(x) < 1; 1.0 if abs(x) == 1; inf if
         # abs(x) > 1 (including case where x infinite)
         #
@@ -822,7 +822,7 @@ def _pow(space, x, y):
             return INFINITY
         else:
             return 0.0
-    if isinf(x):
+    if math.isinf(x):
         # (+-inf)**w is: inf for w positive, 0 for w negative; in oth
         # cases, we need to add the appropriate sign if w is an odd
         # integer.
@@ -834,7 +834,7 @@ def _pow(space, x, y):
                 return abs(x)
         else:
             if y_is_odd:
-                return copysign(0.0, x)
+                return math.copysign(0.0, x)
             else:
                 return 0.0
 
@@ -848,7 +848,7 @@ def _pow(space, x, y):
     # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
     # -           pipermail/python-bugs-list/2003-March/016795.html
     if x < 0.0:
-        if isnan(y):
+        if math.isnan(y):
             return NAN
         if math.floor(y) != y:
             raise PowDomainError

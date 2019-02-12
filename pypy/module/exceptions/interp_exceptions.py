@@ -76,7 +76,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rwin32
 
 
@@ -106,12 +106,12 @@ class W_BaseException(W_Root):
         if len(args_w) == 1:
             self.w_message = args_w[0]
         else:
-            self.w_message = space.wrap("")
+            self.w_message = space.newtext("")
 
     def descr_str(self, space):
         lgt = len(self.args_w)
         if lgt == 0:
-            return space.wrap('')
+            return space.newtext('')
         elif lgt == 1:
             return space.str(self.args_w[0])
         else:
@@ -122,11 +122,11 @@ class W_BaseException(W_Root):
         w_base_type = space.gettypeobject(W_BaseException.typedef)
         w_base_str = w_base_type.dict_w["__str__"]
         if not space.is_w(w_str, w_base_str):
-            w_as_str = space.get_and_call_function(w_str, space.wrap(self))
+            w_as_str = space.get_and_call_function(w_str, self)
             return space.call_function(space.w_unicode, w_as_str)
         lgt = len(self.args_w)
         if lgt == 0:
-            return space.wrap(u"")
+            return space.newunicode(u"")
         if lgt == 1:
             return space.call_function(space.w_unicode, self.args_w[0])
         else:
@@ -135,11 +135,11 @@ class W_BaseException(W_Root):
 
     def descr_repr(self, space):
         if self.args_w:
-            args_repr = space.str_w(space.repr(space.newtuple(self.args_w)))
+            args_repr = space.text_w(space.repr(space.newtuple(self.args_w)))
         else:
             args_repr = "()"
         clsname = self.getclass(space).getname(space)
-        return space.wrap(clsname + args_repr)
+        return space.newtext(clsname + args_repr)
 
     def descr_getargs(self, space):
         return space.newtuple(self.args_w)
@@ -157,7 +157,8 @@ class W_BaseException(W_Root):
 
     def setdict(self, space, w_dict):
         if not space.isinstance_w(w_dict, space.w_dict):
-            raise OperationError(space.w_TypeError, space.wrap("setting exceptions's dictionary to a non-dict"))
+            raise oefmt(space.w_TypeError,
+                        "setting exceptions's dictionary to a non-dict")
         self.w_dict = w_dict
 
     def descr_reduce(self, space):
@@ -173,25 +174,24 @@ class W_BaseException(W_Root):
     def descr_message_get(self, space):
         w_dict = self.w_dict
         if w_dict is not None:
-            w_msg = space.finditem(w_dict, space.wrap("message"))
+            w_msg = space.finditem(w_dict, space.newtext("message"))
             if w_msg is not None:
                 return w_msg
         if self.w_message is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("message was deleted"))
+            raise oefmt(space.w_AttributeError, "message was deleted")
         msg = "BaseException.message has been deprecated as of Python 2.6"
-        space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        space.warn(space.newtext(msg), space.w_DeprecationWarning)
         return self.w_message
 
     def descr_message_set(self, space, w_new):
-        space.setitem(self.getdict(space), space.wrap("message"), w_new)
+        space.setitem(self.getdict(space), space.newtext("message"), w_new)
 
     def descr_message_del(self, space):
         w_dict = self.w_dict
         if w_dict is not None:
             try:
-                space.delitem(w_dict, space.wrap("message"))
-            except OperationError, e:
+                space.delitem(w_dict, space.newtext("message"))
+            except OperationError as e:
                 if not e.match(space, space.w_KeyError):
                     raise
         self.w_message = None
@@ -202,7 +202,7 @@ def _new(cls, basecls=None):
     def descr_new_base_exception(space, w_subtype, __args__):
         exc = space.allocate_instance(cls, w_subtype)
         basecls.__init__(exc, space)
-        return space.wrap(exc)
+        return exc
     descr_new_base_exception.func_name = 'descr_new_' + cls.__name__
     return interp2app(descr_new_base_exception)
 
@@ -288,7 +288,7 @@ class W_UnicodeTranslateError(W_UnicodeError):
         space.realunicode_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
-        space.realstr_w(w_reason)
+        space.realtext_w(w_reason)
         # assign attributes
         self.w_object = w_object
         self.w_start = w_start
@@ -298,7 +298,7 @@ class W_UnicodeTranslateError(W_UnicodeError):
                                                  w_end, w_reason])
 
     def descr_str(self, space):
-        return space.appexec([space.wrap(self)], r"""(self):
+        return space.appexec([self], r"""(self):
             if self.object is None:
                 return ""
             if self.end == self.start + 1:
@@ -329,7 +329,7 @@ W_LookupError = _new_exception('LookupError', W_StandardError,
 
 def key_error_str(self, space):
     if len(self.args_w) == 0:
-        return space.wrap('')
+        return space.newtext('')
     elif len(self.args_w) == 1:
         return space.repr(self.args_w[0])
     else:
@@ -381,14 +381,14 @@ class W_EnvironmentError(W_StandardError):
     def descr_str(self, space):
         if (not space.is_w(self.w_errno, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
-            errno = space.str_w(space.str(self.w_errno))
-            strerror = space.str_w(space.str(self.w_strerror))
+            errno = space.text_w(space.str(self.w_errno))
+            strerror = space.text_w(space.str(self.w_strerror))
             if not space.is_w(self.w_filename, space.w_None):
-                return space.wrap("[Errno %s] %s: %s" % (
+                return space.newtext("[Errno %s] %s: %s" % (
                     errno,
                     strerror,
-                    space.str_w(space.repr(self.w_filename))))
-            return space.wrap("[Errno %s] %s" % (
+                    space.text_w(space.repr(self.w_filename))))
+            return space.newtext("[Errno %s] %s" % (
                 errno,
                 strerror,
             ))
@@ -428,18 +428,18 @@ class W_WindowsError(W_OSError):
         else:
             errno = self._winerror_to_errno.get(errno, self._default_errno)
         self.w_winerror = self.w_errno
-        self.w_errno = space.wrap(errno)
+        self.w_errno = space.newint(errno)
 
     def descr_str(self, space):
         if (not space.is_w(self.w_winerror, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
             if not space.is_w(self.w_filename, space.w_None):
-                return space.wrap("[Error %d] %s: %s" % (
+                return space.newtext("[Error %d] %s: %s" % (
                     space.int_w(self.w_winerror),
-                    space.str_w(self.w_strerror),
-                    space.str_w(self.w_filename)))
-            return space.wrap("[Error %d] %s" % (space.int_w(self.w_winerror),
-                                                 space.str_w(self.w_strerror)))
+                    space.text_w(self.w_strerror),
+                    space.text_w(self.w_filename)))
+            return space.newtext("[Error %d] %s" % (space.int_w(self.w_winerror),
+                                                    space.text_w(self.w_strerror)))
         return W_BaseException.descr_str(self, space)
 
     if hasattr(rwin32, 'build_winerror_to_errno'):
@@ -547,9 +547,9 @@ class W_SyntaxError(W_StandardError):
             values_w = space.fixedview(self.args_w[1])
             w_tuple = space.newtuple(values_w + [self.w_lastlineno])
             args_w = [self.args_w[0], w_tuple]
-            args_repr = space.str_w(space.repr(space.newtuple(args_w)))
+            args_repr = space.text_w(space.repr(space.newtuple(args_w)))
             clsname = self.getclass(space).getname(space)
-            return space.wrap(clsname + args_repr)
+            return space.newtext(clsname + args_repr)
         else:
             return W_StandardError.descr_repr(self, space)
 
@@ -628,11 +628,11 @@ class W_UnicodeDecodeError(W_UnicodeError):
 
     def descr_init(self, space, w_encoding, w_object, w_start, w_end, w_reason):
         # typechecking
-        space.realstr_w(w_encoding)
-        space.realstr_w(w_object)
+        space.realtext_w(w_encoding)
+        space.realtext_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
-        space.realstr_w(w_reason)
+        space.realtext_w(w_reason)
         # assign attributes
         self.w_encoding = w_encoding
         self.w_object = w_object
@@ -718,11 +718,11 @@ class W_UnicodeEncodeError(W_UnicodeError):
 
     def descr_init(self, space, w_encoding, w_object, w_start, w_end, w_reason):
         # typechecking
-        space.realstr_w(w_encoding)
+        space.realtext_w(w_encoding)
         space.realunicode_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
-        space.realstr_w(w_reason)
+        space.realtext_w(w_reason)
         # assign attributes
         self.w_encoding = w_encoding
         self.w_object = w_object

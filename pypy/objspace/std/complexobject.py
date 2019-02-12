@@ -4,7 +4,7 @@ from rpython.rlib import jit, rcomplex
 from rpython.rlib.rarithmetic import intmask, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
-    DTSF_STR_PRECISION, copysign, formatd, isinf, isnan, string_to_float)
+    DTSF_STR_PRECISION, formatd, string_to_float)
 from rpython.rlib.rstring import ParseStringError
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -111,12 +111,12 @@ def _split_complex(s):
 
 def format_float(x, code, precision):
     # like float2string, except that the ".0" is not necessary
-    if isinf(x):
+    if math.isinf(x):
         if x > 0.0:
             return "inf"
         else:
             return "-inf"
-    elif isnan(x):
+    elif math.isnan(x):
         return "nan"
     else:
         return formatd(x, code, precision)
@@ -128,7 +128,7 @@ def str_format(x):
     return format_float(x, 'g', DTSF_STR_PRECISION)
 
 
-def unpackcomplex(space, w_complex, strict_typing=True):
+def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
     """
     convert w_complex into a complex and return the unwrapped (real, imag)
     tuple. If strict_typing==True, we also typecheck the value returned by
@@ -143,8 +143,8 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     w_z = None
     if space.is_oldstyle_instance(w_complex):
         try:
-            w_method = space.getattr(w_complex, space.wrap('__complex__'))
-        except OperationError, e:
+            w_method = space.getattr(w_complex, space.newtext('__complex__'))
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
         else:
@@ -170,17 +170,30 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.
     if space.isinstance_w(w_complex, space.gettypefor(W_ComplexObject)):
-        real = space.float(space.getattr(w_complex, space.wrap("real")))
-        imag = space.float(space.getattr(w_complex, space.wrap("imag")))
+        real = space.float(space.getattr(w_complex, space.newtext("real")))
+        imag = space.float(space.getattr(w_complex, space.newtext("imag")))
         return (space.float_w(real), space.float_w(imag))
     #
     # Check that it is not a string (on which space.float() would succeed).
-    if (space.isinstance_w(w_complex, space.w_str) or
+    if (space.isinstance_w(w_complex, space.w_bytes) or
         space.isinstance_w(w_complex, space.w_unicode)):
         raise oefmt(space.w_TypeError,
                     "complex number expected, got '%T'", w_complex)
     #
-    return (space.float_w(space.float(w_complex)), 0.0)
+    try:
+        return (space.float_w(space.float(w_complex)), 0.0)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        if firstarg:
+            raise oefmt(space.w_TypeError,
+                        "complex() first argument must be a string or a number, not '%T'",
+                         w_complex)
+        else:
+            raise oefmt(space.w_TypeError,
+                        "complex() second argument must be a number, not '%T'",
+                         w_complex)
+
 
 
 class W_ComplexObject(W_Root):
@@ -214,7 +227,7 @@ class W_ComplexObject(W_Root):
         return W_ComplexObject(rr, ir)
 
     def divmod(self, space, other):
-        space.warn(space.wrap("complex divmod(), // and % are deprecated"),
+        space.warn(space.newtext("complex divmod(), // and % are deprecated"),
                    space.w_DeprecationWarning)
         w_div = self.div(other)
         div = math.floor(w_div.realval)
@@ -251,10 +264,10 @@ class W_ComplexObject(W_Root):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        real1 = space.float_w(space.getattr(self, space.wrap("real")))
-        real2 = space.float_w(space.getattr(w_other, space.wrap("real")))
-        imag1 = space.float_w(space.getattr(self, space.wrap("imag")))
-        imag2 = space.float_w(space.getattr(w_other, space.wrap("imag")))
+        real1 = space.float_w(space.getattr(self, space.newtext("real")))
+        real2 = space.float_w(space.getattr(w_other, space.newtext("real")))
+        imag1 = space.float_w(space.getattr(self, space.newtext("imag")))
+        imag2 = space.float_w(space.getattr(w_other, space.newtext("imag")))
         real1 = float2longlong(real1)
         real2 = float2longlong(real2)
         imag1 = float2longlong(imag1)
@@ -266,11 +279,12 @@ class W_ComplexObject(W_Root):
             return None
         from rpython.rlib.longlong2float import float2longlong
         from pypy.objspace.std.util import IDTAG_COMPLEX as tag
-        real = space.float_w(space.getattr(self, space.wrap("real")))
-        imag = space.float_w(space.getattr(self, space.wrap("imag")))
+        from pypy.objspace.std.util import IDTAG_SHIFT
+        real = space.float_w(space.getattr(self, space.newtext("real")))
+        imag = space.float_w(space.getattr(self, space.newtext("imag")))
         real_b = rbigint.fromrarith_int(float2longlong(real))
         imag_b = rbigint.fromrarith_int(r_ulonglong(float2longlong(imag)))
-        val = real_b.lshift(64).or_(imag_b).lshift(3).int_or_(tag)
+        val = real_b.lshift(64).or_(imag_b).lshift(IDTAG_SHIFT).int_or_(tag)
         return space.newlong_from_rbigint(val)
 
     def int(self, space):
@@ -298,14 +312,14 @@ class W_ComplexObject(W_Root):
             and space.is_w(space.type(w_real), space.w_complex)):
             return w_real
 
-        if space.isinstance_w(w_real, space.w_str) or \
+        if space.isinstance_w(w_real, space.w_bytes) or \
                 space.isinstance_w(w_real, space.w_unicode):
             # a string argument
             if not noarg2:
                 raise oefmt(space.w_TypeError, "complex() can't take second"
                                                " arg if first is a string")
             try:
-                realstr, imagstr = _split_complex(space.str_w(w_real))
+                realstr, imagstr = _split_complex(space.text_w(w_real))
             except ValueError:
                 raise oefmt(space.w_ValueError,
                             "complex() arg is a malformed string")
@@ -325,7 +339,8 @@ class W_ComplexObject(W_Root):
             if not noarg2:
                 # complex(x, y) == x+y*j, even if 'y' is already a complex.
                 realval2, imagval2 = unpackcomplex(space, w_imag,
-                                                   strict_typing=False)
+                                                   strict_typing=False,
+                                                   firstarg=False)
 
                 # try to preserve the signs of zeroes of realval and realval2
                 if imagval2 != 0.0:
@@ -345,26 +360,27 @@ class W_ComplexObject(W_Root):
                                space.newfloat(self.imagval)])
 
     def descr_repr(self, space):
-        if self.realval == 0 and copysign(1., self.realval) == 1.:
-            return space.wrap(repr_format(self.imagval) + 'j')
-        sign = (copysign(1., self.imagval) == 1. or
-                isnan(self.imagval)) and '+' or ''
-        return space.wrap('(' + repr_format(self.realval)
-                          + sign + repr_format(self.imagval) + 'j)')
+        if self.realval == 0 and math.copysign(1., self.realval) == 1.:
+            return space.newtext(repr_format(self.imagval) + 'j')
+        sign = (math.copysign(1., self.imagval) == 1. or
+                math.isnan(self.imagval)) and '+' or ''
+        return space.newtext('(' + repr_format(self.realval)
+                             + sign + repr_format(self.imagval) + 'j)')
 
     def descr_str(self, space):
-        if self.realval == 0 and copysign(1., self.realval) == 1.:
-            return space.wrap(str_format(self.imagval) + 'j')
-        sign = (copysign(1., self.imagval) == 1. or
-                isnan(self.imagval)) and '+' or ''
-        return space.wrap('(' + str_format(self.realval)
-                          + sign + str_format(self.imagval) + 'j)')
+        if self.realval == 0 and math.copysign(1., self.realval) == 1.:
+            return space.newtext(str_format(self.imagval) + 'j')
+        sign = (math.copysign(1., self.imagval) == 1. or
+                math.isnan(self.imagval)) and '+' or ''
+        return space.newtext('(' + str_format(self.realval)
+                             + sign + str_format(self.imagval) + 'j)')
 
     def descr_hash(self, space):
         hashreal = _hash_float(space, self.realval)
-        hashimg = _hash_float(space, self.imagval)
-        combined = intmask(hashreal + 1000003 * hashimg)
-        return space.newint(combined)
+        hashimg = _hash_float(space, self.imagval)   # 0 if self.imagval == 0
+        h = intmask(hashreal + 1000003 * hashimg)
+        h -= (h == -1)
+        return space.newint(h)
 
     def descr_coerce(self, space, w_other):
         w_other = self._to_complex(space, w_other)
@@ -391,8 +407,8 @@ class W_ComplexObject(W_Root):
     def descr_abs(self, space):
         try:
             return space.newfloat(math.hypot(self.realval, self.imagval))
-        except OverflowError, e:
-            raise OperationError(space.w_OverflowError, space.wrap(str(e)))
+        except OverflowError as e:
+            raise OperationError(space.w_OverflowError, space.newtext(str(e)))
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_ComplexObject):
@@ -473,8 +489,8 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return self.div(w_rhs)
-        except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        except ZeroDivisionError as e:
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_rtruediv(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -482,8 +498,8 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return w_lhs.div(self)
-        except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        except ZeroDivisionError as e:
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_floordiv(self, space, w_rhs):
         w_rhs = self._to_complex(space, w_rhs)
@@ -492,8 +508,8 @@ class W_ComplexObject(W_Root):
         # don't care about the slight slowdown you get from using divmod
         try:
             return self.divmod(space, w_rhs)[0]
-        except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        except ZeroDivisionError as e:
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_rfloordiv(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -502,8 +518,8 @@ class W_ComplexObject(W_Root):
         # don't care about the slight slowdown you get from using divmod
         try:
             return w_lhs.divmod(space, self)[0]
-        except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        except ZeroDivisionError as e:
+            raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
     def descr_mod(self, space, w_rhs):
         w_rhs = self._to_complex(space, w_rhs)
@@ -511,8 +527,8 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return self.divmod(space, w_rhs)[1]
-        except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        except ZeroDivisionError as e:
+            raise oefmt(space.w_ZeroDivisionError, "complex modulo by zero")
 
     def descr_rmod(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -520,8 +536,8 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return w_lhs.divmod(space, self)[1]
-        except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        except ZeroDivisionError as e:
+            raise oefmt(space.w_ZeroDivisionError, "complex modulo by zero")
 
     def descr_divmod(self, space, w_rhs):
         w_rhs = self._to_complex(space, w_rhs)
@@ -529,8 +545,8 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             div, mod = self.divmod(space, w_rhs)
-        except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        except ZeroDivisionError as e:
+            raise oefmt(space.w_ZeroDivisionError, "complex divmod by zero")
         return space.newtuple([div, mod])
 
     def descr_rdivmod(self, space, w_lhs):
@@ -539,8 +555,8 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             div, mod = w_lhs.divmod(space, self)
-        except ZeroDivisionError, e:
-            raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        except ZeroDivisionError as e:
+            raise oefmt(space.w_ZeroDivisionError, "complex divmod by zero")
         return space.newtuple([div, mod])
 
     @unwrap_spec(w_third_arg=WrappedDefault(None))

@@ -3,9 +3,9 @@ Callbacks.
 """
 import sys, os, py
 
-from rpython.rlib import clibffi, jit, rgc, objectmodel
+from rpython.rlib import clibffi, jit, objectmodel
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._cffi_backend import cerrno, misc, parse_c_type
@@ -13,6 +13,7 @@ from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
+from pypy.module._cffi_backend.hide_reveal import hide_reveal1
 
 BIG_ENDIAN = sys.byteorder == 'big'
 
@@ -30,9 +31,7 @@ def make_callback(space, ctype, w_callable, w_error, w_onerror):
     return cdata
 
 def reveal_callback(raw_ptr):
-    addr = rffi.cast(llmemory.Address, raw_ptr)
-    gcref = rgc.reveal_gcref(addr)
-    return rgc.try_cast_gcref_to_instance(W_ExternPython, gcref)
+    return hide_reveal1().reveal_object(W_ExternPython, raw_ptr)
 
 
 class Closure(object):
@@ -88,18 +87,15 @@ class W_ExternPython(W_CData):
         ctype = self.ctype
         if not isinstance(ctype, W_CTypeFunc):
             space = self.space
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("expected a function ctype"))
+            raise oefmt(space.w_TypeError, "expected a function ctype")
         return ctype
 
     def hide_object(self):
-        gcref = rgc.cast_instance_to_gcref(self)
-        raw = rgc.hide_nonmovable_gcref(gcref)
-        return rffi.cast(rffi.VOIDP, raw)
+        return hide_reveal1().hide_object(rffi.VOIDP, self)
 
     def _repr_extra(self):
         space = self.space
-        return 'calling ' + space.str_w(space.repr(self.w_callable))
+        return 'calling ' + space.text_w(space.repr(self.w_callable))
 
     def write_error_return_value(self, ll_res):
         error_string = self.error_string
@@ -113,7 +109,7 @@ class W_ExternPython(W_CData):
             must_leave = space.threadlocals.try_enter_thread(space)
             self.py_invoke(ll_res, ll_args)
             #
-        except Exception, e:
+        except Exception as e:
             # oups! last-level attempt to recover.
             try:
                 os.write(STDERR, "SystemError: callback raised ")
@@ -143,7 +139,7 @@ class W_ExternPython(W_CData):
             w_res = space.call(self.w_callable, w_args)
             extra_line = "Trying to convert the result back to C:\n"
             self.convert_result(ll_res, w_res)
-        except OperationError, e:
+        except OperationError as e:
             self.handle_applevel_exception(e, ll_res, extra_line)
 
     @jit.unroll_safe
@@ -175,25 +171,30 @@ class W_ExternPython(W_CData):
 
     @jit.dont_look_inside
     def handle_applevel_exception(self, e, ll_res, extra_line):
+        from pypy.module._cffi_backend import errorbox
         space = self.space
         self.write_error_return_value(ll_res)
         if self.w_onerror is None:
+            ecap = errorbox.start_error_capture(space)
             self.print_error(e, extra_line)
+            errorbox.stop_error_capture(space, ecap)
         else:
             try:
                 e.normalize_exception(space)
                 w_t = e.w_type
                 w_v = e.get_w_value(space)
-                w_tb = space.wrap(e.get_traceback())
+                w_tb = e.get_w_traceback(space)
                 w_res = space.call_function(self.w_onerror, w_t, w_v, w_tb)
                 if not space.is_none(w_res):
                     self.convert_result(ll_res, w_res)
-            except OperationError, e2:
+            except OperationError as e2:
                 # double exception! print a double-traceback...
+                ecap = errorbox.start_error_capture(space)
                 self.print_error(e, extra_line)    # original traceback
                 e2.write_unraisable(space, '', with_traceback=True,
                             extra_line="\nDuring the call to 'onerror', "
                                        "another exception occurred:\n\n")
+                errorbox.stop_error_capture(space, ecap)
 
 
 class W_CDataCallback(W_ExternPython):
@@ -219,11 +220,18 @@ class W_CDataCallback(W_ExternPython):
                                              invoke_callback,
                                              unique_id)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
-            raise OperationError(space.w_SystemError,
-                space.wrap("libffi failed to build this callback"))
+            raise oefmt(space.w_SystemError,
+                        "libffi failed to build this callback")
+        if closure_ptr.c_user_data != unique_id:
+            raise oefmt(space.w_SystemError,
+                "ffi_prep_closure(): bad user_data (it seems that the "
+                "version of the libffi library seen at runtime is "
+                "different from the 'ffi.h' file seen at compile-time)")
 
     def py_invoke(self, ll_res, ll_args):
+        key_pycode = self.key_pycode
         jitdriver1.jit_merge_point(callback=self,
+                                   key_pycode=key_pycode,
                                    ll_res=ll_res,
                                    ll_args=ll_args)
         self.do_invoke(ll_res, ll_args)
@@ -234,9 +242,9 @@ def convert_from_object_fficallback(fresult, ll_res, w_res,
     space = fresult.space
     if isinstance(fresult, W_CTypeVoid):
         if not space.is_w(w_res, space.w_None):
-            raise OperationError(space.w_TypeError,
-                    space.wrap("callback with the return type 'void'"
-                               " must return None"))
+            raise oefmt(space.w_TypeError,
+                        "callback with the return type 'void' must return "
+                        "None")
         return
     #
     small_result = encode_result_for_libffi and fresult.size < SIZE_OF_FFI_ARG
@@ -285,7 +293,7 @@ def get_printable_location1(key_pycode):
     return 'cffi_callback ' + key_pycode.get_repr()
 
 jitdriver1 = jit.JitDriver(name='cffi_callback',
-                           greens=['callback.key_pycode'],
+                           greens=['key_pycode'],
                            reds=['ll_res', 'll_args', 'callback'],
                            get_printable_location=get_printable_location1)
 

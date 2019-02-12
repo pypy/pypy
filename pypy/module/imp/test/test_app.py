@@ -45,15 +45,17 @@ class AppTestImpModule:
 
     def test_suffixes(self):
         for suffix, mode, type in self.imp.get_suffixes():
-            if mode == self.imp.PY_SOURCE:
+            if type == self.imp.PY_SOURCE:
                 assert suffix == '.py'
-                assert type == 'r'
-            elif mode == self.imp.PY_COMPILED:
+                assert mode == 'U'
+            elif type == self.imp.PY_COMPILED:
                 assert suffix in ('.pyc', '.pyo')
-                assert type == 'rb'
-            elif mode == self.imp.C_EXTENSION:
+                assert mode == 'rb'
+            elif type == self.imp.C_EXTENSION:
                 assert suffix.endswith(('.pyd', '.so'))
-                assert type == 'rb'
+                assert mode == 'rb'
+            else:
+                assert False, ("Unknown type", suffix, mode, type)
 
 
     def test_obscure_functions(self):

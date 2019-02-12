@@ -6,15 +6,18 @@ from rpython.rlib import compilerinfo
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (2, 7, 10, "final", 42)
+CPYTHON_VERSION            = (2, 7, 13, "final", 42)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (4, 1, 0, "alpha", 0)    #XXX # sync patchlevel.h
+# make sure to keep PYPY_VERSION in sync with:
+#    module/cpyext/include/patchlevel.h
+#    doc/conf.py
+PYPY_VERSION               = (7, 1, 0, "alpha", 0)
 
 
 import pypy
-pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
+pypydir = pypy.pypydir
 pypyroot = os.path.dirname(pypydir)
 del pypy
 from rpython.tool.version import get_repo_version_info
@@ -42,10 +45,11 @@ class version_info:
 ''')
 
 def get_api_version(space):
-    return space.wrap(CPYTHON_API_VERSION)
+    return space.newint(CPYTHON_API_VERSION)
 
 def get_version_info(space):
     w_version_info = app.wget(space, "version_info")
+    # run at translation time
     return space.call_function(w_version_info, space.wrap(CPYTHON_VERSION))
 
 def _make_version_template(PYPY_VERSION=PYPY_VERSION):
@@ -65,31 +69,33 @@ def _make_version_template(PYPY_VERSION=PYPY_VERSION):
 _VERSION_TEMPLATE = _make_version_template()
 
 def get_version(space):
-    return space.wrap(_VERSION_TEMPLATE % compilerinfo.get_compiler_info())
+    return space.newtext(_VERSION_TEMPLATE % compilerinfo.get_compiler_info())
 
 def get_winver(space):
-    return space.wrap("%d.%d" % (
+    return space.newtext("%d.%d" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1]))
 
 def get_hexversion(space):
-    return space.wrap(tuple2hex(CPYTHON_VERSION))
+    return space.newint(tuple2hex(CPYTHON_VERSION))
 
 def get_pypy_version_info(space):
     ver = PYPY_VERSION
     w_version_info = app.wget(space, "version_info")
+    # run at translation time
     return space.call_function(w_version_info, space.wrap(ver))
 
 def get_subversion_info(space):
+    # run at translation time
     return space.wrap(('PyPy', '', ''))
 
 def get_repo_info(space):
     info = get_repo_version_info(root=pypyroot)
     if info:
         repo_tag, repo_version = info
-        return space.newtuple([space.wrap('PyPy'),
-                               space.wrap(repo_tag),
-                               space.wrap(repo_version)])
+        return space.newtuple([space.newtext('PyPy'),
+                               space.newtext(repo_tag),
+                               space.newtext(repo_version)])
     else:
         return space.w_None
 

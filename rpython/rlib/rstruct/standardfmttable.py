@@ -12,34 +12,84 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.strstorage import str_storage_getitem
+from rpython.rlib.buffer import StringBuffer
 from rpython.rlib import rarithmetic
+from rpython.rlib.buffer import CannotRead, CannotWrite
 from rpython.rtyper.lltypesystem import rffi
+
+USE_FASTPATH = True    # set to False by some tests
+ALLOW_SLOWPATH = True  # set to False by some tests
+ALLOW_FASTPATH = True  # set to False by some tests
 
 native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 native_is_ieee754 = float.__getformat__('double').startswith('IEEE')
 
+@specialize.memo()
+def pack_fastpath(TYPE):
+    """
+    Create a fast path packer for TYPE. The packer returns True is it succeded
+    or False otherwise.
+    """
+    @specialize.argtype(0)
+    def do_pack_fastpath(fmtiter, value):
+        size = rffi.sizeof(TYPE)
+        if (not USE_FASTPATH or
+            fmtiter.bigendian != native_is_bigendian or
+            not native_is_ieee754):
+            raise CannotWrite
+        #
+        # typed_write() might raise CannotWrite
+        fmtiter.wbuf.typed_write(TYPE, fmtiter.pos, value)
+        if not ALLOW_FASTPATH:
+            # if we are here it means that typed_write did not raise, and thus
+            # the fast path was actually taken
+            raise ValueError("fastpath not allowed :(")
+        fmtiter.advance(size)
+    #
+    @specialize.argtype(0)
+    def do_pack_fastpath_maybe(fmtiter, value):
+        try:
+            do_pack_fastpath(fmtiter, value)
+        except CannotWrite:
+            if not ALLOW_SLOWPATH:
+                raise ValueError("fastpath not taken :(")
+            return False
+        else:
+            return True
+    #
+    return do_pack_fastpath_maybe
+
 def pack_pad(fmtiter, count):
-    fmtiter.result.append_multiple_char('\x00', count)
+    fmtiter.wbuf.setzeros(fmtiter.pos, count)
+    fmtiter.advance(count)
 
 def pack_char(fmtiter):
     string = fmtiter.accept_str_arg()
     if len(string) != 1:
         raise StructError("expected a string of length 1")
     c = string[0]   # string->char conversion for the annotator
-    fmtiter.result.append(c)
+    fmtiter.wbuf.setitem(fmtiter.pos, c)
+    fmtiter.advance(1)
 
 def pack_bool(fmtiter):
     c = '\x01' if fmtiter.accept_bool_arg() else '\x00'
-    fmtiter.result.append(c)
+    fmtiter.wbuf.setitem(fmtiter.pos, c)
+    fmtiter.advance(1)
+
+def _pack_string(fmtiter, string, count):
+    pos = fmtiter.pos
+    if len(string) < count:
+        n = len(string)
+        fmtiter.wbuf.setslice(pos, string)
+        fmtiter.wbuf.setzeros(pos+n, count-n)
+    else:
+        assert count >= 0
+        fmtiter.wbuf.setslice(pos, string[:count])
+    fmtiter.advance(count)
 
 def pack_string(fmtiter, count):
     string = fmtiter.accept_str_arg()
-    if len(string) < count:
-        fmtiter.result.append(string)
-        fmtiter.result.append_multiple_char('\x00', count - len(string))
-    else:
-        fmtiter.result.append_slice(string, 0, count)
+    _pack_string(fmtiter, string, count)
 
 def pack_pascal(fmtiter, count):
     string = fmtiter.accept_str_arg()
@@ -49,21 +99,40 @@ def pack_pascal(fmtiter, count):
         if prefix < 0:
             raise StructError("bad '0p' in struct format")
     if prefix > 255:
-        prefixchar = '\xff'
-    else:
-        prefixchar = chr(prefix)
-    fmtiter.result.append(prefixchar)
-    fmtiter.result.append_slice(string, 0, prefix)
-    fmtiter.result.append_multiple_char('\x00', count - (1 + prefix))
+        prefix = 255
+    fmtiter.wbuf.setitem(fmtiter.pos, chr(prefix))
+    fmtiter.advance(1)
+    _pack_string(fmtiter, string, count-1)
 
-def make_float_packer(size):
+
+def pack_halffloat(fmtiter):
+    size = 2
+    fl = fmtiter.accept_float_arg()
+    try:
+        result = ieee.pack_float(fmtiter.wbuf, fmtiter.pos,
+                                 fl, size, fmtiter.bigendian)
+    except OverflowError:
+        raise StructOverflowError("float too large for format 'e'")
+    else:
+        fmtiter.advance(size)
+        return result
+
+def make_float_packer(TYPE):
+    size = rffi.sizeof(TYPE)
     def packer(fmtiter):
         fl = fmtiter.accept_float_arg()
+        if TYPE is not rffi.FLOAT and pack_fastpath(TYPE)(fmtiter, fl):
+            return
+        # slow path
         try:
-            return ieee.pack_float(fmtiter.result, fl, size, fmtiter.bigendian)
+            result = ieee.pack_float(fmtiter.wbuf, fmtiter.pos,
+                                     fl, size, fmtiter.bigendian)
         except OverflowError:
             assert size == 4
             raise StructOverflowError("float too large for format 'f'")
+        else:
+            fmtiter.advance(size)
+            return result
     return packer
 
 # ____________________________________________________________
@@ -111,42 +180,56 @@ def make_int_packer(size, signed, _memo={}):
     errormsg = "argument out of range for %d-byte%s integer format" % (size,
                                                                        plural)
     unroll_revrange_size = unrolling_iterable(range(size-1, -1, -1))
+    TYPE = get_rffi_int_type(size, signed)
 
     def pack_int(fmtiter):
         method = getattr(fmtiter, accept_method)
         value = method()
         if not min <= value <= max:
             raise StructError(errormsg)
+        #
+        if pack_fastpath(TYPE)(fmtiter, value):
+            return
+        #
+        pos = fmtiter.pos + size - 1        
         if fmtiter.bigendian:
             for i in unroll_revrange_size:
                 x = (value >> (8*i)) & 0xff
-                fmtiter.result.append(chr(x))
+                fmtiter.wbuf.setitem(pos-i, chr(x))
         else:
+
             for i in unroll_revrange_size:
-                fmtiter.result.append(chr(value & 0xff))
+                fmtiter.wbuf.setitem(pos-i, chr(value & 0xff))
                 value >>= 8
+        fmtiter.advance(size)
 
     _memo[key] = pack_int
     return pack_int
 
 # ____________________________________________________________
 
-USE_FASTPATH = True    # set to False by some tests
-ALLOW_SLOWPATH = True  # set to False by some tests
-
-class CannotUnpack(Exception):
-    pass
 
 @specialize.memo()
 def unpack_fastpath(TYPE):
     @specialize.argtype(0)
     def do_unpack_fastpath(fmtiter):
         size = rffi.sizeof(TYPE)
-        strbuf, pos = fmtiter.get_buffer_as_string_maybe()
-        if strbuf is None or pos % size != 0 or not USE_FASTPATH:
-            raise CannotUnpack
-        fmtiter.skip(size)
-        return str_storage_getitem(TYPE, strbuf, pos)
+        buf, pos = fmtiter.get_buffer_and_pos()
+        if not USE_FASTPATH:
+            raise CannotRead
+        #
+        if not ALLOW_FASTPATH:
+            raise ValueError("fastpath not allowed :(")
+        # typed_read does not do any bound check, so we must call it only if
+        # we are sure there are at least "size" bytes to read
+        if fmtiter.can_advance(size):
+            result = buf.typed_read(TYPE, pos)
+            fmtiter.advance(size)
+            return result
+        else:
+            # this will raise StructError
+            fmtiter.advance(size)
+            assert False, 'fmtiter.advance should have raised!'
     return do_unpack_fastpath
 
 @specialize.argtype(0)
@@ -176,6 +259,11 @@ def unpack_pascal(fmtiter, count):
         end = count
     fmtiter.appendobj(data[1:end])
 
+@specialize.argtype(0)
+def unpack_halffloat(fmtiter):
+    data = fmtiter.read(2)
+    fmtiter.appendobj(ieee.unpack_float(data, fmtiter.bigendian))
+
 def make_ieee_unpacker(TYPE):
     @specialize.argtype(0)
     def unpack_ieee(fmtiter):
@@ -196,10 +284,13 @@ def make_ieee_unpacker(TYPE):
         try:
             # fast path
             val = unpack_fastpath(TYPE)(fmtiter)
-        except CannotUnpack:
-            # slow path, take the slice
+        except CannotRead:
+            # slow path: we should arrive here only if we could not unpack
+            # because of alignment issues. So we copy the slice into a new
+            # string, which is guaranteed to be properly aligned, and read the
+            # float/double from there
             input = fmtiter.read(size)
-            val = str_storage_getitem(TYPE, input, 0)
+            val = StringBuffer(input).typed_read(TYPE, 0)
         fmtiter.appendobj(float(val))
     return unpack_ieee
 
@@ -247,11 +338,11 @@ def make_int_unpacker(size, signed, _memo={}):
 
     @specialize.argtype(0)
     def unpack_int_fastpath_maybe(fmtiter):
-        if fmtiter.bigendian != native_is_bigendian or not native_is_ieee754: ## or not str_storage_supported(TYPE):
+        if fmtiter.bigendian != native_is_bigendian or not native_is_ieee754:
             return False
         try:
             intvalue = unpack_fastpath(TYPE)(fmtiter)
-        except CannotUnpack:
+        except CannotRead:
             return False
         if not signed and size < native_int_size:
             intvalue = rarithmetic.intmask(intvalue)
@@ -300,9 +391,11 @@ standard_fmttable = {
           'needcount' : True },
     'p':{ 'size' : 1, 'pack' : pack_pascal, 'unpack' : unpack_pascal,
           'needcount' : True },
-    'f':{ 'size' : 4, 'pack' : make_float_packer(4),
+    'e':{ 'size' : 2, 'pack' : pack_halffloat,
+                    'unpack' : unpack_halffloat},
+    'f':{ 'size' : 4, 'pack' : make_float_packer(rffi.FLOAT),
                     'unpack' : unpack_float},
-    'd':{ 'size' : 8, 'pack' : make_float_packer(8),
+    'd':{ 'size' : 8, 'pack' : make_float_packer(rffi.DOUBLE),
                     'unpack' : unpack_double},
     '?':{ 'size' : 1, 'pack' : pack_bool, 'unpack' : unpack_bool},
     }

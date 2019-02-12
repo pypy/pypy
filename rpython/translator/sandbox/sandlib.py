@@ -15,21 +15,8 @@ WIN32 = os.name == "nt"
 
 def create_log():
     """Make and return a log for the sandbox to use, if needed."""
-    # These imports are local to avoid importing pypy if we don't need to.
-    from rpython.tool.ansi_print import AnsiLog
-
-    class MyAnsiLog(AnsiLog):
-        KW_TO_COLOR = {
-            'call': ((34,), False),
-            'result': ((34,), False),
-            'exception': ((34,), False),
-            'vpath': ((35,), False),
-            'timeout': ((1, 31), True),
-            }
-
-    log = py.log.Producer("sandlib")
-    py.log.setconsumer("sandlib", MyAnsiLog())
-    return log
+    from rpython.tool.ansi_print import AnsiLogger
+    return AnsiLogger("sandlib")
 
 # Note: we use lib_pypy/marshal.py instead of the built-in marshal
 # for two reasons.  The built-in module could be made to segfault
@@ -248,14 +235,14 @@ class SandboxedProc(object):
             try:
                 fnname = read_message(child_stdout)
                 args   = read_message(child_stdout)
-            except EOFError, e:
+            except EOFError as e:
                 break
             if self.log and not self.is_spam(fnname, *args):
                 self.log.call('%s(%s)' % (fnname,
                                      ', '.join([shortrepr(x) for x in args])))
             try:
                 answer, resulttype = self.handle_message(fnname, *args)
-            except Exception, e:
+            except Exception as e:
                 tb = sys.exc_info()[2]
                 write_exception(child_stdin, e, tb)
                 if self.log:
@@ -458,7 +445,7 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_access(self, vpathname, mode):
         try:
             node = self.get_node(vpathname)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.ENOENT:
                 return False
             raise
@@ -539,6 +526,12 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_listdir(self, vpathname):
         node = self.get_node(vpathname)
         return node.keys()
+
+    def do_ll_os__ll_os_unlink(self, vpathname):
+        raise OSError(errno.EPERM, "write access denied")
+
+    def do_ll_os__ll_os_mkdir(self, vpathname, mode=None):
+        raise OSError(errno.EPERM, "write access denied")
 
     def do_ll_os__ll_os_getuid(self):
         return UID

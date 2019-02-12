@@ -18,6 +18,7 @@ Generally available functionality
  - ``bytebuffer(length)``: return a new read-write buffer of the given length.
    It works like a simplified array of characters (actually, depending on the
    configuration the ``array`` module internally uses this).
+ - ``attach_gdb()``: start a GDB at the interpreter-level (or a PDB before translation).
 
 
 Transparent Proxy Functionality
@@ -37,4 +38,3 @@ Functionality available on py.py (not after translation)
 --------------------------------------------------------
 
  - ``isfake(obj)``: returns True if ``obj`` is faked.
- - ``interp_pdb()``: start a pdb at interpreter-level.

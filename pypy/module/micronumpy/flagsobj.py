@@ -2,7 +2,7 @@ from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import constants as NPY
@@ -33,35 +33,35 @@ class W_FlagsObject(W_Root):
         return self
 
     def descr_c_contiguous(self, space):
-        return space.wrap(bool(self.flags & NPY.ARRAY_C_CONTIGUOUS))
+        return space.newbool(bool(self.flags & NPY.ARRAY_C_CONTIGUOUS))
 
     def descr_f_contiguous(self, space):
-        return space.wrap(bool(self.flags & NPY.ARRAY_F_CONTIGUOUS))
+        return space.newbool(bool(self.flags & NPY.ARRAY_F_CONTIGUOUS))
 
     def descr_get_writeable(self, space):
-        return space.wrap(bool(self.flags & NPY.ARRAY_WRITEABLE))
+        return space.newbool(bool(self.flags & NPY.ARRAY_WRITEABLE))
 
     def descr_get_owndata(self, space):
-        return space.wrap(bool(self.flags & NPY.ARRAY_OWNDATA))
+        return space.newbool(bool(self.flags & NPY.ARRAY_OWNDATA))
 
     def descr_get_aligned(self, space):
-        return space.wrap(bool(self.flags & NPY.ARRAY_ALIGNED))
+        return space.newbool(bool(self.flags & NPY.ARRAY_ALIGNED))
 
     def descr_get_fnc(self, space):
-        return space.wrap(bool(
+        return space.newbool(bool(
             self.flags & NPY.ARRAY_F_CONTIGUOUS and not
             self.flags & NPY.ARRAY_C_CONTIGUOUS ))
 
     def descr_get_forc(self, space):
-        return space.wrap(bool(
+        return space.newbool(bool(
             self.flags & NPY.ARRAY_F_CONTIGUOUS or
             self.flags & NPY.ARRAY_C_CONTIGUOUS ))
 
     def descr_get_num(self, space):
-        return space.wrap(self.flags)
+        return space.newint(self.flags)
 
     def descr_getitem(self, space, w_item):
-        key = space.str_w(w_item)
+        key = space.text_w(w_item)
         if key == "C" or key == "CONTIGUOUS" or key == "C_CONTIGUOUS":
             return self.descr_c_contiguous(space)
         if key == "F" or key == "FORTRAN" or key == "F_CONTIGUOUS":
@@ -72,12 +72,10 @@ class W_FlagsObject(W_Root):
             return self.descr_get_fnc(space)
         if key == "FORC":
             return self.descr_get_forc(space)
-        raise OperationError(space.w_KeyError, space.wrap(
-            "Unknown flag"))
+        raise oefmt(space.w_KeyError, "Unknown flag")
 
     def descr_setitem(self, space, w_item, w_value):
-        raise OperationError(space.w_KeyError, space.wrap(
-            "Unknown flag"))
+        raise oefmt(space.w_KeyError, "Unknown flag")
 
     def eq(self, space, w_other):
         if not isinstance(w_other, W_FlagsObject):
@@ -85,10 +83,10 @@ class W_FlagsObject(W_Root):
         return self.flags == w_other.flags
 
     def descr_eq(self, space, w_other):
-        return space.wrap(self.eq(space, w_other))
+        return space.newbool(self.eq(space, w_other))
 
     def descr_ne(self, space, w_other):
-        return space.wrap(not self.eq(space, w_other))
+        return space.newbool(not self.eq(space, w_other))
 
     def descr___str__(self, space):
         s = StringBuilder()
@@ -104,7 +102,7 @@ class W_FlagsObject(W_Root):
         s.append(get_tf_str(self.flags, NPY.ARRAY_ALIGNED))
         s.append('\n  UPDATEIFCOPY : ')
         s.append(get_tf_str(self.flags, NPY.ARRAY_UPDATEIFCOPY))
-        return space.wrap(s.build())
+        return space.newtext(s.build())
 
 W_FlagsObject.typedef = TypeDef("numpy.flagsobj",
     __new__ = interp2app(W_FlagsObject.descr__new__.im_func),

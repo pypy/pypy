@@ -174,7 +174,7 @@ class HashRandomizationTests(unittest.TestCase):
 
 class StringlikeHashRandomizationTests(HashRandomizationTests):
     if check_impl_detail(pypy=True):
-        EMPTY_STRING_HASH = -1
+        EMPTY_STRING_HASH = -2
     else:
         EMPTY_STRING_HASH = 0
 

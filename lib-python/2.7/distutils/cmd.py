@@ -298,8 +298,16 @@ class Command:
         src_cmd_obj.ensure_finalized()
         for (src_option, dst_option) in option_pairs:
             if getattr(self, dst_option) is None:
-                setattr(self, dst_option,
-                        getattr(src_cmd_obj, src_option))
+                try:
+                    setattr(self, dst_option,
+                            getattr(src_cmd_obj, src_option))
+                except AttributeError:
+                    # This was added after problems with setuptools 18.4.
+                    # It seems that setuptools 20.9 fixes the problem.
+                    # But e.g. on Ubuntu 14.04 with /usr/bin/virtualenv
+                    # if I say "virtualenv -p pypy venv-pypy" then it
+                    # just installs setuptools 18.4 from some cache...
+                    pass
 
 
     def get_finalized_command(self, command, create=1):

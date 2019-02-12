@@ -71,13 +71,13 @@ def where(space, w_arr, w_x=None, w_y=None):
     """
     if space.is_none(w_y):
         if space.is_none(w_x):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "1-arg where unsupported right now"))
-        raise OperationError(space.w_ValueError, space.wrap(
-            "Where should be called with either 1 or 3 arguments"))
+            arr = convert_to_array(space, w_arr)
+            return arr.descr_nonzero(space)
+        raise oefmt(space.w_ValueError,
+                    "Where should be called with either 1 or 3 arguments")
     if space.is_none(w_x):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "Where should be called with either 1 or 3 arguments"))
+        raise oefmt(space.w_ValueError,
+                    "Where should be called with either 1 or 3 arguments")
     arr = convert_to_array(space, w_arr)
     x = convert_to_array(space, w_x)
     y = convert_to_array(space, w_y)
@@ -105,13 +105,13 @@ def concatenate(space, w_args, w_axis=None):
         raise oefmt(space.w_ValueError, "need at least one array to concatenate")
     args_w = [convert_to_array(space, w_arg) for w_arg in args_w]
     if w_axis is None:
-        w_axis = space.wrap(0)
+        w_axis = space.newint(0)
     if space.is_none(w_axis):
         args_w = [w_arg.reshape(space,
                                 space.newlist([w_arg.descr_get_size(space)]),
                                 w_arg.get_order())
                   for w_arg in args_w]
-        w_axis = space.wrap(0)
+        w_axis = space.newint(0)
     dtype = args_w[0].get_dtype()
     shape = args_w[0].get_shape()[:]
     ndim = len(shape)
@@ -129,15 +129,16 @@ def concatenate(space, w_args, w_axis=None):
                     orig_axis, ndim)
     for arr in args_w[1:]:
         if len(arr.get_shape()) != ndim:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "all the input arrays must have same number of dimensions"))
+            raise oefmt(space.w_ValueError,
+                        "all the input arrays must have same number of "
+                        "dimensions")
         for i, axis_size in enumerate(arr.get_shape()):
             if i == axis:
                 shape[i] += axis_size
             elif axis_size != shape[i]:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "all the input array dimensions except for the "
-                    "concatenation axis must match exactly"))
+                raise oefmt(space.w_ValueError,
+                            "all the input array dimensions except for the "
+                            "concatenation axis must match exactly")
 
     dtype = find_result_type(space, args_w, [])
     # concatenate does not handle ndarray subtypes, it always returns a ndarray
@@ -183,7 +184,7 @@ def repeat(space, w_arr, repeats, w_axis):
 
 
 def count_nonzero(space, w_obj):
-    return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
+    return space.newint(loop.count_all_true(convert_to_array(space, w_obj)))
 
 
 def choose(space, w_arr, w_choices, w_out, w_mode):
@@ -195,8 +196,7 @@ def choose(space, w_arr, w_choices, w_out, w_mode):
     if space.is_none(w_out):
         w_out = None
     elif not isinstance(w_out, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "return arrays must be of ArrayType"))
+        raise oefmt(space.w_TypeError, "return arrays must be of ArrayType")
     shape = shape_agreement_multiple(space, choices + [w_out])
     out = descriptor.dtype_agreement(space, choices, shape, w_out)
     dtype = out.get_dtype()

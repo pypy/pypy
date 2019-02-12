@@ -7,7 +7,7 @@ import linecache
 from UserList import UserList
 from UserDict import UserDict
 
-from test.test_support import run_unittest, check_py3k_warnings
+from test.test_support import run_unittest, check_py3k_warnings, have_unicode
 from test.test_support import check_impl_detail
 
 with check_py3k_warnings(
@@ -17,7 +17,10 @@ with check_py3k_warnings(
     from test import inspect_fodder2 as mod2
 
 # C module for test_findsource_binary
-import unicodedata
+try:
+    import unicodedata
+except ImportError:
+    unicodedata = None
 
 # Functions tested in this suite:
 # ismodule, isclass, ismethod, isfunction, istraceback, isframe, iscode,
@@ -41,6 +44,9 @@ except:
     tb = sys.exc_traceback
 
 git = mod.StupidGit()
+
+class ExampleClassWithSlot(object):
+    __slots__ = 'myslot'
 
 class IsTestBase(unittest.TestCase):
     predicates = set([inspect.isbuiltin, inspect.isclass, inspect.iscode,
@@ -93,7 +99,11 @@ class TestPredicates(IsTestBase):
         else:
             self.assertFalse(inspect.isgetsetdescriptor(type(tb.tb_frame).f_locals))
         if hasattr(types, 'MemberDescriptorType'):
-            self.istest(inspect.ismemberdescriptor, 'type(lambda: None).func_globals')
+            # App-level slots are member descriptors on both PyPy and
+            # CPython, but the various built-in attributes are all
+            # getsetdescriptors on PyPy.  So check ismemberdescriptor()
+            # with an app-level slot.
+            self.istest(inspect.ismemberdescriptor, 'ExampleClassWithSlot.myslot')
         else:
             self.assertFalse(inspect.ismemberdescriptor(type(lambda: None).func_globals))
 
@@ -800,7 +810,8 @@ class TestGetcallargsFunctions(unittest.TestCase):
             self.assertEqualException(f, '2, c=3')
             self.assertEqualException(f, '2, 3, c=4')
             self.assertEqualException(f, '2, c=4, b=3')
-            self.assertEqualException(f, '**{u"\u03c0\u03b9": 4}')
+            if have_unicode:
+                self.assertEqualException(f, '**{u"\u03c0\u03b9": 4}')
             # f got multiple values for keyword argument
             self.assertEqualException(f, '1, a=2')
             self.assertEqualException(f, '1, **{"a":2}')

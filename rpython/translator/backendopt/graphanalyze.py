@@ -4,6 +4,7 @@ from rpython.tool.algo.unionfind import UnionFind
 
 class GraphAnalyzer(object):
     verbose = False
+    explanation = None
 
     def __init__(self, translator):
         self.translator = translator
@@ -73,6 +74,20 @@ class GraphAnalyzer(object):
     def compute_graph_info(self, graph):
         return None
 
+    def explain_analyze_slowly(self, op):
+        # this is a hack! usually done before a crash
+        self.__init__(self.translator)
+        self.explanation = explanation = []
+        oldverbose = self.verbose
+        self.verbose = True
+        try:
+            self.analyze(op)
+        finally:
+            del self.explanation
+            self.verbose = oldverbose
+        explanation.reverse()
+        return explanation
+
     def analyze(self, op, seen=None, graphinfo=None):
         if op.opname == "direct_call":
             try:
@@ -113,7 +128,11 @@ class GraphAnalyzer(object):
         return x
 
     def dump_info(self, info):
-        print '[%s] %s' % (self.__class__.__name__, info)
+        st = '[%s] %s' % (self.__class__.__name__, info)
+        if self.explanation is not None:
+            self.explanation.append(st)
+        else:
+            print st
 
     def analyze_direct_call(self, graph, seen=None):
         if seen is None:

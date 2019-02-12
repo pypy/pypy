@@ -1,8 +1,9 @@
 import py
 from rpython.annotator.model import UnionError
-from rpython.rlib import rgc
+from rpython.rlib import rgc, nonconst
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rtyper.test.test_llinterp import interpret
+from rpython.translator.c.test.test_genc import compile
 
 class X(object):
     pass
@@ -180,3 +181,66 @@ def test_bogus_makekey():
         RWeakValueDictionary(str, X).get("foobar")
         RWeakValueDictionary(int, Y).get(42)
     interpret(g, [])
+
+def test_key_instance():
+    class K(object):
+        pass
+    keys = [K(), K(), K()]
+
+    def g(d):
+        assert d.get(keys[3]) is None
+        x1 = X(); x2 = X(); x3 = X()
+        d.set(keys[0], x1)
+        d.set(keys[1], x2)
+        d.set(keys[2], x3)
+        assert d.get(keys[0]) is x1
+        assert d.get(keys[1]) is x2
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+        return x1, x3    # x2 dies
+    def f():
+        keys.append(K())
+        d = RWeakValueDictionary(K, X)
+        x1, x3 = g(d)
+        rgc.collect(); rgc.collect()
+        assert d.get(keys[0]) is x1
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+        d.set(keys[0], None)
+        assert d.get(keys[0]) is None
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+    f()
+    interpret(f, [])
+
+def test_translation_prebuilt_1():
+    class K:
+        pass
+    d = RWeakValueDictionary(K, X)
+    k1 = K(); k2 = K()
+    x1 = X(); x2 = X()
+    d.set(k1, x1)
+    d.set(k2, x2)
+    def f():
+        assert d.get(k1) is x1
+        assert d.get(k2) is x2
+    f()
+    fc = compile(f, [], gcpolicy="boehm", rweakref=True)
+    fc()
+
+def test_translation_prebuilt_2():
+    from rpython.rlib import rsiphash
+    d = RWeakValueDictionary(str, X)
+    k1 = "key1"; k2 = "key2"
+    x1 = X(); x2 = X()
+    d.set(k1, x1)
+    d.set(k2, x2)
+    def f():
+        rsiphash.enable_siphash24()
+        i = nonconst.NonConstant(1)
+        assert d.get("key%d" % (i,)) is x1
+        assert d.get("key%d" % (i+1,)) is x2
+    fc = compile(f, [], gcpolicy="boehm", rweakref=True)
+    fc()

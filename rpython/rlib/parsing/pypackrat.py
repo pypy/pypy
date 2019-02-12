@@ -29,7 +29,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -61,7 +61,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -93,7 +93,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -125,7 +125,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -167,14 +167,14 @@ class Parser(object):
                     _result = _call_status.result
                     _error = _call_status.error
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice1 = self._pos
                 try:
                     _result = self._regex299149370()
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     raise BacktrackException(_error)
@@ -197,7 +197,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -231,7 +231,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -265,7 +265,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -299,7 +299,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -360,7 +360,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = _exc.error
@@ -403,7 +403,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = _call_status.error
                     _all0.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     break
@@ -433,7 +433,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -480,7 +480,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all0.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     break
@@ -504,7 +504,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -551,7 +551,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all0.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     break
@@ -569,7 +569,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all2.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                     break
@@ -586,7 +586,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all4.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                     break
@@ -600,7 +600,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all6.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice7
                     break
@@ -623,7 +623,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -670,7 +670,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = _call_status.error
                             _all1.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice2
                             break
@@ -691,7 +691,7 @@ class Parser(object):
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
                                     _all6.append(_result)
-                                except BacktrackException, _exc:
+                                except BacktrackException as _exc:
                                     _error = self._combine_errors(_error, _exc.error)
                                     self._pos = _choice7
                                     break
@@ -705,14 +705,14 @@ class Parser(object):
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
                                     _all8.append(_result)
-                                except BacktrackException, _exc:
+                                except BacktrackException as _exc:
                                     _error = self._combine_errors(_error, _exc.error)
                                     self._pos = _choice9
                                     break
                             _result = _all8
                             _result = _before_discard5
                             _all3.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice4
                             break
@@ -730,7 +730,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all10.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice11
                             break
@@ -744,21 +744,21 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all12.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice13
                             break
                     _result = _all12
                     _result = (Nonterminal('productionargs', args + [arg]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice14 = self._pos
                 try:
                     _result = (Nonterminal('productionargs', []))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice14
                     raise BacktrackException(_error)
@@ -781,7 +781,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -833,7 +833,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all3.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice4
                             break
@@ -856,14 +856,14 @@ class Parser(object):
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
                                     _all7.append(_result)
-                                except BacktrackException, _exc:
+                                except BacktrackException as _exc:
                                     _error = self._combine_errors(_error, _exc.error)
                                     self._pos = _choice8
                                     break
                             _result = _all7
                             _result = _before_discard6
                             _all1.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice5
                             break
@@ -875,7 +875,7 @@ class Parser(object):
                     last = _result
                     _result = (Nonterminal('or', l + [last]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice9 = self._pos
@@ -884,7 +884,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice9
                     raise BacktrackException(_error)
@@ -909,7 +909,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -976,7 +976,7 @@ class Parser(object):
                             _error = self._combine_errors(_error, _call_status.error)
                             _result = _before_discard4
                             _all1.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice3
                             break
@@ -984,7 +984,7 @@ class Parser(object):
                     cmds = _result
                     _result = (Nonterminal('commands', [cmd] + cmds))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice5 = self._pos
@@ -993,7 +993,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                     raise BacktrackException(_error)
@@ -1018,7 +1018,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1073,7 +1073,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1115,7 +1115,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = _call_status.error
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice1 = self._pos
@@ -1124,7 +1124,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                 _choice2 = self._pos
@@ -1133,7 +1133,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice2
                 _choice3 = self._pos
@@ -1142,7 +1142,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                 _choice4 = self._pos
@@ -1151,7 +1151,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice4
                 _choice5 = self._pos
@@ -1160,7 +1160,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                     raise BacktrackException(_error)
@@ -1185,7 +1185,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1229,7 +1229,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = _call_status.error
                     _all0.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     break
@@ -1246,7 +1246,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all2.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                     break
@@ -1269,7 +1269,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1323,7 +1323,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all1.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice2
                             break
@@ -1337,7 +1337,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all3.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice4
                             break
@@ -1354,14 +1354,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all5.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice6
                             break
                     _result = _all5
                     _result = (Nonterminal('if', [cmd, condition]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice7 = self._pos
@@ -1375,7 +1375,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all8.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice9
                             break
@@ -1392,14 +1392,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all10.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice11
                             break
                     _result = _all10
                     _result = (Nonterminal('if', [condition]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice7
                     raise BacktrackException(_error)
@@ -1412,7 +1412,7 @@ class Parser(object):
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
                         _all12.append(_result)
-                    except BacktrackException, _exc:
+                    except BacktrackException as _exc:
                         _error = self._combine_errors(_error, _exc.error)
                         self._pos = _choice13
                         break
@@ -1429,7 +1429,7 @@ class Parser(object):
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
                         _all14.append(_result)
-                    except BacktrackException, _exc:
+                    except BacktrackException as _exc:
                         _error = self._combine_errors(_error, _exc.error)
                         self._pos = _choice15
                         break
@@ -1453,7 +1453,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1497,7 +1497,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = _call_status.error
                     _all0.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     break
@@ -1514,7 +1514,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all2.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                     break
@@ -1528,7 +1528,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all4.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                     break
@@ -1545,7 +1545,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all6.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice7
                     break
@@ -1572,7 +1572,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1619,7 +1619,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all0.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     break
@@ -1643,7 +1643,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1690,7 +1690,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all0.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     break
@@ -1704,7 +1704,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all2.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice3
                     break
@@ -1731,7 +1731,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1781,7 +1781,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all1.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice2
                             break
@@ -1795,14 +1795,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all3.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice4
                             break
                     _result = _all3
                     _result = (Nonterminal('maybe', [what]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice5 = self._pos
@@ -1819,7 +1819,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all6.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice7
                             break
@@ -1829,14 +1829,14 @@ class Parser(object):
                         try:
                             _result = self.__chars__('*')
                             break
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice8
                         _choice9 = self._pos
                         try:
                             _result = self.__chars__('+')
                             break
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice9
                             raise BacktrackException(_error)
@@ -1851,14 +1851,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all10.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice11
                             break
                     _result = _all10
                     _result = (Nonterminal('repetition', [repetition, what]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                     raise BacktrackException(_error)
@@ -1874,7 +1874,7 @@ class Parser(object):
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
                         _all12.append(_result)
-                    except BacktrackException, _exc:
+                    except BacktrackException as _exc:
                         _error = self._combine_errors(_error, _exc.error)
                         self._pos = _choice13
                         break
@@ -1884,14 +1884,14 @@ class Parser(object):
                     try:
                         _result = self.__chars__('*')
                         break
-                    except BacktrackException, _exc:
+                    except BacktrackException as _exc:
                         _error = self._combine_errors(_error, _exc.error)
                         self._pos = _choice14
                     _choice15 = self._pos
                     try:
                         _result = self.__chars__('+')
                         break
-                    except BacktrackException, _exc:
+                    except BacktrackException as _exc:
                         _error = self._combine_errors(_error, _exc.error)
                         self._pos = _choice15
                         raise BacktrackException(_error)
@@ -1906,7 +1906,7 @@ class Parser(object):
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
                         _all16.append(_result)
-                    except BacktrackException, _exc:
+                    except BacktrackException as _exc:
                         _error = self._combine_errors(_error, _exc.error)
                         self._pos = _choice17
                         break
@@ -1930,7 +1930,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -1977,7 +1977,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = _call_status.error
                             _all1.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice2
                             break
@@ -1994,14 +1994,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all3.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice4
                             break
                     _result = _all3
                     _result = (Nonterminal('negation', [what]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice5 = self._pos
@@ -2010,7 +2010,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                     raise BacktrackException(_error)
@@ -2035,7 +2035,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -2082,7 +2082,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = _call_status.error
                             _all1.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice2
                             break
@@ -2099,7 +2099,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all3.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice4
                             break
@@ -2113,14 +2113,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all5.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice6
                             break
                     _result = _all5
                     _result = (Nonterminal('exclusive', [what]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice7 = self._pos
@@ -2134,7 +2134,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all8.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice9
                             break
@@ -2151,7 +2151,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all10.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice11
                             break
@@ -2165,14 +2165,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all12.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice13
                             break
                     _result = _all12
                     _result = (Nonterminal('ignore', [what]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice7
                 _choice14 = self._pos
@@ -2187,7 +2187,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all16.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice17
                             break
@@ -2206,14 +2206,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all19.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice20
                             break
                     _result = _all19
                     _result = _before_discard18
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice14
                 _choice21 = self._pos
@@ -2222,7 +2222,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice21
                     raise BacktrackException(_error)
@@ -2247,7 +2247,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -2289,7 +2289,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = _call_status.error
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice1 = self._pos
@@ -2306,14 +2306,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all3.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice4
                             break
                     _result = _all3
                     _result = _before_discard2
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                 _choice5 = self._pos
@@ -2330,14 +2330,14 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all7.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice8
                             break
                     _result = _all7
                     _result = _before_discard6
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice5
                     raise BacktrackException(_error)
@@ -2353,7 +2353,7 @@ class Parser(object):
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
                         _all10.append(_result)
-                    except BacktrackException, _exc:
+                    except BacktrackException as _exc:
                         _error = self._combine_errors(_error, _exc.error)
                         self._pos = _choice11
                         break
@@ -2377,7 +2377,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -2428,7 +2428,7 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     _all0.append(_result)
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice1
                     break
@@ -2451,7 +2451,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)
@@ -2498,7 +2498,7 @@ class Parser(object):
                             _result = _call_status.result
                             _error = _call_status.error
                             _all1.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice2
                             break
@@ -2519,7 +2519,7 @@ class Parser(object):
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
                                     _all6.append(_result)
-                                except BacktrackException, _exc:
+                                except BacktrackException as _exc:
                                     _error = self._combine_errors(_error, _exc.error)
                                     self._pos = _choice7
                                     break
@@ -2533,14 +2533,14 @@ class Parser(object):
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
                                     _all8.append(_result)
-                                except BacktrackException, _exc:
+                                except BacktrackException as _exc:
                                     _error = self._combine_errors(_error, _exc.error)
                                     self._pos = _choice9
                                     break
                             _result = _all8
                             _result = _before_discard5
                             _all3.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice4
                             break
@@ -2559,21 +2559,21 @@ class Parser(object):
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
                             _all10.append(_result)
-                        except BacktrackException, _exc:
+                        except BacktrackException as _exc:
                             _error = self._combine_errors(_error, _exc.error)
                             self._pos = _choice11
                             break
                     _result = _all10
                     _result = (Nonterminal("args", args + [last]))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice0
                 _choice12 = self._pos
                 try:
                     _result = (Nonterminal("args", []))
                     break
-                except BacktrackException, _exc:
+                except BacktrackException as _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice12
                     raise BacktrackException(_error)
@@ -2596,7 +2596,7 @@ class Parser(object):
             _status.result = _result
             _status.error = _error
             return _status
-        except BacktrackException, _exc:
+        except BacktrackException as _exc:
             _status.pos = -1
             _status.result = None
             _error = self._combine_errors(_error, _exc.error)

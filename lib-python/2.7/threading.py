@@ -36,6 +36,10 @@ _start_new_thread = thread.start_new_thread
 _allocate_lock = thread.allocate_lock
 _get_ident = thread.get_ident
 ThreadError = thread.error
+try:
+    _CRLock = thread.RLock
+except AttributeError:
+    _CRLock = None
 del thread
 
 
@@ -120,7 +124,9 @@ def RLock(*args, **kwargs):
     acquired it.
 
     """
-    return _RLock(*args, **kwargs)
+    if _CRLock is None or args or kwargs:
+        return _PyRLock(*args, **kwargs)
+    return _CRLock(_active)
 
 class _RLock(_Verbose):
     """A reentrant lock must be released by the thread that acquired it. Once a
@@ -238,6 +244,8 @@ class _RLock(_Verbose):
     def _is_owned(self):
         return self.__owner == _get_ident()
 
+_PyRLock = _RLock
+
 
 def Condition(*args, **kwargs):
     """Factory function that returns a new condition variable object.
@@ -351,6 +359,21 @@ class _Condition(_Verbose):
                         # forward-compatibility reasons we do the same.
                         waiter.acquire()
                         gotit = True
+                    except AttributeError:
+                        # someone patched the 'waiter' class, probably.
+                        # Fall back to the standard CPython logic.
+                        # See the CPython lib for the comments about it...
+                        endtime = _time() + timeout
+                        delay = 0.0005 # 500 us -> initial delay of 1 ms
+                        while True:
+                            gotit = waiter.acquire(0)
+                            if gotit:
+                                break
+                            remaining = endtime - _time()
+                            if remaining <= 0:
+                                break
+                            delay = min(delay * 2, remaining, .05)
+                            _sleep(delay)
                 else:
                     gotit = waiter.acquire(False)
                 if not gotit:
@@ -561,7 +584,7 @@ class _Event(_Verbose):
 
     def _reset_internal_locks(self):
         # private!  called by Thread._reset_internal_locks by _after_fork()
-        self.__cond.__init__()
+        self.__cond.__init__(Lock())
 
     def isSet(self):
         'Return true if and only if the internal flag is true.'
@@ -576,12 +599,9 @@ class _Event(_Verbose):
         that call wait() once the flag is true will not block at all.
 
         """
-        self.__cond.acquire()
-        try:
+        with self.__cond:
             self.__flag = True
             self.__cond.notify_all()
-        finally:
-            self.__cond.release()
 
     def clear(self):
         """Reset the internal flag to false.
@@ -590,11 +610,8 @@ class _Event(_Verbose):
         set the internal flag to true again.
 
         """
-        self.__cond.acquire()
-        try:
+        with self.__cond:
             self.__flag = False
-        finally:
-            self.__cond.release()
 
     def wait(self, timeout=None):
         """Block until the internal flag is true.
@@ -611,13 +628,10 @@ class _Event(_Verbose):
         True except if a timeout is given and the operation times out.
 
         """
-        self.__cond.acquire()
-        try:
+        with self.__cond:
             if not self.__flag:
                 self.__cond.wait(timeout)
             return self.__flag
-        finally:
-            self.__cond.release()
 
 # Helper to generate new thread names
 _counter = _count().next

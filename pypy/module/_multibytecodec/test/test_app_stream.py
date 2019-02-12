@@ -90,3 +90,15 @@ class AppTestStreams:
         w.write(u'\u304b')
         w.write(u'\u309a')
         assert w.stream.output == ['\x83m', '', '\x82\xf5']
+
+    def test_writer_seek_no_empty_write(self):
+        # issue #2293: codecs.py will sometimes issue a reset()
+        # on a StreamWriter attached to a file that is not opened
+        # for writing at all.  We must not emit a "write('')"!
+        class FakeFile:
+            def write(self, data):
+                raise IOError("can't write!")
+        #
+        w = self.ShiftJisx0213StreamWriter(FakeFile())
+        w.reset()
+        # assert did not crash

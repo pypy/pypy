@@ -242,3 +242,51 @@ i4 = int_mul(i2, 2)
 +30: jump(i4)
 +40: --end of the loop--
 """.strip()
+
+    def test_ops_offset_with_forward(self):
+        inp = '''
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_mul(i0, 8)
+        jump(i2)
+        '''
+        loop = pure_parse(inp)
+        ops = loop.operations
+
+        # again to get new ops with different identities to existing ones
+        loop2 = pure_parse(inp)
+        ops2 = loop.operations
+
+        # Suppose a re-write occurs which replaces the operations with these.
+        # The add 4 became a sub -4. The others are the same, but have a
+        # different address, thus still require forwarding.
+        inp2 = '''
+        [i0]
+        i1 = int_sub(i0, -4)
+        i2 = int_mul(i0, 8)
+        jump(i2)
+        '''
+        loop2 = pure_parse(inp2)
+        ops2 = loop2.operations
+
+        # Add forwarding
+        for i in xrange(3):
+            ops[i].set_forwarded(ops2[i])
+
+        # So the offsets are keyed by ops2 instances
+        ops_offset = {
+            ops2[0]: 10,
+            ops2[1]: 20,
+            ops2[2]: 30,
+            None: 40
+        }
+
+        logger = Logger(self.make_metainterp_sd())
+        output = logger.log_loop(loop, ops_offset=ops_offset, name="foo")
+
+        # The logger should have followed the forwarding pointers
+        lines = output.strip().splitlines()
+        assert lines[2].startswith("+10")
+        assert lines[3].startswith("+20")
+        assert lines[4].startswith("+30")
+        assert lines[5].startswith("+40")

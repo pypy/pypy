@@ -29,7 +29,7 @@ def get_size_of_ptr(translate_support_code):
 def get_array_token(T, translate_support_code):
     # T can be an array or a var-sized structure
     if translate_support_code:
-        basesize = llmemory.sizeof(T, 0)
+        basesize = llmemory.sizeof(T, 0)     # this includes +1 for STR
         if isinstance(T, lltype.Struct):
             SUBARRAY = getattr(T, T._arrayfld)
             itemsize = llmemory.sizeof(SUBARRAY.OF)
@@ -57,6 +57,7 @@ def get_array_token(T, translate_support_code):
             assert carray.length.size == WORD
             ofs_length = before_array_part + carray.length.offset
         basesize = before_array_part + carray.items.offset
+        basesize += T._hints.get('extra_item_after_alloc', 0)  # +1 for STR
         carrayitem = ll2ctypes.get_ctypes_type(T.OF)
         itemsize = ctypes.sizeof(carrayitem)
     return basesize, itemsize, ofs_length

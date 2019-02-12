@@ -231,6 +231,10 @@ def test_search():
     check_search(count, 'one two three', 'e', 0, 1, res=0)
     check_search(count, 'one two three', '', 0, 13, res=14)
 
+    check_search(count, '', 'ab', 0, 0, res=0)
+    check_search(count, 'a', 'ab', 0, 1, res=0)
+    check_search(count, 'ac', 'ab', 0, 2, res=0)
+
 
 class TestTranslates(BaseRtypingTest):
     def test_split_rsplit(self):
