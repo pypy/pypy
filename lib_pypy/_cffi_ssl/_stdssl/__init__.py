@@ -443,17 +443,17 @@ class _SSLSocket(object):
         sock = self.get_socket_or_connection_gone()
 
         if buffer_into is None:
-            mem = ffi.new("char[]", length)
             if length == 0:
                 return b""
+            mem = ffi.new("char[]", length)
         else:
-            mem = ffi.from_buffer(buffer_into)
             if length <= 0 or length > len(buffer_into):
                 length = len(buffer_into)
                 if length > sys.maxsize:
                     raise OverflowError("maximum length can't fit in a C 'int'")
                 if len(buffer_into) == 0:
                     return 0
+            mem = ffi.from_buffer(buffer_into)
 
         if sock:
             timeout = _socket_timeout(sock)
