@@ -15,7 +15,7 @@ def _bytes_with_len(char_ptr, length):
 
 def _str_to_ffi_buffer(view):
     if isinstance(view, str):
-        return ffi.from_buffer(view.encode())
+        view = view.encode()
     elif isinstance(view, memoryview):
         # NOTE pypy limitation StringBuffer does not allow
         # to get a raw address to the string!
