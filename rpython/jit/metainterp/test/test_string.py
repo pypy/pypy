@@ -3,7 +3,7 @@ import py
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.debug import debug_print
 from rpython.rlib.jit import (JitDriver, dont_look_inside, we_are_jitted,
-    promote_string)
+    promote_string, promote_unicode)
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 
 
@@ -517,6 +517,19 @@ class StringTests:
 
         self.meta_interp(f, [0])
         self.check_resops(call_r=2, call_i=5)
+
+    def test_promote_unicode(self):
+        driver = JitDriver(greens = [], reds = ['n'])
+
+        def f(n):
+            while n < 21:
+                driver.jit_merge_point(n=n)
+                promote_unicode(unicode(str(n % 3)))
+                n += 1
+            return 0
+
+        self.meta_interp(f, [0])
+        self.check_resops(call_r=4, call_i=5)
 
     def test_join_chars(self):
         jitdriver = JitDriver(reds=['a', 'b', 'c', 'i'], greens=[])
