@@ -6,15 +6,6 @@ def test_id_any():
     from pypy.objspace.std.intobject import W_IntObject
     assert pypypolicy.look_inside_function(W_IntObject.descr_add)
 
-def test_bigint():
-    from rpython.rlib.rbigint import rbigint
-    assert not pypypolicy.look_inside_function(rbigint.eq.im_func)
-    assert not pypypolicy.look_inside_function(rbigint.ne.im_func)
-    assert not pypypolicy.look_inside_function(rbigint.lt.im_func)
-    assert not pypypolicy.look_inside_function(rbigint.le.im_func)
-    assert not pypypolicy.look_inside_function(rbigint.gt.im_func)
-    assert not pypypolicy.look_inside_function(rbigint.ge.im_func)
-
 def test_rlocale():
     from rpython.rlib.rlocale import setlocale
     assert not pypypolicy.look_inside_function(setlocale)
@@ -38,7 +29,7 @@ def test_thread_local():
     assert pypypolicy.look_inside_function(get_ident)
 
 def test_time():
-    from pypy.module.rctime.interp_time import time
+    from pypy.module.time.interp_time import time
     assert pypypolicy.look_inside_function(time)
 
 def test_io():
@@ -56,7 +47,7 @@ def test_select():
 def test_pypy_module():
     from pypy.module._collections.interp_deque import W_Deque
     from pypy.module._random.interp_random import W_Random
-    assert not pypypolicy.look_inside_function(W_Random.random)
+    assert pypypolicy.look_inside_function(W_Random.random)
     assert pypypolicy.look_inside_function(W_Deque.length)
     assert pypypolicy.look_inside_pypy_module('__builtin__.operation')
     assert pypypolicy.look_inside_pypy_module('__builtin__.abstractinst')

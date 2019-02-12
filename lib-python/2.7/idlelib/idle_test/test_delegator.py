@@ -14,8 +14,8 @@ class DelegatorTest(unittest.TestCase):
         # add an attribute:
         self.assertRaises(AttributeError, mydel.__getattr__, 'xyz')
         bl = mydel.bit_length
-        self.assertIs(bl, int.bit_length)
-        self.assertIs(mydel.__dict__['bit_length'], int.bit_length)
+        self.assertEqual(bl, int.bit_length)
+        self.assertEqual(mydel.__dict__['bit_length'], int.bit_length)
         self.assertEqual(mydel._Delegator__cache, {'bit_length'})
 
         # add a second attribute

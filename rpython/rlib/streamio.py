@@ -35,9 +35,9 @@ an outout-buffering stream.
 # return value of tell(), but not as argument to read().
 
 import os, sys, errno
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask
-from rpython.rlib import rposix, nonconst
+from rpython.rlib import rposix, nonconst, _rsocket_rffi as _c
 from rpython.rlib.rstring import StringBuilder
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND
@@ -85,10 +85,26 @@ def open_file_as_stream(path, mode="r", buffering=-1, signal_checker=None):
 def _setfd_binary(fd):
     pass
 
+if hasattr(_c, 'fcntl'):
+    def _check_fd_mode(fd, reading, writing):
+        flags = intmask(_c.fcntl(fd, _c.F_GETFL, 0))
+        if flags & _c.O_RDWR:
+            return
+        elif flags & _c.O_WRONLY:
+            if not reading:
+                return
+        else:  # O_RDONLY
+            if not writing:
+                return
+        raise OSError(22, "Invalid argument")
+else:
+    def _check_fd_mode(fd, reading, writing):
+        # XXX
+        pass
+
 def fdopen_as_stream(fd, mode, buffering=-1, signal_checker=None):
-    # XXX XXX XXX you want do check whether the modes are compatible
-    # otherwise you get funny results
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
+    _check_fd_mode(fd, reading, writing)
     _setfd_binary(fd)
     stream = DiskFile(fd, signal_checker)
     return construct_stream_tower(stream, buffering, universal, reading,
@@ -172,7 +188,8 @@ StreamErrors = (OSError, StreamError)     # errors that can generally be raised
 
 
 if sys.platform == "win32":
-    from rpython.rlib.rwin32 import BOOL, HANDLE, get_osfhandle, GetLastError
+    from rpython.rlib.rwin32 import BOOL, HANDLE, get_osfhandle
+    from rpython.rlib.rwin32 import GetLastError_saved
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
     from rpython.rtyper.lltypesystem import rffi
 
@@ -180,7 +197,8 @@ if sys.platform == "win32":
     _setmode = rffi.llexternal('_setmode', [rffi.INT, rffi.INT], rffi.INT,
                                compilation_info=_eci)
     SetEndOfFile = rffi.llexternal('SetEndOfFile', [HANDLE], BOOL,
-                                   compilation_info=_eci)
+                                   compilation_info=_eci,
+                                   save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def _setfd_binary(fd):
         # Allow this to succeed on invalid fd's
@@ -195,7 +213,7 @@ if sys.platform == "win32":
             # Truncate.  Note that this may grow the file!
             handle = get_osfhandle(fd)
             if not SetEndOfFile(handle):
-                raise OSError(GetLastError(),
+                raise OSError(GetLastError_saved(),
                                    "Could not truncate file")
         finally:
             # we restore the file pointer position in any case
@@ -222,7 +240,14 @@ class Stream(object):
         bufsize = 8192
         result = []
         while True:
-            data = self.read(bufsize)
+            try:
+                data = self.read(bufsize)
+            except OSError:
+                # like CPython < 3.4, partial results followed by an error
+                # are returned as data
+                if not result:
+                    raise
+                break
             if not data:
                 break
             result.append(data)
@@ -270,6 +295,10 @@ class Stream(object):
     def peek(self):
         return (0, '')
 
+    def count_buffered_bytes(self):
+        pos, buf = self.peek()
+        return len(buf) - pos
+
     def try_to_find_file_descriptor(self):
         return -1
 
@@ -295,7 +324,7 @@ class DiskFile(Stream):
         while True:
             try:
                 return os.read(self.fd, n)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EINTR:
                     raise
                 if self.signal_checker is not None:
@@ -309,7 +338,7 @@ class DiskFile(Stream):
         while True:
             try:
                 c = os.read(self.fd, 1)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EINTR:
                     raise
                 if self.signal_checker is not None:
@@ -327,7 +356,7 @@ class DiskFile(Stream):
         while data:
             try:
                 n = os.write(self.fd, data)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EINTR:
                     raise
                 if self.signal_checker is not None:
@@ -354,7 +383,7 @@ class DiskFile(Stream):
             else:
                 try:
                     os.ftruncate(self.fd, size)
-                except IOError, e:
+                except IOError as e:
                     raise OSError(*e.args)
 
     def try_to_find_file_descriptor(self):
@@ -365,8 +394,8 @@ class DiskFile(Stream):
 class MMapFile(Stream):
     """Standard I/O basis stream using mmap."""
 
+    @not_rpython
     def __init__(self, fd, mmapaccess):
-        """NOT_RPYTHON"""
         self.fd = fd
         self.access = mmapaccess
         self.pos = 0
@@ -532,7 +561,7 @@ class BufferingInputStream(Stream):
     def flush_buffers(self):
         if self.buf:
             try:
-                self.do_seek(self.tell(), 0)
+                self.do_seek(self.pos - len(self.buf), 1)
             except (MyNotImplementedError, OSError):
                 pass
             else:
@@ -541,20 +570,34 @@ class BufferingInputStream(Stream):
 
     def tell(self):
         tellpos = self.do_tell()  # This may fail
+        # Best-effort: to avoid extra system calls to tell() all the
+        # time, and a more complicated logic in this class, we can
+        # only assume that nobody changed the underlying file
+        # descriptor position while we have buffered data.  If they
+        # do, we might get bogus results here (and the following
+        # read() will still return the data cached at the old
+        # position).  Just make sure that we don't fail an assert.
         offset = len(self.buf) - self.pos
-        assert tellpos >= offset #, (locals(), self.__dict__)
+        if tellpos < offset:
+            # bug!  someone changed the fd position under our feet,
+            # and moved it at or very close to the beginning of the
+            # file, so that we have more buffered data than the
+            # current offset.
+            self.buf = ""
+            self.pos = 0
+            offset = 0
         return tellpos - offset
 
     def seek(self, offset, whence):
-        # This may fail on the do_seek() or do_tell() call.
-        # But it won't call either on a relative forward seek.
+        # This may fail on the do_seek() or on the tell() call.
+        # But it won't depend on either on a relative forward seek.
         # Nor on a seek to the very end.
         if whence == 0 or whence == 1:
-            currentsize = len(self.buf) - self.pos
             if whence == 0:
-                difpos = offset - self.tell()
+                difpos = offset - self.tell()   # may clean up self.buf/self.pos
             else:
                 difpos = offset
+            currentsize = len(self.buf) - self.pos
             if -self.pos <= difpos <= currentsize:
                 self.pos += intmask(difpos)
                 return
@@ -626,9 +669,9 @@ class BufferingInputStream(Stream):
         while 1:
             try:
                 data = self.do_read(bufsize)
-            except OSError, o:
-                if o.errno != errno.EAGAIN:
-                    raise
+            except OSError as o:
+                # like CPython < 3.4, partial results followed by an error
+                # are returned as data
                 if not chunks:
                     raise
                 break
@@ -731,16 +774,23 @@ class BufferingOutputStream(Stream):
 
     def __init__(self, base, bufsize=-1):
         self.base = base
-        self.do_write = base.write  # write more data
         self.do_tell  = base.tell   # return a byte offset
         if bufsize == -1:     # Get default from the class
             bufsize = self.bufsize
         self.bufsize = bufsize  # buffer size (hint only)
         self.buf = []
         self.buflen = 0
+        self.error = False
+
+    def do_write(self, data):
+        try:
+            self.base.write(data)
+        except:
+            self.error = True
+            raise
 
     def flush_buffers(self):
-        if self.buf:
+        if self.buf and not self.error:
             self.do_write(''.join(self.buf))
             self.buf = []
             self.buflen = 0
@@ -749,6 +799,7 @@ class BufferingOutputStream(Stream):
         return self.do_tell() + self.buflen
 
     def write(self, data):
+        self.error = False
         buflen = self.buflen
         datalen = len(data)
         if datalen + buflen < self.bufsize:
@@ -783,6 +834,7 @@ class LineBufferingOutputStream(BufferingOutputStream):
     """
 
     def write(self, data):
+        self.error = False
         p = data.rfind('\n') + 1
         assert p >= 0
         if self.buflen + len(data) < self.bufsize:
@@ -850,18 +902,30 @@ class TextCRLFFilter(Stream):
         self.do_read = base.read
         self.do_write = base.write
         self.do_flush = base.flush_buffers
-        self.lfbuffer = ""
+        self.readahead_count = 0   # either 0 or 1
 
     def read(self, n=-1):
-        data = self.lfbuffer + self.do_read(n)
-        self.lfbuffer = ""
+        """If n >= 1, this should read between 1 and n bytes."""
+        if n <= 0:
+            if n < 0:
+                return self.readall()
+            else:
+                return ""
+
+        data = self.do_read(n - self.readahead_count)
+        if self.readahead_count > 0:
+            data = self.readahead_char + data
+            self.readahead_count = 0
+
         if data.endswith("\r"):
             c = self.do_read(1)
-            if c and c[0] == '\n':
-                data = data + '\n'
-                self.lfbuffer = c[1:]
-            else:
-                self.lfbuffer = c
+            if len(c) >= 1:
+                assert len(c) == 1
+                if c[0] == '\n':
+                    data = data + '\n'
+                else:
+                    self.readahead_char = c[0]
+                    self.readahead_count = 1
 
         result = []
         offset = 0
@@ -875,23 +939,30 @@ class TextCRLFFilter(Stream):
 
         return '\n'.join(result)
 
+    def readline(self):
+        line = self.base.readline()
+        limit = len(line) - 2
+        if limit >= 0 and line[limit] == '\r' and line[limit + 1] == '\n':
+            line = line[:limit] + '\n'
+        return line
+
     def tell(self):
         pos = self.base.tell()
-        return pos - len(self.lfbuffer)
+        return pos - self.readahead_count
 
     def seek(self, offset, whence):
         if whence == 1:
-            offset -= len(self.lfbuffer)   # correct for already-read-ahead character
+            offset -= self.readahead_count   # correct for already-read-ahead character
         self.base.seek(offset, whence)
-        self.lfbuffer = ""
+        self.readahead_count = 0
 
     def flush_buffers(self):
-        if self.lfbuffer:
+        if self.readahead_count > 0:
             try:
-                self.base.seek(-len(self.lfbuffer), 1)
+                self.base.seek(-self.readahead_count, 1)
             except (MyNotImplementedError, OSError):
                 return
-            self.lfbuffer = ""
+            self.readahead_count = 0
         self.do_flush()
 
     def write(self, data):
@@ -973,11 +1044,13 @@ class TextInputFilter(Stream):
             # we can safely read without reading past an end-of-line
             startindex, peeked = self.base.peek()
             assert 0 <= startindex <= len(peeked)
-            pn = peeked.find("\n", startindex)
-            pr = peeked.find("\r", startindex)
-            if pn < 0: pn = len(peeked)
-            if pr < 0: pr = len(peeked)
-            c = self.read(min(pn, pr) - startindex + 1)
+            cl_or_lf_pos = len(peeked)
+            for i in range(startindex, len(peeked)):
+                ch = peeked[i]
+                if ch == '\n' or ch == '\r':
+                    cl_or_lf_pos = i
+                    break
+            c = self.read(cl_or_lf_pos - startindex + 1)
             if not c:
                 break
             result.append(c)
@@ -1098,8 +1171,8 @@ class CallbackReadFilter(Stream):
 class DecodingInputFilter(Stream):
     """Filtering input stream that decodes an encoded file."""
 
+    @not_rpython
     def __init__(self, base, encoding="utf8", errors="strict"):
-        """NOT_RPYTHON"""
         self.base = base
         self.do_read = base.read
         self.encoding = encoding
@@ -1144,8 +1217,8 @@ class DecodingInputFilter(Stream):
 class EncodingOutputFilter(Stream):
     """Filtering output stream that writes to an encoded file."""
 
+    @not_rpython
     def __init__(self, base, encoding="utf8", errors="strict"):
-        """NOT_RPYTHON"""
         self.base = base
         self.do_write = base.write
         self.encoding = encoding

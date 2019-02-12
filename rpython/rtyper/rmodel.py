@@ -2,8 +2,7 @@ from rpython.annotator import model as annmodel, unaryop, binaryop, description
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError, MissingRTypeOperation
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.lltype import (Void, Bool, typeOf,
-    LowLevelType, isCompatibleType)
+from rpython.rtyper.lltypesystem.lltype import Void, Bool, LowLevelType, Ptr
 from rpython.tool.pairtype import pairtype, extendabletype, pair
 
 
@@ -26,6 +25,7 @@ class Repr(object):
     """
     __metaclass__ = extendabletype
     _initialized = setupstate.NOTINITIALIZED
+    __NOT_RPYTHON__ = True
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.lowleveltype)
@@ -120,15 +120,13 @@ class Repr(object):
 
     def convert_const(self, value):
         "Convert the given constant value to the low-level repr of 'self'."
-        if self.lowleveltype is not Void:
-            try:
-                realtype = typeOf(value)
-            except (AssertionError, AttributeError, TypeError):
-                realtype = '???'
-            if realtype != self.lowleveltype:
-                raise TyperError("convert_const(self = %r, value = %r)" % (
-                    self, value))
+        if not self.lowleveltype._contains_value(value):
+            raise TyperError("convert_const(self = %r, value = %r)" % (
+                self, value))
         return value
+
+    def special_uninitialized_value(self):
+        return None
 
     def get_ll_eq_function(self):
         """Return an eq(x,y) function to use to compare two low-level
@@ -209,6 +207,21 @@ class Repr(object):
         else:
             return hop.genop('int_is_true', [vlen], resulttype=Bool)
 
+    def rtype_isinstance(self, hop):
+        hop.exception_cannot_occur()
+        if hop.s_result.is_constant():
+            return hop.inputconst(lltype.Bool, hop.s_result.const)
+
+        if hop.args_s[1].is_constant() and hop.args_s[1].const in (str, list, unicode):
+            if hop.args_s[0].knowntype not in (str, list, unicode):
+                raise TyperError("isinstance(x, str/list/unicode) expects x to be known"
+                                " statically to be a str/list/unicode or None")
+            rstrlist = hop.args_r[0]
+            vstrlist = hop.inputarg(rstrlist, arg=0)
+            cnone = hop.inputconst(rstrlist, None)
+            return hop.genop('ptr_ne', [vstrlist, cnone], resulttype=lltype.Bool)
+        raise TyperError
+
     def rtype_hash(self, hop):
         ll_hash = self.get_ll_hash_function()
         v, = hop.inputargs(self)
@@ -244,7 +257,8 @@ class CanBeNull(object):
         if hop.s_result.is_constant():
             return hop.inputconst(Bool, hop.s_result.const)
         else:
-            return hop.rtyper.type_system.check_null(self, hop)
+            vlist = hop.inputargs(self)
+            return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
 
 
 class IteratorRepr(Repr):
@@ -287,15 +301,29 @@ class __extend__(pairtype(Repr, Repr)):
     def rtype_is_((robj1, robj2), hop):
         if hop.s_result.is_constant():
             return inputconst(Bool, hop.s_result.const)
-        return hop.rtyper.type_system.generic_is(robj1, robj2, hop)
+        roriginal1 = robj1
+        roriginal2 = robj2
+        if robj1.lowleveltype is Void:
+            robj1 = robj2
+        elif robj2.lowleveltype is Void:
+            robj2 = robj1
+        if (not isinstance(robj1.lowleveltype, Ptr) or
+                not isinstance(robj2.lowleveltype, Ptr)):
+            raise TyperError('is of instances of the non-pointers: %r, %r' % (
+                roriginal1, roriginal2))
+        if robj1.lowleveltype != robj2.lowleveltype:
+            raise TyperError('is of instances of different pointer types: %r, %r' % (
+                roriginal1, roriginal2))
+
+        v_list = hop.inputargs(robj1, robj2)
+        return hop.genop('ptr_eq', v_list, resulttype=Bool)
+
 
     # default implementation for checked getitems
 
-    def rtype_getitem_idx_key((r_c1, r_o1), hop):
+    def rtype_getitem_idx((r_c1, r_o1), hop):
         return pair(r_c1, r_o1).rtype_getitem(hop)
 
-    rtype_getitem_idx = rtype_getitem_idx_key
-    rtype_getitem_key = rtype_getitem_idx_key
 
 # ____________________________________________________________
 
@@ -331,6 +359,10 @@ class VoidRepr(Repr):
     def ll_str(self, nothing): raise AssertionError("unreachable code")
 impossible_repr = VoidRepr()
 
+class __extend__(pairtype(Repr, VoidRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        return inputconst(lltype.Void, None)
+
 class SimplePointerRepr(Repr):
     "Convenience Repr for simple ll pointer types with no operation on them."
 
@@ -356,18 +388,9 @@ def inputconst(reqtype, value):
         lltype = reqtype
     else:
         raise TypeError(repr(reqtype))
-    # Void Constants can hold any value;
-    # non-Void Constants must hold a correctly ll-typed value
-    if lltype is not Void:
-        try:
-            realtype = typeOf(value)
-        except (AssertionError, AttributeError):
-            realtype = '???'
-        if not isCompatibleType(realtype, lltype):
-            raise TyperError("inputconst(reqtype = %s, value = %s):\n"
-                             "expected a %r,\n"
-                             "     got a %r" % (reqtype, value,
-                                                lltype, realtype))
+    if not lltype._contains_value(value):
+        raise TyperError("inputconst(): expected a %r, got %r" %
+                         (lltype, value))
     c = Constant(value)
     c.concretetype = lltype
     return c
@@ -389,13 +412,12 @@ def mangle(prefix, name):
 
 def getgcflavor(classdef):
     classdesc = classdef.classdesc
-    alloc_flavor = classdesc.read_attribute('_alloc_flavor_',
-                                            Constant('gc')).value
+    alloc_flavor = classdesc.get_param('_alloc_flavor_', default='gc')
     return alloc_flavor
 
 def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr
     from rpython.rtyper import rclass
-    if (isinstance(item_repr, rclass.AbstractInstanceRepr) and
+    if (isinstance(item_repr, rclass.InstanceRepr) and
         getattr(item_repr, 'gcflavor', 'gc') == 'gc'):
         return item_repr, rclass.getinstancerepr(rtyper, None)
     else:
@@ -422,7 +444,8 @@ class DummyValueBuilder(object):
     def __ne__(self, other):
         return not (self == other)
 
-    def build_ll_dummy_value(self):
+    @property
+    def ll_dummy_value(self):
         TYPE = self.TYPE
         try:
             return self.rtyper.cache_dummy_values[TYPE]
@@ -435,18 +458,12 @@ class DummyValueBuilder(object):
             self.rtyper.cache_dummy_values[TYPE] = p
             return p
 
-    ll_dummy_value = property(build_ll_dummy_value)
-
 
 # logging/warning
 
-import py
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 
-log = py.log.Producer("rtyper")
-py.log.setconsumer("rtyper", ansi_log)
-py.log.setconsumer("rtyper translating", None)
-py.log.setconsumer("rtyper debug", None)
+log = AnsiLogger("rtyper")
 
 def warning(msg):
     log.WARNING(msg)

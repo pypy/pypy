@@ -24,5 +24,6 @@ typedef unsigned char bool_t;
 # define RPY_DUMMY_VARLENGTH     /* nothing */
 #endif
 
-
-#include "src/threadlocal.h"
+#ifdef RPY_REVERSE_DEBUGGER
+#include "src-revdb/revdb_preinclude.h"
+#endif

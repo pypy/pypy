@@ -3,7 +3,7 @@ from rpython.flowspace.model import safe_iterblocks, safe_iterlinks
 from rpython.translator.tool.make_dot import DotGen, make_dot_graphs
 from rpython.annotator.model import SomePBC
 from rpython.annotator.description import MethodDesc
-from rpython.annotator.classdef import ClassDef
+from rpython.annotator.classdesc import ClassDef
 from rpython.tool.uid import uid
 from rpython.tool.udir import udir
 
@@ -11,7 +11,6 @@ from dotviewer.graphpage import GraphPage as BaseGraphPage
 
 class GraphPage(BaseGraphPage):
     save_tmp_file = str(udir.join('graph.dot'))
-
 
 class VariableHistoryGraphPage(GraphPage):
     """ A GraphPage showing the history of variable bindings. """
@@ -106,12 +105,6 @@ class FlowGraphPage(GraphPage):
         self.source = make_dot_graphs(name, gs, target=None)
         # make the dictionary of links -- one per annotated variable
         self.current_value = {}
-        if self.annotator:
-            for var, s_value in self.annotator.bindings.items():
-                info = '%s: %s' % (var.name, s_value)
-                annotationcolor = getattr(s_value, 'annotationcolor', None)
-                self.links[var.name] = info, annotationcolor
-                self.current_value[var.name] = s_value
 
         #from rpython.jit.hintannotator.annotator import HintAnnotator
         #if isinstance(self.annotator, HintAnnotator):
@@ -128,6 +121,12 @@ class FlowGraphPage(GraphPage):
                     for v in link.getextravars():
                         vars[v] = True
         for var in vars:
+            s_value = var.annotation
+            if s_value is not None:
+                info = '%s: %s' % (var.name, s_value)
+                annotationcolor = getattr(s_value, 'annotationcolor', None)
+                self.links[var.name] = info, annotationcolor
+                self.current_value[var.name] = s_value
             if hasattr(var, 'concretetype'):
                 #info = self.links.get(var.name, var.name)
                 #info = '(%s) %s' % (var.concretetype, info)
@@ -406,13 +405,14 @@ def nameof(obj, cache={}):
 def try_show(obj):
     if isinstance(obj, FunctionGraph):
         obj.show()
+        return obj
     elif isinstance(obj, Link):
-        try_show(obj.prevblock)
+        return try_show(obj.prevblock)
     elif isinstance(obj, Block):
-        graph = obj.get_graph()
+        graph = obj._slowly_get_graph()
         if isinstance(graph, FunctionGraph):
             graph.show()
-            return
+            return graph
         graph = IncompleteGraph(graph)
         SingleGraphPage(graph).display()
     else:

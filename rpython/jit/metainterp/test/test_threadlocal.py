@@ -1,29 +1,31 @@
 import py
+from rpython.rlib import rthread
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.rlib.rthread import ThreadLocalReference
-from rpython.rlib.jit import dont_look_inside
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 class ThreadLocalTest(object):
 
     def test_threadlocalref_get(self):
-        class Foo:
-            pass
-        t = ThreadLocalReference(Foo)
-        x = Foo()
-
-        @dont_look_inside
-        def setup():
-            t.set(x)
+        tlfield = rthread.ThreadLocalField(lltype.Signed, 'foobar_test_')
 
         def f():
-            setup()
-            if t.get() is x:
-                return 42
-            return -666
+            tlfield.setraw(0x544c)
+            return tlfield.getraw()
 
         res = self.interp_operations(f, [])
-        assert res == 42
+        assert res == 0x544c
+
+    def test_threadlocalref_get_char(self):
+        tlfield = rthread.ThreadLocalField(lltype.Char, 'foobar_test_char_')
+
+        def f():
+            tlfield.setraw('\x92')
+            return ord(tlfield.getraw())
+
+        res = self.interp_operations(f, [])
+        assert res == 0x92
 
 
 class TestLLtype(ThreadLocalTest, LLJitMixin):

@@ -2,8 +2,9 @@ from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import objectmodel, jit
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from rpython.rtyper import rmodel
 from rpython.rtyper.error import TyperError
@@ -41,7 +42,8 @@ MASK = r_uint(intmask(HIGHEST_BIT - 1))
 class DictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None, force_non_null=False):
+                 custom_eq_hash=None, force_non_null=False, fast_hash=False):
+        # fast_hash is ignored (only implemented in rordereddict.py)
         self.rtyper = rtyper
         self.DICT = lltype.GcForwardReference()
         self.lowleveltype = lltype.Ptr(self.DICT)
@@ -235,21 +237,14 @@ class DictRepr(AbstractDictRepr):
                 if self.r_rdict_hashfn.lowleveltype != lltype.Void:
                     l_fn = self.r_rdict_hashfn.convert_const(dictobj.key_hash)
                     l_dict.fnkeyhash = l_fn
-
-                for dictkeycontainer, dictvalue in dictobj._dict.items():
-                    llkey = r_key.convert_const(dictkeycontainer.key)
-                    llvalue = r_value.convert_const(dictvalue)
-                    ll_dict_insertclean(l_dict, llkey, llvalue,
-                                        dictkeycontainer.hash)
-                return l_dict
-
+                any_items = dictobj._dict.items()
             else:
-                for dictkey, dictvalue in dictobj.items():
-                    llkey = r_key.convert_const(dictkey)
-                    llvalue = r_value.convert_const(dictvalue)
-                    ll_dict_insertclean(l_dict, llkey, llvalue,
-                                        l_dict.keyhash(llkey))
-                return l_dict
+                any_items = dictobj.items()
+            if any_items:
+                raise TyperError("found a prebuilt, explicitly non-ordered, "
+                                 "non-empty dict.  it would require additional"
+                                 " support to rehash it at program start-up")
+            return l_dict
 
     def rtype_len(self, hop):
         v_dict, = hop.inputargs(self)
@@ -306,6 +301,9 @@ class DictRepr(AbstractDictRepr):
 
     def rtype_method_items(self, hop):
         return self._rtype_method_kvi(hop, ll_dict_items)
+
+    def rtype_bltn_list(self, hop):
+        return self._rtype_method_kvi(hop, ll_dict_keys)
 
     def rtype_method_iterkeys(self, hop):
         hop.exception_cannot_occur()
@@ -665,6 +663,7 @@ def ll_newdict(DICT):
     d.num_items = 0
     d.resize_counter = DICT_INITSIZE * 2
     return d
+DictRepr.ll_newdict = staticmethod(ll_newdict)
 
 def ll_newdict_size(DICT, length_estimate):
     length_estimate = (length_estimate // 2) * 3
@@ -688,26 +687,6 @@ def _ll_free_entries(entries):
     pass
 
 
-def rtype_r_dict(hop, i_force_non_null=None):
-    r_dict = hop.r_result
-    if not r_dict.custom_eq_hash:
-        raise TyperError("r_dict() call does not return an r_dict instance")
-    v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
-    v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
-    if i_force_non_null is not None:
-        assert i_force_non_null == 2
-        hop.inputarg(lltype.Void, arg=2)
-    cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    hop.exception_cannot_occur()
-    v_result = hop.gendirectcall(ll_newdict, cDICT)
-    if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(lltype.Void, 'fnkeyeq')
-        hop.genop('setfield', [v_result, cname, v_eqfn])
-    if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(lltype.Void, 'fnkeyhash')
-        hop.genop('setfield', [v_result, cname, v_hashfn])
-    return v_result
-
 # ____________________________________________________________
 #
 #  Iteration.
@@ -721,7 +700,7 @@ class DictIteratorRepr(AbstractDictIteratorRepr):
                                          ('dict', r_dict.lowleveltype),
                                          ('index', lltype.Signed)))
         self.ll_dictiter = ll_dictiter
-        self.ll_dictnext = ll_dictnext_group[variant]
+        self._ll_dictnext = _ll_dictnext
 
 
 def ll_dictiter(ITERPTR, d):
@@ -730,45 +709,26 @@ def ll_dictiter(ITERPTR, d):
     iter.index = 0
     return iter
 
-def _make_ll_dictnext(kind):
-    # make three versions of the following function: keys, values, items
-    @jit.look_inside_iff(lambda RETURNTYPE, iter: jit.isvirtual(iter)
-                         and (iter.dict is None or
-                              jit.isvirtual(iter.dict)))
-    @jit.oopspec("dictiter.next%s(iter)" % kind)
-    def ll_dictnext(RETURNTYPE, iter):
-        # note that RETURNTYPE is None for keys and values
-        dict = iter.dict
-        if dict:
-            entries = dict.entries
-            index = iter.index
-            assert index >= 0
-            entries_len = len(entries)
-            while index < entries_len:
-                entry = entries[index]
-                is_valid = entries.valid(index)
-                index = index + 1
-                if is_valid:
-                    iter.index = index
-                    if RETURNTYPE is lltype.Void:
-                        return None
-                    elif kind == 'items':
-                        r = lltype.malloc(RETURNTYPE.TO)
-                        r.item0 = recast(RETURNTYPE.TO.item0, entry.key)
-                        r.item1 = recast(RETURNTYPE.TO.item1, entry.value)
-                        return r
-                    elif kind == 'keys':
-                        return entry.key
-                    elif kind == 'values':
-                        return entry.value
-            # clear the reference to the dict and prevent restarts
-            iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
-        raise StopIteration
-    return ll_dictnext
-
-ll_dictnext_group = {'keys'  : _make_ll_dictnext('keys'),
-                     'values': _make_ll_dictnext('values'),
-                     'items' : _make_ll_dictnext('items')}
+@jit.look_inside_iff(lambda iter: jit.isvirtual(iter)
+                     and (iter.dict is None or
+                          jit.isvirtual(iter.dict)))
+@jit.oopspec("dictiter.next(iter)")
+def _ll_dictnext(iter):
+    dict = iter.dict
+    if dict:
+        entries = dict.entries
+        index = iter.index
+        assert index >= 0
+        entries_len = len(entries)
+        while index < entries_len:
+            nextindex = index + 1
+            if entries.valid(index):
+                iter.index = nextindex
+                return index
+            index = nextindex
+        # clear the reference to the dict and prevent restarts
+        iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
+    raise StopIteration
 
 # _____________________________________________________________
 # methods
@@ -824,6 +784,8 @@ def ll_clear(d):
 ll_clear.oopspec = 'dict.clear(d)'
 
 def ll_update(dic1, dic2):
+    if dic1 == dic2:
+        return
     ll_prepare_dict_update(dic1, dic2.num_items)
     entries = dic2.entries
     d2len = len(entries)
@@ -846,7 +808,13 @@ def ll_prepare_dict_update(d, num_extra):
     #      (d.resize_counter - 1) // 3 = room left in d
     #  so, if num_extra == 1, we need d.resize_counter > 3
     #      if num_extra == 2, we need d.resize_counter > 6  etc.
-    jit.conditional_call(d.resize_counter <= num_extra * 3,
+    # Note however a further hack: if num_extra <= d.num_items,
+    # we avoid calling _ll_dict_resize_to here.  This is to handle
+    # the case where dict.update() actually has a lot of collisions.
+    # If num_extra is much greater than d.num_items the conditional_call
+    # will trigger anyway, which is really the goal.
+    x = num_extra - d.num_items
+    jit.conditional_call(d.resize_counter <= x * 3,
                          _ll_dict_resize_to, d, num_extra)
 
 # this is an implementation of keys(), values() and items()

@@ -6,14 +6,14 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.intobject import W_AbstractIntObject, W_IntObject
-from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
 class W_BoolObject(W_IntObject):
 
     def __init__(self, boolval):
-        self.intval = not not boolval
+        self.intval = int(not not boolval)
 
     def __nonzero__(self):
         raise Exception("you cannot do that, you must use space.is_true()")
@@ -45,7 +45,7 @@ class W_BoolObject(W_IntObject):
         return space.newbool(space.is_true(w_obj))
 
     def descr_repr(self, space):
-        return space.wrap('True' if self.intval else 'False')
+        return space.newtext('True' if self.intval else 'False')
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_nonzero(self, space):
@@ -80,7 +80,7 @@ W_BoolObject.w_False = W_BoolObject(False)
 W_BoolObject.w_True = W_BoolObject(True)
 
 
-W_BoolObject.typedef = StdTypeDef("bool", W_IntObject.typedef,
+W_BoolObject.typedef = TypeDef("bool", W_IntObject.typedef,
     __doc__ = """bool(x) -> bool
 
 Returns True when the argument x is true, False otherwise.

@@ -18,3 +18,8 @@ class Module(MixedModule):
         interpleveldefs['PipeConnection'] = \
             'interp_connection.W_PipeConnection'
         interpleveldefs['win32'] = 'interp_win32.win32_namespace(space)'
+
+    def init(self, space):
+        MixedModule.init(self, space)
+        from pypy.module._multiprocessing.interp_connection import State
+        space.fromcache(State).init(space)

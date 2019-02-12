@@ -2,7 +2,7 @@
 def globals(space):
     "Return the dictionary containing the current scope's global variables."
     ec = space.getexecutioncontext()
-    return ec.gettopframe_nohidden().w_globals
+    return ec.gettopframe_nohidden().get_w_globals()
 
 def locals(space):
     """Return a dictionary containing the current scope's local variables.

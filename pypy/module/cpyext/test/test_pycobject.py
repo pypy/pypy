@@ -1,3 +1,4 @@
+import py
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class AppTestStringObject(AppTestCpythonExtensionBase):
@@ -12,7 +13,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  if (PyErr_Occurred()) return NULL;
                  module = PyImport_ImportModule("foo");
                  PyModule_AddObject(module, "_ptr", pointer);
-                 Py_DECREF(pointer);  /* XXX <--- anti-workaround */
                  Py_DECREF(module);
                  if (PyErr_Occurred()) return NULL;
                  Py_RETURN_NONE;

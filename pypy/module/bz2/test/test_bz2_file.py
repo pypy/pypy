@@ -28,7 +28,7 @@ def setup_module(mod):
         data = DATA[:100]
         f.write(data, 'wb')
 
-    @unwrap_spec(data=str)
+    @unwrap_spec(data='bytes')
     def decompress(space, data):
         import popen2
         import bz2
@@ -53,7 +53,7 @@ def setup_module(mod):
 
 class AppTestBZ2File(CheckAllocation):
     spaceconfig = {
-        "usemodules": ["bz2", "binascii", "rctime"]
+        'usemodules': ['bz2', 'binascii', 'time', 'struct']
     }
 
     def setup_class(cls):
@@ -96,6 +96,9 @@ class AppTestBZ2File(CheckAllocation):
         BZ2File(self.temppath, mode='wb')
         # a large buf size
         BZ2File(self.temppath, mode='w', buffering=4096)
+
+        exc = raises(IOError, BZ2File, 'xxx', 'r')
+        assert "'xxx'" in str(exc.value)
 
     def test_close(self):
         from bz2 import BZ2File

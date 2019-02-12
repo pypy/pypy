@@ -48,9 +48,6 @@ class SemiSpaceGC(MovingGCBase):
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed))   # XXX or rffi.INT?
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', _GCFLAG_HASH_BASE * 0x2
-    # ^^^ prebuilt objects either have GC_HASH_TAKEN_ADDR or they
-    #     have GC_HASH_HASFIELD (and then they are one word longer).
     FORWARDSTUB = lltype.GcStruct('forwarding_stub',
                                   ('forw', llmemory.Address))
     FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
@@ -111,7 +108,9 @@ class SemiSpaceGC(MovingGCBase):
         #    self.objects_with_light_finalizers.append(result + size_gc_header)
         #else:
         if has_finalizer:
+            from rpython.rtyper.lltypesystem import rffi
             self.objects_with_finalizers.append(result + size_gc_header)
+            self.objects_with_finalizers.append(rffi.cast(llmemory.Address, -1))
         if contains_weakptr:
             self.objects_with_weakrefs.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
@@ -148,6 +147,13 @@ class SemiSpaceGC(MovingGCBase):
             return True
         else:
             return False
+
+    def register_finalizer(self, fq_index, gcobj):
+        from rpython.rtyper.lltypesystem import rffi
+        obj = llmemory.cast_ptr_to_adr(gcobj)
+        fq_index = rffi.cast(llmemory.Address, fq_index)
+        self.objects_with_finalizers.append(obj)
+        self.objects_with_finalizers.append(fq_index)
 
     def obtain_free_space(self, needed):
         # a bit of tweaking to maximize the performance and minimize the
@@ -268,8 +274,7 @@ class SemiSpaceGC(MovingGCBase):
         scan = self.free = tospace
         self.starting_full_collect()
         self.collect_roots()
-        if self.run_finalizers.non_empty():
-            self.update_run_finalizers()
+        self.copy_pending_finalizers(self.copy)
         scan = self.scan_copied(scan)
         if self.objects_with_light_finalizers.non_empty():
             self.deal_with_objects_with_light_finalizers()
@@ -499,8 +504,7 @@ class SemiSpaceGC(MovingGCBase):
             if self.surviving(obj):
                 new_objects.append(self.get_forwarding_address(obj))
             else:
-                finalizer = self.getfinalizer(self.get_type_id(obj))
-                finalizer(obj)
+                self.call_destructor(obj)
         self.objects_with_light_finalizers.delete()
         self.objects_with_light_finalizers = new_objects
 
@@ -517,12 +521,15 @@ class SemiSpaceGC(MovingGCBase):
         self.tmpstack = self.AddressStack()
         while self.objects_with_finalizers.non_empty():
             x = self.objects_with_finalizers.popleft()
+            fq_nr = self.objects_with_finalizers.popleft()
             ll_assert(self._finalization_state(x) != 1, 
                       "bad finalization state 1")
             if self.surviving(x):
                 new_with_finalizer.append(self.get_forwarding_address(x))
+                new_with_finalizer.append(fq_nr)
                 continue
             marked.append(x)
+            marked.append(fq_nr)
             pending.append(x)
             while pending.non_empty():
                 y = pending.pop()
@@ -537,17 +544,21 @@ class SemiSpaceGC(MovingGCBase):
 
         while marked.non_empty():
             x = marked.popleft()
+            fq_nr = marked.popleft()
             state = self._finalization_state(x)
             ll_assert(state >= 2, "unexpected finalization state < 2")
             newx = self.get_forwarding_address(x)
             if state == 2:
-                self.run_finalizers.append(newx)
+                from rpython.rtyper.lltypesystem import rffi
+                fq_index = rffi.cast(lltype.Signed, fq_nr)
+                self.mark_finalizer_to_run(fq_index, newx)
                 # we must also fix the state from 2 to 3 here, otherwise
                 # we leave the GCFLAG_FINALIZATION_ORDERING bit behind
                 # which will confuse the next collection
                 self._recursively_bump_finalization_state_from_2_to_3(x)
             else:
                 new_with_finalizer.append(newx)
+                new_with_finalizer.append(fq_nr)
 
         self.tmpstack.delete()
         pending.delete()
@@ -626,16 +637,6 @@ class SemiSpaceGC(MovingGCBase):
                     (obj + offset).address[0] = NULL
         self.objects_with_weakrefs.delete()
         self.objects_with_weakrefs = new_with_weakref
-
-    def update_run_finalizers(self):
-        # we are in an inner collection, caused by a finalizer
-        # the run_finalizers objects need to be copied
-        new_run_finalizer = self.AddressDeque()
-        while self.run_finalizers.non_empty():
-            obj = self.run_finalizers.popleft()
-            new_run_finalizer.append(self.copy(obj))
-        self.run_finalizers.delete()
-        self.run_finalizers = new_run_finalizer
 
     def _is_external(self, obj):
         return (self.header(obj).tid & GCFLAG_EXTERNAL) != 0

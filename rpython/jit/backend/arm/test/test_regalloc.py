@@ -15,7 +15,8 @@ from rpython.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem import rclass, rstr
+from rpython.rtyper.lltypesystem import rstr
+from rpython.rtyper import rclass
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.llsupport.test.test_regalloc_integration import BaseTestRegalloc
@@ -214,14 +215,14 @@ class TestRegallocSimple(CustomBaseTestRegalloc):
     def test_exception_bridge_no_exception(self):
         ops = '''
         [i0]
-        i1 = same_as(1)
-        call(ConstClass(raising_fptr), i0, descr=raising_calldescr)
+        i1 = same_as_i(1)
+        call_n(ConstClass(raising_fptr), i0, descr=raising_calldescr)
         guard_exception(ConstClass(zero_division_error)) [i1]
         finish(0)
         '''
         bridge_ops = '''
         [i3]
-        i2 = same_as(2)
+        i2 = same_as_i(2)
         guard_no_exception() [i2]
         finish(1)
         '''
@@ -333,7 +334,7 @@ class TestRegallocSimple(CustomBaseTestRegalloc):
         '''
         self.interpret(ops, [0, 0, 3, 0])
         assert self.getints(3) == [1, -3, 10]
-        
+
     def test_compare_memory_result_survives(self):
         ops = '''
         [i0, i1, i2, i3]
@@ -378,7 +379,7 @@ class TestRegallocSimple(CustomBaseTestRegalloc):
     def test_bug_wrong_stack_adj(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
-        i9 = same_as(0)
+        i9 = same_as_i(0)
         guard_true(i0) [i9, i0, i1, i2, i3, i4, i5, i6, i7, i8]
         finish(1)
         '''
@@ -386,7 +387,7 @@ class TestRegallocSimple(CustomBaseTestRegalloc):
         assert self.getint(0) == 0
         bridge_ops = '''
         [i9, i0, i1, i2, i3, i4, i5, i6, i7, i8]
-        call(ConstClass(raising_fptr), 0, descr=raising_calldescr)
+        call_n(ConstClass(raising_fptr), 0, descr=raising_calldescr)
         guard_true(i0) [i0, i1, i2, i3, i4, i5, i6, i7, i8]
         finish(1)
         '''
@@ -429,7 +430,7 @@ class TestRegallocCompOps(CustomBaseTestRegalloc):
     def test_cmp_op_0(self):
         ops = '''
         [i0, i3]
-        i1 = same_as(1)
+        i1 = same_as_i(1)
         i2 = int_lt(i0, 100)
         guard_true(i3) [i1, i2]
         finish(i2)
@@ -478,7 +479,7 @@ class TestRegallocMoreRegisters(CustomBaseTestRegalloc):
         i13 = int_eq(i5, i6)
         i14 = int_gt(i6, i2)
         i15 = int_ne(i2, i6)
-        guard_true(i15) [i10, i11, i12, i13, i14, i15]
+        guard_true(i0) [i10, i11, i12, i13, i14, i15]
 
         '''
         self.interpret(ops, [0, 1, 2, 3, 4, 5, 6])
@@ -544,23 +545,6 @@ class TestRegallocMoreRegisters(CustomBaseTestRegalloc):
         self.interpret(ops, [s, 1234567890])
         assert s[1] == 1234567890
 
-    def test_division_optimized(self):
-        ops = '''
-        [i7, i6]
-        label(i7, i6, descr=targettoken)
-        i18 = int_floordiv(i7, i6)
-        i19 = int_xor(i7, i6)
-        i21 = int_lt(i19, 0)
-        i22 = int_mod(i7, i6)
-        i23 = int_is_true(i22)
-        i24 = int_eq(i6, 4)
-        guard_false(i24) [i18]
-        jump(i18, i6, descr=targettoken)
-        '''
-        self.interpret(ops, [10, 4])
-        assert self.getint(0) == 2
-        # FIXME: Verify that i19 - i23 are removed
-
 
 class TestRegallocFloats(CustomBaseTestRegalloc):
     def test_float_add(self):
@@ -615,7 +599,7 @@ class TestRegallocFloats(CustomBaseTestRegalloc):
         i7 = float_ne(f7, 0.0)
         i8 = float_ne(f8, 0.0)
         i9 = float_ne(f9, 0.0)
-        guard_true(i9), [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        guard_false(i9), [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
         '''
         self.interpret(ops, [0.0, .1, .2, .3, .4, .5, .6, .7, .8, .9])
         assert self.getints(9) == [0, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -629,8 +613,8 @@ class TestRegAllocCallAndStackDepth(CustomBaseTestRegalloc):
     def test_one_call(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
-        i10 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
-        guard_true(i10), [i10, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = call_i(ConstClass(f1ptr), i0, descr=f1_calldescr)
+        guard_false(i10), [i10, i1, i2, i3, i4, i5, i6, i7, i8, i9]
         '''
         self.interpret(ops, [4, 7, 9, 9, 9, 9, 9, 9, 9, 9])
         assert self.getints(10) == [5, 7, 9, 9, 9, 9, 9, 9, 9, 9]
@@ -638,9 +622,9 @@ class TestRegAllocCallAndStackDepth(CustomBaseTestRegalloc):
     def test_two_calls(self):
         ops = '''
         [i0, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
-        i10 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
-        i11 = call(ConstClass(f2ptr), i10, i1, descr=f2_calldescr)
-        guard_true(i11) [i11, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = call_i(ConstClass(f1ptr), i0, descr=f1_calldescr)
+        i11 = call_i(ConstClass(f2ptr), i10, i1, descr=f2_calldescr)
+        guard_false(i11) [i11, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
         '''
         self.interpret(ops, [4, 7, 9, 9, 9, 9, 9, 9, 9, 9])
         assert self.getints(10) == [5 * 7, 7, 9, 9, 9, 9, 9, 9, 9, 9]
@@ -648,7 +632,7 @@ class TestRegAllocCallAndStackDepth(CustomBaseTestRegalloc):
     def test_call_many_arguments(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7]
-        i8 = call(ConstClass(f10ptr), 1, i0, i1, i2, i3, i4, i5, i6, i7, 10, descr=f10_calldescr)
+        i8 = call_i(ConstClass(f10ptr), 1, i0, i1, i2, i3, i4, i5, i6, i7, 10, descr=f10_calldescr)
         finish(i8)
         '''
         self.interpret(ops, [2, 3, 4, 5, 6, 7, 8, 9])
@@ -657,7 +641,7 @@ class TestRegAllocCallAndStackDepth(CustomBaseTestRegalloc):
     def test_bridge_calls_1(self):
         ops = '''
         [i0, i1]
-        i2 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
+        i2 = call_i(ConstClass(f1ptr), i0, descr=f1_calldescr)
         guard_value(i2, 0, descr=fdescr1) [i2, i1]
         finish(i1)
         '''
@@ -665,7 +649,7 @@ class TestRegAllocCallAndStackDepth(CustomBaseTestRegalloc):
         assert self.getint(0) == 5
         ops = '''
         [i2, i1]
-        i3 = call(ConstClass(f2ptr), i2, i1, descr=f2_calldescr)
+        i3 = call_i(ConstClass(f2ptr), i2, i1, descr=f2_calldescr)
         finish(i3)
         '''
         self.attach_bridge(ops, loop, -2)
@@ -676,7 +660,7 @@ class TestRegAllocCallAndStackDepth(CustomBaseTestRegalloc):
     def test_bridge_calls_2(self):
         ops = '''
         [i0, i1]
-        i2 = call(ConstClass(f2ptr), i0, i1, descr=f2_calldescr)
+        i2 = call_i(ConstClass(f2ptr), i0, i1, descr=f2_calldescr)
         guard_value(i2, 0, descr=fdescr1) [i2]
         finish(i1)
         '''
@@ -684,7 +668,7 @@ class TestRegAllocCallAndStackDepth(CustomBaseTestRegalloc):
         assert self.getint(0) == 4 * 7
         ops = '''
         [i2]
-        i3 = call(ConstClass(f1ptr), i2, descr=f1_calldescr)
+        i3 = call_i(ConstClass(f1ptr), i2, descr=f1_calldescr)
         finish(i3)
         '''
         self.attach_bridge(ops, loop, -2)
@@ -733,7 +717,7 @@ class TestJumps(TestRegallocSimple):
         loop2 = """
         [i0]
         i1 = force_token()
-        i2 = call_assembler(1,2,3,4,5,6,7,8,9,10,11, descr=looptoken)
+        i2 = call_assembler_i(1,2,3,4,5,6,7,8,9,10,11, descr=looptoken)
         guard_not_forced() [i0]
         guard_false(i0) [i0, i2]
         """
@@ -748,23 +732,23 @@ class TestJumps(TestRegallocSimple):
         label(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, descr=targettoken)
         i11 = int_add(i0, 1)
         i12 = int_lt(i11, 2)
-        i13 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i14 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i15 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i16 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i17 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i18 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i19 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i20 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i21 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i22 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i23 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i24 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i26 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i27 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i28 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i29 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
-        i30 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i13 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i14 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i15 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i16 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i17 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i18 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i19 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i20 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i21 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i22 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i23 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i24 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i26 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i27 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i28 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i29 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i30 = call_i(ConstClass(f_fptr), i12, descr=f_calldescr)
         guard_true(i12) [i11, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]
         jump(i11, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, descr=targettoken)
         """

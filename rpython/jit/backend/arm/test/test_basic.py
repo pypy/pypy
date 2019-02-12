@@ -41,10 +41,6 @@ class TestBasic(JitARMMixin, test_ajit.BaseLLtypeTests):
                 continue
             locals()[k] = lambda self: py.test.skip('requires longlong support')
 
-    def test_read_timestamp(self):
-        py.test.skip("The JIT on ARM does not support read_timestamp")
-
-  
     if not CPU.supports_floats:
         for k in ('test_float', 'test_residual_external_call'):
             locals()[k] = lambda self: py.test.skip('requires float support')

@@ -23,10 +23,9 @@ class FakeFieldDescr(AbstractDescr):
         self.fieldname = fieldname
 
 class FakeSizeDescr(AbstractDescr):
-    def __init__(self, STRUCT):
+    def __init__(self, STRUCT, vtable=None):
         self.STRUCT = STRUCT
-    def as_vtable_size_descr(self):
-        return self
+        self.vtable = vtable
 
 class FakeArrayDescr(AbstractDescr):
     def __init__(self, ARRAY):
@@ -77,11 +76,11 @@ def test_loop():
     assert jitcode.num_regs_i() == 2
     assert jitcode.num_regs_r() == 0
     assert jitcode.num_regs_f() == 0
-    assert jitcode._live_vars(5) == '%i0 %i1'
+    assert jitcode._live_vars(0) == '%i0 %i1'
     #
     from rpython.jit.codewriter.jitcode import MissingLiveness
     for i in range(len(jitcode.code)+1):
-        if i != 5:
+        if i != 0:
             py.test.raises(MissingLiveness, jitcode._live_vars, i)
 
 def test_call():
@@ -232,18 +231,3 @@ def test_raw_malloc_and_access():
     assert 'setarrayitem_raw_i' in s
     assert 'getarrayitem_raw_i' in s
     assert 'residual_call_ir_v $<* fn _ll_1_raw_free__arrayPtr>' in s
-
-def test_newlist_negativ():
-    def f(n):
-        l = [0] * n
-        return len(l)
-
-    rtyper = support.annotate(f, [-1])
-    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
-    cw = CodeWriter(FakeCPU(rtyper), [jitdriver_sd])
-    graphs = cw.find_all_graphs(FakePolicy())
-    backend_optimizations(rtyper.annotator.translator, graphs=graphs)
-    cw.make_jitcodes(verbose=True)
-    s = jitdriver_sd.mainjitcode.dump()
-    assert 'int_force_ge_zero' in s
-    assert 'new_array' in s

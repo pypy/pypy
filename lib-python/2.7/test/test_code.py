@@ -82,8 +82,8 @@ consts: ("'doc string'", 'None')
 
 import unittest
 import weakref
-import _testcapi
-from test import test_support
+from test.test_support import run_doctest, run_unittest, cpython_only
+from test.test_support import gc_collect
 
 
 def consts(t):
@@ -105,11 +105,58 @@ def dump(co):
 
 class CodeTest(unittest.TestCase):
 
+    @cpython_only
     def test_newempty(self):
+        import _testcapi
         co = _testcapi.code_newempty("filename", "funcname", 15)
         self.assertEqual(co.co_filename, "filename")
         self.assertEqual(co.co_name, "funcname")
         self.assertEqual(co.co_firstlineno, 15)
+
+
+def isinterned(s):
+    return s is intern(('_' + s + '_')[1:-1])
+
+class CodeConstsTest(unittest.TestCase):
+
+    def find_const(self, consts, value):
+        for v in consts:
+            if v == value:
+                return v
+        self.assertIn(value, consts)  # raises an exception
+        self.fail('Should never be reached')
+
+    def assertIsInterned(self, s):
+        if not isinterned(s):
+            self.fail('String %r is not interned' % (s,))
+
+    def assertIsNotInterned(self, s):
+        if isinterned(s):
+            self.fail('String %r is interned' % (s,))
+
+    @cpython_only
+    def test_interned_string(self):
+        co = compile('res = "str_value"', '?', 'exec')
+        v = self.find_const(co.co_consts, 'str_value')
+        self.assertIsInterned(v)
+
+    @cpython_only
+    def test_interned_string_in_tuple(self):
+        co = compile('res = ("str_value",)', '?', 'exec')
+        v = self.find_const(co.co_consts, ('str_value',))
+        self.assertIsInterned(v[0])
+
+    @cpython_only
+    def test_interned_string_default(self):
+        def f(a='str_value'):
+            return a
+        self.assertIsInterned(f())
+
+    @cpython_only
+    def test_interned_string_with_null(self):
+        co = compile(r'res = "str\0value!"', '?', 'exec')
+        v = self.find_const(co.co_consts, 'str\0value!')
+        self.assertIsNotInterned(v)
 
 
 class CodeWeakRefTest(unittest.TestCase):
@@ -133,16 +180,15 @@ class CodeWeakRefTest(unittest.TestCase):
         coderef = weakref.ref(f.__code__, callback)
         self.assertTrue(bool(coderef()))
         del f
-        test_support.gc_collect()
+        gc_collect()
         self.assertFalse(bool(coderef()))
         self.assertTrue(self.called)
 
 
 def test_main(verbose=None):
-    from test.test_support import run_doctest, run_unittest
     from test import test_code
     run_doctest(test_code, verbose)
-    run_unittest(CodeTest, CodeWeakRefTest)
+    run_unittest(CodeTest, CodeConstsTest, CodeWeakRefTest)
 
 
 if __name__ == "__main__":

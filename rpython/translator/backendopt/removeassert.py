@@ -1,4 +1,4 @@
-from rpython.flowspace.model import Constant, checkgraph, c_last_exception
+from rpython.flowspace.model import Constant, checkgraph
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rtyper import LowLevelOpList, inputconst
 from rpython.translator.backendopt.support import log
@@ -59,7 +59,7 @@ def kill_assertion_link(graph, link):
     if len(exits) <= 1:
         return False
     remove_condition = len(exits) == 2
-    if block.exitswitch == c_last_exception:
+    if block.canraise:
         if link is exits[0]:
             return False       # cannot remove the non-exceptional path
     else:

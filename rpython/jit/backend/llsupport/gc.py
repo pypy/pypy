@@ -2,22 +2,25 @@ import os
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
-from rpython.jit.metainterp.history import ConstPtr, AbstractDescr
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, ConstInt
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
-from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
+from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr, FieldDescr
 from rpython.jit.backend.llsupport.descr import GcCache, get_field_descr
 from rpython.jit.backend.llsupport.descr import get_array_descr
 from rpython.jit.backend.llsupport.descr import get_call_descr
+from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from rpython.memory.gctransform import asmgcroot
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 # ____________________________________________________________
 
@@ -36,6 +39,8 @@ class GcLLDescription(GcCache):
     def _setup_str(self):
         self.str_descr     = get_array_descr(self, rstr.STR)
         self.unicode_descr = get_array_descr(self, rstr.UNICODE)
+        self.str_hash_descr     = get_field_descr(self, rstr.STR,     'hash')
+        self.unicode_hash_descr = get_field_descr(self, rstr.UNICODE, 'hash')
 
     def generate_function(self, funcname, func, ARGS, RESULT=llmemory.GCREF):
         """Generates a variant of malloc with the given name and the given
@@ -43,7 +48,10 @@ class GcLLDescription(GcCache):
         anything, it must be an optional MemoryError.
         """
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
-        descr = get_call_descr(self, ARGS, RESULT)
+        # Note: the call may invoke the GC, which may run finalizers.
+        # Finalizers are constrained in what they can do, but we can't
+        # really express that in a useful way here.
+        descr = get_call_descr(self, ARGS, RESULT, EffectInfo.MOST_GENERAL)
         setattr(self, funcname, func)
         setattr(self, funcname + '_FUNCPTR', FUNCPTR)
         setattr(self, funcname + '_descr', descr)
@@ -92,25 +100,9 @@ class GcLLDescription(GcCache):
     def gc_malloc_unicode(self, num_elem):
         return self._bh_malloc_array(num_elem, self.unicode_descr)
 
-    def _record_constptrs(self, op, gcrefs_output_list):
-        for i in range(op.numargs()):
-            v = op.getarg(i)
-            if isinstance(v, ConstPtr) and bool(v.value):
-                p = v.value
-                rgc._make_sure_does_not_move(p)
-                gcrefs_output_list.append(p)
-        if op.is_guard() or op.getopnum() == rop.FINISH:
-            llref = cast_instance_to_gcref(op.getdescr())
-            rgc._make_sure_does_not_move(llref)
-            gcrefs_output_list.append(llref)
-
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         rewriter = GcRewriterAssembler(self, cpu)
-        newops = rewriter.rewrite(operations)
-        # record all GCREFs, because the GC (or Boehm) cannot see them and
-        # keep them alive if they end up as constants in the assembler
-        for op in newops:
-            self._record_constptrs(op, gcrefs_output_list)
+        newops = rewriter.rewrite(operations, gcrefs_output_list)
         return newops
 
     @specialize.memo()
@@ -118,7 +110,8 @@ class GcLLDescription(GcCache):
         descrs = JitFrameDescrs()
         descrs.arraydescr = cpu.arraydescrof(jitframe.JITFRAME)
         for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
-                     'jf_frame_info', 'jf_gcmap', 'jf_extra_stack_depth']:
+                     'jf_frame_info', 'jf_gcmap', 'jf_extra_stack_depth',
+                     'jf_savedata', 'jf_forward']:
             setattr(descrs, name, cpu.fielddescrof(jitframe.JITFRAME, name))
         descrs.jfi_frame_size = cpu.fielddescrof(jitframe.JITFRAMEINFO,
                                                   'jfi_frame_size')
@@ -135,6 +128,14 @@ class GcLLDescription(GcCache):
         """
         return jitframe.JITFRAME.allocate(frame_info)
 
+    def make_gcref_tracer(self, array_base_addr, gcrefs):
+        # for tests, or for Boehm.  Overridden for framework GCs
+        from rpython.jit.backend.llsupport import gcreftracer
+        return gcreftracer.make_boehm_tracer(array_base_addr, gcrefs)
+
+    def clear_gcref_tracer(self, tracer):
+        pass    # nothing needed unless overridden
+
 class JitFrameDescrs:
     def _freeze_(self):
         return True
@@ -143,6 +144,7 @@ class JitFrameDescrs:
 
 class GcLLDescr_boehm(GcLLDescription):
     kind                  = 'boehm'
+    malloc_zero_filled    = True
     moving_gc             = False
     round_up              = False
     write_barrier_descr   = None
@@ -151,6 +153,7 @@ class GcLLDescr_boehm(GcLLDescription):
     str_type_id           = 0
     unicode_type_id       = 0
     get_malloc_slowpath_addr = None
+    supports_guard_gc_type   = False
 
     def is_shadow_stack(self):
         return False
@@ -314,6 +317,8 @@ class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
     kind = 'framework'
     round_up = True
+    layoutbuilder = None
+    supports_guard_gc_type = True
 
     def is_shadow_stack(self):
         return self.gcrootmap.is_shadow_stack
@@ -333,6 +338,7 @@ class GcLLDescr_framework(GcLLDescription):
             self._make_gcrootmap()
             self._setup_gcclass()
             self._setup_tid()
+            self._setup_guard_is_object()
         self._setup_write_barrier()
         self._setup_str()
         self._make_functions(really_not_translated)
@@ -350,7 +356,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _initialize_for_tests(self):
         self.layoutbuilder = None
-        self.fielddescr_tid = AbstractDescr()
+        self.fielddescr_tid = FieldDescr("test_tid",0,8,0)
         self.max_size_of_young_obj = 1000
         self.GCClass = None
 
@@ -377,6 +383,7 @@ class GcLLDescr_framework(GcLLDescription):
         from rpython.memory.gcheader import GCHeaderBuilder
         self.GCClass = self.layoutbuilder.GCClass
         self.moving_gc = self.GCClass.moving_gc
+        self.malloc_zero_filled = self.GCClass.malloc_zero_filled
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
         self.gcheaderbuilder = GCHeaderBuilder(self.HDRPTR.TO)
         self.max_size_of_young_obj = self.GCClass.JIT_max_size_of_young_obj()
@@ -410,9 +417,9 @@ class GcLLDescr_framework(GcLLDescription):
             if self.DEBUG:
                 self._random_usage_of_xmm_registers()
             type_id = rffi.cast(llgroup.HALFWORD, 0)    # missing here
-            return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                                   type_id, size,
-                                                   False, False, False)
+            return llop1.do_malloc_fixedsize(llmemory.GCREF,
+                                             type_id, size,
+                                             False, False, False)
 
         self.generate_function('malloc_nursery', malloc_nursery_slowpath,
                                [lltype.Signed])
@@ -455,7 +462,7 @@ class GcLLDescr_framework(GcLLDescription):
 
         def malloc_str(length):
             type_id = llop.extract_ushort(llgroup.HALFWORD, str_type_id)
-            return llop1.do_malloc_varsize_clear(
+            return llop1.do_malloc_varsize(
                 llmemory.GCREF,
                 type_id, length, str_basesize, str_itemsize,
                 str_ofs_length)
@@ -464,7 +471,7 @@ class GcLLDescr_framework(GcLLDescription):
 
         def malloc_unicode(length):
             type_id = llop.extract_ushort(llgroup.HALFWORD, unicode_type_id)
-            return llop1.do_malloc_varsize_clear(
+            return llop1.do_malloc_varsize(
                 llmemory.GCREF,
                 type_id, length, unicode_basesize, unicode_itemsize,
                 unicode_ofs_length)
@@ -531,22 +538,18 @@ class GcLLDescr_framework(GcLLDescription):
         #self.gcrootmap.initialize()
 
     def init_size_descr(self, S, descr):
+        if not isinstance(S, lltype.GcStruct):
+            return
         if self.layoutbuilder is not None:
             type_id = self.layoutbuilder.get_type_id(S)
-            assert not self.layoutbuilder.is_weakref_type(S)
-            assert not self.layoutbuilder.has_finalizer(S)
             descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
     def init_array_descr(self, A, descr):
+        if not isinstance(A, (lltype.GcArray, lltype.GcStruct)):
+            return
         if self.layoutbuilder is not None:
             type_id = self.layoutbuilder.get_type_id(A)
             descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
-
-    def _set_tid(self, gcptr, tid):
-        hdr_addr = llmemory.cast_ptr_to_adr(gcptr)
-        hdr_addr -= self.gcheaderbuilder.size_gc_header
-        hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
-        hdr.tid = tid
 
     def can_use_nursery_malloc(self, size):
         return size < self.max_size_of_young_obj
@@ -559,7 +562,95 @@ class GcLLDescr_framework(GcLLDescription):
 
     def get_malloc_slowpath_array_addr(self):
         return self.get_malloc_fn_addr('malloc_array')
-    
+
+    def get_typeid_from_classptr_if_gcremovetypeptr(self, classptr):
+        """Returns the typeid corresponding from a vtable pointer 'classptr'.
+        This function only works if cpu.vtable_offset is None, i.e. in
+        a translation with --gcremovetypeptr.
+         """
+        from rpython.memory.gctypelayout import GCData
+        assert self.gcdescr.config.translation.gcremovetypeptr
+
+        # hard-coded assumption: to go from an object to its class
+        # we would use the following algorithm:
+        #   - read the typeid from mem(locs[0]), i.e. at offset 0;
+        #     this is a complete word (N=4 bytes on 32-bit, N=8 on
+        #     64-bits)
+        #   - keep the lower half of what is read there (i.e.
+        #     truncate to an unsigned 'N / 2' bytes value)
+        #   - multiply by 4 (on 32-bits only) and use it as an
+        #     offset in type_info_group
+        #   - add 16/32 bytes, to go past the TYPE_INFO structure
+        # here, we have to go back from 'classptr' back to the typeid,
+        # so we do (part of) these computations in reverse.
+
+        sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
+        type_info_group = llop.gc_get_type_info_group(llmemory.Address)
+        type_info_group = rffi.cast(lltype.Signed, type_info_group)
+        expected_typeid = classptr - sizeof_ti - type_info_group
+        if WORD == 4:
+            expected_typeid >>= 2
+        return expected_typeid
+
+    def get_translated_info_for_typeinfo(self):
+        from rpython.memory.gctypelayout import GCData
+        type_info_group = llop.gc_get_type_info_group(llmemory.Address)
+        type_info_group = rffi.cast(lltype.Signed, type_info_group)
+        if WORD == 4:
+            shift_by = 2
+        elif WORD == 8:
+            shift_by = 0
+        sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
+        return (type_info_group, shift_by, sizeof_ti)
+
+    def _setup_guard_is_object(self):
+        from rpython.memory.gctypelayout import GCData, T_IS_RPYTHON_INSTANCE
+        import struct
+        infobits_offset, _ = symbolic.get_field_token(GCData.TYPE_INFO,
+                                                      'infobits', True)
+        # compute the offset to the actual *byte*, and the byte mask
+        mask = struct.pack("l", T_IS_RPYTHON_INSTANCE)
+        assert mask.count('\x00') == len(mask) - 1
+        infobits_offset_plus = 0
+        while mask.startswith('\x00'):
+            infobits_offset_plus += 1
+            mask = mask[1:]
+        self._infobits_offset = infobits_offset
+        self._infobits_offset_plus = infobits_offset_plus
+        self._T_IS_RPYTHON_INSTANCE_BYTE = ord(mask[0])
+
+    def get_translated_info_for_guard_is_object(self):
+        infobits_offset = rffi.cast(lltype.Signed, self._infobits_offset)
+        infobits_offset += self._infobits_offset_plus
+        return (infobits_offset, self._T_IS_RPYTHON_INSTANCE_BYTE)
+
+    def get_actual_typeid(self, gcptr):
+        # Read the whole GC header word.  Return the typeid from the
+        # lower half-word.
+        hdr = rffi.cast(self.HDRPTR, gcptr)
+        type_id = llop.extract_ushort(llgroup.HALFWORD, hdr.tid)
+        return llop.combine_ushort(lltype.Signed, type_id, 0)
+
+    def check_is_object(self, gcptr):
+        # read the typeid, fetch one byte of the field 'infobits' from
+        # the big typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
+        typeid = self.get_actual_typeid(gcptr)
+        #
+        base_type_info, shift_by, sizeof_ti = (
+            self.get_translated_info_for_typeinfo())
+        infobits_offset, IS_OBJECT_FLAG = (
+            self.get_translated_info_for_guard_is_object())
+        p = base_type_info + (typeid << shift_by) + infobits_offset
+        p = rffi.cast(rffi.CCHARP, p)
+        return (ord(p[0]) & IS_OBJECT_FLAG) != 0
+
+    def make_gcref_tracer(self, array_base_addr, gcrefs):
+        from rpython.jit.backend.llsupport import gcreftracer
+        return gcreftracer.make_framework_tracer(array_base_addr, gcrefs)
+
+    def clear_gcref_tracer(self, tracer):
+        tracer.array_length = 0
+
 # ____________________________________________________________
 
 def get_ll_description(gcdescr, translator=None, rtyper=None):

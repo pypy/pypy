@@ -32,7 +32,29 @@ def test_memory_access():
     assert res == 42
     res = fc(1)
     assert res == 1
-    
+
+def test_memory_access_zero():
+    def f():
+        blocks = []
+        for i in range(1000):
+            addr = raw_malloc(16, zero=False)
+            addr.signed[1] = 10000 + i
+            blocks.append(addr)
+        for addr in blocks:
+            raw_free(addr)
+        result = 0
+        blocks = []
+        for i in range(1000):
+            addr = raw_malloc(16, zero=True)
+            result |= addr.signed[1]
+            blocks.append(addr)
+        for addr in blocks:
+            raw_free(addr)
+        return result
+    fc = compile(f, [])
+    res = fc()
+    assert res == 0
+
 def test_memory_float():
     S = lltype.GcStruct("S", ("x", lltype.Float), ("y", lltype.Float))
     offset = FieldOffset(S, 'x')
@@ -155,18 +177,6 @@ def test_flavored_malloc_raw():
     fn = compile(f, [int])
     assert fn(1) == 2
 
-def test_flavored_malloc_stack():
-    class A(object):
-        _alloc_flavor_ = "stack"
-        def __init__(self, val):
-            self.val = val
-    def f(x):
-        a = A(x + 1)
-        result = a.val
-        return result
-    fn = compile(f, [int])
-    assert fn(1) == 2
-
 def test_gcref():
     if sys.platform == 'darwin':
         py.test.skip("'boehm' may crash")
@@ -246,3 +256,13 @@ def test_dict_of_addresses():
     assert res == 456
     res = fc(77)
     assert res == 123
+
+def test_gcarray_length():
+    A = lltype.GcArray(lltype.Char)
+    def f():
+        a = lltype.malloc(A, 117)
+        p = lltype.cast_opaque_ptr(GCREF, a)
+        return lltype.length_of_simple_gcarray_from_opaque(p)
+    fc = compile(f, [])
+    res = fc()
+    assert res == 117

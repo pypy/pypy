@@ -1,5 +1,9 @@
+#
+# DEPRECATED: implementation for ffi.verify()
+#
 import sys, imp
-from . import model, ffiplatform
+from . import model
+from .error import VerificationError
 
 
 class VCPythonEngine(object):
@@ -65,7 +69,7 @@ class VCPythonEngine(object):
         # The following two 'chained_list_constants' items contains
         # the head of these two chained lists, as a string that gives the
         # call to do, if any.
-        self._chained_list_constants = ['0', '0']
+        self._chained_list_constants = ['((void)lib,0)', '((void)lib,0)']
         #
         prnt = self._prnt
         # first paste some standard set of lines that are mostly '#define'
@@ -138,15 +142,26 @@ class VCPythonEngine(object):
         prnt()
         prnt('#endif')
 
-    def load_library(self):
+    def load_library(self, flags=None):
         # XXX review all usages of 'self' here!
         # import it as a new extension module
+        imp.acquire_lock()
         try:
-            module = imp.load_dynamic(self.verifier.get_module_name(),
-                                      self.verifier.modulefilename)
-        except ImportError as e:
-            error = "importing %r: %s" % (self.verifier.modulefilename, e)
-            raise ffiplatform.VerificationError(error)
+            if hasattr(sys, "getdlopenflags"):
+                previous_flags = sys.getdlopenflags()
+            try:
+                if hasattr(sys, "setdlopenflags") and flags is not None:
+                    sys.setdlopenflags(flags)
+                module = imp.load_dynamic(self.verifier.get_module_name(),
+                                          self.verifier.modulefilename)
+            except ImportError as e:
+                error = "importing %r: %s" % (self.verifier.modulefilename, e)
+                raise VerificationError(error)
+            finally:
+                if hasattr(sys, "setdlopenflags"):
+                    sys.setdlopenflags(previous_flags)
+        finally:
+            imp.release_lock()
         #
         # call loading_cpy_struct() to get the struct layout inferred by
         # the C compiler
@@ -171,7 +186,7 @@ class VCPythonEngine(object):
             def __dir__(self):
                 return FFILibrary._cffi_dir + list(self.__dict__)
         library = FFILibrary()
-        if module._cffi_setup(lst, ffiplatform.VerificationError, library):
+        if module._cffi_setup(lst, VerificationError, library):
             import warnings
             warnings.warn("reimporting %r might overwrite older definitions"
                           % (self.verifier.get_module_name()))
@@ -186,7 +201,10 @@ class VCPythonEngine(object):
         return library
 
     def _get_declarations(self):
-        return sorted(self.ffi._parser._declarations.items())
+        lst = [(key, tp) for (key, (tp, qual)) in
+                                self.ffi._parser._declarations.items()]
+        lst.sort()
+        return lst
 
     def _generate(self, step_name):
         for name, tp in self._get_declarations():
@@ -195,7 +213,7 @@ class VCPythonEngine(object):
                 method = getattr(self, '_generate_cpy_%s_%s' % (kind,
                                                                 step_name))
             except AttributeError:
-                raise ffiplatform.VerificationError(
+                raise VerificationError(
                     "not implemented in verify(): %r" % name)
             try:
                 method(tp, realname)
@@ -228,7 +246,8 @@ class VCPythonEngine(object):
                 converter = '_cffi_to_c_int'
                 extraarg = ', %s' % tp.name
             else:
-                converter = '_cffi_to_c_%s' % (tp.name.replace(' ', '_'),)
+                converter = '(%s)_cffi_to_c_%s' % (tp.get_c_name(''),
+                                                   tp.name.replace(' ', '_'))
             errvalue = '-1'
         #
         elif isinstance(tp, model.PointerType):
@@ -267,8 +286,8 @@ class VCPythonEngine(object):
         self._prnt('  if (datasize != 0) {')
         self._prnt('    if (datasize < 0)')
         self._prnt('      %s;' % errcode)
-        self._prnt('    %s = alloca(datasize);' % (tovar,))
-        self._prnt('    memset((void *)%s, 0, datasize);' % (tovar,))
+        self._prnt('    %s = alloca((size_t)datasize);' % (tovar,))
+        self._prnt('    memset((void *)%s, 0, (size_t)datasize);' % (tovar,))
         self._prnt('    if (_cffi_convert_array_from_object('
                    '(char *)%s, _cffi_type(%d), %s) < 0)' % (
             tovar, self._gettypenum(tp), fromvar))
@@ -277,7 +296,7 @@ class VCPythonEngine(object):
 
     def _convert_expr_from_c(self, tp, var, context):
         if isinstance(tp, model.PrimitiveType):
-            if tp.is_integer_type():
+            if tp.is_integer_type() and tp.name != '_Bool':
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
             elif tp.name != 'long double':
                 return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
@@ -290,7 +309,7 @@ class VCPythonEngine(object):
         elif isinstance(tp, model.ArrayType):
             return '_cffi_from_c_pointer((char *)%s, _cffi_type(%d))' % (
                 var, self._gettypenum(model.PointerType(tp.item)))
-        elif isinstance(tp, model.StructType):
+        elif isinstance(tp, model.StructOrUnion):
             if tp.fldnames is None:
                 raise TypeError("'%s' is used as %s, but is opaque" % (
                     tp._get_c_name(), context))
@@ -336,7 +355,7 @@ class VCPythonEngine(object):
         prnt = self._prnt
         numargs = len(tp.args)
         if numargs == 0:
-            argname = 'no_arg'
+            argname = 'noarg'
         elif numargs == 1:
             argname = 'arg0'
         else:
@@ -386,6 +405,9 @@ class VCPythonEngine(object):
         prnt('  Py_END_ALLOW_THREADS')
         prnt()
         #
+        prnt('  (void)self; /* unused */')
+        if numargs == 0:
+            prnt('  (void)noarg; /* unused */')
         if result_code:
             prnt('  return %s;' %
                  self._convert_expr_from_c(tp.result, 'result', 'result type'))
@@ -452,7 +474,8 @@ class VCPythonEngine(object):
         prnt('static void %s(%s *p)' % (checkfuncname, cname))
         prnt('{')
         prnt('  /* only to generate compile-time warnings or errors */')
-        for fname, ftype, fbitsize in tp.enumfields():
+        prnt('  (void)p;')
+        for fname, ftype, fbitsize, fqual in tp.enumfields():
             if (isinstance(ftype, model.PrimitiveType)
                 and ftype.is_integer_type()) or fbitsize >= 0:
                 # accept all integers, but complain on float or double
@@ -461,8 +484,9 @@ class VCPythonEngine(object):
                 # only accept exactly the type declared.
                 try:
                     prnt('  { %s = &p->%s; (void)tmp; }' % (
-                        ftype.get_c_name('*tmp', 'field %r'%fname), fname))
-                except ffiplatform.VerificationError as e:
+                        ftype.get_c_name('*tmp', 'field %r'%fname, quals=fqual),
+                        fname))
+                except VerificationError as e:
                     prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
         prnt('static PyObject *')
@@ -472,7 +496,7 @@ class VCPythonEngine(object):
         prnt('  static Py_ssize_t nums[] = {')
         prnt('    sizeof(%s),' % cname)
         prnt('    offsetof(struct _cffi_aligncheck, y),')
-        for fname, ftype, fbitsize in tp.enumfields():
+        for fname, ftype, fbitsize, fqual in tp.enumfields():
             if fbitsize >= 0:
                 continue      # xxx ignore fbitsize for now
             prnt('    offsetof(%s, %s),' % (cname, fname))
@@ -482,6 +506,8 @@ class VCPythonEngine(object):
                 prnt('    sizeof(((%s *)0)->%s),' % (cname, fname))
         prnt('    -1')
         prnt('  };')
+        prnt('  (void)self; /* unused */')
+        prnt('  (void)noarg; /* unused */')
         prnt('  return _cffi_get_struct_layout(nums);')
         prnt('  /* the next line is not executed, but compiled */')
         prnt('  %s(0);' % (checkfuncname,))
@@ -525,7 +551,7 @@ class VCPythonEngine(object):
             # check that the layout sizes and offsets match the real ones
             def check(realvalue, expectedvalue, msg):
                 if realvalue != expectedvalue:
-                    raise ffiplatform.VerificationError(
+                    raise VerificationError(
                         "%s (we have %d, but C compiler says %d)"
                         % (msg, expectedvalue, realvalue))
             ffi = self.ffi
@@ -534,7 +560,7 @@ class VCPythonEngine(object):
             check(layout[0], ffi.sizeof(BStruct), "wrong total size")
             check(layout[1], ffi.alignof(BStruct), "wrong total alignment")
             i = 2
-            for fname, ftype, fbitsize in tp.enumfields():
+            for fname, ftype, fbitsize, fqual in tp.enumfields():
                 if fbitsize >= 0:
                     continue        # xxx ignore fbitsize for now
                 check(layout[i], ffi.offsetof(BStruct, fname),
@@ -578,7 +604,8 @@ class VCPythonEngine(object):
     # constants, likely declared with '#define'
 
     def _generate_cpy_const(self, is_int, name, tp=None, category='const',
-                            vartp=None, delayed=True, size_too=False):
+                            vartp=None, delayed=True, size_too=False,
+                            check_value=None):
         prnt = self._prnt
         funcname = '_cffi_%s_%s' % (category, name)
         prnt('static int %s(PyObject *lib)' % funcname)
@@ -589,6 +616,9 @@ class VCPythonEngine(object):
             prnt('  %s;' % (vartp or tp).get_c_name(' i', name))
         else:
             assert category == 'const'
+        #
+        if check_value is not None:
+            self._check_int_constant_value(name, check_value)
         #
         if not is_int:
             if category == 'var':
@@ -637,6 +667,27 @@ class VCPythonEngine(object):
     # ----------
     # enums
 
+    def _check_int_constant_value(self, name, value, err_prefix=''):
+        prnt = self._prnt
+        if value <= 0:
+            prnt('  if ((%s) > 0 || (long)(%s) != %dL) {' % (
+                name, name, value))
+        else:
+            prnt('  if ((%s) <= 0 || (unsigned long)(%s) != %dUL) {' % (
+                name, name, value))
+        prnt('    char buf[64];')
+        prnt('    if ((%s) <= 0)' % name)
+        prnt('        snprintf(buf, 63, "%%ld", (long)(%s));' % name)
+        prnt('    else')
+        prnt('        snprintf(buf, 63, "%%lu", (unsigned long)(%s));' %
+             name)
+        prnt('    PyErr_Format(_cffi_VerificationError,')
+        prnt('                 "%s%s has the real value %s, not %s",')
+        prnt('                 "%s", "%s", buf, "%d");' % (
+            err_prefix, name, value))
+        prnt('    return -1;')
+        prnt('  }')
+
     def _enum_funcname(self, prefix, name):
         # "$enum_$1" => "___D_enum____D_1"
         name = name.replace('$', '___D_')
@@ -653,25 +704,8 @@ class VCPythonEngine(object):
         prnt('static int %s(PyObject *lib)' % funcname)
         prnt('{')
         for enumerator, enumvalue in zip(tp.enumerators, tp.enumvalues):
-            if enumvalue < 0:
-                prnt('  if ((%s) >= 0 || (long)(%s) != %dL) {' % (
-                    enumerator, enumerator, enumvalue))
-            else:
-                prnt('  if ((%s) < 0 || (unsigned long)(%s) != %dUL) {' % (
-                    enumerator, enumerator, enumvalue))
-            prnt('    char buf[64];')
-            prnt('    if ((%s) < 0)' % enumerator)
-            prnt('        snprintf(buf, 63, "%%ld", (long)(%s));' % enumerator)
-            prnt('    else')
-            prnt('        snprintf(buf, 63, "%%lu", (unsigned long)(%s));' %
-                 enumerator)
-            prnt('    PyErr_Format(_cffi_VerificationError,')
-            prnt('                 "enum %s: %s has the real value %s, '
-                 'not %s",')
-            prnt('                 "%s", "%s", buf, "%d");' % (
-                name, enumerator, enumvalue))
-            prnt('    return -1;')
-            prnt('  }')
+            self._check_int_constant_value(enumerator, enumvalue,
+                                           "enum %s: " % name)
         prnt('  return %s;' % self._chained_list_constants[True])
         self._chained_list_constants[True] = funcname + '(lib)'
         prnt('}')
@@ -695,8 +729,11 @@ class VCPythonEngine(object):
     # macros: for now only for integers
 
     def _generate_cpy_macro_decl(self, tp, name):
-        assert tp == '...'
-        self._generate_cpy_const(True, name)
+        if tp == '...':
+            check_value = None
+        else:
+            check_value = tp     # an integer
+        self._generate_cpy_const(True, name, check_value=check_value)
 
     _generate_cpy_macro_collecttype = _generate_nothing
     _generate_cpy_macro_method = _generate_nothing
@@ -735,7 +772,7 @@ class VCPythonEngine(object):
                 BItemType = self.ffi._get_cached_btype(tp.item)
                 length, rest = divmod(size, self.ffi.sizeof(BItemType))
                 if rest != 0:
-                    raise ffiplatform.VerificationError(
+                    raise VerificationError(
                         "bad size: %r does not seem to be an array of %s" %
                         (name, tp.item))
                 tp = tp.resolve_length(length)
@@ -771,7 +808,8 @@ cffimod_header = r'''
 #include <stddef.h>
 
 /* this block of #ifs should be kept exactly identical between
-   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py */
+   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py
+   and cffi/_cffi_include.h */
 #if defined(_MSC_VER)
 # include <malloc.h>   /* for alloca() */
 # if _MSC_VER < 1600   /* MSVC < 2010 */
@@ -783,15 +821,35 @@ cffimod_header = r'''
    typedef unsigned __int16 uint16_t;
    typedef unsigned __int32 uint32_t;
    typedef unsigned __int64 uint64_t;
+   typedef __int8 int_least8_t;
+   typedef __int16 int_least16_t;
+   typedef __int32 int_least32_t;
+   typedef __int64 int_least64_t;
+   typedef unsigned __int8 uint_least8_t;
+   typedef unsigned __int16 uint_least16_t;
+   typedef unsigned __int32 uint_least32_t;
+   typedef unsigned __int64 uint_least64_t;
+   typedef __int8 int_fast8_t;
+   typedef __int16 int_fast16_t;
+   typedef __int32 int_fast32_t;
+   typedef __int64 int_fast64_t;
+   typedef unsigned __int8 uint_fast8_t;
+   typedef unsigned __int16 uint_fast16_t;
+   typedef unsigned __int32 uint_fast32_t;
+   typedef unsigned __int64 uint_fast64_t;
+   typedef __int64 intmax_t;
+   typedef unsigned __int64 uintmax_t;
 # else
 #  include <stdint.h>
 # endif
 # if _MSC_VER < 1800   /* MSVC < 2013 */
-   typedef unsigned char _Bool;
+#  ifndef __cplusplus
+    typedef unsigned char _Bool;
+#  endif
 # endif
 #else
 # include <stdint.h>
-# if (defined (__SVR4) && defined (__sun)) || defined(_AIX)
+# if (defined (__SVR4) && defined (__sun)) || defined(_AIX) || defined(__hpux)
 #  include <alloca.h>
 # endif
 #endif
@@ -814,6 +872,7 @@ cffimod_header = r'''
 #define _cffi_from_c_ulong PyLong_FromUnsignedLong
 #define _cffi_from_c_longlong PyLong_FromLongLong
 #define _cffi_from_c_ulonglong PyLong_FromUnsignedLongLong
+#define _cffi_from_c__Bool PyBool_FromLong
 
 #define _cffi_to_c_double PyFloat_AsDouble
 #define _cffi_to_c_float PyFloat_AsDouble
@@ -828,15 +887,19 @@ cffimod_header = r'''
             PyLong_FromLongLong((long long)(x)))
 
 #define _cffi_from_c_int(x, type)                                        \
-    (((type)-1) > 0 ?   /* unsigned */                                   \
-        (sizeof(type) < sizeof(long) ? PyInt_FromLong(x) :               \
-         sizeof(type) == sizeof(long) ? PyLong_FromUnsignedLong(x) :     \
-                                        PyLong_FromUnsignedLongLong(x))  \
-      : (sizeof(type) <= sizeof(long) ? PyInt_FromLong(x) :              \
-                                        PyLong_FromLongLong(x)))
+    (((type)-1) > 0 ? /* unsigned */                                     \
+        (sizeof(type) < sizeof(long) ?                                   \
+            PyInt_FromLong((long)x) :                                    \
+         sizeof(type) == sizeof(long) ?                                  \
+            PyLong_FromUnsignedLong((unsigned long)x) :                  \
+            PyLong_FromUnsignedLongLong((unsigned long long)x)) :        \
+        (sizeof(type) <= sizeof(long) ?                                  \
+            PyInt_FromLong((long)x) :                                    \
+            PyLong_FromLongLong((long long)x)))
 
 #define _cffi_to_c_int(o, type)                                          \
-    (sizeof(type) == 1 ? (((type)-1) > 0 ? (type)_cffi_to_c_u8(o)        \
+    ((type)(                                                             \
+     sizeof(type) == 1 ? (((type)-1) > 0 ? (type)_cffi_to_c_u8(o)        \
                                          : (type)_cffi_to_c_i8(o)) :     \
      sizeof(type) == 2 ? (((type)-1) > 0 ? (type)_cffi_to_c_u16(o)       \
                                          : (type)_cffi_to_c_i16(o)) :    \
@@ -844,7 +907,7 @@ cffimod_header = r'''
                                          : (type)_cffi_to_c_i32(o)) :    \
      sizeof(type) == 8 ? (((type)-1) > 0 ? (type)_cffi_to_c_u64(o)       \
                                          : (type)_cffi_to_c_i64(o)) :    \
-     (Py_FatalError("unsupported size for type " #type), 0))
+     (Py_FatalError("unsupported size for type " #type), (type)0)))
 
 #define _cffi_to_c_i8                                                    \
                  ((int(*)(PyObject *))_cffi_exports[1])
@@ -907,6 +970,7 @@ static PyObject *_cffi_setup(PyObject *self, PyObject *args)
 {
     PyObject *library;
     int was_alive = (_cffi_types != NULL);
+    (void)self; /* unused */
     if (!PyArg_ParseTuple(args, "OOO", &_cffi_types, &_cffi_VerificationError,
                                        &library))
         return NULL;

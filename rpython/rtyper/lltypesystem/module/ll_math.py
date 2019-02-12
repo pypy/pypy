@@ -4,10 +4,10 @@ import py
 import sys
 
 from rpython.translator import cdir
-from rpython.rlib import jit, rposix
-from rpython.rlib.rfloat import INFINITY, NAN, isfinite, isinf, isnan
+from rpython.rlib import jit, rposix, objectmodel
+from rpython.rlib.rfloat import INFINITY, NAN, isfinite
+from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.module.support import UNDERSCORE_ON_WIN32
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
@@ -31,9 +31,6 @@ if sys.platform == "win32":
         include_dirs=[cdir],
         includes=['src/ll_math.h'],
         separate_module_files=[cdir.join('src', 'll_math.c')],
-        export_symbols=['_pypy_math_acosh', '_pypy_math_asinh',
-                        '_pypy_math_atanh',
-                        '_pypy_math_expm1', '_pypy_math_log1p'],
         )
     math_prefix = '_pypy_math_'
 else:
@@ -46,10 +43,10 @@ def llexternal(name, ARGS, RESULT, **kwargs):
     return rffi.llexternal(name, ARGS, RESULT, compilation_info=eci,
                            sandboxsafe=True, **kwargs)
 
-def math_llexternal(name, ARGS, RESULT):
+def math_llexternal(name, ARGS, RESULT, **kwargs):
     return rffi.llexternal(math_prefix + name, ARGS, RESULT,
                            compilation_info=math_eci,
-                           sandboxsafe=True)
+                           sandboxsafe=True, **kwargs)
 
 math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
@@ -61,11 +58,15 @@ math_copysign = llexternal(UNDERSCORE_ON_WIN32 + 'copysign',
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE)
 math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE)
-math_ldexp = llexternal('ldexp', [rffi.DOUBLE, rffi.INT], rffi.DOUBLE)
-math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
-math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+math_ldexp = llexternal('ldexp', [rffi.DOUBLE, rffi.INT], rffi.DOUBLE,
+                        save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+                        save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+                        save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 math_hypot = llexternal(UNDERSCORE_ON_WIN32 + 'hypot',
-                        [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+                        [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+                        save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)
 math_sin = llexternal('sin', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
@@ -82,9 +83,6 @@ sqrt_nonneg.oopspec = "math.sqrt_nonneg(x)"
 
 ERANGE = errno.ERANGE
 EDOM   = errno.EDOM
-
-def _error_reset():
-    rposix.set_errno(0)
 
 def _likely_raise(errno, x):
     """Call this with errno != 0.  It usually raises the proper RPython
@@ -134,8 +132,7 @@ def ll_math_isfinite(y):
     # Floats are awesome (bis).
     if use_library_isinf_isnan and not jit.we_are_jitted():
         return bool(_lib_finite(y))
-    z = 0.0 * y
-    return z == z       # i.e.: z is not a NaN
+    return (y - y) == 0.0    # (y - y) is NaN if y is an infinite or NaN
 
 
 ll_math_floor = math_floor
@@ -150,13 +147,13 @@ def ll_math_atan2(y, x):
     Windows, FreeBSD and alpha Tru64 are amongst platforms that don't
     always follow C99.
     """
-    if isnan(x):
+    if math.isnan(x):
         return NAN
 
     if not isfinite(y):
-        if isnan(y):
+        if math.isnan(y):
             return NAN
-        if isinf(x):
+        if math.isinf(x):
             if math_copysign(1.0, x) == 1.0:
                 # atan2(+-inf, +inf) == +-pi/4
                 return math_copysign(0.25 * math.pi, y)
@@ -166,7 +163,7 @@ def ll_math_atan2(y, x):
         # atan2(+-inf, x) == +-pi/2 for finite x
         return math_copysign(0.5 * math.pi, y)
 
-    if isinf(x) or y == 0.0:
+    if math.isinf(x) or y == 0.0:
         if math_copysign(1.0, x) == 1.0:
             # atan2(+-y, +inf) = atan2(+-0, +x) = +-0.
             return math_copysign(0.0, y)
@@ -188,6 +185,8 @@ def ll_math_frexp(x):
         mantissa = x
         exponent = 0
     else:
+        if objectmodel.revdb_flag_io_disabled():
+            return _revdb_frexp(x)
         exp_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
             mantissa = math_frexp(x, exp_p)
@@ -212,10 +211,9 @@ def ll_math_ldexp(x, exp):
         r = math_copysign(0.0, x)
         errno = 0
     else:
-        _error_reset()
         r = math_ldexp(x, exp)
-        errno = rposix.get_errno()
-        if isinf(r):
+        errno = rposix.get_saved_errno()
+        if math.isinf(r):
             errno = ERANGE
     if errno:
         _likely_raise(errno, r)
@@ -225,8 +223,10 @@ def ll_math_ldexp(x, exp):
 def ll_math_modf(x):
     # some platforms don't do the right thing for NaNs and
     # infinities, so we take care of special cases directly.
+    if objectmodel.revdb_flag_io_disabled():
+        return _revdb_modf(x)
     if not isfinite(x):
-        if isnan(x):
+        if math.isnan(x):
             return (x, x)
         else:   # isinf(x)
             return (math_copysign(0.0, x), x)
@@ -241,14 +241,13 @@ def ll_math_modf(x):
 
 def ll_math_fmod(x, y):
     # fmod(x, +/-Inf) returns x for finite x.
-    if isinf(y) and isfinite(x):
+    if math.isinf(y) and isfinite(x):
         return x
 
-    _error_reset()
     r = math_fmod(x, y)
-    errno = rposix.get_errno()
-    if isnan(r):
-        if isnan(x) or isnan(y):
+    errno = rposix.get_saved_errno()
+    if math.isnan(r):
+        if math.isnan(x) or math.isnan(y):
             errno = 0
         else:
             errno = EDOM
@@ -259,17 +258,16 @@ def ll_math_fmod(x, y):
 
 def ll_math_hypot(x, y):
     # hypot(x, +/-Inf) returns Inf, even if x is a NaN.
-    if isinf(x):
+    if math.isinf(x):
         return math_fabs(x)
-    if isinf(y):
+    if math.isinf(y):
         return math_fabs(y)
 
-    _error_reset()
     r = math_hypot(x, y)
-    errno = rposix.get_errno()
+    errno = rposix.get_saved_errno()
     if not isfinite(r):
-        if isnan(r):
-            if isnan(x) or isnan(y):
+        if math.isnan(r):
+            if math.isnan(x) or math.isnan(y):
                 errno = 0
             else:
                 errno = EDOM
@@ -287,18 +285,18 @@ def ll_math_pow(x, y):
     # deal directly with IEEE specials, to cope with problems on various
     # platforms whose semantics don't exactly match C99
 
-    if isnan(y):
+    if math.isnan(y):
         if x == 1.0:
             return 1.0   # 1**Nan = 1
         return y
 
     if not isfinite(x):
-        if isnan(x):
+        if math.isnan(x):
             if y == 0.0:
                 return 1.0   # NaN**0 = 1
             return x
         else:   # isinf(x)
-            odd_y = not isinf(y) and math_fmod(math_fabs(y), 2.0) == 1.0
+            odd_y = not math.isinf(y) and math_fmod(math_fabs(y), 2.0) == 1.0
             if y > 0.0:
                 if odd_y:
                     return x
@@ -310,7 +308,7 @@ def ll_math_pow(x, y):
                     return math_copysign(0.0, x)
                 return 0.0
 
-    if isinf(y):
+    if math.isinf(y):
         if math_fabs(x) == 1.0:
             return 1.0
         elif y > 0.0 and math_fabs(x) > 1.0:
@@ -322,11 +320,10 @@ def ll_math_pow(x, y):
         else:
             return 0.0
 
-    _error_reset()
     r = math_pow(x, y)
-    errno = rposix.get_errno()
+    errno = rposix.get_saved_errno()
     if not isfinite(r):
-        if isnan(r):
+        if math.isnan(r):
             # a NaN result should arise only from (-ve)**(finite non-integer)
             errno = EDOM
         else:   # isinf(r)
@@ -370,12 +367,12 @@ def ll_math_log1p(x):
     return math_log1p(x)
 
 def ll_math_sin(x):
-    if isinf(x):
+    if math.isinf(x):
         raise ValueError("math domain error")
     return math_sin(x)
 
 def ll_math_cos(x):
-    if isinf(x):
+    if math.isinf(x):
         raise ValueError("math domain error")
     return math_cos(x)
 
@@ -385,18 +382,19 @@ def ll_math_cos(x):
 
 def new_unary_math_function(name, can_overflow, c99):
     if sys.platform == 'win32' and c99:
-        c_func = math_llexternal(name, [rffi.DOUBLE], rffi.DOUBLE)
+        c_func = math_llexternal(name, [rffi.DOUBLE], rffi.DOUBLE,
+                                 save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     else:
-        c_func = llexternal(name, [rffi.DOUBLE], rffi.DOUBLE)
+        c_func = llexternal(name, [rffi.DOUBLE], rffi.DOUBLE,
+                            save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 
     def ll_math(x):
-        _error_reset()
         r = c_func(x)
         # Error checking fun.  Copied from CPython 2.6
-        errno = rposix.get_errno()
+        errno = rposix.get_saved_errno()
         if not isfinite(r):
-            if isnan(r):
-                if isnan(x):
+            if math.isnan(r):
+                if math.isnan(x):
                     errno = 0
                 else:
                     errno = EDOM
@@ -412,6 +410,18 @@ def new_unary_math_function(name, can_overflow, c99):
         return r
 
     return func_with_new_name(ll_math, 'll_math_' + name)
+
+
+def _revdb_frexp(x):
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.emulate_frexp(x)
+
+def _revdb_modf(x):
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.emulate_modf(x)
+
 
 # ____________________________________________________________
 

@@ -1,5 +1,6 @@
 from rpython.rlib.rstacklet import StackletThread
 from rpython.rlib import jit
+from rpython.rlib import rvmprof
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import W_Root
@@ -35,10 +36,10 @@ class W_Continulet(W_Root):
         w_args, w_kwds = __args__.topacked()
         bottomframe = space.createframe(get_entrypoint_pycode(space),
                                         get_w_module_dict(space), None)
-        bottomframe.locals_stack_w[0] = space.wrap(self)
-        bottomframe.locals_stack_w[1] = w_callable
-        bottomframe.locals_stack_w[2] = w_args
-        bottomframe.locals_stack_w[3] = w_kwds
+        bottomframe.locals_cells_stack_w[0] = self
+        bottomframe.locals_cells_stack_w[1] = w_callable
+        bottomframe.locals_cells_stack_w[2] = w_args
+        bottomframe.locals_cells_stack_w[3] = w_kwds
         bottomframe.last_exception = get_cleared_operation_error(space)
         self.bottomframe = bottomframe
         #
@@ -49,9 +50,6 @@ class W_Continulet(W_Root):
 
     def switch(self, w_to):
         sthread = self.sthread
-        if sthread is not None and sthread.is_empty_handle(self.h):
-            global_state.clear()
-            raise geterror(self.space, "continulet already finished")
         to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
         if to is not None and to.sthread is None:
             to = None
@@ -62,6 +60,9 @@ class W_Continulet(W_Root):
                 to = None
             else:
                 return get_result()  # else: no-op
+        if sthread is not None and sthread.is_empty_handle(self.h):
+            global_state.clear()
+            raise geterror(self.space, "continulet already finished")
         if to is not None:
             if to.sthread is not sthread:
                 global_state.clear()
@@ -126,13 +127,13 @@ class W_Continulet(W_Root):
 def W_Continulet___new__(space, w_subtype, __args__):
     r = space.allocate_instance(W_Continulet, w_subtype)
     r.__init__(space)
-    return space.wrap(r)
+    return r
 
 def unpickle(space, w_subtype):
     """Pickle support."""
     r = space.allocate_instance(W_Continulet, w_subtype)
     r.__init__(space)
-    return space.wrap(r)
+    return r
 
 
 W_Continulet.typedef = TypeDef(
@@ -156,7 +157,7 @@ class State:
     def __init__(self, space):
         self.space = space
         w_module = space.getbuiltinmodule('_continuation')
-        self.w_error = space.getattr(w_module, space.wrap('error'))
+        self.w_error = space.getattr(w_module, space.newtext('error'))
         # the following function switches away immediately, so that
         # continulet.__init__() doesn't immediately run func(), but it
         # also has the hidden purpose of making sure we have a single
@@ -179,7 +180,7 @@ class State:
 
 def geterror(space, message):
     cs = space.fromcache(State)
-    return OperationError(cs.w_error, space.wrap(message))
+    return OperationError(cs.w_error, space.newtext(message))
 
 def get_entrypoint_pycode(space):
     cs = space.fromcache(State)
@@ -195,7 +196,7 @@ def get_w_module_dict(space):
 class SThread(StackletThread):
 
     def __init__(self, space, ec):
-        StackletThread.__init__(self, space.config)
+        StackletThread.__init__(self)
         self.space = space
         self.ec = ec
         # for unpickling
@@ -222,12 +223,15 @@ def new_stacklet_callback(h, arg):
     self.h = h
     global_state.clear()
     try:
+        rvmprof.start_sampling()
         frame = self.bottomframe
         w_result = frame.execute_frame()
-    except Exception, e:
+    except Exception as e:
         global_state.propagate_exception = e
     else:
         global_state.w_value = w_result
+    finally:
+        rvmprof.stop_sampling()
     self.sthread.ec.topframeref = jit.vref_None
     global_state.origin = self
     global_state.destination = self

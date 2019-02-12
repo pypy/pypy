@@ -20,6 +20,12 @@ class AppTestBuiltinApp:
         x = Static(1)
         assert isinstance(x, Static)
 
+        class C(Static):
+            def __init__(self, callable):
+                super(C, self).__init__(callable)
+        y = C(1)
+        assert isinstance(y, C)
+
     def test_classmethod(self):
         class C(object):
             def f(cls, stuff):
@@ -41,8 +47,14 @@ class AppTestBuiltinApp:
         x = Classm(1)
         assert isinstance(x, Classm)
 
+        class C(Classm):
+            def __init__(self, callable):
+                super(C, self).__init__(callable)
+        y = C(1)
+        assert isinstance(y, C)
+
     def test_property_simple(self):
-        
+
         class a(object):
             def _get(self): return 42
             def _set(self, value): raise AttributeError
@@ -93,12 +105,12 @@ class AppTestBuiltinApp:
     def test_super_fail(self):
         try:
             super(list, 2)
-        except TypeError, e:
+        except TypeError as e:
             message = e.args[0]
             assert message.startswith('super(type, obj): obj must be an instance or subtype of type')
 
     def test_super_various(self):
-        
+
         class A(object):
             def meth(self, a):
                 return "A(%r)" % a
@@ -214,7 +226,7 @@ class AppTestBuiltinApp:
         c = C()
         assert C.goo(1) == (C, 1)
         assert c.goo(1) == (C, 1)
-        
+
         assert c.foo(1) == (c, 1)
         class D(C):
             pass
@@ -238,6 +250,51 @@ class AppTestBuiltinApp:
         meth = classmethod(1).__get__(1)
         raises(TypeError, meth)
 
+    def test_super_thisclass(self):
+        class A(object):
+            pass
+
+        assert super(A, A()).__thisclass__ is A
+
+        class B(A):
+            pass
+
+        assert super(B, B()).__thisclass__ is B
+        assert super(A, B()).__thisclass__ is A
+
+    def test_super_self_selfclass(self):
+        class A(object):
+            pass
+        class B(A):
+            pass
+        b = B()
+        assert super(A, b).__self__ is b
+        assert super(A).__self__ is None
+        assert super(A, b).__self_class__ is B
+        assert super(A).__self_class__ is None
+
+    def test_super_repr(self):
+        class A(object):
+            def __repr__(self):
+                return super(A, self).__repr__() + '!'
+        assert repr(A()).endswith('>!')
+        assert repr(super(A, A())) == "<super: <class 'A'>, <A object>>"
+
+    def test_super_get_corner_case(self):
+        class A(object):
+            pass
+        s1 = super(A, A())
+        assert s1.__get__(42) is s1
+        assert s1.__get__(42, int) is s1
+        s2 = super(A)
+        assert s2.__get__(None, "anything") is s2
+        #
+        assert s1.__get__(None, "anything") is s1
+        raises(TypeError, s2.__get__, 42)
+        raises(TypeError, s2.__get__, 42, int)
+        a = A()
+        assert s2.__get__(a).__self__ is a
+        assert s1.__get__(a) is s1
 
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
@@ -292,7 +349,7 @@ class AppTestBuiltinApp:
         for attr in "__doc__", "fget", "fset", "fdel":
             try:
                 setattr(raw, attr, 42)
-            except TypeError, msg:
+            except TypeError as msg:
                 if str(msg).find('readonly') < 0:
                     raise Exception("when setting readonly attr %r on a "
                                     "property, got unexpected TypeError "
@@ -311,7 +368,7 @@ class AppTestBuiltinApp:
         except ZeroDivisionError:
             pass
         else:
-            raise Exception, "expected ZeroDivisionError from bad property"
+            raise Exception("expected ZeroDivisionError from bad property")
 
     def test_property_subclass(self):
         class P(property):
@@ -323,10 +380,10 @@ class AppTestBuiltinApp:
 
     def test_property_subclass_with_init(self):
         l = []
-        
+
         def x(self):
             l.append('x')
-        
+
         class P(property):
             def __init__(self):
                 property.__init__(self, x)
@@ -370,3 +427,35 @@ class AppTestBuiltinApp:
         assert x.y == 42
         del x.x
         assert x.z == 42
+
+    def test_uninitialized_property(self):
+        p = property.__new__(property)
+        raises(AttributeError, p.__get__, 42)
+        raises(AttributeError, p.__set__, 42, None)
+        raises(AttributeError, p.__delete__, 42)
+        assert repr(p).startswith("<property object at ")
+        assert p.fget is p.fset is p.fdel is p.__doc__ is None
+        #
+        lst = []
+        p.deleter(lst.append).__delete__(42)
+        assert lst == [42]
+        #
+        lst = []
+        p.getter(lst.append).__get__(43)
+        assert lst == [43]
+        #
+        lst = []
+        p.setter(lambda x, y: lst.append((x, y))).__set__(44, 45)
+        assert lst == [(44, 45)]
+
+    def test_uninitialized_super(self):
+        s = super.__new__(super)
+        assert repr(s) == "<super: <class 'NULL'>, NULL>"
+        assert s.__thisclass__ is s.__self__ is s.__self_class__ is None
+        assert s.__get__(None, "anything") is s
+        raises(TypeError, s.__get__, 42)
+        raises(TypeError, s.__get__, int)
+        raises(TypeError, s.__get__, type(None))
+        raises(AttributeError, "s.abcde")
+        raises(AttributeError, "s.abcde = 42")
+        raises(AttributeError, "del s.abcde")

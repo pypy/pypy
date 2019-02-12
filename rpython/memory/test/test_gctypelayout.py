@@ -2,9 +2,10 @@ import py
 from rpython.memory.gctypelayout import TypeLayoutBuilder, GCData
 from rpython.memory.gctypelayout import offsets_to_gc_pointers
 from rpython.memory.gctypelayout import gc_pointers_inside
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
-from rpython.rtyper.test.test_llinterp import get_interpreter
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_QUASIIMMUTABLE
+from rpython.rtyper.test.test_llinterp import get_interpreter
 from rpython.flowspace.model import Constant
 
 class FakeGC:
@@ -23,7 +24,7 @@ A = lltype.Array(S)
 GC_A = lltype.GcArray(S)
 
 S2 = lltype.Struct('SPTRS',
-                   *[(getname(TYPE), lltype.Ptr(TYPE)) for TYPE in (GC_S, GC_A)])  
+                   *[(getname(TYPE), lltype.Ptr(TYPE)) for TYPE in (GC_S, GC_A)])
 GC_S2 = lltype.GcStruct('GC_S2', ('S2', S2))
 
 A2 = lltype.Array(S2)

@@ -27,3 +27,11 @@ int _Py_QnewFlag = 0;
 int Py_Py3kWarningFlag = 0;
 int Py_HashRandomizationFlag = 0;
 
+const char *Py_FileSystemDefaultEncoding;  /* filled when cpyext is imported */
+void _Py_setfilesystemdefaultencoding(const char *enc) {
+    Py_FileSystemDefaultEncoding = enc;
+}
+int (*PyOS_InputHook)(void) = 0;  /* only ever filled in by C extensions */
+PyAPI_FUNC(_pypy_pyos_inputhook) _PyPy_get_PyOS_InputHook(void) {
+    return PyOS_InputHook;
+}

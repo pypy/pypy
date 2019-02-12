@@ -147,7 +147,7 @@ class StringTests:
         self.meta_interp(f, [6, 7])
         self.check_resops(newstr=0, strsetitem=0,
                          newunicode=0, unicodesetitem=0,
-                         call=0, call_pure=0)
+                         call_i=0, call_pure_i=0, call_r=0, call_pure_r=0)
 
     def test_strconcat_escape_str_str(self):
         _str = self._str
@@ -166,10 +166,11 @@ class StringTests:
             return 42
         self.meta_interp(f, [6, 7])
         if _str is str:
-            self.check_resops(call_pure=0, copystrcontent=4,
-                              strsetitem=0, call=2, newstr=2)
+            self.check_resops(call_pure_i=0, call_pure_r=0, copystrcontent=4,
+                              strsetitem=0, call_n=2, newstr=2)
         else:
-            self.check_resops(call_pure=0, unicodesetitem=0, call=2,
+            self.check_resops(call_pure_i=0, call_pure_r=0,
+                              unicodesetitem=0, call_n=2,
                               copyunicodecontent=4, newunicode=2)
 
     def test_strconcat_escape_str_char(self):
@@ -189,10 +190,12 @@ class StringTests:
             return 42
         self.meta_interp(f, [6, 7])
         if _str is str:
-            self.check_resops(call_pure=0, copystrcontent=2, strsetitem=2,
-                              call=2, newstr=2)
+            self.check_resops(call_pure_i=0, call_pure_r=0,
+                              copystrcontent=2, strsetitem=2,
+                              call_n=2, newstr=2)
         else:
-            self.check_resops(call_pure=0, unicodesetitem=2, call=2,
+            self.check_resops(call_pure_i=0, call_pure_r=0,
+                              unicodesetitem=2, call_n=2,
                               copyunicodecontent=2, newunicode=2)
 
     def test_strconcat_escape_char_str(self):
@@ -212,10 +215,11 @@ class StringTests:
             return 42
         self.meta_interp(f, [6, 7])
         if _str is str:
-            self.check_resops(call_pure=0, copystrcontent=2,
-                              strsetitem=2, call=2, newstr=2)
+            self.check_resops(call_pure_i=0, call_pure_r=0, copystrcontent=2,
+                              strsetitem=2, call_n=2, newstr=2)
         else:
-            self.check_resops(call_pure=0, unicodesetitem=2, call=2,
+            self.check_resops(call_pure_i=0, unicodesetitem=2,
+                              call_n=2,
                               copyunicodecontent=2, newunicode=2)
 
     def test_strconcat_escape_char_char(self):
@@ -235,9 +239,9 @@ class StringTests:
         self.meta_interp(f, [6, 7])
         if _str is str:
             self.check_resops(call_pure=0, copystrcontent=0,
-                              strsetitem=4, call=2, newstr=2)
+                              strsetitem=4, call_n=2, newstr=2)
         else:
-            self.check_resops(call_pure=0, unicodesetitem=4, call=2,
+            self.check_resops(call_pure=0, unicodesetitem=4, call_n=2,
                               copyunicodecontent=0, newunicode=2)
 
     def test_strconcat_escape_str_char_str(self):
@@ -258,9 +262,9 @@ class StringTests:
         self.meta_interp(f, [6, 7])
         if _str is str:
             self.check_resops(call_pure=0, copystrcontent=4, strsetitem=2,
-                              call=2, newstr=2)
+                              call_n=2, newstr=2)
         else:
-            self.check_resops(call_pure=0, unicodesetitem=2, call=2,
+            self.check_resops(call_pure=0, unicodesetitem=2, call_n=2,
                               copyunicodecontent=4, newunicode=2)
 
     def test_strconcat_guard_fail(self):
@@ -507,12 +511,12 @@ class StringTests:
         def f(n):
             while n < 21:
                 driver.jit_merge_point(n=n)
-                promote_string(str(n % 3))
+                promote_string(str(n & 3))
                 n += 1
             return 0
 
         self.meta_interp(f, [0])
-        self.check_resops(call=7)
+        self.check_resops(call_r=2, call_i=5)
 
     def test_join_chars(self):
         jitdriver = JitDriver(reds=['a', 'b', 'c', 'i'], greens=[])
@@ -688,8 +692,9 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops(call=6,    # (ll_append_res0, ll_append_0_2, ll_build)
-                                     # * 2 unroll
+        self.check_resops(call_n=4, call_r=2,
+        # (ll_append_res0, ll_append_0_2, ll_build)
+        # * 2 unroll
                           cond_call=0)
 
     def test_stringbuilder_append_len2_2(self):
@@ -710,7 +715,8 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops(call=4,    # (ll_append_res0, ll_build) * 2 unroll
+        self.check_resops(call_n=2, call_r=2,
+        # (ll_append_res0, ll_build) * 2 unroll
                           cond_call=0)
 
     def test_stringbuilder_append_slice_1(self):
@@ -727,7 +733,7 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops(call=6, cond_call=0,
+        self.check_resops(call_n=4, call_r=2, cond_call=0,
                           copyunicodecontent=0)
 
     def test_stringbuilder_append_slice_2(self):
@@ -785,7 +791,8 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops(call=4)    # (_ll_append_multiple_char, build) * 2
+        self.check_resops(call_n=2, call_r=2)
+         # (_ll_append_multiple_char, build) * 2
 
     def test_stringbuilder_bug1(self):
         jitdriver = JitDriver(reds=['n', 's1'], greens=[])
@@ -846,11 +853,32 @@ class StringTests:
             'jump': 1, 'guard_true': 2, 'int_ge': 2, 'int_add': 2, 'int_sub': 2
         })
 
+    def test_compare_single_char_for_ordering(self):
+        jitdriver = JitDriver(reds=['result', 'n'], greens=[])
+        _str = self._str
+        constant1 = _str("abcdefghij")
+
+        def cmpstr(x, y):
+            return x > _str(y)
+
+        def f(n):
+            cmpstr(_str("abc"), "def")  # force x and y to be annot as strings
+            result = 0
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, result=result)
+                c = constant1[n]
+                result += cmpstr(c, "c")
+                n -= 1
+            return result
+
+        res = self.meta_interp(f, [9])
+        assert res == f(9)
+        self.check_resops(newstr=0, newunicode=0, call=0)
 
 
 class TestLLtype(StringTests, LLJitMixin):
-    CALL = "call"
-    CALL_PURE = "call_pure"
+    CALL = "call_i"
+    CALL_PURE = "call_pure_i"
 
 
 class TestLLtypeUnicode(TestLLtype):
@@ -876,7 +904,12 @@ class TestLLtypeUnicode(TestLLtype):
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_resops(unicodesetitem=2, newunicode=2, call=4,
+        # used to be 'call=4', but the call to ll_str2unicode in the
+        # loop is not safe to remove; see 56eebe9dd813.  We can still
+        # remove the call to ll_str, because that cannot raise anything
+        # else than MemoryError.
+        self.check_resops(unicodesetitem=2, newunicode=2, call_n=2,
+                          call_r=3,
                           copyunicodecontent=2, unicodegetitem=0)
 
     def test_str2unicode_fold(self):
@@ -895,7 +928,7 @@ class TestLLtypeUnicode(TestLLtype):
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_resops(call_pure=0, unicodesetitem=0, call=2,
+        self.check_resops(call_pure=0, unicodesetitem=0, call_n=2,
                           newunicode=0, unicodegetitem=0,
                           copyunicodecontent=0)
 
@@ -918,3 +951,10 @@ class TestLLtypeUnicode(TestLLtype):
         self.meta_interp(f, [222, 3333])
         self.check_simple_loop({'guard_true': 1, 'int_add': 1,
                                 'int_lt': 1, 'jump': 1})
+
+    def test_string_hashing(self):
+        def f(i):
+            s = str(i)
+            d = {s: s + s}
+            return len(d[s])
+        assert self.interp_operations(f, [222]) == 6

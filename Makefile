@@ -1,5 +1,5 @@
 
-all: pypy-c
+all: pypy-c cffi_imports
 
 PYPY_EXECUTABLE := $(shell which pypy)
 URAM := $(shell python -c "import sys; print 4.5 if sys.maxint>1<<32 else 2.5")
@@ -9,6 +9,8 @@ RUNINTERP = python
 else
 RUNINTERP = $(PYPY_EXECUTABLE)
 endif
+
+.PHONY: pypy-c cffi_imports
 
 pypy-c:
 	@echo
@@ -30,9 +32,12 @@ endif
 	@echo "===================================================================="
 	@echo
 	@sleep 5
-	$(RUNINTERP) rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
+	cd pypy/goal && $(RUNINTERP) ../../rpython/bin/rpython -Ojit targetpypystandalone.py
 
 # Note: the -jN option, or MAKEFLAGS=-jN, are not usable.  They are
 # replaced with an opaque --jobserver option by the time this Makefile
 # runs.  We cannot get their original value either:
 # http://lists.gnu.org/archive/html/help-make/2010-08/msg00106.html
+
+cffi_imports: pypy-c
+	PYTHONPATH=. pypy/goal/pypy-c pypy/tool/build_cffi_imports.py || /bin/true

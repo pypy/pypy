@@ -57,10 +57,18 @@ class TestStaticSizeReport(object):
         P = rffi.sizeof(rffi.VOIDP)
         B = 1 # bool
         assert guess_size(func.builder.db, dictvalnode, set()) > 100
-        assert guess_size(func.builder.db, dictvalnode2, set()) == 2 * S + 1 * P + 1 * S + 8 * (2*S + 1 * B)
+        assert guess_size(func.builder.db, dictvalnode2, set()) == (
+            (4 * S + 2 * P) +     # struct dicttable
+            # (S + 16) +          # indexes, length 16, but is absent here
+            (S + S + S))          # entries, length 1
         r_set = set()
         dictnode_size = guess_size(db, test_dictnode, r_set)
-        assert dictnode_size == 2 * S + 1 * P + 1 * S + (4096-256) * (1*S+1*P + (1 * S + 1*P + 5)) + (8192-4096+256) * (1*S+1*P)
+        assert dictnode_size == (
+            (4 * S + 2 * P) +      # struct dicttable
+            # (S + 2 * 8192) +     # indexes, length 8192, rffi.USHORT,
+                                   # but is absent here during translation
+            (S + (S + S) * 3840) + # entries, length 3840
+            (S + S + 6) * 3840)    # 3840 strings with 5 chars each (+1 final)
         assert guess_size(func.builder.db, fixarrayvalnode, set()) == 100 * rffi.sizeof(lltype.Signed) + 1 * rffi.sizeof(lltype.Signed)
         assert guess_size(func.builder.db, dynarrayvalnode, set()) == 100 * rffi.sizeof(lltype.Signed) + 2 * rffi.sizeof(lltype.Signed) + 1 * rffi.sizeof(rffi.VOIDP)
 

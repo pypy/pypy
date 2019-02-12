@@ -61,6 +61,54 @@ class GlobalPyobjContainer(object):
 
 pyobj_container = GlobalPyobjContainer()
 
+def swap_bytes(value, sizeof, typeof, get_or_set):
+    def swap_2():
+        return ((value >> 8) & 0x00FF) | ((value << 8) & 0xFF00)
+
+    def swap_4():
+        return ((value & 0x000000FF) << 24) | \
+               ((value & 0x0000FF00) << 8) | \
+               ((value & 0x00FF0000) >> 8) | \
+               ((value >> 24) & 0xFF)
+
+    def swap_8():
+        return ((value & 0x00000000000000FFL) << 56) | \
+               ((value & 0x000000000000FF00L) << 40) | \
+               ((value & 0x0000000000FF0000L) << 24) | \
+               ((value & 0x00000000FF000000L) << 8) | \
+               ((value & 0x000000FF00000000L) >> 8) | \
+               ((value & 0x0000FF0000000000L) >> 24) | \
+               ((value & 0x00FF000000000000L) >> 40) | \
+               ((value >> 56) & 0xFF)
+
+    def swap_double_float(typ):
+        from struct import pack, unpack
+        if get_or_set == 'set':
+            if sys.byteorder == 'little':
+                st = pack(''.join(['>', typ]), value)
+            else:
+                st = pack(''.join(['<', typ]), value)
+            return unpack(typ, st)[0]
+        else:
+            packed = pack(typ, value)
+            if sys.byteorder == 'little':
+                st = unpack(''.join(['>', typ]), packed)
+            else:
+                st = unpack(''.join(['<', typ]), packed)
+            return st[0]
+
+    if typeof in ('c_float', 'c_float_le', 'c_float_be'):
+        return swap_double_float('f')
+    elif typeof in ('c_double', 'c_double_le', 'c_double_be'):
+        return swap_double_float('d')
+    else:
+        if sizeof == 2:
+            return swap_2()
+        elif sizeof == 4:
+            return swap_4()
+        elif sizeof == 8:
+            return swap_8()
+
 def generic_xxx_p_from_param(cls, value):
     if value is None:
         return cls(None)
@@ -117,9 +165,9 @@ class SimpleType(_CDataMeta):
         default = TP_TO_DEFAULT[tp]
         ffiarray = _rawffi.Array(tp)
         result = type.__new__(self, name, bases, dct)
-        result._ffiargshape = tp
-        result._ffishape = tp
-        result._fficompositesize = None
+        result._ffiargshape_ = tp
+        result._ffishape_ = tp
+        result._fficompositesize_ = None
         result._ffiarray = ffiarray
         if tp == 'z':
             # c_char_p
@@ -271,6 +319,31 @@ class SimpleType(_CDataMeta):
             def _as_ffi_pointer_(self, ffitype):
                 return as_ffi_pointer(self, ffitype)
             result._as_ffi_pointer_ = _as_ffi_pointer_
+        if name[-2:] != '_p' and name[-3:] not in ('_le', '_be') \
+                and name not in ('c_wchar', '_SimpleCData', 'c_longdouble', 'c_bool', 'py_object'):
+            from sys import byteorder
+            if byteorder == 'big':
+                name += '_le'
+                swapped = self.__new__(self, name, bases, dct)
+                result.__ctype_le__ = swapped
+                result.__ctype_be__ = result
+                swapped.__ctype_be__ = result
+                swapped.__ctype_le__ = swapped
+            else:
+                name += '_be'
+                swapped = self.__new__(self, name, bases, dct)
+                result.__ctype_be__ = swapped
+                result.__ctype_le__ = result
+                swapped.__ctype_le__ = result
+                swapped.__ctype_be__ = swapped
+            from _ctypes import sizeof
+            def _getval(self):
+                return swap_bytes(self._buffer[0], sizeof(self), name, 'get')
+            def _setval(self, value):
+                d = result()
+                d.value = value
+                self._buffer[0] = swap_bytes(d.value, sizeof(self), name, 'set')
+            swapped.value = property(_getval, _setval)
 
         return result
 
@@ -317,11 +390,14 @@ class _SimpleCData(_CData):
             self._buffer = self._ffiarray(1, autofree=True)
         if value is not DEFAULT_VALUE:
             self.value = value
+    _init_no_arg_ = __init__
 
     def _ensure_objects(self):
-        if self._type_ not in 'zZP':
-            assert self._objects is None
-        return self._objects
+        # No '_objects' is the common case for primitives.  Examples
+        # where there is an _objects is if _type in 'zZP', or if
+        # self comes from 'from_buffer(buf)'.  See module/test_lib_pypy/
+        # ctypes_test/test_buffers.py: test_from_buffer_keepalive.
+        return getattr(self, '_objects', None)
 
     def _getvalue(self):
         return self._buffer[0]

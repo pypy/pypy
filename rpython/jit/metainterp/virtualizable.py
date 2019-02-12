@@ -15,7 +15,6 @@ class VirtualizableInfo(object):
         self.warmrunnerdesc = warmrunnerdesc
         cpu = warmrunnerdesc.cpu
         self.cpu = cpu
-        self.BoxArray = cpu.ts.BoxRef
         #
         VTYPEPTR1 = VTYPEPTR
         while 'virtualizable_accessor' not in deref(VTYPEPTR)._hints:
@@ -49,7 +48,13 @@ class VirtualizableInfo(object):
             ARRAYPTR = fieldType(VTYPE, name)
             ARRAY = deref(ARRAYPTR)
             assert isinstance(ARRAYPTR, lltype.Ptr)
-            assert isinstance(ARRAY, lltype.GcArray)
+            if not isinstance(ARRAY, lltype.GcArray):
+                raise Exception(
+                    "The virtualizable field '%s' is not an array (found %r)."
+                    " It usually means that you must try harder to ensure that"
+                    " the list is not resized at run-time. You can do that by"
+                    " using rpython.rlib.debug.make_sure_not_resized()." %
+                    (name, ARRAY))
             ARRAYITEMTYPES.append(arrayItem(ARRAY))
         self.array_descrs = [cpu.arraydescrof(deref(fieldType(VTYPE, name)))
                              for name in array_fields]
@@ -111,52 +116,46 @@ class VirtualizableInfo(object):
                     i = i + 1
             assert len(boxes) == i + 1
 
-        def write_from_resume_data_partial(virtualizable, reader, numb):
+        def get_total_size(virtualizable):
+            virtualizable = cast_gcref_to_vtype(virtualizable)
+            size = 0
+            for _, fieldname in unroll_array_fields:
+                lst = getattr(virtualizable, fieldname)
+                size += getlength(lst)
+            for _, fieldname in unroll_static_fields:
+                size += 1
+            return size
+
+        def write_from_resume_data_partial(virtualizable, reader):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # Load values from the reader (see resume.py) described by
             # the list of numbers 'nums', and write them in their proper
-            # place in the 'virtualizable'.  This works from the end of
-            # the list and returns the index in 'nums' of the start of
-            # the virtualizable data found, allowing the caller to do
-            # further processing with the start of the list.
-            i = len(numb.nums) - 1
-            assert i >= 0
-            for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
-                lst = getattr(virtualizable, fieldname)
-                for j in range(getlength(lst) - 1, -1, -1):
-                    i -= 1
-                    assert i >= 0
-                    x = reader.load_value_of_type(ARRAYITEMTYPE, numb.nums[i])
-                    setarrayitem(lst, j, x)
-            for FIELDTYPE, fieldname in unroll_static_fields_rev:
-                i -= 1
-                assert i >= 0
-                x = reader.load_value_of_type(FIELDTYPE, numb.nums[i])
+            # place in the 'virtualizable'.
+            for FIELDTYPE, fieldname in unroll_static_fields:
+                x = reader.load_next_value_of_type(FIELDTYPE)
                 setattr(virtualizable, fieldname, x)
-            return i
+            for ARRAYITEMTYPE, fieldname in unroll_array_fields:
+                lst = getattr(virtualizable, fieldname)
+                for j in range(getlength(lst)):
+                    x = reader.load_next_value_of_type(ARRAYITEMTYPE)
+                    setarrayitem(lst, j, x)
 
-        def load_list_of_boxes(virtualizable, reader, numb):
+        def load_list_of_boxes(virtualizable, reader, vable_box):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # Uses 'virtualizable' only to know the length of the arrays;
             # does not write anything into it.  The returned list is in
             # the format expected of virtualizable_boxes, so it ends in
             # the virtualizable itself.
-            i = len(numb.nums) - 1
-            assert i >= 0
-            boxes = [reader.decode_box_of_type(self.VTYPEPTR, numb.nums[i])]
-            for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
-                lst = getattr(virtualizable, fieldname)
-                for j in range(getlength(lst) - 1, -1, -1):
-                    i -= 1
-                    assert i >= 0
-                    box = reader.decode_box_of_type(ARRAYITEMTYPE, numb.nums[i])
-                    boxes.append(box)
-            for FIELDTYPE, fieldname in unroll_static_fields_rev:
-                i -= 1
-                assert i >= 0
-                box = reader.decode_box_of_type(FIELDTYPE, numb.nums[i])
+            boxes = []
+            for FIELDTYPE, fieldname in unroll_static_fields:
+                box = reader.next_box_of_type(FIELDTYPE)
                 boxes.append(box)
-            boxes.reverse()
+            for ARRAYITEMTYPE, fieldname in unroll_array_fields:
+                lst = getattr(virtualizable, fieldname)
+                for j in range(getlength(lst)):
+                    box = reader.next_box_of_type(ARRAYITEMTYPE)
+                    boxes.append(box)
+            boxes.append(vable_box)
             return boxes
 
         def check_boxes(virtualizable, boxes):
@@ -212,6 +211,7 @@ class VirtualizableInfo(object):
         self.check_boxes = check_boxes
         self.get_index_in_array = get_index_in_array
         self.get_array_length = get_array_length
+        self.get_total_size = get_total_size
 
         def cast_to_vtype(virtualizable):
             return self.cpu.ts.cast_to_instance_maybe(VTYPEPTR, virtualizable)

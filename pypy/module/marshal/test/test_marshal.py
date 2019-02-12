@@ -186,6 +186,8 @@ class AppTestMarshal:
             assert str(exc.value) == 'unmarshallable object'
             exc = raises(ValueError, marshal.dumps, subtype())
             assert str(exc.value) == 'unmarshallable object'
+            exc = raises(ValueError, marshal.dumps, (subtype(),))
+            assert str(exc.value) == 'unmarshallable object'
 
     def test_valid_subtypes(self):
         import marshal

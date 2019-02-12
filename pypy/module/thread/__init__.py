@@ -18,6 +18,7 @@ class Module(MixedModule):
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.Lock',
+        'RLock':                  'os_lock.W_RLock',   # pypy only, issue #2905
         '_local':                 'os_local.Local',
         'error':                  'space.fromcache(error.Cache).w_error',
     }
@@ -27,7 +28,7 @@ class Module(MixedModule):
         from pypy.module.thread import gil
         MixedModule.__init__(self, space, *args)
         prev_ec = space.threadlocals.get_ec()
-        space.threadlocals = gil.GILThreadLocals()
+        space.threadlocals = gil.GILThreadLocals(space)
         space.threadlocals.initialize(space)
         if prev_ec is not None:
             space.threadlocals._set_ec(prev_ec)

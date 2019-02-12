@@ -8,7 +8,6 @@ from rpython.tool.jitlogparser.parser import (import_log, parse_log_counts,
         mangle_descr)
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
-
 class TestLogParser(BaseTestPyPyC):
     log_string = 'jit-log-opt,jit-backend'
 
@@ -76,6 +75,6 @@ class TestLogParser(BaseTestPyPyC):
         assert len(mod_bridges) in (1, 2, 3)
 
         # check that counts are reasonable (precise # may change in the future)
-        assert N - 2000 < sum(l.count for l in fn_with_bridges_loops) < N + 1000
+        assert N - 2000 < sum(l.count for l in fn_with_bridges_loops) < N + 1500
 
 

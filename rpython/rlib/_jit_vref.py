@@ -1,8 +1,7 @@
 from rpython.annotator import model as annmodel
 from rpython.tool.pairtype import pairtype
-from rpython.rtyper.rclass import getinstancerepr
 from rpython.rtyper.rmodel import Repr
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import (getinstancerepr, OBJECTPTR)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.error import TyperError
 

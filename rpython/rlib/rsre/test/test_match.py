@@ -1,5 +1,5 @@
 import re, random, py
-from rpython.rlib.rsre import rsre_core
+from rpython.rlib.rsre import rsre_core, rsre_char
 from rpython.rlib.rsre.rpy import get_code, VERSION
 
 
@@ -9,7 +9,7 @@ def get_code_and_re(regexp):
 def test_get_code_repetition():
     c1 = get_code(r"a+")
     c2 = get_code(r"a+")
-    assert c1 == c2
+    assert c1.pattern == c2.pattern
 
 
 class TestMatch:
@@ -272,3 +272,39 @@ class TestMatch:
         r = get_code("\\{\\{((?:.*?)+)\\}\\}")
         match = rsre_core.match(r, "{{a}}{{b}}")
         assert match.group(1) == "a"
+
+    def test_fullmatch_1(self):
+        r = get_code(r"ab*c")
+        assert not rsre_core.fullmatch(r, "abbbcdef")
+        assert rsre_core.fullmatch(r, "abbbc")
+
+    def test_fullmatch_2(self):
+        r = get_code(r"a(b*?)")
+        match = rsre_core.fullmatch(r, "abbb")
+        assert match.group(1) == "bbb"
+        assert not rsre_core.fullmatch(r, "abbbc")
+
+    def test_fullmatch_3(self):
+        r = get_code(r"a((bp)*?)c")
+        match = rsre_core.fullmatch(r, "abpbpbpc")
+        assert match.group(1) == "bpbpbp"
+
+    def test_fullmatch_4(self):
+        r = get_code(r"a((bp)*)c")
+        match = rsre_core.fullmatch(r, "abpbpbpc")
+        assert match.group(1) == "bpbpbp"
+
+    def test_fullmatch_assertion(self):
+        r = get_code(r"(?=a).b")
+        assert rsre_core.fullmatch(r, "ab")
+        r = get_code(r"(?!a)..")
+        assert not rsre_core.fullmatch(r, "ab")
+
+    def test_range_ignore(self):
+        from rpython.rlib.unicodedata import unicodedb
+        rsre_char.set_unicode_db(unicodedb)
+        #
+        r = get_code(u"[\U00010428-\U0001044f]", re.I)
+        assert r.pattern.count(27) == 1       # OPCODE_RANGE
+        r.pattern[r.pattern.index(27)] = 32   # => OPCODE_RANGE_IGNORE
+        assert rsre_core.match(r, u"\U00010428")

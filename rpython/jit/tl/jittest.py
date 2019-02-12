@@ -1,12 +1,11 @@
 """
 This file is imported by rpython.translator.driver when running the
-target --jittest.  Feel free to hack it as needed; it is imported
+target --pyjittest.  Feel free to hack it as needed; it is imported
 only after the '---> Checkpoint' fork.
 """
 
 import os
 from rpython import conftest
-from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llstr
 from rpython.jit.metainterp import warmspot
@@ -16,20 +15,23 @@ os.environ['PYPY_DONT_RUN_SUBPROCESS'] = '1'
 reload(runsubprocess)
 
 
-ARGS = ["--jit", "threshold=100000,trace_eagerness=100000",
-        "-S", "/home/arigo/pypysrc/32compiled/z.py"]
+#ARGS = ["--jit", "threshold=100000,trace_eagerness=100000",
+#        "-S", "/home/arigo/pypysrc/32compiled/z.py"]
+ARGS = ["targettest_executable_name",
+        "-r", "13", "/home/arigo/git/pyrlang/test_beam/fact.beam",
+        "fact", "20000"]
 
 
 def jittest(driver):
     graph = driver.translator._graphof(driver.entry_point)
     interp = LLInterpreter(driver.translator.rtyper)
 
-    def returns_null(T, *args, **kwds):
-        return lltype.nullptr(T)
-    interp.heap.malloc_nonmovable = returns_null     # XXX
-
-    get_policy = driver.extra['jitpolicy']
-    jitpolicy = get_policy(driver)
+    get_policy = driver.extra.get('jitpolicy', None)
+    if get_policy is None:
+        from rpython.jit.codewriter.policy import JitPolicy
+        jitpolicy = JitPolicy()
+    else:
+        jitpolicy = get_policy(driver)
 
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
     apply_jit(jitpolicy, interp, graph, LLGraphCPU)

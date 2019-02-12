@@ -1,6 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import rdynload
 import sys
 
 _WIN = sys.platform == 'win32'
@@ -14,30 +15,32 @@ class Module(MixedModule):
         if space.config.translating:
             del self.__class__.interpleveldefs['pypy_getudir']
         super(Module, self).__init__(space, w_name)
-        self.recursionlimit = 100
+        self.recursionlimit = 1000
         self.w_default_encoder = None
         self.defaultencoding = "ascii"
         self.filesystemencoding = None
         self.debug = True
+        self.track_resources = False
+        self.dlopenflags = rdynload._dlopen_default_mode()
 
     interpleveldefs = {
-        '__name__'              : '(space.wrap("sys"))',
-        '__doc__'               : '(space.wrap("PyPy sys module"))',
+        '__name__'              : '(space.newtext("sys"))',
+        '__doc__'               : '(space.newtext("PyPy sys module"))',
 
-        'platform'              : 'space.wrap(sys.platform)',
-        'maxint'                : 'space.wrap(sys.maxint)',
-        'maxsize'               : 'space.wrap(sys.maxint)',
-        'byteorder'             : 'space.wrap(sys.byteorder)',
-        'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
+        'platform'              : 'space.newtext(sys.platform)',
+        'maxint'                : 'space.newint(sys.maxint)',
+        'maxsize'               : 'space.newint(sys.maxint)',
+        'byteorder'             : 'space.newtext(sys.byteorder)',
+        'maxunicode'            : 'space.newint(vm.MAXUNICODE)',
         'stdin'                 : 'state.getio(space).w_stdin',
         '__stdin__'             : 'state.getio(space).w_stdin',
         'stdout'                : 'state.getio(space).w_stdout',
         '__stdout__'            : 'state.getio(space).w_stdout',
         'stderr'                : 'state.getio(space).w_stderr',
         '__stderr__'            : 'state.getio(space).w_stderr',
-        'pypy_objspaceclass'    : 'space.wrap(repr(space))',
-        #'prefix'               : # added by pypy_initial_path() when it
-        #'exec_prefix'          : # succeeds, pointing to trunk or /usr
+        'pypy_objspaceclass'    : 'space.newtext(repr(space))',
+        'prefix'                : 'state.get(space).w_initial_prefix',
+        'exec_prefix'           : 'state.get(space).w_initial_prefix',
         'path'                  : 'state.get(space).w_path',
         'modules'               : 'state.get(space).w_modules',
         'argv'                  : 'state.get(space).w_argv',
@@ -53,6 +56,8 @@ class Module(MixedModule):
         '_current_frames'       : 'currentframes._current_frames',
         'setrecursionlimit'     : 'vm.setrecursionlimit',
         'getrecursionlimit'     : 'vm.getrecursionlimit',
+        'pypy_set_track_resources' : 'vm.set_track_resources',
+        'pypy_get_track_resources' : 'vm.get_track_resources',
         'setcheckinterval'      : 'vm.setcheckinterval',
         'getcheckinterval'      : 'vm.getcheckinterval',
         'exc_info'              : 'vm.exc_info',
@@ -64,10 +69,9 @@ class Module(MixedModule):
         'call_tracing'          : 'vm.call_tracing',
         'getsizeof'             : 'vm.getsizeof',
 
-        'executable'            : 'space.wrap("py.py")',
         'api_version'           : 'version.get_api_version(space)',
         'version_info'          : 'version.get_version_info(space)',
-        'version'               : 'version.get_version(space)',
+        #'version'              : set in startup()
         'pypy_version_info'     : 'version.get_pypy_version_info(space)',
         'subversion'            : 'version.get_subversion_info(space)',
         '_mercurial'            : 'version.get_repo_info(space)',
@@ -75,10 +79,10 @@ class Module(MixedModule):
 
         'displayhook'           : 'hook.displayhook',
         '__displayhook__'       : 'hook.__displayhook__',
-        'meta_path'             : 'space.wrap([])',
-        'path_hooks'            : 'space.wrap([])',
-        'path_importer_cache'   : 'space.wrap({})',
-        'dont_write_bytecode'   : 'space.w_False',
+        'meta_path'             : 'space.newlist([])',
+        'path_hooks'            : 'space.newlist([])',
+        'path_importer_cache'   : 'space.newdict()',
+        'dont_write_bytecode'   : 'space.newbool(space.config.translation.sandbox)',
 
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding',
         'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',
@@ -86,12 +90,15 @@ class Module(MixedModule):
 
         'float_info'            : 'system.get_float_info(space)',
         'long_info'             : 'system.get_long_info(space)',
-        'float_repr_style'      : 'system.get_float_repr_style(space)'
+        'float_repr_style'      : 'system.get_float_repr_style(space)',
         }
 
     if sys.platform == 'win32':
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
+    else:
+        interpleveldefs['getdlopenflags'] = 'system.getdlopenflags'
+        interpleveldefs['setdlopenflags'] = 'system.setdlopenflags'
 
     appleveldefs = {
         'excepthook'            : 'app.excepthook',
@@ -109,24 +116,27 @@ class Module(MixedModule):
             assert self.filesystemencoding is None
 
         else:
+            from pypy.module.sys import version
+            space.setitem(self.w_dict, space.newtext("version"),
+                          version.get_version(space))
             if _WIN:
                 from pypy.module.sys import vm
                 w_handle = vm.get_dllhandle(space)
-                space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
+                space.setitem(self.w_dict, space.newtext("dllhandle"), w_handle)
 
     def getmodule(self, name):
         space = self.space
         w_modules = self.get('modules')
         try:
-            return space.getitem(w_modules, space.wrap(name))
-        except OperationError, e:
+            return space.getitem(w_modules, space.newtext(name))
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
             return None
 
     def setmodule(self, w_module):
         space = self.space
-        w_name = self.space.getattr(w_module, space.wrap('__name__'))
+        w_name = self.space.getattr(w_module, space.newtext('__name__'))
         w_modules = self.get('modules')
         self.space.setitem(w_modules, w_name, w_module)
 
@@ -152,7 +162,7 @@ class Module(MixedModule):
             if operror is None:
                 return space.w_None
             else:
-                return space.wrap(operror.get_traceback())
+                return operror.get_w_traceback(space)
         return None
 
     def get_w_default_encoder(self):
@@ -167,7 +177,7 @@ class Module(MixedModule):
 
     def get_flag(self, name):
         space = self.space
-        return space.int_w(space.getattr(self.get('flags'), space.wrap(name)))
+        return space.int_w(space.getattr(self.get('flags'), space.newtext(name)))
 
     def get_state(self, space):
         from pypy.module.sys import state

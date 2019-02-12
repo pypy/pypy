@@ -9,8 +9,8 @@ from rpython.rlib.buffer import Buffer
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
-from pypy.objspace.std import slicetype
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
+    normalize_simple_slice)
 
 
 class StringMethods(object):
@@ -18,40 +18,39 @@ class StringMethods(object):
         assert start >= 0
         assert stop >= 0
         #if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj),
-        #                                                space.w_str):
+        #                                                space.w_bytes):
         #    return orig_obj
         return self._new(s[start:stop])
 
-    @specialize.arg(4)
-    def _convert_idx_params(self, space, w_start, w_end, upper_bound=False):
+    def _convert_idx_params(self, space, w_start, w_end):
         value = self._val(space)
         lenself = len(value)
-        start, end = slicetype.unwrap_start_stop(
-            space, lenself, w_start, w_end, upper_bound=upper_bound)
-        return (value, start, end)
+        start, end = unwrap_start_stop(space, lenself, w_start, w_end)
+        # the None means "no offset"; see bytearrayobject.py
+        return (value, start, end, None)
 
     def _multi_chr(self, c):
         return c
 
     def descr_len(self, space):
-        return space.wrap(self._len())
+        return space.newint(self._len())
 
     #def descr_iter(self, space):
     #    pass
 
     def descr_contains(self, space, w_sub):
-        value = self._val(space)
+        value, start, end, _ = self._convert_idx_params(space, None, None)
         if self._use_rstr_ops(space, w_sub):
             other = self._op_val(space, w_sub)
-            return space.newbool(value.find(other) >= 0)
+            return space.newbool(value.find(other, start, end) >= 0)
 
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(w_sub, W_BytesObject):
             other = self._op_val(space, w_sub)
-            res = find(value, other, 0, len(value))
+            res = find(value, other, start, end)
         else:
             buffer = _get_buffer(space, w_sub)
-            res = find(value, buffer, 0, len(value))
+            res = find(value, buffer, start, end)
 
         return space.newbool(res >= 0)
 
@@ -148,7 +147,7 @@ class StringMethods(object):
         return self._new(centered)
 
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
-        value, start, end = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
 
         if self._use_rstr_ops(space, w_sub):
             return space.newint(value.count(self._op_val(space, w_sub), start,
@@ -157,14 +156,15 @@ class StringMethods(object):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(w_sub, W_BytearrayObject):
-            res = count(value, w_sub.data, start, end)
+            res = count(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = count(value, w_sub._value, start, end)
         else:
             buffer = _get_buffer(space, w_sub)
             res = count(value, buffer, start, end)
 
-        return space.wrap(max(res, 0))
+        assert res >= 0
+        return space.newint(res)
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
@@ -197,7 +197,8 @@ class StringMethods(object):
             splitted = split(value, self._chr('\t'))
 
         try:
-            ovfcheck(len(splitted) * tabsize)
+            if tabsize > 0:
+                ovfcheck(len(splitted) * tabsize)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "new string is too long")
         expanded = oldtoken = splitted.pop(0)
@@ -212,6 +213,8 @@ class StringMethods(object):
     def _tabindent(self, token, tabsize):
         """calculates distance behind the token to the next tabstop"""
 
+        if tabsize <= 0:
+            return 0
         distance = tabsize
         if token:
             distance = 0
@@ -233,52 +236,54 @@ class StringMethods(object):
         return distance
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         if self._use_rstr_ops(space, w_sub):
             res = value.find(self._op_val(space, w_sub), start, end)
-            return space.wrap(res)
+            return space.newint(res)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(w_sub, W_BytearrayObject):
-            res = find(value, w_sub.data, start, end)
+            res = find(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = find(value, w_sub._value, start, end)
         else:
             buffer = _get_buffer(space, w_sub)
             res = find(value, buffer, start, end)
-
-        return space.wrap(res)
+        if ofs is not None and res >= 0:
+            res -= ofs
+        return space.newint(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         if self._use_rstr_ops(space, w_sub):
             res = value.rfind(self._op_val(space, w_sub), start, end)
-            return space.wrap(res)
+            return space.newint(res)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(w_sub, W_BytearrayObject):
-            res = rfind(value, w_sub.data, start, end)
+            res = rfind(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = rfind(value, w_sub._value, start, end)
         else:
             buffer = _get_buffer(space, w_sub)
             res = rfind(value, buffer, start, end)
-
-        return space.wrap(res)
+        if ofs is not None and res >= 0:
+            res -= ofs
+        return space.newint(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if self._use_rstr_ops(space, w_sub):
             res = value.find(self._op_val(space, w_sub), start, end)
         elif isinstance(w_sub, W_BytearrayObject):
-            res = find(value, w_sub.data, start, end)
+            res = find(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = find(value, w_sub._value, start, end)
         else:
@@ -288,17 +293,19 @@ class StringMethods(object):
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in string.index")
-        return space.wrap(res)
+        if ofs is not None:
+            res -= ofs
+        return space.newint(res)
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
+        value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
         if self._use_rstr_ops(space, w_sub):
             res = value.rfind(self._op_val(space, w_sub), start, end)
         elif isinstance(w_sub, W_BytearrayObject):
-            res = rfind(value, w_sub.data, start, end)
+            res = rfind(value, w_sub.getdata(), start, end)
         elif isinstance(w_sub, W_BytesObject):
             res = rfind(value, w_sub._value, start, end)
         else:
@@ -308,7 +315,9 @@ class StringMethods(object):
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in string.rindex")
-        return space.wrap(res)
+        if ofs is not None:
+            res -= ofs
+        return space.newint(res)
 
     @specialize.arg(2)
     def _is_generic(self, space, func_name):
@@ -455,7 +464,7 @@ class StringMethods(object):
         d = width - len(value)
         if d > 0:
             fillchar = self._multi_chr(fillchar[0])
-            value += d * fillchar
+            value = value + fillchar * d
 
         return self._new(value)
 
@@ -546,6 +555,10 @@ class StringMethods(object):
 
         sub = self._op_val(space, w_old)
         by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
         try:
             res = replace(input, sub, by, count)
         except OverflowError:
@@ -606,37 +619,58 @@ class StringMethods(object):
         return self._newlist_unwrapped(space, strs)
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end,
-                                                       True)
+        value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
-            for w_prefix in space.fixedview(w_prefix):
-                if self._startswith(space, value, w_prefix, start, end):
-                    return space.w_True
-            return space.w_False
+            return self._startswith_tuple(space, value, w_prefix, start, end)
         return space.newbool(self._startswith(space, value, w_prefix, start,
                                               end))
 
+    def _startswith_tuple(self, space, value, w_prefix, start, end):
+        for w_prefix in space.fixedview(w_prefix):
+            if self._startswith(space, value, w_prefix, start, end):
+                return space.w_True
+        return space.w_False
+
     def _startswith(self, space, value, w_prefix, start, end):
-        return startswith(value, self._op_val(space, w_prefix), start, end)
+        prefix = self._op_val(space, w_prefix)
+        if self._starts_ends_unicode:   # bug-to-bug compat
+            if len(prefix) == 0:
+                return True
+        else:
+            if start > len(value):
+                return False
+        return startswith(value, prefix, start, end)
+
+    _starts_ends_unicode = False  # bug-to-bug compat: this is for strings and
+                                  # bytearrays, but overridden for unicodes
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end,
-                                                       True)
+        value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
-            for w_suffix in space.fixedview(w_suffix):
-                if self._endswith(space, value, w_suffix, start, end):
-                    return space.w_True
-            return space.w_False
+            return self._endswith_tuple(space, value, w_suffix, start, end)
         return space.newbool(self._endswith(space, value, w_suffix, start,
                                             end))
 
-    def _endswith(self, space, value, w_prefix, start, end):
-        return endswith(value, self._op_val(space, w_prefix), start, end)
+    def _endswith_tuple(self, space, value, w_suffix, start, end):
+        for w_suffix in space.fixedview(w_suffix):
+            if self._endswith(space, value, w_suffix, start, end):
+                return space.w_True
+        return space.w_False
 
-    def _strip(self, space, w_chars, left, right):
+    def _endswith(self, space, value, w_prefix, start, end):
+        prefix = self._op_val(space, w_prefix)
+        if self._starts_ends_unicode:   # bug-to-bug compat
+            if len(prefix) == 0:
+                return True
+        else:
+            if start > len(value):
+                return False
+        return endswith(value, prefix, start, end)
+
+    def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._val(space)
-        chars = self._op_val(space, w_chars)
+        chars = self._op_val(space, w_chars, strict=name)
 
         lpos = 0
         rpos = len(value)
@@ -673,17 +707,17 @@ class StringMethods(object):
     def descr_strip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=1)
-        return self._strip(space, w_chars, left=1, right=1)
+        return self._strip(space, w_chars, left=1, right=1, name='strip')
 
     def descr_lstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=0)
-        return self._strip(space, w_chars, left=1, right=0)
+        return self._strip(space, w_chars, left=1, right=0, name='lstrip')
 
     def descr_rstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=0, right=1)
-        return self._strip(space, w_chars, left=0, right=1)
+        return self._strip(space, w_chars, left=0, right=1, name='rstrip')
 
     def descr_swapcase(self, space):
         selfvalue = self._val(space)
@@ -785,6 +819,4 @@ def _descr_getslice_slowpath(selfvalue, start, step, sl):
     return [selfvalue[start + i*step] for i in range(sl)]
 
 def _get_buffer(space, w_obj):
-    return space.buffer_w(w_obj, space.BUF_SIMPLE)
-
-
+    return space.buffer_w(w_obj, space.BUF_SIMPLE).as_readbuf()

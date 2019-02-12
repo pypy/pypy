@@ -31,8 +31,10 @@ class AppTestBuiltinApp:
         emptyfile.write('')
         nullbytes = udir.join('nullbytes.py')
         nullbytes.write('#abc\x00def\n')
+        nonexistent = udir.join('builtins-nonexistent')
         cls.w_emptyfile = space.wrap(str(emptyfile))
         cls.w_nullbytes = space.wrap(str(nullbytes))
+        cls.w_nonexistent = space.wrap(str(nonexistent))
 
     def test_builtin_names(self):
         import __builtin__
@@ -262,6 +264,7 @@ class AppTestBuiltinApp:
         raises(StopIteration,x.next)
 
     def test_enumerate(self):
+        import sys
         seq = range(2,4)
         enum = enumerate(seq)
         assert enum.next() == (0, 2)
@@ -271,6 +274,15 @@ class AppTestBuiltinApp:
         raises(TypeError, enumerate, None)
         enum = enumerate(range(5), 2)
         assert list(enum) == zip(range(2, 7), range(5))
+
+        enum = enumerate(range(2), 2**100)
+        assert list(enum) == [(2**100, 0), (2**100+1, 1)]
+
+        enum = enumerate(range(2), sys.maxint)
+        assert list(enum) == [(sys.maxint, 0), (sys.maxint+1, 1)]
+
+        raises(TypeError, enumerate, range(2), 5.5)
+
 
     def test_next(self):
         x = iter(['a', 'b', 'c'])
@@ -392,6 +404,7 @@ class AppTestBuiltinApp:
 
 
     def test_cmp(self):
+        assert cmp(float('nan'), float('nan')) == 0
         assert cmp(9,9) == 0
         assert cmp(0,9) < 0
         assert cmp(9,0) > 0
@@ -497,59 +510,6 @@ class AppTestBuiltinApp:
         assert eval("i", None, None) == 4
         assert eval('a', None, dict(a=42)) == 42
 
-    def test_compile(self):
-        co = compile('1+2', '?', 'eval')
-        assert eval(co) == 3
-        co = compile(buffer('1+2'), '?', 'eval')
-        assert eval(co) == 3
-        exc = raises(TypeError, compile, chr(0), '?', 'eval')
-        assert str(exc.value) == "compile() expected string without null bytes"
-        exc = raises(TypeError, compile, unichr(0), '?', 'eval')
-        assert str(exc.value) == "compile() expected string without null bytes"
-        exc = raises(TypeError, compile, memoryview('1+2'), '?', 'eval')
-        assert str(exc.value) == "expected a readable buffer object"
-        compile("from __future__ import with_statement", "<test>", "exec")
-        raises(SyntaxError, compile, '-', '?', 'eval')
-        raises(ValueError, compile, '"\\xt"', '?', 'eval')
-        raises(ValueError, compile, '1+2', '?', 'maybenot')
-        raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
-        raises(TypeError, compile, '1+2', 12, 34)
-
-    def test_compile_error_message(self):
-        import re
-        compile('# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
-        compile(b'\xef\xbb\xbf\n', 'dummy', 'exec')
-        compile(b'\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
-        exc = raises(SyntaxError, compile,
-            b'# -*- coding: fake -*-\n', 'dummy', 'exec')
-        assert 'fake' in str(exc.value)
-        exc = raises(SyntaxError, compile,
-            b'\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
-        assert 'iso-8859-15' in str(exc.value)
-        assert 'BOM' in str(exc.value)
-        exc = raises(SyntaxError, compile,
-            b'\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
-        assert 'fake' in str(exc.value)
-        assert 'BOM' in str(exc.value)
-
-    def test_unicode_compile(self):
-        try:
-            compile(u'-', '?', 'eval')
-        except SyntaxError as e:
-            assert e.lineno == 1
-
-    def test_unicode_encoding_compile(self):
-        code = u"# -*- coding: utf-8 -*-\npass\n"
-        raises(SyntaxError, compile, code, "tmp", "exec")
-
-    def test_recompile_ast(self):
-        import _ast
-        # raise exception when node type doesn't match with compile mode
-        co1 = compile('print 1', '<string>', 'exec', _ast.PyCF_ONLY_AST)
-        raises(TypeError, compile, co1, '<ast>', 'eval')
-        co2 = compile('1+1', '<string>', 'eval', _ast.PyCF_ONLY_AST)
-        compile(co2, '<ast>', 'eval')
-
     def test_isinstance(self):
         assert isinstance(5, int)
         assert isinstance(5, object)
@@ -612,30 +572,9 @@ class AppTestBuiltinApp:
         raises(TypeError, hasattr, x, 42)
         raises(UnicodeError, hasattr, x, u'\u5678')  # cannot encode attr name
 
-    def test_compile_leading_newlines(self):
-        src = """
-def fn(): pass
-"""
-        co = compile(src, 'mymod', 'exec')
-        firstlineno = co.co_firstlineno
-        assert firstlineno == 2
-
-    def test_compile_null_bytes(self):
-        raises(TypeError, compile, '\x00', 'mymod', 'exec', 0)
-        src = "#abc\x00def\n"
-        raises(TypeError, compile, src, 'mymod', 'exec')
-        raises(TypeError, compile, src, 'mymod', 'exec', 0)
+    def test_execfile_args(self):
         execfile(self.nullbytes) # works
-
-    def test_compile_null_bytes_flag(self):
-        try:
-            from _ast import PyCF_ACCEPT_NULL_BYTES
-        except ImportError:
-            skip('PyPy only (requires _ast.PyCF_ACCEPT_NULL_BYTES)')
-        raises(SyntaxError, compile, '\x00', 'mymod', 'exec',
-               PyCF_ACCEPT_NULL_BYTES)
-        src = "#abc\x00def\n"
-        compile(src, 'mymod', 'exec', PyCF_ACCEPT_NULL_BYTES)  # works
+        raises(TypeError, execfile, self.nonexistent, {}, ())
 
     def test_print_function(self):
         import __builtin__
@@ -646,9 +585,12 @@ def fn(): pass
         out = sys.stdout = StringIO.StringIO()
         try:
             pr("Hello,", "person!")
+            pr("2nd line", file=None)
+            sys.stdout = None
+            pr("nowhere")
         finally:
             sys.stdout = save
-        assert out.getvalue() == "Hello, person!\n"
+        assert out.getvalue() == "Hello, person!\n2nd line\n"
         out = StringIO.StringIO()
         pr("Hello,", "person!", file=out)
         assert out.getvalue() == "Hello, person!\n"
@@ -663,7 +605,6 @@ def fn(): pass
         result = out.getvalue()
         assert isinstance(result, unicode)
         assert result == u"Hello, person!\n"
-        pr("Hello", file=None) # This works.
         out = StringIO.StringIO()
         pr(None, file=out)
         assert out.getvalue() == "None\n"
@@ -685,6 +626,9 @@ def fn(): pass
         assert round(5e15) == 5e15
         assert round(-(5e15-1)) == -(5e15-1)
         assert round(-5e15) == -5e15
+        assert round(5e15/2) == 5e15/2
+        assert round((5e15+1)/2) == 5e15/2+1
+        assert round((5e15-1)/2) == 5e15/2
         #
         inf = 1e200 * 1e200
         assert round(inf) == inf
@@ -696,6 +640,12 @@ def fn(): pass
         #
         assert round(562949953421312.5, 1) == 562949953421312.5
         assert round(56294995342131.5, 3) == 56294995342131.5
+        #
+        for i in range(-10, 10):
+            expected = i if i < 0 else i + 1
+            assert round(i + 0.5) == round(i + 0.5, 0) == expected
+            x = i * 10 + 5
+            assert round(x, -1) == round(float(x), -1) == expected * 10
 
     def test_vars_obscure_case(self):
         class C_get_vars(object):
@@ -729,10 +679,6 @@ class AppTestGetattr:
         raises(TypeError, getattr, A(), 42)
         raises(TypeError, setattr, A(), 42, 'x')
         raises(TypeError, delattr, A(), 42)
-
-
-class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
 
 
 class TestInternal:

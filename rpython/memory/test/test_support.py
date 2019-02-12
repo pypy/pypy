@@ -3,8 +3,10 @@ from rpython.memory.support import get_address_stack
 from rpython.memory.support import get_address_deque
 
 from rpython.rtyper.test.test_llinterp import interpret
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc, raw_free, NULL
+
+import random
 
 class TestAddressStack(object):
     def test_simple_access(self):
@@ -106,6 +108,23 @@ class TestAddressStack(object):
             assert b == a
             assert ll.length() == i
 
+    def test_sort(self):
+        AddressStack = get_address_stack(chunk_size=15)
+        lla = llarena.arena_malloc(10, 2)
+        addrs = [lla + i for i in range(10)]
+        for _ in range(13):
+            ll = AddressStack()
+            addr_copy = addrs[:]
+            random.shuffle(addr_copy)
+            for i in addr_copy:
+                ll.append(i)
+            ll.sort()
+            expected = range(10)
+            for i in expected:
+                a = ll.pop()
+                assert a == addrs[i]
+
+
 
 class TestAddressDeque:
     def test_big_access(self):
@@ -141,6 +160,10 @@ class TestAddressDeque:
 
             ll.foreach(callback, 42)
             assert seen == addrs
+            seen = []
+            ll.foreach(callback, 42, step=2)
+            assert seen == addrs[::2]
+
             for a in addrs:
                 b = ll.popleft()
                 assert a == b

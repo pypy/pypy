@@ -225,9 +225,9 @@ def simpleops():
     >>> element.remove(subelement)
     >>> serialize(element) # 5
     '<tag key="value" />'
-    >>> element.remove(subelement)
+    >>> element.remove(subelement)    # doctest: +ELLIPSIS
     Traceback (most recent call last):
-    ValueError: list.remove(x): x not in list
+    ValueError: list.remove(...
     >>> serialize(element) # 6
     '<tag key="value" />'
     >>> element[0:0] = [subelement, subelement, subelement]
@@ -713,13 +713,20 @@ def iterparse():
     end {namespace}root
     end-ns None
 
+    >>> import StringIO
+
+    >>> events = ('start-ns', 'end-ns')
+    >>> context = ET.iterparse(StringIO.StringIO(r"<root xmlns=''/>"), events)
+    >>> for action, elem in context:
+    ...   print action, elem
+    start-ns ('', '')
+    end-ns None
+
     >>> events = ("start", "end", "bogus")
     >>> with open(SIMPLE_XMLFILE, "rb") as f:
     ...     iterparse(f, events)
     Traceback (most recent call last):
     ValueError: unknown event 'bogus'
-
-    >>> import StringIO
 
     >>> source = StringIO.StringIO(
     ...     "<?xml version='1.0' encoding='iso-8859-1'?>\\n"

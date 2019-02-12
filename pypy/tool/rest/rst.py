@@ -121,14 +121,14 @@ class Rest(AbstractNode):
         link_texts = []
         # XXX this could check for duplicates and remove them...
         for link, target in self.links.iteritems():
-            link_texts.append(".. _`%s`: %s" % (escape(link), target))
+            link_texts.append(".. _%s: %s" % (escape(link), target))
         return "\n" + "\n".join(link_texts) + "\n\n"
 
     def text(self):
         outcome = []
         if (isinstance(self.children[0], Transition) or
                 isinstance(self.children[-1], Transition)):
-            raise ValueError, ('document must not begin or end with a '
+            raise ValueError('document must not begin or end with a '
                                'transition')
         for child in self.children:
             outcome.append(child.text())
@@ -379,7 +379,7 @@ class LinkTarget(Paragraph):
         self.target = target
 
     def text(self):
-        return ".. _`%s`:%s\n" % (self.name, self.target)
+        return ".. _%s: %s\n" % (self.name, self.target)
 
 class Substitution(AbstractText):
     def __init__(self, text, **kwargs):

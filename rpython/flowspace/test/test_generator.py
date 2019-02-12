@@ -67,7 +67,7 @@ class TestGenerator:
             yield n
             yield n
         #
-        graph = build_flow(func)
+        graph = make_generator_entry_graph(func)
         if option.view:
             graph.show()
         block = graph.startblock

@@ -10,6 +10,7 @@
 #define _CJKCODECS_H_
 
 #include "src/cjkcodecs/multibytecodec.h"
+#include "src/cjkcodecs/fixnames.h"
 
 
 /* a unicode "undefined" codepoint */
@@ -200,10 +201,13 @@ struct pair_encodemap {
 
 #define BEGIN_MAPPINGS_LIST /* empty */
 #define MAPPING_ENCONLY(enc)                                            \
+  RPY_EXTERN const struct dbcs_map pypy_cjkmap_##enc;                   \
   const struct dbcs_map pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, NULL};
 #define MAPPING_DECONLY(enc)                                            \
+  RPY_EXTERN const struct dbcs_map pypy_cjkmap_##enc;                   \
   const struct dbcs_map pypy_cjkmap_##enc = {#enc, NULL, (void*)enc##_decmap};
 #define MAPPING_ENCDEC(enc)                                             \
+  RPY_EXTERN const struct dbcs_map pypy_cjkmap_##enc;                   \
   const struct dbcs_map pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, \
                                              (void*)enc##_decmap};
 #define END_MAPPINGS_LIST /* empty */
@@ -267,29 +271,33 @@ find_pairencmap(ucs2_t body, ucs2_t modifier,
     min = 0;
     max = haystacksize;
 
-    for (pos = haystacksize >> 1; min != max; pos = (min + max) >> 1)
+    for (pos = haystacksize >> 1; min != max; pos = (min + max) >> 1) {
         if (value < haystack[pos].uniseq) {
-            if (max == pos) break;
-            else max = pos;
+            if (max != pos) {
+                max = pos;
+                continue;
+            }
         }
         else if (value > haystack[pos].uniseq) {
-            if (min == pos) break;
-            else min = pos;
+            if (min != pos) {
+                min = pos;
+                continue;
+            }
         }
-        else
-            break;
+        break;
+    }
 
-        if (value == haystack[pos].uniseq)
-            return haystack[pos].code;
-        else
-            return DBCINV;
+    if (value == haystack[pos].uniseq) {
+        return haystack[pos].code;
+    }
+    return DBCINV;
 }
 #endif
 
 
 #ifdef USING_IMPORTED_MAPS
 #define USING_IMPORTED_MAP(charset) \
-  extern const struct dbcs_map pypy_cjkmap_##charset;
+  RPY_EXTERN const struct dbcs_map pypy_cjkmap_##charset;
 
 #define IMPORT_MAP(locale, charset, encmap, decmap)                     \
   importmap(&pypy_cjkmap_##charset, encmap, decmap)

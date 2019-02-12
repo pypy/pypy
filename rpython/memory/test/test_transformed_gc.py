@@ -1,6 +1,7 @@
 import py
 import inspect
 
+from rpython.rlib.objectmodel import compute_hash, compute_identity_hash
 from rpython.translator.c import gc
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomePtr
@@ -13,6 +14,10 @@ from rpython.rlib import rgc
 from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.nonconst import NonConstant
+from rpython.rtyper.rtyper import llinterp_backend
+from rpython.memory.gc.hook import GcHooks
+
 
 WORD = LONG_BIT // 8
 
@@ -27,9 +32,11 @@ def rtype(func, inputtypes, specialize=True, gcname='ref',
     t.config.set(**extraconfigopts)
     ann = t.buildannotator()
     ann.build_types(func, inputtypes)
+    rtyper = t.buildrtyper()
+    rtyper.backend = llinterp_backend
 
     if specialize:
-        t.buildrtyper().specialize()
+        rtyper.specialize()
     if backendopt:
         from rpython.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
@@ -42,8 +49,8 @@ ARGS = lltype.FixedSizeArray(lltype.Signed, 3)
 class GCTest(object):
     gcpolicy = None
     GC_CAN_MOVE = False
-    GC_CAN_MALLOC_NONMOVABLE = True
     taggedpointers = False
+    gchooks = None
 
     def setup_class(cls):
         cls.marker = lltype.malloc(rffi.CArray(lltype.Signed), 1,
@@ -108,8 +115,10 @@ class GCTest(object):
                 fixup(t)
 
         cbuild = CStandaloneBuilder(t, entrypoint, config=t.config,
-                                    gcpolicy=cls.gcpolicy)
-        db = cbuild.generate_graphs_for_llinterp()
+                                    gcpolicy=cls.gcpolicy,
+                                    gchooks=cls.gchooks)
+        cbuild.make_entrypoint_wrapper = False
+        db = cbuild.build_database()
         entrypointptr = cbuild.getentrypointptr()
         entrygraph = entrypointptr._obj.graph
         if option.view:
@@ -154,7 +163,6 @@ class GCTest(object):
 
 class GenericGCTests(GCTest):
     GC_CAN_SHRINK_ARRAY = False
-
     def define_instances(cls):
         class A(object):
             pass
@@ -290,7 +298,7 @@ class GenericGCTests(GCTest):
         res = run([])
         assert res == 42
 
-    def define_finalizer(cls):
+    def define_destructor(cls):
         class B(object):
             pass
         b = B()
@@ -302,6 +310,68 @@ class GenericGCTests(GCTest):
                 b.nextid += 1
             def __del__(self):
                 b.num_deleted += 1
+        def f(x, y):
+            a = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted
+        return f
+
+    def test_destructor(self):
+        run = self.runner("destructor")
+        res = run([5, 42]) #XXX pure lazyness here too
+        assert res == 6
+
+    def define_old_style_finalizer(cls):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+            def __del__(self):
+                llop.gc__collect(lltype.Void)
+                b.num_deleted += 1
+        def f(x, y):
+            a = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted
+        return f
+
+    def test_old_style_finalizer(self):
+        run = self.runner("old_style_finalizer")
+        res = run([5, 42]) #XXX pure lazyness here too
+        assert res == 6
+
+    def define_finalizer(cls):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    b.num_deleted += 1
+        fq = FQ()
         def f(x, y):
             a = A()
             i = 0
@@ -328,12 +398,20 @@ class GenericGCTests(GCTest):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                b.num_deleted += 1
-                C()
+                fq.register_finalizer(self)
         class C(AAA):
-            def __del__(self):
-                b.num_deleted += 1
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = AAA
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    b.num_deleted += 1
+                    if not isinstance(a, C):
+                        C()
+        fq = FQ()
         def f(x, y):
             a = AAA()
             i = 0
@@ -360,9 +438,17 @@ class GenericGCTests(GCTest):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                b.num_deleted += 1
-                b.a = self
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    b.num_deleted += 1
+                    b.a = a
+        fq = FQ()
         def f(x, y):
             a = A()
             i = 0
@@ -373,7 +459,7 @@ class GenericGCTests(GCTest):
             llop.gc__collect(lltype.Void)
             aid = b.a.id
             b.a = None
-            # check that __del__ is not called again
+            # check that finalizer_trigger() is not called again
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted * 10 + aid + 100 * (b.a is None)
@@ -385,26 +471,20 @@ class GenericGCTests(GCTest):
         assert 160 <= res <= 165
 
     def define_custom_trace(cls):
-        from rpython.rtyper.annlowlevel import llhelper
-        from rpython.rtyper.lltypesystem import llmemory
         #
-        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        S = lltype.GcStruct('S', ('x', llmemory.Address))
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
+
         #
         def setup():
-            s1 = lltype.malloc(S)
+            rgc.register_custom_trace_hook(S, lambda_customtrace)
             tx = lltype.malloc(T)
             tx.z = 4243
+            s1 = lltype.malloc(S)
             s1.x = llmemory.cast_ptr_to_adr(tx)
             return s1
         def f():
@@ -443,7 +523,7 @@ class GenericGCTests(GCTest):
         res = run([])
         assert res
 
-    def define_weakref_to_object_with_finalizer(cls):
+    def define_weakref_to_object_with_destructor(cls):
         import weakref, gc
         class A(object):
             count = 0
@@ -453,6 +533,36 @@ class GenericGCTests(GCTest):
                 a.count += 1
         def g():
             b = B()
+            return weakref.ref(b)
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = a.count == 1 and (ref() is None)
+            return result
+        return f
+
+    def test_weakref_to_object_with_destructor(self):
+        run = self.runner("weakref_to_object_with_destructor")
+        res = run([])
+        assert res
+
+    def define_weakref_to_object_with_finalizer(cls):
+        import weakref, gc
+        class A(object):
+            count = 0
+        a = A()
+        class B(object):
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    a.count += 1
+        fq = FQ()
+        def g():
+            b = B()
+            fq.register_finalizer(b)
             return weakref.ref(b)
         def f():
             ref = g()
@@ -478,15 +588,24 @@ class GenericGCTests(GCTest):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                llop.gc__collect(lltype.Void)
-                b.num_deleted += 1
-                C()
-                C()
+                fq.register_finalizer(self)
         class C(A):
-            def __del__(self):
-                b.num_deleted += 1
-                b.num_deleted_c += 1
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    llop.gc__collect(lltype.Void)
+                    b.num_deleted += 1
+                    if isinstance(a, C):
+                        b.num_deleted_c += 1
+                    else:
+                        C()
+                        C()
+        fq = FQ()
         def f(x, y):
             persistent_a1 = A()
             persistent_a2 = A()
@@ -621,45 +740,6 @@ class GenericGCTests(GCTest):
         res = run([])
         assert res == self.GC_CAN_MOVE
 
-    def define_malloc_nonmovable(cls):
-        TP = lltype.GcArray(lltype.Char)
-        def func():
-            #try:
-            a = rgc.malloc_nonmovable(TP, 3, zero=True)
-            rgc.collect()
-            if a:
-                assert not rgc.can_move(a)
-                return 1
-            return 0
-            #except Exception, e:
-            #    return 2
-
-        return func
-
-    def test_malloc_nonmovable(self):
-        run = self.runner("malloc_nonmovable")
-        assert int(self.GC_CAN_MALLOC_NONMOVABLE) == run([])
-
-    def define_malloc_nonmovable_fixsize(cls):
-        S = lltype.GcStruct('S', ('x', lltype.Float))
-        TP = lltype.GcStruct('T', ('s', lltype.Ptr(S)))
-        def func():
-            try:
-                a = rgc.malloc_nonmovable(TP)
-                rgc.collect()
-                if a:
-                    assert not rgc.can_move(a)
-                    return 1
-                return 0
-            except Exception, e:
-                return 2
-
-        return func
-
-    def test_malloc_nonmovable_fixsize(self):
-        run = self.runner("malloc_nonmovable_fixsize")
-        assert run([]) == int(self.GC_CAN_MALLOC_NONMOVABLE)
-
     def define_shrink_array(cls):
         from rpython.rtyper.lltypesystem.rstr import STR
 
@@ -707,9 +787,7 @@ class GenericGCTests(GCTest):
 
 class GenericMovingGCTests(GenericGCTests):
     GC_CAN_MOVE = True
-    GC_CAN_MALLOC_NONMOVABLE = False
     GC_CAN_TEST_ID = False
-
     def define_many_ids(cls):
         class A(object):
             pass
@@ -767,7 +845,7 @@ class GenericMovingGCTests(GenericGCTests):
         def g():
             r = lltype.malloc(P)
             r.x = 1
-            p = llop.do_malloc_fixedsize_clear(llmemory.GCREF)  # placeholder
+            p = llop.do_malloc_fixedsize(llmemory.GCREF)  # placeholder
             p = lltype.cast_opaque_ptr(lltype.Ptr(P), p)
             p.x = r.x
             return p.x
@@ -794,10 +872,10 @@ class GenericMovingGCTests(GenericGCTests):
 
             type_id = layoutbuilder.get_type_id(P)
             #
-            # now fix the do_malloc_fixedsize_clear in the graph of g
+            # now fix the do_malloc_fixedsize in the graph of g
             graph = graphof(translator, g)
             for op in graph.startblock.operations:
-                if op.opname == 'do_malloc_fixedsize_clear':
+                if op.opname == 'do_malloc_fixedsize':
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
@@ -815,7 +893,7 @@ class GenericMovingGCTests(GenericGCTests):
     def define_do_malloc_operations_in_call(cls):
         P = lltype.GcStruct('P', ('x', lltype.Signed))
         def g():
-            llop.do_malloc_fixedsize_clear(llmemory.GCREF)  # placeholder
+            llop.do_malloc_fixedsize(llmemory.GCREF)  # placeholder
         def f():
             q = lltype.malloc(P)
             q.x = 1
@@ -831,10 +909,10 @@ class GenericMovingGCTests(GenericGCTests):
             layoutbuilder = cls.ensure_layoutbuilder(translator)
             type_id = layoutbuilder.get_type_id(P)
             #
-            # now fix the do_malloc_fixedsize_clear in the graph of g
+            # now fix the do_malloc_fixedsize in the graph of g
             graph = graphof(translator, g)
             for op in graph.startblock.operations:
-                if op.opname == 'do_malloc_fixedsize_clear':
+                if op.opname == 'do_malloc_fixedsize':
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
@@ -1119,6 +1197,7 @@ class TestGenerationGC(GenericMovingGCTests):
         run = self.runner("adr_of_nursery")
         res = run([])
 
+
 class TestGenerationalNoFullCollectGC(GCTest):
     # test that nursery is doing its job and that no full collection
     # is needed when most allocated objects die quickly
@@ -1168,7 +1247,6 @@ class TestGenerationalNoFullCollectGC(GCTest):
 
 class TestHybridGC(TestGenerationGC):
     gcname = "hybrid"
-    GC_CAN_MALLOC_NONMOVABLE = True
 
     class gcpolicy(gc.BasicFrameworkGcPolicy):
         class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
@@ -1230,10 +1308,6 @@ class TestHybridGC(TestGenerationGC):
         res = run([])
         assert res == 42
 
-    def test_malloc_nonmovable_fixsize(self):
-        py.test.skip("not supported")
-
-
 class TestMiniMarkGC(TestHybridGC):
     gcname = "minimark"
     GC_CAN_TEST_ID = True
@@ -1276,6 +1350,90 @@ class TestMiniMarkGC(TestHybridGC):
         res = run([])
         assert res == 123
 
+    def define_nursery_hash_base(cls):
+        class A:
+            pass
+        def fn():
+            objects = []
+            hashes = []
+            for i in range(200):
+                rgc.collect(0)     # nursery-only collection, if possible
+                obj = A()
+                objects.append(obj)
+                hashes.append(compute_identity_hash(obj))
+            unique = {}
+            for i in range(len(objects)):
+                assert compute_identity_hash(objects[i]) == hashes[i]
+                unique[hashes[i]] = None
+            return len(unique)
+        return fn
+
+    def test_nursery_hash_base(self):
+        res = self.runner('nursery_hash_base')
+        assert res([]) >= 195
+
+    def define_instantiate_nonmovable(cls):
+        from rpython.rlib import objectmodel
+        from rpython.rtyper import annlowlevel
+        class A:
+            pass
+        def fn():
+            a1 = A()
+            a = objectmodel.instantiate(A, nonmovable=True)
+            a.next = a1  # 'a' is known young here, so no write barrier emitted
+            res = rgc.can_move(annlowlevel.cast_instance_to_base_ptr(a))
+            rgc.collect()
+            objectmodel.keepalive_until_here(a)
+            return res
+        return fn
+
+    def test_instantiate_nonmovable(self):
+        res = self.runner('instantiate_nonmovable')
+        assert res([]) == 0
+
+
+class GcHooksStats(object):
+    minors = 0
+    steps = 0
+    collects = 0
+
+    def reset(self):
+        # the NonConstant are needed so that the annotator annotates the
+        # fields as a generic SomeInteger(), instead of a constant 0. A call
+        # to this method MUST be seen during normal annotation, else the class
+        # is annotated only during GC transform, when it's too late
+        self.minors = NonConstant(0)
+        self.steps = NonConstant(0)
+        self.collects = NonConstant(0)
+
+
+class MyGcHooks(GcHooks):
+
+    def __init__(self, stats=None):
+        self.stats = stats or GcHooksStats()
+
+    def is_gc_minor_enabled(self):
+        return True
+
+    def is_gc_collect_step_enabled(self):
+        return True
+
+    def is_gc_collect_enabled(self):
+        return True
+
+    def on_gc_minor(self, duration, total_memory_used, pinned_objects):
+        self.stats.minors += 1
+
+    def on_gc_collect_step(self, duration, oldstate, newstate):
+        self.stats.steps += 1
+        
+    def on_gc_collect(self, num_major_collects,
+                      arenas_count_before, arenas_count_after,
+                      arenas_bytes, rawmalloc_bytes_before,
+                      rawmalloc_bytes_after):
+        self.stats.collects += 1
+
+
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcname = "incminimark"
 
@@ -1293,6 +1451,68 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                          }
             root_stack_depth = 200
 
+    gchooks = MyGcHooks()
+
+    def define_malloc_array_of_gcptr(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        A = lltype.GcArray(lltype.Ptr(S))
+        def f():
+            lst = lltype.malloc(A, 5)
+            return (lst[0] == lltype.nullptr(S)
+                    and lst[1] == lltype.nullptr(S)
+                    and lst[2] == lltype.nullptr(S)
+                    and lst[3] == lltype.nullptr(S)
+                    and lst[4] == lltype.nullptr(S))
+        return f
+
+    def test_malloc_array_of_gcptr(self):
+        run = self.runner('malloc_array_of_gcptr')
+        res = run([])
+        assert res
+
+    def define_malloc_struct_of_gcptr(cls):
+        S1 = lltype.GcStruct('S', ('x', lltype.Signed))
+        S = lltype.GcStruct('S',
+                                 ('x', lltype.Signed),
+                                 ('filed1', lltype.Ptr(S1)),
+                                 ('filed2', lltype.Ptr(S1)))
+        s0 = lltype.malloc(S)
+        def f():
+            return (s0.filed1 == lltype.nullptr(S1) and s0.filed2 == lltype.nullptr(S1))
+        return f
+
+    def test_malloc_struct_of_gcptr(self):
+        run = self.runner("malloc_struct_of_gcptr")
+        res = run([])
+        assert res
+
+    def define_gc_hooks(cls):
+        gchooks = cls.gchooks
+        # it is important that we fish .stats OUTSIDE f(); we cannot see
+        # gchooks from within RPython code
+        stats = gchooks.stats
+        def f():
+            stats.reset()
+            # trigger two major collections
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return (10000 * stats.collects +
+                      100 * stats.steps +
+                        1 * stats.minors)
+        return f
+
+    def test_gc_hooks(self):
+        run = self.runner("gc_hooks")
+        count = run([])
+        collects, count = divmod(count, 10000)
+        steps, minors = divmod(count, 100)
+        #
+        # note: the following asserts are slightly fragile, as they assume
+        # that we do NOT run any minor collection apart the ones triggered by
+        # major_collection_step
+        assert collects == 2           # 2 collections, manually triggered
+        assert steps == 4 * collects   # 4 steps for each major collection
+        assert minors == steps         # one minor collection for each step
 
 # ________________________________________________________________
 # tagged pointers
@@ -1350,6 +1570,22 @@ class TaggedPointerGCTests(GCTest):
         res = func([])
         assert res == -1999
 
+    def define_gettypeid(cls):
+        class A(object):
+            pass
+
+        def fn():
+            a = A()
+            return rgc.get_typeid(a)
+
+        return fn
+
+    def test_gettypeid(self):
+        func = self.runner("gettypeid")
+        res = func([])
+        print res
+
+
 from rpython.rlib.objectmodel import UnboxedValue
 
 class TaggedBase(object):
@@ -1381,3 +1617,6 @@ class TestHybridTaggedPointerGC(TaggedPointerGCTests):
                          'nursery_size': 32*WORD,
                          'translated_to_c': False}
             root_stack_depth = 200
+
+    def test_gettypeid(self):
+        py.test.skip("fails for obscure reasons")

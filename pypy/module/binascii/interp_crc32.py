@@ -9,4 +9,4 @@ def crc32(space, data, oldcrc=0):
 
     crc = rzipfile.crc32(data, r_uint(oldcrc))
     crc = rffi.cast(rffi.INT, crc)    # unsigned => 32-bit signed
-    return space.wrap(intmask(crc))
+    return space.newint(intmask(crc))

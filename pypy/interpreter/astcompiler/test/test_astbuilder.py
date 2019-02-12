@@ -1096,7 +1096,7 @@ class TestAstBuilder:
         s = self.get_first_expr("'hi' ' implicitly' ' extra'")
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap("hi implicitly extra"))
-        sentence = u"Die Männer ärgen sich!"
+        sentence = u"Die Männer ärgern sich!"
         source = u"# coding: utf-7\nstuff = u'%s'" % (sentence,)
         info = pyparse.CompileInfo("<test>", "exec")
         tree = self.parser.parse_source(source.encode("utf-7"), info)
@@ -1240,3 +1240,21 @@ class TestAstBuilder:
         if1, if2 = comps[0].ifs
         assert isinstance(if1, ast.Name)
         assert isinstance(if2, ast.Name)
+
+    def test_decode_error_in_string_literal(self):
+        input = "u'\\x'"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
+                           " bytes in position 0-1: truncated \\xXX escape")
+        input = "u'\\x1'"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
+                           " bytes in position 0-2: truncated \\xXX escape")
+
+    def test_decode_error_in_string_literal_correct_line(self):
+        input = "u'a' u'b'\\\n u'c' u'\\x'"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
+                           " bytes in position 0-1: truncated \\xXX escape")
+        assert exc.lineno == 2
+        assert exc.offset == 6

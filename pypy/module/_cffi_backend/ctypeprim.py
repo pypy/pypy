@@ -5,12 +5,12 @@ Primitives.
 import sys
 
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
-from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rfficache
 
 from pypy.interpreter.error import oefmt
-from pypy.module._cffi_backend import cdataobj, misc
+from pypy.module._cffi_backend import cdataobj, misc, wchar_helper
 from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
@@ -25,14 +25,14 @@ class W_CTypePrimitive(W_CType):
 
     def extra_repr(self, cdata):
         w_ob = self.convert_to_object(cdata)
-        return self.space.str_w(self.space.repr(w_ob))
+        return self.space.text_w(self.space.repr(w_ob))
 
     def _alignof(self):
         return self.align
 
     def cast_str(self, w_ob):
         space = self.space
-        s = space.str_w(w_ob)
+        s = space.bytes_w(w_ob)
         if len(s) != 1:
             raise oefmt(space.w_TypeError,
                         "cannot cast string of length %d to ctype '%s'",
@@ -42,20 +42,23 @@ class W_CTypePrimitive(W_CType):
     def cast_unicode(self, w_ob):
         space = self.space
         s = space.unicode_w(w_ob)
-        if len(s) != 1:
+        try:
+            ordinal = wchar_helper.unicode_to_ordinal(s)
+        except ValueError:
             raise oefmt(space.w_TypeError,
                         "cannot cast unicode string of length %d to ctype '%s'",
                         len(s), self.name)
-        return ord(s[0])
+        return intmask(ordinal)
 
     def cast(self, w_ob):
         from pypy.module._cffi_backend import ctypeptr
         space = self.space
         if (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, ctypeptr.W_CTypePtrOrArray)):
-            value = rffi.cast(lltype.Signed, w_ob._cdata)
+            ptr = w_ob.unsafe_escaping_ptr()
+            value = rffi.cast(lltype.Signed, ptr)
             value = self._cast_result(value)
-        elif space.isinstance_w(w_ob, space.w_str):
+        elif space.isinstance_w(w_ob, space.w_bytes):
             value = self.cast_str(w_ob)
             value = self._cast_result(value)
         elif space.isinstance_w(w_ob, space.w_unicode):
@@ -63,7 +66,7 @@ class W_CTypePrimitive(W_CType):
             value = self._cast_result(value)
         else:
             value = self._cast_generic(w_ob)
-        w_cdata = cdataobj.W_CDataMem(space, self.size, self)
+        w_cdata = cdataobj.W_CDataMem(space, self)
         self.write_raw_integer_data(w_cdata, value)
         return w_cdata
 
@@ -75,16 +78,35 @@ class W_CTypePrimitive(W_CType):
 
     def _overflow(self, w_ob):
         space = self.space
-        s = space.str_w(space.str(w_ob))
+        s = space.text_w(space.str(w_ob))
         raise oefmt(space.w_OverflowError,
                     "integer %s does not fit '%s'", s, self.name)
 
     def string(self, cdataobj, maxlen):
         if self.size == 1:
-            s = cdataobj._cdata[0]
-            keepalive_until_here(cdataobj)
-            return self.space.wrap(s)
+            with cdataobj as ptr:
+                s = ptr[0]
+            return self.space.newbytes(s)
         return W_CType.string(self, cdataobj, maxlen)
+
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        result = self.unpack_list_of_int_items(ptr, length)
+        if result is not None:
+            return self.space.newlist_int(result)
+        return W_CType.unpack_ptr(self, w_ctypeptr, ptr, length)
+
+    def nonzero(self, cdata):
+        if self.size <= rffi.sizeof(lltype.Signed):
+            value = misc.read_raw_long_data(cdata, self.size)
+            return value != 0
+        else:
+            return self._nonzero_longlong(cdata)
+
+    def _nonzero_longlong(self, cdata):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.read_raw_signed_data(cdata, self.size)
+        return bool(value)
+
 
 class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
     _attrs_ = []
@@ -100,79 +122,123 @@ class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
 
 class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
-    cast_anything = True
 
     def cast_to_int(self, cdata):
-        return self.space.wrap(ord(cdata[0]))
+        return self.space.newint(ord(cdata[0]))
 
     def convert_to_object(self, cdata):
-        return self.space.wrap(cdata[0])
+        return self.space.newbytes(cdata[0])
 
     def _convert_to_char(self, w_ob):
         space = self.space
-        if space.isinstance_w(w_ob, space.w_str):
-            s = space.str_w(w_ob)
+        if space.isinstance_w(w_ob, space.w_bytes):
+            s = space.bytes_w(w_ob)
             if len(s) == 1:
                 return s[0]
         if (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, W_CTypePrimitiveChar)):
-            return w_ob._cdata[0]
+            with w_ob as ptr:
+                return ptr[0]
         raise self._convert_error("string of length 1", w_ob)
 
     def convert_from_object(self, cdata, w_ob):
         value = self._convert_to_char(w_ob)
         cdata[0] = value
 
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        s = rffi.charpsize2str(ptr, length)
+        return self.space.newbytes(s)
+
 
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
-    _attrs_ = []
+    _attrs_            = ['is_signed_wchar']
+    _immutable_fields_ = ['is_signed_wchar']
+
+    _wchar_is_signed = rfficache.signof_c_type('wchar_t')
+
+    def __init__(self, space, size, name, name_position, align):
+        W_CTypePrimitiveCharOrUniChar.__init__(self, space, size, name,
+                                               name_position, align)
+        self.is_signed_wchar = self._wchar_is_signed and (name == "wchar_t")
+        # "char16_t" and "char32_t" are always unsigned
 
     def cast_to_int(self, cdata):
-        unichardata = rffi.cast(rffi.CWCHARP, cdata)
-        return self.space.wrap(ord(unichardata[0]))
+        if self.is_signed_wchar:
+            value = misc.read_raw_long_data(cdata, self.size)
+            return self.space.newint(value)
+        else:
+            value = misc.read_raw_ulong_data(cdata, self.size)
+            if self.size < rffi.sizeof(lltype.Signed):
+                return self.space.newint(intmask(value))
+            else:
+                return self.space.newint(value)    # r_uint => 'long' object
 
     def convert_to_object(self, cdata):
-        unichardata = rffi.cast(rffi.CWCHARP, cdata)
-        s = rffi.wcharpsize2unicode(unichardata, 1)
-        return self.space.wrap(s)
+        if self.is_signed_wchar:
+            unichardata = rffi.cast(rffi.CWCHARP, cdata)
+            return self.space.newunicode(unichardata[0])
+        else:
+            value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
+            try:
+                u = wchar_helper.ordinal_to_unicode(value)
+            except wchar_helper.OutOfRange as e:
+                raise oefmt(self.space.w_ValueError,
+                            "char32_t out of range for "
+                            "conversion to unicode: %s", hex(e.ordinal))
+            return self.space.newunicode(u)
 
     def string(self, cdataobj, maxlen):
-        w_res = self.convert_to_object(cdataobj._cdata)
-        keepalive_until_here(cdataobj)
+        with cdataobj as ptr:
+            w_res = self.convert_to_object(ptr)
         return w_res
 
-    def _convert_to_unichar(self, w_ob):
+    def _convert_to_charN_t(self, w_ob):
+        # returns a r_uint.  If self.size == 2, it is smaller than 0x10000
         space = self.space
         if space.isinstance_w(w_ob, space.w_unicode):
-            s = space.unicode_w(w_ob)
-            if len(s) == 1:
-                return s[0]
-        if (isinstance(w_ob, cdataobj.W_CData) and
-               isinstance(w_ob.ctype, W_CTypePrimitiveUniChar)):
-            return rffi.cast(rffi.CWCHARP, w_ob._cdata)[0]
+            u = space.unicode_w(w_ob)
+            try:
+                ordinal = wchar_helper.unicode_to_ordinal(u)
+            except ValueError:
+                pass
+            else:
+                if self.size == 2 and ordinal > 0xffff:
+                    raise self._convert_error("single character <= 0xFFFF",
+                                              w_ob)
+                return ordinal
+        elif (isinstance(w_ob, cdataobj.W_CData) and
+               isinstance(w_ob.ctype, W_CTypePrimitiveUniChar) and
+               w_ob.ctype.size == self.size):
+            with w_ob as ptr:
+                return misc.read_raw_ulong_data(ptr, self.size)
         raise self._convert_error("unicode string of length 1", w_ob)
 
     def convert_from_object(self, cdata, w_ob):
-        value = self._convert_to_unichar(w_ob)
-        rffi.cast(rffi.CWCHARP, cdata)[0] = value
+        ordinal = self._convert_to_charN_t(w_ob)
+        misc.write_raw_unsigned_data(cdata, ordinal, self.size)
+
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        if self.size == 2:
+            u = wchar_helper.unicode_from_char16(ptr, length)
+        else:
+            try:
+                u = wchar_helper.unicode_from_char32(ptr, length)
+            except wchar_helper.OutOfRange as e:
+                raise oefmt(self.space.w_ValueError,
+                            "char32_t out of range for "
+                            "conversion to unicode: %s", hex(e.ordinal))
+        return self.space.newunicode(u)
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
-    _attrs_            = ['value_fits_long', 'vmin', 'vrangemax']
-    _immutable_fields_ = ['value_fits_long', 'vmin', 'vrangemax']
+    _attrs_            = ['value_fits_long', 'value_smaller_than_long']
+    _immutable_fields_ = ['value_fits_long', 'value_smaller_than_long']
     is_primitive_integer = True
 
     def __init__(self, *args):
         W_CTypePrimitive.__init__(self, *args)
         self.value_fits_long = self.size <= rffi.sizeof(lltype.Signed)
-        if self.size < rffi.sizeof(lltype.Signed):
-            assert self.value_fits_long
-            sh = self.size * 8
-            self.vmin = r_uint(-1) << (sh - 1)
-            self.vrangemax = (r_uint(1) << sh) - 1
-        else:
-            self.vmin = r_uint(0)
-            self.vrangemax = r_uint(-1)
+        self.value_smaller_than_long = self.size < rffi.sizeof(lltype.Signed)
 
     def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
@@ -180,21 +246,29 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def convert_to_object(self, cdata):
         if self.value_fits_long:
             value = misc.read_raw_long_data(cdata, self.size)
-            return self.space.wrap(value)
+            return self.space.newint(value)
         else:
-            value = misc.read_raw_signed_data(cdata, self.size)
-            return self.space.wrap(value)    # r_longlong => on 32-bit, 'long'
+            return self._convert_to_object_longlong(cdata)
+
+    def _convert_to_object_longlong(self, cdata):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.read_raw_signed_data(cdata, self.size)
+        return self.space.newint(value)    # r_longlong => on 32-bit, 'long'
 
     def convert_from_object(self, cdata, w_ob):
         if self.value_fits_long:
             value = misc.as_long(self.space, w_ob)
-            if self.size < rffi.sizeof(lltype.Signed):
-                if r_uint(value) - self.vmin > self.vrangemax:
+            if self.value_smaller_than_long:
+                if value != misc.signext(value, self.size):
                     self._overflow(w_ob)
             misc.write_raw_signed_data(cdata, value, self.size)
         else:
-            value = misc.as_long_long(self.space, w_ob)
-            misc.write_raw_signed_data(cdata, value, self.size)
+            self._convert_from_object_longlong(cdata, w_ob)
+
+    def _convert_from_object_longlong(self, cdata, w_ob):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.as_long_long(self.space, w_ob)
+        misc.write_raw_signed_data(cdata, value, self.size)
 
     def get_vararg_type(self):
         if self.size < rffi.sizeof(rffi.INT):
@@ -205,34 +279,35 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def write_raw_integer_data(self, w_cdata, value):
         w_cdata.write_raw_signed_data(value)
 
-    def unpack_list_of_int_items(self, w_cdata):
+    def unpack_list_of_int_items(self, ptr, length):
         if self.size == rffi.sizeof(rffi.LONG):
             from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
-            buf = rffi.cast(rffi.LONGP, w_cdata._cdata)
-            length = w_cdata.get_array_length()
+            buf = rffi.cast(rffi.LONGP, ptr)
             populate_list_from_raw_array(res, buf, length)
             return res
-        elif self.value_fits_long:
-            res = [0] * w_cdata.get_array_length()
-            misc.unpack_list_from_raw_array(res, w_cdata._cdata, self.size)
+        elif self.value_smaller_than_long:
+            res = [0] * length
+            misc.unpack_list_from_raw_array(res, ptr, self.size)
             return res
         return None
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         int_list = self.space.listview_int(w_ob)
-        if int_list is not None:
+        if (int_list is not None and
+                self._within_bounds(len(int_list), expected_length)):
             if self.size == rffi.sizeof(rffi.LONG): # fastest path
                 from rpython.rlib.rrawarray import copy_list_to_raw_array
                 cdata = rffi.cast(rffi.LONGP, cdata)
                 copy_list_to_raw_array(int_list, cdata)
             else:
-                overflowed = misc.pack_list_to_raw_array_bounds(
-                    int_list, cdata, self.size, self.vmin, self.vrangemax)
+                overflowed = misc.pack_list_to_raw_array_bounds_signed(
+                    int_list, cdata, self.size)
                 if overflowed != 0:
-                    self._overflow(self.space.wrap(overflowed))
+                    self._overflow(self.space.newint(overflowed))
             return True
-        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob,
+                                                   expected_length)
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
@@ -264,19 +339,27 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
                     self._overflow(w_ob)
             misc.write_raw_unsigned_data(cdata, value, self.size)
         else:
-            value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
-            misc.write_raw_unsigned_data(cdata, value, self.size)
+            self._convert_from_object_longlong(cdata, w_ob)
+
+    def _convert_from_object_longlong(self, cdata, w_ob):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
+        misc.write_raw_unsigned_data(cdata, value, self.size)
 
     def convert_to_object(self, cdata):
         if self.value_fits_ulong:
             value = misc.read_raw_ulong_data(cdata, self.size)
             if self.value_fits_long:
-                return self.space.wrap(intmask(value))
+                return self.space.newint(intmask(value))
             else:
-                return self.space.wrap(value)    # r_uint => 'long' object
+                return self.space.newint(value)    # r_uint => 'long' object
         else:
-            value = misc.read_raw_unsigned_data(cdata, self.size)
-            return self.space.wrap(value)    # r_ulonglong => 'long' object
+            return self._convert_to_object_longlong(cdata)
+
+    def _convert_to_object_longlong(self, cdata):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.read_raw_unsigned_data(cdata, self.size)
+        return self.space.newint(value)    # r_ulonglong => 'long' object
 
     def get_vararg_type(self):
         if self.size < rffi.sizeof(rffi.INT):
@@ -287,23 +370,24 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
     def write_raw_integer_data(self, w_cdata, value):
         w_cdata.write_raw_unsigned_data(value)
 
-    def unpack_list_of_int_items(self, w_cdata):
+    def unpack_list_of_int_items(self, ptr, length):
         if self.value_fits_long:
-            res = [0] * w_cdata.get_array_length()
-            misc.unpack_unsigned_list_from_raw_array(res, w_cdata._cdata,
-                                                     self.size)
+            res = [0] * length
+            misc.unpack_unsigned_list_from_raw_array(res, ptr, self.size)
             return res
         return None
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         int_list = self.space.listview_int(w_ob)
-        if int_list is not None:
-            overflowed = misc.pack_list_to_raw_array_bounds(
-                int_list, cdata, self.size, r_uint(0), self.vrangemax)
+        if (int_list is not None and
+                self._within_bounds(len(int_list), expected_length)):
+            overflowed = misc.pack_list_to_raw_array_bounds_unsigned(
+                int_list, cdata, self.size, self.vrangemax)
             if overflowed != 0:
-                self._overflow(self.space.wrap(overflowed))
+                self._overflow(self.space.newint(overflowed))
             return True
-        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob,
+                                                   expected_length)
 
 
 class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
@@ -322,6 +406,19 @@ class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
         # bypass the method 'string' implemented in W_CTypePrimitive
         return W_CType.string(self, cdataobj, maxlen)
 
+    def convert_to_object(self, cdata):
+        space = self.space
+        value = ord(cdata[0])
+        if value < 2:
+            return space.newbool(value != 0)
+        else:
+            raise oefmt(space.w_ValueError,
+                        "got a _Bool of value %d, expected 0 or 1",
+                        value)
+
+    def unpack_list_of_int_items(self, ptr, length):
+        return None
+
 
 class W_CTypePrimitiveFloat(W_CTypePrimitive):
     _attrs_ = []
@@ -335,18 +432,18 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
                             w_ob.ctype.name, self.name)
             w_ob = w_ob.convert_to_object()
         #
-        if space.isinstance_w(w_ob, space.w_str):
+        if space.isinstance_w(w_ob, space.w_bytes):
             value = self.cast_str(w_ob)
         elif space.isinstance_w(w_ob, space.w_unicode):
             value = self.cast_unicode(w_ob)
         else:
             value = space.float_w(w_ob)
-        w_cdata = cdataobj.W_CDataMem(space, self.size, self)
+        w_cdata = cdataobj.W_CDataMem(space, self)
         if not isinstance(self, W_CTypePrimitiveLongDouble):
             w_cdata.write_raw_float_data(value)
         else:
-            self._to_longdouble_and_write(value, w_cdata._cdata)
-            keepalive_until_here(w_cdata)
+            with w_cdata as ptr:
+                self._to_longdouble_and_write(value, ptr)
         return w_cdata
 
     def cast_to_int(self, cdata):
@@ -358,30 +455,30 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
 
     def convert_to_object(self, cdata):
         value = misc.read_raw_float_data(cdata, self.size)
-        return self.space.wrap(value)
+        return self.space.newfloat(value)
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
         value = space.float_w(space.float(w_ob))
         misc.write_raw_float_data(cdata, value, self.size)
 
-    def unpack_list_of_float_items(self, w_cdata):
+    def unpack_list_of_float_items(self, ptr, length):
         if self.size == rffi.sizeof(rffi.DOUBLE):
             from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
-            buf = rffi.cast(rffi.DOUBLEP, w_cdata._cdata)
-            length = w_cdata.get_array_length()
+            buf = rffi.cast(rffi.DOUBLEP, ptr)
             populate_list_from_raw_array(res, buf, length)
             return res
         elif self.size == rffi.sizeof(rffi.FLOAT):
-            res = [0.0] * w_cdata.get_array_length()
-            misc.unpack_cfloat_list_from_raw_array(res, w_cdata._cdata)
+            res = [0.0] * length
+            misc.unpack_cfloat_list_from_raw_array(res, ptr)
             return res
         return None
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         float_list = self.space.listview_float(w_ob)
-        if float_list is not None:
+        if (float_list is not None and
+                self._within_bounds(len(float_list), expected_length)):
             if self.size == rffi.sizeof(rffi.DOUBLE):   # fastest path
                 from rpython.rlib.rrawarray import copy_list_to_raw_array
                 cdata = rffi.cast(rffi.DOUBLEP, cdata)
@@ -391,11 +488,22 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
                 misc.pack_float_list_to_raw_array(float_list, cdata,
                                                   rffi.FLOAT, rffi.FLOATP)
                 return True
-        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob,
+                                                   expected_length)
+
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        result = self.unpack_list_of_float_items(ptr, length)
+        if result is not None:
+            return self.space.newlist_float(result)
+        return W_CType.unpack_ptr(self, w_ctypeptr, ptr, length)
+
+    def nonzero(self, cdata):
+        return misc.is_nonnull_float(cdata, self.size)
 
 
 class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     _attrs_ = []
+    is_indirect_arg_for_call_python = True
 
     @jit.dont_look_inside
     def extra_repr(self, cdata):
@@ -405,8 +513,8 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     def cast(self, w_ob):
         if (isinstance(w_ob, cdataobj.W_CData) and
                 isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble)):
-            w_cdata = self.convert_to_object(w_ob._cdata)
-            keepalive_until_here(w_ob)
+            with w_ob as ptr:
+                w_cdata = self.convert_to_object(ptr)
             return w_cdata
         else:
             return W_CTypePrimitiveFloat.cast(self, w_ob)
@@ -429,20 +537,20 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
 
     def float(self, cdata):
         value = self._read_from_longdouble(cdata)
-        return self.space.wrap(value)
+        return self.space.newfloat(value)
 
     def convert_to_object(self, cdata):
-        w_cdata = cdataobj.W_CDataMem(self.space, self.size, self)
-        self._copy_longdouble(cdata, w_cdata._cdata)
-        keepalive_until_here(w_cdata)
+        w_cdata = cdataobj.W_CDataMem(self.space, self)
+        with w_cdata as ptr:
+            self._copy_longdouble(cdata, ptr)
         return w_cdata
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
         if (isinstance(w_ob, cdataobj.W_CData) and
                 isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble)):
-            self._copy_longdouble(w_ob._cdata, cdata)
-            keepalive_until_here(w_ob)
+            with w_ob as ptr:
+                self._copy_longdouble(ptr, cdata)
         else:
             value = space.float_w(space.float(w_ob))
             self._to_longdouble_and_write(value, cdata)
@@ -451,10 +559,64 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     # 'list(array-of-longdouble)' returns a list of cdata objects,
     # not a list of floats.
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         float_list = self.space.listview_float(w_ob)
-        if float_list is not None:
+        if (float_list is not None and
+                self._within_bounds(len(float_list), expected_length)):
             misc.pack_float_list_to_raw_array(float_list, cdata,
                                              rffi.LONGDOUBLE, rffi.LONGDOUBLEP)
             return True
-        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob,
+                                                   expected_length)
+
+    @jit.dont_look_inside
+    def nonzero(self, cdata):
+        return misc.is_nonnull_longdouble(cdata)
+
+
+class W_CTypePrimitiveComplex(W_CTypePrimitive):
+    _attrs_ = []
+
+    def cast(self, w_ob):
+        space = self.space
+        if isinstance(w_ob, cdataobj.W_CData):
+            if not isinstance(w_ob.ctype, W_CTypePrimitive):
+                raise oefmt(space.w_TypeError,
+                            "cannot cast ctype '%s' to ctype '%s'",
+                            w_ob.ctype.name, self.name)
+            w_ob = w_ob.convert_to_object()
+        #
+        imag = 0.0
+        if space.isinstance_w(w_ob, space.w_bytes):
+            real = self.cast_str(w_ob)
+        elif space.isinstance_w(w_ob, space.w_unicode):
+            real = self.cast_unicode(w_ob)
+        else:
+            real, imag = space.unpackcomplex(w_ob)
+        w_cdata = cdataobj.W_CDataMem(space, self)
+        w_cdata.write_raw_complex_data(real, imag)
+        return w_cdata
+
+    def complex(self, cdata):
+        return self.convert_to_object(cdata)
+
+    def convert_to_object(self, cdata):
+        halfsize = self.size >> 1
+        cdata2 = rffi.ptradd(cdata, halfsize)
+        real = misc.read_raw_float_data(cdata, halfsize)
+        imag = misc.read_raw_float_data(cdata2, halfsize)
+        return self.space.newcomplex(real, imag)
+
+    def convert_from_object(self, cdata, w_ob):
+        space = self.space
+        real, imag = space.unpackcomplex(w_ob)
+        halfsize = self.size >> 1
+        cdata2 = rffi.ptradd(cdata, halfsize)
+        misc.write_raw_float_data(cdata,  real, halfsize)
+        misc.write_raw_float_data(cdata2, imag, halfsize)
+
+    def nonzero(self, cdata):
+        halfsize = self.size >> 1
+        cdata2 = rffi.ptradd(cdata, halfsize)
+        return (misc.is_nonnull_float(cdata, halfsize) |
+                misc.is_nonnull_float(cdata2, halfsize))

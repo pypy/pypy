@@ -3,14 +3,14 @@ import os
 import sys
 import time
 
-from rpython.rlib import rgc, rthread
+from rpython.rlib import jit, rgc, rthread
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.module._multiprocessing.interp_connection import w_handle
@@ -26,12 +26,14 @@ if sys.platform == 'win32':
 
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
-        rwin32.HANDLE)
-    _CloseHandle = rwin32.winexternal('CloseHandle', [rwin32.HANDLE],
+        rwin32.HANDLE,
+        save_err=rffi.RFFI_FULL_LASTERROR)
+    _CloseHandle_no_errno = rwin32.winexternal('CloseHandle', [rwin32.HANDLE],
         rwin32.BOOL, releasegil=False)
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
-        rwin32.BOOL)
+        rwin32.BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
 else:
     from rpython.rlib import rposix
@@ -55,7 +57,7 @@ else:
         TIMESPEC = platform.Struct('struct timespec', [('tv_sec', rffi.TIME_T),
                                                        ('tv_nsec', rffi.LONG)])
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
-        SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
+        SEM_VALUE_MAX = platform.DefinedConstantInteger('SEM_VALUE_MAX')
         SEM_TIMED_WAIT = platform.Has('sem_timedwait')
         SEM_T_SIZE = platform.SizeOf('sem_t')
 
@@ -68,6 +70,8 @@ else:
     #                rffi.cast(SEM_T, config['SEM_FAILED'])
     SEM_FAILED     = config['SEM_FAILED']
     SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
+    if SEM_VALUE_MAX is None:      # on Hurd
+        SEM_VALUE_MAX = sys.maxint
     SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
     SEM_T_SIZE = config['SEM_T_SIZE']
     if sys.platform == 'darwin':
@@ -81,50 +85,61 @@ else:
 
     _sem_open = external('sem_open',
                          [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
-                         SEM_T)
+                         SEM_T, save_err=rffi.RFFI_SAVE_ERRNO)
     # sem_close is releasegil=False to be able to use it in the __del__
-    _sem_close = external('sem_close', [SEM_T], rffi.INT, releasegil=False)
-    _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
-    _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
-    _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)
-    _sem_post = external('sem_post', [SEM_T], rffi.INT)
-    _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT)
+    _sem_close_no_errno = external('sem_close', [SEM_T], rffi.INT,
+                                   releasegil=False)
+    _sem_close = external('sem_close', [SEM_T], rffi.INT, releasegil=False,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_wait = external('sem_wait', [SEM_T], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT,
+                            save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_post = external('sem_post', [SEM_T], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT,
+                             save_err=rffi.RFFI_SAVE_ERRNO)
 
-    _gettimeofday = external('gettimeofday', [TIMEVALP, rffi.VOIDP], rffi.INT)
+    _gettimeofday = external('gettimeofday', [TIMEVALP, rffi.VOIDP], rffi.INT,
+                             save_err=rffi.RFFI_SAVE_ERRNO)
 
     _select = external('select', [rffi.INT, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP,
-                                                          TIMEVALP], rffi.INT)
+                                                          TIMEVALP], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @jit.dont_look_inside
     def sem_open(name, oflag, mode, value):
         res = _sem_open(name, oflag, mode, value)
         if res == rffi.cast(SEM_T, SEM_FAILED):
-            raise OSError(rposix.get_errno(), "sem_open failed")
+            raise OSError(rposix.get_saved_errno(), "sem_open failed")
         return res
 
     def sem_close(handle):
         res = _sem_close(handle)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_close failed")
+            raise OSError(rposix.get_saved_errno(), "sem_close failed")
 
     def sem_unlink(name):
         res = _sem_unlink(name)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_unlink failed")
+            raise OSError(rposix.get_saved_errno(), "sem_unlink failed")
 
     def sem_wait(sem):
         res = _sem_wait(sem)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_wait failed")
+            raise OSError(rposix.get_saved_errno(), "sem_wait failed")
 
     def sem_trywait(sem):
         res = _sem_trywait(sem)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_trywait failed")
+            raise OSError(rposix.get_saved_errno(), "sem_trywait failed")
 
     def sem_timedwait(sem, deadline):
         res = _sem_timedwait(sem, deadline)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_timedwait failed")
+            raise OSError(rposix.get_saved_errno(), "sem_timedwait failed")
 
     def _sem_timedwait_save(sem, deadline):
         delay = 0
@@ -134,7 +149,7 @@ else:
                 # poll
                 if _sem_trywait(sem) == 0:
                     return 0
-                elif rposix.get_errno() != errno.EAGAIN:
+                elif rposix.get_saved_errno() != errno.EAGAIN:
                     return -1
 
                 now = gettimeofday()
@@ -142,7 +157,7 @@ else:
                 c_tv_nsec = rffi.getintfield(deadline[0], 'c_tv_nsec')
                 if (c_tv_sec < now[0] or
                     (c_tv_sec == now[0] and c_tv_nsec <= now[1])):
-                    rposix.set_errno(errno.ETIMEDOUT)
+                    rposix.set_saved_errno(errno.ETIMEDOUT)
                     return -1
 
 
@@ -165,21 +180,21 @@ else:
 
     if SEM_TIMED_WAIT:
         _sem_timedwait = external('sem_timedwait', [SEM_T, TIMESPECP],
-                                  rffi.INT)
+                                  rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
     else:
         _sem_timedwait = _sem_timedwait_save
 
     def sem_post(sem):
         res = _sem_post(sem)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_post failed")
+            raise OSError(rposix.get_saved_errno(), "sem_post failed")
 
     def sem_getvalue(sem):
         sval_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
             res = _sem_getvalue(sem, sval_ptr)
             if res < 0:
-                raise OSError(rposix.get_errno(), "sem_getvalue failed")
+                raise OSError(rposix.get_saved_errno(), "sem_getvalue failed")
             return rffi.cast(lltype.Signed, sval_ptr[0])
         finally:
             lltype.free(sval_ptr, flavor='raw')
@@ -189,7 +204,7 @@ else:
         try:
             res = _gettimeofday(now, None)
             if res < 0:
-                raise OSError(rposix.get_errno(), "gettimeofday failed")
+                raise OSError(rposix.get_saved_errno(), "gettimeofday failed")
             return (rffi.getintfield(now[0], 'c_tv_sec'),
                     rffi.getintfield(now[0], 'c_tv_usec'))
         finally:
@@ -215,18 +230,16 @@ class CounterState:
 
 if sys.platform == 'win32':
     def create_semaphore(space, name, val, max):
-        rwin32.SetLastError(0)
+        rwin32.SetLastError_saved(0)
         handle = _CreateSemaphore(rffi.NULL, val, max, rffi.NULL)
         # On Windows we should fail on ERROR_ALREADY_EXISTS
-        err = rwin32.GetLastError()
+        err = rwin32.GetLastError_saved()
         if err != 0:
             raise WindowsError(err, "CreateSemaphore")
         return handle
 
     def delete_semaphore(handle):
-        if not _CloseHandle(handle):
-            err = rwin32.GetLastError()
-            raise WindowsError(err, "CloseHandle")
+        _CloseHandle_no_errno(handle)
 
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
@@ -239,8 +252,7 @@ if sys.platform == 'win32':
             if timeout < 0.0:
                 timeout = 0.0
             elif timeout >= 0.5 * rwin32.INFINITE: # 25 days
-                raise OperationError(space.w_OverflowError,
-                                     space.wrap("timeout is too large"))
+                raise oefmt(space.w_OverflowError, "timeout is too large")
             full_msecs = r_uint(int(timeout + 0.5))
 
         # check whether we can acquire without blocking
@@ -253,7 +265,7 @@ if sys.platform == 'win32':
         start = _GetTickCount()
 
         while True:
-            from pypy.module.rctime.interp_time import State
+            from pypy.module.time.interp_time import State
             interrupt_event = space.fromcache(State).get_interrupt_event()
             handles = [self.handle, interrupt_event]
 
@@ -285,11 +297,10 @@ if sys.platform == 'win32':
     def semlock_release(self, space):
         if not _ReleaseSemaphore(self.handle, 1,
                                  lltype.nullptr(rffi.LONGP.TO)):
-            err = rwin32.GetLastError()
+            err = rwin32.GetLastError_saved()
             if err == 0x0000012a: # ERROR_TOO_MANY_POSTS
-                raise OperationError(
-                    space.w_ValueError,
-                    space.wrap("semaphore or lock released too many times"))
+                raise oefmt(space.w_ValueError,
+                            "semaphore or lock released too many times")
             else:
                 raise WindowsError(err, "ReleaseSemaphore")
 
@@ -299,7 +310,7 @@ if sys.platform == 'win32':
         previous_ptr = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
         try:
             if not _ReleaseSemaphore(self.handle, 1, previous_ptr):
-                raise rwin32.lastWindowsError("ReleaseSemaphore")
+                raise rwin32.lastSavedWindowsError("ReleaseSemaphore")
             return previous_ptr[0] + 1
         finally:
             lltype.free(previous_ptr, flavor='raw')
@@ -319,7 +330,7 @@ else:
         return sem
 
     def delete_semaphore(handle):
-        sem_close(handle)
+        _sem_close_no_errno(handle)
 
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
@@ -350,9 +361,10 @@ else:
                         sem_wait(self.handle)
                     else:
                         sem_timedwait(self.handle, deadline)
-                except OSError, e:
+                except OSError as e:
                     if e.errno == errno.EINTR:
                         # again
+                        _check_signals(space)
                         continue
                     elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
                         return False
@@ -375,30 +387,28 @@ else:
                 # make sure that already locked
                 try:
                     sem_trywait(self.handle)
-                except OSError, e:
+                except OSError as e:
                     if e.errno != errno.EAGAIN:
                         raise
                     # it is already locked as expected
                 else:
                     # it was not locked so undo wait and raise
                     sem_post(self.handle)
-                    raise OperationError(
-                        space.w_ValueError, space.wrap(
-                            "semaphore or lock released too many times"))
+                    raise oefmt(space.w_ValueError,
+                                "semaphore or lock released too many times")
         else:
             # This check is not an absolute guarantee that the semaphore does
             # not rise above maxvalue.
             if sem_getvalue(self.handle) >= self.maxvalue:
-                raise OperationError(
-                    space.w_ValueError, space.wrap(
-                    "semaphore or lock released too many times"))
+                raise oefmt(space.w_ValueError,
+                            "semaphore or lock released too many times")
 
         sem_post(self.handle)
 
     def semlock_getvalue(self, space):
         if HAVE_BROKEN_SEM_GETVALUE:
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                        'sem_getvalue is not implemented on this system'))
+            raise oefmt(space.w_NotImplementedError,
+                        "sem_getvalue is not implemented on this system")
         else:
             val = sem_getvalue(self.handle)
             # some posix implementations use negative numbers to indicate
@@ -411,7 +421,7 @@ else:
         if HAVE_BROKEN_SEM_GETVALUE:
             try:
                 sem_trywait(self.handle)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EAGAIN:
                     raise
                 return True
@@ -423,11 +433,12 @@ else:
 
 
 class W_SemLock(W_Root):
-    def __init__(self, handle, kind, maxvalue):
+    def __init__(self, space, handle, kind, maxvalue):
         self.handle = handle
         self.kind = kind
         self.count = 0
         self.maxvalue = maxvalue
+        self.register_finalizer(space)
 
     def kind_get(self, space):
         return space.newint(self.kind)
@@ -437,27 +448,27 @@ class W_SemLock(W_Root):
         return w_handle(space, self.handle)
 
     def get_count(self, space):
-        return space.wrap(self.count)
+        return space.newint(self.count)
 
     def _ismine(self):
         return self.count > 0 and rthread.get_ident() == self.last_tid
 
     def is_mine(self, space):
-        return space.wrap(self._ismine())
+        return space.newbool(self._ismine())
 
     def is_zero(self, space):
         try:
             res = semlock_iszero(self, space)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(res)
+        return space.newbool(res)
 
     def get_value(self, space):
         try:
             val = semlock_getvalue(self, space)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(val)
+        return space.newint(val)
 
     @unwrap_spec(block=bool)
     def acquire(self, space, block=True, w_timeout=None):
@@ -468,7 +479,7 @@ class W_SemLock(W_Root):
 
         try:
             got = semlock_acquire(self, space, block, w_timeout)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
 
         if got:
@@ -481,17 +492,16 @@ class W_SemLock(W_Root):
     def release(self, space):
         if self.kind == RECURSIVE_MUTEX:
             if not self._ismine():
-                raise OperationError(
-                    space.w_AssertionError,
-                    space.wrap("attempt to release recursive lock"
-                               " not owned by thread"))
+                raise oefmt(space.w_AssertionError,
+                            "attempt to release recursive lock not owned by "
+                            "thread")
             if self.count > 1:
                 self.count -= 1
                 return
 
         try:
             semlock_release(self, space)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
 
         self.count -= 1
@@ -502,8 +512,8 @@ class W_SemLock(W_Root):
     @unwrap_spec(kind=int, maxvalue=int)
     def rebuild(space, w_cls, w_handle, kind, maxvalue):
         self = space.allocate_instance(W_SemLock, w_cls)
-        self.__init__(handle_w(space, w_handle), kind, maxvalue)
-        return space.wrap(self)
+        self.__init__(space, handle_w(space, w_handle), kind, maxvalue)
+        return self
 
     def enter(self, space):
         return self.acquire(space, w_timeout=space.w_None)
@@ -511,27 +521,26 @@ class W_SemLock(W_Root):
     def exit(self, space, __args__):
         self.release(space)
 
-    def __del__(self):
+    def _finalize_(self):
         delete_semaphore(self.handle)
 
 @unwrap_spec(kind=int, value=int, maxvalue=int)
 def descr_new(space, w_subtype, kind, value, maxvalue):
     if kind != RECURSIVE_MUTEX and kind != SEMAPHORE:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("unrecognized kind"))
+        raise oefmt(space.w_ValueError, "unrecognized kind")
 
     counter = space.fromcache(CounterState).getCount()
     name = "/mp%d-%d" % (os.getpid(), counter)
 
     try:
         handle = create_semaphore(space, name, value, maxvalue)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
     self = space.allocate_instance(W_SemLock, w_subtype)
-    self.__init__(handle, kind, maxvalue)
+    self.__init__(space, handle, kind, maxvalue)
 
-    return space.wrap(self)
+    return self
 
 W_SemLock.typedef = TypeDef(
     "SemLock",

@@ -9,6 +9,5 @@
 #define RPyUnicode_Size(rpu)		((rpu)->ru_chars.length)
 #define _RPyUnicode_AsUnicode(rpu)	((rpu)->ru_chars.items)
 
-char *RPyString_AsCharP(RPyString *rps);
-void RPyString_FreeCache(void);
-RPyString *RPyString_FromString(char *buf);
+RPY_EXTERN char *RPyString_AsCharP(RPyString *rps);
+RPY_EXTERN void RPyString_FreeCache(void);

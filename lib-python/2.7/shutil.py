@@ -259,7 +259,8 @@ def rmtree(path, ignore_errors=False, onerror=None):
 def _basename(path):
     # A basename() variant which first strips the trailing slash, if present.
     # Thus we always get the last component of the path, even for directories.
-    return os.path.basename(path.rstrip(os.path.sep))
+    sep = os.path.sep + (os.path.altsep or '')
+    return os.path.basename(path.rstrip(sep))
 
 def move(src, dst):
     """Recursively move a file or directory to another location. This is
@@ -361,7 +362,7 @@ def _make_tarball(base_name, base_dir, compress="gzip", verbose=0, dry_run=0,
     archive_name = base_name + '.tar' + compress_ext.get(compress, '')
     archive_dir = os.path.dirname(archive_name)
 
-    if not os.path.exists(archive_dir):
+    if archive_dir and not os.path.exists(archive_dir):
         if logger is not None:
             logger.info("creating %s", archive_dir)
         if not dry_run:
@@ -395,17 +396,21 @@ def _make_tarball(base_name, base_dir, compress="gzip", verbose=0, dry_run=0,
 
     return archive_name
 
-def _call_external_zip(base_dir, zip_filename, verbose=False, dry_run=False):
+def _call_external_zip(base_dir, zip_filename, verbose, dry_run, logger):
     # XXX see if we want to keep an external call here
     if verbose:
         zipoptions = "-r"
     else:
         zipoptions = "-rq"
-    from distutils.errors import DistutilsExecError
-    from distutils.spawn import spawn
+    cmd = ["zip", zipoptions, zip_filename, base_dir]
+    if logger is not None:
+        logger.info(' '.join(cmd))
+    if dry_run:
+        return
+    import subprocess
     try:
-        spawn(["zip", zipoptions, zip_filename, base_dir], dry_run=dry_run)
-    except DistutilsExecError:
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError:
         # XXX really should distinguish between "couldn't find
         # external 'zip' command" and "zip failed".
         raise ExecError, \
@@ -425,7 +430,7 @@ def _make_zipfile(base_name, base_dir, verbose=0, dry_run=0, logger=None):
     zip_filename = base_name + ".zip"
     archive_dir = os.path.dirname(base_name)
 
-    if not os.path.exists(archive_dir):
+    if archive_dir and not os.path.exists(archive_dir):
         if logger is not None:
             logger.info("creating %s", archive_dir)
         if not dry_run:
@@ -439,24 +444,32 @@ def _make_zipfile(base_name, base_dir, verbose=0, dry_run=0, logger=None):
         zipfile = None
 
     if zipfile is None:
-        _call_external_zip(base_dir, zip_filename, verbose, dry_run)
+        _call_external_zip(base_dir, zip_filename, verbose, dry_run, logger)
     else:
         if logger is not None:
             logger.info("creating '%s' and adding '%s' to it",
                         zip_filename, base_dir)
 
         if not dry_run:
-            zip = zipfile.ZipFile(zip_filename, "w",
-                                  compression=zipfile.ZIP_DEFLATED)
-
-            for dirpath, dirnames, filenames in os.walk(base_dir):
-                for name in filenames:
-                    path = os.path.normpath(os.path.join(dirpath, name))
-                    if os.path.isfile(path):
-                        zip.write(path, path)
+            with zipfile.ZipFile(zip_filename, "w",
+                                 compression=zipfile.ZIP_DEFLATED) as zf:
+                path = os.path.normpath(base_dir)
+                if path != os.curdir:
+                    zf.write(path, path)
+                    if logger is not None:
+                        logger.info("adding '%s'", path)
+                for dirpath, dirnames, filenames in os.walk(base_dir):
+                    for name in sorted(dirnames):
+                        path = os.path.normpath(os.path.join(dirpath, name))
+                        zf.write(path, path)
                         if logger is not None:
                             logger.info("adding '%s'", path)
-            zip.close()
+                    for name in filenames:
+                        path = os.path.normpath(os.path.join(dirpath, name))
+                        if os.path.isfile(path):
+                            zf.write(path, path)
+                            if logger is not None:
+                                logger.info("adding '%s'", path)
 
     return zip_filename
 

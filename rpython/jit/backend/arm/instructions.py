@@ -142,6 +142,7 @@ float64_data_proc_instructions = {
     #'VCVT' : {'opc1':0xB, 'opc2':0xE, 'opc3':0x1, 'base': False},
 }
 
+# ARMv7 only
 simd_instructions_3regs = {
     'VADD_i64': {'A': 0x8, 'B': 0, 'U': 0},
     'VSUB_i64': {'A': 0x8, 'B': 0, 'U': 1},

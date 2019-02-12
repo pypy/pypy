@@ -41,7 +41,7 @@ class FixerTestCase(support.TestCase):
 
     def warns(self, before, after, message, unchanged=False):
         tree = self._check(before, after)
-        self.assertTrue(message in "".join(self.fixer_log))
+        self.assertIn(message, "".join(self.fixer_log))
         if not unchanged:
             self.assertTrue(tree.was_changed)
 
@@ -258,6 +258,10 @@ class Test_apply(FixerTestCase):
 
     def test_unchanged_6(self):
         s = """apply(f, *args)"""
+        self.unchanged(s)
+
+    def test_unchanged_6b(self):
+        s = """apply(f, **kwds)"""
         self.unchanged(s)
 
     def test_unchanged_7(self):
@@ -2861,98 +2865,6 @@ class Test_unicode(FixerTestCase):
         a = f + """r'\\\\\\u20ac\\U0001d121\\\\u20ac'"""
         self.check(b, a)
 
-class Test_callable(FixerTestCase):
-    fixer = "callable"
-
-    def test_prefix_preservation(self):
-        b = """callable(    x)"""
-        a = """import collections\nisinstance(    x, collections.Callable)"""
-        self.check(b, a)
-
-        b = """if     callable(x): pass"""
-        a = """import collections
-if     isinstance(x, collections.Callable): pass"""
-        self.check(b, a)
-
-    def test_callable_call(self):
-        b = """callable(x)"""
-        a = """import collections\nisinstance(x, collections.Callable)"""
-        self.check(b, a)
-
-    def test_global_import(self):
-        b = """
-def spam(foo):
-    callable(foo)"""[1:]
-        a = """
-import collections
-def spam(foo):
-    isinstance(foo, collections.Callable)"""[1:]
-        self.check(b, a)
-
-        b = """
-import collections
-def spam(foo):
-    callable(foo)"""[1:]
-        # same output if it was already imported
-        self.check(b, a)
-
-        b = """
-from collections import *
-def spam(foo):
-    callable(foo)"""[1:]
-        a = """
-from collections import *
-import collections
-def spam(foo):
-    isinstance(foo, collections.Callable)"""[1:]
-        self.check(b, a)
-
-        b = """
-do_stuff()
-do_some_other_stuff()
-assert callable(do_stuff)"""[1:]
-        a = """
-import collections
-do_stuff()
-do_some_other_stuff()
-assert isinstance(do_stuff, collections.Callable)"""[1:]
-        self.check(b, a)
-
-        b = """
-if isinstance(do_stuff, Callable):
-    assert callable(do_stuff)
-    do_stuff(do_stuff)
-    if not callable(do_stuff):
-        exit(1)
-    else:
-        assert callable(do_stuff)
-else:
-    assert not callable(do_stuff)"""[1:]
-        a = """
-import collections
-if isinstance(do_stuff, Callable):
-    assert isinstance(do_stuff, collections.Callable)
-    do_stuff(do_stuff)
-    if not isinstance(do_stuff, collections.Callable):
-        exit(1)
-    else:
-        assert isinstance(do_stuff, collections.Callable)
-else:
-    assert not isinstance(do_stuff, collections.Callable)"""[1:]
-        self.check(b, a)
-
-    def test_callable_should_not_change(self):
-        a = """callable(*x)"""
-        self.unchanged(a)
-
-        a = """callable(x, y)"""
-        self.unchanged(a)
-
-        a = """callable(x, kw=y)"""
-        self.unchanged(a)
-
-        a = """callable()"""
-        self.unchanged(a)
 
 class Test_filter(FixerTestCase):
     fixer = "filter"
@@ -3261,6 +3173,10 @@ class Test_types(FixerTestCase):
 
         b = """types.NoneType"""
         a = """type(None)"""
+        self.check(b, a)
+
+        b = "types.StringTypes"
+        a = "(str,)"
         self.check(b, a)
 
 class Test_idioms(FixerTestCase):
@@ -4576,3 +4492,53 @@ class Test_exitfunc(FixerTestCase):
     def test_unchanged(self):
         s = """f(sys.exitfunc)"""
         self.unchanged(s)
+
+
+class Test_asserts(FixerTestCase):
+
+    fixer = "asserts"
+
+    def test_deprecated_names(self):
+        tests = [
+            ('self.assert_(True)', 'self.assertTrue(True)'),
+            ('self.assertEquals(2, 2)', 'self.assertEqual(2, 2)'),
+            ('self.assertNotEquals(2, 3)', 'self.assertNotEqual(2, 3)'),
+            ('self.assertAlmostEquals(2, 3)', 'self.assertAlmostEqual(2, 3)'),
+            ('self.assertNotAlmostEquals(2, 8)', 'self.assertNotAlmostEqual(2, 8)'),
+            ('self.failUnlessEqual(2, 2)', 'self.assertEqual(2, 2)'),
+            ('self.failIfEqual(2, 3)', 'self.assertNotEqual(2, 3)'),
+            ('self.failUnlessAlmostEqual(2, 3)', 'self.assertAlmostEqual(2, 3)'),
+            ('self.failIfAlmostEqual(2, 8)', 'self.assertNotAlmostEqual(2, 8)'),
+            ('self.failUnless(True)', 'self.assertTrue(True)'),
+            ('self.failUnlessRaises(foo)', 'self.assertRaises(foo)'),
+            ('self.failIf(False)', 'self.assertFalse(False)'),
+        ]
+        for b, a in tests:
+            self.check(b, a)
+
+    def test_variants(self):
+        b = 'eq = self.assertEquals'
+        a = 'eq = self.assertEqual'
+        self.check(b, a)
+        b = 'self.assertEquals(2, 3, msg="fail")'
+        a = 'self.assertEqual(2, 3, msg="fail")'
+        self.check(b, a)
+        b = 'self.assertEquals(2, 3, msg="fail") # foo'
+        a = 'self.assertEqual(2, 3, msg="fail") # foo'
+        self.check(b, a)
+        b = 'self.assertEquals (2, 3)'
+        a = 'self.assertEqual (2, 3)'
+        self.check(b, a)
+        b = '  self.assertEquals (2, 3)'
+        a = '  self.assertEqual (2, 3)'
+        self.check(b, a)
+        b = 'with self.failUnlessRaises(Explosion): explode()'
+        a = 'with self.assertRaises(Explosion): explode()'
+        self.check(b, a)
+        b = 'with self.failUnlessRaises(Explosion) as cm: explode()'
+        a = 'with self.assertRaises(Explosion) as cm: explode()'
+        self.check(b, a)
+
+    def test_unchanged(self):
+        self.unchanged('self.assertEqualsOnSaturday')
+        self.unchanged('self.assertEqualsOnSaturday(3, 5)')

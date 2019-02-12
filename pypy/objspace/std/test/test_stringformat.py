@@ -137,6 +137,59 @@ class AppTestStringObject:
         sl = SubLong(l)
         assert '%d' % sl == '4800000000'
 
+    def test_format_subclass_with_str(self):
+        class SubInt2(int):
+            def __str__(self):
+                assert False, "not called"
+            def __hex__(self):
+                assert False, "not called"
+            def __oct__(self):
+                assert False, "not called"
+            def __int__(self):
+                assert False, "not called"
+            def __long__(self):
+                assert False, "not called"
+        sl = SubInt2(123)
+        assert '%i' % sl == '123'
+        assert '%u' % sl == '123'
+        assert '%d' % sl == '123'
+        assert '%x' % sl == '7b'
+        assert '%X' % sl == '7B'
+        assert '%o' % sl == '173'
+
+        skip("the rest of this test is serious nonsense imho, changed "
+             "only on 2.7.13, and is different on 3.x anyway.  We could "
+             "reproduce it by writing lengthy logic, then get again the "
+             "reasonable performance by special-casing the exact type "
+             "'long'.  And all for 2.7.13 only.  Let's give up.")
+
+        class SubLong2(long):
+            def __str__(self):
+                return extra_stuff + 'Xx'
+            def __hex__(self):
+                return extra_stuff + '0xYy' + extra_tail
+            def __oct__(self):
+                return extra_stuff + '0Zz' + extra_tail
+            def __int__(self):
+                assert False, "not called"
+            def __long__(self):
+                assert False, "not called"
+        sl = SubLong2(123)
+        for extra_stuff in ['', '-']:
+            for extra_tail in ['', 'l', 'L']:
+                m = extra_stuff
+                x = '%i' % sl
+                assert x == m+'Xx'
+                assert '%u' % sl == m+'Xx'
+                assert '%d' % sl == m+'Xx'
+                assert '%x' % sl == m+('Yyl' if extra_tail == 'l' else 'Yy')
+                assert '%X' % sl == m+('YYL' if extra_tail == 'l' else 'YY')
+                assert '%o' % sl == m+('Zzl' if extra_tail == 'l' else 'Zz')
+        extra_stuff = '??'
+        raises(ValueError, "'%x' % sl")
+        raises(ValueError, "'%X' % sl")
+        raises(ValueError, "'%o' % sl")
+
     def test_format_list(self):
         l = [1,2]
         assert '<[1, 2]>' == '<%s>' % l
@@ -202,7 +255,8 @@ class AppTestStringObject:
             def __long__(self):
                 return 0L
 
-        assert "%x" % IntFails() == '0'
+        x = "%x" % IntFails()
+        assert x == '0'
 
     def test_formatting_huge_precision(self):
         prec = 2**31

@@ -1,18 +1,19 @@
-from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.history import AbstractDescr, ConstInt
 from rpython.jit.codewriter import heaptracker
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import base_int
 
 
 class JitCode(AbstractDescr):
     _empty_i = []
     _empty_r = []
     _empty_f = []
-
+    
     def __init__(self, name, fnaddr=None, calldescr=None, called_from=None):
         self.name = name
         self.fnaddr = fnaddr
         self.calldescr = calldescr
-        self.is_portal = False
+        self.jitdriver_sd = None # None for non-portals
         self._called_from = called_from   # debugging
         self._ssarepr     = None          # debugging
 
@@ -21,6 +22,10 @@ class JitCode(AbstractDescr):
               liveness=None, startpoints=None, alllabels=None,
               resulttypes=None):
         self.code = code
+        for x in constants_i:
+            assert not isinstance(x, base_int), (
+                "found constant %r of type %r, must not appear in "
+                "JitCode.constants_i" % (x, type(x)))
         # if the following lists are empty, use a single shared empty list
         self.constants_i = constants_i or self._empty_i
         self.constants_r = constants_r or self._empty_r
@@ -109,32 +114,16 @@ class MissingLiveness(Exception):
 class SwitchDictDescr(AbstractDescr):
     "Get a 'dict' attribute mapping integer values to bytecode positions."
 
+    def attach(self, as_dict):
+        self.dict = as_dict
+        self.const_keys_in_order = map(ConstInt, sorted(as_dict.keys()))
+
     def __repr__(self):
         dict = getattr(self, 'dict', '?')
         return '<SwitchDictDescr %s>' % (dict,)
 
     def _clone_if_mutable(self):
         raise NotImplementedError
-
-
-class ThreadLocalRefDescr(AbstractDescr):
-    # A special descr used as the extradescr in a call to a
-    # threadlocalref_get function.  If the backend supports it,
-    # it can use this 'get_tlref_addr()' to get the address *in the
-    # current thread* of the thread-local variable.  If, on the current
-    # platform, the "__thread" variables are implemented as an offset
-    # from some base register (e.g. %fs on x86-64), then the backend will
-    # immediately substract the current value of the base register.
-    # This gives an offset from the base register, and this can be
-    # written down in an assembler instruction to load the "__thread"
-    # variable from anywhere.
-
-    def __init__(self, opaque_id):
-        from rpython.rtyper.lltypesystem.lloperation import llop
-        from rpython.rtyper.lltypesystem import llmemory
-        def get_tlref_addr():
-            return llop.threadlocalref_getaddr(llmemory.Address, opaque_id)
-        self.get_tlref_addr = get_tlref_addr
 
 
 class LiveVarsInfo(object):
@@ -158,16 +147,12 @@ class LiveVarsInfo(object):
         return ord(self.live_f[index])
 
     def enumerate_vars(self, callback_i, callback_r, callback_f, spec):
-        index = 0
         for i in range(self.get_register_count_i()):
-            callback_i(index, self.get_register_index_i(i))
-            index += 1
+            callback_i(self.get_register_index_i(i))
         for i in range(self.get_register_count_r()):
-            callback_r(index, self.get_register_index_r(i))
-            index += 1
+            callback_r(self.get_register_index_r(i))
         for i in range(self.get_register_count_f()):
-            callback_f(index, self.get_register_index_f(i))
-            index += 1
+            callback_f(self.get_register_index_f(i))
     enumerate_vars._annspecialcase_ = 'specialize:arg(4)'
 
 _liveness_cache = {}

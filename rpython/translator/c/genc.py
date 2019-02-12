@@ -2,9 +2,8 @@ import contextlib
 import py
 import sys, os
 from rpython.rlib import exports
-from rpython.rlib.entrypoint import entrypoint
-from rpython.rtyper.typesystem import getfunctionptr
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
+from rpython.rtyper.lltypesystem import lltype
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
 from rpython.tool.udir import udir
@@ -14,6 +13,7 @@ from rpython.translator.c.extfunc import pre_include_code_lines
 from rpython.translator.c.support import log
 from rpython.translator.gensupp import uniquemodulename, NameManager
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
 
 _CYGWIN = sys.platform == 'cygwin'
 
@@ -34,48 +34,6 @@ def get_recent_cpython_executable():
     return python
 
 
-class ProfOpt(object):
-    #XXX assuming gcc style flags for now
-    name = "profopt"
-
-    def __init__(self, compiler):
-        self.compiler = compiler
-
-    def first(self):
-        platform = self.compiler.platform
-        if platform.name.startswith('darwin'):
-            # XXX incredible hack for darwin
-            STR = '/*--no-profiling-for-this-file!--*/'
-            no_prof = []
-            prof = []
-            for cfile in self.compiler.cfiles:
-                if STR in cfile.read():
-                    no_prof.append(cfile)
-                else:
-                    prof.append(cfile)
-            p_eci = self.compiler.eci.merge(
-                ExternalCompilationInfo(compile_extra=['-fprofile-generate'],
-                                        link_extra=['-fprofile-generate']))
-            ofiles = platform._compile_o_files(prof, p_eci)
-            _, eci = self.compiler.eci.get_module_files()
-            ofiles += platform._compile_o_files(no_prof, eci)
-            return platform._finish_linking(ofiles, p_eci, None, True)
-        else:
-            return self.build('-fprofile-generate')
-
-    def probe(self, exe, args):
-        # 'args' is a single string typically containing spaces
-        # and quotes, which represents several arguments.
-        self.compiler.platform.execute(exe, args)
-
-    def after(self):
-        return self.build('-fprofile-use')
-
-    def build(self, option):
-        eci = ExternalCompilationInfo(compile_extra=[option],
-                                      link_extra=[option])
-        return self.compiler._build(eci)
-
 class CCompilerDriver(object):
     def __init__(self, platform, cfiles, eci, outputfilename=None,
                  profbased=False):
@@ -85,7 +43,7 @@ class CCompilerDriver(object):
         self.cfiles = cfiles
         self.eci = eci
         self.outputfilename = outputfilename
-        self.profbased = profbased
+        # self.profbased = profbased
 
     def _build(self, eci=ExternalCompilationInfo(), shared=False):
         outputfilename = self.outputfilename
@@ -99,22 +57,6 @@ class CCompilerDriver(object):
                                      outputfilename=outputfilename,
                                      standalone=not shared)
 
-    def build(self, shared=False):
-        if self.profbased:
-            return self._do_profbased()
-        return self._build(shared=shared)
-
-    def _do_profbased(self):
-        ProfDriver, args = self.profbased
-        profdrv = ProfDriver(self)
-        dolog = getattr(log, profdrv.name)
-        dolog(args)
-        exename = profdrv.first()
-        dolog('Gathering profile data from: %s %s' % (
-            str(exename), args))
-        profdrv.probe(exename, args)
-        return profdrv.after()
-
 class CBuilder(object):
     c_source_filename = None
     _compiled = False
@@ -122,19 +64,22 @@ class CBuilder(object):
     split = False
 
     def __init__(self, translator, entrypoint, config, gcpolicy=None,
-            secondary_entrypoints=()):
+                 gchooks=None, secondary_entrypoints=()):
         self.translator = translator
         self.entrypoint = entrypoint
         self.entrypoint_name = getattr(self.entrypoint, 'func_name', None)
         self.originalentrypoint = entrypoint
         self.config = config
         self.gcpolicy = gcpolicy    # for tests only, e.g. rpython/memory/
+        self.gchooks = gchooks
         self.eci = self.get_eci()
         self.secondary_entrypoints = secondary_entrypoints
 
     def get_eci(self):
         pypy_include_dir = py.path.local(__file__).join('..')
         include_dirs = [pypy_include_dir]
+        if self.config.translation.reverse_debugger:
+            include_dirs.append(pypy_include_dir.join('..', 'revdb'))
         return ExternalCompilationInfo(include_dirs=include_dirs)
 
     def build_database(self):
@@ -146,10 +91,17 @@ class CBuilder(object):
             if not self.standalone:
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
+        exctransformer = translator.getexceptiontransformer()
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
+                              gchooks=self.gchooks,
+                              exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
-                              sandbox=self.config.translation.sandbox)
+                              sandbox=self.config.translation.sandbox,
+                              split_gc_address_space=
+                                 self.config.translation.split_gc_address_space,
+                              reverse_debugger=
+                                 self.config.translation.reverse_debugger)
         self.db = db
 
         # give the gc a chance to register interest in the start-up functions it
@@ -171,9 +123,17 @@ class CBuilder(object):
 
             self.c_entrypoint_name = pfname
 
+        if self.config.translation.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            gencsupp.prepare_database(db)
+
         for obj in exports.EXPORTS_obj2name.keys():
             db.getcontainernode(obj)
         exports.clear()
+
+        for ll_func in db.translator._call_at_startup:
+            db.get(ll_func)
+
         db.complete()
 
         self.collect_compilation_info(db)
@@ -211,24 +171,11 @@ class CBuilder(object):
     # use generate_source(defines=DEBUG_DEFINES) to force the #definition
     # of the macros that enable debugging assertions
     DEBUG_DEFINES = {'RPY_ASSERT': 1,
-                     'RPY_LL_ASSERT': 1}
-
-    def generate_graphs_for_llinterp(self, db=None):
-        # prepare the graphs as when the source is generated, but without
-        # actually generating the source.
-        if db is None:
-            db = self.build_database()
-        graphs = db.all_graphs()
-        db.gctransformer.prepare_inline_helpers(graphs)
-        for node in db.containerlist:
-            if hasattr(node, 'funcgens'):
-                for funcgen in node.funcgens:
-                    funcgen.patch_graph(copy_graph=False)
-        return db
+                     'RPY_LL_ASSERT': 1,
+                     'RPY_REVDB_PRINT_ALL': 1}
 
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
-
         if db is None:
             db = self.build_database()
         pf = self.getentrypointptr()
@@ -245,6 +192,8 @@ class CBuilder(object):
             defines['COUNT_OP_MALLOCS'] = 1
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
+        if self.config.translation.reverse_debugger:
+            defines['RPY_REVERSE_DEBUGGER'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
@@ -258,8 +207,6 @@ class CBuilder(object):
                     defines['USE___THREAD'] = 1
             if self.config.translation.shared:
                 defines['PYPY_MAIN_FUNCTION'] = "pypy_main_startup"
-                self.eci = self.eci.merge(ExternalCompilationInfo(
-                    export_symbols=["pypy_main_startup", "pypy_debug_file"]))
         self.eci, cfile, extra, headers_to_precompile = \
                 gen_source(db, modulename, targetdir,
                            self.eci, defines=defines, split=self.split)
@@ -286,32 +233,48 @@ class CStandaloneBuilder(CBuilder):
     split = True
     executable_name = None
     shared_library_name = None
+    _entrypoint_wrapper = None
+    make_entrypoint_wrapper = True    # for tests
 
-    def getprofbased(self):
-        profbased = None
-        if self.config.translation.instrumentctl is not None:
-            profbased = self.config.translation.instrumentctl
-        else:
-            # xxx handling config.translation.profopt is a bit messy, because
-            # it could be an empty string (not to be confused with None) and
-            # because noprofopt can be used as an override.
-            profopt = self.config.translation.profopt
-            if profopt is not None and not self.config.translation.noprofopt:
-                profbased = (ProfOpt, profopt)
-        return profbased
-
-    def has_profopt(self):
-        profbased = self.getprofbased()
-        return (profbased and isinstance(profbased, tuple)
-                and profbased[0] is ProfOpt)
 
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
         # signature:  list-of-strings -> int
-        bk = self.translator.annotator.bookkeeper
-        return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
+        if not self.make_entrypoint_wrapper:
+            bk = self.translator.annotator.bookkeeper
+            return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
+        if self._entrypoint_wrapper is not None:
+            return self._entrypoint_wrapper
+        #
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper.lltypesystem import rffi
+        from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
+        from rpython.rtyper.llannotation import lltype_to_annotation
+        entrypoint = self.entrypoint
+        #
+        def entrypoint_wrapper(argc, argv):
+            """This is a wrapper that takes "Signed argc" and "char **argv"
+            like the C main function, and puts them inside an RPython list
+            of strings before invoking the real entrypoint() function.
+            """
+            list = [""] * argc
+            i = 0
+            while i < argc:
+                list[i] = rffi.charp2str(argv[i])
+                i += 1
+            return entrypoint(list)
+        #
+        mix = MixLevelHelperAnnotator(self.translator.rtyper)
+        args_s = [annmodel.SomeInteger(),
+                  lltype_to_annotation(rffi.CCHARPP)]
+        s_result = annmodel.SomeInteger()
+        graph = mix.getgraph(entrypoint_wrapper, args_s, s_result)
+        mix.finish()
+        res = getfunctionptr(graph)
+        self._entrypoint_wrapper = res
+        return res
 
-    def cmdexec(self, args='', env=None, err=False, expect_crash=False):
+    def cmdexec(self, args='', env=None, err=False, expect_crash=False, exe=None):
         assert self._compiled
         if sys.platform == 'win32':
             #Prevent opening a dialog box
@@ -332,13 +295,17 @@ class CStandaloneBuilder(CBuilder):
             envrepr = ''
         else:
             envrepr = ' [env=%r]' % (env,)
-        log.cmdexec('%s %s%s' % (self.executable_name, args, envrepr))
-        res = self.translator.platform.execute(self.executable_name, args,
-                                               env=env)
+        if exe is None:
+            exe = self.executable_name
+        log.cmdexec('%s %s%s' % (exe, args, envrepr))
+        res = self.translator.platform.execute(exe, args, env=env)
         if sys.platform == 'win32':
             SetErrorMode(old_mode)
         if res.returncode != 0:
             if expect_crash:
+                if type(expect_crash) is int and expect_crash != res.returncode:
+                    raise Exception("Returned %d, but expected %d" % (
+                        res.returncode, expect_crash))
                 return res.out, res.err
             print >> sys.stderr, res.err
             raise Exception("Returned %d" % (res.returncode,))
@@ -383,6 +350,8 @@ class CStandaloneBuilder(CBuilder):
         shared = self.config.translation.shared
 
         extra_opts = []
+        if self.config.translation.profopt:
+            extra_opts += ["profopt"]
         if self.config.translation.make_jobs != 1:
             extra_opts += ['-j', str(self.config.translation.make_jobs)]
         if self.config.translation.lldebug:
@@ -409,46 +378,142 @@ class CStandaloneBuilder(CBuilder):
             path=targetdir, exe_name=exe_name,
             headers_to_precompile=headers_to_precompile,
             no_precompile_cfiles = module_files,
-            shared=self.config.translation.shared)
+            shared=self.config.translation.shared,
+            profopt = self.config.translation.profopt,
+            config=self.config)
 
-        if self.has_profopt():
-            profopt = self.config.translation.profopt
-            mk.definition('ABS_TARGET', str(targetdir.join('$(TARGET)')))
-            mk.definition('DEFAULT_TARGET', 'profopt')
-            mk.definition('PROFOPT', profopt)
+        if exe_name is None:
+            short =  targetdir.basename
+            exe_name = targetdir.join(short)
 
         rules = [
-            ('clean', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??'),
-            ('clean_noprof', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES)'),
             ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
             ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" debug_target'),
             ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_TRIVIAL_MALLOC" debug_target'),
-            ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -O2 -DRPY_ASSERT -DPYPY_NO_OBMALLOC" $(TARGET)'),
-            ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_LINUXMEMCHK" debug_target'),
-            ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
+            ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(DEFAULT_TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
-            ('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
-            ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
-            ]
-        if self.has_profopt():
+            ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
+        ]
+
+        # added a new target for profopt, because it requires -lgcov to compile successfully when -shared is used as an argument
+        # Also made a difference between translating with shared or not, because this affects profopt's target
+
+        if self.config.translation.profopt:
+            if self.config.translation.profoptargs is None:
+                raise Exception("No profoptargs specified, neither in the command line, nor in the target. If the target is not PyPy, please specify profoptargs")
+
+            # Set the correct PGO params based on OS and CC
+            profopt_gen_flag = ""
+            profopt_use_flag = ""
+            profopt_merger = ""
+            profopt_file = ""
+            llvm_profdata = ""
+
+            cc = self.translator.platform.cc
+
+            # Locate llvm-profdata
+            if "clang" in cc:
+                clang_bin = cc
+                path = os.environ.get("PATH").split(":")
+                profdata_found = False
+
+                # Try to find it in $PATH (Darwin and Linux)
+                for dir in path:
+                    bin = "%s/llvm-profdata" % dir
+                    if os.path.isfile(bin):
+                        llvm_profdata = bin
+                        profdata_found = True
+                        break
+
+                # If not found, try to find it where clang is actually installed (Darwin and Linux)
+                if not profdata_found:
+                    # If the full path is not given, find where clang is located
+                    if not os.path.isfile(clang_bin):
+                        for dir in path:
+                            bin = "%s/%s" % (dir, cc)
+                            if os.path.isfile(bin):
+                                clang_bin = bin
+                                break
+                    # Some systems install clang elsewhere as a symlink to the real path,
+                    # which is where the related llvm tools are located.
+                    if os.path.islink(clang_bin):
+                        clang_bin = os.path.realpath(clang_bin)  # the real clang binary
+                    # llvm-profdata must be in the same directory as clang
+                    llvm_profdata = "%s/llvm-profdata" % os.path.dirname(clang_bin)
+                    profdata_found = os.path.isfile(llvm_profdata)
+
+                # If not found, and Darwin is used, try to find it in the development environment
+                # More: https://apple.stackexchange.com/questions/197053/
+                if not profdata_found and sys.platform == 'darwin':
+                    code = os.system("/usr/bin/xcrun -find llvm-profdata 2>/dev/null")
+                    if code == 0:
+                        llvm_profdata = "/usr/bin/xcrun llvm-profdata"
+                        profdata_found = True
+
+                # If everything failed, throw Exception, sorry
+                if not profdata_found:
+                    raise Exception(
+                        "Error: Cannot perform profopt build because llvm-profdata was not found in PATH. "
+                        "Please add it to PATH and run the translation again.")
+
+            # Set the PGO flags
+            if "clang" in cc:
+                # Any changes made here should be reflected in the GCC+Darwin case below
+                profopt_gen_flag = "-fprofile-instr-generate"
+                profopt_use_flag = "-fprofile-instr-use=code.profclangd"
+                profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
+                profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
+            elif "gcc" in cc:
+                if sys.platform == 'darwin':
+                    profopt_gen_flag = "-fprofile-instr-generate"
+                    profopt_use_flag = "-fprofile-instr-use=code.profclangd"
+                    profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
+                    profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
+                else:
+                    profopt_gen_flag = "-fprofile-generate"
+                    profopt_use_flag = "-fprofile-use -fprofile-correction"
+                    profopt_merger = "true"
+                    profopt_file = ""
+
+            if self.config.translation.shared:
+                mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
+                         ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov', '$(MAKE) postcompile BIN=$(PROFOPT_TARGET)'])
+            else:
+                mk.definition('PROFOPT_TARGET', '$(TARGET)')
+
             rules.append(
                 ('profopt', '', [
-                '$(MAKENOPROF)',
-                '$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)" $(TARGET)',
-                'cd $(RPYDIR)/translator/goal && $(ABS_TARGET) $(PROFOPT)',
-                '$(MAKE) clean_noprof',
-                '$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)" $(TARGET)']))
+                    '$(MAKE) CFLAGS="%s -fPIC $(CFLAGS)"  LDFLAGS="%s $(LDFLAGS)" $(PROFOPT_TARGET)' % (profopt_gen_flag, profopt_gen_flag),
+                    '%s %s %s ' % (profopt_file, exe_name, self.config.translation.profoptargs),
+                    '%s' % (profopt_merger),
+                    '$(MAKE) clean_noprof',
+                    '$(MAKE) CFLAGS="%s -fPIC $(CFLAGS)"  LDFLAGS="%s $(LDFLAGS)" $(PROFOPT_TARGET)' % (profopt_use_flag, profopt_use_flag),
+                ]))
+
         for rule in rules:
             mk.rule(*rule)
+
+        if self.translator.platform.name == 'msvc':
+            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -Od -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            wildcards = '..\*.obj ..\*.pdb ..\*.lib ..\*.dll ..\*.manifest ..\*.exp *.pch'
+            cmd =  r'del /s %s $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)' % wildcards
+            mk.rule('clean', '',  cmd + ' *.gc?? ..\module_cache\*.gc??')
+            mk.rule('clean_noprof', '', cmd)
+        else:
+            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            mk.rule('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??')
+            mk.rule('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)')
 
         #XXX: this conditional part is not tested at all
         if self.config.translation.gcrootfinder == 'asmgcc':
             if self.translator.platform.name == 'msvc':
                 raise Exception("msvc no longer supports asmgcc")
+            _extra = ''
             if self.config.translation.shared:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g -fPIC')
-            else:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+                _extra = ' -fPIC'
+            _extra += ' -fdisable-tree-fnsplit'   # seems to help
+            mk.definition('DEBUGFLAGS',
+                '-O2 -fomit-frame-pointer -g'+ _extra)
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
@@ -457,9 +522,15 @@ class CStandaloneBuilder(CBuilder):
 
             mk.definition('PYTHON', get_recent_cpython_executable())
 
-            mk.definition('GCMAPFILES', '$(subst .c,.gcmap,$(SOURCES))')
-            mk.definition('OBJECTS1', '$(subst .c,.o,$(SOURCES))')
+            mk.definition('GCMAPFILES', '$(subst .vmprof.s,.gcmap,$(subst .c,.gcmap,$(SOURCES)))')
+            mk.definition('OBJECTS1', '$(subst .vmprof.s,.o,$(subst .c,.o,$(SOURCES)))')
             mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
+
+            # the CFLAGS passed to gcc when invoked to assembler the .s file
+            # must not contain -g.  This confuses gcc 5.1.  (Note that it
+            # would seem that gcc 5.1 with "-g" does not produce debugging
+            # info in a format that gdb 4.7.1 can read.)
+            mk.definition('CFLAGS_AS', '$(patsubst -g,,$(CFLAGS))')
 
             # the rule that transforms %.c into %.o, by compiling it to
             # %.s, then applying trackgcroot to get %.lbl.s and %.gcmap, and
@@ -469,9 +540,17 @@ class CStandaloneBuilder(CBuilder):
                     '-o $*.s -S $< $(INCLUDEDIRS)',
                 '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
                     '-t $*.s > $*.gctmp',
-                '$(CC) -o $*.o -c $*.lbl.s',
+                '$(CC) $(CFLAGS_AS) -o $*.o -c $*.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.s $*.lbl.s'])
+
+            # this is for manually written assembly files which needs to be parsed by asmgcc
+            mk.rule('%.o %.gcmap', '%.vmprof.s', [
+                '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
+                    '-t $*.vmprof.s > $*.gctmp',
+                '$(CC) -o $*.o -c $*.vmprof.lbl.s',
+                'mv $*.gctmp $*.gcmap',
+                'rm $*.vmprof.lbl.s'])
 
             # the rule to compute gcmaptable.s
             mk.rule('gcmaptable.s', '$(GCMAPFILES)',
@@ -484,11 +563,14 @@ class CStandaloneBuilder(CBuilder):
             if self.translator.platform.name == 'msvc':
                 mk.definition('DEBUGFLAGS', '-MD -Zi')
             else:
-                mk.definition('DEBUGFLAGS', '-O1 -g')
+                if self.config.translation.shared:
+                    mk.definition('DEBUGFLAGS', '-O1 -g -fPIC')
+                else:
+                    mk.definition('DEBUGFLAGS', '-O1 -g')
         if self.translator.platform.name == 'msvc':
-            mk.rule('debug_target', 'debugmode_$(DEFAULT_TARGET)', 'rem')
+            mk.rule('debug_target', '$(DEFAULT_TARGET) $(WTARGET)', 'rem')
         else:
-            mk.rule('debug_target', '$(TARGET)', '#')
+            mk.rule('debug_target', '$(DEFAULT_TARGET)', '#')
         mk.write()
         #self.translator.platform,
         #                           ,
@@ -561,6 +643,11 @@ class SourceGenerator:
                         relpypath = localpath.relto(pypkgpath.dirname)
                         assert relpypath, ("%r should be relative to %r" %
                             (localpath, pypkgpath.dirname))
+                        if len(relpypath.split(os.path.sep)) > 2:
+                            # pypy detail to agregate the c files by directory,
+                            # since the enormous number of files was causing
+                            # memory issues linking on win32
+                            return os.path.split(relpypath)[0] + '.c'
                         return relpypath.replace('.py', '.c')
             return None
         if hasattr(node.obj, 'graph'):
@@ -654,6 +741,8 @@ class SourceGenerator:
 
         print >> f, '#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name)
         print >> f, '#include "src/g_include.h"'
+        if self.database.reverse_debugger:
+            print >> f, '#include "revdb_def.h"'
         print >> f
 
         nextralines = 11 + 1
@@ -694,6 +783,8 @@ class SourceGenerator:
                     print >> fc, '#include "preimpl.h"'
                     print >> fc, '#define PYPY_FILE_NAME "%s"' % name
                     print >> fc, '#include "src/g_include.h"'
+                    if self.database.reverse_debugger:
+                        print >> fc, '#include "revdb_def.h"'
                     print >> fc
                 print >> fc, MARKER
                 for node, impl in nodeiter:
@@ -720,7 +811,33 @@ def gen_structdef(f, database):
     for node in structdeflist:
         for line in node.definition():
             print >> f, line
+    gen_threadlocal_structdef(f, database)
     print >> f, "#endif"
+
+def gen_threadlocal_structdef(f, database):
+    from rpython.translator.c.support import cdecl
+    print >> f
+    bk = database.translator.annotator.bookkeeper
+    fields = list(bk.thread_local_fields)
+    fields.sort(key=lambda field: field.fieldname)
+    for field in fields:
+        print >> f, ('#define RPY_TLOFS_%s  offsetof(' % field.fieldname +
+                     'struct pypy_threadlocal_s, %s)' % field.fieldname)
+    if fields:
+        print >> f, '#define RPY_TLOFSFIRST  RPY_TLOFS_%s' % fields[0].fieldname
+    else:
+        print >> f, '#define RPY_TLOFSFIRST  sizeof(struct pypy_threadlocal_s)'
+    print >> f, 'struct pypy_threadlocal_s {'
+    print >> f, '\tint ready;'
+    print >> f, '\tchar *stack_end;'
+    print >> f, '\tstruct pypy_threadlocal_s *prev, *next;'
+    # note: if the four fixed fields above are changed, you need
+    # to adapt threadlocal.c's linkedlist_head declaration too
+    for field in fields:
+        typename = database.gettype(field.FIELDTYPE)
+        print >> f, '\t%s;' % cdecl(typename, field.fieldname)
+    print >> f, '};'
+    print >> f
 
 def gen_forwarddecl(f, database):
     print >> f, '/***********************************************************/'
@@ -741,12 +858,16 @@ def gen_preimpl(f, database):
         database, database.translator.rtyper)
     for line in preimplementationlines:
         print >> f, line
-    f.write('#endif /* _PY_PREIMPL_H */\n')    
+    f.write('#endif /* _PY_PREIMPL_H */\n')
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
-    print >> f, 'char *RPython_StartupCode(void) {'
-    print >> f, '\tchar *error = NULL;'
+    print >> f, 'void RPython_StartupCode(void) {'
+
+    bk = database.translator.annotator.bookkeeper
+    if bk.thread_local_fields:
+        print >> f, '\tRPython_ThreadLocals_ProgramInit();'
+
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line
 
@@ -755,17 +876,15 @@ def gen_startupcode(f, database):
     for dest, value in database.late_initializations:
         print >> f, "\t%s = %s;" % (dest, value)
 
-    firsttime = True
     for node in database.containerlist:
         lines = list(node.startupcode())
         if lines:
-            if firsttime:
-                firsttime = False
-            else:
-                print >> f, '\tif (error) return error;'
             for line in lines:
                 print >> f, '\t'+line
-    print >> f, '\treturn error;'
+
+    for ll_init in database.translator._call_at_startup:
+        print >> f, '\t%s();\t/* call_at_startup */' % (database.get(ll_init),)
+
     print >> f, '}'
 
 def commondefs(defines):
@@ -773,11 +892,10 @@ def commondefs(defines):
     defines['PYPY_LONG_BIT'] = LONG_BIT
     defines['PYPY_LONGLONG_BIT'] = LONGLONG_BIT
 
-def add_extra_files(eci):
+def add_extra_files(database, eci):
     srcdir = py.path.local(__file__).join('..', 'src')
     files = [
         srcdir / 'entrypoint.c',       # ifdef PYPY_STANDALONE
-        srcdir / 'allocator.c',        # ifdef PYPY_STANDALONE
         srcdir / 'mem.c',
         srcdir / 'exception.c',
         srcdir / 'rtyper.c',           # ifdef HAVE_RTYPER
@@ -788,9 +906,14 @@ def add_extra_files(eci):
         srcdir / 'asm.c',
         srcdir / 'instrument.c',
         srcdir / 'int.c',
+        srcdir / 'stack.c',
+        srcdir / 'threadlocal.c',
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
+    if database.reverse_debugger:
+        from rpython.translator.revdb import gencsupp
+        files += gencsupp.extra_files()
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 
@@ -826,7 +949,6 @@ def gen_source(database, modulename, targetdir,
     #
     sg = SourceGenerator(database)
     sg.set_strategy(targetdir, split)
-    database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
     headers_to_precompile = sg.headers_to_precompile[:]
     headers_to_precompile.insert(0, incfilename)
@@ -839,7 +961,10 @@ def gen_source(database, modulename, targetdir,
         n = database.instrument_ncounter
         print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
         fi.close()
+    if database.reverse_debugger:
+        from rpython.translator.revdb import gencsupp
+        gencsupp.write_revdb_def_file(database, targetdir.join('revdb_def.h'))
 
-    eci = add_extra_files(eci)
+    eci = add_extra_files(database, eci)
     eci = eci.convert_sources_to_files()
     return eci, filename, sg.getextrafiles(), headers_to_precompile

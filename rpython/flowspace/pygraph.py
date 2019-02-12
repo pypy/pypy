@@ -11,10 +11,10 @@ class PyGraph(FunctionGraph):
 
     def __init__(self, func, code):
         from rpython.flowspace.flowcontext import SpamBlock
-        data = [None] * code.co_nlocals
+        locals = [None] * code.co_nlocals
         for i in range(code.formalargcount):
-            data[i] = Variable()
-        state = FrameState(data + [Constant(None), Constant(None)], [], 0)
+            locals[i] = Variable(code.co_varnames[i])
+        state = FrameState(locals, [], None, [], 0)
         initialblock = SpamBlock(state)
         super(PyGraph, self).__init__(self._sanitize_funcname(func), initialblock)
         self.func = func

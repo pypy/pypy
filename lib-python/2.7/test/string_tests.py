@@ -5,7 +5,6 @@ Common tests shared by test_str, test_unicode, test_userstring and test_string.
 import unittest, string, sys, struct
 from test import test_support
 from UserList import UserList
-import _testcapi
 
 class Sequence:
     def __init__(self, seq='wxyz'): self.seq = seq
@@ -46,6 +45,9 @@ class CommonTest(unittest.TestCase):
         else:
             return obj
 
+    def test_fixtype(self):
+        self.assertIs(type(self.fixtype("123")), self.type2test)
+
     # check that object.method(*args) returns result
     def checkequal(self, result, object, methodname, *args):
         result = self.fixtype(result)
@@ -66,14 +68,12 @@ class CommonTest(unittest.TestCase):
             self.assertTrue(object is not realresult)
 
     # check that object.method(*args) raises exc
-    def checkraises(self, exc, object, methodname, *args):
-        object = self.fixtype(object)
+    def checkraises(self, exc, obj, methodname, *args):
+        obj = self.fixtype(obj)
         args = self.fixtype(args)
-        self.assertRaises(
-            exc,
-            getattr(object, methodname),
-            *args
-        )
+        with self.assertRaises(exc) as cm:
+            getattr(obj, methodname)(*args)
+        self.assertNotEqual(cm.exception.args[0], '')
 
     # call object.method(*args) without any checks
     def checkcall(self, object, methodname, *args):
@@ -349,13 +349,21 @@ class CommonTest(unittest.TestCase):
         self.checkequal(['a'], '  a    ', 'split')
         self.checkequal(['a', 'b'], '  a    b   ', 'split')
         self.checkequal(['a', 'b   '], '  a    b   ', 'split', None, 1)
+        self.checkequal(['a    b   c   '], '  a    b   c   ', 'split', None, 0)
         self.checkequal(['a', 'b   c   '], '  a    b   c   ', 'split', None, 1)
         self.checkequal(['a', 'b', 'c   '], '  a    b   c   ', 'split', None, 2)
+        self.checkequal(['a', 'b', 'c'], '  a    b   c   ', 'split', None, 3)
         self.checkequal(['a', 'b'], '\n\ta \t\r b \v ', 'split')
         aaa = ' a '*20
         self.checkequal(['a']*20, aaa, 'split')
         self.checkequal(['a'] + [aaa[4:]], aaa, 'split', None, 1)
         self.checkequal(['a']*19 + ['a '], aaa, 'split', None, 19)
+
+        for b in ('arf\tbarf', 'arf\nbarf', 'arf\rbarf',
+                  'arf\fbarf', 'arf\vbarf'):
+            self.checkequal(['arf', 'barf'], b, 'split')
+            self.checkequal(['arf', 'barf'], b, 'split', None)
+            self.checkequal(['arf', 'barf'], b, 'split', None, 2)
 
         # by a char
         self.checkequal(['a', 'b', 'c', 'd'], 'a|b|c|d', 'split', '|')
@@ -368,6 +376,8 @@ class CommonTest(unittest.TestCase):
                         sys.maxint-2)
         self.checkequal(['a|b|c|d'], 'a|b|c|d', 'split', '|', 0)
         self.checkequal(['a', '', 'b||c||d'], 'a||b||c||d', 'split', '|', 2)
+        self.checkequal(['abcd'], 'abcd', 'split', '|')
+        self.checkequal([''], '', 'split', '|')
         self.checkequal(['endcase ', ''], 'endcase |', 'split', '|')
         self.checkequal(['', ' startcase'], '| startcase', 'split', '|')
         self.checkequal(['', 'bothcase', ''], '|bothcase|', 'split', '|')
@@ -407,7 +417,9 @@ class CommonTest(unittest.TestCase):
                         'split', 'BLAH', 18)
 
         # mixed use of str and unicode
-        self.checkequal([u'a', u'b', u'c d'], 'a b c d', 'split', u' ', 2)
+        if self.type2test is not bytearray:
+            result = [u'a', u'b', u'c d']
+            self.checkequal(result, 'a b c d', 'split', u' ', 2)
 
         # argument type
         self.checkraises(TypeError, 'hello', 'split', 42, 42, 42)
@@ -436,16 +448,25 @@ class CommonTest(unittest.TestCase):
         self.checkequal(['a'], '  a    ', 'rsplit')
         self.checkequal(['a', 'b'], '  a    b   ', 'rsplit')
         self.checkequal(['  a', 'b'], '  a    b   ', 'rsplit', None, 1)
+        self.checkequal(['  a    b   c'], '  a    b   c   ', 'rsplit',
+                        None, 0)
         self.checkequal(['  a    b','c'], '  a    b   c   ', 'rsplit',
                         None, 1)
         self.checkequal(['  a', 'b', 'c'], '  a    b   c   ', 'rsplit',
                         None, 2)
+        self.checkequal(['a', 'b', 'c'], '  a    b   c   ', 'rsplit',
+                        None, 3)
         self.checkequal(['a', 'b'], '\n\ta \t\r b \v ', 'rsplit', None, 88)
         aaa = ' a '*20
         self.checkequal(['a']*20, aaa, 'rsplit')
         self.checkequal([aaa[:-4]] + ['a'], aaa, 'rsplit', None, 1)
         self.checkequal([' a  a'] + ['a']*18, aaa, 'rsplit', None, 18)
 
+        for b in ('arf\tbarf', 'arf\nbarf', 'arf\rbarf',
+                  'arf\fbarf', 'arf\vbarf'):
+            self.checkequal(['arf', 'barf'], b, 'rsplit')
+            self.checkequal(['arf', 'barf'], b, 'rsplit', None)
+            self.checkequal(['arf', 'barf'], b, 'rsplit', None, 2)
 
         # by a char
         self.checkequal(['a', 'b', 'c', 'd'], 'a|b|c|d', 'rsplit', '|')
@@ -457,6 +478,8 @@ class CommonTest(unittest.TestCase):
                         sys.maxint-100)
         self.checkequal(['a|b|c|d'], 'a|b|c|d', 'rsplit', '|', 0)
         self.checkequal(['a||b||c', '', 'd'], 'a||b||c||d', 'rsplit', '|', 2)
+        self.checkequal(['abcd'], 'abcd', 'rsplit', '|')
+        self.checkequal([''], '', 'rsplit', '|')
         self.checkequal(['', ' begincase'], '| begincase', 'rsplit', '|')
         self.checkequal(['endcase ', ''], 'endcase |', 'rsplit', '|')
         self.checkequal(['', 'bothcase', ''], '|bothcase|', 'rsplit', '|')
@@ -497,7 +520,9 @@ class CommonTest(unittest.TestCase):
                         'rsplit', 'BLAH', 18)
 
         # mixed use of str and unicode
-        self.checkequal([u'a b', u'c', u'd'], 'a b c d', 'rsplit', u' ', 2)
+        if self.type2test is not bytearray:
+            result = [u'a b', u'c', u'd']
+            self.checkequal(result, 'a b c d', 'rsplit', u' ', 2)
 
         # argument type
         self.checkraises(TypeError, 'hello', 'rsplit', 42, 42, 42)
@@ -506,11 +531,16 @@ class CommonTest(unittest.TestCase):
         self.checkraises(ValueError, 'hello', 'rsplit', '')
         self.checkraises(ValueError, 'hello', 'rsplit', '', 0)
 
-    def test_strip(self):
+    def test_strip_whitespace(self):
         self.checkequal('hello', '   hello   ', 'strip')
         self.checkequal('hello   ', '   hello   ', 'lstrip')
         self.checkequal('   hello', '   hello   ', 'rstrip')
         self.checkequal('hello', 'hello', 'strip')
+
+        b = ' \t\n\r\f\vabc \t\n\r\f\v'
+        self.checkequal('abc', b, 'strip')
+        self.checkequal('abc \t\n\r\f\v', b, 'lstrip')
+        self.checkequal(' \t\n\r\f\vabc', b, 'rstrip')
 
         # strip/lstrip/rstrip with None arg
         self.checkequal('hello', '   hello   ', 'strip', None)
@@ -518,14 +548,19 @@ class CommonTest(unittest.TestCase):
         self.checkequal('   hello', '   hello   ', 'rstrip', None)
         self.checkequal('hello', 'hello', 'strip', None)
 
+    def test_strip(self):
         # strip/lstrip/rstrip with str arg
         self.checkequal('hello', 'xyzzyhelloxyzzy', 'strip', 'xyz')
         self.checkequal('helloxyzzy', 'xyzzyhelloxyzzy', 'lstrip', 'xyz')
         self.checkequal('xyzzyhello', 'xyzzyhelloxyzzy', 'rstrip', 'xyz')
         self.checkequal('hello', 'hello', 'strip', 'xyz')
+        self.checkequal('', 'mississippi', 'strip', 'mississippi')
+
+        # only trims the start and end, does not strip internal characters
+        self.checkequal('mississipp', 'mississippi', 'strip', 'i')
 
         # strip/lstrip/rstrip with unicode arg
-        if test_support.have_unicode:
+        if self.type2test is not bytearray and test_support.have_unicode:
             self.checkequal(unicode('hello', 'ascii'), 'xyzzyhelloxyzzy',
                  'strip', unicode('xyz', 'ascii'))
             self.checkequal(unicode('helloxyzzy', 'ascii'), 'xyzzyhelloxyzzy',
@@ -545,7 +580,11 @@ class CommonTest(unittest.TestCase):
         self.checkequal('abc   ', 'abc', 'ljust', 6)
         self.checkequal('abc', 'abc', 'ljust', 3)
         self.checkequal('abc', 'abc', 'ljust', 2)
-        self.checkequal('abc*******', 'abc', 'ljust', 10, '*')
+        if self.type2test is bytearray:
+            # Special case because bytearray argument is not accepted
+            self.assertEqual(b'abc*******', bytearray(b'abc').ljust(10, '*'))
+        else:
+            self.checkequal('abc*******', 'abc', 'ljust', 10, '*')
         self.checkraises(TypeError, 'abc', 'ljust')
 
     def test_rjust(self):
@@ -553,7 +592,11 @@ class CommonTest(unittest.TestCase):
         self.checkequal('   abc', 'abc', 'rjust', 6)
         self.checkequal('abc', 'abc', 'rjust', 3)
         self.checkequal('abc', 'abc', 'rjust', 2)
-        self.checkequal('*******abc', 'abc', 'rjust', 10, '*')
+        if self.type2test is bytearray:
+            # Special case because bytearray argument is not accepted
+            self.assertEqual(b'*******abc', bytearray(b'abc').rjust(10, '*'))
+        else:
+            self.checkequal('*******abc', 'abc', 'rjust', 10, '*')
         self.checkraises(TypeError, 'abc', 'rjust')
 
     def test_center(self):
@@ -561,7 +604,12 @@ class CommonTest(unittest.TestCase):
         self.checkequal(' abc  ', 'abc', 'center', 6)
         self.checkequal('abc', 'abc', 'center', 3)
         self.checkequal('abc', 'abc', 'center', 2)
-        self.checkequal('***abc****', 'abc', 'center', 10, '*')
+        if self.type2test is bytearray:
+            # Special case because bytearray argument is not accepted
+            result = bytearray(b'abc').center(10, '*')
+            self.assertEqual(b'***abc****', result)
+        else:
+            self.checkequal('***abc****', 'abc', 'center', 10, '*')
         self.checkraises(TypeError, 'abc', 'center')
 
     def test_swapcase(self):
@@ -750,10 +798,10 @@ class CommonTest(unittest.TestCase):
         self.checkraises(TypeError, 'hello', 'replace', 42, 'h')
         self.checkraises(TypeError, 'hello', 'replace', 'h', 42)
 
+    @unittest.skipIf(sys.maxint > (1 << 32) or struct.calcsize('P') != 4,
+                     'only applies to 32-bit platforms')
     def test_replace_overflow(self):
         # Check for overflow checking on 32 bit machines
-        if sys.maxint != 2147483647 or struct.calcsize("P") > 4:
-            return
         A2_16 = "A" * (2**16)
         self.checkraises(OverflowError, A2_16, "replace", "", A2_16)
         self.checkraises(OverflowError, A2_16, "replace", "A", A2_16)
@@ -775,13 +823,10 @@ class CommonTest(unittest.TestCase):
 
         self.checkraises(TypeError, '123', 'zfill')
 
-# XXX alias for py3k forward compatibility
-BaseTest = CommonTest
 
-class MixinStrUnicodeUserStringTest:
-    # additional tests that only work for
-    # stringlike objects, i.e. str, unicode, UserString
-    # (but not the string module)
+class NonStringModuleTest:
+    # additional test cases for all string classes from bytearray to
+    # UserString, but not valid for the "string" module
 
     def test_islower(self):
         self.checkequal(False, '', 'islower')
@@ -877,6 +922,12 @@ class MixinStrUnicodeUserStringTest:
         self.checkequal(['\n', 'abc\n', 'def\r\n', 'ghi\n', '\r'], "\nabc\ndef\r\nghi\n\r", 'splitlines', 1)
 
         self.checkraises(TypeError, 'abc', 'splitlines', 42, 42)
+
+
+class MixinStrUnicodeUserStringTest(NonStringModuleTest):
+    # additional tests that only work for
+    # stringlike objects, i.e. str, unicode, UserString
+    # (but not the string module)
 
     def test_startswith(self):
         self.checkequal(True, 'hello', 'startswith', 'he')
@@ -1061,6 +1112,7 @@ class MixinStrUnicodeUserStringTest:
         self.checkequal('a b c', ' ', 'join', BadSeq2())
 
         self.checkraises(TypeError, ' ', 'join')
+        self.checkraises(TypeError, ' ', 'join', None)
         self.checkraises(TypeError, ' ', 'join', 7)
         self.checkraises(TypeError, ' ', 'join', Sequence([7, 'hello', 123L]))
         try:
@@ -1117,26 +1169,30 @@ class MixinStrUnicodeUserStringTest:
         self.checkraises(TypeError, '%10.*f', '__mod__', ('foo', 42.))
         self.checkraises(ValueError, '%10', '__mod__', (42,))
 
-        width = int(_testcapi.PY_SSIZE_T_MAX + 1)
-        if width <= sys.maxint:
-            self.checkraises(OverflowError, '%*s', '__mod__', (width, ''))
-        prec = int(_testcapi.INT_MAX + 1)
-        if prec <= sys.maxint:
-            self.checkraises(OverflowError, '%.*f', '__mod__', (prec, 1. / 7))
-        # Issue 15989
-        width = int(1 << (_testcapi.PY_SSIZE_T_MAX.bit_length() + 1))
-        if width <= sys.maxint:
-            self.checkraises(OverflowError, '%*s', '__mod__', (width, ''))
-        prec = int(_testcapi.UINT_MAX + 1)
-        if prec <= sys.maxint:
-            self.checkraises(OverflowError, '%.*f', '__mod__', (prec, 1. / 7))
-
         class X(object): pass
         self.checkraises(TypeError, 'abc', '__mod__', X())
         class X(Exception):
             def __getitem__(self, k):
                 return k
         self.checkequal('melon apple', '%(melon)s %(apple)s', '__mod__', X())
+
+    @test_support.cpython_only
+    def test_formatting_c_limits(self):
+        from _testcapi import PY_SSIZE_T_MAX, INT_MAX, UINT_MAX
+        SIZE_MAX = (1 << (PY_SSIZE_T_MAX.bit_length() + 1)) - 1
+        width = int(PY_SSIZE_T_MAX + 1)
+        if width <= sys.maxint:
+            self.checkraises(OverflowError, '%*s', '__mod__', (width, ''))
+        prec = int(INT_MAX + 1)
+        if prec <= sys.maxint:
+            self.checkraises(OverflowError, '%.*f', '__mod__', (prec, 1. / 7))
+        # Issue 15989
+        width = int(SIZE_MAX + 1)
+        if width <= sys.maxint:
+            self.checkraises(OverflowError, '%*s', '__mod__', (width, ''))
+        prec = int(UINT_MAX + 1)
+        if prec <= sys.maxint:
+            self.checkraises(OverflowError, '%.*f', '__mod__', (prec, 1. / 7))
 
     def test_floatformatting(self):
         # float formatting
@@ -1289,27 +1345,31 @@ class MixinStrUserStringTest:
     # Additional tests that only work with
     # 8bit compatible object, i.e. str and UserString
 
-    if test_support.have_unicode:
-        def test_encoding_decoding(self):
-            codecs = [('rot13', 'uryyb jbeyq'),
-                      ('base64', 'aGVsbG8gd29ybGQ=\n'),
-                      ('hex', '68656c6c6f20776f726c64'),
-                      ('uu', 'begin 666 <data>\n+:&5L;&\\@=V]R;&0 \n \nend\n')]
-            for encoding, data in codecs:
+    @unittest.skipUnless(test_support.have_unicode, 'no unicode support')
+    def test_encoding_decoding(self):
+        codecs = [('rot13', 'uryyb jbeyq'),
+                  ('base64', 'aGVsbG8gd29ybGQ=\n'),
+                  ('hex', '68656c6c6f20776f726c64'),
+                  ('uu', 'begin 666 <data>\n+:&5L;&\\@=V]R;&0 \n \nend\n')]
+        for encoding, data in codecs:
+            with test_support.check_py3k_warnings():
                 self.checkequal(data, 'hello world', 'encode', encoding)
+            with test_support.check_py3k_warnings():
                 self.checkequal('hello world', data, 'decode', encoding)
-            # zlib is optional, so we make the test optional too...
-            try:
-                import zlib
-            except ImportError:
-                pass
-            else:
-                data = 'x\x9c\xcbH\xcd\xc9\xc9W(\xcf/\xcaI\x01\x00\x1a\x0b\x04]'
+        # zlib is optional, so we make the test optional too...
+        try:
+            import zlib
+        except ImportError:
+            pass
+        else:
+            data = 'x\x9c\xcbH\xcd\xc9\xc9W(\xcf/\xcaI\x01\x00\x1a\x0b\x04]'
+            with test_support.check_py3k_warnings():
                 self.checkequal(data, 'hello world', 'encode', 'zlib')
+            with test_support.check_py3k_warnings():
                 self.checkequal('hello world', data, 'decode', 'zlib')
 
-            self.checkraises(TypeError, 'xyz', 'decode', 42)
-            self.checkraises(TypeError, 'xyz', 'encode', 42)
+        self.checkraises(TypeError, 'xyz', 'decode', 42)
+        self.checkraises(TypeError, 'xyz', 'encode', 42)
 
 
 class MixinStrUnicodeTest:

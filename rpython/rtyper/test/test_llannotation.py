@@ -1,11 +1,11 @@
 import py.test
 from rpython.annotator.model import (
-    SomeInteger, SomeBool, SomeChar, unionof, SomeImpossibleValue,
+    SomeInteger, SomeBool, SomeChar, union, SomeImpossibleValue,
     UnionError, SomeInstance, SomeSingleFloat)
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.llannotation import (
     SomePtr, annotation_to_lltype, ll_to_annotation)
-from rpython.rtyper.typesystem import lltype
+from rpython.rtyper.lltypesystem import lltype
 import rpython.rtyper.rtyper  # make sure to import the world
 
 class C(object):
@@ -15,6 +15,7 @@ class DummyClassDef:
     def __init__(self, cls=C):
         self.cls = cls
         self.name = cls.__name__
+        self.classdesc = cls
 
 def test_ll_to_annotation():
     s_z = ll_to_annotation(lltype.Signed._defl())
@@ -68,22 +69,22 @@ def test_ll_union():
     PA1 = lltype.Ptr(lltype.GcArray())
     PA2 = lltype.Ptr(lltype.GcArray())
 
-    assert unionof(SomePtr(PS1), SomePtr(PS1)) == SomePtr(PS1)
-    assert unionof(SomePtr(PS1), SomePtr(PS2)) == SomePtr(PS2)
-    assert unionof(SomePtr(PS1), SomePtr(PS2)) == SomePtr(PS1)
+    assert union(SomePtr(PS1), SomePtr(PS1)) == SomePtr(PS1)
+    assert union(SomePtr(PS1), SomePtr(PS2)) == SomePtr(PS2)
+    assert union(SomePtr(PS1), SomePtr(PS2)) == SomePtr(PS1)
 
-    assert unionof(SomePtr(PA1), SomePtr(PA1)) == SomePtr(PA1)
-    assert unionof(SomePtr(PA1), SomePtr(PA2)) == SomePtr(PA2)
-    assert unionof(SomePtr(PA1), SomePtr(PA2)) == SomePtr(PA1)
+    assert union(SomePtr(PA1), SomePtr(PA1)) == SomePtr(PA1)
+    assert union(SomePtr(PA1), SomePtr(PA2)) == SomePtr(PA2)
+    assert union(SomePtr(PA1), SomePtr(PA2)) == SomePtr(PA1)
 
-    assert unionof(SomePtr(PS1), SomeImpossibleValue()) == SomePtr(PS1)
-    assert unionof(SomeImpossibleValue(), SomePtr(PS1)) == SomePtr(PS1)
+    assert union(SomePtr(PS1), SomeImpossibleValue()) == SomePtr(PS1)
+    assert union(SomeImpossibleValue(), SomePtr(PS1)) == SomePtr(PS1)
 
     with py.test.raises(UnionError):
-        unionof(SomePtr(PA1), SomePtr(PS1))
+        union(SomePtr(PA1), SomePtr(PS1))
     with py.test.raises(UnionError):
-        unionof(SomePtr(PS1), SomePtr(PS3))
+        union(SomePtr(PS1), SomePtr(PS3))
     with py.test.raises(UnionError):
-        unionof(SomePtr(PS1), SomeInteger())
+        union(SomePtr(PS1), SomeInteger())
     with py.test.raises(UnionError):
-        unionof(SomeInteger(), SomePtr(PS1))
+        union(SomeInteger(), SomePtr(PS1))

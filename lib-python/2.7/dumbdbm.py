@@ -21,6 +21,7 @@ is read when the database is opened, and some updates rewrite the whole index)
 
 """
 
+import ast as _ast
 import os as _os
 import __builtin__
 import UserDict
@@ -44,8 +45,9 @@ class _Database(UserDict.DictMixin):
     _os = _os       # for _commit()
     _open = _open   # for _commit()
 
-    def __init__(self, filebasename, mode):
+    def __init__(self, filebasename, mode, flag='c'):
         self._mode = mode
+        self._readonly = (flag == 'r')
 
         # The directory file is a text file.  Each line looks like
         #    "%r, (%d, %d)\n" % (key, pos, siz)
@@ -68,9 +70,10 @@ class _Database(UserDict.DictMixin):
         try:
             f = _open(self._datfile, 'r')
         except IOError:
-            f = _open(self._datfile, 'w')
-            self._chmod(self._datfile)
-        f.close()
+            with _open(self._datfile, 'w') as f:
+                self._chmod(self._datfile)
+        else:
+            f.close()
         self._update()
 
     # Read directory file into the in-memory index dict.
@@ -79,13 +82,14 @@ class _Database(UserDict.DictMixin):
         try:
             f = _open(self._dirfile)
         except IOError:
-            pass
+            self._modified = not self._readonly
         else:
-            for line in f:
-                line = line.rstrip()
-                key, pos_and_siz_pair = eval(line)
-                self._index[key] = pos_and_siz_pair
-            f.close()
+            self._modified = False
+            with f:
+                for line in f:
+                    line = line.rstrip()
+                    key, pos_and_siz_pair = _ast.literal_eval(line)
+                    self._index[key] = pos_and_siz_pair
 
     # Write the index dict to the directory file.  The original directory
     # file (if any) is renamed with a .bak extension first.  If a .bak
@@ -94,7 +98,7 @@ class _Database(UserDict.DictMixin):
         # CAUTION:  It's vital that _commit() succeed, and _commit() can
         # be called from __del__().  Therefore we must never reference a
         # global in this routine.
-        if self._index is None:
+        if self._index is None or not self._modified:
             return  # nothing to do
 
         try:
@@ -107,20 +111,18 @@ class _Database(UserDict.DictMixin):
         except self._os.error:
             pass
 
-        f = self._open(self._dirfile, 'w')
-        self._chmod(self._dirfile)
-        for key, pos_and_siz_pair in self._index.iteritems():
-            f.write("%r, %r\n" % (key, pos_and_siz_pair))
-        f.close()
+        with self._open(self._dirfile, 'w') as f:
+            self._chmod(self._dirfile)
+            for key, pos_and_siz_pair in self._index.iteritems():
+                f.write("%r, %r\n" % (key, pos_and_siz_pair))
 
     sync = _commit
 
     def __getitem__(self, key):
         pos, siz = self._index[key]     # may raise KeyError
-        f = _open(self._datfile, 'rb')
-        f.seek(pos)
-        dat = f.read(siz)
-        f.close()
+        with _open(self._datfile, 'rb') as f:
+            f.seek(pos)
+            dat = f.read(siz)
         return dat
 
     # Append val to the data file, starting at a _BLOCKSIZE-aligned
@@ -128,14 +130,13 @@ class _Database(UserDict.DictMixin):
     # to get to an aligned offset.  Return pair
     #     (starting offset of val, len(val))
     def _addval(self, val):
-        f = _open(self._datfile, 'rb+')
-        f.seek(0, 2)
-        pos = int(f.tell())
-        npos = ((pos + _BLOCKSIZE - 1) // _BLOCKSIZE) * _BLOCKSIZE
-        f.write('\0'*(npos-pos))
-        pos = npos
-        f.write(val)
-        f.close()
+        with _open(self._datfile, 'rb+') as f:
+            f.seek(0, 2)
+            pos = int(f.tell())
+            npos = ((pos + _BLOCKSIZE - 1) // _BLOCKSIZE) * _BLOCKSIZE
+            f.write('\0'*(npos-pos))
+            pos = npos
+            f.write(val)
         return (pos, len(val))
 
     # Write val to the data file, starting at offset pos.  The caller
@@ -143,10 +144,9 @@ class _Database(UserDict.DictMixin):
     # pos to hold val, without overwriting some other value.  Return
     # pair (pos, len(val)).
     def _setval(self, pos, val):
-        f = _open(self._datfile, 'rb+')
-        f.seek(pos)
-        f.write(val)
-        f.close()
+        with _open(self._datfile, 'rb+') as f:
+            f.seek(pos)
+            f.write(val)
         return (pos, len(val))
 
     # key is a new key whose associated value starts in the data file
@@ -154,14 +154,14 @@ class _Database(UserDict.DictMixin):
     # the in-memory index dict, and append one to the directory file.
     def _addkey(self, key, pos_and_siz_pair):
         self._index[key] = pos_and_siz_pair
-        f = _open(self._dirfile, 'a')
-        self._chmod(self._dirfile)
-        f.write("%r, %r\n" % (key, pos_and_siz_pair))
-        f.close()
+        with _open(self._dirfile, 'a') as f:
+            self._chmod(self._dirfile)
+            f.write("%r, %r\n" % (key, pos_and_siz_pair))
 
     def __setitem__(self, key, val):
         if not type(key) == type('') == type(val):
             raise TypeError, "keys and values must be strings"
+        self._modified = True
         if key not in self._index:
             self._addkey(key, self._addval(val))
         else:
@@ -187,6 +187,7 @@ class _Database(UserDict.DictMixin):
             # (so that _commit() never gets called).
 
     def __delitem__(self, key):
+        self._modified = True
         # The blocks used by the associated value are lost.
         del self._index[key]
         # XXX It's unclear why we do a _commit() here (the code always
@@ -212,8 +213,10 @@ class _Database(UserDict.DictMixin):
         return len(self._index)
 
     def close(self):
-        self._commit()
-        self._index = self._datfile = self._dirfile = self._bakfile = None
+        try:
+            self._commit()
+        finally:
+            self._index = self._datfile = self._dirfile = self._bakfile = None
 
     __del__ = close
 
@@ -247,4 +250,4 @@ def open(file, flag=None, mode=0666):
         # Turn off any bits that are set in the umask
         mode = mode & (~um)
 
-    return _Database(file, mode)
+    return _Database(file, mode, flag)

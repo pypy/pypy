@@ -55,7 +55,7 @@ class GzipFile(io.BufferedIOBase):
         a file object.
 
         When fileobj is not None, the filename argument is only used to be
-        included in the gzip file header, which may includes the original
+        included in the gzip file header, which may include the original
         filename of the uncompressed file.  It defaults to the filename of
         fileobj, if discernible; otherwise, it defaults to the empty string,
         and in this case the original filename is not included in the header.
@@ -164,9 +164,16 @@ class GzipFile(io.BufferedIOBase):
     def _write_gzip_header(self):
         self.fileobj.write('\037\213')             # magic header
         self.fileobj.write('\010')                 # compression method
-        fname = os.path.basename(self.name)
-        if fname.endswith(".gz"):
-            fname = fname[:-3]
+        try:
+            # RFC 1952 requires the FNAME field to be Latin-1. Do not
+            # include filenames that cannot be represented that way.
+            fname = os.path.basename(self.name)
+            if not isinstance(fname, str):
+                fname = fname.encode('latin-1')
+            if fname.endswith('.gz'):
+                fname = fname[:-3]
+        except UnicodeEncodeError:
+            fname = ''
         flags = 0
         if fname:
             flags = FNAME
@@ -231,9 +238,9 @@ class GzipFile(io.BufferedIOBase):
             data = data.tobytes()
 
         if len(data) > 0:
-            self.size = self.size + len(data)
+            self.fileobj.write(self.compress.compress(data))
+            self.size += len(data)
             self.crc = zlib.crc32(data, self.crc) & 0xffffffffL
-            self.fileobj.write( self.compress.compress(data) )
             self.offset += len(data)
 
         return len(data)
@@ -362,19 +369,21 @@ class GzipFile(io.BufferedIOBase):
         return self.fileobj is None
 
     def close(self):
-        if self.fileobj is None:
+        fileobj = self.fileobj
+        if fileobj is None:
             return
-        if self.mode == WRITE:
-            self.fileobj.write(self.compress.flush())
-            write32u(self.fileobj, self.crc)
-            # self.size may exceed 2GB, or even 4GB
-            write32u(self.fileobj, self.size & 0xffffffffL)
-            self.fileobj = None
-        elif self.mode == READ:
-            self.fileobj = None
-        if self.myfileobj:
-            self.myfileobj.close()
-            self.myfileobj = None
+        self.fileobj = None
+        try:
+            if self.mode == WRITE:
+                fileobj.write(self.compress.flush())
+                write32u(fileobj, self.crc)
+                # self.size may exceed 2GB, or even 4GB
+                write32u(fileobj, self.size & 0xffffffffL)
+        finally:
+            myfileobj = self.myfileobj
+            if myfileobj:
+                self.myfileobj = None
+                myfileobj.close()
 
     def flush(self,zlib_mode=zlib.Z_SYNC_FLUSH):
         self._check_closed()

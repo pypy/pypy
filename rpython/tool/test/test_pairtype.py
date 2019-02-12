@@ -1,7 +1,8 @@
+from rpython.tool.pairtype import (
+    pairtype, pair, extendabletype, pairmro, DoubleDispatchRegistry,
+    doubledispatch)
 
-from rpython.tool.pairtype import pairtype, pair, extendabletype
-
-def test_binop(): 
+def test_binop():
     ### Binary operation example
     class __extend__(pairtype(int, int)):
         def add((x, y)):
@@ -13,16 +14,16 @@ def test_binop():
         def add((x, y)):
             return 'bool: %s+%s' % (x, y)
 
-    assert pair(3,4).add() == 'integer: 3+4'
-    assert pair(3,4).sub() == 'integer: 3-4'
-    assert pair(3,True).add() == 'integer: 3+True'
-    assert pair(3,True).sub() == 'integer: 3-True'
-    assert pair(False,4).add() == 'integer: False+4'
-    assert pair(False,4).sub() == 'integer: False-4'
-    assert pair(False,True).add() == 'bool: False+True'
-    assert pair(False,True).sub() == 'integer: False-True'
+    assert pair(3, 4).add() == 'integer: 3+4'
+    assert pair(3, 4).sub() == 'integer: 3-4'
+    assert pair(3, True).add() == 'integer: 3+True'
+    assert pair(3, True).sub() == 'integer: 3-True'
+    assert pair(False, 4).add() == 'integer: False+4'
+    assert pair(False, 4).sub() == 'integer: False-4'
+    assert pair(False, True).add() == 'bool: False+True'
+    assert pair(False, True).sub() == 'integer: False-True'
 
-def test_somebuiltin(): 
+def test_somebuiltin():
     ### Operation on built-in types
     class MiniPickler:
         def __init__(self):
@@ -48,7 +49,7 @@ def test_somebuiltin():
     pair(p, [1, 2, ['hello', 3]]).write()
     assert p.data == ['I1', 'I2', 'Shello', 'I3', 'L2', 'L3']
 
-def test_some_multimethod(): 
+def test_some_multimethod():
     ### Another multimethod example
     class Block:
         def __init__(self, exit):
@@ -57,7 +58,7 @@ def test_some_multimethod():
         pass
     class Switch:
         pass
-    
+
     class C_Generator:
         def __init__(self):
             self.lines = []
@@ -78,7 +79,7 @@ def test_some_multimethod():
 
     g = C_Generator()
     pair(g, Block(Switch())).emit(['v1', 'v2'])
-    assert g.lines == ["C code for block", "switch (v5) { ... }"] 
+    assert g.lines == ["C code for block", "switch (v5) { ... }"]
 
     class Lisp_Generator:
         def __init__(self):
@@ -95,16 +96,49 @@ def test_some_multimethod():
 def test_multiple_extend():
     class A:
         __metaclass__ = extendabletype
+
     class B:
         __metaclass__ = extendabletype
 
-    class __extend__(A,B):
-
+    class __extend__(A, B):
         def f(self):
             pass
 
     assert hasattr(A, 'f')
     assert hasattr(B, 'f')
-    
 
-        
+def test_pairmro():
+    class A(object): pass
+    class A2(A): pass
+    class A3(A2): pass
+    class B(object): pass
+    class B2(B): pass
+    parent_pairtypes = pairtype(A3, B2).__mro__[:-2]
+    assert (tuple(pairtype(a, b) for a, b in pairmro(A3, B2)) == parent_pairtypes)
+
+def test_doubledispatch_registry():
+    class A(object): pass
+    class A2(A): pass
+    class A3(A2): pass
+    class B(object): pass
+    class B2(B): pass
+    reg = DoubleDispatchRegistry()
+    reg[object, object] = "default"
+    assert reg[A3, B2] == "default"
+    reg[A2, B2] = "A2-B2"
+    assert reg[A, B2] == "default"
+    assert reg[A3, B2] == "A2-B2"
+    reg[A3, B] = "A3-B"
+    assert reg[A3, B2] == "A2-B2"  # note that A2,B2 wins over A3,B
+
+def test_doubledispatch_function():
+    @doubledispatch
+    def f(x, y, z):
+        return z
+
+    @f.register(int, int)
+    def f_int(x, y, z):
+        return 42
+
+    assert f(1., 1., 0) == 0
+    assert f(1, 1, 0) == 42

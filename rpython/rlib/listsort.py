@@ -1,4 +1,5 @@
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import specialize
 
 
 ## ------------------------------------------------------------------------
@@ -141,6 +142,12 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
         # or, IOW, the first k elements of a should precede key, and the last
         # n-k should follow key.
 
+        # hint for the annotator: the argument 'rightmost' is always passed in as
+        # a constant (either True or False), so we can specialize the function for
+        # the two cases.  (This is actually needed for technical reasons: the
+        # variable 'lower' must contain a known method, which is the case in each
+        # specialized version but not in the unspecialized one.)
+        @specialize.arg(4)
         def gallop(self, key, a, hint, rightmost):
             assert 0 <= hint < a.len
             if rightmost:
@@ -212,12 +219,6 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
             assert lastofs == ofs         # so a[ofs-1] < key <= a[ofs]
             return ofs
 
-        # hint for the annotator: the argument 'rightmost' is always passed in as
-        # a constant (either True or False), so we can specialize the function for
-        # the two cases.  (This is actually needed for technical reasons: the
-        # variable 'lower' must contain a known method, which is the case in each
-        # specialized version but not in the unspecialized one.)
-        gallop._annspecialcase_ = "specialize:arg(4)"
 
         # ____________________________________________________________
 
@@ -495,6 +496,12 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
         #
         # 1. len[-3] > len[-2] + len[-1]
         # 2. len[-2] > len[-1]
+        #
+        # Note these invariants will not hold for the entire pending array even
+        # after this function completes. [1] This does not affect the
+        # correctness of the overall algorithm.
+        #
+        # [1] http://envisage-project.eu/proving-android-java-and-python-sorting-algorithm-is-broken-and-how-to-fix-it/
         #
         # See listsort.txt for more info.
 

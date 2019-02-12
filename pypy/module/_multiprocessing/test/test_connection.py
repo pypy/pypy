@@ -12,6 +12,7 @@ class AppTestBufferTooShort:
                                   'itertools', 'select', 'struct', 'binascii']}
     if sys.platform == 'win32':
         spaceconfig['usemodules'].append('_rawffi')
+        spaceconfig['usemodules'].append('_cffi_backend')
     else:
         spaceconfig['usemodules'].append('fcntl')
 
@@ -33,12 +34,16 @@ class AppTestBufferTooShort:
         import multiprocessing
         try:
             self.raiseBufferTooShort("data")
-        except multiprocessing.BufferTooShort, e:
+        except multiprocessing.BufferTooShort as e:
             assert isinstance(e, multiprocessing.ProcessError)
             assert e.args == ("data",)
 
 class BaseConnectionTest(object):
     def test_connection(self):
+        import sys
+        # if not translated, for win32
+        if not hasattr(sys, 'executable'):
+            sys.executable = 'from test_connection.py'
         rhandle, whandle = self.make_pair()
 
         whandle.send_bytes("abc")
@@ -50,6 +55,10 @@ class BaseConnectionTest(object):
         assert obj == obj2
 
     def test_poll(self):
+        import sys
+        # if not translated, for win32
+        if not hasattr(sys, 'executable'):
+            sys.executable = 'from test_connection.py'
         rhandle, whandle = self.make_pair()
 
         assert rhandle.poll() == False
@@ -64,6 +73,10 @@ class BaseConnectionTest(object):
 
     def test_read_into(self):
         import array, multiprocessing
+        import sys
+        # if not translated, for win32
+        if not hasattr(sys, 'executable'):
+            sys.executable = 'from test_connection.py'
         rhandle, whandle = self.make_pair()
 
         obj = [1, 2.0, "hello"]
@@ -81,6 +94,7 @@ class AppTestWinpipeConnection(BaseConnectionTest):
     }
     if sys.platform == 'win32':
         spaceconfig['usemodules'].append('_rawffi')
+        spaceconfig['usemodules'].append('_cffi_backend')
 
     def setup_class(cls):
         if sys.platform != "win32":
@@ -109,6 +123,7 @@ class AppTestSocketConnection(BaseConnectionTest):
     }
     if sys.platform == 'win32':
         spaceconfig['usemodules'].append('_rawffi')
+        spaceconfig['usemodules'].append('_cffi_backend')
     else:
         spaceconfig['usemodules'].append('fcntl')
 
@@ -128,7 +143,7 @@ class AppTestSocketConnection(BaseConnectionTest):
         client.setblocking(False)
         try:
             client.connect(('127.0.0.1', serverSocket.getsockname()[1]))
-        except socket.error, e:
+        except socket.error as e:
             assert e.args[0] in (errno.EINPROGRESS, errno.EWOULDBLOCK)
         server, addr = serverSocket.accept()
 
@@ -189,9 +204,11 @@ class AppTestSocketConnection(BaseConnectionTest):
         assert data2 == '\x00\x00\x00\x04defg'
 
     def test_repr(self):
-        import _multiprocessing
-        c = _multiprocessing.Connection(1)
-        assert repr(c) == '<read-write Connection, handle 1>'
+        import _multiprocessing, os
+        fd = os.dup(1)     # closed by Connection.__del__
+        c = _multiprocessing.Connection(fd)
+        assert repr(c) == '<read-write Connection, handle %d>' % fd
         if hasattr(_multiprocessing, 'PipeConnection'):
-            c = _multiprocessing.PipeConnection(1)
-            assert repr(c) == '<read-write PipeConnection, handle 1>'
+            fd = os.dup(1)     # closed by PipeConnection.__del__
+            c = _multiprocessing.PipeConnection(fd)
+            assert repr(c) == '<read-write PipeConnection, handle %d>' % fd

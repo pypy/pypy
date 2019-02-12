@@ -2,8 +2,6 @@
 Enums.
 """
 
-from rpython.rlib.objectmodel import keepalive_until_here
-
 from pypy.module._cffi_backend import misc
 from pypy.module._cffi_backend.ctypeprim import (W_CTypePrimitiveSigned,
     W_CTypePrimitiveUnsigned)
@@ -25,15 +23,15 @@ class _Mixin_Enum(object):
             space = self.space
             w_dct = space.newdict()
             for enumvalue, enumerator in self.enumvalues2erators.iteritems():
-                space.setitem(w_dct, space.wrap(enumvalue),
-                                     space.wrap(enumerator))
+                space.setitem(w_dct, space.newint(enumvalue),
+                                     space.newtext(enumerator))
             return w_dct
         if attrchar == 'R':     # relements
             space = self.space
             w_dct = space.newdict()
             for enumerator, enumvalue in self.enumerators2values.iteritems():
-                space.setitem(w_dct, space.wrap(enumerator),
-                                     space.wrap(enumvalue))
+                space.setitem(w_dct, space.newtext(enumerator),
+                                     space.newint(enumvalue))
             return w_dct
         return self._super._fget(self, attrchar)
 
@@ -47,13 +45,13 @@ class _Mixin_Enum(object):
             return '%s: %s' % (value, s)
 
     def string(self, cdataobj, maxlen):
-        value = self._get_value(cdataobj._cdata)
-        keepalive_until_here(cdataobj)
+        with cdataobj as ptr:
+            value = self._get_value(ptr)
         try:
             s = self.enumvalues2erators[value]
         except KeyError:
             s = str(value)
-        return self.space.wrap(s)
+        return self.space.newtext(s)
 
 
 class W_CTypeEnumSigned(_Mixin_Enum, W_CTypePrimitiveSigned):

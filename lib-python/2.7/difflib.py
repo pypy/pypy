@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 """
 Module difflib -- helpers for computing deltas between objects.
 
@@ -525,8 +523,8 @@ class SequenceMatcher:
             non_adjacent.append((i1, j1, k1))
 
         non_adjacent.append( (la, lb, 0) )
-        self.matching_blocks = non_adjacent
-        return map(Match._make, self.matching_blocks)
+        self.matching_blocks = map(Match._make, non_adjacent)
+        return self.matching_blocks
 
     def get_opcodes(self):
         """Return list of 5-tuples describing how to turn a into b.
@@ -1489,7 +1487,7 @@ def _mdiff(fromlines, tolines, context=None, linejunk=None,
                 yield _make_line(lines,'-',0), None, True
                 continue
             elif s.startswith(('--?+', '--+', '- ')):
-                # in delete block and see a intraline change or unchanged line
+                # in delete block and see an intraline change or unchanged line
                 # coming: yield the delete line and then blanks
                 from_line,to_line = _make_line(lines,'-',0), None
                 num_blanks_to_yield,num_blanks_pending = num_blanks_pending-1,0

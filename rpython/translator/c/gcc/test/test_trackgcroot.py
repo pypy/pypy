@@ -159,7 +159,8 @@ def check_computegcmaptable(format, path):
                 expectedlines.insert(i-2, 'PUBLIC\t%s\n' % (label,))
                 expectedlines.insert(i-1, '%s::\n' % (label,))
             else:
-                expectedlines.insert(i-2, '\t.globl\t%s\n' % (label,))
+                expectedlines.insert(i-3, '\t.globl\t%s\n' % (label,))
+                expectedlines.insert(i-2, '\t.hidden\t%s\n' % (label,))
                 expectedlines.insert(i-1, '%s=.+%d\n' % (label,
                                                          tracker.OFFSET_LABELS))
         if format == 'msvc' and r_gcroot_constant.match(line):

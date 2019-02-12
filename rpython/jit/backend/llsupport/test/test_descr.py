@@ -17,14 +17,21 @@ def test_get_size_descr():
     descr_t = get_size_descr(c0, T)
     assert descr_s.size == symbolic.get_size(S, False)
     assert descr_t.size == symbolic.get_size(T, False)
-    assert descr_s.count_fields_if_immutable() == -1
-    assert descr_t.count_fields_if_immutable() == -1
+    assert descr_s.is_immutable() == False
+    assert descr_t.is_immutable() == False
+    assert descr_t.gc_fielddescrs == []
+    assert len(descr_s.gc_fielddescrs) == 1
     assert descr_s == get_size_descr(c0, S)
     assert descr_s != get_size_descr(c1, S)
     #
     descr_s = get_size_descr(c1, S)
     assert isinstance(descr_s.size, Symbolic)
-    assert descr_s.count_fields_if_immutable() == -1
+    assert descr_s.is_immutable() == False
+
+    PARENT = lltype.Struct('P', ('x', lltype.Ptr(T)))
+    STRUCT = lltype.GcStruct('S', ('parent', PARENT), ('y', lltype.Ptr(T)))
+    descr_struct = get_size_descr(c0, STRUCT)
+    assert len(descr_struct.gc_fielddescrs) == 2
 
 def test_get_size_descr_immut():
     S = lltype.GcStruct('S', hints={'immutable': True})
@@ -39,11 +46,11 @@ def test_get_size_descr_immut():
                         ('miss1', lltype.Void),
                         ('miss2', lltype.Void),
                         hints={'immutable': True})
-    for STRUCT, expected in [(S, 0), (T, 1), (U, 3), (V, 3)]:
+    for STRUCT in [S, T, U, V]:
         for translated in [False, True]:
             c0 = GcCache(translated)
             descr_s = get_size_descr(c0, STRUCT)
-            assert descr_s.count_fields_if_immutable() == expected
+            assert descr_s.is_immutable() == True
 
 def test_get_field_descr():
     U = lltype.Struct('U')
@@ -428,8 +435,10 @@ def test_field_arraylen_descr():
 def test_bytearray_descr():
     c0 = GcCache(False)
     descr = get_array_descr(c0, rstr.STR)   # for bytearray
+    # note that we get a basesize that has 1 extra byte for the final null char
+    # (only for STR)
     assert descr.flag == FLAG_UNSIGNED
-    assert descr.basesize == struct.calcsize("PP")         # hash, length
+    assert descr.basesize == struct.calcsize("PP") + 1     # hash, length, extra
     assert descr.lendescr.offset == struct.calcsize("P")   # hash
     assert not descr.is_array_of_pointers()
 
@@ -453,3 +462,12 @@ def test_descr_get_integer_bounds():
     descr = FieldDescr('descr', 0, 1, FLAG_SIGNED)
     assert descr.get_integer_min() == -128
     assert descr.get_integer_max() == 127
+
+
+def test_size_descr_stack_overflow_bug():
+    c0 = GcCache(False)
+    S = lltype.GcForwardReference()
+    P = lltype.Ptr(S)
+    fields = [('x%d' % i, P) for i in range(1500)]
+    S.become(lltype.GcStruct('S', *fields))
+    get_size_descr(c0, S)

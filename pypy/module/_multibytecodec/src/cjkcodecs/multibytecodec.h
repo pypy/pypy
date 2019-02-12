@@ -2,36 +2,35 @@
 #ifndef _PYPY_MULTIBYTECODEC_H_
 #define _PYPY_MULTIBYTECODEC_H_
 
+#include "src/precommondefs.h"
+
 
 #include <stddef.h>
 #include <assert.h>
 
 #ifdef _WIN64
-typedef __int64 ssize_t
+typedef __int64 pypymbc_ssize_t
 #elif defined(_WIN32)
-typedef int ssize_t;
+typedef int pypymbc_ssize_t;
 #else
 #include <unistd.h>
+typedef ssize_t pypymbc_ssize_t;
 #endif
 
-#ifndef Py_UNICODE_SIZE
 #ifdef _WIN32
-#define Py_UNICODE_SIZE 2
+#define pypymbc_UNICODE_SIZE 2
 #else
-#define Py_UNICODE_SIZE 4
+#define pypymbc_UNICODE_SIZE 4
 #endif
-typedef wchar_t Py_UNICODE;
-typedef ssize_t Py_ssize_t;
-#define PY_SSIZE_T_MAX   ((Py_ssize_t)(((size_t) -1) >> 1))
-#endif
+typedef wchar_t pypymbc_wchar_t;
 
 #ifdef _WIN32
-typedef unsigned int ucs4_t;
-typedef unsigned short ucs2_t, DBCHAR;
+typedef unsigned int pypymbc_ucs4_t;
+typedef unsigned short pypymbc_ucs2_t;
 #else
 #include <stdint.h>
-typedef uint32_t ucs4_t;
-typedef uint16_t ucs2_t, DBCHAR;
+typedef uint32_t pypymbc_ucs4_t;
+typedef uint16_t pypymbc_ucs2_t;
 #endif
 
 
@@ -40,28 +39,28 @@ typedef union {
     void *p;
     int i;
     unsigned char c[8];
-    ucs2_t u2[4];
-    ucs4_t u4[2];
+    pypymbc_ucs2_t u2[4];
+    pypymbc_ucs4_t u4[2];
 } MultibyteCodec_State;
 
 typedef int (*mbcodec_init)(const void *config);
-typedef Py_ssize_t (*mbencode_func)(MultibyteCodec_State *state,
+typedef pypymbc_ssize_t (*mbencode_func)(MultibyteCodec_State *state,
                         const void *config,
-                        const Py_UNICODE **inbuf, Py_ssize_t inleft,
-                        unsigned char **outbuf, Py_ssize_t outleft,
+                        const pypymbc_wchar_t **inbuf, pypymbc_ssize_t inleft,
+                        unsigned char **outbuf, pypymbc_ssize_t outleft,
                         int flags);
 typedef int (*mbencodeinit_func)(MultibyteCodec_State *state,
                                  const void *config);
-typedef Py_ssize_t (*mbencodereset_func)(MultibyteCodec_State *state,
+typedef pypymbc_ssize_t (*mbencodereset_func)(MultibyteCodec_State *state,
                         const void *config,
-                        unsigned char **outbuf, Py_ssize_t outleft);
-typedef Py_ssize_t (*mbdecode_func)(MultibyteCodec_State *state,
+                        unsigned char **outbuf, pypymbc_ssize_t outleft);
+typedef pypymbc_ssize_t (*mbdecode_func)(MultibyteCodec_State *state,
                         const void *config,
-                        const unsigned char **inbuf, Py_ssize_t inleft,
-                        Py_UNICODE **outbuf, Py_ssize_t outleft);
+                        const unsigned char **inbuf, pypymbc_ssize_t inleft,
+                        pypymbc_wchar_t **outbuf, pypymbc_ssize_t outleft);
 typedef int (*mbdecodeinit_func)(MultibyteCodec_State *state,
                                  const void *config);
-typedef Py_ssize_t (*mbdecodereset_func)(MultibyteCodec_State *state,
+typedef pypymbc_ssize_t (*mbdecodereset_func)(MultibyteCodec_State *state,
                                          const void *config);
 
 typedef struct MultibyteCodec_s {
@@ -92,46 +91,66 @@ struct pypy_cjk_dec_s {
   const MultibyteCodec *codec;
   MultibyteCodec_State state;
   const unsigned char *inbuf_start, *inbuf, *inbuf_end;
-  Py_UNICODE *outbuf_start, *outbuf, *outbuf_end;
+  pypymbc_wchar_t *outbuf_start, *outbuf, *outbuf_end;
 };
 
+RPY_EXTERN
 struct pypy_cjk_dec_s *pypy_cjk_dec_new(const MultibyteCodec *codec);
-Py_ssize_t pypy_cjk_dec_init(struct pypy_cjk_dec_s *d,
-                             char *inbuf, Py_ssize_t inlen);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_dec_init(struct pypy_cjk_dec_s *d,
+                             char *inbuf, pypymbc_ssize_t inlen);
+RPY_EXTERN
 void pypy_cjk_dec_free(struct pypy_cjk_dec_s *);
-Py_ssize_t pypy_cjk_dec_chunk(struct pypy_cjk_dec_s *);
-Py_UNICODE *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);
-Py_ssize_t pypy_cjk_dec_outlen(struct pypy_cjk_dec_s *);
-Py_ssize_t pypy_cjk_dec_inbuf_remaining(struct pypy_cjk_dec_s *d);
-Py_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d);
-Py_ssize_t pypy_cjk_dec_replace_on_error(struct pypy_cjk_dec_s* d,
-                                         Py_UNICODE *, Py_ssize_t, Py_ssize_t);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_dec_chunk(struct pypy_cjk_dec_s *);
+RPY_EXTERN
+pypymbc_wchar_t *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_dec_outlen(struct pypy_cjk_dec_s *);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_dec_inbuf_remaining(struct pypy_cjk_dec_s *d);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_dec_replace_on_error(struct pypy_cjk_dec_s* d,
+                            pypymbc_wchar_t *, pypymbc_ssize_t, pypymbc_ssize_t);
 
 struct pypy_cjk_enc_s {
   const MultibyteCodec *codec;
   MultibyteCodec_State state;
-  const Py_UNICODE *inbuf_start, *inbuf, *inbuf_end;
+  const pypymbc_wchar_t *inbuf_start, *inbuf, *inbuf_end;
   unsigned char *outbuf_start, *outbuf, *outbuf_end;
 };
 
+RPY_EXTERN
 struct pypy_cjk_enc_s *pypy_cjk_enc_new(const MultibyteCodec *codec);
-Py_ssize_t pypy_cjk_enc_init(struct pypy_cjk_enc_s *d,
-                             Py_UNICODE *inbuf, Py_ssize_t inlen);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_enc_init(struct pypy_cjk_enc_s *d,
+                             pypymbc_wchar_t *inbuf, pypymbc_ssize_t inlen);
+RPY_EXTERN
 void pypy_cjk_enc_free(struct pypy_cjk_enc_s *);
-Py_ssize_t pypy_cjk_enc_chunk(struct pypy_cjk_enc_s *, Py_ssize_t);
-Py_ssize_t pypy_cjk_enc_reset(struct pypy_cjk_enc_s *);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_enc_chunk(struct pypy_cjk_enc_s *, pypymbc_ssize_t);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_enc_reset(struct pypy_cjk_enc_s *);
+RPY_EXTERN
 char *pypy_cjk_enc_outbuf(struct pypy_cjk_enc_s *);
-Py_ssize_t pypy_cjk_enc_outlen(struct pypy_cjk_enc_s *);
-Py_ssize_t pypy_cjk_enc_inbuf_remaining(struct pypy_cjk_enc_s *d);
-Py_ssize_t pypy_cjk_enc_inbuf_consumed(struct pypy_cjk_enc_s* d);
-Py_ssize_t pypy_cjk_enc_replace_on_error(struct pypy_cjk_enc_s* d,
-                                         char *, Py_ssize_t, Py_ssize_t);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_enc_outlen(struct pypy_cjk_enc_s *);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_enc_inbuf_remaining(struct pypy_cjk_enc_s *d);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_enc_inbuf_consumed(struct pypy_cjk_enc_s* d);
+RPY_EXTERN
+pypymbc_ssize_t pypy_cjk_enc_replace_on_error(struct pypy_cjk_enc_s* d,
+                                      char *, pypymbc_ssize_t, pypymbc_ssize_t);
+RPY_EXTERN
 const MultibyteCodec *pypy_cjk_enc_getcodec(struct pypy_cjk_enc_s *);
 
 /* list of codecs defined in the .c files */
 
 #define DEFINE_CODEC(name)                              \
-    MultibyteCodec *pypy_cjkcodec_##name(void);
+    RPY_EXTERN MultibyteCodec *pypy_cjkcodec_##name(void);
 
 // _codecs_cn
 DEFINE_CODEC(gb2312)
@@ -168,6 +187,8 @@ DEFINE_CODEC(johab)
 //_codecs_tw
 DEFINE_CODEC(big5)
 DEFINE_CODEC(cp950)
+
+#undef DEFINE_CODEC
 
 
 #endif

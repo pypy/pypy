@@ -3,12 +3,13 @@ import sys
 from rpython.translator.c.test import test_typed
 from rpython.translator.c.test import test_backendoptimized
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.rarithmetic import ovfcheck
 
 getcompiled = test_typed.TestTypedTestCase().getcompiled
 getcompiledopt = test_backendoptimized.TestTypedOptimizedTestCase().getcompiled
 
 
-class TestException(Exception):
+class InTestException(Exception):
     pass
 
 class MyException(Exception):
@@ -17,7 +18,7 @@ class MyException(Exception):
 def test_simple1():
     def raise_(i):
         if i == 0:
-            raise TestException()
+            raise InTestException()
         elif i == 1:
             raise MyException()
         else:
@@ -28,9 +29,9 @@ def test_simple1():
             b = raise_(i) + 12
             c = raise_(i) + 13
             return a+b+c
-        except TestException: 
+        except InTestException:
             return 7
-        except MyException: 
+        except MyException:
             return 123
         except:
             return 22
@@ -141,7 +142,7 @@ def test_reraise_exception():
             raise_something(n)
         except A:
             raise     # go through
-        except Exception, e:
+        except Exception as e:
             return 100
         return -1
 
@@ -173,3 +174,41 @@ def test_dict_keyerror_inside_try_finally():
     f1 = getcompiledopt(fn, [int])
     res = f1(100)
     assert res == 42
+
+def test_getitem_custom_exception():
+    class MyError(Exception):
+        pass
+    class BadContainer(object):
+        def __getitem__(self, n):
+            raise MyError
+    def f():
+        d = BadContainer()
+        try:
+            return d[0]
+        except KeyError:
+            return 1
+    def g():
+        try:
+            return f()
+        except MyError:
+            return -1
+
+    assert g() == -1
+    compiled = getcompiled(g, [])
+    assert compiled() == -1
+
+def test_ovf_propagation():
+    def div(a, b):
+        try:
+            return ovfcheck(a//b)
+        except ZeroDivisionError:
+            raise
+    def f():
+        div(4, 2)
+        try:
+            return div(-sys.maxint-1, -1)
+        except OverflowError:
+            return 0
+    assert f() == 0
+    compiled = getcompiled(f, [])
+    assert compiled() == 0

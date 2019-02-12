@@ -21,7 +21,7 @@ if sys.platform == 'win32':
                 win32api.CloseHandle(proch)
             except pywintypes.error, e:
                 pass
-    #Try to avoid opeing a dialog box if one of the tests causes a system error
+    #Try to avoid opening a dialog box if one of the tests causes a system error
     import ctypes
     winapi = ctypes.windll.kernel32
     SetErrorMode = winapi.SetErrorMode
@@ -101,7 +101,9 @@ def dry_run(args, cwd, out, timeout=None):
     return 0
 
 def getsignalname(n):
-    for name, value in signal.__dict__.items():
+    # "sorted()" to pick a deterministic answer in case of synonyms.
+    # Also, getting SIGABRT is more understandable than SIGIOT...
+    for name, value in sorted(signal.__dict__.items()):
         if value == n and name.startswith('SIG'):
             return name
     return 'signal %d' % (n,)
@@ -125,9 +127,9 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
         runfunc = dry_run
     else:
         runfunc = run
-    
+
     exitcode = runfunc(args, cwd, out, timeout=timeout)
-    
+
     return exitcode
 
 def should_report_failure(logdata):
@@ -145,7 +147,7 @@ def should_report_failure(logdata):
 
 def interpret_exitcode(exitcode, test, logdata=""):
     extralog = ""
-    if exitcode:
+    if exitcode not in (0, 5):
         failure = True
         if exitcode != 1 or should_report_failure(logdata):
             if exitcode > 0:
@@ -235,6 +237,11 @@ def execute_tests(run_param, testdirs, logfile, out):
     N = run_param.parallel_runs
     if N > 1:
         out.write("running %d parallel test workers\n" % N)
+        s = 'setting'
+        if os.environ.get('MAKEFLAGS'):
+            s = 'overriding'
+        out.write("%s MAKEFLAGS to ' ' (space)\n" % s)
+        os.environ['MAKEFLAGS'] = ' '
     failure = False
 
     for testname in testdirs:
@@ -257,17 +264,18 @@ def execute_tests(run_param, testdirs, logfile, out):
 
         if res[0] == 'start':
             started += 1
-            out.write("++ starting %s [%d started in total]\n" % (res[1],
+            now = time.strftime('%H:%M:%S')
+            out.write("++ %s starting %s [%d started in total]\n" % (now, res[1],
                                                                   started))
             continue
-        
+
         testname, somefailed, logdata, output = res[1:]
         done += 1
         failure = failure or somefailed
 
         heading = "__ %s [%d done in total, somefailed=%s] " % (
             testname, done, somefailed)
-        
+
         out.write(heading + (79-len(heading))*'_'+'\n')
 
         out.write(output)
@@ -291,7 +299,7 @@ class RunParam(object):
     parallel_runs = 1
     timeout = None
     cherrypick = None
-    
+
     def __init__(self, root):
         self.root = root
         self.self = self
@@ -364,7 +372,7 @@ def main(args):
     parser.add_option("--timeout", dest="timeout", default=None,
                       type="int",
                       help="timeout in secs for test processes")
-        
+
     opts, args = parser.parse_args(args)
 
     if opts.logfile is None:
@@ -407,8 +415,9 @@ def main(args):
     run_param.dry_run = opts.dry_run
 
     if run_param.dry_run:
-        print >>out, run_param.__dict__
-    
+        print >>out, '\n'.join([str((k, getattr(run_param, k))) \
+                        for k in dir(run_param) if k[:2] != '__'])
+
     res = execute_tests(run_param, testdirs, logfile, out)
 
     if res:

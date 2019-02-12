@@ -10,7 +10,7 @@ def setup_module(mod):
 
 class AppTestPosix:
     spaceconfig = {
-        "usemodules": ['posix', 'rctime'],
+        "usemodules": ['posix', 'time'],
     }
 
     def setup_class(cls):
@@ -19,7 +19,7 @@ class AppTestPosix:
         cls.w_path = cls.space.wrap(str(path))
 
     def test_posix_is_pypy_s(self):
-        assert self.posix.__file__
+        assert hasattr(self.posix, '_statfields')
 
     def test_fdopen(self):
         path = self.path

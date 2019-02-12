@@ -26,9 +26,6 @@ class FakeCPU:
         assert num == 0x1C3
         return FakeFailDescr()
 
-    def get_failargs_limit(self):
-        return 1000
-
 class FakeMC:
     def __init__(self):
         self.content = []
@@ -51,6 +48,8 @@ class TestRegallocPushPop(object):
                 asmmemmgr_blocks = None
         cpu = ACTUAL_CPU(None, None)
         cpu.setup()
+        if cpu.HAS_CODEMAP:
+            cpu.codemap.setup()
         looptoken = FakeToken()
         asm = cpu.assembler
         asm.setup_once()

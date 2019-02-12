@@ -11,7 +11,8 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem import lltype, lloperation, rclass, llmemory
+from rpython.rtyper.lltypesystem import lltype, lloperation, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY, FieldListAccessor
 
 
@@ -79,7 +80,7 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 30
-        self.check_simple_loop(setfield_gc=0, getfield_gc=0)
+        self.check_simple_loop(setfield_gc=0, getfield_gc_i=0)
 
     def test_preexisting_access_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
@@ -104,8 +105,8 @@ class ExplicitVirtualizableTests:
         assert f(5) == 185
         res = self.meta_interp(f, [5])
         assert res == 185
-        self.check_resops(setfield_gc=0,
-                          getfield_gc=2)  # <= at the header of the loop
+        self.check_resops(setfield_gc=0, getfield_gc_r=1,
+                          getfield_gc_i=1)  # <= at the header of the loop
 
     def test_two_paths_access(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
@@ -127,7 +128,7 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [18])
         assert res == 10118
-        self.check_resops(setfield_gc=0, getfield_gc=2)
+        self.check_resops(setfield_gc=0, getfield_gc_i=1, getfield_gc_r=1)
 
     def test_synchronize_in_return(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
@@ -151,7 +152,7 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [18])
         assert res == 10180
-        self.check_resops(setfield_gc=0, getfield_gc=2)
+        self.check_resops(setfield_gc=0, getfield_gc_i=1, getfield_gc_r=1)
 
     def test_synchronize_in_return_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
@@ -206,7 +207,7 @@ class ExplicitVirtualizableTests:
             return res
         res = self.meta_interp(f, [40])
         assert res == 50 * 4
-        self.check_resops(setfield_gc=0, getfield_gc=4)
+        self.check_resops(setfield_gc=0, getfield_gc_i=2, getfield_gc_r=2)
 
     def test_double_frame(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy', 'other'],
@@ -229,8 +230,9 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
-        self.check_simple_loop(setfield_gc=1, getfield_gc=0, cond_call=1)
-        self.check_resops(setfield_gc=2, getfield_gc=4)
+        self.check_simple_loop(setfield_gc=1, getfield_gc_i=0, cond_call=1,
+                               getfield_gc_r=0)
+        self.check_resops(setfield_gc=2, getfield_gc_i=2, getfield_gc_r=2)
 
     # ------------------------------
 
@@ -281,7 +283,8 @@ class ExplicitVirtualizableTests:
         res = self.meta_interp(f, [16])
         assert res == 3001 + 16 * 80
         self.check_simple_loop(setarrayitem_gc=0, setfield_gc=0,
-                               getarrayitem_gc=0, getfield_gc=0)
+            getarrayitem_gc_i=0, getarrayitem_gc_r=0, getfield_gc_i=0,
+            getfield_gc_r=0)
 
     def test_synchronize_arrays_in_return(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2'],
@@ -312,8 +315,9 @@ class ExplicitVirtualizableTests:
         assert f(18) == 10360
         res = self.meta_interp(f, [18])
         assert res == 10360
-        self.check_simple_loop(setfield_gc=0, getarrayitem_gc=0,
-                               getfield_gc=0, setarrayitem_gc=0)
+        self.check_simple_loop(setfield_gc=0, getarrayitem_gc_i=0,
+                               getfield_gc_i=0, getfield_gc_r=0,
+                               setarrayitem_gc=0, getarrayitem_gc_r=0)
 
     def test_array_length(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2'],
@@ -339,8 +343,9 @@ class ExplicitVirtualizableTests:
             return xy2.inst_l1[1]
         res = self.meta_interp(f, [18])
         assert res == 2941309 + 18
-        self.check_simple_loop(setfield_gc=0, getarrayitem_gc=0,
-                               arraylen_gc=0, getfield_gc=0)
+        self.check_simple_loop(setfield_gc=0, getarrayitem_gc_i=0,
+                               getarrayitem_gc_r=0, getfield_gc_i=0,
+                               arraylen_gc=0, getfield_gc_r=0)
 
     def test_residual_function(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2'],
@@ -373,8 +378,9 @@ class ExplicitVirtualizableTests:
             return xy2.inst_l1[1]
         res = self.meta_interp(f, [18])
         assert res == 2941309 + 18
-        self.check_simple_loop(call=1, setfield_gc=0, getarrayitem_gc=0,
-                               arraylen_gc=1, getfield_gc=0)
+        self.check_simple_loop(call_r=1, setfield_gc=0, getarrayitem_gc_i=0,
+            getarrayitem_gc_r=0, arraylen_gc=1, getfield_gc_i=0,
+            getfield_gc_r=0)
 
     def test_double_frame_array(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2', 'other'],
@@ -411,7 +417,8 @@ class ExplicitVirtualizableTests:
         res = self.meta_interp(f, [20], enable_opts='')
         assert res == expected
         self.check_simple_loop(setarrayitem_gc=1, setfield_gc=0,
-                               getarrayitem_gc=1, arraylen_gc=1, getfield_gc=2)
+                               getarrayitem_gc_i=1, arraylen_gc=1,
+                               getfield_gc_r=2)
 
     # ------------------------------
 
@@ -460,7 +467,8 @@ class ExplicitVirtualizableTests:
         assert f(18) == 10360
         res = self.meta_interp(f, [18])
         assert res == 10360
-        self.check_simple_loop(getfield_gc=0, getarrayitem_gc=0,
+        self.check_simple_loop(getfield_gc_i=0, getfield_gc_r=0,
+                               getarrayitem_gc_i=0, getarrayitem_gc_r=0,
                                setfield_gc=0, setarrayitem_gc=0)
 
     # ------------------------------
@@ -494,7 +502,8 @@ class ImplicitVirtualizableTests(object):
 
         res = self.meta_interp(f, [10])
         assert res == 55
-        self.check_simple_loop(setfield_gc=0, getfield_gc=0)
+        self.check_simple_loop(setfield_gc=0, getfield_gc_i=0,
+                               getfield_gc_r=0)
 
     def test_virtualizable_with_array(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'frame'],
@@ -528,8 +537,10 @@ class ImplicitVirtualizableTests(object):
 
         res = self.meta_interp(f, [10, 1], listops=True)
         assert res == f(10, 1)
-        self.check_simple_loop(getfield_gc=0, getarrayitem_gc=0)
-        self.check_resops(getfield_gc=2, getarrayitem_gc=4)
+        self.check_simple_loop(getfield_gc_i=0, getarrayitem_gc_i=0,
+                               getarrayitem_gc_r=0, getfield_gc_r=0)
+        self.check_resops(getfield_gc_r=1, getarrayitem_gc_i=4,
+                          getfield_gc_i=1)
 
     def test_subclass_of_virtualizable(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],
@@ -557,7 +568,8 @@ class ImplicitVirtualizableTests(object):
 
         res = self.meta_interp(f, [10])
         assert res == 55
-        self.check_simple_loop(setfield_gc=0, getfield_gc=0)
+        self.check_simple_loop(setfield_gc=0, getfield_gc_i=0,
+                               getfield_gc_r=0)
 
     def test_external_pass(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 'z', 'frame'],
@@ -653,7 +665,7 @@ class ImplicitVirtualizableTests(object):
                 jitdriver.jit_merge_point(frame=frame)
                 try:
                     g()
-                except FooError, e:
+                except FooError as e:
                     frame.x -= e.value
                 frame.y += 1
             return frame.x
@@ -1090,7 +1102,8 @@ class ImplicitVirtualizableTests(object):
 
         res = self.meta_interp(f, [10])
         assert res == 55
-        self.check_simple_loop(setfield_gc=0, getfield_gc=0)
+        self.check_simple_loop(setfield_gc=0, getfield_gc_i=0,
+                               getfield_gc_r=0)
 
         from rpython.jit.backend.test.support import BaseCompiledMixin
         if isinstance(self, BaseCompiledMixin):
@@ -1101,10 +1114,8 @@ class ImplicitVirtualizableTests(object):
                                        if getattr(graph, 'func', None) is f]
         init_graph = t._graphof(Frame.__init__.im_func)
 
-        deref = t.rtyper.type_system.deref
-
         def direct_calls(graph):
-            return [deref(op.args[0].value)._callable.func_name
+            return [op.args[0].value._obj._callable.func_name
                     for block, op in graph.iterblockops()
                         if op.opname == 'direct_call']
 
@@ -1250,8 +1261,10 @@ class ImplicitVirtualizableTests(object):
 
         res = self.meta_interp(f, [10])
         assert res == 155
-        self.check_simple_loop(setfield_gc=0, getfield_gc=0)
-        self.check_resops(setfield_gc=0, getfield_gc=2)
+        self.check_simple_loop(setfield_gc=0, getfield_gc_i=0,
+                               getfield_gc_r=0)
+        self.check_resops(setfield_gc=0, getfield_gc_i=2,
+                          getfield_gc_r=0)
 
     def test_blackhole_should_synchronize(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],
@@ -1287,8 +1300,9 @@ class ImplicitVirtualizableTests(object):
 
         res = self.meta_interp(f, [10])
         assert res == 155
-        self.check_simple_loop(setfield_gc=0, getfield_gc=0)
-        self.check_resops(setfield_gc=0, getfield_gc=2)
+        self.check_simple_loop(setfield_gc=0, getfield_gc_i=0,
+                               getfield_gc_r=0)
+        self.check_resops(setfield_gc=0, getfield_gc_i=2, getfield_gc_r=0)
 
     def test_blackhole_should_not_reenter(self):
         if not self.basic:
@@ -1367,7 +1381,7 @@ class ImplicitVirtualizableTests(object):
             return result
 
         def indirection(arg):
-            return interp(arg)
+            return interp(arg) + 1
 
         def run_interp(n):
             f = hint(Frame(n), access_directly=True)
@@ -1499,7 +1513,7 @@ class ImplicitVirtualizableTests(object):
         res = self.meta_interp(main, [10])
         assert res == main(10)
         self.check_resops({
-            "getfield_gc": 1, "int_lt": 2, "ptr_eq": 1, "guard_true": 3,
+            "getfield_gc_i": 1, "int_lt": 2, "ptr_eq": 1, "guard_true": 3,
             "int_add": 2, "jump": 1
         })
 
@@ -1605,11 +1619,173 @@ class ImplicitVirtualizableTests(object):
         if bridge is not None:
             l = [op for op in
                  bridge.operations if op.getopnum() == rop.SETFIELD_GC]
-            assert "'inst_x'" in str(l[0].getdescr().realdescrref())
+            assert "'inst_x'" in str(l[1].getdescr().realdescrref())
             assert len(l) == 2 # vable token set to null
             l = [op for op in bridge.operations if
                  op.getopnum() == rop.GUARD_NOT_FORCED_2]
             assert len(l) == 0
+
+    def test_two_virtualizable_types(self):
+        class A:
+            _virtualizable_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        class B:
+            _virtualizable_ = ['lst[*]']
+            def __init__(self, lst):
+                self.lst = lst
+
+        driver_a = JitDriver(greens=[], reds=['a'], virtualizables=['a'])
+        driver_b = JitDriver(greens=[], reds=['b'], virtualizables=['b'])
+
+        def foo_a(a):
+            while a.x > 0:
+                driver_a.jit_merge_point(a=a)
+                a.x -= 2
+            return a.x
+
+        def foo_b(b):
+            while b.lst[0] > 0:
+                driver_b.jit_merge_point(b=b)
+                b.lst[0] -= 2
+            return b.lst[0]
+
+        def f():
+            return foo_a(A(13)) * 100 + foo_b(B([13]))
+
+        assert f() == -101
+        res = self.meta_interp(f, [], listops=True)
+        assert res == -101
+
+    def test_same_virtualizable_for_two_invocations(self):
+        class A:
+            _virtualizable_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        driver = JitDriver(greens=['k'], reds=['a'], virtualizables=['a'])
+
+        def foo(a, k):
+            while True:
+                driver.jit_merge_point(a=a, k=k)
+                if k == 99:
+                    return 61
+                if a.x <= k:
+                    return 0
+                a.x -= 1
+
+        def f():
+            # first, compile foo(k=2) fully, including the exit bridge
+            for i in range(10):
+                a = A(5)
+                foo(a, 2)
+            #
+            for i in range(5):
+                # then take a 'a' still virtualized
+                a = A(5)
+                foo(a, 2)
+                # and use it in foo(k=99), which will be compiled (as a
+                # trivial finish) if we repeat the whole procedure a
+                # few times
+                foo(a, 99)
+            #
+            return 0
+
+        res = self.meta_interp(f, [], listops=True)
+        assert res == 0
+
+    def test_constant_virtualizable(self):
+        class A:
+            _virtualizable_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        driver = JitDriver(greens=['b'], reds=['a'], virtualizables=['a'])
+
+        def f():
+            a = A(10)
+            b = promote(a)
+            while a.x > 0:
+                driver.jit_merge_point(a=a, b=b)
+                a.x = b.x - 1
+            return a.x
+
+        res = self.meta_interp(f, [], listops=True)
+        assert res == 0
+
+    def test_tracing_sees_nonstandard_vable_twice(self):
+        # This test might fall we try to remove heapcache.clear_caches()'s
+        # call to reset_keep_likely_virtuals() for CALL_MAY_FORCE, and doing
+        # so, we forget to clean up the "nonstandard_virtualizable" fields.
+
+        class A:
+            _virtualizable_ = ['x']
+            @dont_look_inside
+            def __init__(self, x):
+                self.x = x
+            def check(self, expected_x):
+                if self.x != expected_x:
+                    raise ValueError
+
+        driver1 = JitDriver(greens=[], reds=['a'], virtualizables=['a'])
+        driver2 = JitDriver(greens=[], reds=['i'])
+
+        def f(a):
+            while a.x > 0:
+                driver1.jit_merge_point(a=a)
+                a.x -= 1
+
+        def main():
+            i = 10
+            while i > 0:
+                driver2.jit_merge_point(i=i)
+                a = A(10)
+                a.check(10)    # first time, 'a' has got no vable_token
+                f(a)
+                a.check(0)     # second time, the same 'a' has got one!
+                i -= 1
+            return 42
+
+        res = self.meta_interp(main, [], listops=True)
+        assert res == 42
+
+    def test_blackhole_should_also_force_virtualizables(self):
+        class A:
+            _virtualizable_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        driver1 = JitDriver(greens=[], reds=['a'], virtualizables=['a'])
+        driver2 = JitDriver(greens=[], reds=['i'])
+
+        def f(a):
+            while a.x > 0:
+                driver1.jit_merge_point(a=a)
+                a.x -= 1
+
+        def main():
+            i = 10
+            while i > 0:
+                driver2.jit_merge_point(i=i)
+                a = A(10)
+                f(a)
+                # The interesting case is i==2.  We're running the rest of
+                # this function in the blackhole interp, because of this:
+                if i == 2:
+                    pass
+                # Here, 'a' has got a non-null vtable_token because f()
+                # is already completely JITted.  But the blackhole interp
+                # ignores it and reads the bogus value currently physically
+                # stored in a.x...
+                if a.x != 0:
+                    raise ValueError
+                i -= 1
+            return 42
+
+        res = self.meta_interp(main, [], listops=True, repeat=7)
+        assert res == 42
+
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

@@ -208,9 +208,15 @@ class TupleRepr(Repr):
     def get_ll_hash_function(self):
         return gen_hash_function(self.items_r)
 
+    # no get_ll_fasthash_function: the hash is a bit slow, better cache
+    # it inside dict entries
+
     ll_str = property(gen_str_function)
 
-    def make_iterator_repr(self):
+    def make_iterator_repr(self, variant=None):
+        if variant is not None:
+            raise TyperError("unsupported %r iterator over a tuple" %
+                             (variant,))
         if len(self.items_r) == 1:
             # subclasses are supposed to set the IteratorRepr attribute
             return self.IteratorRepr(self)

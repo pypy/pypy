@@ -5,8 +5,9 @@ import py, os, sys
 from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
+from rpython.tool.ansi_print import AnsiLogger
 
-log = py.log.Producer("platform")
+log = AnsiLogger("platform")
 
 
 class CompilationError(Exception):
@@ -36,7 +37,10 @@ class ExecutionResult(object):
 class Platform(object):
     name = "abstract platform"
     c_environ = None
-
+    # which branch to check out in get_external.py
+    externals_branch='default'
+    # where to put the externals, as an absolute path
+    externals = str(py.path.local(__file__).parts()[-5] / 'externals')
     relevant_environ = ()
     log_errors = True
 
@@ -101,7 +105,7 @@ class Platform(object):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = []):
+                     no_precompile_cfiles = [], profopt=False, config=None):
         raise NotImplementedError("Pure abstract baseclass")
 
     def __repr__(self):
@@ -128,7 +132,7 @@ class Platform(object):
     # some helpers which seem to be cross-platform enough
 
     def _execute_c_compiler(self, cc, args, outname, cwd=None):
-        log.execute(cc + ' ' + ' '.join(args))
+        #log.execute(cc + ' ' + ' '.join(args))
         # 'cc' can also contain some options for the C compiler;
         # e.g. it can be "gcc -m32".  We handle it by splitting on ' '.
         cclist = cc.split()
@@ -150,20 +154,9 @@ class Platform(object):
                 # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
         else:
-            for line in stderr.splitlines():
-                log.WARNING(line)
-
-    def _make_response_file(self, prefix):
-        """Creates a temporary file with the specified prefix,
-        and returns its name"""
-        # Build unique filename
-        num = 0
-        while 1:
-            response_file = udir.join('%s%i' % (prefix, num))
-            num += 1
-            if not response_file.check():
-                break
-        return response_file
+            if self.log_errors:
+                for line in stderr.splitlines():
+                    log.WARNING(line)
 
     def _make_o_file(self, cfile, ext):
         """Create an object file name under the udir for a .c file"""
@@ -192,9 +185,12 @@ class Platform(object):
         if standalone:
             extra = self.standalone_only
         else:
-            extra = self.shared_only
+            extra = self.get_shared_only_compile_flags()
         cflags = list(self.cflags) + list(extra)
         return (cflags + list(eci.compile_extra) + args)
+
+    def get_shared_only_compile_flags(self):
+        return tuple(self.shared_only)
 
     def preprocess_library_dirs(self, library_dirs):
         if 'PYPY_LOCALBASE' in os.environ:
@@ -210,14 +206,12 @@ class Platform(object):
         library_dirs = self._libdirs(library_dirs)
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
-        export_flags = self._exportsymbols_link_flags(eci)
+        export_flags = self._exportsymbols_link_flags()
         return (library_dirs + list(self.link_flags) + export_flags +
                 link_files + list(eci.link_extra) + libraries +
                 list(self.extra_libs))
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
-        if eci.export_symbols:
-            raise ValueError("This platform does not support export symbols")
+    def _exportsymbols_link_flags(self):
         return []
 
     def _finish_linking(self, ofiles, eci, outputfilename, standalone):
@@ -270,7 +264,8 @@ if sys.platform.startswith('linux'):
     # Only required on armhf and mips{,el}, not armel. But there's no way to
     # detect armhf without shelling out
     if (platform.architecture()[0] == '64bit'
-            or platform.machine().startswith(('arm', 'mips', 'ppc'))):
+            or platform.machine().startswith(
+                ('arm', 'm68k', 'mips', 'parisc', 'ppc', 'sh4'))):
         host_factory = LinuxPIC
     else:
         host_factory = Linux
@@ -313,6 +308,13 @@ elif "openbsd" in sys.platform:
         host_factory = OpenBSD
     else:
         host_factory = OpenBSD_64
+elif sys.platform.startswith('gnu'):
+    from rpython.translator.platform.hurd import Hurd
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Hurd
+    else:
+        host_factory = Hurd_64
 elif os.name == 'nt':
     from rpython.translator.platform.windows import Windows, Windows_x64
     import platform
@@ -328,24 +330,16 @@ elif sys.platform == 'cygwin':
     else:
         host_factory = Cygwin64
 else:
-    # pray
-    from rpython.translator.platform.distutils_platform import DistutilsPlatform
-    host_factory = DistutilsPlatform
+    raise ValueError('unknown sys.platform "%s"', sys.platform)
 
 platform = host = host_factory()
 
 def pick_platform(new_platform, cc):
     if new_platform == 'host':
         return host_factory(cc)
-    elif new_platform == 'maemo':
-        from rpython.translator.platform.maemo import Maemo
-        return Maemo(cc)
     elif new_platform == 'arm':
         from rpython.translator.platform.arm import ARM
         return ARM(cc)
-    elif new_platform == 'distutils':
-        from rpython.translator.platform.distutils_platform import DistutilsPlatform
-        return DistutilsPlatform()
     else:
         raise ValueError("platform = %s" % (new_platform,))
 
@@ -354,8 +348,10 @@ def set_platform(new_platform, cc):
     platform = pick_platform(new_platform, cc)
     if not platform:
         raise ValueError("pick_platform(%r, %s) failed"%(new_platform, cc))
-    log.msg("Set platform with %r cc=%s, using cc=%r" % (new_platform, cc,
-                    getattr(platform, 'cc','Unknown')))
+    log.msg("Set platform with %r cc=%s, using cc=%r, version=%r" % (new_platform, cc,
+                    getattr(platform, 'cc','Unknown'),
+                    getattr(platform, 'version','Unknown'),
+    ))
 
     if new_platform == 'host':
         global host

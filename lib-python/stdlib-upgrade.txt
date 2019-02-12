@@ -5,15 +5,23 @@ Process for upgrading the stdlib to a new cpython version
 
     overly detailed
 
-1. check out the branch vendor/stdlib
+0. make sure your working dir is clean
+1. check out the branch vendor/stdlib (for 2.7) or vendor/stdlib-3-* (for py3k)
+   or create branch vendor/stdlib-3-*
 2. upgrade the files there
-3. update stdlib-versions.txt with the output of hg -id from the cpython repo
+   2a. remove lib-python/2.7/ or lib-python/3/
+   2b. copy the files from the cpython repo
+   2c. hg add lib-python/2.7/ or lib-python/3/
+   2d. hg remove --after
+   2e. show copied files in cpython repo by running `hg diff --git -r v<old> -r v<new> Lib | grep '^copy \(from\|to\)'`
+   2f. fix copies / renames manually by running `hg copy --after <from> <to>` for each copied file
+3. update stdlib-version.txt with the output of hg -id from the cpython repo
 4. commit
-5. update to default/py3k
+5. update to default / py3k
 6. create a integration branch for the new stdlib
    (just hg branch stdlib-$version)
-7. merge vendor/stdlib
+7. merge vendor/stdlib or vendor/stdlib-3-*
 8. commit
 10. fix issues
 11. commit --close-branch
-12. merge to default
+12. merge to default / py3k

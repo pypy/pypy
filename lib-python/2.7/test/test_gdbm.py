@@ -98,6 +98,17 @@ class TestGdbm(unittest.TestCase):
         self.assertTrue(key in self.g)
         self.assertTrue(self.g.has_key(key))
 
+    def test_unicode_key(self):
+        key = u'ab'
+        value = u'cd'
+        self.g = gdbm.open(filename, 'cf')
+        self.g[key] = value
+        self.g.close()
+        self.g = gdbm.open(filename, 'r')
+        self.assertEquals(self.g[key], value)
+        self.assertTrue(key in self.g)
+        self.assertTrue(self.g.has_key(key))
+
 def test_main():
     run_unittest(TestGdbm)
 

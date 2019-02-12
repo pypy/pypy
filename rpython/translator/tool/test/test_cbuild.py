@@ -74,7 +74,7 @@ class TestEci:
     def test_make_shared_lib(self):
         eci = ExternalCompilationInfo(
             separate_module_sources = ['''
-            int get()
+            RPY_EXTERN int get()
             {
                 return 42;
             }
@@ -82,7 +82,6 @@ class TestEci:
             {
                 return 43;
             }'''],
-            export_symbols = ['get']
         )
         neweci = eci.compile_shared_lib()
         assert len(neweci.libraries) == 1

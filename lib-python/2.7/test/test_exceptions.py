@@ -5,9 +5,15 @@ import sys
 import unittest
 import pickle, cPickle
 
-from test.test_support import (TESTFN, unlink, run_unittest, captured_output,
-                               check_warnings, cpython_only)
+from test.test_support import (TESTFN, unlink, run_unittest, captured_stderr,
+                               check_warnings, cpython_only, gc_collect,
+                               check_impl_detail)
 from test.test_pep352 import ignore_deprecation_warnings
+
+class BrokenStrException(Exception):
+    def __str__(self):
+        raise Exception("str() is broken")
+    __repr__ = __str__  # Python 2's PyErr_WriteUnraisable() uses repr()
 
 # XXX This is not really enough, each *operation* should be tested!
 
@@ -92,7 +98,7 @@ class ExceptionTests(unittest.TestCase):
 
         self.raise_catch(TabError, "TabError")
         # can only be tested under -tt, and is the only test for -tt
-        #try: compile("try:\n\t1/0\n    \t1/0\nfinally:\n pass\n", '<string>', 'exec')
+        #try: compile("try:\n\t1.0/0.0\n    \t1.0/0.0\nfinally:\n pass\n", '<string>', 'exec')
         #except TabError: pass
         #else: self.fail("TabError not raised")
 
@@ -375,7 +381,7 @@ class ExceptionTests(unittest.TestCase):
         # The test prints an unraisable recursion error when
         # doing "except ValueError", this is because subclass
         # checking has recursion checking too.
-        with captured_output("stderr"):
+        with captured_stderr():
             try:
                 g()
             except RuntimeError:
@@ -431,6 +437,12 @@ class ExceptionTests(unittest.TestCase):
         u.start = 1000
         self.assertEqual(str(u), "can't translate characters in position 1000-4: 965230951443685724997")
 
+    def test_unicode_errors_no_object(self):
+        # See issue #21134.
+        klasses = UnicodeEncodeError, UnicodeDecodeError, UnicodeTranslateError
+        for klass in klasses:
+            self.assertEqual(str(klass.__new__(klass)), "")
+
     def test_badisinstance(self):
         # Bug #2542: if issubclass(e, MyException) raises an exception,
         # it should be ignored
@@ -442,7 +454,7 @@ class ExceptionTests(unittest.TestCase):
             __metaclass__ = Meta
             pass
 
-        with captured_output("stderr") as stderr:
+        with captured_stderr() as stderr:
             try:
                 raise KeyError()
             except MyException, e:
@@ -454,7 +466,7 @@ class ExceptionTests(unittest.TestCase):
             else:
                 self.fail("Should have raised KeyError")
 
-        with captured_output("stderr") as stderr:
+        with captured_stderr() as stderr:
             def g():
                 try:
                     return g()
@@ -637,6 +649,67 @@ class TestSameStrAndUnicodeMsg(unittest.TestCase):
         self.assertTrue(issubclass(error5, error4))
         self.assertEqual(error5.a, 1)
         self.assertEqual(error5.__doc__, "")
+
+    def test_unraisable(self):
+        # Issue #22836: PyErr_WriteUnraisable() should give sensible reports
+        class BrokenDel:
+            def __del__(self):
+                exc = ValueError("del is broken")
+                # In Python 3, the following line would be in the report:
+                raise exc
+
+        class BrokenRepr(BrokenDel):
+            def __repr__(self):
+                raise AttributeError("repr() is broken")
+
+        class BrokenExceptionDel:
+            def __del__(self):
+                exc = BrokenStrException()
+                # In Python 3, the following line would be in the report:
+                raise exc
+
+        for test_class in (BrokenDel, BrokenRepr, BrokenExceptionDel):
+            obj = test_class()
+            with captured_stderr() as stderr:
+                del obj
+                gc_collect()
+            report = stderr.getvalue()
+            self.assertRegexpMatches(report, "Exception.* ignored")
+            if test_class is BrokenRepr:
+                self.assertIn("<object repr() failed>", report)
+            else:
+                self.assertIn("__del__", report)
+            if test_class is BrokenExceptionDel:
+                self.assertIn("BrokenStrException", report)
+                self.assertIn("<exception repr() failed>", report)
+            else:
+                self.assertIn("ValueError", report)
+                self.assertIn("del is broken", report)
+            self.assertTrue(report.endswith("\n"))
+
+    def test_unhandled(self):
+        # Check for sensible reporting of unhandled exceptions
+        for exc_type in (ValueError, BrokenStrException):
+            try:
+                exc = exc_type("test message")
+                # The following line is included in the traceback report:
+                raise exc
+            except exc_type:
+                with captured_stderr() as stderr:
+                    sys.__excepthook__(*sys.exc_info())
+            report = stderr.getvalue()
+            self.assertIn("test_exceptions.py", report)
+            self.assertIn("raise exc", report)
+            self.assertIn(exc_type.__name__, report)
+            if exc_type is BrokenStrException:
+                if check_impl_detail(pypy=True):
+                    # from traceback.py
+                    self.assertIn("unprintable BrokenStrException", report)
+                else:
+                    self.assertIn("<exception str() failed>", report)
+            else:
+                self.assertIn("test message", report)
+            self.assertTrue(report.endswith("\n"))
 
 
 def test_main():

@@ -7,7 +7,7 @@ from rpython.flowspace.model import checkgraph
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.tool.udir import udir
 
-def translate(func, argtypes, type_system="lltype"):
+def translate(func, argtypes):
     t = TranslationContext()
     t.buildannotator().build_types(func, argtypes)
     t.entry_point_graph = graphof(t, func)
@@ -21,7 +21,7 @@ def test_split_blocks_simple():
             w = x * y
             return z + w
         graph, t = translate(f, [int, int])
-        split_block(t.annotator, graph.startblock, i)
+        split_block(graph.startblock, i)
         checkgraph(graph)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [1, 2])
@@ -35,7 +35,7 @@ def test_split_blocks_conditional():
             else:
                 return y + 2
         graph, t = translate(f, [int, int])
-        split_block(t.annotator, graph.startblock, i)
+        split_block(graph.startblock, i)
         checkgraph(graph)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [-12, 2])
@@ -61,7 +61,7 @@ def test_split_block_exceptions():
                 return 1
             return x
         graph, t = translate(catches, [int])
-        split_block(t.annotator, graph.startblock, i)
+        split_block(graph.startblock, i)
         checkgraph(graph)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [0])
@@ -73,14 +73,13 @@ def test_split_block_exceptions():
 
 def test_call_initial_function():
     tmpfile = str(udir.join('test_call_initial_function'))
-    type_system = 'lltype'
     def f(x):
         return x * 6
     def hello_world():
         if we_are_translated():
             fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0644)
             os.close(fd)
-    graph, t = translate(f, [int], type_system)
+    graph, t = translate(f, [int])
     call_initial_function(t, hello_world)
     #
     if os.path.exists(tmpfile):
@@ -92,14 +91,13 @@ def test_call_initial_function():
 
 def test_call_final_function():
     tmpfile = str(udir.join('test_call_final_function'))
-    type_system = 'lltype'
     def f(x):
         return x * 6
     def goodbye_world():
         if we_are_translated():
             fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0644)
             os.close(fd)
-    graph, t = translate(f, [int], type_system)
+    graph, t = translate(f, [int])
     call_final_function(t, goodbye_world)
     #
     if os.path.exists(tmpfile):

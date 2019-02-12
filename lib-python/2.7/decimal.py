@@ -136,7 +136,6 @@ __all__ = [
 
 __version__ = '1.70'    # Highest version of the spec this complies with
 
-import copy as _copy
 import math as _math
 import numbers as _numbers
 
@@ -225,7 +224,7 @@ class InvalidOperation(DecimalException):
 class ConversionSyntax(InvalidOperation):
     """Trying to convert badly formed string.
 
-    This occurs and signals invalid-operation if an string is being
+    This occurs and signals invalid-operation if a string is being
     converted to a number and it does not conform to the numeric string
     syntax.  The result is [0,qNaN].
     """
@@ -1049,12 +1048,11 @@ class Decimal(object):
         return sign + intpart + fracpart + exp
 
     def to_eng_string(self, context=None):
-        """Convert to engineering-type string.
+        """Convert to a string, using engineering notation if an exponent is needed.
 
-        Engineering notation has an exponent which is a multiple of 3, so there
-        are up to 3 digits left of the decimal place.
-
-        Same rules for when in exponential and when as a value as in __str__.
+        Engineering notation has an exponent which is a multiple of 3.  This
+        can leave up to 3 digits to the left of the decimal place and may
+        require the addition of either one or two trailing zeros.
         """
         return self.__str__(eng=True, context=context)
 
@@ -1083,7 +1081,7 @@ class Decimal(object):
     def __pos__(self, context=None):
         """Returns a copy, unless it is a sNaN.
 
-        Rounds the number (if more then precision digits)
+        Rounds the number (if more than precision digits)
         """
         if self._is_special:
             ans = self._check_nans(context=context)
@@ -3665,6 +3663,8 @@ class Decimal(object):
         if self._is_special:
             sign = _format_sign(self._sign, spec)
             body = str(self.copy_abs())
+            if spec['type'] == '%':
+                body += '%'
             return _format_align(sign, body, spec)
 
         # a type of None defaults to 'g' or 'G', depending on context
@@ -5338,9 +5338,29 @@ class Context(object):
             return r
 
     def to_eng_string(self, a):
-        """Converts a number to a string, using scientific notation.
+        """Convert to a string, using engineering notation if an exponent is needed.
+
+        Engineering notation has an exponent which is a multiple of 3.  This
+        can leave up to 3 digits to the left of the decimal place and may
+        require the addition of either one or two trailing zeros.
 
         The operation is not affected by the context.
+
+        >>> ExtendedContext.to_eng_string(Decimal('123E+1'))
+        '1.23E+3'
+        >>> ExtendedContext.to_eng_string(Decimal('123E+3'))
+        '123E+3'
+        >>> ExtendedContext.to_eng_string(Decimal('123E-10'))
+        '12.3E-9'
+        >>> ExtendedContext.to_eng_string(Decimal('-123E-12'))
+        '-123E-12'
+        >>> ExtendedContext.to_eng_string(Decimal('7E-7'))
+        '700E-9'
+        >>> ExtendedContext.to_eng_string(Decimal('7E+1'))
+        '70'
+        >>> ExtendedContext.to_eng_string(Decimal('0E+1'))
+        '0.00E+3'
+
         """
         a = _convert_other(a, raiseit=True)
         return a.to_eng_string(context=self)
@@ -6033,7 +6053,10 @@ def _parse_format_specifier(format_spec, _localeconv=None):
         format_dict['decimal_point'] = '.'
 
     # record whether return type should be str or unicode
-    format_dict['unicode'] = isinstance(format_spec, unicode)
+    try:
+        format_dict['unicode'] = isinstance(format_spec, unicode)
+    except NameError:
+        format_dict['unicode'] = False
 
     return format_dict
 

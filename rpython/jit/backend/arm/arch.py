@@ -1,4 +1,3 @@
-FUNC_ALIGN = 8
 WORD = 4
 DOUBLE_WORD = 8
 

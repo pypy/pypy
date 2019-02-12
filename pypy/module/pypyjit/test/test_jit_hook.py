@@ -9,9 +9,9 @@ from rpython.jit.metainterp.logger import Logger
 from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
                                       cast_base_ptr_to_instance)
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.rtyper.rclass import OBJECT
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
-from pypy.module.pypyjit.policy import pypy_hooks
+from pypy.module.pypyjit.hooks import pypy_hooks
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.jit import JitDebugInfo, AsmInfo, Counters
@@ -65,6 +65,25 @@ class AppTestJitHook(object):
             if i != 1:
                 offset[op] = i
 
+        oplist_no_descrs = parse("""
+        [i1, i2, p2]
+        i3 = int_add(i1, i2)
+        debug_merge_point(0, 0, 0, 0, 0, ConstPtr(ptr0))
+        guard_nonnull(p2) []
+        guard_true(i3) []
+        """, namespace={'ptr0': code_gcref}).operations
+        for op in oplist_no_descrs:
+            if op.is_guard():
+                op.setdescr(None)
+
+        class FailDescr(BasicFailDescr):
+            def get_jitcounter_hash(self):
+                from rpython.rlib.rarithmetic import r_uint
+                return r_uint(13)
+
+        oplist[-1].setdescr(FailDescr())
+        oplist[-2].setdescr(FailDescr())
+
         token = JitCellToken()
         token.number = 0
         di_loop = JitDebugInfo(MockJitDriverSD, logger, token, oplist, 'loop',
@@ -73,23 +92,28 @@ class AppTestJitHook(object):
                                         oplist, 'loop', greenkey)
         di_loop.asminfo = AsmInfo(offset, 0x42, 12)
         di_bridge = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
-                                 oplist, 'bridge', fail_descr=BasicFailDescr())
+                                 oplist, 'bridge', fail_descr=FailDescr())
         di_bridge.asminfo = AsmInfo(offset, 0, 0)
 
         def interp_on_compile():
             di_loop.oplist = cls.oplist
-            pypy_hooks.after_compile(di_loop)
+            if pypy_hooks.are_hooks_enabled():
+                pypy_hooks.after_compile(di_loop)
 
         def interp_on_compile_bridge():
-            pypy_hooks.after_compile_bridge(di_bridge)
+            if pypy_hooks.are_hooks_enabled():
+                pypy_hooks.after_compile_bridge(di_bridge)
 
         def interp_on_optimize():
-            di_loop_optimize.oplist = cls.oplist
-            pypy_hooks.before_compile(di_loop_optimize)
+            if pypy_hooks.are_hooks_enabled():
+                di_loop_optimize.oplist = cls.oplist
+                pypy_hooks.before_compile(di_loop_optimize)
 
         def interp_on_abort():
-            pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
-                                greenkey, 'blah', Logger(MockSD), [])
+            if pypy_hooks.are_hooks_enabled():
+                pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
+                                    greenkey, 'blah', Logger(MockSD),
+                                    cls.oplist_no_descrs)
 
         space = cls.space
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
@@ -99,10 +123,12 @@ class AppTestJitHook(object):
         cls.w_dmp_num = space.wrap(rop.DEBUG_MERGE_POINT)
         cls.w_on_optimize = space.wrap(interp2app(interp_on_optimize))
         cls.orig_oplist = oplist
+        cls.orig_oplist_no_descrs = oplist_no_descrs
         cls.w_sorted_keys = space.wrap(sorted(Counters.counter_names))
 
     def setup_method(self, meth):
         self.__class__.oplist = self.orig_oplist[:]
+        self.__class__.oplist_no_descrs = self.orig_oplist_no_descrs[:]
 
     def test_on_compile(self):
         import pypyjit
@@ -136,7 +162,6 @@ class AppTestJitHook(object):
         assert dmp.call_id == 0
         assert dmp.offset == -1
         assert int_add.name == 'int_add'
-        assert int_add.num == self.int_add_num
         assert int_add.offset == 0
         self.on_compile_bridge()
         expected = ('<JitLoopInfo pypyjit, 4 operations, starting at '
@@ -173,10 +198,7 @@ class AppTestJitHook(object):
         self.on_compile()
         loop = loops[0]
         op = loop.operations[2]
-        # Should not crash the interpreter
-        raises(IndexError, op.getarg, 2)
         assert op.name == 'guard_nonnull'
-        raises(NotImplementedError, op.getarg(0).getint)
 
     def test_non_reentrant(self):
         import pypyjit
@@ -215,54 +237,36 @@ class AppTestJitHook(object):
 
         pypyjit.set_abort_hook(hook)
         self.on_abort()
-        assert l == [('pypyjit', 'ABORT_TOO_LONG', [])]
-
-    def test_on_optimize(self):
-        import pypyjit
-        l = []
-
-        def hook(info):
-            l.append(info.jitdriver_name)
-
-        def optimize_hook(info):
-            return []
-
-        pypyjit.set_compile_hook(hook)
-        pypyjit.set_optimize_hook(optimize_hook)
-        self.on_optimize()
-        self.on_compile()
-        assert l == ['pypyjit']
+        assert len(l) == 1
+        name, reason, ops = l[0]
+        assert name == 'pypyjit'
+        assert reason == 'ABORT_TOO_LONG'
+        assert len(ops) == 4
+        assert ops[2].hash == 0
 
     def test_creation(self):
-        from pypyjit import Box, ResOperation
+        from pypyjit import ResOperation
 
-        op = ResOperation(self.int_add_num, [Box(1), Box(3)], Box(4))
-        assert op.num == self.int_add_num
+        op = ResOperation("int_add", -1, "int_add(1, 2)")
         assert op.name == 'int_add'
-        box = op.getarg(0)
-        assert box.getint() == 1
-        box2 = op.result
-        assert box2.getint() == 4
-        op.setarg(0, box2)
-        assert op.getarg(0).getint() == 4
-        op.result = box
-        assert op.result.getint() == 1
+        assert repr(op) == "int_add(1, 2)"
 
     def test_creation_dmp(self):
-        from pypyjit import DebugMergePoint, Box
+        from pypyjit import DebugMergePoint
 
         def f():
             pass
 
-        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', 2, 3, (f.func_code, 0, 0))
+        op = DebugMergePoint("debug_merge_point", 'repr', 'pypyjit', 2, 3, (f.func_code, 0, 0))
         assert op.bytecode_no == 0
         assert op.pycode is f.func_code
         assert repr(op) == 'repr'
         assert op.jitdriver_name == 'pypyjit'
-        assert op.num == self.dmp_num
+        assert op.name == 'debug_merge_point'
         assert op.call_depth == 2
         assert op.call_id == 3
-        op = DebugMergePoint([Box(0)], 'repr', 'notmain', 5, 4, ('str',))
+        op = DebugMergePoint('debug_merge_point', 'repr', 'notmain',
+                             5, 4, ('str',))
         raises(AttributeError, 'op.pycode')
         assert op.call_depth == 5
 

@@ -1,5 +1,6 @@
 from __future__ import with_statement
 
+import py
 from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode
 from pypy.module.math.test import test_direct
@@ -7,7 +8,7 @@ from pypy.module.math.test import test_direct
 
 class AppTestMath:
     spaceconfig = {
-        "usemodules": ['math', 'struct', 'itertools', 'rctime', 'binascii'],
+        "usemodules": ['math', 'struct', 'itertools', 'time', 'binascii'],
     }
 
     def setup_class(cls):
@@ -23,7 +24,6 @@ class AppTestMath:
                 expected = space.wrap(expected)
             cases.append(space.newtuple([space.wrap(a), space.wrap(b), expected]))
         cls.w_cases = space.newlist(cases)
-        cls.w_consistent_host = space.wrap(test_direct.consistent_host)
 
     @classmethod
     def make_callable_wrapper(cls, func):
@@ -35,8 +35,6 @@ class AppTestMath:
         assert abs(actual - expected) < 10E-5
 
     def test_all_cases(self):
-        if not self.consistent_host:
-            skip("please test this on top of PyPy or CPython >= 2.6")
         import math
         for fnname, args, expected in self.cases:
             fn = getattr(math, fnname)
@@ -96,6 +94,10 @@ class AppTestMath:
             ([2.**n - 2.**(n+50) + 2.**(n+52) for n in range(-1074, 972, 2)] +
              [-2.**1022],
              float.fromhex('0x1.5555555555555p+970')),
+            # infinity and nans
+            ([float("inf")], float("inf")),
+            ([float("-inf")], float("-inf")),
+            ([float("nan")], float("nan")),
             ]
 
         for i, (vals, expected) in enumerate(test_values):
@@ -107,7 +109,8 @@ class AppTestMath:
             except ValueError:
                 py.test.fail("test %d failed: got ValueError, expected %r "
                           "for math.fsum(%.100r)" % (i, expected, vals))
-            assert actual == expected
+            assert actual == expected or (
+                math.isnan(actual) and math.isnan(expected))
 
     def test_factorial(self):
         import math

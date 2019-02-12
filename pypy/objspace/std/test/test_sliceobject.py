@@ -94,6 +94,7 @@ class AppTest_SliceObject:
         slice1 = slice(1, 2, 3)
         slice2 = slice(1, 2, 3)
         assert slice1 == slice2
+        assert not slice1 != slice2
         slice2 = slice(1, 2)
         assert slice1 != slice2
 

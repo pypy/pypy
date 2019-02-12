@@ -8,6 +8,7 @@ import operator
 import random
 import fractions
 import sys
+import time
 
 INF = float("inf")
 NAN = float("nan")
@@ -25,6 +26,12 @@ requires_IEEE_754 = unittest.skipUnless(have_getformat and
 #locate file with float format test values
 test_dir = os.path.dirname(__file__) or os.curdir
 format_testfile = os.path.join(test_dir, 'formatfloat_testcases.txt')
+
+class FloatSubclass(float):
+    pass
+
+class OtherFloatSubclass(float):
+    pass
 
 class GeneralFloatCases(unittest.TestCase):
 
@@ -51,6 +58,39 @@ class GeneralFloatCases(unittest.TestCase):
         # (in 2.6, long unicode inputs to float raised ValueError)
         float('.' + '1'*1000)
         float(unicode('.' + '1'*1000))
+
+    def test_non_numeric_input_types(self):
+        # Test possible non-numeric types for the argument x, including
+        # subclasses of the explicitly documented accepted types.
+        class CustomStr(str): pass
+        class CustomByteArray(bytearray): pass
+        factories = [str, bytearray, CustomStr, CustomByteArray, buffer]
+
+        if test_support.have_unicode:
+            class CustomUnicode(unicode): pass
+            factories += [unicode, CustomUnicode]
+
+        for f in factories:
+            with test_support.check_py3k_warnings(quiet=True):
+                x = f(" 3.14  ")
+            msg = 'x has value %s and type %s' % (x, type(x).__name__)
+            try:
+                self.assertEqual(float(x), 3.14, msg=msg)
+            except TypeError, err:
+                raise AssertionError('For %s got TypeError: %s' %
+                                     (type(x).__name__, err))
+            errmsg = "could not convert"
+            with self.assertRaisesRegexp(ValueError, errmsg, msg=msg), \
+                 test_support.check_py3k_warnings(quiet=True):
+                float(f('A' * 0x10))
+
+    def test_float_buffer(self):
+        with test_support.check_py3k_warnings():
+            self.assertEqual(float(buffer('12.3', 1, 3)), 2.3)
+            self.assertEqual(float(buffer('12.3\x00', 1, 3)), 2.3)
+            self.assertEqual(float(buffer('12.3 ', 1, 3)), 2.3)
+            self.assertEqual(float(buffer('12.3A', 1, 3)), 2.3)
+            self.assertEqual(float(buffer('12.34', 1, 3)), 2.3)
 
     def check_conversion_to_int(self, x):
         """Check that int(x) has the correct value and type, for a float x."""
@@ -101,7 +141,7 @@ class GeneralFloatCases(unittest.TestCase):
         # it still has to accept the normal python syntax
         import locale
         if not locale.localeconv()['decimal_point'] == ',':
-            return
+            self.skipTest('decimal_point is not ","')
 
         self.assertEqual(float("  3.14  "), 3.14)
         self.assertEqual(float("+3.14  "), 3.14)
@@ -163,6 +203,20 @@ class GeneralFloatCases(unittest.TestCase):
         self.assertRaises(TypeError, float, Foo4(42))
         self.assertAlmostEqual(float(FooUnicode('8')), 9.)
         self.assertAlmostEqual(float(FooStr('8')), 9.)
+
+        class Foo5:
+            def __float__(self):
+                return ""
+        self.assertRaises(TypeError, time.sleep, Foo5())
+
+        # Issue #24731
+        class F:
+            def __float__(self):
+                return OtherFloatSubclass(42.)
+        self.assertAlmostEqual(float(F()), 42.)
+        self.assertIs(type(float(F())), OtherFloatSubclass)
+        self.assertAlmostEqual(FloatSubclass(F()), 42.)
+        self.assertIs(type(FloatSubclass(F())), FloatSubclass)
 
     def test_is_integer(self):
         self.assertFalse((1.1).is_integer())
