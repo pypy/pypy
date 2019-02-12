@@ -916,3 +916,8 @@ def test_scoped_view_charp():
         assert buf[1] == 'a'
         assert buf[2] == 'r'
         assert buf[3] == '\x00'
+
+def test_wcharp2utf8n():
+    w = 'hello\x00\x00\x00\x00'
+    u, i = wcharp2utf8n(w, len(w))
+    assert i == len('hello')

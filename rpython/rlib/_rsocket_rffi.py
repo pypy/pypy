@@ -1369,8 +1369,15 @@ if WIN32:
         return rwin32.FormatError(errno)
 
     def socket_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)
+        return rwin32.FormatErrorW(errno)[0]
+
     def gai_strerror_unicode(errno):
+        return rwin32.FormatErrorW(errno)[0]
+
+    def socket_strerror_utf8(errno):
+        return rwin32.FormatErrorW(errno)
+
+    def gai_strerror_utf8(errno):
         return rwin32.FormatErrorW(errno)
 
     # WinSock does not use a bitmask in select, and uses
@@ -1386,7 +1393,16 @@ else:
 
     def socket_strerror_unicode(errno):
         return socket_strerror_str(errno).decode('latin-1')
+
     def gai_strerror_unicode(errno):
         return gai_strerror_str(errno).decode('latin-1')
+
+    def socket_strerror_utf8(errno):
+        msg = socket_strerror_str(errno)
+        return msg, len(msg)
+
+    def gai_strerror_utf8(errno):
+        msg = gai_strerror_str(errno)
+        return msg, len(msg)
 
     MAX_FD_SIZE = FD_SETSIZE

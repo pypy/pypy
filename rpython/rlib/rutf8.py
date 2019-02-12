@@ -158,18 +158,19 @@ def prev_codepoint_pos(code, pos):
 def codepoint_at_pos(code, pos):
     """ Give a codepoint in code at pos - assumes valid utf8, no checking!
     """
+    lgt = len(code)
     ordch1 = ord(code[pos])
-    if ordch1 <= 0x7F:
+    if ordch1 <= 0x7F or pos +1 >= lgt:
         return ordch1
 
     ordch2 = ord(code[pos+1])
-    if ordch1 <= 0xDF:
+    if ordch1 <= 0xDF or pos +2 >= lgt:
         # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
         return (ordch1 << 6) + ordch2 - (
                (0xC0   << 6) + 0x80     )
 
     ordch3 = ord(code[pos+2])
-    if ordch1 <= 0xEF:
+    if ordch1 <= 0xEF or pos + 3 >= lgt:
         # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
         return (ordch1 << 12) + (ordch2 << 6) + ordch3 - (
                (0xE0   << 12) + (0x80   << 6) + 0x80     )
@@ -767,6 +768,9 @@ class Utf8StringIterator(object):
         if ordch1 <= 0x7F:
             self._pos = pos + 1
             return ordch1
+        if pos + 1 >= len(code):
+            self._pos = pos + 1
+            return ordch1
 
         ordch2 = ord(code[pos+1])
         if ordch1 <= 0xDF:
@@ -818,3 +822,63 @@ def _decode_latin_1_slowpath(s):
             res.append_slice(s, start, end)
             i = end
     return res.build()
+
+# ____________________________________________________________
+# MBCS codecs for Windows
+
+if sys.platform == 'win32':
+    from rpython.rtyper.lltypesystem import lltype, rffi
+    from rpython.rlib.runicode import CP_ACP, BOOLP, WideCharToMultiByte
+    from rpython.rlib import rwin32
+
+    def utf8_encode_mbcs(s, errors, errorhandler,
+                            force_replace=True):
+        # TODO: do the encoding without decoding utf8 -> unicode
+        uni = s.decode('utf8')
+        lgt = len(uni)
+        if not force_replace and errors not in ('strict', 'replace'):
+            msg = "mbcs encoding does not support errors='%s'" % errors
+            errorhandler('strict', 'mbcs', msg, s, 0, 0)
+
+        if lgt == 0:
+            return ''
+
+        if force_replace or errors == 'replace':
+            flags = 0
+            used_default_p = lltype.nullptr(BOOLP.TO)
+        else:
+            # strict
+            flags = rwin32.WC_NO_BEST_FIT_CHARS
+            used_default_p = lltype.malloc(BOOLP.TO, 1, flavor='raw')
+            used_default_p[0] = rffi.cast(rwin32.BOOL, False)
+
+        try:
+            with rffi.scoped_nonmoving_unicodebuffer(uni) as dataptr:
+                # first get the size of the result
+                mbcssize = WideCharToMultiByte(CP_ACP, flags,
+                                               dataptr, lgt, None, 0,
+                                               None, used_default_p)
+                if mbcssize == 0:
+                    raise rwin32.lastSavedWindowsError()
+                # If we used a default char, then we failed!
+                if (used_default_p and
+                    rffi.cast(lltype.Bool, used_default_p[0])):
+                    errorhandler('strict', 'mbcs', "invalid character",
+                                 s, 0, 0)
+
+                with rffi.scoped_alloc_buffer(mbcssize) as buf:
+                    # do the conversion
+                    if WideCharToMultiByte(CP_ACP, flags,
+                                           dataptr, lgt, buf.raw, mbcssize,
+                                           None, used_default_p) == 0:
+                        raise rwin32.lastSavedWindowsError()
+                    if (used_default_p and
+                        rffi.cast(lltype.Bool, used_default_p[0])):
+                        errorhandler('strict', 'mbcs', "invalid character",
+                                     s, 0, 0)
+                    result = buf.str(mbcssize)
+                    assert result is not None
+                    return result
+        finally:
+            if used_default_p:
+                lltype.free(used_default_p, flavor='raw')
